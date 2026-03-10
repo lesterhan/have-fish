@@ -1,0 +1,20 @@
+# env
+.env
+.env.local
+
+# deps
+node_modules/
+.svelte-kit/
+
+# build output
+build/
+dist/
+
+# drizzle migrations output
+backend/drizzle/
+
+# bun lockfile (commit this if you want reproducible installs)
+# bun.lockb
+
+# OS
+.DS_Store
