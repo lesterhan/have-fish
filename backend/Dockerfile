@@ -7,5 +7,5 @@ COPY . .
 FROM oven/bun:1
 WORKDIR /app
 COPY --from=builder /app .
-EXPOSE 3001
+EXPOSE 8887
 CMD ["bun", "run", "src/index.ts"]

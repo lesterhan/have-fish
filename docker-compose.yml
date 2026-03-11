@@ -16,9 +16,10 @@ services:
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
-      PORT: 3001
+      PORT: "8887"
+      FRONTEND_URL: http://frontend:8888
     ports:
-      - "3001:3001"
+      - "8887:8887"
     depends_on:
       - postgres
 
@@ -27,9 +28,10 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     environment:
-      VITE_API_URL: http://backend:3001
+      PORT: "8888"
+      VITE_API_URL: http://backend:8887
     ports:
-      - "3000:3000"
+      - "8888:8888"
     depends_on:
       - backend
 

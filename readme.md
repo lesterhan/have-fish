@@ -9,6 +9,7 @@ Personal finance tracker that brings clarity to being unemployed. Built for self
 - **Backend** — [Hono](https://hono.dev/) + [Bun](https://bun.sh/)
 - **Frontend** — [SvelteKit](https://kit.svelte.dev/) + Svelte 5
 - **Database** — PostgreSQL via [Drizzle ORM](https://orm.drizzle.team/)
+- **Auth** — [Better Auth](https://www.better-auth.com/) (email + password)
 - **Deployment** — Docker/Podman Compose
 
 ## Local Development
@@ -21,15 +22,18 @@ podman compose up postgres -d
 
 # 2. backend
 cd backend
-cp ../.env.example .env   # then fill in your values
+cp .env.example .env      # fill in BETTER_AUTH_SECRET (openssl rand -base64 32)
 bun install
 bun run db:reset           # generate + apply migrations
-bun run dev                # http://localhost:3001
+bun run dev                # http://localhost:8887
 
-# 3. frontend (new terminal)
+# 3. create your user (first time only)
+SEED_EMAIL=you@example.com SEED_PASSWORD=yourpassword bun run src/seed-user.ts
+
+# 4. frontend (new terminal)
 cd frontend
 bun install
-bun run dev                # http://localhost:3000
+bun run dev                # http://localhost:8888
 ```
 
 ## Running Tests
@@ -49,4 +53,4 @@ cp .env.example .env      # then fill in your values
 podman compose up --build
 ```
 
-Frontend at `http://localhost:3000`, backend at `http://localhost:3001`.
+Frontend at `http://localhost:8888`, backend at `http://localhost:8887`.
