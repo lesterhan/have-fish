@@ -3,12 +3,22 @@
 Personal finance tracker. Tracks accounts, transactions, budgets, and projects spending over time.
 Built for self-hosting on a home server (Docker/Podman + Tailscale).
 
+## Vision
+
+Three guiding principles that should inform every feature decision:
+
+1. **No bank connections** — transactions are entered manually or imported from a bank-exported CSV. Never OAuth to a financial institution, never a third-party sync service.
+
+2. **Portable data** — the system must be able to export all data to an [hledger](https://hledger.org/)-compatible `.journal` file. This is the escape hatch: if the server is lost or the user moves to another tool, nothing is trapped.
+
+3. **Multi-currency as a first-class concern** — the user travels and holds balances in multiple currencies. Currency, exchange rates, and cross-currency reporting are core workflows, not edge cases.
+
 ## Stack
 
 - **Backend**: Hono + Bun (TypeScript)
 - **Frontend**: SvelteKit + Svelte 5 (TypeScript)
 - **Database**: PostgreSQL via Drizzle ORM
-- **Auth**: Better Auth (not yet implemented)
+- **Auth**: Better Auth (email + password)
 - **Deployment**: Docker/Podman Compose
 
 ## Project Structure
@@ -65,7 +75,10 @@ podman compose up --build         # start full stack
 Copy `.env.example` to `.env` in the backend directory for local dev:
 ```
 DATABASE_URL=postgres://havefish:havefish@localhost:5432/havefish
-PORT=3001
+PORT=8887
+BETTER_AUTH_SECRET=...
+BETTER_AUTH_URL=http://localhost:8887
+FRONTEND_URL=http://localhost:8888
 ```
 
 ## How I Like to Be Assisted

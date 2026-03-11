@@ -4,6 +4,16 @@ Personal finance tracker that brings clarity to being unemployed. Built for self
 
 年年有余 `nián nián yǒu yǔ` is a common blessing for having left overs each harvest. 有鱼 `yǒu yǔ` to "have fish" is often substituted as a wordplay, with iconographies of fish as representing prosperity each Spring Festival.
 
+## Vision
+
+have-fish is built around a few core principles:
+
+**Your data, your terms.** No bank connections, no third-party syncing. Transactions are entered manually or imported from a CSV exported directly from your bank. You stay in control of what goes in.
+
+**Portable by design.** Data can be exported to an [hledger](https://hledger.org/)-compatible `.journal` file — a plain-text, human-readable format. If the server dies, you migrate to a new host or a different tool without losing anything.
+
+**Built for a traveller's life.** Multi-currency is a first-class concern, not an afterthought. Tracking spending across currencies, with exchange rates, is a core workflow — not a workaround.
+
 ## Stack
 
 - **Backend** — [Hono](https://hono.dev/) + [Bun](https://bun.sh/)
