@@ -51,6 +51,7 @@ export const verification = pgTable('verification', {
 
 export const accounts = pgTable('accounts', {
   id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   name: text('name').notNull(),
   type: text('type').notNull(),
   currency: text('currency').notNull().default('CAD'),
@@ -60,12 +61,15 @@ export const accounts = pgTable('accounts', {
 
 export const categories = pgTable('categories', {
   id: uuid('id').primaryKey().defaultRandom(),
-  name: text('name').notNull().unique(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  // name is unique per user, not globally — enforced at the application layer
+  name: text('name').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
 export const transactions = pgTable('transactions', {
   id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   accountId: uuid('account_id')
     .notNull()
     .references(() => accounts.id),
