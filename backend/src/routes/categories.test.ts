@@ -18,5 +18,16 @@ describe('categories', () => {
     expect(await res.json()).toEqual([])
   })
 
-  // your tests go here
+  it('POST /api/categories creates an category', async () => {
+    const res = await app.request('/api/categories', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Food' }),
+    })
+    expect(res.status).toBe(201)
+
+    const created = await res.json()
+    expect(created.name).toBe('Food')
+    expect(created.userId).toBeDefined()
+  })
 })
