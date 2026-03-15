@@ -15,6 +15,14 @@ export async function createAccount(body: { name: string; type: string; currency
   return res.json()
 }
 
+export async function deleteAccount(id: string) {
+  const res = await fetch(`${BASE}/api/accounts/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
+}
+
 export async function fetchCategories() {
   const res = await fetch(`${BASE}/api/categories`, { credentials: 'include' })
   return res.json()
@@ -28,6 +36,14 @@ export async function createCategory(body: { name: string }) {
     body: JSON.stringify(body),
   })
   return res.json()
+}
+
+export async function deleteCategory(id: string) {
+  const res = await fetch(`${BASE}/api/categories/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+  })
 }
 
 export async function fetchTransactions(accountId?: string) {
