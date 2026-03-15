@@ -3,6 +3,7 @@ import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { auth } from './auth'
 import accountsRoute from './routes/accounts'
+import categoriesRoute from './routes/categories'
 import transactionsRoute from './routes/transactions'
 
 // Typed context variables shared across all route handlers.
@@ -34,4 +35,5 @@ app.use('/api/*', async (c, next) => {
 })
 
 app.route('/api/accounts', accountsRoute)
+app.route('/api/categories', categoriesRoute)
 app.route('/api/transactions', transactionsRoute)

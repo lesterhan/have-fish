@@ -65,6 +65,7 @@ export const categories = pgTable('categories', {
   // name is unique per user, not globally — enforced at the application layer
   name: text('name').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
 })
 
 export const transactions = pgTable('transactions', {
