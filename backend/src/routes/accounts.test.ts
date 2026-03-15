@@ -18,5 +18,17 @@ describe('accounts', () => {
     expect(await res.json()).toEqual([])
   })
 
-  // your tests go here
+  it('POST /api/accounts creates an account', async () => {
+    const res = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Cash', type: 'cash', currency: 'CAD' }),
+    })
+    expect(res.status).toBe(201)
+
+    const created = await res.json()
+    expect(created.name).toBe('Cash')
+    expect(created.type).toBe('cash')
+    expect(created.userId).toBeDefined()
+  })
 })

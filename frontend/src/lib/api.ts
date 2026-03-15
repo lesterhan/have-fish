@@ -5,6 +5,31 @@ export async function fetchAccounts() {
   return res.json()
 }
 
+export async function createAccount(body: { name: string; type: string; currency: string }) {
+  const res = await fetch(`${BASE}/api/accounts`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
+export async function fetchCategories() {
+  const res = await fetch(`${BASE}/api/categories`, { credentials: 'include' })
+  return res.json()
+}
+
+export async function createCategory(body: { name: string }) {
+  const res = await fetch(`${BASE}/api/categories`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
 export async function fetchTransactions(accountId?: string) {
   const url = accountId
     ? `${BASE}/api/transactions?accountId=${accountId}`
