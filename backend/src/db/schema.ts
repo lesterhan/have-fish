@@ -1,4 +1,4 @@
-import { pgEnum, pgTable, numeric, text, timestamp, uuid, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, numeric, text, timestamp, uuid, boolean } from 'drizzle-orm/pg-core'
 
 // --- Better Auth tables ---
 // These are required by Better Auth and must not be renamed or removed.
@@ -49,35 +49,44 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updated_at'),
 })
 
+// --- App tables ---
+
+// An account is any named bucket that holds or moves money.
+// Examples: "assets:wise:eur", "expenses:food:restaurant", "liabilities:credit-card"
+//
+// The path is a colon-separated materialized path — it doubles as the hledger account name.
+// Path is unique per user (enforced at the application layer).
 export const accounts = pgTable('accounts', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  name: text('name').notNull(),
-  type: text('type').notNull(),
-  currency: text('currency').notNull().default('CAD'),
+  path: text('path').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })
 
-export const categories = pgTable('categories', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
-  // name is unique per user, not globally — enforced at the application layer
-  name: text('name').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  deletedAt: timestamp('deleted_at'),
-})
-
+// A transaction is a metadata envelope: a date, a description, and a set of postings.
+// The money details (amounts, currencies, accounts) live entirely in postings.
 export const transactions = pgTable('transactions', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  date: timestamp('date').notNull(),
+  description: text('description'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
+})
+
+// A posting is one leg of a transaction — money moving in or out of one account.
+// Every transaction has at least two postings, and they must balance to zero per currency.
+// Negative amount = money leaving the account (expense/debit).
+// Positive amount = money entering the account (income/credit).
+export const postings = pgTable('postings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  transactionId: uuid('transaction_id')
+    .notNull()
+    .references(() => transactions.id, { onDelete: 'cascade' }),
   accountId: uuid('account_id')
     .notNull()
     .references(() => accounts.id),
-  categoryId: uuid('category_id').references(() => categories.id),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
-  description: text('description'),
-  date: timestamp('date').notNull(),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  deletedAt: timestamp('deleted_at'),
+  currency: text('currency').notNull().default('CAD'),
 })

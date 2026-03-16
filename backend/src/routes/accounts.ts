@@ -17,12 +17,12 @@ app.get('/', async (c) => {
 
 app.get('/:id', async (c) => {
   const userId = c.get('userId')
-  const [account] = await db
+  const [found] = await db
     .select()
     .from(accounts)
     .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!account) return c.json({ error: 'Not found' }, 404)
-  return c.json(account)
+  if (!found) return c.json({ error: 'Not found' }, 404)
+  return c.json(found)
 })
 
 app.post('/', async (c) => {

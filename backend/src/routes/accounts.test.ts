@@ -22,43 +22,37 @@ describe('accounts', () => {
     const res = await app.request('/api/accounts', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Cash', type: 'cash', currency: 'CAD' }),
+      body: JSON.stringify({ path: 'assets:chequing' }),
     })
     expect(res.status).toBe(201)
 
     const created = await res.json()
-    expect(created.name).toBe('Cash')
-    expect(created.type).toBe('cash')
+    expect(created.path).toBe('assets:chequing')
     expect(created.userId).toBeDefined()
 
-    const getAccountsRes = await app.request('/api/accounts', {
+    const getRes = await app.request('/api/accounts', {
       headers: { Cookie: cookie },
     })
-    expect(await getAccountsRes.json()).toBeArrayOfSize(1)
+    expect(await getRes.json()).toBeArrayOfSize(1)
   })
 
-  it('DELETE /api/accounts deletes an account', async () => {
-    const createResponse = await app.request('/api/accounts', {
+  it('DELETE /api/accounts/:id soft-deletes an account', async () => {
+    const createRes = await app.request('/api/accounts', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ name: 'Cash', type: 'cash', currency: 'CAD' }),
+      body: JSON.stringify({ path: 'assets:chequing' }),
     })
-    const getAccountsRes = await app.request('/api/accounts', {
-      headers: { Cookie: cookie },
-    })
-    expect(await getAccountsRes.json()).toBeArrayOfSize(1)
-    const created = await createResponse.json()
+    const created = await createRes.json()
 
-    const res = await app.request(`/api/accounts/${created.id}`, {
+    const deleteRes = await app.request(`/api/accounts/${created.id}`, {
       method: 'DELETE',
-      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-    })
-    expect(res.status).toBe(204)
-
-    const getEmptyAccounts = await app.request('/api/accounts', {
       headers: { Cookie: cookie },
     })
-    expect(await getEmptyAccounts.json()).toBeArrayOfSize(0)
+    expect(deleteRes.status).toBe(204)
+
+    const getRes = await app.request('/api/accounts', {
+      headers: { Cookie: cookie },
+    })
+    expect(await getRes.json()).toBeArrayOfSize(0)
   })
 })
-
