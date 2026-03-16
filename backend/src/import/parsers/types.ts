@@ -21,5 +21,7 @@ export type ParseResult = {
   errors: ParseError[]
 }
 
+export type IsValidDataRow = (dataRow: Record<string, string>) => Boolean
+
 export type CsvParser = (csv: string) => ParseResult
 
