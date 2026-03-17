@@ -13,7 +13,14 @@ const isValidDataRow: IsValidDataRow = (dataRow) => {
 }
 
 export const parse: CsvParser = (csv) => {
-  const parsedResult = Papa.parse<Record<string, string>>(csv, { header: true })
+  const parsedResult = Papa.parse<Record<string, string>>(
+    csv,
+    {
+      header: true,
+      dynamicTyping: false,
+      skipEmptyLines: true,
+    }
+  )
   const transactions: ParsedTransaction[] = []
   const errors: ParseError[] = []
 
