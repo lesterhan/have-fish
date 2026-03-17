@@ -7,7 +7,7 @@ const fixture = (name: string) =>
   readFileSync(join(import.meta.dir, 'fixtures', name), 'utf-8')
 
 describe('parse', () => {
-  test('parses a wealthsimple type CSV with no errors', () => {
+  test('parses a clean CSV with no errors', () => {
     /*
     const result = parse(fixture('sample.csv'))
     expect(result.errors).toHaveLength(0)

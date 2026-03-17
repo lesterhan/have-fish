@@ -1,37 +1,19 @@
-import { CsvParser, IsValidDataRow, ParsedTransaction, ParseError } from "./types"
-import Papa from 'papaparse'
+import { CsvDataToTransactions, IsValidDataRow, ParsedTransaction, ParseError } from "./types"
 
 const isValidDataRow: IsValidDataRow = (dataRow) => {
-  return true
-  /*return Boolean(
-    dataRow['date'] &&
-    dataRow['transaction'] &&
-    dataRow['description'] &&
-    dataRow['amount'] &&
-    dataRow['balance'] &&
-    dataRow['currency']
-  )*/
+  return Boolean(
+    dataRow['finishedon'] &&
+    dataRow['targetamount'] &&
+    dataRow['targetname'] &&
+    dataRow['targetcurrency']
+  )
 }
 
-export const parse: CsvParser = (csv) => {
-  const parsedResult = Papa.parse<Record<string, string>>(
-    csv,
-    {
-      header: true,
-      transformHeader: (h) => {
-        return h
-          .toLowerCase()
-          .replace(/\s/g, '')
-          .replace(/\(.*\)/g, '')
-      },
-      dynamicTyping: false,
-      skipEmptyLines: true,
-    }
-  )
+export const toTransactions: CsvDataToTransactions = (csvDataRows) => {
   const transactions: ParsedTransaction[] = []
   const errors: ParseError[] = []
 
-  parsedResult.data.forEach((dataRow, index) => {
+  csvDataRows.forEach((dataRow, index) => {
     if (isValidDataRow(dataRow)) {
       transactions.push(
         {
@@ -50,7 +32,6 @@ export const parse: CsvParser = (csv) => {
       )
     }
   })
-
 
   return { transactions: transactions, errors: errors }
 }

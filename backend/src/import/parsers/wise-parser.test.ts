@@ -1,18 +1,18 @@
 import { describe, test, expect } from 'bun:test'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { parse as parseWise } from './wise-parser'
+import { parse } from '../csv-parser'
+import { toTransactions } from './wise-parser'
 
 const fixture = (name: string) =>
   readFileSync(join(import.meta.dir, '../fixtures', name), 'utf-8')
 
-describe('parse', () => {
+describe('toTransactions', () => {
   test('parses a Wise CSV', () => {
-    const result = parseWise(fixture('wise-sample.csv'))
+    const result = toTransactions(parse(fixture('wise-sample.csv')))
     expect(result.errors).toHaveLength(0)
     expect(result.transactions).toHaveLength(39)
     expect(result.transactions[1]).toMatchObject({
-      date: new Date(),
       amount: '28.90',
       description: 'BIG BEANS COFFEE INC',
       currency: 'EUR'
@@ -20,7 +20,6 @@ describe('parse', () => {
     expect(result.transactions[1].date).toEqual(new Date('2026-03-07 16:56:40'))
 
     expect(result.transactions[38]).toMatchObject({
-      date: new Date(),
       amount: '107.90',
       description: 'Darth Vader',
       currency: 'GBP'
