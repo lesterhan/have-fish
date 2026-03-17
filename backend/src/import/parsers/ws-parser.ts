@@ -1,6 +1,6 @@
 import { CsvDataToTransactions, IsValidDataRow, ParsedTransaction, ParseError } from "./types"
 
-const isValidDataRow: IsValidDataRow = (dataRow) => {
+export const isValidDataRow: IsValidDataRow = (dataRow) => {
   return Boolean(
     dataRow['date'] &&
     dataRow['transaction'] &&

@@ -1,22 +1,25 @@
-import { describe, test, expect } from 'bun:test'
+import { describe, test, expect, mock } from 'bun:test'
 import { readFileSync } from 'fs'
 import { join } from 'path'
-import { parse } from './csv-parser'
+import { transactionsFromCsv } from './csv-parser'
 
 const fixture = (name: string) =>
   readFileSync(join(import.meta.dir, 'fixtures', name), 'utf-8')
 
-describe('parse', () => {
-  test('parses a clean CSV with no errors', () => {
-    /*
-    const result = parse(fixture('sample.csv'))
-    expect(result.errors).toHaveLength(0)
-    expect(result.transactions).toHaveLength(3)
-    expect(result.transactions[0]).toMatchObject({
-      amount: '-42.50',
-      description: 'Grocery Store',
-    })
-    expect(result.transactions[0].date).toBeInstanceOf(Date)
-    */
+describe('transactionsFromCsv', () => {
+  test('uses the correct ws parser', () => {
+
+    const wsParser = {
+      isValidDataRow: () => true,
+      toTransactions: mock(() => ({ transactions: [], errors: [] }))
+    }
+    const wiseParser = {
+      isValidDataRow: () => true,
+      toTransactions: mock(() => ({ transactions: [], errors: [] }))
+    }
+
+    transactionsFromCsv(fixture('ws-sample.csv'), [wsParser, wiseParser])
+    expect(wsParser.toTransactions).toHaveBeenCalled()
+    expect(wiseParser.toTransactions).not.toHaveBeenCalled()
   })
 })
