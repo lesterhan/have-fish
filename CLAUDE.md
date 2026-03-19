@@ -37,8 +37,12 @@ have-fish/
 │   └── drizzle/             # Generated migration files (do not edit by hand)
 └── frontend/
     └── src/
+        ├── styles/
+        │   ├── tokens.css   # Design tokens — single source of truth for all visual values
+        │   └── base.css     # Global reset and baseline typography
         ├── routes/          # SvelteKit file-based routing
         └── lib/
+            ├── components/  # Reusable Svelte components
             └── api.ts       # Typed fetch helpers for the backend
 ```
 
@@ -80,6 +84,42 @@ BETTER_AUTH_SECRET=...
 BETTER_AUTH_URL=http://localhost:8887
 FRONTEND_URL=http://localhost:8888
 ```
+
+## Design System
+
+- **Styling approach**: CSS variables for tokens, scoped `<style>` blocks in `.svelte` files — no CSS framework
+- **Tokens**: `frontend/src/styles/tokens.css` is the single source of truth for all visual values (spacing, color, typography, radius, shadow, transitions). Never hard-code colors, spacing, or shadows — always reference a token variable.
+- **Base styles**: `frontend/src/styles/base.css` provides a global reset and baseline typography. Both are imported once in `+layout.svelte`.
+- **Components**: Reusable UI pieces live in `frontend/src/lib/components/`. One `.svelte` file per component.
+
+### Component pattern
+
+Every component follows this structure:
+
+```svelte
+<script lang="ts">
+  interface Props {
+    // typed props here
+  }
+  let { ... }: Props = $props()
+</script>
+
+<!-- markup -->
+
+<style>
+  /* scoped styles using token variables only */
+  .example {
+    padding: var(--sp-md);
+    color: var(--color-text);
+    background: var(--color-surface);
+    border-radius: var(--radius-md);
+  }
+</style>
+```
+
+### Amount display convention
+
+Use `--color-amount-positive` (green) for income and `--color-amount-negative` (red) for expenses. Negative amounts in the data are expenses; positive are income.
 
 ## How I Like to Be Assisted
 

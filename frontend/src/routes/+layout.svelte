@@ -1,4 +1,6 @@
 <script lang="ts">
+  import '../styles/tokens.css'
+  import '../styles/base.css'
   import { signOut, useSession } from '$lib/auth'
   import { goto } from '$app/navigation'
 
