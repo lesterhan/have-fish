@@ -16,6 +16,7 @@
   <a href="/">Dashboard</a>
   <a href="/accounts">Accounts</a>
   <a href="/transactions">Transactions</a>
+  <a href="/import">Import</a>
   <a href="/settings">Settings</a>
   <span class="spacer"></span>
   {#if $session.data}
