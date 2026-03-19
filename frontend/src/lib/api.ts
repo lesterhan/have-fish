@@ -5,7 +5,7 @@ export async function fetchAccounts() {
   return res.json()
 }
 
-export async function createAccount(body: { name: string; type: string; currency: string }) {
+export async function createAccount(body: { path: string }) {
   const res = await fetch(`${BASE}/api/accounts`, {
     method: 'POST',
     credentials: 'include',

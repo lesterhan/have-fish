@@ -16,7 +16,7 @@
 {:else}
   <ul>
     {#each accounts as account}
-      <li>{account.name} — {account.type}</li>
+      <li>{account.path}</li>
     {/each}
   </ul>
 {/if}
