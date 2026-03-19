@@ -41,7 +41,7 @@ app.get('/', async (c) => {
 
   // Group postings by transactionId and embed into each transaction
   const postingsByTx = postingRows.reduce<Record<string, typeof postingRows>>((acc, p) => {
-    ;(acc[p.transactionId] ??= []).push(p)
+    ; (acc[p.transactionId] ??= []).push(p)
     return acc
   }, {})
 
