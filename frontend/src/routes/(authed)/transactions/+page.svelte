@@ -24,7 +24,7 @@
           <span class="date">{new Date(tx.date).toISOString().slice(0, 10)}</span>
           <span class="description">{tx.description ?? ''}</span>
         </div>
-        {#each tx.postings as posting}
+        {#each [...tx.postings].sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount)) as posting}
           <div class="posting">
             <span class="account">{accountPaths[posting.accountId] ?? posting.accountId}</span>
             <span class="amount">{posting.amount} {posting.currency}</span>
