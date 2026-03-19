@@ -9,8 +9,8 @@ html {
   font-size: var(--text-base);
   line-height: var(--leading-normal);
   color: var(--color-text);
-  background-color: var(--color-bg);
-  -webkit-font-smoothing: antialiased;
+  background-color: var(--color-desktop);
+  -webkit-font-smoothing: none; /* intentional — keep the crisp pixel rendering */
 }
 
 body {
@@ -19,11 +19,11 @@ body {
 
 a {
   color: var(--color-accent);
-  text-decoration: none;
+  text-decoration: underline;
 }
 
 a:hover {
-  text-decoration: underline;
+  color: var(--color-accent-mid);
 }
 
 button {
@@ -32,9 +32,7 @@ button {
   cursor: pointer;
 }
 
-input,
-select,
-textarea {
+input, select, textarea {
   font-family: inherit;
   font-size: inherit;
 }

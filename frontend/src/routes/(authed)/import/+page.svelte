@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { fetchAccounts, importPreview, importCommit, type ImportPreviewResult } from '$lib/api'
+  import Button from '$lib/components/Button.svelte'
 
   let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([])
   let sourceAccountId = $state('')
@@ -98,9 +99,9 @@
       <p class="error">{error}</p>
     {/if}
 
-    <button type="submit" disabled={loading}>
+    <Button type="submit" variant="primary" disabled={loading}>
       {loading ? 'Parsing…' : 'Preview import'}
-    </button>
+    </Button>
   </form>
 {:else}
   <h2>Preview</h2>
@@ -141,10 +142,10 @@
     <p class="error">{error}</p>
   {/if}
 
-  <button onclick={() => { preview = null }}>Cancel</button>
-  <button onclick={handleConfirm} disabled={loading || preview.transactions.length === 0}>
+  <Button onclick={() => { preview = null }}>Cancel</Button>
+  <Button variant="primary" onclick={handleConfirm} disabled={loading || preview.transactions.length === 0}>
     {loading ? 'Importing…' : 'Confirm import'}
-  </button>
+  </Button>
 {/if}
 
 {#if imported !== null}

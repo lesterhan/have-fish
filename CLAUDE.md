@@ -87,14 +87,39 @@ FRONTEND_URL=http://localhost:8888
 
 ## Design System
 
-- **Styling approach**: CSS variables for tokens, scoped `<style>` blocks in `.svelte` files — no CSS framework
-- **Tokens**: `frontend/src/styles/tokens.css` is the single source of truth for all visual values (spacing, color, typography, radius, shadow, transitions). Never hard-code colors, spacing, or shadows — always reference a token variable.
-- **Base styles**: `frontend/src/styles/base.css` provides a global reset and baseline typography. Both are imported once in `+layout.svelte`.
-- **Components**: Reusable UI pieces live in `frontend/src/lib/components/`. One `.svelte` file per component.
+### Aesthetic
+
+The UI is **retro-computing meets modern UX** — specifically Windows 98/ME/XP era visual language combined with contemporary interaction patterns (smooth transitions, proper focus states, material-style feedback).
+
+The goal is to feel like a real desktop application, not a website. It should say "you are using a computer program."
+
+Key references: Windows XP Luna theme, classic silver window chrome, the teal `#008080` desktop.
+
+### Visual rules
+
+- **No rounded corners** — `--radius-sm` and `--radius-md` are both `0`. Sharp corners only. Use `--radius-lg` (2px) or `--radius-xl` (4px) very sparingly.
+- **Bevel everything** — raised surfaces use `--shadow-raised`, pressed/inset surfaces use `--shadow-sunken`. These are the core visual language. Never use a flat border where a bevel is appropriate.
+- **Tahoma at small sizes** — the system font is Tahoma. Text is small (13–14px base). This is intentional and period-accurate.
+- **No font smoothing** — `base.css` sets `-webkit-font-smoothing: none` for crisp pixel rendering.
+- **The desktop is teal** — `--color-desktop: #008080`. The entire page background. Non-negotiable.
+- **Window chrome is silver-grey** — `--color-window: #d4d0c8`. Content areas are `--color-window-raised: #ece9d8`.
+- **Title bars use the XP gradient** — `linear-gradient(to right, --color-titlebar-from, --color-titlebar-to)`.
+
+### Interaction rules (the modern layer)
+
+- All state changes (hover, active, focus) use CSS transitions: `var(--duration-fast) var(--ease)` (100ms ease-in-out)
+- Button press = `--shadow-sunken` replacing `--shadow-raised`, not an instant jump
+- Focus rings must be visible and intentional — use `outline: 2px solid var(--color-accent-mid)`
+- Interactive elements always have a hover state; nothing is ambiguous about clickability
+
+### Styling approach
+
+- CSS variables for all tokens, scoped `<style>` blocks in `.svelte` files — no CSS framework
+- `frontend/src/styles/tokens.css` — single source of truth for all visual values. Never hard-code colors, spacing, or shadows — always use a token variable.
+- `frontend/src/styles/base.css` — global reset and baseline typography. Both imported once in `+layout.svelte`.
+- Components live in `frontend/src/lib/components/`. One `.svelte` file per component.
 
 ### Component pattern
-
-Every component follows this structure:
 
 ```svelte
 <script lang="ts">
@@ -109,10 +134,12 @@ Every component follows this structure:
 <style>
   /* scoped styles using token variables only */
   .example {
-    padding: var(--sp-md);
+    padding: var(--sp-sm) var(--sp-md);
     color: var(--color-text);
-    background: var(--color-surface);
-    border-radius: var(--radius-md);
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    font-size: var(--text-sm);
+    transition: box-shadow var(--duration-fast) var(--ease);
   }
 </style>
 ```

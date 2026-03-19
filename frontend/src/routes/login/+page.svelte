@@ -1,6 +1,7 @@
 <script lang="ts">
   import { signIn } from '$lib/auth'
   import { goto } from '$app/navigation'
+  import Button from '$lib/components/Button.svelte'
 
   let email = $state('')
   let password = $state('')
@@ -32,5 +33,5 @@
   {#if error}
     <p class="error">{error}</p>
   {/if}
-  <button type="submit">Sign in</button>
+  <Button type="submit" variant="primary">Sign in</Button>
 </form>
