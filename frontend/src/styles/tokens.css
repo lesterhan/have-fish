@@ -107,7 +107,7 @@
   --radius-xl: 4px;
 
   /* --- Transitions (the modern UX layer) --- */
-  --duration-fast:   100ms;
-  --duration-normal: 200ms;
+  --duration-fast:   80ms;
+  --duration-normal: 120ms;
   --ease:            ease-in-out;
 }

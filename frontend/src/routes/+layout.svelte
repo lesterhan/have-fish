@@ -1,29 +1,28 @@
 <script lang="ts">
-  import '../styles/tokens.css'
-  import '../styles/base.css'
-  import { signOut, useSession } from '$lib/auth'
-  import { goto } from '$app/navigation'
+  import "../styles/tokens.css";
+  import "../styles/base.css";
+  import { signOut, useSession } from "$lib/auth";
+  import { goto } from "$app/navigation";
 
-  let { children } = $props()
+  let { children } = $props();
 
-  const session = useSession()
+  const session = useSession();
 
   async function handleSignOut() {
-    await signOut()
-    goto('/login')
+    await signOut();
+    goto("/login");
   }
 </script>
 
 <div class="desktop">
   <div class="window">
-
     <div class="titlebar">
       <span class="titlebar-icon">🐟</span>
-      <span class="titlebar-title">have-fish — Personal Finance</span>
+      <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
         <button class="chrome-btn minimize" aria-label="Minimize">_</button>
         <button class="chrome-btn maximize" aria-label="Maximize">□</button>
-        <button class="chrome-btn close"    aria-label="Close">✕</button>
+        <button class="chrome-btn close" aria-label="Close">✕</button>
       </div>
     </div>
 
@@ -36,7 +35,8 @@
       <span class="menubar-spacer"></span>
       {#if $session.data}
         <span class="menubar-user">{$session.data.user.email}</span>
-        <button class="menubar-signout" onclick={handleSignOut}>Sign out</button>
+        <button class="menubar-signout" onclick={handleSignOut}>Sign out</button
+        >
       {:else}
         <a href="/login">Sign in</a>
       {/if}
@@ -49,7 +49,6 @@
     <div class="statusbar">
       <span>Ready</span>
     </div>
-
   </div>
 </div>
 
@@ -81,7 +80,11 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: 3px var(--sp-xs);
-    background: linear-gradient(to right, var(--color-titlebar-from), var(--color-titlebar-to));
+    background: linear-gradient(
+      to right,
+      var(--color-titlebar-from),
+      var(--color-titlebar-to)
+    );
     color: var(--color-titlebar-text);
     user-select: none;
   }
@@ -114,8 +117,9 @@
     align-items: center;
     justify-content: center;
     padding: 0;
-    transition: box-shadow var(--duration-fast) var(--ease),
-                background var(--duration-fast) var(--ease);
+    transition:
+      box-shadow var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
   }
 
   .chrome-btn:hover {
@@ -150,8 +154,9 @@
     text-decoration: none;
     background: transparent;
     border: 1px solid transparent;
-    transition: background var(--duration-fast) var(--ease),
-                border-color var(--duration-fast) var(--ease);
+    transition:
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease);
   }
 
   .menubar a:hover,
