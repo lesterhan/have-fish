@@ -46,6 +46,52 @@ export async function deleteCategory(id: string) {
   })
 }
 
+// Mirrors the ParsedTransaction type from the backend parser.
+// date is a string here because it arrives serialized as an ISO string over JSON.
+export type ParsedTransaction = {
+  date: string
+  amount: string
+  description: string
+  currency?: string
+}
+
+export type ImportPreviewResult = {
+  transactions: ParsedTransaction[]
+  errors: { row: number; reason: string }[]
+}
+
+export async function importPreview(
+  file: File,
+  accountId: string,
+  defaultCurrency: string,
+): Promise<ImportPreviewResult> {
+  const form = new FormData()
+  form.append('file', file)
+  form.append('accountId', accountId)
+  form.append('defaultCurrency', defaultCurrency)
+  const res = await fetch(`${BASE}/api/import/preview`, {
+    method: 'POST',
+    credentials: 'include',
+    body: form,
+  })
+  return res.json()
+}
+
+export async function importCommit(body: {
+  accountId: string
+  offsetAccountId: string
+  defaultCurrency: string
+  transactions: ParsedTransaction[]
+}): Promise<{ created: number }> {
+  const res = await fetch(`${BASE}/api/import/commit`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
 export async function fetchTransactions(accountId?: string) {
   const url = accountId
     ? `${BASE}/api/transactions?accountId=${accountId}`
