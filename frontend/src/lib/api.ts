@@ -150,6 +150,32 @@ export async function deleteParser(id: string): Promise<void> {
   })
 }
 
+export type UserSettings = {
+  id: string
+  userId: string
+  defaultOffsetAccountId: string | null
+  defaultConversionAccountId: string | null
+  createdAt: string
+  updatedAt: string
+}
+
+export async function fetchUserSettings(): Promise<UserSettings> {
+  const res = await fetch(`${BASE}/api/user-settings`, { credentials: 'include' })
+  return res.json()
+}
+
+export async function updateUserSettings(
+  body: Partial<Pick<UserSettings, 'defaultOffsetAccountId' | 'defaultConversionAccountId'>>,
+): Promise<UserSettings> {
+  const res = await fetch(`${BASE}/api/user-settings`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
 export async function fetchTransactions(accountId?: string) {
   const url = accountId
     ? `${BASE}/api/transactions?accountId=${accountId}`
