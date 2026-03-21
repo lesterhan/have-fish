@@ -1,4 +1,4 @@
-import { pgTable, numeric, text, timestamp, uuid, boolean } from 'drizzle-orm/pg-core'
+import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb } from 'drizzle-orm/pg-core'
 
 // --- Better Auth tables ---
 // These are required by Better Auth and must not be renamed or removed.
@@ -71,6 +71,24 @@ export const transactions = pgTable('transactions', {
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   date: timestamp('date').notNull(),
   description: text('description'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
+})
+
+// A user-defined CSV parser configuration.
+// Stores the column fingerprint of a bank's CSV export and a mapping from
+// CSV columns to transaction fields. Used to auto-detect the correct parser
+// when a CSV is uploaded, and to extract data from each row.
+export const csvParsers = pgTable('csv_parsers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  // Pipe-joined sorted normalized column names — the fingerprint used for auto-detection.
+  // e.g. "amount|balance|currency|date|description|transaction"
+  normalizedHeader: text('normalized_header').notNull(),
+  // Maps transaction field names to normalized CSV column names.
+  // { date: string, amount: string, description?: string, currency?: string }
+  columnMapping: jsonb('column_mapping').notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })
