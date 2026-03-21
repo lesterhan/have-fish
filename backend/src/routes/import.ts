@@ -57,29 +57,35 @@ app.post('/preview', async (c) => {
 
 // POST /api/import/commit
 // Writes a set of pre-parsed transactions to the database.
-// Each ParsedTransaction becomes one transaction row and two posting rows:
+// Each transaction becomes one transaction row and two posting rows:
 //   - one posting for the source account (raw amount)
 //   - one posting for the offset account (negated amount, balances to zero)
 //
 // Request body (JSON):
 //   accountId       — UUID of the source account (the one the CSV belongs to)
-//   offsetAccountId — UUID of the account to balance against (e.g. expenses:uncategorized)
 //   defaultCurrency — fallback currency for transactions missing a currency field
-//   transactions    — array of ParsedTransaction (as returned by /preview)
+//   transactions    — array of ParsedTransaction with an added offsetAccountId per row
+//
+// Each transaction carries its own offsetAccountId so different rows can be
+// categorised to different accounts during the preview step.
 //
 // Response: { created: number }
 app.post('/commit', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
-  const { accountId, offsetAccountId, defaultCurrency, transactions: parsed } = body
+  const { accountId, defaultCurrency, transactions: parsed } = body
 
   if (!accountId || typeof accountId !== 'string') return c.json({ error: 'accountId is required' }, 400)
-  if (!offsetAccountId || typeof offsetAccountId !== 'string') return c.json({ error: 'offsetAccountId is required' }, 400)
   if (!defaultCurrency || typeof defaultCurrency !== 'string') return c.json({ error: 'defaultCurrency is required' }, 400)
   if (!Array.isArray(parsed) || parsed.length === 0) return c.json({ error: 'transactions must be a non-empty array' }, 400)
+  if (parsed.some((t: Record<string, unknown>) => !t.offsetAccountId || typeof t.offsetAccountId !== 'string')) {
+    return c.json({ error: 'each transaction must include an offsetAccountId' }, 400)
+  }
+
+  type CommitTransaction = ParsedTransaction & { offsetAccountId: string }
 
   await db.transaction(async (tx) => {
-    for (const t of parsed as ParsedTransaction[]) {
+    for (const t of parsed as CommitTransaction[]) {
       const currency = t.currency ?? defaultCurrency
       const negated = (-parseFloat(t.amount)).toFixed(2)
 
@@ -90,7 +96,7 @@ app.post('/commit', async (c) => {
 
       await tx.insert(postings).values([
         { transactionId: newTx.id, accountId, amount: t.amount, currency },
-        { transactionId: newTx.id, accountId: offsetAccountId, amount: negated, currency },
+        { transactionId: newTx.id, accountId: t.offsetAccountId, amount: negated, currency },
       ])
     }
   })

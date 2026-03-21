@@ -14,6 +14,9 @@
   let imported = $state<number | null>(null)
 
   let preview = $state<ImportPreviewResult | null>(null)
+  // Per-row offset account IDs, seeded from offsetAccountId when preview loads.
+  // The user can override any individual row before confirming.
+  let txOffsets = $state<string[]>([])
 
   onMount(async () => {
     const [accts, settings] = await Promise.all([fetchAccounts(), fetchUserSettings()])
@@ -23,8 +26,12 @@
 
   async function handleConfirm() {
     if (!preview) return
-    if (!sourceAccountId || !offsetAccountId) {
-      error = 'Source and offset accounts are required.'
+    if (!sourceAccountId) {
+      error = 'Source account is required.'
+      return
+    }
+    if (txOffsets.some(id => !id)) {
+      error = 'All transactions must have an offset account assigned.'
       return
     }
     loading = true
@@ -32,12 +39,12 @@
     try {
       const result = await importCommit({
         accountId: sourceAccountId,
-        offsetAccountId,
         defaultCurrency,
-        transactions: preview.transactions,
+        transactions: preview.transactions.map((tx, i) => ({ ...tx, offsetAccountId: txOffsets[i] })),
       })
       imported = result.created
       preview = null
+      txOffsets = []
     } catch (e) {
       error = 'Import failed. Please try again.'
     } finally {
@@ -55,14 +62,21 @@
     loading = true
     try {
       preview = await importPreview(file, defaultCurrency)
-      // Pre-fill source account from the matched parser's default, if set
       sourceAccountId = preview.defaultAccountId ?? ''
+      // Seed every row with the global offset — user can override per row in the table
+      txOffsets = preview.transactions.map(() => offsetAccountId)
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to parse the CSV. Please check the file and try again.'
       noParserFound = error.toLowerCase().includes('no saved parser')
     } finally {
       loading = false
     }
+  }
+
+  function handleCancel() {
+    preview = null
+    sourceAccountId = ''
+    txOffsets = []
   }
 </script>
 
@@ -124,49 +138,66 @@
   </div>
 
   {#if preview.errors.length > 0}
-    <p class="error">{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
-    <ul class="error">
-      {#each preview.errors as e}
-        <li>Row {e.row}: {e.reason}</li>
-      {/each}
-    </ul>
+    <div class="parse-errors">
+      <p>{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
+      <ul>
+        {#each preview.errors as e}
+          <li>Row {e.row}: {e.reason}</li>
+        {/each}
+      </ul>
+    </div>
   {/if}
 
-  <table>
-    <thead>
-      <tr>
-        <th>Date</th>
-        <th>Description</th>
-        <th>Amount</th>
-        <th>Currency</th>
-      </tr>
-    </thead>
-    <tbody>
-      {#each preview.transactions as tx}
+  <div class="table-container">
+    <table>
+      <thead>
         <tr>
-          <td>{new Date(tx.date).toLocaleDateString()}</td>
-          <td>{tx.description}</td>
-          <td>{tx.amount}</td>
-          <td>{tx.currency ?? defaultCurrency}</td>
+          <th>Date</th>
+          <th class="col-description">Description</th>
+          <th class="col-amount">Amount</th>
+          <th>Currency</th>
+          <th class="col-offset">Offset account</th>
         </tr>
-      {/each}
-    </tbody>
-  </table>
+      </thead>
+      <tbody>
+        {#each preview.transactions as tx, i}
+          <tr>
+            <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+            <td>{tx.description ?? '—'}</td>
+            <td class="cell-amount" class:positive={parseFloat(tx.amount) > 0} class:negative={parseFloat(tx.amount) < 0}>
+              {tx.amount}
+            </td>
+            <td>{tx.currency ?? defaultCurrency}</td>
+            <td>
+              <select class="offset-select" bind:value={txOffsets[i]}>
+                <option value="">Select…</option>
+                {#each accounts as account}
+                  <option value={account.id}>{account.path}</option>
+                {/each}
+              </select>
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
 
-  <p>{preview.transactions.length} transaction(s) ready to import.</p>
+  <p class="summary">{preview.transactions.length} transaction(s) ready to import.</p>
 
   {#if error}
     <p class="error">{error}</p>
   {/if}
 
-  <Button onclick={() => { preview = null; sourceAccountId = '' }}>Cancel</Button>
-  <Button
-    variant="primary"
-    onclick={handleConfirm}
-    disabled={loading || preview.transactions.length === 0 || !sourceAccountId}
-  >
-    {loading ? 'Importing…' : 'Confirm import'}
-  </Button>
+  <div class="actions">
+    <Button onclick={handleCancel}>Cancel</Button>
+    <Button
+      variant="primary"
+      onclick={handleConfirm}
+      disabled={loading || preview.transactions.length === 0 || !sourceAccountId || txOffsets.some(id => !id)}
+    >
+      {loading ? 'Importing…' : 'Confirm import'}
+    </Button>
+  </div>
 {/if}
 
 {#if imported !== null}
@@ -185,6 +216,8 @@
     color: var(--color-text-muted);
     margin-top: var(--sp-xs);
   }
+
+  /* --- Source account selector row --- */
 
   .account-row {
     display: flex;
@@ -217,5 +250,119 @@
 
   .required {
     color: var(--color-amount-negative);
+  }
+
+  /* --- Parse error list --- */
+
+  .parse-errors {
+    font-size: var(--text-sm);
+    color: var(--color-danger);
+    background: var(--color-danger-light);
+    box-shadow: var(--shadow-sunken);
+    padding: var(--sp-xs) var(--sp-sm);
+    margin-bottom: var(--sp-md);
+  }
+
+  .parse-errors p {
+    margin: 0 0 var(--sp-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .parse-errors ul {
+    margin: 0;
+    padding-left: var(--sp-md);
+  }
+
+  /* --- Preview table --- */
+
+  .table-container {
+    box-shadow: var(--shadow-sunken);
+    background: var(--color-window-inset);
+    margin-bottom: var(--sp-md);
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  /* Column header — each th gets a raised bevel like a classic listview header button */
+  th {
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    padding: var(--sp-xs) var(--sp-sm);
+    text-align: left;
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+    /* Ensure headers sit above scrolled content */
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  td {
+    padding: var(--sp-xs) var(--sp-sm);
+    border-bottom: 1px solid var(--color-bevel-mid);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover td {
+    background: var(--color-accent-light);
+  }
+
+  /* Column sizing hints */
+  .col-description { width: 100%; }   /* takes remaining space */
+  .col-amount      { width: 7rem; }
+  .col-offset      { width: 14rem; }
+
+  /* Mono font for ledger-style data */
+  .cell-mono {
+    font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+
+  .cell-amount {
+    font-family: var(--font-mono);
+    text-align: right;
+    white-space: nowrap;
+  }
+
+  .cell-amount.positive { color: var(--color-amount-positive); }
+  .cell-amount.negative { color: var(--color-amount-negative); }
+
+  /* Compact select inside each offset cell */
+  .offset-select {
+    width: 100%;
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    background: var(--color-window-raised);
+    box-shadow: var(--shadow-sunken);
+    border: none;
+    padding: 2px var(--sp-xs);
+    transition: outline var(--duration-fast) var(--ease);
+  }
+
+  .offset-select:focus {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -2px;
+  }
+
+  /* --- Footer --- */
+
+  .summary {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--sp-sm);
+  }
+
+  .actions {
+    display: flex;
+    gap: var(--sp-sm);
   }
 </style>

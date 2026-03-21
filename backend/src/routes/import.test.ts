@@ -102,14 +102,14 @@ describe('POST /api/import/commit', () => {
     const offset = await createAccount(cookie, 'expenses:uncategorized')
 
     const parsed = [
-      { date: new Date('2026-02-01').toISOString(), amount: '-50.00', description: 'Coffee', currency: 'CAD' },
-      { date: new Date('2026-02-02').toISOString(), amount: '100.00', description: 'Tax refund', currency: 'CAD' },
+      { date: new Date('2026-02-01').toISOString(), amount: '-50.00', description: 'Coffee', currency: 'CAD', offsetAccountId: offset.id },
+      { date: new Date('2026-02-02').toISOString(), amount: '100.00', description: 'Tax refund', currency: 'CAD', offsetAccountId: offset.id },
     ]
 
     const res = await app.request('/api/import/commit', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ accountId: source.id, offsetAccountId: offset.id, defaultCurrency: 'CAD', transactions: parsed }),
+      body: JSON.stringify({ accountId: source.id, defaultCurrency: 'CAD', transactions: parsed }),
     })
 
     expect(res.status).toBe(201)

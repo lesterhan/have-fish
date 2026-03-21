@@ -55,6 +55,11 @@ export type ParsedTransaction = {
   currency?: string
 }
 
+// ParsedTransaction extended with the offset account chosen during preview.
+// This is what gets sent to /api/import/commit — each row carries its own
+// offset so different transactions can be categorised to different accounts.
+export type CommitTransaction = ParsedTransaction & { offsetAccountId: string }
+
 export type ImportPreviewResult = {
   parser: string
   defaultAccountId: string | null
@@ -83,9 +88,8 @@ export async function importPreview(
 
 export async function importCommit(body: {
   accountId: string
-  offsetAccountId: string
   defaultCurrency: string
-  transactions: ParsedTransaction[]
+  transactions: CommitTransaction[]
 }): Promise<{ created: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
