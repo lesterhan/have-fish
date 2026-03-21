@@ -89,6 +89,9 @@ export const csvParsers = pgTable('csv_parsers', {
   // Maps transaction field names to normalized CSV column names.
   // { date: string, amount: string, description?: string, currency?: string }
   columnMapping: jsonb('column_mapping').notNull(),
+  // The account this parser's CSVs belong to by default. Nullable — not all parsers
+  // need a default. Used on the import page to pre-fill the source account dropdown.
+  defaultAccountId: uuid('default_account_id').references(() => accounts.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })
