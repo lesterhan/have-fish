@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
-import type { accounts } from '../db/schema.ts'
+import type { accounts as accountsTable } from '../db/schema.ts'
 
-type Account = typeof accounts.$inferSelect
+type Account = typeof accountsTable.$inferSelect
 
 describe('accounts', () => {
   let cookie: string
