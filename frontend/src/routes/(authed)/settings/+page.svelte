@@ -3,6 +3,15 @@
   import { fetchAccounts, createAccount, deleteAccount, fetchParsers, createParser, deleteParser, updateParser } from '$lib/api'
   import type { CsvParser } from '$lib/api'
   import Button from '$lib/components/Button.svelte'
+  import { signOut, useSession } from '$lib/auth'
+  import { goto } from '$app/navigation'
+
+  const session = useSession()
+
+  async function handleSignOut() {
+    await signOut()
+    goto('/login')
+  }
 
   // --- Accounts ---
   let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([])
@@ -99,7 +108,12 @@
 
 </script>
 
-<h1>Settings</h1>
+{#if $session.data}
+  <div class="user-banner">
+    <h1>🧧🎣 {$session.data.user.email}</h1>
+    <Button variant="danger" onclick={handleSignOut}>Sign out</Button>
+  </div>
+{/if}
 
 <section>
   <h2>Accounts</h2>
@@ -205,6 +219,21 @@
 </section>
 
 <style>
+  .user-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-md);
+    margin-bottom: var(--sp-xl);
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .user-banner h1 {
+    font-size: var(--text-base);
+    font-weight: bold;
+  }
+
   section {
     margin-bottom: var(--sp-xl);
   }

@@ -1,17 +1,11 @@
 <script lang="ts">
   import "../styles/tokens.css";
   import "../styles/base.css";
-  import { signOut, useSession } from "$lib/auth";
-  import { goto } from "$app/navigation";
+  import { useSession } from "$lib/auth";
 
   let { children } = $props();
 
   const session = useSession();
-
-  async function handleSignOut() {
-    await signOut();
-    goto("/login");
-  }
 </script>
 
 <div class="desktop">
@@ -31,12 +25,9 @@
       <a href="/accounts">Accounts</a>
       <a href="/transactions">Transactions</a>
       <a href="/import">Import</a>
-      <a href="/settings">Settings</a>
       <span class="menubar-spacer"></span>
       {#if $session.data}
-        <span class="menubar-user">{$session.data.user.email}</span>
-        <button class="menubar-signout" onclick={handleSignOut}>Sign out</button
-        >
+        <a href="/settings" class="menubar-settings">🔧 {$session.data.user.email}</a>
       {:else}
         <a href="/login">Sign in</a>
       {/if}
@@ -147,8 +138,7 @@
     font-size: var(--text-sm);
   }
 
-  .menubar a,
-  .menubar-signout {
+  .menubar a {
     display: inline-block;
     padding: 3px var(--sp-sm);
     color: var(--color-text);
@@ -160,14 +150,12 @@
       border-color var(--duration-fast) var(--ease);
   }
 
-  .menubar a:hover,
-  .menubar-signout:hover {
+  .menubar a:hover {
     background: var(--color-accent-light);
     border-color: var(--color-accent-mid);
   }
 
-  .menubar a:active,
-  .menubar-signout:active {
+  .menubar a:active {
     background: var(--color-accent-mid);
     color: var(--color-text-on-dark);
   }
@@ -176,16 +164,9 @@
     flex: 1;
   }
 
-  .menubar-user {
+  .menubar-settings {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-    padding: 0 var(--sp-sm);
-  }
-
-  .menubar-signout {
-    font-family: inherit;
-    font-size: var(--text-sm);
-    cursor: pointer;
   }
 
   /* --- Window body --- */

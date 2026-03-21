@@ -4,7 +4,6 @@
   import Button from '$lib/components/Button.svelte'
 
   let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([])
-  // sourceAccountId moves to the preview stage — auto-filled from the matched parser
   let sourceAccountId = $state('')
   let offsetAccountId = $state('')
   let defaultCurrency = $state('CAD')
