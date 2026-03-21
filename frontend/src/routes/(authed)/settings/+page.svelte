@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { fetchAccounts, createAccount, deleteAccount, fetchParsers, createParser, deleteParser } from '$lib/api'
+  import { fetchAccounts, createAccount, deleteAccount, fetchParsers, createParser, deleteParser, updateParser } from '$lib/api'
   import type { CsvParser } from '$lib/api'
   import Button from '$lib/components/Button.svelte'
 
@@ -91,6 +91,11 @@
     parsers = parsers.filter((p) => p.id !== id)
   }
 
+  async function handleParserAccountChange(id: string, accountId: string) {
+    // Empty string from the dropdown means "no default" — send null to clear it
+    const updated = await updateParser(id, { defaultAccountId: accountId || null })
+    parsers = parsers.map((p) => (p.id === id ? updated : p))
+  }
 
 </script>
 
@@ -121,6 +126,16 @@
       <div class="list-row">
         <span class="parser-name">{parser.name}</span>
         <span class="parser-header">{parser.normalizedHeader}</span>
+        <select
+          class="parser-account"
+          value={parser.defaultAccountId ?? ''}
+          onchange={(e) => handleParserAccountChange(parser.id, (e.currentTarget as HTMLSelectElement).value)}
+        >
+          <option value="">— no default —</option>
+          {#each accounts as account}
+            <option value={account.id}>{account.path}</option>
+          {/each}
+        </select>
         <Button variant="danger" onclick={() => handleDeleteParser(parser.id)}>delete</Button>
       </div>
     {/each}
@@ -229,6 +244,22 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .parser-account {
+    font-size: var(--text-xs);
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window-raised);
+    box-shadow: var(--shadow-sunken);
+    border: none;
+    color: var(--color-text);
+    font-family: inherit;
+    min-width: 12rem;
+  }
+
+  .parser-account:focus {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -2px;
   }
 
   .empty {
