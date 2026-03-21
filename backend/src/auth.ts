@@ -1,6 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { db } from './db'
+import { accounts, userSettings } from './db/schema'
 
 // Better Auth configuration.
 // - Email/password only for now (no OAuth, no email verification)
@@ -15,4 +16,27 @@ export const auth = betterAuth({
     enabled: true,
   },
   trustedOrigins: [process.env.FRONTEND_URL ?? 'http://localhost:8888'],
+  databaseHooks: {
+    user: {
+      create: {
+        after: async (user) => {
+          const [offsetAccount, conversionAccount] = await db
+            .insert(accounts)
+            .values([
+              { userId: user.id, path: 'expenses:uncategorized' },
+              { userId: user.id, path: 'equity:conversions' },
+            ])
+            .returning()
+
+          await db
+            .insert(userSettings)
+            .values({
+              userId: user.id,
+              defaultOffsetAccountId: offsetAccount.id,
+              defaultConversionAccountId: conversionAccount.id,
+            })
+        },
+      },
+    },
+  },
 })
