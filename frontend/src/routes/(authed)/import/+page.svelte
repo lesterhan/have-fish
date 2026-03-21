@@ -8,6 +8,7 @@
     type ImportPreviewResult,
   } from "$lib/api";
   import Button from "$lib/components/Button.svelte";
+  import AccountPathInput from "$lib/components/AccountPathInput.svelte";
 
   let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([]);
   let sourceAccountId = $state("");
@@ -87,6 +88,10 @@
     }
   }
 
+  function handleAccountCreated(account: { id: string; path: string }) {
+    accounts = [...accounts, account];
+  }
+
   function handleCancel() {
     preview = null;
     sourceAccountId = "";
@@ -105,12 +110,12 @@
   >
     <label>
       Offset account
-      <select bind:value={offsetAccountId} required>
-        <option value="">Select an account…</option>
-        {#each accounts as account}
-          <option value={account.id}>{account.path}</option>
-        {/each}
-      </select>
+      <AccountPathInput
+        {accounts}
+        bind:value={offsetAccountId}
+        placeholder="Select or create an account…"
+        oncreate={handleAccountCreated}
+      />
     </label>
 
     <label>
@@ -157,12 +162,12 @@
       Source account
       {#if !sourceAccountId}<span class="required">*</span>{/if}
     </label>
-    <select id="source-account" bind:value={sourceAccountId}>
-      <option value="">Select an account…</option>
-      {#each accounts as account}
-        <option value={account.id}>{account.path}</option>
-      {/each}
-    </select>
+    <AccountPathInput
+      {accounts}
+      bind:value={sourceAccountId}
+      placeholder="Select or create an account…"
+      oncreate={handleAccountCreated}
+    />
   </div>
 
   {#if preview.errors.length > 0}
@@ -202,13 +207,13 @@
               {tx.amount}
             </td>
             <td>{tx.currency ?? defaultCurrency}</td>
-            <td>
-              <select class="offset-select" bind:value={txOffsets[i]}>
-                <option value="">Select…</option>
-                {#each accounts as account}
-                  <option value={account.id}>{account.path}</option>
-                {/each}
-              </select>
+            <td class="cell-offset">
+              <AccountPathInput
+                {accounts}
+                bind:value={txOffsets[i]}
+                placeholder="Select or create…"
+                oncreate={handleAccountCreated}
+              />
             </td>
           </tr>
         {/each}
@@ -274,20 +279,8 @@
     text-align: right;
   }
 
-  .account-row select {
+  .account-row :global(.wrapper) {
     flex: 1;
-    font-size: var(--text-sm);
-    padding: var(--sp-xs) var(--sp-sm);
-    background: var(--color-window-raised);
-    box-shadow: var(--shadow-sunken);
-    border: none;
-    color: var(--color-text);
-    font-family: inherit;
-  }
-
-  .account-row select:focus {
-    outline: 2px solid var(--color-accent-mid);
-    outline-offset: -2px;
   }
 
   .required {
@@ -387,22 +380,9 @@
     color: var(--color-amount-negative);
   }
 
-  /* Compact select inside each offset cell */
-  .offset-select {
-    width: 100%;
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
-    color: var(--color-text);
-    background: var(--color-window-raised);
-    box-shadow: var(--shadow-sunken);
-    border: none;
-    padding: 2px var(--sp-xs);
-    transition: outline var(--duration-fast) var(--ease);
-  }
-
-  .offset-select:focus {
-    outline: 2px solid var(--color-accent-mid);
-    outline-offset: -2px;
+  /* Remove cell padding so the input sits flush in the offset column */
+  .cell-offset {
+    padding: 0;
   }
 
   /* --- Footer --- */
