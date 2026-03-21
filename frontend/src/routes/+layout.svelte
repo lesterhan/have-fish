@@ -6,16 +6,18 @@
   let { children } = $props();
 
   const session = useSession();
+
+  let maximized = $state(false);
 </script>
 
-<div class="desktop">
+<div class="desktop" class:maximized>
   <div class="window">
     <div class="titlebar">
       <span class="titlebar-icon">🐟</span>
       <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
         <button class="chrome-btn minimize" aria-label="Minimize">_</button>
-        <button class="chrome-btn maximize" aria-label="Maximize">□</button>
+        <button class="chrome-btn maximize" aria-label="Maximize" onclick={() => maximized = !maximized}>{maximized ? '❐' : '□'}</button>
         <button class="chrome-btn close" aria-label="Close">✕</button>
       </div>
     </div>
@@ -53,6 +55,14 @@
     justify-content: center;
     padding: var(--sp-xl);
     background-color: var(--color-desktop);
+  }
+
+  .desktop {
+    transition: padding var(--duration-normal) var(--ease);
+  }
+
+  .desktop.maximized {
+    padding: 0;
   }
 
   /* --- Window --- */
