@@ -96,6 +96,19 @@ export const csvParsers = pgTable('csv_parsers', {
   deletedAt: timestamp('deleted_at'),
 })
 
+// Per-user settings. One row per user, created alongside the user's seed accounts.
+// Stores references to accounts that serve as defaults in various workflows.
+// defaultOffsetAccountId — pre-selected on the import page as the balancing account
+// defaultConversionAccountId — pre-selected when creating cross-currency transfers
+export const userSettings = pgTable('user_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
+  defaultOffsetAccountId: uuid('default_offset_account_id').references(() => accounts.id),
+  defaultConversionAccountId: uuid('default_conversion_account_id').references(() => accounts.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+})
+
 // A posting is one leg of a transaction — money moving in or out of one account.
 // Every transaction has at least two postings, and they must balance to zero per currency.
 // Negative amount = money leaving the account (expense/debit).
