@@ -56,6 +56,7 @@ export type ParsedTransaction = {
 }
 
 export type ImportPreviewResult = {
+  parser: string
   transactions: ParsedTransaction[]
   errors: { row: number; reason: string }[]
 }
@@ -74,6 +75,10 @@ export async function importPreview(
     credentials: 'include',
     body: form,
   })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? 'Failed to parse CSV.')
+  }
   return res.json()
 }
 

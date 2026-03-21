@@ -10,6 +10,7 @@
   let file = $state<File | null>(null)
   let loading = $state(false)
   let error = $state('')
+  let noParserFound = $state(false)
   let imported = $state<number | null>(null)
 
   // Populated after the user submits the form — hands off to the preview/confirm section below
@@ -45,11 +46,13 @@
       return
     }
     error = ''
+    noParserFound = false
     loading = true
     try {
       preview = await importPreview(file, sourceAccountId, defaultCurrency)
     } catch (e) {
-      error = 'Failed to parse the CSV. Please check the file and try again.'
+      error = e instanceof Error ? e.message : 'Failed to parse the CSV. Please check the file and try again.'
+      noParserFound = error.toLowerCase().includes('no saved parser')
     } finally {
       loading = false
     }
@@ -97,6 +100,9 @@
 
     {#if error}
       <p class="error">{error}</p>
+      {#if noParserFound}
+        <p class="hint">Go to <a href="/settings">Settings</a> to create a parser for this file.</p>
+      {/if}
     {/if}
 
     <Button type="submit" variant="primary" disabled={loading}>
@@ -105,6 +111,7 @@
   </form>
 {:else}
   <h2>Preview</h2>
+  <p class="parser-tag">Parser: <strong>{preview.parser}</strong></p>
 
   {#if preview.errors.length > 0}
     <p class="error">{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
@@ -151,3 +158,17 @@
 {#if imported !== null}
   <p>{imported} transaction(s) imported successfully. <a href="/transactions">View transactions</a></p>
 {/if}
+
+<style>
+  .parser-tag {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-bottom: var(--sp-sm);
+  }
+
+  .hint {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    margin-top: var(--sp-xs);
+  }
+</style>

@@ -44,7 +44,7 @@
   // Applies the same normalization as the backend's parseCsv transformHeader:
   // lowercase, strip whitespace, strip parenthetical suffixes.
   function normalizeColumn(col: string): string {
-    return col.toLowerCase().replace(/\s/g, '').replace(/\(.*\)/g, '')
+    return col.toLowerCase().replace(/"/g, '').replace(/\s/g, '').replace(/\(.*\)/g, '')
   }
 
   // Sorted pipe-joined fingerprint — must match what the backend stores.
