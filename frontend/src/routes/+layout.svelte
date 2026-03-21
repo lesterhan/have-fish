@@ -194,6 +194,8 @@
     overflow-y: auto;
     padding: var(--sp-lg);
     background: var(--color-window-raised);
+    scrollbar-width: auto;
+    scrollbar-color: var(--color-window) var(--color-window);
   }
 
   .window-body::-webkit-scrollbar {
