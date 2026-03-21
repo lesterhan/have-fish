@@ -5,6 +5,7 @@ import { auth } from './auth'
 import accountsRoute from './routes/accounts'
 import transactionsRoute from './routes/transactions'
 import importRoute from './routes/import'
+import parsersRoute from './routes/parsers'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -37,3 +38,4 @@ app.use('/api/*', async (c, next) => {
 app.route('/api/accounts', accountsRoute)
 app.route('/api/transactions', transactionsRoute)
 app.route('/api/import', importRoute)
+app.route('/api/parsers', parsersRoute)

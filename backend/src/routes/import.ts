@@ -1,35 +1,22 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
-import { transactionsFromCsv } from '../import/csv-parser'
-import type { ParsedTransaction } from '../import/parsers/types'
 import { db } from '../db'
 import { transactions, postings } from '../db/schema'
+
+// TODO (task 4): move this to a shared types file once the dynamic parser is built
+type ParsedTransaction = {
+  date: string
+  amount: string
+  description?: string
+  currency?: string
+}
 
 const app = new Hono<{ Variables: AppVariables }>()
 
 // POST /api/import/preview
-// Parses an uploaded CSV and returns what would be imported — no DB writes.
-//
-// Request: multipart/form-data
-//   file            (File)   — the CSV file from the bank
-//   accountId       (string) — UUID of the account this CSV belongs to
-//   defaultCurrency (string) — fallback currency for rows that don't include one (e.g. "CAD")
-//
-// Response: { transactions: ParsedTransaction[], errors: ParseError[] }
-//
+// TODO (task 4): load user's saved parsers, auto-detect by normalizedHeader, parse rows
 app.post('/preview', async (c) => {
-  const form = await c.req.formData()
-  const file = form.get('file')
-  const accountId = form.get('accountId')
-  const defaultCurrency = form.get('defaultCurrency')
-
-  if (!file || typeof file === 'string') return c.json({ error: 'file is required' }, 400)
-  if (!accountId || typeof accountId !== 'string') return c.json({ error: 'accountId is required' }, 400)
-  if (!defaultCurrency || typeof defaultCurrency !== 'string') return c.json({ error: 'defaultCurrency is required' }, 400)
-
-  const csv = await file.text()
-  const result = transactionsFromCsv(csv)
-  return c.json(result)
+  return c.json({ error: 'Not implemented — awaiting dynamic parser (task 4)' }, 501)
 })
 
 // POST /api/import/commit
