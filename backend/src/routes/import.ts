@@ -36,8 +36,6 @@ app.post('/preview', async (c) => {
 
   if (rows.length === 0) return c.json({ error: 'CSV is empty or has no data rows' }, 422)
 
-  // parseCsv already normalises headers, so Object.keys gives us the normalised column names.
-  // normalizeHeader sorts and joins them into the fingerprint used for matching.
   const fingerprint = normalizeHeader(Object.keys(rows[0]))
 
   const userParsers = await db

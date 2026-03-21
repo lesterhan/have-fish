@@ -92,6 +92,48 @@ export async function importCommit(body: {
   return res.json()
 }
 
+export type ColumnMapping = {
+  date: string
+  amount: string
+  description?: string | null
+  currency?: string | null
+}
+
+export type CsvParser = {
+  id: string
+  name: string
+  normalizedHeader: string
+  columnMapping: ColumnMapping
+  createdAt: string
+  deletedAt: string | null
+}
+
+export async function fetchParsers(): Promise<CsvParser[]> {
+  const res = await fetch(`${BASE}/api/parsers`, { credentials: 'include' })
+  return res.json()
+}
+
+export async function createParser(body: {
+  name: string
+  normalizedHeader: string
+  columnMapping: ColumnMapping
+}): Promise<CsvParser> {
+  const res = await fetch(`${BASE}/api/parsers`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
+export async function deleteParser(id: string): Promise<void> {
+  await fetch(`${BASE}/api/parsers/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+}
+
 export async function fetchTransactions(accountId?: string) {
   const url = accountId
     ? `${BASE}/api/transactions?accountId=${accountId}`
