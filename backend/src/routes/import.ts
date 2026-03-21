@@ -15,20 +15,17 @@ const app = new Hono<{ Variables: AppVariables }>()
 //
 // Request: multipart/form-data
 //   file            (File)   — the CSV file from the bank
-//   accountId       (string) — UUID of the account this CSV belongs to
 //   defaultCurrency (string) — fallback currency for rows that don't include one
 //
-// Response: { parser: string, transactions: ParsedTransaction[], errors: ParseError[] }
+// Response: { parser: string, defaultAccountId: string|null, transactions: ParsedTransaction[], errors: ParseError[] }
 // Error 422: no saved parser matched this CSV's columns
 app.post('/preview', async (c) => {
   const userId = c.get('userId')
   const form = await c.req.formData()
   const file = form.get('file')
-  const accountId = form.get('accountId')
   const defaultCurrency = form.get('defaultCurrency')
 
   if (!file || typeof file === 'string') return c.json({ error: 'file is required' }, 400)
-  if (!accountId || typeof accountId !== 'string') return c.json({ error: 'accountId is required' }, 400)
   if (!defaultCurrency || typeof defaultCurrency !== 'string') return c.json({ error: 'defaultCurrency is required' }, 400)
 
   const csv = await file.text()
@@ -55,7 +52,7 @@ app.post('/preview', async (c) => {
   const parse = buildParser(matched.columnMapping as ColumnMapping)
   const result = parse(rows)
 
-  return c.json({ parser: matched.name, ...result })
+  return c.json({ parser: matched.name, defaultAccountId: matched.defaultAccountId, ...result })
 })
 
 // POST /api/import/commit
