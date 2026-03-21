@@ -1,89 +1,108 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { fetchAccounts, fetchUserSettings, importPreview, importCommit, type ImportPreviewResult } from '$lib/api'
-  import Button from '$lib/components/Button.svelte'
+  import { onMount } from "svelte";
+  import {
+    fetchAccounts,
+    fetchUserSettings,
+    importPreview,
+    importCommit,
+    type ImportPreviewResult,
+  } from "$lib/api";
+  import Button from "$lib/components/Button.svelte";
 
-  let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([])
-  let sourceAccountId = $state('')
-  let offsetAccountId = $state('')
-  let defaultCurrency = $state('CAD')
-  let file = $state<File | null>(null)
-  let loading = $state(false)
-  let error = $state('')
-  let noParserFound = $state(false)
-  let imported = $state<number | null>(null)
+  let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([]);
+  let sourceAccountId = $state("");
+  let offsetAccountId = $state("");
+  let defaultCurrency = $state("CAD");
+  let file = $state<File | null>(null);
+  let loading = $state(false);
+  let error = $state("");
+  let noParserFound = $state(false);
+  let imported = $state<number | null>(null);
 
-  let preview = $state<ImportPreviewResult | null>(null)
+  let preview = $state<ImportPreviewResult | null>(null);
   // Per-row offset account IDs, seeded from offsetAccountId when preview loads.
-  // The user can override any individual row before confirming.
-  let txOffsets = $state<string[]>([])
+  let txOffsets = $state<string[]>([]);
 
   onMount(async () => {
-    const [accts, settings] = await Promise.all([fetchAccounts(), fetchUserSettings()])
-    accounts = accts
-    offsetAccountId = settings.defaultOffsetAccountId ?? ''
-  })
+    const [accts, settings] = await Promise.all([
+      fetchAccounts(),
+      fetchUserSettings(),
+    ]);
+    accounts = accts;
+    offsetAccountId = settings.defaultOffsetAccountId ?? "";
+  });
 
   async function handleConfirm() {
-    if (!preview) return
+    if (!preview) return;
     if (!sourceAccountId) {
-      error = 'Source account is required.'
-      return
+      error = "Source account is required.";
+      return;
     }
-    if (txOffsets.some(id => !id)) {
-      error = 'All transactions must have an offset account assigned.'
-      return
+    if (txOffsets.some((id) => !id)) {
+      error = "All transactions must have an offset account assigned.";
+      return;
     }
-    loading = true
-    error = ''
+    loading = true;
+    error = "";
     try {
       const result = await importCommit({
         accountId: sourceAccountId,
         defaultCurrency,
-        transactions: preview.transactions.map((tx, i) => ({ ...tx, offsetAccountId: txOffsets[i] })),
-      })
-      imported = result.created
-      preview = null
-      txOffsets = []
+        transactions: preview.transactions.map((tx, i) => ({
+          ...tx,
+          offsetAccountId: txOffsets[i],
+        })),
+      });
+      imported = result.created;
+      preview = null;
+      txOffsets = [];
     } catch (e) {
-      error = 'Import failed. Please try again.'
+      error = "Import failed. Please try again.";
     } finally {
-      loading = false
+      loading = false;
     }
   }
 
   async function handleSubmit() {
     if (!file || !offsetAccountId || !defaultCurrency) {
-      error = 'All fields are required.'
-      return
+      error = "All fields are required.";
+      return;
     }
-    error = ''
-    noParserFound = false
-    loading = true
+    error = "";
+    noParserFound = false;
+    loading = true;
     try {
-      preview = await importPreview(file, defaultCurrency)
-      sourceAccountId = preview.defaultAccountId ?? ''
+      preview = await importPreview(file, defaultCurrency);
+      sourceAccountId = preview.defaultAccountId ?? "";
       // Seed every row with the global offset — user can override per row in the table
-      txOffsets = preview.transactions.map(() => offsetAccountId)
+      txOffsets = preview.transactions.map(() => offsetAccountId);
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Failed to parse the CSV. Please check the file and try again.'
-      noParserFound = error.toLowerCase().includes('no saved parser')
+      error =
+        e instanceof Error
+          ? e.message
+          : "Failed to parse the CSV. Please check the file and try again.";
+      noParserFound = error.toLowerCase().includes("no saved parser");
     } finally {
-      loading = false
+      loading = false;
     }
   }
 
   function handleCancel() {
-    preview = null
-    sourceAccountId = ''
-    txOffsets = []
+    preview = null;
+    sourceAccountId = "";
+    txOffsets = [];
   }
 </script>
 
 <h1>Import</h1>
 
 {#if !preview}
-  <form onsubmit={(e) => { e.preventDefault(); handleSubmit() }}>
+  <form
+    onsubmit={(e) => {
+      e.preventDefault();
+      handleSubmit();
+    }}
+  >
     <label>
       Offset account
       <select bind:value={offsetAccountId} required>
@@ -96,7 +115,12 @@
 
     <label>
       Default currency
-      <input type="text" bind:value={defaultCurrency} placeholder="CAD" required />
+      <input
+        type="text"
+        bind:value={defaultCurrency}
+        placeholder="CAD"
+        required
+      />
     </label>
 
     <label>
@@ -104,7 +128,9 @@
       <input
         type="file"
         accept=".csv"
-        onchange={(e) => { file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null }}
+        onchange={(e) => {
+          file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+        }}
         required
       />
     </label>
@@ -112,12 +138,14 @@
     {#if error}
       <p class="error">{error}</p>
       {#if noParserFound}
-        <p class="hint">Go to <a href="/settings">Settings</a> to create a parser for this file.</p>
+        <p class="hint">
+          Go to <a href="/settings">Settings</a> to create a parser for this file.
+        </p>
       {/if}
     {/if}
 
     <Button type="submit" variant="primary" disabled={loading}>
-      {loading ? 'Parsing…' : 'Preview import'}
+      {loading ? "Parsing…" : "Preview import"}
     </Button>
   </form>
 {:else}
@@ -139,7 +167,9 @@
 
   {#if preview.errors.length > 0}
     <div class="parse-errors">
-      <p>{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
+      <p>
+        {preview.errors.length} row(s) could not be parsed and will be skipped.
+      </p>
       <ul>
         {#each preview.errors as e}
           <li>Row {e.row}: {e.reason}</li>
@@ -156,15 +186,19 @@
           <th class="col-description">Description</th>
           <th class="col-amount">Amount</th>
           <th>Currency</th>
-          <th class="col-offset">Offset account</th>
+          <th class="col-offset">Offset</th>
         </tr>
       </thead>
       <tbody>
         {#each preview.transactions as tx, i}
           <tr>
             <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
-            <td>{tx.description ?? '—'}</td>
-            <td class="cell-amount" class:positive={parseFloat(tx.amount) > 0} class:negative={parseFloat(tx.amount) < 0}>
+            <td>{tx.description ?? "—"}</td>
+            <td
+              class="cell-amount"
+              class:positive={parseFloat(tx.amount) > 0}
+              class:negative={parseFloat(tx.amount) < 0}
+            >
               {tx.amount}
             </td>
             <td>{tx.currency ?? defaultCurrency}</td>
@@ -182,7 +216,9 @@
     </table>
   </div>
 
-  <p class="summary">{preview.transactions.length} transaction(s) ready to import.</p>
+  <p class="summary">
+    {preview.transactions.length} transaction(s) ready to import.
+  </p>
 
   {#if error}
     <p class="error">{error}</p>
@@ -193,15 +229,21 @@
     <Button
       variant="primary"
       onclick={handleConfirm}
-      disabled={loading || preview.transactions.length === 0 || !sourceAccountId || txOffsets.some(id => !id)}
+      disabled={loading ||
+        preview.transactions.length === 0 ||
+        !sourceAccountId ||
+        txOffsets.some((id) => !id)}
     >
-      {loading ? 'Importing…' : 'Confirm import'}
+      {loading ? "Importing…" : "Confirm import"}
     </Button>
   </div>
 {/if}
 
 {#if imported !== null}
-  <p>{imported} transaction(s) imported successfully. <a href="/transactions">View transactions</a></p>
+  <p>
+    {imported} transaction(s) imported successfully.
+    <a href="/transactions">View transactions</a>
+  </p>
 {/if}
 
 <style>
@@ -316,9 +358,15 @@
   }
 
   /* Column sizing hints */
-  .col-description { width: 100%; }   /* takes remaining space */
-  .col-amount      { width: 7rem; }
-  .col-offset      { width: 14rem; }
+  .col-description {
+    width: 100%;
+  } /* takes remaining space */
+  .col-amount {
+    width: 7rem;
+  }
+  .col-offset {
+    min-width: 22rem;
+  }
 
   /* Mono font for ledger-style data */
   .cell-mono {
@@ -332,8 +380,12 @@
     white-space: nowrap;
   }
 
-  .cell-amount.positive { color: var(--color-amount-positive); }
-  .cell-amount.negative { color: var(--color-amount-negative); }
+  .cell-amount.positive {
+    color: var(--color-amount-positive);
+  }
+  .cell-amount.negative {
+    color: var(--color-amount-negative);
+  }
 
   /* Compact select inside each offset cell */
   .offset-select {

@@ -20,7 +20,7 @@ describe('accounts', () => {
     expect(res.status).toBe(200)
     const allAccounts = await res.json() as Account[]
     expect(allAccounts.map(a => a.path)).toEqual(
-      expect.arrayContaining(['expense:uncategorized', 'equity:conversions'])
+      expect.arrayContaining(['expenses:uncategorized', 'equity:conversions'])
     )
   })
 

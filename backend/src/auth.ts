@@ -23,7 +23,7 @@ export const auth = betterAuth({
           const [offsetAccount, conversionAccount] = await db
             .insert(accounts)
             .values([
-              { userId: user.id, path: 'expense:uncategorized' },
+              { userId: user.id, path: 'expenses:uncategorized' },
               { userId: user.id, path: 'equity:conversions' },
             ])
             .returning()
