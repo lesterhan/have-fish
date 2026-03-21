@@ -8,6 +8,7 @@
   const session = useSession();
 
   let maximized = $state(false);
+  let showQuitDialog = $state(false);
 </script>
 
 <div class="desktop" class:maximized>
@@ -18,7 +19,7 @@
       <div class="titlebar-controls">
         <button class="chrome-btn minimize" aria-label="Minimize">_</button>
         <button class="chrome-btn maximize" aria-label="Maximize" onclick={() => maximized = !maximized}>{maximized ? '❐' : '□'}</button>
-        <button class="chrome-btn close" aria-label="Close">✕</button>
+        <button class="chrome-btn close" aria-label="Close" onclick={() => showQuitDialog = true}>✕</button>
       </div>
     </div>
 
@@ -43,6 +44,25 @@
       <span>Ready</span>
     </div>
   </div>
+
+  {#if showQuitDialog}
+    <div class="dialog-overlay">
+      <div class="dialog">
+        <div class="dialog-titlebar">
+          <span class="titlebar-icon">🐟</span>
+          <span>have-fish</span>
+        </div>
+        <div class="dialog-body">
+          <p>Are you sure you want to quit?</p>
+          <p class="dialog-sub">Changes are saved.</p>
+          <div class="dialog-actions">
+            <button class="dialog-btn" onclick={() => window.close()}>Yes</button>
+            <button class="dialog-btn" onclick={() => showQuitDialog = false}>No</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -224,6 +244,74 @@
   }
 
   .window-body::-webkit-scrollbar-button:active {
+    box-shadow: var(--shadow-sunken);
+  }
+
+  /* --- Quit dialog --- */
+  .dialog-overlay {
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.35);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .dialog {
+    background: var(--color-window);
+    box-shadow: var(--shadow-window);
+    min-width: 260px;
+  }
+
+  .dialog-titlebar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: 3px var(--sp-xs);
+    background: linear-gradient(to right, var(--color-titlebar-from), var(--color-titlebar-to));
+    color: var(--color-titlebar-text);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    user-select: none;
+  }
+
+  .dialog-body {
+    padding: var(--sp-lg) var(--sp-lg) var(--sp-md);
+    font-size: var(--text-sm);
+  }
+
+  .dialog-sub {
+    color: var(--color-text-muted);
+    margin-top: var(--sp-xs);
+  }
+
+  .dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-sm);
+    margin-top: var(--sp-md);
+  }
+
+  .dialog-btn {
+    min-width: 5rem;
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window);
+    color: var(--color-text);
+    border: none;
+    box-shadow: var(--shadow-raised);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition:
+      box-shadow var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
+  }
+
+  .dialog-btn:hover {
+    background: var(--color-accent-light);
+  }
+
+  .dialog-btn:active {
     box-shadow: var(--shadow-sunken);
   }
 
