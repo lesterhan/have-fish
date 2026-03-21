@@ -55,7 +55,8 @@
 <style>
   /* --- Desktop --- */
   .desktop {
-    min-height: 100vh;
+    height: 100vh;
+    overflow: hidden;
     display: flex;
     align-items: flex-start;
     justify-content: center;
@@ -67,11 +68,11 @@
   .window {
     width: 100%;
     max-width: 1100px;
+    height: 100%;
     background: var(--color-window);
     box-shadow: var(--shadow-window);
     display: flex;
     flex-direction: column;
-    min-height: calc(100vh - var(--sp-xl) * 2);
   }
 
   /* --- Title bar --- */
@@ -190,8 +191,47 @@
   /* --- Window body --- */
   .window-body {
     flex: 1;
+    overflow-y: auto;
     padding: var(--sp-lg);
     background: var(--color-window-raised);
+  }
+
+  .window-body::-webkit-scrollbar {
+    width: 16px;
+  }
+
+  .window-body::-webkit-scrollbar-track {
+    background: var(--color-window);
+    box-shadow: var(--shadow-sunken);
+  }
+
+  .window-body::-webkit-scrollbar-thumb {
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    min-height: 24px;
+  }
+
+  .window-body::-webkit-scrollbar-thumb:hover {
+    background: var(--color-window-raised);
+  }
+
+  .window-body::-webkit-scrollbar-thumb:active {
+    box-shadow: var(--shadow-sunken);
+  }
+
+  .window-body::-webkit-scrollbar-button {
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    display: block;
+    height: 16px;
+  }
+
+  .window-body::-webkit-scrollbar-button:hover {
+    background: var(--color-window-raised);
+  }
+
+  .window-body::-webkit-scrollbar-button:active {
+    box-shadow: var(--shadow-sunken);
   }
 
   /* --- Status bar --- */
