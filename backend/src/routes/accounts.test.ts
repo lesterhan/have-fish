@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
+import type { accounts } from '../db/schema.ts'
+
+type Account = typeof accounts.$inferSelect
 
 describe('accounts', () => {
   let cookie: string
@@ -10,12 +13,15 @@ describe('accounts', () => {
     cookie = await createTestUser()
   })
 
-  it('GET /api/accounts returns an empty array when there are no accounts', async () => {
+  it('GET /api/accounts returns only default accounts when there are no custom accounts', async () => {
     const res = await app.request('/api/accounts', {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(200)
-    expect(await res.json()).toEqual([])
+    const allAccounts = await res.json() as Account[]
+    expect(allAccounts.map(a => a.path)).toEqual(
+      expect.arrayContaining(['expenses:uncategorized', 'equity:conversions'])
+    )
   })
 
   it('POST /api/accounts creates an account', async () => {
@@ -26,14 +32,16 @@ describe('accounts', () => {
     })
     expect(res.status).toBe(201)
 
-    const created = await res.json()
+    const created = await res.json() as Account
     expect(created.path).toBe('assets:chequing')
     expect(created.userId).toBeDefined()
 
     const getRes = await app.request('/api/accounts', {
       headers: { Cookie: cookie },
     })
-    expect(await getRes.json()).toBeArrayOfSize(1)
+    expect(await getRes.json()).toEqual(expect.arrayContaining([
+      expect.objectContaining(created)
+    ]))
   })
 
   it('DELETE /api/accounts/:id soft-deletes an account', async () => {
@@ -53,6 +61,8 @@ describe('accounts', () => {
     const getRes = await app.request('/api/accounts', {
       headers: { Cookie: cookie },
     })
-    expect(await getRes.json()).toBeArrayOfSize(0)
+
+    const allAccounts = await getRes.json() as Account[]
+    expect(allAccounts.map(a => a.id)).not.toContain(created.id)
   })
 })
