@@ -57,18 +57,17 @@ export type ParsedTransaction = {
 
 export type ImportPreviewResult = {
   parser: string
+  defaultAccountId: string | null
   transactions: ParsedTransaction[]
   errors: { row: number; reason: string }[]
 }
 
 export async function importPreview(
   file: File,
-  accountId: string,
   defaultCurrency: string,
 ): Promise<ImportPreviewResult> {
   const form = new FormData()
   form.append('file', file)
-  form.append('accountId', accountId)
   form.append('defaultCurrency', defaultCurrency)
   const res = await fetch(`${BASE}/api/import/preview`, {
     method: 'POST',
@@ -109,6 +108,7 @@ export type CsvParser = {
   name: string
   normalizedHeader: string
   columnMapping: ColumnMapping
+  defaultAccountId: string | null
   createdAt: string
   deletedAt: string | null
 }
@@ -118,10 +118,21 @@ export async function fetchParsers(): Promise<CsvParser[]> {
   return res.json()
 }
 
+export async function updateParser(id: string, body: { defaultAccountId: string | null }): Promise<CsvParser> {
+  const res = await fetch(`${BASE}/api/parsers/${id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  return res.json()
+}
+
 export async function createParser(body: {
   name: string
   normalizedHeader: string
   columnMapping: ColumnMapping
+  defaultAccountId?: string | null
 }): Promise<CsvParser> {
   const res = await fetch(`${BASE}/api/parsers`, {
     method: 'POST',
