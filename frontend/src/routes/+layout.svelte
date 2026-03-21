@@ -18,19 +18,32 @@
       <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
         <button class="chrome-btn minimize" aria-label="Minimize">_</button>
-        <button class="chrome-btn maximize" aria-label="Maximize" onclick={() => maximized = !maximized}>{maximized ? '❐' : '□'}</button>
-        <button class="chrome-btn close" aria-label="Close" onclick={() => showQuitDialog = true}>✕</button>
+        <button
+          class="chrome-btn maximize"
+          aria-label="Maximize"
+          onclick={() => (maximized = !maximized)}
+          >{maximized ? "❐" : "□"}</button
+        >
+        <button
+          class="chrome-btn close"
+          aria-label="Close"
+          onclick={() => (showQuitDialog = true)}>✕</button
+        >
       </div>
     </div>
 
     <nav class="menubar">
-      <a href="/">Dashboard</a>
-      <a href="/accounts">Accounts</a>
-      <a href="/transactions">Transactions</a>
-      <a href="/import">Import</a>
+      {#if $session.data}
+        <a href="/">Dashboard</a>
+        <a href="/accounts">Accounts</a>
+        <a href="/transactions">Transactions</a>
+        <a href="/import">Import</a>
+      {/if}
       <span class="menubar-spacer"></span>
       {#if $session.data}
-        <a href="/settings" class="menubar-settings">🔧 {$session.data.user.email}</a>
+        <a href="/settings" class="menubar-settings">
+          🔧 {$session.data.user.email}
+        </a>
       {:else}
         <a href="/login">Sign in</a>
       {/if}
@@ -56,8 +69,12 @@
           <p>Are you sure you want to quit?</p>
           <p class="dialog-sub">Changes are saved.</p>
           <div class="dialog-actions">
-            <button class="dialog-btn" onclick={() => window.close()}>Yes</button>
-            <button class="dialog-btn" onclick={() => showQuitDialog = false}>No</button>
+            <button class="dialog-btn" onclick={() => window.close()}>
+              Yes
+            </button>
+            <button class="dialog-btn" onclick={() => (showQuitDialog = false)}>
+              No
+            </button>
           </div>
         </div>
       </div>
@@ -268,7 +285,11 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: 3px var(--sp-xs);
-    background: linear-gradient(to right, var(--color-titlebar-from), var(--color-titlebar-to));
+    background: linear-gradient(
+      to right,
+      var(--color-titlebar-from),
+      var(--color-titlebar-to)
+    );
     color: var(--color-titlebar-text);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
