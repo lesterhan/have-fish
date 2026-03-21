@@ -47,14 +47,11 @@
     cursor: pointer;
     user-select: none;
 
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease),
-      color var(--duration-fast) var(--ease);
+    transition: box-shadow var(--duration-fast) var(--ease);
   }
 
   .btn:hover:not(:disabled) {
-    background: var(--color-accent-light);
+    background: var(--color-window-raised);
   }
 
   .btn:active:not(:disabled) {
@@ -78,13 +75,11 @@
 
   /* Primary — default action in a dialog, XP blue */
   .btn.primary {
-    background: var(--color-accent-light);
     font-weight: var(--weight-semibold);
   }
 
   .btn.primary:hover:not(:disabled) {
-    background: var(--color-accent-mid);
-    color: var(--color-text-on-dark);
+    background: var(--color-window-raised);
   }
 
   .btn.primary:active:not(:disabled) {
@@ -95,8 +90,7 @@
 
   /* Danger — destructive actions */
   .btn.danger:hover:not(:disabled) {
-    background: var(--color-danger-light);
-    color: var(--color-danger);
+    background: var(--color-window-raised);
   }
 
   .btn.danger:active:not(:disabled) {
