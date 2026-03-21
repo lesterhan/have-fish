@@ -3,7 +3,7 @@ import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 
 const validParser = {
-  name: 'TD Chequing',
+  name: 'Big Bank Chequing',
   normalizedHeader: 'amount|date|description',
   columnMapping: { date: 'date', amount: 'amount', description: 'description' },
 }

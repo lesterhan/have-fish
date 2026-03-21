@@ -1,8 +1,26 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
-import { readFileSync } from 'fs'
-import { join } from 'path'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
+
+// Minimal CSV that matches the parser we create in tests.
+// Headers: Date, Amount, Description — normalised fingerprint: amount|date|description
+const TEST_CSV = `Date,Amount,Description
+2026-02-01,-42.50,Coffee
+2026-02-02,100.00,Salary`
+
+const TEST_PARSER = {
+  name: 'Test Bank',
+  normalizedHeader: 'amount|date|description',
+  columnMapping: { date: 'date', amount: 'amount', description: 'description' },
+}
+
+async function createParser(cookie: string) {
+  return app.request('/api/parsers', {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify(TEST_PARSER),
+  })
+}
 
 async function createAccount(cookie: string, path: string) {
   const res = await app.request('/api/accounts', {
@@ -13,8 +31,13 @@ async function createAccount(cookie: string, path: string) {
   return res.json()
 }
 
-const fixture = (name: string) =>
-  readFileSync(join(import.meta.dir, '../import/fixtures', name), 'utf-8')
+function csvForm(csv: string) {
+  const form = new FormData()
+  form.append('file', new Blob([csv], { type: 'text/csv' }), 'export.csv')
+  form.append('accountId', 'any-account-id')
+  form.append('defaultCurrency', 'CAD')
+  return form
+}
 
 describe('POST /api/import/preview', () => {
   let cookie: string
@@ -24,23 +47,45 @@ describe('POST /api/import/preview', () => {
     cookie = await createTestUser()
   })
 
-  it('parses a WealthSimple CSV and returns transactions', async () => {
-    const form = new FormData()
-    form.append('file', new Blob([fixture('ws-sample.csv')], { type: 'text/csv' }), 'ws-sample.csv')
-    form.append('accountId', 'some-account-id')
-    form.append('defaultCurrency', 'CAD')
+  it('returns 422 when no saved parser matches the CSV', async () => {
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    expect(res.status).toBe(422)
+    const body = await res.json()
+    expect(body.error).toMatch(/no saved parser/i)
+  })
+
+  it('parses the CSV using the matching saved parser', async () => {
+    await createParser(cookie)
 
     const res = await app.request('/api/import/preview', {
       method: 'POST',
       headers: { Cookie: cookie },
-      body: form,
+      body: csvForm(TEST_CSV),
     })
 
     expect(res.status).toBe(200)
     const body = await res.json()
-    expect(body.transactions).toBeArray()
-    expect(body.transactions.length).toBeGreaterThan(0)
-    expect(body.errors).toBeArray()
+    expect(body.parser).toBe('Test Bank')
+    expect(body.transactions).toBeArrayOfSize(2)
+    expect(body.errors).toBeArrayOfSize(0)
+    expect(body.transactions[0].description).toBe('Coffee')
+    expect(body.transactions[0].amount).toBe('-42.50')
+  })
+
+  it('does not use a parser belonging to another user', async () => {
+    const otherCookie = await createTestUser('other@example.com')
+    await createParser(otherCookie)
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    expect(res.status).toBe(422)
   })
 })
 
@@ -53,7 +98,7 @@ describe('POST /api/import/commit', () => {
   })
 
   it('writes transactions and postings to the database', async () => {
-    const source = await createAccount(cookie, 'assets:ws:cad')
+    const source = await createAccount(cookie, 'assets:chequing')
     const offset = await createAccount(cookie, 'expenses:uncategorized')
 
     const parsed = [
@@ -81,7 +126,7 @@ describe('POST /api/import/commit', () => {
       expect(Math.abs(sum)).toBeLessThan(0.001)
     }
 
-    // Spot-check the Coffee transaction: source gets -50, offset gets +50
+    // Spot-check: source gets -50, offset gets +50
     const coffee = txs.find((tx: { description: string }) => tx.description === 'Coffee')
     expect(coffee.postings).toEqual(expect.arrayContaining([
       expect.objectContaining({ accountId: source.id, amount: '-50.00', currency: 'CAD' }),
