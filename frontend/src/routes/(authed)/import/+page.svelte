@@ -4,6 +4,7 @@
   import Button from '$lib/components/Button.svelte'
 
   let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([])
+  // sourceAccountId moves to the preview stage — auto-filled from the matched parser
   let sourceAccountId = $state('')
   let offsetAccountId = $state('')
   let defaultCurrency = $state('CAD')
@@ -13,7 +14,6 @@
   let noParserFound = $state(false)
   let imported = $state<number | null>(null)
 
-  // Populated after the user submits the form — hands off to the preview/confirm section below
   let preview = $state<ImportPreviewResult | null>(null)
 
   onMount(async () => {
@@ -22,6 +22,10 @@
 
   async function handleConfirm() {
     if (!preview) return
+    if (!sourceAccountId || !offsetAccountId) {
+      error = 'Source and offset accounts are required.'
+      return
+    }
     loading = true
     error = ''
     try {
@@ -41,7 +45,7 @@
   }
 
   async function handleSubmit() {
-    if (!file || !sourceAccountId || !offsetAccountId || !defaultCurrency) {
+    if (!file || !offsetAccountId || !defaultCurrency) {
       error = 'All fields are required.'
       return
     }
@@ -49,7 +53,9 @@
     noParserFound = false
     loading = true
     try {
-      preview = await importPreview(file, sourceAccountId, defaultCurrency)
+      preview = await importPreview(file, defaultCurrency)
+      // Pre-fill source account from the matched parser's default, if set
+      sourceAccountId = preview.defaultAccountId ?? ''
     } catch (e) {
       error = e instanceof Error ? e.message : 'Failed to parse the CSV. Please check the file and try again.'
       noParserFound = error.toLowerCase().includes('no saved parser')
@@ -63,16 +69,6 @@
 
 {#if !preview}
   <form onsubmit={(e) => { e.preventDefault(); handleSubmit() }}>
-    <label>
-      Source account
-      <select bind:value={sourceAccountId} required>
-        <option value="">Select an account…</option>
-        {#each accounts as account}
-          <option value={account.id}>{account.path}</option>
-        {/each}
-      </select>
-    </label>
-
     <label>
       Offset account
       <select bind:value={offsetAccountId} required>
@@ -113,6 +109,19 @@
   <h2>Preview</h2>
   <p class="parser-tag">Parser: <strong>{preview.parser}</strong></p>
 
+  <div class="account-row">
+    <label for="source-account">
+      Source account
+      {#if !sourceAccountId}<span class="required">*</span>{/if}
+    </label>
+    <select id="source-account" bind:value={sourceAccountId}>
+      <option value="">Select an account…</option>
+      {#each accounts as account}
+        <option value={account.id}>{account.path}</option>
+      {/each}
+    </select>
+  </div>
+
   {#if preview.errors.length > 0}
     <p class="error">{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
     <ul class="error">
@@ -149,8 +158,12 @@
     <p class="error">{error}</p>
   {/if}
 
-  <Button onclick={() => { preview = null }}>Cancel</Button>
-  <Button variant="primary" onclick={handleConfirm} disabled={loading || preview.transactions.length === 0}>
+  <Button onclick={() => { preview = null; sourceAccountId = '' }}>Cancel</Button>
+  <Button
+    variant="primary"
+    onclick={handleConfirm}
+    disabled={loading || preview.transactions.length === 0 || !sourceAccountId}
+  >
     {loading ? 'Importing…' : 'Confirm import'}
   </Button>
 {/if}
@@ -170,5 +183,38 @@
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     margin-top: var(--sp-xs);
+  }
+
+  .account-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    margin-bottom: var(--sp-md);
+    font-size: var(--text-sm);
+  }
+
+  .account-row label {
+    min-width: 10rem;
+    text-align: right;
+  }
+
+  .account-row select {
+    flex: 1;
+    font-size: var(--text-sm);
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window-raised);
+    box-shadow: var(--shadow-sunken);
+    border: none;
+    color: var(--color-text);
+    font-family: inherit;
+  }
+
+  .account-row select:focus {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -2px;
+  }
+
+  .required {
+    color: var(--color-amount-negative);
   }
 </style>
