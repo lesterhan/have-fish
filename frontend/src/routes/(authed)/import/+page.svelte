@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { fetchAccounts, importPreview, importCommit, type ImportPreviewResult } from '$lib/api'
+  import { fetchAccounts, fetchUserSettings, importPreview, importCommit, type ImportPreviewResult } from '$lib/api'
   import Button from '$lib/components/Button.svelte'
 
   let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([])
@@ -16,7 +16,9 @@
   let preview = $state<ImportPreviewResult | null>(null)
 
   onMount(async () => {
-    accounts = await fetchAccounts()
+    const [accts, settings] = await Promise.all([fetchAccounts(), fetchUserSettings()])
+    accounts = accts
+    offsetAccountId = settings.defaultOffsetAccountId ?? ''
   })
 
   async function handleConfirm() {
