@@ -358,7 +358,7 @@
     width: 7rem;
   }
   .col-offset {
-    min-width: 22rem;
+    min-width: 18rem;
   }
 
   /* Mono font for ledger-style data */
