@@ -36,6 +36,18 @@
     return i >= 0 ? text.slice(0, i + 1) : text;
   }
 
+  // Subsequence fuzzy match: returns true if every character of needle
+  // appears in haystack in order (not necessarily consecutively).
+  // e.g. "expenses:veg" matches "expenses:groceries:veg"
+  function fuzzyMatch(haystack: string, needle: string): boolean {
+    let hi = 0, ni = 0;
+    while (hi < haystack.length && ni < needle.length) {
+      if (haystack[hi] === needle[ni]) ni++;
+      hi++;
+    }
+    return ni === needle.length;
+  }
+
   // Keep inputText in sync when value changes externally.
   // Do NOT read inputText here — that would make it a dependency and
   // cause the effect to reset the field on every keystroke.
@@ -57,7 +69,7 @@
     const needle = filterText.trim().toLowerCase();
 
     const matched: ExistingOption[] = accounts
-      .filter((a) => a.path.toLowerCase().includes(needle))
+      .filter((a) => fuzzyMatch(a.path.toLowerCase(), needle))
       .map((a) => ({ kind: "existing", account: a }));
 
     // Create option is based on the full inputText, not the filter prefix.
