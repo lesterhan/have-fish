@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { fetchAccounts, createAccount, deleteAccount, fetchParsers, createParser, deleteParser, updateParser } from '$lib/api'
-  import type { CsvParser } from '$lib/api'
+  import { fetchAccounts, createAccount, deleteAccount, fetchParsers, createParser, deleteParser, updateParser, fetchUserSettings, updateUserSettings } from '$lib/api'
+  import type { CsvParser, UserSettings } from '$lib/api'
   import Button from '$lib/components/Button.svelte'
   import { signOut, useSession } from '$lib/auth'
   import { goto } from '$app/navigation'
@@ -13,13 +13,22 @@
     goto('/login')
   }
 
+  // --- Defaults ---
+  let userSettings = $state<UserSettings | null>(null)
+
   // --- Accounts ---
   let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([])
   let newAccountPath = $state('')
 
   onMount(async () => {
-    accounts = await fetchAccounts()
-    parsers = await fetchParsers()
+    const [accts, parsersData, settings] = await Promise.all([
+      fetchAccounts(),
+      fetchParsers(),
+      fetchUserSettings(),
+    ])
+    accounts = accts
+    parsers = parsersData
+    userSettings = settings
   })
 
   async function handleCreateAccount() {
@@ -106,6 +115,10 @@
     parsers = parsers.map((p) => (p.id === id ? updated : p))
   }
 
+  async function handleDefaultChange(field: 'defaultOffsetAccountId' | 'defaultConversionAccountId', accountId: string) {
+    userSettings = await updateUserSettings({ [field]: accountId || null })
+  }
+
 </script>
 
 {#if $session.data}
@@ -114,6 +127,35 @@
     <Button variant="danger" onclick={handleSignOut}>Sign out</Button>
   </div>
 {/if}
+
+<section>
+  <h2>Defaults</h2>
+  <div class="defaults-grid">
+    <label for="default-offset">Offset account</label>
+    <select
+      id="default-offset"
+      value={userSettings?.defaultOffsetAccountId ?? ''}
+      onchange={(e) => handleDefaultChange('defaultOffsetAccountId', (e.currentTarget as HTMLSelectElement).value)}
+    >
+      <option value="">— none —</option>
+      {#each accounts as account}
+        <option value={account.id}>{account.path}</option>
+      {/each}
+    </select>
+
+    <label for="default-conversion">Conversion account</label>
+    <select
+      id="default-conversion"
+      value={userSettings?.defaultConversionAccountId ?? ''}
+      onchange={(e) => handleDefaultChange('defaultConversionAccountId', (e.currentTarget as HTMLSelectElement).value)}
+    >
+      <option value="">— none —</option>
+      {#each accounts as account}
+        <option value={account.id}>{account.path}</option>
+      {/each}
+    </select>
+  </div>
+</section>
 
 <section>
   <h2>Accounts</h2>
@@ -232,6 +274,18 @@
   .user-banner h1 {
     font-size: var(--text-base);
     font-weight: bold;
+  }
+
+  .defaults-grid {
+    display: grid;
+    grid-template-columns: 12rem 1fr;
+    gap: var(--sp-xs) var(--sp-sm);
+    align-items: center;
+  }
+
+  .defaults-grid label {
+    font-size: var(--text-sm);
+    text-align: right;
   }
 
   section {
