@@ -134,7 +134,11 @@
   }
 </script>
 
-<div class="wrapper">
+{#if open}
+  <div class="backdrop"></div>
+{/if}
+
+<div class="wrapper" class:elevated={open}>
   <input
     type="text"
     class="path-input"
@@ -170,7 +174,7 @@
           {#if option.kind === "existing"}
             {option.account.path}
           {:else}
-            Press Enter to create '{option.path}'
+            Create new account '{option.path}'
           {/if}
         </li>
       {/each}
@@ -179,9 +183,20 @@
 </div>
 
 <style>
+  .backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 50;
+    background: rgba(0, 0, 0, 0.25);
+  }
+
   .wrapper {
     position: relative;
     width: 100%;
+  }
+
+  .wrapper.elevated {
+    z-index: 51;
   }
 
   .path-input {

@@ -11,8 +11,8 @@
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
 
   let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([]);
-  let sourceAccountId = $state("");
-  let offsetAccountId = $state("");
+  let fromAccountId = $state("");
+  let toAccountId = $state("");
   let defaultCurrency = $state("CAD");
   let file = $state<File | null>(null);
   let loading = $state(false);
@@ -21,8 +21,8 @@
   let imported = $state<number | null>(null);
 
   let preview = $state<ImportPreviewResult | null>(null);
-  // Per-row offset account IDs, seeded from offsetAccountId when preview loads.
-  let txOffsets = $state<string[]>([]);
+  // Per-row "to account" IDs, seeded from toAccountId when preview loads.
+  let txToAccounts = $state<string[]>([]);
 
   onMount(async () => {
     const [accts, settings] = await Promise.all([
@@ -30,33 +30,33 @@
       fetchUserSettings(),
     ]);
     accounts = accts;
-    offsetAccountId = settings.defaultOffsetAccountId ?? "";
+    toAccountId = settings.defaultOffsetAccountId ?? "";
   });
 
   async function handleConfirm() {
     if (!preview) return;
-    if (!sourceAccountId) {
-      error = "Source account is required.";
+    if (!fromAccountId) {
+      error = "From account is required.";
       return;
     }
-    if (txOffsets.some((id) => !id)) {
-      error = "All transactions must have an offset account assigned.";
+    if (txToAccounts.some((id) => !id)) {
+      error = "All transactions must have a To account assigned.";
       return;
     }
     loading = true;
     error = "";
     try {
       const result = await importCommit({
-        accountId: sourceAccountId,
+        accountId: fromAccountId,
         defaultCurrency,
         transactions: preview.transactions.map((tx, i) => ({
           ...tx,
-          offsetAccountId: txOffsets[i],
+          offsetAccountId: txToAccounts[i],
         })),
       });
       imported = result.created;
       preview = null;
-      txOffsets = [];
+      txToAccounts = [];
     } catch (e) {
       error = "Import failed. Please try again.";
     } finally {
@@ -65,7 +65,7 @@
   }
 
   async function handleSubmit() {
-    if (!file || !offsetAccountId || !defaultCurrency) {
+    if (!file || !toAccountId || !defaultCurrency) {
       error = "All fields are required.";
       return;
     }
@@ -74,9 +74,9 @@
     loading = true;
     try {
       preview = await importPreview(file, defaultCurrency);
-      sourceAccountId = preview.defaultAccountId ?? "";
-      // Seed every row with the global offset — user can override per row in the table
-      txOffsets = preview.transactions.map(() => offsetAccountId);
+      fromAccountId = preview.defaultAccountId ?? "";
+      // Seed every row with the global to account — user can override per row in the table
+      txToAccounts = preview.transactions.map(() => toAccountId);
     } catch (e) {
       error =
         e instanceof Error
@@ -94,8 +94,8 @@
 
   function handleCancel() {
     preview = null;
-    sourceAccountId = "";
-    txOffsets = [];
+    fromAccountId = "";
+    txToAccounts = [];
   }
 </script>
 
@@ -109,10 +109,10 @@
     }}
   >
     <label>
-      Offset account
+      To account
       <AccountPathInput
         {accounts}
-        bind:value={offsetAccountId}
+        bind:value={toAccountId}
         placeholder="Select or create an account…"
         oncreate={handleAccountCreated}
       />
@@ -158,13 +158,13 @@
   <p class="parser-tag">Parser: <strong>{preview.parser}</strong></p>
 
   <div class="account-row">
-    <label for="source-account">
-      Source account
-      {#if !sourceAccountId}<span class="required">*</span>{/if}
+    <label for="from-account">
+      From account
+      {#if !fromAccountId}<span class="required">*</span>{/if}
     </label>
     <AccountPathInput
       {accounts}
-      bind:value={sourceAccountId}
+      bind:value={fromAccountId}
       placeholder="Select or create an account…"
       oncreate={handleAccountCreated}
     />
@@ -191,7 +191,7 @@
           <th class="col-description">Description</th>
           <th class="col-amount">Amount</th>
           <th>Currency</th>
-          <th class="col-offset">Offset</th>
+          <th class="col-offset">To account</th>
         </tr>
       </thead>
       <tbody>
@@ -210,7 +210,7 @@
             <td class="cell-offset">
               <AccountPathInput
                 {accounts}
-                bind:value={txOffsets[i]}
+                bind:value={txToAccounts[i]}
                 placeholder="Select or create…"
                 oncreate={handleAccountCreated}
               />
@@ -236,8 +236,8 @@
       onclick={handleConfirm}
       disabled={loading ||
         preview.transactions.length === 0 ||
-        !sourceAccountId ||
-        txOffsets.some((id) => !id)}
+        !fromAccountId ||
+        txToAccounts.some((id) => !id)}
     >
       {loading ? "Importing…" : "Confirm import"}
     </Button>
@@ -264,7 +264,7 @@
     margin-top: var(--sp-xs);
   }
 
-  /* --- Source account selector row --- */
+  /* --- From account selector row --- */
 
   .account-row {
     display: flex;
