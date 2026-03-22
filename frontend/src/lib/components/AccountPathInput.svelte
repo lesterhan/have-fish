@@ -23,9 +23,18 @@
   // The text the user sees / types in the input field.
   // Initialised from the currently-selected account's path (if any).
   let inputText = $state(accounts.find((a) => a.id === value)?.path ?? "");
+  let filterText = $state("");
   let open = $state(false);
   let activeIndex = $state(0);
   let creating = $state(false);
+
+  // Returns the text up to and including the last colon, or the full text
+  // if there is no colon. Used to seed filterText on focus so that sibling
+  // accounts at the same hierarchy level are shown immediately.
+  function prefixUpToLastColon(text: string): string {
+    const i = text.lastIndexOf(":");
+    return i >= 0 ? text.slice(0, i + 1) : text;
+  }
 
   // Keep inputText in sync when value changes externally.
   // Do NOT read inputText here — that would make it a dependency and
@@ -44,14 +53,18 @@
   type Option = ExistingOption | CreateOption;
 
   let options = $derived.by<Option[]>(() => {
-    const needle = inputText.trim().toLowerCase();
+    // Filter by filterText (prefix on focus, full text while typing).
+    const needle = filterText.trim().toLowerCase();
 
     const matched: ExistingOption[] = accounts
       .filter((a) => a.path.toLowerCase().includes(needle))
       .map((a) => ({ kind: "existing", account: a }));
 
-    const exactMatch = accounts.some((a) => a.path.toLowerCase() === needle);
-    const showCreate = needle.length > 0 && !exactMatch;
+    // Create option is based on the full inputText, not the filter prefix.
+    const exactMatch = accounts.some(
+      (a) => a.path.toLowerCase() === inputText.trim().toLowerCase()
+    );
+    const showCreate = inputText.trim().length > 0 && !exactMatch;
 
     return showCreate
       ? [...matched, { kind: "create", path: inputText.trim() }]
@@ -66,11 +79,13 @@
   // --- Input handlers ---
 
   function handleInput() {
+    filterText = inputText;
     open = true;
     activeIndex = 0;
   }
 
   function handleFocus() {
+    filterText = prefixUpToLastColon(inputText);
     open = true;
   }
 
