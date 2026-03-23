@@ -24,17 +24,20 @@ app.use('*', logger())
 
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
-// Better Auth handles all /api/auth/** routes (sign-in, sign-up, sign-out, session, etc.)
-app.on(['GET', 'POST'], '/api/auth/**', (c) => auth.handler(c.req.raw))
-
-// Protect all /api/* routes (except /api/auth/*) — reject requests without a valid session.
-// Stores the authenticated user's ID on context so route handlers can scope queries.
+// Protect all /api/* routes except /api/auth/** — reject requests without a valid session.
+// Registered before the auth handler so Hono's middleware-first execution model works correctly.
+// The path guard is explicit rather than relying on registration order, which can break when
+// sub-routers add wildcard or parameterised routes.
 app.use('/api/*', async (c, next) => {
+  if (c.req.path.startsWith('/api/auth/')) return next()
   const session = await auth.api.getSession({ headers: c.req.raw.headers })
   if (!session) return c.json({ error: 'Unauthorized' }, 401)
   c.set('userId', session.user.id)
   return next()
 })
+
+// Better Auth handles all /api/auth/** routes (sign-in, sign-up, sign-out, session, etc.)
+app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
 
 app.route('/api/accounts', accountsRoute)
 app.route('/api/transactions', transactionsRoute)
