@@ -159,6 +159,7 @@ export type UserSettings = {
   userId: string
   defaultOffsetAccountId: string | null
   defaultConversionAccountId: string | null
+  defaultAssetsRootPath: string
   createdAt: string
   updatedAt: string
 }
@@ -169,7 +170,7 @@ export async function fetchUserSettings(): Promise<UserSettings> {
 }
 
 export async function updateUserSettings(
-  body: Partial<Pick<UserSettings, 'defaultOffsetAccountId' | 'defaultConversionAccountId'>>,
+  body: Partial<Pick<UserSettings, 'defaultOffsetAccountId' | 'defaultConversionAccountId' | 'defaultAssetsRootPath'>>,
 ): Promise<UserSettings> {
   const res = await fetch(`${BASE}/api/user-settings`, {
     method: 'PATCH',
@@ -177,6 +178,17 @@ export async function updateUserSettings(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  return res.json()
+}
+
+export type AccountBalance = {
+  id: string
+  path: string
+  balances: { currency: string; amount: string }[]
+}
+
+export async function fetchAccountBalances(): Promise<AccountBalance[]> {
+  const res = await fetch(`${BASE}/api/accounts/balances`, { credentials: 'include' })
   return res.json()
 }
 
