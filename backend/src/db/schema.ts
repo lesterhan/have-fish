@@ -105,6 +105,8 @@ export const userSettings = pgTable('user_settings', {
   userId: text('user_id').notNull().unique().references(() => user.id, { onDelete: 'cascade' }),
   defaultOffsetAccountId: uuid('default_offset_account_id').references(() => accounts.id),
   defaultConversionAccountId: uuid('default_conversion_account_id').references(() => accounts.id),
+  // All accounts whose path starts with defaultAssetsRootPath value are treated as assets.
+  defaultAssetsRootPath: text('default_assets_root_path').notNull().default('assets'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

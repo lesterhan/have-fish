@@ -28,18 +28,19 @@ app.get('/', async (c) => {
 })
 
 // PATCH /api/user-settings
-// Updates one or both default account references.
-// Pass null to clear a default. Unknown keys are ignored.
+// Updates user settings fields. Unknown keys are ignored.
 //
 // Request body (JSON), all optional:
 //   defaultOffsetAccountId     — UUID of an account owned by the user, or null
 //   defaultConversionAccountId — UUID of an account owned by the user, or null
+//   defaultAssetsRootPath      — plain text path prefix, e.g. "assets"
 app.patch('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
 
   const patch: Partial<typeof userSettings.$inferInsert> = {}
 
+  // Account UUID fields — must reference an account owned by this user
   for (const field of ['defaultOffsetAccountId', 'defaultConversionAccountId'] as const) {
     if (!(field in body)) continue
     const value = body[field]
@@ -62,6 +63,15 @@ app.patch('/', async (c) => {
     if (!account) return c.json({ error: `account not found: ${field}` }, 400)
 
     patch[field] = value
+  }
+
+  // Plain text fields
+  if ('defaultAssetsRootPath' in body) {
+    const value = body.defaultAssetsRootPath
+    if (typeof value !== 'string' || !value.trim()) {
+      return c.json({ error: 'defaultAssetsRootPath must be a non-empty string' }, 400)
+    }
+    patch.defaultAssetsRootPath = value.trim()
   }
 
   if (Object.keys(patch).length === 0) {
