@@ -35,7 +35,7 @@
     <nav class="menubar">
       {#if $session.data}
         <a href="/">Dashboard</a>
-        <a href="/accounts">Accounts</a>
+        <a href="/assets">Assets</a>
         <a href="/transactions">Transactions</a>
         <a href="/import">Import</a>
       {/if}

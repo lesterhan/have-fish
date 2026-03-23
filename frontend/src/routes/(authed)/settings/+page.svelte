@@ -119,6 +119,11 @@
     userSettings = await updateUserSettings({ [field]: accountId || null })
   }
 
+  async function handleAssetsRootPathChange(value: string) {
+    if (!value.trim()) return
+    userSettings = await updateUserSettings({ defaultAssetsRootPath: value.trim() })
+  }
+
 </script>
 
 {#if $session.data}
@@ -154,6 +159,15 @@
         <option value={account.id}>{account.path}</option>
       {/each}
     </select>
+
+    <label for="assets-root-path">Assets root path</label>
+    <input
+      id="assets-root-path"
+      type="text"
+      value={userSettings?.defaultAssetsRootPath ?? 'assets'}
+      onblur={(e) => handleAssetsRootPathChange((e.currentTarget as HTMLInputElement).value)}
+      placeholder="assets"
+    />
   </div>
 </section>
 
