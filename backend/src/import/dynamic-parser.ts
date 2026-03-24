@@ -1,4 +1,4 @@
-import type { ColumnMapping, ParsedTransaction, ParseError, ParseResult } from './types'
+import type { ColumnMapping, ParsedTransaction, RegularParsedTransaction, TransferParsedTransaction, ParseError, ParseResult } from './types'
 
 // Builds a row-parsing function from a stored ColumnMapping.
 //
@@ -6,8 +6,19 @@ import type { ColumnMapping, ParsedTransaction, ParseError, ParseResult } from '
 // with normalized header keys — and maps each row to a ParsedTransaction using
 // the column names recorded in the mapping.
 //
+// When transfer columns are mapped and a row has sourceCurrency ≠ targetCurrency,
+// the row is emitted as a TransferParsedTransaction instead of a regular one.
+//
 // Rows that fail validation are collected as ParseErrors.
 export function buildParser(columnMapping: ColumnMapping): (rows: Record<string, string>[]) => ParseResult {
+  // Pre-compute whether this mapping has transfer columns configured
+  const hasTransferColumns = !!(
+    columnMapping.sourceAmount &&
+    columnMapping.sourceCurrency &&
+    columnMapping.targetAmount &&
+    columnMapping.targetCurrency
+  )
+
   return function parseRows(rows: Record<string, string>[]): ParseResult {
     const transactions: ParsedTransaction[] = []
     const errors: ParseError[] = []
@@ -23,7 +34,53 @@ export function buildParser(columnMapping: ColumnMapping): (rows: Record<string,
         return
       }
 
-      // --- amount ---
+      const description = columnMapping.description ? (row[columnMapping.description] ?? undefined) : undefined
+
+      // --- currency transfer row ---
+      if (hasTransferColumns) {
+        const sourceCurrency = row[columnMapping.sourceCurrency!]?.trim()
+        const targetCurrency = row[columnMapping.targetCurrency!]?.trim()
+
+        if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
+          const rawSourceAmount = row[columnMapping.sourceAmount!]
+          const sourceAmountVal = parseFloat(rawSourceAmount)
+          if (!rawSourceAmount || isNaN(sourceAmountVal)) {
+            errors.push({ row: rowNumber, reason: `invalid sourceAmount: "${rawSourceAmount}"` })
+            return
+          }
+
+          const rawTargetAmount = row[columnMapping.targetAmount!]
+          const targetAmountVal = parseFloat(rawTargetAmount)
+          if (!rawTargetAmount || isNaN(targetAmountVal)) {
+            errors.push({ row: rowNumber, reason: `invalid targetAmount: "${rawTargetAmount}"` })
+            return
+          }
+
+          const tx: TransferParsedTransaction = {
+            isTransfer: true,
+            date: date.toISOString(),
+            description,
+            sourceAmount: (-Math.abs(sourceAmountVal)).toFixed(2), // always negative (leaving source)
+            sourceCurrency,
+            targetAmount: Math.abs(targetAmountVal).toFixed(2),    // always positive (arriving at target)
+            targetCurrency,
+          }
+
+          if (columnMapping.feeAmount) {
+            const rawFee = row[columnMapping.feeAmount]
+            const feeVal = parseFloat(rawFee)
+            if (rawFee && !isNaN(feeVal)) {
+              tx.feeAmount = Math.abs(feeVal).toFixed(2) // fee is always a positive expense amount
+              tx.feeCurrency = columnMapping.feeCurrency ? (row[columnMapping.feeCurrency]?.trim() ?? sourceCurrency) : sourceCurrency
+            }
+          }
+
+          transactions.push(tx)
+          return
+        }
+      }
+
+      // --- regular transaction row ---
       const rawAmount = row[columnMapping.amount]
       const amount = parseFloat(rawAmount)
       if (!rawAmount || isNaN(amount)) {
@@ -31,13 +88,11 @@ export function buildParser(columnMapping: ColumnMapping): (rows: Record<string,
         return
       }
 
-      const tx: ParsedTransaction = {
+      const tx: RegularParsedTransaction = {
+        isTransfer: false,
         date: date.toISOString(),
         amount: amount.toFixed(2), // -19.9 fixed to '-19.90'
-      }
-
-      if (columnMapping.description) {
-        tx.description = row[columnMapping.description] ?? undefined
+        description,
       }
 
       if (columnMapping.currency) {

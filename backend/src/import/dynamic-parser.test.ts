@@ -73,4 +73,47 @@ describe('buildParser', () => {
     expect(result.transactions[0].description).toBeUndefined()
     expect(result.transactions[0].currency).toBeUndefined()
   })
+
+  it('regular rows have isTransfer: false', () => {
+    const result = parse([{ date: '2026-02-15', amount: '-42.50', description: 'Coffee', currency: 'CAD' }])
+    expect(result.transactions[0].isTransfer).toBe(false)
+  })
+})
+
+describe('buildParser — transfer detection', () => {
+  const parseTransfer = buildParser({
+    date: 'date',
+    amount: 'sourceamount',
+    sourceAmount: 'sourceamount',
+    sourceCurrency: 'sourcecurrency',
+    targetAmount: 'targetamount',
+    targetCurrency: 'targetcurrency',
+    feeAmount: 'feeamount',
+    feeCurrency: 'feecurrency',
+  })
+
+  it('emits a TransferParsedTransaction when sourceCurrency ≠ targetCurrency', () => {
+    const result = parseTransfer([{
+      date: '2026-03-01',
+      sourceamount: '200.00',
+      sourcecurrency: 'CAD',
+      targetamount: '107.90',
+      targetcurrency: 'GBP',
+      feeamount: '0.96',
+      feecurrency: 'CAD',
+    }])
+
+    expect(result.errors).toHaveLength(0)
+    expect(result.transactions).toHaveLength(1)
+    const tx = result.transactions[0]
+    expect(tx.isTransfer).toBe(true)
+    if (tx.isTransfer) {
+      expect(tx.sourceAmount).toBe('-200.00')
+      expect(tx.sourceCurrency).toBe('CAD')
+      expect(tx.targetAmount).toBe('107.90')
+      expect(tx.targetCurrency).toBe('GBP')
+      expect(tx.feeAmount).toBe('0.96')
+      expect(tx.feeCurrency).toBe('CAD')
+    }
+  })
 })
