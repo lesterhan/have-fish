@@ -63,17 +63,23 @@ app.post('/preview', async (c) => {
 
 // POST /api/import/commit
 // Writes a set of pre-parsed transactions to the database.
-// Each transaction becomes one transaction row and two posting rows:
-//   - one posting for the source account (raw amount)
-//   - one posting for the offset account (negated amount, balances to zero)
+//
+// Regular rows produce 2 postings (source + offset). Transfer rows produce
+// 4 postings (no fee) or 5 postings (with fee) using the equity:conversion
+// account to bridge the two currencies — see inline comments.
 //
 // Request body (JSON):
-//   accountId       — UUID of the source account (the one the CSV belongs to)
-//   defaultCurrency — fallback currency for transactions missing a currency field
-//   transactions    — array of ParsedTransaction with an added offsetAccountId per row
+//   accountId       — UUID of the source account for regular rows;
+//                     may be empty string for multi-currency-only imports
+//   defaultCurrency — fallback currency for regular rows missing a currency field
+//   transactions    — array of CommitRow, one per parsed CSV row
 //
-// Each transaction carries its own offsetAccountId so different rows can be
-// categorised to different accounts during the preview step.
+// Regular row shape:   { isTransfer: false, date, amount, description?, currency?,
+//                        offsetAccountId, sourceAccountId? }
+// Transfer row shape:  { isTransfer: true, date, description?,
+//                        sourceAmount, sourceCurrency, targetAmount, targetCurrency,
+//                        feeAmount?, feeCurrency?,
+//                        sourceAccountId, targetAccountId, conversionAccountId, feeAccountId }
 //
 // Response: { created: number }
 app.post('/commit', async (c) => {
@@ -81,29 +87,105 @@ app.post('/commit', async (c) => {
   const body = await c.req.json()
   const { accountId, defaultCurrency, transactions: parsed } = body
 
-  if (!accountId || typeof accountId !== 'string') return c.json({ error: 'accountId is required' }, 400)
   if (!defaultCurrency || typeof defaultCurrency !== 'string') return c.json({ error: 'defaultCurrency is required' }, 400)
   if (!Array.isArray(parsed) || parsed.length === 0) return c.json({ error: 'transactions must be a non-empty array' }, 400)
-  if (parsed.some((t: Record<string, unknown>) => !t.offsetAccountId || typeof t.offsetAccountId !== 'string')) {
-    return c.json({ error: 'each transaction must include an offsetAccountId' }, 400)
+
+  // Per-row validation — requirements differ by row type
+  for (const t of parsed as Record<string, unknown>[]) {
+    if (t.isTransfer) {
+      if (!t.sourceAccountId) return c.json({ error: 'transfer rows must include sourceAccountId' }, 400)
+      if (!t.targetAccountId) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
+      if (!t.conversionAccountId) return c.json({ error: 'transfer rows must include conversionAccountId' }, 400)
+      if (!t.feeAccountId) return c.json({ error: 'transfer rows must include feeAccountId' }, 400)
+    } else {
+      if (!t.offsetAccountId) return c.json({ error: 'regular rows must include offsetAccountId' }, 400)
+      if (!t.sourceAccountId && !accountId) return c.json({ error: 'regular rows require sourceAccountId or a global accountId' }, 400)
+    }
   }
 
-  type CommitTransaction = ParsedTransaction & { offsetAccountId: string }
+  type RegularRow = {
+    isTransfer: false
+    date: string
+    amount: string
+    description?: string
+    currency?: string
+    offsetAccountId: string
+    sourceAccountId?: string
+  }
+
+  type TransferRow = {
+    isTransfer: true
+    date: string
+    description?: string
+    sourceAmount: string   // negative (leaving source)
+    sourceCurrency: string
+    targetAmount: string   // positive (arriving at target)
+    targetCurrency: string
+    feeAmount?: string     // positive
+    feeCurrency?: string
+    sourceAccountId: string
+    targetAccountId: string
+    conversionAccountId: string
+    feeAccountId: string
+  }
 
   await db.transaction(async (tx) => {
-    for (const t of parsed as CommitTransaction[]) {
-      const currency = t.currency ?? defaultCurrency
-      const negated = (-parseFloat(t.amount)).toFixed(2)
-
+    for (const t of parsed as (RegularRow | TransferRow)[]) {
       const [newTx] = await tx
         .insert(transactions)
         .values({ userId, date: new Date(t.date), description: t.description })
         .returning()
 
-      await tx.insert(postings).values([
-        { transactionId: newTx.id, accountId, amount: t.amount, currency },
-        { transactionId: newTx.id, accountId: t.offsetAccountId, amount: negated, currency },
-      ])
+      if (t.isTransfer) {
+        // Cross-currency transfer — 4 or 5 postings depending on whether a fee is present.
+        //
+        // The equity:conversion account bridges the two currencies:
+        //   1. source account loses sourceAmount in sourceCurrency  (e.g. −200.00 CAD)
+        //   2. equity:conversion gains the amount minus fee         (e.g. +199.04 CAD)
+        //   3. fee expense account gains feeAmount                  (e.g.   +0.96 CAD)  ← omitted if no fee
+        //   4. equity:conversion loses targetAmount in targetCurrency (e.g. −107.90 GBP)
+        //   5. target account gains targetAmount in targetCurrency  (e.g. +107.90 GBP)
+        //
+        // Per-currency totals balance to zero.
+
+        const srcAmount = parseFloat(t.sourceAmount)  // negative
+        const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0  // positive or 0
+        const tgtAmount = parseFloat(t.targetAmount)  // positive
+        const feeCurrency = t.feeCurrency ?? t.sourceCurrency
+
+        // conversion in source currency offsets source minus fee
+        const conversionSrcAmount = (-(srcAmount + feeVal)).toFixed(2)
+
+        type PostingRow = { transactionId: string; accountId: string; amount: string; currency: string }
+        const postingRows: PostingRow[] = [
+          { transactionId: newTx.id, accountId: t.sourceAccountId,     amount: t.sourceAmount,              currency: t.sourceCurrency },
+          { transactionId: newTx.id, accountId: t.conversionAccountId, amount: conversionSrcAmount,          currency: t.sourceCurrency },
+          { transactionId: newTx.id, accountId: t.conversionAccountId, amount: (-tgtAmount).toFixed(2),      currency: t.targetCurrency },
+          { transactionId: newTx.id, accountId: t.targetAccountId,     amount: t.targetAmount,               currency: t.targetCurrency },
+        ]
+
+        if (t.feeAmount && feeVal !== 0) {
+          // Insert fee posting at index 2 to follow the natural ledger order
+          postingRows.splice(2, 0, {
+            transactionId: newTx.id,
+            accountId: t.feeAccountId,
+            amount: t.feeAmount,
+            currency: feeCurrency,
+          })
+        }
+
+        await tx.insert(postings).values(postingRows)
+      } else {
+        // Regular 2-posting transaction
+        const currency = t.currency ?? defaultCurrency
+        const sourceId = t.sourceAccountId ?? accountId
+        const negated = (-parseFloat(t.amount)).toFixed(2)
+
+        await tx.insert(postings).values([
+          { transactionId: newTx.id, accountId: sourceId, amount: t.amount, currency },
+          { transactionId: newTx.id, accountId: t.offsetAccountId, amount: negated, currency },
+        ])
+      }
     }
   })
 

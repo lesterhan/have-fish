@@ -133,4 +133,54 @@ describe('POST /api/import/commit', () => {
       expect.objectContaining({ accountId: offset.id, amount: '50.00', currency: 'CAD' }),
     ]))
   })
+
+  it('writes 5 postings for a transfer row and balances per currency', async () => {
+    const sourceAcc    = await createAccount(cookie, 'assets:wise:cad')
+    const targetAcc    = await createAccount(cookie, 'assets:wise:gbp')
+    const conversionAcc = await createAccount(cookie, 'equity:conversion')
+    const feeAcc       = await createAccount(cookie, 'expenses:fees:wise')
+
+    const transfer = {
+      isTransfer: true,
+      date: new Date('2026-03-01').toISOString(),
+      description: 'Wise CAD→GBP',
+      sourceAmount: '-200.00',
+      sourceCurrency: 'CAD',
+      targetAmount: '107.90',
+      targetCurrency: 'GBP',
+      feeAmount: '0.96',
+      feeCurrency: 'CAD',
+      sourceAccountId: sourceAcc.id,
+      targetAccountId: targetAcc.id,
+      conversionAccountId: conversionAcc.id,
+      feeAccountId: feeAcc.id,
+    }
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: '', defaultCurrency: 'CAD', transactions: [transfer] }),
+    })
+
+    expect(res.status).toBe(201)
+    expect((await res.json()).created).toBe(1)
+
+    const txRes = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+    const txs = await txRes.json()
+    expect(txs).toBeArrayOfSize(1)
+
+    const t = txs[0]
+    expect(t.postings).toBeArrayOfSize(5)
+
+    // Both currencies must balance to zero
+    const cadSum = t.postings
+      .filter((p: { currency: string }) => p.currency === 'CAD')
+      .reduce((acc: number, p: { amount: string }) => acc + parseFloat(p.amount), 0)
+    const gbpSum = t.postings
+      .filter((p: { currency: string }) => p.currency === 'GBP')
+      .reduce((acc: number, p: { amount: string }) => acc + parseFloat(p.amount), 0)
+
+    expect(Math.abs(cadSum)).toBeLessThan(0.001)
+    expect(Math.abs(gbpSum)).toBeLessThan(0.001)
+  })
 })
