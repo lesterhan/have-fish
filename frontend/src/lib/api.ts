@@ -105,6 +105,13 @@ export type ColumnMapping = {
   amount: string
   description?: string | null
   currency?: string | null
+  // Multi-currency transfer fields
+  sourceAmount?: string | null
+  sourceCurrency?: string | null
+  targetAmount?: string | null
+  targetCurrency?: string | null
+  feeAmount?: string | null
+  feeCurrency?: string | null
 }
 
 export type CsvParser = {
@@ -113,6 +120,8 @@ export type CsvParser = {
   normalizedHeader: string
   columnMapping: ColumnMapping
   defaultAccountId: string | null
+  isMultiCurrency: boolean
+  defaultFeeAccountId: string | null
   createdAt: string
   deletedAt: string | null
 }
@@ -122,7 +131,10 @@ export async function fetchParsers(): Promise<CsvParser[]> {
   return res.json()
 }
 
-export async function updateParser(id: string, body: { defaultAccountId: string | null }): Promise<CsvParser> {
+export async function updateParser(
+  id: string,
+  body: Partial<Pick<CsvParser, 'defaultAccountId' | 'isMultiCurrency' | 'defaultFeeAccountId'>>,
+): Promise<CsvParser> {
   const res = await fetch(`${BASE}/api/parsers/${id}`, {
     method: 'PATCH',
     credentials: 'include',
@@ -137,6 +149,8 @@ export async function createParser(body: {
   normalizedHeader: string
   columnMapping: ColumnMapping
   defaultAccountId?: string | null
+  isMultiCurrency?: boolean
+  defaultFeeAccountId?: string | null
 }): Promise<CsvParser> {
   const res = await fetch(`${BASE}/api/parsers`, {
     method: 'POST',

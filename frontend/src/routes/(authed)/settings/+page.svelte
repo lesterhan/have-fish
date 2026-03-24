@@ -3,6 +3,7 @@
   import { fetchAccounts, createAccount, deleteAccount, fetchParsers, createParser, deleteParser, updateParser, fetchUserSettings, updateUserSettings } from '$lib/api'
   import type { CsvParser, UserSettings } from '$lib/api'
   import Button from '$lib/components/Button.svelte'
+  import AccountPathInput from '$lib/components/AccountPathInput.svelte'
   import { signOut, useSession } from '$lib/auth'
   import { goto } from '$app/navigation'
 
@@ -58,6 +59,15 @@
   let mappingAmount = $state('')
   let mappingDescription = $state<string>('')
   let mappingCurrency = $state<string>('')
+  // Multi-currency fields
+  let isMultiCurrency = $state(false)
+  let mappingSourceAmount = $state('')
+  let mappingSourceCurrency = $state('')
+  let mappingTargetAmount = $state('')
+  let mappingTargetCurrency = $state('')
+  let mappingFeeAmount = $state('')
+  let mappingFeeCurrency = $state('')
+  let newParserFeeAccountId = $state('')
 
   // Applies the same normalization as the backend's parseCsv transformHeader:
   // lowercase, strip whitespace, strip parenthetical suffixes.
@@ -86,6 +96,14 @@
     columns = []
     headerInput = ''
     parserName = ''
+    isMultiCurrency = false
+    mappingSourceAmount = ''
+    mappingSourceCurrency = ''
+    mappingTargetAmount = ''
+    mappingTargetCurrency = ''
+    mappingFeeAmount = ''
+    mappingFeeCurrency = ''
+    newParserFeeAccountId = ''
   }
 
   async function handleSaveParser() {
@@ -94,11 +112,21 @@
       amount: mappingAmount,
       description: mappingDescription || null,
       currency: mappingCurrency || null,
+      ...(isMultiCurrency && {
+        sourceAmount: mappingSourceAmount || null,
+        sourceCurrency: mappingSourceCurrency || null,
+        targetAmount: mappingTargetAmount || null,
+        targetCurrency: mappingTargetCurrency || null,
+        feeAmount: mappingFeeAmount || null,
+        feeCurrency: mappingFeeCurrency || null,
+      }),
     }
     const created = await createParser({
       name: parserName,
       normalizedHeader: buildNormalizedHeader(columns),
       columnMapping,
+      isMultiCurrency,
+      defaultFeeAccountId: newParserFeeAccountId || null,
     })
     parsers = [...parsers, created]
     handleReset()
@@ -112,6 +140,16 @@
   async function handleParserAccountChange(id: string, accountId: string) {
     // Empty string from the dropdown means "no default" — send null to clear it
     const updated = await updateParser(id, { defaultAccountId: accountId || null })
+    parsers = parsers.map((p) => (p.id === id ? updated : p))
+  }
+
+  async function handleParserMultiCurrencyChange(id: string, value: boolean) {
+    const updated = await updateParser(id, { isMultiCurrency: value })
+    parsers = parsers.map((p) => (p.id === id ? updated : p))
+  }
+
+  async function handleParserFeeAccountChange(id: string, accountId: string) {
+    const updated = await updateParser(id, { defaultFeeAccountId: accountId || null })
     parsers = parsers.map((p) => (p.id === id ? updated : p))
   }
 
@@ -196,16 +234,38 @@
       <div class="list-row">
         <span class="parser-name">{parser.name}</span>
         <span class="parser-header">{parser.normalizedHeader}</span>
+        <label class="multi-currency-toggle" title="Enables support for inline multi-currency transfers (e.g. Wise)">
+          <input
+            type="checkbox"
+            checked={parser.isMultiCurrency}
+            onchange={(e) => handleParserMultiCurrencyChange(parser.id, (e.currentTarget as HTMLInputElement).checked)}
+          />
+          multi-currency
+        </label>
         <select
           class="parser-account"
           value={parser.defaultAccountId ?? ''}
+          title={parser.isMultiCurrency ? 'Root path (e.g. assets:wise)' : 'Default account'}
           onchange={(e) => handleParserAccountChange(parser.id, (e.currentTarget as HTMLSelectElement).value)}
         >
-          <option value="">— no default —</option>
+          <option value="">{parser.isMultiCurrency ? '— no root path —' : '— no default —'}</option>
           {#each accounts as account}
             <option value={account.id}>{account.path}</option>
           {/each}
         </select>
+        {#if parser.isMultiCurrency}
+          <select
+            class="parser-account"
+            value={parser.defaultFeeAccountId ?? ''}
+            title="Default fee account"
+            onchange={(e) => handleParserFeeAccountChange(parser.id, (e.currentTarget as HTMLSelectElement).value)}
+          >
+            <option value="">— no fee account —</option>
+            {#each accounts as account}
+              <option value={account.id}>{account.path}</option>
+            {/each}
+          </select>
+        {/if}
         <Button variant="danger" onclick={() => handleDeleteParser(parser.id)}>delete</Button>
       </div>
     {/each}
@@ -255,6 +315,58 @@
           <option value="">— not mapped —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
+
+        <label for="multi-currency" class="checkbox-label">
+          Multi-currency
+          <span class="tooltip-icon" title="Enables support for inline multi-currency transfers (e.g. Wise). The default account becomes the root path (e.g. assets:wise) and child accounts are derived per row.">?</span>
+        </label>
+        <input id="multi-currency" type="checkbox" class="checkbox" bind:checked={isMultiCurrency} />
+
+        {#if isMultiCurrency}
+          <label for="map-source-amount">Source amount <span class="required">*</span></label>
+          <select id="map-source-amount" bind:value={mappingSourceAmount}>
+            <option value="">— select —</option>
+            {#each columns as col}<option value={col}>{col}</option>{/each}
+          </select>
+
+          <label for="map-source-currency">Source currency <span class="required">*</span></label>
+          <select id="map-source-currency" bind:value={mappingSourceCurrency}>
+            <option value="">— select —</option>
+            {#each columns as col}<option value={col}>{col}</option>{/each}
+          </select>
+
+          <label for="map-target-amount">Target amount <span class="required">*</span></label>
+          <select id="map-target-amount" bind:value={mappingTargetAmount}>
+            <option value="">— select —</option>
+            {#each columns as col}<option value={col}>{col}</option>{/each}
+          </select>
+
+          <label for="map-target-currency">Target currency <span class="required">*</span></label>
+          <select id="map-target-currency" bind:value={mappingTargetCurrency}>
+            <option value="">— select —</option>
+            {#each columns as col}<option value={col}>{col}</option>{/each}
+          </select>
+
+          <label for="map-fee-amount">Fee amount</label>
+          <select id="map-fee-amount" bind:value={mappingFeeAmount}>
+            <option value="">— not mapped —</option>
+            {#each columns as col}<option value={col}>{col}</option>{/each}
+          </select>
+
+          <label for="map-fee-currency">Fee currency</label>
+          <select id="map-fee-currency" bind:value={mappingFeeCurrency}>
+            <option value="">— not mapped —</option>
+            {#each columns as col}<option value={col}>{col}</option>{/each}
+          </select>
+
+          <label>Default fee account</label>
+          <AccountPathInput
+            {accounts}
+            bind:value={newParserFeeAccountId}
+            placeholder="expenses:fees:wise"
+            oncreate={(a) => { accounts = [...accounts, a] }}
+          />
+        {/if}
 
         <label for="parser-name">Parser name <span class="required">*</span></label>
         <input id="parser-name" bind:value={parserName} placeholder="Imre Trust Credit Union" />
@@ -410,6 +522,52 @@
 
   .required {
     color: var(--color-amount-negative);
+  }
+
+  .checkbox-label {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    justify-content: flex-end;
+  }
+
+  .checkbox {
+    width: auto;
+    box-shadow: none;
+    padding: 0;
+    cursor: pointer;
+  }
+
+  .tooltip-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    background: var(--color-text-muted);
+    color: var(--color-window);
+    font-size: 10px;
+    font-weight: bold;
+    cursor: help;
+    flex-shrink: 0;
+  }
+
+  .multi-currency-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .multi-currency-toggle input {
+    width: auto;
+    box-shadow: none;
+    padding: 0;
+    cursor: pointer;
   }
 
   select,

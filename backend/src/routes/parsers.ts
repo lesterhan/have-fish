@@ -47,9 +47,10 @@ app.post('/', async (c) => {
 })
 
 // PATCH /api/parsers/:id
-// Updates mutable fields on an existing parser. Column mapping stays immutable.
+// Updates one or more mutable fields on an existing parser. At least one field required.
+// Column mapping stays immutable.
 //
-// Request body (JSON):
+// Request body (JSON, all optional but at least one required):
 //   defaultAccountId    — UUID of an account, or null to clear
 //   isMultiCurrency     — boolean
 //   defaultFeeAccountId — UUID of an account, or null to clear
@@ -57,13 +58,14 @@ app.patch('/:id', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
 
-  if (!('defaultAccountId' in body)) return c.json({ error: 'defaultAccountId is required' }, 400)
-  const { defaultAccountId } = body
-  if (defaultAccountId !== null && typeof defaultAccountId !== 'string') {
-    return c.json({ error: 'defaultAccountId must be a UUID string or null' }, 400)
-  }
+  const patch: Record<string, unknown> = {}
 
-  const patch: Record<string, unknown> = { defaultAccountId }
+  if ('defaultAccountId' in body) {
+    if (body.defaultAccountId !== null && typeof body.defaultAccountId !== 'string') {
+      return c.json({ error: 'defaultAccountId must be a UUID string or null' }, 400)
+    }
+    patch.defaultAccountId = body.defaultAccountId
+  }
 
   if ('isMultiCurrency' in body) {
     if (typeof body.isMultiCurrency !== 'boolean') return c.json({ error: 'isMultiCurrency must be a boolean' }, 400)
@@ -76,6 +78,8 @@ app.patch('/:id', async (c) => {
     }
     patch.defaultFeeAccountId = body.defaultFeeAccountId
   }
+
+  if (Object.keys(patch).length === 0) return c.json({ error: 'at least one field is required' }, 400)
 
   const [updated] = await db
     .update(csvParsers)
