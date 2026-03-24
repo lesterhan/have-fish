@@ -1,6 +1,13 @@
 const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8887'
 
-export async function fetchAccounts() {
+export type Account = {
+  id: string
+  path: string
+  createdAt?: string
+  deletedAt?: string | null
+}
+
+export async function fetchAccounts(): Promise<Account[]> {
   const res = await fetch(`${BASE}/api/accounts`, { credentials: 'include' })
   return res.json()
 }
@@ -46,23 +53,49 @@ export async function deleteCategory(id: string) {
   })
 }
 
-// Mirrors the ParsedTransaction type from the backend parser.
-// date is a string here because it arrives serialized as an ISO string over JSON.
-export type ParsedTransaction = {
+// Mirrors the ParsedTransaction discriminated union from the backend.
+export type RegularParsedTransaction = {
+  isTransfer: false
   date: string
   amount: string
-  description: string
+  description?: string
   currency?: string
 }
 
-// ParsedTransaction extended with the offset account chosen during preview.
-// This is what gets sent to /api/import/commit — each row carries its own
-// offset so different transactions can be categorised to different accounts.
-export type CommitTransaction = ParsedTransaction & { offsetAccountId: string }
+export type TransferParsedTransaction = {
+  isTransfer: true
+  date: string
+  description?: string
+  sourceAmount: string
+  sourceCurrency: string
+  targetAmount: string
+  targetCurrency: string
+  feeAmount?: string
+  feeCurrency?: string
+}
+
+export type ParsedTransaction = RegularParsedTransaction | TransferParsedTransaction
+
+// Commit payloads — ParsedTransaction plus the account IDs resolved during preview.
+export type RegularCommitTransaction = RegularParsedTransaction & {
+  offsetAccountId: string
+  sourceAccountId?: string  // set for regular rows in a multi-currency parser
+}
+
+export type TransferCommitTransaction = TransferParsedTransaction & {
+  sourceAccountId: string
+  targetAccountId: string
+  conversionAccountId: string
+  feeAccountId: string
+}
+
+export type CommitTransaction = RegularCommitTransaction | TransferCommitTransaction
 
 export type ImportPreviewResult = {
   parser: string
   defaultAccountId: string | null
+  isMultiCurrency: boolean
+  defaultFeeAccountId: string | null
   transactions: ParsedTransaction[]
   errors: { row: number; reason: string }[]
 }
@@ -87,7 +120,7 @@ export async function importPreview(
 }
 
 export async function importCommit(body: {
-  accountId: string
+  accountId: string  // empty string for multi-currency imports (source is per-row)
   defaultCurrency: string
   transactions: CommitTransaction[]
 }): Promise<{ created: number }> {

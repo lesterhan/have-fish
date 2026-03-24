@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { fetchAccounts, createAccount, deleteAccount, fetchParsers, createParser, deleteParser, updateParser, fetchUserSettings, updateUserSettings } from '$lib/api'
-  import type { CsvParser, UserSettings } from '$lib/api'
+  import type { Account, CsvParser, UserSettings } from '$lib/api'
   import Button from '$lib/components/Button.svelte'
   import AccountPathInput from '$lib/components/AccountPathInput.svelte'
   import { signOut, useSession } from '$lib/auth'
@@ -18,7 +18,7 @@
   let userSettings = $state<UserSettings | null>(null)
 
   // --- Accounts ---
-  let accounts = $state<Awaited<ReturnType<typeof fetchAccounts>>>([])
+  let accounts = $state<Account[]>([])
   let newAccountPath = $state('')
 
   onMount(async () => {

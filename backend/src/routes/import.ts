@@ -52,7 +52,13 @@ app.post('/preview', async (c) => {
   const parse = buildParser(matched.columnMapping as ColumnMapping)
   const result = parse(rows)
 
-  return c.json({ parser: matched.name, defaultAccountId: matched.defaultAccountId, ...result })
+  return c.json({
+    parser: matched.name,
+    defaultAccountId: matched.defaultAccountId,
+    isMultiCurrency: matched.isMultiCurrency,
+    defaultFeeAccountId: matched.defaultFeeAccountId,
+    ...result,
+  })
 })
 
 // POST /api/import/commit
