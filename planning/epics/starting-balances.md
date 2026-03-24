@@ -1,6 +1,6 @@
 # Epic: Starting Balances
 
-Goal: Let users record an opening balance for any asset account, and add a guided flow for creating a new asset account that begins with a balance.
+Goal: Let users record an opening balance for any asset account via an account settings modal on the Assets page.
 
 ## Background
 
@@ -11,49 +11,58 @@ A starting balance is just a regular transaction with two postings:
 | assets:rbc:chq    | +5000.00  | CAD      |
 | equity:start      | −5000.00  | CAD      |
 
-The offset account (`equity:start`) is configurable via a new user setting.
-No schema changes needed — this is pure workflow and UI.
+The offset account (`equity:start`) is configurable via user settings.
+No schema changes needed to `transactions` or `postings` — this is pure workflow and UI.
+
+Detection: an account "has a starting balance" when there exists a transaction with a posting against this account AND a posting against the configured `defaultEquityStartPath` account.
 
 ---
 
 ## Stories
 
-### 1. User settings — add `defaultEquityStartPath`
+### 1. Seed `equity:start` account and wire up user settings
 
 Backend / DB.
 
-- Add `defaultEquityStartPath text` to `userSettings` schema, default `'equity:start'`
+- Add `defaultEquityStartAccountId uuid` (nullable FK → accounts) to `userSettings` schema —
+  consistent with how `defaultOffsetAccountId` and `defaultConversionAccountId` are stored
 - Generate and apply migration
-- Expose in `GET /api/user-settings` response
-- Add "Opening balances account" field to the settings page UI
+- In `auth.ts` seeding hook: create `equity:start` alongside the existing defaults and
+  set `defaultEquityStartAccountId` in the `userSettings` insert — same pattern as the others
+- Update `accounts.test.ts`: the "returns only default accounts" test expects `equity:start`
+  in the seeded list alongside `expenses:uncategorized` and `equity:conversions`
+- Expose `defaultEquityStartAccountId` via `GET /api/user-settings` (automatic — full row is returned)
+- Add `PATCH /api/user-settings` support for `defaultEquityStartAccountId` (same validation
+  loop as the other account UUID fields)
+- Add "Opening balances account" selector to the settings page UI (same pattern as the others)
 
-### 2. Backend — earliest transaction date for an account
+### 2. Backend — starting balance status endpoint
 
 Backend / accounts route.
 
-- Add `GET /api/accounts/:id/earliest-transaction`
-- Returns `{ date: string | null }` — the ISO date of the earliest transaction
-  that has a posting for this account (`MIN(transactions.date)` joined through postings)
-- Used by the frontend to default the opening balance date
+- Add `GET /api/accounts/:id/starting-balance`
+- Returns `{ hasStartingBalance: boolean, earliestTransactionDate: string | null }`
+  - `hasStartingBalance`: true if any transaction has postings on both this account
+    and the user's `defaultEquityStartAccountId` account
+  - `earliestTransactionDate`: ISO date of the earliest transaction for this account
+    (`MIN(transactions.date)` joined through postings)
+- Used by the frontend to drive the warning state and default the date field
 
-### 3. User flow — set starting balance on an existing account
-
-Frontend / Assets page.
-
-- Each account row on the Assets page gets a "Set opening balance" action
-- Opens a small inline form or modal: amount, currency, date
-- Date field: fetches `GET /api/accounts/:id/earliest-transaction` on open;
-  if a date is returned, default to one day before it; otherwise default to today
-- On confirm: POST to `/api/transactions` with the two-posting pattern above
-- Pre-fills the equity offset account from `userSettings.defaultEquityStartPath`
-  (creates it if it doesn't exist yet)
-
-### 4. User flow — create new asset account with starting balance
+### 3. Assets page — account settings modal
 
 Frontend / Assets page.
 
-- "Add asset account" button on the Assets page
-- Form: account path (AccountPathInput, pre-filled with the assets root as a hint),
-  opening balance amount, currency, date
-- On confirm: create the account, then create the opening balance transaction
-- If opening balance is zero or blank, skip the transaction step
+- Each account row gets a gear icon button (⚙) on the right
+- Clicking it opens a modal titled "[account path] settings"
+- Modal has a "Starting Balance" section:
+  - If no starting balance: warning icon + "No starting balance" label
+  - Date field: fetches `GET /api/accounts/:id/starting-balance` on modal open;
+    if `earliestTransactionDate` is returned, defaults to one day before it;
+    otherwise defaults to today
+  - Equity account field: pre-filled from `userSettings.defaultEquityStartAccountId`
+    (AccountPathInput — user can override per-account without changing the global default)
+  - Amount field: text input, placeholder hint `255.25 CAD`
+    (user types amount and currency together, e.g. "500 CAD" or "200.00 GBP")
+  - "Set starting balance" confirm button
+  - On confirm: POST to `/api/transactions` with the two-posting pattern,
+    then re-fetch the starting balance status to update the warning state
