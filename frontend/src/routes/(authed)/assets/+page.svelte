@@ -1,36 +1,127 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { fetchAccountBalances, type AccountBalance } from '$lib/api'
+  import { onMount } from "svelte";
+  import { fetchAccountBalances, type AccountBalance } from "$lib/api";
 
-  let accounts = $state<AccountBalance[]>([])
+  let accounts = $state<AccountBalance[]>([]);
 
   onMount(async () => {
-    // TODO: fetch account balances and set accounts
-  })
+    const balances = await fetchAccountBalances();
+    accounts = balances;
+  });
 
-  // TODO: derive a helper or inline check — is every balance amount === '0.00'?
-  // Used to dim zero-balance accounts in the template.
+  function isZeroBalance(account: AccountBalance): boolean {
+    return (
+      account.balances.length === 0 ||
+      account.balances.every((b) => parseFloat(b.amount) === 0)
+    );
+  }
 </script>
 
 <h1>Assets</h1>
 
-<!-- TODO: loading / empty state -->
-
-<!-- TODO: table of accounts
-  One row per account. Columns:
-    - account path (left-aligned, monospace)
-    - per-currency balances (right-aligned, one chip/span per currency)
-      use --color-amount-positive for positive amounts, --color-amount-negative for negative
-  Accounts where all balances are zero should render with reduced opacity (dimmed).
-  Use a sunken table container matching the style in import/+page.svelte.
--->
+{#if accounts.length === 0}
+  <p class="empty">Couldn't find any asset accounts 🕵️</p>
+{:else}
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th class="col-balances">Balances</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each accounts as account}
+          <tr class:dimmed={isZeroBalance(account)}>
+            <td class="cell-path">{account.path}</td>
+            <td class="cell-balances">
+              {#each account.balances as balance}
+                <span
+                  class="balance-chip"
+                  class:positive={parseFloat(balance.amount) > 0}
+                  class:negative={parseFloat(balance.amount) < 0}
+                >
+                  {balance.amount}
+                  {balance.currency}
+                </span>
+              {/each}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{/if}
 
 <style>
-  /* TODO: scoped styles
-    - table layout matching the retro aesthetic (see import/+page.svelte for reference)
-    - .cell-path — monospace, takes remaining width
-    - .cell-balances — flex row, gap, right-aligned
-    - .balance-chip — per-currency amount span with color classes
-    - .dimmed — reduced opacity for zero-balance rows
-  */
+  .empty {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .table-container {
+    box-shadow: var(--shadow-sunken);
+    background: var(--color-window-inset);
+    overflow-x: auto;
+  }
+
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  th {
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    padding: var(--sp-xs) var(--sp-sm);
+    text-align: left;
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  td {
+    padding: var(--sp-xs) var(--sp-sm);
+    border-bottom: 1px solid var(--color-bevel-mid);
+  }
+
+  tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  tbody tr:hover td {
+    background: var(--color-accent-light);
+  }
+
+  .cell-path {
+    font-family: var(--font-mono);
+    width: 100%;
+  }
+
+  .col-balances {
+    text-align: right;
+  }
+
+  .cell-balances {
+    display: flex;
+    gap: var(--sp-sm);
+    justify-content: flex-end;
+    font-family: var(--font-mono);
+    white-space: nowrap;
+  }
+
+  .balance-chip.positive {
+    color: var(--color-amount-positive);
+  }
+
+  .balance-chip.negative {
+    color: var(--color-amount-negative);
+  }
+
+  .dimmed {
+    opacity: 0.4;
+  }
 </style>
