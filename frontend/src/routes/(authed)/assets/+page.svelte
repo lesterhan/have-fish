@@ -44,6 +44,8 @@
                   {balance.amount}
                   {balance.currency}
                 </span>
+              {:else}
+                <span class="balance-empty">—</span>
               {/each}
             </td>
           </tr>
@@ -119,6 +121,10 @@
 
   .balance-chip.negative {
     color: var(--color-amount-negative);
+  }
+
+  .balance-empty {
+    color: var(--color-text-muted);
   }
 
   .dimmed {
