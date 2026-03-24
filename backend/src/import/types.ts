@@ -18,9 +18,17 @@ export type ParseResult = {
 
 // The stored column mapping: which normalized CSV column name maps to each
 // transaction field. date and amount are required; the rest are optional.
+// Transfer fields are only present when the parser's isMultiCurrency is true.
 export type ColumnMapping = {
   date: string
   amount: string
   description?: string | null
   currency?: string | null
+  // Multi-currency transfer fields
+  sourceAmount?: string | null
+  sourceCurrency?: string | null
+  targetAmount?: string | null
+  targetCurrency?: string | null
+  feeAmount?: string | null
+  feeCurrency?: string | null
 }

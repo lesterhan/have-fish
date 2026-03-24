@@ -35,21 +35,24 @@ app.post('/', async (c) => {
   if (!columnMapping.date || !columnMapping.amount) return c.json({ error: 'columnMapping must include date and amount' }, 400)
 
   const defaultAccountId = body.defaultAccountId ?? null
+  const isMultiCurrency = body.isMultiCurrency === true
+  const defaultFeeAccountId = body.defaultFeeAccountId ?? null
 
   const [created] = await db
     .insert(csvParsers)
-    .values({ userId, name, normalizedHeader, columnMapping, defaultAccountId })
+    .values({ userId, name, normalizedHeader, columnMapping, defaultAccountId, isMultiCurrency, defaultFeeAccountId })
     .returning()
 
   return c.json(created, 201)
 })
 
 // PATCH /api/parsers/:id
-// Updates the defaultAccountId on an existing parser. Pass null to clear it.
-// Only the fields listed here can be changed — column mapping stays immutable.
+// Updates mutable fields on an existing parser. Column mapping stays immutable.
 //
 // Request body (JSON):
-//   defaultAccountId — UUID of an account, or null to clear
+//   defaultAccountId    — UUID of an account, or null to clear
+//   isMultiCurrency     — boolean
+//   defaultFeeAccountId — UUID of an account, or null to clear
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
@@ -60,9 +63,23 @@ app.patch('/:id', async (c) => {
     return c.json({ error: 'defaultAccountId must be a UUID string or null' }, 400)
   }
 
+  const patch: Record<string, unknown> = { defaultAccountId }
+
+  if ('isMultiCurrency' in body) {
+    if (typeof body.isMultiCurrency !== 'boolean') return c.json({ error: 'isMultiCurrency must be a boolean' }, 400)
+    patch.isMultiCurrency = body.isMultiCurrency
+  }
+
+  if ('defaultFeeAccountId' in body) {
+    if (body.defaultFeeAccountId !== null && typeof body.defaultFeeAccountId !== 'string') {
+      return c.json({ error: 'defaultFeeAccountId must be a UUID string or null' }, 400)
+    }
+    patch.defaultFeeAccountId = body.defaultFeeAccountId
+  }
+
   const [updated] = await db
     .update(csvParsers)
-    .set({ defaultAccountId })
+    .set(patch)
     .where(and(eq(csvParsers.id, c.req.param('id')), eq(csvParsers.userId, userId), isNull(csvParsers.deletedAt)))
     .returning()
 

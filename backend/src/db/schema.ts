@@ -91,7 +91,15 @@ export const csvParsers = pgTable('csv_parsers', {
   columnMapping: jsonb('column_mapping').notNull(),
   // The account this parser's CSVs belong to by default. Nullable — not all parsers
   // need a default. Used on the import page to pre-fill the source account dropdown.
+  // For multi-currency parsers this is the root path account (e.g. assets:wise),
+  // not a leaf account — child accounts are derived from it per row.
   defaultAccountId: uuid('default_account_id').references(() => accounts.id),
+  // When true, the parser supports inline multi-currency transfers (e.g. Wise).
+  // Enables transfer column mappings and per-row source account inference.
+  isMultiCurrency: boolean('is_multi_currency').notNull().default(false),
+  // Institution-specific fee account for transfer rows (e.g. expenses:fees:wise).
+  // Only relevant when isMultiCurrency is true.
+  defaultFeeAccountId: uuid('default_fee_account_id').references(() => accounts.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })
