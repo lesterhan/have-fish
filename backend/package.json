@@ -7,10 +7,11 @@
     "start": "bun run src/index.ts",
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
+    "db:migrate:test": "drizzle-kit migrate --config drizzle.test.config.ts",
     "db:studio": "drizzle-kit studio",
     "db:reset": "bun run db:generate && bun run db:migrate",
-    "test": "bun test",
-    "test:watch": "bun test --watch"
+    "test": "NODE_ENV=test bun test",
+    "test:watch": "NODE_ENV=test bun test --watch"
   },
   "dependencies": {
     "better-auth": "^1.5.4",

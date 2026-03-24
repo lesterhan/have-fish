@@ -53,9 +53,10 @@ have-fish/
 bun run dev           # start dev server with hot reload
 bun test              # run all tests
 bun run test:watch    # run tests in watch mode (use while developing)
-bun run db:generate   # generate SQL migrations from schema changes
-bun run db:migrate    # apply migrations to the database
-bun run db:studio     # open Drizzle Studio (DB GUI in browser)
+bun run db:generate       # generate SQL migrations from schema changes
+bun run db:migrate        # apply migrations to the dev database
+bun run db:migrate:test   # apply migrations to the test database
+bun run db:studio         # open Drizzle Studio (DB GUI in browser)
 
 # Frontend (run from /frontend)
 bun run dev           # start dev server
@@ -72,18 +73,22 @@ podman compose up --build         # start full stack
 - Write tests first in `*.test.ts` co-located with the route file
 - Tests use `app.request()` (Hono's test helper) against a real database — no mocking
 - Always run `clearDatabase()` in `beforeEach` to keep tests isolated
-- After changing `schema.ts`, run `db:generate` then `db:migrate` before running tests
+- Tests run against `havefish_test` (set via `TEST_DATABASE_URL`); the dev database (`havefish`) is never touched by the test suite
+- After changing `schema.ts`, run `db:generate` then **both** `db:migrate` and `db:migrate:test`
 
 ## Environment
 
 Copy `.env.example` to `.env` in the backend directory for local dev:
 ```
 DATABASE_URL=postgres://havefish:havefish@localhost:5432/havefish
+TEST_DATABASE_URL=postgres://havefish:havefish@localhost:5432/havefish_test
 PORT=8887
 BETTER_AUTH_SECRET=...
 BETTER_AUTH_URL=http://localhost:8887
 FRONTEND_URL=http://localhost:8888
 ```
+
+`DATABASE_URL` is the dev database. `TEST_DATABASE_URL` is a separate database used exclusively by the test suite — `bun test` sets `NODE_ENV=test` automatically, which makes the DB client pick `TEST_DATABASE_URL` instead. The test database must be created and migrated once: `bun run db:migrate:test`.
 
 ## Design System
 
