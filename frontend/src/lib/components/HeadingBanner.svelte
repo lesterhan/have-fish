@@ -1,11 +1,11 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte'
+  import type { Snippet } from "svelte";
 
   interface Props {
-    children: Snippet
+    children: Snippet;
   }
 
-  let { children }: Props = $props()
+  let { children }: Props = $props();
 </script>
 
 <div class="heading-banner">
@@ -18,9 +18,14 @@
     align-items: center;
     justify-content: space-between;
     padding: var(--sp-md) var(--sp-lg);
-    margin-bottom: var(--sp-xl);
-    background: linear-gradient(to right, var(--color-banner-from), var(--color-banner-to));
+    margin-bottom: var(--sp-md);
+    background: linear-gradient(
+      to right,
+      var(--color-banner-from),
+      var(--color-banner-to)
+    );
     box-shadow: var(--shadow-window);
+    border-radius: var(--radius-xl);
   }
 
   .heading-banner :global(h1) {

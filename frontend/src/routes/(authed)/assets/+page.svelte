@@ -6,6 +6,7 @@
   import HeadingBanner from "$lib/components/HeadingBanner.svelte";
 
   let showAddAccount = $state(false);
+  let showAddLiability = $state(false);
 
   let accounts = $state<AccountBalance[]>([]);
 
@@ -24,10 +25,10 @@
 
 <HeadingBanner>
   <h1>Assets</h1>
-  <Button onclick={() => (showAddAccount = true)}>Add new account</Button>
+  <Button onclick={() => (showAddAccount = true)}>New asset account</Button>
 </HeadingBanner>
 
-<Modal title="Add Account" bind:open={showAddAccount}>
+<Modal title="Add New Asset Account" bind:open={showAddAccount}>
   <p>The Modal Is Ajar</p>
 </Modal>
 
@@ -67,10 +68,58 @@
   </div>
 {/if}
 
+<HeadingBanner>
+  <h1>Liabilities</h1>
+  <Button onclick={() => (showAddLiability = true)}
+    >New liability account</Button
+  >
+</HeadingBanner>
+
+<Modal title="Add New Liability Account" bind:open={showAddLiability}>
+  <p>The Modal Is Ajar</p>
+</Modal>
+
+{#if accounts.length === 0}
+  <p class="empty">Couldn't find any liability accounts 🕵️</p>
+{:else}
+  <div class="table-container">
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th class="col-balances">Balances</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each accounts as account}
+          <tr class:dimmed={isZeroBalance(account)}>
+            <td class="cell-path">{account.path}</td>
+            <td class="cell-balances">
+              {#each account.balances as balance}
+                <span
+                  class="balance-chip"
+                  class:positive={parseFloat(balance.amount) > 0}
+                  class:negative={parseFloat(balance.amount) < 0}
+                >
+                  {balance.amount}
+                  {balance.currency}
+                </span>
+              {:else}
+                <span class="balance-empty">—</span>
+              {/each}
+            </td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  </div>
+{/if}
+
 <style>
   .empty {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+    margin-bottom: var(--sp-xl);
   }
 
   .table-container {
