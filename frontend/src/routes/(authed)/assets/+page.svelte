@@ -2,7 +2,7 @@
   import { onMount } from "svelte";
   import { fetchAccountBalances, type AccountBalance } from "$lib/api";
   import Button from "$lib/components/Button.svelte";
-  import HeadingBanner from "$lib/components/HeadingBanner.svelte";
+  import Panel from "$lib/components/Panel.svelte";
   import AddAccountWizard from "$lib/components/AddAccountWizard.svelte";
 
   let showAddAccount = $state(false);
@@ -33,71 +33,68 @@
   {#if rows.length === 0}
     <p class="empty">{emptyText}</p>
   {:else}
-    <div class="table-container">
-      <table>
-        <thead>
-          <tr>
-            <th>Account</th>
-            <th class="col-balances">Balances</th>
+    <table>
+      <thead>
+        <tr>
+          <th>Account</th>
+          <th class="col-balances">Balances</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each rows as account}
+          <tr class:dimmed={isZeroBalance(account)}>
+            <td class="cell-path">{account.path}</td>
+            <td class="cell-balances">
+              {#each account.balances as balance}
+                <span
+                  class="balance-chip"
+                  class:positive={parseFloat(balance.amount) > 0}
+                  class:negative={parseFloat(balance.amount) < 0}
+                >
+                  {balance.amount}
+                  {balance.currency}
+                </span>
+              {:else}
+                <span class="balance-empty">—</span>
+              {/each}
+            </td>
           </tr>
-        </thead>
-        <tbody>
-          {#each rows as account}
-            <tr class:dimmed={isZeroBalance(account)}>
-              <td class="cell-path">{account.path}</td>
-              <td class="cell-balances">
-                {#each account.balances as balance}
-                  <span
-                    class="balance-chip"
-                    class:positive={parseFloat(balance.amount) > 0}
-                    class:negative={parseFloat(balance.amount) < 0}
-                  >
-                    {balance.amount}
-                    {balance.currency}
-                  </span>
-                {:else}
-                  <span class="balance-empty">—</span>
-                {/each}
-              </td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    </div>
+        {/each}
+      </tbody>
+    </table>
   {/if}
 {/snippet}
 
-<HeadingBanner>
-  <h1>Assets</h1>
-  <Button onclick={() => (showAddAccount = true)}>New asset account</Button>
-</HeadingBanner>
-
 <AddAccountWizard type="asset" bind:open={showAddAccount} onSuccess={refreshAccounts} />
-
-{@render accountTable(assets, "Couldn't find any asset accounts 🕵️")}
-
-<HeadingBanner>
-  <h1>Liabilities</h1>
-  <Button onclick={() => (showAddLiability = true)}>New liability account</Button>
-</HeadingBanner>
-
 <AddAccountWizard type="liability" bind:open={showAddLiability} onSuccess={refreshAccounts} />
 
-{@render accountTable(liabilities, "Couldn't find any liability accounts 🕵️")}
+<Panel title="Assets">
+  <div class="panel-actions">
+    <Button onclick={() => (showAddAccount = true)}>New asset account</Button>
+  </div>
+  {@render accountTable(assets, "Couldn't find any asset accounts 🕵️")}
+</Panel>
+
+<Panel title="Liabilities">
+  <div class="panel-actions">
+    <Button onclick={() => (showAddLiability = true)}>New liability account</Button>
+  </div>
+  {@render accountTable(liabilities, "Couldn't find any liability accounts 🕵️")}
+</Panel>
 
 <style>
+  .panel-actions {
+    display: flex;
+    justify-content: flex-end;
+    padding: var(--sp-xs) var(--sp-sm);
+    border-bottom: 1px solid var(--color-bevel-mid);
+    background: var(--color-window);
+  }
+
   .empty {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-    padding: 0 var(--sp-xs);
-    margin-bottom: var(--sp-xl);
-  }
-
-  .table-container {
-    box-shadow: var(--shadow-sunken);
-    background: var(--color-window-inset);
-    overflow-x: auto;
-    margin-bottom: var(--sp-xl);
+    padding: var(--sp-sm);
   }
 
   table {
@@ -121,6 +118,7 @@
   td {
     padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-bevel-mid);
+    background: var(--color-window-inset);
   }
 
   tbody tr:last-child td {
