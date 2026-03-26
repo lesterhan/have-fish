@@ -21,6 +21,10 @@
       account.balances.every((b) => parseFloat(b.amount) === 0)
     );
   }
+
+  async function refreshAccounts() {
+    accounts = await fetchAccountBalances();
+  }
 </script>
 
 <HeadingBanner>
@@ -28,7 +32,7 @@
   <Button onclick={() => (showAddAccount = true)}>New asset account</Button>
 </HeadingBanner>
 
-<AddAccountWizard type="asset" bind:open={showAddAccount} />
+<AddAccountWizard type="asset" bind:open={showAddAccount} onSuccess={refreshAccounts} />
 
 {#if accounts.length === 0}
   <p class="empty">Couldn't find any asset accounts 🕵️</p>
@@ -73,7 +77,7 @@
   >
 </HeadingBanner>
 
-<AddAccountWizard type="liability" bind:open={showAddLiability} />
+<AddAccountWizard type="liability" bind:open={showAddLiability} onSuccess={refreshAccounts} />
 
 {#if accounts.length === 0}
   <p class="empty">Couldn't find any liability accounts 🕵️</p>

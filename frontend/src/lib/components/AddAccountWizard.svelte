@@ -148,7 +148,97 @@
     parserName.trim().length > 0 && mappingDate.length > 0 && mappingAmount.length > 0
   );
 
-  // TODO (task 9): confirm submit logic
+  // --- Step 3 / submit ---
+  let submitting = $state(false);
+  let submitError = $state("");
+
+  // Whether step 2 was skipped (columns never populated)
+  let parserSkipped = $derived(columns.length === 0 || !step2Valid);
+
+  async function handleConfirm() {
+    submitting = true;
+    submitError = "";
+    try {
+      // 1. Create the account
+      const accountRes = await fetch(`${BASE}/api/accounts`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ path: accountPath.trim() }),
+      });
+      if (!accountRes.ok) {
+        const err = await accountRes.json().catch(() => ({}));
+        throw new Error(err.error ?? "Failed to create account.");
+      }
+      const account = await accountRes.json();
+
+      // 2. Post starting balance transaction if a balance was entered
+      const balanceAmount = startingBalance.trim();
+      if (balanceAmount && userSettings?.defaultOffsetAccountId) {
+        const offsetId = userSettings.defaultOffsetAccountId;
+        const txRes = await fetch(`${BASE}/api/transactions`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            date: startingDate,
+            description: "Opening balance",
+            postings: [
+              { accountId: account.id, amount: balanceAmount, currency: startingCurrency },
+              { accountId: offsetId, amount: String(-parseFloat(balanceAmount)), currency: startingCurrency },
+            ],
+          }),
+        });
+        if (!txRes.ok) {
+          const err = await txRes.json().catch(() => ({}));
+          throw new Error(err.error ?? "Account created but failed to post starting balance.");
+        }
+      }
+
+      // 3. Create parser if step 2 was completed
+      if (!parserSkipped) {
+        const columnMapping = {
+          date: mappingDate,
+          amount: mappingAmount,
+          description: mappingDescription || null,
+          currency: mappingCurrency || null,
+          ...(isMultiCurrency && {
+            sourceAmount: mappingSourceAmount || null,
+            sourceCurrency: mappingSourceCurrency || null,
+            targetAmount: mappingTargetAmount || null,
+            targetCurrency: mappingTargetCurrency || null,
+            feeAmount: mappingFeeAmount || null,
+            feeCurrency: mappingFeeCurrency || null,
+          }),
+        };
+        const parserRes = await fetch(`${BASE}/api/parsers`, {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            name: parserName.trim(),
+            normalizedHeader: buildNormalizedHeader(columns),
+            columnMapping,
+            isMultiCurrency,
+            defaultAccountId: account.id,
+          }),
+        });
+        if (!parserRes.ok) {
+          const err = await parserRes.json().catch(() => ({}));
+          throw new Error(err.error ?? "Account created but failed to save parser.");
+        }
+      }
+
+      onSuccess?.();
+      close();
+    } catch (e) {
+      submitError = e instanceof Error ? e.message : "Something went wrong.";
+    } finally {
+      submitting = false;
+    }
+  }
+
+  const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8887";
 </script>
 
 <Modal title={TITLES[type]} bind:open onclose={close}>
@@ -288,8 +378,64 @@
         {/if}
       </div>
     {:else if step === 3}
-      <!-- TODO (task 9): Step 3 — confirmation summary -->
-      <p class="placeholder">Step 3: Confirm and create</p>
+      <div class="summary">
+        <div class="summary-section">
+          <h3 class="summary-heading">Account</h3>
+          <div class="summary-row">
+            <span class="summary-label">Path</span>
+            <code class="summary-value">{accountPath.trim()}</code>
+          </div>
+          {#if startingBalance.trim()}
+            <div class="summary-row">
+              <span class="summary-label">Starting balance</span>
+              <span class="summary-value">{startingBalance.trim()} {startingCurrency}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Balance date</span>
+              <span class="summary-value">{startingDate}</span>
+            </div>
+            {#if !userSettings?.defaultOffsetAccountId}
+              <p class="summary-warn">No offset account set — starting balance will be skipped. Set one in Settings.</p>
+            {/if}
+          {/if}
+        </div>
+
+        <div class="summary-section">
+          <h3 class="summary-heading">CSV Parser</h3>
+          {#if parserSkipped}
+            <p class="summary-muted">No parser configured.</p>
+          {:else}
+            <div class="summary-row">
+              <span class="summary-label">Name</span>
+              <span class="summary-value">{parserName.trim()}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Date column</span>
+              <code class="summary-value">{mappingDate}</code>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Amount column</span>
+              <code class="summary-value">{mappingAmount}</code>
+            </div>
+            {#if mappingDescription}
+              <div class="summary-row">
+                <span class="summary-label">Description column</span>
+                <code class="summary-value">{mappingDescription}</code>
+              </div>
+            {/if}
+            {#if isMultiCurrency}
+              <div class="summary-row">
+                <span class="summary-label">Multi-currency</span>
+                <span class="summary-value">Yes</span>
+              </div>
+            {/if}
+          {/if}
+        </div>
+
+        {#if submitError}
+          <p class="summary-error">{submitError}</p>
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -312,8 +458,9 @@
           >Next ▶️</Button
         >
       {:else if step === 3}
-        <!-- TODO (task 9): disabled until submit logic is ready -->
-        <Button variant="primary" onclick={close}>Confirm</Button>
+        <Button variant="primary" onclick={handleConfirm} disabled={submitting}>
+          {submitting ? "Creating…" : "Confirm"}
+        </Button>
       {/if}
     </div>
   </div>
@@ -443,6 +590,63 @@
     box-shadow: none;
     cursor: pointer;
     justify-self: start;
+  }
+
+  .summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+  }
+
+  .summary-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+  }
+
+  .summary-heading {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    padding-bottom: var(--sp-xs);
+    border-bottom: 1px solid var(--color-bevel-mid);
+    margin-bottom: var(--sp-xs);
+  }
+
+  .summary-row {
+    display: flex;
+    gap: var(--sp-sm);
+    font-size: var(--text-sm);
+    align-items: baseline;
+  }
+
+  .summary-label {
+    color: var(--color-text-muted);
+    min-width: 9rem;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .summary-value {
+    color: var(--color-text);
+  }
+
+  .summary-muted {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .summary-warn {
+    font-size: var(--text-sm);
+    color: var(--color-amount-negative);
+  }
+
+  .summary-error {
+    font-size: var(--text-sm);
+    color: var(--color-amount-negative);
+    background: var(--color-danger-light);
+    padding: var(--sp-xs) var(--sp-sm);
+    box-shadow: var(--shadow-sunken);
   }
 
   .wizard-footer {
