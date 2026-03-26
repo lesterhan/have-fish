@@ -36,6 +36,10 @@
   /* --- The desktop --- */
   --color-desktop: #008080; /* The teal. Non-negotiable. */
 
+  /* --- Heading banner --- */
+  --color-banner-from: #1a3f3f; /* dark muted teal */
+  --color-banner-to:   #7aa0a0; /* light muted teal */
+
   /* --- Window chrome (the silver-grey surfaces everything sits on) --- */
   --color-window:        #d4d0c8; /* classic window background */
   --color-window-raised: #ece9d8; /* content area, slightly warmer (XP Luna) */

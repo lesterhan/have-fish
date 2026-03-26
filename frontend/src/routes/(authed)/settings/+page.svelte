@@ -1,109 +1,124 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { fetchAccounts, createAccount, deleteAccount, fetchParsers, createParser, deleteParser, updateParser, fetchUserSettings, updateUserSettings } from '$lib/api'
-  import type { Account, CsvParser, UserSettings } from '$lib/api'
-  import Button from '$lib/components/Button.svelte'
-  import AccountPathInput from '$lib/components/AccountPathInput.svelte'
-  import { signOut, useSession } from '$lib/auth'
-  import { goto } from '$app/navigation'
+  import { onMount } from "svelte";
+  import {
+    fetchAccounts,
+    createAccount,
+    deleteAccount,
+    fetchParsers,
+    createParser,
+    deleteParser,
+    updateParser,
+    fetchUserSettings,
+    updateUserSettings,
+  } from "$lib/api";
+  import type { Account, CsvParser, UserSettings } from "$lib/api";
+  import Button from "$lib/components/Button.svelte";
+  import HeadingBanner from "$lib/components/HeadingBanner.svelte";
+  import AccountPathInput from "$lib/components/AccountPathInput.svelte";
+  import { signOut, useSession } from "$lib/auth";
+  import { goto } from "$app/navigation";
 
-  const session = useSession()
+  const session = useSession();
 
   async function handleSignOut() {
-    await signOut()
-    goto('/login')
+    await signOut();
+    goto("/login");
   }
 
   // --- Defaults ---
-  let userSettings = $state<UserSettings | null>(null)
+  let userSettings = $state<UserSettings | null>(null);
 
   // --- Accounts ---
-  let accounts = $state<Account[]>([])
-  let newAccountPath = $state('')
+  let accounts = $state<Account[]>([]);
+  let newAccountPath = $state("");
 
   onMount(async () => {
     const [accts, parsersData, settings] = await Promise.all([
       fetchAccounts(),
       fetchParsers(),
       fetchUserSettings(),
-    ])
-    accounts = accts
-    parsers = parsersData
-    userSettings = settings
-  })
+    ]);
+    accounts = accts;
+    parsers = parsersData;
+    userSettings = settings;
+  });
 
   async function handleCreateAccount() {
-    const created = await createAccount({ path: newAccountPath })
-    accounts = [...accounts, created]
-    newAccountPath = ''
+    const created = await createAccount({ path: newAccountPath });
+    accounts = [...accounts, created];
+    newAccountPath = "";
   }
 
   async function handleDeleteAccount(id: string) {
-    await deleteAccount(id)
-    accounts = accounts.filter((a: { id: string }) => a.id !== id)
+    await deleteAccount(id);
+    accounts = accounts.filter((a: { id: string }) => a.id !== id);
   }
 
   // --- Import parsers ---
-  let parsers = $state<CsvParser[]>([])
+  let parsers = $state<CsvParser[]>([]);
 
   // Step 1: raw header input
-  let headerInput = $state('')
+  let headerInput = $state("");
 
   // Step 2: normalized column names extracted from the header input.
   // Empty array = step 1 is active. Populated = step 2 (mapping) is active.
-  let columns = $state<string[]>([])
+  let columns = $state<string[]>([]);
 
   // Mapping form state
-  let parserName = $state('')
-  let mappingDate = $state('')
-  let mappingAmount = $state('')
-  let mappingDescription = $state<string>('')
-  let mappingCurrency = $state<string>('')
+  let parserName = $state("");
+  let mappingDate = $state("");
+  let mappingAmount = $state("");
+  let mappingDescription = $state<string>("");
+  let mappingCurrency = $state<string>("");
   // Multi-currency fields
-  let isMultiCurrency = $state(false)
-  let mappingSourceAmount = $state('')
-  let mappingSourceCurrency = $state('')
-  let mappingTargetAmount = $state('')
-  let mappingTargetCurrency = $state('')
-  let mappingFeeAmount = $state('')
-  let mappingFeeCurrency = $state('')
-  let newParserFeeAccountId = $state('')
+  let isMultiCurrency = $state(false);
+  let mappingSourceAmount = $state("");
+  let mappingSourceCurrency = $state("");
+  let mappingTargetAmount = $state("");
+  let mappingTargetCurrency = $state("");
+  let mappingFeeAmount = $state("");
+  let mappingFeeCurrency = $state("");
+  let newParserFeeAccountId = $state("");
 
   // Applies the same normalization as the backend's parseCsv transformHeader:
   // lowercase, strip whitespace, strip parenthetical suffixes.
   function normalizeColumn(col: string): string {
-    return col.toLowerCase().replace(/"/g, '').replace(/\s/g, '').replace(/\(.*\)/g, '')
+    return col
+      .toLowerCase()
+      .replace(/"/g, "")
+      .replace(/\s/g, "")
+      .replace(/\(.*\)/g, "");
   }
 
   // Sorted pipe-joined fingerprint — must match what the backend stores.
   function buildNormalizedHeader(cols: string[]): string {
-    return [...cols].sort().join('|')
+    return [...cols].sort().join("|");
   }
 
   function handleParseHeader() {
     const parsed = headerInput
-      .split(',')
+      .split(",")
       .map((c) => normalizeColumn(c.trim()))
-      .filter(Boolean)
-    columns = [...new Set(parsed)] // deduplicate in case of malformed input
-    mappingDate = ''
-    mappingAmount = ''
-    mappingDescription = ''
-    mappingCurrency = ''
+      .filter(Boolean);
+    columns = [...new Set(parsed)]; // deduplicate in case of malformed input
+    mappingDate = "";
+    mappingAmount = "";
+    mappingDescription = "";
+    mappingCurrency = "";
   }
 
   function handleReset() {
-    columns = []
-    headerInput = ''
-    parserName = ''
-    isMultiCurrency = false
-    mappingSourceAmount = ''
-    mappingSourceCurrency = ''
-    mappingTargetAmount = ''
-    mappingTargetCurrency = ''
-    mappingFeeAmount = ''
-    mappingFeeCurrency = ''
-    newParserFeeAccountId = ''
+    columns = [];
+    headerInput = "";
+    parserName = "";
+    isMultiCurrency = false;
+    mappingSourceAmount = "";
+    mappingSourceCurrency = "";
+    mappingTargetAmount = "";
+    mappingTargetCurrency = "";
+    mappingFeeAmount = "";
+    mappingFeeCurrency = "";
+    newParserFeeAccountId = "";
   }
 
   async function handleSaveParser() {
@@ -120,55 +135,63 @@
         feeAmount: mappingFeeAmount || null,
         feeCurrency: mappingFeeCurrency || null,
       }),
-    }
+    };
     const created = await createParser({
       name: parserName,
       normalizedHeader: buildNormalizedHeader(columns),
       columnMapping,
       isMultiCurrency,
       defaultFeeAccountId: newParserFeeAccountId || null,
-    })
-    parsers = [...parsers, created]
-    handleReset()
+    });
+    parsers = [...parsers, created];
+    handleReset();
   }
 
   async function handleDeleteParser(id: string) {
-    await deleteParser(id)
-    parsers = parsers.filter((p) => p.id !== id)
+    await deleteParser(id);
+    parsers = parsers.filter((p) => p.id !== id);
   }
 
   async function handleParserAccountChange(id: string, accountId: string) {
     // Empty string from the dropdown means "no default" — send null to clear it
-    const updated = await updateParser(id, { defaultAccountId: accountId || null })
-    parsers = parsers.map((p) => (p.id === id ? updated : p))
+    const updated = await updateParser(id, {
+      defaultAccountId: accountId || null,
+    });
+    parsers = parsers.map((p) => (p.id === id ? updated : p));
   }
 
   async function handleParserMultiCurrencyChange(id: string, value: boolean) {
-    const updated = await updateParser(id, { isMultiCurrency: value })
-    parsers = parsers.map((p) => (p.id === id ? updated : p))
+    const updated = await updateParser(id, { isMultiCurrency: value });
+    parsers = parsers.map((p) => (p.id === id ? updated : p));
   }
 
   async function handleParserFeeAccountChange(id: string, accountId: string) {
-    const updated = await updateParser(id, { defaultFeeAccountId: accountId || null })
-    parsers = parsers.map((p) => (p.id === id ? updated : p))
+    const updated = await updateParser(id, {
+      defaultFeeAccountId: accountId || null,
+    });
+    parsers = parsers.map((p) => (p.id === id ? updated : p));
   }
 
-  async function handleDefaultChange(field: 'defaultOffsetAccountId' | 'defaultConversionAccountId', accountId: string) {
-    userSettings = await updateUserSettings({ [field]: accountId || null })
+  async function handleDefaultChange(
+    field: "defaultOffsetAccountId" | "defaultConversionAccountId",
+    accountId: string,
+  ) {
+    userSettings = await updateUserSettings({ [field]: accountId || null });
   }
 
   async function handleAssetsRootPathChange(value: string) {
-    if (!value.trim()) return
-    userSettings = await updateUserSettings({ defaultAssetsRootPath: value.trim() })
+    if (!value.trim()) return;
+    userSettings = await updateUserSettings({
+      defaultAssetsRootPath: value.trim(),
+    });
   }
-
 </script>
 
 {#if $session.data}
-  <div class="user-banner">
-    <h1>🧧🎣 {$session.data.user.email}</h1>
+  <HeadingBanner>
+    <h1>🧧 {$session.data.user.email}</h1>
     <Button variant="danger" onclick={handleSignOut}>Sign out</Button>
-  </div>
+  </HeadingBanner>
 {/if}
 
 <section>
@@ -177,8 +200,12 @@
     <label for="default-offset">Offset account</label>
     <select
       id="default-offset"
-      value={userSettings?.defaultOffsetAccountId ?? ''}
-      onchange={(e) => handleDefaultChange('defaultOffsetAccountId', (e.currentTarget as HTMLSelectElement).value)}
+      value={userSettings?.defaultOffsetAccountId ?? ""}
+      onchange={(e) =>
+        handleDefaultChange(
+          "defaultOffsetAccountId",
+          (e.currentTarget as HTMLSelectElement).value,
+        )}
     >
       <option value="">— none —</option>
       {#each accounts as account}
@@ -189,8 +216,12 @@
     <label for="default-conversion">Conversion account</label>
     <select
       id="default-conversion"
-      value={userSettings?.defaultConversionAccountId ?? ''}
-      onchange={(e) => handleDefaultChange('defaultConversionAccountId', (e.currentTarget as HTMLSelectElement).value)}
+      value={userSettings?.defaultConversionAccountId ?? ""}
+      onchange={(e) =>
+        handleDefaultChange(
+          "defaultConversionAccountId",
+          (e.currentTarget as HTMLSelectElement).value,
+        )}
     >
       <option value="">— none —</option>
       {#each accounts as account}
@@ -202,8 +233,9 @@
     <input
       id="assets-root-path"
       type="text"
-      value={userSettings?.defaultAssetsRootPath ?? 'assets'}
-      onblur={(e) => handleAssetsRootPathChange((e.currentTarget as HTMLInputElement).value)}
+      value={userSettings?.defaultAssetsRootPath ?? "assets"}
+      onblur={(e) =>
+        handleAssetsRootPathChange((e.currentTarget as HTMLInputElement).value)}
       placeholder="assets"
     />
   </div>
@@ -211,7 +243,12 @@
 
 <section>
   <h2>Accounts</h2>
-  <form onsubmit={(e) => { e.preventDefault(); handleCreateAccount() }}>
+  <form
+    onsubmit={(e) => {
+      e.preventDefault();
+      handleCreateAccount();
+    }}
+  >
     <input bind:value={newAccountPath} placeholder="assets:cash" />
     <Button type="submit" variant="primary">Add Account</Button>
   </form>
@@ -219,7 +256,9 @@
   {#each accounts as account}
     <div class="list-row">
       {account.path}
-      <Button variant="danger" onclick={() => handleDeleteAccount(account.id)}>delete</Button>
+      <Button variant="danger" onclick={() => handleDeleteAccount(account.id)}
+        >delete</Button
+      >
     </div>
   {/each}
 </section>
@@ -234,21 +273,38 @@
       <div class="list-row">
         <span class="parser-name">{parser.name}</span>
         <span class="parser-header">{parser.normalizedHeader}</span>
-        <label class="multi-currency-toggle" title="Enables support for inline multi-currency transfers (e.g. Wise)">
+        <label
+          class="multi-currency-toggle"
+          title="Enables support for inline multi-currency transfers (e.g. Wise)"
+        >
           <input
             type="checkbox"
             checked={parser.isMultiCurrency}
-            onchange={(e) => handleParserMultiCurrencyChange(parser.id, (e.currentTarget as HTMLInputElement).checked)}
+            onchange={(e) =>
+              handleParserMultiCurrencyChange(
+                parser.id,
+                (e.currentTarget as HTMLInputElement).checked,
+              )}
           />
           multi-currency
         </label>
         <select
           class="parser-account"
-          value={parser.defaultAccountId ?? ''}
-          title={parser.isMultiCurrency ? 'Root path (e.g. assets:wise)' : 'Default account'}
-          onchange={(e) => handleParserAccountChange(parser.id, (e.currentTarget as HTMLSelectElement).value)}
+          value={parser.defaultAccountId ?? ""}
+          title={parser.isMultiCurrency
+            ? "Root path (e.g. assets:wise)"
+            : "Default account"}
+          onchange={(e) =>
+            handleParserAccountChange(
+              parser.id,
+              (e.currentTarget as HTMLSelectElement).value,
+            )}
         >
-          <option value="">{parser.isMultiCurrency ? '— no root path —' : '— no default —'}</option>
+          <option value=""
+            >{parser.isMultiCurrency
+              ? "— no root path —"
+              : "— no default —"}</option
+          >
           {#each accounts as account}
             <option value={account.id}>{account.path}</option>
           {/each}
@@ -256,9 +312,13 @@
         {#if parser.isMultiCurrency}
           <select
             class="parser-account"
-            value={parser.defaultFeeAccountId ?? ''}
+            value={parser.defaultFeeAccountId ?? ""}
             title="Default fee account"
-            onchange={(e) => handleParserFeeAccountChange(parser.id, (e.currentTarget as HTMLSelectElement).value)}
+            onchange={(e) =>
+              handleParserFeeAccountChange(
+                parser.id,
+                (e.currentTarget as HTMLSelectElement).value,
+              )}
           >
             <option value="">— no fee account —</option>
             {#each accounts as account}
@@ -266,7 +326,9 @@
             {/each}
           </select>
         {/if}
-        <Button variant="danger" onclick={() => handleDeleteParser(parser.id)}>delete</Button>
+        <Button variant="danger" onclick={() => handleDeleteParser(parser.id)}
+          >delete</Button
+        >
       </div>
     {/each}
   {/if}
@@ -282,14 +344,18 @@
           bind:value={headerInput}
           placeholder="Date, Amount (CAD), Description, Currency"
         />
-        <Button variant="primary" onclick={handleParseHeader} disabled={!headerInput.trim()}>
+        <Button
+          variant="primary"
+          onclick={handleParseHeader}
+          disabled={!headerInput.trim()}
+        >
           Parse columns
         </Button>
       </div>
     {:else}
       <!-- Step 2: map columns to fields -->
       <h3>Map columns</h3>
-      <p class="hint">Detected columns: <code>{columns.join(', ')}</code></p>
+      <p class="hint">Detected columns: <code>{columns.join(", ")}</code></p>
 
       <div class="mapping-grid">
         <label for="map-date">Date <span class="required">*</span></label>
@@ -318,30 +384,47 @@
 
         <label for="multi-currency" class="checkbox-label">
           Multi-currency
-          <span class="tooltip-icon" title="Enables support for inline multi-currency transfers (e.g. Wise). The default account becomes the root path (e.g. assets:wise) and child accounts are derived per row.">?</span>
+          <span
+            class="tooltip-icon"
+            title="Enables support for inline multi-currency transfers (e.g. Wise). The default account becomes the root path (e.g. assets:wise) and child accounts are derived per row."
+            >?</span
+          >
         </label>
-        <input id="multi-currency" type="checkbox" class="checkbox" bind:checked={isMultiCurrency} />
+        <input
+          id="multi-currency"
+          type="checkbox"
+          class="checkbox"
+          bind:checked={isMultiCurrency}
+        />
 
         {#if isMultiCurrency}
-          <label for="map-source-amount">Source amount <span class="required">*</span></label>
+          <label for="map-source-amount"
+            >Source amount <span class="required">*</span></label
+          >
           <select id="map-source-amount" bind:value={mappingSourceAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </select>
 
-          <label for="map-source-currency">Source currency <span class="required">*</span></label>
+          <label for="map-source-currency"
+            >Source currency <span class="required">*</span></label
+          >
           <select id="map-source-currency" bind:value={mappingSourceCurrency}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </select>
 
-          <label for="map-target-amount">Target amount <span class="required">*</span></label>
+          <label for="map-target-amount"
+            >Target amount <span class="required">*</span></label
+          >
           <select id="map-target-amount" bind:value={mappingTargetAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </select>
 
-          <label for="map-target-currency">Target currency <span class="required">*</span></label>
+          <label for="map-target-currency"
+            >Target currency <span class="required">*</span></label
+          >
           <select id="map-target-currency" bind:value={mappingTargetCurrency}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
@@ -364,12 +447,20 @@
             {accounts}
             bind:value={newParserFeeAccountId}
             placeholder="expenses:fees:wise"
-            oncreate={(a) => { accounts = [...accounts, a] }}
+            oncreate={(a) => {
+              accounts = [...accounts, a];
+            }}
           />
         {/if}
 
-        <label for="parser-name">Parser name <span class="required">*</span></label>
-        <input id="parser-name" bind:value={parserName} placeholder="Imre Trust Credit Union" />
+        <label for="parser-name"
+          >Parser name <span class="required">*</span></label
+        >
+        <input
+          id="parser-name"
+          bind:value={parserName}
+          placeholder="Imre Trust Credit Union"
+        />
       </div>
 
       <div class="row">
@@ -387,21 +478,6 @@
 </section>
 
 <style>
-  .user-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--sp-md);
-    margin-bottom: var(--sp-xl);
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-  }
-
-  .user-banner h1 {
-    font-size: var(--text-base);
-    font-weight: bold;
-  }
-
   .defaults-grid {
     display: grid;
     grid-template-columns: 12rem 1fr;

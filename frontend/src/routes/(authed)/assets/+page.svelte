@@ -3,6 +3,7 @@
   import { fetchAccountBalances, type AccountBalance } from "$lib/api";
   import Modal from "$lib/components/Modal.svelte";
   import Button from "$lib/components/Button.svelte";
+  import HeadingBanner from "$lib/components/HeadingBanner.svelte";
 
   let showAddAccount = $state(false);
 
@@ -21,10 +22,10 @@
   }
 </script>
 
-<div class="page-header">
+<HeadingBanner>
   <h1>Assets</h1>
   <Button onclick={() => (showAddAccount = true)}>Add new account</Button>
-</div>
+</HeadingBanner>
 
 <Modal title="Add Account" bind:open={showAddAccount}>
   <p>The Modal Is Ajar</p>
@@ -67,13 +68,6 @@
 {/if}
 
 <style>
-  .page-header {
-    display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    margin-bottom: var(--sp-md);
-  }
-
   .empty {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
