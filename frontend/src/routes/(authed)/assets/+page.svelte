@@ -1,9 +1,9 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import { fetchAccountBalances, type AccountBalance } from "$lib/api";
-  import Modal from "$lib/components/Modal.svelte";
   import Button from "$lib/components/Button.svelte";
   import HeadingBanner from "$lib/components/HeadingBanner.svelte";
+  import AddAccountWizard from "$lib/components/AddAccountWizard.svelte";
 
   let showAddAccount = $state(false);
   let showAddLiability = $state(false);
@@ -28,9 +28,7 @@
   <Button onclick={() => (showAddAccount = true)}>New asset account</Button>
 </HeadingBanner>
 
-<Modal title="Add New Asset Account" bind:open={showAddAccount}>
-  <p>The Modal Is Ajar</p>
-</Modal>
+<AddAccountWizard type="asset" bind:open={showAddAccount} />
 
 {#if accounts.length === 0}
   <p class="empty">Couldn't find any asset accounts 🕵️</p>
@@ -75,9 +73,7 @@
   >
 </HeadingBanner>
 
-<Modal title="Add New Liability Account" bind:open={showAddLiability}>
-  <p>The Modal Is Ajar</p>
-</Modal>
+<AddAccountWizard type="liability" bind:open={showAddLiability} />
 
 {#if accounts.length === 0}
   <p class="empty">Couldn't find any liability accounts 🕵️</p>
