@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { accounts, postings, userSettings } from '../db/schema'
-import { eq, isNull, and, like, sql } from 'drizzle-orm'
+import { eq, isNull, and, like, or, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -16,19 +16,23 @@ app.get('/', async (c) => {
 })
 
 // GET /api/accounts/balances
-// Returns all asset accounts with their per-currency balances.
-// "Asset accounts" = accounts whose path starts with the user's defaultAssetsRootPath.
+// Returns all asset and liability accounts with their per-currency balances and type.
+// "Asset accounts"     = paths starting with defaultAssetsRootPath
+// "Liability accounts" = paths starting with defaultLiabilitiesRootPath
 // Balance = SUM of all posting amounts for that account, grouped by currency.
 // Accounts with no postings are included with an empty balances array.
 app.get('/balances', async (c) => {
   const userId = c.get('userId')
 
-  // Look up the user's configured assets root path, fall back to 'assets'
   const [settings] = await db
-    .select({ defaultAssetsRootPath: userSettings.defaultAssetsRootPath })
+    .select({
+      defaultAssetsRootPath: userSettings.defaultAssetsRootPath,
+      defaultLiabilitiesRootPath: userSettings.defaultLiabilitiesRootPath,
+    })
     .from(userSettings)
     .where(eq(userSettings.userId, userId))
-  const root = settings?.defaultAssetsRootPath ?? 'assets'
+  const assetsRoot = settings?.defaultAssetsRootPath ?? 'assets'
+  const liabilitiesRoot = settings?.defaultLiabilitiesRootPath ?? 'liabilities'
 
   // LEFT JOIN so accounts with no postings still appear (with null currency/balance)
   const rows = await db
@@ -43,15 +47,20 @@ app.get('/balances', async (c) => {
     .where(and(
       eq(accounts.userId, userId),
       isNull(accounts.deletedAt),
-      like(accounts.path, `${root}:%`),
+      or(
+        like(accounts.path, `${assetsRoot}:%`),
+        like(accounts.path, `${liabilitiesRoot}:%`),
+      ),
     ))
     .groupBy(accounts.id, accounts.path, postings.currency)
 
   // Collapse the flat rows into one entry per account with a balances array
-  const grouped = new Map<string, { id: string; path: string; balances: { currency: string; amount: string }[] }>()
+  type AccountType = 'asset' | 'liability'
+  const grouped = new Map<string, { id: string; path: string; type: AccountType; balances: { currency: string; amount: string }[] }>()
   for (const row of rows) {
     if (!grouped.has(row.id)) {
-      grouped.set(row.id, { id: row.id, path: row.path, balances: [] })
+      const type: AccountType = row.path.startsWith(`${assetsRoot}:`) ? 'asset' : 'liability'
+      grouped.set(row.id, { id: row.id, path: row.path, type, balances: [] })
     }
     if (row.currency !== null && row.balance !== null) {
       grouped.get(row.id)!.balances.push({ currency: row.currency, amount: row.balance })

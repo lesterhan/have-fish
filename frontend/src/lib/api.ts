@@ -232,6 +232,7 @@ export async function updateUserSettings(
 export type AccountBalance = {
   id: string
   path: string
+  type: 'asset' | 'liability'
   balances: { currency: string; amount: string }[]
 }
 

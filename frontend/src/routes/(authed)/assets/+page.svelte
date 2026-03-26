@@ -11,9 +11,15 @@
   let accounts = $state<AccountBalance[]>([]);
 
   onMount(async () => {
-    const balances = await fetchAccountBalances();
-    accounts = balances;
+    accounts = await fetchAccountBalances();
   });
+
+  async function refreshAccounts() {
+    accounts = await fetchAccountBalances();
+  }
+
+  let assets = $derived(accounts.filter((a) => a.type === "asset"));
+  let liabilities = $derived(accounts.filter((a) => a.type === "liability"));
 
   function isZeroBalance(account: AccountBalance): boolean {
     return (
@@ -21,11 +27,45 @@
       account.balances.every((b) => parseFloat(b.amount) === 0)
     );
   }
-
-  async function refreshAccounts() {
-    accounts = await fetchAccountBalances();
-  }
 </script>
+
+{#snippet accountTable(rows: AccountBalance[], emptyText: string)}
+  {#if rows.length === 0}
+    <p class="empty">{emptyText}</p>
+  {:else}
+    <div class="table-container">
+      <table>
+        <thead>
+          <tr>
+            <th>Account</th>
+            <th class="col-balances">Balances</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each rows as account}
+            <tr class:dimmed={isZeroBalance(account)}>
+              <td class="cell-path">{account.path}</td>
+              <td class="cell-balances">
+                {#each account.balances as balance}
+                  <span
+                    class="balance-chip"
+                    class:positive={parseFloat(balance.amount) > 0}
+                    class:negative={parseFloat(balance.amount) < 0}
+                  >
+                    {balance.amount}
+                    {balance.currency}
+                  </span>
+                {:else}
+                  <span class="balance-empty">—</span>
+                {/each}
+              </td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    </div>
+  {/if}
+{/snippet}
 
 <HeadingBanner>
   <h1>Assets</h1>
@@ -34,86 +74,16 @@
 
 <AddAccountWizard type="asset" bind:open={showAddAccount} onSuccess={refreshAccounts} />
 
-{#if accounts.length === 0}
-  <p class="empty">Couldn't find any asset accounts 🕵️</p>
-{:else}
-  <div class="table-container">
-    <table>
-      <thead>
-        <tr>
-          <th>Account</th>
-          <th class="col-balances">Balances</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each accounts as account}
-          <tr class:dimmed={isZeroBalance(account)}>
-            <td class="cell-path">{account.path}</td>
-            <td class="cell-balances">
-              {#each account.balances as balance}
-                <span
-                  class="balance-chip"
-                  class:positive={parseFloat(balance.amount) > 0}
-                  class:negative={parseFloat(balance.amount) < 0}
-                >
-                  {balance.amount}
-                  {balance.currency}
-                </span>
-              {:else}
-                <span class="balance-empty">—</span>
-              {/each}
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-{/if}
+{@render accountTable(assets, "Couldn't find any asset accounts 🕵️")}
 
 <HeadingBanner>
   <h1>Liabilities</h1>
-  <Button onclick={() => (showAddLiability = true)}
-    >New liability account</Button
-  >
+  <Button onclick={() => (showAddLiability = true)}>New liability account</Button>
 </HeadingBanner>
 
 <AddAccountWizard type="liability" bind:open={showAddLiability} onSuccess={refreshAccounts} />
 
-{#if accounts.length === 0}
-  <p class="empty">Couldn't find any liability accounts 🕵️</p>
-{:else}
-  <div class="table-container">
-    <table>
-      <thead>
-        <tr>
-          <th>Account</th>
-          <th class="col-balances">Balances</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each accounts as account}
-          <tr class:dimmed={isZeroBalance(account)}>
-            <td class="cell-path">{account.path}</td>
-            <td class="cell-balances">
-              {#each account.balances as balance}
-                <span
-                  class="balance-chip"
-                  class:positive={parseFloat(balance.amount) > 0}
-                  class:negative={parseFloat(balance.amount) < 0}
-                >
-                  {balance.amount}
-                  {balance.currency}
-                </span>
-              {:else}
-                <span class="balance-empty">—</span>
-              {/each}
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  </div>
-{/if}
+{@render accountTable(liabilities, "Couldn't find any liability accounts 🕵️")}
 
 <style>
   .empty {
@@ -127,6 +97,7 @@
     box-shadow: var(--shadow-sunken);
     background: var(--color-window-inset);
     overflow-x: auto;
+    margin-bottom: var(--sp-xl);
   }
 
   table {
