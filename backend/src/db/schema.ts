@@ -115,6 +115,7 @@ export const userSettings = pgTable('user_settings', {
   defaultConversionAccountId: uuid('default_conversion_account_id').references(() => accounts.id),
   // All accounts whose path starts with defaultAssetsRootPath value are treated as assets.
   defaultAssetsRootPath: text('default_assets_root_path').notNull().default('assets'),
+  defaultLiabilitiesRootPath: text('default_liabilities_root_path').notNull().default('liabilities'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

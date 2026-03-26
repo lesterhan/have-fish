@@ -34,6 +34,7 @@ app.get('/', async (c) => {
 //   defaultOffsetAccountId     — UUID of an account owned by the user, or null
 //   defaultConversionAccountId — UUID of an account owned by the user, or null
 //   defaultAssetsRootPath      — plain text path prefix, e.g. "assets"
+//   defaultLiabilitiesRootPath — plain text path prefix, e.g. "liabilities"
 app.patch('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
@@ -66,12 +67,13 @@ app.patch('/', async (c) => {
   }
 
   // Plain text fields
-  if ('defaultAssetsRootPath' in body) {
-    const value = body.defaultAssetsRootPath
+  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath'] as const) {
+    if (!(field in body)) continue
+    const value = body[field]
     if (typeof value !== 'string' || !value.trim()) {
-      return c.json({ error: 'defaultAssetsRootPath must be a non-empty string' }, 400)
+      return c.json({ error: `${field} must be a non-empty string` }, 400)
     }
-    patch.defaultAssetsRootPath = value.trim()
+    patch[field] = value.trim()
   }
 
   if (Object.keys(patch).length === 0) {
