@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from "svelte";
   import Modal from "./Modal.svelte";
   import Button from "./Button.svelte";
+  import { fetchUserSettings, type UserSettings } from "$lib/api";
 
   interface Props {
     type: "asset" | "liability";
@@ -18,30 +20,60 @@
   // Step 1, 2, or 3
   let step = $state(1);
 
-  function next() {
-    step++;
-  }
-  function back() {
-    step--;
-  }
-  function skip() {
-    step = 3;
-  }
+  function next() { step++ }
+  function back() { step-- }
+  function skip() { step = 3 }
 
   function close() {
     open = false;
-    // Reset to step 1 after the modal closes so reopening starts fresh
-    setTimeout(() => {
-      step = 1;
-    }, 200);
+    setTimeout(() => { step = 1; resetStep1() }, 200);
   }
 
-  // TODO (task 7): step 1 form state — account path, starting balance, date
+  // --- User settings (needed for root path prefixes) ---
+  let userSettings = $state<UserSettings | null>(null);
+
+  onMount(async () => {
+    userSettings = await fetchUserSettings();
+  });
+
+  // The prefix to pre-fill when the wizard opens, based on type + user settings.
+  let rootPrefix = $derived.by(() => {
+    if (!userSettings) return "";
+    return type === "asset"
+      ? userSettings.defaultAssetsRootPath + ":"
+      : userSettings.defaultLiabilitiesRootPath + ":";
+  });
+
+  // --- Step 1 state ---
+  let accountPath = $state("");
+  let startingBalance = $state("");
+  let startingCurrency = $state("CAD");
+  let startingDate = $state(todayIso());
+
+  function todayIso(): string {
+    return new Date().toISOString().slice(0, 10);
+  }
+
+  // Pre-fill the account path when the wizard opens or the root prefix resolves.
+  $effect(() => {
+    if (open && rootPrefix && accountPath === "") {
+      accountPath = rootPrefix;
+    }
+  });
+
+  function resetStep1() {
+    accountPath = "";
+    startingBalance = "";
+    startingCurrency = "CAD";
+    startingDate = todayIso();
+  }
+
+  let step1Valid = $derived(
+    accountPath.trim().length > 0 && accountPath.trim() !== rootPrefix.trim()
+  );
+
   // TODO (task 8): step 2 form state — parser name, header, columns, mappings
   // TODO (task 9): confirm submit logic
-
-  // Step 1 is valid when account path is non-empty
-  let step1Valid = $derived(false); // TODO (task 7): derive from account path value
 
   // Step 2 is valid when parser name, date column, and amount column are filled
   let step2Valid = $derived(false); // TODO (task 8): derive from parser form state
@@ -51,8 +83,46 @@
   <!-- Step content -->
   <div class="wizard-body">
     {#if step === 1}
-      <!-- TODO (task 7): Step 1 — account path + starting balance -->
-      <p class="placeholder">Step 1: Account path and starting balance</p>
+      <div class="form-grid">
+        <label for="account-path">Account path</label>
+        <input
+          id="account-path"
+          type="text"
+          bind:value={accountPath}
+          placeholder={rootPrefix || "assets:"}
+          spellcheck={false}
+          autocomplete="off"
+        />
+
+        <label for="starting-balance">Starting balance <span class="optional">(optional)</span></label>
+        <div class="balance-row">
+          <input
+            id="starting-balance"
+            type="text"
+            inputmode="decimal"
+            bind:value={startingBalance}
+            placeholder="0.00"
+            class="balance-amount"
+          />
+          <input
+            type="text"
+            bind:value={startingCurrency}
+            placeholder="CAD"
+            class="balance-currency"
+            maxlength={5}
+            spellcheck={false}
+          />
+        </div>
+
+        {#if startingBalance.trim()}
+          <label for="starting-date">Balance date</label>
+          <input
+            id="starting-date"
+            type="date"
+            bind:value={startingDate}
+          />
+        {/if}
+      </div>
     {:else if step === 2}
       <!-- TODO (task 8): Step 2 — parser setup -->
       <p class="placeholder">Step 2: Set up a CSV parser</p>
@@ -91,14 +161,61 @@
 <style>
   .wizard-body {
     min-width: 420px;
-    min-height: 180px;
-    /* TODO: remove min-height once real content fills the steps */
   }
 
   .placeholder {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     font-style: italic;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 10rem 1fr;
+    gap: var(--sp-xs) var(--sp-sm);
+    align-items: center;
+  }
+
+  .form-grid label {
+    font-size: var(--text-sm);
+    text-align: right;
+  }
+
+  .form-grid input {
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window-inset);
+    box-shadow: var(--shadow-sunken);
+    border: none;
+    color: var(--color-text);
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .form-grid input:focus {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -2px;
+  }
+
+  .optional {
+    color: var(--color-text-muted);
+    font-weight: var(--weight-normal);
+  }
+
+  .balance-row {
+    display: flex;
+    gap: var(--sp-xs);
+  }
+
+  .balance-amount {
+    flex: 1;
+  }
+
+  .balance-currency {
+    width: 4rem;
+    flex-shrink: 0;
+    text-transform: uppercase;
   }
 
   .wizard-footer {
