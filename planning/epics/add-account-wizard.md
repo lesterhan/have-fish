@@ -2,9 +2,8 @@
 
 Goal: Create an account onboarding wizard. A button component that will pop up a modal that adds an account with all the needed info that immediately makes it usable. It will have steps that gets the following info:
 
-- Account path hints. "Is this account a.." buttons "asset" "liability" "equity"
-  - Clicking on the button will pre-fill the AccountPathInput with "assets:" "liabilities:" "equity:" respectively
-  - The label text "Or just start typing:" with the AccountPathInput
+- Add new user default setting defaultLiabilitiesRootPath which will be a plaintext "liabilities" by default
+- First page of the modal is the AccountPathInput field
 - A optional input field for "Starting balance"
 - Next page is a skipable set up for a parser.
   - Button to upload a csv.
