@@ -18,9 +18,11 @@
   import Panel from "$lib/components/Panel.svelte";
   import TextInput from "$lib/components/TextInput.svelte";
   import Toggle from "$lib/components/Toggle.svelte";
+  import TableShell from "$lib/components/TableShell.svelte";
 
   let accounts = $state<Account[]>([]);
   let parsers = $state<CsvParser[]>([]);
+  let parsersLoading = $state(true);
   let userSettings = $state<UserSettings | null>(null);
   // toAccountId seeds the offsetAccountId for regular rows on preview load.
   // Not required upfront — multi-currency imports may have no regular rows.
@@ -53,6 +55,7 @@
     accounts = accts;
     userSettings = settings;
     parsers = parsersData;
+    parsersLoading = false;
     toAccountId = settings.defaultOffsetAccountId ?? "";
   });
 
@@ -290,36 +293,30 @@
     </form>
   </Panel>
   <Panel title="Configured Parsers">
-    {#if parsers.length === 0}
-      <p class="parsers-empty">No parsers configured yet.</p>
-    {:else}
-      <table class="parsers-table">
-        <thead>
-          <tr>
-            <th>Name</th>
-            <th>Account</th>
-            <th>Multi-currency</th>
-            <th>Fee account</th>
-          </tr>
-        </thead>
-        <tbody>
-          {#each parsers as parser}
-            {@const accountPath =
-              accounts.find((a) => a.id === parser.defaultAccountId)?.path ??
-              "—"}
-            {@const feePath =
-              accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ??
-              "—"}
-            <tr>
-              <td class="cell-name">{parser.name}</td>
-              <td class="cell-mono">{accountPath}</td>
-              <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
-              <td class="cell-mono">{feePath}</td>
-            </tr>
-          {/each}
-        </tbody>
-      </table>
-    {/if}
+    <div class="parsers-table">
+    <TableShell
+      columns={[
+        { label: 'Name' },
+        { label: 'Account' },
+        { label: 'Multi-currency' },
+        { label: 'Fee account' },
+      ]}
+      loading={parsersLoading}
+      empty={parsers.length === 0}
+      emptyText="No parsers found."
+    >
+      {#each parsers as parser}
+        {@const accountPath = accounts.find((a) => a.id === parser.defaultAccountId)?.path ?? "—"}
+        {@const feePath = accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ?? "—"}
+        <tr>
+          <td class="cell-name">{parser.name}</td>
+          <td class="cell-mono">{accountPath}</td>
+          <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
+          <td class="cell-mono">{feePath}</td>
+        </tr>
+      {/each}
+    </TableShell>
+    </div>
   </Panel>
 {:else}
   <Panel title="Preview — {preview.parser}">
@@ -771,41 +768,18 @@
 
   /* --- Configured Parsers panel --- */
 
-  .parsers-empty {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    padding: var(--sp-sm);
-  }
-
-  .parsers-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-  }
-
-  .parsers-table th {
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    padding: var(--sp-xs) var(--sp-sm);
-    text-align: left;
-    font-weight: var(--weight-semibold);
-    white-space: nowrap;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
-
-  .parsers-table td {
+  /* td styles for the parsers table — th/table/thead owned by TableShell */
+  .parsers-table :global(td) {
     padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-bevel-mid);
     background: var(--color-window-inset);
   }
 
-  .parsers-table tbody tr:last-child td {
+  .parsers-table :global(tbody tr:last-child td) {
     border-bottom: none;
   }
 
-  .parsers-table tbody tr:hover td {
+  .parsers-table :global(tbody tr:hover td) {
     background: var(--color-accent-light);
   }
 

@@ -4,14 +4,17 @@
   import Button from "$lib/components/Button.svelte";
   import Panel from "$lib/components/Panel.svelte";
   import AddAccountWizard from "$lib/components/AddAccountWizard.svelte";
+  import TableShell from "$lib/components/TableShell.svelte";
 
   let showAddAccount = $state(false);
   let showAddLiability = $state(false);
 
   let accounts = $state<AccountBalance[]>([]);
+  let loading = $state(true);
 
   onMount(async () => {
     accounts = await fetchAccountBalances();
+    loading = false;
   });
 
   async function refreshAccounts() {
@@ -30,39 +33,34 @@
 </script>
 
 {#snippet accountTable(rows: AccountBalance[], emptyText: string)}
-  {#if rows.length === 0}
-    <p class="empty">{emptyText}</p>
-  {:else}
-    <table>
-      <thead>
-        <tr>
-          <th>Account</th>
-          <th class="col-balances">Balances</th>
+  <div class="account-table">
+    <TableShell
+      columns={[{ label: 'Account' }, { label: 'Balances', class: 'col-balances' }]}
+      {loading}
+      empty={rows.length === 0}
+      {emptyText}
+    >
+      {#each rows as account}
+        <tr class:dimmed={isZeroBalance(account)}>
+          <td class="cell-path">{account.path}</td>
+          <td class="cell-balances">
+            {#each account.balances as balance}
+              <span
+                class="balance-chip"
+                class:positive={parseFloat(balance.amount) > 0}
+                class:negative={parseFloat(balance.amount) < 0}
+              >
+                {balance.amount}
+                {balance.currency}
+              </span>
+            {:else}
+              <span class="balance-empty">—</span>
+            {/each}
+          </td>
         </tr>
-      </thead>
-      <tbody>
-        {#each rows as account}
-          <tr class:dimmed={isZeroBalance(account)}>
-            <td class="cell-path">{account.path}</td>
-            <td class="cell-balances">
-              {#each account.balances as balance}
-                <span
-                  class="balance-chip"
-                  class:positive={parseFloat(balance.amount) > 0}
-                  class:negative={parseFloat(balance.amount) < 0}
-                >
-                  {balance.amount}
-                  {balance.currency}
-                </span>
-              {:else}
-                <span class="balance-empty">—</span>
-              {/each}
-            </td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  {/if}
+      {/each}
+    </TableShell>
+  </div>
 {/snippet}
 
 <AddAccountWizard type="asset" bind:open={showAddAccount} onSuccess={refreshAccounts} />
@@ -91,41 +89,18 @@
     background: var(--color-window);
   }
 
-  .empty {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    padding: var(--sp-sm);
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-  }
-
-  th {
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    padding: var(--sp-xs) var(--sp-sm);
-    text-align: left;
-    font-weight: var(--weight-semibold);
-    white-space: nowrap;
-    position: sticky;
-    top: 0;
-    z-index: 1;
-  }
-
-  td {
+  /* td styles — table/thead/th owned by TableShell */
+  :global(.account-table td) {
     padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-bevel-mid);
     background: var(--color-window-inset);
   }
 
-  tbody tr:last-child td {
+  :global(.account-table tbody tr:last-child td) {
     border-bottom: none;
   }
 
-  tbody tr:hover td {
+  :global(.account-table tbody tr:hover td) {
     background: var(--color-accent-light);
   }
 
