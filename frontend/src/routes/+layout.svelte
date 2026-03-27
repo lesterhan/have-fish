@@ -2,6 +2,7 @@
   import "../styles/tokens.css";
   import "../styles/base.css";
   import { useSession } from "$lib/auth";
+  import { theme } from "$lib/theme.svelte";
 
   let { children } = $props();
 
@@ -40,6 +41,13 @@
         <a href="/import">Import</a>
       {/if}
       <span class="menubar-spacer"></span>
+      <button
+        class="theme-btn"
+        onclick={() => theme.toggle()}
+        title="Toggle dark mode"
+      >
+        {theme.dark ? "☀️" : "🌑"}
+      </button>
       {#if $session.data}
         <a href="/settings" class="menubar-settings">
           🔨 {$session.data.user.email}
@@ -214,6 +222,21 @@
   .menubar-settings {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+  }
+
+  .theme-btn {
+    background: none;
+    border: none;
+    padding: 2px var(--sp-xs);
+    font-size: var(--text-sm);
+    line-height: 1;
+    cursor: pointer;
+    border-radius: var(--radius-sm);
+    transition: background var(--duration-fast) var(--ease);
+  }
+
+  .theme-btn:hover {
+    background: var(--color-accent-light);
   }
 
   /* --- Window body --- */

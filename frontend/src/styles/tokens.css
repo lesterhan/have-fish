@@ -120,3 +120,67 @@
   --duration-normal: 120ms;
   --ease:            ease-in-out;
 }
+
+/* =============================================================================
+   Dark theme — Dracula palette
+   Applied when <html data-theme="dark"> is set.
+   Only color tokens are overridden; spacing, type, radius, and shadows
+   are inherited from :root unchanged (bevel shadows auto-update via vars).
+   ============================================================================= */
+[data-theme="dark"] {
+  /* --- The desktop --- */
+  --color-desktop: #1e1f29;
+
+  /* --- Heading banner --- */
+  --color-banner-from: #1e1f29;
+  --color-banner-to:   #44475a;
+
+  /* --- Panel title bar (muted green, complements Dracula purple) --- */
+  --color-panel-header-from: #1e3a2a;
+  --color-panel-header-to:   #4f8a63;
+  --color-panel-header-text: #f8f8f2;
+
+  /* --- Window chrome --- */
+  --color-window:        #44475a; /* raised surfaces — current line */
+  --color-window-raised: #282a36; /* main content — Dracula background */
+  --color-window-inset:  #21222c; /* inputs — darkest layer */
+
+  /* --- Title bar (Dracula purple) --- */
+  --color-titlebar-from: #44475a;
+  --color-titlebar-to:   #bd93f9;
+  --color-titlebar-text: #f8f8f2;
+
+  /* --- Bevel system (dark-adapted)
+   * light edge becomes a soft purple highlight
+   * shadow edge becomes near-black
+   */
+  --color-bevel-light:  #6272a4;
+  --color-bevel-mid:    #383a4e;
+  --color-bevel-dark:   #1a1b26;
+  --color-bevel-shadow: #0d0e14;
+
+  /* --- Text --- */
+  --color-text:          #f8f8f2;
+  --color-text-muted:    #6272a4;
+  --color-text-disabled: #44475a;
+  --color-text-on-dark:  #f8f8f2;
+
+  /* --- Accent (Dracula purple replaces XP blue) --- */
+  --color-accent:       #bd93f9;
+  --color-accent-mid:   #bd93f9;
+  --color-accent-light: #44475a;
+  --color-accent-text:  #f8f8f2;
+
+  /* --- Borders --- */
+  --color-border: #6272a4;
+
+  /* --- Semantic --- */
+  --color-success:       #50fa7b;
+  --color-success-light: #1a3b25;
+  --color-danger:        #ff5555;
+  --color-danger-light:  #3b1a1a;
+
+  /* --- Amounts --- */
+  --color-amount-positive: #50fa7b; /* Dracula green */
+  --color-amount-negative: #ff5555; /* Dracula red   */
+}
