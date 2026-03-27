@@ -827,7 +827,7 @@
   .summary {
     flex: 1;
     font-size: var(--text-sm);
-    color: var(--color-text-muted);
+    color: var(--color-text);
   }
 
   .action-buttons {
