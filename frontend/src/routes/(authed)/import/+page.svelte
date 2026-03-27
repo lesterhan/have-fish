@@ -222,7 +222,8 @@
       }}
     >
       <div class="form-grid">
-        <label class="field-label" for="to-account">To account</label>
+        <label class="field-label" for="to-account">Default Uncategorized</label
+        >
         <AccountPathInput
           {accounts}
           bind:value={toAccountId}

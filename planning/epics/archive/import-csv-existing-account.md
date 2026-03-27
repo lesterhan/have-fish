@@ -1,4 +1,4 @@
-# Epic: Import CSV for Existing Asset Account
+# Epic: Import CSV for Existing Asset Account ✓ Done
 
 Goal: Clean up and polish the current import workflow for accounts that already exist. The form and preview table become proper Panel components, and a second panel below lists all configured parsers so the user can see what's set up without going to Settings.
 

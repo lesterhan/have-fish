@@ -19,7 +19,7 @@
 
 ## CSV Import
 
-### BUG-002 — Liability account imports have inverted signs
+### BUG-002 — Liability account imports have inverted signs *(fix planned — see Import CSV for Liability Accounts epic)*
 
 **Steps to reproduce:**
 1. Import a credit card CSV where charges are positive amounts
