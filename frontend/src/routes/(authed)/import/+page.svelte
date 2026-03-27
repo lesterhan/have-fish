@@ -265,165 +265,157 @@
     </form>
   </Panel>
 {:else}
-  <h2>Preview</h2>
-  <p class="parser-tag">Parser: <strong>{preview.parser}</strong></p>
+  <Panel title="Preview — {preview.parser}">
+    <div class="preview-body">
+      {#if !preview.isMultiCurrency}
+        <div class="account-row">
+          <label class="field-label" for="from-account">
+            From account
+            {#if !fromAccountId}<span class="required">*</span>{/if}
+          </label>
+          <AccountPathInput
+            {accounts}
+            bind:value={fromAccountId}
+            placeholder="Select or create an account…"
+            oncreate={handleAccountCreated}
+          />
+        </div>
+      {/if}
 
-  {#if !preview.isMultiCurrency}
-    <div class="account-row">
-      <label for="from-account">
-        From account
-        {#if !fromAccountId}<span class="required">*</span>{/if}
-      </label>
-      <AccountPathInput
-        {accounts}
-        bind:value={fromAccountId}
-        placeholder="Select or create an account…"
-        oncreate={handleAccountCreated}
-      />
-    </div>
-  {/if}
+      {#if preview.errors.length > 0}
+        <div class="parse-errors">
+          <p>
+            {preview.errors.length} row(s) could not be parsed and will be skipped.
+          </p>
+          <ul>
+            {#each preview.errors as e}
+              <li>Row {e.row}: {e.reason}</li>
+            {/each}
+          </ul>
+        </div>
+      {/if}
 
-  {#if preview.errors.length > 0}
-    <div class="parse-errors">
-      <p>
-        {preview.errors.length} row(s) could not be parsed and will be skipped.
-      </p>
-      <ul>
-        {#each preview.errors as e}
-          <li>Row {e.row}: {e.reason}</li>
-        {/each}
-      </ul>
-    </div>
-  {/if}
-
-  {#if missingPaths.length > 0}
-    <div class="missing-accounts-banner">
-      <span class="missing-label">Accounts needed:</span>
-      {#each missingPaths as path}
-        <span class="missing-account">
-          <code>{path}</code>
-          <button
-            class="create-btn"
-            onclick={() => handleCreateMissingAccount(path)}
-          >
-            Create
+      {#if missingPaths.length > 0}
+        <div class="missing-accounts-banner">
+          <span class="missing-label">Accounts needed:</span>
+          {#each missingPaths as path}
+            <span class="missing-account">
+              <code>{path}</code>
+              <button
+                class="create-btn"
+                onclick={() => handleCreateMissingAccount(path)}
+              >
+                Create
+              </button>
+            </span>
+          {/each}
+          <button class="create-all-btn" onclick={handleCreateAllMissing}>
+            Create all
           </button>
-        </span>
-      {/each}
-      <button class="create-all-btn" onclick={handleCreateAllMissing}>
-        Create all
-      </button>
-    </div>
-  {/if}
+        </div>
+      {/if}
 
-  <div class="table-container">
-    <table>
-      <thead>
-        <tr>
-          <th>Date</th>
-          <th class="col-description">Description</th>
-          <th class="col-amount">Amount</th>
-          {#if !preview.isMultiCurrency}<th>Currency</th>{/if}
-          <th class="col-offset">To account</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each preview.transactions as tx, i}
-          {#if tx.isTransfer}
-            <tr class="row-transfer">
-              <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td
-              >
-              <td>{tx.description ?? "—"}</td>
-              <td class="cell-transfer-amount">
-                <span class="transfer-from"
-                  >{tx.sourceAmount} {tx.sourceCurrency}</span
-                >
-                <span class="transfer-arrow">→</span>
-                <span class="transfer-to"
-                  >{tx.targetAmount} {tx.targetCurrency}</span
-                >
-                {#if tx.feeAmount}
-                  <span class="transfer-fee">
-                    fee: {tx.feeAmount}
-                    {tx.feeCurrency ?? tx.sourceCurrency}
-                  </span>
-                {/if}
-              </td>
-              <td class="cell-offset">
-                <div class="transfer-accounts">
-                  <AccountPathInput
-                    {accounts}
-                    bind:value={rowStates[i].conversionAccountId}
-                    placeholder="equity:conversion…"
-                    oncreate={handleAccountCreated}
-                  />
-                  <AccountPathInput
-                    {accounts}
-                    bind:value={rowStates[i].feeAccountId}
-                    placeholder="expenses:fees…"
-                    oncreate={handleAccountCreated}
-                  />
-                </div>
-              </td>
-            </tr>
-          {:else}
+      <div class="table-container">
+        <table>
+          <thead>
             <tr>
-              <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td
-              >
-              <td>{tx.description ?? "—"}</td>
-              <td
-                class="cell-amount"
-                class:positive={parseFloat(tx.amount) > 0}
-                class:negative={parseFloat(tx.amount) < 0}
-              >
-                {tx.amount}{#if preview.isMultiCurrency}
-                  {tx.currency ?? defaultCurrency}{/if}
-              </td>
-              {#if !preview.isMultiCurrency}<td
-                  >{tx.currency ?? defaultCurrency}</td
-                >{/if}
-              <td class="cell-offset">
-                <AccountPathInput
-                  {accounts}
-                  bind:value={rowStates[i].offsetAccountId}
-                  placeholder="Select or create…"
-                  oncreate={handleAccountCreated}
-                />
-              </td>
+              <th>Date</th>
+              <th class="col-description">Description</th>
+              <th class="col-amount">Amount</th>
+              {#if !preview.isMultiCurrency}<th>Currency</th>{/if}
+              <th class="col-offset">To account</th>
             </tr>
-          {/if}
-        {/each}
-      </tbody>
-    </table>
-  </div>
+          </thead>
+          <tbody>
+            {#each preview.transactions as tx, i}
+              {#if tx.isTransfer}
+                <tr class="row-transfer">
+                  <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+                  <td>{tx.description ?? "—"}</td>
+                  <td class="cell-transfer-amount">
+                    <span class="transfer-from">{tx.sourceAmount} {tx.sourceCurrency}</span>
+                    <span class="transfer-arrow">→</span>
+                    <span class="transfer-to">{tx.targetAmount} {tx.targetCurrency}</span>
+                    {#if tx.feeAmount}
+                      <span class="transfer-fee">
+                        fee: {tx.feeAmount}
+                        {tx.feeCurrency ?? tx.sourceCurrency}
+                      </span>
+                    {/if}
+                  </td>
+                  <td class="cell-offset">
+                    <div class="transfer-accounts">
+                      <AccountPathInput
+                        {accounts}
+                        bind:value={rowStates[i].conversionAccountId}
+                        placeholder="equity:conversion…"
+                        oncreate={handleAccountCreated}
+                      />
+                      <AccountPathInput
+                        {accounts}
+                        bind:value={rowStates[i].feeAccountId}
+                        placeholder="expenses:fees…"
+                        oncreate={handleAccountCreated}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              {:else}
+                <tr>
+                  <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+                  <td>{tx.description ?? "—"}</td>
+                  <td
+                    class="cell-amount"
+                    class:positive={parseFloat(tx.amount) > 0}
+                    class:negative={parseFloat(tx.amount) < 0}
+                  >
+                    {tx.amount}{#if preview.isMultiCurrency} {tx.currency ?? defaultCurrency}{/if}
+                  </td>
+                  {#if !preview.isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
+                  <td class="cell-offset">
+                    <AccountPathInput
+                      {accounts}
+                      bind:value={rowStates[i].offsetAccountId}
+                      placeholder="Select or create…"
+                      oncreate={handleAccountCreated}
+                    />
+                  </td>
+                </tr>
+              {/if}
+            {/each}
+          </tbody>
+        </table>
+      </div>
+    </div>
 
-  <p class="summary">
-    {preview.transactions.length} transaction(s) ready to import.
-  </p>
-
-  {#if error}
-    <p class="error">{error}</p>
-  {/if}
-
-  <div class="actions">
-    <Button onclick={handleCancel}>Cancel</Button>
-    <Button
-      variant="primary"
-      onclick={handleConfirm}
-      disabled={loading ||
-        preview.transactions.length === 0 ||
-        missingPaths.length > 0 ||
-        (!preview.isMultiCurrency && !fromAccountId) ||
-        rowStates.some((row, i) => {
-          const tx = preview!.transactions[i];
-          if (tx.isTransfer)
-            return !row.conversionAccountId || !row.feeAccountId;
-          return !row.offsetAccountId;
-        })}
-    >
-      {loading ? "Importing…" : "Confirm import"}
-    </Button>
-  </div>
+    <div class="panel-actions">
+      <p class="summary">
+        {preview.transactions.length} transaction(s) ready to import.
+      </p>
+      {#if error}
+        <p class="error">{error}</p>
+      {/if}
+      <div class="action-buttons">
+        <Button onclick={handleCancel}>Cancel</Button>
+        <Button
+          variant="primary"
+          onclick={handleConfirm}
+          disabled={loading ||
+            preview.transactions.length === 0 ||
+            missingPaths.length > 0 ||
+            (!preview.isMultiCurrency && !fromAccountId) ||
+            rowStates.some((row, i) => {
+              const tx = preview!.transactions[i];
+              if (tx.isTransfer)
+                return !row.conversionAccountId || !row.feeAccountId;
+              return !row.offsetAccountId;
+            })}
+        >
+          {loading ? "Importing…" : "Confirm import"}
+        </Button>
+      </div>
+    </div>
+  </Panel>
 {/if}
 
 {#if imported !== null}
@@ -464,18 +456,17 @@
     border-top: 1px solid var(--color-bevel-mid);
   }
 
-  /* --- Parser tag --- */
-
-  .parser-tag {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    margin-bottom: var(--sp-sm);
-  }
-
   .hint {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     margin-top: var(--sp-xs);
+  }
+
+  /* --- Preview body --- */
+
+  .preview-body {
+    display: flex;
+    flex-direction: column;
   }
 
   /* --- From account selector row --- */
@@ -484,13 +475,10 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    margin-bottom: var(--sp-md);
+    padding: var(--sp-xs) var(--sp-sm);
+    border-bottom: 1px solid var(--color-bevel-mid);
+    background: var(--color-window);
     font-size: var(--text-sm);
-  }
-
-  .account-row label {
-    min-width: 10rem;
-    text-align: right;
   }
 
   .account-row :global(.wrapper) {
@@ -583,7 +571,6 @@
   .table-container {
     box-shadow: var(--shadow-sunken);
     background: var(--color-window-inset);
-    margin-bottom: var(--sp-md);
     overflow-x: auto;
   }
 
@@ -701,15 +688,24 @@
     border-bottom: 1px solid var(--color-bevel-mid);
   }
 
-  /* --- Footer --- */
+  /* --- Preview panel footer --- */
 
-  .summary {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    margin-bottom: var(--sp-sm);
+  .panel-actions {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: var(--sp-xs) var(--sp-sm);
+    border-top: 1px solid var(--color-bevel-mid);
+    background: var(--color-window);
   }
 
-  .actions {
+  .summary {
+    flex: 1;
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .action-buttons {
     display: flex;
     gap: var(--sp-sm);
   }
