@@ -280,7 +280,7 @@
   }
 
   .option.active {
-    background: var(--color-accent-mid);
+    background: var(--color-dropdown-active);
     color: var(--color-text-on-dark);
   }
 
@@ -291,7 +291,7 @@
   }
 
   .option.create.active {
-    background: var(--color-accent);
+    background: var(--color-dropdown-active);
     color: var(--color-accent-text);
   }
 </style>

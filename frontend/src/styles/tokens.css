@@ -75,6 +75,7 @@
   --color-accent-mid:      #316ac5;  /* the mid-blue used in hover states */
   --color-accent-light:    #c1d2ee;  /* selection highlight background */
   --color-accent-text:     #ffffff;
+  --color-dropdown-active: #316ac5;  /* dropdown row highlight — overridden in dark */
 
   /* --- Borders --- */
   --color-border: #808080;
@@ -135,9 +136,9 @@
   --color-banner-from: #1e1f29;
   --color-banner-to:   #44475a;
 
-  /* --- Panel title bar (muted green, complements Dracula purple) --- */
-  --color-panel-header-from: #1e3a2a;
-  --color-panel-header-to:   #4f8a63;
+  /* --- Panel title bar (Dracula slate) --- */
+  --color-panel-header-from: #2a2d4a;
+  --color-panel-header-to:   #6272a4;
   --color-panel-header-text: #f8f8f2;
 
   /* --- Window chrome --- */
@@ -166,10 +167,11 @@
   --color-text-on-dark:  #f8f8f2;
 
   /* --- Accent (Dracula purple replaces XP blue) --- */
-  --color-accent:       #bd93f9;
-  --color-accent-mid:   #bd93f9;
-  --color-accent-light: #44475a;
-  --color-accent-text:  #f8f8f2;
+  --color-accent:          #bd93f9;
+  --color-accent-mid:      #bd93f9;
+  --color-accent-light:    #44475a;
+  --color-accent-text:     #f8f8f2;
+  --color-dropdown-active: #6272a4;  /* slate — readable with white text */
 
   /* --- Borders --- */
   --color-border: #6272a4;
