@@ -269,6 +269,38 @@
       </div>
     </form>
   </Panel>
+  <Panel title="Configured Parsers">
+    {#if parsers.length === 0}
+      <p class="parsers-empty">No parsers configured yet.</p>
+    {:else}
+      <table class="parsers-table">
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Account</th>
+            <th>Multi-currency</th>
+            <th>Fee account</th>
+          </tr>
+        </thead>
+        <tbody>
+          {#each parsers as parser}
+            {@const accountPath =
+              accounts.find((a) => a.id === parser.defaultAccountId)?.path ??
+              "—"}
+            {@const feePath =
+              accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ??
+              "—"}
+            <tr>
+              <td class="cell-name">{parser.name}</td>
+              <td class="cell-mono">{accountPath}</td>
+              <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
+              <td class="cell-mono">{feePath}</td>
+            </tr>
+          {/each}
+        </tbody>
+      </table>
+    {/if}
+  </Panel>
 {:else}
   <Panel title="Preview — {preview.parser}">
     <div class="preview-body">
@@ -335,12 +367,18 @@
             {#each preview.transactions as tx, i}
               {#if tx.isTransfer}
                 <tr class="row-transfer">
-                  <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+                  <td class="cell-mono"
+                    >{new Date(tx.date).toLocaleDateString()}</td
+                  >
                   <td>{tx.description ?? "—"}</td>
                   <td class="cell-transfer-amount">
-                    <span class="transfer-from">{tx.sourceAmount} {tx.sourceCurrency}</span>
+                    <span class="transfer-from"
+                      >{tx.sourceAmount} {tx.sourceCurrency}</span
+                    >
                     <span class="transfer-arrow">→</span>
-                    <span class="transfer-to">{tx.targetAmount} {tx.targetCurrency}</span>
+                    <span class="transfer-to"
+                      >{tx.targetAmount} {tx.targetCurrency}</span
+                    >
                     {#if tx.feeAmount}
                       <span class="transfer-fee">
                         fee: {tx.feeAmount}
@@ -367,16 +405,21 @@
                 </tr>
               {:else}
                 <tr>
-                  <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+                  <td class="cell-mono"
+                    >{new Date(tx.date).toLocaleDateString()}</td
+                  >
                   <td>{tx.description ?? "—"}</td>
                   <td
                     class="cell-amount"
                     class:positive={parseFloat(tx.amount) > 0}
                     class:negative={parseFloat(tx.amount) < 0}
                   >
-                    {tx.amount}{#if preview.isMultiCurrency} {tx.currency ?? defaultCurrency}{/if}
+                    {tx.amount}{#if preview.isMultiCurrency}
+                      {tx.currency ?? defaultCurrency}{/if}
                   </td>
-                  {#if !preview.isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
+                  {#if !preview.isMultiCurrency}<td
+                      >{tx.currency ?? defaultCurrency}</td
+                    >{/if}
                   <td class="cell-offset">
                     <AccountPathInput
                       {accounts}
@@ -430,35 +473,6 @@
   </p>
 {/if}
 
-<Panel title="Configured Parsers">
-  {#if parsers.length === 0}
-    <p class="parsers-empty">No parsers configured yet.</p>
-  {:else}
-    <table class="parsers-table">
-      <thead>
-        <tr>
-          <th>Name</th>
-          <th>Account</th>
-          <th>Multi-currency</th>
-          <th>Fee account</th>
-        </tr>
-      </thead>
-      <tbody>
-        {#each parsers as parser}
-          {@const accountPath = accounts.find((a) => a.id === parser.defaultAccountId)?.path ?? "—"}
-          {@const feePath = accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ?? "—"}
-          <tr>
-            <td class="cell-name">{parser.name}</td>
-            <td class="cell-mono">{accountPath}</td>
-            <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
-            <td class="cell-mono">{feePath}</td>
-          </tr>
-        {/each}
-      </tbody>
-    </table>
-  {/if}
-</Panel>
-
 <style>
   /* --- Upload form --- */
 
@@ -482,7 +496,6 @@
     font-weight: var(--weight-semibold);
     white-space: nowrap;
   }
-
 
   .form-actions {
     display: flex;
