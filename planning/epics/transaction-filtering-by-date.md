@@ -50,6 +50,8 @@ The component presents a dropdown of preset windows. Selecting "Custom..." revea
 - ISO date range: `2026-02-20 to 2026-03-08`
 - Single ISO date (treated as from-date, to = today): `2026-01-01`
 
+**Date utility** — as part of this story, extract a `toISODate(date: Date): string` helper into a shared utility (e.g. `src/lib/date.ts`). Used here for the custom parser output and in `+page.svelte` to replace the `toISOString().slice(0, 10)` idiom. All future date formatting goes through this helper.
+
 **Component contract:**
 - [ ] Create `DateRangeSelector.svelte` in `lib/components/`
 - [ ] Props: `value: DateRange`, `onchange: (range: DateRange) => void` where `DateRange = { from: string, to: string }` (always resolved to ISO dates before emitting)

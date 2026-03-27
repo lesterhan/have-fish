@@ -1,16 +1,40 @@
 <script lang="ts">
   import { fetchTransactions, fetchAccounts } from "$lib/api";
+  import { page } from "$app/state";
   import { onMount } from "svelte";
+
+  // Default range: today minus 30 days → today
+  // Computed once at module load; stable for the lifetime of the page.
+  function defaultRange() {
+    const today = new Date();
+    const from = new Date(today);
+    from.setDate(today.getDate() - 30);
+    return {
+      from: from.toISOString().slice(0, 10),
+      to: today.toISOString().slice(0, 10),
+    };
+  }
+  const defaults = defaultRange();
+
+  // Read from URL search params, fall back to default range if absent.
+  // Reactive: updating the URL (via goto in FilterPanel) will re-derive these
+  // and trigger the $effect below to re-fetch.
+  let from = $derived(page.url.searchParams.get("from") ?? defaults.from);
+  let to = $derived(page.url.searchParams.get("to") ?? defaults.to);
 
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
   let accountPaths = $state<Record<string, string>>({});
 
+  // Re-fetch transactions whenever from/to change.
+  $effect(() => {
+    fetchTransactions({ from, to }).then((txs) => {
+      transactions = txs;
+    });
+  });
+
+  // Accounts don't depend on the date range — fetch once.
   onMount(async () => {
-    const [txs, accounts] = await Promise.all([
-      fetchTransactions(),
-      fetchAccounts(),
-    ]);
-    transactions = txs;
+    const accounts = await fetchAccounts();
     accountPaths = Object.fromEntries(
       accounts.map((a: { id: string; path: string }) => [a.id, a.path]),
     );

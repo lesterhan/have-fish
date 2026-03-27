@@ -241,10 +241,12 @@ export async function fetchAccountBalances(): Promise<AccountBalance[]> {
   return res.json()
 }
 
-export async function fetchTransactions(accountId?: string) {
-  const url = accountId
-    ? `${BASE}/api/transactions?accountId=${accountId}`
-    : `${BASE}/api/transactions`
-  const res = await fetch(url, { credentials: 'include' })
+export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string }) {
+  const query = new URLSearchParams()
+  if (params?.from) query.set('from', params.from)
+  if (params?.to) query.set('to', params.to)
+  if (params?.accountId) query.set('accountId', params.accountId)
+  const qs = query.toString()
+  const res = await fetch(`${BASE}/api/transactions${qs ? `?${qs}` : ''}`, { credentials: 'include' })
   return res.json()
 }
