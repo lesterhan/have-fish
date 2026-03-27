@@ -35,7 +35,10 @@
 {#snippet accountTable(rows: AccountBalance[], emptyText: string)}
   <div class="account-table">
     <TableShell
-      columns={[{ label: 'Account' }, { label: 'Balances', class: 'col-balances' }]}
+      columns={[
+        { label: "Account" },
+        { label: "Balances", class: "col-balances" },
+      ]}
       {loading}
       empty={rows.length === 0}
       {emptyText}
@@ -63,21 +66,31 @@
   </div>
 {/snippet}
 
-<AddAccountWizard type="asset" bind:open={showAddAccount} onSuccess={refreshAccounts} />
-<AddAccountWizard type="liability" bind:open={showAddLiability} onSuccess={refreshAccounts} />
+<AddAccountWizard
+  type="asset"
+  bind:open={showAddAccount}
+  onSuccess={refreshAccounts}
+/>
+<AddAccountWizard
+  type="liability"
+  bind:open={showAddLiability}
+  onSuccess={refreshAccounts}
+/>
 
 <Panel title="Assets">
   <div class="panel-actions">
     <Button onclick={() => (showAddAccount = true)}>New asset account</Button>
   </div>
-  {@render accountTable(assets, "Couldn't find any asset accounts 🕵️")}
+  {@render accountTable(assets, "Couldn't find any asset accounts :(")}
 </Panel>
 
 <Panel title="Liabilities">
   <div class="panel-actions">
-    <Button onclick={() => (showAddLiability = true)}>New liability account</Button>
+    <Button onclick={() => (showAddLiability = true)}
+      >New liability account</Button
+    >
   </div>
-  {@render accountTable(liabilities, "Couldn't find any liability accounts 🕵️")}
+  {@render accountTable(liabilities, "Couldn't find any liability accounts :(")}
 </Panel>
 
 <style>
