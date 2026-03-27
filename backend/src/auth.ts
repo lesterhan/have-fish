@@ -15,6 +15,11 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  user: {
+    deleteUser: {
+      enabled: true,
+    },
+  },
   trustedOrigins: [process.env.FRONTEND_URL ?? 'http://localhost:8888'],
   databaseHooks: {
     user: {

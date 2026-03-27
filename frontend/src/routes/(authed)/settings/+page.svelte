@@ -15,7 +15,9 @@
   import Button from "$lib/components/Button.svelte";
   import HeadingBanner from "$lib/components/HeadingBanner.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
-  import { signOut, useSession } from "$lib/auth";
+  import Panel from "$lib/components/Panel.svelte";
+  import Modal from "$lib/components/Modal.svelte";
+  import { signOut, useSession, authClient } from "$lib/auth";
   import { goto } from "$app/navigation";
 
   const session = useSession();
@@ -184,6 +186,14 @@
     userSettings = await updateUserSettings({
       defaultAssetsRootPath: value.trim(),
     });
+  }
+
+  // --- Danger zone ---
+  let showDeleteConfirm = $state(false);
+
+  async function handleDeleteUser() {
+    await authClient.deleteUser();
+    goto("/login");
   }
 </script>
 
@@ -477,6 +487,30 @@
   </div>
 </section>
 
+<Panel title="DANGER">
+  <div class="danger-body">
+    <div class="danger-row">
+      <div class="danger-description">
+        <strong>Delete my account</strong>
+        <p>Permanently removes your account and all associated data. This cannot be undone.</p>
+      </div>
+      <Button variant="danger" onclick={() => (showDeleteConfirm = true)}>
+        Delete my account
+      </Button>
+    </div>
+  </div>
+</Panel>
+
+<Modal title="Delete account" bind:open={showDeleteConfirm}>
+  <div class="delete-modal">
+    <p>Are you sure? You cannot restore your user account.</p>
+    <div class="delete-actions">
+      <Button onclick={() => (showDeleteConfirm = false)}>Cancel</Button>
+      <Button variant="danger" onclick={handleDeleteUser}>Delete user</Button>
+    </div>
+  </div>
+</Modal>
+
 <style>
   .defaults-grid {
     display: grid;
@@ -644,6 +678,45 @@
     box-shadow: none;
     padding: 0;
     cursor: pointer;
+  }
+
+  /* --- Danger zone --- */
+
+  .danger-body {
+    background: var(--color-window);
+    padding: var(--sp-sm);
+  }
+
+  .danger-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-md);
+  }
+
+  .danger-description {
+    font-size: var(--text-sm);
+  }
+
+  .danger-description p {
+    color: var(--color-text-muted);
+    margin-top: 2px;
+  }
+
+  /* --- Delete confirmation modal --- */
+
+  .delete-modal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    padding: var(--sp-sm);
+    font-size: var(--text-sm);
+  }
+
+  .delete-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-sm);
   }
 
   select,
