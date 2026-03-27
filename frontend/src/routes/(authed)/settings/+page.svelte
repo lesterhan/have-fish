@@ -698,8 +698,12 @@
     font-size: var(--text-sm);
   }
 
+  .danger-description strong {
+    color: var(--color-danger);
+  }
+
   .danger-description p {
-    color: var(--color-text-muted);
+    color: var(--color-text);
     margin-top: 2px;
   }
 
