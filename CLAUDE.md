@@ -153,6 +153,29 @@ Key references: Windows XP Luna theme, classic silver window chrome, the teal `#
 
 Use `--color-amount-positive` (green) for income and `--color-amount-negative` (red) for expenses. Negative amounts in the data are expenses; positive are income.
 
+## Epic Workflow
+
+### Starting an epic — "let's pick up [epic name]"
+
+When the user says this:
+
+1. Read the epic file from `planning/epics/`. List all stories as a numbered checklist so the user can see the full scope.
+2. Start story 1. Follow the coding conventions (skeleton code, minimal tests, explain decisions).
+3. After finishing the story's implementation, present a brief summary of what was produced and **ask the user to review the code**.
+4. Wait for the user to confirm they are done reviewing.
+5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. Report findings clearly — fix anything that warrants fixing before shipping.
+6. Confirm the story is prod-ready and tell the user they can push.
+7. Move to the next story and repeat from step 2.
+8. After all stories are complete, ask if the user wants any additional tweaks before wrapping up.
+
+### Wrapping up an epic — "we're wrapping up [epic name]"
+
+When the user says this:
+
+1. Move the epic file from `planning/epics/` to `planning/epics/archive/`.
+2. Update `planning/ROADMAP.md` — change the epic's status to `Done` and update the file link to point to the archive path.
+3. Confirm done.
+
 ## How I Like to Be Assisted
 
 - **Learning is the priority** — we are pair programming. Explain decisions, don't just generate code.
