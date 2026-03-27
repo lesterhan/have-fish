@@ -13,6 +13,8 @@
   } from "$lib/api";
   import Button from "$lib/components/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
+  import Panel from "$lib/components/Panel.svelte";
+  import TextInput from "$lib/components/TextInput.svelte";
 
   let accounts = $state<Account[]>([]);
   let userSettings = $state<UserSettings | null>(null);
@@ -31,10 +33,10 @@
 
   // Per-row account state. Indexed to preview.transactions.
   type RowState = {
-    offsetAccountId: string      // regular rows: the balancing account
-    conversionAccountId: string  // transfer rows: equity:conversion account
-    feeAccountId: string         // transfer rows: fee expense account
-  }
+    offsetAccountId: string; // regular rows: the balancing account
+    conversionAccountId: string; // transfer rows: equity:conversion account
+    feeAccountId: string; // transfer rows: fee expense account
+  };
   let rowStates = $state<RowState[]>([]);
 
   onMount(async () => {
@@ -53,7 +55,9 @@
   // Only set when the parser is multi-currency and the root account exists.
   let rootPath = $derived.by(() => {
     if (!preview?.isMultiCurrency || !preview.defaultAccountId) return null;
-    return accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? null;
+    return (
+      accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? null
+    );
   });
 
   // All account paths that the import needs to exist (inferred from root + currencies).
@@ -74,7 +78,7 @@
 
   // Subset of inferredPaths that don't yet exist in accounts.
   let missingPaths = $derived(
-    inferredPaths.filter((path) => !accounts.some((a) => a.path === path))
+    inferredPaths.filter((path) => !accounts.some((a) => a.path === path)),
   );
 
   // Returns the account ID for a child account at root:currency.
@@ -172,7 +176,11 @@
             ...tx,
             offsetAccountId: row.offsetAccountId,
             ...(preview!.isMultiCurrency
-              ? { sourceAccountId: getInferredAccountId(tx.currency ?? defaultCurrency) }
+              ? {
+                  sourceAccountId: getInferredAccountId(
+                    tx.currency ?? defaultCurrency,
+                  ),
+                }
               : {}),
           };
         }
@@ -199,60 +207,63 @@
   }
 </script>
 
-<h1>Import</h1>
-
 {#if !preview}
-  <form
-    onsubmit={(e) => {
-      e.preventDefault();
-      handleSubmit();
-    }}
-  >
-    <label>
-      To account
-      <AccountPathInput
-        {accounts}
-        bind:value={toAccountId}
-        placeholder="Select or create an account…"
-        oncreate={handleAccountCreated}
-      />
-    </label>
+  <Panel title="Import CSV">
+    <form
+      class="import-form"
+      onsubmit={(e) => {
+        e.preventDefault();
+        handleSubmit();
+      }}
+    >
+      <div class="form-grid">
+        <label class="field-label" for="to-account">To account</label>
+        <AccountPathInput
+          {accounts}
+          bind:value={toAccountId}
+          placeholder="Select or create an account…"
+          oncreate={handleAccountCreated}
+        />
 
-    <label>
-      Default currency
-      <input
-        type="text"
-        bind:value={defaultCurrency}
-        placeholder="CAD"
-        required
-      />
-    </label>
+        <label class="field-label" for="default-currency"
+          >Default currency</label
+        >
+        <TextInput
+          id="default-currency"
+          bind:value={defaultCurrency}
+          placeholder="CAD"
+          style="width: 5rem"
+          required
+        />
 
-    <label>
-      CSV file
-      <input
-        type="file"
-        accept=".csv"
-        onchange={(e) => {
-          file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
-        }}
-        required
-      />
-    </label>
+        <label class="field-label" for="csv-file">CSV file</label>
+        <input
+          id="csv-file"
+          type="file"
+          accept=".csv"
+          onchange={(e) => {
+            file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null;
+          }}
+          required
+        />
+      </div>
 
-    {#if error}
-      <p class="error">{error}</p>
-      {#if noParserFound}
-        <p class="hint">
-          Go to <a href="/settings">Settings</a> to create a parser for this file.
-        </p>
+      {#if error}
+        <p class="error">{error}</p>
+        {#if noParserFound}
+          <p class="hint">
+            Go to <a href="/settings">Settings</a> to create a parser for this file.
+          </p>
+        {/if}
       {/if}
-    {/if}
 
-    <Button type="submit" variant="primary" disabled={loading}>
-      {loading ? "Parsing…" : "Preview import"}
-    </Button>
-  </form>
+      <div class="form-actions">
+        <Button type="submit" variant="primary" disabled={loading}>
+          {loading ? "Parsing…" : "Preview import"}
+        </Button>
+      </div>
+    </form>
+  </Panel>
 {:else}
   <h2>Preview</h2>
   <p class="parser-tag">Parser: <strong>{preview.parser}</strong></p>
@@ -291,7 +302,10 @@
       {#each missingPaths as path}
         <span class="missing-account">
           <code>{path}</code>
-          <button class="create-btn" onclick={() => handleCreateMissingAccount(path)}>
+          <button
+            class="create-btn"
+            onclick={() => handleCreateMissingAccount(path)}
+          >
             Create
           </button>
         </span>
@@ -317,15 +331,21 @@
         {#each preview.transactions as tx, i}
           {#if tx.isTransfer}
             <tr class="row-transfer">
-              <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+              <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td
+              >
               <td>{tx.description ?? "—"}</td>
               <td class="cell-transfer-amount">
-                <span class="transfer-from">{tx.sourceAmount} {tx.sourceCurrency}</span>
+                <span class="transfer-from"
+                  >{tx.sourceAmount} {tx.sourceCurrency}</span
+                >
                 <span class="transfer-arrow">→</span>
-                <span class="transfer-to">{tx.targetAmount} {tx.targetCurrency}</span>
+                <span class="transfer-to"
+                  >{tx.targetAmount} {tx.targetCurrency}</span
+                >
                 {#if tx.feeAmount}
                   <span class="transfer-fee">
-                    fee: {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}
+                    fee: {tx.feeAmount}
+                    {tx.feeCurrency ?? tx.sourceCurrency}
                   </span>
                 {/if}
               </td>
@@ -348,16 +368,20 @@
             </tr>
           {:else}
             <tr>
-              <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+              <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td
+              >
               <td>{tx.description ?? "—"}</td>
               <td
                 class="cell-amount"
                 class:positive={parseFloat(tx.amount) > 0}
                 class:negative={parseFloat(tx.amount) < 0}
               >
-                {tx.amount}{#if preview.isMultiCurrency} {tx.currency ?? defaultCurrency}{/if}
+                {tx.amount}{#if preview.isMultiCurrency}
+                  {tx.currency ?? defaultCurrency}{/if}
               </td>
-              {#if !preview.isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
+              {#if !preview.isMultiCurrency}<td
+                  >{tx.currency ?? defaultCurrency}</td
+                >{/if}
               <td class="cell-offset">
                 <AccountPathInput
                   {accounts}
@@ -392,7 +416,8 @@
         (!preview.isMultiCurrency && !fromAccountId) ||
         rowStates.some((row, i) => {
           const tx = preview!.transactions[i];
-          if (tx.isTransfer) return !row.conversionAccountId || !row.feeAccountId;
+          if (tx.isTransfer)
+            return !row.conversionAccountId || !row.feeAccountId;
           return !row.offsetAccountId;
         })}
     >
@@ -409,6 +434,38 @@
 {/if}
 
 <style>
+  /* --- Upload form --- */
+
+  .import-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+    padding: var(--sp-sm);
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: max-content auto;
+    align-items: center;
+    gap: var(--sp-xs) var(--sp-sm);
+    font-size: var(--text-sm);
+  }
+
+  .field-label {
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
+
+  .form-actions {
+    display: flex;
+    justify-content: flex-start;
+    padding-top: var(--sp-xs);
+    border-top: 1px solid var(--color-bevel-mid);
+  }
+
+  /* --- Parser tag --- */
+
   .parser-tag {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
