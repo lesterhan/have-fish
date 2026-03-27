@@ -433,6 +433,7 @@
     flex-direction: column;
     gap: var(--sp-sm);
     padding: var(--sp-sm);
+    background: var(--color-window);
   }
 
   .form-grid {
