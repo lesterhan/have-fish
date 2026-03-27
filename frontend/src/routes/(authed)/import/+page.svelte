@@ -2,11 +2,13 @@
   import { onMount } from "svelte";
   import {
     fetchAccounts,
+    fetchParsers,
     fetchUserSettings,
     importPreview,
     importCommit,
     createAccount,
     type Account,
+    type CsvParser,
     type ImportPreviewResult,
     type CommitTransaction,
     type UserSettings,
@@ -17,6 +19,7 @@
   import TextInput from "$lib/components/TextInput.svelte";
 
   let accounts = $state<Account[]>([]);
+  let parsers = $state<CsvParser[]>([]);
   let userSettings = $state<UserSettings | null>(null);
   // toAccountId seeds the offsetAccountId for regular rows on preview load.
   // Not required upfront — multi-currency imports may have no regular rows.
@@ -40,12 +43,14 @@
   let rowStates = $state<RowState[]>([]);
 
   onMount(async () => {
-    const [accts, settings] = await Promise.all([
+    const [accts, settings, parsersData] = await Promise.all([
       fetchAccounts(),
       fetchUserSettings(),
+      fetchParsers(),
     ]);
     accounts = accts;
     userSettings = settings;
+    parsers = parsersData;
     toAccountId = settings.defaultOffsetAccountId ?? "";
   });
 
@@ -425,6 +430,35 @@
   </p>
 {/if}
 
+<Panel title="Configured Parsers">
+  {#if parsers.length === 0}
+    <p class="parsers-empty">No parsers configured yet.</p>
+  {:else}
+    <table class="parsers-table">
+      <thead>
+        <tr>
+          <th>Name</th>
+          <th>Account</th>
+          <th>Multi-currency</th>
+          <th>Fee account</th>
+        </tr>
+      </thead>
+      <tbody>
+        {#each parsers as parser}
+          {@const accountPath = accounts.find((a) => a.id === parser.defaultAccountId)?.path ?? "—"}
+          {@const feePath = accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ?? "—"}
+          <tr>
+            <td class="cell-name">{parser.name}</td>
+            <td class="cell-mono">{accountPath}</td>
+            <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
+            <td class="cell-mono">{feePath}</td>
+          </tr>
+        {/each}
+      </tbody>
+    </table>
+  {/if}
+</Panel>
+
 <style>
   /* --- Upload form --- */
 
@@ -687,6 +721,50 @@
 
   .transfer-accounts :global(.wrapper:first-child .path-input) {
     border-bottom: 1px solid var(--color-bevel-mid);
+  }
+
+  /* --- Configured Parsers panel --- */
+
+  .parsers-empty {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    padding: var(--sp-sm);
+  }
+
+  .parsers-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: var(--text-sm);
+  }
+
+  .parsers-table th {
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    padding: var(--sp-xs) var(--sp-sm);
+    text-align: left;
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+    position: sticky;
+    top: 0;
+    z-index: 1;
+  }
+
+  .parsers-table td {
+    padding: var(--sp-xs) var(--sp-sm);
+    border-bottom: 1px solid var(--color-bevel-mid);
+    background: var(--color-window-inset);
+  }
+
+  .parsers-table tbody tr:last-child td {
+    border-bottom: none;
+  }
+
+  .parsers-table tbody tr:hover td {
+    background: var(--color-accent-light);
+  }
+
+  .cell-name {
+    font-weight: var(--weight-semibold);
   }
 
   /* --- Preview panel footer --- */
