@@ -12,4 +12,4 @@
 | [Reconciliation](epics/reconciliation.md) | Backlog |
 | [Transactions Edit UX](epics/transactions-edit-ux.md) | Backlog |
 | [Import CSV for Existing Asset Account](epics/archive/import-csv-existing-account.md) | Done |
-| [Import CSV for Liability Accounts](epics/import-csv-liability-accounts.md) | Backlog |
+| [Import CSV for Liability Accounts](epics/archive/import-csv-liability-accounts.md) | Done |

@@ -17,6 +17,7 @@
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import Panel from "$lib/components/Panel.svelte";
   import TextInput from "$lib/components/TextInput.svelte";
+  import Toggle from "$lib/components/Toggle.svelte";
 
   let accounts = $state<Account[]>([]);
   let parsers = $state<CsvParser[]>([]);
@@ -33,6 +34,7 @@
   let imported = $state<number | null>(null);
 
   let preview = $state<ImportPreviewResult | null>(null);
+  let importAsLiabilities = $state(false);
 
   // Per-row account state. Indexed to preview.transactions.
   type RowState = {
@@ -126,6 +128,10 @@
       if (!preview.isMultiCurrency) {
         fromAccountId = preview.defaultAccountId ?? "";
       }
+      // Auto-enable liability mode if the parser's default account is under the liabilities root
+      const liabilitiesRoot = userSettings?.defaultLiabilitiesRootPath ?? 'liabilities'
+      const defaultAccountPath = accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
+      importAsLiabilities = defaultAccountPath.startsWith(`${liabilitiesRoot}:`)
       rowStates = preview.transactions.map(() => ({
         offsetAccountId: toAccountId,
         conversionAccountId: userSettings?.defaultConversionAccountId ?? "",
@@ -177,8 +183,12 @@
             feeAccountId: row.feeAccountId,
           };
         } else {
+          const amount = importAsLiabilities
+            ? String(-parseFloat(tx.amount))
+            : tx.amount
           return {
             ...tx,
+            amount,
             offsetAccountId: row.offsetAccountId,
             ...(preview!.isMultiCurrency
               ? {
@@ -198,6 +208,7 @@
       imported = result.created;
       preview = null;
       rowStates = [];
+      importAsLiabilities = false;
     } catch (e) {
       error = "Import failed. Please try again.";
     } finally {
@@ -209,6 +220,14 @@
     preview = null;
     fromAccountId = "";
     rowStates = [];
+    importAsLiabilities = false;
+  }
+
+  // Returns the display amount for a regular row, negated when importing as liabilities.
+  function displayAmount(amount: string): string {
+    if (!importAsLiabilities) return amount
+    const n = parseFloat(amount)
+    return isNaN(n) ? amount : String(-n)
   }
 </script>
 
@@ -353,6 +372,10 @@
         </div>
       {/if}
 
+      <div class="liability-bar">
+        <Toggle bind:checked={importAsLiabilities} label="Import as liabilities" />
+      </div>
+
       <div class="table-container">
         <table>
           <thead>
@@ -412,11 +435,10 @@
                   <td>{tx.description ?? "—"}</td>
                   <td
                     class="cell-amount"
-                    class:positive={parseFloat(tx.amount) > 0}
-                    class:negative={parseFloat(tx.amount) < 0}
+                    class:positive={parseFloat(displayAmount(tx.amount)) > 0}
+                    class:negative={parseFloat(displayAmount(tx.amount)) < 0}
                   >
-                    {tx.amount}{#if preview.isMultiCurrency}
-                      {tx.currency ?? defaultCurrency}{/if}
+                    {displayAmount(tx.amount)}{#if preview.isMultiCurrency} {tx.currency ?? defaultCurrency}{/if}
                   </td>
                   {#if !preview.isMultiCurrency}<td
                       >{tx.currency ?? defaultCurrency}</td
@@ -613,6 +635,16 @@
   .create-all-btn {
     margin-left: auto;
     font-weight: var(--weight-semibold);
+  }
+
+  /* --- Liability toggle bar --- */
+
+  .liability-bar {
+    display: flex;
+    align-items: center;
+    padding: var(--sp-xs) var(--sp-sm);
+    border-bottom: 1px solid var(--color-bevel-mid);
+    background: var(--color-window);
   }
 
   /* --- Preview table --- */

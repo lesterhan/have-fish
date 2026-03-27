@@ -1,24 +1,15 @@
 <script lang="ts">
   interface Props {
-    checked?: boolean
-    label?: string
-    disabled?: boolean
+    checked?: boolean;
+    label?: string;
+    disabled?: boolean;
   }
 
-  let {
-    checked = $bindable(false),
-    label,
-    disabled = false,
-  }: Props = $props()
+  let { checked = $bindable(false), label, disabled = false }: Props = $props();
 </script>
 
 <label class="toggle-wrap" class:disabled>
-  <input
-    type="checkbox"
-    class="toggle-input"
-    bind:checked
-    {disabled}
-  />
+  <input type="checkbox" class="toggle-input" bind:checked {disabled} />
   <span class="track" class:on={checked}>
     <span class="thumb"></span>
   </span>
@@ -89,8 +80,8 @@
     transform: translateX(18px);
     background: var(--color-titlebar-text);
     box-shadow:
-      inset 1px 1px 0 rgba(255,255,255,0.6),
-      inset -1px -1px 0 rgba(0,0,0,0.25);
+      inset 1px 1px 0 rgba(255, 255, 255, 0.6),
+      inset -1px -1px 0 rgba(0, 0, 0, 0.25);
   }
 
   /* Focus ring on the track when the hidden input is focused */
