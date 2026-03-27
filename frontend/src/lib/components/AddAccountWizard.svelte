@@ -2,6 +2,7 @@
   import { onMount } from "svelte";
   import Modal from "./Modal.svelte";
   import Button from "./Button.svelte";
+  import Toggle from "./Toggle.svelte";
   import { fetchUserSettings, type UserSettings } from "$lib/api";
 
   interface Props {
@@ -18,51 +19,63 @@
   };
 
   const STEP = {
-    ACCOUNT:              'account',
-    PARSER_UPLOAD:        'parser-upload',
-    PARSER_COLUMNS:       'parser-columns',
-    PARSER_MULTICURRENCY: 'parser-multicurrency',
-    CONFIRM:              'confirm',
-  } as const
+    ACCOUNT: "account",
+    PARSER_UPLOAD: "parser-upload",
+    PARSER_COLUMNS: "parser-columns",
+    PARSER_MULTICURRENCY: "parser-multicurrency",
+    CONFIRM: "confirm",
+  } as const;
 
-  type WizardStep = typeof STEP[keyof typeof STEP]
-  let step = $state<WizardStep>(STEP.ACCOUNT)
-  let parserSkipped = $state(false)
+  type WizardStep = (typeof STEP)[keyof typeof STEP];
+  let step = $state<WizardStep>(STEP.ACCOUNT);
+  let parserSkipped = $state(false);
 
   // Transition tables — use a function where the target depends on runtime state.
   const NEXT: Record<WizardStep, WizardStep | (() => WizardStep)> = {
-    [STEP.ACCOUNT]:               STEP.PARSER_UPLOAD,
-    [STEP.PARSER_UPLOAD]:         STEP.PARSER_COLUMNS,
-    [STEP.PARSER_COLUMNS]:        () => isMultiCurrency ? STEP.PARSER_MULTICURRENCY : STEP.CONFIRM,
-    [STEP.PARSER_MULTICURRENCY]:  STEP.CONFIRM,
-    [STEP.CONFIRM]:               STEP.CONFIRM,
-  }
+    [STEP.ACCOUNT]: STEP.PARSER_UPLOAD,
+    [STEP.PARSER_UPLOAD]: STEP.PARSER_COLUMNS,
+    [STEP.PARSER_COLUMNS]: () =>
+      isMultiCurrency ? STEP.PARSER_MULTICURRENCY : STEP.CONFIRM,
+    [STEP.PARSER_MULTICURRENCY]: STEP.CONFIRM,
+    [STEP.CONFIRM]: STEP.CONFIRM,
+  };
 
   const BACK: Record<WizardStep, WizardStep | (() => WizardStep)> = {
-    [STEP.ACCOUNT]:               STEP.ACCOUNT,
-    [STEP.PARSER_UPLOAD]:         STEP.ACCOUNT,
-    [STEP.PARSER_COLUMNS]:        STEP.PARSER_UPLOAD,
-    [STEP.PARSER_MULTICURRENCY]:  STEP.PARSER_COLUMNS,
-    [STEP.CONFIRM]:               () => parserSkipped ? STEP.PARSER_UPLOAD : isMultiCurrency ? STEP.PARSER_MULTICURRENCY : STEP.PARSER_COLUMNS,
+    [STEP.ACCOUNT]: STEP.ACCOUNT,
+    [STEP.PARSER_UPLOAD]: STEP.ACCOUNT,
+    [STEP.PARSER_COLUMNS]: STEP.PARSER_UPLOAD,
+    [STEP.PARSER_MULTICURRENCY]: STEP.PARSER_COLUMNS,
+    [STEP.CONFIRM]: () =>
+      parserSkipped
+        ? STEP.PARSER_UPLOAD
+        : isMultiCurrency
+          ? STEP.PARSER_MULTICURRENCY
+          : STEP.PARSER_COLUMNS,
+  };
+
+  function next() {
+    const t = NEXT[step];
+    step = typeof t === "function" ? t() : t;
+  }
+  function back() {
+    const t = BACK[step];
+    step = typeof t === "function" ? t() : t;
   }
 
-  function next() { const t = NEXT[step]; step = typeof t === 'function' ? t() : t }
-  function back() { const t = BACK[step]; step = typeof t === 'function' ? t() : t }
-
   function skip() {
-    resetStep2()
-    parserSkipped = true
-    step = STEP.CONFIRM
+    resetStep2();
+    parserSkipped = true;
+    step = STEP.CONFIRM;
   }
 
   function close() {
-    open = false
+    open = false;
     setTimeout(() => {
-      step = STEP.ACCOUNT
-      parserSkipped = false
-      resetStep1()
-      resetStep2()
-    }, 200)
+      step = STEP.ACCOUNT;
+      parserSkipped = false;
+      resetStep1();
+      resetStep2();
+    }, 200);
   }
 
   // --- User settings (needed for root path prefixes) ---
@@ -185,12 +198,18 @@
     mappingFeeCurrency = "";
   }
 
-  let parserUploadValid = $derived(parserName.trim().length > 0 && columns.length > 0)
-  let parserColumnsValid = $derived(mappingDate.length > 0 && mappingAmount.length > 0)
+  let parserUploadValid = $derived(
+    parserName.trim().length > 0 && columns.length > 0,
+  );
+  let parserColumnsValid = $derived(
+    mappingDate.length > 0 && mappingAmount.length > 0,
+  );
   let parserMultiCurrencyValid = $derived(
-    mappingSourceAmount.length > 0 && mappingSourceCurrency.length > 0 &&
-    mappingTargetAmount.length > 0 && mappingTargetCurrency.length > 0
-  )
+    mappingSourceAmount.length > 0 &&
+      mappingSourceCurrency.length > 0 &&
+      mappingTargetAmount.length > 0 &&
+      mappingTargetCurrency.length > 0,
+  );
 
   // --- Confirm / submit ---
   let submitting = $state(false);
@@ -309,7 +328,9 @@
           autocomplete="off"
         />
 
-        <label for="starting-balance">Starting balance <span class="optional">(optional)</span></label>
+        <label for="starting-balance"
+          >Starting balance <span class="optional">(optional)</span></label
+        >
         <div class="balance-row">
           <input
             id="starting-balance"
@@ -334,7 +355,6 @@
           <input id="starting-date" type="date" bind:value={startingDate} />
         {/if}
       </div>
-
     {:else if step === STEP.PARSER_UPLOAD}
       <div class="form-grid">
         <label for="parser-name">Parser name</label>
@@ -347,7 +367,12 @@
         />
 
         <label>CSV file</label>
-        <input type="file" accept=".csv,text/csv" onchange={handleFileUpload} class="file-input" />
+        <input
+          type="file"
+          accept=".csv,text/csv"
+          onchange={handleFileUpload}
+          class="file-input"
+        />
 
         {#if detectedHeader}
           <label>Detected header</label>
@@ -355,14 +380,13 @@
         {/if}
 
         {#if columns.length > 0}
-          <label for="multi-currency" class="toggle-label">
+          <label class="toggle-label">
             Multi-currency
             <span class="tooltip-icon" title="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately.">?</span>
           </label>
-          <input id="multi-currency" type="checkbox" class="checkbox" bind:checked={isMultiCurrency} />
+          <Toggle bind:checked={isMultiCurrency} />
         {/if}
       </div>
-
     {:else if step === STEP.PARSER_COLUMNS}
       <div class="form-grid">
         <label for="map-date">Date <span class="required">*</span></label>
@@ -389,28 +413,35 @@
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
       </div>
-
     {:else if step === STEP.PARSER_MULTICURRENCY}
       <div class="form-grid">
-        <label for="map-src-amount">Source amount <span class="required">*</span></label>
+        <label for="map-src-amount"
+          >Source amount <span class="required">*</span></label
+        >
         <select id="map-src-amount" bind:value={mappingSourceAmount}>
           <option value="">— select —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-src-currency">Source currency <span class="required">*</span></label>
+        <label for="map-src-currency"
+          >Source currency <span class="required">*</span></label
+        >
         <select id="map-src-currency" bind:value={mappingSourceCurrency}>
           <option value="">— select —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-tgt-amount">Target amount <span class="required">*</span></label>
+        <label for="map-tgt-amount"
+          >Target amount <span class="required">*</span></label
+        >
         <select id="map-tgt-amount" bind:value={mappingTargetAmount}>
           <option value="">— select —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-tgt-currency">Target currency <span class="required">*</span></label>
+        <label for="map-tgt-currency"
+          >Target currency <span class="required">*</span></label
+        >
         <select id="map-tgt-currency" bind:value={mappingTargetCurrency}>
           <option value="">— select —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
@@ -428,7 +459,6 @@
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
       </div>
-
     {:else if step === STEP.CONFIRM}
       <div class="summary">
         <div class="summary-section">
@@ -440,14 +470,19 @@
           {#if startingBalance.trim()}
             <div class="summary-row">
               <span class="summary-label">Starting balance</span>
-              <span class="summary-value">{startingBalance.trim()} {startingCurrency}</span>
+              <span class="summary-value"
+                >{startingBalance.trim()} {startingCurrency}</span
+              >
             </div>
             <div class="summary-row">
               <span class="summary-label">Balance date</span>
               <span class="summary-value">{startingDate}</span>
             </div>
             {#if !userSettings?.defaultOffsetAccountId}
-              <p class="summary-warn">No offset account set — starting balance will be skipped. Set one in Settings.</p>
+              <p class="summary-warn">
+                No offset account set — starting balance will be skipped. Set
+                one in Settings.
+              </p>
             {/if}
           {/if}
         </div>
@@ -501,20 +536,26 @@
 
     <div class="footer-right">
       {#if step === STEP.ACCOUNT}
-        <Button variant="primary" onclick={next} disabled={!step1Valid}>Next ▶️</Button>
-
+        <Button variant="primary" onclick={next} disabled={!step1Valid}
+          >Next ▶️</Button
+        >
       {:else if step === STEP.PARSER_UPLOAD}
         <Button onclick={skip}>Skip</Button>
-        <Button variant="primary" onclick={next} disabled={!parserUploadValid}>Next ▶️</Button>
-
+        <Button variant="primary" onclick={next} disabled={!parserUploadValid}
+          >Next ▶️</Button
+        >
       {:else if step === STEP.PARSER_COLUMNS}
         <Button onclick={skip}>Skip</Button>
-        <Button variant="primary" onclick={next} disabled={!parserColumnsValid}>Next ▶️</Button>
-
+        <Button variant="primary" onclick={next} disabled={!parserColumnsValid}
+          >Next ▶️</Button
+        >
       {:else if step === STEP.PARSER_MULTICURRENCY}
         <Button onclick={skip}>Skip</Button>
-        <Button variant="primary" onclick={next} disabled={!parserMultiCurrencyValid}>Next ▶️</Button>
-
+        <Button
+          variant="primary"
+          onclick={next}
+          disabled={!parserMultiCurrencyValid}>Next ▶️</Button
+        >
       {:else if step === STEP.CONFIRM}
         <Button variant="primary" onclick={handleConfirm} disabled={submitting}>
           {submitting ? "Creating…" : "Confirm"}
@@ -647,13 +688,6 @@
     font-weight: bold;
     cursor: help;
     flex-shrink: 0;
-  }
-
-  .checkbox {
-    width: auto;
-    box-shadow: none;
-    cursor: pointer;
-    justify-self: start;
   }
 
   .summary {
