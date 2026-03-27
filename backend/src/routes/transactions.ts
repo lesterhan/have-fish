@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { transactions, postings } from '../db/schema'
-import { eq, isNull, and, inArray } from 'drizzle-orm'
+import { eq, isNull, and, inArray, gte, lte } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -9,15 +9,27 @@ const app = new Hono<{ Variables: AppVariables }>()
 // GET /api/transactions
 // Returns all transactions for the user, each with its postings array embedded.
 // Filter by account: ?accountId=... (returns transactions that have a posting for that account)
+// Filter by date: ?from=YYYY-MM-DD and/or ?to=YYYY-MM-DD (both inclusive, both optional)
 app.get('/', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.query('accountId')
 
-  // Fetch matching transactions
+  const from = c.req.query('from')
+  const to = c.req.query('to')
+
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/
+  if (from && !dateRe.test(from)) return c.json({ error: 'Invalid from date, expected YYYY-MM-DD' }, 400)
+  if (to && !dateRe.test(to)) return c.json({ error: 'Invalid to date, expected YYYY-MM-DD' }, 400)
+
   let txRows = await db
     .select()
     .from(transactions)
-    .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .where(and(
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      from ? gte(transactions.date, new Date(from)) : undefined,
+      to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
+    ))
 
   if (accountId) {
     // Filter to transactions that have at least one posting for this account
