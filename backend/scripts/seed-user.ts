@@ -1,8 +1,8 @@
 // One-time script to create the initial user.
-// Usage: bun run src/seed-user.ts
+// Usage: bun run scripts/seed-user.ts
 // Run this once after first deploy to set up your account.
 
-import { auth } from './auth'
+import { auth } from '../src/auth'
 
 const email = process.env.SEED_EMAIL
 const password = process.env.SEED_PASSWORD
