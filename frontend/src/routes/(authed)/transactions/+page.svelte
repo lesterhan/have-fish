@@ -5,6 +5,7 @@
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
   import FilterPanel from "$lib/components/FilterPanel.svelte";
+  import TransactionRow from "$lib/components/TransactionRow.svelte";
 
   // Default range: today minus 30 days → today
   // Computed once at module load; stable for the lifetime of the page.
@@ -56,52 +57,16 @@
 {#if transactions.length === 0}
   <p>No transactions yet.</p>
 {:else}
-  <div class="journal">
+  <div class="tx-table">
     {#each transactions as tx}
-      <div class="transaction">
-        <div class="header">
-          <span class="date">{toISODate(new Date(tx.date))}</span>
-          <span class="description">{tx.description ?? ""}</span>
-        </div>
-        {#each [...tx.postings].sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount)) as posting}
-          <div class="posting">
-            <span class="account"
-              >{accountPaths[posting.accountId] ?? posting.accountId}</span
-            >
-            <span class="amount">{posting.amount} {posting.currency}</span>
-          </div>
-        {/each}
-      </div>
+      <TransactionRow {tx} {accountPaths} />
     {/each}
   </div>
 {/if}
 
 <style>
-  .journal {
-    font-family: monospace;
-  }
-
-  .transaction {
-    margin-bottom: 1rem;
-  }
-
-  .header {
-    display: flex;
-    gap: 1rem;
-  }
-
-  .date {
-    color: #888;
-  }
-
-  .posting {
-    display: flex;
-    justify-content: space-between;
-    max-width: 600px;
-    padding-left: 2rem;
-  }
-
-  .amount {
-    text-align: right;
+  .tx-table {
+    box-shadow: var(--shadow-sunken);
+    background: var(--color-window-raised);
   }
 </style>
