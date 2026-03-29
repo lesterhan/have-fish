@@ -3,8 +3,6 @@
 
   export type DateRange = { from: string; to: string }
 
-  // Preset definitions. Each preset resolves to a DateRange on demand.
-  // "custom" is a sentinel value — selecting it reveals the text input.
   type Preset = 'day' | 'week' | 'month' | '3months' | 'custom'
 
   interface Props {
@@ -14,93 +12,129 @@
 
   let { value, onchange }: Props = $props()
 
-  // Which preset is currently selected in the <select>.
   let selectedPreset = $state<Preset>('month')
-
-  // The raw text the user has typed in the custom input.
   let customInput = $state('')
-
-  // Inline error message shown when the custom input fails to parse.
   let customError = $state('')
 
-  // Whether the custom free-text input is visible.
   let showCustomInput = $derived(selectedPreset === 'custom')
 
-  /**
-   * Called when the user picks a preset from the <select>.
-   * Immediately resolves and emits the range (except for "custom").
-   */
-  function handlePresetChange(preset: Preset) {
-    // TODO: implement
-    // selectedPreset = preset
-    // if preset === 'custom': clear customInput and customError, return (don't emit)
-    // otherwise: call resolvePreset(preset) and emit via onchange(...)
-  }
-
-  /**
-   * Maps a preset key to a resolved { from, to } DateRange.
-   * "today" is passed in so tests can inject a fixed reference date.
-   */
   function resolvePreset(preset: Exclude<Preset, 'custom'>, today = new Date()): DateRange {
-    // TODO: implement
-    // Subtract the right number of days from `today` for each preset:
-    //   day      → today - 1 day
-    //   week     → today - 7 days
-    //   month    → today - 30 days
-    //   3months  → today - 90 days
-    // Return { from: toISODate(...), to: toISODate(today) }
-    return { from: '', to: '' }
+    const days = { day: 1, week: 7, month: 30, '3months': 90 }[preset]
+    const from = new Date(today)
+    from.setDate(today.getDate() - days)
+    return { from: toISODate(from), to: toISODate(today) }
   }
 
-  /**
-   * Called on blur or Enter in the custom text input.
-   * Parses the input; emits if valid, shows inline error if not.
-   */
+  function handlePresetChange(preset: Preset) {
+    selectedPreset = preset
+    if (preset === 'custom') {
+      customInput = ''
+      customError = ''
+      return
+    }
+    onchange(resolvePreset(preset))
+  }
+
   function handleCustomCommit() {
-    // TODO: implement
-    // const result = parseCustomDateRange(customInput)
-    // if result is null: set customError to a user-friendly message, return
-    // otherwise: clear customError, emit onchange(result)
+    const result = parseCustomDateRange(customInput)
+    if (result === null) {
+      customError = 'Could not parse date — try "90d", "2026-01-01", or "2026-01-01 to 2026-03-31"'
+      return
+    }
+    customError = ''
+    onchange(result)
+  }
+
+  function handleKeydown(e: KeyboardEvent) {
+    if (e.key === 'Enter') handleCustomCommit()
   }
 </script>
 
-<!--
-  Layout:
-    [ preset <select> ]  [ custom text input (only when "Custom..." selected) ]
-    [ inline error message (only when customError is set) ]
--->
+<div class="wrapper">
+  <div class="controls">
+    <select
+      class="preset-select"
+      value={selectedPreset}
+      onchange={(e) => handlePresetChange((e.currentTarget as HTMLSelectElement).value as Preset)}
+    >
+      <option value="day">Past 1 day</option>
+      <option value="week">Past 1 week</option>
+      <option value="month">Past 1 month</option>
+      <option value="3months">Past 3 months</option>
+      <option value="custom">Custom...</option>
+    </select>
 
-<!-- TODO: render a <select> with the five preset options -->
-<!-- Preset labels:
-  day      → "Past 1 day"
-  week     → "Past 1 week"
-  month    → "Past 1 month"
-  3months  → "Past 3 months"
-  custom   → "Custom..."
--->
+    {#if showCustomInput}
+      <input
+        class="custom-input"
+        type="text"
+        placeholder="e.g. 90d, 2026-01-01, 2026-01-01 to 2026-03-31"
+        bind:value={customInput}
+        onblur={handleCustomCommit}
+        onkeydown={handleKeydown}
+      />
+    {/if}
+  </div>
 
-{#if showCustomInput}
-  <!-- TODO: render a TextInput bound to customInput -->
-  <!-- On blur and on keydown Enter: call handleCustomCommit() -->
-  <!-- placeholder suggestion: "e.g. 90d, 2026-01-01, 2026-01-01 to 2026-03-31" -->
-{/if}
-
-{#if customError}
-  <!-- TODO: render the error string in a styled .error span -->
-{/if}
+  {#if customError}
+    <span class="error">{customError}</span>
+  {/if}
+</div>
 
 <style>
-  /* TODO: style the wrapper, select, and error span using token variables */
-  /* The <select> should match TextInput visually:
-       font-family: var(--font-sans)
-       font-size: var(--text-sm)
-       background: var(--color-window-inset)
-       box-shadow: var(--shadow-sunken)
-       height: 22px
-       border: none
-  */
+  .wrapper {
+    display: flex;
+    flex-direction: column;
+    gap: calc(var(--sp-xs) / 2); /* 4px — half the base unit, no token for this */
+  }
+
+  .controls {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+  }
+
+  .preset-select {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    background: var(--color-window-inset);
+    border: none;
+    box-shadow: var(--shadow-sunken);
+    height: 22px;
+    padding: 0 var(--sp-xs);
+    cursor: pointer;
+    outline: none;
+    transition: outline var(--duration-fast) var(--ease);
+  }
+
+  .preset-select:focus {
+    outline: 1px solid var(--color-accent-mid);
+    outline-offset: -1px;
+  }
+
+  .custom-input {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    background: var(--color-window-inset);
+    border: none;
+    box-shadow: var(--shadow-sunken);
+    padding: 2px var(--sp-xs);
+    height: 22px;
+    width: 280px;
+    outline: none;
+    transition: outline var(--duration-fast) var(--ease);
+  }
+
+  .custom-input:focus {
+    outline: 1px solid var(--color-accent-mid);
+    outline-offset: -1px;
+  }
 
   .error {
-    /* TODO: color: var(--color-danger); font-size: var(--text-xs) */
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-danger);
   }
 </style>
