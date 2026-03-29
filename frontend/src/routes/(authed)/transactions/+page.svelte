@@ -1,5 +1,6 @@
 <script lang="ts">
   import { fetchTransactions, fetchAccounts } from "$lib/api";
+  import { toISODate } from "$lib/date";
   import { page } from "$app/state";
   import { onMount } from "svelte";
 
@@ -10,8 +11,8 @@
     const from = new Date(today);
     from.setDate(today.getDate() - 30);
     return {
-      from: from.toISOString().slice(0, 10),
-      to: today.toISOString().slice(0, 10),
+      from: toISODate(from),
+      to: toISODate(today),
     };
   }
   const defaults = defaultRange();
@@ -51,7 +52,7 @@
       <div class="transaction">
         <div class="header">
           <span class="date"
-            >{new Date(tx.date).toISOString().slice(0, 10)}</span
+            >{toISODate(new Date(tx.date))}</span
           >
           <span class="description">{tx.description ?? ""}</span>
         </div>
