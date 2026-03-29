@@ -18,6 +18,47 @@ describe('transactions', () => {
     expect(await res.json()).toEqual([])
   })
 
+  describe('PATCH /api/transactions/:id', () => {
+    let txId: string
+    const headers = { Cookie: '', 'Content-Type': 'application/json' }
+
+    beforeEach(async () => {
+      headers.Cookie = cookie
+      const [accA, accB] = await Promise.all([
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:checking', type: 'asset', currency: 'CAD' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }) }).then(r => r.json()),
+      ])
+      const tx = await app.request('/api/transactions', {
+        method: 'POST', headers,
+        body: JSON.stringify({ date: '2026-03-01', description: 'Lunch', postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: accB.id, amount: '10.00', currency: 'CAD' }] }),
+      }).then(r => r.json())
+      txId = tx.id
+    })
+
+    it('updates description', async () => {
+      const res = await app.request(`/api/transactions/${txId}`, { method: 'PATCH', headers, body: JSON.stringify({ description: 'Dinner' }) })
+      expect(res.status).toBe(200)
+      expect((await res.json()).description).toBe('Dinner')
+    })
+
+    it('updates date', async () => {
+      const res = await app.request(`/api/transactions/${txId}`, { method: 'PATCH', headers, body: JSON.stringify({ date: '2026-04-01' }) })
+      expect(res.status).toBe(200)
+      expect((await res.json()).date).toContain('2026-04-01')
+    })
+
+    it('returns 404 for unknown id', async () => {
+      const res = await app.request('/api/transactions/00000000-0000-0000-0000-000000000000', { method: 'PATCH', headers, body: JSON.stringify({ description: 'x' }) })
+      expect(res.status).toBe(404)
+    })
+
+    it('returns 404 for another user\'s transaction', async () => {
+      const otherCookie = await createTestUser('other@example.com', 'password123')
+      const res = await app.request(`/api/transactions/${txId}`, { method: 'PATCH', headers: { ...headers, Cookie: otherCookie }, body: JSON.stringify({ description: 'x' }) })
+      expect(res.status).toBe(404)
+    })
+  })
+
   describe('GET /api/transactions date filtering', () => {
     // Seed two accounts and two transactions on distinct dates before each test.
     // Transaction A: 2026-01-15, Transaction B: 2026-03-01

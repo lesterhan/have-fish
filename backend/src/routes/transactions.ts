@@ -114,6 +114,36 @@ app.post('/', async (c) => {
   return c.json(created, 201)
 })
 
+// PATCH /api/transactions/:id
+// Partial update for description and/or date. Ignores unknown fields.
+app.patch('/:id', async (c) => {
+  const userId = c.get('userId')
+  const id = c.req.param('id')
+  const body = await c.req.json()
+
+  const updates: { description?: string | null; date?: Date } = {}
+  if ('description' in body) updates.description = body.description ?? null
+  if ('date' in body) {
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
+      return c.json({ error: 'Invalid date format, expected YYYY-MM-DD' }, 400)
+    }
+    updates.date = new Date(body.date)
+  }
+
+  if (Object.keys(updates).length === 0) {
+    return c.json({ error: 'No updatable fields provided' }, 400)
+  }
+
+  const [updated] = await db
+    .update(transactions)
+    .set(updates)
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .returning()
+
+  if (!updated) return c.json({ error: 'Transaction not found' }, 404)
+  return c.json(updated)
+})
+
 // DELETE /api/transactions/:id
 // Soft-deletes a transaction and hard-deletes its postings.
 // The transaction row with deletedAt set is the audit record that it existed.

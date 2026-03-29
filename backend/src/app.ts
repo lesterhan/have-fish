@@ -4,6 +4,7 @@ import { logger } from 'hono/logger'
 import { auth } from './auth'
 import accountsRoute from './routes/accounts'
 import transactionsRoute from './routes/transactions'
+import postingsRoute from './routes/postings'
 import importRoute from './routes/import'
 import parsersRoute from './routes/parsers'
 import userSettingsRoute from './routes/user-settings'
@@ -41,6 +42,7 @@ app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
 
 app.route('/api/accounts', accountsRoute)
 app.route('/api/transactions', transactionsRoute)
+app.route('/api/postings', postingsRoute)
 app.route('/api/import', importRoute)
 app.route('/api/parsers', parsersRoute)
 app.route('/api/user-settings', userSettingsRoute)
