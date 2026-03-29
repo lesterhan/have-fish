@@ -10,7 +10,7 @@
 | [Manual Transaction Entry](epics/manual-transaction-entry.md) | Backlog |
 | [Split Transactions](epics/split-transactions.md) | Backlog |
 | [Reconciliation](epics/reconciliation.md) | Backlog |
-| [Transactions Edit UX](epics/transactions-edit-ux.md) | Backlog |
+| [Transactions Edit UX](epics/transactions-edit-ux.md) | In Progress |
 | [Transaction Filtering by Date](epics/archive/transaction-filtering-by-date.md) | Done |
 | [Import CSV for Existing Asset Account](epics/archive/import-csv-existing-account.md) | Done |
 | [Import CSV for Liability Accounts](epics/archive/import-csv-liability-accounts.md) | Done |
