@@ -12,18 +12,28 @@
 
   let { value, onchange }: Props = $props()
 
-  let selectedPreset = $state<Preset>('month')
-  let customInput = $state('')
-  let customError = $state('')
-
-  let showCustomInput = $derived(selectedPreset === 'custom')
-
   function resolvePreset(preset: Exclude<Preset, 'custom'>, today = new Date()): DateRange {
     const days = { day: 1, week: 7, month: 30, '3months': 90 }[preset]
     const from = new Date(today)
     from.setDate(today.getDate() - days)
     return { from: toISODate(from), to: toISODate(today) }
   }
+
+  // Infer which preset (if any) matches the incoming value.
+  // If none match, fall back to 'custom' and pre-populate the text input.
+  function inferPreset(v: DateRange): Preset {
+    for (const preset of ['day', 'week', 'month', '3months'] as const) {
+      const r = resolvePreset(preset)
+      if (r.from === v.from && r.to === v.to) return preset
+    }
+    return 'custom'
+  }
+
+  let selectedPreset = $state<Preset>(inferPreset(value))
+  let customInput = $state(selectedPreset === 'custom' ? `${value.from} to ${value.to}` : '')
+  let customError = $state('')
+
+  let showCustomInput = $derived(selectedPreset === 'custom')
 
   function handlePresetChange(preset: Preset) {
     selectedPreset = preset

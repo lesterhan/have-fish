@@ -2,7 +2,9 @@
   import { fetchTransactions, fetchAccounts } from "$lib/api";
   import { toISODate } from "$lib/date";
   import { page } from "$app/state";
+  import { goto } from "$app/navigation";
   import { onMount } from "svelte";
+  import FilterPanel from "$lib/components/FilterPanel.svelte";
 
   // Default range: today minus 30 days → today
   // Computed once at module load; stable for the lifetime of the page.
@@ -33,6 +35,13 @@
     });
   });
 
+  // Called by FilterPanel when the user clicks Apply or Reset.
+  // Pushes the new range into the URL; the $derived from/to above will re-derive
+  // and the $effect will re-fetch automatically.
+  function handleApply(newFrom: string, newTo: string) {
+    goto(`?${new URLSearchParams({ from: newFrom, to: newTo })}`)
+  }
+
   // Accounts don't depend on the date range — fetch once.
   onMount(async () => {
     const accounts = await fetchAccounts();
@@ -43,6 +52,8 @@
 </script>
 
 <h1>Transactions</h1>
+
+<FilterPanel {from} {to} onApply={handleApply} />
 
 {#if transactions.length === 0}
   <p>No transactions yet.</p>
