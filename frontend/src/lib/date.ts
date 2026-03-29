@@ -24,6 +24,11 @@ export function toISODate(date: Date): string {
  *   - Single ISO date:    "2026-01-01"
  *     → from = that date, to = today
  */
+function isValidDate(isoDate: string): boolean {
+  const d = new Date(isoDate)
+  return !isNaN(d.getTime())
+}
+
 export function parseCustomDateRange(input: string): { from: string; to: string } | null {
   const s = input.trim().toLowerCase()
   const today = new Date()
@@ -43,20 +48,15 @@ export function parseCustomDateRange(input: string): { from: string; to: string 
 
   const single = s.match(/^\d{4}-\d{2}-\d{2}$/)
   if (single) {
+    if (!isValidDate(s)) return null
     return { from: s, to: toISODate(today) }
   }
 
-  console.log('input', s)
   const range = s.match(/^(\d{4}-\d{2}-\d{2})\s*(to|-)\s*(\d{4}-\d{2}-\d{2})$/)
-  console.log('match', range)
   if (range) {
+    if (!isValidDate(range[1]) || !isValidDate(range[3])) return null
     return { from: range[1], to: range[3] }
   }
 
-  // TODO: implement — hand-rolled parser, no library.
-  // Suggested approach:
-  //   1. Trim + lowercase the input.
-  //   3. Try ISO range regex: /^(\d{4}-\d{2}-\d{2})\s+to\s+(\d{4}-\d{2}-\d{2})$/
-  //   5. Return null if nothing matched.
   return null
 }

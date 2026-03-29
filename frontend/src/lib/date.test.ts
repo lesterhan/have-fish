@@ -12,7 +12,8 @@ describe('toISODate', () => {
 describe('parseCustomDateRange', () => {
   it('parse single date to today', () => {
     const today = new Date()
-    const twentyDaysAgo = new Date(today.getDate() - 20)
+    const twentyDaysAgo = new Date(today)
+    twentyDaysAgo.setDate(today.getDate() - 20)
 
     expect(parseCustomDateRange(toISODate(twentyDaysAgo))).toEqual({
       from: toISODate(twentyDaysAgo),
@@ -89,6 +90,15 @@ describe('parseCustomDateRange', () => {
     })
   })
 
+  it('returns null for unparseable input', () => {
+    expect(parseCustomDateRange('')).toBeNull()
+    expect(parseCustomDateRange('last week')).toBeNull()
+    expect(parseCustomDateRange('not a date')).toBeNull()
+    expect(parseCustomDateRange('2026-99-99')).toBeNull()
+    expect(parseCustomDateRange('2026-99-99 to 2026-01-01')).toBeNull()
+    expect(parseCustomDateRange('2026-01-01 to 2026-99-99')).toBeNull()
+  })
+
   it('parses date ranges', () => {
     const fromDate = new Date('2021-12-23')
     const toDate = new Date('2022-05-15')
@@ -102,6 +112,3 @@ describe('parseCustomDateRange', () => {
     )
   })
 })
-// TODO: write tests for parseCustomDateRange covering:
-//   - ISO date range: "2026-02-20 to 2026-03-08"
-//   - invalid input returns null
