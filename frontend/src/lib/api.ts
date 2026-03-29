@@ -241,6 +241,28 @@ export async function fetchAccountBalances(): Promise<AccountBalance[]> {
   return res.json()
 }
 
+export async function patchTransaction(id: string, updates: { description?: string | null; date?: string }) {
+  const res = await fetch(`${BASE}/api/transactions/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update transaction')
+  return res.json()
+}
+
+export async function patchPosting(id: string, updates: { accountId: string }) {
+  const res = await fetch(`${BASE}/api/postings/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update posting')
+  return res.json()
+}
+
 export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string }) {
   const query = new URLSearchParams()
   if (params?.from) query.set('from', params.from)

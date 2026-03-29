@@ -11,6 +11,7 @@
     value: string; // bound account ID; empty string = nothing selected
     placeholder?: string;
     oncreate?: (account: Account) => void;
+    oncommit?: (accountId: string) => void; // fires after any selection (existing or new)
   }
 
   let {
@@ -18,6 +19,7 @@
     value = $bindable(""),
     placeholder = "Type an account path…",
     oncreate,
+    oncommit,
   }: Props = $props();
 
   // The text the user sees / types in the input field.
@@ -145,6 +147,7 @@
       value = opt.account.id;
       inputText = opt.account.path;
       open = false;
+      oncommit?.(value);
     } else {
       if (creating) return;
       creating = true;
@@ -153,6 +156,7 @@
         value = newAccount.id;
         inputText = newAccount.path;
         oncreate?.(newAccount);
+        oncommit?.(value);
       } finally {
         creating = false;
         open = false;

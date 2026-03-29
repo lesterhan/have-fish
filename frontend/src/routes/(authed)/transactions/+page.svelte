@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fetchTransactions, fetchAccounts } from "$lib/api";
+  import { fetchTransactions, fetchAccounts, type Account } from "$lib/api";
   import { toISODate } from "$lib/date";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -27,7 +27,7 @@
   let to = $derived(page.url.searchParams.get("to") ?? defaults.to);
 
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
-  let accountPaths = $state<Record<string, string>>({});
+  let accounts = $state<Account[]>([]);
 
   // Re-fetch transactions whenever from/to change.
   $effect(() => {
@@ -45,10 +45,7 @@
 
   // Accounts don't depend on the date range — fetch once.
   onMount(async () => {
-    const accounts = await fetchAccounts();
-    accountPaths = Object.fromEntries(
-      accounts.map((a: { id: string; path: string }) => [a.id, a.path]),
-    );
+    accounts = await fetchAccounts();
   });
 </script>
 
@@ -59,7 +56,7 @@
 {:else}
   <div class="tx-table">
     {#each transactions as tx}
-      <TransactionRow {tx} {accountPaths} />
+      <TransactionRow {tx} {accounts} onaccountcreated={(a) => accounts = [...accounts, a]} />
     {/each}
   </div>
 {/if}
