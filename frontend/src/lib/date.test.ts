@@ -99,6 +99,18 @@ describe('parseCustomDateRange', () => {
     expect(parseCustomDateRange('2026-01-01 to 2026-99-99')).toBeNull()
   })
 
+  it('accepts "past" prefix on relative shorthand', () => {
+    const today = new Date()
+    const oneWeekAgo = new Date(today)
+    oneWeekAgo.setDate(today.getDate() - 7)
+    const threeMonthsAgo = new Date(today)
+    threeMonthsAgo.setDate(today.getDate() - 93)
+
+    expect(parseCustomDateRange('Past 1 week')).toEqual({ from: toISODate(oneWeekAgo), to: toISODate(today) })
+    expect(parseCustomDateRange('past 3 months')).toEqual({ from: toISODate(threeMonthsAgo), to: toISODate(today) })
+    expect(parseCustomDateRange('Past 7d')).toEqual({ from: toISODate(oneWeekAgo), to: toISODate(today) })
+  })
+
   it('parses date ranges', () => {
     const fromDate = new Date('2021-12-23')
     const toDate = new Date('2022-05-15')

@@ -39,7 +39,7 @@
   // Pushes the new range into the URL; the $derived from/to above will re-derive
   // and the $effect will re-fetch automatically.
   function handleApply(newFrom: string, newTo: string) {
-    goto(`?${new URLSearchParams({ from: newFrom, to: newTo })}`)
+    goto(`?${new URLSearchParams({ from: newFrom, to: newTo })}`);
   }
 
   // Accounts don't depend on the date range — fetch once.
@@ -51,8 +51,6 @@
   });
 </script>
 
-<h1>Transactions</h1>
-
 <FilterPanel {from} {to} onApply={handleApply} />
 
 {#if transactions.length === 0}
@@ -62,9 +60,7 @@
     {#each transactions as tx}
       <div class="transaction">
         <div class="header">
-          <span class="date"
-            >{toISODate(new Date(tx.date))}</span
-          >
+          <span class="date">{toISODate(new Date(tx.date))}</span>
           <span class="description">{tx.description ?? ""}</span>
         </div>
         {#each [...tx.postings].sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount)) as posting}

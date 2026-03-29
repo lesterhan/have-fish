@@ -33,7 +33,7 @@ export function parseCustomDateRange(input: string): { from: string; to: string 
   const s = input.trim().toLowerCase()
   const today = new Date()
 
-  const relative = s.match(/^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|mo|mos|mon|mons|month|months)$/)
+  const relative = s.replace(/^past\s+/, '').match(/^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|mo|mos|mon|mons|month|months)$/)
   if (relative) {
     const num = parseInt(relative[1])
     const unit = relative[2]

@@ -21,7 +21,6 @@
 <style>
   .panel {
     border-radius: var(--radius-xl);
-    overflow: hidden;
     box-shadow:
       var(--shadow-raised),
       2px 2px 0 rgba(0, 0, 0, 0.3);
@@ -29,6 +28,7 @@
   }
 
   .panel-header {
+    border-radius: var(--radius-xl) var(--radius-xl) 0 0;
     padding: 3px var(--sp-sm);
     background: linear-gradient(
       to right,
