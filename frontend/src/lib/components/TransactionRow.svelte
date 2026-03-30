@@ -149,7 +149,7 @@
           />
         </div>
       {:else}
-        <span class="account editable" onclick={() => startPostingEdit(from.id, from.accountId)} title="Click to edit">
+        <span class="account account-from editable" onclick={() => startPostingEdit(from.id, from.accountId)} title="Click to edit">
           {accountPaths[from.accountId] ?? from.accountId}
         </span>
       {/if}
@@ -166,7 +166,7 @@
           />
         </div>
       {:else}
-        <span class="account editable" onclick={() => startPostingEdit(to.id, to.accountId)} title="Click to edit">
+        <span class="account account-to editable" onclick={() => startPostingEdit(to.id, to.accountId)} title="Click to edit">
           {accountPaths[to.accountId] ?? to.accountId}
         </span>
       {/if}
@@ -245,7 +245,7 @@
   .description {
     font-family: var(--font-sans);
     font-size: var(--text-sm);
-    color: var(--color-text);
+    color: var(--color-accent-mid);
   }
 
   /* Auto-sizing description input.
@@ -253,6 +253,7 @@
      the input overlays it in the same grid cell. */
   .desc-sizer {
     display: inline-grid;
+    align-self: flex-start;
     font-family: var(--font-sans);
     font-size: var(--text-sm);
   }
@@ -288,11 +289,20 @@
   }
 
   .arrow {
-    color: var(--color-text-disabled);
+    color: var(--color-text-muted);
     flex-shrink: 0;
+    padding: 0 var(--sp-xs);
   }
 
   .account {
+    color: var(--color-text);
+  }
+
+  .account-from {
+    color: var(--color-text-muted);
+  }
+
+  .account-to {
     color: var(--color-text);
   }
 
