@@ -20,11 +20,10 @@
   }
   const defaults = defaultRange();
 
-  // Read from URL search params, fall back to default range if absent.
-  // Reactive: updating the URL (via goto in FilterPanel) will re-derive these
-  // and trigger the $effect below to re-fetch.
+  // Read from URL search params, fall back to defaults if absent.
   let from = $derived(page.url.searchParams.get("from") ?? defaults.from);
   let to = $derived(page.url.searchParams.get("to") ?? defaults.to);
+  let sortDir = $derived((page.url.searchParams.get("dir") ?? "desc") as "asc" | "desc");
 
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
   let accounts = $state<Account[]>([]);
@@ -36,11 +35,23 @@
     });
   });
 
-  // Called by FilterPanel when the user clicks Apply or Reset.
-  // Pushes the new range into the URL; the $derived from/to above will re-derive
-  // and the $effect will re-fetch automatically.
+  let sortedTransactions = $derived(
+    [...transactions].sort((a, b) => {
+      const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
+      return sortDir === "desc" ? -cmp : cmp;
+    })
+  );
+
+  function navigate(params: Record<string, string>) {
+    goto(`?${new URLSearchParams({ from, to, dir: sortDir, ...params })}`);
+  }
+
   function handleApply(newFrom: string, newTo: string) {
-    goto(`?${new URLSearchParams({ from: newFrom, to: newTo })}`);
+    navigate({ from: newFrom, to: newTo });
+  }
+
+  function handleSortChange(dir: "asc" | "desc") {
+    navigate({ dir });
   }
 
   // Accounts don't depend on the date range — fetch once.
@@ -49,13 +60,13 @@
   });
 </script>
 
-<FilterPanel {from} {to} onApply={handleApply} />
+<FilterPanel {from} {to} {sortDir} onApply={handleApply} onSortChange={handleSortChange} />
 
-{#if transactions.length === 0}
+{#if sortedTransactions.length === 0}
   <p>No transactions yet.</p>
 {:else}
   <div class="tx-table">
-    {#each transactions as tx}
+    {#each sortedTransactions as tx (tx.id)}
       <TransactionRow {tx} {accounts} onaccountcreated={(a) => accounts = [...accounts, a]} />
     {/each}
   </div>

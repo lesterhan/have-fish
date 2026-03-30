@@ -2,7 +2,9 @@
   interface Props {
     variant?: 'default' | 'primary' | 'danger'
     disabled?: boolean
+    square?: boolean
     type?: 'button' | 'submit' | 'reset'
+    title?: string
     onclick?: () => void
     children: import('svelte').Snippet
   }
@@ -10,7 +12,9 @@
   let {
     variant = 'default',
     disabled = false,
+    square = false,
     type = 'button',
+    title,
     onclick,
     children,
   }: Props = $props()
@@ -19,8 +23,10 @@
 <button
   {type}
   {disabled}
+  {title}
   {onclick}
   class="btn {variant}"
+  class:square
 >
   {@render children()}
 </button>
@@ -71,6 +77,11 @@
     cursor: not-allowed;
     box-shadow: var(--shadow-raised);
     opacity: 0.7;
+  }
+
+  .btn.square {
+    min-width: 0;
+    padding: 3px var(--sp-xs);
   }
 
   /* Primary — default action in a dialog, XP blue */
