@@ -34,9 +34,10 @@
     onaccountcreated?: (account: Account) => void;
   }
 
-  let { tx, accounts, defaultOffsetAccountId, onaccountcreated }: Props = $props()
+  let { tx, accounts, defaultOffsetAccountId, onaccountcreated }: Props =
+    $props();
 
-  let modalOpen = $state(false)
+  let modalOpen = $state(false);
 
   // Local copies of mutable fields — updated after a successful PATCH.
   let localDescription = $state(tx.description ?? "");
@@ -206,11 +207,15 @@
       {:else}
         <span
           class="account account-from editable"
-          class:account-uncategorized={from.accountId === defaultOffsetAccountId}
+          class:account-uncategorized={from.accountId ===
+            defaultOffsetAccountId}
           role="button"
           tabindex="0"
           onclick={() => startPostingEdit(from.id, from.accountId)}
-          onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(from.id, from.accountId))}
+          onkeydown={(e) =>
+            handleEditableKeydown(e, () =>
+              startPostingEdit(from.id, from.accountId),
+            )}
           title="Click to edit"
         >
           {accountPaths[from.accountId] ?? from.accountId}
@@ -235,7 +240,10 @@
           role="button"
           tabindex="0"
           onclick={() => startPostingEdit(to.id, to.accountId)}
-          onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(to.id, to.accountId))}
+          onkeydown={(e) =>
+            handleEditableKeydown(e, () =>
+              startPostingEdit(to.id, to.accountId),
+            )}
           title="Click to edit"
         >
           {accountPaths[to.accountId] ?? to.accountId}
@@ -258,11 +266,15 @@
         {:else}
           <span
             class="account editable"
-            class:account-uncategorized={posting.accountId === defaultOffsetAccountId}
+            class:account-uncategorized={posting.accountId ===
+              defaultOffsetAccountId}
             role="button"
             tabindex="0"
             onclick={() => startPostingEdit(posting.id, posting.accountId)}
-            onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(posting.id, posting.accountId))}
+            onkeydown={(e) =>
+              handleEditableKeydown(e, () =>
+                startPostingEdit(posting.id, posting.accountId),
+              )}
             title="Click to edit"
           >
             {accountPaths[posting.accountId] ?? posting.accountId}
@@ -275,7 +287,8 @@
       </div>
     {/each}
 
-    {#if postingError}<span class="edit-error" role="alert">{postingError}</span>{/if}
+    {#if postingError}<span class="edit-error" role="alert">{postingError}</span
+      >{/if}
   </div>
 
   <div class="money-col">
@@ -298,11 +311,21 @@
   </div>
 
   <div class="actions">
-    <Button onclick={() => modalOpen = true}>Edit</Button>
+    <Button
+      title="Edit transaction"
+      variant="ghost"
+      square
+      onclick={() => (modalOpen = true)}>🧮</Button
+    >
   </div>
 </div>
 
-<TransactionEditModal {tx} {accounts} bind:open={modalOpen} onclose={() => modalOpen = false} />
+<TransactionEditModal
+  {tx}
+  {accounts}
+  bind:open={modalOpen}
+  onclose={() => (modalOpen = false)}
+/>
 
 <style>
   .row {
@@ -473,5 +496,6 @@
   .actions {
     display: flex;
     align-items: center;
+    align-self: center;
   }
 </style>

@@ -1,6 +1,6 @@
 <script lang="ts">
   interface Props {
-    variant?: 'default' | 'primary' | 'danger'
+    variant?: 'default' | 'primary' | 'danger' | 'ghost'
     disabled?: boolean
     square?: boolean
     type?: 'button' | 'submit' | 'reset'
@@ -85,6 +85,30 @@
   .btn.square {
     min-width: 0;
     padding: 3px var(--sp-xs);
+  }
+
+  /* Ghost — no background or bevel, dashed outline on hover like editable fields */
+  .btn.ghost {
+    background: transparent;
+    box-shadow: none;
+    color: var(--color-text-muted);
+    outline: 1px dashed transparent;
+    outline-offset: 1px;
+    transition: outline-color var(--duration-fast) var(--ease);
+  }
+
+  .btn.ghost:hover:not(:disabled) {
+    background: transparent;
+    color: var(--color-text);
+    box-shadow: none;
+    outline-color: var(--color-text-muted);
+  }
+
+  .btn.ghost:active:not(:disabled) {
+    background: transparent;
+    box-shadow: none;
+    padding-top: 3px;
+    padding-left: var(--sp-xs);
   }
 
   /* Primary — default action in a dialog, XP blue */
