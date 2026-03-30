@@ -78,6 +78,13 @@
     if (e.key === "Escape") cancelDescEdit();
   }
 
+  function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      action();
+    }
+  }
+
   // --- Posting account editing ---
   let editingPostingId = $state<string | null>(null);
   let editAccountId = $state("");
@@ -163,19 +170,23 @@
           bind:value={descValue}
           onblur={commitDescEdit}
           onkeydown={handleDescKeydown}
+          aria-label="Description"
           use:focusOnMount
         />
       </div>
     {:else}
       <span
         class="description editable"
+        role="button"
+        tabindex="0"
         onclick={startDescEdit}
+        onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
         title="Click to edit"
       >
         {localDescription || "—"}
       </span>
     {/if}
-    {#if descError}<span class="edit-error">{descError}</span>{/if}
+    {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
 
     <!-- Summary line: from → to  amounts -->
     <div class="summary-line">
@@ -191,14 +202,17 @@
       {:else}
         <span
           class="account account-from editable"
+          role="button"
+          tabindex="0"
           onclick={() => startPostingEdit(from.id, from.accountId)}
+          onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(from.id, from.accountId))}
           title="Click to edit"
         >
           {accountPaths[from.accountId] ?? from.accountId}
         </span>
       {/if}
 
-      <span class="arrow">→</span>
+      <span class="arrow" aria-hidden="true">➜</span>
 
       {#if editingPostingId === to.id}
         <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
@@ -212,13 +226,15 @@
       {:else}
         <span
           class="account account-to editable"
+          role="button"
+          tabindex="0"
           onclick={() => startPostingEdit(to.id, to.accountId)}
+          onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(to.id, to.accountId))}
           title="Click to edit"
         >
           {accountPaths[to.accountId] ?? to.accountId}
         </span>
       {/if}
-
     </div>
 
     <!-- Extra postings (fees etc.) -->
@@ -236,31 +252,46 @@
         {:else}
           <span
             class="account editable"
+            role="button"
+            tabindex="0"
             onclick={() => startPostingEdit(posting.id, posting.accountId)}
+            onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(posting.id, posting.accountId))}
             title="Click to edit"
           >
             {accountPaths[posting.accountId] ?? posting.accountId}
           </span>
         {/if}
-        <MoneyDisplay amount={Math.abs(parseFloat(posting.amount)).toFixed(2)} currency={posting.currency} />
+        <MoneyDisplay
+          amount={Math.abs(parseFloat(posting.amount)).toFixed(2)}
+          currency={posting.currency}
+        />
       </div>
     {/each}
 
-    {#if postingError}<span class="edit-error">{postingError}</span>{/if}
+    {#if postingError}<span class="edit-error" role="alert">{postingError}</span>{/if}
   </div>
 
   <div class="money-col">
     {#if from.currency === to.currency}
-      <MoneyDisplay amount={Math.abs(parseFloat(from.amount)).toFixed(2)} currency={to.currency} />
+      <MoneyDisplay
+        amount={Math.abs(parseFloat(from.amount)).toFixed(2)}
+        currency={to.currency}
+      />
     {:else}
-      <MoneyDisplay amount={Math.abs(parseFloat(from.amount)).toFixed(2)} currency={from.currency} />
-      <span class="cross-arrow">→</span>
-      <MoneyDisplay amount={parseFloat(to.amount).toFixed(2)} currency={to.currency} />
+      <MoneyDisplay
+        amount={Math.abs(parseFloat(from.amount)).toFixed(2)}
+        currency={from.currency}
+      />
+      <span class="cross-arrow" aria-hidden="true">→</span>
+      <MoneyDisplay
+        amount={parseFloat(to.amount).toFixed(2)}
+        currency={to.currency}
+      />
     {/if}
   </div>
 
   <div class="actions">
-    <Button disabled>Edit</Button>
+    <Button disabled aria-label="Edit transaction (coming soon)">Edit</Button>
   </div>
 </div>
 

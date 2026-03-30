@@ -5,6 +5,7 @@
     square?: boolean
     type?: 'button' | 'submit' | 'reset'
     title?: string
+    'aria-label'?: string
     onclick?: () => void
     children: import('svelte').Snippet
   }
@@ -15,6 +16,7 @@
     square = false,
     type = 'button',
     title,
+    'aria-label': ariaLabel,
     onclick,
     children,
   }: Props = $props()
@@ -24,6 +26,7 @@
   {type}
   {disabled}
   {title}
+  aria-label={ariaLabel}
   {onclick}
   class="btn {variant}"
   class:square
