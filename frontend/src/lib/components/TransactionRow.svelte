@@ -8,6 +8,7 @@
 <script lang="ts">
   import Button from "$lib/components/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
+  import MoneyDisplay from "$lib/components/MoneyDisplay.svelte";
   import { toISODate } from "$lib/date";
   import { patchTransaction, patchPosting, type Account } from "$lib/api";
 
@@ -143,14 +144,7 @@
     };
   }
 
-  function formatAmounts(from: Posting, to: Posting): string {
-    const fromAmt = Math.abs(parseFloat(from.amount)).toFixed(2);
-    if (from.currency === to.currency) return `${fromAmt} ${to.currency}`;
-    return `${fromAmt} ${from.currency} → ${parseFloat(to.amount).toFixed(2)} ${to.currency}`;
-  }
-
   let { from, to, rest } = $derived(summarize(localPostings));
-  let amounts = $derived(formatAmounts(from, to));
 </script>
 
 <div class="row">
@@ -225,7 +219,6 @@
         </span>
       {/if}
 
-      <span class="amounts">{amounts}</span>
     </div>
 
     <!-- Extra postings (fees etc.) -->
@@ -249,14 +242,21 @@
             {accountPaths[posting.accountId] ?? posting.accountId}
           </span>
         {/if}
-        <span class="amounts"
-          >{Math.abs(parseFloat(posting.amount)).toFixed(2)}
-          {posting.currency}</span
-        >
+        <MoneyDisplay amount={Math.abs(parseFloat(posting.amount)).toFixed(2)} currency={posting.currency} />
       </div>
     {/each}
 
     {#if postingError}<span class="edit-error">{postingError}</span>{/if}
+  </div>
+
+  <div class="money-col">
+    {#if from.currency === to.currency}
+      <MoneyDisplay amount={Math.abs(parseFloat(from.amount)).toFixed(2)} currency={to.currency} />
+    {:else}
+      <MoneyDisplay amount={Math.abs(parseFloat(from.amount)).toFixed(2)} currency={from.currency} />
+      <span class="cross-arrow">→</span>
+      <MoneyDisplay amount={parseFloat(to.amount).toFixed(2)} currency={to.currency} />
+    {/if}
   </div>
 
   <div class="actions">
@@ -267,7 +267,7 @@
 <style>
   .row {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: auto 1fr auto auto;
     align-items: start;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
@@ -373,10 +373,17 @@
     color: var(--color-text);
   }
 
-  .amounts {
-    margin-left: auto;
+  .money-col {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    align-self: center;
+  }
+
+  .cross-arrow {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
-    flex-shrink: 0;
   }
 
   .editable {
