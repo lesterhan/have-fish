@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { fetchTransactions, fetchAccounts, type Account } from "$lib/api";
+  import { fetchTransactions, fetchAccounts, fetchUserSettings, type Account } from "$lib/api";
   import { toISODate } from "$lib/date";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -27,6 +27,7 @@
 
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
   let accounts = $state<Account[]>([]);
+  let defaultOffsetAccountId = $state<string | null>(null);
 
   // Re-fetch transactions whenever from/to change.
   $effect(() => {
@@ -54,9 +55,12 @@
     navigate({ dir });
   }
 
-  // Accounts don't depend on the date range — fetch once.
+  // Accounts and settings don't depend on the date range — fetch once.
   onMount(async () => {
-    accounts = await fetchAccounts();
+    [accounts, { defaultOffsetAccountId }] = await Promise.all([
+      fetchAccounts(),
+      fetchUserSettings(),
+    ]);
   });
 </script>
 
@@ -67,7 +71,7 @@
 {:else}
   <div class="tx-table">
     {#each sortedTransactions as tx (tx.id)}
-      <TransactionRow {tx} {accounts} onaccountcreated={(a) => accounts = [...accounts, a]} />
+      <TransactionRow {tx} {accounts} {defaultOffsetAccountId} onaccountcreated={(a) => accounts = [...accounts, a]} />
     {/each}
   </div>
 {/if}

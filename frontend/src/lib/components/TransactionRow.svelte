@@ -29,10 +29,11 @@
   interface Props {
     tx: Transaction;
     accounts: Account[];
+    defaultOffsetAccountId?: string | null;
     onaccountcreated?: (account: Account) => void;
   }
 
-  let { tx, accounts, onaccountcreated }: Props = $props();
+  let { tx, accounts, defaultOffsetAccountId, onaccountcreated }: Props = $props();
 
   // Local copies of mutable fields — updated after a successful PATCH.
   let localDescription = $state(tx.description ?? "");
@@ -202,6 +203,7 @@
       {:else}
         <span
           class="account account-from editable"
+          class:account-uncategorized={from.accountId === defaultOffsetAccountId}
           role="button"
           tabindex="0"
           onclick={() => startPostingEdit(from.id, from.accountId)}
@@ -226,6 +228,7 @@
       {:else}
         <span
           class="account account-to editable"
+          class:account-uncategorized={to.accountId === defaultOffsetAccountId}
           role="button"
           tabindex="0"
           onclick={() => startPostingEdit(to.id, to.accountId)}
@@ -252,6 +255,7 @@
         {:else}
           <span
             class="account editable"
+            class:account-uncategorized={posting.accountId === defaultOffsetAccountId}
             role="button"
             tabindex="0"
             onclick={() => startPostingEdit(posting.id, posting.accountId)}
@@ -404,6 +408,10 @@
     color: var(--color-text);
   }
 
+  .account-uncategorized {
+    color: var(--color-warning);
+  }
+
   .money-col {
     display: flex;
     align-items: center;
@@ -419,12 +427,13 @@
 
   .editable {
     cursor: text;
-    border-bottom: 1px dashed transparent;
-    transition: border-color var(--duration-fast) var(--ease);
+    outline: 1px dashed transparent;
+    outline-offset: 1px;
+    transition: outline-color var(--duration-fast) var(--ease);
   }
 
   .editable:hover {
-    border-bottom-color: var(--color-text-muted);
+    outline-color: var(--color-text-muted);
   }
 
   .edit-input {

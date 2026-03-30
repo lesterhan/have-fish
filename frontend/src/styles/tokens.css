@@ -84,6 +84,8 @@
   /* --- Semantic --- */
   --color-success:       #007700;
   --color-success-light: #e0ffe0;
+  --color-warning:       #b86800;
+  --color-warning-light: #fff3e0;
   --color-danger:        #cc0000;
   --color-danger-light:  #ffe0e0;
 
@@ -181,6 +183,8 @@
   /* --- Semantic --- */
   --color-success:       #50fa7b;
   --color-success-light: #1a3b25;
+  --color-warning:       #ffb86c;
+  --color-warning-light: #3b2e1a;
   --color-danger:        #ff5555;
   --color-danger-light:  #3b1a1a;
 
