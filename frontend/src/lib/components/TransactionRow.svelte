@@ -9,6 +9,7 @@
   import Button from "$lib/components/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import MoneyDisplay from "$lib/components/MoneyDisplay.svelte";
+  import TransactionEditModal from "$lib/components/TransactionEditModal.svelte";
   import { toISODate } from "$lib/date";
   import { patchTransaction, patchPosting, type Account } from "$lib/api";
 
@@ -33,7 +34,9 @@
     onaccountcreated?: (account: Account) => void;
   }
 
-  let { tx, accounts, defaultOffsetAccountId, onaccountcreated }: Props = $props();
+  let { tx, accounts, defaultOffsetAccountId, onaccountcreated }: Props = $props()
+
+  let modalOpen = $state(false)
 
   // Local copies of mutable fields — updated after a successful PATCH.
   let localDescription = $state(tx.description ?? "");
@@ -295,9 +298,11 @@
   </div>
 
   <div class="actions">
-    <Button disabled aria-label="Edit transaction (coming soon)">Edit</Button>
+    <Button onclick={() => modalOpen = true}>Edit</Button>
   </div>
 </div>
+
+<TransactionEditModal {tx} {accounts} bind:open={modalOpen} onclose={() => modalOpen = false} />
 
 <style>
   .row {
