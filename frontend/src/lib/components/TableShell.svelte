@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import Shimmer from '$lib/components/Shimmer.svelte'
 
   interface Column {
     label: string
@@ -9,6 +10,7 @@
   interface Props {
     columns: Column[]
     loading?: boolean
+    loadingRows?: number
     empty?: boolean
     emptyText?: string
     children: Snippet
@@ -17,6 +19,7 @@
   let {
     columns,
     loading = false,
+    loadingRows = 3,
     empty = false,
     emptyText = 'No results.',
     children,
@@ -33,9 +36,13 @@
   </thead>
   <tbody>
     {#if loading}
-      <tr>
-        <td colspan={columns.length} class="status-cell loading">Loading…</td>
-      </tr>
+      {#each { length: loadingRows } as _}
+        <tr>
+          {#each columns as _col}
+            <td class="shimmer-cell"><Shimmer height="0.875rem" /></td>
+          {/each}
+        </tr>
+      {/each}
     {:else if empty}
       <tr>
         <td colspan={columns.length} class="status-cell">{emptyText}</td>
@@ -71,21 +78,7 @@
     font-style: italic;
   }
 
-  .status-cell.loading {
-    color: transparent;
-    background: linear-gradient(
-      90deg,
-      var(--color-window)       0%,
-      var(--color-window-inset) 40%,
-      var(--color-window)       60%,
-      var(--color-window)       100%
-    );
-    background-size: 300% 100%;
-    animation: shimmer 1.4s ease-in-out infinite;
-  }
-
-  @keyframes shimmer {
-    0%   { background-position: 200% center; }
-    100% { background-position: -100% center; }
+  .shimmer-cell {
+    padding: var(--sp-xs) var(--sp-sm);
   }
 </style>

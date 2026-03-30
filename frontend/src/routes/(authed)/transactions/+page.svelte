@@ -6,6 +6,7 @@
   import { onMount } from "svelte";
   import FilterPanel from "$lib/components/FilterPanel.svelte";
   import TransactionRow from "$lib/components/TransactionRow.svelte";
+  import TransactionRowSkeleton from "$lib/components/TransactionRowSkeleton.svelte";
 
   // Default range: today minus 30 days → today
   // Computed once at module load; stable for the lifetime of the page.
@@ -28,11 +29,14 @@
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
   let accounts = $state<Account[]>([]);
   let defaultOffsetAccountId = $state<string | null>(null);
+  let loading = $state(true);
 
   // Re-fetch transactions whenever from/to change.
   $effect(() => {
+    loading = true;
     fetchTransactions({ from, to }).then((txs) => {
       transactions = txs;
+      loading = false;
     });
   });
 
@@ -66,8 +70,14 @@
 
 <FilterPanel {from} {to} {sortDir} onApply={handleApply} onSortChange={handleSortChange} />
 
-{#if sortedTransactions.length === 0}
-  <p>No transactions yet.</p>
+{#if loading}
+  <div class="tx-table">
+    {#each { length: 5 } as _}
+      <TransactionRowSkeleton />
+    {/each}
+  </div>
+{:else if sortedTransactions.length === 0}
+  <p class="empty">No transactions yet.</p>
 {:else}
   <div class="tx-table">
     {#each sortedTransactions as tx (tx.id)}
@@ -80,5 +90,15 @@
   .tx-table {
     box-shadow: var(--shadow-sunken);
     background: var(--color-window-raised);
+  }
+
+  .empty {
+    box-shadow: var(--shadow-sunken);
+    background: var(--color-window-raised);
+    padding: var(--sp-md);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    font-style: italic;
+    margin: 0;
   }
 </style>
