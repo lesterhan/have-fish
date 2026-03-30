@@ -1,91 +1,105 @@
+<script module>
+  function focusOnMount(node: HTMLInputElement) {
+    node.focus();
+    node.select();
+  }
+</script>
+
 <script lang="ts">
-  import Button from '$lib/components/Button.svelte'
-  import AccountPathInput from '$lib/components/AccountPathInput.svelte'
-  import { toISODate } from '$lib/date'
-  import { patchTransaction, patchPosting, type Account } from '$lib/api'
+  import Button from "$lib/components/Button.svelte";
+  import AccountPathInput from "$lib/components/AccountPathInput.svelte";
+  import { toISODate } from "$lib/date";
+  import { patchTransaction, patchPosting, type Account } from "$lib/api";
 
   interface Posting {
-    id: string
-    accountId: string
-    amount: string
-    currency: string
+    id: string;
+    accountId: string;
+    amount: string;
+    currency: string;
   }
 
   interface Transaction {
-    id: string
-    date: string
-    description: string | null
-    postings: Posting[]
+    id: string;
+    date: string;
+    description: string | null;
+    postings: Posting[];
   }
 
   interface Props {
-    tx: Transaction
-    accounts: Account[]
-    onaccountcreated?: (account: Account) => void
+    tx: Transaction;
+    accounts: Account[];
+    onaccountcreated?: (account: Account) => void;
   }
 
-  let { tx, accounts, onaccountcreated }: Props = $props()
+  let { tx, accounts, onaccountcreated }: Props = $props();
 
   // Local copies of mutable fields — updated after a successful PATCH.
-  let localDescription = $state(tx.description ?? '')
-  let localPostings = $state([...tx.postings])
+  let localDescription = $state(tx.description ?? "");
+  let localPostings = $state([...tx.postings]);
 
-  let accountPaths = $derived(Object.fromEntries(accounts.map(a => [a.id, a.path])))
+  let accountPaths = $derived(
+    Object.fromEntries(accounts.map((a) => [a.id, a.path])),
+  );
 
   // --- Description editing ---
-  let descEditing = $state(false)
-  let descValue = $state('')
-  let descError = $state('')
+  let descEditing = $state(false);
+  let descValue = $state("");
+  let descError = $state("");
 
   function startDescEdit() {
-    descValue = localDescription
-    descEditing = true
-    descError = ''
+    descValue = localDescription;
+    descEditing = true;
+    descError = "";
   }
 
   async function commitDescEdit() {
-    descEditing = false
-    const next = descValue.trim()
-    if (next === localDescription) return
+    descEditing = false;
+    const next = descValue.trim();
+    if (next === localDescription) return;
     try {
-      await patchTransaction(tx.id, { description: next || null })
-      localDescription = next
+      await patchTransaction(tx.id, { description: next || null });
+      localDescription = next;
     } catch (e) {
-      descError = e instanceof Error ? e.message : 'Save failed'
+      descError = e instanceof Error ? e.message : "Save failed";
     }
   }
 
   function cancelDescEdit() {
-    descEditing = false
-    descError = ''
+    descEditing = false;
+    descError = "";
   }
 
   function handleDescKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') { e.preventDefault(); commitDescEdit() }
-    if (e.key === 'Escape') cancelDescEdit()
+    if (e.key === "Enter") {
+      e.preventDefault();
+      commitDescEdit();
+    }
+    if (e.key === "Escape") cancelDescEdit();
   }
 
   // --- Posting account editing ---
-  let editingPostingId = $state<string | null>(null)
-  let editAccountId = $state('')
-  let postingError = $state('')
+  let editingPostingId = $state<string | null>(null);
+  let editAccountId = $state("");
+  let postingError = $state("");
 
   function startPostingEdit(postingId: string, currentAccountId: string) {
-    descEditing = false
-    editingPostingId = postingId
-    editAccountId = currentAccountId
-    postingError = ''
+    descEditing = false;
+    editingPostingId = postingId;
+    editAccountId = currentAccountId;
+    postingError = "";
   }
 
   async function handlePostingCommit(accountId: string) {
-    const id = editingPostingId
-    if (!id) return
-    editingPostingId = null
+    const id = editingPostingId;
+    if (!id) return;
+    editingPostingId = null;
     try {
-      await patchPosting(id, { accountId })
-      localPostings = localPostings.map(p => p.id === id ? { ...p, accountId } : p)
+      await patchPosting(id, { accountId });
+      localPostings = localPostings.map((p) =>
+        p.id === id ? { ...p, accountId } : p,
+      );
     } catch (e) {
-      postingError = e instanceof Error ? e.message : 'Save failed'
+      postingError = e instanceof Error ? e.message : "Save failed";
     }
   }
 
@@ -93,29 +107,57 @@
   // The 200ms delay lets AccountPathInput's own 150ms blur handler run first.
   function handlePostingFocusout(e: FocusEvent) {
     if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
-      const id = editingPostingId
-      setTimeout(() => { if (editingPostingId === id) editingPostingId = null }, 200)
+      const id = editingPostingId;
+      setTimeout(() => {
+        if (editingPostingId === id) editingPostingId = null;
+      }, 200);
     }
   }
 
+  // --- Date display ---
+  // Parse YYYY-MM-DD as local midnight to avoid UTC timezone shift.
+  function parseDateParts(isoDate: string) {
+    const [y, m, d] = toISODate(new Date(isoDate)).split("-").map(Number);
+    const date = new Date(y, m - 1, d);
+    return {
+      dow: date.toLocaleDateString("en", { weekday: "short" }),
+      monthDay: date.toLocaleDateString("en", {
+        month: "short",
+        day: "numeric",
+      }),
+      year: String(y),
+    };
+  }
+
+  let dateParts = $derived(parseDateParts(tx.date));
+
   // --- Display helpers ---
   function summarize(postings: Posting[]) {
-    const sorted = [...postings].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))
-    return { from: sorted[0], to: sorted[sorted.length - 1], rest: sorted.slice(1, -1) }
+    const sorted = [...postings].sort(
+      (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
+    );
+    return {
+      from: sorted[0],
+      to: sorted[sorted.length - 1],
+      rest: sorted.slice(1, -1),
+    };
   }
 
   function formatAmounts(from: Posting, to: Posting): string {
-    const fromAmt = Math.abs(parseFloat(from.amount)).toFixed(2)
-    if (from.currency === to.currency) return `${fromAmt} ${to.currency}`
-    return `${fromAmt} ${from.currency} → ${parseFloat(to.amount).toFixed(2)} ${to.currency}`
+    const fromAmt = Math.abs(parseFloat(from.amount)).toFixed(2);
+    if (from.currency === to.currency) return `${fromAmt} ${to.currency}`;
+    return `${fromAmt} ${from.currency} → ${parseFloat(to.amount).toFixed(2)} ${to.currency}`;
   }
 
-  let { from, to, rest } = $derived(summarize(localPostings))
-  let amounts = $derived(formatAmounts(from, to))
+  let { from, to, rest } = $derived(summarize(localPostings));
+  let amounts = $derived(formatAmounts(from, to));
 </script>
 
 <div class="row">
-  <span class="date">{toISODate(new Date(tx.date))}</span>
+  <div class="date">
+    <span class="date-meta">{dateParts.year} {dateParts.dow}</span>
+    <span class="date-main">{dateParts.monthDay}</span>
+  </div>
 
   <div class="body">
     <!-- Description -->
@@ -131,8 +173,12 @@
         />
       </div>
     {:else}
-      <span class="description editable" onclick={startDescEdit} title="Click to edit">
-        {localDescription || '—'}
+      <span
+        class="description editable"
+        onclick={startDescEdit}
+        title="Click to edit"
+      >
+        {localDescription || "—"}
       </span>
     {/if}
     {#if descError}<span class="edit-error">{descError}</span>{/if}
@@ -149,7 +195,11 @@
           />
         </div>
       {:else}
-        <span class="account account-from editable" onclick={() => startPostingEdit(from.id, from.accountId)} title="Click to edit">
+        <span
+          class="account account-from editable"
+          onclick={() => startPostingEdit(from.id, from.accountId)}
+          title="Click to edit"
+        >
           {accountPaths[from.accountId] ?? from.accountId}
         </span>
       {/if}
@@ -166,7 +216,11 @@
           />
         </div>
       {:else}
-        <span class="account account-to editable" onclick={() => startPostingEdit(to.id, to.accountId)} title="Click to edit">
+        <span
+          class="account account-to editable"
+          onclick={() => startPostingEdit(to.id, to.accountId)}
+          title="Click to edit"
+        >
           {accountPaths[to.accountId] ?? to.accountId}
         </span>
       {/if}
@@ -187,11 +241,18 @@
             />
           </div>
         {:else}
-          <span class="account editable" onclick={() => startPostingEdit(posting.id, posting.accountId)} title="Click to edit">
+          <span
+            class="account editable"
+            onclick={() => startPostingEdit(posting.id, posting.accountId)}
+            title="Click to edit"
+          >
             {accountPaths[posting.accountId] ?? posting.accountId}
           </span>
         {/if}
-        <span class="amounts">{Math.abs(parseFloat(posting.amount)).toFixed(2)} {posting.currency}</span>
+        <span class="amounts"
+          >{Math.abs(parseFloat(posting.amount)).toFixed(2)}
+          {posting.currency}</span
+        >
       </div>
     {/each}
 
@@ -202,13 +263,6 @@
     <Button disabled>Edit</Button>
   </div>
 </div>
-
-<script module>
-  function focusOnMount(node: HTMLInputElement) {
-    node.focus()
-    node.select()
-  }
-</script>
 
 <style>
   .row {
@@ -230,10 +284,21 @@
   }
 
   .date {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 1px;
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+  }
+
+  .date-meta {
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
-    padding-top: 2px;
+  }
+
+  .date-main {
+    font-size: var(--text-base);
+    color: var(--color-text);
   }
 
   .body {
@@ -259,7 +324,7 @@
   }
 
   .desc-sizer::after {
-    content: attr(data-value) ' ';
+    content: attr(data-value) " ";
     grid-area: 1 / 1;
     visibility: hidden;
     white-space: pre;
