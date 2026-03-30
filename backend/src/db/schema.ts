@@ -134,4 +134,6 @@ export const postings = pgTable('postings', {
     .references(() => accounts.id),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   currency: text('currency').notNull().default('CAD'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
 })

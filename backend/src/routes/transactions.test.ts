@@ -25,7 +25,7 @@ describe('transactions', () => {
     beforeEach(async () => {
       headers.Cookie = cookie
       const [accA, accB] = await Promise.all([
-        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:checking', type: 'asset', currency: 'CAD' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }) }).then(r => r.json()),
         app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }) }).then(r => r.json()),
       ])
       const tx = await app.request('/api/transactions', {
@@ -66,7 +66,7 @@ describe('transactions', () => {
       const headersJson = { Cookie: cookie, 'Content-Type': 'application/json' }
 
       const [accA, accB] = await Promise.all([
-        app.request('/api/accounts', { method: 'POST', headers: headersJson, body: JSON.stringify({ path: 'assets:checking', type: 'asset', currency: 'CAD' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers: headersJson, body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }) }).then(r => r.json()),
         app.request('/api/accounts', { method: 'POST', headers: headersJson, body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }) }).then(r => r.json()),
       ])
 

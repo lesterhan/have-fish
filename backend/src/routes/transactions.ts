@@ -49,7 +49,8 @@ app.get('/', async (c) => {
   const postingRows = await db
     .select()
     .from(postings)
-    .where(inArray(postings.transactionId, txIds))
+    .where(and(inArray(postings.transactionId, txIds), isNull(postings.deletedAt)))
+    .orderBy(postings.createdAt)
 
   // Group postings by transactionId and embed into each transaction
   const postingsByTx = postingRows.reduce<Record<string, typeof postingRows>>((acc, p) => {
