@@ -79,6 +79,7 @@
 
   /* --- Borders --- */
   --color-border: #808080;
+  --color-divider: #808080;
 
   /* --- Semantic --- */
   --color-success:       #007700;
@@ -175,6 +176,7 @@
 
   /* --- Borders --- */
   --color-border: #6272a4;
+  --color-divider: #6272a4;
 
   /* --- Semantic --- */
   --color-success:       #50fa7b;

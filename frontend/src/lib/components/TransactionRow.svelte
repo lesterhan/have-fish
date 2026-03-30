@@ -267,11 +267,11 @@
 <style>
   .row {
     display: grid;
-    grid-template-columns: 6rem 1fr auto;
+    grid-template-columns: auto 1fr auto;
     align-items: start;
-    gap: var(--sp-sm);
+    gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-divider);
     transition: background var(--duration-fast) var(--ease);
   }
 
@@ -305,6 +305,8 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
+    border-left: 1px solid var(--color-divider);
+    padding-left: var(--sp-xs);
   }
 
   .description {
