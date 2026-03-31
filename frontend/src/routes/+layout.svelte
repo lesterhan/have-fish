@@ -50,7 +50,7 @@
       </button>
       {#if $session.data}
         <a href="/settings" class="menubar-settings">
-          🔨 {$session.data.user.email}
+          {$session.data.user.email} ⚙️
         </a>
       {:else}
         <a href="/login">Sign in</a>

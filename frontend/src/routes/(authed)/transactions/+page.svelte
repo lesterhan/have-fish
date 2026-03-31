@@ -89,7 +89,7 @@
     {/each}
   </div>
 {:else if sortedTransactions.length === 0}
-  <p class="empty">No transactions yet.</p>
+  <p class="empty">No transactions 🕵️</p>
 {:else}
   <div class="tx-table">
     {#each sortedTransactions as tx (tx.id)}
@@ -116,7 +116,6 @@
     padding: var(--sp-md);
     font-size: var(--text-sm);
     color: var(--color-text-muted);
-    font-style: italic;
     margin: 0;
   }
 </style>

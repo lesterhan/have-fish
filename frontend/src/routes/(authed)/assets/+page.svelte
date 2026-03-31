@@ -81,7 +81,7 @@
   <div class="panel-actions">
     <Button onclick={() => (showAddAccount = true)}>New asset account</Button>
   </div>
-  {@render accountTable(assets, "Couldn't find any asset accounts :(")}
+  {@render accountTable(assets, "No asset accounts 🕵️")}
 </Panel>
 
 <Panel title="Liabilities">
@@ -90,7 +90,7 @@
       >New liability account</Button
     >
   </div>
-  {@render accountTable(liabilities, "Couldn't find any liability accounts :(")}
+  {@render accountTable(liabilities, "No liability accounts 🕵️")}
 </Panel>
 
 <style>

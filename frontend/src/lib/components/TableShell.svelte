@@ -1,19 +1,19 @@
 <script lang="ts">
-  import type { Snippet } from 'svelte'
-  import Shimmer from '$lib/components/Shimmer.svelte'
+  import type { Snippet } from "svelte";
+  import Shimmer from "$lib/components/Shimmer.svelte";
 
   interface Column {
-    label: string
-    class?: string
+    label: string;
+    class?: string;
   }
 
   interface Props {
-    columns: Column[]
-    loading?: boolean
-    loadingRows?: number
-    empty?: boolean
-    emptyText?: string
-    children: Snippet
+    columns: Column[];
+    loading?: boolean;
+    loadingRows?: number;
+    empty?: boolean;
+    emptyText?: string;
+    children: Snippet;
   }
 
   let {
@@ -21,9 +21,9 @@
     loading = false,
     loadingRows = 3,
     empty = false,
-    emptyText = 'No results.',
+    emptyText = "No results.",
     children,
-  }: Props = $props()
+  }: Props = $props();
 </script>
 
 <table>
@@ -75,7 +75,6 @@
   .status-cell {
     padding: var(--sp-sm);
     color: var(--color-text-muted);
-    font-style: italic;
   }
 
   .shimmer-cell {
