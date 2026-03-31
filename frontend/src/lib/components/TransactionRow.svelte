@@ -39,7 +39,8 @@
 
   let modalOpen = $state(false);
 
-  // Local copies of mutable fields — updated after a successful PATCH.
+  // Local copies of mutable fields — updated after a successful save.
+  let localDate = $state(tx.date);
   let localDescription = $state(tx.description ?? "");
   let localPostings = $state([...tx.postings]);
 
@@ -130,7 +131,10 @@
   // --- Date display ---
   // Parse YYYY-MM-DD as local midnight to avoid UTC timezone shift.
   function parseDateParts(isoDate: string) {
-    const [y, m, d] = toISODate(new Date(isoDate)).split("-").map(Number);
+    // Slice to YYYY-MM-DD before splitting — avoids new Date(str) treating
+    // a bare date string as UTC midnight and shifting it into the previous day
+    // for UTC- timezones. new Date(y, m-1, d) always creates local midnight.
+    const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
     const date = new Date(y, m - 1, d);
     return {
       dow: date.toLocaleDateString("en", { weekday: "short" }),
@@ -142,7 +146,7 @@
     };
   }
 
-  let dateParts = $derived(parseDateParts(tx.date));
+  let dateParts = $derived(parseDateParts(localDate));
 
   // --- Display helpers ---
   function summarize(postings: Posting[]) {
@@ -321,12 +325,17 @@
 </div>
 
 <TransactionEditModal
-  {tx}
+  tx={{ ...tx, date: localDate, description: localDescription || null, postings: localPostings }}
   {accounts}
   {defaultOffsetAccountId}
   bind:open={modalOpen}
   onclose={() => (modalOpen = false)}
   {onaccountcreated}
+  onsaved={(updates) => {
+    localDate = updates.date
+    localDescription = updates.description ?? ''
+    localPostings = updates.postings
+  }}
 />
 
 <style>

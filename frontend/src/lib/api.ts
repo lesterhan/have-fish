@@ -252,7 +252,10 @@ export async function patchTransaction(id: string, updates: { description?: stri
   return res.json()
 }
 
-export async function patchPosting(id: string, updates: { accountId: string }) {
+export async function patchPosting(
+  id: string,
+  updates: { accountId?: string; amount?: string; currency?: string },
+) {
   const res = await fetch(`${BASE}/api/postings/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
@@ -261,6 +264,30 @@ export async function patchPosting(id: string, updates: { accountId: string }) {
   })
   if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update posting')
   return res.json()
+}
+
+export async function createPosting(body: {
+  transactionId: string
+  accountId: string
+  amount: string
+  currency: string
+}) {
+  const res = await fetch(`${BASE}/api/postings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create posting')
+  return (await res.json()) as { id: string; accountId: string; amount: string; currency: string }
+}
+
+export async function deletePosting(id: string) {
+  const res = await fetch(`${BASE}/api/postings/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to delete posting')
 }
 
 export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string }) {

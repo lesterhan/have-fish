@@ -9,7 +9,7 @@
   import Button from '$lib/components/Button.svelte'
   import AccountPathInput from '$lib/components/AccountPathInput.svelte'
   import { toISODate } from '$lib/date'
-  import type { Account } from '$lib/api'
+  import { patchTransaction, patchPosting, createPosting, deletePosting, type Account } from '$lib/api'
 
   interface Posting {
     id: string
@@ -41,9 +41,10 @@
     open: boolean
     onclose: () => void
     onaccountcreated?: (account: Account) => void
+    onsaved?: (updates: { date: string; description: string | null; postings: Posting[] }) => void
   }
 
-  let { tx, accounts, defaultOffsetAccountId, open = $bindable(), onclose, onaccountcreated }: Props = $props()
+  let { tx, accounts, defaultOffsetAccountId, open = $bindable(), onclose, onaccountcreated, onsaved }: Props = $props()
 
   // --- Snapshot of original values (captured when modal opens) ---
   let origDate = $state('')
@@ -60,7 +61,7 @@
   // Reset all local state when the modal opens
   $effect(() => {
     if (open) {
-      origDate = toISODate(new Date(tx.date))
+      origDate = tx.date.substring(0, 10)
       origDescription = tx.description ?? ''
       origPostings = [...tx.postings]
       localDate = origDate
@@ -255,11 +256,64 @@
     onclose()
   }
 
+  // --- Save ---
+  let saving = $state(false)
+  let saveError = $state('')
+
+  async function handleSave() {
+    saving = true
+    saveError = ''
+    try {
+      // Collect all mutations, running them in parallel
+      const patchTxCall = (localDate !== origDate || localDescription !== origDescription)
+        ? patchTransaction(tx.id, {
+            ...(localDate !== origDate ? { date: localDate } : {}),
+            ...(localDescription !== origDescription ? { description: localDescription || null } : {}),
+          })
+        : Promise.resolve(null)
+
+      const changedPostings = localPostings.filter(p => !p.isNew && !p.markedForDelete).filter(p => {
+        const o = origPostings.find(o => o.id === p.id)
+        return o && (p.accountId !== o.accountId || p.amount !== o.amount || p.currency !== o.currency)
+      })
+      const patchPostingCalls = changedPostings.map(p =>
+        patchPosting(p.id, { accountId: p.accountId, amount: p.amount, currency: p.currency })
+      )
+
+      const newPostings = localPostings.filter(p => p.isNew && !p.markedForDelete)
+      const createPostingCalls = newPostings.map(p =>
+        createPosting({ transactionId: tx.id, accountId: p.accountId, amount: p.amount, currency: p.currency })
+      )
+
+      const deletePostingCalls = localPostings
+        .filter(p => p.markedForDelete && !p.isNew)
+        .map(p => deletePosting(p.id))
+
+      const [, createdResults] = await Promise.all([
+        Promise.all([patchTxCall, ...patchPostingCalls, ...deletePostingCalls]),
+        Promise.all(createPostingCalls),
+      ])
+
+      // Build updated postings list — substitute real server IDs for new postings
+      let newIdx = 0
+      const updatedPostings: Posting[] = localPostings
+        .filter(p => !p.markedForDelete)
+        .map(p => p.isNew
+          ? { id: createdResults[newIdx++].id, accountId: p.accountId, amount: p.amount, currency: p.currency }
+          : { id: p.id, accountId: p.accountId, amount: p.amount, currency: p.currency }
+        )
+
+      onsaved?.({ date: localDate, description: localDescription || null, postings: updatedPostings })
+      onclose()
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : 'Save failed'
+    } finally {
+      saving = false
+    }
+  }
+
   // --- Helpers ---
   let accountPaths = $derived(Object.fromEntries(accounts.map(a => [a.id, a.path])))
-
-  // Placeholder — Story 4 will wire up the actual save logic
-  function handleSave() {}
 </script>
 
 <Modal title="Edit Transaction" {open} onclose={requestClose}>
@@ -441,9 +495,14 @@
         <Button variant="danger" onclick={discard}>Discard</Button>
       </div>
     {:else}
+      {#if saveError}
+        <p class="save-error" role="alert">{saveError}</p>
+      {/if}
       <div class="footer">
-        <Button onclick={requestClose}>Cancel</Button>
-        <Button variant="primary" disabled={!balanced || !dirty} onclick={handleSave}>Save</Button>
+        <Button disabled={saving} onclick={requestClose}>Cancel</Button>
+        <Button variant="primary" disabled={!balanced || !dirty || saving} onclick={handleSave}>
+          {saving ? 'Saving…' : 'Save'}
+        </Button>
       </div>
     {/if}
 
@@ -604,7 +663,7 @@
   }
 
   .currency-input.active {
-    width: 4.5ch;
+    width: 5.5ch;
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -699,6 +758,13 @@
   }
 
   /* ---- Footer ---- */
+  .save-error {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+    margin: 0;
+  }
+
   .footer {
     display: flex;
     justify-content: space-between;
