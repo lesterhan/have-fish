@@ -29,6 +29,7 @@
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
   let accounts = $state<Account[]>([]);
   let defaultOffsetAccountId = $state<string | null>(null);
+  let defaultConversionAccountId = $state<string | null>(null);
   let loading = $state(true);
 
   // Re-fetch transactions whenever from/to change.
@@ -61,7 +62,7 @@
 
   // Accounts and settings don't depend on the date range — fetch once.
   onMount(async () => {
-    [accounts, { defaultOffsetAccountId }] = await Promise.all([
+    [accounts, { defaultOffsetAccountId, defaultConversionAccountId }] = await Promise.all([
       fetchAccounts(),
       fetchUserSettings(),
     ]);
@@ -81,7 +82,7 @@
 {:else}
   <div class="tx-table">
     {#each sortedTransactions as tx (tx.id)}
-      <TransactionRow {tx} {accounts} {defaultOffsetAccountId} onaccountcreated={(a) => accounts = [...accounts, a]} />
+      <TransactionRow {tx} {accounts} {defaultOffsetAccountId} {defaultConversionAccountId} onaccountcreated={(a) => accounts = [...accounts, a]} />
     {/each}
   </div>
 {/if}

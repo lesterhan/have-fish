@@ -31,11 +31,17 @@
     tx: Transaction;
     accounts: Account[];
     defaultOffsetAccountId?: string | null;
+    defaultConversionAccountId?: string | null;
     onaccountcreated?: (account: Account) => void;
   }
 
-  let { tx, accounts, defaultOffsetAccountId, onaccountcreated }: Props =
-    $props();
+  let {
+    tx,
+    accounts,
+    defaultOffsetAccountId,
+    defaultConversionAccountId,
+    onaccountcreated,
+  }: Props = $props();
 
   let modalOpen = $state(false);
 
@@ -149,6 +155,41 @@
   let dateParts = $derived(parseDateParts(localDate));
 
   // --- Display helpers ---
+
+  // A cross-currency transfer has postings in more than one currency.
+  // These transactions (typically 4–5 postings with a conversion account)
+  // need a different layout from the standard from→to summary.
+  let isCrossCurrency = $derived(
+    new Set(localPostings.map((p) => p.currency)).size > 1,
+  );
+
+  // For cross-currency transfers: identify the source (largest outflow) and
+  // target (largest inflow in a different currency). Everything else —
+  // conversion account entries and fee postings — is treated as internals.
+  function classifyTransfer(postings: Posting[]) {
+    const sorted = [...postings].sort(
+      (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
+    );
+    // Source = most negative posting overall
+    const source = sorted[0];
+    // Target = most positive posting in a different currency from source
+    const target = [...postings]
+      .filter((p) => p.currency !== source.currency)
+      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))[0];
+    // Fees = remaining positive postings (excludes conversion account entries
+    // which net to zero; only non-zero-sum positives remain)
+    const internalIds = new Set([source.id, target?.id]);
+    const fees = postings.filter(
+      (p) =>
+        !internalIds.has(p.id) &&
+        parseFloat(p.amount) > 0 &&
+        p.accountId !== defaultConversionAccountId,
+    );
+    return { source, target, fees };
+  }
+
+  let transfer = $derived(classifyTransfer(localPostings));
+
   function summarize(postings: Posting[]) {
     const sorted = [...postings].sort(
       (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
@@ -197,68 +238,33 @@
     {/if}
     {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
 
-    <!-- Summary line: from → to  amounts -->
-    <div class="summary-line">
-      {#if editingPostingId === from.id}
-        <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
-          <AccountPathInput
-            {accounts}
-            bind:value={editAccountId}
-            oncommit={handlePostingCommit}
-            oncreate={onaccountcreated}
-          />
-        </div>
-      {:else}
-        <span
-          class="account account-from editable"
-          class:account-uncategorized={from.accountId ===
-            defaultOffsetAccountId}
-          role="button"
-          tabindex="0"
-          onclick={() => startPostingEdit(from.id, from.accountId)}
-          onkeydown={(e) =>
-            handleEditableKeydown(e, () =>
-              startPostingEdit(from.id, from.accountId),
-            )}
-          title="Click to edit"
-        >
-          {accountPaths[from.accountId] ?? from.accountId}
+    {#if isCrossCurrency}
+      <!-- Cross-currency transfer: show source → target, suppress internals -->
+      <div class="summary-line">
+        <span class="account account-from">
+          {accountPaths[transfer.source.accountId] ?? transfer.source.accountId}
         </span>
-      {/if}
-
-      <span class="arrow" aria-hidden="true">➜</span>
-
-      {#if editingPostingId === to.id}
-        <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
-          <AccountPathInput
-            {accounts}
-            bind:value={editAccountId}
-            oncommit={handlePostingCommit}
-            oncreate={onaccountcreated}
-          />
-        </div>
-      {:else}
-        <span
-          class="account account-to editable"
-          class:account-uncategorized={to.accountId === defaultOffsetAccountId}
-          role="button"
-          tabindex="0"
-          onclick={() => startPostingEdit(to.id, to.accountId)}
-          onkeydown={(e) =>
-            handleEditableKeydown(e, () =>
-              startPostingEdit(to.id, to.accountId),
-            )}
-          title="Click to edit"
-        >
-          {accountPaths[to.accountId] ?? to.accountId}
+        <span class="arrow" aria-hidden="true">➜</span>
+        <span class="account account-to">
+          {accountPaths[transfer.target?.accountId ?? ""] ??
+            transfer.target?.accountId ??
+            "—"}
         </span>
+      </div>
+      {#if transfer.fees.length > 0}
+        <div class="transfer-fees">
+          {#each transfer.fees as fee}
+            <span class="fee-label">
+              fee {Math.abs(parseFloat(fee.amount)).toFixed(2)}
+              {fee.currency}
+            </span>
+          {/each}
+        </div>
       {/if}
-    </div>
-
-    <!-- Extra postings (fees etc.) -->
-    {#each rest as posting}
-      <div class="extra-posting">
-        {#if editingPostingId === posting.id}
+    {:else}
+      <!-- Standard summary line: from → to -->
+      <div class="summary-line">
+        {#if editingPostingId === from.id}
           <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
             <AccountPathInput
               {accounts}
@@ -269,34 +275,108 @@
           </div>
         {:else}
           <span
-            class="account editable"
-            class:account-uncategorized={posting.accountId ===
+            class="account account-from editable"
+            class:account-uncategorized={from.accountId ===
               defaultOffsetAccountId}
             role="button"
             tabindex="0"
-            onclick={() => startPostingEdit(posting.id, posting.accountId)}
+            onclick={() => startPostingEdit(from.id, from.accountId)}
             onkeydown={(e) =>
               handleEditableKeydown(e, () =>
-                startPostingEdit(posting.id, posting.accountId),
+                startPostingEdit(from.id, from.accountId),
               )}
             title="Click to edit"
           >
-            {accountPaths[posting.accountId] ?? posting.accountId}
+            {accountPaths[from.accountId] ?? from.accountId}
           </span>
         {/if}
-        <MoneyDisplay
-          amount={Math.abs(parseFloat(posting.amount)).toFixed(2)}
-          currency={posting.currency}
-        />
+
+        <span class="arrow" aria-hidden="true">➜</span>
+
+        {#if editingPostingId === to.id}
+          <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+            <AccountPathInput
+              {accounts}
+              bind:value={editAccountId}
+              oncommit={handlePostingCommit}
+              oncreate={onaccountcreated}
+            />
+          </div>
+        {:else}
+          <span
+            class="account account-to editable"
+            class:account-uncategorized={to.accountId ===
+              defaultOffsetAccountId}
+            role="button"
+            tabindex="0"
+            onclick={() => startPostingEdit(to.id, to.accountId)}
+            onkeydown={(e) =>
+              handleEditableKeydown(e, () =>
+                startPostingEdit(to.id, to.accountId),
+              )}
+            title="Click to edit"
+          >
+            {accountPaths[to.accountId] ?? to.accountId}
+          </span>
+        {/if}
       </div>
-    {/each}
+
+      <!-- Extra postings (fees etc.) -->
+      {#each rest as posting}
+        <div class="extra-posting">
+          {#if editingPostingId === posting.id}
+            <div
+              class="account-edit-wrapper"
+              onfocusout={handlePostingFocusout}
+            >
+              <AccountPathInput
+                {accounts}
+                bind:value={editAccountId}
+                oncommit={handlePostingCommit}
+                oncreate={onaccountcreated}
+              />
+            </div>
+          {:else}
+            <span
+              class="account editable"
+              class:account-uncategorized={posting.accountId ===
+                defaultOffsetAccountId}
+              role="button"
+              tabindex="0"
+              onclick={() => startPostingEdit(posting.id, posting.accountId)}
+              onkeydown={(e) =>
+                handleEditableKeydown(e, () =>
+                  startPostingEdit(posting.id, posting.accountId),
+                )}
+              title="Click to edit"
+            >
+              {accountPaths[posting.accountId] ?? posting.accountId}
+            </span>
+          {/if}
+          <MoneyDisplay
+            amount={Math.abs(parseFloat(posting.amount)).toFixed(2)}
+            currency={posting.currency}
+          />
+        </div>
+      {/each}
+    {/if}
 
     {#if postingError}<span class="edit-error" role="alert">{postingError}</span
       >{/if}
   </div>
 
   <div class="money-col">
-    {#if from.currency === to.currency}
+    {#if isCrossCurrency}
+      <MoneyDisplay
+        amount={Math.abs(parseFloat(transfer.source.amount)).toFixed(2)}
+        currency={transfer.source.currency}
+      />
+      <span class="cross-arrow" aria-hidden="true">➜</span>
+      <MoneyDisplay
+        amount={parseFloat(transfer.target?.amount ?? "0").toFixed(2)}
+        currency={transfer.target?.currency ?? ""}
+      />
+    {:else if from.currency === to.currency}
       <MoneyDisplay
         amount={Math.abs(parseFloat(from.amount)).toFixed(2)}
         currency={to.currency}
@@ -325,16 +405,21 @@
 </div>
 
 <TransactionEditModal
-  tx={{ ...tx, date: localDate, description: localDescription || null, postings: localPostings }}
+  tx={{
+    ...tx,
+    date: localDate,
+    description: localDescription || null,
+    postings: localPostings,
+  }}
   {accounts}
   {defaultOffsetAccountId}
   bind:open={modalOpen}
   onclose={() => (modalOpen = false)}
   {onaccountcreated}
   onsaved={(updates) => {
-    localDate = updates.date
-    localDescription = updates.description ?? ''
-    localPostings = updates.postings
+    localDate = updates.date;
+    localDescription = updates.description ?? "";
+    localPostings = updates.postings;
   }}
 />
 
@@ -427,6 +512,17 @@
     display: flex;
     gap: var(--sp-xs);
     padding-left: var(--sp-md);
+  }
+
+  .transfer-fees {
+    display: flex;
+    gap: var(--sp-sm);
+  }
+
+  .fee-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
   }
 
   .arrow {
