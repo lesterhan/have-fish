@@ -1,11 +1,11 @@
 <script lang="ts">
-  import Shimmer from '$lib/components/Shimmer.svelte'
+  import Shimmer from "$lib/components/Shimmer.svelte";
 </script>
 
 <div class="row">
   <div class="date">
-    <Shimmer width="3rem" height="0.75rem" />
-    <Shimmer width="3.5rem" height="1rem" />
+    <Shimmer width="3.2rem" height="0.75rem" />
+    <Shimmer width="3rem" height="1rem" />
   </div>
 
   <div class="body">
@@ -40,13 +40,15 @@
   .date {
     display: flex;
     flex-direction: column;
+    margin-top: var(--sp-xs);
     gap: 3px;
   }
 
   .body {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    margin-top: var(--sp-xs);
+    gap: 8px;
     border-left: 1px solid var(--color-divider);
     padding-left: var(--sp-xs);
   }
@@ -55,11 +57,13 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
+    margin-top: var(--sp-xs);
     gap: 3px;
   }
 
   .actions {
     display: flex;
+    margin-top: var(--sp-xs);
     align-items: center;
   }
 </style>

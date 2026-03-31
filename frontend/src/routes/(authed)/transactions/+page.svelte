@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { fetchTransactions, fetchAccounts, fetchUserSettings, type Account } from "$lib/api";
+  import {
+    fetchTransactions,
+    fetchAccounts,
+    fetchUserSettings,
+    type Account,
+  } from "$lib/api";
   import { toISODate } from "$lib/date";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -24,7 +29,9 @@
   // Read from URL search params, fall back to defaults if absent.
   let from = $derived(page.url.searchParams.get("from") ?? defaults.from);
   let to = $derived(page.url.searchParams.get("to") ?? defaults.to);
-  let sortDir = $derived((page.url.searchParams.get("dir") ?? "desc") as "asc" | "desc");
+  let sortDir = $derived(
+    (page.url.searchParams.get("dir") ?? "desc") as "asc" | "desc",
+  );
 
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
   let accounts = $state<Account[]>([]);
@@ -45,7 +52,7 @@
     [...transactions].sort((a, b) => {
       const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
       return sortDir === "desc" ? -cmp : cmp;
-    })
+    }),
   );
 
   function navigate(params: Record<string, string>) {
@@ -62,18 +69,22 @@
 
   // Accounts and settings don't depend on the date range — fetch once.
   onMount(async () => {
-    [accounts, { defaultOffsetAccountId, defaultConversionAccountId }] = await Promise.all([
-      fetchAccounts(),
-      fetchUserSettings(),
-    ]);
+    [accounts, { defaultOffsetAccountId, defaultConversionAccountId }] =
+      await Promise.all([fetchAccounts(), fetchUserSettings()]);
   });
 </script>
 
-<FilterPanel {from} {to} {sortDir} onApply={handleApply} onSortChange={handleSortChange} />
+<FilterPanel
+  {from}
+  {to}
+  {sortDir}
+  onApply={handleApply}
+  onSortChange={handleSortChange}
+/>
 
 {#if loading}
   <div class="tx-table">
-    {#each { length: 5 } as _}
+    {#each { length: 7 } as _}
       <TransactionRowSkeleton />
     {/each}
   </div>
@@ -82,7 +93,13 @@
 {:else}
   <div class="tx-table">
     {#each sortedTransactions as tx (tx.id)}
-      <TransactionRow {tx} {accounts} {defaultOffsetAccountId} {defaultConversionAccountId} onaccountcreated={(a) => accounts = [...accounts, a]} />
+      <TransactionRow
+        {tx}
+        {accounts}
+        {defaultOffsetAccountId}
+        {defaultConversionAccountId}
+        onaccountcreated={(a) => (accounts = [...accounts, a])}
+      />
     {/each}
   </div>
 {/if}
