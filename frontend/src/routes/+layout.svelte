@@ -8,7 +8,7 @@
 
   const session = useSession();
 
-  let maximized = $state(false);
+  let maximized = $state(true);
   let showQuitDialog = $state(false);
 </script>
 

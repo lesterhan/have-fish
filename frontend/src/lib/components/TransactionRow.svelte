@@ -323,8 +323,10 @@
 <TransactionEditModal
   {tx}
   {accounts}
+  {defaultOffsetAccountId}
   bind:open={modalOpen}
   onclose={() => (modalOpen = false)}
+  {onaccountcreated}
 />
 
 <style>
