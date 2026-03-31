@@ -15,3 +15,4 @@
 | [Transaction Filtering by Date](epics/archive/transaction-filtering-by-date.md) | Done |
 | [Import CSV for Existing Asset Account](epics/archive/import-csv-existing-account.md) | Done |
 | [Import CSV for Liability Accounts](epics/archive/import-csv-liability-accounts.md) | Done |
+| [Support Transfer Direction](epics/support-transfer-direction.md) | Backlog |
