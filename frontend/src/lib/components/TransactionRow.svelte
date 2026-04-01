@@ -324,12 +324,32 @@
         {/if}
       </div>
 
-      <!-- Extra postings (fees etc.) — styled the same as cross-currency fee labels -->
+      <!-- Extra postings (fees etc.) — fee label style, but account name is still editable -->
       {#if rest.length > 0}
         <div class="transfer-fees">
           {#each rest as posting}
             <span class="fee-label">
-              fee {Math.abs(parseFloat(posting.amount)).toFixed(2)}
+              fee
+              {#if editingPostingId === posting.id}
+                <span class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+                  <AccountPathInput
+                    {accounts}
+                    bind:value={editAccountId}
+                    oncommit={handlePostingCommit}
+                    oncreate={onaccountcreated}
+                  />
+                </span>
+              {:else}
+                <span
+                  class="editable"
+                  role="button"
+                  tabindex="0"
+                  onclick={() => startPostingEdit(posting.id, posting.accountId)}
+                  onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(posting.id, posting.accountId))}
+                  title="Click to edit"
+                >{accountPaths[posting.accountId] ?? posting.accountId}</span>
+              {/if}
+              {Math.abs(parseFloat(posting.amount)).toFixed(2)}
               {posting.currency}
             </span>
           {/each}
