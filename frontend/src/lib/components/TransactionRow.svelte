@@ -167,23 +167,26 @@
   // target (largest inflow in a different currency). Everything else —
   // conversion account entries and fee postings — is treated as internals.
   function classifyTransfer(postings: Posting[]) {
-    const sorted = [...postings].sort(
+    // Exclude the conversion account's bridging entries — they exist in both
+    // currencies and can dwarf the real source/target amounts, causing the
+    // sort to pick them as source or target instead of the actual accounts.
+    const nonConversion = postings.filter(
+      (p) => p.accountId !== defaultConversionAccountId,
+    );
+
+    const sorted = [...nonConversion].sort(
       (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
     );
-    // Source = most negative posting overall
+    // Source = most negative non-conversion posting (e.g. assets:wise:eur)
     const source = sorted[0];
-    // Target = most positive posting in a different currency from source
-    const target = [...postings]
+    // Target = most positive non-conversion posting in a different currency
+    const target = [...nonConversion]
       .filter((p) => p.currency !== source.currency)
       .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))[0];
-    // Fees = remaining positive postings (excludes conversion account entries
-    // which net to zero; only non-zero-sum positives remain)
+    // Fees = any remaining positive non-conversion postings (e.g. expenses:fees)
     const internalIds = new Set([source.id, target?.id]);
-    const fees = postings.filter(
-      (p) =>
-        !internalIds.has(p.id) &&
-        parseFloat(p.amount) > 0 &&
-        p.accountId !== defaultConversionAccountId,
+    const fees = nonConversion.filter(
+      (p) => !internalIds.has(p.id) && parseFloat(p.amount) > 0,
     );
     return { source, target, fees };
   }
@@ -321,44 +324,17 @@
         {/if}
       </div>
 
-      <!-- Extra postings (fees etc.) -->
-      {#each rest as posting}
-        <div class="extra-posting">
-          {#if editingPostingId === posting.id}
-            <div
-              class="account-edit-wrapper"
-              onfocusout={handlePostingFocusout}
-            >
-              <AccountPathInput
-                {accounts}
-                bind:value={editAccountId}
-                oncommit={handlePostingCommit}
-                oncreate={onaccountcreated}
-              />
-            </div>
-          {:else}
-            <span
-              class="account editable"
-              class:account-uncategorized={posting.accountId ===
-                defaultOffsetAccountId}
-              role="button"
-              tabindex="0"
-              onclick={() => startPostingEdit(posting.id, posting.accountId)}
-              onkeydown={(e) =>
-                handleEditableKeydown(e, () =>
-                  startPostingEdit(posting.id, posting.accountId),
-                )}
-              title="Click to edit"
-            >
-              {accountPaths[posting.accountId] ?? posting.accountId}
+      <!-- Extra postings (fees etc.) — styled the same as cross-currency fee labels -->
+      {#if rest.length > 0}
+        <div class="transfer-fees">
+          {#each rest as posting}
+            <span class="fee-label">
+              fee {Math.abs(parseFloat(posting.amount)).toFixed(2)}
+              {posting.currency}
             </span>
-          {/if}
-          <MoneyDisplay
-            amount={Math.abs(parseFloat(posting.amount)).toFixed(2)}
-            currency={posting.currency}
-          />
+          {/each}
         </div>
-      {/each}
+      {/if}
     {/if}
 
     {#if postingError}<span class="edit-error" role="alert">{postingError}</span
@@ -504,14 +480,6 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-  }
-
-  .extra-posting {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    display: flex;
-    gap: var(--sp-xs);
-    padding-left: var(--sp-md);
   }
 
   .transfer-fees {
