@@ -183,7 +183,7 @@ export async function fetchParsers(): Promise<CsvParser[]> {
 
 export async function updateParser(
   id: string,
-  body: Partial<Pick<CsvParser, 'defaultAccountId' | 'isMultiCurrency' | 'defaultFeeAccountId'>>,
+  body: Partial<Pick<CsvParser, 'name' | 'columnMapping' | 'defaultAccountId' | 'isMultiCurrency' | 'defaultFeeAccountId'>>,
 ): Promise<CsvParser> {
   const res = await fetch(`${BASE}/api/parsers/${id}`, {
     method: 'PATCH',

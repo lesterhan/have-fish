@@ -19,6 +19,7 @@
   import TextInput from "$lib/components/TextInput.svelte";
   import Toggle from "$lib/components/Toggle.svelte";
   import TableShell from "$lib/components/TableShell.svelte";
+  import EditParserPanel from "$lib/components/EditParserPanel.svelte";
 
   let accounts = $state<Account[]>([]);
   let parsers = $state<CsvParser[]>([]);
@@ -37,6 +38,8 @@
 
   let preview = $state<ImportPreviewResult | null>(null);
   let importAsLiabilities = $state(false);
+
+  let editingParser = $state<CsvParser | null>(null);
 
   // Per-row account state. Indexed to preview.transactions.
   type RowState = {
@@ -310,6 +313,7 @@
         { label: 'Account' },
         { label: 'Multi-currency' },
         { label: 'Fee account' },
+        { label: '' },
       ]}
       loading={parsersLoading}
       empty={parsers.length === 0}
@@ -323,6 +327,9 @@
           <td class="cell-mono">{accountPath}</td>
           <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
           <td class="cell-mono">{feePath}</td>
+          <td class="cell-actions">
+            <button class="edit-btn" onclick={() => { editingParser = parser }}>Edit</button>
+          </td>
         </tr>
       {/each}
     </TableShell>
@@ -519,6 +526,19 @@
       </div>
     </div>
   </Panel>
+{/if}
+
+{#if editingParser}
+  <EditParserPanel
+    parser={editingParser}
+    {accounts}
+    onSuccess={(updated) => {
+      parsers = parsers.map((p) => p.id === updated.id ? updated : p)
+      editingParser = null
+    }}
+    onCancel={() => { editingParser = null }}
+    onAccountCreated={handleAccountCreated}
+  />
 {/if}
 
 {#if imported !== null}
@@ -820,6 +840,31 @@
 
   .cell-name {
     font-weight: var(--weight-semibold);
+  }
+
+  .cell-actions {
+    white-space: nowrap;
+    padding: 0 var(--sp-xs);
+  }
+
+  .edit-btn {
+    font-family: inherit;
+    font-size: var(--text-xs);
+    padding: 1px var(--sp-xs);
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    border: none;
+    cursor: pointer;
+    color: var(--color-text);
+    transition: box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .edit-btn:hover {
+    background: var(--color-accent-light);
+  }
+
+  .edit-btn:active {
+    box-shadow: var(--shadow-sunken);
   }
 
   /* --- Preview panel footer --- */

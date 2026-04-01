@@ -48,9 +48,10 @@ app.post('/', async (c) => {
 
 // PATCH /api/parsers/:id
 // Updates one or more mutable fields on an existing parser. At least one field required.
-// Column mapping stays immutable.
 //
 // Request body (JSON, all optional but at least one required):
+//   name                — human-readable parser name
+//   columnMapping       — full column mapping object (date and amount required if present)
 //   defaultAccountId    — UUID of an account, or null to clear
 //   isMultiCurrency     — boolean
 //   defaultFeeAccountId — UUID of an account, or null to clear
@@ -59,6 +60,17 @@ app.patch('/:id', async (c) => {
   const body = await c.req.json()
 
   const patch: Record<string, unknown> = {}
+
+  if ('name' in body) {
+    if (!body.name || typeof body.name !== 'string') return c.json({ error: 'name must be a non-empty string' }, 400)
+    patch.name = body.name
+  }
+
+  if ('columnMapping' in body) {
+    if (!body.columnMapping || typeof body.columnMapping !== 'object') return c.json({ error: 'columnMapping must be an object' }, 400)
+    if (!body.columnMapping.date || !body.columnMapping.amount) return c.json({ error: 'columnMapping must include date and amount' }, 400)
+    patch.columnMapping = body.columnMapping
+  }
 
   if ('defaultAccountId' in body) {
     if (body.defaultAccountId !== null && typeof body.defaultAccountId !== 'string') {
