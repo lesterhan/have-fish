@@ -67,9 +67,6 @@
     text-align: left;
     font-weight: var(--weight-semibold);
     white-space: nowrap;
-    position: sticky;
-    top: 0;
-    z-index: 1;
   }
 
   .status-cell {
