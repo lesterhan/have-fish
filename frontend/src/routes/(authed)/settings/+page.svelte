@@ -15,6 +15,7 @@
   import Modal from "$lib/components/Modal.svelte";
   import { signOut, useSession, authClient } from "$lib/auth";
   import { goto } from "$app/navigation";
+  import { toast } from "$lib/toast.svelte";
 
   const session = useSession();
 
@@ -54,12 +55,23 @@
     accounts = accounts.filter((a: { id: string }) => a.id !== id);
   }
 
+  const defaultLabels: Record<string, string> = {
+    defaultOffsetAccountId: "Uncategorized account",
+    defaultConversionAccountId: "Conversion account",
+  };
+
   async function handleDefaultChange(
     field: "defaultOffsetAccountId" | "defaultConversionAccountId",
     accountId: string,
   ) {
     userSettings = await updateUserSettings({ [field]: accountId || null });
+    toast.show(`${defaultLabels[field]} saved`);
   }
+
+  const rootPathLabels: Record<string, string> = {
+    defaultAssetsRootPath: "Assets root path",
+    defaultLiabilitiesRootPath: "Liabilities root path",
+  };
 
   async function handleRootPathChange(
     field: "defaultAssetsRootPath" | "defaultLiabilitiesRootPath",
@@ -67,6 +79,7 @@
   ) {
     if (!value.trim()) return;
     userSettings = await updateUserSettings({ [field]: value.trim() });
+    toast.show(`${rootPathLabels[field]} saved`);
   }
 
   // --- Danger zone ---
@@ -80,7 +93,7 @@
 
 {#if $session.data}
   <HeadingBanner>
-    <h1>🧧 {$session.data.user.email}</h1>
+    <h1><button class="secret-btn" onclick={() => toast.show('年年有鱼 Year Year Have Fish')}>🧧</button> {$session.data.user.email}</h1>
     <Button variant="danger" onclick={handleSignOut}>Sign out</Button>
   </HeadingBanner>
 {/if}
@@ -350,6 +363,14 @@
     display: flex;
     justify-content: flex-end;
     gap: var(--sp-sm);
+  }
+
+  .secret-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font: inherit;
+    cursor: default;
   }
 
   select,

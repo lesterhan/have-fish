@@ -4,6 +4,7 @@
   import Button from "$lib/components/Button.svelte";
   import { useSession } from "$lib/auth";
   import { theme } from "$lib/theme.svelte";
+  import { toast } from "$lib/toast.svelte";
 
   let { children } = $props();
 
@@ -41,7 +42,13 @@
         <a href="/assets">Accs 💳</a>
         <a href="/import">Import 📥</a>
       {/if}
-      <span class="menubar-spacer"></span>
+      <span class="menubar-spacer">
+        <span class="toast-slot">
+          {#if toast.message}
+            <span class="toast">{toast.message}</span>
+          {/if}
+        </span>
+      </span>
       <Button
         variant="ghost"
         square
@@ -219,6 +226,42 @@
 
   .menubar-spacer {
     flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: var(--sp-sm);
+  }
+
+  .toast-slot {
+    overflow: hidden;
+    height: 20px;
+    width: 220px;
+    display: flex;
+    align-items: center;
+    box-shadow: var(--shadow-sunken);
+    background: transparent;
+    transition: background 200ms linear;
+  }
+
+  .toast-slot:has(.toast) {
+    background: #1a3d1a;
+  }
+
+  .toast {
+    display: block;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: #a8e6a8;
+    background: transparent;
+    white-space: nowrap;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    animation: marquee 3s linear forwards;
+  }
+
+  @keyframes marquee {
+    from { transform: translateX(220px); }
+    to   { transform: translateX(-100%); }
   }
 
   .menubar-settings {
