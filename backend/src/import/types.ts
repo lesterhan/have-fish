@@ -21,7 +21,18 @@ export type TransferParsedTransaction = {
   feeCurrency?: string
 }
 
-export type ParsedTransaction = RegularParsedTransaction | TransferParsedTransaction
+// isTransfer: 'same-currency' — a same-currency IN transfer with a non-zero fee (e.g. Wise bank transfer)
+// Produces 3 postings: target account (+net), fee account (+fee), source account (−gross)
+export type SameCurrencyTransferParsedTransaction = {
+  isTransfer: 'same-currency'
+  date: string
+  description?: string
+  amount: string     // net amount received (positive), e.g. "199.69"
+  feeAmount: string  // fee charged (positive), e.g. "0.62"
+  currency: string
+}
+
+export type ParsedTransaction = RegularParsedTransaction | TransferParsedTransaction | SameCurrencyTransferParsedTransaction
 
 export type ParseError = {
   row: number   // 1-indexed row number in the original CSV

@@ -97,6 +97,39 @@ describe('buildParser — direction sign', () => {
   })
 })
 
+describe('buildParser — same-currency transfer detection', () => {
+  const parseSameCurrency = buildParser({
+    date: 'date',
+    amount: 'sourceamount',
+    sourceAmount: 'sourceamount',
+    sourceCurrency: 'sourcecurrency',
+    targetAmount: 'targetamount',
+    targetCurrency: 'targetcurrency',
+    feeAmount: 'feeamount',
+  })
+
+  it('emits a same-currency transfer when currencies match and fee is non-zero', () => {
+    const result = parseSameCurrency([{
+      date: '2026-03-31',
+      sourceamount: '199.69',
+      sourcecurrency: 'CAD',
+      targetamount: '199.69',
+      targetcurrency: 'CAD',
+      feeamount: '0.62',
+    }])
+
+    expect(result.errors).toHaveLength(0)
+    expect(result.transactions).toHaveLength(1)
+    const tx = result.transactions[0]
+    expect(tx.isTransfer).toBe('same-currency')
+    if (tx.isTransfer === 'same-currency') {
+      expect(tx.amount).toBe('199.69')
+      expect(tx.feeAmount).toBe('0.62')
+      expect(tx.currency).toBe('CAD')
+    }
+  })
+})
+
 describe('buildParser — transfer detection', () => {
   const parseTransfer = buildParser({
     date: 'date',

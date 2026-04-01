@@ -75,7 +75,7 @@
     if (!preview?.isMultiCurrency || !rootPath) return [];
     const paths = new Set<string>();
     for (const tx of preview.transactions) {
-      if (tx.isTransfer) {
+      if (tx.isTransfer === true) {
         paths.add(`${rootPath}:${tx.sourceCurrency.toLowerCase()}`);
         paths.add(`${rootPath}:${tx.targetCurrency.toLowerCase()}`);
       } else {
@@ -165,7 +165,8 @@
     }
     const invalid = preview.transactions.some((tx, i) => {
       const row = rowStates[i];
-      if (tx.isTransfer) return !row.conversionAccountId || !row.feeAccountId;
+      if (tx.isTransfer === true) return !row.conversionAccountId || !row.feeAccountId;
+      if (tx.isTransfer === 'same-currency') return !row.feeAccountId || !row.offsetAccountId;
       return !row.offsetAccountId;
     });
     if (invalid) {
@@ -177,12 +178,21 @@
     try {
       const txs: CommitTransaction[] = preview.transactions.map((tx, i) => {
         const row = rowStates[i];
-        if (tx.isTransfer) {
+        if (tx.isTransfer === true) {
           return {
             ...tx,
             sourceAccountId: getInferredAccountId(tx.sourceCurrency),
             targetAccountId: getInferredAccountId(tx.targetCurrency),
             conversionAccountId: row.conversionAccountId,
+            feeAccountId: row.feeAccountId,
+          };
+        } else if (tx.isTransfer === 'same-currency') {
+          return {
+            ...tx,
+            targetAccountId: preview!.isMultiCurrency
+              ? getInferredAccountId(tx.currency)
+              : fromAccountId,
+            sourceAccountId: row.offsetAccountId,
             feeAccountId: row.feeAccountId,
           };
         } else {
@@ -386,7 +396,7 @@
           </thead>
           <tbody>
             {#each preview.transactions as tx, i}
-              {#if tx.isTransfer}
+              {#if tx.isTransfer === true}
                 <tr class="row-transfer">
                   <td class="cell-mono"
                     >{new Date(tx.date).toLocaleDateString()}</td
@@ -413,6 +423,31 @@
                         {accounts}
                         bind:value={rowStates[i].conversionAccountId}
                         placeholder="equity:conversion…"
+                        oncreate={handleAccountCreated}
+                      />
+                      <AccountPathInput
+                        {accounts}
+                        bind:value={rowStates[i].feeAccountId}
+                        placeholder="expenses:fees…"
+                        oncreate={handleAccountCreated}
+                      />
+                    </div>
+                  </td>
+                </tr>
+              {:else if tx.isTransfer === 'same-currency'}
+                <tr class="row-transfer">
+                  <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+                  <td>{tx.description ?? "—"}</td>
+                  <td class="cell-transfer-amount">
+                    <span class="transfer-to">+{tx.amount} {tx.currency}</span>
+                    <span class="transfer-fee">fee: {tx.feeAmount} {tx.currency}</span>
+                  </td>
+                  <td class="cell-offset">
+                    <div class="transfer-accounts">
+                      <AccountPathInput
+                        {accounts}
+                        bind:value={rowStates[i].offsetAccountId}
+                        placeholder="Source account…"
                         oncreate={handleAccountCreated}
                       />
                       <AccountPathInput
@@ -474,8 +509,8 @@
             (!preview.isMultiCurrency && !fromAccountId) ||
             rowStates.some((row, i) => {
               const tx = preview!.transactions[i];
-              if (tx.isTransfer)
-                return !row.conversionAccountId || !row.feeAccountId;
+              if (tx.isTransfer === true) return !row.conversionAccountId || !row.feeAccountId;
+              if (tx.isTransfer === 'same-currency') return !row.feeAccountId || !row.offsetAccountId;
               return !row.offsetAccountId;
             })}
         >

@@ -1,4 +1,4 @@
-import type { ColumnMapping, ParsedTransaction, RegularParsedTransaction, TransferParsedTransaction, ParseError, ParseResult } from './types'
+import type { ColumnMapping, ParsedTransaction, RegularParsedTransaction, TransferParsedTransaction, SameCurrencyTransferParsedTransaction, ParseError, ParseResult } from './types'
 
 // Builds a row-parsing function from a stored ColumnMapping.
 //
@@ -77,6 +77,30 @@ export function buildParser(columnMapping: ColumnMapping): (rows: Record<string,
 
           transactions.push(tx)
           return
+        }
+
+        // Same-currency row with a non-zero fee → same-currency transfer (3 postings)
+        if (sourceCurrency && targetCurrency && sourceCurrency === targetCurrency && columnMapping.feeAmount) {
+          const rawFee = row[columnMapping.feeAmount]
+          const feeVal = parseFloat(rawFee)
+          if (rawFee && !isNaN(feeVal) && feeVal !== 0) {
+            const rawTargetAmount = row[columnMapping.targetAmount!]
+            const targetAmountVal = parseFloat(rawTargetAmount)
+            if (!rawTargetAmount || isNaN(targetAmountVal)) {
+              errors.push({ row: rowNumber, reason: `invalid targetAmount: "${rawTargetAmount}"` })
+              return
+            }
+            const tx: SameCurrencyTransferParsedTransaction = {
+              isTransfer: 'same-currency',
+              date: date.toISOString(),
+              description,
+              amount: Math.abs(targetAmountVal).toFixed(2),
+              feeAmount: Math.abs(feeVal).toFixed(2),
+              currency: targetCurrency,
+            }
+            transactions.push(tx)
+            return
+          }
         }
       }
 

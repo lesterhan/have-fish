@@ -92,11 +92,15 @@ app.post('/commit', async (c) => {
 
   // Per-row validation — requirements differ by row type
   for (const t of parsed as Record<string, unknown>[]) {
-    if (t.isTransfer) {
+    if (t.isTransfer === true) {
       if (!t.sourceAccountId) return c.json({ error: 'transfer rows must include sourceAccountId' }, 400)
       if (!t.targetAccountId) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
       if (!t.conversionAccountId) return c.json({ error: 'transfer rows must include conversionAccountId' }, 400)
       if (!t.feeAccountId) return c.json({ error: 'transfer rows must include feeAccountId' }, 400)
+    } else if (t.isTransfer === 'same-currency') {
+      if (!t.targetAccountId) return c.json({ error: 'same-currency transfer rows must include targetAccountId' }, 400)
+      if (!t.sourceAccountId) return c.json({ error: 'same-currency transfer rows must include sourceAccountId' }, 400)
+      if (!t.feeAccountId) return c.json({ error: 'same-currency transfer rows must include feeAccountId' }, 400)
     } else {
       if (!t.offsetAccountId) return c.json({ error: 'regular rows must include offsetAccountId' }, 400)
       if (!t.sourceAccountId && !accountId) return c.json({ error: 'regular rows require sourceAccountId or a global accountId' }, 400)
@@ -129,14 +133,26 @@ app.post('/commit', async (c) => {
     feeAccountId: string
   }
 
+  type SameCurrencyTransferRow = {
+    isTransfer: 'same-currency'
+    date: string
+    description?: string
+    amount: string    // net amount received (positive)
+    feeAmount: string // fee charged (positive)
+    currency: string
+    targetAccountId: string   // the account that received the money
+    sourceAccountId: string   // where the money came from
+    feeAccountId: string
+  }
+
   await db.transaction(async (tx) => {
-    for (const t of parsed as (RegularRow | TransferRow)[]) {
+    for (const t of parsed as (RegularRow | TransferRow | SameCurrencyTransferRow)[]) {
       const [newTx] = await tx
         .insert(transactions)
         .values({ userId, date: new Date(t.date), description: t.description })
         .returning()
 
-      if (t.isTransfer) {
+      if (t.isTransfer === true) {
         // Cross-currency transfer — 4 or 5 postings depending on whether a fee is present.
         //
         // The equity:conversion account bridges the two currencies:
@@ -175,6 +191,17 @@ app.post('/commit', async (c) => {
         }
 
         await tx.insert(postings).values(postingRows)
+      } else if (t.isTransfer === 'same-currency') {
+        // Same-currency IN transfer — 3 postings:
+        //   1. target account receives net amount (positive)
+        //   2. fee expense account records the fee (positive)
+        //   3. source account loses the gross amount (negative)
+        const gross = (parseFloat(t.amount) + parseFloat(t.feeAmount)).toFixed(2)
+        await tx.insert(postings).values([
+          { transactionId: newTx.id, accountId: t.targetAccountId, amount: t.amount,         currency: t.currency },
+          { transactionId: newTx.id, accountId: t.feeAccountId,    amount: t.feeAmount,       currency: t.currency },
+          { transactionId: newTx.id, accountId: t.sourceAccountId, amount: `-${gross}`,       currency: t.currency },
+        ])
       } else {
         // Regular 2-posting transaction
         const currency = t.currency ?? defaultCurrency

@@ -74,7 +74,16 @@ export type TransferParsedTransaction = {
   feeCurrency?: string
 }
 
-export type ParsedTransaction = RegularParsedTransaction | TransferParsedTransaction
+export type SameCurrencyTransferParsedTransaction = {
+  isTransfer: 'same-currency'
+  date: string
+  description?: string
+  amount: string     // net amount received (positive)
+  feeAmount: string  // fee charged (positive)
+  currency: string
+}
+
+export type ParsedTransaction = RegularParsedTransaction | TransferParsedTransaction | SameCurrencyTransferParsedTransaction
 
 // Commit payloads — ParsedTransaction plus the account IDs resolved during preview.
 export type RegularCommitTransaction = RegularParsedTransaction & {
@@ -89,7 +98,13 @@ export type TransferCommitTransaction = TransferParsedTransaction & {
   feeAccountId: string
 }
 
-export type CommitTransaction = RegularCommitTransaction | TransferCommitTransaction
+export type SameCurrencyTransferCommitTransaction = SameCurrencyTransferParsedTransaction & {
+  targetAccountId: string
+  sourceAccountId: string
+  feeAccountId: string
+}
+
+export type CommitTransaction = RegularCommitTransaction | TransferCommitTransaction | SameCurrencyTransferCommitTransaction
 
 export type ImportPreviewResult = {
   parser: string
