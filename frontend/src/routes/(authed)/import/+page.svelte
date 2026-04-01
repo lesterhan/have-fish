@@ -20,6 +20,8 @@
   import Toggle from "$lib/components/Toggle.svelte";
   import TableShell from "$lib/components/TableShell.svelte";
   import EditParserPanel from "$lib/components/EditParserPanel.svelte";
+  import { toast } from "$lib/toast.svelte";
+  import { goto } from "$app/navigation";
 
   let accounts = $state<Account[]>([]);
   let parsers = $state<CsvParser[]>([]);
@@ -34,7 +36,6 @@
   let loading = $state(false);
   let error = $state("");
   let noParserFound = $state(false);
-  let imported = $state<number | null>(null);
 
   let preview = $state<ImportPreviewResult | null>(null);
   let importAsLiabilities = $state(false);
@@ -227,10 +228,8 @@
         defaultCurrency,
         transactions: txs,
       });
-      imported = result.created;
-      preview = null;
-      rowStates = [];
-      importAsLiabilities = false;
+      toast.show(`${result.created} transaction(s) imported`);
+      goto("/transactions");
     } catch (e) {
       error = "Import failed. Please try again.";
     } finally {
@@ -568,12 +567,6 @@
   />
 {/if}
 
-{#if imported !== null}
-  <p>
-    {imported} transaction(s) imported successfully.
-    <a href="/transactions">View transactions</a>
-  </p>
-{/if}
 
 <style>
   /* --- Upload form --- */
