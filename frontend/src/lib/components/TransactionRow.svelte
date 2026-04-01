@@ -33,6 +33,7 @@
     defaultOffsetAccountId?: string | null;
     defaultConversionAccountId?: string | null;
     onaccountcreated?: (account: Account) => void;
+    ondeleted?: () => void;
   }
 
   let {
@@ -41,6 +42,7 @@
     defaultOffsetAccountId,
     defaultConversionAccountId,
     onaccountcreated,
+    ondeleted,
   }: Props = $props();
 
   let modalOpen = $state(false);
@@ -391,6 +393,7 @@
   bind:open={modalOpen}
   onclose={() => (modalOpen = false)}
   {onaccountcreated}
+  {ondeleted}
   onsaved={(updates) => {
     localDate = updates.date;
     localDescription = updates.description ?? "";

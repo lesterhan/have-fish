@@ -258,6 +258,14 @@ export async function fetchAccountBalances(): Promise<AccountBalance[]> {
   return res.json()
 }
 
+export async function deleteTransaction(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/transactions/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to delete transaction')
+}
+
 export async function patchTransaction(id: string, updates: { description?: string | null; date?: string }) {
   const res = await fetch(`${BASE}/api/transactions/${id}`, {
     method: 'PATCH',

@@ -99,6 +99,7 @@
         {defaultOffsetAccountId}
         {defaultConversionAccountId}
         onaccountcreated={(a) => (accounts = [...accounts, a])}
+        ondeleted={() => (transactions = transactions.filter((t) => t.id !== tx.id))}
       />
     {/each}
   </div>

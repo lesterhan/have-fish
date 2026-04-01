@@ -9,7 +9,7 @@
   import Button from '$lib/components/Button.svelte'
   import AccountPathInput from '$lib/components/AccountPathInput.svelte'
   import { toISODate } from '$lib/date'
-  import { patchTransaction, patchPosting, createPosting, deletePosting, type Account } from '$lib/api'
+  import { patchTransaction, patchPosting, createPosting, deletePosting, deleteTransaction, type Account } from '$lib/api'
 
   interface Posting {
     id: string
@@ -42,9 +42,10 @@
     onclose: () => void
     onaccountcreated?: (account: Account) => void
     onsaved?: (updates: { date: string; description: string | null; postings: Posting[] }) => void
+    ondeleted?: () => void
   }
 
-  let { tx, accounts, defaultOffsetAccountId, open = $bindable(), onclose, onaccountcreated, onsaved }: Props = $props()
+  let { tx, accounts, defaultOffsetAccountId, open = $bindable(), onclose, onaccountcreated, onsaved, ondeleted }: Props = $props()
 
   // --- Snapshot of original values (captured when modal opens) ---
   let origDate = $state('')
@@ -56,6 +57,7 @@
   let localDescription = $state('')
   let localPostings = $state<LocalPosting[]>([])
   let showDiscardConfirm = $state(false)
+  let showDeleteConfirm = $state(false)
   let newIdCounter = $state(0)
 
   // Reset all local state when the modal opens
@@ -68,6 +70,7 @@
       localDescription = origDescription
       localPostings = tx.postings.map(p => ({ ...p, markedForDelete: false, isNew: false }))
       showDiscardConfirm = false
+      showDeleteConfirm = false
       dateEditing = false
       descEditing = false
       editingAccountPostingId = null
@@ -312,6 +315,23 @@
     }
   }
 
+  // --- Delete ---
+  let deleting = $state(false)
+
+  async function handleDelete() {
+    deleting = true
+    try {
+      await deleteTransaction(tx.id)
+      ondeleted?.()
+      onclose()
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : 'Delete failed'
+      showDeleteConfirm = false
+    } finally {
+      deleting = false
+    }
+  }
+
   // --- Helpers ---
   let accountPaths = $derived(Object.fromEntries(accounts.map(a => [a.id, a.path])))
 </script>
@@ -494,15 +514,26 @@
         <Button onclick={() => { showDiscardConfirm = false }}>Keep editing</Button>
         <Button variant="danger" onclick={discard}>Discard</Button>
       </div>
+    {:else if showDeleteConfirm}
+      <div class="confirm-row">
+        <span class="confirm-text">Delete this transaction?</span>
+        <Button onclick={() => { showDeleteConfirm = false }}>Cancel</Button>
+        <Button variant="danger" disabled={deleting} onclick={handleDelete}>
+          {deleting ? 'Deleting…' : 'Delete'}
+        </Button>
+      </div>
     {:else}
       {#if saveError}
         <p class="save-error" role="alert">{saveError}</p>
       {/if}
       <div class="footer">
-        <Button disabled={saving} onclick={requestClose}>Cancel</Button>
-        <Button variant="primary" disabled={!balanced || !dirty || saving} onclick={handleSave}>
-          {saving ? 'Saving…' : 'Save'}
-        </Button>
+        <Button variant="danger" disabled={saving} onclick={() => { showDeleteConfirm = true }}>Delete</Button>
+        <div class="footer-actions">
+          <Button disabled={saving} onclick={requestClose}>Cancel</Button>
+          <Button variant="primary" disabled={!balanced || !dirty || saving} onclick={handleSave}>
+            {saving ? 'Saving…' : 'Save'}
+          </Button>
+        </div>
       </div>
     {/if}
 
@@ -768,8 +799,14 @@
   .footer {
     display: flex;
     justify-content: space-between;
+    align-items: center;
     padding-top: var(--sp-xs);
     border-top: 1px solid var(--color-divider);
+  }
+
+  .footer-actions {
+    display: flex;
+    gap: var(--sp-sm);
   }
 
   .confirm-row {
