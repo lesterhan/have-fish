@@ -17,3 +17,4 @@
 | [Import CSV for Liability Accounts](epics/archive/import-csv-liability-accounts.md) | Done |
 | [Support Transfer Direction](epics/archive/support-transfer-direction.md) | Done |
 | [Resolve Duplicate Transactions](epics/resolve-duplicate-transactions.md) | Backlog |
+| [Dashboard](epics/dashboard.md) | Backlog |
