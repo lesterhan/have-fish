@@ -13,8 +13,10 @@ dist/
 # drizzle migrations output
 backend/drizzle/
 
-# bun lockfile (commit this if you want reproducible installs)
 # bun.lockb
 
 # OS
 .DS_Store
+
+# deployment
+.github/
