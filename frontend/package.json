@@ -13,6 +13,7 @@
   "dependencies": {
     "@sveltejs/kit": "^2.20.0",
     "better-auth": "^1.5.4",
+    "chart.js": "^4.5.1",
     "svelte": "^5.20.0"
   },
   "devDependencies": {

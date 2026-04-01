@@ -37,7 +37,7 @@
 
     <nav class="menubar">
       {#if $session.data}
-        <a href="/">Dash 📈</a>
+        <a href="/dashboard">Dash 📈</a>
         <a href="/transactions">Txns 🗃️</a>
         <a href="/assets">Accs 💳</a>
         <a href="/import">Import 📥</a>
