@@ -1,3 +1,4 @@
+/// <reference types="bun" />
 import { describe, it, expect } from 'bun:test'
 import { toISODate, parseCustomDateRange } from './date'
 
