@@ -74,7 +74,16 @@ matches the negative value.
 For the Wise parser: `signColumn = "direction"`, `signNegativeValue = "out"`.
 
 Changes: `backend/src/import/types.ts`, `backend/src/import/dynamic-parser.ts`,
-`frontend/src/lib/api.ts`, settings UI.
+`frontend/src/lib/api.ts`, `AddAccountWizard.svelte`.
+
+#### Wizard UI decision
+
+The two direction fields are added to **`STEP.PARSER_COLUMNS`** (not a new step, not the multi-currency step):
+
+- `signColumn`: `<select>` from detected CSV columns, "— not mapped —" default. Optional — no asterisk, does not affect `parserColumnsValid`.
+- `signNegativeValue`: plain `<input type="text">`, conditionally rendered only when `signColumn` is set. The value to match case-insensitively (e.g. `"out"`).
+
+A tooltip `?` on the label explains the purpose. Both fields are added to `resetStep2()`, the `handleFileUpload()` reset block, the `columnMapping` payload in `handleConfirm()`, and the confirm summary.
 
 ### Story 2 — Handle same-currency IN transfers with fees
 

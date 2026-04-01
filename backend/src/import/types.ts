@@ -48,4 +48,6 @@ export type ColumnMapping = {
   targetCurrency?: string | null
   feeAmount?: string | null
   feeCurrency?: string | null
+  signColumn?: string | null        // the column whose value encodes direction
+  signNegativeValue?: string | null // the value that means "negate the amount" (compared case-insensitively)
 }

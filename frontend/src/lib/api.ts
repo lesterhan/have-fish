@@ -145,6 +145,8 @@ export type ColumnMapping = {
   targetCurrency?: string | null
   feeAmount?: string | null
   feeCurrency?: string | null
+  signColumn?: string | null
+  signNegativeValue?: string | null
 }
 
 export type CsvParser = {

@@ -80,6 +80,23 @@ describe('buildParser', () => {
   })
 })
 
+describe('buildParser — direction sign', () => {
+  const parseWithSign = buildParser({
+    date: 'date',
+    amount: 'amount',
+    signColumn: 'direction',
+    signNegativeValue: 'out',
+  })
+
+  it('negates the amount when the sign column matches signNegativeValue (case-insensitive)', () => {
+    const result = parseWithSign([
+      { date: '2026-03-08', amount: '2.60', direction: 'OUT' },
+    ])
+    expect(result.errors).toHaveLength(0)
+    expect(result.transactions[0].amount).toBe('-2.60')
+  })
+})
+
 describe('buildParser — transfer detection', () => {
   const parseTransfer = buildParser({
     date: 'date',

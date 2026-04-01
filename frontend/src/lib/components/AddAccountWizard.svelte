@@ -135,6 +135,8 @@
   let mappingTargetCurrency = $state("");
   let mappingFeeAmount = $state("");
   let mappingFeeCurrency = $state("");
+  let mappingSignColumn = $state("");
+  let mappingSignNegativeValue = $state("");
   // The raw header line shown to the user after file upload
   let detectedHeader = $state("");
 
@@ -177,6 +179,8 @@
       mappingTargetCurrency = "";
       mappingFeeAmount = "";
       mappingFeeCurrency = "";
+      mappingSignColumn = "";
+      mappingSignNegativeValue = "";
     };
     reader.readAsText(file);
   }
@@ -196,6 +200,8 @@
     mappingTargetCurrency = "";
     mappingFeeAmount = "";
     mappingFeeCurrency = "";
+    mappingSignColumn = "";
+    mappingSignNegativeValue = "";
   }
 
   let parserUploadValid = $derived(
@@ -272,6 +278,8 @@
           amount: mappingAmount,
           description: mappingDescription || null,
           currency: mappingCurrency || null,
+          signColumn: mappingSignColumn || null,
+          signNegativeValue: mappingSignColumn ? (mappingSignNegativeValue || null) : null,
           ...(isMultiCurrency && {
             sourceAmount: mappingSourceAmount || null,
             sourceCurrency: mappingSourceCurrency || null,
@@ -412,6 +420,27 @@
           <option value="">— not mapped —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
+
+        <label for="map-sign-column" class="toggle-label">
+          Direction column
+          <span class="tooltip-icon" title="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT.">?</span>
+        </label>
+        <select id="map-sign-column" bind:value={mappingSignColumn}>
+          <option value="">— not mapped —</option>
+          {#each columns as col}<option value={col}>{col}</option>{/each}
+        </select>
+
+        {#if mappingSignColumn}
+          <label for="map-sign-negative">Negative value</label>
+          <input
+            id="map-sign-negative"
+            type="text"
+            bind:value={mappingSignNegativeValue}
+            placeholder="e.g. OUT"
+            spellcheck={false}
+            autocomplete="off"
+          />
+        {/if}
       </div>
     {:else if step === STEP.PARSER_MULTICURRENCY}
       <div class="form-grid">
@@ -509,6 +538,18 @@
                 <span class="summary-label">Description column</span>
                 <code class="summary-value">{mappingDescription}</code>
               </div>
+            {/if}
+            {#if mappingSignColumn}
+              <div class="summary-row">
+                <span class="summary-label">Direction column</span>
+                <code class="summary-value">{mappingSignColumn}</code>
+              </div>
+              {#if mappingSignNegativeValue}
+                <div class="summary-row">
+                  <span class="summary-label">Negative value</span>
+                  <code class="summary-value">{mappingSignNegativeValue}</code>
+                </div>
+              {/if}
             {/if}
             {#if isMultiCurrency}
               <div class="summary-row">

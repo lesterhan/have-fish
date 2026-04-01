@@ -88,10 +88,20 @@ export function buildParser(columnMapping: ColumnMapping): (rows: Record<string,
         return
       }
 
+      // Apply direction sign: if signColumn is configured and the row's value
+      // matches signNegativeValue (case-insensitive), negate the amount.
+      let signedAmount = amount
+      if (columnMapping.signColumn && columnMapping.signNegativeValue) {
+        const direction = row[columnMapping.signColumn]?.trim().toLowerCase()
+        if (direction === columnMapping.signNegativeValue.toLowerCase()) {
+          signedAmount = -Math.abs(amount)
+        }
+      }
+
       const tx: RegularParsedTransaction = {
         isTransfer: false,
         date: date.toISOString(),
-        amount: amount.toFixed(2), // -19.9 fixed to '-19.90'
+        amount: signedAmount.toFixed(2),
         description,
       }
 
