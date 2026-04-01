@@ -45,7 +45,6 @@
       <Button
         variant="ghost"
         square
-        class="theme-btn"
         onclick={() => theme.toggle()}
         title="Toggle dark mode"
       >
@@ -225,21 +224,6 @@
   .menubar-settings {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-  }
-
-  .theme-btn {
-    background: none;
-    border: none;
-    padding: 2px var(--sp-xs);
-    font-size: var(--text-sm);
-    line-height: 1;
-    cursor: pointer;
-    border-radius: var(--radius-sm);
-    transition: background var(--duration-fast) var(--ease);
-  }
-
-  .theme-btn:hover {
-    background: var(--color-accent-light);
   }
 
   /* --- Window body --- */

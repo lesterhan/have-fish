@@ -30,6 +30,32 @@
       account.balances.every((b) => parseFloat(b.amount) === 0)
     );
   }
+
+  type HierarchyRow = {
+    account: AccountBalance;
+    depth: number;       // number of ancestors present in the list
+    label: string;       // leaf segment if depth > 0, full path otherwise
+  };
+
+  function buildHierarchy(rows: AccountBalance[]): HierarchyRow[] {
+    const sorted = [...rows].sort((a, b) => a.path.localeCompare(b.path));
+    const paths = new Set(sorted.map((a) => a.path));
+    return sorted.map((account) => {
+      const segments = account.path.split(":");
+      let depth = 0;
+      for (let i = segments.length - 1; i > 0; i--) {
+        if (paths.has(segments.slice(0, i).join(":"))) {
+          depth = segments.length - i;
+          break;
+        }
+      }
+      return {
+        account,
+        depth,
+        label: depth > 0 ? segments[segments.length - 1] : account.path,
+      };
+    });
+  }
 </script>
 
 {#snippet accountTable(rows: AccountBalance[], emptyText: string)}
@@ -43,9 +69,11 @@
       empty={rows.length === 0}
       {emptyText}
     >
-      {#each rows as account}
+      {#each buildHierarchy(rows) as { account, depth, label }}
         <tr class:dimmed={isZeroBalance(account)}>
-          <td class="cell-path">{account.path}</td>
+          <td class="cell-path" style="padding-left: calc(var(--sp-sm) + {depth} * 1.25rem)">
+            {label}
+          </td>
           <td class="cell-balances">
             {#each account.balances as balance}
               <span
