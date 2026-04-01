@@ -244,7 +244,7 @@
     {#if isCrossCurrency}
       <!-- Cross-currency transfer: show source → target, suppress internals -->
       <div class="summary-line">
-        <span class="account account-from">
+        <span class="account account-from account-from-transfer">
           {accountPaths[transfer.source.accountId] ?? transfer.source.accountId}
         </span>
         <span class="arrow" aria-hidden="true">➜</span>
@@ -505,6 +505,10 @@
 
   .account-from {
     color: var(--color-text-muted);
+  }
+
+  .account-from-transfer {
+    color: var(--color-text);
   }
 
   .account-to {
