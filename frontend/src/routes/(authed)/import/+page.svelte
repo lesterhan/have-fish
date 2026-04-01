@@ -135,9 +135,13 @@
         fromAccountId = preview.defaultAccountId ?? "";
       }
       // Auto-enable liability mode if the parser's default account is under the liabilities root
-      const liabilitiesRoot = userSettings?.defaultLiabilitiesRootPath ?? 'liabilities'
-      const defaultAccountPath = accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
-      importAsLiabilities = defaultAccountPath.startsWith(`${liabilitiesRoot}:`)
+      const liabilitiesRoot =
+        userSettings?.defaultLiabilitiesRootPath ?? "liabilities";
+      const defaultAccountPath =
+        accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? "";
+      importAsLiabilities = defaultAccountPath.startsWith(
+        `${liabilitiesRoot}:`,
+      );
       rowStates = preview.transactions.map(() => ({
         offsetAccountId: toAccountId,
         conversionAccountId: userSettings?.defaultConversionAccountId ?? "",
@@ -168,8 +172,10 @@
     }
     const invalid = preview.transactions.some((tx, i) => {
       const row = rowStates[i];
-      if (tx.isTransfer === true) return !row.conversionAccountId || !row.feeAccountId;
-      if (tx.isTransfer === 'same-currency') return !row.feeAccountId || !row.offsetAccountId;
+      if (tx.isTransfer === true)
+        return !row.conversionAccountId || !row.feeAccountId;
+      if (tx.isTransfer === "same-currency")
+        return !row.feeAccountId || !row.offsetAccountId;
       return !row.offsetAccountId;
     });
     if (invalid) {
@@ -189,7 +195,7 @@
             conversionAccountId: row.conversionAccountId,
             feeAccountId: row.feeAccountId,
           };
-        } else if (tx.isTransfer === 'same-currency') {
+        } else if (tx.isTransfer === "same-currency") {
           return {
             ...tx,
             targetAccountId: preview!.isMultiCurrency
@@ -201,7 +207,7 @@
         } else {
           const amount = importAsLiabilities
             ? String(-parseFloat(tx.amount))
-            : tx.amount
+            : tx.amount;
           return {
             ...tx,
             amount,
@@ -241,9 +247,9 @@
 
   // Returns the display amount for a regular row, negated when importing as liabilities.
   function displayAmount(amount: string): string {
-    if (!importAsLiabilities) return amount
-    const n = parseFloat(amount)
-    return isNaN(n) ? amount : String(-n)
+    if (!importAsLiabilities) return amount;
+    const n = parseFloat(amount);
+    return isNaN(n) ? amount : String(-n);
   }
 </script>
 
@@ -305,34 +311,37 @@
       </div>
     </form>
   </Panel>
-  <Panel title="Configured Parsers">
+  <Panel title="Available Parsers">
     <div class="parsers-table">
-    <TableShell
-      columns={[
-        { label: 'Name' },
-        { label: 'Account' },
-        { label: 'Multi-currency' },
-        { label: 'Fee account' },
-        { label: '' },
-      ]}
-      loading={parsersLoading}
-      empty={parsers.length === 0}
-      emptyText="No parsers found."
-    >
-      {#each parsers as parser}
-        {@const accountPath = accounts.find((a) => a.id === parser.defaultAccountId)?.path ?? "—"}
-        {@const feePath = accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ?? "—"}
-        <tr>
-          <td class="cell-name">{parser.name}</td>
-          <td class="cell-mono">{accountPath}</td>
-          <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
-          <td class="cell-mono">{feePath}</td>
-          <td class="cell-actions">
-            <button class="edit-btn" onclick={() => { editingParser = parser }}>Edit</button>
-          </td>
-        </tr>
-      {/each}
-    </TableShell>
+      <TableShell
+        columns={[
+          { label: "Name" },
+          { label: "Account" },
+          { label: "Multi-currency" },
+          { label: "Fee account" },
+          { label: "Configure" },
+        ]}
+        loading={parsersLoading}
+        empty={parsers.length === 0}
+        emptyText="No parsers 🕵️"
+      >
+        {#each parsers as parser}
+          {@const accountPath =
+            accounts.find((a) => a.id === parser.defaultAccountId)?.path ?? "—"}
+          {@const feePath =
+            accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ??
+            "—"}
+          <tr>
+            <td class="cell-name">{parser.name}</td>
+            <td class="cell-mono">{accountPath}</td>
+            <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
+            <td class="cell-mono">{feePath}</td>
+            <td class="cell-actions">
+              <Button variant="ghost" square onclick={() => { editingParser = parser }}>⚙️</Button>
+            </td>
+          </tr>
+        {/each}
+      </TableShell>
     </div>
   </Panel>
 {:else}
@@ -387,7 +396,10 @@
       {/if}
 
       <div class="liability-bar">
-        <Toggle bind:checked={importAsLiabilities} label="Import as liabilities" />
+        <Toggle
+          bind:checked={importAsLiabilities}
+          label="Import as liabilities"
+        />
       </div>
 
       <div class="table-container">
@@ -441,13 +453,17 @@
                     </div>
                   </td>
                 </tr>
-              {:else if tx.isTransfer === 'same-currency'}
+              {:else if tx.isTransfer === "same-currency"}
                 <tr class="row-transfer">
-                  <td class="cell-mono">{new Date(tx.date).toLocaleDateString()}</td>
+                  <td class="cell-mono"
+                    >{new Date(tx.date).toLocaleDateString()}</td
+                  >
                   <td>{tx.description ?? "—"}</td>
                   <td class="cell-transfer-amount">
                     <span class="transfer-to">+{tx.amount} {tx.currency}</span>
-                    <span class="transfer-fee">fee: {tx.feeAmount} {tx.currency}</span>
+                    <span class="transfer-fee"
+                      >fee: {tx.feeAmount} {tx.currency}</span
+                    >
                   </td>
                   <td class="cell-offset">
                     <div class="transfer-accounts">
@@ -477,7 +493,8 @@
                     class:positive={parseFloat(displayAmount(tx.amount)) > 0}
                     class:negative={parseFloat(displayAmount(tx.amount)) < 0}
                   >
-                    {displayAmount(tx.amount)}{#if preview.isMultiCurrency} {tx.currency ?? defaultCurrency}{/if}
+                    {displayAmount(tx.amount)}{#if preview.isMultiCurrency}
+                      {tx.currency ?? defaultCurrency}{/if}
                   </td>
                   {#if !preview.isMultiCurrency}<td
                       >{tx.currency ?? defaultCurrency}</td
@@ -516,8 +533,10 @@
             (!preview.isMultiCurrency && !fromAccountId) ||
             rowStates.some((row, i) => {
               const tx = preview!.transactions[i];
-              if (tx.isTransfer === true) return !row.conversionAccountId || !row.feeAccountId;
-              if (tx.isTransfer === 'same-currency') return !row.feeAccountId || !row.offsetAccountId;
+              if (tx.isTransfer === true)
+                return !row.conversionAccountId || !row.feeAccountId;
+              if (tx.isTransfer === "same-currency")
+                return !row.feeAccountId || !row.offsetAccountId;
               return !row.offsetAccountId;
             })}
         >
@@ -533,10 +552,12 @@
     parser={editingParser}
     {accounts}
     onSuccess={(updated) => {
-      parsers = parsers.map((p) => p.id === updated.id ? updated : p)
-      editingParser = null
+      parsers = parsers.map((p) => (p.id === updated.id ? updated : p));
+      editingParser = null;
     }}
-    onCancel={() => { editingParser = null }}
+    onCancel={() => {
+      editingParser = null;
+    }}
     onAccountCreated={handleAccountCreated}
   />
 {/if}
@@ -845,26 +866,6 @@
   .cell-actions {
     white-space: nowrap;
     padding: 0 var(--sp-xs);
-  }
-
-  .edit-btn {
-    font-family: inherit;
-    font-size: var(--text-xs);
-    padding: 1px var(--sp-xs);
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    border: none;
-    cursor: pointer;
-    color: var(--color-text);
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .edit-btn:hover {
-    background: var(--color-accent-light);
-  }
-
-  .edit-btn:active {
-    box-shadow: var(--shadow-sunken);
   }
 
   /* --- Preview panel footer --- */

@@ -1,70 +1,102 @@
 <script lang="ts">
-  import Panel from './Panel.svelte'
-  import Button from './Button.svelte'
-  import Toggle from './Toggle.svelte'
-  import AccountPathInput from './AccountPathInput.svelte'
-  import { updateParser, type CsvParser, type Account, type ColumnMapping } from '$lib/api'
+  import Panel from "./Panel.svelte";
+  import Button from "./Button.svelte";
+  import Toggle from "./Toggle.svelte";
+  import AccountPathInput from "./AccountPathInput.svelte";
+  import {
+    updateParser,
+    type CsvParser,
+    type Account,
+    type ColumnMapping,
+  } from "$lib/api";
 
   interface Props {
-    parser: CsvParser
-    accounts: Account[]
-    onSuccess?: (updated: CsvParser) => void
-    onCancel?: () => void
-    onAccountCreated?: (account: Account) => void
+    parser: CsvParser;
+    accounts: Account[];
+    onSuccess?: (updated: CsvParser) => void;
+    onCancel?: () => void;
+    onAccountCreated?: (account: Account) => void;
   }
 
-  let { parser, accounts, onSuccess, onCancel, onAccountCreated }: Props = $props()
+  let { parser, accounts, onSuccess, onCancel, onAccountCreated }: Props =
+    $props();
 
   // Derive available columns from the stored normalized header (pipe-separated)
-  let columns = $derived(parser.normalizedHeader.split('|').filter(Boolean))
+  let columns = $derived(parser.normalizedHeader.split("|").filter(Boolean));
 
   // Editable state — re-syncs whenever the parser prop changes
-  let name = $state(parser.name)
-  let isMultiCurrency = $state(parser.isMultiCurrency)
-  let defaultAccountId = $state(parser.defaultAccountId ?? '')
-  let defaultFeeAccountId = $state(parser.defaultFeeAccountId ?? '')
+  let name = $state(parser.name);
+  let isMultiCurrency = $state(parser.isMultiCurrency);
+  let defaultAccountId = $state(parser.defaultAccountId ?? "");
+  let defaultFeeAccountId = $state(parser.defaultFeeAccountId ?? "");
 
-  let mappingDate = $state((parser.columnMapping as ColumnMapping).date ?? '')
-  let mappingAmount = $state((parser.columnMapping as ColumnMapping).amount ?? '')
-  let mappingDescription = $state((parser.columnMapping as ColumnMapping).description ?? '')
-  let mappingCurrency = $state((parser.columnMapping as ColumnMapping).currency ?? '')
-  let mappingSignColumn = $state((parser.columnMapping as ColumnMapping).signColumn ?? '')
-  let mappingSignNegativeValue = $state((parser.columnMapping as ColumnMapping).signNegativeValue ?? '')
-  let mappingSourceAmount = $state((parser.columnMapping as ColumnMapping).sourceAmount ?? '')
-  let mappingSourceCurrency = $state((parser.columnMapping as ColumnMapping).sourceCurrency ?? '')
-  let mappingTargetAmount = $state((parser.columnMapping as ColumnMapping).targetAmount ?? '')
-  let mappingTargetCurrency = $state((parser.columnMapping as ColumnMapping).targetCurrency ?? '')
-  let mappingFeeAmount = $state((parser.columnMapping as ColumnMapping).feeAmount ?? '')
-  let mappingFeeCurrency = $state((parser.columnMapping as ColumnMapping).feeCurrency ?? '')
+  let mappingDate = $state((parser.columnMapping as ColumnMapping).date ?? "");
+  let mappingAmount = $state(
+    (parser.columnMapping as ColumnMapping).amount ?? "",
+  );
+  let mappingDescription = $state(
+    (parser.columnMapping as ColumnMapping).description ?? "",
+  );
+  let mappingCurrency = $state(
+    (parser.columnMapping as ColumnMapping).currency ?? "",
+  );
+  let mappingSignColumn = $state(
+    (parser.columnMapping as ColumnMapping).signColumn ?? "",
+  );
+  let mappingSignNegativeValue = $state(
+    (parser.columnMapping as ColumnMapping).signNegativeValue ?? "",
+  );
+  let mappingSourceAmount = $state(
+    (parser.columnMapping as ColumnMapping).sourceAmount ?? "",
+  );
+  let mappingSourceCurrency = $state(
+    (parser.columnMapping as ColumnMapping).sourceCurrency ?? "",
+  );
+  let mappingTargetAmount = $state(
+    (parser.columnMapping as ColumnMapping).targetAmount ?? "",
+  );
+  let mappingTargetCurrency = $state(
+    (parser.columnMapping as ColumnMapping).targetCurrency ?? "",
+  );
+  let mappingFeeAmount = $state(
+    (parser.columnMapping as ColumnMapping).feeAmount ?? "",
+  );
+  let mappingFeeCurrency = $state(
+    (parser.columnMapping as ColumnMapping).feeCurrency ?? "",
+  );
 
   $effect(() => {
-    const m = parser.columnMapping as ColumnMapping
-    name = parser.name
-    isMultiCurrency = parser.isMultiCurrency
-    defaultAccountId = parser.defaultAccountId ?? ''
-    defaultFeeAccountId = parser.defaultFeeAccountId ?? ''
-    mappingDate = m.date ?? ''
-    mappingAmount = m.amount ?? ''
-    mappingDescription = m.description ?? ''
-    mappingCurrency = m.currency ?? ''
-    mappingSignColumn = m.signColumn ?? ''
-    mappingSignNegativeValue = m.signNegativeValue ?? ''
-    mappingSourceAmount = m.sourceAmount ?? ''
-    mappingSourceCurrency = m.sourceCurrency ?? ''
-    mappingTargetAmount = m.targetAmount ?? ''
-    mappingTargetCurrency = m.targetCurrency ?? ''
-    mappingFeeAmount = m.feeAmount ?? ''
-    mappingFeeCurrency = m.feeCurrency ?? ''
-  })
+    const m = parser.columnMapping as ColumnMapping;
+    name = parser.name;
+    isMultiCurrency = parser.isMultiCurrency;
+    defaultAccountId = parser.defaultAccountId ?? "";
+    defaultFeeAccountId = parser.defaultFeeAccountId ?? "";
+    mappingDate = m.date ?? "";
+    mappingAmount = m.amount ?? "";
+    mappingDescription = m.description ?? "";
+    mappingCurrency = m.currency ?? "";
+    mappingSignColumn = m.signColumn ?? "";
+    mappingSignNegativeValue = m.signNegativeValue ?? "";
+    mappingSourceAmount = m.sourceAmount ?? "";
+    mappingSourceCurrency = m.sourceCurrency ?? "";
+    mappingTargetAmount = m.targetAmount ?? "";
+    mappingTargetCurrency = m.targetCurrency ?? "";
+    mappingFeeAmount = m.feeAmount ?? "";
+    mappingFeeCurrency = m.feeCurrency ?? "";
+  });
 
-  let saving = $state(false)
-  let saveError = $state('')
+  let saving = $state(false);
+  let saveError = $state("");
 
-  let valid = $derived(name.trim().length > 0 && mappingDate.length > 0 && mappingAmount.length > 0)
+  let valid = $derived(
+    name.trim().length > 0 &&
+      mappingDate.length > 0 &&
+      mappingAmount.length > 0,
+  );
 
   async function handleSave() {
-    saving = true
-    saveError = ''
+    saving = true;
+    saveError = "";
     try {
       const columnMapping: ColumnMapping = {
         date: mappingDate,
@@ -72,7 +104,9 @@
         description: mappingDescription || null,
         currency: mappingCurrency || null,
         signColumn: mappingSignColumn || null,
-        signNegativeValue: mappingSignColumn ? (mappingSignNegativeValue || null) : null,
+        signNegativeValue: mappingSignColumn
+          ? mappingSignNegativeValue || null
+          : null,
         ...(isMultiCurrency && {
           sourceAmount: mappingSourceAmount || null,
           sourceCurrency: mappingSourceCurrency || null,
@@ -81,19 +115,19 @@
           feeAmount: mappingFeeAmount || null,
           feeCurrency: mappingFeeCurrency || null,
         }),
-      }
+      };
       const updated = await updateParser(parser.id, {
         name: name.trim(),
         columnMapping,
         isMultiCurrency,
         defaultAccountId: defaultAccountId || null,
         defaultFeeAccountId: defaultFeeAccountId || null,
-      })
-      onSuccess?.(updated)
+      });
+      onSuccess?.(updated);
     } catch (e) {
-      saveError = e instanceof Error ? e.message : 'Failed to save parser.'
+      saveError = e instanceof Error ? e.message : "Failed to save parser.";
     } finally {
-      saving = false
+      saving = false;
     }
   }
 </script>
@@ -106,19 +140,31 @@
         <h3 class="section-heading">General</h3>
         <div class="form-grid">
           <label for="ep-name">Name <span class="required">*</span></label>
-          <input id="ep-name" type="text" bind:value={name} autocomplete="off" />
+          <input
+            id="ep-name"
+            type="text"
+            bind:value={name}
+            autocomplete="off"
+          />
 
           <label for="ep-account">Default account</label>
           <AccountPathInput
             {accounts}
             bind:value={defaultAccountId}
             placeholder="Select or create…"
-            oncreate={(a) => { onAccountCreated?.(a); defaultAccountId = a.id }}
+            oncreate={(a) => {
+              onAccountCreated?.(a);
+              defaultAccountId = a.id;
+            }}
           />
 
           <label class="toggle-label">
             Multi-currency
-            <span class="tooltip-icon" title="Enable for banks that encode transfers inline (e.g. Wise).">?</span>
+            <span
+              class="tooltip-icon"
+              title="Enable for banks that encode transfers inline (e.g. Wise)."
+              >?</span
+            >
           </label>
           <Toggle bind:checked={isMultiCurrency} />
 
@@ -128,7 +174,10 @@
               {accounts}
               bind:value={defaultFeeAccountId}
               placeholder="expenses:fees…"
-              oncreate={(a) => { onAccountCreated?.(a); defaultFeeAccountId = a.id }}
+              oncreate={(a) => {
+                onAccountCreated?.(a);
+                defaultFeeAccountId = a.id;
+              }}
             />
           {/if}
         </div>
@@ -164,7 +213,11 @@
 
           <label for="ep-sign-col" class="toggle-label">
             Direction column
-            <span class="tooltip-icon" title="For banks that put IN/OUT in a separate column (e.g. Wise).">?</span>
+            <span
+              class="tooltip-icon"
+              title="For banks that put IN/OUT in a separate column (e.g. Wise)."
+              >?</span
+            >
           </label>
           <select id="ep-sign-col" bind:value={mappingSignColumn}>
             <option value="">— not mapped —</option>
@@ -190,25 +243,33 @@
       <section>
         <h3 class="section-heading">Multi-currency columns</h3>
         <div class="multi-grid">
-          <label for="ep-src-amount">Source amount <span class="required">*</span></label>
+          <label for="ep-src-amount"
+            >Source amount <span class="required">*</span></label
+          >
           <select id="ep-src-amount" bind:value={mappingSourceAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </select>
 
-          <label for="ep-src-currency">Source currency <span class="required">*</span></label>
+          <label for="ep-src-currency"
+            >Source currency <span class="required">*</span></label
+          >
           <select id="ep-src-currency" bind:value={mappingSourceCurrency}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </select>
 
-          <label for="ep-tgt-amount">Target amount <span class="required">*</span></label>
+          <label for="ep-tgt-amount"
+            >Target amount <span class="required">*</span></label
+          >
           <select id="ep-tgt-amount" bind:value={mappingTargetAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </select>
 
-          <label for="ep-tgt-currency">Target currency <span class="required">*</span></label>
+          <label for="ep-tgt-currency"
+            >Target currency <span class="required">*</span></label
+          >
           <select id="ep-tgt-currency" bind:value={mappingTargetCurrency}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
@@ -235,8 +296,12 @@
       {/if}
       <div class="footer-actions">
         <Button onclick={onCancel}>Cancel</Button>
-        <Button variant="primary" onclick={handleSave} disabled={saving || !valid}>
-          {saving ? 'Saving…' : 'Save'}
+        <Button
+          variant="primary"
+          onclick={handleSave}
+          disabled={saving || !valid}
+        >
+          {saving ? "Saving…" : "Save"}
         </Button>
       </div>
     </div>
@@ -249,6 +314,7 @@
     flex-direction: column;
     gap: var(--sp-md);
     padding: var(--sp-sm);
+    background: var(--color-window);
   }
 
   .columns {
