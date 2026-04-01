@@ -374,8 +374,9 @@
           autocomplete="off"
         />
 
-        <label>CSV file</label>
+        <label for="wizard-csv-file">CSV file</label>
         <input
+          id="wizard-csv-file"
           type="file"
           accept=".csv,text/csv"
           onchange={handleFileUpload}
@@ -383,15 +384,15 @@
         />
 
         {#if detectedHeader}
-          <label>Detected header</label>
+          <span class="field-label">Detected header</span>
           <code class="detected-header">{detectedHeader}</code>
         {/if}
 
         {#if columns.length > 0}
-          <label class="toggle-label">
+          <span class="field-label toggle-label">
             Multi-currency
             <span class="tooltip-icon" title="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately.">?</span>
-          </label>
+          </span>
           <Toggle bind:checked={isMultiCurrency} />
         {/if}
       </div>
@@ -611,12 +612,6 @@
     min-width: 420px;
   }
 
-  .placeholder {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    font-style: italic;
-  }
-
   .form-grid {
     display: grid;
     grid-template-columns: 10rem 1fr;
@@ -624,7 +619,8 @@
     align-items: center;
   }
 
-  .form-grid label {
+  .form-grid label,
+  .form-grid .field-label {
     font-size: var(--text-sm);
     text-align: right;
   }

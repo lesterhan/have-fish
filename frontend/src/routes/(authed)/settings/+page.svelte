@@ -373,7 +373,6 @@
     cursor: default;
   }
 
-  select,
   input {
     font-size: var(--text-sm);
     padding: var(--sp-xs) var(--sp-sm);
@@ -385,7 +384,6 @@
     width: 100%;
   }
 
-  select:focus,
   input:focus {
     outline: 2px solid var(--color-accent-mid);
     outline-offset: -2px;

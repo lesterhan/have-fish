@@ -150,7 +150,7 @@
     width: 100%;
   }
 
-  .col-balances {
+  :global(.col-balances) {
     text-align: right;
   }
 

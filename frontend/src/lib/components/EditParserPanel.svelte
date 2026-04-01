@@ -24,46 +24,23 @@
   // Derive available columns from the stored normalized header (pipe-separated)
   let columns = $derived(parser.normalizedHeader.split("|").filter(Boolean));
 
-  // Editable state — re-syncs whenever the parser prop changes
-  let name = $state(parser.name);
-  let isMultiCurrency = $state(parser.isMultiCurrency);
-  let defaultAccountId = $state(parser.defaultAccountId ?? "");
-  let defaultFeeAccountId = $state(parser.defaultFeeAccountId ?? "");
-
-  let mappingDate = $state((parser.columnMapping as ColumnMapping).date ?? "");
-  let mappingAmount = $state(
-    (parser.columnMapping as ColumnMapping).amount ?? "",
-  );
-  let mappingDescription = $state(
-    (parser.columnMapping as ColumnMapping).description ?? "",
-  );
-  let mappingCurrency = $state(
-    (parser.columnMapping as ColumnMapping).currency ?? "",
-  );
-  let mappingSignColumn = $state(
-    (parser.columnMapping as ColumnMapping).signColumn ?? "",
-  );
-  let mappingSignNegativeValue = $state(
-    (parser.columnMapping as ColumnMapping).signNegativeValue ?? "",
-  );
-  let mappingSourceAmount = $state(
-    (parser.columnMapping as ColumnMapping).sourceAmount ?? "",
-  );
-  let mappingSourceCurrency = $state(
-    (parser.columnMapping as ColumnMapping).sourceCurrency ?? "",
-  );
-  let mappingTargetAmount = $state(
-    (parser.columnMapping as ColumnMapping).targetAmount ?? "",
-  );
-  let mappingTargetCurrency = $state(
-    (parser.columnMapping as ColumnMapping).targetCurrency ?? "",
-  );
-  let mappingFeeAmount = $state(
-    (parser.columnMapping as ColumnMapping).feeAmount ?? "",
-  );
-  let mappingFeeCurrency = $state(
-    (parser.columnMapping as ColumnMapping).feeCurrency ?? "",
-  );
+  // Editable state — initialised empty, populated and re-synced by $effect below
+  let name = $state("");
+  let isMultiCurrency = $state(false);
+  let defaultAccountId = $state("");
+  let defaultFeeAccountId = $state("");
+  let mappingDate = $state("");
+  let mappingAmount = $state("");
+  let mappingDescription = $state("");
+  let mappingCurrency = $state("");
+  let mappingSignColumn = $state("");
+  let mappingSignNegativeValue = $state("");
+  let mappingSourceAmount = $state("");
+  let mappingSourceCurrency = $state("");
+  let mappingTargetAmount = $state("");
+  let mappingTargetCurrency = $state("");
+  let mappingFeeAmount = $state("");
+  let mappingFeeCurrency = $state("");
 
   $effect(() => {
     const m = parser.columnMapping as ColumnMapping;
@@ -158,14 +135,14 @@
             }}
           />
 
-          <label class="toggle-label">
+          <span class="toggle-label">
             Multi-currency
             <span
               class="tooltip-icon"
               title="Enable for banks that encode transfers inline (e.g. Wise)."
               >?</span
             >
-          </label>
+          </span>
           <Toggle bind:checked={isMultiCurrency} />
 
           {#if isMultiCurrency}

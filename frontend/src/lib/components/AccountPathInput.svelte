@@ -24,6 +24,9 @@
 
   // The text the user sees / types in the input field.
   // Initialised from the currently-selected account's path (if any).
+  // Unique ID for the listbox so aria-controls can reference it
+  const listboxId = `account-path-listbox-${Math.random().toString(36).slice(2, 7)}`;
+
   let inputText = $state(accounts.find((a) => a.id === value)?.path ?? "");
   let filterText = $state("");
   let open = $state(false);
@@ -186,10 +189,11 @@
     aria-expanded={open}
     aria-autocomplete="list"
     aria-haspopup="listbox"
+    aria-controls={listboxId}
   />
 
   {#if open && options.length > 0}
-    <ul class="dropdown" role="listbox">
+    <ul id={listboxId} class="dropdown" role="listbox">
       {#each options as option, i}
         <li
           class="option"
