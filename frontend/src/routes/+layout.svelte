@@ -1,6 +1,7 @@
 <script lang="ts">
   import "../styles/tokens.css";
   import "../styles/base.css";
+  import Button from "$lib/components/Button.svelte";
   import { useSession } from "$lib/auth";
   import { theme } from "$lib/theme.svelte";
 
@@ -41,13 +42,15 @@
         <a href="/import">Import 📥</a>
       {/if}
       <span class="menubar-spacer"></span>
-      <button
+      <Button
+        variant="ghost"
+        square
         class="theme-btn"
         onclick={() => theme.toggle()}
         title="Toggle dark mode"
       >
         {theme.dark ? "☀️" : "🌑"}
-      </button>
+      </Button>
       {#if $session.data}
         <a href="/settings" class="menubar-settings">
           {$session.data.user.email} ⚙️
