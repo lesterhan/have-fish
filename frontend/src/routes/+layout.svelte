@@ -35,10 +35,10 @@
 
     <nav class="menubar">
       {#if $session.data}
-        <a href="/">Dashboard</a>
-        <a href="/assets">Assets</a>
-        <a href="/transactions">Transactions</a>
-        <a href="/import">Import</a>
+        <a href="/">Dash 📈</a>
+        <a href="/transactions">Txns 🗃️</a>
+        <a href="/assets">Accs 💳</a>
+        <a href="/import">Import 📥</a>
       {/if}
       <span class="menubar-spacer"></span>
       <button

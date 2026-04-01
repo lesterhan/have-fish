@@ -263,7 +263,7 @@
       }}
     >
       <div class="form-grid">
-        <label class="field-label" for="to-account">Default Uncategorized</label
+        <label class="field-label" for="to-account">Uncategorized account</label
         >
         <AccountPathInput
           {accounts}
@@ -337,7 +337,13 @@
             <td>{parser.isMultiCurrency ? "Yes" : "No"}</td>
             <td class="cell-mono">{feePath}</td>
             <td class="cell-actions">
-              <Button variant="ghost" square onclick={() => { editingParser = parser }}>⚙️</Button>
+              <Button
+                variant="ghost"
+                square
+                onclick={() => {
+                  editingParser = parser;
+                }}>⚙️</Button
+              >
             </td>
           </tr>
         {/each}
