@@ -343,11 +343,12 @@ export async function deletePosting(id: string) {
   if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to delete posting')
 }
 
-export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string }) {
+export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string; accountPath?: string }) {
   const query = new URLSearchParams()
   if (params?.from) query.set('from', params.from)
   if (params?.to) query.set('to', params.to)
   if (params?.accountId) query.set('accountId', params.accountId)
+  if (params?.accountPath) query.set('accountPath', params.accountPath)
   const qs = query.toString()
   const res = await fetch(`${BASE}/api/transactions${qs ? `?${qs}` : ''}`, { credentials: 'include' })
   return res.json()

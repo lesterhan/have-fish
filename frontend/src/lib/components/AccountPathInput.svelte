@@ -8,8 +8,9 @@
 
   interface Props {
     accounts: Account[];
-    value: string; // bound account ID; empty string = nothing selected
+    value: string; // bound account ID (default) or path string (when searchOnly=true)
     placeholder?: string;
+    searchOnly?: boolean; // path-string mode: no create option, no revert-on-blur
     oncreate?: (account: Account) => void;
     oncommit?: (accountId: string) => void; // fires after any selection (existing or new)
   }
@@ -18,16 +19,18 @@
     accounts,
     value = $bindable(""),
     placeholder = "Type an account path…",
+    searchOnly = false,
     oncreate,
     oncommit,
   }: Props = $props();
 
   // The text the user sees / types in the input field.
-  // Initialised from the currently-selected account's path (if any).
+  // In default mode: initialised from the currently-selected account's path.
+  // In searchOnly mode: value IS the path string, so use it directly.
   // Unique ID for the listbox so aria-controls can reference it
   const listboxId = `account-path-listbox-${Math.random().toString(36).slice(2, 7)}`;
 
-  let inputText = $state(accounts.find((a) => a.id === value)?.path ?? "");
+  let inputText = $state(searchOnly ? value : (accounts.find((a) => a.id === value)?.path ?? ""));
   let filterText = $state("");
   let open = $state(false);
   let activeIndex = $state(0);
@@ -57,9 +60,11 @@
   // Do NOT read inputText here — that would make it a dependency and
   // cause the effect to reset the field on every keystroke.
   $effect(() => {
-    const match = accounts.find((a) => a.id === value);
-    if (match) {
-      inputText = match.path;
+    if (searchOnly) {
+      inputText = value;
+    } else {
+      const match = accounts.find((a) => a.id === value);
+      if (match) inputText = match.path;
     }
   });
 
@@ -81,7 +86,7 @@
     const exactMatch = accounts.some(
       (a) => a.path.toLowerCase() === inputText.trim().toLowerCase()
     );
-    const showCreate = inputText.trim().length > 0 && !exactMatch;
+    const showCreate = !searchOnly && inputText.trim().length > 0 && !exactMatch;
 
     return showCreate
       ? [...matched, { kind: "create", path: inputText.trim() }]
@@ -109,14 +114,17 @@
   function handleBlur() {
     setTimeout(() => {
       open = false;
-      // If what's in the box doesn't match any account, revert to the
-      // currently-selected account's path (or empty if nothing selected).
-      const selected = accounts.find((a) => a.id === value);
-      const exact = accounts.some(
-        (a) => a.path.toLowerCase() === inputText.trim().toLowerCase(),
-      );
-      if (!exact) {
-        inputText = selected?.path ?? "";
+      if (searchOnly) {
+        // Commit whatever is in the box as the path filter (partial paths are valid).
+        value = inputText.trim();
+        oncommit?.(value);
+      } else {
+        // Revert to the currently-selected account's path if no exact match.
+        const selected = accounts.find((a) => a.id === value);
+        const exact = accounts.some(
+          (a) => a.path.toLowerCase() === inputText.trim().toLowerCase(),
+        );
+        if (!exact) inputText = selected?.path ?? "";
       }
     }, 150);
   }
@@ -135,8 +143,7 @@
       selectOption(activeIndex);
     } else if (e.key === "Escape") {
       open = false;
-      const selected = accounts.find((a) => a.id === value);
-      inputText = selected?.path ?? "";
+      inputText = searchOnly ? value : (accounts.find((a) => a.id === value)?.path ?? "");
     }
   }
 
@@ -147,7 +154,7 @@
     if (!opt) return;
 
     if (opt.kind === "existing") {
-      value = opt.account.id;
+      value = searchOnly ? opt.account.path : opt.account.id;
       inputText = opt.account.path;
       open = false;
       oncommit?.(value);

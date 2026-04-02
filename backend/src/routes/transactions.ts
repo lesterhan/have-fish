@@ -1,18 +1,21 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { transactions, postings } from '../db/schema'
-import { eq, isNull, and, inArray, gte, lte } from 'drizzle-orm'
+import { eq, isNull, and, inArray, gte, lte, or, like } from 'drizzle-orm'
+import { accounts } from '../db/schema'
 import type { AppVariables } from '../app'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
 // GET /api/transactions
 // Returns all transactions for the user, each with its postings array embedded.
-// Filter by account: ?accountId=... (returns transactions that have a posting for that account)
+// Filter by account: ?accountId=... (exact account UUID match)
+//                   ?accountPath=... (matches the account and all children by path prefix)
 // Filter by date: ?from=YYYY-MM-DD and/or ?to=YYYY-MM-DD (both inclusive, both optional)
 app.get('/', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.query('accountId')
+  const accountPath = c.req.query('accountPath')
 
   const from = c.req.query('from')
   const to = c.req.query('to')
@@ -37,6 +40,33 @@ app.get('/', async (c) => {
       .select({ transactionId: postings.transactionId })
       .from(postings)
       .where(eq(postings.accountId, accountId))
+    const txIds = [...new Set(postingRows.map((p) => p.transactionId))]
+    if (txIds.length === 0) return c.json([])
+    txRows = txRows.filter((tx) => txIds.includes(tx.id))
+  }
+
+  if (accountPath) {
+    // Match the account itself and all children (e.g. "expenses:food" matches
+    // "expenses:food" and "expenses:food:restaurant").
+    // Escape LIKE special chars so user input can't broaden the match.
+    const escaped = accountPath.replace(/[%_\\]/g, '\\$&')
+    const matchingAccounts = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+        or(
+          eq(accounts.path, accountPath),
+          like(accounts.path, `${escaped}:%`),
+        ),
+      ))
+    const accountIds = matchingAccounts.map((a) => a.id)
+    if (accountIds.length === 0) return c.json([])
+    const postingRows = await db
+      .select({ transactionId: postings.transactionId })
+      .from(postings)
+      .where(and(inArray(postings.accountId, accountIds), isNull(postings.deletedAt)))
     const txIds = [...new Set(postingRows.map((p) => p.transactionId))]
     if (txIds.length === 0) return c.json([])
     txRows = txRows.filter((tx) => txIds.includes(tx.id))

@@ -32,6 +32,7 @@
   let sortDir = $derived(
     (page.url.searchParams.get("dir") ?? "desc") as "asc" | "desc",
   );
+  let accountPath = $derived(page.url.searchParams.get("accountPath") ?? "");
 
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
   let accounts = $state<Account[]>([]);
@@ -39,10 +40,10 @@
   let defaultConversionAccountId = $state<string | null>(null);
   let loading = $state(true);
 
-  // Re-fetch transactions whenever from/to change.
+  // Re-fetch transactions whenever from/to/accountPath change.
   $effect(() => {
     loading = true;
-    fetchTransactions({ from, to }).then((txs) => {
+    fetchTransactions({ from, to, accountPath: accountPath || undefined }).then((txs) => {
       transactions = txs;
       loading = false;
     });
@@ -56,7 +57,9 @@
   );
 
   function navigate(params: Record<string, string>) {
-    goto(`?${new URLSearchParams({ from, to, dir: sortDir, ...params })}`);
+    const base: Record<string, string> = { from, to, dir: sortDir };
+    if (accountPath) base.accountPath = accountPath;
+    goto(`?${new URLSearchParams({ ...base, ...params })}`);
   }
 
   function handleApply(newFrom: string, newTo: string) {
@@ -65,6 +68,12 @@
 
   function handleSortChange(dir: "asc" | "desc") {
     navigate({ dir });
+  }
+
+  function handleAccountPathChange(path: string) {
+    const base: Record<string, string> = { from, to, dir: sortDir };
+    if (path) base.accountPath = path;
+    goto(`?${new URLSearchParams(base)}`);
   }
 
   // Accounts and settings don't depend on the date range — fetch once.
@@ -78,8 +87,10 @@
   {from}
   {to}
   {sortDir}
+  {accountPath}
   onApply={handleApply}
   onSortChange={handleSortChange}
+  onAccountPathChange={handleAccountPathChange}
 />
 
 {#if loading}
