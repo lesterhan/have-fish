@@ -18,4 +18,4 @@
 | [Support Transfer Direction](epics/archive/support-transfer-direction.md) | Done |
 | [Resolve Duplicate Transactions](epics/resolve-duplicate-transactions.md) | Backlog |
 | [Dashboard](epics/dashboard.md) | Backlog |
-| [User Sign-up](epics/user-signup.md) | Backlog |
+| [User Sign-up](epics/archive/user-signup.md) | Done |
