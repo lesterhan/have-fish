@@ -228,6 +228,7 @@ export type UserSettings = {
   defaultAssetsRootPath: string
   defaultLiabilitiesRootPath: string
   defaultExpensesRootPath: string
+  preferences: { dashboardHiddenCurrencies?: string[] } & Record<string, unknown>
   createdAt: string
   updatedAt: string
 }
@@ -238,7 +239,7 @@ export async function fetchUserSettings(): Promise<UserSettings> {
 }
 
 export async function updateUserSettings(
-  body: Partial<Pick<UserSettings, 'defaultOffsetAccountId' | 'defaultConversionAccountId' | 'defaultAssetsRootPath' | 'defaultLiabilitiesRootPath' | 'defaultExpensesRootPath'>>,
+  body: Partial<Pick<UserSettings, 'defaultOffsetAccountId' | 'defaultConversionAccountId' | 'defaultAssetsRootPath' | 'defaultLiabilitiesRootPath' | 'defaultExpensesRootPath'>> & { preferences?: Record<string, unknown> },
 ): Promise<UserSettings> {
   const res = await fetch(`${BASE}/api/user-settings`, {
     method: 'PATCH',

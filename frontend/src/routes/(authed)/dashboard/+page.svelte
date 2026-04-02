@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Panel from '$lib/components/Panel.svelte'
-  import { fetchSpendingSummary, fetchWeeklySpend } from '$lib/api'
+  import { fetchSpendingSummary, fetchWeeklySpend, fetchAccountBalances, fetchMonthlySpend, fetchUserSettings, updateUserSettings } from '$lib/api'
   import type { SpendingSummary, WeeklySpend } from '$lib/api'
   import { Chart, BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
 
@@ -189,7 +189,78 @@
     })
   })
 
-  onMount(() => { load(); loadHistory() })
+  // --- Cash position ---
+  let cashTotals   = $state<Record<string, number>>({})
+  let avgBurn      = $state<Record<string, number>>({})
+  let hiddenCurrencies = $state<string[]>([])
+  let showHidden   = $state(false)
+
+  async function loadCash() {
+    const [balances, monthly, settings] = await Promise.all([
+      fetchAccountBalances(),
+      fetchMonthlySpend(3),
+      fetchUserSettings(),
+    ])
+    hiddenCurrencies = settings.preferences?.dashboardHiddenCurrencies ?? []
+
+    // Sum asset balances per currency
+    const totals: Record<string, number> = {}
+    for (const acct of balances.filter(a => a.type === 'asset')) {
+      for (const { currency, amount } of acct.balances) {
+        totals[currency] = (totals[currency] ?? 0) + parseFloat(amount)
+      }
+    }
+    cashTotals = totals
+
+    // 3-month average burn per currency
+    const burn: Record<string, number> = {}
+    for (const m of monthly) {
+      for (const [currency, amount] of Object.entries(m.total)) {
+        burn[currency] = (burn[currency] ?? 0) + parseFloat(amount)
+      }
+    }
+    for (const c of Object.keys(burn)) burn[c] = burn[c] / 3
+    avgBurn = burn
+  }
+
+  // Runway in months for a currency, null if no burn data
+  function runwayMonths(currency: string): number | null {
+    const cash = cashTotals[currency] ?? 0
+    const burn = avgBurn[currency] ?? 0
+    if (burn <= 0) return null
+    return cash / burn
+  }
+
+  type Zone = 'comfortable' | 'watch' | 'urgent'
+  function zone(months: number): Zone {
+    if (months > 12) return 'comfortable'
+    if (months > 6)  return 'watch'
+    return 'urgent'
+  }
+
+  // Position of the runway marker on the track (0–100%), capped at track max of 18mo
+  const TRACK_MAX = 18
+  function markerPct(months: number): number {
+    return Math.max(0, Math.min(months / TRACK_MAX, 1)) * 100
+  }
+
+  async function toggleHideCurrency(currency: string) {
+    const next = hiddenCurrencies.includes(currency)
+      ? hiddenCurrencies.filter(c => c !== currency)
+      : [...hiddenCurrencies, currency]
+    hiddenCurrencies = next
+    await updateUserSettings({ preferences: { dashboardHiddenCurrencies: next } })
+  }
+
+  let allCashCurrencies = $derived(
+    [...new Set([...Object.keys(cashTotals), ...Object.keys(avgBurn)])]
+      .filter(c => (cashTotals[c] ?? 0) > 0 || (avgBurn[c] ?? 0) > 0)
+  )
+  let cashCurrencies = $derived(
+    showHidden ? allCashCurrencies : allCashCurrencies.filter(c => !hiddenCurrencies.includes(c))
+  )
+
+  onMount(() => { load(); loadHistory(); loadCash() })
 
   function navigate(delta: number) {
     const next = shiftMonth(year, month, delta)
@@ -273,8 +344,50 @@
   </Panel>
 
   <Panel title="CASH POSITION">
-    <div class="panel-content empty">
-      <!-- Story 5 -->
+    <div class="panel-content">
+      {#if cashCurrencies.length === 0}
+        <p class="empty">No asset balances found.</p>
+      {:else}
+        {#each cashCurrencies as currency}
+          {@const months = runwayMonths(currency)}
+          {@const z = months !== null ? zone(months) : null}
+          <div class="cash-row">
+            <div class="cash-header">
+              <span class="cash-amount" class:muted={hiddenCurrencies.includes(currency)}>{(cashTotals[currency] ?? 0).toFixed(2)} {currency}</span>
+              {#if z}
+                <span class="zone-badge zone-{z}">
+                  {z === 'comfortable' ? 'comfortable' : z === 'watch' ? 'watch it' : 'urgent'}
+                </span>
+              {/if}
+              <button class="hide-btn" onclick={() => toggleHideCurrency(currency)} title={hiddenCurrencies.includes(currency) ? 'Show' : 'Hide'}>
+                {hiddenCurrencies.includes(currency) ? '👁' : '×'}
+              </button>
+            </div>
+
+            {#if months !== null}
+              <!-- Three-zone runway track -->
+              <div class="runway-track" title="{months.toFixed(1)} months runway">
+                <div class="runway-segment urgent"   style="width: 33.3%"></div>
+                <div class="runway-segment watch"    style="width: 33.3%"></div>
+                <div class="runway-segment comfortable" style="width: 33.4%"></div>
+                <div class="runway-marker" style="left: {markerPct(months)}%"></div>
+              </div>
+              <div class="cash-meta">
+                avg burn {(avgBurn[currency] ?? 0).toFixed(0)} {currency}/mo
+                · {months < TRACK_MAX ? `~${Math.round(months)}mo runway` : `> ${TRACK_MAX}mo runway`}
+              </div>
+            {:else}
+              <p class="cash-meta">no spend data — runway unknown</p>
+            {/if}
+          </div>
+        {/each}
+      {/if}
+
+      {#if hiddenCurrencies.length > 0}
+        <button class="show-hidden-btn" onclick={() => (showHidden = !showHidden)}>
+          {showHidden ? 'hide' : `${hiddenCurrencies.length} hidden · show`}
+        </button>
+      {/if}
     </div>
   </Panel>
 </div>
@@ -470,5 +583,108 @@
   .empty {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+  }
+
+  /* Cash position */
+  .cash-row {
+    margin-bottom: var(--sp-md);
+  }
+
+  .cash-row:last-child {
+    margin-bottom: 0;
+  }
+
+  .cash-header {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-sm);
+    margin-bottom: 4px;
+  }
+
+  .cash-amount {
+    font-size: var(--text-base);
+    font-weight: var(--weight-semibold);
+    color: var(--color-amount-positive);
+  }
+
+  .zone-badge {
+    font-size: var(--text-xs);
+    padding: 1px var(--sp-xs);
+    font-weight: var(--weight-semibold);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .zone-comfortable { background: var(--color-success-light); color: var(--color-success); }
+  .zone-watch       { background: var(--color-warning-light); color: var(--color-warning); }
+  .zone-urgent      { background: var(--color-danger-light);  color: var(--color-danger);  }
+
+  /* Runway track */
+  .runway-track {
+    position: relative;
+    display: flex;
+    height: 10px;
+    box-shadow: var(--shadow-sunken);
+    margin-bottom: 4px;
+    overflow: visible;
+  }
+
+  .runway-segment {
+    height: 100%;
+  }
+
+  .runway-segment.urgent      { background: var(--color-danger);  opacity: 0.4; }
+  .runway-segment.watch       { background: var(--color-warning); opacity: 0.4; }
+  .runway-segment.comfortable { background: var(--color-success); opacity: 0.4; }
+
+  .runway-marker {
+    position: absolute;
+    top: -3px;
+    width: 3px;
+    height: 16px;
+    background: var(--color-text);
+    transform: translateX(-50%);
+    box-shadow: 1px 0 0 var(--color-bevel-light);
+  }
+
+  .cash-meta {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .cash-amount.muted {
+    opacity: 0.45;
+  }
+
+  .hide-btn {
+    margin-left: auto;
+    background: none;
+    border: none;
+    padding: 0 2px;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    line-height: 1;
+    opacity: 0;
+    transition: opacity var(--duration-fast) var(--ease);
+  }
+
+  .cash-header:hover .hide-btn {
+    opacity: 1;
+  }
+
+  .show-hidden-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    margin-top: var(--sp-sm);
+    text-decoration: underline;
+  }
+
+  .show-hidden-btn:hover {
+    color: var(--color-text);
   }
 </style>

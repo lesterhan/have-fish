@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { userSettings, accounts } from '../db/schema'
-import { eq, and, isNull } from 'drizzle-orm'
+import { eq, and, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -35,6 +35,8 @@ app.get('/', async (c) => {
 //   defaultConversionAccountId — UUID of an account owned by the user, or null
 //   defaultAssetsRootPath      — plain text path prefix, e.g. "assets"
 //   defaultLiabilitiesRootPath — plain text path prefix, e.g. "liabilities"
+//   defaultExpensesRootPath    — plain text path prefix, e.g. "expenses"
+//   preferences                — arbitrary JSON object, shallow-merged into existing preferences
 app.patch('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
@@ -76,17 +78,31 @@ app.patch('/', async (c) => {
     patch[field] = value.trim()
   }
 
-  if (Object.keys(patch).length === 0) {
+  // preferences — shallow-merged into existing JSONB using the || operator so
+  // patching one key never wipes unrelated keys set by other features.
+  let preferencePatch: ReturnType<typeof sql> | undefined
+  if ('preferences' in body) {
+    if (typeof body.preferences !== 'object' || body.preferences === null || Array.isArray(body.preferences)) {
+      return c.json({ error: 'preferences must be a JSON object' }, 400)
+    }
+    preferencePatch = sql`COALESCE(${userSettings.preferences}, '{}') || ${JSON.stringify(body.preferences)}::jsonb`
+  }
+
+  if (Object.keys(patch).length === 0 && !preferencePatch) {
     return c.json({ error: 'no valid fields to update' }, 400)
   }
 
   // Upsert: create the row if it doesn't exist, otherwise update it
   const [updated] = await db
     .insert(userSettings)
-    .values({ userId, ...patch })
+    .values({ userId, ...patch, preferences: body.preferences ?? {} })
     .onConflictDoUpdate({
       target: userSettings.userId,
-      set: { ...patch, updatedAt: new Date() },
+      set: {
+        ...patch,
+        ...(preferencePatch ? { preferences: preferencePatch } : {}),
+        updatedAt: new Date(),
+      },
     })
     .returning()
 
