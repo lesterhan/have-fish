@@ -1,8 +1,10 @@
 import type { Handle } from '@sveltejs/kit'
 
+const INTERNAL_API_URL = import.meta.env.INTERNAL_API_URL ?? import.meta.env.VITE_API_URL ?? 'http://localhost:8887'
+
 export const handle: Handle = async ({ event, resolve }) => {
   const response = await fetch(
-    `${import.meta.env.VITE_API_URL}/api/auth/get-session`,
+    `${INTERNAL_API_URL}/api/auth/get-session`,
     { headers: { cookie: event.request.headers.get('cookie') ?? '' } }
   )
 
