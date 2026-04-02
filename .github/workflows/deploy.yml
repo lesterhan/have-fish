@@ -25,4 +25,4 @@ jobs:
           ssh -i /tmp/deploy_key \
               -o StrictHostKeyChecking=accept-new \
               ${{ secrets.DEPLOY_USER }}@${{ secrets.DEPLOY_HOST }} \
-              "~/deploy.sh"
+              "~/apps/deploy-have-fish.sh"
