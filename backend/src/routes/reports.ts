@@ -6,6 +6,13 @@ import type { AppVariables } from '../app'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
+// Returns the user's configured expenses root path, with LIKE special chars escaped.
+async function getExpensesRoot(userId: string): Promise<string> {
+  const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId))
+  const root = settings?.defaultExpensesRootPath ?? 'expenses'
+  return root.replace(/[%_\\]/g, '\\$&')
+}
+
 // GET /api/reports/spending-summary?from=YYYY-MM-DD&to=YYYY-MM-DD
 //
 // Returns total spend and per-category breakdown for expense accounts only.
@@ -20,11 +27,7 @@ app.get('/spending-summary', async (c) => {
   if (from && !dateRe.test(from)) return c.json({ error: 'Invalid from date, expected YYYY-MM-DD' }, 400)
   if (to && !dateRe.test(to)) return c.json({ error: 'Invalid to date, expected YYYY-MM-DD' }, 400)
 
-  const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId))
-  const expensesRoot = settings?.defaultExpensesRootPath ?? 'expenses'
-  // Escape LIKE special characters in the root path so a user-configured value
-  // like "expenses%" can't broaden the match unexpectedly.
-  const escapedRoot = expensesRoot.replace(/[%_\\]/g, '\\$&')
+  const expensesRoot = await getExpensesRoot(userId)
 
   const rows = await db
     .select({
@@ -40,20 +43,17 @@ app.get('/spending-summary', async (c) => {
       isNull(transactions.deletedAt),
       isNull(postings.deletedAt),
       isNull(accounts.deletedAt),
-      like(accounts.path, `${escapedRoot}:%`),
+      like(accounts.path, `${expensesRoot}:%`),
       from ? gte(transactions.date, new Date(from)) : undefined,
       to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
     ))
 
-  // Aggregate totals per currency and per top-level category
   const totalByCurrency: Record<string, number> = {}
   const categoryMap: Record<string, Record<string, number>> = {}
 
   for (const row of rows) {
     const amount = parseFloat(row.amount)
     const { currency } = row
-
-    // Top-level category: first two path segments (e.g. "expenses:food:restaurant" → "expenses:food")
     const segments = row.path.split(':')
     const category = segments.length >= 2 ? `${segments[0]}:${segments[1]}` : segments[0]
 
@@ -75,6 +75,73 @@ app.get('/spending-summary', async (c) => {
     ),
     categories,
   })
+})
+
+// GET /api/reports/monthly-spend?months=N
+//
+// Returns an array of { month: "YYYY-MM", total: { CAD: "3200.00", ... } }
+// for the past N calendar months (default 12), most recent last.
+// All months in the window are included even if spend is zero.
+// Same expense account filtering rules as /spending-summary.
+app.get('/monthly-spend', async (c) => {
+  const userId = c.get('userId')
+  const monthsParam = c.req.query('months')
+  const months = monthsParam ? parseInt(monthsParam, 10) : 12
+
+  if (isNaN(months) || months < 1 || months > 120) {
+    return c.json({ error: 'months must be a number between 1 and 120' }, 400)
+  }
+
+  // Build the window: from the first day of (months) ago to end of current month
+  const now = new Date()
+  const windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1))
+  const windowEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+
+  const expensesRoot = await getExpensesRoot(userId)
+
+  const rows = await db
+    .select({
+      date: transactions.date,
+      amount: postings.amount,
+      currency: postings.currency,
+    })
+    .from(postings)
+    .innerJoin(accounts, eq(postings.accountId, accounts.id))
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(and(
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      isNull(postings.deletedAt),
+      isNull(accounts.deletedAt),
+      like(accounts.path, `${expensesRoot}:%`),
+      gte(transactions.date, windowStart),
+      lte(transactions.date, windowEnd),
+    ))
+
+  // Build a map of all months in the window initialised to empty totals
+  const monthMap: Record<string, Record<string, number>> = {}
+  for (let i = 0; i < months; i++) {
+    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1 + i, 1))
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+    monthMap[key] = {}
+  }
+
+  // Accumulate spend into the month buckets
+  for (const row of rows) {
+    const d = new Date(row.date)
+    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
+    if (!(key in monthMap)) continue
+    monthMap[key][row.currency] = (monthMap[key][row.currency] ?? 0) + parseFloat(row.amount)
+  }
+
+  const result = Object.entries(monthMap).map(([month, byCurrency]) => ({
+    month,
+    total: Object.fromEntries(
+      Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)])
+    ),
+  }))
+
+  return c.json(result)
 })
 
 export default app
