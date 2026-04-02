@@ -1,18 +1,27 @@
 <script lang="ts">
-  import { signIn } from '$lib/auth'
+  import { signUp } from '$lib/auth'
   import { goto } from '$app/navigation'
   import Button from '$lib/components/Button.svelte'
 
   let email = $state('')
   let password = $state('')
+  let confirmPassword = $state('')
   let error = $state('')
 
   async function handleSubmit(e: SubmitEvent) {
     e.preventDefault()
     error = ''
-    const result = await signIn.email({ email, password })
+
+    if (password !== confirmPassword) {
+      error = 'Passwords do not match'
+      return
+    }
+
+    // Better Auth requires a name field — use email as the display name since
+    // we don't collect a separate name on sign-up.
+    const result = await signUp.email({ email, password, name: email })
     if (result.error) {
-      error = result.error.message ?? 'Sign in failed'
+      error = result.error.message ?? 'Sign up failed'
     } else {
       goto('/')
     }
@@ -21,8 +30,8 @@
 
 <div class="panel">
   <div class="panel-titlebar">
-    <span class="panel-icon">🔑</span>
-    <span>Sign in</span>
+    <span class="panel-icon">🪪</span>
+    <span>Create account</span>
   </div>
 
   <div class="panel-body">
@@ -34,7 +43,12 @@
 
       <div class="field">
         <label for="password">Password</label>
-        <input id="password" type="password" bind:value={password} required autocomplete="current-password" />
+        <input id="password" type="password" bind:value={password} required autocomplete="new-password" />
+      </div>
+
+      <div class="field">
+        <label for="confirm-password">Confirm password</label>
+        <input id="confirm-password" type="password" bind:value={confirmPassword} required autocomplete="new-password" />
       </div>
 
       {#if error}
@@ -42,11 +56,11 @@
       {/if}
 
       <div class="actions">
-        <Button type="submit" variant="primary">Sign in</Button>
+        <Button type="submit" variant="primary">Create account</Button>
       </div>
     </form>
 
-    <p class="switch-link">Don't have an account? <a href="/signup">Sign up</a></p>
+    <p class="switch-link">Already have an account? <a href="/login">Sign in</a></p>
   </div>
 </div>
 

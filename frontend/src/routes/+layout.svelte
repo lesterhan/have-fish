@@ -43,11 +43,13 @@
         <a href="/import">Import 📥</a>
       {/if}
       <span class="menubar-spacer">
-        <span class="toast-slot">
-          {#if toast.message}
-            <span class="toast">{toast.message}</span>
-          {/if}
-        </span>
+        {#if $session.data}
+          <span class="toast-slot">
+            {#if toast.message}
+              <span class="toast">{toast.message}</span>
+            {/if}
+          </span>
+        {/if}
       </span>
       <Button
         variant="ghost"
@@ -260,8 +262,12 @@
   }
 
   @keyframes marquee {
-    from { transform: translateX(220px); }
-    to   { transform: translateX(-100%); }
+    from {
+      transform: translateX(220px);
+    }
+    to {
+      transform: translateX(-100%);
+    }
   }
 
   .menubar-settings {
