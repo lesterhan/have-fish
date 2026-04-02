@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32">
+  <!-- Envelope body -->
+  <rect x="2" y="7" width="28" height="18" rx="1" fill="#cc0000"/>
+  <!-- Envelope flap (V shape) -->
+  <polygon points="2,7 16,18 30,7" fill="#e60000"/>
+  <!-- Gold diamond ornament -->
+  <polygon points="16,13 20,17 16,21 12,17" fill="#ffd700"/>
+  <!-- Subtle border -->
+  <rect x="2" y="7" width="28" height="18" rx="1" fill="none" stroke="#990000" stroke-width="1"/>
+</svg>

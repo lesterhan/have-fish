@@ -14,10 +14,14 @@
   let showQuitDialog = $state(false);
 </script>
 
+<svelte:head>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+</svelte:head>
+
 <div class="desktop" class:maximized>
   <div class="window">
     <div class="titlebar">
-      <span class="titlebar-icon">🐟</span>
+      <span class="titlebar-icon">🧧</span>
       <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
         <button class="chrome-btn minimize" aria-label="Minimize">_</button>
@@ -81,7 +85,7 @@
     <div class="dialog-overlay">
       <div class="dialog">
         <div class="dialog-titlebar">
-          <span class="titlebar-icon">🐟</span>
+          <span class="titlebar-icon">🧧</span>
           <span>have-fish</span>
         </div>
         <div class="dialog-body">
