@@ -1,4 +1,6 @@
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8887'
+// All /api/* requests are proxied by the SvelteKit server to the backend.
+// Empty base means same-origin, which works in both dev and production.
+const BASE = ''
 
 export type Account = {
   id: string

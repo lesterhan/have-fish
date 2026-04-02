@@ -318,7 +318,7 @@
     }
   }
 
-  const BASE = import.meta.env.VITE_API_URL ?? "http://localhost:8887";
+  const BASE = '';
 </script>
 
 <Modal title={TITLES[type]} bind:open onclose={close}>
