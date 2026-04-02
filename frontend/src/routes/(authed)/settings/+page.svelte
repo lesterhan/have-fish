@@ -71,10 +71,11 @@
   const rootPathLabels: Record<string, string> = {
     defaultAssetsRootPath: "Assets root path",
     defaultLiabilitiesRootPath: "Liabilities root path",
+    defaultExpensesRootPath: "Expenses root path",
   };
 
   async function handleRootPathChange(
-    field: "defaultAssetsRootPath" | "defaultLiabilitiesRootPath",
+    field: "defaultAssetsRootPath" | "defaultLiabilitiesRootPath" | "defaultExpensesRootPath",
     value: string,
   ) {
     if (!value.trim()) return;
@@ -187,6 +188,26 @@
               (e.currentTarget as HTMLInputElement).value,
             )}
           placeholder="liabilities"
+        />
+
+        <label for="expenses-root-path" class="tip-label">
+          Expenses
+          <span
+            class="tip"
+            title="Root path prefix for expense accounts. Used to filter spending reports (e.g. 'expenses' → 'expenses:food')."
+            >?</span
+          >
+        </label>
+        <input
+          id="expenses-root-path"
+          type="text"
+          value={userSettings?.defaultExpensesRootPath ?? "expenses"}
+          onblur={(e) =>
+            handleRootPathChange(
+              "defaultExpensesRootPath",
+              (e.currentTarget as HTMLInputElement).value,
+            )}
+          placeholder="expenses"
         />
       </div>
     </div>
