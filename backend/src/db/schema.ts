@@ -116,6 +116,7 @@ export const userSettings = pgTable('user_settings', {
   // All accounts whose path starts with defaultAssetsRootPath value are treated as assets.
   defaultAssetsRootPath: text('default_assets_root_path').notNull().default('assets'),
   defaultLiabilitiesRootPath: text('default_liabilities_root_path').notNull().default('liabilities'),
+  defaultExpensesRootPath: text('default_expenses_root_path').notNull().default('expenses'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })

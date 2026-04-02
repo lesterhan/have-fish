@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN "default_expenses_root_path" text DEFAULT 'expenses' NOT NULL;
