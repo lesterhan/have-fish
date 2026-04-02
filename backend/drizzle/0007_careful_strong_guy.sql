@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN "default_liabilities_root_path" text DEFAULT 'liabilities' NOT NULL;

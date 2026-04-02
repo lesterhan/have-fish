@@ -10,9 +10,6 @@ node_modules/
 build/
 dist/
 
-# drizzle migrations output
-backend/drizzle/
-
 # bun.lockb
 
 # OS
