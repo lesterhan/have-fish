@@ -82,6 +82,9 @@
     toast.show(`${rootPathLabels[field]} saved`);
   }
 
+  // --- Accounts ---
+  let accountsExpanded = $state(false)
+
   // --- Danger zone ---
   let showDeleteConfirm = $state(false);
 
@@ -191,25 +194,32 @@
 </section>
 
 <section>
-  <h2>Accounts</h2>
-  <form
-    onsubmit={(e) => {
-      e.preventDefault();
-      handleCreateAccount();
-    }}
-  >
-    <input bind:value={newAccountPath} placeholder="assets:cash" />
-    <Button type="submit" variant="primary">Add Account</Button>
-  </form>
+  <button class="accounts-toggle" onclick={() => (accountsExpanded = !accountsExpanded)}>
+    <span class="accounts-toggle-arrow">{accountsExpanded ? '🔽' : '▶️'}</span>
+    <h2>Accounts <span class="accounts-count">({accounts.length})</span></h2>
+  </button>
 
-  {#each accounts as account}
-    <div class="list-row">
-      {account.path}
-      <Button variant="danger" onclick={() => handleDeleteAccount(account.id)}
-        >delete</Button
-      >
+  {#if accountsExpanded}
+    <form
+      onsubmit={(e) => {
+        e.preventDefault();
+        handleCreateAccount();
+      }}
+      class="add-account-form"
+    >
+      <input bind:value={newAccountPath} placeholder="assets:cash" class="add-input" />
+      <Button type="submit" variant="primary">Add</Button>
+    </form>
+
+    <div class="accounts-list">
+      {#each [...accounts].sort((a, b) => a.path.localeCompare(b.path)) as account}
+        <div class="list-row">
+          {account.path}
+          <Button variant="danger" onclick={() => handleDeleteAccount(account.id)}>delete</Button>
+        </div>
+      {/each}
     </div>
-  {/each}
+  {/if}
 </section>
 
 <Panel title="DANGER">
@@ -313,13 +323,71 @@
     border-bottom: 1px solid var(--color-border);
   }
 
+  .accounts-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    width: 100%;
+    text-align: left;
+    margin-bottom: var(--sp-sm);
+  }
+
+  .accounts-toggle h2 {
+    margin-bottom: 0;
+    border-bottom: none;
+    padding-bottom: 0;
+  }
+
+  .accounts-toggle:hover h2 {
+    color: var(--color-accent-mid);
+  }
+
+  .accounts-toggle-arrow {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    width: 12px;
+    flex-shrink: 0;
+  }
+
+  .accounts-count {
+    font-weight: normal;
+    color: var(--color-text-muted);
+  }
+
+  .add-account-form {
+    display: flex;
+    gap: var(--sp-sm);
+    margin-bottom: var(--sp-sm);
+  }
+
+  .add-input {
+    flex: 1;
+    width: 0; /* override global width: 100% so flex controls the width */
+    background: var(--color-window-inset) !important;
+  }
+
+  .accounts-list {
+    max-height: 220px;
+    overflow-y: auto;
+    box-shadow: var(--shadow-sunken);
+    background: var(--color-window-inset);
+  }
+
   .list-row {
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: var(--sp-xs) 0;
+    padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-border);
     font-size: var(--text-sm);
+  }
+
+  .list-row:last-child {
+    border-bottom: none;
   }
 
   /* --- Danger zone --- */
