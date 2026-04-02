@@ -294,6 +294,16 @@ export async function patchPosting(
   return res.json()
 }
 
+export type SpendingSummary = {
+  total: Record<string, string>
+  categories: { category: string; total: Record<string, string> }[]
+}
+
+export async function fetchSpendingSummary(from: string, to: string): Promise<SpendingSummary> {
+  const res = await fetch(`${BASE}/api/reports/spending-summary?from=${from}&to=${to}`, { credentials: 'include' })
+  return res.json()
+}
+
 export async function createPosting(body: {
   transactionId: string
   accountId: string
