@@ -1,8 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Panel from '$lib/components/Panel.svelte'
-  import { fetchSpendingSummary } from '$lib/api'
-  import type { SpendingSummary } from '$lib/api'
+  import { fetchSpendingSummary, fetchWeeklySpend } from '$lib/api'
+  import type { SpendingSummary, WeeklySpend } from '$lib/api'
+  import { Chart, BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
+
+  Chart.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend)
 
   // --- Date helpers ---
 
@@ -65,7 +68,128 @@
     }
   }
 
-  onMount(load)
+  // --- Spend history chart ---
+  // Window options as labels → approximate week counts
+  const WINDOW_OPTIONS = [
+    { label: '3mo', weeks: 13 },
+    { label: '6mo', weeks: 26 },
+    { label: '12mo', weeks: 52 },
+  ] as const
+  type WindowLabel = typeof WINDOW_OPTIONS[number]['label']
+
+  let historyWindow = $state<WindowLabel>('3mo')
+  let historyData = $state<WeeklySpend[]>([])
+  let chartCanvas = $state<HTMLCanvasElement | null>(null)
+  let chartInstance: Chart | null = null
+
+  function currentWeeks(): number {
+    return WINDOW_OPTIONS.find(o => o.label === historyWindow)!.weeks
+  }
+
+  async function loadHistory() {
+    historyData = await fetchWeeklySpend(currentWeeks())
+  }
+
+  // Format "YYYY-MM-DD" → "Apr 7"
+  const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  function formatWeekLabel(weekStart: string): string {
+    const [, m, d] = weekStart.split('-').map(Number)
+    return `${SHORT_MONTHS[m - 1]} ${d}`
+  }
+
+  // Collect all currencies across the window
+  function historyCurrencies(): string[] {
+    const set = new Set<string>()
+    for (const m of historyData) Object.keys(m.total).forEach(c => set.add(c))
+    return [...set]
+  }
+
+  // Windows 98 system palette — one colour per currency
+  const WIN_COLOURS = [
+    { bg: '#008080', border: '#005050' }, // teal
+    { bg: '#800000', border: '#500000' }, // maroon
+    { bg: '#000080', border: '#000050' }, // navy
+    { bg: '#808000', border: '#505000' }, // olive
+    { bg: '#800080', border: '#500050' }, // purple
+  ]
+
+  // Resolve a CSS variable to its computed value so Chart.js gets a real colour string
+  function cssVar(name: string): string {
+    return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+  }
+
+  $effect(() => {
+    if (!chartCanvas || historyData.length === 0) return
+
+    const textColour = cssVar('--color-text')
+    const gridColour = cssVar('--color-bevel-dark')
+
+    const labels = historyData.map(m => formatWeekLabel(m.weekStart))
+    const currencies = historyCurrencies()
+
+    // Average across all currencies combined (sum of per-currency averages)
+    const avg = currencies.reduce((sum, currency) => {
+      const total = historyData.reduce((s, m) => s + parseFloat(m.total[currency] ?? '0'), 0)
+      return sum + total / historyData.length
+    }, 0)
+
+    const datasets = currencies.map((currency, i) => {
+      const { bg, border } = WIN_COLOURS[i % WIN_COLOURS.length]
+      return {
+        label: currency,
+        data: historyData.map(m => parseFloat(m.total[currency] ?? '0')),
+        backgroundColor: bg,
+        borderColor: border,
+        borderWidth: 1,
+        stack: 'spend',
+      }
+    })
+
+    // Average line
+    datasets.push({
+      label: 'Avg',
+      data: historyData.map(() => avg),
+      backgroundColor: 'rgba(0,0,0,0)',
+      // @ts-expect-error — mixed type requires Chart.js type extension
+      type: 'line',
+      borderColor: '#cc0000',
+      borderWidth: 1,
+      borderDash: [4, 4],
+      pointRadius: 0,
+      stack: undefined,
+    })
+
+    if (chartInstance) chartInstance.destroy()
+    chartInstance = new Chart(chartCanvas, {
+      type: 'bar',
+      data: { labels, datasets },
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          legend: {
+            labels: { font: { family: 'Tahoma, sans-serif', size: 11 }, color: textColour },
+          },
+          tooltip: { mode: 'index' },
+        },
+        scales: {
+          x: {
+            stacked: true,
+            ticks: { font: { family: 'Tahoma, sans-serif', size: 11 }, color: textColour },
+            grid: { color: gridColour },
+          },
+          y: {
+            stacked: true,
+            beginAtZero: true,
+            ticks: { font: { family: 'Tahoma, sans-serif', size: 11 }, color: textColour },
+            grid: { color: gridColour },
+          },
+        },
+      },
+    })
+  })
+
+  onMount(() => { load(); loadHistory() })
 
   function navigate(delta: number) {
     const next = shiftMonth(year, month, delta)
@@ -156,8 +280,19 @@
 </div>
 
 <Panel title="SPENDING HISTORY">
-  <div class="panel-content chart-placeholder">
-    <!-- Story 4 -->
+  <div class="panel-content">
+    <div class="history-controls">
+      {#each WINDOW_OPTIONS as opt}
+        <button
+          class="window-btn"
+          class:active={historyWindow === opt.label}
+          onclick={() => { historyWindow = opt.label; loadHistory() }}
+        >{opt.label}</button>
+      {/each}
+    </div>
+    <div class="chart-wrap">
+      <canvas bind:this={chartCanvas}></canvas>
+    </div>
   </div>
 </Panel>
 
@@ -174,8 +309,39 @@
     min-height: 80px;
   }
 
-  .chart-placeholder {
-    min-height: 200px;
+  /* Spend history */
+  .history-controls {
+    display: flex;
+    gap: var(--sp-xs);
+    margin-bottom: var(--sp-sm);
+  }
+
+  .window-btn {
+    background: var(--color-window);
+    border: none;
+    box-shadow: var(--shadow-raised);
+    padding: 1px var(--sp-sm);
+    font-size: var(--text-xs);
+    font-family: var(--font-sans);
+    color: var(--color-text);
+    cursor: pointer;
+    transition: box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .window-btn:hover {
+    background: var(--color-accent-light);
+  }
+
+  .window-btn.active {
+    box-shadow: var(--shadow-sunken);
+    background: var(--color-accent-light);
+    color: var(--color-accent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .chart-wrap {
+    height: 220px;
+    position: relative;
   }
 
   /* Month navigation */

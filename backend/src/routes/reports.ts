@@ -144,4 +144,90 @@ app.get('/monthly-spend', async (c) => {
   return c.json(result)
 })
 
+// Returns the ISO week key "YYYY-W##" and the Monday date for a given date.
+function isoWeek(date: Date): { key: string; monday: Date } {
+  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()))
+  const day = d.getUTCDay() || 7 // Mon=1 … Sun=7
+  d.setUTCDate(d.getUTCDate() - day + 1) // rewind to Monday
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(), 0, 1))
+  const weekNo = Math.ceil(((d.getTime() - yearStart.getTime()) / 86400000 + 1) / 7)
+  return {
+    key: `${d.getUTCFullYear()}-W${String(weekNo).padStart(2, '0')}`,
+    monday: d,
+  }
+}
+
+// GET /api/reports/weekly-spend?weeks=N
+//
+// Returns an array of { week: "YYYY-W##", weekStart: "YYYY-MM-DD", total: { CAD: "..." } }
+// for the past N calendar weeks (default 13 ≈ 3 months), oldest first.
+// All weeks in the window are included even if spend is zero.
+// Same expense account filtering rules as /spending-summary.
+app.get('/weekly-spend', async (c) => {
+  const userId = c.get('userId')
+  const weeksParam = c.req.query('weeks')
+  const weeks = weeksParam ? parseInt(weeksParam, 10) : 13
+
+  if (isNaN(weeks) || weeks < 1 || weeks > 260) {
+    return c.json({ error: 'weeks must be a number between 1 and 260' }, 400)
+  }
+
+  const { monday: currentWeekMonday } = isoWeek(new Date())
+  // Window starts N-1 weeks before the current week's Monday
+  const windowStart = new Date(currentWeekMonday)
+  windowStart.setUTCDate(windowStart.getUTCDate() - (weeks - 1) * 7)
+  const windowEnd = new Date(currentWeekMonday)
+  windowEnd.setUTCDate(windowEnd.getUTCDate() + 6)
+  windowEnd.setUTCHours(23, 59, 59, 999)
+
+  const expensesRoot = await getExpensesRoot(userId)
+
+  const rows = await db
+    .select({
+      date: transactions.date,
+      amount: postings.amount,
+      currency: postings.currency,
+    })
+    .from(postings)
+    .innerJoin(accounts, eq(postings.accountId, accounts.id))
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(and(
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      isNull(postings.deletedAt),
+      isNull(accounts.deletedAt),
+      like(accounts.path, `${expensesRoot}:%`),
+      gte(transactions.date, windowStart),
+      lte(transactions.date, windowEnd),
+    ))
+
+  // Pre-seed all weeks in the window
+  const weekMap: Record<string, { weekStart: string; byCurrency: Record<string, number> }> = {}
+  for (let i = 0; i < weeks; i++) {
+    const monday = new Date(windowStart)
+    monday.setUTCDate(monday.getUTCDate() + i * 7)
+    const { key } = isoWeek(monday)
+    const weekStart = monday.toISOString().slice(0, 10)
+    weekMap[key] = { weekStart, byCurrency: {} }
+  }
+
+  // Accumulate spend into week buckets
+  for (const row of rows) {
+    const { key } = isoWeek(new Date(row.date))
+    if (!(key in weekMap)) continue
+    const { byCurrency } = weekMap[key]
+    byCurrency[row.currency] = (byCurrency[row.currency] ?? 0) + parseFloat(row.amount)
+  }
+
+  const result = Object.entries(weekMap).map(([week, { weekStart, byCurrency }]) => ({
+    week,
+    weekStart,
+    total: Object.fromEntries(
+      Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)])
+    ),
+  }))
+
+  return c.json(result)
+})
+
 export default app

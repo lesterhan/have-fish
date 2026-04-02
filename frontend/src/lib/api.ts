@@ -304,6 +304,20 @@ export async function fetchSpendingSummary(from: string, to: string): Promise<Sp
   return res.json()
 }
 
+export type MonthlySpend = { month: string; total: Record<string, string> }
+
+export async function fetchMonthlySpend(months: number): Promise<MonthlySpend[]> {
+  const res = await fetch(`${BASE}/api/reports/monthly-spend?months=${months}`, { credentials: 'include' })
+  return res.json()
+}
+
+export type WeeklySpend = { week: string; weekStart: string; total: Record<string, string> }
+
+export async function fetchWeeklySpend(weeks: number): Promise<WeeklySpend[]> {
+  const res = await fetch(`${BASE}/api/reports/weekly-spend?weeks=${weeks}`, { credentials: 'include' })
+  return res.json()
+}
+
 export async function createPosting(body: {
   transactionId: string
   accountId: string
