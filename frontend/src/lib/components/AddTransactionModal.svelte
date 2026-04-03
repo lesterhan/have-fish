@@ -2,7 +2,7 @@
   import Modal from "$lib/components/Modal.svelte";
   import Button from "$lib/components/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
-  import { createTransaction, type Account } from "$lib/api";
+  import { createTransaction, type Account, type Transaction } from "$lib/api";
   import { toISODate } from "$lib/date";
 
   interface Props {
@@ -10,7 +10,7 @@
     defaultOffsetAccountId?: string | null;
     open: boolean;
     onclose: () => void;
-    oncreated?: (tx: unknown) => void;
+    oncreated?: (tx: Transaction) => void;
     onaccountcreated?: (account: Account) => void;
   }
 

@@ -343,11 +343,26 @@ export async function deletePosting(id: string) {
   if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to delete posting')
 }
 
+export type Posting = {
+  id: string
+  accountId: string
+  amount: string
+  currency: string
+}
+
+export type Transaction = {
+  id: string
+  userId: string
+  date: string
+  description: string | null
+  postings: Posting[]
+}
+
 export async function createTransaction(body: {
   date: string
   description?: string
   postings: { accountId: string; amount: string; currency: string }[]
-}) {
+}): Promise<Transaction> {
   const res = await fetch(`${BASE}/api/transactions`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },

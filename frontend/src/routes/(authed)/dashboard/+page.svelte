@@ -150,14 +150,12 @@
       label: 'Avg',
       data: historyData.map(() => avg),
       backgroundColor: 'rgba(0,0,0,0)',
-      // @ts-expect-error — mixed type requires Chart.js type extension
       type: 'line',
       borderColor: '#cc0000',
       borderWidth: 1,
       borderDash: [4, 4],
       pointRadius: 0,
-      stack: undefined,
-    })
+    } as any)
 
     if (chartInstance) chartInstance.destroy()
     chartInstance = new Chart(chartCanvas, {
@@ -190,6 +188,10 @@
   })
 
   // --- Cash position ---
+  function formatCash(n: number): string {
+    return n >= 10000 ? `${(n / 1000).toFixed(1)}K` : n.toFixed(2)
+  }
+
   let cashTotals   = $state<Record<string, number>>({})
   let avgBurn      = $state<Record<string, number>>({})
   let hiddenCurrencies = $state<string[]>([])
@@ -353,7 +355,7 @@
           {@const z = months !== null ? zone(months) : null}
           <div class="cash-row">
             <div class="cash-header">
-              <span class="cash-amount" class:muted={hiddenCurrencies.includes(currency)}>{(cashTotals[currency] ?? 0).toFixed(2)} {currency}</span>
+              <span class="cash-amount" class:muted={hiddenCurrencies.includes(currency)}>{formatCash(cashTotals[currency] ?? 0)} {currency}</span>
               {#if z}
                 <span class="zone-badge zone-{z}">
                   {z === 'comfortable' ? 'comfortable' : z === 'watch' ? 'watch it' : 'urgent'}
