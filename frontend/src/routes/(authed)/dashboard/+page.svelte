@@ -4,6 +4,7 @@
   import { fetchSpendingSummary, fetchWeeklySpend, fetchAccountBalances, fetchMonthlySpend, fetchUserSettings, updateUserSettings } from '$lib/api'
   import type { SpendingSummary, WeeklySpend } from '$lib/api'
   import { Chart, BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
+  import { theme } from '$lib/theme.svelte'
 
   Chart.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend)
 
@@ -104,13 +105,22 @@
     return [...set]
   }
 
-  // Windows 98 system palette — one colour per currency
-  const WIN_COLOURS = [
+  // Windows 98 system palette — light mode
+  const WIN_COLOURS_LIGHT = [
     { bg: '#008080', border: '#005050' }, // teal
     { bg: '#800000', border: '#500000' }, // maroon
     { bg: '#000080', border: '#000050' }, // navy
     { bg: '#808000', border: '#505000' }, // olive
     { bg: '#800080', border: '#500050' }, // purple
+  ]
+
+  // Dracula palette — dark mode (bright enough on dark backgrounds)
+  const WIN_COLOURS_DARK = [
+    { bg: '#8be9fd', border: '#6ab8c8' }, // cyan
+    { bg: '#ff79c6', border: '#cc5fa0' }, // pink
+    { bg: '#bd93f9', border: '#9a72cc' }, // purple
+    { bg: '#50fa7b', border: '#3ec85f' }, // green
+    { bg: '#ffb86c', border: '#cc8f50' }, // orange
   ]
 
   // Resolve a CSS variable to its computed value so Chart.js gets a real colour string
@@ -120,6 +130,9 @@
 
   $effect(() => {
     if (!chartCanvas || historyData.length === 0) return
+
+    const isDark = theme.dark  // reactive — re-runs on theme toggle
+    const palette = isDark ? WIN_COLOURS_DARK : WIN_COLOURS_LIGHT
 
     const textColour = cssVar('--color-text')
     const gridColour = cssVar('--color-bevel-dark')
@@ -134,7 +147,7 @@
     }, 0)
 
     const datasets = currencies.map((currency, i) => {
-      const { bg, border } = WIN_COLOURS[i % WIN_COLOURS.length]
+      const { bg, border } = palette[i % palette.length]
       return {
         label: currency,
         data: historyData.map(m => parseFloat(m.total[currency] ?? '0')),
@@ -151,7 +164,7 @@
       data: historyData.map(() => avg),
       backgroundColor: 'rgba(0,0,0,0)',
       type: 'line',
-      borderColor: '#cc0000',
+      borderColor: cssVar('--color-danger'),
       borderWidth: 1,
       borderDash: [4, 4],
       pointRadius: 0,
