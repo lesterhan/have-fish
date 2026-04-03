@@ -175,6 +175,72 @@ app.patch('/:id', async (c) => {
   return c.json(updated)
 })
 
+// POST /api/transactions/:id/postings
+// Replaces all postings on a transaction atomically (used when editing a transaction).
+// Request body:
+//   { postings: [{ accountId: string, amount: string, currency: string }, ...] }
+// Rules:
+//   - At least two postings required
+//   - Postings must balance to zero per currency
+//   - Verifies the transaction belongs to the authenticated user
+app.post('/:id/postings', async (c) => {
+  const userId = c.get('userId')
+  const id = c.req.param('id')
+  const body = await c.req.json()
+  const { postings: postingInputs } = body
+
+  // Validate inputs
+  if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
+    return c.json({ error: 'At least two postings are required' }, 400)
+  }
+
+  // Validate balance per currency
+  const balances: Record<string, number> = {}
+  for (const p of postingInputs) {
+    balances[p.currency] = (balances[p.currency] ?? 0) + parseFloat(p.amount)
+  }
+  for (const [currency, sum] of Object.entries(balances)) {
+    if (Math.abs(sum) > 0.001) {
+      return c.json({ error: `Postings do not balance for currency ${currency}: sum is ${sum}` }, 400)
+    }
+  }
+
+  // Verify transaction exists and belongs to this user
+  const [tx] = await db
+    .select()
+    .from(transactions)
+    .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+
+  if (!tx) return c.json({ error: 'Transaction not found' }, 404)
+
+  // Verify all accounts exist and belong to this user
+  const inputAccountIds = [...new Set(postingInputs.map((p: { accountId: string }) => p.accountId))]
+  const validAccounts = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(inArray(accounts.id, inputAccountIds), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+  if (validAccounts.length !== inputAccountIds.length) {
+    return c.json({ error: 'One or more accounts not found' }, 404)
+  }
+
+  // Atomically replace all postings
+  const result = await db.transaction(async (dbTx) => {
+    await dbTx.delete(postings).where(eq(postings.transactionId, id))
+    const newPostings = await dbTx
+      .insert(postings)
+      .values(postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
+        transactionId: id,
+        accountId: p.accountId,
+        amount: p.amount,
+        currency: p.currency,
+      })))
+      .returning()
+    return { ...tx, postings: newPostings }
+  })
+
+  return c.json(result)
+})
+
 // DELETE /api/transactions/:id
 // Soft-deletes a transaction and hard-deletes its postings.
 // The transaction row with deletedAt set is the audit record that it existed.

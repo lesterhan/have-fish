@@ -59,6 +59,80 @@ describe('transactions', () => {
     })
   })
 
+  describe('POST /api/transactions/:id/postings', () => {
+    let txId: string
+    let accA: { id: string }, accB: { id: string }, accC: { id: string }
+    const headers = { Cookie: '', 'Content-Type': 'application/json' }
+
+    beforeEach(async () => {
+      headers.Cookie = cookie
+      ;[accA, accB, accC] = await Promise.all([
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:transport', type: 'expense', currency: 'CAD' }) }).then(r => r.json()),
+      ])
+      const tx = await app.request('/api/transactions', {
+        method: 'POST', headers,
+        body: JSON.stringify({ date: '2026-03-01', description: 'Test', postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: accB.id, amount: '10.00', currency: 'CAD' }] }),
+      }).then(r => r.json())
+      txId = tx.id
+    })
+
+    it('replaces all postings on a transaction', async () => {
+      // Split the expense across two accounts — old postings are fully replaced
+      const res = await app.request(`/api/transactions/${txId}/postings`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: accB.id, amount: '6.00', currency: 'CAD' }, { accountId: accC.id, amount: '4.00', currency: 'CAD' }] }),
+      })
+      expect(res.status).toBe(200)
+      expect((await res.json()).postings).toHaveLength(3)
+    })
+
+    it('returns 400 when postings do not balance', async () => {
+      const res = await app.request(`/api/transactions/${txId}/postings`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: accB.id, amount: '5.00', currency: 'CAD' }] }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 400 when fewer than 2 postings are provided', async () => {
+      const res = await app.request(`/api/transactions/${txId}/postings`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ postings: [{ accountId: accA.id, amount: '0.00', currency: 'CAD' }] }),
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 404 for unknown transaction id', async () => {
+      const res = await app.request('/api/transactions/00000000-0000-0000-0000-000000000000/postings', {
+        method: 'POST', headers,
+        body: JSON.stringify({ postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: accB.id, amount: '10.00', currency: 'CAD' }] }),
+      })
+      expect(res.status).toBe(404)
+    })
+
+    it("returns 404 when an account belongs to another user", async () => {
+      const otherCookie = await createTestUser('other@example.com', 'password123')
+      const otherHeaders = { ...headers, Cookie: otherCookie }
+      const otherAcc = await app.request('/api/accounts', { method: 'POST', headers: otherHeaders, body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }) }).then(r => r.json())
+      const res = await app.request(`/api/transactions/${txId}/postings`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: otherAcc.id, amount: '10.00', currency: 'CAD' }] }),
+      })
+      expect(res.status).toBe(404)
+    })
+
+    it("returns 404 for another user's transaction", async () => {
+      const otherCookie = await createTestUser('other@example.com', 'password123')
+      const res = await app.request(`/api/transactions/${txId}/postings`, {
+        method: 'POST', headers: { ...headers, Cookie: otherCookie },
+        body: JSON.stringify({ postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: accB.id, amount: '10.00', currency: 'CAD' }] }),
+      })
+      expect(res.status).toBe(404)
+    })
+  })
+
   describe('GET /api/transactions date filtering', () => {
     // Seed two accounts and two transactions on distinct dates before each test.
     // Transaction A: 2026-01-15, Transaction B: 2026-03-01
