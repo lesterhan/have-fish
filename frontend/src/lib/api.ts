@@ -343,6 +343,35 @@ export async function deletePosting(id: string) {
   if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to delete posting')
 }
 
+export async function createTransaction(body: {
+  date: string
+  description?: string
+  postings: { accountId: string; amount: string; currency: string }[]
+}) {
+  const res = await fetch(`${BASE}/api/transactions`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create transaction')
+  return res.json()
+}
+
+export async function replacePostings(
+  transactionId: string,
+  postings: { accountId: string; amount: string; currency: string }[],
+) {
+  const res = await fetch(`${BASE}/api/transactions/${transactionId}/postings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ postings }),
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update postings')
+  return res.json()
+}
+
 export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string; accountPath?: string }) {
   const query = new URLSearchParams()
   if (params?.from) query.set('from', params.from)

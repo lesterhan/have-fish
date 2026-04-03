@@ -5,6 +5,9 @@
     fetchUserSettings,
     type Account,
   } from "$lib/api";
+  import AddTransactionModal from "$lib/components/AddTransactionModal.svelte";
+  import Button from "$lib/components/Button.svelte";
+  import Panel from "$lib/components/Panel.svelte";
   import { toISODate } from "$lib/date";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
@@ -39,14 +42,17 @@
   let defaultOffsetAccountId = $state<string | null>(null);
   let defaultConversionAccountId = $state<string | null>(null);
   let loading = $state(true);
+  let addModalOpen = $state(false);
 
   // Re-fetch transactions whenever from/to/accountPath change.
   $effect(() => {
     loading = true;
-    fetchTransactions({ from, to, accountPath: accountPath || undefined }).then((txs) => {
-      transactions = txs;
-      loading = false;
-    });
+    fetchTransactions({ from, to, accountPath: accountPath || undefined }).then(
+      (txs) => {
+        transactions = txs;
+        loading = false;
+      },
+    );
   });
 
   let sortedTransactions = $derived(
@@ -83,15 +89,34 @@
   });
 </script>
 
-<FilterPanel
-  {from}
-  {to}
-  {sortDir}
-  {accountPath}
-  onApply={handleApply}
-  onSortChange={handleSortChange}
-  onAccountPathChange={handleAccountPathChange}
+<AddTransactionModal
+  {accounts}
+  {defaultOffsetAccountId}
+  open={addModalOpen}
+  onclose={() => (addModalOpen = false)}
+  oncreated={(tx) => {
+    // TODO: prepend tx to transactions list (or re-fetch if the new date is outside the current range)
+  }}
+  onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
+
+<div class="panels">
+  <FilterPanel
+    {from}
+    {to}
+    {sortDir}
+    {accountPath}
+    onApply={handleApply}
+    onSortChange={handleSortChange}
+    onAccountPathChange={handleAccountPathChange}
+  />
+  <Panel title="Operations">
+    <div class="ops-body">
+      <Button onclick={() => (addModalOpen = true)}>New ➕</Button>
+      <Button disabled title="Coming soon">Export 📤</Button>
+    </div>
+  </Panel>
+</div>
 
 {#if loading}
   <div class="tx-table">
@@ -110,13 +135,42 @@
         {defaultOffsetAccountId}
         {defaultConversionAccountId}
         onaccountcreated={(a) => (accounts = [...accounts, a])}
-        ondeleted={() => (transactions = transactions.filter((t: { id: string }) => t.id !== tx.id))}
+        ondeleted={() =>
+          (transactions = transactions.filter(
+            (t: { id: string }) => t.id !== tx.id,
+          ))}
       />
     {/each}
   </div>
 {/if}
 
 <style>
+  /* FilterPanel + Operations side by side */
+  .panels {
+    display: flex;
+    gap: var(--sp-sm);
+    align-items: flex-start;
+    margin-bottom: var(--sp-xl);
+  }
+
+  /* FilterPanel takes all remaining space */
+  .panels :global(.panel:first-child) {
+    flex: 1;
+    margin-bottom: 0;
+  }
+
+  /* Operations panel — fixed width, no bottom margin */
+  .panels :global(.panel:last-child) {
+    margin-bottom: 0;
+  }
+
+  .ops-body {
+    display: flex;
+    flex-direction: row;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-sm);
+  }
+
   .tx-table {
     box-shadow: var(--shadow-sunken);
     background: var(--color-window-raised);
