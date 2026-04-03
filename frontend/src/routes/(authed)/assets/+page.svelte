@@ -33,8 +33,8 @@
 
   type HierarchyRow = {
     account: AccountBalance;
-    depth: number;       // number of ancestors present in the list
-    label: string;       // leaf segment if depth > 0, full path otherwise
+    depth: number; // number of ancestors present in the list
+    label: string; // leaf segment if depth > 0, full path otherwise
   };
 
   function buildHierarchy(rows: AccountBalance[]): HierarchyRow[] {
@@ -71,7 +71,10 @@
     >
       {#each buildHierarchy(rows) as { account, depth, label }}
         <tr class:dimmed={isZeroBalance(account)}>
-          <td class="cell-path" style="padding-left: calc(var(--sp-sm) + {depth} * 1.25rem)">
+          <td
+            class="cell-path"
+            style="padding-left: calc(var(--sp-sm) + {depth} * 1.25rem)"
+          >
             {label}
           </td>
           <td class="cell-balances">
