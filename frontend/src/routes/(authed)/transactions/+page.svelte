@@ -95,7 +95,8 @@
   open={addModalOpen}
   onclose={() => (addModalOpen = false)}
   oncreated={(tx) => {
-    // TODO: prepend tx to transactions list (or re-fetch if the new date is outside the current range)
+    const txDate = tx.date.substring(0, 10);
+    if (txDate >= from && txDate <= to) transactions = [tx, ...transactions];
   }}
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
