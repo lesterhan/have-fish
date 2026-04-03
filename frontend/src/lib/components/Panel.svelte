@@ -21,10 +21,10 @@
 <style>
   .panel {
     border-radius: var(--radius-xl);
-    box-shadow:
-      var(--shadow-raised),
-      2px 2px 0 rgba(0, 0, 0, 0.3);
+    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
     margin-bottom: var(--sp-xl);
+    display: flex;
+    flex-direction: column;
   }
 
   .panel-header {
@@ -46,6 +46,8 @@
   }
 
   .panel-body {
-    background: var(--color-window-raised);
+    background: var(--color-window);
+    box-shadow: var(--shadow-sunken);
+    flex: 1;
   }
 </style>
