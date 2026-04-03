@@ -7,7 +7,7 @@
 | [Modal Component](epics/archive/modal-component.md) | Done |
 | [Add Account Wizard](epics/archive/add-account-wizard.md) | Done |
 | [Starting Balances](epics/starting-balances.md) | Backlog |
-| [Manual Transaction Entry](epics/manual-transaction-entry.md) | Backlog |
+| [Manual Transaction Entry](epics/archive/manual-transaction-entry.md) | Done |
 | [Split Transactions](epics/split-transactions.md) | Backlog |
 | [Reconciliation](epics/reconciliation.md) | Backlog |
 | [Transactions Edit UX](epics/archive/transactions-edit-ux.md) | Done |
