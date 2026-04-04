@@ -10,10 +10,12 @@ node_modules/
 build/
 dist/
 
-# bun.lockb
 
 # OS
 .DS_Store
 
 # deployment
 .github/
+
+# misc
+.research/
