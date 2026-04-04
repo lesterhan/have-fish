@@ -46,15 +46,7 @@
         <a href="/assets">Accs 💳</a>
         <a href="/import">Import 📥</a>
       {/if}
-      <span class="menubar-spacer">
-        {#if $session.data}
-          <span class="toast-slot">
-            {#if toast.message}
-              <span class="toast">{toast.message}</span>
-            {/if}
-          </span>
-        {/if}
-      </span>
+      <span class="menubar-spacer"></span>
       <Button
         variant="ghost"
         square
@@ -77,7 +69,10 @@
     </main>
 
     <div class="statusbar">
-      <span>Ready</span>
+      <span class="statusbar-ready">Ready</span>
+      {#if toast.message}
+        <span class="statusbar-toast">{toast.message}</span>
+      {/if}
     </div>
   </div>
 
@@ -238,42 +233,6 @@
     padding-right: var(--sp-sm);
   }
 
-  .toast-slot {
-    overflow: hidden;
-    height: 20px;
-    width: 220px;
-    display: flex;
-    align-items: center;
-    box-shadow: var(--shadow-sunken);
-    background: transparent;
-    transition: background 200ms linear;
-  }
-
-  .toast-slot:has(.toast) {
-    background: #1a3d1a;
-  }
-
-  .toast {
-    display: block;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: #a8e6a8;
-    background: transparent;
-    white-space: nowrap;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    animation: marquee 3s linear forwards;
-  }
-
-  @keyframes marquee {
-    from {
-      transform: translateX(220px);
-    }
-    to {
-      transform: translateX(-100%);
-    }
-  }
-
   .menubar-settings {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
@@ -401,11 +360,36 @@
 
   /* --- Status bar --- */
   .statusbar {
+    position: relative;
+    overflow: hidden;
     padding: 2px var(--sp-sm);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     background: var(--color-window);
     border-top: 1px solid var(--color-bevel-dark);
     box-shadow: inset 0 1px 0 var(--color-bevel-light);
+  }
+
+  .statusbar-ready {
+    display: block;
+  }
+
+  .statusbar-toast {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--sp-sm);
+    color: var(--color-text);
+    background: var(--color-success-light);
+    white-space: nowrap;
+    animation: statusbar-toast 3000ms var(--ease) forwards;
+  }
+
+  @keyframes statusbar-toast {
+    0%   { transform: translateY(100%); }
+    10%  { transform: translateY(0); }
+    80%  { transform: translateY(0); }
+    100% { transform: translateY(-100%); }
   }
 </style>

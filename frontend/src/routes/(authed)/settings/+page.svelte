@@ -339,6 +339,7 @@
   h2 {
     font-size: var(--text-sm);
     font-weight: bold;
+    color: var(--color-text);
     margin-bottom: var(--sp-sm);
     padding-bottom: var(--sp-xs);
     border-bottom: 1px solid var(--color-border);
