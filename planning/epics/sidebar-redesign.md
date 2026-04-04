@@ -88,6 +88,25 @@ Create `frontend/src/lib/components/Sidebar.svelte`.
 
 ---
 
+## Responsive design
+
+This epic marks the start of responsive design across the app. As we touch UI
+surfaces, we should design for mobile screens alongside desktop.
+
+**Sidebar on mobile (narrow viewport, e.g. ≤ 600px)**
+- The sidebar does not appear as a left panel — it becomes a bottom sheet or a
+  full-screen drawer triggered by a hamburger button in the titlebar/menubar area
+- The collapsed "strip" metaphor does not translate to mobile; on small screens the
+  default state is hidden and the toggle reveals it as an overlay
+- Account rows and nav links should be finger-friendly (minimum 44px tap target height)
+- The `.window` chrome (titlebar, statusbar) may need to adapt — e.g. hide the
+  window-resize and quit buttons on mobile where they make no sense
+
+Track responsive breakpoints as CSS custom properties or a shared constant so
+future epics can reuse the same thresholds.
+
+---
+
 ## Out of scope
 
 - Clicking an account does not navigate anywhere yet — that is the Single Account
