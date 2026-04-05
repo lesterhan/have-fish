@@ -78,6 +78,13 @@
       "when": 1775161854169,
       "tag": "0010_worried_dark_beast",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1775413269690,
+      "tag": "0011_fast_harrier",
+      "breakpoints": true
     }
   ]
 }

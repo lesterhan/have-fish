@@ -117,6 +117,7 @@ export const userSettings = pgTable('user_settings', {
   defaultAssetsRootPath: text('default_assets_root_path').notNull().default('assets'),
   defaultLiabilitiesRootPath: text('default_liabilities_root_path').notNull().default('liabilities'),
   defaultExpensesRootPath: text('default_expenses_root_path').notNull().default('expenses'),
+  defaultEquityRootPath: text('default_equity_root_path').notNull().default('equity'),
   // Catch-all JSONB blob for UI display preferences (e.g. hidden currencies).
   // Use this for any new preference rather than adding columns — keeps the table stable.
   preferences: jsonb('preferences').notNull().default({}),

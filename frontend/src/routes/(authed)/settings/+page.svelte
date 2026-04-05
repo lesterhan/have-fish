@@ -72,10 +72,11 @@
     defaultAssetsRootPath: "Assets root path",
     defaultLiabilitiesRootPath: "Liabilities root path",
     defaultExpensesRootPath: "Expenses root path",
+    defaultEquityRootPath: "Equity root path",
   };
 
   async function handleRootPathChange(
-    field: "defaultAssetsRootPath" | "defaultLiabilitiesRootPath" | "defaultExpensesRootPath",
+    field: "defaultAssetsRootPath" | "defaultLiabilitiesRootPath" | "defaultExpensesRootPath" | "defaultEquityRootPath",
     value: string,
   ) {
     if (!value.trim()) return;
@@ -208,6 +209,26 @@
               (e.currentTarget as HTMLInputElement).value,
             )}
           placeholder="expenses"
+        />
+
+        <label for="equity-root-path" class="tip-label">
+          Equity
+          <span
+            class="tip"
+            title="Root path prefix for equity accounts. Used to group equity in the sidebar (e.g. 'equity' → 'equity:conversions')."
+            >?</span
+          >
+        </label>
+        <input
+          id="equity-root-path"
+          type="text"
+          value={userSettings?.defaultEquityRootPath ?? "equity"}
+          onblur={(e) =>
+            handleRootPathChange(
+              "defaultEquityRootPath",
+              (e.currentTarget as HTMLInputElement).value,
+            )}
+          placeholder="equity"
         />
       </div>
     </div>
