@@ -119,7 +119,8 @@
     justify-content: center;
     width: 28px;
     height: 28px;
-    margin: var(--sp-xs) auto var(--sp-xs);
+    /* explicit left margin so the button stays visible in the 36px collapsed strip */
+    margin: var(--sp-xs) 0 var(--sp-xs) 4px;
     flex-shrink: 0;
 
     background: var(--color-window);
