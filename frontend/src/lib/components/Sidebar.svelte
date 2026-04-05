@@ -1,31 +1,37 @@
 <script lang="ts">
-  // Story 3: replace these placeholder groups with props passed from the layout.
-  // interface Props {
-  //   assets: AccountWithBalance[]
-  //   liabilities: AccountWithBalance[]
-  //   equity: AccountWithBalance[]
-  // }
+  import MoneyDisplay from './MoneyDisplay.svelte'
+  import type { AccountBalance, UserSettings } from '$lib/api'
+
+  interface Props {
+    accounts: AccountBalance[]
+    settings: UserSettings
+  }
+
+  let { accounts, settings }: Props = $props()
 
   let expanded = $state(true)
 
-  // Placeholder account groups — swapped for real data in Story 3
-  const placeholderAssets = [
-    { id: '1', name: 'bank:chequing', balance: null },
-    { id: '2', name: 'bank:savings', balance: null },
-    { id: '3', name: 'wise:eur', balance: null },
-  ]
-  const placeholderLiabilities = [
-    { id: '4', name: 'credit-card', balance: null },
-  ]
-  const placeholderEquity = [
-    { id: '5', name: 'conversions', balance: null },
-  ]
+  // Group accounts by root path prefix from settings
+  let assets = $derived(
+    accounts.filter(a => a.path.startsWith(`${settings.defaultAssetsRootPath}:`))
+  )
+  let liabilities = $derived(
+    accounts.filter(a => a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`))
+  )
+  let equity = $derived(
+    accounts.filter(a => a.path.startsWith(`${settings.defaultEquityRootPath}:`))
+  )
+
+  // Strip the root prefix for display — show only the leaf path
+  function shortName(path: string, root: string): string {
+    return path.startsWith(`${root}:`) ? path.slice(root.length + 1) : path
+  }
 </script>
 
 <aside class="sidebar" class:collapsed={!expanded}>
   <div class="sidebar-inner">
 
-    <!-- Toggle button — always visible -->
+    <!-- Toggle button — always visible in the collapsed strip -->
     <button
       class="toggle-btn"
       onclick={() => (expanded = !expanded)}
@@ -41,11 +47,18 @@
         <section class="group">
           <a href="/assets" class="group-header">Assets</a>
           <ul class="account-list">
-            {#each placeholderAssets as acct}
+            {#each assets as acct}
               <li class="account-row">
-                <span class="account-name">{acct.name}</span>
-                <!-- Story 3: replace with <MoneyDisplay> once real balances are passed in -->
-                <span class="account-balance muted">—</span>
+                <span class="account-name">{shortName(acct.path, settings.defaultAssetsRootPath)}</span>
+                <span class="account-balances">
+                  {#if acct.balances.length === 0}
+                    <span class="account-balance muted">—</span>
+                  {:else}
+                    {#each acct.balances as b}
+                      <MoneyDisplay amount={b.amount} currency={b.currency} />
+                    {/each}
+                  {/if}
+                </span>
               </li>
             {/each}
           </ul>
@@ -54,10 +67,18 @@
         <section class="group">
           <a href="/assets" class="group-header">Liabilities</a>
           <ul class="account-list">
-            {#each placeholderLiabilities as acct}
+            {#each liabilities as acct}
               <li class="account-row">
-                <span class="account-name">{acct.name}</span>
-                <span class="account-balance muted">—</span>
+                <span class="account-name">{shortName(acct.path, settings.defaultLiabilitiesRootPath)}</span>
+                <span class="account-balances">
+                  {#if acct.balances.length === 0}
+                    <span class="account-balance muted">—</span>
+                  {:else}
+                    {#each acct.balances as b}
+                      <MoneyDisplay amount={b.amount} currency={b.currency} />
+                    {/each}
+                  {/if}
+                </span>
               </li>
             {/each}
           </ul>
@@ -66,10 +87,18 @@
         <section class="group">
           <a href="/assets" class="group-header">Equity</a>
           <ul class="account-list">
-            {#each placeholderEquity as acct}
+            {#each equity as acct}
               <li class="account-row">
-                <span class="account-name">{acct.name}</span>
-                <span class="account-balance muted">—</span>
+                <span class="account-name">{shortName(acct.path, settings.defaultEquityRootPath)}</span>
+                <span class="account-balances">
+                  {#if acct.balances.length === 0}
+                    <span class="account-balance muted">—</span>
+                  {:else}
+                    {#each acct.balances as b}
+                      <MoneyDisplay amount={b.amount} currency={b.currency} />
+                    {/each}
+                  {/if}
+                </span>
               </li>
             {/each}
           </ul>
@@ -185,7 +214,7 @@
 
   .account-row {
     display: flex;
-    align-items: center;
+    align-items: flex-start;
     justify-content: space-between;
     gap: var(--sp-xs);
     padding: 2px var(--sp-sm);
@@ -205,16 +234,35 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
+    /* vertically align with the first balance line */
+    padding-top: 2px;
   }
 
-  .account-balance {
+  .account-balances {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
     flex-shrink: 0;
+  }
+
+  /* Override MoneyDisplay sizing for the compact sidebar context */
+  .account-balances :global(.money) {
+    flex-direction: row;
+    gap: 3px;
+    align-items: baseline;
+  }
+
+  .account-balances :global(.amount) {
     font-size: var(--text-xs);
-    font-variant-numeric: tabular-nums;
+  }
+
+  .account-balances :global(.currency) {
+    font-size: 10px;
   }
 
   .account-balance.muted {
     color: var(--color-text-muted);
+    font-size: var(--text-xs);
   }
 
   /* --- Nav links --- */

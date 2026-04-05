@@ -16,9 +16,10 @@ app.get('/', async (c) => {
 })
 
 // GET /api/accounts/balances
-// Returns all asset and liability accounts with their per-currency balances and type.
+// Returns all asset, liability, and equity accounts with their per-currency balances and type.
 // "Asset accounts"     = paths starting with defaultAssetsRootPath
 // "Liability accounts" = paths starting with defaultLiabilitiesRootPath
+// "Equity accounts"    = paths starting with defaultEquityRootPath
 // Balance = SUM of all posting amounts for that account, grouped by currency.
 // Accounts with no postings are included with an empty balances array.
 app.get('/balances', async (c) => {
@@ -28,11 +29,13 @@ app.get('/balances', async (c) => {
     .select({
       defaultAssetsRootPath: userSettings.defaultAssetsRootPath,
       defaultLiabilitiesRootPath: userSettings.defaultLiabilitiesRootPath,
+      defaultEquityRootPath: userSettings.defaultEquityRootPath,
     })
     .from(userSettings)
     .where(eq(userSettings.userId, userId))
   const assetsRoot = settings?.defaultAssetsRootPath ?? 'assets'
   const liabilitiesRoot = settings?.defaultLiabilitiesRootPath ?? 'liabilities'
+  const equityRoot = settings?.defaultEquityRootPath ?? 'equity'
 
   // LEFT JOIN so accounts with no postings still appear (with null currency/balance)
   const rows = await db
@@ -43,23 +46,27 @@ app.get('/balances', async (c) => {
       balance: sql<string>`SUM(${postings.amount})`,
     })
     .from(accounts)
-    .leftJoin(postings, eq(postings.accountId, accounts.id))
+    .leftJoin(postings, and(eq(postings.accountId, accounts.id), isNull(postings.deletedAt)))
     .where(and(
       eq(accounts.userId, userId),
       isNull(accounts.deletedAt),
       or(
         like(accounts.path, `${assetsRoot}:%`),
         like(accounts.path, `${liabilitiesRoot}:%`),
+        like(accounts.path, `${equityRoot}:%`),
       ),
     ))
     .groupBy(accounts.id, accounts.path, postings.currency)
 
   // Collapse the flat rows into one entry per account with a balances array
-  type AccountType = 'asset' | 'liability'
+  type AccountType = 'asset' | 'liability' | 'equity'
   const grouped = new Map<string, { id: string; path: string; type: AccountType; balances: { currency: string; amount: string }[] }>()
   for (const row of rows) {
     if (!grouped.has(row.id)) {
-      const type: AccountType = row.path.startsWith(`${assetsRoot}:`) ? 'asset' : 'liability'
+      let type: AccountType
+      if (row.path.startsWith(`${assetsRoot}:`)) type = 'asset'
+      else if (row.path.startsWith(`${liabilitiesRoot}:`)) type = 'liability'
+      else type = 'equity'
       grouped.set(row.id, { id: row.id, path: row.path, type, balances: [] })
     }
     if (row.currency !== null && row.balance !== null) {
