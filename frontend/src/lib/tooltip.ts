@@ -55,10 +55,14 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
     el = null
   }
 
+  function showOnKeyboard() {
+    if (node.matches(':focus-visible')) show()
+  }
+
   node.addEventListener('mouseenter', show)
   node.addEventListener('mouseleave', hide)
   node.addEventListener('click', hide)
-  node.addEventListener('focusin', show)
+  node.addEventListener('focusin', showOnKeyboard)
   node.addEventListener('focusout', hide)
 
   return {
@@ -70,7 +74,7 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
       node.removeEventListener('mouseenter', show)
       node.removeEventListener('mouseleave', hide)
       node.removeEventListener('click', hide)
-      node.removeEventListener('focusin', show)
+      node.removeEventListener('focusin', showOnKeyboard)
       node.removeEventListener('focusout', hide)
       el?.remove()
     },
