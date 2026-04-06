@@ -110,7 +110,7 @@
 />
 
 {#if account}
-  <AccountHeading {account} onupdated={(a) => (account = a)} hidden={isHidden} ontogglehidden={toggleHidden} balances={accountBalances} />
+  <AccountHeading {account} balances={accountBalances} />
 {:else}
   <div class="account-header-placeholder"></div>
 {/if}
