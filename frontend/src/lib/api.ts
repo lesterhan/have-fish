@@ -10,6 +10,12 @@ export type Account = {
   deletedAt?: string | null
 }
 
+export async function fetchAccount(id: string): Promise<Account> {
+  const res = await fetch(`${BASE}/api/accounts/${id}`, { credentials: 'include' })
+  if (!res.ok) throw new Error(`Account not found: ${id}`)
+  return res.json()
+}
+
 export async function fetchAccounts(): Promise<Account[]> {
   const res = await fetch(`${BASE}/api/accounts`, { credentials: 'include' })
   return res.json()

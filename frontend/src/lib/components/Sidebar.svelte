@@ -111,22 +111,19 @@
           {#if assetsOpen}
             <ul class="account-list">
               {#each assets as acct}
-                <li class="account-row">
-                  <span class="account-name"
-                    >{shortName(
-                      acct.path,
-                      settings.defaultAssetsRootPath,
-                    )}</span
-                  >
-                  <span class="account-balances">
-                    {#if acct.balances.length === 0}
-                      <span class="account-balance muted">—</span>
-                    {:else}
-                      {#each acct.balances as b}
-                        <MoneyDisplay amount={b.amount} currency={b.currency} />
-                      {/each}
-                    {/if}
-                  </span>
+                <li>
+                  <a href="/account/{acct.id}" class="account-row">
+                    <span class="account-name">{shortName(acct.path, settings.defaultAssetsRootPath)}</span>
+                    <span class="account-balances">
+                      {#if acct.balances.length === 0}
+                        <span class="account-balance muted">—</span>
+                      {:else}
+                        {#each acct.balances as b}
+                          <MoneyDisplay amount={b.amount} currency={b.currency} />
+                        {/each}
+                      {/if}
+                    </span>
+                  </a>
                 </li>
               {/each}
             </ul>
@@ -152,22 +149,19 @@
           {#if liabilitiesOpen}
             <ul class="account-list">
               {#each liabilities as acct}
-                <li class="account-row">
-                  <span class="account-name"
-                    >{shortName(
-                      acct.path,
-                      settings.defaultLiabilitiesRootPath,
-                    )}</span
-                  >
-                  <span class="account-balances">
-                    {#if acct.balances.length === 0}
-                      <span class="account-balance muted">—</span>
-                    {:else}
-                      {#each acct.balances as b}
-                        <MoneyDisplay amount={b.amount} currency={b.currency} />
-                      {/each}
-                    {/if}
-                  </span>
+                <li>
+                  <a href="/account/{acct.id}" class="account-row">
+                    <span class="account-name">{shortName(acct.path, settings.defaultLiabilitiesRootPath)}</span>
+                    <span class="account-balances">
+                      {#if acct.balances.length === 0}
+                        <span class="account-balance muted">—</span>
+                      {:else}
+                        {#each acct.balances as b}
+                          <MoneyDisplay amount={b.amount} currency={b.currency} />
+                        {/each}
+                      {/if}
+                    </span>
+                  </a>
                 </li>
               {/each}
             </ul>
@@ -193,22 +187,19 @@
           {#if equityOpen}
             <ul class="account-list">
               {#each equity as acct}
-                <li class="account-row">
-                  <span class="account-name"
-                    >{shortName(
-                      acct.path,
-                      settings.defaultEquityRootPath,
-                    )}</span
-                  >
-                  <span class="account-balances">
-                    {#if acct.balances.length === 0}
-                      <span class="account-balance muted">—</span>
-                    {:else}
-                      {#each acct.balances as b}
-                        <MoneyDisplay amount={b.amount} currency={b.currency} />
-                      {/each}
-                    {/if}
-                  </span>
+                <li>
+                  <a href="/account/{acct.id}" class="account-row">
+                    <span class="account-name">{shortName(acct.path, settings.defaultEquityRootPath)}</span>
+                    <span class="account-balances">
+                      {#if acct.balances.length === 0}
+                        <span class="account-balance muted">—</span>
+                      {:else}
+                        {#each acct.balances as b}
+                          <MoneyDisplay amount={b.amount} currency={b.currency} />
+                        {/each}
+                      {/if}
+                    </span>
+                  </a>
                 </li>
               {/each}
             </ul>
@@ -477,7 +468,8 @@
     gap: var(--sp-xs);
     padding: 2px var(--sp-sm);
     font-size: var(--text-xs);
-    cursor: default;
+    color: var(--color-text);
+    text-decoration: none;
     transition: background var(--duration-fast) var(--ease);
   }
 
