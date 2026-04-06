@@ -11,12 +11,12 @@
   --sp-3xl: 4rem;
 
   /* --- Typography ---
-   * Tahoma is the period-accurate Windows 98/XP system font.
-   * Mono stays for journal/ledger views — that's authentic too.
+   * Verdana: taller and more readable than Tahoma, still Windows-era.
+   * Consolas: Microsoft's terminal/coding font, clean and period-accurate.
    */
-  --font-sans:  'Tahoma', 'MS Sans Serif', Arial, sans-serif;
+  --font-sans:  'Verdana', 'Tahoma', Arial, sans-serif;
   --font-serif: Georgia, 'Book Antiqua', 'Times New Roman', serif;
-  --font-mono:  'Courier New', 'Lucida Console', ui-monospace, monospace;
+  --font-mono:  'Consolas', 'Lucida Console', ui-monospace, monospace;
 
   --text-xs:   0.75rem;   /* 12px */
   --text-sm:   0.875rem;  /* 14px */
@@ -32,7 +32,7 @@
 
   --weight-normal:   400;
   --weight-medium:   500;
-  --weight-semibold: 700; /* Tahoma's "bold" reads heavier — 700 is right */
+  --weight-semibold: 700;
 
   /* --- The desktop --- */
   --color-desktop: #008080; /* The teal. Non-negotiable. */
