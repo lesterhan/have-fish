@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
-  import { fetchAccount, fetchAccounts, fetchTransactions, type Account } from '$lib/api'
+  import { fetchAccount, fetchAccountBalances, fetchAccounts, fetchTransactions, type Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import AccountHeading from '$lib/components/AccountHeading.svelte'
   import { toISODate } from '$lib/date'
@@ -31,6 +31,7 @@
   let account    = $state<Account | null>(null)
   let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([])
   let accounts   = $state<Account[]>([])
+  let accountBalances = $state<{ currency: string; amount: string }[]>([])
   let defaultOffsetAccountId     = $state<string | null>(null)
   let defaultConversionAccountId = $state<string | null>(null)
   let loading  = $state(true)
@@ -58,10 +59,16 @@
   })
 
   onMount(async () => {
-    const [accts, settings] = await Promise.all([fetchAccounts(), settingsStore.load()])
+    const [accts, settings, allBalances] = await Promise.all([
+      fetchAccounts(),
+      settingsStore.load(),
+      fetchAccountBalances(),
+    ])
     accounts = accts
     defaultOffsetAccountId = settings.defaultOffsetAccountId
     defaultConversionAccountId = settings.defaultConversionAccountId
+    const match = allBalances.find((b) => b.id === id)
+    accountBalances = match?.balances ?? []
   })
 
   let isHidden = $derived(
@@ -101,7 +108,7 @@
 />
 
 {#if account}
-  <AccountHeading {account} onupdated={(a) => (account = a)} hidden={isHidden} ontogglehidden={toggleHidden} />
+  <AccountHeading {account} onupdated={(a) => (account = a)} hidden={isHidden} ontogglehidden={toggleHidden} balances={accountBalances} />
 {:else}
   <div class="account-header-placeholder"></div>
 {/if}
@@ -148,7 +155,7 @@
 
 <style>
   .account-header-placeholder {
-    height: calc(var(--text-2xl) * var(--leading-tight) + var(--sp-lg));
+    height: calc(var(--text-3xl) * var(--leading-tight) + var(--sp-xl) * 2 + var(--sp-lg));
   }
 
   .panels {
