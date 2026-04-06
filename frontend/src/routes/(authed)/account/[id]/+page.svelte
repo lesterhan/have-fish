@@ -2,7 +2,8 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
-  import { fetchAccount, fetchAccounts, fetchTransactions, fetchUserSettings, type Account } from '$lib/api'
+  import { fetchAccount, fetchAccounts, fetchTransactions, fetchUserSettings, updateUserSettings, type Account, type UserSettings } from '$lib/api'
+  import { settingsStore } from '$lib/settings.svelte'
   import AccountHeading from '$lib/components/AccountHeading.svelte'
   import { toISODate } from '$lib/date'
   import FilterPanel from '$lib/components/FilterPanel.svelte'
@@ -32,6 +33,7 @@
   let accounts   = $state<Account[]>([])
   let defaultOffsetAccountId     = $state<string | null>(null)
   let defaultConversionAccountId = $state<string | null>(null)
+  let userSettings = $state<UserSettings | null>(null)
   let loading  = $state(true)
   let notFound = $state(false)
   let addModalOpen = $state(false)
@@ -57,9 +59,28 @@
   })
 
   onMount(async () => {
-    ;[accounts, { defaultOffsetAccountId, defaultConversionAccountId }] =
-      await Promise.all([fetchAccounts(), fetchUserSettings()])
+    const [accts, settings] = await Promise.all([fetchAccounts(), fetchUserSettings()])
+    accounts = accts
+    userSettings = settings
+    defaultOffsetAccountId = settings.defaultOffsetAccountId
+    defaultConversionAccountId = settings.defaultConversionAccountId
   })
+
+  let isHidden = $derived(
+    settingsStore.value?.preferences.hiddenAccountIds?.includes(id) ?? false
+  )
+
+  async function toggleHidden() {
+    const s = settingsStore.value ?? userSettings
+    if (!s) return
+    const current = s.preferences.hiddenAccountIds ?? []
+    const next = isHidden ? current.filter((x) => x !== id) : [...current, id]
+    const updated = await updateUserSettings({
+      preferences: { ...s.preferences, hiddenAccountIds: next },
+    })
+    settingsStore.value = updated
+    userSettings = updated
+  }
 
   let sortedTransactions = $derived(
     [...transactions].sort((a, b) => {
@@ -86,7 +107,7 @@
 />
 
 {#if account}
-  <AccountHeading {account} onupdated={(a) => (account = a)} />
+  <AccountHeading {account} onupdated={(a) => (account = a)} hidden={isHidden} ontogglehidden={toggleHidden} />
 {:else}
   <div class="account-header-placeholder"></div>
 {/if}

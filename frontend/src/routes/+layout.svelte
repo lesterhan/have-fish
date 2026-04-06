@@ -6,6 +6,7 @@
   import { toast } from "$lib/toast.svelte";
   import { fetchAccountBalances, fetchUserSettings } from "$lib/api";
   import type { AccountBalance, UserSettings } from "$lib/api";
+  import { settingsStore } from "$lib/settings.svelte";
 
   let { children } = $props();
 
@@ -42,6 +43,7 @@
         ([accts, settings]) => {
           sidebarAccounts = accts;
           sidebarSettings = settings;
+          settingsStore.value = settings;
         },
       );
     }

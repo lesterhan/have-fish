@@ -247,7 +247,7 @@ export type UserSettings = {
   defaultLiabilitiesRootPath: string
   defaultExpensesRootPath: string
   defaultEquityRootPath: string
-  preferences: { dashboardHiddenCurrencies?: string[] } & Record<string, unknown>
+  preferences: { dashboardHiddenCurrencies?: string[]; hiddenAccountIds?: string[] } & Record<string, unknown>
   createdAt: string
   updatedAt: string
 }

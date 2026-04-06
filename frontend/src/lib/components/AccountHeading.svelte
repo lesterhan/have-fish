@@ -5,9 +5,11 @@
   interface Props {
     account: Account
     onupdated: (account: Account) => void
+    hidden?: boolean
+    ontogglehidden?: () => void
   }
 
-  let { account, onupdated }: Props = $props()
+  let { account, onupdated, hidden = false, ontogglehidden }: Props = $props()
 
   let editing = $state(false)
   let inputValue = $state('')
@@ -75,17 +77,37 @@
   </div>
 {:else if account.name}
   <!-- Named: clickable heading + subtle path beneath -->
-  <button class="name-display" use:tooltip={'Change account name'} onclick={startEditing} aria-label="Edit account name">
-    <h1 class="account-title">
-      {account.name}<span class="edit-hint" aria-hidden="true"> ✏️</span>
-    </h1>
-  </button>
+  <div class="heading-row">
+    <button class="name-display" use:tooltip={'Change account name'} onclick={startEditing} aria-label="Edit account name">
+      <h1 class="account-title">
+        {account.name}<span class="edit-hint" aria-hidden="true"> ✏️</span>
+      </h1>
+    </button>
+    {#if ontogglehidden}
+      <button
+        class="hide-btn"
+        class:is-hidden={hidden}
+        use:tooltip={hidden ? 'Show in sidebar' : 'Hide from sidebar'}
+        onclick={ontogglehidden}
+        aria-label={hidden ? 'Show account in sidebar' : 'Hide account from sidebar'}
+      >{hidden ? '🙈' : '👁️'}</button>
+    {/if}
+  </div>
   <p class="account-path">{account.path}</p>
 {:else}
   <!-- Unnamed: path as heading + label button to add a name -->
   <div class="unnamed-row">
     <h1 class="account-title">{account.path}</h1>
     <button class="label-btn" use:tooltip={'Add an account name'} onclick={startEditing} aria-label="Add account name">🏷️</button>
+    {#if ontogglehidden}
+      <button
+        class="hide-btn"
+        class:is-hidden={hidden}
+        use:tooltip={hidden ? 'Show in sidebar' : 'Hide from sidebar'}
+        onclick={ontogglehidden}
+        aria-label={hidden ? 'Show account in sidebar' : 'Hide account from sidebar'}
+      >{hidden ? '🙈' : '👁️'}</button>
+    {/if}
   </div>
 {/if}
 
@@ -117,6 +139,12 @@
   }
 
   /* --- Named state --- */
+
+  .heading-row {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-xs);
+  }
 
   .name-display {
     display: inline-block;
@@ -150,6 +178,24 @@
     color: var(--color-text-muted);
     margin-top: 2px;
     margin-bottom: var(--sp-lg);
+  }
+
+  .hide-btn {
+    font-size: var(--text-base);
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 2px 4px;
+    opacity: 0.3;
+    transition: opacity var(--duration-fast) var(--ease);
+    line-height: 1;
+    align-self: center;
+    flex-shrink: 0;
+  }
+
+  .hide-btn:hover,
+  .hide-btn.is-hidden {
+    opacity: 1;
   }
 
   /* --- Unnamed state --- */

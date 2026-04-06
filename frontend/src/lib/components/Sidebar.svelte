@@ -3,6 +3,7 @@
   import type { AccountBalance, UserSettings } from "$lib/api";
   import { theme } from "$lib/theme.svelte";
   import { tooltip } from "$lib/tooltip";
+  import { settingsStore } from "$lib/settings.svelte";
 
   interface Props {
     accounts: AccountBalance[];
@@ -24,21 +25,29 @@
   let assetsOpen = $state(true);
   let liabilitiesOpen = $state(true);
   let equityOpen = $state(true);
+  let hiddenOpen = $state(false);
+
+  let hiddenIds = $derived(
+    new Set(settingsStore.value?.preferences.hiddenAccountIds ?? [])
+  );
 
   let assets = $derived(
     accounts.filter((a) =>
-      a.path.startsWith(`${settings.defaultAssetsRootPath}:`),
+      !hiddenIds.has(a.id) && a.path.startsWith(`${settings.defaultAssetsRootPath}:`),
     ),
   );
   let liabilities = $derived(
     accounts.filter((a) =>
-      a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`),
+      !hiddenIds.has(a.id) && a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`),
     ),
   );
   let equity = $derived(
     accounts.filter((a) =>
-      a.path.startsWith(`${settings.defaultEquityRootPath}:`),
+      !hiddenIds.has(a.id) && a.path.startsWith(`${settings.defaultEquityRootPath}:`),
     ),
+  );
+  let hiddenAccounts = $derived(
+    accounts.filter((a) => hiddenIds.has(a.id))
   );
 
   function shortName(path: string, root: string): string {
@@ -205,6 +214,37 @@
             </ul>
           {/if}
         </section>
+
+        {#if hiddenAccounts.length > 0}
+          <section class="group group-hidden">
+            <button
+              class="group-header"
+              onclick={() => (hiddenOpen = !hiddenOpen)}
+            >
+              <img
+                src="/icons/chevron.svg"
+                alt=""
+                aria-hidden="true"
+                width="10"
+                height="10"
+                class="svg-icon group-chevron"
+                class:open={hiddenOpen}
+              />
+              Hidden
+            </button>
+            {#if hiddenOpen}
+              <ul class="account-list">
+                {#each hiddenAccounts as acct}
+                  <li>
+                    <a href="/account/{acct.id}" class="account-row account-row-hidden">
+                      <span class="account-name">{acct.name ?? acct.path}</span>
+                    </a>
+                  </li>
+                {/each}
+              </ul>
+            {/if}
+          </section>
+        {/if}
       </div>
     {/if}
 
@@ -525,6 +565,15 @@
   .account-balance.muted {
     color: var(--color-text-muted);
     font-size: var(--text-xs);
+  }
+
+  .group-hidden .group-header {
+    color: var(--color-text-disabled);
+  }
+
+  .account-row-hidden .account-name {
+    color: var(--color-text-disabled);
+    font-style: italic;
   }
 
   /* --- Footer --- */
