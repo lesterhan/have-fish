@@ -541,6 +541,11 @@
     border-top: 1px solid var(--color-border);
     padding: var(--sp-xs) 0;
     flex-shrink: 0;
+    margin-top: auto;
+  }
+
+  .sidebar.collapsed .sidebar-footer {
+    border-top: none;
   }
 
   .footer-btn {
