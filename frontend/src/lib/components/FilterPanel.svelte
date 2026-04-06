@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Panel from "$lib/components/Panel.svelte";
-  import Button from "$lib/components/Button.svelte";
+  import Panel from "$lib/components/ui/Panel.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
   import DateRangeSelector from "$lib/components/DateRangeSelector.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import { fetchAccounts } from "$lib/api";

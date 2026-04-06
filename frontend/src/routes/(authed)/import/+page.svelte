@@ -13,12 +13,12 @@
     type CommitTransaction,
     type UserSettings,
   } from "$lib/api";
-  import Button from "$lib/components/Button.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
-  import Panel from "$lib/components/Panel.svelte";
-  import TextInput from "$lib/components/TextInput.svelte";
-  import Toggle from "$lib/components/Toggle.svelte";
-  import TableShell from "$lib/components/TableShell.svelte";
+  import Panel from "$lib/components/ui/Panel.svelte";
+  import TextInput from "$lib/components/ui/TextInput.svelte";
+  import Toggle from "$lib/components/ui/Toggle.svelte";
+  import TableShell from "$lib/components/ui/TableShell.svelte";
   import EditParserPanel from "$lib/components/EditParserPanel.svelte";
   import { toast } from "$lib/toast.svelte";
   import { goto } from "$app/navigation";

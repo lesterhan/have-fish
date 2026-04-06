@@ -1,7 +1,7 @@
 <script lang="ts">
-  import Panel from "./Panel.svelte";
-  import Button from "./Button.svelte";
-  import Toggle from "./Toggle.svelte";
+  import Panel from "./ui/Panel.svelte";
+  import Button from "./ui/Button.svelte";
+  import Toggle from "./ui/Toggle.svelte";
   import AccountPathInput from "./AccountPathInput.svelte";
   import {
     updateParser,

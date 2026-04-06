@@ -1,6 +1,6 @@
 <script lang="ts">
   import type { Snippet } from "svelte";
-  import Shimmer from "$lib/components/Shimmer.svelte";
+  import Shimmer from "$lib/components/ui/Shimmer.svelte";
 
   interface Column {
     label: string;

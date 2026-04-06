@@ -6,9 +6,9 @@
 </script>
 
 <script lang="ts">
-  import Button from "$lib/components/Button.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
-  import MoneyDisplay from "$lib/components/MoneyDisplay.svelte";
+  import MoneyDisplay from "$lib/components/ui/MoneyDisplay.svelte";
   import TransactionEditModal from "$lib/components/TransactionEditModal.svelte";
   import { toISODate } from "$lib/date";
   import { patchTransaction, patchPosting, type Account } from "$lib/api";

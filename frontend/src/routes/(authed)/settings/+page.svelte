@@ -8,11 +8,11 @@
     updateUserSettings,
   } from "$lib/api";
   import type { Account, UserSettings } from "$lib/api";
-  import Button from "$lib/components/Button.svelte";
-  import HeadingBanner from "$lib/components/HeadingBanner.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
+  import HeadingBanner from "$lib/components/ui/HeadingBanner.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
-  import Panel from "$lib/components/Panel.svelte";
-  import Modal from "$lib/components/Modal.svelte";
+  import Panel from "$lib/components/ui/Panel.svelte";
+  import Modal from "$lib/components/ui/Modal.svelte";
   import { signOut, useSession, authClient } from "$lib/auth";
   import { goto } from "$app/navigation";
   import { toast } from "$lib/toast.svelte";

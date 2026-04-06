@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Modal from "$lib/components/Modal.svelte";
-  import Button from "$lib/components/Button.svelte";
+  import Modal from "$lib/components/ui/Modal.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import { createTransaction, type Account, type Transaction } from "$lib/api";
   import { toISODate } from "$lib/date";

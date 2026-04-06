@@ -1,7 +1,7 @@
 <script lang="ts">
   import { signIn } from '$lib/auth'
   import { goto } from '$app/navigation'
-  import Button from '$lib/components/Button.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
 
   let email = $state('')
   let password = $state('')

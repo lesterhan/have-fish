@@ -1,5 +1,5 @@
 <script lang="ts">
-  import MoneyDisplay from "./MoneyDisplay.svelte";
+  import MoneyDisplay from "./ui/MoneyDisplay.svelte";
   import type { AccountBalance, UserSettings } from "$lib/api";
   import { theme } from "$lib/theme.svelte";
   import { tooltip } from "$lib/tooltip";

@@ -6,8 +6,8 @@
     type Account,
   } from "$lib/api";
   import AddTransactionModal from "$lib/components/AddTransactionModal.svelte";
-  import Button from "$lib/components/Button.svelte";
-  import Panel from "$lib/components/Panel.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
+  import Panel from "$lib/components/ui/Panel.svelte";
   import { toISODate } from "$lib/date";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";

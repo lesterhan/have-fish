@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Panel from '$lib/components/Panel.svelte'
+  import Panel from '$lib/components/ui/Panel.svelte'
   import { fetchSpendingSummary, fetchWeeklySpend, fetchAccountBalances, fetchMonthlySpend, fetchUserSettings, updateUserSettings } from '$lib/api'
   import type { SpendingSummary, WeeklySpend } from '$lib/api'
   import { Chart, BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'

@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from "svelte";
-  import Modal from "./Modal.svelte";
-  import Button from "./Button.svelte";
-  import Toggle from "./Toggle.svelte";
+  import Modal from "./ui/Modal.svelte";
+  import Button from "./ui/Button.svelte";
+  import Toggle from "./ui/Toggle.svelte";
   import { fetchUserSettings, type UserSettings } from "$lib/api";
   import { tooltip } from "$lib/tooltip";
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Shimmer from "$lib/components/Shimmer.svelte";
+  import Shimmer from "$lib/components/ui/Shimmer.svelte";
 </script>
 
 <div class="row">
