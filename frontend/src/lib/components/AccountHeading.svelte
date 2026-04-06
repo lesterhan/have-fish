@@ -1,6 +1,7 @@
 <script lang="ts">
   import { updateAccount, type Account } from '$lib/api'
   import { tooltip } from '$lib/tooltip'
+  import { currencyFlag } from '$lib/currency'
 
   interface Props {
     account: Account
@@ -120,10 +121,14 @@
         <span class="balance-label">Current Balance</span>
         <div class="balance-amounts">
           {#each balances as b}
-            <span class="balance-amount" class:negative={isNegative(b.amount)}>
-              {isNegative(b.amount) ? '−' : ''}{formatAmount(b.amount)}
-              <span class="balance-currency">{b.currency}</span>
-            </span>
+            <div class="balance-item">
+              <span class="balance-currency">
+                {currencyFlag(b.currency) ? `${currencyFlag(b.currency)} ` : ''}{b.currency}
+              </span>
+              <span class="balance-amount">
+                {isNegative(b.amount) ? '−' : ''}{formatAmount(b.amount)}
+              </span>
+            </div>
           {/each}
         </div>
       </div>
@@ -247,25 +252,27 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 2px;
+    gap: var(--sp-xs);
+  }
+
+  .balance-item {
+    display: flex;
+    flex-direction: row;
+    align-items: baseline;
+    gap: var(--sp-sm);
+  }
+
+  .balance-currency {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
   }
 
   .balance-amount {
     font-family: var(--font-mono);
     font-size: var(--text-2xl);
     font-weight: var(--weight-semibold);
-    color: var(--color-amount-positive);
+    color: var(--color-text);
     line-height: var(--leading-tight);
-  }
-
-  .balance-amount.negative {
-    color: var(--color-amount-negative);
-  }
-
-  .balance-currency {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-normal);
-    opacity: 0.75;
-    margin-left: 4px;
   }
 </style>
