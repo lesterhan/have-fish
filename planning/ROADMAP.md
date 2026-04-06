@@ -20,4 +20,4 @@
 | [Dashboard](epics/archive/dashboard.md) | Done |
 | [User Sign-up](epics/archive/user-signup.md) | Done |
 | [Sidebar Redesign](epics/archive/sidebar-redesign.md) | Done |
-| [Single Account View](epics/single-account-view.md) | Backlog |
+| [Single Account View](epics/archive/single-account-view.md) | Done |
