@@ -3,6 +3,7 @@
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
   import { fetchAccount, fetchAccounts, fetchTransactions, fetchUserSettings, type Account } from '$lib/api'
+  import AccountHeading from '$lib/components/AccountHeading.svelte'
   import { toISODate } from '$lib/date'
   import FilterPanel from '$lib/components/FilterPanel.svelte'
   import AddTransactionModal from '$lib/components/AddTransactionModal.svelte'
@@ -60,8 +61,6 @@
       await Promise.all([fetchAccounts(), fetchUserSettings()])
   })
 
-  let heading = $derived(account?.name ?? account?.path ?? '…')
-
   let sortedTransactions = $derived(
     [...transactions].sort((a, b) => {
       const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0
@@ -86,12 +85,11 @@
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
 
-<header class="account-header">
-  <h1 class="account-title">{heading}</h1>
-  {#if account?.name && account.path}
-    <p class="account-path">{account.path}</p>
-  {/if}
-</header>
+{#if account}
+  <AccountHeading {account} onupdated={(a) => (account = a)} />
+{:else}
+  <div class="account-header-placeholder"></div>
+{/if}
 
 <div class="panels">
   <FilterPanel
@@ -134,20 +132,8 @@
 {/if}
 
 <style>
-  .account-header {
-    margin-bottom: var(--sp-lg);
-  }
-
-  .account-title {
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-  }
-
-  .account-path {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    margin-top: 2px;
+  .account-header-placeholder {
+    height: calc(var(--text-2xl) * var(--leading-tight) + var(--sp-lg));
   }
 
   .panels {

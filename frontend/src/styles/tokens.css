@@ -14,8 +14,9 @@
    * Tahoma is the period-accurate Windows 98/XP system font.
    * Mono stays for journal/ledger views — that's authentic too.
    */
-  --font-sans: 'Tahoma', 'MS Sans Serif', Arial, sans-serif;
-  --font-mono: 'Courier New', 'Lucida Console', ui-monospace, monospace;
+  --font-sans:  'Tahoma', 'MS Sans Serif', Arial, sans-serif;
+  --font-serif: Georgia, 'Book Antiqua', 'Times New Roman', serif;
+  --font-mono:  'Courier New', 'Lucida Console', ui-monospace, monospace;
 
   --text-xs:   0.75rem;   /* 12px */
   --text-sm:   0.875rem;  /* 14px */

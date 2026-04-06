@@ -113,7 +113,7 @@
               {#each assets as acct}
                 <li>
                   <a href="/account/{acct.id}" class="account-row">
-                    <span class="account-name">{shortName(acct.path, settings.defaultAssetsRootPath)}</span>
+                    <span class="account-name">{acct.name ?? shortName(acct.path, settings.defaultAssetsRootPath)}</span>
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
@@ -151,7 +151,7 @@
               {#each liabilities as acct}
                 <li>
                   <a href="/account/{acct.id}" class="account-row">
-                    <span class="account-name">{shortName(acct.path, settings.defaultLiabilitiesRootPath)}</span>
+                    <span class="account-name">{acct.name ?? shortName(acct.path, settings.defaultLiabilitiesRootPath)}</span>
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
@@ -189,7 +189,7 @@
               {#each equity as acct}
                 <li>
                   <a href="/account/{acct.id}" class="account-row">
-                    <span class="account-name">{shortName(acct.path, settings.defaultEquityRootPath)}</span>
+                    <span class="account-name">{acct.name ?? shortName(acct.path, settings.defaultEquityRootPath)}</span>
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>

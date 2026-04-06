@@ -16,6 +16,17 @@ export async function fetchAccount(id: string): Promise<Account> {
   return res.json()
 }
 
+export async function updateAccount(id: string, updates: { name?: string | null }): Promise<Account> {
+  const res = await fetch(`${BASE}/api/accounts/${id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(updates),
+  })
+  if (!res.ok) throw new Error('Failed to update account')
+  return res.json()
+}
+
 export async function fetchAccounts(): Promise<Account[]> {
   const res = await fetch(`${BASE}/api/accounts`, { credentials: 'include' })
   return res.json()
