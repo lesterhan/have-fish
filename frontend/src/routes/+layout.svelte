@@ -4,7 +4,7 @@
   import Sidebar from "$lib/components/Sidebar.svelte";
   import { useSession } from "$lib/auth";
   import { toast } from "$lib/toast.svelte";
-  import { fetchAccountBalances, fetchUserSettings } from "$lib/api";
+  import { fetchAccountBalances } from "$lib/api";
   import type { AccountBalance, UserSettings } from "$lib/api";
   import { settingsStore } from "$lib/settings.svelte";
 
@@ -16,9 +16,7 @@
   let showQuitDialog = $state(false);
   let mobileSidebarOpen = $state(false);
 
-  // Sidebar data — defaults let the sidebar render immediately; populated after fetch
-  let sidebarAccounts = $state<AccountBalance[]>([]);
-  let sidebarSettings = $state<UserSettings>({
+  const settingsDefault: UserSettings = {
     id: "",
     userId: "",
     defaultOffsetAccountId: null,
@@ -30,7 +28,11 @@
     preferences: {},
     createdAt: "",
     updatedAt: "",
-  });
+  };
+
+  // Sidebar data — defaults let the sidebar render immediately; populated after fetch
+  let sidebarAccounts = $state<AccountBalance[]>([]);
+  let sidebarSettings = $derived(settingsStore.value ?? settingsDefault);
 
   // $effect re-runs when $session.data changes, so the fetch fires as soon as
   // Better Auth resolves the session — not at mount time when it may still be null.
@@ -39,11 +41,9 @@
   $effect(() => {
     if ($session.data && !sidebarFetched) {
       sidebarFetched = true;
-      Promise.all([fetchAccountBalances(), fetchUserSettings()]).then(
-        ([accts, settings]) => {
+      Promise.all([fetchAccountBalances(), settingsStore.load()]).then(
+        ([accts]) => {
           sidebarAccounts = accts;
-          sidebarSettings = settings;
-          settingsStore.value = settings;
         },
       );
     }

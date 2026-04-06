@@ -2,7 +2,7 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
-  import { fetchAccount, fetchAccounts, fetchTransactions, fetchUserSettings, updateUserSettings, type Account, type UserSettings } from '$lib/api'
+  import { fetchAccount, fetchAccounts, fetchTransactions, type Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import AccountHeading from '$lib/components/AccountHeading.svelte'
   import { toISODate } from '$lib/date'
@@ -33,7 +33,6 @@
   let accounts   = $state<Account[]>([])
   let defaultOffsetAccountId     = $state<string | null>(null)
   let defaultConversionAccountId = $state<string | null>(null)
-  let userSettings = $state<UserSettings | null>(null)
   let loading  = $state(true)
   let notFound = $state(false)
   let addModalOpen = $state(false)
@@ -59,9 +58,8 @@
   })
 
   onMount(async () => {
-    const [accts, settings] = await Promise.all([fetchAccounts(), fetchUserSettings()])
+    const [accts, settings] = await Promise.all([fetchAccounts(), settingsStore.load()])
     accounts = accts
-    userSettings = settings
     defaultOffsetAccountId = settings.defaultOffsetAccountId
     defaultConversionAccountId = settings.defaultConversionAccountId
   })
@@ -71,15 +69,11 @@
   )
 
   async function toggleHidden() {
-    const s = settingsStore.value ?? userSettings
+    const s = settingsStore.value
     if (!s) return
     const current = s.preferences.hiddenAccountIds ?? []
     const next = isHidden ? current.filter((x) => x !== id) : [...current, id]
-    const updated = await updateUserSettings({
-      preferences: { ...s.preferences, hiddenAccountIds: next },
-    })
-    settingsStore.value = updated
-    userSettings = updated
+    await settingsStore.update({ preferences: { ...s.preferences, hiddenAccountIds: next } })
   }
 
   let sortedTransactions = $derived(

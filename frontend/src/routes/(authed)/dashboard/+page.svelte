@@ -1,7 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Panel from '$lib/components/ui/Panel.svelte'
-  import { fetchSpendingSummary, fetchWeeklySpend, fetchAccountBalances, fetchMonthlySpend, fetchUserSettings, updateUserSettings } from '$lib/api'
+  import { fetchSpendingSummary, fetchWeeklySpend, fetchAccountBalances, fetchMonthlySpend } from '$lib/api'
+  import { settingsStore } from '$lib/settings.svelte'
   import type { SpendingSummary, WeeklySpend } from '$lib/api'
   import { Chart, BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
   import { theme } from '$lib/theme.svelte'
@@ -214,7 +215,7 @@
     const [balances, monthly, settings] = await Promise.all([
       fetchAccountBalances(),
       fetchMonthlySpend(3),
-      fetchUserSettings(),
+      settingsStore.load(),
     ])
     hiddenCurrencies = settings.preferences?.dashboardHiddenCurrencies ?? []
 
@@ -264,7 +265,7 @@
       ? hiddenCurrencies.filter(c => c !== currency)
       : [...hiddenCurrencies, currency]
     hiddenCurrencies = next
-    await updateUserSettings({ preferences: { dashboardHiddenCurrencies: next } })
+    await settingsStore.update({ preferences: { ...settingsStore.value?.preferences, dashboardHiddenCurrencies: next } })
   }
 
   let allCashCurrencies = $derived(

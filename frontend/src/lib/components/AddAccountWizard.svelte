@@ -3,8 +3,8 @@
   import Modal from "./ui/Modal.svelte";
   import Button from "./ui/Button.svelte";
   import Toggle from "./ui/Toggle.svelte";
-  import { fetchUserSettings, type UserSettings } from "$lib/api";
   import { tooltip } from "$lib/tooltip";
+  import { settingsStore } from "$lib/settings.svelte";
 
   interface Props {
     type: "asset" | "liability";
@@ -79,19 +79,17 @@
     }, 200);
   }
 
-  // --- User settings (needed for root path prefixes) ---
-  let userSettings = $state<UserSettings | null>(null);
-
   onMount(async () => {
-    userSettings = await fetchUserSettings();
+    await settingsStore.load();
   });
 
   // The prefix to pre-fill when the wizard opens, based on type + user settings.
   let rootPrefix = $derived.by(() => {
-    if (!userSettings) return "";
+    const s = settingsStore.value;
+    if (!s) return "";
     return type === "asset"
-      ? userSettings.defaultAssetsRootPath + ":"
-      : userSettings.defaultLiabilitiesRootPath + ":";
+      ? s.defaultAssetsRootPath + ":"
+      : s.defaultLiabilitiesRootPath + ":";
   });
 
   // --- Step 1 state ---
@@ -241,8 +239,8 @@
 
       // 2. Post starting balance transaction if a balance was entered
       const balanceAmount = startingBalance.trim();
-      if (balanceAmount && userSettings?.defaultOffsetAccountId) {
-        const offsetId = userSettings.defaultOffsetAccountId;
+      if (balanceAmount && settingsStore.value?.defaultOffsetAccountId) {
+        const offsetId = settingsStore.value.defaultOffsetAccountId;
         const txRes = await fetch(`${BASE}/api/transactions`, {
           method: "POST",
           credentials: "include",
@@ -509,7 +507,7 @@
               <span class="summary-label">Balance date</span>
               <span class="summary-value">{startingDate}</span>
             </div>
-            {#if !userSettings?.defaultOffsetAccountId}
+            {#if !settingsStore.value?.defaultOffsetAccountId}
               <p class="summary-warn">
                 No offset account set — starting balance will be skipped. Set
                 one in Settings.

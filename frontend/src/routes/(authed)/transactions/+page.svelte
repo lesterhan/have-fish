@@ -2,9 +2,9 @@
   import {
     fetchTransactions,
     fetchAccounts,
-    fetchUserSettings,
     type Account,
   } from "$lib/api";
+  import { settingsStore } from "$lib/settings.svelte";
   import AddTransactionModal from "$lib/components/AddTransactionModal.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
@@ -84,8 +84,10 @@
 
   // Accounts and settings don't depend on the date range — fetch once.
   onMount(async () => {
-    [accounts, { defaultOffsetAccountId, defaultConversionAccountId }] =
-      await Promise.all([fetchAccounts(), fetchUserSettings()]);
+    const [accts, settings] = await Promise.all([fetchAccounts(), settingsStore.load()])
+    accounts = accts
+    defaultOffsetAccountId = settings.defaultOffsetAccountId
+    defaultConversionAccountId = settings.defaultConversionAccountId
   });
 </script>
 

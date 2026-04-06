@@ -3,7 +3,6 @@
   import {
     fetchAccounts,
     fetchParsers,
-    fetchUserSettings,
     importPreview,
     importCommit,
     createAccount,
@@ -11,8 +10,8 @@
     type CsvParser,
     type ImportPreviewResult,
     type CommitTransaction,
-    type UserSettings,
   } from "$lib/api";
+  import { settingsStore } from "$lib/settings.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
@@ -26,7 +25,6 @@
   let accounts = $state<Account[]>([]);
   let parsers = $state<CsvParser[]>([]);
   let parsersLoading = $state(true);
-  let userSettings = $state<UserSettings | null>(null);
   // toAccountId seeds the offsetAccountId for regular rows on preview load.
   // Not required upfront — multi-currency imports may have no regular rows.
   let toAccountId = $state("");
@@ -53,11 +51,10 @@
   onMount(async () => {
     const [accts, settings, parsersData] = await Promise.all([
       fetchAccounts(),
-      fetchUserSettings(),
+      settingsStore.load(),
       fetchParsers(),
     ]);
     accounts = accts;
-    userSettings = settings;
     parsers = parsersData;
     parsersLoading = false;
     toAccountId = settings.defaultOffsetAccountId ?? "";
@@ -137,7 +134,7 @@
       }
       // Auto-enable liability mode if the parser's default account is under the liabilities root
       const liabilitiesRoot =
-        userSettings?.defaultLiabilitiesRootPath ?? "liabilities";
+        settingsStore.value?.defaultLiabilitiesRootPath ?? "liabilities";
       const defaultAccountPath =
         accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? "";
       importAsLiabilities = defaultAccountPath.startsWith(
@@ -145,7 +142,7 @@
       );
       rowStates = preview.transactions.map(() => ({
         offsetAccountId: toAccountId,
-        conversionAccountId: userSettings?.defaultConversionAccountId ?? "",
+        conversionAccountId: settingsStore.value?.defaultConversionAccountId ?? "",
         feeAccountId: preview!.defaultFeeAccountId ?? "",
       }));
     } catch (e) {

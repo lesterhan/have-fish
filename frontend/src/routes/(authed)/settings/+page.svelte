@@ -4,10 +4,9 @@
     fetchAccounts,
     createAccount,
     deleteAccount,
-    fetchUserSettings,
-    updateUserSettings,
   } from "$lib/api";
-  import type { Account, UserSettings } from "$lib/api";
+  import type { Account } from "$lib/api";
+  import { settingsStore } from "$lib/settings.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import HeadingBanner from "$lib/components/ui/HeadingBanner.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
@@ -26,7 +25,6 @@
   }
 
   // --- Defaults ---
-  let userSettings = $state<UserSettings | null>(null);
   let offsetAccountId = $state("");
   let conversionAccountId = $state("");
 
@@ -37,10 +35,9 @@
   onMount(async () => {
     const [accts, settings] = await Promise.all([
       fetchAccounts(),
-      fetchUserSettings(),
+      settingsStore.load(),
     ]);
     accounts = accts;
-    userSettings = settings;
     offsetAccountId = settings.defaultOffsetAccountId ?? "";
     conversionAccountId = settings.defaultConversionAccountId ?? "";
   });
@@ -65,7 +62,7 @@
     field: "defaultOffsetAccountId" | "defaultConversionAccountId",
     accountId: string,
   ) {
-    userSettings = await updateUserSettings({ [field]: accountId || null });
+    await settingsStore.update({ [field]: accountId || null });
     toast.show(`${defaultLabels[field]} saved`);
   }
 
@@ -81,7 +78,7 @@
     value: string,
   ) {
     if (!value.trim()) return;
-    userSettings = await updateUserSettings({ [field]: value.trim() });
+    await settingsStore.update({ [field]: value.trim() });
     toast.show(`${rootPathLabels[field]} saved`);
   }
 
@@ -169,7 +166,7 @@
         <input
           id="assets-root-path"
           type="text"
-          value={userSettings?.defaultAssetsRootPath ?? "assets"}
+          value={settingsStore.value?.defaultAssetsRootPath ?? "assets"}
           onblur={(e) =>
             handleRootPathChange(
               "defaultAssetsRootPath",
@@ -191,7 +188,7 @@
         <input
           id="liabilities-root-path"
           type="text"
-          value={userSettings?.defaultLiabilitiesRootPath ?? "liabilities"}
+          value={settingsStore.value?.defaultLiabilitiesRootPath ?? "liabilities"}
           onblur={(e) =>
             handleRootPathChange(
               "defaultLiabilitiesRootPath",
@@ -213,7 +210,7 @@
         <input
           id="expenses-root-path"
           type="text"
-          value={userSettings?.defaultExpensesRootPath ?? "expenses"}
+          value={settingsStore.value?.defaultExpensesRootPath ?? "expenses"}
           onblur={(e) =>
             handleRootPathChange(
               "defaultExpensesRootPath",
@@ -235,7 +232,7 @@
         <input
           id="equity-root-path"
           type="text"
-          value={userSettings?.defaultEquityRootPath ?? "equity"}
+          value={settingsStore.value?.defaultEquityRootPath ?? "equity"}
           onblur={(e) =>
             handleRootPathChange(
               "defaultEquityRootPath",
