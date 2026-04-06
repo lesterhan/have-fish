@@ -1,0 +1,6 @@
+<svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" fill="black">
+  <!-- Three ascending bars — rising chart -->
+  <rect x="0" y="7" width="3" height="5"/>
+  <rect x="4.5" y="4" width="3" height="8"/>
+  <rect x="9" y="1" width="3" height="11"/>
+</svg>

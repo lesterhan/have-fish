@@ -1,10 +1,11 @@
 <script lang="ts">
   import "../styles/tokens.css";
   import "../styles/base.css";
-  import Button from "$lib/components/Button.svelte";
+  import Sidebar from "$lib/components/Sidebar.svelte";
   import { useSession } from "$lib/auth";
-  import { theme } from "$lib/theme.svelte";
   import { toast } from "$lib/toast.svelte";
+  import { fetchAccountBalances, fetchUserSettings } from "$lib/api";
+  import type { AccountBalance, UserSettings } from "$lib/api";
 
   let { children } = $props();
 
@@ -12,6 +13,39 @@
 
   let maximized = $state(true);
   let showQuitDialog = $state(false);
+  let mobileSidebarOpen = $state(false);
+
+  // Sidebar data — defaults let the sidebar render immediately; populated after fetch
+  let sidebarAccounts = $state<AccountBalance[]>([]);
+  let sidebarSettings = $state<UserSettings>({
+    id: '', userId: '',
+    defaultOffsetAccountId: null,
+    defaultConversionAccountId: null,
+    defaultAssetsRootPath: 'assets',
+    defaultLiabilitiesRootPath: 'liabilities',
+    defaultExpensesRootPath: 'expenses',
+    defaultEquityRootPath: 'equity',
+    preferences: {},
+    createdAt: '', updatedAt: '',
+  });
+
+  // $effect re-runs when $session.data changes, so the fetch fires as soon as
+  // Better Auth resolves the session — not at mount time when it may still be null.
+  // The fetched flag prevents re-fetching if the session object is refreshed.
+  let sidebarFetched = false;
+  $effect(() => {
+    if ($session.data && !sidebarFetched) {
+      sidebarFetched = true;
+      Promise.all([fetchAccountBalances(), fetchUserSettings()]).then(([accts, settings]) => {
+        sidebarAccounts = accts;
+        sidebarSettings = settings;
+      });
+    }
+  });
+
+  function closeMobileSidebar() {
+    mobileSidebarOpen = false;
+  }
 </script>
 
 <svelte:head>
@@ -24,6 +58,14 @@
       <span class="titlebar-icon">🧧</span>
       <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
+        {#if $session.data}
+          <!-- Mobile hamburger — lives in titlebar, hidden on desktop -->
+          <button
+            class="chrome-btn hamburger"
+            onclick={() => (mobileSidebarOpen = true)}
+            aria-label="Open menu"
+          >☰</button>
+        {/if}
         <button class="chrome-btn minimize" aria-label="Minimize">_</button>
         <button
           class="chrome-btn maximize"
@@ -39,34 +81,30 @@
       </div>
     </div>
 
-    <nav class="menubar">
+    <div class="window-body">
       {#if $session.data}
-        <a href="/dashboard">Dash 📈</a>
-        <a href="/transactions">Txns 🗃️</a>
-        <a href="/assets">Accs 💳</a>
-        <a href="/import">Import 📥</a>
+        <Sidebar
+          accounts={sidebarAccounts}
+          settings={sidebarSettings}
+          email={$session.data.user.email}
+          mobileOpen={mobileSidebarOpen}
+          onMobileClose={closeMobileSidebar}
+        />
       {/if}
-      <span class="menubar-spacer"></span>
-      <Button
-        variant="ghost"
-        square
-        onclick={() => theme.toggle()}
-        title="Toggle dark mode"
-      >
-        {theme.dark ? "☀️" : "🌑"}
-      </Button>
-      {#if $session.data}
-        <a href="/settings" class="menubar-settings">
-          {$session.data.user.email} ⚙️
-        </a>
-      {:else}
-        <a href="/login">Sign in</a>
-      {/if}
-    </nav>
 
-    <main class="window-body">
-      {@render children()}
-    </main>
+      <div class="content">
+        {@render children()}
+      </div>
+
+      <!-- Mobile sidebar backdrop -->
+      {#if mobileSidebarOpen}
+        <div
+          class="mobile-backdrop"
+          role="presentation"
+          onclick={closeMobileSidebar}
+        ></div>
+      {/if}
+    </div>
 
     <div class="statusbar">
       <span class="statusbar-ready">Ready</span>
@@ -192,98 +230,101 @@
     color: var(--color-text-on-dark);
   }
 
-  /* --- Menu bar --- */
-  .menubar {
-    display: flex;
-    align-items: center;
-    gap: 0;
-    padding: 2px var(--sp-xs);
-    background: var(--color-window);
-    border-bottom: 1px solid var(--color-bevel-dark);
-    font-size: var(--text-sm);
+  /* Hamburger — hidden on desktop, visible on mobile only */
+  .chrome-btn.hamburger {
+    display: none;
   }
 
-  .menubar a {
-    display: inline-block;
-    padding: 3px var(--sp-sm);
-    color: var(--color-text);
-    text-decoration: none;
-    background: transparent;
-    border: 1px solid transparent;
-    transition:
-      background var(--duration-fast) var(--ease),
-      border-color var(--duration-fast) var(--ease);
+  @media (max-width: 600px) {
+    /* Show hamburger, hide window management buttons on mobile */
+    .chrome-btn.hamburger {
+      display: flex;
+    }
+
+    .chrome-btn.minimize,
+    .chrome-btn.maximize,
+    .chrome-btn.close {
+      display: none;
+    }
   }
 
-  .menubar a:hover {
-    background: var(--color-accent-light);
-    border-color: var(--color-accent-mid);
-  }
-
-  .menubar a:active {
-    background: var(--color-accent-mid);
-    color: var(--color-text-on-dark);
-  }
-
-  .menubar-spacer {
+  /* --- Window body — flex row: sidebar + content --- */
+  .window-body {
     flex: 1;
     display: flex;
-    align-items: center;
-    justify-content: flex-end;
-    padding-right: var(--sp-sm);
+    flex-direction: row;
+    overflow: hidden;
+    background: var(--color-window);
+    position: relative; /* for mobile backdrop */
   }
 
-  .menubar-settings {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  /* --- Window body --- */
-  .window-body {
+  /* --- Content area — the scrolling pane to the right of the sidebar --- */
+  .content {
     flex: 1;
     overflow-y: auto;
     padding: var(--sp-lg);
     background: var(--color-window-raised);
+    min-width: 0; /* prevent flex blowout */
     scrollbar-width: auto;
     scrollbar-color: var(--color-window) var(--color-window);
   }
 
-  .window-body::-webkit-scrollbar {
+  .content::-webkit-scrollbar {
     width: 16px;
   }
 
-  .window-body::-webkit-scrollbar-track {
+  .content::-webkit-scrollbar-track {
     background: var(--color-window);
     box-shadow: var(--shadow-sunken);
   }
 
-  .window-body::-webkit-scrollbar-thumb {
+  .content::-webkit-scrollbar-thumb {
     background: var(--color-window);
     box-shadow: var(--shadow-raised);
     min-height: 24px;
   }
 
-  .window-body::-webkit-scrollbar-thumb:hover {
+  .content::-webkit-scrollbar-thumb:hover {
     background: var(--color-window-raised);
   }
 
-  .window-body::-webkit-scrollbar-thumb:active {
+  .content::-webkit-scrollbar-thumb:active {
     box-shadow: var(--shadow-sunken);
   }
 
-  .window-body::-webkit-scrollbar-button {
+  .content::-webkit-scrollbar-button {
     background: var(--color-window);
     box-shadow: var(--shadow-raised);
     display: block;
     height: 16px;
   }
 
-  .window-body::-webkit-scrollbar-button:hover {
+  .content::-webkit-scrollbar-button:hover {
     background: var(--color-window-raised);
   }
 
-  .window-body::-webkit-scrollbar-button:active {
+  .content::-webkit-scrollbar-button:active {
     box-shadow: var(--shadow-sunken);
+  }
+
+  /* --- Mobile backdrop (closes sidebar on outside click) --- */
+  .mobile-backdrop {
+    display: none;
+    position: absolute;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: 199; /* just below sidebar's z-index: 200 */
+  }
+
+  @media (max-width: 600px) {
+    .mobile-backdrop {
+      display: block;
+    }
+
+    /* On mobile, content takes full width (sidebar is an overlay) */
+    .content {
+      padding: var(--sp-md);
+    }
   }
 
   /* --- Quit dialog --- */

@@ -17,31 +17,43 @@
     onAccountPathChange: (path: string) => void;
   }
 
-  let { from, to, sortDir, accountPath, onApply, onSortChange, onAccountPathChange }: Props = $props()
+  let {
+    from,
+    to,
+    sortDir,
+    accountPath,
+    onApply,
+    onSortChange,
+    onAccountPathChange,
+  }: Props = $props();
 
   // Expand the search row if a filter is already active (e.g. on page load from URL)
-  let searchExpanded = $state(!!accountPath)
+  let searchExpanded = $state(!!accountPath);
   // Local draft bound to AccountPathInput (path string in searchOnly mode)
-  let draft = $state(accountPath)
+  let draft = $state(accountPath);
 
   // Keep draft in sync if the URL changes externally (e.g. browser back)
-  $effect(() => { draft = accountPath })
+  $effect(() => {
+    draft = accountPath;
+  });
 
-  let accounts = $state<{ id: string; path: string }[]>([])
-  onMount(async () => { accounts = await fetchAccounts() })
+  let accounts = $state<{ id: string; path: string }[]>([]);
+  onMount(async () => {
+    accounts = await fetchAccounts();
+  });
 
   function toggleSearch() {
-    searchExpanded = !searchExpanded
+    searchExpanded = !searchExpanded;
     if (!searchExpanded) {
-      if (accountPath) onAccountPathChange('')
-      draft = ''
+      if (accountPath) onAccountPathChange("");
+      draft = "";
     }
   }
 
   function handleClear() {
-    draft = ''
-    onAccountPathChange('')
-    searchExpanded = false
+    draft = "";
+    onAccountPathChange("");
+    searchExpanded = false;
   }
 
   function handleReset() {
@@ -57,10 +69,11 @@
     <div class="left-controls">
       <Button
         onclick={toggleSearch}
+        square
         title="Filter by account path"
-        variant={accountPath ? 'primary' : undefined}
+        variant={accountPath ? "primary" : undefined}
       >
-        🔍{accountPath ? ` ${accountPath}` : ''}
+        🔍{accountPath ? ` ${accountPath}` : ""}
       </Button>
       <Button
         onclick={() => onSortChange(sortDir === "desc" ? "asc" : "desc")}
@@ -74,7 +87,9 @@
         value={{ from, to }}
         onchange={(r) => onApply(r.from, r.to)}
       />
-      <Button square title="Reset to last 30 days" onclick={handleReset}>🔄</Button>
+      <Button square title="Reset to last 30 days" onclick={handleReset}
+        >🔄</Button
+      >
     </div>
   </div>
 
@@ -82,7 +97,11 @@
     <div class="search-row">
       <span class="search-prefix">account path</span>
       {#if accountPath}
-        <button class="clear-btn" onclick={handleClear} aria-label="Clear account filter">×</button>
+        <button
+          class="clear-btn"
+          onclick={handleClear}
+          aria-label="Clear account filter">×</button
+        >
       {/if}
       <div class="search-input-wrap">
         <AccountPathInput
@@ -90,7 +109,9 @@
           bind:value={draft}
           placeholder="expenses:food"
           searchOnly={true}
-          oncommit={(path) => { if (path !== accountPath) onAccountPathChange(path) }}
+          oncommit={(path) => {
+            if (path !== accountPath) onAccountPathChange(path);
+          }}
         />
       </div>
     </div>

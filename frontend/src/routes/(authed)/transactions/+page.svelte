@@ -114,6 +114,7 @@
   <Panel title="Operations">
     <div class="ops-body">
       <Button onclick={() => (addModalOpen = true)}>New ➕</Button>
+      <a href="/import" class="btn-link"><Button>📥 Import</Button></a>
       <Button disabled title="Coming soon">Export 📤</Button>
     </div>
   </Panel>
@@ -170,6 +171,11 @@
     flex-direction: row;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
+  }
+
+  .btn-link {
+    text-decoration: none;
+    display: contents;
   }
 
   .tx-table {

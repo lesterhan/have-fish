@@ -1,0 +1,6 @@
+<svg viewBox="0 0 12 9" xmlns="http://www.w3.org/2000/svg">
+  <!-- Credit card: outline, magnetic stripe, chip -->
+  <rect x="0.6" y="0.6" width="10.8" height="7.8" fill="none" stroke="black" stroke-width="1.2"/>
+  <rect x="0"   y="2.2" width="12"   height="2.2" fill="black"/>
+  <rect x="1.5" y="5.5" width="2.5"  height="1.8" fill="black"/>
+</svg>

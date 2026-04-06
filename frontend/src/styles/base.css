@@ -40,3 +40,17 @@ input, select, textarea {
 h1 { font-size: var(--text-2xl); font-weight: var(--weight-semibold); line-height: var(--leading-tight); }
 h2 { font-size: var(--text-xl);  font-weight: var(--weight-semibold); line-height: var(--leading-tight); }
 h3 { font-size: var(--text-lg);  font-weight: var(--weight-medium);   line-height: var(--leading-tight); }
+
+/* --- Tooltip (use:tooltip action in $lib/tooltip.ts) --- */
+.hf-tooltip {
+  position: fixed;
+  z-index: 300;
+  padding: 2px var(--sp-xs);
+  background: var(--color-window);
+  color: var(--color-text);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  box-shadow: var(--shadow-raised);
+  white-space: nowrap;
+  pointer-events: none;
+}
