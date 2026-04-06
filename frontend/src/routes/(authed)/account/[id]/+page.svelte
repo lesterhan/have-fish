@@ -12,6 +12,7 @@
   import TransactionRowSkeleton from '$lib/components/TransactionRowSkeleton.svelte'
   import Panel from '$lib/components/ui/Panel.svelte'
   import Button from '$lib/components/ui/Button.svelte'
+  import AccountSettings from '$lib/components/AccountSettings.svelte'
 
   let id = $derived(page.params.id!)
 
@@ -129,6 +130,15 @@
     </div>
   </Panel>
 </div>
+
+{#if settingsOpen && account}
+  <AccountSettings
+    {account}
+    hidden={isHidden}
+    onupdated={(a) => (account = a)}
+    ontogglehidden={toggleHidden}
+  />
+{/if}
 
 {#if loading}
   <div class="tx-table">
