@@ -19,5 +19,5 @@
 | [Resolve Duplicate Transactions](epics/resolve-duplicate-transactions.md) | Backlog |
 | [Dashboard](epics/archive/dashboard.md) | Done |
 | [User Sign-up](epics/archive/user-signup.md) | Done |
-| [Sidebar Redesign](epics/sidebar-redesign.md) | Backlog |
+| [Sidebar Redesign](epics/archive/sidebar-redesign.md) | Done |
 | [Single Account View](epics/single-account-view.md) | Backlog |
