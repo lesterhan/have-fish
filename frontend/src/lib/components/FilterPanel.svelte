@@ -12,17 +12,17 @@
     from: string;
     to: string;
     sortDir: "asc" | "desc";
-    accountPath: string;
+    accountPath?: string;
     onApply: (from: string, to: string) => void;
     onSortChange: (dir: "asc" | "desc") => void;
-    onAccountPathChange: (path: string) => void;
+    onAccountPathChange?: (path: string) => void;
   }
 
   let {
     from,
     to,
     sortDir,
-    accountPath,
+    accountPath = '',
     onApply,
     onSortChange,
     onAccountPathChange,
@@ -46,14 +46,14 @@
   function toggleSearch() {
     searchExpanded = !searchExpanded;
     if (!searchExpanded) {
-      if (accountPath) onAccountPathChange("");
+      if (accountPath) onAccountPathChange?.("");
       draft = "";
     }
   }
 
   function handleClear() {
     draft = "";
-    onAccountPathChange("");
+    onAccountPathChange?.("");
     searchExpanded = false;
   }
 
@@ -68,14 +68,16 @@
 <Panel title="Filter">
   <div class="bar">
     <div class="left-controls">
-      <Button
-        onclick={toggleSearch}
-        square
-        title="Filter by account path"
-        variant={accountPath ? "primary" : undefined}
-      >
-        🔍{accountPath ? ` ${accountPath}` : ""}
-      </Button>
+      {#if onAccountPathChange}
+        <Button
+          onclick={toggleSearch}
+          square
+          title="Filter by account path"
+          variant={accountPath ? "primary" : undefined}
+        >
+          🔍{accountPath ? ` ${accountPath}` : ""}
+        </Button>
+      {/if}
       <Button
         onclick={() => onSortChange(sortDir === "desc" ? "asc" : "desc")}
         title="Sort by date"
@@ -111,7 +113,7 @@
           placeholder="expenses:food"
           searchOnly={true}
           oncommit={(path) => {
-            if (path !== accountPath) onAccountPathChange(path);
+            if (path !== accountPath) onAccountPathChange?.(path);
           }}
         />
       </div>
