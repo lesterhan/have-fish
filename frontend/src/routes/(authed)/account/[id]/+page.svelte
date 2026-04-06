@@ -47,10 +47,12 @@
     Promise.all([
       fetchAccount(id),
       fetchTransactions({ accountId: id, from, to }),
-    ]).then(([acct, txs]) => {
+      fetchAccountBalances(),
+    ]).then(([acct, txs, allBalances]) => {
       if (cancelled) return
       account = acct
       transactions = txs
+      accountBalances = allBalances.find((b) => b.id === id)?.balances ?? []
       loading = false
     }).catch(() => {
       if (cancelled) return
@@ -61,16 +63,13 @@
   })
 
   onMount(async () => {
-    const [accts, settings, allBalances] = await Promise.all([
+    const [accts, settings] = await Promise.all([
       fetchAccounts(),
       settingsStore.load(),
-      fetchAccountBalances(),
     ])
     accounts = accts
     defaultOffsetAccountId = settings.defaultOffsetAccountId
     defaultConversionAccountId = settings.defaultConversionAccountId
-    const match = allBalances.find((b) => b.id === id)
-    accountBalances = match?.balances ?? []
   })
 
   let isHidden = $derived(
