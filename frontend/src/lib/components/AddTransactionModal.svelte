@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
@@ -29,7 +30,7 @@
   let description = $state("");
   let postings = $state([
     { accountId: "", amount: "", currency: "CAD" },
-    { accountId: defaultOffsetAccountId ?? "", amount: "", currency: "CAD" },
+    { accountId: untrack(() => defaultOffsetAccountId ?? ""), amount: "", currency: "CAD" },
   ]);
   let submitting = $state(false);
   let submitError = $state("");

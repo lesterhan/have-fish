@@ -128,6 +128,7 @@
       <!-- Title bar — doubles as the drag handle -->
       <div
         class="titlebar"
+        role="presentation"
         onpointerdown={handleTitlebarPointerDown}
         onpointermove={handleTitlebarPointerMove}
         onpointerup={handleTitlebarPointerUp}

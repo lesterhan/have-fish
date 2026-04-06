@@ -93,8 +93,19 @@
       <!-- Account groups -->
       <div class="groups">
         <section class="group">
-          <button class="group-header" onclick={() => (assetsOpen = !assetsOpen)}>
-            <img src="/icons/chevron.svg" alt="" aria-hidden="true" width="10" height="10" class="svg-icon group-chevron" class:open={assetsOpen}/>
+          <button
+            class="group-header"
+            onclick={() => (assetsOpen = !assetsOpen)}
+          >
+            <img
+              src="/icons/chevron.svg"
+              alt=""
+              aria-hidden="true"
+              width="10"
+              height="10"
+              class="svg-icon group-chevron"
+              class:open={assetsOpen}
+            />
             Assets
           </button>
           {#if assetsOpen}
@@ -102,7 +113,10 @@
               {#each assets as acct}
                 <li class="account-row">
                   <span class="account-name"
-                    >{shortName(acct.path, settings.defaultAssetsRootPath)}</span
+                    >{shortName(
+                      acct.path,
+                      settings.defaultAssetsRootPath,
+                    )}</span
                   >
                   <span class="account-balances">
                     {#if acct.balances.length === 0}
@@ -120,8 +134,19 @@
         </section>
 
         <section class="group">
-          <button class="group-header" onclick={() => (liabilitiesOpen = !liabilitiesOpen)}>
-            <img src="/icons/chevron.svg" alt="" aria-hidden="true" width="10" height="10" class="svg-icon group-chevron" class:open={liabilitiesOpen}/>
+          <button
+            class="group-header"
+            onclick={() => (liabilitiesOpen = !liabilitiesOpen)}
+          >
+            <img
+              src="/icons/chevron.svg"
+              alt=""
+              aria-hidden="true"
+              width="10"
+              height="10"
+              class="svg-icon group-chevron"
+              class:open={liabilitiesOpen}
+            />
             Liabilities
           </button>
           {#if liabilitiesOpen}
@@ -150,8 +175,19 @@
         </section>
 
         <section class="group">
-          <button class="group-header" onclick={() => (equityOpen = !equityOpen)}>
-            <img src="/icons/chevron.svg" alt="" aria-hidden="true" width="10" height="10" class="svg-icon group-chevron" class:open={equityOpen}/>
+          <button
+            class="group-header"
+            onclick={() => (equityOpen = !equityOpen)}
+          >
+            <img
+              src="/icons/chevron.svg"
+              alt=""
+              aria-hidden="true"
+              width="10"
+              height="10"
+              class="svg-icon group-chevron"
+              class:open={equityOpen}
+            />
             Equity
           </button>
           {#if equityOpen}
@@ -159,7 +195,10 @@
               {#each equity as acct}
                 <li class="account-row">
                   <span class="account-name"
-                    >{shortName(acct.path, settings.defaultEquityRootPath)}</span
+                    >{shortName(
+                      acct.path,
+                      settings.defaultEquityRootPath,
+                    )}</span
                   >
                   <span class="account-balances">
                     {#if acct.balances.length === 0}
@@ -182,13 +221,20 @@
     <div class="sidebar-footer">
       <button
         class="footer-btn footer-collapse"
-        onclick={() => expanded = !expanded}
-        aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
-        use:tooltip={'Expand'}
+        onclick={() => (expanded = !expanded)}
+        aria-label={expanded ? "Compress sidebar" : "Expand sidebar"}
+        use:tooltip={"Expand"}
       >
         {#if expanded}
-          <img src="/icons/collapse-sidebar.svg" alt="" aria-hidden="true" width="12" height="12" class="svg-icon nav-icon"/>
-          <span class="nav-label">Collapse</span>
+          <img
+            src="/icons/collapse-sidebar.svg"
+            alt=""
+            aria-hidden="true"
+            width="12"
+            height="12"
+            class="svg-icon nav-icon"
+          />
+          <span class="nav-label">Compress sidebar</span>
         {:else}
           ☰
         {/if}
@@ -279,7 +325,9 @@
 
   /* Hide the collapse button on mobile — the hamburger in the titlebar handles that */
   @media (max-width: 600px) {
-    .footer-collapse { display: none; }
+    .footer-collapse {
+      display: none;
+    }
   }
 
   /* --- SVG icons (loaded via <img>, no currentColor) --- */

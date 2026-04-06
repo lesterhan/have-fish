@@ -6,6 +6,7 @@
 </script>
 
 <script lang="ts">
+  import { untrack } from "svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import MoneyDisplay from "$lib/components/ui/MoneyDisplay.svelte";
@@ -48,9 +49,9 @@
   let modalOpen = $state(false);
 
   // Local copies of mutable fields — updated after a successful save.
-  let localDate = $state(tx.date);
-  let localDescription = $state(tx.description ?? "");
-  let localPostings = $state([...tx.postings]);
+  let localDate = $state(untrack(() => tx.date));
+  let localDescription = $state(untrack(() => tx.description ?? ""));
+  let localPostings = $state(untrack(() => [...tx.postings]));
 
   let accountPaths = $derived(
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),

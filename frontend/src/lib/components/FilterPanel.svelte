@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import DateRangeSelector from "$lib/components/DateRangeSelector.svelte";
@@ -28,9 +29,9 @@
   }: Props = $props();
 
   // Expand the search row if a filter is already active (e.g. on page load from URL)
-  let searchExpanded = $state(!!accountPath);
+  let searchExpanded = $state(untrack(() => !!accountPath));
   // Local draft bound to AccountPathInput (path string in searchOnly mode)
-  let draft = $state(accountPath);
+  let draft = $state(untrack(() => accountPath));
 
   // Keep draft in sync if the URL changes externally (e.g. browser back)
   $effect(() => {

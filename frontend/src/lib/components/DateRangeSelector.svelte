@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { toISODate, parseCustomDateRange } from '$lib/date'
 
   export type DateRange = { from: string; to: string }
@@ -37,7 +38,7 @@
   }
 
   let isOpen = $state(false)
-  let inputText = $state(rangeToText(value))
+  let inputText = $state(untrack(() => rangeToText(value)))
   let error = $state('')
   let inputEl = $state<HTMLInputElement | undefined>(undefined)
   let wrapperEl = $state<HTMLDivElement | undefined>(undefined)

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from "svelte";
   import { createAccount } from "$lib/api";
 
   interface Account {
@@ -30,7 +31,7 @@
   // Unique ID for the listbox so aria-controls can reference it
   const listboxId = `account-path-listbox-${Math.random().toString(36).slice(2, 7)}`;
 
-  let inputText = $state(searchOnly ? value : (accounts.find((a) => a.id === value)?.path ?? ""));
+  let inputText = $state(untrack(() => searchOnly ? value : (accounts.find((a) => a.id === value)?.path ?? "")));
   let filterText = $state("");
   let open = $state(false);
   let activeIndex = $state(0);
