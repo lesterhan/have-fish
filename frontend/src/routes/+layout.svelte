@@ -18,15 +18,17 @@
   // Sidebar data — defaults let the sidebar render immediately; populated after fetch
   let sidebarAccounts = $state<AccountBalance[]>([]);
   let sidebarSettings = $state<UserSettings>({
-    id: '', userId: '',
+    id: "",
+    userId: "",
     defaultOffsetAccountId: null,
     defaultConversionAccountId: null,
-    defaultAssetsRootPath: 'assets',
-    defaultLiabilitiesRootPath: 'liabilities',
-    defaultExpensesRootPath: 'expenses',
-    defaultEquityRootPath: 'equity',
+    defaultAssetsRootPath: "assets",
+    defaultLiabilitiesRootPath: "liabilities",
+    defaultExpensesRootPath: "expenses",
+    defaultEquityRootPath: "equity",
     preferences: {},
-    createdAt: '', updatedAt: '',
+    createdAt: "",
+    updatedAt: "",
   });
 
   // $effect re-runs when $session.data changes, so the fetch fires as soon as
@@ -36,10 +38,12 @@
   $effect(() => {
     if ($session.data && !sidebarFetched) {
       sidebarFetched = true;
-      Promise.all([fetchAccountBalances(), fetchUserSettings()]).then(([accts, settings]) => {
-        sidebarAccounts = accts;
-        sidebarSettings = settings;
-      });
+      Promise.all([fetchAccountBalances(), fetchUserSettings()]).then(
+        ([accts, settings]) => {
+          sidebarAccounts = accts;
+          sidebarSettings = settings;
+        },
+      );
     }
   });
 
@@ -55,7 +59,7 @@
 <div class="desktop" class:maximized>
   <div class="window">
     <div class="titlebar">
-      <span class="titlebar-icon">🧧</span>
+      <span class="titlebar-icon">🐠</span>
       <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
         {#if $session.data}
@@ -63,8 +67,8 @@
           <button
             class="chrome-btn hamburger"
             onclick={() => (mobileSidebarOpen = true)}
-            aria-label="Open menu"
-          >☰</button>
+            aria-label="Open menu">☰</button
+          >
         {/if}
         <button class="chrome-btn minimize" aria-label="Minimize">_</button>
         <button
@@ -428,9 +432,17 @@
   }
 
   @keyframes statusbar-toast {
-    0%   { transform: translateY(100%); }
-    10%  { transform: translateY(0); }
-    80%  { transform: translateY(0); }
-    100% { transform: translateY(-100%); }
+    0% {
+      transform: translateY(100%);
+    }
+    10% {
+      transform: translateY(0);
+    }
+    80% {
+      transform: translateY(0);
+    }
+    100% {
+      transform: translateY(-100%);
+    }
   }
 </style>

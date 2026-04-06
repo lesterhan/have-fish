@@ -42,6 +42,7 @@ app.get('/balances', async (c) => {
     .select({
       id: accounts.id,
       path: accounts.path,
+      name: accounts.name,
       currency: postings.currency,
       balance: sql<string>`SUM(${postings.amount})`,
     })
@@ -56,18 +57,18 @@ app.get('/balances', async (c) => {
         like(accounts.path, `${equityRoot}:%`),
       ),
     ))
-    .groupBy(accounts.id, accounts.path, postings.currency)
+    .groupBy(accounts.id, accounts.path, accounts.name, postings.currency)
 
   // Collapse the flat rows into one entry per account with a balances array
   type AccountType = 'asset' | 'liability' | 'equity'
-  const grouped = new Map<string, { id: string; path: string; type: AccountType; balances: { currency: string; amount: string }[] }>()
+  const grouped = new Map<string, { id: string; path: string; name: string | null; type: AccountType; balances: { currency: string; amount: string }[] }>()
   for (const row of rows) {
     if (!grouped.has(row.id)) {
       let type: AccountType
       if (row.path.startsWith(`${assetsRoot}:`)) type = 'asset'
       else if (row.path.startsWith(`${liabilitiesRoot}:`)) type = 'liability'
       else type = 'equity'
-      grouped.set(row.id, { id: row.id, path: row.path, type, balances: [] })
+      grouped.set(row.id, { id: row.id, path: row.path, name: row.name, type, balances: [] })
     }
     if (row.currency !== null && row.balance !== null) {
       grouped.get(row.id)!.balances.push({ currency: row.currency, amount: row.balance })
@@ -93,6 +94,24 @@ app.post('/', async (c) => {
   // userId from session overrides anything the client may have sent
   const [created] = await db.insert(accounts).values({ ...body, userId }).returning()
   return c.json(created, 201)
+})
+
+app.patch('/:id', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json()
+  const allowed = ['name'] as const
+  const updates: Partial<typeof body> = {}
+  for (const key of allowed) {
+    if (key in body) updates[key] = body[key]
+  }
+  if (Object.keys(updates).length === 0) return c.json({ error: 'No valid fields to update' }, 400)
+  const [updated] = await db
+    .update(accounts)
+    .set(updates)
+    .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .returning()
+  if (!updated) return c.json({ error: 'Not found' }, 404)
+  return c.json(updated)
 })
 
 app.delete('/:id', async (c) => {

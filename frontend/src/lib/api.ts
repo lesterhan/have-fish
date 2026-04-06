@@ -5,6 +5,7 @@ const BASE = ''
 export type Account = {
   id: string
   path: string
+  name?: string | null
   createdAt?: string
   deletedAt?: string | null
 }
@@ -254,6 +255,7 @@ export async function updateUserSettings(
 export type AccountBalance = {
   id: string
   path: string
+  name?: string | null
   type: 'asset' | 'liability' | 'equity'
   balances: { currency: string; amount: string }[]
 }
