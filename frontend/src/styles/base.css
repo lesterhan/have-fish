@@ -46,11 +46,12 @@ h3 { font-size: var(--text-lg);  font-weight: var(--weight-medium);   line-heigh
   position: fixed;
   z-index: 300;
   padding: 2px var(--sp-xs);
-  background: var(--color-window);
-  color: var(--color-text);
+  background: var(--color-tooltip-bg);
+  color: var(--color-tooltip-text);
+  border: 1px solid var(--color-tooltip-border);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
-  box-shadow: var(--shadow-raised);
-  white-space: nowrap;
+  max-width: 260px;
+  line-height: var(--leading-normal);
   pointer-events: none;
 }

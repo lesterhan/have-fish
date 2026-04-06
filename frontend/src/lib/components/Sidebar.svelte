@@ -52,26 +52,6 @@
   class:mobile-open={mobileOpen}
 >
   <div class="sidebar-inner">
-    <!-- Toggle button -->
-    <button
-      class="toggle-btn"
-      onclick={() => (mobileOpen ? onMobileClose?.() : (expanded = !expanded))}
-      aria-label={mobileOpen
-        ? 'Close menu'
-        : expanded
-          ? 'Collapse sidebar'
-          : 'Expand sidebar'}
-      use:tooltip={{ label: mobileOpen ? 'Close' : expanded ? 'Collapse' : 'Expand', always: true }}
-    >
-      {#if mobileOpen}
-        ✕
-      {:else if expanded}
-        <img src="/icons/collapse-sidebar.svg" alt="" aria-hidden="true" width="12" height="12" class="svg-icon"/>
-      {:else}
-        ☰
-      {/if}
-    </button>
-
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
       <a href="/dashboard" class="nav-link" use:tooltip={"Dashboard"}>
@@ -198,8 +178,21 @@
       </div>
     {/if}
 
-    <!-- Footer: theme toggle + user settings — always rendered so icons show collapsed -->
+    <!-- Footer: collapse toggle + theme + settings — always rendered so icons show collapsed -->
     <div class="sidebar-footer">
+      <button
+        class="footer-btn footer-collapse"
+        onclick={() => expanded = !expanded}
+        aria-label={expanded ? 'Collapse sidebar' : 'Expand sidebar'}
+        use:tooltip={'Expand'}
+      >
+        {#if expanded}
+          <img src="/icons/collapse-sidebar.svg" alt="" aria-hidden="true" width="12" height="12" class="svg-icon nav-icon"/>
+          <span class="nav-label">Collapse</span>
+        {:else}
+          ☰
+        {/if}
+      </button>
       <button
         class="footer-btn"
         onclick={() => theme.toggle()}
@@ -284,47 +277,9 @@
     }
   }
 
-  /* --- Toggle button --- */
-
-  .toggle-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    height: 28px;
-    margin: var(--sp-xs) 10px;
-    flex-shrink: 0;
-
-    background: var(--color-window);
-    border: none;
-    box-shadow: var(--shadow-raised);
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
-    color: var(--color-text);
-    cursor: pointer;
-
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
-  }
-
-  .toggle-btn:hover {
-    background: var(--color-accent-light);
-  }
-  .toggle-btn:active {
-    box-shadow: var(--shadow-sunken);
-  }
-  .toggle-btn:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
-    outline-offset: -2px;
-  }
-
+  /* Hide the collapse button on mobile — the hamburger in the titlebar handles that */
   @media (max-width: 600px) {
-    .toggle-btn {
-      width: 44px;
-      height: 44px;
-      margin: var(--sp-sm) 0 var(--sp-xs) var(--sp-sm);
-    }
+    .footer-collapse { display: none; }
   }
 
   /* --- SVG icons (loaded via <img>, no currentColor) --- */

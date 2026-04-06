@@ -81,6 +81,11 @@
   --color-border: #808080;
   --color-divider: #808080;
 
+  /* --- Tooltip --- */
+  --color-tooltip-bg:     #ffffe1; /* classic Windows tooltip yellow */
+  --color-tooltip-border: #000000;
+  --color-tooltip-text:   #000000;
+
   /* --- Semantic --- */
   --color-success:       #007700;
   --color-success-light: #e0ffe0;
@@ -179,6 +184,11 @@
   /* --- Borders --- */
   --color-border: #6272a4;
   --color-divider: #6272a4;
+
+  /* --- Tooltip --- */
+  --color-tooltip-bg:     #2a2c3e; /* dark inset, distinct from window surface */
+  --color-tooltip-border: #6272a4; /* Dracula comment/border purple */
+  --color-tooltip-text:   #f8f8f2;
 
   /* --- Semantic --- */
   --color-success:       #50fa7b;

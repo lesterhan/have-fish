@@ -9,6 +9,7 @@
     type Account,
     type ColumnMapping,
   } from "$lib/api";
+  import { tooltip } from "$lib/tooltip";
 
   interface Props {
     parser: CsvParser;
@@ -137,10 +138,12 @@
 
           <span class="toggle-label">
             Multi-currency
-            <span
+            <button
+              type="button"
               class="tooltip-icon"
-              title="Enable for banks that encode transfers inline (e.g. Wise)."
-              >?</span
+              use:tooltip={"Enable for banks that encode transfers inline (e.g. Wise)."}
+              aria-label="Enable for banks that encode transfers inline (e.g. Wise)."
+              >?</button
             >
           </span>
           <Toggle bind:checked={isMultiCurrency} />
@@ -190,10 +193,12 @@
 
           <label for="ep-sign-col" class="toggle-label">
             Direction column
-            <span
+            <button
+              type="button"
               class="tooltip-icon"
-              title="For banks that put IN/OUT in a separate column (e.g. Wise)."
-              >?</span
+              use:tooltip={"For banks that put IN/OUT in a separate column (e.g. Wise)."}
+              aria-label="For banks that put IN/OUT in a separate column (e.g. Wise)."
+              >?</button
             >
           </label>
           <select id="ep-sign-col" bind:value={mappingSignColumn}>

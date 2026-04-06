@@ -4,6 +4,7 @@
   import Button from "./Button.svelte";
   import Toggle from "./Toggle.svelte";
   import { fetchUserSettings, type UserSettings } from "$lib/api";
+  import { tooltip } from "$lib/tooltip";
 
   interface Props {
     type: "asset" | "liability";
@@ -391,7 +392,7 @@
         {#if columns.length > 0}
           <span class="field-label toggle-label">
             Multi-currency
-            <span class="tooltip-icon" title="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately.">?</span>
+            <button type="button" class="tooltip-icon" use:tooltip={"Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."} aria-label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately.">?</button>
           </span>
           <Toggle bind:checked={isMultiCurrency} />
         {/if}
@@ -424,7 +425,7 @@
 
         <label for="map-sign-column" class="toggle-label">
           Direction column
-          <span class="tooltip-icon" title="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT.">?</span>
+          <button type="button" class="tooltip-icon" use:tooltip={"For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT."} aria-label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT.">?</button>
         </label>
         <select id="map-sign-column" bind:value={mappingSignColumn}>
           <option value="">— not mapped —</option>

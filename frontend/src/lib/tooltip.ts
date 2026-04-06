@@ -18,7 +18,10 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
   let el: HTMLDivElement | null = null
 
   function show() {
-    if (!always && !node.closest('.sidebar')?.classList.contains('collapsed')) return
+    // Suppress when inside an expanded sidebar (labels are already visible).
+    // Outside a sidebar, always show.
+    const sidebar = node.closest('.sidebar')
+    if (!always && sidebar && !sidebar.classList.contains('collapsed')) return
 
     el = document.createElement('div')
     el.className = 'hf-tooltip'
@@ -26,9 +29,25 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
     document.body.appendChild(el)
 
     const rect = node.getBoundingClientRect()
-    // offsetHeight forces layout so dimensions are available immediately
-    el.style.top = `${rect.top + (rect.height - el.offsetHeight) / 2}px`
-    el.style.left = `${rect.right + 8}px`
+    const gap = 8
+
+    // offsetHeight/offsetWidth force layout so dimensions are available immediately
+    const tw = el.offsetWidth
+    const th = el.offsetHeight
+
+    // Prefer right of the element; flip left if it would overflow the viewport
+    const leftIfRight = rect.right + gap
+    const leftIfLeft  = rect.left - gap - tw
+    const left = leftIfRight + tw <= window.innerWidth ? leftIfRight : Math.max(0, leftIfLeft)
+
+    // Centre vertically; clamp so it stays within the viewport
+    const top = Math.min(
+      Math.max(0, rect.top + (rect.height - th) / 2),
+      window.innerHeight - th - gap,
+    )
+
+    el.style.left = `${left}px`
+    el.style.top  = `${top}px`
   }
 
   function hide() {
@@ -39,6 +58,8 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
   node.addEventListener('mouseenter', show)
   node.addEventListener('mouseleave', hide)
   node.addEventListener('click', hide)
+  node.addEventListener('focusin', show)
+  node.addEventListener('focusout', hide)
 
   return {
     update(newParam: TooltipParam) {
@@ -49,6 +70,8 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
       node.removeEventListener('mouseenter', show)
       node.removeEventListener('mouseleave', hide)
       node.removeEventListener('click', hide)
+      node.removeEventListener('focusin', show)
+      node.removeEventListener('focusout', hide)
       el?.remove()
     },
   }

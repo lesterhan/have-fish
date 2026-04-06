@@ -16,6 +16,7 @@
   import { signOut, useSession, authClient } from "$lib/auth";
   import { goto } from "$app/navigation";
   import { toast } from "$lib/toast.svelte";
+  import { tooltip } from "$lib/tooltip";
 
   const session = useSession();
 
@@ -111,10 +112,12 @@
       <div class="field-grid">
         <label for="default-offset" class="tip-label">
           Uncategorized
-          <span
+          <button
+            type="button"
             class="tip"
-            title="Imported transactions with no matched category will use this account. Used to note uncategorized transactions."
-            >?</span
+            use:tooltip={"Imported transactions with no matched category will use this account. Used to note uncategorized transactions."}
+            aria-label="Imported transactions with no matched category will use this account. Used to note uncategorized transactions."
+            >?</button
           >
         </label>
         <AccountPathInput
@@ -129,10 +132,12 @@
 
         <label for="default-conversion" class="tip-label">
           Conversion balance
-          <span
+          <button
+            type="button"
             class="tip"
-            title="Equity account used to balance cross-currency transfers. Required for multi-currency imports."
-            >?</span
+            use:tooltip={"Equity account used to balance cross-currency transfers. Required for multi-currency imports."}
+            aria-label="Equity account used to balance cross-currency transfers. Required for multi-currency imports."
+            >?</button
           >
         </label>
         <AccountPathInput
@@ -153,10 +158,12 @@
       <div class="field-grid">
         <label for="assets-root-path" class="tip-label">
           Assets
-          <span
+          <button
+            type="button"
             class="tip"
-            title="Root path prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."
-            >?</span
+            use:tooltip={"Root path prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."}
+            aria-label="Root path prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."
+            >?</button
           >
         </label>
         <input
@@ -173,10 +180,12 @@
 
         <label for="liabilities-root-path" class="tip-label">
           Liabilities
-          <span
+          <button
+            type="button"
             class="tip"
-            title="Root path prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."
-            >?</span
+            use:tooltip={"Root path prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."}
+            aria-label="Root path prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."
+            >?</button
           >
         </label>
         <input
@@ -193,10 +202,12 @@
 
         <label for="expenses-root-path" class="tip-label">
           Expenses
-          <span
+          <button
+            type="button"
             class="tip"
-            title="Root path prefix for expense accounts. Used to filter spending reports (e.g. 'expenses' → 'expenses:food')."
-            >?</span
+            use:tooltip={"Root path prefix for expense accounts. Used to filter spending reports (e.g. 'expenses' → 'expenses:food')."}
+            aria-label="Root path prefix for expense accounts. Used to filter spending reports (e.g. 'expenses' → 'expenses:food')."
+            >?</button
           >
         </label>
         <input
@@ -213,10 +224,12 @@
 
         <label for="equity-root-path" class="tip-label">
           Equity
-          <span
+          <button
+            type="button"
             class="tip"
-            title="Root path prefix for equity accounts. Used to group equity in the sidebar (e.g. 'equity' → 'equity:conversions')."
-            >?</span
+            use:tooltip={"Root path prefix for equity accounts. Used to group equity in the sidebar (e.g. 'equity' → 'equity:conversions')."}
+            aria-label="Root path prefix for equity accounts. Used to group equity in the sidebar (e.g. 'equity' → 'equity:conversions')."
+            >?</button
           >
         </label>
         <input
