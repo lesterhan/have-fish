@@ -21,6 +21,9 @@
   }: Props = $props();
 
   let expanded = $state(true);
+  let assetsOpen = $state(true);
+  let liabilitiesOpen = $state(true);
+  let equityOpen = $state(true);
 
   let assets = $derived(
     accounts.filter((a) =>
@@ -110,72 +113,87 @@
       <!-- Account groups -->
       <div class="groups">
         <section class="group">
-          <a href="/assets" class="group-header">Assets</a>
-          <ul class="account-list">
-            {#each assets as acct}
-              <li class="account-row">
-                <span class="account-name"
-                  >{shortName(acct.path, settings.defaultAssetsRootPath)}</span
-                >
-                <span class="account-balances">
-                  {#if acct.balances.length === 0}
-                    <span class="account-balance muted">—</span>
-                  {:else}
-                    {#each acct.balances as b}
-                      <MoneyDisplay amount={b.amount} currency={b.currency} />
-                    {/each}
-                  {/if}
-                </span>
-              </li>
-            {/each}
-          </ul>
+          <button class="group-header" onclick={() => (assetsOpen = !assetsOpen)}>
+            <img src="/icons/chevron.svg" alt="" aria-hidden="true" width="10" height="10" class="svg-icon group-chevron" class:open={assetsOpen}/>
+            Assets
+          </button>
+          {#if assetsOpen}
+            <ul class="account-list">
+              {#each assets as acct}
+                <li class="account-row">
+                  <span class="account-name"
+                    >{shortName(acct.path, settings.defaultAssetsRootPath)}</span
+                  >
+                  <span class="account-balances">
+                    {#if acct.balances.length === 0}
+                      <span class="account-balance muted">—</span>
+                    {:else}
+                      {#each acct.balances as b}
+                        <MoneyDisplay amount={b.amount} currency={b.currency} />
+                      {/each}
+                    {/if}
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
         </section>
 
         <section class="group">
-          <a href="/assets" class="group-header">Liabilities</a>
-          <ul class="account-list">
-            {#each liabilities as acct}
-              <li class="account-row">
-                <span class="account-name"
-                  >{shortName(
-                    acct.path,
-                    settings.defaultLiabilitiesRootPath,
-                  )}</span
-                >
-                <span class="account-balances">
-                  {#if acct.balances.length === 0}
-                    <span class="account-balance muted">—</span>
-                  {:else}
-                    {#each acct.balances as b}
-                      <MoneyDisplay amount={b.amount} currency={b.currency} />
-                    {/each}
-                  {/if}
-                </span>
-              </li>
-            {/each}
-          </ul>
+          <button class="group-header" onclick={() => (liabilitiesOpen = !liabilitiesOpen)}>
+            <img src="/icons/chevron.svg" alt="" aria-hidden="true" width="10" height="10" class="svg-icon group-chevron" class:open={liabilitiesOpen}/>
+            Liabilities
+          </button>
+          {#if liabilitiesOpen}
+            <ul class="account-list">
+              {#each liabilities as acct}
+                <li class="account-row">
+                  <span class="account-name"
+                    >{shortName(
+                      acct.path,
+                      settings.defaultLiabilitiesRootPath,
+                    )}</span
+                  >
+                  <span class="account-balances">
+                    {#if acct.balances.length === 0}
+                      <span class="account-balance muted">—</span>
+                    {:else}
+                      {#each acct.balances as b}
+                        <MoneyDisplay amount={b.amount} currency={b.currency} />
+                      {/each}
+                    {/if}
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
         </section>
 
         <section class="group">
-          <a href="/assets" class="group-header">Equity</a>
-          <ul class="account-list">
-            {#each equity as acct}
-              <li class="account-row">
-                <span class="account-name"
-                  >{shortName(acct.path, settings.defaultEquityRootPath)}</span
-                >
-                <span class="account-balances">
-                  {#if acct.balances.length === 0}
-                    <span class="account-balance muted">—</span>
-                  {:else}
-                    {#each acct.balances as b}
-                      <MoneyDisplay amount={b.amount} currency={b.currency} />
-                    {/each}
-                  {/if}
-                </span>
-              </li>
-            {/each}
-          </ul>
+          <button class="group-header" onclick={() => (equityOpen = !equityOpen)}>
+            <img src="/icons/chevron.svg" alt="" aria-hidden="true" width="10" height="10" class="svg-icon group-chevron" class:open={equityOpen}/>
+            Equity
+          </button>
+          {#if equityOpen}
+            <ul class="account-list">
+              {#each equity as acct}
+                <li class="account-row">
+                  <span class="account-name"
+                    >{shortName(acct.path, settings.defaultEquityRootPath)}</span
+                  >
+                  <span class="account-balances">
+                    {#if acct.balances.length === 0}
+                      <span class="account-balance muted">—</span>
+                    {:else}
+                      {#each acct.balances as b}
+                        <MoneyDisplay amount={b.amount} currency={b.currency} />
+                      {/each}
+                    {/if}
+                  </span>
+                </li>
+              {/each}
+            </ul>
+          {/if}
         </section>
       </div>
     {/if}
@@ -405,19 +423,36 @@
   }
 
   .group-header {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    width: 100%;
     padding: var(--sp-xs) var(--sp-sm) 2px;
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
+    font-family: var(--font-sans);
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--color-text-muted);
-    text-decoration: none;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
     transition: color var(--duration-fast) var(--ease);
   }
 
   .group-header:hover {
     color: var(--color-accent-mid);
+  }
+
+  .group-chevron {
+    flex-shrink: 0;
+    transform-origin: center center;
+    transition: transform var(--duration-fast) var(--ease);
+  }
+
+  .group-chevron.open {
+    transform: rotate(90deg);
   }
 
   @media (max-width: 600px) {
