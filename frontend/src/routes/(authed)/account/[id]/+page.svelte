@@ -37,6 +37,7 @@
   let loading  = $state(true)
   let notFound = $state(false)
   let addModalOpen = $state(false)
+  let settingsOpen = $state(false)
 
   $effect(() => {
     let cancelled = false
@@ -124,6 +125,7 @@
   <Panel title="Operations">
     <div class="ops-body">
       <Button onclick={() => (addModalOpen = true)}>New ➕</Button>
+      <Button onclick={() => (settingsOpen = !settingsOpen)}>Settings ⚙️</Button>
     </div>
   </Panel>
 </div>
