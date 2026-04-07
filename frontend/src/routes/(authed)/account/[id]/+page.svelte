@@ -160,14 +160,14 @@
       <Button
         square
         onclick={() => (reconcileOpen = true)}
-        title="Reconcile account"
+        tooltip="Reconcile account"
       >
         <Icon name="reconcile" />
       </Button>
       <Button
         square
         onclick={() => (settingsOpen = !settingsOpen)}
-        title="Account settings"
+        tooltip="Account settings"
       >
         <Icon name="account-settings" />
       </Button>

@@ -73,7 +73,7 @@
         <Button
           onclick={toggleSearch}
           square
-          title="Filter by account path"
+          tooltip="Filter by account path"
           variant={accountPath ? "primary" : undefined}
         >
           <Icon name="search" />
@@ -82,7 +82,7 @@
       {/if}
       <Button
         onclick={() => onSortChange(sortDir === "desc" ? "asc" : "desc")}
-        title="Sort by date"
+        tooltip="Sort by date"
       >
         <Icon name="sort-{sortDir === 'desc' ? 'desc' : 'asc'}" />
         Date

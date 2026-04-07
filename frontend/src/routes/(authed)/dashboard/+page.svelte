@@ -6,28 +6,9 @@
   import type { SpendingSummary, WeeklySpend } from '$lib/api'
   import { Chart, BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
   import { theme } from '$lib/theme.svelte'
+  import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
 
   Chart.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend)
-
-  // --- Date helpers ---
-
-  function monthStart(year: number, month: number): string {
-    return `${year}-${String(month).padStart(2, '0')}-01`
-  }
-
-  function monthEnd(year: number, month: number): string {
-    const last = new Date(year, month, 0).getDate() // day 0 of next month = last day of this month
-    return `${year}-${String(month).padStart(2, '0')}-${String(last).padStart(2, '0')}`
-  }
-
-  // Shift a { year, month } by +/- N months, wrapping correctly
-  function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
-    const d = new Date(year, month - 1 + delta, 1)
-    return { year: d.getFullYear(), month: d.getMonth() + 1 }
-  }
-
-  const MONTH_NAMES = ['January','February','March','April','May','June',
-                       'July','August','September','October','November','December']
 
   // --- State ---
   const now = new Date()

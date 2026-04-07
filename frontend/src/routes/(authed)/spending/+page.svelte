@@ -12,41 +12,7 @@
     fetchAccounts,
   } from "$lib/api";
   import type { SpendingSummary, Account, Transaction } from "$lib/api";
-
-  // --- Date helpers ---
-
-  function monthStart(year: number, month: number): string {
-    return `${year}-${String(month).padStart(2, "0")}-01`;
-  }
-
-  function monthEnd(year: number, month: number): string {
-    const last = new Date(year, month, 0).getDate();
-    return `${year}-${String(month).padStart(2, "0")}-${String(last).padStart(2, "0")}`;
-  }
-
-  function shiftMonth(
-    year: number,
-    month: number,
-    delta: number,
-  ): { year: number; month: number } {
-    const d = new Date(year, month - 1 + delta, 1);
-    return { year: d.getFullYear(), month: d.getMonth() + 1 };
-  }
-
-  const MONTH_NAMES = [
-    "January",
-    "February",
-    "March",
-    "April",
-    "May",
-    "June",
-    "July",
-    "August",
-    "September",
-    "October",
-    "November",
-    "December",
-  ];
+  import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from "$lib/date";
 
   // --- State ---
   // Default to the previous calendar month — that's when data is typically complete

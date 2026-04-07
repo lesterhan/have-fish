@@ -403,7 +403,7 @@
 
   <div class="actions">
     <Button
-      title="Edit transaction"
+      tooltip="Edit transaction"
       variant="ghost"
       square
       onclick={() => (modalOpen = true)}
