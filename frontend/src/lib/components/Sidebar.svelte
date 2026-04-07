@@ -4,6 +4,7 @@
   import { theme } from "$lib/theme.svelte";
   import { tooltip } from "$lib/tooltip";
   import { settingsStore } from "$lib/settings.svelte";
+  import Icon from "./ui/Icon.svelte";
 
   interface Props {
     accounts: AccountBalance[];
@@ -68,15 +69,16 @@
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
       <a href="/dashboard" class="nav-link" use:tooltip={"Dashboard"}>
-        <img
-          src="/icons/dashboard.svg"
-          class="svg-icon nav-icon"
-          alt=""
-          aria-hidden="true"
-          width="16"
-          height="16"
-        />
+        <Icon name="dashboard" size={16} />
         <span class="nav-label">Dashboard</span>
+      </a>
+      <a href="/dashboard" class="nav-link" use:tooltip={"Spending"}>
+        <Icon name="spending" size={16} />
+        <span class="nav-label">Spending</span>
+      </a>
+      <a href="/import" class="nav-link" use:tooltip={"Import + Export"}>
+        <Icon name="import-export" size={16} />
+        <span class="nav-label">Import + Export</span>
       </a>
       <a href="/transactions" class="nav-link" use:tooltip={"Transactions"}>
         <img
@@ -138,7 +140,9 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance">{b.currency} {formatCompact(b.amount)}</span>
+                          <span class="account-balance"
+                            >{b.currency} {formatCompact(b.amount)}</span
+                          >
                         {/each}
                       {/if}
                     </span>
@@ -182,7 +186,9 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance">{b.currency} {formatCompact(b.amount)}</span>
+                          <span class="account-balance"
+                            >{b.currency} {formatCompact(b.amount)}</span
+                          >
                         {/each}
                       {/if}
                     </span>
@@ -226,7 +232,9 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance">{b.currency} {formatCompact(b.amount)}</span>
+                          <span class="account-balance"
+                            >{b.currency} {formatCompact(b.amount)}</span
+                          >
                         {/each}
                       {/if}
                     </span>
