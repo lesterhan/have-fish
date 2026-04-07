@@ -81,25 +81,11 @@
         <span class="nav-label">Import + Export</span>
       </a>
       <a href="/transactions" class="nav-link" use:tooltip={"Transactions"}>
-        <img
-          src="/icons/transactions.svg"
-          class="svg-icon nav-icon"
-          alt=""
-          aria-hidden="true"
-          width="16"
-          height="16"
-        />
+        <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
       </a>
       <a href="/assets" class="nav-link" use:tooltip={"Accounts"}>
-        <img
-          src="/icons/accounts.svg"
-          class="svg-icon nav-icon"
-          alt=""
-          aria-hidden="true"
-          width="16"
-          height="16"
-        />
+        <Icon name="accounts" size={16} />
         <span class="nav-label">Accounts</span>
       </a>
     </div>
@@ -291,24 +277,10 @@
         use:tooltip={expanded ? "Compress sidebar" : "Expand sidebar"}
       >
         {#if expanded}
-          <img
-            src="/icons/collapse-sidebar.svg"
-            alt=""
-            aria-hidden="true"
-            width="16"
-            height="16"
-            class="svg-icon nav-icon"
-          />
+          <Icon name="collapse-sidebar" size={16} />
           <span class="nav-label">Compress sidebar</span>
         {:else}
-          <img
-            src="/icons/menu.svg"
-            alt=""
-            aria-hidden="true"
-            width="16"
-            height="16"
-            class="svg-icon nav-icon"
-          />
+          <Icon name="menu" size={16} />
         {/if}
       </button>
       <!-- Mobile: close sidebar -->
@@ -317,14 +289,7 @@
         onclick={() => onMobileClose?.()}
         aria-label="Close sidebar"
       >
-        <img
-          src="/icons/close.svg"
-          alt=""
-          aria-hidden="true"
-          width="16"
-          height="16"
-          class="svg-icon nav-icon"
-        />
+        <Icon name="close" size={16} />
         <span class="nav-label">Close</span>
       </button>
       <button
@@ -332,14 +297,7 @@
         onclick={() => theme.toggle()}
         use:tooltip={theme.dark ? "Light Theme" : "Dark Theme"}
       >
-        <img
-          src={theme.dark ? "/icons/sun.svg" : "/icons/moon.svg"}
-          alt=""
-          aria-hidden="true"
-          width="16"
-          height="16"
-          class="svg-icon nav-icon"
-        />
+        <Icon name={theme.dark ? "sun" : "moon"} size={16} />
         <span class="nav-label"
           >{theme.dark ? "Light Theme" : "Dark Theme"}</span
         >
@@ -350,14 +308,7 @@
           class="footer-btn footer-settings"
           use:tooltip={"Settings"}
         >
-          <img
-            src="/icons/user.svg"
-            alt=""
-            aria-hidden="true"
-            width="16"
-            height="16"
-            class="svg-icon nav-icon"
-          />
+          <Icon name="user" size={16} />
           <span class="nav-label">{email}</span>
         </a>
       {/if}
@@ -465,10 +416,6 @@
     background: var(--color-accent-mid);
     color: var(--color-text-on-dark);
     border-left-color: var(--color-accent);
-  }
-
-  .nav-icon {
-    flex-shrink: 0;
   }
 
   /* Collapsed: icon-only toolbar buttons — Photoshop style */
