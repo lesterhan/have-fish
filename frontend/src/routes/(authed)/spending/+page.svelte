@@ -3,9 +3,14 @@
   import HeadingBanner from "$lib/components/ui/HeadingBanner.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
+  import Icon from "$lib/components/ui/Icon.svelte";
   import SpendingChart from "$lib/components/SpendingChart.svelte";
   import TransactionRow from "$lib/components/TransactionRow.svelte";
-  import { fetchSpendingSummary, fetchTransactions, fetchAccounts } from "$lib/api";
+  import {
+    fetchSpendingSummary,
+    fetchTransactions,
+    fetchAccounts,
+  } from "$lib/api";
   import type { SpendingSummary, Account, Transaction } from "$lib/api";
 
   // --- Date helpers ---
@@ -64,11 +69,12 @@
   let txnsLoading = $state(false);
 
   let txnPanelTitle = $derived.by(() => {
-    const label = drillPath ? drillPath.split(':').slice(1).join(':') || drillPath : null
-    const count = txnsLoading ? '' : ` (${txns.length})`
-    return label ? `Transactions — ${label}${count}` : `Transactions${count}`
-  })
-
+    const label = drillPath
+      ? drillPath.split(":").slice(1).join(":") || drillPath
+      : null;
+    const count = txnsLoading ? "" : ` (${txns.length})`;
+    return label ? `Transactions — ${label}${count}` : `Transactions${count}`;
+  });
 
   // Breadcrumb trail derived from drillPath.
   // Each crumb has a label (title-cased segment), the path to navigate to (null = top), and
@@ -147,17 +153,21 @@
   // Drill into a category — called by SpendingChart when a drillable bar is clicked
   function drill(category: string) {
     drillPath = category;
-    load(); loadTxns();
+    load();
+    loadTxns();
   }
 
   // Navigate back to an earlier breadcrumb level
   function navigateTo(path: string | null) {
     drillPath = path;
-    load(); loadTxns();
+    load();
+    loadTxns();
   }
 
   onMount(() => {
-    fetchAccounts().then(a => { accounts = a });
+    fetchAccounts().then((a) => {
+      accounts = a;
+    });
     load().then(loadTxns);
   });
 </script>
@@ -168,9 +178,23 @@
   <!-- Toolbar: month nav + filters. Account filter will slot in here too. -->
   <div class="toolbar">
     <div class="toolbar-group">
-      <Button square onclick={() => navigate(-1)} aria-label="Previous month">◀</Button>
+      <Button
+        variant="ghost"
+        square
+        onclick={() => navigate(-1)}
+        aria-label="Previous month"
+      >
+        <Icon name="left-circle" size={18} />
+      </Button>
       <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
-      <Button square onclick={() => navigate(1)} aria-label="Next month">▶</Button>
+      <Button
+        variant="ghost"
+        square
+        onclick={() => navigate(1)}
+        aria-label="Next month"
+      >
+        <Icon name="right-circle" size={18} />
+      </Button>
     </div>
 
     {#if currencies.length > 1}
@@ -221,21 +245,23 @@
     </Panel>
 
     <Panel title={txnPanelTitle}>
-        {#if txnsLoading}
-          <p class="status">Loading…</p>
-        {:else if txns.length === 0}
-          <p class="status">No transactions found.</p>
-        {:else}
-          <div class="txn-list">
-            {#each txns as tx (tx.id)}
-              <TransactionRow
-                {tx}
-                {accounts}
-                ondeleted={() => { txns = txns.filter(t => t.id !== tx.id) }}
-              />
-            {/each}
-          </div>
-        {/if}
+      {#if txnsLoading}
+        <p class="status">Loading…</p>
+      {:else if txns.length === 0}
+        <p class="status">No transactions found.</p>
+      {:else}
+        <div class="txn-list">
+          {#each txns as tx (tx.id)}
+            <TransactionRow
+              {tx}
+              {accounts}
+              ondeleted={() => {
+                txns = txns.filter((t) => t.id !== tx.id);
+              }}
+            />
+          {/each}
+        </div>
+      {/if}
     </Panel>
   {/if}
 </div>
@@ -271,8 +297,7 @@
     font-family: var(--font-sans);
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
-    letter-spacing: 0.05em;
-    min-width: 130px;
+    min-width: 110px;
     text-align: center;
   }
 
