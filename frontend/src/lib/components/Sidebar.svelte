@@ -72,7 +72,7 @@
         <Icon name="dashboard" size={16} />
         <span class="nav-label">Dashboard</span>
       </a>
-      <a href="/dashboard" class="nav-link" use:tooltip={"Spending"}>
+      <a href="/spending" class="nav-link" use:tooltip={"Spending"}>
         <Icon name="spending" size={16} />
         <span class="nav-label">Spending</span>
       </a>
