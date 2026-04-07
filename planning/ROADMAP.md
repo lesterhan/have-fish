@@ -21,3 +21,6 @@
 | [User Sign-up](epics/archive/user-signup.md) | Done |
 | [Sidebar Redesign](epics/archive/sidebar-redesign.md) | Done |
 | [Single Account View](epics/archive/single-account-view.md) | Done |
+| [Add Import Parser](epics/add-import-parser.md) | Backlog |
+| [Spending Page](epics/spending-page.md) | Backlog |
+| [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
