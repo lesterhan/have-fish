@@ -9,6 +9,7 @@
   import Button from "$lib/components/ui/Button.svelte";
   import Icon from "$lib/components/ui/Icon.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
+  import PostingEditorRow from "$lib/components/PostingEditorRow.svelte";
   import { toISODate } from "$lib/date";
   import {
     patchTransaction,
@@ -33,6 +34,7 @@
     currency: string;
     markedForDelete: boolean;
     isNew: boolean;
+    autofocusAccount?: boolean;
   }
 
   interface Transaction {
@@ -98,9 +100,6 @@
       showDeleteConfirm = false;
       dateEditing = false;
       descEditing = false;
-      editingAccountPostingId = null;
-      editingAmountId = null;
-      editingCurrencyId = null;
     }
   });
 
@@ -154,13 +153,8 @@
   }
 
   function handleDateKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commitDateEdit();
-    }
-    if (e.key === "Escape") {
-      dateEditing = false;
-    }
+    if (e.key === "Enter") { e.preventDefault(); commitDateEdit() }
+    if (e.key === "Escape") { dateEditing = false }
   }
 
   // --- Description editing ---
@@ -178,109 +172,40 @@
   }
 
   function handleDescKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commitDescEdit();
-    }
-    if (e.key === "Escape") {
-      descEditing = false;
-    }
+    if (e.key === "Enter") { e.preventDefault(); commitDescEdit() }
+    if (e.key === "Escape") { descEditing = false }
   }
 
   function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      action();
-    }
+    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); action() }
   }
 
-  // --- Posting account editing ---
-  let editingAccountPostingId = $state<string | null>(null);
-  let editAccountId = $state("");
-
-  function startAccountEdit(id: string, accountId: string) {
-    editingAccountPostingId = id;
-    editAccountId = accountId;
-  }
-
-  function commitAccountEdit(accountId: string) {
-    const id = editingAccountPostingId;
-    if (!id) return;
-    editingAccountPostingId = null;
+  // --- Posting row callbacks ---
+  function commitAccount(id: string, accountId: string) {
     const idx = localPostings.findIndex((p) => p.id === id);
-    if (idx >= 0) localPostings[idx].accountId = accountId;
-  }
-
-  function handleAccountFocusout(e: FocusEvent, id: string) {
-    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
-      setTimeout(() => {
-        if (editingAccountPostingId === id) editingAccountPostingId = null;
-      }, 200);
+    if (idx >= 0) {
+      localPostings[idx].accountId = accountId;
+      localPostings[idx].autofocusAccount = false;
     }
   }
 
-  // --- Posting amount editing ---
-  let editingAmountId = $state<string | null>(null);
-  let editAmountValue = $state("");
-
-  function startAmountEdit(id: string, amount: string) {
-    editingAmountId = id;
-    editAmountValue = amount;
+  function commitAmount(id: string, amount: string) {
+    const idx = localPostings.findIndex((p) => p.id === id);
+    if (idx >= 0) localPostings[idx].amount = amount;
   }
 
-  function commitAmountEdit(idx: number) {
-    const n = parseFloat(editAmountValue);
-    if (!isNaN(n) && editAmountValue.trim() !== "") {
-      localPostings[idx].amount = n.toFixed(2);
-    } else {
-      const orig = origPostings.find((o) => o.id === localPostings[idx].id);
-      localPostings[idx].amount = orig?.amount ?? "0.00";
-    }
-    editingAmountId = null;
+  function commitCurrency(id: string, currency: string) {
+    const idx = localPostings.findIndex((p) => p.id === id);
+    if (idx >= 0) localPostings[idx].currency = currency;
   }
 
-  function handleAmountKeydown(e: KeyboardEvent, idx: number) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commitAmountEdit(idx);
-    }
-    if (e.key === "Escape") {
-      editingAmountId = null;
-    }
+  function toggleDelete(id: string) {
+    const idx = localPostings.findIndex((p) => p.id === id);
+    if (idx >= 0)
+      localPostings[idx].markedForDelete = !localPostings[idx].markedForDelete;
   }
 
-  // --- Posting currency editing ---
-  let editingCurrencyId = $state<string | null>(null);
-  let editCurrencyValue = $state("");
-
-  function startCurrencyEdit(id: string, currency: string) {
-    editingCurrencyId = id;
-    editCurrencyValue = currency;
-  }
-
-  function commitCurrencyEdit(idx: number) {
-    const c = editCurrencyValue.trim().toUpperCase();
-    if (c.length >= 2 && c.length <= 4) {
-      localPostings[idx].currency = c;
-    } else {
-      const orig = origPostings.find((o) => o.id === localPostings[idx].id);
-      localPostings[idx].currency =
-        orig?.currency ?? localPostings[idx].currency;
-    }
-    editingCurrencyId = null;
-  }
-
-  function handleCurrencyKeydown(e: KeyboardEvent, idx: number) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commitCurrencyEdit(idx);
-    }
-    if (e.key === "Escape") {
-      editingCurrencyId = null;
-    }
-  }
-
-  // --- Add / remove postings ---
+  // --- Add posting ---
   function addPosting() {
     const primaryCurrency = activePostings[0]?.currency ?? "CAD";
     const id = `new-${newIdCounter++}`;
@@ -291,19 +216,11 @@
       currency: primaryCurrency,
       markedForDelete: false,
       isNew: true,
+      autofocusAccount: true,
     });
-    startAccountEdit(id, defaultOffsetAccountId ?? "");
-  }
-
-  function toggleDelete(id: string) {
-    const idx = localPostings.findIndex((p) => p.id === id);
-    if (idx >= 0)
-      localPostings[idx].markedForDelete = !localPostings[idx].markedForDelete;
   }
 
   // --- Close / discard ---
-  // Modal sets open=false then calls onclose. If dirty, we re-set open=true
-  // and show the discard confirm inside the modal body instead.
   function requestClose() {
     if (dirty) {
       open = true;
@@ -326,7 +243,6 @@
     saving = true;
     saveError = "";
     try {
-      // Collect all mutations, running them in parallel
       const patchTxCall =
         localDate !== origDate || localDescription !== origDescription
           ? patchTransaction(tx.id, {
@@ -377,7 +293,6 @@
         Promise.all(createPostingCalls),
       ]);
 
-      // Build updated postings list — substitute real server IDs for new postings
       let newIdx = 0;
       const updatedPostings: Posting[] = localPostings
         .filter((p) => !p.markedForDelete)
@@ -484,126 +399,20 @@
     </div>
 
     <div class="postings">
-      {#each localPostings as posting, i (posting.id)}
-        <div class="posting-row" class:deleted={posting.markedForDelete}>
-          <!-- Account -->
-          <div class="posting-account-cell">
-            {#if editingAccountPostingId === posting.id && !posting.markedForDelete}
-              <div
-                class="account-edit-wrapper"
-                onfocusout={(e) => handleAccountFocusout(e, posting.id)}
-              >
-                <AccountPathInput
-                  {accounts}
-                  bind:value={editAccountId}
-                  oncommit={commitAccountEdit}
-                  oncreate={onaccountcreated}
-                />
-              </div>
-            {:else}
-              <span
-                class="posting-account"
-                class:editable={!posting.markedForDelete}
-                role="button"
-                aria-disabled={posting.markedForDelete}
-                tabindex={posting.markedForDelete ? -1 : 0}
-                onclick={() => {
-                  if (!posting.markedForDelete)
-                    startAccountEdit(posting.id, posting.accountId);
-                }}
-                onkeydown={(e) =>
-                  !posting.markedForDelete &&
-                  handleEditableKeydown(e, () =>
-                    startAccountEdit(posting.id, posting.accountId),
-                  )}
-                title={posting.markedForDelete ? undefined : "Click to edit"}
-              >
-                {accountPaths[posting.accountId] ?? (posting.accountId || "—")}
-              </span>
-            {/if}
-          </div>
-
-          <!-- Amount -->
-          {#if editingAmountId === posting.id && !posting.markedForDelete}
-            <input
-              type="text"
-              inputmode="decimal"
-              class="amount-input active"
-              aria-label="Amount"
-              bind:value={editAmountValue}
-              onblur={() => commitAmountEdit(i)}
-              onkeydown={(e) => handleAmountKeydown(e, i)}
-              use:focusOnMount
-            />
-          {:else}
-            <span
-              class="posting-amount"
-              class:editable={!posting.markedForDelete}
-              role="button"
-              aria-disabled={posting.markedForDelete}
-              tabindex={posting.markedForDelete ? -1 : 0}
-              onclick={() => {
-                if (!posting.markedForDelete)
-                  startAmountEdit(posting.id, posting.amount);
-              }}
-              onkeydown={(e) =>
-                !posting.markedForDelete &&
-                handleEditableKeydown(e, () =>
-                  startAmountEdit(posting.id, posting.amount),
-                )}
-              title={posting.markedForDelete ? undefined : "Click to edit"}
-            >
-              {posting.amount}
-            </span>
-          {/if}
-
-          <!-- Currency -->
-          {#if editingCurrencyId === posting.id && !posting.markedForDelete}
-            <input
-              type="text"
-              class="currency-input active"
-              aria-label="Currency"
-              bind:value={editCurrencyValue}
-              maxlength={4}
-              onblur={() => commitCurrencyEdit(i)}
-              onkeydown={(e) => handleCurrencyKeydown(e, i)}
-              use:focusOnMount
-            />
-          {:else}
-            <span
-              class="posting-currency"
-              class:editable={!posting.markedForDelete}
-              role="button"
-              aria-disabled={posting.markedForDelete}
-              tabindex={posting.markedForDelete ? -1 : 0}
-              onclick={() => {
-                if (!posting.markedForDelete)
-                  startCurrencyEdit(posting.id, posting.currency);
-              }}
-              onkeydown={(e) =>
-                !posting.markedForDelete &&
-                handleEditableKeydown(e, () =>
-                  startCurrencyEdit(posting.id, posting.currency),
-                )}
-              title={posting.markedForDelete ? undefined : "Click to edit"}
-            >
-              {posting.currency}
-            </span>
-          {/if}
-
-          <!-- Remove / undo -->
-          <button
-            class="delete-btn"
-            title={posting.markedForDelete ? "Undo remove" : "Remove posting"}
-            aria-label={posting.markedForDelete
-              ? "Undo remove posting"
-              : "Remove posting"}
-            disabled={!posting.markedForDelete && activePostings.length <= 2}
-            onclick={() => toggleDelete(posting.id)}
-          >
-            {posting.markedForDelete ? "↩" : "×"}
-          </button>
-        </div>
+      {#each localPostings as posting (posting.id)}
+        <PostingEditorRow
+          {posting}
+          {accounts}
+          {accountPaths}
+          origPosting={origPostings.find((o) => o.id === posting.id)}
+          canDelete={activePostings.length > 2}
+          autofocusAccount={posting.autofocusAccount}
+          {onaccountcreated}
+          oncommitaccount={commitAccount}
+          oncommitamount={commitAmount}
+          oncommitcurrency={commitCurrency}
+          ontoggledelete={toggleDelete}
+        />
       {/each}
     </div>
 
@@ -632,21 +441,13 @@
     {#if showDiscardConfirm}
       <div class="confirm-row">
         <span class="confirm-text">Discard changes?</span>
-        <Button
-          onclick={() => {
-            showDiscardConfirm = false;
-          }}>Keep editing</Button
-        >
+        <Button onclick={() => { showDiscardConfirm = false }}>Keep editing</Button>
         <Button variant="danger" onclick={discard}>Discard</Button>
       </div>
     {:else if showDeleteConfirm}
       <div class="confirm-row">
         <span class="confirm-text">Delete this transaction?</span>
-        <Button
-          onclick={() => {
-            showDeleteConfirm = false;
-          }}>Cancel</Button
-        >
+        <Button onclick={() => { showDeleteConfirm = false }}>Cancel</Button>
         <Button variant="danger" disabled={deleting} onclick={handleDelete}>
           {deleting ? "Deleting…" : "Delete"}
         </Button>
@@ -659,10 +460,8 @@
         <Button
           variant="danger"
           disabled={saving}
-          onclick={() => {
-            showDeleteConfirm = true;
-          }}>Delete</Button
-        >
+          onclick={() => { showDeleteConfirm = true }}
+        >Delete</Button>
         <div class="footer-actions">
           <Button disabled={saving} onclick={requestClose}>Cancel</Button>
           <Button
@@ -767,108 +566,6 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-  }
-
-  .posting-row {
-    display: grid;
-    grid-template-columns: 1fr auto auto auto;
-    align-items: center;
-    gap: var(--sp-xs);
-    padding: 2px 0;
-  }
-
-  .posting-row.deleted {
-    opacity: 0.5;
-  }
-
-  .posting-account-cell {
-    min-width: 0;
-  }
-
-  .posting-account {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    display: block;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .account-edit-wrapper {
-    width: 100%;
-  }
-
-  .posting-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    text-align: right;
-  }
-
-  .posting-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  /* Shared active input style for amount and currency when editing */
-  .amount-input.active,
-  .currency-input.active {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
-    outline: none;
-  }
-
-  .amount-input.active {
-    width: 10ch;
-    text-align: right;
-  }
-
-  .currency-input.active {
-    width: 5.5ch;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  .amount-input.active:focus,
-  .currency-input.active:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
-  }
-
-  .delete-btn {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    background: transparent;
-    border: none;
-    cursor: pointer;
-    padding: 0 var(--sp-xs);
-    line-height: 1;
-    height: 20px;
-    outline: none;
-    transition: color var(--duration-fast) var(--ease);
-  }
-
-  .delete-btn:hover:not(:disabled) {
-    color: var(--color-danger);
-  }
-
-  .delete-btn:disabled {
-    opacity: 0.3;
-    cursor: not-allowed;
-  }
-
-  .delete-btn:focus-visible {
-    outline: 1px dotted var(--color-text);
-    outline-offset: 1px;
   }
 
   /* ---- Add posting button ---- */
