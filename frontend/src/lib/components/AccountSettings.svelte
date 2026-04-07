@@ -1,5 +1,6 @@
 <script lang="ts">
   import { updateAccount, type Account } from '$lib/api'
+  import Icon from './ui/Icon.svelte'
 
   interface Props {
     account: Account
@@ -51,7 +52,7 @@
           onkeydown={handleKeydown}
         />
         <button class="save-btn" onclick={save} disabled={saving}>
-          {saving ? 'Saving…' : 'Save'}
+          <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
         </button>
       </div>
     </div>
@@ -136,6 +137,9 @@
   }
 
   .save-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-xs);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--color-text);

@@ -1,6 +1,7 @@
 <script lang="ts">
   import Panel from "./ui/Panel.svelte";
   import Button from "./ui/Button.svelte";
+  import Icon from "./ui/Icon.svelte";
   import Toggle from "./ui/Toggle.svelte";
   import AccountPathInput from "./AccountPathInput.svelte";
   import {
@@ -283,7 +284,7 @@
           onclick={handleSave}
           disabled={saving || !valid}
         >
-          {saving ? "Saving…" : "Save"}
+          <Icon name="floppy" size={12} />{saving ? "Saving…" : "Save"}
         </Button>
       </div>
     </div>

@@ -7,6 +7,7 @@
 <script lang="ts">
   import Modal from "$lib/components/ui/Modal.svelte";
   import Button from "$lib/components/ui/Button.svelte";
+  import Icon from "$lib/components/ui/Icon.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import { toISODate } from "$lib/date";
   import {
@@ -669,7 +670,7 @@
             disabled={!balanced || !dirty || saving}
             onclick={handleSave}
           >
-            {saving ? "Saving…" : "Save 💾"}
+            <Icon name="floppy" size={12} />{saving ? "Saving…" : "Save"}
           </Button>
         </div>
       </div>
