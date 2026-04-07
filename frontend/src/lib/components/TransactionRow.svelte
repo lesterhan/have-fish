@@ -11,7 +11,7 @@
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import MoneyDisplay from "$lib/components/ui/MoneyDisplay.svelte";
   import TransactionEditModal from "$lib/components/TransactionEditModal.svelte";
-  import { toISODate } from "$lib/date";
+  import Icon from "$lib/components/ui/Icon.svelte";
   import { patchTransaction, patchPosting, type Account } from "$lib/api";
   import { settingsStore } from "$lib/settings.svelte";
 
@@ -174,11 +174,11 @@
   // posting) is NOT under the expenses root. Cross-currency transactions
   // between personal accounts also qualify.
   let isTransfer = $derived.by(() => {
-    const settings = settingsStore.value
-    if (!settings) return false
-    const expRoot = settings.defaultExpensesRootPath
-    const toPath = accountPaths[to.accountId] ?? ''
-    return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot
+    const settings = settingsStore.value;
+    if (!settings) return false;
+    const expRoot = settings.defaultExpensesRootPath;
+    const toPath = accountPaths[to.accountId] ?? "";
+    return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot;
   });
 
   // For cross-currency transfers: identify the source (largest outflow) and
@@ -225,11 +225,11 @@
   let { from, to, rest } = $derived(summarize(localPostings));
 
   // When viewing a specific account, determine if money is flowing in or out.
-  let flowDirection = $derived.by((): 'in' | 'out' | null => {
-    if (!currentAccountId || !isTransfer) return null
-    const posting = localPostings.find(p => p.accountId === currentAccountId)
-    if (!posting) return null
-    return parseFloat(posting.amount) > 0 ? 'in' : 'out'
+  let flowDirection = $derived.by((): "in" | "out" | null => {
+    if (!currentAccountId || !isTransfer) return null;
+    const posting = localPostings.find((p) => p.accountId === currentAccountId);
+    if (!posting) return null;
+    return parseFloat(posting.amount) > 0 ? "in" : "out";
   });
 </script>
 
@@ -359,7 +359,8 @@
         <div class="transfer-fees">
           {#each rest as posting}
             <span class="fee-label">
-              fee {Math.abs(parseFloat(posting.amount)).toFixed(2)} {posting.currency}
+              fee {Math.abs(parseFloat(posting.amount)).toFixed(2)}
+              {posting.currency}
             </span>
           {/each}
         </div>
@@ -405,8 +406,10 @@
       title="Edit transaction"
       variant="ghost"
       square
-      onclick={() => (modalOpen = true)}>🧮</Button
+      onclick={() => (modalOpen = true)}
     >
+      <Icon name="edit-txn" />
+    </Button>
   </div>
 </div>
 
@@ -479,7 +482,6 @@
   .transfer .account-to {
     color: var(--color-text-muted);
   }
-
 
   .transfer-tag {
     font-family: var(--font-sans);
