@@ -3,8 +3,9 @@
   import HeadingBanner from "$lib/components/ui/HeadingBanner.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
   import SpendingChart from "$lib/components/SpendingChart.svelte";
-  import { fetchSpendingSummary } from "$lib/api";
-  import type { SpendingSummary } from "$lib/api";
+  import TransactionRow from "$lib/components/TransactionRow.svelte";
+  import { fetchSpendingSummary, fetchTransactions, fetchAccounts } from "$lib/api";
+  import type { SpendingSummary, Account, Transaction } from "$lib/api";
 
   // --- Date helpers ---
 
@@ -57,6 +58,17 @@
 
   let currencies = $derived(Object.keys(summary?.total ?? {}));
 
+  let accounts = $state<Account[]>([]);
+  let txns = $state<Transaction[]>([]);
+  let txnsLoading = $state(false);
+
+  let txnPanelTitle = $derived.by(() => {
+    const label = drillPath ? drillPath.split(':').slice(1).join(':') || drillPath : null
+    const count = txnsLoading ? '' : ` (${txns.length})`
+    return label ? `Transactions — ${label}${count}` : `Transactions${count}`
+  })
+
+
   // Breadcrumb trail derived from drillPath.
   // Each crumb has a label (title-cased segment), the path to navigate to (null = top), and
   // whether it is the current (non-clickable) level.
@@ -106,27 +118,47 @@
     }
   }
 
+  async function loadTxns() {
+    txnsLoading = true;
+    const accountPath =
+      drillPath ?? summary?.categories[0]?.category.split(":")[0] ?? "expenses";
+    try {
+      txns = await fetchTransactions({
+        from: monthStart(year, month),
+        to: monthEnd(year, month),
+        accountPath,
+      });
+    } catch {
+      txns = [];
+    } finally {
+      txnsLoading = false;
+    }
+  }
+
   function navigate(delta: number) {
     const next = shiftMonth(year, month, delta);
     year = next.year;
     month = next.month;
     drillPath = null;
-    load();
+    load().then(loadTxns);
   }
 
   // Drill into a category — called by SpendingChart when a drillable bar is clicked
   function drill(category: string) {
     drillPath = category;
-    load();
+    load(); loadTxns();
   }
 
   // Navigate back to an earlier breadcrumb level
   function navigateTo(path: string | null) {
     drillPath = path;
-    load();
+    load(); loadTxns();
   }
 
-  onMount(load);
+  onMount(() => {
+    fetchAccounts().then(a => { accounts = a });
+    load().then(loadTxns);
+  });
 </script>
 
 <HeadingBanner><h1>Spending Breakdown</h1></HeadingBanner>
@@ -193,6 +225,24 @@
           onclick={drill}
         />
       </div>
+    </Panel>
+
+    <Panel title={txnPanelTitle}>
+        {#if txnsLoading}
+          <p class="status">Loading…</p>
+        {:else if txns.length === 0}
+          <p class="status">No transactions found.</p>
+        {:else}
+          <div class="txn-list">
+            {#each txns as tx (tx.id)}
+              <TransactionRow
+                {tx}
+                {accounts}
+                ondeleted={() => { txns = txns.filter(t => t.id !== tx.id) }}
+              />
+            {/each}
+          </div>
+        {/if}
     </Panel>
   {/if}
 </div>
@@ -277,6 +327,11 @@
 
   .status.error {
     color: var(--color-danger);
+  }
+
+  .txn-list {
+    display: flex;
+    flex-direction: column;
   }
 
   /* Breadcrumb */

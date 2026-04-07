@@ -434,7 +434,7 @@ export async function replacePostings(
   return res.json()
 }
 
-export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string; accountPath?: string }) {
+export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string; accountPath?: string }): Promise<Transaction[]> {
   const query = new URLSearchParams()
   if (params?.from) query.set('from', params.from)
   if (params?.to) query.set('to', params.to)
