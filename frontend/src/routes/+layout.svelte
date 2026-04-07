@@ -7,6 +7,7 @@
   import { fetchAccountBalances } from "$lib/api";
   import type { AccountBalance, UserSettings } from "$lib/api";
   import { settingsStore } from "$lib/settings.svelte";
+  import Icon from "$lib/components/ui/Icon.svelte";
 
   let { children } = $props();
 
@@ -62,7 +63,7 @@
 <div class="desktop" class:maximized>
   <div class="window">
     <div class="titlebar">
-      <span class="titlebar-icon">🐠</span>
+      <span class="titlebar-icon">🧧</span>
       <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
         {#if $session.data}
@@ -70,21 +71,28 @@
           <button
             class="chrome-btn hamburger"
             onclick={() => (mobileSidebarOpen = true)}
-            aria-label="Open menu">☰</button
+            aria-label="Open menu"
           >
+            <Icon name="menu" size={12} />
+          </button>
         {/if}
-        <button class="chrome-btn minimize" aria-label="Minimize">_</button>
+        <button class="chrome-btn minimize" aria-label="Minimize">
+          <Icon name="minimize" size={12} />
+        </button>
         <button
           class="chrome-btn maximize"
           aria-label="Maximize"
           onclick={() => (maximized = !maximized)}
-          >{maximized ? "❐" : "□"}</button
         >
+          <Icon name={maximized ? "restore-window" : "maximize"} size={12} />
+        </button>
         <button
           class="chrome-btn close"
           aria-label="Close"
-          onclick={() => (showQuitDialog = true)}>✕</button
+          onclick={() => (showQuitDialog = true)}
         >
+          <Icon name="close" size={12} />
+        </button>
       </div>
     </div>
 
