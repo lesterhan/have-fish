@@ -1,30 +1,31 @@
 <script lang="ts">
   import { Chart, DoughnutController, ArcElement, Tooltip } from 'chart.js'
   import { theme } from '$lib/theme.svelte'
+  import { currencyFlag } from '$lib/currency'
 
   Chart.register(DoughnutController, ArcElement, Tooltip)
 
-  // Windows system palette — same source as the dashboard, cycled per slice
+  // Medium-saturation palette — readable on light and dark window backgrounds
   const PALETTE_LIGHT = [
-    { bg: '#008080', border: '#005050' }, // teal
-    { bg: '#800000', border: '#500000' }, // maroon
-    { bg: '#000080', border: '#000050' }, // navy
-    { bg: '#808000', border: '#505000' }, // olive
-    { bg: '#800080', border: '#500050' }, // purple
-    { bg: '#006400', border: '#003c00' }, // dark green
-    { bg: '#8b4513', border: '#5c2e0c' }, // saddle brown
-    { bg: '#4b0082', border: '#2d004e' }, // indigo
+    { bg: '#5b9bd5', border: '#3f7ab8' }, // blue
+    { bg: '#e8834a', border: '#c06228' }, // orange
+    { bg: '#48bb78', border: '#2d9e56' }, // green
+    { bg: '#e05c5c', border: '#be3838' }, // red
+    { bg: '#38b2ac', border: '#1e8a85' }, // teal
+    { bg: '#c89e2e', border: '#a07a10' }, // amber
+    { bg: '#805ad5', border: '#6040b8' }, // purple
+    { bg: '#d6609a', border: '#b03c7c' }, // pink
   ]
 
   const PALETTE_DARK = [
-    { bg: '#8be9fd', border: '#6ab8c8' }, // cyan
-    { bg: '#ff79c6', border: '#cc5fa0' }, // pink
-    { bg: '#bd93f9', border: '#9a72cc' }, // purple
-    { bg: '#50fa7b', border: '#3ec85f' }, // green
-    { bg: '#ffb86c', border: '#cc8f50' }, // orange
-    { bg: '#f1fa8c', border: '#c0c86e' }, // yellow
-    { bg: '#ff5555', border: '#cc3333' }, // red
-    { bg: '#6272a4', border: '#4e5b83' }, // comment blue
+    { bg: '#7eb8ef', border: '#5b9bd5' }, // blue
+    { bg: '#f5a86a', border: '#e8834a' }, // orange
+    { bg: '#68d391', border: '#48bb78' }, // green
+    { bg: '#fc8181', border: '#e05c5c' }, // red
+    { bg: '#4fd1cc', border: '#38b2ac' }, // teal
+    { bg: '#f0d060', border: '#c89e2e' }, // amber
+    { bg: '#9f7aea', border: '#805ad5' }, // purple
+    { bg: '#f093c0', border: '#d6609a' }, // pink
   ]
 
   interface Props {
@@ -167,8 +168,8 @@
         >
           <span class="swatch" style="background: {palette[i % palette.length].bg}"></span>
           <span class="cat-name">{shortName(cat.category)}{cat.childCount > 0 ? ' ›' : ''}</span>
-          <span class="cat-amount">{currency} {cat.amount.toFixed(2)}</span>
-          <span class="cat-pct">{pct.toFixed(1)}%</span>
+          <span class="cat-amount">{currencyFlag(currency)}{currencyFlag(currency) ? ' ' : ''}{currency} {cat.amount.toFixed(2)}</span>
+          <span class="cat-pct">{Math.round(pct)}%</span>
         </button>
       {/each}
     </div>
@@ -243,7 +244,7 @@
   .cat-amount {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    color: var(--color-amount-negative);
+    color: var(--color-text);
     white-space: nowrap;
   }
 
