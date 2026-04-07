@@ -75,10 +75,11 @@
     const textColor  = cssVar('--color-text')
     const mutedColor = cssVar('--color-text-muted')
 
-    // Custom inline plugin: draws "Total" label + amount in the donut center
+    // Custom inline plugin: draws "Total" label + amount in the donut center.
+    // Uses afterDatasetsDraw so it renders before the tooltip layer, not over it.
     const centerTextPlugin = {
       id: 'centerText',
-      afterDraw(chart: Chart) {
+      afterDatasetsDraw(chart: Chart) {
         const { ctx, chartArea } = chart
         const cx = chartArea.left + chartArea.width / 2
         const cy = chartArea.top  + chartArea.height / 2
@@ -115,6 +116,9 @@
         plugins: {
           legend: { display: false },
           tooltip: {
+            backgroundColor: 'rgba(30, 30, 30, 0.95)',
+            titleColor: '#ffffff',
+            bodyColor: '#cccccc',
             callbacks: {
               title: (items) => snap[items[0].dataIndex].category,
               label: (item)  => {
