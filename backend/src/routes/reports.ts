@@ -13,21 +13,35 @@ async function getExpensesRoot(userId: string): Promise<string> {
   return root.replace(/[%_\\]/g, '\\$&')
 }
 
-// GET /api/reports/spending-summary?from=YYYY-MM-DD&to=YYYY-MM-DD
+// GET /api/reports/spending-summary?from=YYYY-MM-DD&to=YYYY-MM-DD[&prefix=expenses:food]
 //
 // Returns total spend and per-category breakdown for expense accounts only.
-// Amounts are per currency (no conversion). Categories are the first two path
-// segments of the account path (e.g. "expenses:food" for "expenses:food:restaurant").
+// Amounts are per currency (no conversion).
+//
+// Without prefix: categories are the first two path segments (e.g. "expenses:food").
+// With prefix: filters to accounts under that prefix and groups one level deeper
+// (e.g. prefix=expenses:food yields "expenses:food:restaurant", "expenses:food:groceries").
+//
+// Each category includes childCount — the number of distinct direct child categories
+// that have spending in the period. childCount > 0 means the category is drillable.
 app.get('/spending-summary', async (c) => {
   const userId = c.get('userId')
   const from = c.req.query('from')
   const to = c.req.query('to')
+  const prefix = c.req.query('prefix') || null
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
   if (from && !dateRe.test(from)) return c.json({ error: 'Invalid from date, expected YYYY-MM-DD' }, 400)
   if (to && !dateRe.test(to)) return c.json({ error: 'Invalid to date, expected YYYY-MM-DD' }, 400)
 
   const expensesRoot = await getExpensesRoot(userId)
+
+  if (prefix && !prefix.startsWith(`${expensesRoot}:`)) {
+    return c.json({ error: 'prefix must be within the expenses root' }, 400)
+  }
+
+  // Escape LIKE special chars in prefix for safe use in the LIKE pattern
+  const escapedPrefix = prefix ? prefix.replace(/[%_\\]/g, '\\$&') : null
 
   const rows = await db
     .select({
@@ -43,23 +57,41 @@ app.get('/spending-summary', async (c) => {
       isNull(transactions.deletedAt),
       isNull(postings.deletedAt),
       isNull(accounts.deletedAt),
-      like(accounts.path, `${expensesRoot}:%`),
+      // When a prefix is given, filter to that subtree; otherwise filter to all expenses
+      escapedPrefix
+        ? like(accounts.path, `${escapedPrefix}:%`)
+        : like(accounts.path, `${expensesRoot}:%`),
       from ? gte(transactions.date, new Date(from)) : undefined,
       to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
     ))
 
   const totalByCurrency: Record<string, number> = {}
   const categoryMap: Record<string, Record<string, number>> = {}
+  // Tracks distinct direct-child category paths per category, used to compute childCount
+  const directChildSets: Record<string, Set<string>> = {}
+
+  const prefixDepth = prefix ? prefix.split(':').length : 0
 
   for (const row of rows) {
     const amount = parseFloat(row.amount)
     const { currency } = row
     const segments = row.path.split(':')
-    const category = segments.length >= 2 ? `${segments[0]}:${segments[1]}` : segments[0]
+
+    // Determine the category bucket this row falls into
+    const category = prefix
+      ? segments.slice(0, prefixDepth + 1).join(':')   // one level deeper than prefix
+      : segments.length >= 2 ? `${segments[0]}:${segments[1]}` : segments[0]
 
     totalByCurrency[currency] = (totalByCurrency[currency] ?? 0) + amount
     categoryMap[category] ??= {}
     categoryMap[category][currency] = (categoryMap[category][currency] ?? 0) + amount
+
+    // If this path is deeper than the category, record the direct child
+    const categoryDepth = category.split(':').length
+    if (segments.length > categoryDepth) {
+      directChildSets[category] ??= new Set()
+      directChildSets[category].add(segments.slice(0, categoryDepth + 1).join(':'))
+    }
   }
 
   const categories = Object.entries(categoryMap).map(([category, byCurrency]) => ({
@@ -67,6 +99,7 @@ app.get('/spending-summary', async (c) => {
     total: Object.fromEntries(
       Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)])
     ),
+    childCount: directChildSets[category]?.size ?? 0,
   }))
 
   return c.json({
