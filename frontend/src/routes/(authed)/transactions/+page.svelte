@@ -118,7 +118,7 @@
     <div class="ops-body">
       <Button onclick={() => (addModalOpen = true)}><Icon name="plus" /> New</Button>
       <a href="/import" class="btn-link"><Button><Icon name="import" /> Import</Button></a>
-      <Button disabled title="Coming soon"><Icon name="export" /> Export</Button>
+      <Button disabled tooltip="Coming soon"><Icon name="export" /> Export</Button>
     </div>
   </Panel>
 </div>

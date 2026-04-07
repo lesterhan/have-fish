@@ -10,14 +10,16 @@
  * not collapsed, so it only appears in the collapsed strip where labels aren't
  * visible. Pass `always: true` to show regardless of sidebar state.
  */
-type TooltipParam = string | { label: string; always?: boolean }
+type TooltipParam = string | { label: string; always?: boolean } | undefined
 
 export function tooltip(node: HTMLElement, param: TooltipParam) {
-  let label = typeof param === 'string' ? param : param.label
-  let always = typeof param === 'string' ? false : (param.always ?? false)
+  let label = typeof param === 'string' ? param : (param?.label ?? '')
+  let always = typeof param === 'string' ? false : (param?.always ?? false)
   let el: HTMLDivElement | null = null
 
   function show() {
+    if (!label) return
+
     // Suppress when inside an expanded sidebar (labels are already visible).
     // Outside a sidebar, always show.
     const sidebar = node.closest('.sidebar')
@@ -67,8 +69,8 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
 
   return {
     update(newParam: TooltipParam) {
-      label = typeof newParam === 'string' ? newParam : newParam.label
-      always = typeof newParam === 'string' ? false : (newParam.always ?? false)
+      label = typeof newParam === 'string' ? newParam : (newParam?.label ?? '')
+      always = typeof newParam === 'string' ? false : (newParam?.always ?? false)
     },
     destroy() {
       node.removeEventListener('mouseenter', show)

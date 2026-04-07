@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from "svelte";
   import HeadingBanner from "$lib/components/ui/HeadingBanner.svelte";
+  import Button from "$lib/components/ui/Button.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
   import SpendingChart from "$lib/components/SpendingChart.svelte";
   import TransactionRow from "$lib/components/TransactionRow.svelte";
@@ -167,17 +168,9 @@
   <!-- Toolbar: month nav + filters. Account filter will slot in here too. -->
   <div class="toolbar">
     <div class="toolbar-group">
-      <button
-        class="nav-btn"
-        onclick={() => navigate(-1)}
-        aria-label="Previous month">◀</button
-      >
+      <Button square onclick={() => navigate(-1)} aria-label="Previous month">◀</Button>
       <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
-      <button
-        class="nav-btn"
-        onclick={() => navigate(1)}
-        aria-label="Next month">▶</button
-      >
+      <Button square onclick={() => navigate(1)} aria-label="Next month">▶</Button>
     </div>
 
     {#if currencies.length > 1}
@@ -272,26 +265,6 @@
     background: var(--color-bevel-dark);
     margin: 0 var(--sp-xs);
     flex-shrink: 0;
-  }
-
-  .nav-btn {
-    background: var(--color-window);
-    border: none;
-    box-shadow: var(--shadow-raised);
-    padding: var(--sp-xs) var(--sp-sm);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    cursor: pointer;
-    font-family: var(--font-sans);
-    line-height: 1;
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .nav-btn:hover {
-    background: var(--color-accent-light);
-  }
-  .nav-btn:active {
-    box-shadow: var(--shadow-sunken);
   }
 
   .month-label {

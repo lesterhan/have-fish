@@ -93,7 +93,7 @@
         value={{ from, to }}
         onchange={(r) => onApply(r.from, r.to)}
       />
-      <Button square title="Reset to last 30 days" onclick={handleReset}>
+      <Button square tooltip="Reset to last 30 days" onclick={handleReset}>
         <Icon name="reset" />
       </Button>
     </div>

@@ -1,10 +1,12 @@
 <script lang="ts">
+  import { tooltip as tooltipAction } from '$lib/tooltip'
+
   interface Props {
     variant?: 'default' | 'primary' | 'danger' | 'ghost'
     disabled?: boolean
     square?: boolean
     type?: 'button' | 'submit' | 'reset'
-    title?: string
+    tooltip?: string
     'aria-label'?: string
     onclick?: () => void
     children: import('svelte').Snippet
@@ -15,7 +17,7 @@
     disabled = false,
     square = false,
     type = 'button',
-    title,
+    tooltip,
     'aria-label': ariaLabel,
     onclick,
     children,
@@ -25,7 +27,7 @@
 <button
   {type}
   {disabled}
-  {title}
+  use:tooltipAction={{ label: tooltip ?? '', always: true }}
   aria-label={ariaLabel}
   {onclick}
   class="btn {variant}"
