@@ -31,20 +31,52 @@
   let year  = $state(prev.getFullYear())
   let month = $state(prev.getMonth() + 1)
 
-  let summary  = $state<SpendingSummary | null>(null)
-  let loading  = $state(false)
-  let error    = $state<string | null>(null)
-  let currency = $state('CAD')
+  let summary   = $state<SpendingSummary | null>(null)
+  let loading   = $state(false)
+  let error     = $state<string | null>(null)
+  let currency  = $state('CAD')
+  // null = top level; a category path like "expenses:food" = drilled into that subtree
+  let drillPath = $state<string | null>(null)
 
   let currencies = $derived(Object.keys(summary?.total ?? {}))
+
+  // Breadcrumb trail derived from drillPath.
+  // Each crumb has a label (title-cased segment), the path to navigate to (null = top), and
+  // whether it is the current (non-clickable) level.
+  type Crumb = { label: string; path: string | null; current: boolean }
+  let breadcrumbs = $derived.by<Crumb[]>(() => {
+    // Derive the root segment from drillPath or the first category in the summary
+    const root = drillPath?.split(':')[0]
+      ?? summary?.categories[0]?.category.split(':')[0]
+      ?? 'expenses'
+    const rootLabel = root.charAt(0).toUpperCase() + root.slice(1)
+
+    if (!drillPath) return [{ label: rootLabel, path: null, current: true }]
+
+    const segments = drillPath.split(':').slice(1) // skip root segment
+    const crumbs: Crumb[] = [{ label: rootLabel, path: null, current: false }]
+    for (let i = 0; i < segments.length; i++) {
+      const seg = segments[i]
+      crumbs.push({
+        label: seg.charAt(0).toUpperCase() + seg.slice(1),
+        path: [root, ...segments.slice(0, i + 1)].join(':'),
+        current: i === segments.length - 1,
+      })
+    }
+    return crumbs
+  })
 
   async function load() {
     loading = true
     error = null
     try {
-      const result = await fetchSpendingSummary(monthStart(year, month), monthEnd(year, month))
+      const result = await fetchSpendingSummary(
+        monthStart(year, month),
+        monthEnd(year, month),
+        drillPath ?? undefined,
+      )
       summary = result
-      // Keep current currency if still present in the new month; otherwise fall back
+      // Keep current currency if still present in the new data; otherwise fall back
       const available = Object.keys(result.total)
       if (available.length > 0 && !available.includes(currency)) {
         currency = available[0]
@@ -60,6 +92,19 @@
     const next = shiftMonth(year, month, delta)
     year = next.year
     month = next.month
+    drillPath = null
+    load()
+  }
+
+  // Drill into a category — called by SpendingChart when a drillable bar is clicked
+  function drill(category: string) {
+    drillPath = category
+    load()
+  }
+
+  // Navigate back to an earlier breadcrumb level
+  function navigateTo(path: string | null) {
+    drillPath = path
     load()
   }
 
@@ -92,10 +137,23 @@
   {:else if !summary || currencies.length === 0}
     <p class="status">No expenses recorded for this month.</p>
   {:else}
+    <nav class="breadcrumb" aria-label="Category navigation">
+      {#each breadcrumbs as crumb, i}
+        {#if i > 0}<span class="sep" aria-hidden="true">›</span>{/if}
+        {#if crumb.current}
+          <span class="crumb crumb-current">{crumb.label}</span>
+        {:else}
+          <button class="crumb crumb-link" onclick={() => navigateTo(crumb.path)}>
+            {crumb.label}
+          </button>
+        {/if}
+      {/each}
+    </nav>
+
     <SpendingChart
       categories={summary.categories}
       {currency}
-      onclick={(_cat) => { /* drill-down wired up in story 5 */ }}
+      onclick={drill}
     />
   {/if}
 </div>
@@ -164,6 +222,40 @@
 
   .status.error {
     color: var(--color-danger);
+  }
+
+  /* Breadcrumb */
+  .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    margin-bottom: var(--sp-md);
+    font-size: var(--text-sm);
+  }
+
+  .sep {
+    color: var(--color-text-muted);
+  }
+
+  .crumb-current {
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
+
+  .crumb-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    color: var(--color-accent);
+    cursor: pointer;
+    text-decoration: underline;
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .crumb-link:hover {
+    color: var(--color-accent-mid);
   }
 
 </style>
