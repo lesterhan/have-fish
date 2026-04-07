@@ -15,6 +15,7 @@
   import FilterPanel from "$lib/components/FilterPanel.svelte";
   import TransactionRow from "$lib/components/TransactionRow.svelte";
   import TransactionRowSkeleton from "$lib/components/TransactionRowSkeleton.svelte";
+  import Icon from "$lib/components/ui/Icon.svelte";
 
   // Default range: today minus 30 days → today
   // Computed once at module load; stable for the lifetime of the page.
@@ -115,9 +116,9 @@
   />
   <Panel title="Operations">
     <div class="ops-body">
-      <Button onclick={() => (addModalOpen = true)}>New ➕</Button>
-      <a href="/import" class="btn-link"><Button>📥 Import</Button></a>
-      <Button disabled title="Coming soon">Export 📤</Button>
+      <Button onclick={() => (addModalOpen = true)}><Icon name="plus" /> New</Button>
+      <a href="/import" class="btn-link"><Button><Icon name="import" /> Import</Button></a>
+      <Button disabled title="Coming soon"><Icon name="export" /> Export</Button>
     </div>
   </Panel>
 </div>

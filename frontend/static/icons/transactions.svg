@@ -1,9 +1,1 @@
-<svg viewBox="0 0 12 12" xmlns="http://www.w3.org/2000/svg" fill="black">
-  <!-- Three rows: square bullet + line -->
-  <rect x="0" y="1"  width="2" height="2"/>
-  <rect x="4" y="1"  width="8" height="2"/>
-  <rect x="0" y="5"  width="2" height="2"/>
-  <rect x="4" y="5"  width="8" height="2"/>
-  <rect x="0" y="9"  width="2" height="2"/>
-  <rect x="4" y="9"  width="6" height="2"/>
-</svg>
+<svg xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" aria-hidden="true" role="img" style="color: rgb(0, 0, 0);" width="64" height="64" viewBox="0 0 16 16"><path fill="currentColor" d="M1 3a1 1 0 1 0 2 0a1 1 0 0 0-2 0m3 1h11V2H4zm11 5H4V7h11zM1 8a1 1 0 1 0 2 0a1 1 0 0 0-2 0m14 6H4v-2h11zM1 13a1 1 0 1 0 2 0a1 1 0 0 0-2 0"></path></svg>

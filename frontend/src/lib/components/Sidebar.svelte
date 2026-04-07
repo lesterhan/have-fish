@@ -28,27 +28,31 @@
   let hiddenOpen = $state(false);
 
   let hiddenIds = $derived(
-    new Set(settingsStore.value?.preferences.hiddenAccountIds ?? [])
+    new Set(settingsStore.value?.preferences.hiddenAccountIds ?? []),
   );
 
   let assets = $derived(
-    accounts.filter((a) =>
-      !hiddenIds.has(a.id) && a.path.startsWith(`${settings.defaultAssetsRootPath}:`),
+    accounts.filter(
+      (a) =>
+        !hiddenIds.has(a.id) &&
+        a.path.startsWith(`${settings.defaultAssetsRootPath}:`),
     ),
   );
   let liabilities = $derived(
-    accounts.filter((a) =>
-      !hiddenIds.has(a.id) && a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`),
+    accounts.filter(
+      (a) =>
+        !hiddenIds.has(a.id) &&
+        a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`),
     ),
   );
   let equity = $derived(
-    accounts.filter((a) =>
-      !hiddenIds.has(a.id) && a.path.startsWith(`${settings.defaultEquityRootPath}:`),
+    accounts.filter(
+      (a) =>
+        !hiddenIds.has(a.id) &&
+        a.path.startsWith(`${settings.defaultEquityRootPath}:`),
     ),
   );
-  let hiddenAccounts = $derived(
-    accounts.filter((a) => hiddenIds.has(a.id))
-  );
+  let hiddenAccounts = $derived(accounts.filter((a) => hiddenIds.has(a.id)));
 
   function shortName(path: string, root: string): string {
     return path.startsWith(`${root}:`) ? path.slice(root.length + 1) : path;
@@ -69,8 +73,8 @@
           class="svg-icon nav-icon"
           alt=""
           aria-hidden="true"
-          width="14"
-          height="14"
+          width="16"
+          height="16"
         />
         <span class="nav-label">Dashboard</span>
       </a>
@@ -80,8 +84,8 @@
           class="svg-icon nav-icon"
           alt=""
           aria-hidden="true"
-          width="14"
-          height="14"
+          width="16"
+          height="16"
         />
         <span class="nav-label">Transactions</span>
       </a>
@@ -91,8 +95,8 @@
           class="svg-icon nav-icon"
           alt=""
           aria-hidden="true"
-          width="14"
-          height="14"
+          width="16"
+          height="16"
         />
         <span class="nav-label">Accounts</span>
       </a>
@@ -110,8 +114,8 @@
               src="/icons/chevron.svg"
               alt=""
               aria-hidden="true"
-              width="10"
-              height="10"
+              width="12"
+              height="12"
               class="svg-icon group-chevron"
               class:open={assetsOpen}
             />
@@ -122,13 +126,22 @@
               {#each assets as acct}
                 <li>
                   <a href="/account/{acct.id}" class="account-row">
-                    <span class="account-name">{acct.name ?? shortName(acct.path, settings.defaultAssetsRootPath)}</span>
+                    <span class="account-name"
+                      >{acct.name ??
+                        shortName(
+                          acct.path,
+                          settings.defaultAssetsRootPath,
+                        )}</span
+                    >
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <MoneyDisplay amount={b.amount} currency={b.currency} />
+                          <MoneyDisplay
+                            amount={b.amount}
+                            currency={b.currency}
+                          />
                         {/each}
                       {/if}
                     </span>
@@ -148,8 +161,8 @@
               src="/icons/chevron.svg"
               alt=""
               aria-hidden="true"
-              width="10"
-              height="10"
+              width="12"
+              height="12"
               class="svg-icon group-chevron"
               class:open={liabilitiesOpen}
             />
@@ -160,13 +173,22 @@
               {#each liabilities as acct}
                 <li>
                   <a href="/account/{acct.id}" class="account-row">
-                    <span class="account-name">{acct.name ?? shortName(acct.path, settings.defaultLiabilitiesRootPath)}</span>
+                    <span class="account-name"
+                      >{acct.name ??
+                        shortName(
+                          acct.path,
+                          settings.defaultLiabilitiesRootPath,
+                        )}</span
+                    >
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <MoneyDisplay amount={b.amount} currency={b.currency} />
+                          <MoneyDisplay
+                            amount={b.amount}
+                            currency={b.currency}
+                          />
                         {/each}
                       {/if}
                     </span>
@@ -186,8 +208,8 @@
               src="/icons/chevron.svg"
               alt=""
               aria-hidden="true"
-              width="10"
-              height="10"
+              width="12"
+              height="12"
               class="svg-icon group-chevron"
               class:open={equityOpen}
             />
@@ -198,13 +220,22 @@
               {#each equity as acct}
                 <li>
                   <a href="/account/{acct.id}" class="account-row">
-                    <span class="account-name">{acct.name ?? shortName(acct.path, settings.defaultEquityRootPath)}</span>
+                    <span class="account-name"
+                      >{acct.name ??
+                        shortName(
+                          acct.path,
+                          settings.defaultEquityRootPath,
+                        )}</span
+                    >
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <MoneyDisplay amount={b.amount} currency={b.currency} />
+                          <MoneyDisplay
+                            amount={b.amount}
+                            currency={b.currency}
+                          />
                         {/each}
                       {/if}
                     </span>
@@ -225,8 +256,8 @@
                 src="/icons/chevron.svg"
                 alt=""
                 aria-hidden="true"
-                width="10"
-                height="10"
+                width="12"
+                height="12"
                 class="svg-icon group-chevron"
                 class:open={hiddenOpen}
               />
@@ -236,7 +267,10 @@
               <ul class="account-list">
                 {#each hiddenAccounts as acct}
                   <li>
-                    <a href="/account/{acct.id}" class="account-row account-row-hidden">
+                    <a
+                      href="/account/{acct.id}"
+                      class="account-row account-row-hidden"
+                    >
                       <span class="account-name">{acct.name ?? acct.path}</span>
                     </a>
                   </li>
@@ -261,13 +295,20 @@
             src="/icons/collapse-sidebar.svg"
             alt=""
             aria-hidden="true"
-            width="12"
-            height="12"
+            width="16"
+            height="16"
             class="svg-icon nav-icon"
           />
           <span class="nav-label">Compress sidebar</span>
         {:else}
-          ☰
+          <img
+            src="/icons/menu.svg"
+            alt=""
+            aria-hidden="true"
+            width="16"
+            height="16"
+            class="svg-icon nav-icon"
+          />
         {/if}
       </button>
       <button
@@ -279,8 +320,8 @@
           src={theme.dark ? "/icons/sun.svg" : "/icons/moon.svg"}
           alt=""
           aria-hidden="true"
-          width="14"
-          height="14"
+          width="16"
+          height="16"
           class="svg-icon nav-icon"
         />
         <span class="nav-label"
@@ -294,11 +335,11 @@
           use:tooltip={"Settings"}
         >
           <img
-            src="/icons/settings.svg"
+            src="/icons/user.svg"
             alt=""
             aria-hidden="true"
-            width="14"
-            height="14"
+            width="16"
+            height="16"
             class="svg-icon nav-icon"
           />
           <span class="nav-label">{email}</span>

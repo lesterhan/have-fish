@@ -2,6 +2,7 @@
   import { untrack } from "svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
   import Button from "$lib/components/ui/Button.svelte";
+  import Icon from "$lib/components/ui/Icon.svelte";
   import DateRangeSelector from "$lib/components/DateRangeSelector.svelte";
   import AccountPathInput from "$lib/components/AccountPathInput.svelte";
   import { fetchAccounts } from "$lib/api";
@@ -75,14 +76,16 @@
           title="Filter by account path"
           variant={accountPath ? "primary" : undefined}
         >
-          🔍{accountPath ? ` ${accountPath}` : ""}
+          <Icon name="search" />
+          {#if accountPath}<span class="filter-path">{accountPath}</span>{/if}
         </Button>
       {/if}
       <Button
         onclick={() => onSortChange(sortDir === "desc" ? "asc" : "desc")}
         title="Sort by date"
       >
-        Date {sortDir === "desc" ? "↘️" : "↗️"}
+        <Icon name="sort-{sortDir === 'desc' ? 'desc' : 'asc'}" />
+        Date
       </Button>
     </div>
     <div class="date-controls">
@@ -90,9 +93,9 @@
         value={{ from, to }}
         onchange={(r) => onApply(r.from, r.to)}
       />
-      <Button square title="Reset to last 30 days" onclick={handleReset}
-        >🔄</Button
-      >
+      <Button square title="Reset to last 30 days" onclick={handleReset}>
+        <Icon name="reset" />
+      </Button>
     </div>
   </div>
 
@@ -181,5 +184,13 @@
 
   .clear-btn:hover {
     color: var(--color-danger);
+  }
+
+  .filter-path {
+    font-size: var(--text-xs);
+    max-width: 10rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 </style>

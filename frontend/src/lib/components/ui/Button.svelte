@@ -65,9 +65,7 @@
 
   .btn:active:not(:disabled) {
     box-shadow: var(--shadow-sunken);
-    /* nudge content 1px to sell the press */
-    padding-top: 4px;
-    padding-left: calc(var(--sp-md) + 1px);
+    translate: 1px 1px;
   }
 
   .btn:focus-visible {
@@ -86,6 +84,7 @@
     min-width: 0;
     padding: 3px var(--sp-xs);
   }
+
 
   /* Ghost — no background or bevel, dashed outline on hover like editable fields */
   .btn.ghost {
@@ -107,8 +106,7 @@
   .btn.ghost:active:not(:disabled) {
     background: transparent;
     box-shadow: none;
-    padding-top: 3px;
-    padding-left: var(--sp-xs);
+    translate: 1px 1px;
   }
 
   /* Primary — default action in a dialog, XP blue */
