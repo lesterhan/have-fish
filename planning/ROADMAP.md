@@ -24,3 +24,4 @@
 | [Add Import Parser](epics/archive/add-import-parser.md) | Done |
 | [Spending Page](epics/spending-page.md) | Backlog |
 | [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
+| [Import Rules](epics/import-rules.md) | Backlog |
