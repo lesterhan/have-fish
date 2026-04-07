@@ -157,8 +157,18 @@
         <Icon name="plus" />
         New
       </Button>
-      <Button onclick={() => (reconcileOpen = true)}>Reconcile</Button>
-      <Button square onclick={() => (settingsOpen = !settingsOpen)} title="Account settings">
+      <Button
+        square
+        onclick={() => (reconcileOpen = true)}
+        title="Reconcile account"
+      >
+        <Icon name="reconcile" />
+      </Button>
+      <Button
+        square
+        onclick={() => (settingsOpen = !settingsOpen)}
+        title="Account settings"
+      >
         <Icon name="account-settings" />
       </Button>
     </div>
