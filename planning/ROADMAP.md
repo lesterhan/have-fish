@@ -16,7 +16,7 @@
 | [Import CSV for Existing Asset Account](epics/archive/import-csv-existing-account.md) | Done |
 | [Import CSV for Liability Accounts](epics/archive/import-csv-liability-accounts.md) | Done |
 | [Support Transfer Direction](epics/archive/support-transfer-direction.md) | Done |
-| [Resolve Duplicate Transactions](epics/resolve-duplicate-transactions.md) | Backlog |
+| [Resolve Duplicate Transactions](epics/archive/resolve-duplicate-transactions.md) | Done |
 | [Dashboard](epics/archive/dashboard.md) | Done |
 | [User Sign-up](epics/archive/user-signup.md) | Done |
 | [Sidebar Redesign](epics/archive/sidebar-redesign.md) | Done |
