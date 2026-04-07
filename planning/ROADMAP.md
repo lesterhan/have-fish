@@ -25,3 +25,4 @@
 | [Spending Page](epics/archive/spending-page.md) | Done |
 | [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
 | [Import Rules](epics/import-rules.md) | Backlog |
+| [Spending Account Filter](epics/spending-account-filter.md) | Backlog |
