@@ -284,11 +284,12 @@
 
     <!-- Footer: collapse toggle + theme + settings — always rendered so icons show collapsed -->
     <div class="sidebar-footer">
+      <!-- Desktop: compress / expand toggle -->
       <button
         class="footer-btn footer-collapse"
         onclick={() => (expanded = !expanded)}
         aria-label={expanded ? "Compress sidebar" : "Expand sidebar"}
-        use:tooltip={"Expand"}
+        use:tooltip={expanded ? "Compress sidebar" : "Expand sidebar"}
       >
         {#if expanded}
           <img
@@ -310,6 +311,22 @@
             class="svg-icon nav-icon"
           />
         {/if}
+      </button>
+      <!-- Mobile: close sidebar -->
+      <button
+        class="footer-btn footer-mobile-close"
+        onclick={() => onMobileClose?.()}
+        aria-label="Close sidebar"
+      >
+        <img
+          src="/icons/close.svg"
+          alt=""
+          aria-hidden="true"
+          width="16"
+          height="16"
+          class="svg-icon nav-icon"
+        />
+        <span class="nav-label">Close</span>
       </button>
       <button
         class="footer-btn"
@@ -395,10 +412,18 @@
     }
   }
 
-  /* Hide the collapse button on mobile — the hamburger in the titlebar handles that */
+  /* Desktop: show collapse, hide close */
+  .footer-btn.footer-mobile-close {
+    display: none;
+  }
+
+  /* Mobile: hide collapse, show close */
   @media (max-width: 600px) {
-    .footer-collapse {
+    .footer-btn.footer-collapse {
       display: none;
+    }
+    .footer-btn.footer-mobile-close {
+      display: flex;
     }
   }
 
