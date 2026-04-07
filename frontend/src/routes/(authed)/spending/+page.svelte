@@ -222,7 +222,7 @@
       <div class="panel-body">
         <nav class="breadcrumb" aria-label="Category navigation">
           {#each breadcrumbs as crumb, i}
-            {#if i > 0}<span class="sep" aria-hidden="true">›</span>{/if}
+            {#if i > 0}<span class="sep" aria-hidden="true">:</span>{/if}
             {#if crumb.current}
               <span class="crumb crumb-current">{crumb.label}</span>
             {:else}
@@ -343,6 +343,7 @@
 
   .sep {
     color: var(--color-text-muted);
+    font-weight: 700;
   }
 
   .crumb-current {
