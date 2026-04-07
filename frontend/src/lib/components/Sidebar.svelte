@@ -1,6 +1,6 @@
 <script lang="ts">
-  import MoneyDisplay from "./ui/MoneyDisplay.svelte";
   import type { AccountBalance, UserSettings } from "$lib/api";
+  import { formatCompact } from "$lib/currency";
   import { theme } from "$lib/theme.svelte";
   import { tooltip } from "$lib/tooltip";
   import { settingsStore } from "$lib/settings.svelte";
@@ -138,10 +138,7 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <MoneyDisplay
-                            amount={b.amount}
-                            currency={b.currency}
-                          />
+                          <span class="account-balance">{b.currency} {formatCompact(b.amount)}</span>
                         {/each}
                       {/if}
                     </span>
@@ -185,10 +182,7 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <MoneyDisplay
-                            amount={b.amount}
-                            currency={b.currency}
-                          />
+                          <span class="account-balance">{b.currency} {formatCompact(b.amount)}</span>
                         {/each}
                       {/if}
                     </span>
@@ -232,10 +226,7 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <MoneyDisplay
-                            amount={b.amount}
-                            currency={b.currency}
-                          />
+                          <span class="account-balance">{b.currency} {formatCompact(b.amount)}</span>
                         {/each}
                       {/if}
                     </span>
@@ -615,17 +606,10 @@
     flex-shrink: 0;
   }
 
-  .account-balances :global(.money) {
-    flex-direction: row;
-    gap: 3px;
-    align-items: baseline;
-  }
-
-  .account-balances :global(.amount) {
+  .account-balance {
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
-  }
-  .account-balances :global(.currency) {
-    font-size: 10px;
+    color: var(--color-text-muted);
   }
 
   .account-balance.muted {

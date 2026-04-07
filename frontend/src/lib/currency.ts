@@ -10,3 +10,12 @@ export const CURRENCY_FLAGS: Record<string, string> = {
 export function currencyFlag(currency: string): string {
   return CURRENCY_FLAGS[currency] ?? ''
 }
+
+/** Compact amount for tight spaces: ≥10 000 → "12.3K", otherwise 2 dp. Preserves sign. */
+export function formatCompact(amount: string): string {
+  const n = parseFloat(amount)
+  if (isNaN(n)) return amount
+  const abs = Math.abs(n)
+  const formatted = abs >= 10000 ? `${(abs / 1000).toFixed(1)}K` : abs.toFixed(2)
+  return n < 0 ? `-${formatted}` : formatted
+}
