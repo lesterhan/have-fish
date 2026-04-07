@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import HeadingBanner from '$lib/components/ui/HeadingBanner.svelte'
+  import SpendingChart from '$lib/components/SpendingChart.svelte'
   import { fetchSpendingSummary } from '$lib/api'
   import type { SpendingSummary } from '$lib/api'
 
@@ -91,8 +92,11 @@
   {:else if !summary || currencies.length === 0}
     <p class="status">No expenses recorded for this month.</p>
   {:else}
-    <!-- SpendingChart goes here in story 4 -->
-    <p class="status muted">Chart coming soon.</p>
+    <SpendingChart
+      categories={summary.categories}
+      {currency}
+      onclick={(_cat) => { /* drill-down wired up in story 5 */ }}
+    />
   {/if}
 </div>
 
@@ -162,8 +166,4 @@
     color: var(--color-danger);
   }
 
-  .status.muted {
-    color: var(--color-text-disabled);
-    font-style: italic;
-  }
 </style>
