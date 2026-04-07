@@ -19,6 +19,7 @@
   import Panel from "$lib/components/ui/Panel.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import AccountSettings from "$lib/components/AccountSettings.svelte";
+  import ReconcileModal from "$lib/components/ReconcileModal.svelte";
   import Icon from "$lib/components/ui/Icon.svelte";
 
   let id = $derived(page.params.id!);
@@ -48,6 +49,7 @@
   let notFound = $state(false);
   let addModalOpen = $state(false);
   let settingsOpen = $state(false);
+  let reconcileOpen = $state(false);
 
   $effect(() => {
     let cancelled = false;
@@ -111,6 +113,18 @@
   }
 </script>
 
+{#if account}
+  <ReconcileModal
+    accountId={account.id}
+    accountPath={account.path}
+    bind:open={reconcileOpen}
+    onSuccess={async () => {
+      const allBalances = await fetchAccountBalances();
+      accountBalances = allBalances.find((b) => b.id === id)?.balances ?? [];
+    }}
+  />
+{/if}
+
 <AddTransactionModal
   {accounts}
   {defaultOffsetAccountId}
@@ -143,6 +157,7 @@
         <Icon name="plus" />
         New
       </Button>
+      <Button onclick={() => (reconcileOpen = true)}>Reconcile</Button>
       <Button square onclick={() => (settingsOpen = !settingsOpen)} title="Account settings">
         <Icon name="account-settings" />
       </Button>
