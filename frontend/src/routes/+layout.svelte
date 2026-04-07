@@ -21,6 +21,7 @@
     userId: "",
     defaultOffsetAccountId: null,
     defaultConversionAccountId: null,
+    defaultAdjustmentsAccountId: null,
     defaultAssetsRootPath: "assets",
     defaultLiabilitiesRootPath: "liabilities",
     defaultExpensesRootPath: "expenses",

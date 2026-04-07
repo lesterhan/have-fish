@@ -47,6 +47,7 @@
     offsetAccountId: string; // regular rows: the balancing account
     conversionAccountId: string; // transfer rows: equity:conversion account
     feeAccountId: string; // transfer rows: fee expense account
+    skipped: boolean; // true = exclude from commit (likely duplicate)
   };
   let rowStates = $state<RowState[]>([]);
 
@@ -142,10 +143,12 @@
       importAsLiabilities = defaultAccountPath.startsWith(
         `${liabilitiesRoot}:`,
       );
-      rowStates = preview.transactions.map(() => ({
+      rowStates = preview.transactions.map((tx) => ({
         offsetAccountId: toAccountId,
         conversionAccountId: settingsStore.value?.defaultConversionAccountId ?? "",
         feeAccountId: preview!.defaultFeeAccountId ?? "",
+        // Auto-skip rows the backend flagged as likely duplicates.
+        skipped: tx.possibleDuplicate != null,
       }));
     } catch (e) {
       error =
@@ -172,6 +175,7 @@
     }
     const invalid = preview.transactions.some((tx, i) => {
       const row = rowStates[i];
+      if (row.skipped) return false;
       if (tx.isTransfer === true)
         return !row.conversionAccountId || !row.feeAccountId;
       if (tx.isTransfer === "same-currency")
@@ -185,7 +189,8 @@
     loading = true;
     error = "";
     try {
-      const txs: CommitTransaction[] = preview.transactions.map((tx, i) => {
+      const txs: CommitTransaction[] = preview.transactions.flatMap((tx, i) => {
+        if (rowStates[i].skipped) return [];
         const row = rowStates[i];
         if (tx.isTransfer === true) {
           return {
@@ -418,15 +423,19 @@
               <th class="col-amount">Amount</th>
               {#if !preview.isMultiCurrency}<th>Currency</th>{/if}
               <th class="col-offset">To account</th>
+              <th class="col-skip">Skip</th>
             </tr>
           </thead>
           <tbody>
             {#each preview.transactions as tx, i}
               {#if tx.isTransfer === true}
-                <tr class="row-transfer">
-                  <td class="cell-mono"
-                    >{new Date(tx.date).toLocaleDateString()}</td
-                  >
+                <tr class="row-transfer" class:row-skipped={rowStates[i].skipped}>
+                  <td class="cell-mono">
+                    {new Date(tx.date).toLocaleDateString()}
+                    {#if tx.possibleDuplicate}
+                      <span class="dup-badge" title="Possible duplicate: {tx.possibleDuplicate.date} {tx.possibleDuplicate.amount} {tx.possibleDuplicate.currency}">dup</span>
+                    {/if}
+                  </td>
                   <td>{tx.description ?? "—"}</td>
                   <td class="cell-transfer-amount">
                     <span class="transfer-from"
@@ -459,12 +468,18 @@
                       />
                     </div>
                   </td>
+                  <td class="cell-skip">
+                    <input type="checkbox" bind:checked={rowStates[i].skipped} />
+                  </td>
                 </tr>
               {:else if tx.isTransfer === "same-currency"}
-                <tr class="row-transfer">
-                  <td class="cell-mono"
-                    >{new Date(tx.date).toLocaleDateString()}</td
-                  >
+                <tr class="row-transfer" class:row-skipped={rowStates[i].skipped}>
+                  <td class="cell-mono">
+                    {new Date(tx.date).toLocaleDateString()}
+                    {#if tx.possibleDuplicate}
+                      <span class="dup-badge" title="Possible duplicate: {tx.possibleDuplicate.date} {tx.possibleDuplicate.amount} {tx.possibleDuplicate.currency}">dup</span>
+                    {/if}
+                  </td>
                   <td>{tx.description ?? "—"}</td>
                   <td class="cell-transfer-amount">
                     <span class="transfer-to">+{tx.amount} {tx.currency}</span>
@@ -488,12 +503,18 @@
                       />
                     </div>
                   </td>
+                  <td class="cell-skip">
+                    <input type="checkbox" bind:checked={rowStates[i].skipped} />
+                  </td>
                 </tr>
               {:else}
-                <tr>
-                  <td class="cell-mono"
-                    >{new Date(tx.date).toLocaleDateString()}</td
-                  >
+                <tr class:row-skipped={rowStates[i].skipped}>
+                  <td class="cell-mono">
+                    {new Date(tx.date).toLocaleDateString()}
+                    {#if tx.possibleDuplicate}
+                      <span class="dup-badge" title="Possible duplicate: {tx.possibleDuplicate.date} {tx.possibleDuplicate.amount} {tx.possibleDuplicate.currency}">dup</span>
+                    {/if}
+                  </td>
                   <td>{tx.description ?? "—"}</td>
                   <td
                     class="cell-amount"
@@ -514,6 +535,9 @@
                       oncreate={handleAccountCreated}
                     />
                   </td>
+                  <td class="cell-skip">
+                    <input type="checkbox" bind:checked={rowStates[i].skipped} />
+                  </td>
                 </tr>
               {/if}
             {/each}
@@ -524,7 +548,7 @@
 
     <div class="panel-actions">
       <p class="summary">
-        {preview.transactions.length} transaction(s) ready to import.
+        {preview.transactions.length - rowStates.filter((r) => r.skipped).length} transaction(s) ready to import{rowStates.filter((r) => r.skipped).length > 0 ? `, ${rowStates.filter((r) => r.skipped).length} skipped` : ""}.
       </p>
       {#if error}
         <p class="error">{error}</p>
@@ -535,10 +559,11 @@
           variant="primary"
           onclick={handleConfirm}
           disabled={loading ||
-            preview.transactions.length === 0 ||
+            rowStates.every((r) => r.skipped) ||
             missingPaths.length > 0 ||
             (!preview.isMultiCurrency && !fromAccountId) ||
             rowStates.some((row, i) => {
+              if (row.skipped) return false;
               const tx = preview!.transactions[i];
               if (tx.isTransfer === true)
                 return !row.conversionAccountId || !row.feeAccountId;
@@ -776,6 +801,10 @@
   .col-offset {
     min-width: 18rem;
   }
+  .col-skip {
+    width: 3rem;
+    text-align: center;
+  }
 
   /* Mono font for ledger-style data */
   .cell-mono {
@@ -799,6 +828,38 @@
   /* Remove cell padding so the input sits flush in the offset column */
   .cell-offset {
     padding: 0;
+  }
+
+  .cell-skip {
+    text-align: center;
+    vertical-align: middle;
+  }
+
+  /* Dim skipped rows */
+  .row-skipped td {
+    opacity: 0.4;
+  }
+
+  /* Keep the skip checkbox at full opacity even when row is dimmed */
+  .row-skipped .cell-skip {
+    opacity: 1;
+  }
+
+  /* Duplicate warning badge — small pill shown next to the date */
+  .dup-badge {
+    display: inline-block;
+    margin-left: var(--sp-xs);
+    padding: 0 3px;
+    font-size: var(--text-xs);
+    font-family: var(--font-sans);
+    font-weight: var(--weight-semibold);
+    background: #fff3cd;
+    color: #856404;
+    box-shadow: var(--shadow-raised);
+    vertical-align: middle;
+    cursor: default;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
   }
 
   /* --- Transfer rows --- */

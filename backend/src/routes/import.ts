@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import { transactions, postings, csvParsers } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
+import { eq, isNull, and, gte, lte } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
@@ -52,12 +52,89 @@ app.post('/preview', async (c) => {
   const parse = buildParser(matched.columnMapping as ColumnMapping)
   const result = parse(rows)
 
+  // --- Duplicate detection ---
+  // For each parsed transaction, check whether a posting already exists in the
+  // database on the same account with a close-enough date (±1 day) and amount
+  // (±0.01). We only run this when the parser has a defaultAccountId — without
+  // one we can't know which account to look up historical postings for.
+
+  type PossibleDuplicate = { transactionId: string; date: string; amount: string; currency: string } | null
+  const duplicates: PossibleDuplicate[] = result.transactions.map(() => null)
+
+  if (matched.defaultAccountId && result.transactions.length > 0) {
+    // Compute the date window that spans all parsed rows (±1 day buffer).
+    const parsedDates = result.transactions.map((t) => new Date(t.date))
+    const minDate = new Date(Math.min(...parsedDates.map((d) => d.getTime())))
+    const maxDate = new Date(Math.max(...parsedDates.map((d) => d.getTime())))
+    minDate.setDate(minDate.getDate() - 1)
+    maxDate.setDate(maxDate.getDate() + 1)
+    // Extend to end-of-day so the lte bound is inclusive.
+    maxDate.setHours(23, 59, 59, 999)
+
+    // Fetch all postings for this account in the window.
+    const existing = await db
+      .select({
+        transactionId: postings.transactionId,
+        date: transactions.date,
+        amount: postings.amount,
+        currency: postings.currency,
+      })
+      .from(postings)
+      .innerJoin(transactions, eq(transactions.id, postings.transactionId))
+      .where(
+        and(
+          eq(postings.accountId, matched.defaultAccountId),
+          isNull(postings.deletedAt),
+          isNull(transactions.deletedAt),
+          gte(transactions.date, minDate),
+          lte(transactions.date, maxDate),
+        ),
+      )
+
+    // Match each parsed transaction against the existing postings.
+    for (let i = 0; i < result.transactions.length; i++) {
+      const t = result.transactions[i]
+      // Only regular rows have a single amount we can compare directly.
+      // Transfer rows are more complex and skipped for now.
+      if (t.isTransfer !== false) continue
+
+      const txDate = new Date(t.date).getTime()
+      const txAmount = parseFloat(t.amount)
+
+      const match = existing.find((e) => {
+        const eDate = new Date(e.date).getTime()
+        const eAmount = parseFloat(e.amount)
+        const dayMs = 24 * 60 * 60 * 1000
+        return (
+          Math.abs(eDate - txDate) <= dayMs &&
+          Math.abs(eAmount - txAmount) <= 0.01
+        )
+      })
+
+      if (match) {
+        duplicates[i] = {
+          transactionId: match.transactionId,
+          date: match.date.toISOString().substring(0, 10),
+          amount: match.amount,
+          currency: match.currency,
+        }
+      }
+    }
+  }
+
+  // Zip duplicates into the transactions array.
+  const transactionsWithDuplicates = result.transactions.map((t, i) => ({
+    ...t,
+    possibleDuplicate: duplicates[i],
+  }))
+
   return c.json({
     parser: matched.name,
     defaultAccountId: matched.defaultAccountId,
     isMultiCurrency: matched.isMultiCurrency,
     defaultFeeAccountId: matched.defaultFeeAccountId,
     ...result,
+    transactions: transactionsWithDuplicates,
   })
 })
 

@@ -74,12 +74,21 @@ export async function deleteCategory(id: string) {
 }
 
 // Mirrors the ParsedTransaction discriminated union from the backend.
+
+export type PossibleDuplicate = {
+  transactionId: string
+  date: string
+  amount: string
+  currency: string
+} | null
+
 export type RegularParsedTransaction = {
   isTransfer: false
   date: string
   amount: string
   description?: string
   currency?: string
+  possibleDuplicate?: PossibleDuplicate
 }
 
 export type TransferParsedTransaction = {
@@ -92,6 +101,7 @@ export type TransferParsedTransaction = {
   targetCurrency: string
   feeAmount?: string
   feeCurrency?: string
+  possibleDuplicate?: PossibleDuplicate
 }
 
 export type SameCurrencyTransferParsedTransaction = {
@@ -101,6 +111,7 @@ export type SameCurrencyTransferParsedTransaction = {
   amount: string     // net amount received (positive)
   feeAmount: string  // fee charged (positive)
   currency: string
+  possibleDuplicate?: PossibleDuplicate
 }
 
 export type ParsedTransaction = RegularParsedTransaction | TransferParsedTransaction | SameCurrencyTransferParsedTransaction

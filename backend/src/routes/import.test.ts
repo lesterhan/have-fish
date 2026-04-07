@@ -89,6 +89,58 @@ describe('POST /api/import/preview', () => {
   })
 })
 
+describe('POST /api/import/preview — duplicate detection', () => {
+  let cookie: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+    cookie = await createTestUser()
+  })
+
+  it('flags possibleDuplicate when a matching posting already exists', async () => {
+    // Create accounts
+    const source = await createAccount(cookie, 'assets:chequing')
+    const offset = await createAccount(cookie, 'expenses:uncategorized')
+
+    // Create a parser with defaultAccountId pointing at source
+    const parserRes = await app.request('/api/parsers', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ...TEST_PARSER, defaultAccountId: source.id }),
+    })
+    expect(parserRes.status).toBe(201)
+
+    // Seed an existing transaction for the same account and amount
+    await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: source.id,
+        defaultCurrency: 'CAD',
+        transactions: [
+          { date: new Date('2026-02-01').toISOString(), amount: '-42.50', description: 'Coffee', currency: 'CAD', offsetAccountId: offset.id },
+        ],
+      }),
+    })
+
+    // Preview the same CSV — should flag the duplicate
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    const coffee = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    expect(coffee.possibleDuplicate).not.toBeNull()
+    expect(coffee.possibleDuplicate.amount).toBe('-42.50')
+
+    // The other row (Salary, +100.00) should not be flagged
+    const salary = body.transactions.find((t: { description: string }) => t.description === 'Salary')
+    expect(salary.possibleDuplicate).toBeNull()
+  })
+})
+
 describe('POST /api/import/commit', () => {
   let cookie: string
 
