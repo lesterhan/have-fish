@@ -250,6 +250,11 @@ export async function deleteParser(id: string): Promise<void> {
   })
 }
 
+export type UserPreferences = {
+  dashboardHiddenCurrencies?: string[]
+  hiddenAccountIds?: string[]
+}
+
 export type UserSettings = {
   id: string
   userId: string
@@ -260,7 +265,7 @@ export type UserSettings = {
   defaultExpensesRootPath: string
   defaultEquityRootPath: string
   defaultAdjustmentsAccountId: string | null
-  preferences: { dashboardHiddenCurrencies?: string[]; hiddenAccountIds?: string[] } & Record<string, unknown>
+  preferences: UserPreferences
   createdAt: string
   updatedAt: string
 }
@@ -271,7 +276,7 @@ export async function fetchUserSettings(): Promise<UserSettings> {
 }
 
 export async function updateUserSettings(
-  body: Partial<Pick<UserSettings, 'defaultOffsetAccountId' | 'defaultConversionAccountId' | 'defaultAdjustmentsAccountId' | 'defaultAssetsRootPath' | 'defaultLiabilitiesRootPath' | 'defaultExpensesRootPath' | 'defaultEquityRootPath'>> & { preferences?: Record<string, unknown> },
+  body: Partial<Pick<UserSettings, 'defaultOffsetAccountId' | 'defaultConversionAccountId' | 'defaultAdjustmentsAccountId' | 'defaultAssetsRootPath' | 'defaultLiabilitiesRootPath' | 'defaultExpensesRootPath' | 'defaultEquityRootPath'>> & { preferences?: UserPreferences },
 ): Promise<UserSettings> {
   const res = await fetch(`${BASE}/api/user-settings`, {
     method: 'PATCH',
