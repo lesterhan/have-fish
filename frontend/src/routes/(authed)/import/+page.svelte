@@ -19,6 +19,7 @@
   import Toggle from "$lib/components/ui/Toggle.svelte";
   import TableShell from "$lib/components/ui/TableShell.svelte";
   import EditParserPanel from "$lib/components/EditParserPanel.svelte";
+  import AddParserWizard from "$lib/components/AddParserWizard.svelte";
   import { toast } from "$lib/toast.svelte";
   import { goto } from "$app/navigation";
 
@@ -39,6 +40,7 @@
   let importAsLiabilities = $state(false);
 
   let editingParser = $state<CsvParser | null>(null);
+  let showAddParser = $state(false);
 
   // Per-row account state. Indexed to preview.transactions.
   type RowState = {
@@ -308,6 +310,9 @@
     </form>
   </Panel>
   <Panel title="Available Parsers">
+    <div class="parsers-toolbar">
+      <Button onclick={() => { showAddParser = true; }}>Add parser</Button>
+    </div>
     <div class="parsers-table">
       <TableShell
         columns={[
@@ -548,6 +553,12 @@
     </div>
   </Panel>
 {/if}
+
+<AddParserWizard
+  bind:open={showAddParser}
+  {accounts}
+  onSuccess={(p) => { parsers = [...parsers, p]; }}
+/>
 
 {#if editingParser}
   <EditParserPanel
@@ -833,6 +844,13 @@
   }
 
   .transfer-accounts :global(.wrapper:first-child .path-input) {
+    border-bottom: 1px solid var(--color-bevel-mid);
+  }
+
+  /* --- Parsers toolbar --- */
+
+  .parsers-toolbar {
+    padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-bevel-mid);
   }
 

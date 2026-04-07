@@ -4,7 +4,7 @@
   import Toggle from "./ui/Toggle.svelte";
   import AccountPathInput from "./AccountPathInput.svelte";
   import { tooltip } from "$lib/tooltip";
-  import type { Account, CsvParser } from "$lib/api";
+  import { createParser, type Account, type CsvParser } from "$lib/api";
 
   interface Props {
     open: boolean;
@@ -182,7 +182,39 @@
   let submitError = $state("");
 
   async function handleConfirm() {
-    // TODO (Story 4): POST to /api/parsers and call onSuccess
+    submitting = true;
+    submitError = "";
+    try {
+      const columnMapping = {
+        date: mappingDate,
+        amount: mappingAmount,
+        description: mappingDescription || null,
+        currency: mappingCurrency || null,
+        signColumn: mappingSignColumn || null,
+        signNegativeValue: mappingSignColumn ? (mappingSignNegativeValue || null) : null,
+        ...(isMultiCurrency && {
+          sourceAmount: mappingSourceAmount || null,
+          sourceCurrency: mappingSourceCurrency || null,
+          targetAmount: mappingTargetAmount || null,
+          targetCurrency: mappingTargetCurrency || null,
+          feeAmount: mappingFeeAmount || null,
+          feeCurrency: mappingFeeCurrency || null,
+        }),
+      };
+      const newParser = await createParser({
+        name: parserName.trim(),
+        normalizedHeader: buildNormalizedHeader(columns),
+        columnMapping,
+        isMultiCurrency,
+        defaultAccountId: selectedAccountId,
+      });
+      onSuccess?.(newParser);
+      close();
+    } catch (e) {
+      submitError = e instanceof Error ? e.message : "Something went wrong.";
+    } finally {
+      submitting = false;
+    }
   }
 </script>
 
@@ -327,11 +359,63 @@
         </select>
       </div>
     {:else if step === STEP.CONFIRM}
-      <!-- TODO (Story 4): Read-only summary + submit error -->
-      <p class="placeholder">Step 5: Confirm</p>
-      {#if submitError}
-        <p class="summary-error">{submitError}</p>
-      {/if}
+      <div class="summary">
+        <div class="summary-section">
+          <h3 class="summary-heading">Account</h3>
+          <div class="summary-row">
+            <span class="summary-label">Path</span>
+            <code class="summary-value">{selectedAccountPath}</code>
+          </div>
+        </div>
+
+        <div class="summary-section">
+          <h3 class="summary-heading">CSV Parser</h3>
+          {#if parserSkipped}
+            <p class="summary-muted">No parser configured.</p>
+          {:else}
+            <div class="summary-row">
+              <span class="summary-label">Name</span>
+              <span class="summary-value">{parserName.trim()}</span>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Date column</span>
+              <code class="summary-value">{mappingDate}</code>
+            </div>
+            <div class="summary-row">
+              <span class="summary-label">Amount column</span>
+              <code class="summary-value">{mappingAmount}</code>
+            </div>
+            {#if mappingDescription}
+              <div class="summary-row">
+                <span class="summary-label">Description column</span>
+                <code class="summary-value">{mappingDescription}</code>
+              </div>
+            {/if}
+            {#if mappingSignColumn}
+              <div class="summary-row">
+                <span class="summary-label">Direction column</span>
+                <code class="summary-value">{mappingSignColumn}</code>
+              </div>
+              {#if mappingSignNegativeValue}
+                <div class="summary-row">
+                  <span class="summary-label">Negative value</span>
+                  <code class="summary-value">{mappingSignNegativeValue}</code>
+                </div>
+              {/if}
+            {/if}
+            {#if isMultiCurrency}
+              <div class="summary-row">
+                <span class="summary-label">Multi-currency</span>
+                <span class="summary-value">Yes</span>
+              </div>
+            {/if}
+          {/if}
+        </div>
+
+        {#if submitError}
+          <p class="summary-error">{submitError}</p>
+        {/if}
+      </div>
     {/if}
   </div>
 
@@ -474,11 +558,48 @@
     flex-shrink: 0;
   }
 
-  .placeholder {
+  .summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+  }
+
+  .summary-section {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+  }
+
+  .summary-heading {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    padding-bottom: var(--sp-xs);
+    border-bottom: 1px solid var(--color-bevel-mid);
+    margin-bottom: var(--sp-xs);
+  }
+
+  .summary-row {
+    display: flex;
+    gap: var(--sp-sm);
+    font-size: var(--text-sm);
+    align-items: baseline;
+  }
+
+  .summary-label {
+    color: var(--color-text-muted);
+    min-width: 9rem;
+    text-align: right;
+    flex-shrink: 0;
+  }
+
+  .summary-value {
+    color: var(--color-text);
+  }
+
+  .summary-muted {
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     font-style: italic;
-    padding: var(--sp-md) 0;
   }
 
   .summary-error {

@@ -228,6 +228,7 @@ export async function createParser(body: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create parser')
   return res.json()
 }
 
