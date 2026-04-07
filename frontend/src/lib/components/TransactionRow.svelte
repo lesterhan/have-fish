@@ -13,6 +13,7 @@
   import TransactionEditModal from "$lib/components/TransactionEditModal.svelte";
   import { toISODate } from "$lib/date";
   import { patchTransaction, patchPosting, type Account } from "$lib/api";
+  import { settingsStore } from "$lib/settings.svelte";
 
   interface Posting {
     id: string;
@@ -33,6 +34,7 @@
     accounts: Account[];
     defaultOffsetAccountId?: string | null;
     defaultConversionAccountId?: string | null;
+    currentAccountId?: string | null;
     onaccountcreated?: (account: Account) => void;
     ondeleted?: () => void;
   }
@@ -42,6 +44,7 @@
     accounts,
     defaultOffsetAccountId,
     defaultConversionAccountId,
+    currentAccountId = null,
     onaccountcreated,
     ondeleted,
   }: Props = $props();
@@ -166,6 +169,18 @@
     new Set(localPostings.map((p) => p.currency)).size > 1,
   );
 
+  // A transfer moves money between asset/liability/equity accounts.
+  // We detect this by checking whether the destination account (most positive
+  // posting) is NOT under the expenses root. Cross-currency transactions
+  // between personal accounts also qualify.
+  let isTransfer = $derived.by(() => {
+    const settings = settingsStore.value
+    if (!settings) return false
+    const expRoot = settings.defaultExpensesRootPath
+    const toPath = accountPaths[to.accountId] ?? ''
+    return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot
+  });
+
   // For cross-currency transfers: identify the source (largest outflow) and
   // target (largest inflow in a different currency). Everything else —
   // conversion account entries and fee postings — is treated as internals.
@@ -208,9 +223,17 @@
   }
 
   let { from, to, rest } = $derived(summarize(localPostings));
+
+  // When viewing a specific account, determine if money is flowing in or out.
+  let flowDirection = $derived.by((): 'in' | 'out' | null => {
+    if (!currentAccountId || !isTransfer) return null
+    const posting = localPostings.find(p => p.accountId === currentAccountId)
+    if (!posting) return null
+    return parseFloat(posting.amount) > 0 ? 'in' : 'out'
+  });
 </script>
 
-<div class="row">
+<div class="row" class:transfer={isTransfer}>
   <div class="date">
     <span class="date-meta">{dateParts.year} {dateParts.dow}</span>
     <span class="date-main">{dateParts.monthDay}</span>
@@ -243,6 +266,10 @@
       </span>
     {/if}
     {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
+
+    {#if isTransfer}
+      <span class="transfer-tag">⇄ transfer</span>
+    {/if}
 
     {#if isCrossCurrency}
       <!-- Cross-currency transfer: show source → target, suppress internals -->
@@ -358,6 +385,7 @@
       <MoneyDisplay
         amount={Math.abs(parseFloat(from.amount)).toFixed(2)}
         currency={to.currency}
+        {flowDirection}
       />
     {:else}
       <MoneyDisplay
@@ -445,6 +473,19 @@
     gap: 2px;
     border-left: 1px solid var(--color-divider);
     padding-left: var(--sp-xs);
+  }
+
+  .transfer .account-from,
+  .transfer .account-to {
+    color: var(--color-text-muted);
+  }
+
+
+  .transfer-tag {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    align-self: flex-start;
   }
 
   .description {

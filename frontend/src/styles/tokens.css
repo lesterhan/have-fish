@@ -99,6 +99,10 @@
   --color-amount-positive: #007700; /* income  */
   --color-amount-negative: #cc0000; /* expense */
 
+  /* --- Transfers (neutral directional — no good/bad judgment) --- */
+  --color-transfer-in:  #006e8a; /* teal — money arriving */
+  --color-transfer-out: #4a5fa8; /* slate blue — money leaving */
+
   /* --- Bevel box-shadows (composable shorthands) ---
    * raised: lit top-left, dark bottom-right — the standard button look
    * sunken: inverted — pressed button or inset field
@@ -202,4 +206,8 @@
   /* --- Amounts --- */
   --color-amount-positive: #50fa7b; /* Dracula green */
   --color-amount-negative: #ff5555; /* Dracula red   */
+
+  /* --- Transfers --- */
+  --color-transfer-in:  #8be9fd; /* Dracula cyan  */
+  --color-transfer-out: #7b8ec8; /* muted indigo  */
 }

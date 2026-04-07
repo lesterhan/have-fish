@@ -177,6 +177,7 @@
         {accounts}
         {defaultOffsetAccountId}
         {defaultConversionAccountId}
+        currentAccountId={id}
         onaccountcreated={(a) => (accounts = [...accounts, a])}
         ondeleted={() =>
           (transactions = transactions.filter(
