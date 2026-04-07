@@ -284,6 +284,18 @@ export async function fetchAccountBalances(): Promise<AccountBalance[]> {
   return res.json()
 }
 
+export type AccountBalanceAtDate = {
+  accountId: string
+  date: string
+  balances: { currency: string; amount: string }[]
+}
+
+export async function fetchAccountBalanceAtDate(accountId: string, date: string): Promise<AccountBalanceAtDate> {
+  const res = await fetch(`${BASE}/api/accounts/${accountId}/balance?date=${encodeURIComponent(date)}`, { credentials: 'include' })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to fetch account balance')
+  return res.json()
+}
+
 export async function deleteTransaction(id: string): Promise<void> {
   const res = await fetch(`${BASE}/api/transactions/${id}`, {
     method: 'DELETE',

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { accounts, postings, userSettings } from '../db/schema'
-import { eq, isNull, and, like, or, sql } from 'drizzle-orm'
+import { accounts, postings, transactions, userSettings } from '../db/schema'
+import { eq, isNull, and, like, or, lte, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -76,6 +76,49 @@ app.get('/balances', async (c) => {
   }
 
   return c.json([...grouped.values()])
+})
+
+// GET /api/accounts/:id/balance?date=YYYY-MM-DD
+// Returns the ledger balance for one account as of the end of the given date.
+// Balance = SUM of postings in non-deleted transactions on or before the date, grouped by currency.
+app.get('/:id/balance', async (c) => {
+  const userId = c.get('userId')
+  const accountId = c.req.param('id')
+  const dateParam = c.req.query('date')
+
+  if (!dateParam) return c.json({ error: 'date query parameter is required' }, 400)
+
+  // Parse as a local date — treat the param as midnight UTC on that day.
+  const asOf = new Date(`${dateParam}T23:59:59.999Z`)
+  if (isNaN(asOf.getTime())) return c.json({ error: 'invalid date format, expected YYYY-MM-DD' }, 400)
+
+  // Verify the account belongs to this user
+  const [account] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+  if (!account) return c.json({ error: 'account not found' }, 404)
+
+  const rows = await db
+    .select({
+      currency: postings.currency,
+      amount: sql<string>`SUM(${postings.amount})`,
+    })
+    .from(postings)
+    .innerJoin(transactions, eq(transactions.id, postings.transactionId))
+    .where(and(
+      eq(postings.accountId, accountId),
+      isNull(postings.deletedAt),
+      isNull(transactions.deletedAt),
+      lte(transactions.date, asOf),
+    ))
+    .groupBy(postings.currency)
+
+  return c.json({
+    accountId,
+    date: dateParam,
+    balances: rows.map(r => ({ currency: r.currency, amount: r.amount ?? '0.00' })),
+  })
 })
 
 app.get('/:id', async (c) => {

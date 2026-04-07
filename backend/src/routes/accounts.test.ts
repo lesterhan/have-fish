@@ -123,6 +123,46 @@ describe('accounts', () => {
     })
   })
 
+  describe('GET /api/accounts/:id/balance', () => {
+    async function createAccount(path: string) {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      return (await res.json() as { id: string }).id
+    }
+
+    async function createTransaction(date: string, postingInputs: { accountId: string; amount: string; currency: string }[]) {
+      return app.request('/api/transactions', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, postings: postingInputs }),
+      })
+    }
+
+    it('returns balance as of the given date, excluding later transactions', async () => {
+      const assetId = await createAccount('assets:chequing')
+      const expenseId = await createAccount('expenses:food')
+
+      await createTransaction('2024-01-01', [
+        { accountId: assetId, amount: '1000.00', currency: 'CAD' },
+        { accountId: expenseId, amount: '-1000.00', currency: 'CAD' },
+      ])
+      await createTransaction('2024-03-01', [
+        { accountId: assetId, amount: '500.00', currency: 'CAD' },
+        { accountId: expenseId, amount: '-500.00', currency: 'CAD' },
+      ])
+
+      const res = await app.request(`/api/accounts/${assetId}/balance?date=2024-01-31`, {
+        headers: { Cookie: cookie },
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json() as { accountId: string; date: string; balances: { currency: string; amount: string }[] }
+      expect(body.balances).toEqual([{ currency: 'CAD', amount: '1000.00' }])
+    })
+  })
+
   it('DELETE /api/accounts/:id soft-deletes an account', async () => {
     const createRes = await app.request('/api/accounts', {
       method: 'POST',
