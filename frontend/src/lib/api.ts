@@ -342,11 +342,13 @@ export async function patchPosting(
 
 export type SpendingSummary = {
   total: Record<string, string>
-  categories: { category: string; total: Record<string, string> }[]
+  categories: { category: string; total: Record<string, string>; childCount: number }[]
 }
 
-export async function fetchSpendingSummary(from: string, to: string): Promise<SpendingSummary> {
-  const res = await fetch(`${BASE}/api/reports/spending-summary?from=${from}&to=${to}`, { credentials: 'include' })
+export async function fetchSpendingSummary(from: string, to: string, prefix?: string): Promise<SpendingSummary> {
+  const params = new URLSearchParams({ from, to })
+  if (prefix) params.set('prefix', prefix)
+  const res = await fetch(`${BASE}/api/reports/spending-summary?${params}`, { credentials: 'include' })
   return res.json()
 }
 
