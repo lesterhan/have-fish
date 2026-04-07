@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN IF NOT EXISTS "default_adjustments_account_id" uuid REFERENCES "accounts"("id");

@@ -45,7 +45,7 @@ app.patch('/', async (c) => {
   const patch: Partial<typeof userSettings.$inferInsert> = {}
 
   // Account UUID fields — must reference an account owned by this user
-  for (const field of ['defaultOffsetAccountId', 'defaultConversionAccountId'] as const) {
+  for (const field of ['defaultOffsetAccountId', 'defaultConversionAccountId', 'defaultAdjustmentsAccountId'] as const) {
     if (!(field in body)) continue
     const value = body[field]
 

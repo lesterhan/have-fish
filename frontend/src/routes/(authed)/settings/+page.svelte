@@ -27,6 +27,7 @@
   // --- Defaults ---
   let offsetAccountId = $state("");
   let conversionAccountId = $state("");
+  let adjustmentsAccountId = $state("");
 
   // --- Accounts ---
   let accounts = $state<Account[]>([]);
@@ -40,6 +41,7 @@
     accounts = accts;
     offsetAccountId = settings.defaultOffsetAccountId ?? "";
     conversionAccountId = settings.defaultConversionAccountId ?? "";
+    adjustmentsAccountId = settings.defaultAdjustmentsAccountId ?? "";
   });
 
   async function handleCreateAccount() {
@@ -56,10 +58,11 @@
   const defaultLabels: Record<string, string> = {
     defaultOffsetAccountId: "Uncategorized account",
     defaultConversionAccountId: "Conversion account",
+    defaultAdjustmentsAccountId: "Adjustments account",
   };
 
   async function handleDefaultChange(
-    field: "defaultOffsetAccountId" | "defaultConversionAccountId",
+    field: "defaultOffsetAccountId" | "defaultConversionAccountId" | "defaultAdjustmentsAccountId",
     accountId: string,
   ) {
     await settingsStore.update({ [field]: accountId || null });
@@ -143,6 +146,27 @@
           placeholder="equity:conversions"
           oncommit={(id) =>
             handleDefaultChange("defaultConversionAccountId", id)}
+          oncreate={(a) => {
+            accounts = [...accounts, a];
+          }}
+        />
+
+        <label for="default-adjustments" class="tip-label">
+          Adjustments
+          <button
+            type="button"
+            class="tip"
+            use:tooltip={"Equity account used as the offset when posting a reconciliation adjustment."}
+            aria-label="Equity account used as the offset when posting a reconciliation adjustment."
+            >?</button
+          >
+        </label>
+        <AccountPathInput
+          {accounts}
+          bind:value={adjustmentsAccountId}
+          placeholder="equity:adjustments"
+          oncommit={(id) =>
+            handleDefaultChange("defaultAdjustmentsAccountId", id)}
           oncreate={(a) => {
             accounts = [...accounts, a];
           }}
@@ -240,6 +264,7 @@
             )}
           placeholder="equity"
         />
+
       </div>
     </div>
   </div>

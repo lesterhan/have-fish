@@ -25,11 +25,12 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          const [offsetAccount, conversionAccount] = await db
+          const [offsetAccount, conversionAccount, adjustmentsAccount] = await db
             .insert(accounts)
             .values([
               { userId: user.id, path: 'expenses:uncategorized' },
               { userId: user.id, path: 'equity:conversions' },
+              { userId: user.id, path: 'equity:adjustments' },
             ])
             .returning()
 
@@ -39,6 +40,7 @@ export const auth = betterAuth({
               userId: user.id,
               defaultOffsetAccountId: offsetAccount.id,
               defaultConversionAccountId: conversionAccount.id,
+              defaultAdjustmentsAccountId: adjustmentsAccount.id,
             })
         },
       },

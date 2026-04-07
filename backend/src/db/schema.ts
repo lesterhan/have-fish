@@ -119,6 +119,8 @@ export const userSettings = pgTable('user_settings', {
   defaultLiabilitiesRootPath: text('default_liabilities_root_path').notNull().default('liabilities'),
   defaultExpensesRootPath: text('default_expenses_root_path').notNull().default('expenses'),
   defaultEquityRootPath: text('default_equity_root_path').notNull().default('equity'),
+  // Offset account used when posting reconciliation adjustments (e.g. equity:adjustments).
+  defaultAdjustmentsAccountId: uuid('default_adjustments_account_id').references(() => accounts.id),
   // Catch-all JSONB blob for UI display preferences (e.g. hidden currencies).
   // Use this for any new preference rather than adding columns — keeps the table stable.
   preferences: jsonb('preferences').notNull().default({}),
