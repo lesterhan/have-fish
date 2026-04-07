@@ -9,7 +9,7 @@
 | [Starting Balances](epics/starting-balances.md) | Backlog |
 | [Manual Transaction Entry](epics/archive/manual-transaction-entry.md) | Done |
 | [Split Transactions](epics/split-transactions.md) | Backlog |
-| [Reconciliation](epics/reconciliation.md) | Backlog |
+| [Reconciliation](epics/archive/reconciliation.md) | Done |
 | [Transactions Edit UX](epics/archive/transactions-edit-ux.md) | Done |
 | [Transaction Edit Modal](epics/archive/transaction-edit-modal.md) | Done |
 | [Transaction Filtering by Date](epics/archive/transaction-filtering-by-date.md) | Done |
@@ -21,6 +21,6 @@
 | [User Sign-up](epics/archive/user-signup.md) | Done |
 | [Sidebar Redesign](epics/archive/sidebar-redesign.md) | Done |
 | [Single Account View](epics/archive/single-account-view.md) | Done |
-| [Add Import Parser](epics/add-import-parser.md) | Backlog |
+| [Add Import Parser](epics/archive/add-import-parser.md) | Done |
 | [Spending Page](epics/spending-page.md) | Backlog |
 | [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
