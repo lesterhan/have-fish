@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from "./ui/Modal.svelte";
   import Button from "./ui/Button.svelte";
+  import AccountPathInput from "./AccountPathInput.svelte";
   import type { Account, CsvParser } from "$lib/api";
 
   interface Props {
@@ -25,7 +26,11 @@
   let parserSkipped = $state(false);
 
   // --- Step 1 state ---
-  let selectedAccountId = $state("");
+  // searchOnly mode gives us a path string; derive the account ID for submit.
+  let selectedAccountPath = $state("");
+  let selectedAccountId = $derived(
+    accounts.find((a) => a.path === selectedAccountPath)?.id ?? "",
+  );
 
   // --- Step 2+ state (parser setup) ---
   let isMultiCurrency = $state(false);
@@ -75,7 +80,7 @@
     setTimeout(() => {
       step = STEP.ACCOUNT_PICK;
       parserSkipped = false;
-      selectedAccountId = "";
+      selectedAccountPath = "";
       isMultiCurrency = false;
       // TODO (Story 3): call resetStep2() here
     }, 200);
@@ -102,8 +107,15 @@
 <Modal title="Add Import Parser" bind:open onclose={close}>
   <div class="wizard-body">
     {#if step === STEP.ACCOUNT_PICK}
-      <!-- TODO (Story 2): AccountPathInput bound to selectedAccountId (pick only, no create) -->
-      <p class="placeholder">Step 1: Pick an account</p>
+      <div class="form-grid">
+        <label for="account-pick">Account</label>
+        <AccountPathInput
+          {accounts}
+          bind:value={selectedAccountPath}
+          placeholder="Select an account…"
+          searchOnly
+        />
+      </div>
     {:else if step === STEP.PARSER_UPLOAD}
       <!-- TODO (Story 3): Parser name, CSV upload, detected header, multi-currency toggle -->
       <p class="placeholder">Step 2: Upload CSV + name parser</p>
@@ -170,6 +182,18 @@
 <style>
   .wizard-body {
     min-width: 420px;
+  }
+
+  .form-grid {
+    display: grid;
+    grid-template-columns: 10rem 1fr;
+    gap: var(--sp-xs) var(--sp-sm);
+    align-items: center;
+  }
+
+  .form-grid label {
+    font-size: var(--text-sm);
+    text-align: right;
   }
 
   .placeholder {
