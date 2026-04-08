@@ -57,10 +57,22 @@
       padding: var(--sp-xs) var(--sp-sm);
     }
 
-    .date    { grid-area: date; }
-    .desc    { grid-area: desc; padding-top: var(--sp-xs); border-top: 1px solid var(--color-divider); }
-    .account { display: none; }
-    .amount  { grid-area: amount; }
-    .actions { grid-area: actions; }
+    .date {
+      grid-area: date;
+    }
+    .desc {
+      grid-area: desc;
+      padding-top: var(--sp-xs);
+      border-top: 1px solid var(--color-divider);
+    }
+    .account {
+      display: none;
+    }
+    .amount {
+      grid-area: amount;
+    }
+    .actions {
+      grid-area: actions;
+    }
   }
 </style>

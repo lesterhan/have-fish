@@ -88,12 +88,18 @@
   }
 
   function handleDescKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') { e.preventDefault(); commitDescEdit() }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitDescEdit()
+    }
     if (e.key === 'Escape') cancelDescEdit()
   }
 
   function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); action() }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      action()
+    }
   }
 
   // --- Posting account editing ---
@@ -137,7 +143,10 @@
     const date = new Date(y, m - 1, d)
     return {
       dow: date.toLocaleDateString('en', { weekday: 'short' }),
-      monthDay: date.toLocaleDateString('en', { month: 'short', day: 'numeric' }),
+      monthDay: date.toLocaleDateString('en', {
+        month: 'short',
+        day: 'numeric',
+      }),
       year: String(y),
     }
   }
@@ -153,7 +162,11 @@
     const sorted = [...postings].sort(
       (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
     )
-    return { from: sorted[0], to: sorted[sorted.length - 1], rest: sorted.slice(1, -1) }
+    return {
+      from: sorted[0],
+      to: sorted[sorted.length - 1],
+      rest: sorted.slice(1, -1),
+    }
   }
 
   let { from, to, rest } = $derived(summarize(localPostings))
@@ -189,8 +202,12 @@
   // Which side of the transaction is the current account?
   let currentIsFrom = $derived(from.accountId === currentAccountId)
   let currentIsTo = $derived(to.accountId === currentAccountId)
-  let currentIsSource = $derived(transfer.source?.accountId === currentAccountId)
-  let currentIsTarget = $derived(transfer.target?.accountId === currentAccountId)
+  let currentIsSource = $derived(
+    transfer.source?.accountId === currentAccountId,
+  )
+  let currentIsTarget = $derived(
+    transfer.target?.accountId === currentAccountId,
+  )
 
   // Flow direction only applies to transfers — regular expenses get no directional styling.
   let flowDirection = $derived.by((): 'in' | 'out' | null => {
@@ -237,8 +254,8 @@
         tabindex="0"
         onclick={startDescEdit}
         onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
-        title="Click to edit"
-      >{localDescription || '—'}</span>
+        title="Click to edit">{localDescription || '—'}</span
+      >
     {/if}
     {#if isTransfer}<span class="transfer-tag">⇄</span>{/if}
     {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
@@ -249,14 +266,28 @@
     {#if isCrossCurrency}
       {#if currentIsSource}
         <span class="dir-arrow">→</span>
-        <span class="account">{accountPaths[transfer.target?.accountId ?? ''] ?? transfer.target?.accountId ?? '—'}</span>
+        <span class="account"
+          >{accountPaths[transfer.target?.accountId ?? ''] ??
+            transfer.target?.accountId ??
+            '—'}</span
+        >
       {:else if currentIsTarget}
         <span class="dir-arrow">←</span>
-        <span class="account">{accountPaths[transfer.source.accountId] ?? transfer.source.accountId}</span>
+        <span class="account"
+          >{accountPaths[transfer.source.accountId] ??
+            transfer.source.accountId}</span
+        >
       {:else}
-        <span class="account">{accountPaths[transfer.source.accountId] ?? transfer.source.accountId}</span>
+        <span class="account"
+          >{accountPaths[transfer.source.accountId] ??
+            transfer.source.accountId}</span
+        >
         <span class="dir-arrow">➜</span>
-        <span class="account">{accountPaths[transfer.target?.accountId ?? ''] ?? transfer.target?.accountId ?? '—'}</span>
+        <span class="account"
+          >{accountPaths[transfer.target?.accountId ?? ''] ??
+            transfer.target?.accountId ??
+            '—'}</span
+        >
       {/if}
     {:else if currentIsFrom}
       <span class="dir-arrow">→</span>
@@ -276,9 +307,13 @@
           role="button"
           tabindex="0"
           onclick={() => startPostingEdit(to.id, to.accountId)}
-          onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(to.id, to.accountId))}
+          onkeydown={(e) =>
+            handleEditableKeydown(e, () =>
+              startPostingEdit(to.id, to.accountId),
+            )}
           title="Click to edit"
-        >{accountPaths[to.accountId] ?? to.accountId}</span>
+          >{accountPaths[to.accountId] ?? to.accountId}</span
+        >
       {/if}
     {:else if currentIsTo}
       <span class="dir-arrow">←</span>
@@ -294,17 +329,24 @@
       {:else}
         <span
           class="account editable"
-          class:account-uncategorized={from.accountId === defaultOffsetAccountId}
+          class:account-uncategorized={from.accountId ===
+            defaultOffsetAccountId}
           role="button"
           tabindex="0"
           onclick={() => startPostingEdit(from.id, from.accountId)}
-          onkeydown={(e) => handleEditableKeydown(e, () => startPostingEdit(from.id, from.accountId))}
+          onkeydown={(e) =>
+            handleEditableKeydown(e, () =>
+              startPostingEdit(from.id, from.accountId),
+            )}
           title="Click to edit"
-        >{accountPaths[from.accountId] ?? from.accountId}</span>
+          >{accountPaths[from.accountId] ?? from.accountId}</span
+        >
       {/if}
     {:else}
       <!-- Fallback: current account not found in from/to (edge case) -->
-      <span class="account">{accountPaths[from.accountId] ?? from.accountId}</span>
+      <span class="account"
+        >{accountPaths[from.accountId] ?? from.accountId}</span
+      >
       <span class="dir-arrow">➜</span>
       <span class="account">{accountPaths[to.accountId] ?? to.accountId}</span>
     {/if}
@@ -313,7 +355,8 @@
         {#each rest as fee}+ {fmt(fee.amount)} {fee.currency}{/each}
       </span>
     {/if}
-    {#if postingError}<span class="edit-error" role="alert">{postingError}</span>{/if}
+    {#if postingError}<span class="edit-error" role="alert">{postingError}</span
+      >{/if}
   </div>
 
   <!-- Amount -->
@@ -343,14 +386,24 @@
 
   <!-- Actions -->
   <div class="actions">
-    <Button tooltip="Edit transaction" variant="ghost" square onclick={() => (modalOpen = true)}>
+    <Button
+      tooltip="Edit transaction"
+      variant="ghost"
+      square
+      onclick={() => (modalOpen = true)}
+    >
       <Icon name="edit-txn" />
     </Button>
   </div>
 </div>
 
 <TransactionEditModal
-  tx={{ ...tx, date: localDate, description: localDescription || null, postings: localPostings }}
+  tx={{
+    ...tx,
+    date: localDate,
+    description: localDescription || null,
+    postings: localPostings,
+  }}
   {accounts}
   {defaultOffsetAccountId}
   bind:open={modalOpen}
@@ -374,26 +427,6 @@
     min-height: 2.75rem;
     border-bottom: 1px solid var(--color-divider);
     transition: background var(--duration-fast) var(--ease);
-  }
-
-  /* Mobile: stack desc and account below the date/amount/actions row */
-  @media (max-width: 520px) {
-    .row {
-      grid-template-columns: auto 1fr auto auto;
-      grid-template-rows: auto auto auto;
-      grid-template-areas:
-        'date   .       amount  actions'
-        'desc   desc    desc    desc'
-        'acct   acct    acct    acct';
-      min-height: unset;
-      padding: var(--sp-xs) var(--sp-sm);
-    }
-
-    .date         { grid-area: date; }
-    .desc-cell    { grid-area: desc; border-top: 1px solid var(--color-divider); padding-top: var(--sp-xs); }
-    .account-cell { grid-area: acct; padding-bottom: var(--sp-xs); }
-    .amount-cell  { grid-area: amount; }
-    .actions      { grid-area: actions; }
   }
 
   .row:hover {
@@ -570,5 +603,48 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
+  }
+
+  /* Mobile: stack desc and account below the date/amount/actions row */
+  @media (max-width: 520px) {
+    .row {
+      grid-template-columns: auto 1fr auto auto;
+      grid-template-rows: auto auto auto;
+      grid-template-areas:
+        'date   .       amount  actions'
+        'desc   desc    desc    desc'
+        'acct   acct    acct    acct';
+      min-height: unset;
+      padding: var(--sp-xs) var(--sp-sm) 0;
+      border-bottom: 2px solid var(--color-bevel-dark);
+    }
+
+    .date {
+      grid-area: date;
+      flex-direction: row;
+      align-items: baseline;
+      gap: var(--sp-xs);
+    }
+    .date-main {
+      font-size: var(--text-sm);
+    }
+    .date-meta {
+      font-size: var(--text-xs);
+    }
+    .desc-cell {
+      grid-area: desc;
+      border-top: 1px solid var(--color-divider);
+      padding-top: var(--sp-xs);
+    }
+    .account-cell {
+      grid-area: acct;
+      padding-bottom: var(--sp-xs);
+    }
+    .amount-cell {
+      grid-area: amount;
+    }
+    .actions {
+      grid-area: actions;
+    }
   }
 </style>

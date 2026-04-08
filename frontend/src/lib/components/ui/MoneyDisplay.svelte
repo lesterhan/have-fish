@@ -21,8 +21,8 @@
     class:flow-out={flowDirection === 'out'}
   >
     {#if flowDirection === 'in'}<Icon name="arrow-right" size={11} />{/if}
-    <span class="amount">{amount}</span>
     <span class="currency">{flag ? `${flag} ` : ''}{currency}</span>
+    <span class="amount">{amount}</span>
     {#if flowDirection === 'out'}<Icon name="arrow-right" size={11} />{/if}
   </div>
 {:else}
@@ -88,6 +88,11 @@
     font-family: var(--font-mono);
     font-size: var(--text-base);
     color: inherit;
+  }
+
+  /* Inline mode is used in compact single-line rows — match body text size */
+  .money-inline .amount {
+    font-size: var(--text-sm);
   }
 
   .currency {
