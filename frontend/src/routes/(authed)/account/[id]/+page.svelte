@@ -14,8 +14,8 @@
   import { toISODate } from '$lib/date'
   import FilterPanel from '$lib/components/transactions/FilterPanel.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
-  import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
-  import TransactionRowSkeleton from '$lib/components/transactions/TransactionRowSkeleton.svelte'
+  import AccountTransactionRow from '$lib/components/transactions/AccountTransactionRow.svelte'
+  import AccountTransactionRowSkeleton from '$lib/components/transactions/AccountTransactionRowSkeleton.svelte'
   import Panel from '$lib/components/ui/Panel.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
@@ -186,8 +186,14 @@
 
 {#if loading}
   <div class="tx-table">
+    <div class="tx-header">
+      <span>Date</span>
+      <span>Description</span>
+      <span class="col-account">Account</span>
+      <span class="col-amount">Amount</span>
+    </div>
     {#each { length: 7 } as _}
-      <TransactionRowSkeleton />
+      <AccountTransactionRowSkeleton />
     {/each}
   </div>
 {:else if notFound}
@@ -196,8 +202,14 @@
   <p class="empty">No transactions in this period.</p>
 {:else}
   <div class="tx-table">
+    <div class="tx-header">
+      <span>Date</span>
+      <span>Description</span>
+      <span class="col-account">Account</span>
+      <span class="col-amount">Amount</span>
+    </div>
     {#each sortedTransactions as tx (tx.id)}
-      <TransactionRow
+      <AccountTransactionRow
         {tx}
         {accounts}
         {defaultOffsetAccountId}
@@ -254,8 +266,41 @@
   }
 
   .tx-table {
+    /* 4 named columns only — actions lives outside this template in each row */
+    --tx-cols: 5.5rem 1fr 1.5fr auto;
     box-shadow: var(--shadow-sunken);
     background: var(--color-window-raised);
+  }
+
+  .tx-header {
+    display: grid;
+    grid-template-columns: var(--tx-cols);
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: 3px var(--sp-sm);
+    background: var(--color-window);
+    border-bottom: 2px solid var(--color-bevel-dark);
+    box-shadow: inset 0 -1px 0 var(--color-bevel-light);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    user-select: none;
+  }
+
+  .tx-header .col-amount {
+    text-align: right;
+  }
+
+  @media (max-width: 520px) {
+    .tx-table {
+      --tx-cols: auto 1fr auto;
+    }
+
+    .tx-header .col-account {
+      display: none;
+    }
   }
 
   .empty {

@@ -224,6 +224,13 @@
 
   let { from, to, rest } = $derived(summarize(localPostings))
 
+  // When viewing a specific account page, identify which side of the transaction
+  // is the current account so we can suppress it and show only the other side.
+  let currentIsFrom = $derived(currentAccountId !== null && from.accountId === currentAccountId)
+  let currentIsTo = $derived(currentAccountId !== null && to.accountId === currentAccountId)
+  let currentIsSource = $derived(currentAccountId !== null && transfer.source?.accountId === currentAccountId)
+  let currentIsTarget = $derived(currentAccountId !== null && transfer.target?.accountId === currentAccountId)
+
   // When viewing a specific account, determine if money is flowing in or out.
   let flowDirection = $derived.by((): 'in' | 'out' | null => {
     if (!currentAccountId || !isTransfer) return null
@@ -272,17 +279,34 @@
     {/if}
 
     {#if isCrossCurrency}
-      <!-- Cross-currency transfer: show source → target, suppress internals -->
+      <!-- Cross-currency transfer -->
       <div class="summary-line">
-        <span class="account account-from account-from-transfer">
-          {accountPaths[transfer.source.accountId] ?? transfer.source.accountId}
-        </span>
-        <span class="arrow" aria-hidden="true">➜</span>
-        <span class="account account-to">
-          {accountPaths[transfer.target?.accountId ?? ''] ??
-            transfer.target?.accountId ??
-            '—'}
-        </span>
+        {#if currentIsSource}
+          <!-- On the source account page: show only where money went -->
+          <span class="arrow" aria-hidden="true">→</span>
+          <span class="account account-to">
+            {accountPaths[transfer.target?.accountId ?? ''] ??
+              transfer.target?.accountId ??
+              '—'}
+          </span>
+        {:else if currentIsTarget}
+          <!-- On the target account page: show only where money came from -->
+          <span class="account account-from account-from-transfer">
+            {accountPaths[transfer.source.accountId] ?? transfer.source.accountId}
+          </span>
+          <span class="arrow" aria-hidden="true">←</span>
+        {:else}
+          <!-- Full display (transactions page or current account not in source/target) -->
+          <span class="account account-from account-from-transfer">
+            {accountPaths[transfer.source.accountId] ?? transfer.source.accountId}
+          </span>
+          <span class="arrow" aria-hidden="true">➜</span>
+          <span class="account account-to">
+            {accountPaths[transfer.target?.accountId ?? ''] ??
+              transfer.target?.accountId ??
+              '—'}
+          </span>
+        {/if}
       </div>
       {#if transfer.fees.length > 0}
         <div class="transfer-fees">
@@ -295,62 +319,119 @@
         </div>
       {/if}
     {:else}
-      <!-- Standard summary line: from → to -->
+      <!-- Standard summary line -->
       <div class="summary-line">
-        {#if editingPostingId === from.id}
-          <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
-            <AccountPathInput
-              {accounts}
-              bind:value={editAccountId}
-              oncommit={handlePostingCommit}
-              oncreate={onaccountcreated}
-            />
-          </div>
+        {#if currentIsFrom}
+          <!-- On the "from" account page: show only where money went -->
+          <span class="arrow" aria-hidden="true">→</span>
+          {#if editingPostingId === to.id}
+            <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+              <AccountPathInput
+                {accounts}
+                bind:value={editAccountId}
+                oncommit={handlePostingCommit}
+                oncreate={onaccountcreated}
+              />
+            </div>
+          {:else}
+            <span
+              class="account account-to editable"
+              class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+              role="button"
+              tabindex="0"
+              onclick={() => startPostingEdit(to.id, to.accountId)}
+              onkeydown={(e) =>
+                handleEditableKeydown(e, () =>
+                  startPostingEdit(to.id, to.accountId),
+                )}
+              title="Click to edit"
+            >
+              {accountPaths[to.accountId] ?? to.accountId}
+            </span>
+          {/if}
+        {:else if currentIsTo}
+          <!-- On the "to" account page: show only where money came from -->
+          {#if editingPostingId === from.id}
+            <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+              <AccountPathInput
+                {accounts}
+                bind:value={editAccountId}
+                oncommit={handlePostingCommit}
+                oncreate={onaccountcreated}
+              />
+            </div>
+          {:else}
+            <span
+              class="account account-from editable"
+              class:account-uncategorized={from.accountId === defaultOffsetAccountId}
+              role="button"
+              tabindex="0"
+              onclick={() => startPostingEdit(from.id, from.accountId)}
+              onkeydown={(e) =>
+                handleEditableKeydown(e, () =>
+                  startPostingEdit(from.id, from.accountId),
+                )}
+              title="Click to edit"
+            >
+              {accountPaths[from.accountId] ?? from.accountId}
+            </span>
+          {/if}
+          <span class="arrow" aria-hidden="true">←</span>
         {:else}
-          <span
-            class="account account-from editable"
-            class:account-uncategorized={from.accountId ===
-              defaultOffsetAccountId}
-            role="button"
-            tabindex="0"
-            onclick={() => startPostingEdit(from.id, from.accountId)}
-            onkeydown={(e) =>
-              handleEditableKeydown(e, () =>
-                startPostingEdit(from.id, from.accountId),
-              )}
-            title="Click to edit"
-          >
-            {accountPaths[from.accountId] ?? from.accountId}
-          </span>
-        {/if}
+          <!-- Full display (transactions page or current account not in from/to) -->
+          {#if editingPostingId === from.id}
+            <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+              <AccountPathInput
+                {accounts}
+                bind:value={editAccountId}
+                oncommit={handlePostingCommit}
+                oncreate={onaccountcreated}
+              />
+            </div>
+          {:else}
+            <span
+              class="account account-from editable"
+              class:account-uncategorized={from.accountId === defaultOffsetAccountId}
+              role="button"
+              tabindex="0"
+              onclick={() => startPostingEdit(from.id, from.accountId)}
+              onkeydown={(e) =>
+                handleEditableKeydown(e, () =>
+                  startPostingEdit(from.id, from.accountId),
+                )}
+              title="Click to edit"
+            >
+              {accountPaths[from.accountId] ?? from.accountId}
+            </span>
+          {/if}
 
-        <span class="arrow" aria-hidden="true">➜</span>
+          <span class="arrow" aria-hidden="true">➜</span>
 
-        {#if editingPostingId === to.id}
-          <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
-            <AccountPathInput
-              {accounts}
-              bind:value={editAccountId}
-              oncommit={handlePostingCommit}
-              oncreate={onaccountcreated}
-            />
-          </div>
-        {:else}
-          <span
-            class="account account-to editable"
-            class:account-uncategorized={to.accountId ===
-              defaultOffsetAccountId}
-            role="button"
-            tabindex="0"
-            onclick={() => startPostingEdit(to.id, to.accountId)}
-            onkeydown={(e) =>
-              handleEditableKeydown(e, () =>
-                startPostingEdit(to.id, to.accountId),
-              )}
-            title="Click to edit"
-          >
-            {accountPaths[to.accountId] ?? to.accountId}
-          </span>
+          {#if editingPostingId === to.id}
+            <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+              <AccountPathInput
+                {accounts}
+                bind:value={editAccountId}
+                oncommit={handlePostingCommit}
+                oncreate={onaccountcreated}
+              />
+            </div>
+          {:else}
+            <span
+              class="account account-to editable"
+              class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+              role="button"
+              tabindex="0"
+              onclick={() => startPostingEdit(to.id, to.accountId)}
+              onkeydown={(e) =>
+                handleEditableKeydown(e, () =>
+                  startPostingEdit(to.id, to.accountId),
+                )}
+              title="Click to edit"
+            >
+              {accountPaths[to.accountId] ?? to.accountId}
+            </span>
+          {/if}
         {/if}
       </div>
 
