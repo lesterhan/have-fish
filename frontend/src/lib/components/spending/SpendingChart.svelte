@@ -1,7 +1,7 @@
 <script lang="ts">
   import { Chart, DoughnutController, ArcElement, Tooltip } from 'chart.js'
   import { theme } from '$lib/theme.svelte'
-  import { currencyFlag } from '$lib/currency'
+  import Icon from '$lib/components/ui/Icon.svelte'
 
   Chart.register(DoughnutController, ArcElement, Tooltip)
 
@@ -189,14 +189,13 @@
             style="background: {palette[i % palette.length].bg}"
           ></span>
           <span class="cat-name"
-            >{shortName(cat.category)}{cat.childCount > 0 ? ' ›' : ''}</span
-          >
-          <span class="cat-amount"
-            >{currencyFlag(currency)}{currencyFlag(currency)
-              ? ' '
-              : ''}{currency}
-            {cat.amount.toFixed(2)}</span
-          >
+            >{shortName(cat.category)}
+            <Icon name={cat.childCount > 0 ? 'more' : ''} size={10} />
+          </span>
+          <span class="cat-currency">
+            {currency}
+          </span>
+          <span class="cat-amount">{cat.amount.toFixed(2)}</span>
           <span class="cat-pct">{Math.round(pct)}%</span>
         </button>
       {/each}
@@ -229,7 +228,7 @@
 
   .legend-row {
     display: grid;
-    grid-template-columns: 10px 1fr auto auto;
+    grid-template-columns: 10px 1fr auto auto auto;
     align-items: center;
     gap: var(--sp-sm);
     width: 100%;
@@ -256,6 +255,13 @@
     width: 10px;
     height: 10px;
     flex-shrink: 0;
+  }
+
+  .cat-currency {
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    white-space: nowrap;
   }
 
   .cat-name {

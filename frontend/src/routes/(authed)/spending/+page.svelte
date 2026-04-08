@@ -177,13 +177,14 @@
     {/if}
   </div>
 
-  {#if loading}
+  {#if loading && !summary}
     <p class="status">Loading…</p>
   {:else if error}
     <p class="status error">{error}</p>
   {:else if !summary || currencies.length === 0}
     <p class="status">No expenses recorded for this month.</p>
   {:else}
+    <div class="panels" class:is-loading={loading}>
     <Panel title="Breakdown">
       <div class="panel-body">
         <nav class="breadcrumb" aria-label="Category navigation">
@@ -211,7 +212,7 @@
     </Panel>
 
     <Panel title={txnPanelTitle}>
-      {#if txnsLoading}
+      {#if txnsLoading && txns.length === 0}
         <p class="status">Loading…</p>
       {:else if txns.length === 0}
         <p class="status">No transactions found.</p>
@@ -229,6 +230,7 @@
         </div>
       {/if}
     </Panel>
+    </div>
   {/if}
 </div>
 
@@ -278,6 +280,18 @@
     cursor: pointer;
   }
 
+  .panels {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-lg);
+    transition: opacity var(--duration-fast) var(--ease);
+  }
+
+  .panels.is-loading {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
   /* Panel body padding */
   .panel-body {
     padding: var(--sp-md);
@@ -305,11 +319,12 @@
     gap: var(--sp-xs);
     margin-bottom: var(--sp-md);
     font-size: var(--text-sm);
+    font-family: var(--font-mono);
   }
 
   .sep {
     color: var(--color-text-muted);
-    font-weight: 700;
+    font-weight: var(--weight-semibold);
   }
 
   .crumb-current {
@@ -321,8 +336,6 @@
     background: none;
     border: none;
     padding: 0;
-    font-size: var(--text-sm);
-    font-family: var(--font-mono);
     color: var(--color-accent);
     cursor: pointer;
     text-decoration: underline;
