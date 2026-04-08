@@ -476,7 +476,6 @@
     align-items: center;
     gap: var(--sp-xs);
     min-width: 0;
-    overflow: hidden;
     font-family: var(--font-mono);
     font-size: var(--text-sm);
   }
