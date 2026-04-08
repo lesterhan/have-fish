@@ -166,7 +166,7 @@
   }
 
   .desktop {
-    transition: padding var(--duration-normal) var(--ease);
+    transition: padding 150ms var(--ease);
   }
 
   .desktop.maximized {
@@ -176,12 +176,18 @@
   /* --- Window --- */
   .window {
     width: 100%;
-    max-width: 1100px;
+    max-width: 100vw;
     height: 100%;
     background: var(--color-window);
     box-shadow: var(--shadow-window);
     display: flex;
     flex-direction: column;
+    transition: max-width 150ms var(--ease);
+  }
+
+  /* Restored (non-maximized): float as a windowed panel on the teal desktop */
+  .desktop:not(.maximized) .window {
+    max-width: 1100px;
   }
 
   /* --- Title bar --- */
