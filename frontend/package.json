@@ -8,6 +8,7 @@
     "build": "svelte-kit sync && vite build",
     "preview": "vite preview",
     "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "format": "prettier --write .",
     "test": "bun test"
   },
   "dependencies": {
@@ -21,6 +22,8 @@
     "@sveltejs/vite-plugin-svelte": "^5.0.0",
     "@types/bun": "^1.3.11",
     "@types/node": "^25.4.0",
+    "prettier": "^3.8.1",
+    "prettier-plugin-svelte": "^3.5.1",
     "svelte-check": "^4.0.0",
     "typescript": "^5.0.0",
     "vite": "^6.0.0"
