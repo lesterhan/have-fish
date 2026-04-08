@@ -8,9 +8,9 @@
 <script lang="ts">
   import { untrack } from "svelte";
   import Button from "$lib/components/ui/Button.svelte";
-  import AccountPathInput from "$lib/components/AccountPathInput.svelte";
+  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte";
   import MoneyDisplay from "$lib/components/ui/MoneyDisplay.svelte";
-  import TransactionEditModal from "$lib/components/TransactionEditModal.svelte";
+  import TransactionEditModal from "$lib/components/transactions/TransactionEditModal.svelte";
   import Icon from "$lib/components/ui/Icon.svelte";
   import { patchTransaction, patchPosting, type Account } from "$lib/api";
   import { settingsStore } from "$lib/settings.svelte";

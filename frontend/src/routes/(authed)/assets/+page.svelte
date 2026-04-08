@@ -3,7 +3,7 @@
   import { fetchAccountBalances, type AccountBalance } from "$lib/api";
   import Button from "$lib/components/ui/Button.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
-  import AddAccountWizard from "$lib/components/AddAccountWizard.svelte";
+  import AddAccountWizard from "$lib/components/wizards/AddAccountWizard.svelte";
   import TableShell from "$lib/components/ui/TableShell.svelte";
 
   let showAddAccount = $state(false);

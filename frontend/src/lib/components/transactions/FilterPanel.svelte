@@ -3,8 +3,8 @@
   import Panel from "$lib/components/ui/Panel.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import Icon from "$lib/components/ui/Icon.svelte";
-  import DateRangeSelector from "$lib/components/DateRangeSelector.svelte";
-  import AccountPathInput from "$lib/components/AccountPathInput.svelte";
+  import DateRangeSelector from "$lib/components/transactions/DateRangeSelector.svelte";
+  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte";
   import { fetchAccounts } from "$lib/api";
   import { toISODate } from "$lib/date";
   import { onMount } from "svelte";

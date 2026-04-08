@@ -5,16 +5,16 @@
     type Account,
   } from "$lib/api";
   import { settingsStore } from "$lib/settings.svelte";
-  import AddTransactionModal from "$lib/components/AddTransactionModal.svelte";
+  import AddTransactionModal from "$lib/components/transactions/AddTransactionModal.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
   import { toISODate } from "$lib/date";
   import { page } from "$app/state";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import FilterPanel from "$lib/components/FilterPanel.svelte";
-  import TransactionRow from "$lib/components/TransactionRow.svelte";
-  import TransactionRowSkeleton from "$lib/components/TransactionRowSkeleton.svelte";
+  import FilterPanel from "$lib/components/transactions/FilterPanel.svelte";
+  import TransactionRow from "$lib/components/transactions/TransactionRow.svelte";
+  import TransactionRowSkeleton from "$lib/components/transactions/TransactionRowSkeleton.svelte";
   import Icon from "$lib/components/ui/Icon.svelte";
 
   // Default range: today minus 30 days → today

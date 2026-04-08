@@ -1,8 +1,8 @@
 <script lang="ts">
-  import Modal from "./ui/Modal.svelte";
-  import Button from "./ui/Button.svelte";
-  import Toggle from "./ui/Toggle.svelte";
-  import AccountPathInput from "./AccountPathInput.svelte";
+  import Modal from "../ui/Modal.svelte";
+  import Button from "../ui/Button.svelte";
+  import Toggle from "../ui/Toggle.svelte";
+  import AccountPathInput from "../accounts/AccountPathInput.svelte";
   import { tooltip } from "$lib/tooltip";
   import { createParser, type Account, type CsvParser } from "$lib/api";
 

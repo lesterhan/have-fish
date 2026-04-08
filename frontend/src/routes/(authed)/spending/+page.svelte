@@ -4,8 +4,8 @@
   import Button from "$lib/components/ui/Button.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
   import Icon from "$lib/components/ui/Icon.svelte";
-  import SpendingChart from "$lib/components/SpendingChart.svelte";
-  import TransactionRow from "$lib/components/TransactionRow.svelte";
+  import SpendingChart from "$lib/components/spending/SpendingChart.svelte";
+  import TransactionRow from "$lib/components/transactions/TransactionRow.svelte";
   import {
     fetchSpendingSummary,
     fetchTransactions,

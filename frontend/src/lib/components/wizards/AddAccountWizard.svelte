@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Modal from './ui/Modal.svelte'
-  import Button from './ui/Button.svelte'
+  import Modal from '../ui/Modal.svelte'
+  import Button from '../ui/Button.svelte'
   import WizardStepAccount from './WizardStepAccount.svelte'
   import WizardStepParserUpload from './WizardStepParserUpload.svelte'
   import WizardStepParserColumns from './WizardStepParserColumns.svelte'

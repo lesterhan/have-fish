@@ -1,9 +1,9 @@
 <script lang="ts">
-  import Panel from "./ui/Panel.svelte";
-  import Button from "./ui/Button.svelte";
-  import Icon from "./ui/Icon.svelte";
-  import Toggle from "./ui/Toggle.svelte";
-  import AccountPathInput from "./AccountPathInput.svelte";
+  import Panel from "../ui/Panel.svelte";
+  import Button from "../ui/Button.svelte";
+  import Icon from "../ui/Icon.svelte";
+  import Toggle from "../ui/Toggle.svelte";
+  import AccountPathInput from "../accounts/AccountPathInput.svelte";
   import {
     updateParser,
     type CsvParser,

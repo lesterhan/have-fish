@@ -9,7 +9,7 @@
   import { settingsStore } from "$lib/settings.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import HeadingBanner from "$lib/components/ui/HeadingBanner.svelte";
-  import AccountPathInput from "$lib/components/AccountPathInput.svelte";
+  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
   import Modal from "$lib/components/ui/Modal.svelte";
   import { signOut, useSession, authClient } from "$lib/auth";

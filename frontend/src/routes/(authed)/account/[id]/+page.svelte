@@ -10,16 +10,16 @@
     type Account,
   } from "$lib/api";
   import { settingsStore } from "$lib/settings.svelte";
-  import AccountHeading from "$lib/components/AccountHeading.svelte";
+  import AccountHeading from "$lib/components/accounts/AccountHeading.svelte";
   import { toISODate } from "$lib/date";
-  import FilterPanel from "$lib/components/FilterPanel.svelte";
-  import AddTransactionModal from "$lib/components/AddTransactionModal.svelte";
-  import TransactionRow from "$lib/components/TransactionRow.svelte";
-  import TransactionRowSkeleton from "$lib/components/TransactionRowSkeleton.svelte";
+  import FilterPanel from "$lib/components/transactions/FilterPanel.svelte";
+  import AddTransactionModal from "$lib/components/transactions/AddTransactionModal.svelte";
+  import TransactionRow from "$lib/components/transactions/TransactionRow.svelte";
+  import TransactionRowSkeleton from "$lib/components/transactions/TransactionRowSkeleton.svelte";
   import Panel from "$lib/components/ui/Panel.svelte";
   import Button from "$lib/components/ui/Button.svelte";
-  import AccountSettings from "$lib/components/AccountSettings.svelte";
-  import ReconcileModal from "$lib/components/ReconcileModal.svelte";
+  import AccountSettings from "$lib/components/accounts/AccountSettings.svelte";
+  import ReconcileModal from "$lib/components/accounts/ReconcileModal.svelte";
   import Icon from "$lib/components/ui/Icon.svelte";
 
   let id = $derived(page.params.id!);

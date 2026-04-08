@@ -5,7 +5,7 @@
 </script>
 
 <script lang="ts">
-  import AccountPathInput from '$lib/components/AccountPathInput.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import type { Account } from '$lib/api'
 
   interface LocalPosting {

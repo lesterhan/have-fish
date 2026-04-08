@@ -1,6 +1,6 @@
 <script lang="ts">
-  import Modal from "./ui/Modal.svelte";
-  import Button from "./ui/Button.svelte";
+  import Modal from "../ui/Modal.svelte";
+  import Button from "../ui/Button.svelte";
   import { fetchAccountBalanceAtDate, createTransaction } from "$lib/api";
   import { settingsStore } from "$lib/settings.svelte";
   import { toISODate } from "$lib/date";

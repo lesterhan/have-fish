@@ -1,6 +1,6 @@
 <script lang="ts">
   import { updateAccount, type Account } from '$lib/api'
-  import Icon from './ui/Icon.svelte'
+  import Icon from '../ui/Icon.svelte'
 
   interface Props {
     account: Account

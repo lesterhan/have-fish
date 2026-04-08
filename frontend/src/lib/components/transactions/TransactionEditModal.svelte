@@ -8,8 +8,8 @@
   import Modal from "$lib/components/ui/Modal.svelte";
   import Button from "$lib/components/ui/Button.svelte";
   import Icon from "$lib/components/ui/Icon.svelte";
-  import AccountPathInput from "$lib/components/AccountPathInput.svelte";
-  import PostingEditorRow from "$lib/components/PostingEditorRow.svelte";
+  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte";
+  import PostingEditorRow from "$lib/components/transactions/PostingEditorRow.svelte";
   import { toISODate } from "$lib/date";
   import {
     patchTransaction,

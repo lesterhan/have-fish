@@ -1,6 +1,6 @@
 <script lang="ts">
   import WizardFormGrid from './WizardFormGrid.svelte'
-  import Toggle from './ui/Toggle.svelte'
+  import Toggle from '../ui/Toggle.svelte'
   import { tooltip } from '$lib/tooltip'
 
   interface Props {

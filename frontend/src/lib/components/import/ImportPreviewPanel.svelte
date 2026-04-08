@@ -1,7 +1,7 @@
 <script lang="ts">
   import Panel from '$lib/components/ui/Panel.svelte'
   import Button from '$lib/components/ui/Button.svelte'
-  import AccountPathInput from '$lib/components/AccountPathInput.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
   import type { Account, ImportPreviewResult } from '$lib/api'
 
