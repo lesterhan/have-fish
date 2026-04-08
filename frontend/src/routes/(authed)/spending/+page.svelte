@@ -1,141 +1,141 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import HeadingBanner from "$lib/components/ui/HeadingBanner.svelte";
-  import Button from "$lib/components/ui/Button.svelte";
-  import Panel from "$lib/components/ui/Panel.svelte";
-  import Icon from "$lib/components/ui/Icon.svelte";
-  import SpendingChart from "$lib/components/spending/SpendingChart.svelte";
-  import TransactionRow from "$lib/components/transactions/TransactionRow.svelte";
+  import { onMount } from 'svelte'
+  import HeadingBanner from '$lib/components/ui/HeadingBanner.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Panel from '$lib/components/ui/Panel.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import SpendingChart from '$lib/components/spending/SpendingChart.svelte'
+  import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
   import {
     fetchSpendingSummary,
     fetchTransactions,
     fetchAccounts,
-  } from "$lib/api";
-  import type { SpendingSummary, Account, Transaction } from "$lib/api";
-  import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from "$lib/date";
+  } from '$lib/api'
+  import type { SpendingSummary, Account, Transaction } from '$lib/api'
+  import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
 
   // --- State ---
   // Default to the previous calendar month — that's when data is typically complete
-  const now = new Date();
-  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-  let year = $state(prev.getFullYear());
-  let month = $state(prev.getMonth() + 1);
+  const now = new Date()
+  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
+  let year = $state(prev.getFullYear())
+  let month = $state(prev.getMonth() + 1)
 
-  let summary = $state<SpendingSummary | null>(null);
-  let loading = $state(false);
-  let error = $state<string | null>(null);
-  let currency = $state("CAD");
+  let summary = $state<SpendingSummary | null>(null)
+  let loading = $state(false)
+  let error = $state<string | null>(null)
+  let currency = $state('CAD')
   // null = top level; a category path like "expenses:food" = drilled into that subtree
-  let drillPath = $state<string | null>(null);
+  let drillPath = $state<string | null>(null)
 
-  let currencies = $derived(Object.keys(summary?.total ?? {}));
+  let currencies = $derived(Object.keys(summary?.total ?? {}))
 
-  let accounts = $state<Account[]>([]);
-  let txns = $state<Transaction[]>([]);
-  let txnsLoading = $state(false);
+  let accounts = $state<Account[]>([])
+  let txns = $state<Transaction[]>([])
+  let txnsLoading = $state(false)
 
   let txnPanelTitle = $derived.by(() => {
     const label = drillPath
-      ? drillPath.split(":").slice(1).join(":") || drillPath
-      : null;
-    const count = txnsLoading ? "" : ` (${txns.length})`;
-    return label ? `Transactions — ${label}${count}` : `Transactions${count}`;
-  });
+      ? drillPath.split(':').slice(1).join(':') || drillPath
+      : null
+    const count = txnsLoading ? '' : ` (${txns.length})`
+    return label ? `Transactions — ${label}${count}` : `Transactions${count}`
+  })
 
   // Breadcrumb trail derived from drillPath.
   // Each crumb has a label (title-cased segment), the path to navigate to (null = top), and
   // whether it is the current (non-clickable) level.
-  type Crumb = { label: string; path: string | null; current: boolean };
+  type Crumb = { label: string; path: string | null; current: boolean }
   let breadcrumbs = $derived.by<Crumb[]>(() => {
     // Derive the root segment from drillPath or the first category in the summary
     const root =
-      drillPath?.split(":")[0] ??
-      summary?.categories[0]?.category.split(":")[0] ??
-      "expenses";
-    const rootLabel = root.charAt(0).toUpperCase() + root.slice(1);
+      drillPath?.split(':')[0] ??
+      summary?.categories[0]?.category.split(':')[0] ??
+      'expenses'
+    const rootLabel = root.charAt(0).toUpperCase() + root.slice(1)
 
-    if (!drillPath) return [{ label: rootLabel, path: null, current: true }];
+    if (!drillPath) return [{ label: rootLabel, path: null, current: true }]
 
-    const segments = drillPath.split(":").slice(1); // skip root segment
-    const crumbs: Crumb[] = [{ label: rootLabel, path: null, current: false }];
+    const segments = drillPath.split(':').slice(1) // skip root segment
+    const crumbs: Crumb[] = [{ label: rootLabel, path: null, current: false }]
     for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i];
+      const seg = segments[i]
       crumbs.push({
         label: seg.charAt(0).toUpperCase() + seg.slice(1),
-        path: [root, ...segments.slice(0, i + 1)].join(":"),
+        path: [root, ...segments.slice(0, i + 1)].join(':'),
         current: i === segments.length - 1,
-      });
+      })
     }
-    return crumbs;
-  });
+    return crumbs
+  })
 
   async function load() {
-    loading = true;
-    error = null;
+    loading = true
+    error = null
     try {
       const result = await fetchSpendingSummary(
         monthStart(year, month),
         monthEnd(year, month),
         drillPath ?? undefined,
-      );
-      summary = result;
+      )
+      summary = result
       // Keep current currency if still present in the new data; otherwise fall back
-      const available = Object.keys(result.total);
+      const available = Object.keys(result.total)
       if (available.length > 0 && !available.includes(currency)) {
-        currency = available[0];
+        currency = available[0]
       }
     } catch {
-      error = "Failed to load spending data.";
+      error = 'Failed to load spending data.'
     } finally {
-      loading = false;
+      loading = false
     }
   }
 
   async function loadTxns() {
-    txnsLoading = true;
+    txnsLoading = true
     const accountPath =
-      drillPath ?? summary?.categories[0]?.category.split(":")[0] ?? "expenses";
+      drillPath ?? summary?.categories[0]?.category.split(':')[0] ?? 'expenses'
     try {
       txns = await fetchTransactions({
         from: monthStart(year, month),
         to: monthEnd(year, month),
         accountPath,
-      });
+      })
     } catch {
-      txns = [];
+      txns = []
     } finally {
-      txnsLoading = false;
+      txnsLoading = false
     }
   }
 
   function navigate(delta: number) {
-    const next = shiftMonth(year, month, delta);
-    year = next.year;
-    month = next.month;
-    drillPath = null;
-    load().then(loadTxns);
+    const next = shiftMonth(year, month, delta)
+    year = next.year
+    month = next.month
+    drillPath = null
+    load().then(loadTxns)
   }
 
   // Drill into a category — called by SpendingChart when a drillable bar is clicked
   function drill(category: string) {
-    drillPath = category;
-    load();
-    loadTxns();
+    drillPath = category
+    load()
+    loadTxns()
   }
 
   // Navigate back to an earlier breadcrumb level
   function navigateTo(path: string | null) {
-    drillPath = path;
-    load();
-    loadTxns();
+    drillPath = path
+    load()
+    loadTxns()
   }
 
   onMount(() => {
     fetchAccounts().then((a) => {
-      accounts = a;
-    });
-    load().then(loadTxns);
-  });
+      accounts = a
+    })
+    load().then(loadTxns)
+  })
 </script>
 
 <HeadingBanner><h1>Spending Breakdown</h1></HeadingBanner>
@@ -222,7 +222,7 @@
               {tx}
               {accounts}
               ondeleted={() => {
-                txns = txns.filter((t) => t.id !== tx.id);
+                txns = txns.filter((t) => t.id !== tx.id)
               }}
             />
           {/each}

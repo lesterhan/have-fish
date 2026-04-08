@@ -87,7 +87,6 @@
     padding: 3px var(--sp-xs);
   }
 
-
   /* Ghost — no background or bevel, dashed outline on hover like editable fields */
   .btn.ghost {
     background: transparent;

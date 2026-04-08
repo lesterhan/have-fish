@@ -23,25 +23,33 @@
 </script>
 
 <WizardFormGrid>
-  <label for="map-src-amount">Source amount <span class="required">*</span></label>
+  <label for="map-src-amount"
+    >Source amount <span class="required">*</span></label
+  >
   <select id="map-src-amount" bind:value={mappingSourceAmount}>
     <option value="">— select —</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 
-  <label for="map-src-currency">Source currency <span class="required">*</span></label>
+  <label for="map-src-currency"
+    >Source currency <span class="required">*</span></label
+  >
   <select id="map-src-currency" bind:value={mappingSourceCurrency}>
     <option value="">— select —</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 
-  <label for="map-tgt-amount">Target amount <span class="required">*</span></label>
+  <label for="map-tgt-amount"
+    >Target amount <span class="required">*</span></label
+  >
   <select id="map-tgt-amount" bind:value={mappingTargetAmount}>
     <option value="">— select —</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 
-  <label for="map-tgt-currency">Target currency <span class="required">*</span></label>
+  <label for="map-tgt-currency"
+    >Target currency <span class="required">*</span></label
+  >
   <select id="map-tgt-currency" bind:value={mappingTargetCurrency}>
     <option value="">— select —</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}

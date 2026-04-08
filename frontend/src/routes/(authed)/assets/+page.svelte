@@ -1,60 +1,60 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { fetchAccountBalances, type AccountBalance } from "$lib/api";
-  import Button from "$lib/components/ui/Button.svelte";
-  import Panel from "$lib/components/ui/Panel.svelte";
-  import AddAccountWizard from "$lib/components/wizards/AddAccountWizard.svelte";
-  import TableShell from "$lib/components/ui/TableShell.svelte";
+  import { onMount } from 'svelte'
+  import { fetchAccountBalances, type AccountBalance } from '$lib/api'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Panel from '$lib/components/ui/Panel.svelte'
+  import AddAccountWizard from '$lib/components/wizards/AddAccountWizard.svelte'
+  import TableShell from '$lib/components/ui/TableShell.svelte'
 
-  let showAddAccount = $state(false);
-  let showAddLiability = $state(false);
+  let showAddAccount = $state(false)
+  let showAddLiability = $state(false)
 
-  let accounts = $state<AccountBalance[]>([]);
-  let loading = $state(true);
+  let accounts = $state<AccountBalance[]>([])
+  let loading = $state(true)
 
   onMount(async () => {
-    accounts = await fetchAccountBalances();
-    loading = false;
-  });
+    accounts = await fetchAccountBalances()
+    loading = false
+  })
 
   async function refreshAccounts() {
-    accounts = await fetchAccountBalances();
+    accounts = await fetchAccountBalances()
   }
 
-  let assets = $derived(accounts.filter((a) => a.type === "asset"));
-  let liabilities = $derived(accounts.filter((a) => a.type === "liability"));
+  let assets = $derived(accounts.filter((a) => a.type === 'asset'))
+  let liabilities = $derived(accounts.filter((a) => a.type === 'liability'))
 
   function isZeroBalance(account: AccountBalance): boolean {
     return (
       account.balances.length === 0 ||
       account.balances.every((b) => parseFloat(b.amount) === 0)
-    );
+    )
   }
 
   type HierarchyRow = {
-    account: AccountBalance;
-    depth: number; // number of ancestors present in the list
-    label: string; // leaf segment if depth > 0, full path otherwise
-  };
+    account: AccountBalance
+    depth: number // number of ancestors present in the list
+    label: string // leaf segment if depth > 0, full path otherwise
+  }
 
   function buildHierarchy(rows: AccountBalance[]): HierarchyRow[] {
-    const sorted = [...rows].sort((a, b) => a.path.localeCompare(b.path));
-    const paths = new Set(sorted.map((a) => a.path));
+    const sorted = [...rows].sort((a, b) => a.path.localeCompare(b.path))
+    const paths = new Set(sorted.map((a) => a.path))
     return sorted.map((account) => {
-      const segments = account.path.split(":");
-      let depth = 0;
+      const segments = account.path.split(':')
+      let depth = 0
       for (let i = segments.length - 1; i > 0; i--) {
-        if (paths.has(segments.slice(0, i).join(":"))) {
-          depth = segments.length - i;
-          break;
+        if (paths.has(segments.slice(0, i).join(':'))) {
+          depth = segments.length - i
+          break
         }
       }
       return {
         account,
         depth,
         label: depth > 0 ? segments[segments.length - 1] : account.path,
-      };
-    });
+      }
+    })
   }
 </script>
 
@@ -62,8 +62,8 @@
   <div class="account-table">
     <TableShell
       columns={[
-        { label: "Account" },
-        { label: "Balances", class: "col-balances" },
+        { label: 'Account' },
+        { label: 'Balances', class: 'col-balances' },
       ]}
       {loading}
       empty={rows.length === 0}
@@ -112,7 +112,7 @@
   <div class="panel-actions">
     <Button onclick={() => (showAddAccount = true)}>New asset account</Button>
   </div>
-  {@render accountTable(assets, "No asset accounts 🕵️")}
+  {@render accountTable(assets, 'No asset accounts 🕵️')}
 </Panel>
 
 <Panel title="Liabilities">
@@ -121,7 +121,7 @@
       >New liability account</Button
     >
   </div>
-  {@render accountTable(liabilities, "No liability accounts 🕵️")}
+  {@render accountTable(liabilities, 'No liability accounts 🕵️')}
 </Panel>
 
 <style>

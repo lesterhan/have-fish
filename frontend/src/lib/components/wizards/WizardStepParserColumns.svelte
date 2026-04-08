@@ -53,9 +53,9 @@
     <button
       type="button"
       class="tooltip-icon"
-      use:tooltip={"For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT."}
-      aria-label="Direction column help"
-    >?</button>
+      use:tooltip={'For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT.'}
+      aria-label="Direction column help">?</button
+    >
   </label>
   <select id="map-sign-column" bind:value={mappingSignColumn}>
     <option value="">— not mapped —</option>

@@ -2,11 +2,11 @@
   /* --- Spacing scale ---
    * 4px base unit. Use for margin, padding, gap — never raw px.
    */
-  --sp-xs:  0.5rem;
-  --sp-sm:  0.75rem;
-  --sp-md:  1rem;
-  --sp-lg:  1.5rem;
-  --sp-xl:  2rem;
+  --sp-xs: 0.5rem;
+  --sp-sm: 0.75rem;
+  --sp-md: 1rem;
+  --sp-lg: 1.5rem;
+  --sp-xl: 2rem;
   --sp-2xl: 3rem;
   --sp-3xl: 4rem;
 
@@ -14,24 +14,24 @@
    * Verdana: taller and more readable than Tahoma, still Windows-era.
    * Consolas: Microsoft's terminal/coding font, clean and period-accurate.
    */
-  --font-sans:  'Verdana', 'Tahoma', Arial, sans-serif;
+  --font-sans: 'Verdana', 'Tahoma', Arial, sans-serif;
   --font-serif: Georgia, 'Book Antiqua', 'Times New Roman', serif;
-  --font-mono:  'Consolas', 'Lucida Console', ui-monospace, monospace;
+  --font-mono: 'Consolas', 'Lucida Console', ui-monospace, monospace;
 
-  --text-xs:   0.75rem;   /* 12px */
-  --text-sm:   0.875rem;  /* 14px */
-  --text-base: 1rem;      /* 16px */
-  --text-lg:   1.125rem;  /* 18px */
-  --text-xl:   1.25rem;
-  --text-2xl:  1.5rem;
-  --text-3xl:  2rem;
+  --text-xs: 0.75rem; /* 12px */
+  --text-sm: 0.875rem; /* 14px */
+  --text-base: 1rem; /* 16px */
+  --text-lg: 1.125rem; /* 18px */
+  --text-xl: 1.25rem;
+  --text-2xl: 1.5rem;
+  --text-3xl: 2rem;
 
-  --leading-tight:  1.2;
+  --leading-tight: 1.2;
   --leading-normal: 1.5;
-  --leading-loose:  1.75;
+  --leading-loose: 1.75;
 
-  --weight-normal:   400;
-  --weight-medium:   500;
+  --weight-normal: 400;
+  --weight-medium: 500;
   --weight-semibold: 700;
 
   /* --- The desktop --- */
@@ -39,68 +39,68 @@
 
   /* --- Heading banner --- */
   --color-banner-from: #1a3f3f; /* dark muted teal */
-  --color-banner-to:   #7aa0a0; /* light muted teal */
+  --color-banner-to: #7aa0a0; /* light muted teal */
 
   /* --- Panel title bar (warm amber-orange, complements the teal desktop) --- */
   --color-panel-header-from: #8b4a00; /* deep burnt orange */
-  --color-panel-header-to:   #e8b86d; /* soft warm amber */
+  --color-panel-header-to: #e8b86d; /* soft warm amber */
   --color-panel-header-text: #ffffff;
 
   /* --- Window chrome (the silver-grey surfaces everything sits on) --- */
-  --color-window:        #d4d0c8; /* classic window background */
+  --color-window: #d4d0c8; /* classic window background */
   --color-window-raised: #ece9d8; /* content area, slightly warmer (XP Luna) */
-  --color-window-inset:  #ffffff; /* text inputs, list boxes */
+  --color-window-inset: #ffffff; /* text inputs, list boxes */
 
   /* --- Title bar gradient (XP blue — navy to sky) --- */
   --color-titlebar-from: #0a246a;
-  --color-titlebar-to:   #a6caf0;
+  --color-titlebar-to: #a6caf0;
   --color-titlebar-text: #ffffff;
 
   /* --- The bevel system ---
    * These four values recreate the classic raised/sunken 3D chrome.
    * light = top-left edge (lit), shadow = bottom-right edge (dark)
    */
-  --color-bevel-light:  #ffffff;
-  --color-bevel-mid:    #dfdfdf;
-  --color-bevel-dark:   #808080;
+  --color-bevel-light: #ffffff;
+  --color-bevel-mid: #dfdfdf;
+  --color-bevel-dark: #808080;
   --color-bevel-shadow: #404040;
 
   /* --- Text --- */
-  --color-text:          #000000;
-  --color-text-muted:    #444444;
+  --color-text: #000000;
+  --color-text-muted: #444444;
   --color-text-disabled: #808080;
-  --color-text-on-dark:  #ffffff;
+  --color-text-on-dark: #ffffff;
 
   /* --- Accent / selection (the classic XP highlight blue) --- */
-  --color-accent:          #0a246a;
-  --color-accent-mid:      #316ac5;  /* the mid-blue used in hover states */
-  --color-accent-light:    #c1d2ee;  /* selection highlight background */
-  --color-accent-text:     #ffffff;
-  --color-dropdown-active: #316ac5;  /* dropdown row highlight — overridden in dark */
+  --color-accent: #0a246a;
+  --color-accent-mid: #316ac5; /* the mid-blue used in hover states */
+  --color-accent-light: #c1d2ee; /* selection highlight background */
+  --color-accent-text: #ffffff;
+  --color-dropdown-active: #316ac5; /* dropdown row highlight — overridden in dark */
 
   /* --- Borders --- */
   --color-border: #808080;
   --color-divider: #808080;
 
   /* --- Tooltip --- */
-  --color-tooltip-bg:     #ffffe1; /* classic Windows tooltip yellow */
+  --color-tooltip-bg: #ffffe1; /* classic Windows tooltip yellow */
   --color-tooltip-border: #000000;
-  --color-tooltip-text:   #000000;
+  --color-tooltip-text: #000000;
 
   /* --- Semantic --- */
-  --color-success:       #007700;
+  --color-success: #007700;
   --color-success-light: #e0ffe0;
-  --color-warning:       #b86800;
+  --color-warning: #b86800;
   --color-warning-light: #fff3e0;
-  --color-danger:        #cc0000;
-  --color-danger-light:  #ffe0e0;
+  --color-danger: #cc0000;
+  --color-danger-light: #ffe0e0;
 
   /* --- Amounts --- */
   --color-amount-positive: #007700; /* income  */
   --color-amount-negative: #cc0000; /* expense */
 
   /* --- Transfers (neutral directional — no good/bad judgment) --- */
-  --color-transfer-in:  #006e8a; /* teal — money arriving */
+  --color-transfer-in: #006e8a; /* teal — money arriving */
   --color-transfer-out: #4a5fa8; /* slate blue — money leaving */
 
   /* --- Bevel box-shadows (composable shorthands) ---
@@ -108,31 +108,30 @@
    * sunken: inverted — pressed button or inset field
    */
   --shadow-raised:
-    inset  1px  1px 0 var(--color-bevel-light),
-    inset  2px  2px 0 var(--color-bevel-mid),
+    inset 1px 1px 0 var(--color-bevel-light),
+    inset 2px 2px 0 var(--color-bevel-mid),
     inset -1px -1px 0 var(--color-bevel-shadow),
     inset -2px -2px 0 var(--color-bevel-dark);
 
   --shadow-sunken:
-    inset  1px  1px 0 var(--color-bevel-shadow),
-    inset  2px  2px 0 var(--color-bevel-dark),
+    inset 1px 1px 0 var(--color-bevel-shadow),
+    inset 2px 2px 0 var(--color-bevel-dark),
     inset -1px -1px 0 var(--color-bevel-mid),
     inset -2px -2px 0 var(--color-bevel-light);
 
   --shadow-window:
-    2px 2px 0 var(--color-bevel-shadow),
-    -1px -1px 0 var(--color-bevel-light);
+    2px 2px 0 var(--color-bevel-shadow), -1px -1px 0 var(--color-bevel-light);
 
   /* --- Shape --- */
-  --radius-sm: 0;    /* retro: sharp corners everywhere */
+  --radius-sm: 0; /* retro: sharp corners everywhere */
   --radius-md: 0;
-  --radius-lg: 2px;  /* very slight rounding only where it feels right */
+  --radius-lg: 2px; /* very slight rounding only where it feels right */
   --radius-xl: 4px;
 
   /* --- Transitions (the modern UX layer) --- */
-  --duration-fast:   80ms;
+  --duration-fast: 80ms;
   --duration-normal: 120ms;
-  --ease:            ease-in-out;
+  --ease: ease-in-out;
 }
 
 /* =============================================================================
@@ -141,73 +140,73 @@
    Only color tokens are overridden; spacing, type, radius, and shadows
    are inherited from :root unchanged (bevel shadows auto-update via vars).
    ============================================================================= */
-[data-theme="dark"] {
+[data-theme='dark'] {
   /* --- The desktop --- */
   --color-desktop: #1e1f29;
 
   /* --- Heading banner --- */
   --color-banner-from: #1e1f29;
-  --color-banner-to:   #44475a;
+  --color-banner-to: #44475a;
 
   /* --- Panel title bar (Dracula slate) --- */
   --color-panel-header-from: #2a2d4a;
-  --color-panel-header-to:   #6272a4;
+  --color-panel-header-to: #6272a4;
   --color-panel-header-text: #f8f8f2;
 
   /* --- Window chrome --- */
-  --color-window:        #44475a; /* raised surfaces — current line */
+  --color-window: #44475a; /* raised surfaces — current line */
   --color-window-raised: #282a36; /* main content — Dracula background */
-  --color-window-inset:  #21222c; /* inputs — darkest layer */
+  --color-window-inset: #21222c; /* inputs — darkest layer */
 
   /* --- Title bar (Dracula purple) --- */
   --color-titlebar-from: #44475a;
-  --color-titlebar-to:   #bd93f9;
+  --color-titlebar-to: #bd93f9;
   --color-titlebar-text: #f8f8f2;
 
   /* --- Bevel system (dark-adapted)
    * light edge becomes a soft purple highlight
    * shadow edge becomes near-black
    */
-  --color-bevel-light:  #6272a4;
-  --color-bevel-mid:    #383a4e;
-  --color-bevel-dark:   #1a1b26;
+  --color-bevel-light: #6272a4;
+  --color-bevel-mid: #383a4e;
+  --color-bevel-dark: #1a1b26;
   --color-bevel-shadow: #0d0e14;
 
   /* --- Text --- */
-  --color-text:          #f8f8f2;
-  --color-text-muted:    #a0a9cc;
+  --color-text: #f8f8f2;
+  --color-text-muted: #a0a9cc;
   --color-text-disabled: #6272a4;
-  --color-text-on-dark:  #f8f8f2;
+  --color-text-on-dark: #f8f8f2;
 
   /* --- Accent (Dracula purple replaces XP blue) --- */
-  --color-accent:          #bd93f9;
-  --color-accent-mid:      #bd93f9;
-  --color-accent-light:    #565970;
-  --color-accent-text:     #f8f8f2;
-  --color-dropdown-active: #6272a4;  /* slate — readable with white text */
+  --color-accent: #bd93f9;
+  --color-accent-mid: #bd93f9;
+  --color-accent-light: #565970;
+  --color-accent-text: #f8f8f2;
+  --color-dropdown-active: #6272a4; /* slate — readable with white text */
 
   /* --- Borders --- */
   --color-border: #6272a4;
   --color-divider: #6272a4;
 
   /* --- Tooltip --- */
-  --color-tooltip-bg:     #2a2c3e; /* dark inset, distinct from window surface */
+  --color-tooltip-bg: #2a2c3e; /* dark inset, distinct from window surface */
   --color-tooltip-border: #6272a4; /* Dracula comment/border purple */
-  --color-tooltip-text:   #f8f8f2;
+  --color-tooltip-text: #f8f8f2;
 
   /* --- Semantic --- */
-  --color-success:       #50fa7b;
+  --color-success: #50fa7b;
   --color-success-light: #1a3b25;
-  --color-warning:       #ffb86c;
+  --color-warning: #ffb86c;
   --color-warning-light: #3b2e1a;
-  --color-danger:        #ff5555;
-  --color-danger-light:  #3b1a1a;
+  --color-danger: #ff5555;
+  --color-danger-light: #3b1a1a;
 
   /* --- Amounts --- */
   --color-amount-positive: #50fa7b; /* Dracula green */
   --color-amount-negative: #ff5555; /* Dracula red   */
 
   /* --- Transfers --- */
-  --color-transfer-in:  #8be9fd; /* Dracula cyan  */
+  --color-transfer-in: #8be9fd; /* Dracula cyan  */
   --color-transfer-out: #7b8ec8; /* muted indigo  */
 }

@@ -60,7 +60,9 @@
 
   let rootPath = $derived.by(() => {
     if (!preview?.isMultiCurrency || !preview.defaultAccountId) return null
-    return accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? null
+    return (
+      accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? null
+    )
   })
 
   let inferredPaths = $derived.by(() => {
@@ -120,19 +122,23 @@
       if (!preview.isMultiCurrency) {
         fromAccountId = preview.defaultAccountId ?? ''
       }
-      const liabilitiesRoot = settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
-      const defaultAccountPath = accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
+      const liabilitiesRoot =
+        settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
+      const defaultAccountPath =
+        accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
       importAsLiabilities = defaultAccountPath.startsWith(`${liabilitiesRoot}:`)
       rowStates = preview.transactions.map((tx) => ({
         offsetAccountId: toAccountId,
-        conversionAccountId: settingsStore.value?.defaultConversionAccountId ?? '',
+        conversionAccountId:
+          settingsStore.value?.defaultConversionAccountId ?? '',
         feeAccountId: preview!.defaultFeeAccountId ?? '',
         skipped: tx.possibleDuplicate != null,
       }))
     } catch (e) {
-      error = e instanceof Error
-        ? e.message
-        : 'Failed to parse the CSV. Please check the file and try again.'
+      error =
+        e instanceof Error
+          ? e.message
+          : 'Failed to parse the CSV. Please check the file and try again.'
       noParserFound = error.toLowerCase().includes('no saved parser')
     } finally {
       loading = false
@@ -154,8 +160,10 @@
     const invalid = preview.transactions.some((tx, i) => {
       const row = rowStates[i]
       if (row.skipped) return false
-      if (tx.isTransfer === true) return !row.conversionAccountId || !row.feeAccountId
-      if (tx.isTransfer === 'same-currency') return !row.feeAccountId || !row.offsetAccountId
+      if (tx.isTransfer === true)
+        return !row.conversionAccountId || !row.feeAccountId
+      if (tx.isTransfer === 'same-currency')
+        return !row.feeAccountId || !row.offsetAccountId
       return !row.offsetAccountId
     })
     if (invalid) {
@@ -186,18 +194,28 @@
             feeAccountId: row.feeAccountId,
           }
         } else {
-          const amount = importAsLiabilities ? String(-parseFloat(tx.amount)) : tx.amount
+          const amount = importAsLiabilities
+            ? String(-parseFloat(tx.amount))
+            : tx.amount
           return {
             ...tx,
             amount,
             offsetAccountId: row.offsetAccountId,
             ...(preview!.isMultiCurrency
-              ? { sourceAccountId: getInferredAccountId(tx.currency ?? defaultCurrency) }
+              ? {
+                  sourceAccountId: getInferredAccountId(
+                    tx.currency ?? defaultCurrency,
+                  ),
+                }
               : {}),
           }
         }
       })
-      const result = await importCommit({ accountId: fromAccountId, defaultCurrency, transactions: txs })
+      const result = await importCommit({
+        accountId: fromAccountId,
+        defaultCurrency,
+        transactions: txs,
+      })
       toast.show(`${result.created} transaction(s) imported`)
       goto('/transactions')
     } catch {
@@ -217,9 +235,16 @@
 
 {#if !preview}
   <Panel title="Import CSV">
-    <form class="import-form" onsubmit={(e) => { e.preventDefault(); handleSubmit() }}>
+    <form
+      class="import-form"
+      onsubmit={(e) => {
+        e.preventDefault()
+        handleSubmit()
+      }}
+    >
       <div class="form-grid">
-        <label class="field-label" for="to-account">Uncategorized account</label>
+        <label class="field-label" for="to-account">Uncategorized account</label
+        >
         <AccountPathInput
           {accounts}
           bind:value={toAccountId}
@@ -227,7 +252,9 @@
           oncreate={handleAccountCreated}
         />
 
-        <label class="field-label" for="default-currency">Default currency</label>
+        <label class="field-label" for="default-currency"
+          >Default currency</label
+        >
         <TextInput
           id="default-currency"
           bind:value={defaultCurrency}
@@ -241,7 +268,9 @@
           id="csv-file"
           type="file"
           accept=".csv"
-          onchange={(e) => { file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null }}
+          onchange={(e) => {
+            file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null
+          }}
           required
         />
       </div>
@@ -249,7 +278,9 @@
       {#if error}
         <p class="error">{error}</p>
         {#if noParserFound}
-          <p class="hint">Go to <a href="/settings">Settings</a> to create a parser for this file.</p>
+          <p class="hint">
+            Go to <a href="/settings">Settings</a> to create a parser for this file.
+          </p>
         {/if}
       {/if}
 
@@ -265,8 +296,12 @@
     {parsers}
     {accounts}
     loading={parsersLoading}
-    onedit={(p) => { editingParser = p }}
-    onadd={() => { showAddParser = true }}
+    onedit={(p) => {
+      editingParser = p
+    }}
+    onadd={() => {
+      showAddParser = true
+    }}
   />
 {:else}
   <ImportPreviewPanel
@@ -290,7 +325,9 @@
 <AddParserWizard
   bind:open={showAddParser}
   {accounts}
-  onSuccess={(p) => { parsers = [...parsers, p] }}
+  onSuccess={(p) => {
+    parsers = [...parsers, p]
+  }}
 />
 
 {#if editingParser}
@@ -301,7 +338,9 @@
       parsers = parsers.map((p) => (p.id === updated.id ? updated : p))
       editingParser = null
     }}
-    onCancel={() => { editingParser = null }}
+    onCancel={() => {
+      editingParser = null
+    }}
     onAccountCreated={handleAccountCreated}
   />
 {/if}

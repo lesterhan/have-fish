@@ -29,18 +29,25 @@ function isValidDate(isoDate: string): boolean {
   return !isNaN(d.getTime())
 }
 
-export function parseCustomDateRange(input: string): { from: string; to: string } | null {
+export function parseCustomDateRange(
+  input: string,
+): { from: string; to: string } | null {
   const s = input.trim().toLowerCase()
   const today = new Date()
 
-  const relative = s.replace(/^past\s+/, '').match(/^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|mo|mos|mon|mons|month|months)$/)
+  const relative = s
+    .replace(/^past\s+/, '')
+    .match(
+      /^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|mo|mos|mon|mons|month|months)$/,
+    )
   if (relative) {
     const num = parseInt(relative[1])
     const unit = relative[2]
-    const days =
-      unit.startsWith('w') ? num * 7
-        : unit.startsWith('mo') ? num * 31
-          : num // d/day/days
+    const days = unit.startsWith('w')
+      ? num * 7
+      : unit.startsWith('mo')
+        ? num * 31
+        : num // d/day/days
     const from = new Date(today)
     from.setDate(today.getDate() - days)
     return { from: toISODate(from), to: toISODate(today) }
@@ -62,8 +69,18 @@ export function parseCustomDateRange(input: string): { from: string; to: string 
 }
 
 export const MONTH_NAMES = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December',
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
 ]
 
 export function monthStart(year: number, month: number): string {
@@ -75,7 +92,11 @@ export function monthEnd(year: number, month: number): string {
   return `${year}-${String(month).padStart(2, '0')}-${String(last).padStart(2, '0')}`
 }
 
-export function shiftMonth(year: number, month: number, delta: number): { year: number; month: number } {
+export function shiftMonth(
+  year: number,
+  month: number,
+  delta: number,
+): { year: number; month: number } {
   const d = new Date(year, month - 1 + delta, 1)
   return { year: d.getFullYear(), month: d.getMonth() + 1 }
 }

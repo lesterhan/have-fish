@@ -50,9 +50,9 @@
       <button
         type="button"
         class="tooltip-icon"
-        use:tooltip={"Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."}
-        aria-label="Multi-currency help"
-      >?</button>
+        use:tooltip={'Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately.'}
+        aria-label="Multi-currency help">?</button
+      >
     </span>
     <Toggle bind:checked={isMultiCurrency} />
   {/if}

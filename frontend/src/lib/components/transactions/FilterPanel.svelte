@@ -1,22 +1,22 @@
 <script lang="ts">
-  import { untrack } from "svelte";
-  import Panel from "$lib/components/ui/Panel.svelte";
-  import Button from "$lib/components/ui/Button.svelte";
-  import Icon from "$lib/components/ui/Icon.svelte";
-  import DateRangeSelector from "$lib/components/transactions/DateRangeSelector.svelte";
-  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte";
-  import { fetchAccounts } from "$lib/api";
-  import { toISODate } from "$lib/date";
-  import { onMount } from "svelte";
+  import { untrack } from 'svelte'
+  import Panel from '$lib/components/ui/Panel.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import DateRangeSelector from '$lib/components/transactions/DateRangeSelector.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import { fetchAccounts } from '$lib/api'
+  import { toISODate } from '$lib/date'
+  import { onMount } from 'svelte'
 
   interface Props {
-    from: string;
-    to: string;
-    sortDir: "asc" | "desc";
-    accountPath?: string;
-    onApply: (from: string, to: string) => void;
-    onSortChange: (dir: "asc" | "desc") => void;
-    onAccountPathChange?: (path: string) => void;
+    from: string
+    to: string
+    sortDir: 'asc' | 'desc'
+    accountPath?: string
+    onApply: (from: string, to: string) => void
+    onSortChange: (dir: 'asc' | 'desc') => void
+    onAccountPathChange?: (path: string) => void
   }
 
   let {
@@ -27,42 +27,42 @@
     onApply,
     onSortChange,
     onAccountPathChange,
-  }: Props = $props();
+  }: Props = $props()
 
   // Expand the search row if a filter is already active (e.g. on page load from URL)
-  let searchExpanded = $state(untrack(() => !!accountPath));
+  let searchExpanded = $state(untrack(() => !!accountPath))
   // Local draft bound to AccountPathInput (path string in searchOnly mode)
-  let draft = $state(untrack(() => accountPath));
+  let draft = $state(untrack(() => accountPath))
 
   // Keep draft in sync if the URL changes externally (e.g. browser back)
   $effect(() => {
-    draft = accountPath;
-  });
+    draft = accountPath
+  })
 
-  let accounts = $state<{ id: string; path: string }[]>([]);
+  let accounts = $state<{ id: string; path: string }[]>([])
   onMount(async () => {
-    accounts = await fetchAccounts();
-  });
+    accounts = await fetchAccounts()
+  })
 
   function toggleSearch() {
-    searchExpanded = !searchExpanded;
+    searchExpanded = !searchExpanded
     if (!searchExpanded) {
-      if (accountPath) onAccountPathChange?.("");
-      draft = "";
+      if (accountPath) onAccountPathChange?.('')
+      draft = ''
     }
   }
 
   function handleClear() {
-    draft = "";
-    onAccountPathChange?.("");
-    searchExpanded = false;
+    draft = ''
+    onAccountPathChange?.('')
+    searchExpanded = false
   }
 
   function handleReset() {
-    const today = new Date();
-    const f = new Date(today);
-    f.setDate(today.getDate() - 30);
-    onApply(toISODate(f), toISODate(today));
+    const today = new Date()
+    const f = new Date(today)
+    f.setDate(today.getDate() - 30)
+    onApply(toISODate(f), toISODate(today))
   }
 </script>
 
@@ -74,14 +74,14 @@
           onclick={toggleSearch}
           square
           tooltip="Filter by account path"
-          variant={accountPath ? "primary" : undefined}
+          variant={accountPath ? 'primary' : undefined}
         >
           <Icon name="search" />
           {#if accountPath}<span class="filter-path">{accountPath}</span>{/if}
         </Button>
       {/if}
       <Button
-        onclick={() => onSortChange(sortDir === "desc" ? "asc" : "desc")}
+        onclick={() => onSortChange(sortDir === 'desc' ? 'asc' : 'desc')}
         tooltip="Sort by date"
       >
         <Icon name="sort-{sortDir === 'desc' ? 'desc' : 'asc'}" />
@@ -116,7 +116,7 @@
           placeholder="expenses:food"
           searchOnly={true}
           oncommit={(path) => {
-            if (path !== accountPath) onAccountPathChange?.(path);
+            if (path !== accountPath) onAccountPathChange?.(path)
           }}
         />
       </div>

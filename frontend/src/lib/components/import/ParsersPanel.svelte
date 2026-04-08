@@ -33,15 +33,20 @@
       emptyText="No parsers 🕵️"
     >
       {#each parsers as parser}
-        {@const accountPath = accounts.find((a) => a.id === parser.defaultAccountId)?.path ?? '—'}
-        {@const feePath = accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ?? '—'}
+        {@const accountPath =
+          accounts.find((a) => a.id === parser.defaultAccountId)?.path ?? '—'}
+        {@const feePath =
+          accounts.find((a) => a.id === parser.defaultFeeAccountId)?.path ??
+          '—'}
         <tr>
           <td class="cell-name">{parser.name}</td>
           <td class="cell-mono">{accountPath}</td>
           <td>{parser.isMultiCurrency ? 'Yes' : 'No'}</td>
           <td class="cell-mono">{feePath}</td>
           <td class="cell-actions">
-            <Button variant="ghost" square onclick={() => onedit(parser)}>⚙️</Button>
+            <Button variant="ghost" square onclick={() => onedit(parser)}
+              >⚙️</Button
+            >
           </td>
         </tr>
       {/each}

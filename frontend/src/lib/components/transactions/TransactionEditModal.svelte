@@ -1,16 +1,16 @@
 <script module>
   function focusOnMount(node: HTMLElement) {
-    node.focus();
+    node.focus()
   }
 </script>
 
 <script lang="ts">
-  import Modal from "$lib/components/ui/Modal.svelte";
-  import Button from "$lib/components/ui/Button.svelte";
-  import Icon from "$lib/components/ui/Icon.svelte";
-  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte";
-  import PostingEditorRow from "$lib/components/transactions/PostingEditorRow.svelte";
-  import { toISODate } from "$lib/date";
+  import Modal from '$lib/components/ui/Modal.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import PostingEditorRow from '$lib/components/transactions/PostingEditorRow.svelte'
+  import { toISODate } from '$lib/date'
   import {
     patchTransaction,
     patchPosting,
@@ -18,45 +18,45 @@
     deletePosting,
     deleteTransaction,
     type Account,
-  } from "$lib/api";
+  } from '$lib/api'
 
   interface Posting {
-    id: string;
-    accountId: string;
-    amount: string;
-    currency: string;
+    id: string
+    accountId: string
+    amount: string
+    currency: string
   }
 
   interface LocalPosting {
-    id: string;
-    accountId: string;
-    amount: string;
-    currency: string;
-    markedForDelete: boolean;
-    isNew: boolean;
-    autofocusAccount?: boolean;
+    id: string
+    accountId: string
+    amount: string
+    currency: string
+    markedForDelete: boolean
+    isNew: boolean
+    autofocusAccount?: boolean
   }
 
   interface Transaction {
-    id: string;
-    date: string;
-    description: string | null;
-    postings: Posting[];
+    id: string
+    date: string
+    description: string | null
+    postings: Posting[]
   }
 
   interface Props {
-    tx: Transaction;
-    accounts: Account[];
-    defaultOffsetAccountId?: string | null;
-    open: boolean;
-    onclose: () => void;
-    onaccountcreated?: (account: Account) => void;
+    tx: Transaction
+    accounts: Account[]
+    defaultOffsetAccountId?: string | null
+    open: boolean
+    onclose: () => void
+    onaccountcreated?: (account: Account) => void
     onsaved?: (updates: {
-      date: string;
-      description: string | null;
-      postings: Posting[];
-    }) => void;
-    ondeleted?: () => void;
+      date: string
+      description: string | null
+      postings: Posting[]
+    }) => void
+    ondeleted?: () => void
   }
 
   let {
@@ -68,59 +68,57 @@
     onaccountcreated,
     onsaved,
     ondeleted,
-  }: Props = $props();
+  }: Props = $props()
 
   // --- Snapshot of original values (captured when modal opens) ---
-  let origDate = $state("");
-  let origDescription = $state("");
-  let origPostings = $state<Posting[]>([]);
+  let origDate = $state('')
+  let origDescription = $state('')
+  let origPostings = $state<Posting[]>([])
 
   // --- Local editing state ---
-  let localDate = $state("");
-  let localDescription = $state("");
-  let localPostings = $state<LocalPosting[]>([]);
-  let showDiscardConfirm = $state(false);
-  let showDeleteConfirm = $state(false);
-  let newIdCounter = $state(0);
+  let localDate = $state('')
+  let localDescription = $state('')
+  let localPostings = $state<LocalPosting[]>([])
+  let showDiscardConfirm = $state(false)
+  let showDeleteConfirm = $state(false)
+  let newIdCounter = $state(0)
 
   // Reset all local state when the modal opens
   $effect(() => {
     if (open) {
-      origDate = tx.date.substring(0, 10);
-      origDescription = tx.description ?? "";
-      origPostings = [...tx.postings];
-      localDate = origDate;
-      localDescription = origDescription;
+      origDate = tx.date.substring(0, 10)
+      origDescription = tx.description ?? ''
+      origPostings = [...tx.postings]
+      localDate = origDate
+      localDescription = origDescription
       localPostings = tx.postings.map((p) => ({
         ...p,
         markedForDelete: false,
         isNew: false,
-      }));
-      showDiscardConfirm = false;
-      showDeleteConfirm = false;
-      dateEditing = false;
-      descEditing = false;
+      }))
+      showDiscardConfirm = false
+      showDeleteConfirm = false
+      dateEditing = false
+      descEditing = false
     }
-  });
+  })
 
   // Active (non-deleted) postings
-  let activePostings = $derived(
-    localPostings.filter((p) => !p.markedForDelete),
-  );
+  let activePostings = $derived(localPostings.filter((p) => !p.markedForDelete))
 
   // Per-currency balance (active postings only; skip unparseable amounts while typing)
   let balances = $derived.by(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, number>()
     for (const p of activePostings) {
-      const n = parseFloat(p.amount);
-      if (!isNaN(n)) map.set(p.currency, (map.get(p.currency) ?? 0) + n);
+      const n = parseFloat(p.amount)
+      if (!isNaN(n)) map.set(p.currency, (map.get(p.currency) ?? 0) + n)
     }
-    return map;
-  });
+    return map
+  })
 
   let balanced = $derived(
     [...balances.values()].every((v) => Math.abs(v) < 0.005),
-  );
+  )
 
   // Dirty: any field differs from the snapshot
   let dirty = $derived(
@@ -128,120 +126,133 @@
       localDescription !== origDescription ||
       localPostings.some((p) => p.isNew || p.markedForDelete) ||
       localPostings.some((p) => {
-        const o = origPostings.find((o) => o.id === p.id);
+        const o = origPostings.find((o) => o.id === p.id)
         return (
           o != null &&
           (p.accountId !== o.accountId ||
             p.amount !== o.amount ||
             p.currency !== o.currency)
-        );
+        )
       }),
-  );
+  )
 
   // --- Date editing ---
-  let dateEditing = $state(false);
-  let dateInputValue = $state("");
+  let dateEditing = $state(false)
+  let dateInputValue = $state('')
 
   function startDateEdit() {
-    dateInputValue = localDate;
-    dateEditing = true;
+    dateInputValue = localDate
+    dateEditing = true
   }
 
   function commitDateEdit() {
-    if (dateInputValue) localDate = dateInputValue;
-    dateEditing = false;
+    if (dateInputValue) localDate = dateInputValue
+    dateEditing = false
   }
 
   function handleDateKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") { e.preventDefault(); commitDateEdit() }
-    if (e.key === "Escape") { dateEditing = false }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitDateEdit()
+    }
+    if (e.key === 'Escape') {
+      dateEditing = false
+    }
   }
 
   // --- Description editing ---
-  let descEditing = $state(false);
-  let descInputValue = $state("");
+  let descEditing = $state(false)
+  let descInputValue = $state('')
 
   function startDescEdit() {
-    descInputValue = localDescription;
-    descEditing = true;
+    descInputValue = localDescription
+    descEditing = true
   }
 
   function commitDescEdit() {
-    localDescription = descInputValue.trim();
-    descEditing = false;
+    localDescription = descInputValue.trim()
+    descEditing = false
   }
 
   function handleDescKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") { e.preventDefault(); commitDescEdit() }
-    if (e.key === "Escape") { descEditing = false }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitDescEdit()
+    }
+    if (e.key === 'Escape') {
+      descEditing = false
+    }
   }
 
   function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); action() }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      action()
+    }
   }
 
   // --- Posting row callbacks ---
   function commitAccount(id: string, accountId: string) {
-    const idx = localPostings.findIndex((p) => p.id === id);
+    const idx = localPostings.findIndex((p) => p.id === id)
     if (idx >= 0) {
-      localPostings[idx].accountId = accountId;
-      localPostings[idx].autofocusAccount = false;
+      localPostings[idx].accountId = accountId
+      localPostings[idx].autofocusAccount = false
     }
   }
 
   function commitAmount(id: string, amount: string) {
-    const idx = localPostings.findIndex((p) => p.id === id);
-    if (idx >= 0) localPostings[idx].amount = amount;
+    const idx = localPostings.findIndex((p) => p.id === id)
+    if (idx >= 0) localPostings[idx].amount = amount
   }
 
   function commitCurrency(id: string, currency: string) {
-    const idx = localPostings.findIndex((p) => p.id === id);
-    if (idx >= 0) localPostings[idx].currency = currency;
+    const idx = localPostings.findIndex((p) => p.id === id)
+    if (idx >= 0) localPostings[idx].currency = currency
   }
 
   function toggleDelete(id: string) {
-    const idx = localPostings.findIndex((p) => p.id === id);
+    const idx = localPostings.findIndex((p) => p.id === id)
     if (idx >= 0)
-      localPostings[idx].markedForDelete = !localPostings[idx].markedForDelete;
+      localPostings[idx].markedForDelete = !localPostings[idx].markedForDelete
   }
 
   // --- Add posting ---
   function addPosting() {
-    const primaryCurrency = activePostings[0]?.currency ?? "CAD";
-    const id = `new-${newIdCounter++}`;
+    const primaryCurrency = activePostings[0]?.currency ?? 'CAD'
+    const id = `new-${newIdCounter++}`
     localPostings.push({
       id,
-      accountId: defaultOffsetAccountId ?? "",
-      amount: "0.00",
+      accountId: defaultOffsetAccountId ?? '',
+      amount: '0.00',
       currency: primaryCurrency,
       markedForDelete: false,
       isNew: true,
       autofocusAccount: true,
-    });
+    })
   }
 
   // --- Close / discard ---
   function requestClose() {
     if (dirty) {
-      open = true;
-      showDiscardConfirm = true;
+      open = true
+      showDiscardConfirm = true
     } else {
-      onclose();
+      onclose()
     }
   }
 
   function discard() {
-    showDiscardConfirm = false;
-    onclose();
+    showDiscardConfirm = false
+    onclose()
   }
 
   // --- Save ---
-  let saving = $state(false);
-  let saveError = $state("");
+  let saving = $state(false)
+  let saveError = $state('')
 
   async function handleSave() {
-    saving = true;
-    saveError = "";
+    saving = true
+    saveError = ''
     try {
       const patchTxCall =
         localDate !== origDate || localDescription !== origDescription
@@ -251,30 +262,30 @@
                 ? { description: localDescription || null }
                 : {}),
             })
-          : Promise.resolve(null);
+          : Promise.resolve(null)
 
       const changedPostings = localPostings
         .filter((p) => !p.isNew && !p.markedForDelete)
         .filter((p) => {
-          const o = origPostings.find((o) => o.id === p.id);
+          const o = origPostings.find((o) => o.id === p.id)
           return (
             o &&
             (p.accountId !== o.accountId ||
               p.amount !== o.amount ||
               p.currency !== o.currency)
-          );
-        });
+          )
+        })
       const patchPostingCalls = changedPostings.map((p) =>
         patchPosting(p.id, {
           accountId: p.accountId,
           amount: p.amount,
           currency: p.currency,
         }),
-      );
+      )
 
       const newPostings = localPostings.filter(
         (p) => p.isNew && !p.markedForDelete,
-      );
+      )
       const createPostingCalls = newPostings.map((p) =>
         createPosting({
           transactionId: tx.id,
@@ -282,18 +293,18 @@
           amount: p.amount,
           currency: p.currency,
         }),
-      );
+      )
 
       const deletePostingCalls = localPostings
         .filter((p) => p.markedForDelete && !p.isNew)
-        .map((p) => deletePosting(p.id));
+        .map((p) => deletePosting(p.id))
 
       const [, createdResults] = await Promise.all([
         Promise.all([patchTxCall, ...patchPostingCalls, ...deletePostingCalls]),
         Promise.all(createPostingCalls),
-      ]);
+      ])
 
-      let newIdx = 0;
+      let newIdx = 0
       const updatedPostings: Posting[] = localPostings
         .filter((p) => !p.markedForDelete)
         .map((p) =>
@@ -310,42 +321,42 @@
                 amount: p.amount,
                 currency: p.currency,
               },
-        );
+        )
 
       onsaved?.({
         date: localDate,
         description: localDescription || null,
         postings: updatedPostings,
-      });
-      onclose();
+      })
+      onclose()
     } catch (e) {
-      saveError = e instanceof Error ? e.message : "Save failed";
+      saveError = e instanceof Error ? e.message : 'Save failed'
     } finally {
-      saving = false;
+      saving = false
     }
   }
 
   // --- Delete ---
-  let deleting = $state(false);
+  let deleting = $state(false)
 
   async function handleDelete() {
-    deleting = true;
+    deleting = true
     try {
-      await deleteTransaction(tx.id);
-      ondeleted?.();
-      onclose();
+      await deleteTransaction(tx.id)
+      ondeleted?.()
+      onclose()
     } catch (e) {
-      saveError = e instanceof Error ? e.message : "Delete failed";
-      showDeleteConfirm = false;
+      saveError = e instanceof Error ? e.message : 'Delete failed'
+      showDeleteConfirm = false
     } finally {
-      deleting = false;
+      deleting = false
     }
   }
 
   // --- Helpers ---
   let accountPaths = $derived(
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
-  );
+  )
 </script>
 
 <Modal title="Edit Transaction" {open} onclose={requestClose}>
@@ -393,7 +404,7 @@
           onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
           title="Click to edit"
         >
-          {localDescription || "—"}
+          {localDescription || '—'}
         </span>
       {/if}
     </div>
@@ -429,7 +440,7 @@
           {#each [...balances.entries()] as [currency, total]}
             {#if Math.abs(total) >= 0.005}
               <span class="balance-bad" title="Balance must be zero">
-                {total > 0 ? "+" : ""}{total.toFixed(2)}
+                {total > 0 ? '+' : ''}{total.toFixed(2)}
                 {currency}
               </span>
             {/if}
@@ -441,15 +452,23 @@
     {#if showDiscardConfirm}
       <div class="confirm-row">
         <span class="confirm-text">Discard changes?</span>
-        <Button onclick={() => { showDiscardConfirm = false }}>Keep editing</Button>
+        <Button
+          onclick={() => {
+            showDiscardConfirm = false
+          }}>Keep editing</Button
+        >
         <Button variant="danger" onclick={discard}>Discard</Button>
       </div>
     {:else if showDeleteConfirm}
       <div class="confirm-row">
         <span class="confirm-text">Delete this transaction?</span>
-        <Button onclick={() => { showDeleteConfirm = false }}>Cancel</Button>
+        <Button
+          onclick={() => {
+            showDeleteConfirm = false
+          }}>Cancel</Button
+        >
         <Button variant="danger" disabled={deleting} onclick={handleDelete}>
-          {deleting ? "Deleting…" : "Delete"}
+          {deleting ? 'Deleting…' : 'Delete'}
         </Button>
       </div>
     {:else}
@@ -460,8 +479,10 @@
         <Button
           variant="danger"
           disabled={saving}
-          onclick={() => { showDeleteConfirm = true }}
-        >Delete</Button>
+          onclick={() => {
+            showDeleteConfirm = true
+          }}>Delete</Button
+        >
         <div class="footer-actions">
           <Button disabled={saving} onclick={requestClose}>Cancel</Button>
           <Button
@@ -469,7 +490,7 @@
             disabled={!balanced || !dirty || saving}
             onclick={handleSave}
           >
-            <Icon name="floppy" size={12} />{saving ? "Saving…" : "Save"}
+            <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
           </Button>
         </div>
       </div>
@@ -533,7 +554,7 @@
   }
 
   .desc-sizer::after {
-    content: attr(data-value) " ";
+    content: attr(data-value) ' ';
     grid-area: 1 / 1;
     visibility: hidden;
     white-space: pre;

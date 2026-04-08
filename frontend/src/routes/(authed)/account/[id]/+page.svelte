@@ -1,115 +1,115 @@
 <script lang="ts">
-  import { onMount } from "svelte";
-  import { page } from "$app/state";
-  import { goto } from "$app/navigation";
+  import { onMount } from 'svelte'
+  import { page } from '$app/state'
+  import { goto } from '$app/navigation'
   import {
     fetchAccount,
     fetchAccountBalances,
     fetchAccounts,
     fetchTransactions,
     type Account,
-  } from "$lib/api";
-  import { settingsStore } from "$lib/settings.svelte";
-  import AccountHeading from "$lib/components/accounts/AccountHeading.svelte";
-  import { toISODate } from "$lib/date";
-  import FilterPanel from "$lib/components/transactions/FilterPanel.svelte";
-  import AddTransactionModal from "$lib/components/transactions/AddTransactionModal.svelte";
-  import TransactionRow from "$lib/components/transactions/TransactionRow.svelte";
-  import TransactionRowSkeleton from "$lib/components/transactions/TransactionRowSkeleton.svelte";
-  import Panel from "$lib/components/ui/Panel.svelte";
-  import Button from "$lib/components/ui/Button.svelte";
-  import AccountSettings from "$lib/components/accounts/AccountSettings.svelte";
-  import ReconcileModal from "$lib/components/accounts/ReconcileModal.svelte";
-  import Icon from "$lib/components/ui/Icon.svelte";
+  } from '$lib/api'
+  import { settingsStore } from '$lib/settings.svelte'
+  import AccountHeading from '$lib/components/accounts/AccountHeading.svelte'
+  import { toISODate } from '$lib/date'
+  import FilterPanel from '$lib/components/transactions/FilterPanel.svelte'
+  import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
+  import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
+  import TransactionRowSkeleton from '$lib/components/transactions/TransactionRowSkeleton.svelte'
+  import Panel from '$lib/components/ui/Panel.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
+  import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
 
-  let id = $derived(page.params.id!);
+  let id = $derived(page.params.id!)
 
   // Default range: last 30 days, computed once.
   function defaultRange() {
-    const today = new Date();
-    const from = new Date(today);
-    from.setDate(today.getDate() - 30);
-    return { from: toISODate(from), to: toISODate(today) };
+    const today = new Date()
+    const from = new Date(today)
+    from.setDate(today.getDate() - 30)
+    return { from: toISODate(from), to: toISODate(today) }
   }
-  const defaults = defaultRange();
+  const defaults = defaultRange()
 
-  let from = $derived(page.url.searchParams.get("from") ?? defaults.from);
-  let to = $derived(page.url.searchParams.get("to") ?? defaults.to);
+  let from = $derived(page.url.searchParams.get('from') ?? defaults.from)
+  let to = $derived(page.url.searchParams.get('to') ?? defaults.to)
   let sortDir = $derived(
-    (page.url.searchParams.get("dir") ?? "desc") as "asc" | "desc",
-  );
+    (page.url.searchParams.get('dir') ?? 'desc') as 'asc' | 'desc',
+  )
 
-  let account = $state<Account | null>(null);
-  let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
-  let accounts = $state<Account[]>([]);
-  let accountBalances = $state<{ currency: string; amount: string }[]>([]);
-  let defaultOffsetAccountId = $state<string | null>(null);
-  let defaultConversionAccountId = $state<string | null>(null);
-  let loading = $state(true);
-  let notFound = $state(false);
-  let addModalOpen = $state(false);
-  let settingsOpen = $state(false);
-  let reconcileOpen = $state(false);
+  let account = $state<Account | null>(null)
+  let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([])
+  let accounts = $state<Account[]>([])
+  let accountBalances = $state<{ currency: string; amount: string }[]>([])
+  let defaultOffsetAccountId = $state<string | null>(null)
+  let defaultConversionAccountId = $state<string | null>(null)
+  let loading = $state(true)
+  let notFound = $state(false)
+  let addModalOpen = $state(false)
+  let settingsOpen = $state(false)
+  let reconcileOpen = $state(false)
 
   $effect(() => {
-    let cancelled = false;
-    loading = true;
-    notFound = false;
+    let cancelled = false
+    loading = true
+    notFound = false
     Promise.all([
       fetchAccount(id),
       fetchTransactions({ accountId: id, from, to }),
       fetchAccountBalances(),
     ])
       .then(([acct, txs, allBalances]) => {
-        if (cancelled) return;
-        account = acct;
-        transactions = txs;
-        accountBalances = allBalances.find((b) => b.id === id)?.balances ?? [];
-        loading = false;
+        if (cancelled) return
+        account = acct
+        transactions = txs
+        accountBalances = allBalances.find((b) => b.id === id)?.balances ?? []
+        loading = false
       })
       .catch(() => {
-        if (cancelled) return;
-        notFound = true;
-        loading = false;
-      });
+        if (cancelled) return
+        notFound = true
+        loading = false
+      })
     return () => {
-      cancelled = true;
-    };
-  });
+      cancelled = true
+    }
+  })
 
   onMount(async () => {
     const [accts, settings] = await Promise.all([
       fetchAccounts(),
       settingsStore.load(),
-    ]);
-    accounts = accts;
-    defaultOffsetAccountId = settings.defaultOffsetAccountId;
-    defaultConversionAccountId = settings.defaultConversionAccountId;
-  });
+    ])
+    accounts = accts
+    defaultOffsetAccountId = settings.defaultOffsetAccountId
+    defaultConversionAccountId = settings.defaultConversionAccountId
+  })
 
   let isHidden = $derived(
     settingsStore.value?.preferences.hiddenAccountIds?.includes(id) ?? false,
-  );
+  )
 
   async function toggleHidden() {
-    const s = settingsStore.value;
-    if (!s) return;
-    const current = s.preferences.hiddenAccountIds ?? [];
-    const next = isHidden ? current.filter((x) => x !== id) : [...current, id];
+    const s = settingsStore.value
+    if (!s) return
+    const current = s.preferences.hiddenAccountIds ?? []
+    const next = isHidden ? current.filter((x) => x !== id) : [...current, id]
     await settingsStore.update({
       preferences: { ...s.preferences, hiddenAccountIds: next },
-    });
+    })
   }
 
   let sortedTransactions = $derived(
     [...transactions].sort((a, b) => {
-      const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
-      return sortDir === "desc" ? -cmp : cmp;
+      const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0
+      return sortDir === 'desc' ? -cmp : cmp
     }),
-  );
+  )
 
   function navigate(params: Record<string, string>) {
-    goto(`?${new URLSearchParams({ from, to, dir: sortDir, ...params })}`);
+    goto(`?${new URLSearchParams({ from, to, dir: sortDir, ...params })}`)
   }
 </script>
 
@@ -119,8 +119,8 @@
     accountPath={account.path}
     bind:open={reconcileOpen}
     onSuccess={async () => {
-      const allBalances = await fetchAccountBalances();
-      accountBalances = allBalances.find((b) => b.id === id)?.balances ?? [];
+      const allBalances = await fetchAccountBalances()
+      accountBalances = allBalances.find((b) => b.id === id)?.balances ?? []
     }}
   />
 {/if}
@@ -131,8 +131,8 @@
   open={addModalOpen}
   onclose={() => (addModalOpen = false)}
   oncreated={(tx) => {
-    const txDate = tx.date.substring(0, 10);
-    if (txDate >= from && txDate <= to) transactions = [tx, ...transactions];
+    const txDate = tx.date.substring(0, 10)
+    if (txDate >= from && txDate <= to) transactions = [tx, ...transactions]
   }}
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />

@@ -74,7 +74,9 @@
 
   function handleAccountFocusout(e: FocusEvent) {
     if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
-      setTimeout(() => { editingAccount = false }, 200)
+      setTimeout(() => {
+        editingAccount = false
+      }, 200)
     }
   }
 
@@ -89,16 +91,22 @@
 
   function commitAmountEdit() {
     const n = parseFloat(editAmountValue)
-    const amount = !isNaN(n) && editAmountValue.trim() !== ''
-      ? n.toFixed(2)
-      : (origPosting?.amount ?? '0.00')
+    const amount =
+      !isNaN(n) && editAmountValue.trim() !== ''
+        ? n.toFixed(2)
+        : (origPosting?.amount ?? '0.00')
     editingAmount = false
     oncommitamount(posting.id, amount)
   }
 
   function handleAmountKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') { e.preventDefault(); commitAmountEdit() }
-    if (e.key === 'Escape') { editingAmount = false }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitAmountEdit()
+    }
+    if (e.key === 'Escape') {
+      editingAmount = false
+    }
   }
 
   // --- Currency editing ---
@@ -112,20 +120,29 @@
 
   function commitCurrencyEdit() {
     const c = editCurrencyValue.trim().toUpperCase()
-    const currency = c.length >= 2 && c.length <= 4
-      ? c
-      : (origPosting?.currency ?? posting.currency)
+    const currency =
+      c.length >= 2 && c.length <= 4
+        ? c
+        : (origPosting?.currency ?? posting.currency)
     editingCurrency = false
     oncommitcurrency(posting.id, currency)
   }
 
   function handleCurrencyKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') { e.preventDefault(); commitCurrencyEdit() }
-    if (e.key === 'Escape') { editingCurrency = false }
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitCurrencyEdit()
+    }
+    if (e.key === 'Escape') {
+      editingCurrency = false
+    }
   }
 
   function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
-    if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); action() }
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      action()
+    }
   }
 </script>
 
@@ -148,8 +165,12 @@
         role="button"
         aria-disabled={posting.markedForDelete}
         tabindex={posting.markedForDelete ? -1 : 0}
-        onclick={() => { if (!posting.markedForDelete) startAccountEdit() }}
-        onkeydown={(e) => !posting.markedForDelete && handleEditableKeydown(e, startAccountEdit)}
+        onclick={() => {
+          if (!posting.markedForDelete) startAccountEdit()
+        }}
+        onkeydown={(e) =>
+          !posting.markedForDelete &&
+          handleEditableKeydown(e, startAccountEdit)}
         title={posting.markedForDelete ? undefined : 'Click to edit'}
       >
         {accountPaths[posting.accountId] ?? (posting.accountId || '—')}
@@ -176,8 +197,11 @@
       role="button"
       aria-disabled={posting.markedForDelete}
       tabindex={posting.markedForDelete ? -1 : 0}
-      onclick={() => { if (!posting.markedForDelete) startAmountEdit() }}
-      onkeydown={(e) => !posting.markedForDelete && handleEditableKeydown(e, startAmountEdit)}
+      onclick={() => {
+        if (!posting.markedForDelete) startAmountEdit()
+      }}
+      onkeydown={(e) =>
+        !posting.markedForDelete && handleEditableKeydown(e, startAmountEdit)}
       title={posting.markedForDelete ? undefined : 'Click to edit'}
     >
       {posting.amount}
@@ -203,8 +227,11 @@
       role="button"
       aria-disabled={posting.markedForDelete}
       tabindex={posting.markedForDelete ? -1 : 0}
-      onclick={() => { if (!posting.markedForDelete) startCurrencyEdit() }}
-      onkeydown={(e) => !posting.markedForDelete && handleEditableKeydown(e, startCurrencyEdit)}
+      onclick={() => {
+        if (!posting.markedForDelete) startCurrencyEdit()
+      }}
+      onkeydown={(e) =>
+        !posting.markedForDelete && handleEditableKeydown(e, startCurrencyEdit)}
       title={posting.markedForDelete ? undefined : 'Click to edit'}
     >
       {posting.currency}
@@ -215,7 +242,9 @@
   <button
     class="delete-btn"
     title={posting.markedForDelete ? 'Undo remove' : 'Remove posting'}
-    aria-label={posting.markedForDelete ? 'Undo remove posting' : 'Remove posting'}
+    aria-label={posting.markedForDelete
+      ? 'Undo remove posting'
+      : 'Remove posting'}
     disabled={!posting.markedForDelete && !canDelete}
     onclick={() => ontoggledelete(posting.id)}
   >

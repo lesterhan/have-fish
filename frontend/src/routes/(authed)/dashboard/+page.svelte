@@ -1,14 +1,40 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Panel from '$lib/components/ui/Panel.svelte'
-  import { fetchSpendingSummary, fetchWeeklySpend, fetchAccountBalances, fetchMonthlySpend } from '$lib/api'
+  import {
+    fetchSpendingSummary,
+    fetchWeeklySpend,
+    fetchAccountBalances,
+    fetchMonthlySpend,
+  } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import type { SpendingSummary, WeeklySpend } from '$lib/api'
-  import { Chart, BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend } from 'chart.js'
+  import {
+    Chart,
+    BarController,
+    BarElement,
+    LineController,
+    LineElement,
+    PointElement,
+    CategoryScale,
+    LinearScale,
+    Tooltip,
+    Legend,
+  } from 'chart.js'
   import { theme } from '$lib/theme.svelte'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
 
-  Chart.register(BarController, BarElement, LineController, LineElement, PointElement, CategoryScale, LinearScale, Tooltip, Legend)
+  Chart.register(
+    BarController,
+    BarElement,
+    LineController,
+    LineElement,
+    PointElement,
+    CategoryScale,
+    LinearScale,
+    Tooltip,
+    Legend,
+  )
 
   // --- State ---
   const now = new Date()
@@ -44,7 +70,7 @@
         Object.entries(avg3.total).map(([currency, amount]) => [
           currency,
           (parseFloat(amount) / 3).toFixed(2),
-        ])
+        ]),
       )
     } finally {
       loading = false
@@ -58,7 +84,7 @@
     { label: '6mo', weeks: 26 },
     { label: '12mo', weeks: 52 },
   ] as const
-  type WindowLabel = typeof WINDOW_OPTIONS[number]['label']
+  type WindowLabel = (typeof WINDOW_OPTIONS)[number]['label']
 
   let historyWindow = $state<WindowLabel>('3mo')
   let historyData = $state<WeeklySpend[]>([])
@@ -66,7 +92,7 @@
   let chartInstance: Chart | null = null
 
   function currentWeeks(): number {
-    return WINDOW_OPTIONS.find(o => o.label === historyWindow)!.weeks
+    return WINDOW_OPTIONS.find((o) => o.label === historyWindow)!.weeks
   }
 
   async function loadHistory() {
@@ -74,7 +100,20 @@
   }
 
   // Format "YYYY-MM-DD" → "Apr 7"
-  const SHORT_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+  const SHORT_MONTHS = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ]
   function formatWeekLabel(weekStart: string): string {
     const [, m, d] = weekStart.split('-').map(Number)
     return `${SHORT_MONTHS[m - 1]} ${d}`
@@ -83,7 +122,7 @@
   // Collect all currencies across the window
   function historyCurrencies(): string[] {
     const set = new Set<string>()
-    for (const m of historyData) Object.keys(m.total).forEach(c => set.add(c))
+    for (const m of historyData) Object.keys(m.total).forEach((c) => set.add(c))
     return [...set]
   }
 
@@ -107,24 +146,29 @@
 
   // Resolve a CSS variable to its computed value so Chart.js gets a real colour string
   function cssVar(name: string): string {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim()
   }
 
   $effect(() => {
     if (!chartCanvas || historyData.length === 0) return
 
-    const isDark = theme.dark  // reactive — re-runs on theme toggle
+    const isDark = theme.dark // reactive — re-runs on theme toggle
     const palette = isDark ? WIN_COLOURS_DARK : WIN_COLOURS_LIGHT
 
     const textColour = cssVar('--color-text')
     const gridColour = cssVar('--color-bevel-dark')
 
-    const labels = historyData.map(m => formatWeekLabel(m.weekStart))
+    const labels = historyData.map((m) => formatWeekLabel(m.weekStart))
     const currencies = historyCurrencies()
 
     // Average across all currencies combined (sum of per-currency averages)
     const avg = currencies.reduce((sum, currency) => {
-      const total = historyData.reduce((s, m) => s + parseFloat(m.total[currency] ?? '0'), 0)
+      const total = historyData.reduce(
+        (s, m) => s + parseFloat(m.total[currency] ?? '0'),
+        0,
+      )
       return sum + total / historyData.length
     }, 0)
 
@@ -132,7 +176,7 @@
       const { bg, border } = palette[i % palette.length]
       return {
         label: currency,
-        data: historyData.map(m => parseFloat(m.total[currency] ?? '0')),
+        data: historyData.map((m) => parseFloat(m.total[currency] ?? '0')),
         backgroundColor: bg,
         borderColor: border,
         borderWidth: 1,
@@ -161,20 +205,29 @@
         maintainAspectRatio: false,
         plugins: {
           legend: {
-            labels: { font: { family: 'Tahoma, sans-serif', size: 11 }, color: textColour },
+            labels: {
+              font: { family: 'Tahoma, sans-serif', size: 11 },
+              color: textColour,
+            },
           },
           tooltip: { mode: 'index' },
         },
         scales: {
           x: {
             stacked: true,
-            ticks: { font: { family: 'Tahoma, sans-serif', size: 11 }, color: textColour },
+            ticks: {
+              font: { family: 'Tahoma, sans-serif', size: 11 },
+              color: textColour,
+            },
             grid: { color: gridColour },
           },
           y: {
             stacked: true,
             beginAtZero: true,
-            ticks: { font: { family: 'Tahoma, sans-serif', size: 11 }, color: textColour },
+            ticks: {
+              font: { family: 'Tahoma, sans-serif', size: 11 },
+              color: textColour,
+            },
             grid: { color: gridColour },
           },
         },
@@ -187,10 +240,10 @@
     return n >= 10000 ? `${(n / 1000).toFixed(1)}K` : n.toFixed(2)
   }
 
-  let cashTotals   = $state<Record<string, number>>({})
-  let avgBurn      = $state<Record<string, number>>({})
+  let cashTotals = $state<Record<string, number>>({})
+  let avgBurn = $state<Record<string, number>>({})
   let hiddenCurrencies = $state<string[]>([])
-  let showHidden   = $state(false)
+  let showHidden = $state(false)
 
   async function loadCash() {
     const [balances, monthly, settings] = await Promise.all([
@@ -202,7 +255,7 @@
 
     // Sum asset balances per currency
     const totals: Record<string, number> = {}
-    for (const acct of balances.filter(a => a.type === 'asset')) {
+    for (const acct of balances.filter((a) => a.type === 'asset')) {
       for (const { currency, amount } of acct.balances) {
         totals[currency] = (totals[currency] ?? 0) + parseFloat(amount)
       }
@@ -231,7 +284,7 @@
   type Zone = 'comfortable' | 'watch' | 'urgent'
   function zone(months: number): Zone {
     if (months > 12) return 'comfortable'
-    if (months > 6)  return 'watch'
+    if (months > 6) return 'watch'
     return 'urgent'
   }
 
@@ -243,21 +296,33 @@
 
   async function toggleHideCurrency(currency: string) {
     const next = hiddenCurrencies.includes(currency)
-      ? hiddenCurrencies.filter(c => c !== currency)
+      ? hiddenCurrencies.filter((c) => c !== currency)
       : [...hiddenCurrencies, currency]
     hiddenCurrencies = next
-    await settingsStore.update({ preferences: { ...settingsStore.value?.preferences, dashboardHiddenCurrencies: next } })
+    await settingsStore.update({
+      preferences: {
+        ...settingsStore.value?.preferences,
+        dashboardHiddenCurrencies: next,
+      },
+    })
   }
 
   let allCashCurrencies = $derived(
-    [...new Set([...Object.keys(cashTotals), ...Object.keys(avgBurn)])]
-      .filter(c => (cashTotals[c] ?? 0) > 0 || (avgBurn[c] ?? 0) > 0)
+    [...new Set([...Object.keys(cashTotals), ...Object.keys(avgBurn)])].filter(
+      (c) => (cashTotals[c] ?? 0) > 0 || (avgBurn[c] ?? 0) > 0,
+    ),
   )
   let cashCurrencies = $derived(
-    showHidden ? allCashCurrencies : allCashCurrencies.filter(c => !hiddenCurrencies.includes(c))
+    showHidden
+      ? allCashCurrencies
+      : allCashCurrencies.filter((c) => !hiddenCurrencies.includes(c)),
   )
 
-  onMount(() => { load(); loadHistory(); loadCash() })
+  onMount(() => {
+    load()
+    loadHistory()
+    loadCash()
+  })
 
   function navigate(delta: number) {
     const next = shiftMonth(year, month, delta)
@@ -282,8 +347,8 @@
   function categoriesForCurrency(currency: string) {
     const total = parseFloat(summary?.total[currency] ?? '0')
     return (summary?.categories ?? [])
-      .filter(cat => currency in cat.total)
-      .map(cat => ({
+      .filter((cat) => currency in cat.total)
+      .map((cat) => ({
         name: cat.category,
         amount: parseFloat(cat.total[currency]),
         pct: total > 0 ? (parseFloat(cat.total[currency]) / total) * 100 : 0,
@@ -297,9 +362,17 @@
     <div class="panel-content">
       <!-- Month navigation -->
       <div class="month-nav">
-        <button class="nav-btn" onclick={() => navigate(-1)} aria-label="Previous month">◀</button>
+        <button
+          class="nav-btn"
+          onclick={() => navigate(-1)}
+          aria-label="Previous month">◀</button
+        >
         <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
-        <button class="nav-btn" onclick={() => navigate(1)} aria-label="Next month">▶</button>
+        <button
+          class="nav-btn"
+          onclick={() => navigate(1)}
+          aria-label="Next month">▶</button
+        >
       </div>
 
       {#if loading}
@@ -312,12 +385,20 @@
           <div class="currency-section">
             <!-- Total row -->
             <div class="total-row">
-              <span class="total-amount">{summary?.total[currency]} {currency}</span>
+              <span class="total-amount"
+                >{summary?.total[currency]} {currency}</span
+              >
               {#if d !== null}
-                <span class="delta" class:positive={d <= 0} class:negative={d > 0}>
+                <span
+                  class="delta"
+                  class:positive={d <= 0}
+                  class:negative={d > 0}
+                >
                   {d > 0 ? '+' : ''}{d.toFixed(1)}%
                 </span>
-                <span class="avg-label">vs 3mo avg {avgTotal[currency]} {currency}</span>
+                <span class="avg-label"
+                  >vs 3mo avg {avgTotal[currency]} {currency}</span
+                >
               {/if}
             </div>
 
@@ -325,7 +406,8 @@
             <div class="categories">
               {#each categoriesForCurrency(currency) as cat}
                 <div class="cat-row">
-                  <span class="cat-name">{cat.name.replace(/^[^:]+:/, '')}</span>
+                  <span class="cat-name">{cat.name.replace(/^[^:]+:/, '')}</span
+                  >
                   <div class="bar-track">
                     <div class="bar-fill" style="width: {cat.pct}%"></div>
                   </div>
@@ -350,28 +432,51 @@
           {@const z = months !== null ? zone(months) : null}
           <div class="cash-row">
             <div class="cash-header">
-              <span class="cash-amount" class:muted={hiddenCurrencies.includes(currency)}>{formatCash(cashTotals[currency] ?? 0)} {currency}</span>
+              <span
+                class="cash-amount"
+                class:muted={hiddenCurrencies.includes(currency)}
+                >{formatCash(cashTotals[currency] ?? 0)} {currency}</span
+              >
               {#if z}
                 <span class="zone-badge zone-{z}">
-                  {z === 'comfortable' ? 'comfortable' : z === 'watch' ? 'watch it' : 'urgent'}
+                  {z === 'comfortable'
+                    ? 'comfortable'
+                    : z === 'watch'
+                      ? 'watch it'
+                      : 'urgent'}
                 </span>
               {/if}
-              <button class="hide-btn" onclick={() => toggleHideCurrency(currency)} title={hiddenCurrencies.includes(currency) ? 'Show' : 'Hide'}>
+              <button
+                class="hide-btn"
+                onclick={() => toggleHideCurrency(currency)}
+                title={hiddenCurrencies.includes(currency) ? 'Show' : 'Hide'}
+              >
                 {hiddenCurrencies.includes(currency) ? '👁' : '×'}
               </button>
             </div>
 
             {#if months !== null}
               <!-- Three-zone runway track -->
-              <div class="runway-track" title="{months.toFixed(1)} months runway">
-                <div class="runway-segment urgent"   style="width: 33.3%"></div>
-                <div class="runway-segment watch"    style="width: 33.3%"></div>
-                <div class="runway-segment comfortable" style="width: 33.4%"></div>
-                <div class="runway-marker" style="left: {markerPct(months)}%"></div>
+              <div
+                class="runway-track"
+                title="{months.toFixed(1)} months runway"
+              >
+                <div class="runway-segment urgent" style="width: 33.3%"></div>
+                <div class="runway-segment watch" style="width: 33.3%"></div>
+                <div
+                  class="runway-segment comfortable"
+                  style="width: 33.4%"
+                ></div>
+                <div
+                  class="runway-marker"
+                  style="left: {markerPct(months)}%"
+                ></div>
               </div>
               <div class="cash-meta">
-                avg burn {(avgBurn[currency] ?? 0).toFixed(0)} {currency}/mo
-                · {months < TRACK_MAX ? `~${Math.round(months)}mo runway` : `> ${TRACK_MAX}mo runway`}
+                avg burn {(avgBurn[currency] ?? 0).toFixed(0)}
+                {currency}/mo · {months < TRACK_MAX
+                  ? `~${Math.round(months)}mo runway`
+                  : `> ${TRACK_MAX}mo runway`}
               </div>
             {:else}
               <p class="cash-meta">no spend data — runway unknown</p>
@@ -381,7 +486,10 @@
       {/if}
 
       {#if hiddenCurrencies.length > 0}
-        <button class="show-hidden-btn" onclick={() => (showHidden = !showHidden)}>
+        <button
+          class="show-hidden-btn"
+          onclick={() => (showHidden = !showHidden)}
+        >
           {showHidden ? 'hide' : `${hiddenCurrencies.length} hidden · show`}
         </button>
       {/if}
@@ -396,8 +504,11 @@
         <button
           class="window-btn"
           class:active={historyWindow === opt.label}
-          onclick={() => { historyWindow = opt.label; loadHistory() }}
-        >{opt.label}</button>
+          onclick={() => {
+            historyWindow = opt.label
+            loadHistory()
+          }}>{opt.label}</button
+        >
       {/each}
     </div>
     <div class="chart-wrap">
@@ -611,9 +722,18 @@
     box-shadow: var(--shadow-raised);
   }
 
-  .zone-comfortable { background: var(--color-success-light); color: var(--color-success); }
-  .zone-watch       { background: var(--color-warning-light); color: var(--color-warning); }
-  .zone-urgent      { background: var(--color-danger-light);  color: var(--color-danger);  }
+  .zone-comfortable {
+    background: var(--color-success-light);
+    color: var(--color-success);
+  }
+  .zone-watch {
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+  }
+  .zone-urgent {
+    background: var(--color-danger-light);
+    color: var(--color-danger);
+  }
 
   /* Runway track */
   .runway-track {
@@ -629,9 +749,18 @@
     height: 100%;
   }
 
-  .runway-segment.urgent      { background: var(--color-danger);  opacity: 0.4; }
-  .runway-segment.watch       { background: var(--color-warning); opacity: 0.4; }
-  .runway-segment.comfortable { background: var(--color-success); opacity: 0.4; }
+  .runway-segment.urgent {
+    background: var(--color-danger);
+    opacity: 0.4;
+  }
+  .runway-segment.watch {
+    background: var(--color-warning);
+    opacity: 0.4;
+  }
+  .runway-segment.comfortable {
+    background: var(--color-success);
+    opacity: 0.4;
+  }
 
   .runway-marker {
     position: absolute;

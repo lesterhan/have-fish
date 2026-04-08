@@ -39,8 +39,11 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
 
     // Prefer right of the element; flip left if it would overflow the viewport
     const leftIfRight = rect.right + gap
-    const leftIfLeft  = rect.left - gap - tw
-    const left = leftIfRight + tw <= window.innerWidth ? leftIfRight : Math.max(0, leftIfLeft)
+    const leftIfLeft = rect.left - gap - tw
+    const left =
+      leftIfRight + tw <= window.innerWidth
+        ? leftIfRight
+        : Math.max(0, leftIfLeft)
 
     // Centre vertically; clamp so it stays within the viewport
     const top = Math.min(
@@ -49,7 +52,7 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
     )
 
     el.style.left = `${left}px`
-    el.style.top  = `${top}px`
+    el.style.top = `${top}px`
   }
 
   function hide() {
@@ -70,7 +73,8 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
   return {
     update(newParam: TooltipParam) {
       label = typeof newParam === 'string' ? newParam : (newParam?.label ?? '')
-      always = typeof newParam === 'string' ? false : (newParam?.always ?? false)
+      always =
+        typeof newParam === 'string' ? false : (newParam?.always ?? false)
     },
     destroy() {
       node.removeEventListener('mouseenter', show)

@@ -1,42 +1,42 @@
 <script module>
   function focusOnMount(node: HTMLInputElement) {
-    node.focus();
-    node.select();
+    node.focus()
+    node.select()
   }
 </script>
 
 <script lang="ts">
-  import { untrack } from "svelte";
-  import Button from "$lib/components/ui/Button.svelte";
-  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte";
-  import MoneyDisplay from "$lib/components/ui/MoneyDisplay.svelte";
-  import TransactionEditModal from "$lib/components/transactions/TransactionEditModal.svelte";
-  import Icon from "$lib/components/ui/Icon.svelte";
-  import { patchTransaction, patchPosting, type Account } from "$lib/api";
-  import { settingsStore } from "$lib/settings.svelte";
+  import { untrack } from 'svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
+  import TransactionEditModal from '$lib/components/transactions/TransactionEditModal.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import { patchTransaction, patchPosting, type Account } from '$lib/api'
+  import { settingsStore } from '$lib/settings.svelte'
 
   interface Posting {
-    id: string;
-    accountId: string;
-    amount: string;
-    currency: string;
+    id: string
+    accountId: string
+    amount: string
+    currency: string
   }
 
   interface Transaction {
-    id: string;
-    date: string;
-    description: string | null;
-    postings: Posting[];
+    id: string
+    date: string
+    description: string | null
+    postings: Posting[]
   }
 
   interface Props {
-    tx: Transaction;
-    accounts: Account[];
-    defaultOffsetAccountId?: string | null;
-    defaultConversionAccountId?: string | null;
-    currentAccountId?: string | null;
-    onaccountcreated?: (account: Account) => void;
-    ondeleted?: () => void;
+    tx: Transaction
+    accounts: Account[]
+    defaultOffsetAccountId?: string | null
+    defaultConversionAccountId?: string | null
+    currentAccountId?: string | null
+    onaccountcreated?: (account: Account) => void
+    ondeleted?: () => void
   }
 
   let {
@@ -47,85 +47,85 @@
     currentAccountId = null,
     onaccountcreated,
     ondeleted,
-  }: Props = $props();
+  }: Props = $props()
 
-  let modalOpen = $state(false);
+  let modalOpen = $state(false)
 
   // Local copies of mutable fields — updated after a successful save.
-  let localDate = $state(untrack(() => tx.date));
-  let localDescription = $state(untrack(() => tx.description ?? ""));
-  let localPostings = $state(untrack(() => [...tx.postings]));
+  let localDate = $state(untrack(() => tx.date))
+  let localDescription = $state(untrack(() => tx.description ?? ''))
+  let localPostings = $state(untrack(() => [...tx.postings]))
 
   let accountPaths = $derived(
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
-  );
+  )
 
   // --- Description editing ---
-  let descEditing = $state(false);
-  let descValue = $state("");
-  let descError = $state("");
+  let descEditing = $state(false)
+  let descValue = $state('')
+  let descError = $state('')
 
   function startDescEdit() {
-    descValue = localDescription;
-    descEditing = true;
-    descError = "";
+    descValue = localDescription
+    descEditing = true
+    descError = ''
   }
 
   async function commitDescEdit() {
-    descEditing = false;
-    const next = descValue.trim();
-    if (next === localDescription) return;
+    descEditing = false
+    const next = descValue.trim()
+    if (next === localDescription) return
     try {
-      await patchTransaction(tx.id, { description: next || null });
-      localDescription = next;
+      await patchTransaction(tx.id, { description: next || null })
+      localDescription = next
     } catch (e) {
-      descError = e instanceof Error ? e.message : "Save failed";
+      descError = e instanceof Error ? e.message : 'Save failed'
     }
   }
 
   function cancelDescEdit() {
-    descEditing = false;
-    descError = "";
+    descEditing = false
+    descError = ''
   }
 
   function handleDescKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") {
-      e.preventDefault();
-      commitDescEdit();
+    if (e.key === 'Enter') {
+      e.preventDefault()
+      commitDescEdit()
     }
-    if (e.key === "Escape") cancelDescEdit();
+    if (e.key === 'Escape') cancelDescEdit()
   }
 
   function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      action();
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      action()
     }
   }
 
   // --- Posting account editing ---
-  let editingPostingId = $state<string | null>(null);
-  let editAccountId = $state("");
-  let postingError = $state("");
+  let editingPostingId = $state<string | null>(null)
+  let editAccountId = $state('')
+  let postingError = $state('')
 
   function startPostingEdit(postingId: string, currentAccountId: string) {
-    descEditing = false;
-    editingPostingId = postingId;
-    editAccountId = currentAccountId;
-    postingError = "";
+    descEditing = false
+    editingPostingId = postingId
+    editAccountId = currentAccountId
+    postingError = ''
   }
 
   async function handlePostingCommit(accountId: string) {
-    const id = editingPostingId;
-    if (!id) return;
-    editingPostingId = null;
+    const id = editingPostingId
+    if (!id) return
+    editingPostingId = null
     try {
-      await patchPosting(id, { accountId });
+      await patchPosting(id, { accountId })
       localPostings = localPostings.map((p) =>
         p.id === id ? { ...p, accountId } : p,
-      );
+      )
     } catch (e) {
-      postingError = e instanceof Error ? e.message : "Save failed";
+      postingError = e instanceof Error ? e.message : 'Save failed'
     }
   }
 
@@ -133,10 +133,10 @@
   // The 200ms delay lets AccountPathInput's own 150ms blur handler run first.
   function handlePostingFocusout(e: FocusEvent) {
     if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
-      const id = editingPostingId;
+      const id = editingPostingId
       setTimeout(() => {
-        if (editingPostingId === id) editingPostingId = null;
-      }, 200);
+        if (editingPostingId === id) editingPostingId = null
+      }, 200)
     }
   }
 
@@ -146,19 +146,19 @@
     // Slice to YYYY-MM-DD before splitting — avoids new Date(str) treating
     // a bare date string as UTC midnight and shifting it into the previous day
     // for UTC- timezones. new Date(y, m-1, d) always creates local midnight.
-    const [y, m, d] = isoDate.substring(0, 10).split("-").map(Number);
-    const date = new Date(y, m - 1, d);
+    const [y, m, d] = isoDate.substring(0, 10).split('-').map(Number)
+    const date = new Date(y, m - 1, d)
     return {
-      dow: date.toLocaleDateString("en", { weekday: "short" }),
-      monthDay: date.toLocaleDateString("en", {
-        month: "short",
-        day: "numeric",
+      dow: date.toLocaleDateString('en', { weekday: 'short' }),
+      monthDay: date.toLocaleDateString('en', {
+        month: 'short',
+        day: 'numeric',
       }),
       year: String(y),
-    };
+    }
   }
 
-  let dateParts = $derived(parseDateParts(localDate));
+  let dateParts = $derived(parseDateParts(localDate))
 
   // --- Display helpers ---
 
@@ -167,19 +167,19 @@
   // need a different layout from the standard from→to summary.
   let isCrossCurrency = $derived(
     new Set(localPostings.map((p) => p.currency)).size > 1,
-  );
+  )
 
   // A transfer moves money between asset/liability/equity accounts.
   // We detect this by checking whether the destination account (most positive
   // posting) is NOT under the expenses root. Cross-currency transactions
   // between personal accounts also qualify.
   let isTransfer = $derived.by(() => {
-    const settings = settingsStore.value;
-    if (!settings) return false;
-    const expRoot = settings.defaultExpensesRootPath;
-    const toPath = accountPaths[to.accountId] ?? "";
-    return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot;
-  });
+    const settings = settingsStore.value
+    if (!settings) return false
+    const expRoot = settings.defaultExpensesRootPath
+    const toPath = accountPaths[to.accountId] ?? ''
+    return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot
+  })
 
   // For cross-currency transfers: identify the source (largest outflow) and
   // target (largest inflow in a different currency). Everything else —
@@ -190,47 +190,47 @@
     // sort to pick them as source or target instead of the actual accounts.
     const nonConversion = postings.filter(
       (p) => p.accountId !== defaultConversionAccountId,
-    );
+    )
 
     const sorted = [...nonConversion].sort(
       (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-    );
+    )
     // Source = most negative non-conversion posting (e.g. assets:wise:eur)
-    const source = sorted[0];
+    const source = sorted[0]
     // Target = most positive non-conversion posting in a different currency
     const target = [...nonConversion]
       .filter((p) => p.currency !== source.currency)
-      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))[0];
+      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))[0]
     // Fees = any remaining positive non-conversion postings (e.g. expenses:fees)
-    const internalIds = new Set([source.id, target?.id]);
+    const internalIds = new Set([source.id, target?.id])
     const fees = nonConversion.filter(
       (p) => !internalIds.has(p.id) && parseFloat(p.amount) > 0,
-    );
-    return { source, target, fees };
+    )
+    return { source, target, fees }
   }
 
-  let transfer = $derived(classifyTransfer(localPostings));
+  let transfer = $derived(classifyTransfer(localPostings))
 
   function summarize(postings: Posting[]) {
     const sorted = [...postings].sort(
       (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-    );
+    )
     return {
       from: sorted[0],
       to: sorted[sorted.length - 1],
       rest: sorted.slice(1, -1),
-    };
+    }
   }
 
-  let { from, to, rest } = $derived(summarize(localPostings));
+  let { from, to, rest } = $derived(summarize(localPostings))
 
   // When viewing a specific account, determine if money is flowing in or out.
-  let flowDirection = $derived.by((): "in" | "out" | null => {
-    if (!currentAccountId || !isTransfer) return null;
-    const posting = localPostings.find((p) => p.accountId === currentAccountId);
-    if (!posting) return null;
-    return parseFloat(posting.amount) > 0 ? "in" : "out";
-  });
+  let flowDirection = $derived.by((): 'in' | 'out' | null => {
+    if (!currentAccountId || !isTransfer) return null
+    const posting = localPostings.find((p) => p.accountId === currentAccountId)
+    if (!posting) return null
+    return parseFloat(posting.amount) > 0 ? 'in' : 'out'
+  })
 </script>
 
 <div class="row" class:transfer={isTransfer}>
@@ -262,7 +262,7 @@
         onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
         title="Click to edit"
       >
-        {localDescription || "—"}
+        {localDescription || '—'}
       </span>
     {/if}
     {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
@@ -279,9 +279,9 @@
         </span>
         <span class="arrow" aria-hidden="true">➜</span>
         <span class="account account-to">
-          {accountPaths[transfer.target?.accountId ?? ""] ??
+          {accountPaths[transfer.target?.accountId ?? ''] ??
             transfer.target?.accountId ??
-            "—"}
+            '—'}
         </span>
       </div>
       {#if transfer.fees.length > 0}
@@ -379,8 +379,8 @@
       />
       <span class="cross-arrow" aria-hidden="true">➜</span>
       <MoneyDisplay
-        amount={parseFloat(transfer.target?.amount ?? "0").toFixed(2)}
-        currency={transfer.target?.currency ?? ""}
+        amount={parseFloat(transfer.target?.amount ?? '0').toFixed(2)}
+        currency={transfer.target?.currency ?? ''}
       />
     {:else if from.currency === to.currency}
       <MoneyDisplay
@@ -427,9 +427,9 @@
   {onaccountcreated}
   {ondeleted}
   onsaved={(updates) => {
-    localDate = updates.date;
-    localDescription = updates.description ?? "";
-    localPostings = updates.postings;
+    localDate = updates.date
+    localDescription = updates.description ?? ''
+    localPostings = updates.postings
   }}
 />
 
@@ -507,7 +507,7 @@
   }
 
   .desc-sizer::after {
-    content: attr(data-value) " ";
+    content: attr(data-value) ' ';
     grid-area: 1 / 1;
     visibility: hidden;
     white-space: pre;

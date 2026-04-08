@@ -15,7 +15,11 @@
 
 <div class="money">
   <span class="currency">{flag ? `${flag} ` : ''}{currency}</span>
-  <div class="amount-row" class:flow-in={flowDirection === 'in'} class:flow-out={flowDirection === 'out'}>
+  <div
+    class="amount-row"
+    class:flow-in={flowDirection === 'in'}
+    class:flow-out={flowDirection === 'out'}
+  >
     {#if flowDirection === 'in'}<Icon name="arrow-right" size={13} />{/if}
     <span class="amount">{amount}</span>
     {#if flowDirection === 'out'}<Icon name="arrow-right" size={13} />{/if}

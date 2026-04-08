@@ -29,12 +29,24 @@
     <form onsubmit={handleSubmit}>
       <div class="field">
         <label for="email">Email</label>
-        <input id="email" type="email" bind:value={email} required autocomplete="email" />
+        <input
+          id="email"
+          type="email"
+          bind:value={email}
+          required
+          autocomplete="email"
+        />
       </div>
 
       <div class="field">
         <label for="password">Password</label>
-        <input id="password" type="password" bind:value={password} required autocomplete="current-password" />
+        <input
+          id="password"
+          type="password"
+          bind:value={password}
+          required
+          autocomplete="current-password"
+        />
       </div>
 
       {#if error}
@@ -46,7 +58,9 @@
       </div>
     </form>
 
-    <p class="switch-link">Don't have an account? <a href="/signup">Sign up</a></p>
+    <p class="switch-link">
+      Don't have an account? <a href="/signup">Sign up</a>
+    </p>
   </div>
 </div>
 
@@ -63,7 +77,11 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: 3px var(--sp-xs);
-    background: linear-gradient(to right, var(--color-titlebar-from), var(--color-titlebar-to));
+    background: linear-gradient(
+      to right,
+      var(--color-titlebar-from),
+      var(--color-titlebar-to)
+    );
     color: var(--color-titlebar-text);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);

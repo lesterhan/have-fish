@@ -1,18 +1,18 @@
 <script lang="ts">
-  import { untrack } from "svelte";
-  import Modal from "$lib/components/ui/Modal.svelte";
-  import Button from "$lib/components/ui/Button.svelte";
-  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte";
-  import { createTransaction, type Account, type Transaction } from "$lib/api";
-  import { toISODate } from "$lib/date";
+  import { untrack } from 'svelte'
+  import Modal from '$lib/components/ui/Modal.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import { createTransaction, type Account, type Transaction } from '$lib/api'
+  import { toISODate } from '$lib/date'
 
   interface Props {
-    accounts: Account[];
-    defaultOffsetAccountId?: string | null;
-    open: boolean;
-    onclose: () => void;
-    oncreated?: (tx: Transaction) => void;
-    onaccountcreated?: (account: Account) => void;
+    accounts: Account[]
+    defaultOffsetAccountId?: string | null
+    open: boolean
+    onclose: () => void
+    oncreated?: (tx: Transaction) => void
+    onaccountcreated?: (account: Account) => void
   }
 
   let {
@@ -22,76 +22,89 @@
     onclose,
     oncreated,
     onaccountcreated,
-  }: Props = $props();
+  }: Props = $props()
 
   // --- Form state ---
   // Two fixed postings — amounts are independent so the balance indicator is meaningful.
-  let date = $state(toISODate(new Date()));
-  let description = $state("");
+  let date = $state(toISODate(new Date()))
+  let description = $state('')
   let postings = $state([
-    { accountId: "", amount: "", currency: "CAD" },
-    { accountId: untrack(() => defaultOffsetAccountId ?? ""), amount: "", currency: "CAD" },
-  ]);
-  let submitting = $state(false);
-  let submitError = $state("");
+    { accountId: '', amount: '', currency: 'CAD' },
+    {
+      accountId: untrack(() => defaultOffsetAccountId ?? ''),
+      amount: '',
+      currency: 'CAD',
+    },
+  ])
+  let submitting = $state(false)
+  let submitError = $state('')
 
   // Reset all fields whenever the modal opens.
   $effect(() => {
     if (open) {
-      date = toISODate(new Date());
-      description = "";
+      date = toISODate(new Date())
+      description = ''
       postings = [
-        { accountId: "", amount: "", currency: "CAD" },
-        { accountId: defaultOffsetAccountId ?? "", amount: "", currency: "CAD" },
-      ];
-      submitting = false;
-      submitError = "";
+        { accountId: '', amount: '', currency: 'CAD' },
+        {
+          accountId: defaultOffsetAccountId ?? '',
+          amount: '',
+          currency: 'CAD',
+        },
+      ]
+      submitting = false
+      submitError = ''
     }
-  });
+  })
 
   // Per-currency balance — same logic as TransactionEditModal.
   // Skip unparseable amounts while the user is still typing.
   let balances = $derived.by(() => {
-    const map = new Map<string, number>();
+    const map = new Map<string, number>()
     for (const p of postings) {
-      const n = parseFloat(p.amount);
-      if (!isNaN(n)) map.set(p.currency, (map.get(p.currency) ?? 0) + n);
+      const n = parseFloat(p.amount)
+      if (!isNaN(n)) map.set(p.currency, (map.get(p.currency) ?? 0) + n)
     }
-    return map;
-  });
+    return map
+  })
 
   let balanced = $derived(
-    balances.size > 0 && [...balances.values()].every((v) => Math.abs(v) < 0.005)
-  );
+    balances.size > 0 &&
+      [...balances.values()].every((v) => Math.abs(v) < 0.005),
+  )
 
   let canSubmit = $derived(
-    balanced &&
-    postings.every((p) => p.accountId !== "") &&
-    !submitting
-  );
+    balanced && postings.every((p) => p.accountId !== '') && !submitting,
+  )
 
   function addPosting() {
-    postings.push({ accountId: "", amount: "", currency: postings[0]?.currency ?? "CAD" });
+    postings.push({
+      accountId: '',
+      amount: '',
+      currency: postings[0]?.currency ?? 'CAD',
+    })
   }
 
   function removePosting(i: number) {
-    postings.splice(i, 1);
+    postings.splice(i, 1)
   }
 
   function handleCurrencyInput(e: Event, i: number) {
-    postings[i].currency = (e.currentTarget as HTMLInputElement).value.toUpperCase();
+    postings[i].currency = (
+      e.currentTarget as HTMLInputElement
+    ).value.toUpperCase()
   }
 
   function handleAmountBlur(i: number) {
-    const n = parseFloat(postings[i].amount);
-    if (!isNaN(n) && postings[i].amount.trim() !== "") {
-      postings[i].amount = n.toFixed(2);
+    const n = parseFloat(postings[i].amount)
+    if (!isNaN(n) && postings[i].amount.trim() !== '') {
+      postings[i].amount = n.toFixed(2)
     }
   }
 
   async function handleSubmit() {
-    submitting = true;
-    submitError = "";
+    submitting = true
+    submitError = ''
     try {
       const result = await createTransaction({
         date,
@@ -101,20 +114,19 @@
           amount: p.amount,
           currency: p.currency,
         })),
-      });
-      oncreated?.(result);
-      onclose();
+      })
+      oncreated?.(result)
+      onclose()
     } catch (e) {
-      submitError = e instanceof Error ? e.message : "Failed to add transaction";
+      submitError = e instanceof Error ? e.message : 'Failed to add transaction'
     } finally {
-      submitting = false;
+      submitting = false
     }
   }
 </script>
 
 <Modal title="New Transaction" {open} {onclose}>
   <div class="modal-body">
-
     <!-- Date + description — always-visible inputs (creation form, not edit-in-place) -->
     <div class="header-row">
       <input
@@ -141,7 +153,9 @@
             <AccountPathInput
               {accounts}
               bind:value={posting.accountId}
-              oncreate={(a) => { onaccountcreated?.(a); }}
+              oncreate={(a) => {
+                onaccountcreated?.(a)
+              }}
             />
           </div>
           <input
@@ -168,8 +182,8 @@
             title="Remove posting"
             aria-label="Remove posting"
             disabled={postings.length <= 2}
-            onclick={() => removePosting(i)}
-          >×</button>
+            onclick={() => removePosting(i)}>×</button
+          >
         </div>
       {/each}
     </div>
@@ -188,7 +202,8 @@
           {#each [...balances.entries()] as [cur, total]}
             {#if Math.abs(total) >= 0.005}
               <span class="balance-bad" title="Balance must be zero">
-                {total > 0 ? "+" : ""}{total.toFixed(2)} {cur}
+                {total > 0 ? '+' : ''}{total.toFixed(2)}
+                {cur}
               </span>
             {/if}
           {/each}
@@ -204,11 +219,10 @@
       <div class="footer-actions">
         <Button disabled={submitting} onclick={onclose}>Cancel</Button>
         <Button variant="primary" disabled={!canSubmit} onclick={handleSubmit}>
-          {submitting ? "Adding…" : "Add"}
+          {submitting ? 'Adding…' : 'Add'}
         </Button>
       </div>
     </div>
-
   </div>
 </Modal>
 

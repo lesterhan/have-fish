@@ -1,81 +1,81 @@
 <script lang="ts">
-  import Panel from "../ui/Panel.svelte";
-  import Button from "../ui/Button.svelte";
-  import Icon from "../ui/Icon.svelte";
-  import Toggle from "../ui/Toggle.svelte";
-  import AccountPathInput from "../accounts/AccountPathInput.svelte";
+  import Panel from '../ui/Panel.svelte'
+  import Button from '../ui/Button.svelte'
+  import Icon from '../ui/Icon.svelte'
+  import Toggle from '../ui/Toggle.svelte'
+  import AccountPathInput from '../accounts/AccountPathInput.svelte'
   import {
     updateParser,
     type CsvParser,
     type Account,
     type ColumnMapping,
-  } from "$lib/api";
-  import { tooltip } from "$lib/tooltip";
+  } from '$lib/api'
+  import { tooltip } from '$lib/tooltip'
 
   interface Props {
-    parser: CsvParser;
-    accounts: Account[];
-    onSuccess?: (updated: CsvParser) => void;
-    onCancel?: () => void;
-    onAccountCreated?: (account: Account) => void;
+    parser: CsvParser
+    accounts: Account[]
+    onSuccess?: (updated: CsvParser) => void
+    onCancel?: () => void
+    onAccountCreated?: (account: Account) => void
   }
 
   let { parser, accounts, onSuccess, onCancel, onAccountCreated }: Props =
-    $props();
+    $props()
 
   // Derive available columns from the stored normalized header (pipe-separated)
-  let columns = $derived(parser.normalizedHeader.split("|").filter(Boolean));
+  let columns = $derived(parser.normalizedHeader.split('|').filter(Boolean))
 
   // Editable state — initialised empty, populated and re-synced by $effect below
-  let name = $state("");
-  let isMultiCurrency = $state(false);
-  let defaultAccountId = $state("");
-  let defaultFeeAccountId = $state("");
-  let mappingDate = $state("");
-  let mappingAmount = $state("");
-  let mappingDescription = $state("");
-  let mappingCurrency = $state("");
-  let mappingSignColumn = $state("");
-  let mappingSignNegativeValue = $state("");
-  let mappingSourceAmount = $state("");
-  let mappingSourceCurrency = $state("");
-  let mappingTargetAmount = $state("");
-  let mappingTargetCurrency = $state("");
-  let mappingFeeAmount = $state("");
-  let mappingFeeCurrency = $state("");
+  let name = $state('')
+  let isMultiCurrency = $state(false)
+  let defaultAccountId = $state('')
+  let defaultFeeAccountId = $state('')
+  let mappingDate = $state('')
+  let mappingAmount = $state('')
+  let mappingDescription = $state('')
+  let mappingCurrency = $state('')
+  let mappingSignColumn = $state('')
+  let mappingSignNegativeValue = $state('')
+  let mappingSourceAmount = $state('')
+  let mappingSourceCurrency = $state('')
+  let mappingTargetAmount = $state('')
+  let mappingTargetCurrency = $state('')
+  let mappingFeeAmount = $state('')
+  let mappingFeeCurrency = $state('')
 
   $effect(() => {
-    const m = parser.columnMapping as ColumnMapping;
-    name = parser.name;
-    isMultiCurrency = parser.isMultiCurrency;
-    defaultAccountId = parser.defaultAccountId ?? "";
-    defaultFeeAccountId = parser.defaultFeeAccountId ?? "";
-    mappingDate = m.date ?? "";
-    mappingAmount = m.amount ?? "";
-    mappingDescription = m.description ?? "";
-    mappingCurrency = m.currency ?? "";
-    mappingSignColumn = m.signColumn ?? "";
-    mappingSignNegativeValue = m.signNegativeValue ?? "";
-    mappingSourceAmount = m.sourceAmount ?? "";
-    mappingSourceCurrency = m.sourceCurrency ?? "";
-    mappingTargetAmount = m.targetAmount ?? "";
-    mappingTargetCurrency = m.targetCurrency ?? "";
-    mappingFeeAmount = m.feeAmount ?? "";
-    mappingFeeCurrency = m.feeCurrency ?? "";
-  });
+    const m = parser.columnMapping as ColumnMapping
+    name = parser.name
+    isMultiCurrency = parser.isMultiCurrency
+    defaultAccountId = parser.defaultAccountId ?? ''
+    defaultFeeAccountId = parser.defaultFeeAccountId ?? ''
+    mappingDate = m.date ?? ''
+    mappingAmount = m.amount ?? ''
+    mappingDescription = m.description ?? ''
+    mappingCurrency = m.currency ?? ''
+    mappingSignColumn = m.signColumn ?? ''
+    mappingSignNegativeValue = m.signNegativeValue ?? ''
+    mappingSourceAmount = m.sourceAmount ?? ''
+    mappingSourceCurrency = m.sourceCurrency ?? ''
+    mappingTargetAmount = m.targetAmount ?? ''
+    mappingTargetCurrency = m.targetCurrency ?? ''
+    mappingFeeAmount = m.feeAmount ?? ''
+    mappingFeeCurrency = m.feeCurrency ?? ''
+  })
 
-  let saving = $state(false);
-  let saveError = $state("");
+  let saving = $state(false)
+  let saveError = $state('')
 
   let valid = $derived(
     name.trim().length > 0 &&
       mappingDate.length > 0 &&
       mappingAmount.length > 0,
-  );
+  )
 
   async function handleSave() {
-    saving = true;
-    saveError = "";
+    saving = true
+    saveError = ''
     try {
       const columnMapping: ColumnMapping = {
         date: mappingDate,
@@ -94,19 +94,19 @@
           feeAmount: mappingFeeAmount || null,
           feeCurrency: mappingFeeCurrency || null,
         }),
-      };
+      }
       const updated = await updateParser(parser.id, {
         name: name.trim(),
         columnMapping,
         isMultiCurrency,
         defaultAccountId: defaultAccountId || null,
         defaultFeeAccountId: defaultFeeAccountId || null,
-      });
-      onSuccess?.(updated);
+      })
+      onSuccess?.(updated)
     } catch (e) {
-      saveError = e instanceof Error ? e.message : "Failed to save parser.";
+      saveError = e instanceof Error ? e.message : 'Failed to save parser.'
     } finally {
-      saving = false;
+      saving = false
     }
   }
 </script>
@@ -132,8 +132,8 @@
             bind:value={defaultAccountId}
             placeholder="Select or create…"
             oncreate={(a) => {
-              onAccountCreated?.(a);
-              defaultAccountId = a.id;
+              onAccountCreated?.(a)
+              defaultAccountId = a.id
             }}
           />
 
@@ -142,7 +142,7 @@
             <button
               type="button"
               class="tooltip-icon"
-              use:tooltip={"Enable for banks that encode transfers inline (e.g. Wise)."}
+              use:tooltip={'Enable for banks that encode transfers inline (e.g. Wise).'}
               aria-label="Enable for banks that encode transfers inline (e.g. Wise)."
               >?</button
             >
@@ -156,8 +156,8 @@
               bind:value={defaultFeeAccountId}
               placeholder="expenses:fees…"
               oncreate={(a) => {
-                onAccountCreated?.(a);
-                defaultFeeAccountId = a.id;
+                onAccountCreated?.(a)
+                defaultFeeAccountId = a.id
               }}
             />
           {/if}
@@ -197,7 +197,7 @@
             <button
               type="button"
               class="tooltip-icon"
-              use:tooltip={"For banks that put IN/OUT in a separate column (e.g. Wise)."}
+              use:tooltip={'For banks that put IN/OUT in a separate column (e.g. Wise).'}
               aria-label="For banks that put IN/OUT in a separate column (e.g. Wise)."
               >?</button
             >
@@ -284,7 +284,7 @@
           onclick={handleSave}
           disabled={saving || !valid}
         >
-          <Icon name="floppy" size={12} />{saving ? "Saving…" : "Save"}
+          <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
         </Button>
       </div>
     </div>

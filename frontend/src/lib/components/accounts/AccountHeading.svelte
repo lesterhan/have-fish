@@ -12,7 +12,10 @@
   function formatAmount(amount: string): string {
     const n = parseFloat(amount)
     if (isNaN(n)) return amount
-    return new Intl.NumberFormat('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 }).format(Math.abs(n))
+    return new Intl.NumberFormat('en-CA', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(Math.abs(n))
   }
 
   function isNegative(amount: string): boolean {
@@ -33,7 +36,9 @@
         {#each balances as b}
           <div class="balance-item">
             <span class="balance-currency">
-              {currencyFlag(b.currency) ? `${currencyFlag(b.currency)} ` : ''}{b.currency}
+              {currencyFlag(b.currency)
+                ? `${currencyFlag(b.currency)} `
+                : ''}{b.currency}
             </span>
             <span class="balance-amount">
               {isNegative(b.amount) ? '−' : ''}{formatAmount(b.amount)}

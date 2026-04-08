@@ -44,7 +44,9 @@
     {#if startingBalance.trim()}
       <div class="summary-row">
         <span class="summary-label">Starting balance</span>
-        <span class="summary-value">{startingBalance.trim()} {startingCurrency}</span>
+        <span class="summary-value"
+          >{startingBalance.trim()} {startingCurrency}</span
+        >
       </div>
       <div class="summary-row">
         <span class="summary-label">Balance date</span>
@@ -52,7 +54,8 @@
       </div>
       {#if !hasOffsetAccount}
         <p class="summary-warn">
-          No offset account set — starting balance will be skipped. Set one in Settings.
+          No offset account set — starting balance will be skipped. Set one in
+          Settings.
         </p>
       {/if}
     {/if}

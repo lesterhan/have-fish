@@ -1,95 +1,94 @@
 <script lang="ts">
-  import {
-    fetchTransactions,
-    fetchAccounts,
-    type Account,
-  } from "$lib/api";
-  import { settingsStore } from "$lib/settings.svelte";
-  import AddTransactionModal from "$lib/components/transactions/AddTransactionModal.svelte";
-  import Button from "$lib/components/ui/Button.svelte";
-  import Panel from "$lib/components/ui/Panel.svelte";
-  import { toISODate } from "$lib/date";
-  import { page } from "$app/state";
-  import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
-  import FilterPanel from "$lib/components/transactions/FilterPanel.svelte";
-  import TransactionRow from "$lib/components/transactions/TransactionRow.svelte";
-  import TransactionRowSkeleton from "$lib/components/transactions/TransactionRowSkeleton.svelte";
-  import Icon from "$lib/components/ui/Icon.svelte";
+  import { fetchTransactions, fetchAccounts, type Account } from '$lib/api'
+  import { settingsStore } from '$lib/settings.svelte'
+  import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
+  import Panel from '$lib/components/ui/Panel.svelte'
+  import { toISODate } from '$lib/date'
+  import { page } from '$app/state'
+  import { goto } from '$app/navigation'
+  import { onMount } from 'svelte'
+  import FilterPanel from '$lib/components/transactions/FilterPanel.svelte'
+  import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
+  import TransactionRowSkeleton from '$lib/components/transactions/TransactionRowSkeleton.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
 
   // Default range: today minus 30 days → today
   // Computed once at module load; stable for the lifetime of the page.
   function defaultRange() {
-    const today = new Date();
-    const from = new Date(today);
-    from.setDate(today.getDate() - 30);
+    const today = new Date()
+    const from = new Date(today)
+    from.setDate(today.getDate() - 30)
     return {
       from: toISODate(from),
       to: toISODate(today),
-    };
+    }
   }
-  const defaults = defaultRange();
+  const defaults = defaultRange()
 
   // Read from URL search params, fall back to defaults if absent.
-  let from = $derived(page.url.searchParams.get("from") ?? defaults.from);
-  let to = $derived(page.url.searchParams.get("to") ?? defaults.to);
+  let from = $derived(page.url.searchParams.get('from') ?? defaults.from)
+  let to = $derived(page.url.searchParams.get('to') ?? defaults.to)
   let sortDir = $derived(
-    (page.url.searchParams.get("dir") ?? "desc") as "asc" | "desc",
-  );
-  let accountPath = $derived(page.url.searchParams.get("accountPath") ?? "");
+    (page.url.searchParams.get('dir') ?? 'desc') as 'asc' | 'desc',
+  )
+  let accountPath = $derived(page.url.searchParams.get('accountPath') ?? '')
 
-  let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([]);
-  let accounts = $state<Account[]>([]);
-  let defaultOffsetAccountId = $state<string | null>(null);
-  let defaultConversionAccountId = $state<string | null>(null);
-  let loading = $state(true);
-  let addModalOpen = $state(false);
+  let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([])
+  let accounts = $state<Account[]>([])
+  let defaultOffsetAccountId = $state<string | null>(null)
+  let defaultConversionAccountId = $state<string | null>(null)
+  let loading = $state(true)
+  let addModalOpen = $state(false)
 
   // Re-fetch transactions whenever from/to/accountPath change.
   $effect(() => {
-    loading = true;
+    loading = true
     fetchTransactions({ from, to, accountPath: accountPath || undefined }).then(
       (txs) => {
-        transactions = txs;
-        loading = false;
+        transactions = txs
+        loading = false
       },
-    );
-  });
+    )
+  })
 
   let sortedTransactions = $derived(
     [...transactions].sort((a, b) => {
-      const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0;
-      return sortDir === "desc" ? -cmp : cmp;
+      const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0
+      return sortDir === 'desc' ? -cmp : cmp
     }),
-  );
+  )
 
   function navigate(params: Record<string, string>) {
-    const base: Record<string, string> = { from, to, dir: sortDir };
-    if (accountPath) base.accountPath = accountPath;
-    goto(`?${new URLSearchParams({ ...base, ...params })}`);
+    const base: Record<string, string> = { from, to, dir: sortDir }
+    if (accountPath) base.accountPath = accountPath
+    goto(`?${new URLSearchParams({ ...base, ...params })}`)
   }
 
   function handleApply(newFrom: string, newTo: string) {
-    navigate({ from: newFrom, to: newTo });
+    navigate({ from: newFrom, to: newTo })
   }
 
-  function handleSortChange(dir: "asc" | "desc") {
-    navigate({ dir });
+  function handleSortChange(dir: 'asc' | 'desc') {
+    navigate({ dir })
   }
 
   function handleAccountPathChange(path: string) {
-    const base: Record<string, string> = { from, to, dir: sortDir };
-    if (path) base.accountPath = path;
-    goto(`?${new URLSearchParams(base)}`);
+    const base: Record<string, string> = { from, to, dir: sortDir }
+    if (path) base.accountPath = path
+    goto(`?${new URLSearchParams(base)}`)
   }
 
   // Accounts and settings don't depend on the date range — fetch once.
   onMount(async () => {
-    const [accts, settings] = await Promise.all([fetchAccounts(), settingsStore.load()])
+    const [accts, settings] = await Promise.all([
+      fetchAccounts(),
+      settingsStore.load(),
+    ])
     accounts = accts
     defaultOffsetAccountId = settings.defaultOffsetAccountId
     defaultConversionAccountId = settings.defaultConversionAccountId
-  });
+  })
 </script>
 
 <AddTransactionModal
@@ -98,8 +97,8 @@
   open={addModalOpen}
   onclose={() => (addModalOpen = false)}
   oncreated={(tx) => {
-    const txDate = tx.date.substring(0, 10);
-    if (txDate >= from && txDate <= to) transactions = [tx, ...transactions];
+    const txDate = tx.date.substring(0, 10)
+    if (txDate >= from && txDate <= to) transactions = [tx, ...transactions]
   }}
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
@@ -116,9 +115,15 @@
   />
   <Panel title="Operations">
     <div class="ops-body">
-      <Button onclick={() => (addModalOpen = true)}><Icon name="plus" /> New</Button>
-      <a href="/import" class="btn-link"><Button><Icon name="import" /> Import</Button></a>
-      <Button disabled tooltip="Coming soon"><Icon name="export" /> Export</Button>
+      <Button onclick={() => (addModalOpen = true)}
+        ><Icon name="plus" /> New</Button
+      >
+      <a href="/import" class="btn-link"
+        ><Button><Icon name="import" /> Import</Button></a
+      >
+      <Button disabled tooltip="Coming soon"
+        ><Icon name="export" /> Export</Button
+      >
     </div>
   </Panel>
 </div>

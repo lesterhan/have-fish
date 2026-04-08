@@ -1,58 +1,58 @@
 <script lang="ts">
-  import "../styles/tokens.css";
-  import "../styles/base.css";
-  import Sidebar from "$lib/components/Sidebar.svelte";
-  import { useSession } from "$lib/auth";
-  import { toast } from "$lib/toast.svelte";
-  import { fetchAccountBalances } from "$lib/api";
-  import type { AccountBalance, UserSettings } from "$lib/api";
-  import { settingsStore } from "$lib/settings.svelte";
-  import Icon from "$lib/components/ui/Icon.svelte";
+  import '../styles/tokens.css'
+  import '../styles/base.css'
+  import Sidebar from '$lib/components/Sidebar.svelte'
+  import { useSession } from '$lib/auth'
+  import { toast } from '$lib/toast.svelte'
+  import { fetchAccountBalances } from '$lib/api'
+  import type { AccountBalance, UserSettings } from '$lib/api'
+  import { settingsStore } from '$lib/settings.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
 
-  let { children } = $props();
+  let { children } = $props()
 
-  const session = useSession();
+  const session = useSession()
 
-  let maximized = $state(true);
-  let showQuitDialog = $state(false);
-  let mobileSidebarOpen = $state(false);
+  let maximized = $state(true)
+  let showQuitDialog = $state(false)
+  let mobileSidebarOpen = $state(false)
 
   const settingsDefault: UserSettings = {
-    id: "",
-    userId: "",
+    id: '',
+    userId: '',
     defaultOffsetAccountId: null,
     defaultConversionAccountId: null,
     defaultAdjustmentsAccountId: null,
-    defaultAssetsRootPath: "assets",
-    defaultLiabilitiesRootPath: "liabilities",
-    defaultExpensesRootPath: "expenses",
-    defaultEquityRootPath: "equity",
+    defaultAssetsRootPath: 'assets',
+    defaultLiabilitiesRootPath: 'liabilities',
+    defaultExpensesRootPath: 'expenses',
+    defaultEquityRootPath: 'equity',
     preferences: {},
-    createdAt: "",
-    updatedAt: "",
-  };
+    createdAt: '',
+    updatedAt: '',
+  }
 
   // Sidebar data — defaults let the sidebar render immediately; populated after fetch
-  let sidebarAccounts = $state<AccountBalance[]>([]);
-  let sidebarSettings = $derived(settingsStore.value ?? settingsDefault);
+  let sidebarAccounts = $state<AccountBalance[]>([])
+  let sidebarSettings = $derived(settingsStore.value ?? settingsDefault)
 
   // $effect re-runs when $session.data changes, so the fetch fires as soon as
   // Better Auth resolves the session — not at mount time when it may still be null.
   // The fetched flag prevents re-fetching if the session object is refreshed.
-  let sidebarFetched = false;
+  let sidebarFetched = false
   $effect(() => {
     if ($session.data && !sidebarFetched) {
-      sidebarFetched = true;
+      sidebarFetched = true
       Promise.all([fetchAccountBalances(), settingsStore.load()]).then(
         ([accts]) => {
-          sidebarAccounts = accts;
+          sidebarAccounts = accts
         },
-      );
+      )
     }
-  });
+  })
 
   function closeMobileSidebar() {
-    mobileSidebarOpen = false;
+    mobileSidebarOpen = false
   }
 </script>
 
@@ -84,7 +84,7 @@
           aria-label="Maximize"
           onclick={() => (maximized = !maximized)}
         >
-          <Icon name={maximized ? "restore-window" : "maximize"} size={12} />
+          <Icon name={maximized ? 'restore-window' : 'maximize'} size={12} />
         </button>
         <button
           class="chrome-btn close"

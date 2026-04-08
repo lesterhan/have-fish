@@ -37,7 +37,8 @@
   const NEXT: Record<WizardStep, WizardStep | (() => WizardStep)> = {
     [STEP.ACCOUNT]: STEP.PARSER_UPLOAD,
     [STEP.PARSER_UPLOAD]: STEP.PARSER_COLUMNS,
-    [STEP.PARSER_COLUMNS]: () => (isMultiCurrency ? STEP.PARSER_MULTICURRENCY : STEP.CONFIRM),
+    [STEP.PARSER_COLUMNS]: () =>
+      isMultiCurrency ? STEP.PARSER_MULTICURRENCY : STEP.CONFIRM,
     [STEP.PARSER_MULTICURRENCY]: STEP.CONFIRM,
     [STEP.CONFIRM]: STEP.CONFIRM,
   }
@@ -48,7 +49,11 @@
     [STEP.PARSER_COLUMNS]: STEP.PARSER_UPLOAD,
     [STEP.PARSER_MULTICURRENCY]: STEP.PARSER_COLUMNS,
     [STEP.CONFIRM]: () =>
-      parserSkipped ? STEP.PARSER_UPLOAD : isMultiCurrency ? STEP.PARSER_MULTICURRENCY : STEP.PARSER_COLUMNS,
+      parserSkipped
+        ? STEP.PARSER_UPLOAD
+        : isMultiCurrency
+          ? STEP.PARSER_MULTICURRENCY
+          : STEP.PARSER_COLUMNS,
   }
 
   function next() {
@@ -81,7 +86,9 @@
   let rootPrefix = $derived.by(() => {
     const s = settingsStore.value
     if (!s) return ''
-    return type === 'asset' ? s.defaultAssetsRootPath + ':' : s.defaultLiabilitiesRootPath + ':'
+    return type === 'asset'
+      ? s.defaultAssetsRootPath + ':'
+      : s.defaultLiabilitiesRootPath + ':'
   })
 
   // --- Step 1 state ---
@@ -130,7 +137,11 @@
   let detectedHeader = $state('')
 
   function normalizeColumn(col: string): string {
-    return col.toLowerCase().replace(/"/g, '').replace(/\s/g, '').replace(/\(.*\)/g, '')
+    return col
+      .toLowerCase()
+      .replace(/"/g, '')
+      .replace(/\s/g, '')
+      .replace(/\(.*\)/g, '')
   }
 
   function buildNormalizedHeader(cols: string[]): string {
@@ -143,7 +154,8 @@
     const reader = new FileReader()
     reader.onload = (ev) => {
       const text = ev.target?.result as string
-      const firstLine = text.split(/\r?\n/).find((l) => l.trim().length > 0) ?? ''
+      const firstLine =
+        text.split(/\r?\n/).find((l) => l.trim().length > 0) ?? ''
       detectedHeader = firstLine
       const parsed = firstLine
         .split(',')
@@ -185,8 +197,12 @@
     mappingSignNegativeValue = ''
   }
 
-  let parserUploadValid = $derived(parserName.trim().length > 0 && columns.length > 0)
-  let parserColumnsValid = $derived(mappingDate.length > 0 && mappingAmount.length > 0)
+  let parserUploadValid = $derived(
+    parserName.trim().length > 0 && columns.length > 0,
+  )
+  let parserColumnsValid = $derived(
+    mappingDate.length > 0 && mappingAmount.length > 0,
+  )
   let parserMultiCurrencyValid = $derived(
     mappingSourceAmount.length > 0 &&
       mappingSourceCurrency.length > 0 &&
@@ -227,14 +243,24 @@
             date: startingDate,
             description: 'Opening balance',
             postings: [
-              { accountId: account.id, amount: balanceAmount, currency: startingCurrency },
-              { accountId: offsetId, amount: String(-parseFloat(balanceAmount)), currency: startingCurrency },
+              {
+                accountId: account.id,
+                amount: balanceAmount,
+                currency: startingCurrency,
+              },
+              {
+                accountId: offsetId,
+                amount: String(-parseFloat(balanceAmount)),
+                currency: startingCurrency,
+              },
             ],
           }),
         })
         if (!txRes.ok) {
           const err = await txRes.json().catch(() => ({}))
-          throw new Error(err.error ?? 'Account created but failed to post starting balance.')
+          throw new Error(
+            err.error ?? 'Account created but failed to post starting balance.',
+          )
         }
       }
 
@@ -245,7 +271,9 @@
           description: mappingDescription || null,
           currency: mappingCurrency || null,
           signColumn: mappingSignColumn || null,
-          signNegativeValue: mappingSignColumn ? (mappingSignNegativeValue || null) : null,
+          signNegativeValue: mappingSignColumn
+            ? mappingSignNegativeValue || null
+            : null,
           ...(isMultiCurrency && {
             sourceAmount: mappingSourceAmount || null,
             sourceCurrency: mappingSourceCurrency || null,
@@ -269,7 +297,9 @@
         })
         if (!parserRes.ok) {
           const err = await parserRes.json().catch(() => ({}))
-          throw new Error(err.error ?? 'Account created but failed to save parser.')
+          throw new Error(
+            err.error ?? 'Account created but failed to save parser.',
+          )
         }
       }
 
@@ -349,16 +379,26 @@
     </div>
     <div class="footer-right">
       {#if step === STEP.ACCOUNT}
-        <Button variant="primary" onclick={next} disabled={!step1Valid}>Next ▶️</Button>
+        <Button variant="primary" onclick={next} disabled={!step1Valid}
+          >Next ▶️</Button
+        >
       {:else if step === STEP.PARSER_UPLOAD}
         <Button onclick={skip}>Skip</Button>
-        <Button variant="primary" onclick={next} disabled={!parserUploadValid}>Next ▶️</Button>
+        <Button variant="primary" onclick={next} disabled={!parserUploadValid}
+          >Next ▶️</Button
+        >
       {:else if step === STEP.PARSER_COLUMNS}
         <Button onclick={skip}>Skip</Button>
-        <Button variant="primary" onclick={next} disabled={!parserColumnsValid}>Next ▶️</Button>
+        <Button variant="primary" onclick={next} disabled={!parserColumnsValid}
+          >Next ▶️</Button
+        >
       {:else if step === STEP.PARSER_MULTICURRENCY}
         <Button onclick={skip}>Skip</Button>
-        <Button variant="primary" onclick={next} disabled={!parserMultiCurrencyValid}>Next ▶️</Button>
+        <Button
+          variant="primary"
+          onclick={next}
+          disabled={!parserMultiCurrencyValid}>Next ▶️</Button
+        >
       {:else if step === STEP.CONFIRM}
         <Button variant="primary" onclick={handleConfirm} disabled={submitting}>
           {submitting ? 'Creating…' : 'Confirm'}

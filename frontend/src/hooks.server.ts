@@ -10,17 +10,18 @@ export const handle: Handle = async ({ event, resolve }) => {
     const request = new Request(url, {
       method: event.request.method,
       headers: event.request.headers,
-      body: ['GET', 'HEAD'].includes(event.request.method) ? undefined : event.request.body,
+      body: ['GET', 'HEAD'].includes(event.request.method)
+        ? undefined
+        : event.request.body,
       // @ts-expect-error — duplex required for streaming request bodies in Node 18+
       duplex: 'half',
     })
     return fetch(request)
   }
 
-  const response = await fetch(
-    `${INTERNAL_API_URL}/api/auth/get-session`,
-    { headers: { cookie: event.request.headers.get('cookie') ?? '' } }
-  )
+  const response = await fetch(`${INTERNAL_API_URL}/api/auth/get-session`, {
+    headers: { cookie: event.request.headers.get('cookie') ?? '' },
+  })
 
   if (response.ok) {
     event.locals.session = await response.json()

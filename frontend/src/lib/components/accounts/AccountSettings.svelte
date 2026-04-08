@@ -22,7 +22,9 @@
     if (saving) return
     saving = true
     try {
-      const updated = await updateAccount(account.id, { name: nameValue.trim() || null })
+      const updated = await updateAccount(account.id, {
+        name: nameValue.trim() || null,
+      })
       onupdated(updated)
     } finally {
       saving = false
@@ -60,7 +62,11 @@
     <div class="setting-row">
       <label class="setting-label">Sidebar visibility</label>
       <div class="setting-control">
-        <button class="action-btn" class:active={hidden} onclick={ontogglehidden}>
+        <button
+          class="action-btn"
+          class:active={hidden}
+          onclick={ontogglehidden}
+        >
           {hidden ? 'Hidden — click to show' : 'Visible — click to hide'}
         </button>
       </div>
@@ -174,7 +180,9 @@
     padding: 2px var(--sp-sm);
     cursor: pointer;
     box-shadow: var(--shadow-raised);
-    transition: box-shadow var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+    transition:
+      box-shadow var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
   }
 
   .action-btn:hover {

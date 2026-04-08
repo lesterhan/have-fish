@@ -57,16 +57,18 @@
 
   let confirmDisabled = $derived(
     loading ||
-    rowStates.every((r) => r.skipped) ||
-    missingPaths.length > 0 ||
-    (!preview.isMultiCurrency && !fromAccountId) ||
-    rowStates.some((row, i) => {
-      if (row.skipped) return false
-      const tx = preview.transactions[i]
-      if (tx.isTransfer === true) return !row.conversionAccountId || !row.feeAccountId
-      if (tx.isTransfer === 'same-currency') return !row.feeAccountId || !row.offsetAccountId
-      return !row.offsetAccountId
-    })
+      rowStates.every((r) => r.skipped) ||
+      missingPaths.length > 0 ||
+      (!preview.isMultiCurrency && !fromAccountId) ||
+      rowStates.some((row, i) => {
+        if (row.skipped) return false
+        const tx = preview.transactions[i]
+        if (tx.isTransfer === true)
+          return !row.conversionAccountId || !row.feeAccountId
+        if (tx.isTransfer === 'same-currency')
+          return !row.feeAccountId || !row.offsetAccountId
+        return !row.offsetAccountId
+      }),
   )
 </script>
 
@@ -89,7 +91,9 @@
 
     {#if preview.errors.length > 0}
       <div class="parse-errors">
-        <p>{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
+        <p>
+          {preview.errors.length} row(s) could not be parsed and will be skipped.
+        </p>
         <ul>
           {#each preview.errors as e}
             <li>Row {e.row}: {e.reason}</li>
@@ -104,15 +108,22 @@
         {#each missingPaths as path}
           <span class="missing-account">
             <code>{path}</code>
-            <button class="create-btn" onclick={() => oncreatemissing(path)}>Create</button>
+            <button class="create-btn" onclick={() => oncreatemissing(path)}
+              >Create</button
+            >
           </span>
         {/each}
-        <button class="create-all-btn" onclick={oncreateallmissing}>Create all</button>
+        <button class="create-all-btn" onclick={oncreateallmissing}
+          >Create all</button
+        >
       </div>
     {/if}
 
     <div class="liability-bar">
-      <Toggle bind:checked={importAsLiabilities} label="Import as liabilities" />
+      <Toggle
+        bind:checked={importAsLiabilities}
+        label="Import as liabilities"
+      />
     </div>
 
     <div class="table-container">
@@ -134,53 +145,107 @@
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span class="dup-badge" title="Possible duplicate: {tx.possibleDuplicate.date} {tx.possibleDuplicate.amount} {tx.possibleDuplicate.currency}">dup</span>
+                    <span
+                      class="dup-badge"
+                      title="Possible duplicate: {tx.possibleDuplicate.date} {tx
+                        .possibleDuplicate.amount} {tx.possibleDuplicate
+                        .currency}">dup</span
+                    >
                   {/if}
                 </td>
                 <td>{tx.description ?? '—'}</td>
                 <td class="cell-transfer-amount">
-                  <span class="transfer-from">{tx.sourceAmount} {tx.sourceCurrency}</span>
+                  <span class="transfer-from"
+                    >{tx.sourceAmount} {tx.sourceCurrency}</span
+                  >
                   <span class="transfer-arrow">→</span>
-                  <span class="transfer-to">{tx.targetAmount} {tx.targetCurrency}</span>
+                  <span class="transfer-to"
+                    >{tx.targetAmount} {tx.targetCurrency}</span
+                  >
                   {#if tx.feeAmount}
-                    <span class="transfer-fee">fee: {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}</span>
+                    <span class="transfer-fee"
+                      >fee: {tx.feeAmount}
+                      {tx.feeCurrency ?? tx.sourceCurrency}</span
+                    >
                   {/if}
                 </td>
                 <td class="cell-offset">
                   <div class="transfer-accounts">
-                    <AccountPathInput {accounts} bind:value={rowStates[i].conversionAccountId} placeholder="equity:conversion…" oncreate={onaccountcreated} />
-                    <AccountPathInput {accounts} bind:value={rowStates[i].feeAccountId} placeholder="expenses:fees…" oncreate={onaccountcreated} />
+                    <AccountPathInput
+                      {accounts}
+                      bind:value={rowStates[i].conversionAccountId}
+                      placeholder="equity:conversion…"
+                      oncreate={onaccountcreated}
+                    />
+                    <AccountPathInput
+                      {accounts}
+                      bind:value={rowStates[i].feeAccountId}
+                      placeholder="expenses:fees…"
+                      oncreate={onaccountcreated}
+                    />
                   </div>
                 </td>
-                <td class="cell-skip"><input type="checkbox" bind:checked={rowStates[i].skipped} /></td>
+                <td class="cell-skip"
+                  ><input
+                    type="checkbox"
+                    bind:checked={rowStates[i].skipped}
+                  /></td
+                >
               </tr>
             {:else if tx.isTransfer === 'same-currency'}
               <tr class="row-transfer" class:row-skipped={rowStates[i].skipped}>
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span class="dup-badge" title="Possible duplicate: {tx.possibleDuplicate.date} {tx.possibleDuplicate.amount} {tx.possibleDuplicate.currency}">dup</span>
+                    <span
+                      class="dup-badge"
+                      title="Possible duplicate: {tx.possibleDuplicate.date} {tx
+                        .possibleDuplicate.amount} {tx.possibleDuplicate
+                        .currency}">dup</span
+                    >
                   {/if}
                 </td>
                 <td>{tx.description ?? '—'}</td>
                 <td class="cell-transfer-amount">
                   <span class="transfer-to">+{tx.amount} {tx.currency}</span>
-                  <span class="transfer-fee">fee: {tx.feeAmount} {tx.currency}</span>
+                  <span class="transfer-fee"
+                    >fee: {tx.feeAmount} {tx.currency}</span
+                  >
                 </td>
                 <td class="cell-offset">
                   <div class="transfer-accounts">
-                    <AccountPathInput {accounts} bind:value={rowStates[i].offsetAccountId} placeholder="Source account…" oncreate={onaccountcreated} />
-                    <AccountPathInput {accounts} bind:value={rowStates[i].feeAccountId} placeholder="expenses:fees…" oncreate={onaccountcreated} />
+                    <AccountPathInput
+                      {accounts}
+                      bind:value={rowStates[i].offsetAccountId}
+                      placeholder="Source account…"
+                      oncreate={onaccountcreated}
+                    />
+                    <AccountPathInput
+                      {accounts}
+                      bind:value={rowStates[i].feeAccountId}
+                      placeholder="expenses:fees…"
+                      oncreate={onaccountcreated}
+                    />
                   </div>
                 </td>
-                <td class="cell-skip"><input type="checkbox" bind:checked={rowStates[i].skipped} /></td>
+                <td class="cell-skip"
+                  ><input
+                    type="checkbox"
+                    bind:checked={rowStates[i].skipped}
+                  /></td
+                >
               </tr>
             {:else}
               <tr class:row-skipped={rowStates[i].skipped}>
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span class="dup-badge" title="Possible duplicate: {tx.possibleDuplicate.date} {tx.possibleDuplicate.amount} {tx.possibleDuplicate.currency}">dup</span>
+                    <span
+                      class="dup-badge"
+                      title="Possible duplicate: {tx.possibleDuplicate.date} {tx
+                        .possibleDuplicate.amount} {tx.possibleDuplicate
+                        .currency}">dup</span
+                    >
                   {/if}
                 </td>
                 <td>{tx.description ?? '—'}</td>
@@ -189,13 +254,28 @@
                   class:positive={parseFloat(displayAmount(tx.amount)) > 0}
                   class:negative={parseFloat(displayAmount(tx.amount)) < 0}
                 >
-                  {displayAmount(tx.amount)}{#if preview.isMultiCurrency}{tx.currency ?? defaultCurrency}{/if}
+                  {displayAmount(
+                    tx.amount,
+                  )}{#if preview.isMultiCurrency}{tx.currency ??
+                      defaultCurrency}{/if}
                 </td>
-                {#if !preview.isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
+                {#if !preview.isMultiCurrency}<td
+                    >{tx.currency ?? defaultCurrency}</td
+                  >{/if}
                 <td class="cell-offset">
-                  <AccountPathInput {accounts} bind:value={rowStates[i].offsetAccountId} placeholder="Select or create…" oncreate={onaccountcreated} />
+                  <AccountPathInput
+                    {accounts}
+                    bind:value={rowStates[i].offsetAccountId}
+                    placeholder="Select or create…"
+                    oncreate={onaccountcreated}
+                  />
                 </td>
-                <td class="cell-skip"><input type="checkbox" bind:checked={rowStates[i].skipped} /></td>
+                <td class="cell-skip"
+                  ><input
+                    type="checkbox"
+                    bind:checked={rowStates[i].skipped}
+                  /></td
+                >
               </tr>
             {/if}
           {/each}
@@ -206,7 +286,9 @@
 
   <div class="panel-actions">
     <p class="summary">
-      {readyCount} transaction(s) ready to import{skippedCount > 0 ? `, ${skippedCount} skipped` : ''}.
+      {readyCount} transaction(s) ready to import{skippedCount > 0
+        ? `, ${skippedCount} skipped`
+        : ''}.
     </p>
     {#if error}
       <p class="error">{error}</p>
@@ -367,10 +449,19 @@
     background: var(--color-accent-light);
   }
 
-  .col-description { width: 100%; }
-  .col-amount { width: 7rem; }
-  .col-offset { min-width: 18rem; }
-  .col-skip { width: 3rem; text-align: center; }
+  .col-description {
+    width: 100%;
+  }
+  .col-amount {
+    width: 7rem;
+  }
+  .col-offset {
+    min-width: 18rem;
+  }
+  .col-skip {
+    width: 3rem;
+    text-align: center;
+  }
 
   .cell-mono {
     font-family: var(--font-mono);
@@ -383,14 +474,27 @@
     white-space: nowrap;
   }
 
-  .cell-amount.positive { color: var(--color-amount-positive); }
-  .cell-amount.negative { color: var(--color-amount-negative); }
+  .cell-amount.positive {
+    color: var(--color-amount-positive);
+  }
+  .cell-amount.negative {
+    color: var(--color-amount-negative);
+  }
 
-  .cell-offset { padding: 0; }
-  .cell-skip { text-align: center; vertical-align: middle; }
+  .cell-offset {
+    padding: 0;
+  }
+  .cell-skip {
+    text-align: center;
+    vertical-align: middle;
+  }
 
-  .row-skipped td { opacity: 0.4; }
-  .row-skipped .cell-skip { opacity: 1; }
+  .row-skipped td {
+    opacity: 0.4;
+  }
+  .row-skipped .cell-skip {
+    opacity: 1;
+  }
 
   .dup-badge {
     display: inline-block;
@@ -408,8 +512,12 @@
     letter-spacing: 0.02em;
   }
 
-  .row-transfer td { background: var(--color-window); }
-  .row-transfer:hover td { background: var(--color-accent-light); }
+  .row-transfer td {
+    background: var(--color-window);
+  }
+  .row-transfer:hover td {
+    background: var(--color-accent-light);
+  }
 
   .cell-transfer-amount {
     font-family: var(--font-mono);
@@ -417,9 +525,16 @@
     padding: var(--sp-xs) var(--sp-sm);
   }
 
-  .transfer-from { color: var(--color-amount-negative); }
-  .transfer-arrow { color: var(--color-text-muted); margin: 0 var(--sp-xs); }
-  .transfer-to { color: var(--color-amount-positive); }
+  .transfer-from {
+    color: var(--color-amount-negative);
+  }
+  .transfer-arrow {
+    color: var(--color-text-muted);
+    margin: 0 var(--sp-xs);
+  }
+  .transfer-to {
+    color: var(--color-amount-positive);
+  }
 
   .transfer-fee {
     display: block;

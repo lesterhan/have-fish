@@ -1,116 +1,116 @@
 <script lang="ts">
-  import Modal from "../ui/Modal.svelte";
-  import Button from "../ui/Button.svelte";
-  import Toggle from "../ui/Toggle.svelte";
-  import AccountPathInput from "../accounts/AccountPathInput.svelte";
-  import { tooltip } from "$lib/tooltip";
-  import { createParser, type Account, type CsvParser } from "$lib/api";
+  import Modal from '../ui/Modal.svelte'
+  import Button from '../ui/Button.svelte'
+  import Toggle from '../ui/Toggle.svelte'
+  import AccountPathInput from '../accounts/AccountPathInput.svelte'
+  import { tooltip } from '$lib/tooltip'
+  import { createParser, type Account, type CsvParser } from '$lib/api'
 
   interface Props {
-    open: boolean;
-    accounts: Account[];
-    onSuccess?: (parser: CsvParser) => void;
+    open: boolean
+    accounts: Account[]
+    onSuccess?: (parser: CsvParser) => void
   }
 
-  let { open = $bindable(), accounts, onSuccess }: Props = $props();
+  let { open = $bindable(), accounts, onSuccess }: Props = $props()
 
   const STEP = {
-    ACCOUNT_PICK: "account-pick",
-    PARSER_UPLOAD: "parser-upload",
-    PARSER_COLUMNS: "parser-columns",
-    PARSER_MULTICURRENCY: "parser-multicurrency",
-    CONFIRM: "confirm",
-  } as const;
+    ACCOUNT_PICK: 'account-pick',
+    PARSER_UPLOAD: 'parser-upload',
+    PARSER_COLUMNS: 'parser-columns',
+    PARSER_MULTICURRENCY: 'parser-multicurrency',
+    CONFIRM: 'confirm',
+  } as const
 
-  type WizardStep = (typeof STEP)[keyof typeof STEP];
+  type WizardStep = (typeof STEP)[keyof typeof STEP]
 
-  let step = $state<WizardStep>(STEP.ACCOUNT_PICK);
-  let parserSkipped = $state(false);
+  let step = $state<WizardStep>(STEP.ACCOUNT_PICK)
+  let parserSkipped = $state(false)
 
   // --- Step 1 state ---
   // searchOnly mode gives us a path string; derive the account ID for submit.
-  let selectedAccountPath = $state("");
+  let selectedAccountPath = $state('')
   let selectedAccountId = $derived(
-    accounts.find((a) => a.path === selectedAccountPath)?.id ?? "",
-  );
+    accounts.find((a) => a.path === selectedAccountPath)?.id ?? '',
+  )
 
   // --- Step 2+ state (parser setup) ---
-  let parserName = $state("");
-  let columns = $state<string[]>([]);
-  let mappingDate = $state("");
-  let mappingAmount = $state("");
-  let mappingDescription = $state("");
-  let mappingCurrency = $state("");
-  let isMultiCurrency = $state(false);
-  let mappingSourceAmount = $state("");
-  let mappingSourceCurrency = $state("");
-  let mappingTargetAmount = $state("");
-  let mappingTargetCurrency = $state("");
-  let mappingFeeAmount = $state("");
-  let mappingFeeCurrency = $state("");
-  let mappingSignColumn = $state("");
-  let mappingSignNegativeValue = $state("");
-  let detectedHeader = $state("");
+  let parserName = $state('')
+  let columns = $state<string[]>([])
+  let mappingDate = $state('')
+  let mappingAmount = $state('')
+  let mappingDescription = $state('')
+  let mappingCurrency = $state('')
+  let isMultiCurrency = $state(false)
+  let mappingSourceAmount = $state('')
+  let mappingSourceCurrency = $state('')
+  let mappingTargetAmount = $state('')
+  let mappingTargetCurrency = $state('')
+  let mappingFeeAmount = $state('')
+  let mappingFeeCurrency = $state('')
+  let mappingSignColumn = $state('')
+  let mappingSignNegativeValue = $state('')
+  let detectedHeader = $state('')
 
   function normalizeColumn(col: string): string {
     return col
       .toLowerCase()
-      .replace(/"/g, "")
-      .replace(/\s/g, "")
-      .replace(/\(.*\)/g, "");
+      .replace(/"/g, '')
+      .replace(/\s/g, '')
+      .replace(/\(.*\)/g, '')
   }
 
   function buildNormalizedHeader(cols: string[]): string {
-    return [...cols].sort().join("|");
+    return [...cols].sort().join('|')
   }
 
   function handleFileUpload(e: Event) {
-    const file = (e.currentTarget as HTMLInputElement).files?.[0];
-    if (!file) return;
-    const reader = new FileReader();
+    const file = (e.currentTarget as HTMLInputElement).files?.[0]
+    if (!file) return
+    const reader = new FileReader()
     reader.onload = (ev) => {
-      const text = ev.target?.result as string;
+      const text = ev.target?.result as string
       const firstLine =
-        text.split(/\r?\n/).find((l) => l.trim().length > 0) ?? "";
-      detectedHeader = firstLine;
+        text.split(/\r?\n/).find((l) => l.trim().length > 0) ?? ''
+      detectedHeader = firstLine
       const parsed = firstLine
-        .split(",")
+        .split(',')
         .map((c) => normalizeColumn(c.trim()))
-        .filter(Boolean);
-      columns = [...new Set(parsed)];
-      mappingDate = "";
-      mappingAmount = "";
-      mappingDescription = "";
-      mappingCurrency = "";
-      mappingSourceAmount = "";
-      mappingSourceCurrency = "";
-      mappingTargetAmount = "";
-      mappingTargetCurrency = "";
-      mappingFeeAmount = "";
-      mappingFeeCurrency = "";
-      mappingSignColumn = "";
-      mappingSignNegativeValue = "";
-    };
-    reader.readAsText(file);
+        .filter(Boolean)
+      columns = [...new Set(parsed)]
+      mappingDate = ''
+      mappingAmount = ''
+      mappingDescription = ''
+      mappingCurrency = ''
+      mappingSourceAmount = ''
+      mappingSourceCurrency = ''
+      mappingTargetAmount = ''
+      mappingTargetCurrency = ''
+      mappingFeeAmount = ''
+      mappingFeeCurrency = ''
+      mappingSignColumn = ''
+      mappingSignNegativeValue = ''
+    }
+    reader.readAsText(file)
   }
 
   function resetStep2() {
-    parserName = "";
-    columns = [];
-    detectedHeader = "";
-    mappingDate = "";
-    mappingAmount = "";
-    mappingDescription = "";
-    mappingCurrency = "";
-    isMultiCurrency = false;
-    mappingSourceAmount = "";
-    mappingSourceCurrency = "";
-    mappingTargetAmount = "";
-    mappingTargetCurrency = "";
-    mappingFeeAmount = "";
-    mappingFeeCurrency = "";
-    mappingSignColumn = "";
-    mappingSignNegativeValue = "";
+    parserName = ''
+    columns = []
+    detectedHeader = ''
+    mappingDate = ''
+    mappingAmount = ''
+    mappingDescription = ''
+    mappingCurrency = ''
+    isMultiCurrency = false
+    mappingSourceAmount = ''
+    mappingSourceCurrency = ''
+    mappingTargetAmount = ''
+    mappingTargetCurrency = ''
+    mappingFeeAmount = ''
+    mappingFeeCurrency = ''
+    mappingSignColumn = ''
+    mappingSignNegativeValue = ''
   }
 
   // Transition tables
@@ -121,7 +121,7 @@
       isMultiCurrency ? STEP.PARSER_MULTICURRENCY : STEP.CONFIRM,
     [STEP.PARSER_MULTICURRENCY]: STEP.CONFIRM,
     [STEP.CONFIRM]: STEP.CONFIRM,
-  };
+  }
 
   const BACK: Record<WizardStep, WizardStep | (() => WizardStep)> = {
     [STEP.ACCOUNT_PICK]: STEP.ACCOUNT_PICK,
@@ -134,56 +134,56 @@
         : isMultiCurrency
           ? STEP.PARSER_MULTICURRENCY
           : STEP.PARSER_COLUMNS,
-  };
+  }
 
   function next() {
-    const t = NEXT[step];
-    step = typeof t === "function" ? t() : t;
+    const t = NEXT[step]
+    step = typeof t === 'function' ? t() : t
   }
 
   function back() {
-    const t = BACK[step];
-    step = typeof t === "function" ? t() : t;
+    const t = BACK[step]
+    step = typeof t === 'function' ? t() : t
   }
 
   function skip() {
-    resetStep2();
-    parserSkipped = true;
-    step = STEP.CONFIRM;
+    resetStep2()
+    parserSkipped = true
+    step = STEP.CONFIRM
   }
 
   function close() {
-    open = false;
+    open = false
     setTimeout(() => {
-      step = STEP.ACCOUNT_PICK;
-      parserSkipped = false;
-      selectedAccountPath = "";
-      resetStep2();
-    }, 200);
+      step = STEP.ACCOUNT_PICK
+      parserSkipped = false
+      selectedAccountPath = ''
+      resetStep2()
+    }, 200)
   }
 
   // Validation
-  let step1Valid = $derived(selectedAccountId.length > 0);
+  let step1Valid = $derived(selectedAccountId.length > 0)
 
   let parserUploadValid = $derived(
     parserName.trim().length > 0 && columns.length > 0,
-  );
+  )
   let parserColumnsValid = $derived(
     mappingDate.length > 0 && mappingAmount.length > 0,
-  );
+  )
   let parserMultiCurrencyValid = $derived(
     mappingSourceAmount.length > 0 &&
       mappingSourceCurrency.length > 0 &&
       mappingTargetAmount.length > 0 &&
       mappingTargetCurrency.length > 0,
-  );
+  )
 
-  let submitting = $state(false);
-  let submitError = $state("");
+  let submitting = $state(false)
+  let submitError = $state('')
 
   async function handleConfirm() {
-    submitting = true;
-    submitError = "";
+    submitting = true
+    submitError = ''
     try {
       const columnMapping = {
         date: mappingDate,
@@ -191,7 +191,9 @@
         description: mappingDescription || null,
         currency: mappingCurrency || null,
         signColumn: mappingSignColumn || null,
-        signNegativeValue: mappingSignColumn ? (mappingSignNegativeValue || null) : null,
+        signNegativeValue: mappingSignColumn
+          ? mappingSignNegativeValue || null
+          : null,
         ...(isMultiCurrency && {
           sourceAmount: mappingSourceAmount || null,
           sourceCurrency: mappingSourceCurrency || null,
@@ -200,20 +202,20 @@
           feeAmount: mappingFeeAmount || null,
           feeCurrency: mappingFeeCurrency || null,
         }),
-      };
+      }
       const newParser = await createParser({
         name: parserName.trim(),
         normalizedHeader: buildNormalizedHeader(columns),
         columnMapping,
         isMultiCurrency,
         defaultAccountId: selectedAccountId,
-      });
-      onSuccess?.(newParser);
-      close();
+      })
+      onSuccess?.(newParser)
+      close()
     } catch (e) {
-      submitError = e instanceof Error ? e.message : "Something went wrong.";
+      submitError = e instanceof Error ? e.message : 'Something went wrong.'
     } finally {
-      submitting = false;
+      submitting = false
     }
   }
 </script>
@@ -261,9 +263,10 @@
             <button
               type="button"
               class="tooltip-icon"
-              use:tooltip={"Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."}
+              use:tooltip={'Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately.'}
               aria-label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."
-            >?</button>
+              >?</button
+            >
           </span>
           <Toggle bind:checked={isMultiCurrency} />
         {/if}
@@ -299,9 +302,10 @@
           <button
             type="button"
             class="tooltip-icon"
-            use:tooltip={"For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT."}
+            use:tooltip={'For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT.'}
             aria-label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT."
-          >?</button>
+            >?</button
+          >
         </label>
         <select id="map-sign-column" bind:value={mappingSignColumn}>
           <option value="">— not mapped —</option>
@@ -322,25 +326,33 @@
       </div>
     {:else if step === STEP.PARSER_MULTICURRENCY}
       <div class="form-grid">
-        <label for="map-src-amount">Source amount <span class="required">*</span></label>
+        <label for="map-src-amount"
+          >Source amount <span class="required">*</span></label
+        >
         <select id="map-src-amount" bind:value={mappingSourceAmount}>
           <option value="">— select —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-src-currency">Source currency <span class="required">*</span></label>
+        <label for="map-src-currency"
+          >Source currency <span class="required">*</span></label
+        >
         <select id="map-src-currency" bind:value={mappingSourceCurrency}>
           <option value="">— select —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-tgt-amount">Target amount <span class="required">*</span></label>
+        <label for="map-tgt-amount"
+          >Target amount <span class="required">*</span></label
+        >
         <select id="map-tgt-amount" bind:value={mappingTargetAmount}>
           <option value="">— select —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-tgt-currency">Target currency <span class="required">*</span></label>
+        <label for="map-tgt-currency"
+          >Target currency <span class="required">*</span></label
+        >
         <select id="map-tgt-currency" bind:value={mappingTargetCurrency}>
           <option value="">— select —</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
@@ -452,12 +464,8 @@
           Next ▶️
         </Button>
       {:else if step === STEP.CONFIRM}
-        <Button
-          variant="primary"
-          onclick={handleConfirm}
-          disabled={submitting}
-        >
-          {submitting ? "Creating…" : "Confirm"}
+        <Button variant="primary" onclick={handleConfirm} disabled={submitting}>
+          {submitting ? 'Creating…' : 'Confirm'}
         </Button>
       {/if}
     </div>

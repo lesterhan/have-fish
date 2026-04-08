@@ -1,124 +1,139 @@
 <script lang="ts">
-  import Modal from "../ui/Modal.svelte";
-  import Button from "../ui/Button.svelte";
-  import { fetchAccountBalanceAtDate, createTransaction } from "$lib/api";
-  import { settingsStore } from "$lib/settings.svelte";
-  import { toISODate } from "$lib/date";
+  import Modal from '../ui/Modal.svelte'
+  import Button from '../ui/Button.svelte'
+  import { fetchAccountBalanceAtDate, createTransaction } from '$lib/api'
+  import { settingsStore } from '$lib/settings.svelte'
+  import { toISODate } from '$lib/date'
 
   interface Props {
-    accountId: string;
-    accountPath: string;
-    open: boolean;
-    onSuccess?: () => void;
+    accountId: string
+    accountPath: string
+    open: boolean
+    onSuccess?: () => void
   }
 
-  let { accountId, accountPath, open = $bindable(), onSuccess }: Props = $props();
+  let {
+    accountId,
+    accountPath,
+    open = $bindable(),
+    onSuccess,
+  }: Props = $props()
 
   function todayIso(): string {
-    return toISODate(new Date());
+    return toISODate(new Date())
   }
 
   // --- Form state ---
-  let statementDate = $state(todayIso());
-  let statementAmount = $state("");
-  let currency = $state("CAD");
+  let statementDate = $state(todayIso())
+  let statementAmount = $state('')
+  let currency = $state('CAD')
 
   // --- Result state ---
   type CheckResult = {
-    ledgerAmount: string;
-    statementAmount: string;
-    currency: string;
-    difference: string; // statement - ledger (positive = ledger is short, negative = ledger is over)
-  };
-  let result = $state<CheckResult | null>(null);
-  let checking = $state(false);
-  let checkError = $state("");
+    ledgerAmount: string
+    statementAmount: string
+    currency: string
+    difference: string // statement - ledger (positive = ledger is short, negative = ledger is over)
+  }
+  let result = $state<CheckResult | null>(null)
+  let checking = $state(false)
+  let checkError = $state('')
 
   // --- Submit state ---
-  let submitting = $state(false);
-  let submitError = $state("");
-  let posted = $state(false);
+  let submitting = $state(false)
+  let submitError = $state('')
+  let posted = $state(false)
 
   // Ensure settings are loaded when the modal opens so adjustmentsAccountId is available.
   $effect(() => {
-    if (open) settingsStore.load();
-  });
+    if (open) settingsStore.load()
+  })
 
   let formValid = $derived(
     statementDate.length > 0 &&
       statementAmount.trim().length > 0 &&
       !isNaN(parseFloat(statementAmount)) &&
       currency.trim().length > 0,
-  );
+  )
 
   async function handleCheck() {
-    checking = true;
-    checkError = "";
-    result = null;
+    checking = true
+    checkError = ''
+    result = null
     try {
-      const balance = await fetchAccountBalanceAtDate(accountId, statementDate);
-      const ledger = balance.balances.find((b) => b.currency === currency.trim().toUpperCase());
-      const ledgerAmount = ledger?.amount ?? "0.00";
-      const stmt = parseFloat(statementAmount);
-      const ledger_ = parseFloat(ledgerAmount);
-      const diff = (stmt - ledger_).toFixed(2);
+      const balance = await fetchAccountBalanceAtDate(accountId, statementDate)
+      const ledger = balance.balances.find(
+        (b) => b.currency === currency.trim().toUpperCase(),
+      )
+      const ledgerAmount = ledger?.amount ?? '0.00'
+      const stmt = parseFloat(statementAmount)
+      const ledger_ = parseFloat(ledgerAmount)
+      const diff = (stmt - ledger_).toFixed(2)
       result = {
         ledgerAmount,
         statementAmount: stmt.toFixed(2),
         currency: currency.trim().toUpperCase(),
         difference: diff,
-      };
+      }
     } catch (e) {
-      checkError = e instanceof Error ? e.message : "Failed to fetch balance.";
+      checkError = e instanceof Error ? e.message : 'Failed to fetch balance.'
     } finally {
-      checking = false;
+      checking = false
     }
   }
 
   async function handlePostAdjustment() {
-    if (!result) return;
-    const adjustmentsAccountId = settingsStore.value?.defaultAdjustmentsAccountId;
+    if (!result) return
+    const adjustmentsAccountId =
+      settingsStore.value?.defaultAdjustmentsAccountId
     if (!adjustmentsAccountId) {
-      submitError = "No adjustments account set. Configure one in Settings.";
-      return;
+      submitError = 'No adjustments account set. Configure one in Settings.'
+      return
     }
-    const diff = parseFloat(result.difference);
-    if (diff === 0) return;
+    const diff = parseFloat(result.difference)
+    if (diff === 0) return
 
-    submitting = true;
-    submitError = "";
+    submitting = true
+    submitError = ''
     try {
       await createTransaction({
         date: statementDate,
         description: `Reconciliation adjustment — ${accountPath}`,
         postings: [
           { accountId, amount: result.difference, currency: result.currency },
-          { accountId: adjustmentsAccountId, amount: (-diff).toFixed(2), currency: result.currency },
+          {
+            accountId: adjustmentsAccountId,
+            amount: (-diff).toFixed(2),
+            currency: result.currency,
+          },
         ],
-      });
-      posted = true;
-      onSuccess?.();
+      })
+      posted = true
+      onSuccess?.()
     } catch (e) {
-      submitError = e instanceof Error ? e.message : "Failed to post adjustment.";
+      submitError =
+        e instanceof Error ? e.message : 'Failed to post adjustment.'
     } finally {
-      submitting = false;
+      submitting = false
     }
   }
 
   function close() {
-    open = false;
+    open = false
     setTimeout(() => {
-      statementDate = todayIso();
-      statementAmount = "";
-      currency = "CAD";
-      result = null;
-      checkError = "";
-      submitError = "";
-      posted = false;
-    }, 200);
+      statementDate = todayIso()
+      statementAmount = ''
+      currency = 'CAD'
+      result = null
+      checkError = ''
+      submitError = ''
+      posted = false
+    }, 200)
   }
 
-  let isBalanced = $derived(result !== null && parseFloat(result.difference) === 0);
+  let isBalanced = $derived(
+    result !== null && parseFloat(result.difference) === 0,
+  )
 </script>
 
 <Modal title="Reconcile — {accountPath}" bind:open onclose={close}>
@@ -129,7 +144,10 @@
         id="rec-date"
         type="date"
         bind:value={statementDate}
-        onchange={() => { result = null; posted = false; }}
+        onchange={() => {
+          result = null
+          posted = false
+        }}
       />
 
       <label for="rec-amount">Statement balance</label>
@@ -141,7 +159,10 @@
           bind:value={statementAmount}
           placeholder="0.00"
           class="balance-amount"
-          oninput={() => { result = null; posted = false; }}
+          oninput={() => {
+            result = null
+            posted = false
+          }}
         />
         <input
           type="text"
@@ -150,7 +171,10 @@
           class="balance-currency"
           maxlength={5}
           spellcheck={false}
-          onchange={() => { result = null; posted = false; }}
+          onchange={() => {
+            result = null
+            posted = false
+          }}
         />
       </div>
     </div>
@@ -163,11 +187,15 @@
       <div class="comparison">
         <div class="comparison-row">
           <span class="comp-label">Ledger balance</span>
-          <span class="comp-value mono">{result.ledgerAmount} {result.currency}</span>
+          <span class="comp-value mono"
+            >{result.ledgerAmount} {result.currency}</span
+          >
         </div>
         <div class="comparison-row">
           <span class="comp-label">Statement balance</span>
-          <span class="comp-value mono">{result.statementAmount} {result.currency}</span>
+          <span class="comp-value mono"
+            >{result.statementAmount} {result.currency}</span
+          >
         </div>
         <div class="comparison-divider"></div>
         <div class="comparison-row">
@@ -177,7 +205,8 @@
             class:positive={parseFloat(result.difference) > 0}
             class:negative={parseFloat(result.difference) < 0}
           >
-            {result.difference} {result.currency}
+            {result.difference}
+            {result.currency}
           </span>
         </div>
 
@@ -187,7 +216,10 @@
           <p class="balanced">Adjustment posted.</p>
         {:else}
           {#if !settingsStore.value?.defaultAdjustmentsAccountId}
-            <p class="warn">No adjustments account configured — set one in Settings before posting.</p>
+            <p class="warn">
+              No adjustments account configured — set one in Settings before
+              posting.
+            </p>
           {/if}
           {#if submitError}
             <p class="error">{submitError}</p>
@@ -204,16 +236,17 @@
         onclick={handleCheck}
         disabled={!formValid || checking}
       >
-        {checking ? "Checking…" : "Check balance"}
+        {checking ? 'Checking…' : 'Check balance'}
       </Button>
     {/if}
     {#if result && !isBalanced && !posted}
       <Button
         variant="primary"
         onclick={handlePostAdjustment}
-        disabled={submitting || !settingsStore.value?.defaultAdjustmentsAccountId}
+        disabled={submitting ||
+          !settingsStore.value?.defaultAdjustmentsAccountId}
       >
-        {submitting ? "Posting…" : "Post adjustment"}
+        {submitting ? 'Posting…' : 'Post adjustment'}
       </Button>
     {/if}
     {#if isBalanced || posted}

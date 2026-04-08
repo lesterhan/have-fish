@@ -9,7 +9,6 @@ describe('toISODate', () => {
   })
 })
 
-
 describe('parseCustomDateRange', () => {
   it('parse single date to today', () => {
     const today = new Date()
@@ -18,7 +17,7 @@ describe('parseCustomDateRange', () => {
 
     expect(parseCustomDateRange(toISODate(twentyDaysAgo))).toEqual({
       from: toISODate(twentyDaysAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
   })
 
@@ -33,15 +32,15 @@ describe('parseCustomDateRange', () => {
 
     expect(parseCustomDateRange('1 week')).toEqual({
       from: toISODate(oneWeekAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
     expect(parseCustomDateRange('2 weeks')).toEqual({
       from: toISODate(twoWeeksAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
     expect(parseCustomDateRange('3w')).toEqual({
       from: toISODate(threeWeeksAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
   })
 
@@ -56,15 +55,15 @@ describe('parseCustomDateRange', () => {
 
     expect(parseCustomDateRange('1 mo')).toEqual({
       from: toISODate(oneMonthAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
     expect(parseCustomDateRange('2 months')).toEqual({
       from: toISODate(twoMonthsAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
     expect(parseCustomDateRange('3mon')).toEqual({
       from: toISODate(threeMonthsAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
   })
 
@@ -79,15 +78,15 @@ describe('parseCustomDateRange', () => {
 
     expect(parseCustomDateRange('1day')).toEqual({
       from: toISODate(oneDayAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
     expect(parseCustomDateRange('10 days')).toEqual({
       from: toISODate(tenDaysAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
     expect(parseCustomDateRange('20d')).toEqual({
       from: toISODate(twentyDaysAgo),
-      to: toISODate(today)
+      to: toISODate(today),
     })
   })
 
@@ -107,21 +106,30 @@ describe('parseCustomDateRange', () => {
     const threeMonthsAgo = new Date(today)
     threeMonthsAgo.setDate(today.getDate() - 93)
 
-    expect(parseCustomDateRange('Past 1 week')).toEqual({ from: toISODate(oneWeekAgo), to: toISODate(today) })
-    expect(parseCustomDateRange('past 3 months')).toEqual({ from: toISODate(threeMonthsAgo), to: toISODate(today) })
-    expect(parseCustomDateRange('Past 7d')).toEqual({ from: toISODate(oneWeekAgo), to: toISODate(today) })
+    expect(parseCustomDateRange('Past 1 week')).toEqual({
+      from: toISODate(oneWeekAgo),
+      to: toISODate(today),
+    })
+    expect(parseCustomDateRange('past 3 months')).toEqual({
+      from: toISODate(threeMonthsAgo),
+      to: toISODate(today),
+    })
+    expect(parseCustomDateRange('Past 7d')).toEqual({
+      from: toISODate(oneWeekAgo),
+      to: toISODate(today),
+    })
   })
 
   it('parses date ranges', () => {
     const fromDate = new Date('2021-12-23')
     const toDate = new Date('2022-05-15')
 
-    expect(parseCustomDateRange(`${toISODate(fromDate)}-${toISODate(toDate)}`)).toEqual(
-      { from: toISODate(fromDate), to: toISODate(toDate) }
-    )
+    expect(
+      parseCustomDateRange(`${toISODate(fromDate)}-${toISODate(toDate)}`),
+    ).toEqual({ from: toISODate(fromDate), to: toISODate(toDate) })
 
-    expect(parseCustomDateRange(`${toISODate(fromDate)} to ${toISODate(toDate)}`)).toEqual(
-      { from: toISODate(fromDate), to: toISODate(toDate) }
-    )
+    expect(
+      parseCustomDateRange(`${toISODate(fromDate)} to ${toISODate(toDate)}`),
+    ).toEqual({ from: toISODate(fromDate), to: toISODate(toDate) })
   })
 })

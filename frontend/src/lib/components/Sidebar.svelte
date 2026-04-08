@@ -1,17 +1,17 @@
 <script lang="ts">
-  import type { AccountBalance, UserSettings } from "$lib/api";
-  import { formatCompact } from "$lib/currency";
-  import { theme } from "$lib/theme.svelte";
-  import { tooltip } from "$lib/tooltip";
-  import { settingsStore } from "$lib/settings.svelte";
-  import Icon from "./ui/Icon.svelte";
+  import type { AccountBalance, UserSettings } from '$lib/api'
+  import { formatCompact } from '$lib/currency'
+  import { theme } from '$lib/theme.svelte'
+  import { tooltip } from '$lib/tooltip'
+  import { settingsStore } from '$lib/settings.svelte'
+  import Icon from './ui/Icon.svelte'
 
   interface Props {
-    accounts: AccountBalance[];
-    settings: UserSettings;
-    email?: string;
-    mobileOpen?: boolean;
-    onMobileClose?: () => void;
+    accounts: AccountBalance[]
+    settings: UserSettings
+    email?: string
+    mobileOpen?: boolean
+    onMobileClose?: () => void
   }
 
   let {
@@ -20,17 +20,17 @@
     email,
     mobileOpen = false,
     onMobileClose,
-  }: Props = $props();
+  }: Props = $props()
 
-  let expanded = $state(true);
-  let assetsOpen = $state(true);
-  let liabilitiesOpen = $state(true);
-  let equityOpen = $state(true);
-  let hiddenOpen = $state(false);
+  let expanded = $state(true)
+  let assetsOpen = $state(true)
+  let liabilitiesOpen = $state(true)
+  let equityOpen = $state(true)
+  let hiddenOpen = $state(false)
 
   let hiddenIds = $derived(
     new Set(settingsStore.value?.preferences.hiddenAccountIds ?? []),
-  );
+  )
 
   let assets = $derived(
     accounts.filter(
@@ -38,25 +38,25 @@
         !hiddenIds.has(a.id) &&
         a.path.startsWith(`${settings.defaultAssetsRootPath}:`),
     ),
-  );
+  )
   let liabilities = $derived(
     accounts.filter(
       (a) =>
         !hiddenIds.has(a.id) &&
         a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`),
     ),
-  );
+  )
   let equity = $derived(
     accounts.filter(
       (a) =>
         !hiddenIds.has(a.id) &&
         a.path.startsWith(`${settings.defaultEquityRootPath}:`),
     ),
-  );
-  let hiddenAccounts = $derived(accounts.filter((a) => hiddenIds.has(a.id)));
+  )
+  let hiddenAccounts = $derived(accounts.filter((a) => hiddenIds.has(a.id)))
 
   function shortName(path: string, root: string): string {
-    return path.startsWith(`${root}:`) ? path.slice(root.length + 1) : path;
+    return path.startsWith(`${root}:`) ? path.slice(root.length + 1) : path
   }
 </script>
 
@@ -68,23 +68,23 @@
   <div class="sidebar-inner">
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
-      <a href="/dashboard" class="nav-link" use:tooltip={"Dashboard"}>
+      <a href="/dashboard" class="nav-link" use:tooltip={'Dashboard'}>
         <Icon name="dashboard" size={16} />
         <span class="nav-label">Dashboard</span>
       </a>
-      <a href="/spending" class="nav-link" use:tooltip={"Spending"}>
+      <a href="/spending" class="nav-link" use:tooltip={'Spending'}>
         <Icon name="spending" size={16} />
         <span class="nav-label">Spending</span>
       </a>
-      <a href="/import" class="nav-link" use:tooltip={"Import + Export"}>
+      <a href="/import" class="nav-link" use:tooltip={'Import + Export'}>
         <Icon name="import-export" size={16} />
         <span class="nav-label">Import + Export</span>
       </a>
-      <a href="/transactions" class="nav-link" use:tooltip={"Transactions"}>
+      <a href="/transactions" class="nav-link" use:tooltip={'Transactions'}>
         <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
       </a>
-      <a href="/assets" class="nav-link" use:tooltip={"Accounts"}>
+      <a href="/assets" class="nav-link" use:tooltip={'Accounts'}>
         <Icon name="accounts" size={16} />
         <span class="nav-label">Accounts</span>
       </a>
@@ -273,8 +273,8 @@
       <button
         class="footer-btn footer-collapse"
         onclick={() => (expanded = !expanded)}
-        aria-label={expanded ? "Compress sidebar" : "Expand sidebar"}
-        use:tooltip={expanded ? "Compress sidebar" : "Expand sidebar"}
+        aria-label={expanded ? 'Compress sidebar' : 'Expand sidebar'}
+        use:tooltip={expanded ? 'Compress sidebar' : 'Expand sidebar'}
       >
         {#if expanded}
           <Icon name="collapse-sidebar" size={16} />
@@ -295,18 +295,18 @@
       <button
         class="footer-btn"
         onclick={() => theme.toggle()}
-        use:tooltip={theme.dark ? "Light Theme" : "Dark Theme"}
+        use:tooltip={theme.dark ? 'Light Theme' : 'Dark Theme'}
       >
-        <Icon name={theme.dark ? "sun" : "moon"} size={16} />
+        <Icon name={theme.dark ? 'sun' : 'moon'} size={16} />
         <span class="nav-label"
-          >{theme.dark ? "Light Theme" : "Dark Theme"}</span
+          >{theme.dark ? 'Light Theme' : 'Dark Theme'}</span
         >
       </button>
       {#if email}
         <a
           href="/settings"
           class="footer-btn footer-settings"
-          use:tooltip={"Settings"}
+          use:tooltip={'Settings'}
         >
           <Icon name="user" size={16} />
           <span class="nav-label">{email}</span>
@@ -380,7 +380,7 @@
   /* --- SVG icons (loaded via <img>, no currentColor) --- */
 
   /* invert to white in dark mode */
-  :global([data-theme="dark"]) .svg-icon {
+  :global([data-theme='dark']) .svg-icon {
     filter: invert(1);
   }
 

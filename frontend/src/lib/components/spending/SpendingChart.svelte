@@ -29,7 +29,11 @@
   ]
 
   interface Props {
-    categories: { category: string; total: Record<string, string>; childCount: number }[]
+    categories: {
+      category: string
+      total: Record<string, string>
+      childCount: number
+    }[]
     currency: string
     onclick: (category: string) => void
   }
@@ -40,7 +44,9 @@
   let chartInstance: Chart | null = null
 
   function cssVar(name: string): string {
-    return getComputedStyle(document.documentElement).getPropertyValue(name).trim()
+    return getComputedStyle(document.documentElement)
+      .getPropertyValue(name)
+      .trim()
   }
 
   // Short display name — strip root segment, keep the rest
@@ -52,9 +58,9 @@
   // Sort by amount for selected currency, descending. Filter out categories with no data for currency.
   let sorted = $derived(
     [...categories]
-      .filter(c => currency in c.total)
-      .map(c => ({ ...c, amount: parseFloat(c.total[currency]) }))
-      .sort((a, b) => b.amount - a.amount)
+      .filter((c) => currency in c.total)
+      .map((c) => ({ ...c, amount: parseFloat(c.total[currency]) }))
+      .sort((a, b) => b.amount - a.amount),
   )
 
   let total = $derived(sorted.reduce((s, c) => s + c.amount, 0))
@@ -69,10 +75,10 @@
       return
     }
 
-    const snap       = sorted        // snapshot for closures
-    const snapTotal  = total
-    const snapPal    = palette
-    const textColor  = cssVar('--color-text')
+    const snap = sorted // snapshot for closures
+    const snapTotal = total
+    const snapPal = palette
+    const textColor = cssVar('--color-text')
     const mutedColor = cssVar('--color-text-muted')
 
     // Custom inline plugin: draws "Total" label + amount in the donut center.
@@ -82,15 +88,15 @@
       afterDatasetsDraw(chart: Chart) {
         const { ctx, chartArea } = chart
         const cx = chartArea.left + chartArea.width / 2
-        const cy = chartArea.top  + chartArea.height / 2
+        const cy = chartArea.top + chartArea.height / 2
         ctx.save()
-        ctx.textAlign    = 'center'
+        ctx.textAlign = 'center'
         ctx.textBaseline = 'middle'
         ctx.fillStyle = mutedColor
-        ctx.font      = `11px Tahoma, sans-serif`
+        ctx.font = `11px Tahoma, sans-serif`
         ctx.fillText('Total', cx, cy - 12)
         ctx.fillStyle = textColor
-        ctx.font      = `bold 15px Tahoma, sans-serif`
+        ctx.font = `bold 15px Tahoma, sans-serif`
         ctx.fillText(`${currency} ${snapTotal.toFixed(2)}`, cx, cy + 6)
         ctx.restore()
       },
@@ -102,13 +108,15 @@
       type: 'doughnut',
       plugins: [centerTextPlugin],
       data: {
-        labels: snap.map(c => shortName(c.category)),
-        datasets: [{
-          data: snap.map(c => c.amount),
-          backgroundColor: snap.map((_, i) => snapPal[i % snapPal.length].bg),
-          borderColor:     snap.map((_, i) => snapPal[i % snapPal.length].border),
-          borderWidth: 1,
-        }],
+        labels: snap.map((c) => shortName(c.category)),
+        datasets: [
+          {
+            data: snap.map((c) => c.amount),
+            backgroundColor: snap.map((_, i) => snapPal[i % snapPal.length].bg),
+            borderColor: snap.map((_, i) => snapPal[i % snapPal.length].border),
+            borderWidth: 1,
+          },
+        ],
       },
       options: {
         responsive: true,
@@ -121,9 +129,10 @@
             bodyColor: '#cccccc',
             callbacks: {
               title: (items) => snap[items[0].dataIndex].category,
-              label: (item)  => {
+              label: (item) => {
                 const amt = item.raw as number
-                const pct = snapTotal > 0 ? ((amt / snapTotal) * 100).toFixed(1) : '0.0'
+                const pct =
+                  snapTotal > 0 ? ((amt / snapTotal) * 100).toFixed(1) : '0.0'
                 return ` ${currency} ${amt.toFixed(2)} (${pct}%)`
               },
             },
@@ -137,7 +146,10 @@
         onHover(event, elements) {
           const target = event.native?.target as HTMLCanvasElement | null
           if (!target) return
-          if (elements.length === 0) { target.style.cursor = 'default'; return }
+          if (elements.length === 0) {
+            target.style.cursor = 'default'
+            return
+          }
           const cat = snap[elements[0].index]
           target.style.cursor = cat.childCount > 0 ? 'pointer' : 'default'
         },
@@ -163,16 +175,28 @@
     <!-- Custom legend: category + amount + percentage per row -->
     <div class="legend-panel">
       {#each sorted as cat, i}
-        {@const pct = total > 0 ? ((cat.amount / total) * 100) : 0}
+        {@const pct = total > 0 ? (cat.amount / total) * 100 : 0}
         <button
           class="legend-row"
           class:drillable={cat.childCount > 0}
           onclick={() => cat.childCount > 0 && onclick(cat.category)}
-          title={cat.childCount > 0 ? `Drill into ${shortName(cat.category)}` : undefined}
+          title={cat.childCount > 0
+            ? `Drill into ${shortName(cat.category)}`
+            : undefined}
         >
-          <span class="swatch" style="background: {palette[i % palette.length].bg}"></span>
-          <span class="cat-name">{shortName(cat.category)}{cat.childCount > 0 ? ' ›' : ''}</span>
-          <span class="cat-amount">{currencyFlag(currency)}{currencyFlag(currency) ? ' ' : ''}{currency} {cat.amount.toFixed(2)}</span>
+          <span
+            class="swatch"
+            style="background: {palette[i % palette.length].bg}"
+          ></span>
+          <span class="cat-name"
+            >{shortName(cat.category)}{cat.childCount > 0 ? ' ›' : ''}</span
+          >
+          <span class="cat-amount"
+            >{currencyFlag(currency)}{currencyFlag(currency)
+              ? ' '
+              : ''}{currency}
+            {cat.amount.toFixed(2)}</span
+          >
           <span class="cat-pct">{Math.round(pct)}%</span>
         </button>
       {/each}

@@ -1,10 +1,10 @@
 <script lang="ts">
   interface Props {
-    width?: string;
-    height?: string;
+    width?: string
+    height?: string
   }
 
-  let { width = "100%", height = "1em" }: Props = $props();
+  let { width = '100%', height = '1em' }: Props = $props()
 </script>
 
 <span class="shimmer" style="width: {width}; height: {height};"></span>

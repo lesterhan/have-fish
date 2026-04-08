@@ -7,7 +7,9 @@ const store = $state<{ value: UserSettings | null }>({ value: null })
 let pending: Promise<UserSettings> | null = null
 
 export const settingsStore = {
-  get value() { return store.value },
+  get value() {
+    return store.value
+  },
 
   /** Fetch settings once; subsequent calls return the cached result. */
   load(): Promise<UserSettings> {

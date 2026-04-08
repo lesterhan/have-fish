@@ -15,7 +15,8 @@
   // Ref to the window panel — used to find focusable children
   let windowEl: HTMLElement | null = $state(null)
 
-  const FOCUSABLE = 'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+  const FOCUSABLE =
+    'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
 
   // Drag state — offset from the window's default centered position
   let dragX = $state(0)
@@ -26,7 +27,8 @@
 
   function handleTitlebarPointerDown(e: PointerEvent) {
     // Only drag on primary button; ignore clicks on the close button
-    if (e.button !== 0 || (e.target as HTMLElement).closest('.close-btn')) return
+    if (e.button !== 0 || (e.target as HTMLElement).closest('.close-btn'))
+      return
     dragging = true
     dragStartX = e.clientX - dragX
     dragStartY = e.clientY - dragY
@@ -52,7 +54,9 @@
   })
 
   function getFocusable(): HTMLElement[] {
-    return windowEl ? Array.from(windowEl.querySelectorAll<HTMLElement>(FOCUSABLE)) : []
+    return windowEl
+      ? Array.from(windowEl.querySelectorAll<HTMLElement>(FOCUSABLE))
+      : []
   }
 
   $effect(() => {
@@ -170,7 +174,11 @@
     align-items: center;
     justify-content: space-between;
     padding: 3px var(--sp-xs);
-    background: linear-gradient(to right, var(--color-titlebar-from), var(--color-titlebar-to));
+    background: linear-gradient(
+      to right,
+      var(--color-titlebar-from),
+      var(--color-titlebar-to)
+    );
     gap: var(--sp-xs);
     user-select: none;
     cursor: grab;

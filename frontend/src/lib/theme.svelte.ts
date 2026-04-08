@@ -14,8 +14,12 @@ function createTheme() {
   })
 
   return {
-    get dark() { return dark },
-    toggle() { dark = !dark },
+    get dark() {
+      return dark
+    },
+    toggle() {
+      dark = !dark
+    },
   }
 }
 

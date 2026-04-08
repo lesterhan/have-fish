@@ -1,11 +1,11 @@
 <script lang="ts">
   interface Props {
-    checked?: boolean;
-    label?: string;
-    disabled?: boolean;
+    checked?: boolean
+    label?: string
+    disabled?: boolean
   }
 
-  let { checked = $bindable(false), label, disabled = false }: Props = $props();
+  let { checked = $bindable(false), label, disabled = false }: Props = $props()
 </script>
 
 <label class="toggle-wrap" class:disabled>

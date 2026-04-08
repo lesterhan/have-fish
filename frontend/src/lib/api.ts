@@ -11,12 +11,17 @@ export type Account = {
 }
 
 export async function fetchAccount(id: string): Promise<Account> {
-  const res = await fetch(`${BASE}/api/accounts/${id}`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/accounts/${id}`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error(`Account not found: ${id}`)
   return res.json()
 }
 
-export async function updateAccount(id: string, updates: { name?: string | null }): Promise<Account> {
+export async function updateAccount(
+  id: string,
+  updates: { name?: string | null },
+): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     method: 'PATCH',
     credentials: 'include',
@@ -108,18 +113,21 @@ export type SameCurrencyTransferParsedTransaction = {
   isTransfer: 'same-currency'
   date: string
   description?: string
-  amount: string     // net amount received (positive)
-  feeAmount: string  // fee charged (positive)
+  amount: string // net amount received (positive)
+  feeAmount: string // fee charged (positive)
   currency: string
   possibleDuplicate?: PossibleDuplicate
 }
 
-export type ParsedTransaction = RegularParsedTransaction | TransferParsedTransaction | SameCurrencyTransferParsedTransaction
+export type ParsedTransaction =
+  | RegularParsedTransaction
+  | TransferParsedTransaction
+  | SameCurrencyTransferParsedTransaction
 
 // Commit payloads — ParsedTransaction plus the account IDs resolved during preview.
 export type RegularCommitTransaction = RegularParsedTransaction & {
   offsetAccountId: string
-  sourceAccountId?: string  // set for regular rows in a multi-currency parser
+  sourceAccountId?: string // set for regular rows in a multi-currency parser
 }
 
 export type TransferCommitTransaction = TransferParsedTransaction & {
@@ -129,13 +137,17 @@ export type TransferCommitTransaction = TransferParsedTransaction & {
   feeAccountId: string
 }
 
-export type SameCurrencyTransferCommitTransaction = SameCurrencyTransferParsedTransaction & {
-  targetAccountId: string
-  sourceAccountId: string
-  feeAccountId: string
-}
+export type SameCurrencyTransferCommitTransaction =
+  SameCurrencyTransferParsedTransaction & {
+    targetAccountId: string
+    sourceAccountId: string
+    feeAccountId: string
+  }
 
-export type CommitTransaction = RegularCommitTransaction | TransferCommitTransaction | SameCurrencyTransferCommitTransaction
+export type CommitTransaction =
+  | RegularCommitTransaction
+  | TransferCommitTransaction
+  | SameCurrencyTransferCommitTransaction
 
 export type ImportPreviewResult = {
   parser: string
@@ -166,7 +178,7 @@ export async function importPreview(
 }
 
 export async function importCommit(body: {
-  accountId: string  // empty string for multi-currency imports (source is per-row)
+  accountId: string // empty string for multi-currency imports (source is per-row)
   defaultCurrency: string
   transactions: CommitTransaction[]
 }): Promise<{ created: number }> {
@@ -214,7 +226,16 @@ export async function fetchParsers(): Promise<CsvParser[]> {
 
 export async function updateParser(
   id: string,
-  body: Partial<Pick<CsvParser, 'name' | 'columnMapping' | 'defaultAccountId' | 'isMultiCurrency' | 'defaultFeeAccountId'>>,
+  body: Partial<
+    Pick<
+      CsvParser,
+      | 'name'
+      | 'columnMapping'
+      | 'defaultAccountId'
+      | 'isMultiCurrency'
+      | 'defaultFeeAccountId'
+    >
+  >,
 ): Promise<CsvParser> {
   const res = await fetch(`${BASE}/api/parsers/${id}`, {
     method: 'PATCH',
@@ -239,7 +260,8 @@ export async function createParser(body: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create parser')
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to create parser')
   return res.json()
 }
 
@@ -271,12 +293,25 @@ export type UserSettings = {
 }
 
 export async function fetchUserSettings(): Promise<UserSettings> {
-  const res = await fetch(`${BASE}/api/user-settings`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/user-settings`, {
+    credentials: 'include',
+  })
   return res.json()
 }
 
 export async function updateUserSettings(
-  body: Partial<Pick<UserSettings, 'defaultOffsetAccountId' | 'defaultConversionAccountId' | 'defaultAdjustmentsAccountId' | 'defaultAssetsRootPath' | 'defaultLiabilitiesRootPath' | 'defaultExpensesRootPath' | 'defaultEquityRootPath'>> & { preferences?: UserPreferences },
+  body: Partial<
+    Pick<
+      UserSettings,
+      | 'defaultOffsetAccountId'
+      | 'defaultConversionAccountId'
+      | 'defaultAdjustmentsAccountId'
+      | 'defaultAssetsRootPath'
+      | 'defaultLiabilitiesRootPath'
+      | 'defaultExpensesRootPath'
+      | 'defaultEquityRootPath'
+    >
+  > & { preferences?: UserPreferences },
 ): Promise<UserSettings> {
   const res = await fetch(`${BASE}/api/user-settings`, {
     method: 'PATCH',
@@ -296,7 +331,9 @@ export type AccountBalance = {
 }
 
 export async function fetchAccountBalances(): Promise<AccountBalance[]> {
-  const res = await fetch(`${BASE}/api/accounts/balances`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/accounts/balances`, {
+    credentials: 'include',
+  })
   return res.json()
 }
 
@@ -306,9 +343,18 @@ export type AccountBalanceAtDate = {
   balances: { currency: string; amount: string }[]
 }
 
-export async function fetchAccountBalanceAtDate(accountId: string, date: string): Promise<AccountBalanceAtDate> {
-  const res = await fetch(`${BASE}/api/accounts/${accountId}/balance?date=${encodeURIComponent(date)}`, { credentials: 'include' })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to fetch account balance')
+export async function fetchAccountBalanceAtDate(
+  accountId: string,
+  date: string,
+): Promise<AccountBalanceAtDate> {
+  const res = await fetch(
+    `${BASE}/api/accounts/${accountId}/balance?date=${encodeURIComponent(date)}`,
+    { credentials: 'include' },
+  )
+  if (!res.ok)
+    throw new Error(
+      (await res.json()).error ?? 'Failed to fetch account balance',
+    )
   return res.json()
 }
 
@@ -317,17 +363,22 @@ export async function deleteTransaction(id: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to delete transaction')
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to delete transaction')
 }
 
-export async function patchTransaction(id: string, updates: { description?: string | null; date?: string }) {
+export async function patchTransaction(
+  id: string,
+  updates: { description?: string | null; date?: string },
+) {
   const res = await fetch(`${BASE}/api/transactions/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(updates),
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update transaction')
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to update transaction')
   return res.json()
 }
 
@@ -341,33 +392,55 @@ export async function patchPosting(
     credentials: 'include',
     body: JSON.stringify(updates),
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update posting')
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to update posting')
   return res.json()
 }
 
 export type SpendingSummary = {
   total: Record<string, string>
-  categories: { category: string; total: Record<string, string>; childCount: number }[]
+  categories: {
+    category: string
+    total: Record<string, string>
+    childCount: number
+  }[]
 }
 
-export async function fetchSpendingSummary(from: string, to: string, prefix?: string): Promise<SpendingSummary> {
+export async function fetchSpendingSummary(
+  from: string,
+  to: string,
+  prefix?: string,
+): Promise<SpendingSummary> {
   const params = new URLSearchParams({ from, to })
   if (prefix) params.set('prefix', prefix)
-  const res = await fetch(`${BASE}/api/reports/spending-summary?${params}`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/reports/spending-summary?${params}`, {
+    credentials: 'include',
+  })
   return res.json()
 }
 
 export type MonthlySpend = { month: string; total: Record<string, string> }
 
-export async function fetchMonthlySpend(months: number): Promise<MonthlySpend[]> {
-  const res = await fetch(`${BASE}/api/reports/monthly-spend?months=${months}`, { credentials: 'include' })
+export async function fetchMonthlySpend(
+  months: number,
+): Promise<MonthlySpend[]> {
+  const res = await fetch(
+    `${BASE}/api/reports/monthly-spend?months=${months}`,
+    { credentials: 'include' },
+  )
   return res.json()
 }
 
-export type WeeklySpend = { week: string; weekStart: string; total: Record<string, string> }
+export type WeeklySpend = {
+  week: string
+  weekStart: string
+  total: Record<string, string>
+}
 
 export async function fetchWeeklySpend(weeks: number): Promise<WeeklySpend[]> {
-  const res = await fetch(`${BASE}/api/reports/weekly-spend?weeks=${weeks}`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/reports/weekly-spend?weeks=${weeks}`, {
+    credentials: 'include',
+  })
   return res.json()
 }
 
@@ -383,8 +456,14 @@ export async function createPosting(body: {
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create posting')
-  return (await res.json()) as { id: string; accountId: string; amount: string; currency: string }
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to create posting')
+  return (await res.json()) as {
+    id: string
+    accountId: string
+    amount: string
+    currency: string
+  }
 }
 
 export async function deletePosting(id: string) {
@@ -392,7 +471,8 @@ export async function deletePosting(id: string) {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to delete posting')
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to delete posting')
 }
 
 export type Posting = {
@@ -421,7 +501,8 @@ export async function createTransaction(body: {
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create transaction')
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to create transaction')
   return res.json()
 }
 
@@ -429,23 +510,34 @@ export async function replacePostings(
   transactionId: string,
   postings: { accountId: string; amount: string; currency: string }[],
 ) {
-  const res = await fetch(`${BASE}/api/transactions/${transactionId}/postings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify({ postings }),
-  })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update postings')
+  const res = await fetch(
+    `${BASE}/api/transactions/${transactionId}/postings`,
+    {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
+      body: JSON.stringify({ postings }),
+    },
+  )
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to update postings')
   return res.json()
 }
 
-export async function fetchTransactions(params?: { from?: string; to?: string; accountId?: string; accountPath?: string }): Promise<Transaction[]> {
+export async function fetchTransactions(params?: {
+  from?: string
+  to?: string
+  accountId?: string
+  accountPath?: string
+}): Promise<Transaction[]> {
   const query = new URLSearchParams()
   if (params?.from) query.set('from', params.from)
   if (params?.to) query.set('to', params.to)
   if (params?.accountId) query.set('accountId', params.accountId)
   if (params?.accountPath) query.set('accountPath', params.accountPath)
   const qs = query.toString()
-  const res = await fetch(`${BASE}/api/transactions${qs ? `?${qs}` : ''}`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/transactions${qs ? `?${qs}` : ''}`, {
+    credentials: 'include',
+  })
   return res.json()
 }
