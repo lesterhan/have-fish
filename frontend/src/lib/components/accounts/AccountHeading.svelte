@@ -63,6 +63,15 @@
     gap: var(--sp-xl);
   }
 
+  @media (max-width: 520px) {
+    .account-header {
+      flex-direction: column;
+      align-items: flex-start;
+      gap: var(--sp-md);
+      padding: var(--sp-md);
+    }
+  }
+
   .header-left {
     display: flex;
     flex-direction: column;
@@ -82,6 +91,13 @@
     text-overflow: ellipsis;
   }
 
+  @media (max-width: 520px) {
+    .account-name {
+      white-space: normal;
+      font-size: var(--text-2xl);
+    }
+  }
+
   .account-path {
     font-family: var(--font-sans);
     font-size: var(--text-xs);
@@ -97,6 +113,12 @@
     align-items: flex-end;
     gap: 2px;
     flex-shrink: 0;
+  }
+
+  @media (max-width: 520px) {
+    .balance-block {
+      align-items: flex-start;
+    }
   }
 
   .balance-label {

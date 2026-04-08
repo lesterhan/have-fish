@@ -132,6 +132,16 @@
     padding: var(--sp-xs) var(--sp-sm);
   }
 
+  @media (max-width: 520px) {
+    .bar {
+      flex-wrap: wrap;
+    }
+
+    .date-controls {
+      margin-left: 0;
+    }
+  }
+
   .left-controls {
     display: flex;
     align-items: center;

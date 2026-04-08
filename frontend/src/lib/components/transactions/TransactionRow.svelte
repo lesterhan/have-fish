@@ -437,11 +437,27 @@
   .row {
     display: grid;
     grid-template-columns: auto 1fr auto auto;
+    grid-template-rows: auto;
     align-items: start;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-divider);
     transition: background var(--duration-fast) var(--ease);
+  }
+
+  @media (max-width: 520px) {
+    .row {
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto auto;
+      grid-template-areas:
+        'date money actions'
+        'body body body';
+    }
+
+    .date { grid-area: date; }
+    .body { grid-area: body; border-left: none; padding-left: 0; border-top: 1px solid var(--color-divider); padding-top: var(--sp-xs); }
+    .money-col { grid-area: money; justify-self: end; }
+    .actions { grid-area: actions; }
   }
 
   .row:hover {

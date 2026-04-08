@@ -33,6 +33,21 @@
     border-bottom: 1px solid var(--color-divider);
   }
 
+  @media (max-width: 520px) {
+    .row {
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto auto;
+      grid-template-areas:
+        'date money actions'
+        'body body body';
+    }
+
+    .date { grid-area: date; }
+    .body { grid-area: body; border-left: none; padding-left: 0; border-top: 1px solid var(--color-divider); padding-top: var(--sp-xs); margin-top: 0; }
+    .money { grid-area: money; justify-self: end; }
+    .actions { grid-area: actions; }
+  }
+
   .row:last-child {
     border-bottom: none;
   }

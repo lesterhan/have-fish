@@ -227,6 +227,16 @@
     margin-bottom: var(--sp-xl);
   }
 
+  @media (max-width: 520px) {
+    .panels {
+      flex-direction: column;
+    }
+
+    .panels :global(.panel) {
+      width: 100%;
+    }
+  }
+
   .panels :global(.panel:first-child) {
     flex: 1;
     margin-bottom: 0;
