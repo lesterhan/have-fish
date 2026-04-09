@@ -24,6 +24,9 @@
     defaultOffsetAccountId?: string | null
     defaultConversionAccountId?: string | null
     currentAccountId?: string | null
+    selectable?: boolean
+    selected?: boolean
+    ontoggleselect?: (id: string) => void
     onaccountcreated?: (account: Account) => void
     ondeleted?: () => void
   }
@@ -34,6 +37,9 @@
     defaultOffsetAccountId,
     defaultConversionAccountId,
     currentAccountId = null,
+    selectable = false,
+    selected = false,
+    ontoggleselect,
     onaccountcreated,
     ondeleted,
   }: Props = $props()
@@ -92,6 +98,7 @@
   let postingError = $state('')
 
   function startPostingEdit(postingId: string, accountId: string) {
+    if (selectable) return
     descEditing = false
     editingPostingId = postingId
     editAccountId = accountId
@@ -157,7 +164,23 @@
   })
 </script>
 
-<div class="row" class:transfer={isTransfer}>
+<div
+  class="row"
+  class:transfer={isTransfer}
+  class:selectable
+  class:selected
+  onclick={selectable ? () => ontoggleselect?.(tx.id) : undefined}
+  role={selectable ? "checkbox" : undefined}
+  aria-checked={selectable ? selected : undefined}
+  tabindex={selectable ? 0 : undefined}
+  onkeydown={selectable ? (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); ontoggleselect?.(tx.id) } } : undefined}
+>
+  {#if selectable}
+    <div class="select-col" aria-hidden="true">
+      <span class="checkbox" class:checked={selected}></span>
+    </div>
+  {/if}
+
   <div class="date">
     <span class="date-meta">{dateParts.year} {dateParts.dow}</span>
     <span class="date-main">{dateParts.monthDay}</span>
@@ -165,7 +188,7 @@
 
   <div class="body">
     <!-- Description -->
-    {#if descEditing}
+    {#if descEditing && !selectable}
       <!-- Auto-sizes to text width via the CSS grid sizer trick -->
       <div class="desc-sizer" data-value={descValue}>
         <input
@@ -179,12 +202,13 @@
       </div>
     {:else}
       <span
-        class="description editable"
-        role="button"
-        tabindex="0"
-        onclick={startDescEdit}
-        onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
-        title="Click to edit"
+        class="description"
+        class:editable={!selectable}
+        role={!selectable ? "button" : undefined}
+        tabindex={!selectable ? 0 : undefined}
+        onclick={!selectable ? (e) => { e.stopPropagation(); startDescEdit() } : undefined}
+        onkeydown={!selectable ? (e) => handleEditableKeydown(e, startDescEdit) : undefined}
+        title={!selectable ? "Click to edit" : undefined}
       >
         {localDescription || '—'}
       </span>
@@ -395,16 +419,18 @@
     {/if}
   </div>
 
-  <div class="actions">
-    <Button
-      tooltip="Edit transaction"
-      variant="ghost"
-      square
-      onclick={() => (modalOpen = true)}
-    >
-      <Icon name="edit-txn" />
-    </Button>
-  </div>
+  {#if !selectable}
+    <div class="actions">
+      <Button
+        tooltip="Edit transaction"
+        variant="ghost"
+        square
+        onclick={() => (modalOpen = true)}
+      >
+        <Icon name="edit-txn" />
+      </Button>
+    </div>
+  {/if}
 </div>
 
 <TransactionEditModal
@@ -441,6 +467,49 @@
 
   .row:hover {
     background: var(--color-accent-light);
+  }
+
+  .row.selectable {
+    grid-template-columns: auto auto 1fr auto;
+    cursor: pointer;
+  }
+
+  .row.selectable:focus {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -2px;
+  }
+
+  .row.selected {
+    background: var(--color-accent-light);
+  }
+
+  .select-col {
+    display: flex;
+    align-items: center;
+    align-self: center;
+    padding-top: 1px;
+  }
+
+  .checkbox {
+    display: inline-block;
+    width: 13px;
+    height: 13px;
+    box-shadow: var(--shadow-sunken);
+    background: var(--color-window-raised);
+    flex-shrink: 0;
+    position: relative;
+  }
+
+  .checkbox.checked::after {
+    content: "✓";
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    line-height: 1;
+    color: var(--color-text);
   }
 
   .row:last-child {
@@ -634,6 +703,15 @@
       padding: var(--sp-xs) var(--sp-sm);
       gap: var(--sp-xs);
     }
+
+    .row.selectable {
+      grid-template-columns: auto auto 1fr auto;
+      grid-template-areas:
+        'sel date money .'
+        'sel body body body';
+    }
+
+    .select-col { grid-area: sel; align-self: center; }
 
     .date {
       grid-area: date;

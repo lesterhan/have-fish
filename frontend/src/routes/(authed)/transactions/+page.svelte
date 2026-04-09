@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { fetchTransactions, fetchAccounts, type Account } from '$lib/api'
+  import {
+    fetchTransactions,
+    fetchAccounts,
+    deleteTransaction,
+    type Account,
+  } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
   import Button from '$lib/components/ui/Button.svelte'
@@ -40,6 +45,34 @@
   let defaultConversionAccountId = $state<string | null>(null)
   let loading = $state(true)
   let addModalOpen = $state(false)
+  let selectMode = $state(false)
+  let selectedIds = $state(new Set<string>())
+  let deleting = $state(false)
+
+  function toggleSelectMode() {
+    selectMode = !selectMode
+    selectedIds = new Set()
+  }
+
+  function toggleSelect(id: string) {
+    const next = new Set(selectedIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    selectedIds = next
+  }
+
+  async function deleteSelected() {
+    if (selectedIds.size === 0) return
+    deleting = true
+    try {
+      await Promise.all([...selectedIds].map((id) => deleteTransaction(id)))
+      transactions = transactions.filter((t) => !selectedIds.has(t.id))
+      selectedIds = new Set()
+      selectMode = false
+    } finally {
+      deleting = false
+    }
+  }
 
   // Re-fetch transactions whenever from/to/accountPath change.
   $effect(() => {
@@ -115,15 +148,30 @@
   />
   <Panel title="Operations">
     <div class="ops-body">
-      <Button onclick={() => (addModalOpen = true)}
-        ><Icon name="plus" /> New</Button
-      >
-      <a href="/import" class="btn-link"
-        ><Button><Icon name="import" /> Import</Button></a
-      >
-      <Button disabled tooltip="Coming soon"
-        ><Icon name="export" /> Export</Button
-      >
+      {#if selectMode}
+        <Button
+          variant="danger"
+          disabled={selectedIds.size === 0 || deleting}
+          onclick={deleteSelected}
+          ><Icon name="trash" /> Delete{selectedIds.size > 0
+            ? ` (${selectedIds.size})`
+            : ''}</Button
+        >
+        <Button onclick={toggleSelectMode}>Cancel</Button>
+      {:else}
+        <Button onclick={() => (addModalOpen = true)}
+          ><Icon name="plus" /> New</Button
+        >
+        <a href="/import" class="btn-link"
+          ><Button><Icon name="import" /> Import</Button></a
+        >
+        <Button disabled tooltip="Coming soon"
+          ><Icon name="export" /> Export</Button
+        >
+        <Button onclick={toggleSelectMode}
+          ><Icon name="edit-txn" /> Select</Button
+        >
+      {/if}
     </div>
   </Panel>
 </div>
@@ -144,6 +192,9 @@
         {accounts}
         {defaultOffsetAccountId}
         {defaultConversionAccountId}
+        selectable={selectMode}
+        selected={selectedIds.has(tx.id)}
+        ontoggleselect={toggleSelect}
         onaccountcreated={(a) => (accounts = [...accounts, a])}
         ondeleted={() =>
           (transactions = transactions.filter(
@@ -155,22 +206,14 @@
 {/if}
 
 <style>
-  /* FilterPanel + Operations side by side */
   .panels {
     display: flex;
+    flex-direction: column;
     gap: var(--sp-sm);
-    align-items: flex-start;
     margin-bottom: var(--sp-xl);
   }
 
-  /* FilterPanel takes all remaining space */
-  .panels :global(.panel:first-child) {
-    flex: 1;
-    margin-bottom: 0;
-  }
-
-  /* Operations panel — fixed width, no bottom margin */
-  .panels :global(.panel:last-child) {
+  .panels :global(.panel) {
     margin-bottom: 0;
   }
 
