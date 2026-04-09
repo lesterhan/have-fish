@@ -1,10 +1,3 @@
-<script module>
-  function focusOnMount(node: HTMLInputElement) {
-    node.focus()
-    node.select()
-  }
-</script>
-
 <script lang="ts">
   import { untrack } from 'svelte'
   import Button from '$lib/components/ui/Button.svelte'
@@ -14,20 +7,16 @@
   import { patchTransaction, patchPosting, type Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
-
-  interface Posting {
-    id: string
-    accountId: string
-    amount: string
-    currency: string
-  }
-
-  interface Transaction {
-    id: string
-    date: string
-    description: string | null
-    postings: Posting[]
-  }
+  import {
+    focusOnMount,
+    parseDateParts,
+    summarize,
+    classifyTransfer,
+    fmt,
+    handleEditableKeydown,
+    type Posting,
+    type Transaction,
+  } from './transactionUtils'
 
   interface Props {
     tx: Transaction
@@ -96,13 +85,6 @@
     if (e.key === 'Escape') cancelDescEdit()
   }
 
-  function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      action()
-    }
-  }
-
   // --- Posting account editing ---
   let editingPostingId = $state<string | null>(null)
   let editAccountId = $state('')
@@ -138,37 +120,12 @@
     }
   }
 
-  // --- Date display ---
-  function parseDateParts(isoDate: string) {
-    const [y, m, d] = isoDate.substring(0, 10).split('-').map(Number)
-    const date = new Date(y, m - 1, d)
-    return {
-      dow: date.toLocaleDateString('en', { weekday: 'short' }),
-      monthDay: date.toLocaleDateString('en', {
-        month: 'short',
-        day: 'numeric',
-      }),
-      year: String(y),
-    }
-  }
-
   let dateParts = $derived(parseDateParts(localDate))
 
   // --- Transaction classification ---
   let isCrossCurrency = $derived(
     new Set(localPostings.map((p) => p.currency)).size > 1,
   )
-
-  function summarize(postings: Posting[]) {
-    const sorted = [...postings].sort(
-      (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-    )
-    return {
-      from: sorted[0],
-      to: sorted[sorted.length - 1],
-      rest: sorted.slice(1, -1),
-    }
-  }
 
   let { from, to, rest } = $derived(summarize(localPostings))
 
@@ -180,25 +137,7 @@
     return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot
   })
 
-  function classifyTransfer(postings: Posting[]) {
-    const nonConversion = postings.filter(
-      (p) => p.accountId !== defaultConversionAccountId,
-    )
-    const sorted = [...nonConversion].sort(
-      (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-    )
-    const source = sorted[0]
-    const target = [...nonConversion]
-      .filter((p) => p.currency !== source.currency)
-      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))[0]
-    const internalIds = new Set([source.id, target?.id])
-    const fees = nonConversion.filter(
-      (p) => !internalIds.has(p.id) && parseFloat(p.amount) > 0,
-    )
-    return { source, target, fees }
-  }
-
-  let transfer = $derived(classifyTransfer(localPostings))
+  let transfer = $derived(classifyTransfer(localPostings, defaultConversionAccountId))
 
   // Which side of the transaction is the current account?
   let currentIsFrom = $derived(from.accountId === currentAccountId)
@@ -223,9 +162,6 @@
     localPostings.find((p) => p.accountId === currentAccountId),
   )
 
-  function fmt(amount: string) {
-    return Math.abs(parseFloat(amount)).toFixed(2)
-  }
 </script>
 
 <div class="row" class:transfer={isTransfer}>

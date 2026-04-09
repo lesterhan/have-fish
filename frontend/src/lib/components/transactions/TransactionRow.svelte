@@ -1,10 +1,3 @@
-<script module>
-  function focusOnMount(node: HTMLInputElement) {
-    node.focus()
-    node.select()
-  }
-</script>
-
 <script lang="ts">
   import { untrack } from 'svelte'
   import Button from '$lib/components/ui/Button.svelte'
@@ -14,20 +7,16 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import { patchTransaction, patchPosting, type Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
-
-  interface Posting {
-    id: string
-    accountId: string
-    amount: string
-    currency: string
-  }
-
-  interface Transaction {
-    id: string
-    date: string
-    description: string | null
-    postings: Posting[]
-  }
+  import {
+    focusOnMount,
+    parseDateParts,
+    summarize,
+    classifyTransfer,
+    fmt,
+    handleEditableKeydown,
+    type Posting,
+    type Transaction,
+  } from './transactionUtils'
 
   interface Props {
     tx: Transaction
@@ -97,13 +86,6 @@
     if (e.key === 'Escape') cancelDescEdit()
   }
 
-  function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      action()
-    }
-  }
-
   // --- Posting account editing ---
   let editingPostingId = $state<string | null>(null)
   let editAccountId = $state('')
@@ -141,39 +123,13 @@
     }
   }
 
-  // --- Date display ---
-  // Parse YYYY-MM-DD as local midnight to avoid UTC timezone shift.
-  function parseDateParts(isoDate: string) {
-    // Slice to YYYY-MM-DD before splitting — avoids new Date(str) treating
-    // a bare date string as UTC midnight and shifting it into the previous day
-    // for UTC- timezones. new Date(y, m-1, d) always creates local midnight.
-    const [y, m, d] = isoDate.substring(0, 10).split('-').map(Number)
-    const date = new Date(y, m - 1, d)
-    return {
-      dow: date.toLocaleDateString('en', { weekday: 'short' }),
-      monthDay: date.toLocaleDateString('en', {
-        month: 'short',
-        day: 'numeric',
-      }),
-      year: String(y),
-    }
-  }
-
   let dateParts = $derived(parseDateParts(localDate))
 
-  // --- Display helpers ---
-
   // A cross-currency transfer has postings in more than one currency.
-  // These transactions (typically 4–5 postings with a conversion account)
-  // need a different layout from the standard from→to summary.
   let isCrossCurrency = $derived(
     new Set(localPostings.map((p) => p.currency)).size > 1,
   )
 
-  // A transfer moves money between asset/liability/equity accounts.
-  // We detect this by checking whether the destination account (most positive
-  // posting) is NOT under the expenses root. Cross-currency transactions
-  // between personal accounts also qualify.
   let isTransfer = $derived.by(() => {
     const settings = settingsStore.value
     if (!settings) return false
@@ -182,47 +138,7 @@
     return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot
   })
 
-  // For cross-currency transfers: identify the source (largest outflow) and
-  // target (largest inflow in a different currency). Everything else —
-  // conversion account entries and fee postings — is treated as internals.
-  function classifyTransfer(postings: Posting[]) {
-    // Exclude the conversion account's bridging entries — they exist in both
-    // currencies and can dwarf the real source/target amounts, causing the
-    // sort to pick them as source or target instead of the actual accounts.
-    const nonConversion = postings.filter(
-      (p) => p.accountId !== defaultConversionAccountId,
-    )
-
-    const sorted = [...nonConversion].sort(
-      (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-    )
-    // Source = most negative non-conversion posting (e.g. assets:wise:eur)
-    const source = sorted[0]
-    // Target = most positive non-conversion posting in a different currency
-    const target = [...nonConversion]
-      .filter((p) => p.currency !== source.currency)
-      .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))[0]
-    // Fees = any remaining positive non-conversion postings (e.g. expenses:fees)
-    const internalIds = new Set([source.id, target?.id])
-    const fees = nonConversion.filter(
-      (p) => !internalIds.has(p.id) && parseFloat(p.amount) > 0,
-    )
-    return { source, target, fees }
-  }
-
-  let transfer = $derived(classifyTransfer(localPostings))
-
-  function summarize(postings: Posting[]) {
-    const sorted = [...postings].sort(
-      (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-    )
-    return {
-      from: sorted[0],
-      to: sorted[sorted.length - 1],
-      rest: sorted.slice(1, -1),
-    }
-  }
-
+  let transfer = $derived(classifyTransfer(localPostings, defaultConversionAccountId))
   let { from, to, rest } = $derived(summarize(localPostings))
 
   // When viewing a specific account page, identify which side of the transaction
@@ -436,14 +352,10 @@
         {/if}
       </div>
 
-      <!-- Extra postings (fees etc.) -->
       {#if rest.length > 0}
         <div class="transfer-fees">
           {#each rest as posting}
-            <span class="fee-label">
-              fee {Math.abs(parseFloat(posting.amount)).toFixed(2)}
-              {posting.currency}
-            </span>
+            <span class="fee-label">fee {fmt(posting.amount)} {posting.currency}</span>
           {/each}
         </div>
       {/if}
@@ -456,28 +368,28 @@
   <div class="money-col">
     {#if isCrossCurrency}
       <MoneyDisplay
-        amount={Math.abs(parseFloat(transfer.source.amount)).toFixed(2)}
+        amount={fmt(transfer.source.amount)}
         currency={transfer.source.currency}
       />
       <span class="cross-arrow" aria-hidden="true">➜</span>
       <MoneyDisplay
-        amount={parseFloat(transfer.target?.amount ?? '0').toFixed(2)}
+        amount={fmt(transfer.target?.amount ?? '0')}
         currency={transfer.target?.currency ?? ''}
       />
     {:else if from.currency === to.currency}
       <MoneyDisplay
-        amount={Math.abs(parseFloat(from.amount)).toFixed(2)}
+        amount={fmt(from.amount)}
         currency={to.currency}
         {flowDirection}
       />
     {:else}
       <MoneyDisplay
-        amount={Math.abs(parseFloat(from.amount)).toFixed(2)}
+        amount={fmt(from.amount)}
         currency={from.currency}
       />
       <span class="cross-arrow" aria-hidden="true">→</span>
       <MoneyDisplay
-        amount={parseFloat(to.amount).toFixed(2)}
+        amount={fmt(to.amount)}
         currency={to.currency}
       />
     {/if}
