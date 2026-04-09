@@ -290,7 +290,13 @@
         >
       {/if}
     {:else if currentIsFrom}
-      <span class="dir-arrow" class:flow-out={isTransfer}>{isTransfer ? '→' : ''}</span>
+      <span
+        class="dir-arrow"
+        class:flow-in={isTransfer && flowDirection === 'in'}
+        class:flow-out={isTransfer && flowDirection === 'out'}
+      >
+        ➜</span
+      >
       {#if editingPostingId === to.id}
         <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
           <AccountPathInput
@@ -316,7 +322,13 @@
         >
       {/if}
     {:else if currentIsTo}
-      <span class="dir-arrow" class:flow-in={isTransfer}>{isTransfer ? '←' : ''}</span>
+      <span
+        class="dir-arrow"
+        class:flow-in={isTransfer && flowDirection === 'in'}
+        class:flow-out={isTransfer && flowDirection === 'out'}
+      >
+        ↩</span
+      >
       {#if editingPostingId === from.id}
         <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
           <AccountPathInput
