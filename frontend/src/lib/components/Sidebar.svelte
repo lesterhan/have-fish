@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { afterNavigate } from '$app/navigation'
   import type { AccountBalance, UserSettings } from '$lib/api'
   import { formatCompact } from '$lib/currency'
   import { theme } from '$lib/theme.svelte'
@@ -21,6 +22,8 @@
     mobileOpen = false,
     onMobileClose,
   }: Props = $props()
+
+  afterNavigate(() => onMobileClose?.())
 
   let expanded = $state(true)
   let assetsOpen = $state(true)

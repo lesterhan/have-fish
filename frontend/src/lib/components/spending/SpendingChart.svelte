@@ -295,4 +295,26 @@
     color: var(--color-text-muted);
     padding: var(--sp-md) 0;
   }
+
+  @media (max-width: 520px) {
+    .chart-container {
+      flex-direction: column;
+      align-items: center;
+      gap: var(--sp-md);
+    }
+
+    .canvas-wrap {
+      width: 200px;
+      height: 200px;
+    }
+
+    .legend-panel {
+      width: 100%;
+      padding-top: 0;
+    }
+
+    .legend-row {
+      min-height: 36px;
+    }
+  }
 </style>

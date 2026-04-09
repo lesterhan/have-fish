@@ -66,6 +66,7 @@
   let descError = $state('')
 
   function startDescEdit() {
+    editingPostingId = null
     descValue = localDescription
     descEditing = true
     descError = ''
@@ -108,10 +109,10 @@
   let editAccountId = $state('')
   let postingError = $state('')
 
-  function startPostingEdit(postingId: string, currentAccountId: string) {
+  function startPostingEdit(postingId: string, accountId: string) {
     descEditing = false
     editingPostingId = postingId
-    editAccountId = currentAccountId
+    editAccountId = accountId
     postingError = ''
   }
 
@@ -526,21 +527,6 @@
     transition: background var(--duration-fast) var(--ease);
   }
 
-  @media (max-width: 520px) {
-    .row {
-      grid-template-columns: auto 1fr auto;
-      grid-template-rows: auto auto;
-      grid-template-areas:
-        'date money actions'
-        'body body body';
-    }
-
-    .date { grid-area: date; }
-    .body { grid-area: body; border-left: none; padding-left: 0; border-top: 1px solid var(--color-divider); padding-top: var(--sp-xs); }
-    .money-col { grid-area: money; justify-self: end; }
-    .actions { grid-area: actions; }
-  }
-
   .row:hover {
     background: var(--color-accent-light);
   }
@@ -644,6 +630,10 @@
 
   .account {
     color: var(--color-text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
   .account-from {
@@ -719,5 +709,58 @@
     display: flex;
     align-items: center;
     align-self: center;
+  }
+
+  @media (max-width: 520px) {
+    .row {
+      grid-template-columns: auto 1fr auto;
+      grid-template-rows: auto auto;
+      grid-template-areas:
+        'date money actions'
+        'body body body';
+      border-bottom: 2px solid var(--color-bevel-dark);
+      padding: var(--sp-xs) var(--sp-sm);
+      gap: var(--sp-xs);
+    }
+
+    .date {
+      grid-area: date;
+      flex-direction: row;
+      align-items: baseline;
+      gap: var(--sp-xs);
+    }
+
+    .date-main { font-size: var(--text-sm); }
+    .date-meta { font-size: var(--text-xs); }
+
+    .body {
+      grid-area: body;
+      border-left: none;
+      padding-left: 0;
+      border-top: none;
+      padding-top: 0;
+      padding-bottom: 0;
+    }
+
+    .money-col { grid-area: money; justify-self: end; }
+    .actions { grid-area: actions; }
+
+    /* Make stacked MoneyDisplay render inline on mobile */
+    .money-col :global(.money) {
+      flex-direction: row;
+      align-items: center;
+      gap: var(--sp-xs);
+    }
+
+    .money-col :global(.money .amount) {
+      font-size: var(--text-sm);
+    }
+
+    .summary-line { flex-wrap: wrap; }
+
+    .account-edit-wrapper {
+      flex: 1 1 100%;
+      max-width: none;
+    }
   }
 </style>

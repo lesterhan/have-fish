@@ -65,6 +65,7 @@
   let descError = $state('')
 
   function startDescEdit() {
+    editingPostingId = null
     descValue = localDescription
     descEditing = true
     descError = ''
