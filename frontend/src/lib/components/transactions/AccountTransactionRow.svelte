@@ -137,7 +137,9 @@
     return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot
   })
 
-  let transfer = $derived(classifyTransfer(localPostings, defaultConversionAccountId))
+  let transfer = $derived(
+    classifyTransfer(localPostings, defaultConversionAccountId),
+  )
 
   // Which side of the transaction is the current account?
   let currentIsFrom = $derived(from.accountId === currentAccountId)
@@ -161,7 +163,6 @@
   let currentPosting = $derived(
     localPostings.find((p) => p.accountId === currentAccountId),
   )
-
 </script>
 
 <div class="row" class:transfer={isTransfer}>
@@ -299,9 +300,17 @@
       <span class="dir-arrow">➜</span>
       <span class="account">{accountPaths[to.accountId] ?? to.accountId}</span>
     {/if}
-    {#if rest.length > 0}
+    {#if isCrossCurrency && transfer.fees.length > 0}
       <span class="fees">
-        {#each rest as fee}+ {fmt(fee.amount)} {fee.currency}{/each}
+        {#each transfer.fees as fee}<Icon name="coin" size={10} />{fmt(
+            fee.amount,
+          )}
+          {fee.currency}{/each}
+      </span>
+    {:else if isTransfer && !isCrossCurrency && rest.length > 0}
+      <span class="fees">
+        {#each rest as fee}<Icon name="coin" size={10} />{fmt(fee.amount)}
+          {fee.currency}{/each}
       </span>
     {/if}
     {#if postingError}<span class="edit-error" role="alert">{postingError}</span
@@ -311,18 +320,34 @@
   <!-- Amount -->
   <div class="amount-cell">
     {#if isCrossCurrency}
-      <MoneyDisplay
-        amount={fmt(transfer.source.amount)}
-        currency={transfer.source.currency}
-        {flowDirection}
-        inline
-      />
-      <span class="cross-sep">→</span>
-      <MoneyDisplay
-        amount={fmt(transfer.target?.amount ?? '0')}
-        currency={transfer.target?.currency ?? ''}
-        inline
-      />
+      <div class="transfer-amounts">
+        <MoneyDisplay
+          amount={fmt(
+            currentIsSource
+              ? transfer.source.amount
+              : (transfer.target?.amount ?? '0'),
+          )}
+          currency={currentIsSource
+            ? transfer.source.currency
+            : (transfer.target?.currency ?? '')}
+          {flowDirection}
+          inline
+        />
+        <div class="transfer-exchange">
+          <span class="cross-sep">{currentIsSource ? '→' : '←'}</span>
+          <MoneyDisplay
+            amount={fmt(
+              currentIsSource
+                ? (transfer.target?.amount ?? '0')
+                : transfer.source.amount,
+            )}
+            currency={currentIsSource
+              ? (transfer.target?.currency ?? '')
+              : transfer.source.currency}
+            inline
+          />
+        </div>
+      </div>
     {:else if currentPosting}
       <MoneyDisplay
         amount={fmt(currentPosting.amount)}
@@ -499,7 +524,10 @@
   }
 
   .fees {
-    font-size: var(--text-xs);
+    display: flex;
+    align-items: center;
+    gap: 2px;
+    font-size: 10px;
     color: var(--color-text-muted);
     flex-shrink: 0;
     white-space: nowrap;
@@ -512,6 +540,25 @@
     gap: var(--sp-xs);
     justify-content: flex-end;
     flex-shrink: 0;
+  }
+
+  .transfer-amounts {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+  }
+
+  .transfer-exchange {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    opacity: 0.6;
+  }
+
+  .transfer-exchange :global(.amount),
+  .transfer-exchange :global(.currency) {
+    font-size: 10px;
   }
 
   .cross-sep {
