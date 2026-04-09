@@ -23,7 +23,7 @@
   function defaultRange() {
     const today = new Date()
     const from = new Date(today)
-    from.setDate(today.getDate() - 30)
+    from.setDate(today.getDate() - 90)
     return {
       from: toISODate(from),
       to: toISODate(today),

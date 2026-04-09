@@ -160,7 +160,7 @@
     box-shadow: var(--shadow-sunken);
     padding: 2px var(--sp-xs);
     height: 22px;
-    width: 200px;
+    width: 150px;
     outline: none;
     transition: outline var(--duration-fast) var(--ease);
     cursor: text;
