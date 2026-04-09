@@ -36,30 +36,57 @@
   )
 
   let assets = $derived(
-    accounts.filter(
-      (a) =>
-        !hiddenIds.has(a.id) &&
-        a.path.startsWith(`${settings.defaultAssetsRootPath}:`),
+    sortByDisplayName(
+      accounts.filter(
+        (a) =>
+          !hiddenIds.has(a.id) &&
+          a.path.startsWith(`${settings.defaultAssetsRootPath}:`),
+      ),
+      settings.defaultAssetsRootPath,
     ),
   )
   let liabilities = $derived(
-    accounts.filter(
-      (a) =>
-        !hiddenIds.has(a.id) &&
-        a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`),
+    sortByDisplayName(
+      accounts.filter(
+        (a) =>
+          !hiddenIds.has(a.id) &&
+          a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`),
+      ),
+      settings.defaultLiabilitiesRootPath,
     ),
   )
   let equity = $derived(
-    accounts.filter(
-      (a) =>
-        !hiddenIds.has(a.id) &&
-        a.path.startsWith(`${settings.defaultEquityRootPath}:`),
+    sortByDisplayName(
+      accounts.filter(
+        (a) =>
+          !hiddenIds.has(a.id) &&
+          a.path.startsWith(`${settings.defaultEquityRootPath}:`),
+      ),
+      settings.defaultEquityRootPath,
     ),
   )
-  let hiddenAccounts = $derived(accounts.filter((a) => hiddenIds.has(a.id)))
+  let hiddenAccounts = $derived(
+    sortByDisplayName(
+      accounts.filter((a) => hiddenIds.has(a.id)),
+      "",
+    ),
+  )
 
   function shortName(path: string, root: string): string {
     return path.startsWith(`${root}:`) ? path.slice(root.length + 1) : path
+  }
+
+  function displayName(acct: AccountBalance, root: string): string {
+    return acct.name ?? shortName(acct.path, root)
+  }
+
+  function sortByDisplayName(
+    accts: AccountBalance[],
+    root: string,
+  ): AccountBalance[] {
+    return [...accts].sort((a, b) =>
+      displayName(a, root).localeCompare(displayName(b, root)),
+    )
   }
 </script>
 
