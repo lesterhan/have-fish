@@ -23,6 +23,7 @@
   import { toast } from '$lib/toast.svelte'
   import { goto } from '$app/navigation'
   import { confetti } from '$lib/confetti.svelte'
+  import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
 
   let accounts = $state<Account[]>([])
   let parsers = $state<CsvParser[]>([])
@@ -218,6 +219,7 @@
         transactions: txs,
       })
       toast.show(`${result.created} transaction(s) imported`)
+      refreshSidebar()
       confetti.trigger()
       goto('/transactions')
     } catch {

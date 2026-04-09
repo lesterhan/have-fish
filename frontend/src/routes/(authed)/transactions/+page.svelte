@@ -5,6 +5,7 @@
     deleteTransaction,
     type Account,
   } from '$lib/api'
+  import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
   import Button from '$lib/components/ui/Button.svelte'
@@ -69,6 +70,7 @@
       transactions = transactions.filter((t) => !selectedIds.has(t.id))
       selectedIds = new Set()
       selectMode = false
+      refreshSidebar()
     } finally {
       deleting = false
     }
@@ -132,6 +134,7 @@
   oncreated={(tx) => {
     const txDate = tx.date.substring(0, 10)
     if (txDate >= from && txDate <= to) transactions = [tx, ...transactions]
+    refreshSidebar()
   }}
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />

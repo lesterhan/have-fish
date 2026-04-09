@@ -6,6 +6,7 @@
   import { toast } from '$lib/toast.svelte'
   import { fetchAccountBalances } from '$lib/api'
   import type { AccountBalance, UserSettings } from '$lib/api'
+  import sidebarRefresh from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import CashConfetti from '$lib/components/ui/CashConfetti.svelte'
@@ -50,6 +51,16 @@
         },
       )
     }
+  })
+
+  // Re-fetch sidebar balances whenever a page signals a mutation.
+  $effect(() => {
+    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
+    sidebarRefresh.count // subscribe
+    if (!sidebarFetched) return
+    fetchAccountBalances().then((accts) => {
+      sidebarAccounts = accts
+    })
   })
 
   function closeMobileSidebar() {
