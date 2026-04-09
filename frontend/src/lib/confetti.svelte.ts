@@ -22,12 +22,11 @@ function generate(): Particle[] {
   return Array.from({ length: COUNT }, (_, i) => ({
     id: i,
     symbol: SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
-    x: rand(15, 85),       // spread across middle of screen
-    rise: rand(55, 120),   // vh — shoot high
-    delay: rand(0, 0.4),   // tight burst, not staggered
-    duration: rand(1.5, 2.5),
+    x: rand(-5, 105),
+    delay: rand(0, 1.4),
+    duration: rand(1, 2),
     size: rand(1.2, 2.2),
-    sway: rand(-20, 20),   // wider spread for explosion feel
+    sway: rand(-20, 20),
     rot0: rand(0, 360),
     rot1: rand(0, 360) + 360,  // full spin
   }))
@@ -44,6 +43,6 @@ export const confetti = {
     timer = setTimeout(() => {
       particles = []
       timer = null
-    }, (0.4 + 2.5 + 0.3) * 1000)
+    }, (1.5 + 4.5 + 0.5) * 1000)
   },
 }

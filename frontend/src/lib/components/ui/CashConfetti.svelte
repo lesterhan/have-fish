@@ -12,7 +12,6 @@
           font-size: {p.size}rem;
           animation-delay: {p.delay}s;
           animation-duration: {p.duration}s;
-          --rise: -{p.rise}vh;
           --sway: {p.sway}vw;
           --rot0: {p.rot0}deg;
           --rot1: {p.rot1}deg;
@@ -33,13 +32,13 @@
 
   .particle {
     position: absolute;
-    top: calc(100vh + 2rem);
+    top: -3rem;
     line-height: 1;
     will-change: transform, opacity;
-    animation: cash-explode cubic-bezier(0.2, 0.8, 0.4, 1) forwards;
+    animation: cash-fall linear forwards;
   }
 
-  @keyframes cash-explode {
+  @keyframes cash-fall {
     0% {
       transform: translateY(0) translateX(0) rotate(var(--rot0));
       opacity: 1;
@@ -48,9 +47,8 @@
       opacity: 1;
     }
     100% {
-      transform: translateY(var(--rise)) translateX(var(--sway))
-        rotate(var(--rot1));
-      opacity: 0;
+      transform: translateY(115vh) translateX(var(--sway)) rotate(var(--rot1));
+      opacity: 1;
     }
   }
 </style>
