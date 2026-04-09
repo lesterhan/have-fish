@@ -267,7 +267,7 @@
 
   .tx-table {
     /* 4 named columns only — actions lives outside this template in each row */
-    --tx-cols: 5.5rem 1fr 1.5fr auto;
+    --tx-cols: 5.5rem 1fr 1.5fr 8rem;
     box-shadow: var(--shadow-sunken);
     background: var(--color-window-raised);
   }

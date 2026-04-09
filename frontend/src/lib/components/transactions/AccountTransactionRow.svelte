@@ -265,14 +265,14 @@
   <div class="account-cell">
     {#if isCrossCurrency}
       {#if currentIsSource}
-        <span class="dir-arrow">→</span>
+        <span class="dir-arrow flow-out">→</span>
         <span class="account"
           >{accountPaths[transfer.target?.accountId ?? ''] ??
             transfer.target?.accountId ??
             '—'}</span
         >
       {:else if currentIsTarget}
-        <span class="dir-arrow">←</span>
+        <span class="dir-arrow flow-in">←</span>
         <span class="account"
           >{accountPaths[transfer.source.accountId] ??
             transfer.source.accountId}</span
@@ -290,7 +290,7 @@
         >
       {/if}
     {:else if currentIsFrom}
-      <span class="dir-arrow">→</span>
+      <span class="dir-arrow" class:flow-out={isTransfer}>{isTransfer ? '→' : ''}</span>
       {#if editingPostingId === to.id}
         <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
           <AccountPathInput
@@ -316,7 +316,7 @@
         >
       {/if}
     {:else if currentIsTo}
-      <span class="dir-arrow">←</span>
+      <span class="dir-arrow" class:flow-in={isTransfer}>{isTransfer ? '←' : ''}</span>
       {#if editingPostingId === from.id}
         <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
           <AccountPathInput
@@ -515,7 +515,16 @@
 
   .dir-arrow {
     color: var(--color-text-muted);
-    flex-shrink: 0;
+    flex: 0 0 1.25rem;
+    text-align: center;
+  }
+
+  .dir-arrow.flow-in {
+    color: var(--color-transfer-in);
+  }
+
+  .dir-arrow.flow-out {
+    color: var(--color-transfer-out);
   }
 
   .account {
