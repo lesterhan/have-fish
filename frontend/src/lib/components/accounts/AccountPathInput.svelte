@@ -146,7 +146,14 @@
       activeIndex = (activeIndex - 1 + options.length) % options.length
     } else if (e.key === 'Enter') {
       e.preventDefault()
-      selectOption(activeIndex)
+      if (searchOnly) {
+        // Commit the raw input as a partial path prefix — don't force an exact account match.
+        open = false
+        value = inputText.trim()
+        oncommit?.(value)
+      } else {
+        selectOption(activeIndex)
+      }
     } else if (e.key === 'Escape') {
       open = false
       inputText = searchOnly
