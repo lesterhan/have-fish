@@ -8,6 +8,7 @@
   import type { AccountBalance, UserSettings } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import CashConfetti from '$lib/components/ui/CashConfetti.svelte'
 
   let { children } = $props()
 
@@ -128,6 +129,8 @@
       {/if}
     </div>
   </div>
+
+  <CashConfetti />
 
   {#if showQuitDialog}
     <div class="dialog-overlay">

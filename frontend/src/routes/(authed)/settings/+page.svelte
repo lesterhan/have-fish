@@ -10,6 +10,7 @@
   import Modal from '$lib/components/ui/Modal.svelte'
   import { signOut, useSession, authClient } from '$lib/auth'
   import { goto } from '$app/navigation'
+  import { confetti } from '$lib/confetti.svelte'
   import { toast } from '$lib/toast.svelte'
   import { tooltip } from '$lib/tooltip'
 
@@ -105,7 +106,7 @@
     <h1>
       <button
         class="secret-btn"
-        onclick={() => toast.show('年年有鱼 Year Year Have Fish')}>🧧</button
+        onclick={() => { toast.show('年年有鱼 Year Year Have Fish'); confetti.trigger() }}>🧧</button
       >
       {$session.data.user.email}
     </h1>

@@ -22,6 +22,7 @@
   import type { RowState } from '$lib/components/import/ImportPreviewPanel.svelte'
   import { toast } from '$lib/toast.svelte'
   import { goto } from '$app/navigation'
+  import { confetti } from '$lib/confetti.svelte'
 
   let accounts = $state<Account[]>([])
   let parsers = $state<CsvParser[]>([])
@@ -217,6 +218,7 @@
         transactions: txs,
       })
       toast.show(`${result.created} transaction(s) imported`)
+      confetti.trigger()
       goto('/transactions')
     } catch {
       error = 'Import failed. Please try again.'
