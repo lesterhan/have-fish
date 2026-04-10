@@ -70,7 +70,7 @@ app.patch('/', async (c) => {
   }
 
   // Plain text fields
-  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath', 'defaultExpensesRootPath', 'defaultEquityRootPath'] as const) {
+  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath', 'defaultExpensesRootPath', 'defaultEquityRootPath', 'preferredCurrency'] as const) {
     if (!(field in body)) continue
     const value = body[field]
     if (typeof value !== 'string' || !value.trim()) {

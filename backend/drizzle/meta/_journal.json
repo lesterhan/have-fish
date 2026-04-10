@@ -106,6 +106,13 @@
       "when": 1775830877555,
       "tag": "0014_keen_winter_soldier",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "7",
+      "when": 1775900000000,
+      "tag": "0015_preferred_currency",
+      "breakpoints": true
     }
   ]
 }

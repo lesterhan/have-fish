@@ -287,6 +287,7 @@ export type UserSettings = {
   defaultExpensesRootPath: string
   defaultEquityRootPath: string
   defaultAdjustmentsAccountId: string | null
+  preferredCurrency: string
   preferences: UserPreferences
   createdAt: string
   updatedAt: string
@@ -310,6 +311,7 @@ export async function updateUserSettings(
       | 'defaultLiabilitiesRootPath'
       | 'defaultExpensesRootPath'
       | 'defaultEquityRootPath'
+      | 'preferredCurrency'
     >
   > & { preferences?: UserPreferences },
 ): Promise<UserSettings> {

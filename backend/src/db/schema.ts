@@ -121,6 +121,9 @@ export const userSettings = pgTable('user_settings', {
   defaultEquityRootPath: text('default_equity_root_path').notNull().default('equity'),
   // Offset account used when posting reconciliation adjustments (e.g. equity:adjustments).
   defaultAdjustmentsAccountId: uuid('default_adjustments_account_id').references(() => accounts.id),
+  // The user's home currency — used to display converted amounts in the UI.
+  // Stored as an ISO 4217 code (e.g. "CAD", "USD", "EUR"). Defaults to CAD.
+  preferredCurrency: text('preferred_currency').notNull().default('CAD'),
   // Catch-all JSONB blob for UI display preferences (e.g. hidden currencies).
   // Use this for any new preference rather than adding columns — keeps the table stable.
   preferences: jsonb('preferences').notNull().default({}),

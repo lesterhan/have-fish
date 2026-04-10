@@ -25,6 +25,7 @@
   let offsetAccountId = $state('')
   let conversionAccountId = $state('')
   let adjustmentsAccountId = $state('')
+  let preferredCurrency = $state('CAD')
 
   // --- Accounts ---
   let accounts = $state<Account[]>([])
@@ -39,6 +40,7 @@
     offsetAccountId = settings.defaultOffsetAccountId ?? ''
     conversionAccountId = settings.defaultConversionAccountId ?? ''
     adjustmentsAccountId = settings.defaultAdjustmentsAccountId ?? ''
+    preferredCurrency = settings.preferredCurrency ?? 'CAD'
   })
 
   async function handleCreateAccount() {
@@ -179,6 +181,34 @@
             handleDefaultChange('defaultAdjustmentsAccountId', id)}
           oncreate={(a) => {
             accounts = [...accounts, a]
+          }}
+        />
+
+        <label for="preferred-currency" class="tip-label">
+          Preferred currency
+          <button
+            type="button"
+            class="tip"
+            use:tooltip={"Your home currency. When entering transactions in another currency, the app will show the equivalent amount in this currency."}
+            aria-label="Your home currency. When entering transactions in another currency, the app will show the equivalent amount in this currency."
+            >?</button
+          >
+        </label>
+        <input
+          id="preferred-currency"
+          type="text"
+          bind:value={preferredCurrency}
+          placeholder="CAD"
+          maxlength={4}
+          style="text-transform: uppercase; width: 6ch;"
+          oninput={(e) => {
+            preferredCurrency = (e.currentTarget as HTMLInputElement).value.toUpperCase()
+          }}
+          onblur={async () => {
+            const val = preferredCurrency.trim()
+            if (!val) return
+            await settingsStore.update({ preferredCurrency: val })
+            toast.show('Preferred currency saved')
           }}
         />
       </div>
