@@ -5,6 +5,7 @@
   import { theme } from '$lib/theme.svelte'
   import { tooltip } from '$lib/tooltip'
   import { settingsStore } from '$lib/settings.svelte'
+  import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from './ui/Icon.svelte'
 
   interface Props {
@@ -33,6 +34,14 @@
 
   let hiddenIds = $derived(
     new Set(settingsStore.value?.preferences.hiddenAccountIds ?? []),
+  )
+
+  let actionRequiredIds = $derived(
+    new Set(
+      (actionRequiredStore.value ?? [])
+        .filter((e) => e.count > 0)
+        .map((e) => e.accountId),
+    ),
   )
 
   let assets = $derived(
@@ -151,6 +160,7 @@
                           settings.defaultAssetsRootPath,
                         )}</span
                     >
+                    {#if actionRequiredIds.has(acct.id)}<span class="action-dot" aria-label="Action required"></span>{/if}
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
@@ -197,6 +207,7 @@
                           settings.defaultLiabilitiesRootPath,
                         )}</span
                     >
+                    {#if actionRequiredIds.has(acct.id)}<span class="action-dot" aria-label="Action required"></span>{/if}
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
@@ -243,6 +254,7 @@
                           settings.defaultEquityRootPath,
                         )}</span
                     >
+                    {#if actionRequiredIds.has(acct.id)}<span class="action-dot" aria-label="Action required"></span>{/if}
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
@@ -609,6 +621,15 @@
   .account-row-hidden .account-name {
     color: var(--color-text-disabled);
     font-style: italic;
+  }
+
+  .action-dot {
+    flex-shrink: 0;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--color-danger);
+    margin-top: 4px;
   }
 
   /* --- Footer --- */
