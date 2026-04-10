@@ -27,4 +27,4 @@
 | [Import Rules](epics/import-rules.md) | Backlog |
 | [Spending Account Filter](epics/spending-account-filter.md) | Backlog |
 | [FX Rates & Preferred Currency](epics/archive/fx-rates.md) | Done |
-| [Action Required](epics/action-required.md) | Backlog |
+| [Action Required](epics/archive/action-required.md) | Done |
