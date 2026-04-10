@@ -121,6 +121,119 @@ app.get('/:id/balance', async (c) => {
   })
 })
 
+// Raw row shapes returned by the action-required SQL queries.
+type ActionRequiredSummaryRow = { account_id: string; count: number }
+type ActionRequiredIdRow = { id: string }
+
+// Shared helper: loads preferredCurrency and defaultOffsetAccountId from user settings.
+async function getActionRequiredSettings(userId: string) {
+  const [settings] = await db
+    .select({
+      preferredCurrency: userSettings.preferredCurrency,
+      defaultOffsetAccountId: userSettings.defaultOffsetAccountId,
+    })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+  return {
+    preferredCurrency: settings?.preferredCurrency ?? 'CAD',
+    offsetAccountId: settings?.defaultOffsetAccountId ?? null,
+  }
+}
+
+// The WHERE clause body shared by both action-required endpoints.
+// A transaction needs action if ANY of:
+//   1. It has a foreign-currency posting with no cached FX rate.
+//   2. It has a posting to the user's defaultOffsetAccountId (uncategorized).
+//
+// Condition 2 is omitted from the SQL entirely when offsetAccountId is null —
+// avoids the PostgreSQL "could not determine data type of parameter" error that
+// occurs when a bare parameter appears in an IS NOT NULL check without type context.
+function actionRequiredCondition(preferredCurrency: string, offsetAccountId: string | null) {
+  const condition1 = sql`EXISTS (
+    SELECT 1 FROM postings p
+    WHERE p.transaction_id = t.id
+      AND p.deleted_at IS NULL
+      AND p.currency != ${preferredCurrency}
+      AND NOT EXISTS (
+        SELECT 1 FROM fx_rates fx
+        WHERE fx.date = to_char(t.date AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+          AND fx.base_currency = p.currency
+          AND fx.quote_currency = ${preferredCurrency}
+      )
+  )`
+
+  if (offsetAccountId === null) {
+    return sql`(${condition1})`
+  }
+
+  const condition2 = sql`EXISTS (
+    SELECT 1 FROM postings p2
+    WHERE p2.transaction_id = t.id
+      AND p2.deleted_at IS NULL
+      AND p2.account_id = ${offsetAccountId}
+  )`
+
+  return sql`(${condition1} OR ${condition2})`
+}
+
+// GET /api/accounts/action-required-summary
+// Returns { accountId, count }[] for all accounts that have at least one action-required
+// transaction. Accounts with nothing to fix are omitted. Used by the sidebar and the
+// account page badge (lazy — full ID list is only fetched on demand).
+app.get('/action-required-summary', async (c) => {
+  const userId = c.get('userId')
+  const { preferredCurrency, offsetAccountId } = await getActionRequiredSettings(userId)
+  const condition = actionRequiredCondition(preferredCurrency, offsetAccountId)
+
+  const result = await db.execute(sql`
+    SELECT anchor.account_id, COUNT(DISTINCT t.id)::int AS count
+    FROM transactions t
+    JOIN postings anchor ON anchor.transaction_id = t.id AND anchor.deleted_at IS NULL
+    WHERE t.user_id = ${userId}
+      AND t.deleted_at IS NULL
+      AND ${condition}
+    GROUP BY anchor.account_id
+  `)
+
+  return c.json(
+    (result as unknown as ActionRequiredSummaryRow[]).map((r) => ({
+      accountId: r.account_id,
+      count: r.count,
+    })),
+  )
+})
+
+// GET /api/accounts/:id/action-required
+// Returns { count, transactionIds[] } for one account. Only fetched when the user
+// clicks the filter button — the summary endpoint covers the initial badge display.
+app.get('/:id/action-required', async (c) => {
+  const userId = c.get('userId')
+  const accountId = c.req.param('id')
+
+  const [account] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+  if (!account) return c.json({ error: 'account not found' }, 404)
+
+  const { preferredCurrency, offsetAccountId } = await getActionRequiredSettings(userId)
+  const condition = actionRequiredCondition(preferredCurrency, offsetAccountId)
+
+  const result = await db.execute(sql`
+    SELECT DISTINCT t.id
+    FROM transactions t
+    JOIN postings anchor ON anchor.transaction_id = t.id
+      AND anchor.account_id = ${accountId}
+      AND anchor.deleted_at IS NULL
+    WHERE t.user_id = ${userId}
+      AND t.deleted_at IS NULL
+      AND ${condition}
+  `)
+
+  const transactionIds = (result as unknown as ActionRequiredIdRow[]).map((r) => r.id)
+  return c.json({ count: transactionIds.length, transactionIds })
+})
+
 app.get('/:id', async (c) => {
   const userId = c.get('userId')
   const [found] = await db

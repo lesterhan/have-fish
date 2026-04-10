@@ -163,6 +163,89 @@ describe('accounts', () => {
     })
   })
 
+  describe('action-required endpoints', () => {
+    async function createAccount(path: string): Promise<string> {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      return (await res.json() as { id: string }).id
+    }
+
+    async function createTransaction(
+      date: string,
+      postings: { accountId: string; amount: string; currency: string }[],
+    ): Promise<string> {
+      const res = await app.request('/api/transactions', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ date, postings }),
+      })
+      return (await res.json() as { id: string }).id
+    }
+
+    async function setSettings(body: Record<string, string | null>) {
+      return app.request('/api/user-settings', {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    it('GET /api/accounts/:id/action-required flags uncategorized transactions', async () => {
+      const assetId = await createAccount('assets:chequing')
+      const offsetId = await createAccount('expenses:uncategorized')
+      await setSettings({ defaultOffsetAccountId: offsetId })
+
+      // Needs action — posts to the offset account
+      const flaggedId = await createTransaction('2024-01-15', [
+        { accountId: assetId, amount: '-50.00', currency: 'CAD' },
+        { accountId: offsetId, amount: '50.00', currency: 'CAD' },
+      ])
+
+      // Clean transaction — no offset account posting
+      const cleanExpenseId = await createAccount('expenses:food')
+      await createTransaction('2024-01-15', [
+        { accountId: assetId, amount: '-20.00', currency: 'CAD' },
+        { accountId: cleanExpenseId, amount: '20.00', currency: 'CAD' },
+      ])
+
+      const res = await app.request(`/api/accounts/${assetId}/action-required`, {
+        headers: { Cookie: cookie },
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json() as { count: number; transactionIds: string[] }
+      expect(body.count).toBe(1)
+      expect(body.transactionIds).toContain(flaggedId)
+    })
+
+    it('GET /api/accounts/action-required-summary returns counts per account', async () => {
+      const assetId = await createAccount('assets:chequing')
+      const offsetId = await createAccount('expenses:uncategorized')
+      await setSettings({ defaultOffsetAccountId: offsetId })
+
+      await createTransaction('2024-01-15', [
+        { accountId: assetId, amount: '-50.00', currency: 'CAD' },
+        { accountId: offsetId, amount: '50.00', currency: 'CAD' },
+      ])
+
+      const res = await app.request('/api/accounts/action-required-summary', {
+        headers: { Cookie: cookie },
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json() as { accountId: string; count: number }[]
+
+      const assetEntry = body.find((e) => e.accountId === assetId)
+      expect(assetEntry).toBeDefined()
+      expect(assetEntry!.count).toBe(1)
+
+      // The offset account itself is also touched by the transaction
+      const offsetEntry = body.find((e) => e.accountId === offsetId)
+      expect(offsetEntry).toBeDefined()
+    })
+  })
+
   it('DELETE /api/accounts/:id soft-deletes an account', async () => {
     const createRes = await app.request('/api/accounts', {
       method: 'POST',
