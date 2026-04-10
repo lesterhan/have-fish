@@ -540,6 +540,25 @@ export async function fetchFxRate(
   return res.json()
 }
 
+export async function fetchActionRequiredSummary(): Promise<
+  { accountId: string; count: number }[]
+> {
+  const res = await fetch(`${BASE}/api/accounts/action-required-summary`, {
+    credentials: "include",
+  })
+  return res.json()
+}
+
+export async function fetchActionRequired(
+  accountId: string,
+): Promise<{ count: number; transactionIds: string[] }> {
+  const res = await fetch(
+    `${BASE}/api/accounts/${accountId}/action-required`,
+    { credentials: "include" },
+  )
+  return res.json()
+}
+
 export async function fetchTransactions(params?: {
   from?: string
   to?: string

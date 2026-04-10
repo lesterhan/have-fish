@@ -7,9 +7,11 @@
     fetchAccountBalances,
     fetchAccounts,
     fetchTransactions,
+    fetchActionRequired,
     type Account,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import AccountHeading from '$lib/components/accounts/AccountHeading.svelte'
   import { toISODate } from '$lib/date'
   import FilterPanel from '$lib/components/transactions/FilterPanel.svelte'
@@ -51,6 +53,18 @@
   let addModalOpen = $state(false)
   let settingsOpen = $state(false)
   let reconcileOpen = $state(false)
+
+  // Action-required filter state
+  let actionRequiredIds = $state<string[] | null>(null)
+  let actionRequiredActive = $state(false)
+  let actionRequiredCount = $derived(actionRequiredStore.getCount(id))
+
+  // Reset filter state when navigating to a different account
+  $effect(() => {
+    void id
+    actionRequiredIds = null
+    actionRequiredActive = false
+  })
 
   $effect(() => {
     let cancelled = false
@@ -110,6 +124,20 @@
     }),
   )
 
+  let displayedTransactions = $derived(
+    actionRequiredActive && actionRequiredIds !== null
+      ? sortedTransactions.filter((tx) => actionRequiredIds!.includes(tx.id))
+      : sortedTransactions,
+  )
+
+  async function toggleActionRequired() {
+    if (actionRequiredIds === null) {
+      const result = await fetchActionRequired(id)
+      actionRequiredIds = result.transactionIds
+    }
+    actionRequiredActive = !actionRequiredActive
+  }
+
   function navigate(params: Record<string, string>) {
     goto(`?${new URLSearchParams({ from, to, dir: sortDir, ...params })}`)
   }
@@ -151,8 +179,11 @@
     {from}
     {to}
     {sortDir}
+    {actionRequiredCount}
+    {actionRequiredActive}
     onApply={(f, t) => navigate({ from: f, to: t })}
     onSortChange={(dir) => navigate({ dir })}
+    onActionRequiredToggle={toggleActionRequired}
   />
   <Panel title="Operations">
     <div class="ops-body">
@@ -201,8 +232,8 @@
   </div>
 {:else if notFound}
   <p class="empty">Account not found.</p>
-{:else if sortedTransactions.length === 0}
-  <p class="empty">No transactions in this period.</p>
+{:else if displayedTransactions.length === 0}
+  <p class="empty">{actionRequiredActive ? 'No flagged transactions in this period.' : 'No transactions in this period.'}</p>
 {:else}
   <div class="tx-table">
     <div class="tx-header">
@@ -211,7 +242,7 @@
       <span class="col-account">Account</span>
       <span class="col-amount">Amount</span>
     </div>
-    {#each sortedTransactions as tx (tx.id)}
+    {#each displayedTransactions as tx (tx.id)}
       <AccountTransactionRow
         {tx}
         {accounts}

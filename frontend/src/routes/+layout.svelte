@@ -8,6 +8,7 @@
   import type { AccountBalance, UserSettings } from '$lib/api'
   import sidebarRefresh from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
+  import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import CashConfetti from '$lib/components/ui/CashConfetti.svelte'
 
@@ -46,11 +47,13 @@
   $effect(() => {
     if ($session.data && !sidebarFetched) {
       sidebarFetched = true
-      Promise.all([fetchAccountBalances(), settingsStore.load()]).then(
-        ([accts]) => {
-          sidebarAccounts = accts
-        },
-      )
+      Promise.all([
+        fetchAccountBalances(),
+        settingsStore.load(),
+        actionRequiredStore.load(),
+      ]).then(([accts]) => {
+        sidebarAccounts = accts
+      })
     }
   })
 

@@ -14,9 +14,12 @@
     to: string
     sortDir: 'asc' | 'desc'
     accountPath?: string
+    actionRequiredCount?: number | null
+    actionRequiredActive?: boolean
     onApply: (from: string, to: string) => void
     onSortChange: (dir: 'asc' | 'desc') => void
     onAccountPathChange?: (path: string) => void
+    onActionRequiredToggle?: () => void
   }
 
   let {
@@ -24,9 +27,12 @@
     to,
     sortDir,
     accountPath = '',
+    actionRequiredCount = null,
+    actionRequiredActive = false,
     onApply,
     onSortChange,
     onAccountPathChange,
+    onActionRequiredToggle,
   }: Props = $props()
 
   // Expand the search row if a filter is already active (e.g. on page load from URL)
@@ -87,6 +93,16 @@
         <Icon name="sort-{sortDir === 'desc' ? 'desc' : 'asc'}" />
         Date
       </Button>
+      {#if actionRequiredCount !== null && actionRequiredCount > 0}
+        <Button
+          variant={actionRequiredActive ? 'primary' : 'danger'}
+          onclick={onActionRequiredToggle}
+        >
+          {actionRequiredActive ? '✓ Showing flagged' : `⚠ Action required (${actionRequiredCount})`}
+        </Button>
+      {:else if actionRequiredCount === 0}
+        <Button disabled>✓ All clear</Button>
+      {/if}
     </div>
     <div class="date-controls">
       <DateRangeSelector
