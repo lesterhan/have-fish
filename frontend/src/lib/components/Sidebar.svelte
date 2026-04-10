@@ -77,7 +77,7 @@
   let hiddenAccounts = $derived(
     sortByDisplayName(
       accounts.filter((a) => hiddenIds.has(a.id)),
-      "",
+      '',
     ),
   )
 
@@ -160,7 +160,10 @@
                           settings.defaultAssetsRootPath,
                         )}</span
                     >
-                    {#if actionRequiredIds.has(acct.id)}<span class="action-dot" aria-label="Action required"></span>{/if}
+                    {#if actionRequiredIds.has(acct.id)}<span
+                        class="action-dot"
+                        aria-label="Action required"
+                      ></span>{/if}
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
@@ -207,7 +210,10 @@
                           settings.defaultLiabilitiesRootPath,
                         )}</span
                     >
-                    {#if actionRequiredIds.has(acct.id)}<span class="action-dot" aria-label="Action required"></span>{/if}
+                    {#if actionRequiredIds.has(acct.id)}<span
+                        class="action-dot"
+                        aria-label="Action required"
+                      ></span>{/if}
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
@@ -254,7 +260,10 @@
                           settings.defaultEquityRootPath,
                         )}</span
                     >
-                    {#if actionRequiredIds.has(acct.id)}<span class="action-dot" aria-label="Action required"></span>{/if}
+                    {#if actionRequiredIds.has(acct.id)}<span
+                        class="action-dot"
+                        aria-label="Action required"
+                      ></span>{/if}
                     <span class="account-balances">
                       {#if acct.balances.length === 0}
                         <span class="account-balance muted">—</span>
@@ -628,7 +637,7 @@
     width: 6px;
     height: 6px;
     border-radius: 50%;
-    background: var(--color-danger);
+    background: var(--color-warning);
     margin-top: 4px;
   }
 

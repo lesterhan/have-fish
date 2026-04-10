@@ -2,7 +2,7 @@
   import { tooltip as tooltipAction } from '$lib/tooltip'
 
   interface Props {
-    variant?: 'default' | 'primary' | 'danger' | 'ghost'
+    variant?: 'default' | 'primary' | 'warning' | 'danger' | 'ghost'
     disabled?: boolean
     square?: boolean
     type?: 'button' | 'submit' | 'reset'
@@ -125,6 +125,16 @@
     box-shadow: var(--shadow-sunken);
   }
 
+  /* warning — required actions */
+  .btn.warning:hover:not(:disabled) {
+    background: var(--color-window-raised);
+  }
+
+  .btn.warning:active:not(:disabled) {
+    background: var(--color-warning);
+    color: var(--color-text-on-dark);
+    box-shadow: var(--shadow-sunken);
+  }
   /* Danger — destructive actions */
   .btn.danger:hover:not(:disabled) {
     background: var(--color-window-raised);

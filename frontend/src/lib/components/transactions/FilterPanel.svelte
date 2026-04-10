@@ -89,19 +89,23 @@
       <Button
         onclick={() => onSortChange(sortDir === 'desc' ? 'asc' : 'desc')}
         tooltip="Sort by date"
+        square
       >
-        <Icon name="sort-{sortDir === 'desc' ? 'desc' : 'asc'}" />
-        Date
+        <Icon name="calendar-{sortDir === 'desc' ? 'desc' : 'asc'}" />
       </Button>
       {#if actionRequiredCount !== null && actionRequiredCount > 0}
         <Button
-          variant={actionRequiredActive ? 'primary' : 'danger'}
+          variant={actionRequiredActive ? 'primary' : 'warning'}
           onclick={onActionRequiredToggle}
+          tooltip="Actions required"
         >
-          {actionRequiredActive ? '✓ Showing flagged' : `⚠ Action required (${actionRequiredCount})`}
+          <Icon name="warning" />
+          ({actionRequiredCount})
         </Button>
       {:else if actionRequiredCount === 0}
-        <Button disabled>✓ All clear</Button>
+        <Button disabled square tooltip="No actions required">
+          <Icon name="check" />
+        </Button>
       {/if}
     </div>
     <div class="date-controls">
