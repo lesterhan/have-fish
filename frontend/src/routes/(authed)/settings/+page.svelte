@@ -3,6 +3,7 @@
   import { fetchAccounts, createAccount, deleteAccount } from '$lib/api'
   import type { Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { SUPPORTED_CURRENCIES } from '$lib/currency'
   import Button from '$lib/components/ui/Button.svelte'
   import HeadingBanner from '$lib/components/ui/HeadingBanner.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
@@ -194,23 +195,18 @@
             >?</button
           >
         </label>
-        <input
+        <select
           id="preferred-currency"
-          type="text"
           bind:value={preferredCurrency}
-          placeholder="CAD"
-          maxlength={4}
-          style="text-transform: uppercase; width: 6ch;"
-          oninput={(e) => {
-            preferredCurrency = (e.currentTarget as HTMLInputElement).value.toUpperCase()
-          }}
-          onblur={async () => {
-            const val = preferredCurrency.trim()
-            if (!val) return
-            await settingsStore.update({ preferredCurrency: val })
+          onchange={async () => {
+            await settingsStore.update({ preferredCurrency })
             toast.show('Preferred currency saved')
           }}
-        />
+        >
+          {#each SUPPORTED_CURRENCIES as c}
+            <option value={c}>{c}</option>
+          {/each}
+        </select>
       </div>
     </div>
 
@@ -432,7 +428,8 @@
     line-height: 1;
   }
 
-  .defaults-panel input {
+  .defaults-panel input,
+  .defaults-panel select {
     background: var(--color-window-inset);
     height: 22px;
     padding: 2px var(--sp-xs);

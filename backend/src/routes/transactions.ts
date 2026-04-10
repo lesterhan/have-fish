@@ -4,6 +4,7 @@ import { transactions, postings } from '../db/schema'
 import { eq, isNull, and, inArray, gte, lte, or, like } from 'drizzle-orm'
 import { accounts } from '../db/schema'
 import type { AppVariables } from '../app'
+import { isValidCurrency } from '../currencies'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -112,6 +113,13 @@ app.post('/', async (c) => {
     return c.json({ error: 'At least two postings are required' }, 400)
   }
 
+  // Validate currency codes
+  for (const p of postingInputs) {
+    if (!isValidCurrency(p.currency)) {
+      return c.json({ error: `Unsupported currency: ${p.currency}` }, 400)
+    }
+  }
+
   // Validate balance per currency: sum of amounts must equal zero
   const balances: Record<string, number> = {}
   for (const p of postingInputs) {
@@ -192,6 +200,13 @@ app.post('/:id/postings', async (c) => {
   // Validate inputs
   if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
     return c.json({ error: 'At least two postings are required' }, 400)
+  }
+
+  // Validate currency codes
+  for (const p of postingInputs) {
+    if (!isValidCurrency(p.currency)) {
+      return c.json({ error: `Unsupported currency: ${p.currency}` }, 400)
+    }
   }
 
   // Validate balance per currency

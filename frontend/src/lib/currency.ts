@@ -1,30 +1,52 @@
+// Ordered list of supported currency codes — mirrors backend/src/currencies.ts.
+// Used for datalists, selects, and client-side validation.
+// Frankfurter.app currencies + NTD/BGN/HRK retained for backwards compatibility
+// (existing transactions may use them; FX rate lookups won't be available for them).
+export const SUPPORTED_CURRENCIES: string[] = [
+  'CAD', 'EUR', 'GBP', 'USD', 'AUD', 'NZD', 'CHF', 'JPY', 'CNY', 'HKD',
+  'SGD', 'INR', 'KRW', 'MXN', 'BRL', 'ZAR', 'NOK', 'SEK', 'DKK', 'CZK',
+  'PLN', 'HUF', 'RON', 'BGN', 'ISK', 'TRY', 'MYR', 'IDR', 'THB', 'PHP',
+  'ILS', 'NTD', 'HRK',
+]
+
+export function isValidCurrency(code: string): boolean {
+  return SUPPORTED_CURRENCIES.includes(code.toUpperCase())
+}
+
 export const CURRENCY_FLAGS: Record<string, string> = {
   CAD: '🇨🇦',
   EUR: '🇪🇺',
   GBP: '🇬🇧',
   USD: '🇺🇸',
+  AUD: '🇦🇺',
+  NZD: '🇳🇿',
+  CHF: '🇨🇭',
+  JPY: '🇯🇵',
   CNY: '🇨🇳',
   HKD: '🇭🇰',
-  NTD: '🇹🇼',
-  CZK: '🇨🇿',
-  KRW: '🇰🇷',
-  JPY: '🇯🇵',
-  AUD: '🇦🇺',
-  INR: '🇮🇳',
   SGD: '🇸🇬',
-  NZD: '🇳🇿',
+  INR: '🇮🇳',
+  KRW: '🇰🇷',
   MXN: '🇲🇽',
-  CHF: '🇨🇭',
+  BRL: '🇧🇷',
+  ZAR: '🇿🇦',
   NOK: '🇳🇴',
   SEK: '🇸🇪',
   DKK: '🇩🇰',
+  CZK: '🇨🇿',
   PLN: '🇵🇱',
   HUF: '🇭🇺',
   RON: '🇷🇴',
   BGN: '🇧🇬',
-  HRK: '🇭🇷',
   ISK: '🇮🇸',
   TRY: '🇹🇷',
+  MYR: '🇲🇾',
+  IDR: '🇮🇩',
+  THB: '🇹🇭',
+  PHP: '🇵🇭',
+  ILS: '🇮🇱',
+  NTD: '🇹🇼',
+  HRK: '🇭🇷',
 }
 
 export function currencyFlag(currency: string): string {

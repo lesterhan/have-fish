@@ -5,6 +5,7 @@
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { createTransaction, type Account, type Transaction } from '$lib/api'
   import { toISODate } from '$lib/date'
+  import { SUPPORTED_CURRENCIES } from '$lib/currency'
 
   interface Props {
     accounts: Account[]
@@ -125,6 +126,12 @@
   }
 </script>
 
+<datalist id="currency-list">
+  {#each SUPPORTED_CURRENCIES as c}
+    <option value={c}></option>
+  {/each}
+</datalist>
+
 <Modal title="New Transaction" {open} {onclose}>
   <div class="modal-body">
     <!-- Date + description — always-visible inputs (creation form, not edit-in-place) -->
@@ -175,6 +182,7 @@
             value={posting.currency}
             oninput={(e) => handleCurrencyInput(e, i)}
             maxlength={4}
+            list="currency-list"
             disabled={submitting}
           />
           <button

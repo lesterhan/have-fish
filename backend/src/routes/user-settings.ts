@@ -3,6 +3,7 @@ import { db } from '../db'
 import { userSettings, accounts } from '../db/schema'
 import { eq, and, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { isValidCurrency } from '../currencies'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -70,13 +71,25 @@ app.patch('/', async (c) => {
   }
 
   // Plain text fields
-  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath', 'defaultExpensesRootPath', 'defaultEquityRootPath', 'preferredCurrency'] as const) {
+  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath', 'defaultExpensesRootPath', 'defaultEquityRootPath'] as const) {
     if (!(field in body)) continue
     const value = body[field]
     if (typeof value !== 'string' || !value.trim()) {
       return c.json({ error: `${field} must be a non-empty string` }, 400)
     }
     patch[field] = value.trim()
+  }
+
+  // preferredCurrency — validated against the supported currency list
+  if ('preferredCurrency' in body) {
+    const value = body.preferredCurrency
+    if (typeof value !== 'string' || !value.trim()) {
+      return c.json({ error: 'preferredCurrency must be a non-empty string' }, 400)
+    }
+    if (!isValidCurrency(value)) {
+      return c.json({ error: `Unsupported currency: ${value}` }, 400)
+    }
+    patch.preferredCurrency = value.trim().toUpperCase()
   }
 
   // preferences — shallow-merged into existing JSONB using the || operator so

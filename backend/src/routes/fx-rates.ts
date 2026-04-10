@@ -3,6 +3,7 @@ import { db } from '../db'
 import { fxRates } from '../db/schema'
 import { and, eq } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { isValidCurrency } from '../currencies'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -59,6 +60,10 @@ app.get('/', async (c) => {
 
   if (!date || !from || !to) {
     return c.json({ error: 'date, from, and to are required' }, 400)
+  }
+
+  if (!isValidCurrency(from) || !isValidCurrency(to)) {
+    return c.json({ error: 'Unsupported currency' }, 400)
   }
 
   const rate = await getOrFetchRate(date, from, to)
