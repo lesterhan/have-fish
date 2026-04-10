@@ -61,7 +61,7 @@
   function handleReset() {
     const today = new Date()
     const f = new Date(today)
-    f.setDate(today.getDate() - 30)
+    f.setMonth(today.getMonth() - 3)
     onApply(toISODate(f), toISODate(today))
   }
 </script>
@@ -93,7 +93,7 @@
         value={{ from, to }}
         onchange={(r) => onApply(r.from, r.to)}
       />
-      <Button square tooltip="Reset to last 30 days" onclick={handleReset}>
+      <Button square tooltip="Reset to last 3 months" onclick={handleReset}>
         <Icon name="reset" />
       </Button>
     </div>

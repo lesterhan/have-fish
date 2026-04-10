@@ -28,7 +28,7 @@
   function defaultRange() {
     const today = new Date()
     const from = new Date(today)
-    from.setDate(today.getDate() - 30)
+    from.setMonth(today.getMonth() - 3)
     return { from: toISODate(from), to: toISODate(today) }
   }
   const defaults = defaultRange()

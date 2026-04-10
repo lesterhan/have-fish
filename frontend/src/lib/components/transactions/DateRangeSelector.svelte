@@ -4,12 +4,15 @@
 
   export type DateRange = { from: string; to: string }
 
-  type Preset = 'month' | '3months' | '6months'
+  type PresetUnit = 'days' | 'months'
+  type Preset = { label: string; amount: number; unit: PresetUnit }
 
-  const PRESETS: { value: Preset; label: string; days: number }[] = [
-    { value: 'month', label: 'Past 1 month', days: 30 },
-    { value: '3months', label: 'Past 3 months', days: 90 },
-    { value: '6months', label: 'Past 6 months', days: 180 },
+  const PRESETS: Preset[] = [
+    { label: 'Past 7 days', amount: 7, unit: 'days' },
+    { label: '2 weeks', amount: 14, unit: 'days' },
+    { label: '30d', amount: 30, unit: 'days' },
+    { label: '3 months', amount: 3, unit: 'months' },
+    { label: '6mo', amount: 6, unit: 'months' },
   ]
 
   interface Props {
@@ -20,9 +23,12 @@
   let { value, onchange }: Props = $props()
 
   function resolvePreset(preset: Preset, today = new Date()): DateRange {
-    const days = PRESETS.find((p) => p.value === preset)!.days
     const from = new Date(today)
-    from.setDate(today.getDate() - days)
+    if (preset.unit === 'months') {
+      from.setMonth(today.getMonth() - preset.amount)
+    } else {
+      from.setDate(today.getDate() - preset.amount)
+    }
     return { from: toISODate(from), to: toISODate(today) }
   }
 
@@ -30,7 +36,7 @@
   // it doesn't match any preset.
   function rangeToText(v: DateRange): string {
     for (const p of PRESETS) {
-      const r = resolvePreset(p.value)
+      const r = resolvePreset(p)
       if (r.from === v.from && r.to === v.to) return p.label
     }
     return `${v.from} to ${v.to}`
@@ -75,7 +81,7 @@
       (p) => p.label.toLowerCase() === trimmed.toLowerCase(),
     )
     if (presetMatch) {
-      applyRange(resolvePreset(presetMatch.value), presetMatch.label)
+      applyRange(resolvePreset(presetMatch), presetMatch.label)
       return
     }
 
