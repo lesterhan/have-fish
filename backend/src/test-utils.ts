@@ -1,8 +1,9 @@
 import { db } from './db'
-import { user, accounts, transactions, postings, csvParsers, userSettings } from './db/schema'
+import { user, accounts, transactions, postings, csvParsers, userSettings, fxRates } from './db/schema'
 import { app } from './app'
 
 // Wipe all rows in dependency order (postings → transactions → userSettings → csvParsers → accounts → users)
+// fxRates is global (not per-user) but still cleared to keep tests hermetic.
 export async function clearDatabase() {
   await db.delete(postings)
   await db.delete(transactions)
@@ -10,6 +11,7 @@ export async function clearDatabase() {
   await db.delete(csvParsers)
   await db.delete(accounts)
   await db.delete(user)
+  await db.delete(fxRates)
 }
 
 // Signs up a fresh test user and returns the session Cookie header string.

@@ -9,6 +9,7 @@ import importRoute from './routes/import'
 import parsersRoute from './routes/parsers'
 import userSettingsRoute from './routes/user-settings'
 import reportsRoute from './routes/reports'
+import fxRatesRoute from './routes/fx-rates'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -48,3 +49,4 @@ app.route('/api/import', importRoute)
 app.route('/api/parsers', parsersRoute)
 app.route('/api/user-settings', userSettingsRoute)
 app.route('/api/reports', reportsRoute)
+app.route('/api/fx-rates', fxRatesRoute)

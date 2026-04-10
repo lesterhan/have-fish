@@ -128,6 +128,19 @@ export const userSettings = pgTable('user_settings', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
 })
 
+// Cached daily FX rates fetched from frankfurter.app.
+// Rates are global (not per-user) — the same rate applies to all users.
+// The unique constraint on (date, baseCurrency, quoteCurrency) prevents double-inserts
+// and allows upsert-style conflict handling in the fetch service.
+export const fxRates = pgTable('fx_rates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  date: text('date').notNull(),                        // YYYY-MM-DD
+  baseCurrency: text('base_currency').notNull(),       // e.g. "EUR"
+  quoteCurrency: text('quote_currency').notNull(),     // e.g. "CAD"
+  rate: numeric('rate', { precision: 12, scale: 6 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
 // A posting is one leg of a transaction — money moving in or out of one account.
 // Every transaction has at least two postings, and they must balance to zero per currency.
 // Negative amount = money leaving the account (expense/debit).
