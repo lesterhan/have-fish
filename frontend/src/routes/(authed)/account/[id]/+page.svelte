@@ -45,6 +45,7 @@
   let accountBalances = $state<{ currency: string; amount: string }[]>([])
   let defaultOffsetAccountId = $state<string | null>(null)
   let defaultConversionAccountId = $state<string | null>(null)
+  let preferredCurrency = $state('CAD')
   let loading = $state(true)
   let notFound = $state(false)
   let addModalOpen = $state(false)
@@ -85,6 +86,7 @@
     accounts = accts
     defaultOffsetAccountId = settings.defaultOffsetAccountId
     defaultConversionAccountId = settings.defaultConversionAccountId
+    preferredCurrency = settings.preferredCurrency ?? 'CAD'
   })
 
   let isHidden = $derived(
@@ -128,6 +130,7 @@
 <AddTransactionModal
   {accounts}
   {defaultOffsetAccountId}
+  {preferredCurrency}
   open={addModalOpen}
   onclose={() => (addModalOpen = false)}
   oncreated={(tx) => {

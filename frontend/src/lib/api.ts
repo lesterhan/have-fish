@@ -526,6 +526,20 @@ export async function replacePostings(
   return res.json()
 }
 
+// Returns { date, from, to, rate } or null if no rate is available for the date.
+export async function fetchFxRate(
+  date: string,
+  from: string,
+  to: string,
+): Promise<{ date: string; from: string; to: string; rate: string } | null> {
+  const res = await fetch(
+    `${BASE}/api/fx-rates?${new URLSearchParams({ date, from, to })}`,
+    { credentials: 'include' },
+  )
+  if (!res.ok) return null
+  return res.json()
+}
+
 export async function fetchTransactions(params?: {
   from?: string
   to?: string
@@ -543,3 +557,4 @@ export async function fetchTransactions(params?: {
   })
   return res.json()
 }
+

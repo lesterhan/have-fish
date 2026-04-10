@@ -3,13 +3,14 @@
   import Modal from '$lib/components/ui/Modal.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
-  import { createTransaction, type Account, type Transaction } from '$lib/api'
+  import { createTransaction, fetchFxRate, type Account, type Transaction } from '$lib/api'
   import { toISODate } from '$lib/date'
   import { SUPPORTED_CURRENCIES } from '$lib/currency'
 
   interface Props {
     accounts: Account[]
     defaultOffsetAccountId?: string | null
+    preferredCurrency?: string
     open: boolean
     onclose: () => void
     oncreated?: (tx: Transaction) => void
@@ -19,6 +20,7 @@
   let {
     accounts,
     defaultOffsetAccountId,
+    preferredCurrency = 'CAD',
     open = $bindable(),
     onclose,
     oncreated,
@@ -77,6 +79,66 @@
   let canSubmit = $derived(
     balanced && postings.every((p) => p.accountId !== '') && !submitting,
   )
+
+  // FX rate hint — one entry per unique foreign currency.
+  // null = rate unavailable for this date; undefined = not yet fetched.
+  let fxRates = $state(new Map<string, string | null>())
+  let fxLoading = $state(false)
+  // Incremented on every effect run; lets async callbacks detect they are stale.
+  let fxVersion = 0
+
+  // Unique foreign currencies that have a parseable non-zero amount.
+  let foreignCurrencies = $derived.by(() => {
+    const seen = new Set<string>()
+    for (const p of postings) {
+      const cur = p.currency.toUpperCase()
+      if (cur === preferredCurrency.toUpperCase()) continue
+      const n = parseFloat(p.amount)
+      if (!isNaN(n) && Math.abs(n) > 0) seen.add(cur)
+    }
+    return [...seen]
+  })
+
+  // For a given foreign currency, the largest absolute posting amount — used as
+  // the representative "transaction size" to show in the converted hint.
+  function maxAbsAmount(currency: string): number {
+    let max = 0
+    for (const p of postings) {
+      if (p.currency.toUpperCase() !== currency) continue
+      const n = Math.abs(parseFloat(p.amount))
+      if (!isNaN(n) && n > max) max = n
+    }
+    return max
+  }
+
+  $effect(() => {
+    const currencies = foreignCurrencies
+    const d = date
+    const preferred = preferredCurrency.toUpperCase()
+    const version = ++fxVersion
+
+    if (currencies.length === 0) {
+      fxRates = new Map()
+      fxLoading = false
+      return
+    }
+
+    fxLoading = true
+    const timer = setTimeout(async () => {
+      const entries = await Promise.all(
+        currencies.map(async (cur) => {
+          const result = await fetchFxRate(d, cur, preferred)
+          return [cur, result?.rate ?? null] as [string, string | null]
+        }),
+      )
+      // Discard results if a newer effect run has since started
+      if (fxVersion !== version) return
+      fxRates = new Map(entries)
+      fxLoading = false
+    }, 300)
+
+    return () => clearTimeout(timer)
+  })
 
   function addPosting() {
     postings.push({
@@ -218,6 +280,28 @@
         </div>
       {/if}
     </div>
+
+    {#if foreignCurrencies.length > 0}
+      <div class="fx-hints">
+        {#if fxLoading}
+          <span class="fx-hint fx-loading">fetching rate…</span>
+        {:else}
+          {#each foreignCurrencies as cur}
+            {@const rate = fxRates.get(cur)}
+            {#if rate === null}
+              <span class="fx-hint fx-unavailable">rate unavailable for {date}</span>
+            {:else if rate !== undefined}
+              {@const converted = (maxAbsAmount(cur) * parseFloat(rate)).toFixed(2)}
+              <span class="fx-hint">
+                1 {cur} = {parseFloat(rate).toFixed(4)} {preferredCurrency.toUpperCase()}
+                &nbsp;·&nbsp;
+                ≈ {converted} {preferredCurrency.toUpperCase()}
+              </span>
+            {/if}
+          {/each}
+        {/if}
+      </div>
+    {/if}
 
     {#if submitError}
       <p class="save-error" role="alert">{submitError}</p>
@@ -429,6 +513,29 @@
 
   .balance-bad {
     color: var(--color-danger);
+  }
+
+  /* ---- FX rate hint ---- */
+  .fx-hints {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .fx-hint {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .fx-unavailable {
+    font-family: var(--font-sans);
+    font-style: italic;
+  }
+
+  .fx-loading {
+    font-family: var(--font-sans);
+    font-style: italic;
   }
 
   /* ---- Footer ---- */

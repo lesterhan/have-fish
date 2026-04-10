@@ -137,7 +137,7 @@
           onmousedown={(e) => {
             // Prevent input blur before applyRange closes the dropdown
             e.preventDefault()
-            applyRange(resolvePreset(preset.value), preset.label)
+            applyRange(resolvePreset(preset), preset.label)
           }}>{preset.label}</button
         >
       {/each}

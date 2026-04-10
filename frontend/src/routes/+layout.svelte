@@ -29,6 +29,7 @@
     defaultLiabilitiesRootPath: 'liabilities',
     defaultExpensesRootPath: 'expenses',
     defaultEquityRootPath: 'equity',
+    preferredCurrency: 'CAD',
     preferences: {},
     createdAt: '',
     updatedAt: '',
