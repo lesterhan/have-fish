@@ -124,6 +124,7 @@ app.get('/:id/balance', async (c) => {
 // Raw row shapes returned by the action-required SQL queries.
 type ActionRequiredSummaryRow = { account_id: string; count: number }
 type ActionRequiredIdRow = { id: string }
+type MissingRateRow = { date: string; from_currency: string; to_currency: string }
 
 // Shared helper: loads preferredCurrency and defaultOffsetAccountId from user settings.
 async function getActionRequiredSettings(userId: string) {
@@ -219,19 +220,49 @@ app.get('/:id/action-required', async (c) => {
   const { preferredCurrency, offsetAccountId } = await getActionRequiredSettings(userId)
   const condition = actionRequiredCondition(preferredCurrency, offsetAccountId)
 
-  const result = await db.execute(sql`
-    SELECT DISTINCT t.id
-    FROM transactions t
-    JOIN postings anchor ON anchor.transaction_id = t.id
-      AND anchor.account_id = ${accountId}
-      AND anchor.deleted_at IS NULL
-    WHERE t.user_id = ${userId}
-      AND t.deleted_at IS NULL
-      AND ${condition}
-  `)
+  const [txResult, ratesResult] = await Promise.all([
+    db.execute(sql`
+      SELECT DISTINCT t.id
+      FROM transactions t
+      JOIN postings anchor ON anchor.transaction_id = t.id
+        AND anchor.account_id = ${accountId}
+        AND anchor.deleted_at IS NULL
+      WHERE t.user_id = ${userId}
+        AND t.deleted_at IS NULL
+        AND ${condition}
+    `),
+    // Distinct (date, currency) pairs that are missing FX rates for this account.
+    db.execute(sql`
+      SELECT DISTINCT
+        to_char(t.date AT TIME ZONE 'UTC', 'YYYY-MM-DD') AS date,
+        p.currency AS from_currency,
+        ${preferredCurrency} AS to_currency
+      FROM transactions t
+      JOIN postings anchor ON anchor.transaction_id = t.id
+        AND anchor.account_id = ${accountId}
+        AND anchor.deleted_at IS NULL
+      JOIN postings p ON p.transaction_id = t.id
+        AND p.deleted_at IS NULL
+        AND p.currency != ${preferredCurrency}
+      WHERE t.user_id = ${userId}
+        AND t.deleted_at IS NULL
+        AND NOT EXISTS (
+          SELECT 1 FROM fx_rates fx
+          WHERE fx.date = to_char(t.date AT TIME ZONE 'UTC', 'YYYY-MM-DD')
+            AND fx.base_currency = p.currency
+            AND fx.quote_currency = ${preferredCurrency}
+        )
+      ORDER BY date ASC
+    `),
+  ])
 
-  const transactionIds = (result as unknown as ActionRequiredIdRow[]).map((r) => r.id)
-  return c.json({ count: transactionIds.length, transactionIds })
+  const transactionIds = (txResult as unknown as ActionRequiredIdRow[]).map((r) => r.id)
+  const missingRates = (ratesResult as unknown as MissingRateRow[]).map((r) => ({
+    date: r.date,
+    from: r.from_currency,
+    to: r.to_currency,
+  }))
+  return c.json({ count: transactionIds.length, transactionIds, missingRates })
 })
 
 app.get('/:id', async (c) => {

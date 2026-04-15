@@ -22,6 +22,7 @@
   import Button from '$lib/components/ui/Button.svelte'
   import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
+  import FetchFxRatesModal from '$lib/components/accounts/FetchFxRatesModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
 
   let id = $derived(page.params.id!)
@@ -58,12 +59,15 @@
   let actionRequiredIds = $state<string[] | null>(null)
   let actionRequiredActive = $state(false)
   let actionRequiredCount = $derived(actionRequiredStore.getCount(id))
+  let missingRates = $state<{ date: string; from: string; to: string }[]>([])
+  let fetchFxOpen = $state(false)
 
   // Reset filter state when navigating to a different account
   $effect(() => {
     void id
     actionRequiredIds = null
     actionRequiredActive = false
+    missingRates = []
   })
 
   $effect(() => {
@@ -134,8 +138,21 @@
     if (actionRequiredIds === null) {
       const result = await fetchActionRequired(id)
       actionRequiredIds = result.transactionIds
+      missingRates = result.missingRates
     }
     actionRequiredActive = !actionRequiredActive
+  }
+
+  async function refreshActionRequired() {
+    const result = await fetchActionRequired(id)
+    actionRequiredIds = result.transactionIds
+    missingRates = result.missingRates
+    // Refresh transactions so resolved ones vanish from the filtered view.
+    const txs = await fetchTransactions({ accountId: id, from, to })
+    transactions = txs
+    // Refresh sidebar counts.
+    actionRequiredStore.invalidate()
+    await actionRequiredStore.load()
   }
 
   function navigate(params: Record<string, string>) {
@@ -166,6 +183,12 @@
     if (txDate >= from && txDate <= to) transactions = [tx, ...transactions]
   }}
   onaccountcreated={(a) => (accounts = [...accounts, a])}
+/>
+
+<FetchFxRatesModal
+  bind:open={fetchFxOpen}
+  rates={missingRates}
+  onDone={refreshActionRequired}
 />
 
 {#if account}
@@ -216,6 +239,15 @@
     onupdated={(a) => (account = a)}
     ontogglehidden={toggleHidden}
   />
+{/if}
+
+{#if actionRequiredActive && missingRates.length > 0}
+  <div class="fx-banner">
+    <span class="fx-banner-label">
+      {missingRates.length} transaction(s) missing FX rates
+    </span>
+    <Button onclick={() => (fetchFxOpen = true)}>Fetch all</Button>
+  </div>
 {/if}
 
 {#if loading}
@@ -344,5 +376,20 @@
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     margin: 0;
+  }
+
+  .fx-banner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: var(--sp-xs) var(--sp-sm);
+    margin-bottom: var(--sp-sm);
+    background: var(--color-warning-light, #fff8e1);
+    box-shadow: var(--shadow-raised);
+    font-size: var(--text-sm);
+  }
+
+  .fx-banner-label {
+    color: var(--color-text);
   }
 </style>
