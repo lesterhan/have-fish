@@ -28,3 +28,7 @@
 | [Spending Account Filter](epics/spending-account-filter.md) | Backlog |
 | [FX Rates & Preferred Currency](epics/archive/fx-rates.md) | Done |
 | [Action Required](epics/archive/action-required.md) | Done |
+| [Fish Pie: Groups & Membership](epics/fish-pie-groups.md) | Backlog |
+| [Fish Pie: Invites](epics/fish-pie-invites.md) | Backlog |
+| [Fish Pie: Group Expenses](epics/fish-pie-expenses.md) | Backlog |
+| [Fish Pie: Balances & Settlement](epics/fish-pie-balances.md) | Backlog |
