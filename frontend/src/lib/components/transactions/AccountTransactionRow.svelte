@@ -5,6 +5,7 @@
   import TransactionEditModal from '$lib/components/transactions/TransactionEditModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { patchTransaction, patchPosting, type Account } from '$lib/api'
+  import { currencyFlag } from '$lib/currency'
   import { settingsStore } from '$lib/settings.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import {
@@ -24,6 +25,9 @@
     currentAccountId: string
     defaultOffsetAccountId?: string | null
     defaultConversionAccountId?: string | null
+    convertFx?: boolean
+    preferredCurrency?: string
+    fxRateMap?: Map<string, string | null>
     onaccountcreated?: (account: Account) => void
     ondeleted?: () => void
   }
@@ -34,6 +38,9 @@
     currentAccountId,
     defaultOffsetAccountId,
     defaultConversionAccountId,
+    convertFx = false,
+    preferredCurrency = 'CAD',
+    fxRateMap = new Map(),
     onaccountcreated,
     ondeleted,
   }: Props = $props()
@@ -163,6 +170,27 @@
   let currentPosting = $derived(
     localPostings.find((p) => p.accountId === currentAccountId),
   )
+
+  // FX conversion — only for simple (non-cross-currency) postings in a foreign currency.
+  let fxConverted = $derived.by(() => {
+    if (!convertFx || isCrossCurrency || !currentPosting) return null
+    if (currentPosting.currency === preferredCurrency) return null
+    const date = localDate.substring(0, 10)
+    const key = `${date}::${currentPosting.currency}`
+    if (!fxRateMap.has(key)) return { status: 'loading' as const }
+    const rate = fxRateMap.get(key) ?? null
+    if (rate === null)
+      return { status: 'missing' as const, currency: currentPosting.currency }
+    const converted = (
+      parseFloat(currentPosting.amount) * parseFloat(rate)
+    ).toFixed(2)
+    return {
+      status: 'ok' as const,
+      convertedAmount: converted,
+      originalCurrency: currentPosting.currency,
+      originalFlag: currencyFlag(currentPosting.currency),
+    }
+  })
 </script>
 
 <div class="row" class:transfer={isTransfer}>
@@ -349,12 +377,44 @@
         </div>
       </div>
     {:else if currentPosting}
-      <MoneyDisplay
-        amount={fmt(currentPosting.amount)}
-        currency={currentPosting.currency}
-        {flowDirection}
-        inline
-      />
+      {#if fxConverted?.status === 'ok'}
+        <div
+          class="fx-converted"
+          class:flow-in={flowDirection === 'in'}
+          class:flow-out={flowDirection === 'out'}
+        >
+          <span class="fx-amount">{fmt(fxConverted.convertedAmount)}</span>
+          <span class="fx-currency">{preferredCurrency}</span>
+          <span class="fx-original">
+            ({fxConverted.originalFlag
+              ? `${fxConverted.originalFlag} `
+              : ''}{fxConverted.originalCurrency})
+          </span>
+        </div>
+      {:else if fxConverted?.status === 'loading'}
+        <div class="fx-converted">
+          <span class="fx-amount">{fmt(currentPosting.amount)}</span>
+          <span class="fx-currency">{currentPosting.currency}</span>
+          <span class="fx-spinner" aria-label="Loading rate"></span>
+        </div>
+      {:else if fxConverted?.status === 'missing'}
+        <div class="fx-converted fx-missing">
+          <Icon name="warning" size={11} />
+          <MoneyDisplay
+            amount={fmt(currentPosting.amount)}
+            currency={currentPosting.currency}
+            {flowDirection}
+            inline
+          />
+        </div>
+      {:else}
+        <MoneyDisplay
+          amount={fmt(currentPosting.amount)}
+          currency={currentPosting.currency}
+          {flowDirection}
+          inline
+        />
+      {/if}
     {/if}
   </div>
 
@@ -601,6 +661,62 @@
     font-size: var(--text-xs);
     color: var(--color-danger);
     flex-shrink: 0;
+  }
+
+  /* --- FX converted amount --- */
+  .fx-converted {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    justify-content: flex-end;
+    flex-shrink: 0;
+  }
+
+  .fx-converted.flow-in {
+    color: var(--color-transfer-in);
+  }
+
+  .fx-converted.flow-out {
+    color: var(--color-transfer-out);
+  }
+
+  .fx-amount {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+  }
+
+  .fx-currency {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    opacity: 0.75;
+  }
+
+  .fx-original {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .fx-missing {
+    color: var(--color-warning);
+    gap: 4px;
+  }
+
+  .fx-spinner {
+    display: inline-block;
+    width: 10px;
+    height: 10px;
+    border: 1.5px solid var(--color-text-muted);
+    border-top-color: var(--color-text);
+    border-radius: 50%;
+    animation: fx-spin 0.7s linear infinite;
+    flex-shrink: 0;
+  }
+
+  @keyframes fx-spin {
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* --- Actions --- */

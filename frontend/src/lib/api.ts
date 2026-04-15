@@ -551,7 +551,7 @@ export async function fetchActionRequiredSummary(): Promise<
 
 export async function fetchActionRequired(
   accountId: string,
-): Promise<{ count: number; transactionIds: string[]; missingRates: { date: string; from: string; to: string }[] }> {
+): Promise<{ count: number; transactionIds: string[] }> {
   const res = await fetch(
     `${BASE}/api/accounts/${accountId}/action-required`,
     { credentials: "include" },

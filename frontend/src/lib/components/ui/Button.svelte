@@ -5,6 +5,7 @@
     variant?: 'default' | 'primary' | 'warning' | 'danger' | 'ghost'
     disabled?: boolean
     square?: boolean
+    active?: boolean
     type?: 'button' | 'submit' | 'reset'
     tooltip?: string
     'aria-label'?: string
@@ -16,6 +17,7 @@
     variant = 'default',
     disabled = false,
     square = false,
+    active = false,
     type = 'button',
     tooltip,
     'aria-label': ariaLabel,
@@ -29,9 +31,11 @@
   {disabled}
   use:tooltipAction={{ label: tooltip ?? '', always: true }}
   aria-label={ariaLabel}
+  aria-pressed={active ? true : undefined}
   {onclick}
   class="btn {variant}"
   class:square
+  class:active
 >
   {@render children()}
 </button>
@@ -80,6 +84,12 @@
     cursor: not-allowed;
     box-shadow: var(--shadow-raised);
     opacity: 0.7;
+  }
+
+  .btn.active {
+    box-shadow: var(--shadow-sunken);
+    background: var(--color-accent-light);
+    translate: 1px 1px;
   }
 
   .btn.square {

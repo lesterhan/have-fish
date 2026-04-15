@@ -8,6 +8,7 @@
     fetchAccounts,
     fetchTransactions,
     fetchActionRequired,
+    fetchFxRate,
     type Account,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
@@ -22,7 +23,6 @@
   import Button from '$lib/components/ui/Button.svelte'
   import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
-  import FetchFxRatesModal from '$lib/components/accounts/FetchFxRatesModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
 
   let id = $derived(page.params.id!)
@@ -59,15 +59,56 @@
   let actionRequiredIds = $state<string[] | null>(null)
   let actionRequiredActive = $state(false)
   let actionRequiredCount = $derived(actionRequiredStore.getCount(id))
-  let missingRates = $state<{ date: string; from: string; to: string }[]>([])
-  let fetchFxOpen = $state(false)
+
+  // FX convert toggle
+  let convertFx = $state(false)
+  // Cache: key = "${date}::${currency}", value = rate string or null (unavailable)
+  let fxRateMap = $state(new Map<string, string | null>())
+
+  // Whenever the toggle is on, ensure all unique (date, currency) pairs in the
+  // displayed set have been fetched into the cache. New pairs are fetched lazily
+  // on demand; already-cached keys (including null = unavailable) are skipped.
+  $effect(() => {
+    if (!convertFx) return
+    const txs = displayedTransactions
+    const pref = preferredCurrency
+    void fetchMissingRates(txs, pref)
+  })
+
+  async function fetchMissingRates(
+    txs: Awaited<ReturnType<typeof fetchTransactions>>,
+    pref: string,
+  ) {
+    const pairs: { key: string; date: string; currency: string }[] = []
+    for (const tx of txs) {
+      const date = tx.date.substring(0, 10)
+      for (const p of tx.postings) {
+        if (p.currency !== pref) {
+          const key = `${date}::${p.currency}`
+          if (!fxRateMap.has(key)) pairs.push({ key, date, currency: p.currency })
+        }
+      }
+    }
+    // De-dupe by key
+    const unique = [...new Map(pairs.map((p) => [p.key, p])).values()]
+    if (unique.length === 0) return
+
+    const results = await Promise.all(
+      unique.map(async ({ key, date, currency }) => {
+        const result = await fetchFxRate(date, currency, pref)
+        return [key, result?.rate ?? null] as [string, string | null]
+      }),
+    )
+    fxRateMap = new Map([...fxRateMap, ...results])
+  }
 
   // Reset filter state when navigating to a different account
   $effect(() => {
     void id
     actionRequiredIds = null
     actionRequiredActive = false
-    missingRates = []
+    convertFx = false
+    fxRateMap = new Map()
   })
 
   $effect(() => {
@@ -138,21 +179,8 @@
     if (actionRequiredIds === null) {
       const result = await fetchActionRequired(id)
       actionRequiredIds = result.transactionIds
-      missingRates = result.missingRates
     }
     actionRequiredActive = !actionRequiredActive
-  }
-
-  async function refreshActionRequired() {
-    const result = await fetchActionRequired(id)
-    actionRequiredIds = result.transactionIds
-    missingRates = result.missingRates
-    // Refresh transactions so resolved ones vanish from the filtered view.
-    const txs = await fetchTransactions({ accountId: id, from, to })
-    transactions = txs
-    // Refresh sidebar counts.
-    actionRequiredStore.invalidate()
-    await actionRequiredStore.load()
   }
 
   function navigate(params: Record<string, string>) {
@@ -183,12 +211,6 @@
     if (txDate >= from && txDate <= to) transactions = [tx, ...transactions]
   }}
   onaccountcreated={(a) => (accounts = [...accounts, a])}
-/>
-
-<FetchFxRatesModal
-  bind:open={fetchFxOpen}
-  rates={missingRates}
-  onDone={refreshActionRequired}
 />
 
 {#if account}
@@ -228,6 +250,14 @@
       >
         <Icon name="account-settings" />
       </Button>
+      <Button
+        square
+        active={convertFx}
+        onclick={() => (convertFx = !convertFx)}
+        tooltip="Convert to {preferredCurrency}"
+      >
+        <Icon name="import-export" />
+      </Button>
     </div>
   </Panel>
 </div>
@@ -239,15 +269,6 @@
     onupdated={(a) => (account = a)}
     ontogglehidden={toggleHidden}
   />
-{/if}
-
-{#if actionRequiredActive && missingRates.length > 0}
-  <div class="fx-banner">
-    <span class="fx-banner-label">
-      {missingRates.length} transaction(s) missing FX rates
-    </span>
-    <Button onclick={() => (fetchFxOpen = true)}>Fetch all</Button>
-  </div>
 {/if}
 
 {#if loading}
@@ -281,6 +302,9 @@
         {defaultOffsetAccountId}
         {defaultConversionAccountId}
         currentAccountId={id}
+        {convertFx}
+        {preferredCurrency}
+        {fxRateMap}
         onaccountcreated={(a) => (accounts = [...accounts, a])}
         ondeleted={() =>
           (transactions = transactions.filter(
@@ -378,18 +402,4 @@
     margin: 0;
   }
 
-  .fx-banner {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: var(--sp-xs) var(--sp-sm);
-    margin-bottom: var(--sp-sm);
-    background: var(--color-warning-light, #fff8e1);
-    box-shadow: var(--shadow-raised);
-    font-size: var(--text-sm);
-  }
-
-  .fx-banner-label {
-    color: var(--color-text);
-  }
 </style>
