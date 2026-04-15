@@ -24,6 +24,7 @@
   import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import { currencyFlag } from '$lib/currency'
 
   let id = $derived(page.params.id!)
 
@@ -85,7 +86,8 @@
       for (const p of tx.postings) {
         if (p.currency !== pref) {
           const key = `${date}::${p.currency}`
-          if (!fxRateMap.has(key)) pairs.push({ key, date, currency: p.currency })
+          if (!fxRateMap.has(key))
+            pairs.push({ key, date, currency: p.currency })
         }
       }
     }
@@ -256,7 +258,7 @@
         onclick={() => (convertFx = !convertFx)}
         tooltip="Convert to {preferredCurrency}"
       >
-        <Icon name="import-export" />
+        {currencyFlag(preferredCurrency)}
       </Button>
     </div>
   </Panel>
@@ -286,7 +288,11 @@
 {:else if notFound}
   <p class="empty">Account not found.</p>
 {:else if displayedTransactions.length === 0}
-  <p class="empty">{actionRequiredActive ? 'No flagged transactions in this period.' : 'No transactions in this period.'}</p>
+  <p class="empty">
+    {actionRequiredActive
+      ? 'No flagged transactions in this period.'
+      : 'No transactions in this period.'}
+  </p>
 {:else}
   <div class="tx-table">
     <div class="tx-header">
@@ -401,5 +407,4 @@
     color: var(--color-text-muted);
     margin: 0;
   }
-
 </style>

@@ -95,7 +95,8 @@
       </Button>
       {#if actionRequiredCount !== null && actionRequiredCount > 0}
         <Button
-          variant={actionRequiredActive ? 'primary' : 'warning'}
+          variant="warning"
+          active={actionRequiredActive}
           onclick={onActionRequiredToggle}
           tooltip="Actions required"
         >
