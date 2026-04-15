@@ -107,9 +107,9 @@
   <div class="sidebar-inner">
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
-      <a href="/dashboard" class="nav-link" use:tooltip={'Dashboard'}>
-        <Icon name="dashboard" size={16} />
-        <span class="nav-label">Dashboard</span>
+      <a href="/fish-pie" class="nav-link" use:tooltip={'Fish Pie'}>
+        <Icon name="pie" size={16} />
+        <span class="nav-label">Fish Pie</span>
       </a>
       <a href="/spending" class="nav-link" use:tooltip={'Spending'}>
         <Icon name="spending" size={16} />
@@ -126,6 +126,10 @@
       <a href="/assets" class="nav-link" use:tooltip={'Accounts'}>
         <Icon name="accounts" size={16} />
         <span class="nav-label">Accounts</span>
+      </a>
+      <a href="/dashboard" class="nav-link" use:tooltip={'Dashboard [WIP]'}>
+        <Icon name="dashboard" size={16} />
+        <span class="nav-label">Dashboard [WIP]</span>
       </a>
     </div>
 
