@@ -27,6 +27,8 @@
   afterNavigate(() => onMobileClose?.())
 
   let expanded = $state(true)
+  let soloOpen = $state(true)
+  let coopOpen = $state(false)
   let assetsOpen = $state(true)
   let liabilitiesOpen = $state(true)
   let equityOpen = $state(true)
@@ -107,32 +109,58 @@
   <div class="sidebar-inner">
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
-      <span class="nav-section-label">Solo</span>
-      <a href="/spending" class="nav-link" use:tooltip={'Spending'}>
-        <Icon name="spending" size={16} />
-        <span class="nav-label">Spending</span>
-      </a>
-      <a href="/import" class="nav-link" use:tooltip={'Import + Export'}>
-        <Icon name="import-export" size={16} />
-        <span class="nav-label">Import + Export</span>
-      </a>
-      <a href="/transactions" class="nav-link" use:tooltip={'Transactions'}>
-        <Icon name="transactions" size={16} />
-        <span class="nav-label">Transactions</span>
-      </a>
-      <a href="/assets" class="nav-link" use:tooltip={'Accounts'}>
-        <Icon name="accounts" size={16} />
-        <span class="nav-label">Accounts</span>
-      </a>
-      <span class="nav-section-label">Co-op</span>
-      <a href="/fish-pie" class="nav-link" use:tooltip={'Fish Pie'}>
-        <Icon name="pie" size={16} />
-        <span class="nav-label">Fish Pie</span>
-      </a>
-      <a href="/dashboard" class="nav-link nav-link-wip" use:tooltip={'Dashboard [WIP]'}>
-        <Icon name="dashboard" size={16} />
-        <span class="nav-label">Dashboard [WIP]</span>
-      </a>
+      <button class="nav-section-label nav-section-toggle" onclick={() => (soloOpen = !soloOpen)}>
+        <img
+          src="/icons/chevron.svg"
+          alt=""
+          aria-hidden="true"
+          width="10"
+          height="10"
+          class="svg-icon nav-section-chevron"
+          class:open={soloOpen}
+        />
+        Solo
+      </button>
+      {#if soloOpen}
+        <a href="/spending" class="nav-link" use:tooltip={'Spending'}>
+          <Icon name="spending" size={16} />
+          <span class="nav-label">Spending</span>
+        </a>
+        <a href="/import" class="nav-link" use:tooltip={'Import + Export'}>
+          <Icon name="import-export" size={16} />
+          <span class="nav-label">Import + Export</span>
+        </a>
+        <a href="/transactions" class="nav-link" use:tooltip={'Transactions'}>
+          <Icon name="transactions" size={16} />
+          <span class="nav-label">Transactions</span>
+        </a>
+        <a href="/assets" class="nav-link" use:tooltip={'Accounts'}>
+          <Icon name="accounts" size={16} />
+          <span class="nav-label">Accounts</span>
+        </a>
+      {/if}
+      <button class="nav-section-label nav-section-toggle" onclick={() => (coopOpen = !coopOpen)}>
+        <img
+          src="/icons/chevron.svg"
+          alt=""
+          aria-hidden="true"
+          width="10"
+          height="10"
+          class="svg-icon nav-section-chevron"
+          class:open={coopOpen}
+        />
+        Co-op
+      </button>
+      {#if coopOpen}
+        <a href="/fish-pie" class="nav-link" use:tooltip={'Fish Pie'}>
+          <Icon name="pie" size={16} />
+          <span class="nav-label">Fish Pie</span>
+        </a>
+        <a href="/dashboard" class="nav-link nav-link-wip" use:tooltip={'Dashboard [WIP]'}>
+          <Icon name="dashboard" size={16} />
+          <span class="nav-label">Dashboard [WIP]</span>
+        </a>
+      {/if}
     </div>
 
     {#if expanded || mobileOpen}
@@ -450,7 +478,9 @@
   }
 
   .nav-section-label {
-    display: block;
+    display: flex;
+    align-items: center;
+    gap: 3px;
     padding: var(--sp-xs) var(--sp-sm) 2px;
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
@@ -458,6 +488,29 @@
     text-transform: uppercase;
     letter-spacing: 0.05em;
     color: var(--color-text-muted);
+  }
+
+  .nav-section-toggle {
+    width: 100%;
+    background: none;
+    border: none;
+    text-align: left;
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .nav-section-toggle:hover {
+    color: var(--color-accent-mid);
+  }
+
+  .nav-section-chevron {
+    flex-shrink: 0;
+    transform-origin: center center;
+    transition: transform var(--duration-fast) var(--ease);
+  }
+
+  .nav-section-chevron.open {
+    transform: rotate(90deg);
   }
 
   .sidebar.collapsed .nav-section-label {
