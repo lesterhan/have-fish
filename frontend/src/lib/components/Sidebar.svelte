@@ -119,12 +119,10 @@
         <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
       </a>
-      <!--
-        <a href="/assets" class="nav-link" use:tooltip={'Accounts'}>
-          <Icon name="accounts" size={16} />
-          <span class="nav-label">Accounts</span>
-        </a>
-        -->
+      <a href="/assets" class="nav-link" use:tooltip={'Accounts'}>
+        <Icon name="accounts" size={16} />
+        <span class="nav-label">Accounts</span>
+      </a>
       <a href="/fish-pie" class="nav-link" use:tooltip={'Fish Pie'}>
         <Icon name="pie" size={16} />
         <span class="nav-label">Fish Pie</span>
