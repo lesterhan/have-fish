@@ -31,7 +31,7 @@
   .heading-banner :global(h1) {
     font-size: var(--text-lg);
     font-weight: var(--weight-semibold);
-    color: var(--color-titlebar-text);
+    color: var(--color-titlebar-fg);
     letter-spacing: 0.02em;
   }
 </style>

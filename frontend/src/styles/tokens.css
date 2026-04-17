@@ -48,10 +48,6 @@
   /* --- Title bar (Graphite gradient) --- */
   --color-titlebar-bg: linear-gradient(180deg, #d8dde4 0%, #a8aeb8 50%, #8a909a 100%);
   --color-titlebar-fg: #1a1f28;
-  /* legacy aliases — components updated in story 4 */
-  --color-titlebar-from: #d8dde4;
-  --color-titlebar-to: #8a909a;
-  --color-titlebar-text: #1a1f28;
 
   /* --- Section bar (dark panel headers — Breakdown, Transactions) --- */
   --color-section-bar-bg: linear-gradient(180deg, #5a6068, #2a3038);
@@ -176,9 +172,6 @@
   /* --- Title bar (Dracula-adapted Graphite) --- */
   --color-titlebar-bg: linear-gradient(180deg, #44475a 0%, #2a2d3e 50%, #1e1f29 100%);
   --color-titlebar-fg: #f8f8f2;
-  --color-titlebar-from: #44475a;
-  --color-titlebar-to: #1e1f29;
-  --color-titlebar-text: #f8f8f2;
 
   /* --- Section bar --- */
   --color-section-bar-bg: linear-gradient(180deg, #383a4e, #1e1f29);

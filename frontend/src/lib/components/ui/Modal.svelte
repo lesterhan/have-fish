@@ -174,11 +174,7 @@
     align-items: center;
     justify-content: space-between;
     padding: 3px var(--sp-xs);
-    background: linear-gradient(
-      to right,
-      var(--color-titlebar-from),
-      var(--color-titlebar-to)
-    );
+    background: var(--color-titlebar-bg);
     gap: var(--sp-xs);
     user-select: none;
     cursor: grab;
@@ -192,7 +188,7 @@
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
-    color: var(--color-titlebar-text);
+    color: var(--color-titlebar-fg);
     flex: 1;
   }
 

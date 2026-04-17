@@ -24,7 +24,7 @@
   }
 
   .titlebar {
-    background: linear-gradient(to right, var(--color-titlebar-from), var(--color-titlebar-to));
+    background: var(--color-titlebar-bg);
     padding: 4px var(--sp-sm);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
