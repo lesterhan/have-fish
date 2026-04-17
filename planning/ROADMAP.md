@@ -32,8 +32,8 @@
 | [Fish Pie: Invites](epics/fish-pie-invites.md) | Backlog |
 | [Fish Pie: Group Expenses](epics/fish-pie-expenses.md) | Backlog |
 | [Fish Pie: Balances & Settlement](epics/fish-pie-balances.md) | Backlog |
-| [Graphite Design System](epics/graphite-design-system.md) | Backlog |
-| [Accent Color Preference](epics/accent-color-preference.md) | Backlog |
-| [Currency Pill Component](epics/currency-pill.md) | Backlog |
-| [Spending Page Redesign](epics/spending-page-redesign.md) | Backlog |
-| [Transactions Panel Redesign](epics/transactions-panel-redesign.md) | Backlog |
+| [Graphite Design System](epics/archive/graphite-design-system.md) | Done |
+| [Accent Color Preference](epics/archive/accent-color-preference.md) | Done |
+| [Currency Pill Component](epics/archive/currency-pill.md) | Done |
+| [Spending Page Redesign](epics/archive/spending-page-redesign.md) | Done |
+| [Transactions Panel Redesign](epics/archive/transactions-panel-redesign.md) | Done |
