@@ -5,7 +5,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingChart from '$lib/components/spending/SpendingChart.svelte'
   import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
-  import { currencyFlag } from '$lib/currency'
+  import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import {
     fetchSpendingSummary,
     fetchTransactions,
@@ -54,7 +54,7 @@
   let needsConversion = $derived(
     currencyEntries.some(([c]) => c !== preferredCurrency),
   )
-  let prefFlag = $derived(currencyFlag(preferredCurrency))
+
 
   // --- Monthly trend data ---
   let monthlyData = $state<MonthlySpend[]>([])
@@ -312,9 +312,7 @@
           <span class="chip-label">Total Spend</span>
           {#each currencyEntries as [c, amount]}
             <div class="chip-amount-row">
-              <span class="chip-currency"
-                >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
-              >
+              <CurrencyPill code={c} />
               <span class="chip-amount">{formatAmount(amount)}</span>
             </div>
           {/each}
@@ -330,9 +328,7 @@
           {:else if needsConversion && converting && convertedTotal !== null}
             <div class="chip-converted-row">
               <span class="chip-converted-eq">≈</span>
-              <span class="chip-currency"
-                >{prefFlag ? `${prefFlag} ` : ''}{preferredCurrency}</span
-              >
+              <CurrencyPill code={preferredCurrency} />
               <span class="chip-amount">{formatAmount(convertedTotal)}</span>
             </div>
           {:else if needsConversion && converting && conversionUnavailable}
@@ -352,9 +348,7 @@
               {#if deltaLastMonth[c] !== undefined}
                 <div class="chip-delta-row">
                   {#if isMultiCurrency}
-                    <span class="chip-delta-currency"
-                      >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
-                    >
+                    <CurrencyPill code={c} size="xs" />
                   {/if}
                   <span
                     class="chip-delta-value"
@@ -379,9 +373,7 @@
               {#if delta3moAvg[c] !== undefined}
                 <div class="chip-delta-row">
                   {#if isMultiCurrency}
-                    <span class="chip-delta-currency"
-                      >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
-                    >
+                    <CurrencyPill code={c} size="xs" />
                   {/if}
                   <span
                     class="chip-delta-value"
