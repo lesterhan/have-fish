@@ -5,6 +5,7 @@
   import Panel from '$lib/components/ui/Panel.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingChart from '$lib/components/spending/SpendingChart.svelte'
+  import SpendingSummaryPanel from '$lib/components/spending/SpendingSummaryPanel.svelte'
   import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
   import {
     fetchSpendingSummary,
@@ -178,6 +179,13 @@
     <p class="status">No expenses recorded for this month.</p>
   {:else}
     <div class="panels" class:is-loading={loading}>
+    <SpendingSummaryPanel
+      {summary}
+      {preferredCurrency}
+      from={monthStart(year, month)}
+      to={monthEnd(year, month)}
+    />
+
     <Panel title="Breakdown">
       {#if currencies.length > 1}
         <div class="currency-tabs" role="tablist" aria-label="Currency">
