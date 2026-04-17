@@ -446,6 +446,32 @@ export async function fetchWeeklySpend(weeks: number): Promise<WeeklySpend[]> {
   return res.json()
 }
 
+export type FxPair = { date: string; from: string; to: string; cached: boolean }
+
+export async function fetchSpendingFxPairs(
+  from: string,
+  to: string,
+  targetCurrency: string,
+): Promise<{ pairs: FxPair[] }> {
+  const params = new URLSearchParams({ from, to, targetCurrency })
+  const res = await fetch(`${BASE}/api/reports/spending-fx-pairs?${params}`, {
+    credentials: 'include',
+  })
+  return res.json()
+}
+
+export async function fetchSpendingConverted(
+  from: string,
+  to: string,
+  targetCurrency: string,
+): Promise<{ total: string | null; missingCount: number }> {
+  const params = new URLSearchParams({ from, to, targetCurrency })
+  const res = await fetch(`${BASE}/api/reports/spending-converted?${params}`, {
+    credentials: 'include',
+  })
+  return res.json()
+}
+
 export async function createPosting(body: {
   transactionId: string
   accountId: string

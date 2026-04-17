@@ -10,6 +10,7 @@
     fetchSpendingSummary,
     fetchTransactions,
     fetchAccounts,
+    fetchUserSettings,
   } from '$lib/api'
   import type { SpendingSummary, Account, Transaction } from '$lib/api'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
@@ -30,6 +31,7 @@
 
   let currencies = $derived(Object.keys(summary?.total ?? {}))
 
+  let preferredCurrency = $state('CAD')
   let accounts = $state<Account[]>([])
   let txns = $state<Transaction[]>([])
   let txnsLoading = $state(false)
@@ -131,6 +133,9 @@
   }
 
   onMount(() => {
+    fetchUserSettings().then((s) => {
+      preferredCurrency = s.preferredCurrency ?? 'CAD'
+    })
     fetchAccounts().then((a) => {
       accounts = a
     })
