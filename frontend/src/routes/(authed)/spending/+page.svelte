@@ -289,6 +289,74 @@
     {/if}
   </div>
 
+  {#if summary && currencyEntries.length > 0}
+    <div class="summary-grid">
+      <!-- Total Spend -->
+      <div class="summary-card">
+        <div class="card-label">TOTAL SPEND</div>
+        {#each currencyEntries as [c, amount]}
+          <div class="card-row">
+            <CurrencyPill code={c} size="xs" />
+            <span class="card-amount">{formatAmount(amount)}</span>
+          </div>
+        {/each}
+        {#if needsConversion && converting}
+          <div class="card-sigma-row">
+            {#if fxFetching}
+              <span class="card-sigma-badge">Σ TOTAL</span>
+              <span class="card-sigma-loading">
+                {fxRemaining > 0 ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…` : 'Converting…'}
+              </span>
+            {:else if convertedTotal !== null}
+              <span class="card-sigma-badge">Σ TOTAL</span>
+              <span class="card-sigma-amount">{formatAmount(convertedTotal)}</span>
+            {:else if conversionUnavailable}
+              <span class="card-sigma-warn">Some rates unavailable</span>
+            {/if}
+          </div>
+        {/if}
+      </div>
+
+      <!-- vs Last Month -->
+      <div class="summary-card">
+        <div class="card-label">VS LAST MONTH</div>
+        {#if deltaLastMonth === null}
+          <span class="card-null">—</span>
+        {:else}
+          {#each currencyEntries as [c]}
+            {#if deltaLastMonth[c] !== undefined}
+              <div class="card-row">
+                {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
+                <span class="card-delta" class:up={deltaLastMonth[c] > 0} class:down={deltaLastMonth[c] < 0}>
+                  {formatDelta(deltaLastMonth[c])}
+                </span>
+              </div>
+            {/if}
+          {/each}
+        {/if}
+      </div>
+
+      <!-- vs 3-Month Avg -->
+      <div class="summary-card">
+        <div class="card-label">VS 3-MO AVG</div>
+        {#if delta3moAvg === null}
+          <span class="card-null">—</span>
+        {:else}
+          {#each currencyEntries as [c]}
+            {#if delta3moAvg[c] !== undefined}
+              <div class="card-row">
+                {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
+                <span class="card-delta" class:up={delta3moAvg[c] > 0} class:down={delta3moAvg[c] < 0}>
+                  {formatDelta(delta3moAvg[c])}
+                </span>
+              </div>
+            {/if}
+          {/each}
+        {/if}
+      </div>
+    </div>
+  {/if}
+
   {#if loading && !summary}
     <p class="status">Loading…</p>
   {:else if error}
@@ -448,6 +516,119 @@
     font-size: 10px;
     color: var(--color-accent);
     letter-spacing: 0.3px;
+  }
+
+  /* Summary grid */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
+  }
+
+  .summary-card {
+    padding: 14px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-left: 1px solid var(--color-rule);
+  }
+
+  .summary-card:first-child {
+    border-left: none;
+  }
+
+  .card-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: var(--color-accent);
+    margin-bottom: 6px;
+  }
+
+  .card-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .card-amount {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card-delta {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .card-delta.up {
+    color: var(--color-amount-negative);
+  }
+
+  .card-delta.down {
+    color: var(--color-amount-positive);
+  }
+
+  .card-null {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: var(--color-text-disabled);
+  }
+
+  .card-sigma-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--color-accent);
+  }
+
+  .card-sigma-badge {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: #ffffff;
+    background: var(--color-accent);
+    padding: 2px 5px;
+    line-height: 1;
+  }
+
+  .card-sigma-amount {
+    font-family: var(--font-mono);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--color-accent);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card-sigma-loading {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-align: right;
+  }
+
+  .card-sigma-warn {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    color: var(--color-warning);
+    grid-column: 1 / -1;
   }
 
   /* Panels */
