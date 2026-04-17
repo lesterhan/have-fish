@@ -275,6 +275,7 @@ export async function deleteParser(id: string): Promise<void> {
 export type UserPreferences = {
   dashboardHiddenCurrencies?: string[]
   hiddenAccountIds?: string[]
+  accentColor?: import('$lib/accent').AccentKey
 }
 
 export type UserSettings = {

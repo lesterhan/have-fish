@@ -1,7 +1,6 @@
 <script lang="ts">
   import '../styles/tokens.css'
   import '../styles/base.css'
-  import { onMount } from 'svelte'
   import Sidebar from '$lib/components/Sidebar.svelte'
   import { useSession } from '$lib/auth'
   import { toast } from '$lib/toast.svelte'
@@ -13,6 +12,8 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import CashConfetti from '$lib/components/ui/CashConfetti.svelte'
   import { applyAccent } from '$lib/accent'
+  import type { AccentKey } from '$lib/accent'
+  import AccentPicker from '$lib/components/AccentPicker.svelte'
 
   let { children } = $props()
 
@@ -21,6 +22,8 @@
   let maximized = $state(true)
   let showQuitDialog = $state(false)
   let mobileSidebarOpen = $state(false)
+  let pickerOpen = $state(false)
+  let currentAccent = $state<AccentKey>('aqua')
 
   const settingsDefault: UserSettings = {
     id: '',
@@ -53,8 +56,10 @@
         fetchAccountBalances(),
         settingsStore.load(),
         actionRequiredStore.load(),
-      ]).then(([accts]) => {
+      ]).then(([accts, settings]) => {
         sidebarAccounts = accts
+        currentAccent = settings.preferences.accentColor ?? 'aqua'
+        applyAccent(currentAccent)
       })
     }
   })
@@ -69,12 +74,15 @@
     })
   })
 
-  onMount(() => {
-    applyAccent('aqua')
-  })
-
   function closeMobileSidebar() {
     mobileSidebarOpen = false
+  }
+
+  function handleAccentSelect(key: AccentKey) {
+    currentAccent = key
+    applyAccent(key)
+    pickerOpen = false
+    settingsStore.update({ preferences: { accentColor: key } })
   }
 </script>
 
@@ -87,6 +95,25 @@
     <div class="titlebar">
       <span class="titlebar-icon">🧧</span>
       <span class="titlebar-title">have-fish</span>
+      {#if $session.data}
+        <div class="titlebar-pill-wrap">
+          <button
+            class="titlebar-pill"
+            aria-label="Choose accent color"
+            aria-expanded={pickerOpen}
+            onclick={() => (pickerOpen = !pickerOpen)}
+          >
+            <span class="pill-dot"></span>
+          </button>
+          {#if pickerOpen}
+            <AccentPicker
+              current={currentAccent}
+              onselect={handleAccentSelect}
+              onclose={() => (pickerOpen = false)}
+            />
+          {/if}
+        </div>
+      {/if}
       <div class="titlebar-controls">
         {#if $session.data}
           <!-- Mobile hamburger — lives in titlebar, hidden on desktop -->
@@ -223,6 +250,7 @@
     background: var(--color-titlebar-bg);
     color: var(--color-titlebar-fg);
     user-select: none;
+    position: relative;
   }
 
   .titlebar-icon {
@@ -233,6 +261,36 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     flex: 1;
+  }
+
+  .titlebar-pill-wrap {
+    position: relative;
+  }
+
+  .titlebar-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: none;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    padding: 0;
+    transition: filter var(--duration-fast) var(--ease);
+  }
+
+  .titlebar-pill:hover {
+    filter: brightness(1.2);
+  }
+
+  .pill-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-titlebar-accent);
+    display: block;
   }
 
   .titlebar-controls {
