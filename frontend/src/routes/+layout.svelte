@@ -1,6 +1,7 @@
 <script lang="ts">
   import '../styles/tokens.css'
   import '../styles/base.css'
+  import { onMount } from 'svelte'
   import Sidebar from '$lib/components/Sidebar.svelte'
   import { useSession } from '$lib/auth'
   import { toast } from '$lib/toast.svelte'
@@ -11,6 +12,7 @@
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import CashConfetti from '$lib/components/ui/CashConfetti.svelte'
+  import { applyAccent } from '$lib/accent'
 
   let { children } = $props()
 
@@ -65,6 +67,10 @@
     fetchAccountBalances().then((accts) => {
       sidebarAccounts = accts
     })
+  })
+
+  onMount(() => {
+    applyAccent('aqua')
   })
 
   function closeMobileSidebar() {
