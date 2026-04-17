@@ -163,18 +163,6 @@
       </Button>
     </div>
 
-    {#if currencies.length > 1}
-      <div class="toolbar-sep"></div>
-      <select
-        class="toolbar-select"
-        bind:value={currency}
-        aria-label="Currency"
-      >
-        {#each currencies as c}
-          <option value={c}>{c}</option>
-        {/each}
-      </select>
-    {/if}
   </div>
 
   {#if loading && !summary}
@@ -186,6 +174,19 @@
   {:else}
     <div class="panels" class:is-loading={loading}>
     <Panel title="Breakdown">
+      {#if currencies.length > 1}
+        <div class="currency-tabs" role="tablist" aria-label="Currency">
+          {#each currencies as c}
+            <button
+              class="currency-tab"
+              class:active={currency === c}
+              role="tab"
+              aria-selected={currency === c}
+              onclick={() => (currency = c)}
+            >{c}</button>
+          {/each}
+        </div>
+      {/if}
       <div class="panel-body">
         <nav class="breadcrumb" aria-label="Category navigation">
           {#each breadcrumbs as crumb, i}
@@ -252,32 +253,12 @@
     gap: var(--sp-xs);
   }
 
-  /* Vertical separator between toolbar sections */
-  .toolbar-sep {
-    width: 1px;
-    height: 16px;
-    background: var(--color-bevel-dark);
-    margin: 0 var(--sp-xs);
-    flex-shrink: 0;
-  }
-
   .month-label {
     font-family: var(--font-sans);
     font-size: var(--text-base);
     font-weight: var(--weight-semibold);
     min-width: 110px;
     text-align: center;
-  }
-
-  .toolbar-select {
-    background: var(--color-window);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
-    color: var(--color-text);
-    cursor: pointer;
   }
 
   .panels {
@@ -290,6 +271,45 @@
   .panels.is-loading {
     opacity: 0.5;
     pointer-events: none;
+  }
+
+  /* Currency tabs */
+  .currency-tabs {
+    display: flex;
+    border-bottom: 2px solid var(--color-bevel-dark);
+  }
+
+  .currency-tab {
+    padding: var(--sp-xs) var(--sp-md);
+    font-size: var(--text-sm);
+    font-family: var(--font-sans);
+    font-weight: var(--weight-normal);
+    color: var(--color-text-muted);
+    background: var(--color-bevel-mid);
+    border: none;
+    box-shadow: var(--shadow-raised);
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease);
+    position: relative;
+    bottom: -2px;
+  }
+
+  .currency-tab:hover:not(.active) {
+    color: var(--color-text);
+  }
+
+  .currency-tab.active {
+    background: var(--color-window);
+    color: var(--color-text);
+    font-weight: var(--weight-semibold);
+    border-bottom: 2px solid var(--color-window);
+    box-shadow:
+      inset 1px 0 0 var(--color-bevel-light),
+      inset 2px 0 0 var(--color-bevel-mid),
+      inset 0 1px 0 var(--color-bevel-light),
+      inset 0 2px 0 var(--color-bevel-mid),
+      inset -1px 0 0 var(--color-bevel-dark),
+      inset -2px 0 0 var(--color-bevel-shadow);
   }
 
   /* Panel body padding */
