@@ -61,14 +61,19 @@
   )
 
   let pageTotal = $derived.by<number | null>(() => {
-    if (!converting || fxFetching || Object.keys(fxRates).length === 0) return null
+    if (!converting || fxFetching || Object.keys(fxRates).length === 0)
+      return null
     return filteredTxns.reduce((sum, tx) => {
       const main =
         tx.postings.find((p) =>
-          accounts.find((a) => a.id === p.accountId)?.path.startsWith('expenses:'),
+          accounts
+            .find((a) => a.id === p.accountId)
+            ?.path.startsWith('expenses:'),
         ) ?? tx.postings[0]
       if (!main) return sum
-      return sum + Math.abs(parseFloat(main.amount)) * (fxRates[main.currency] ?? 1)
+      return (
+        sum + Math.abs(parseFloat(main.amount)) * (fxRates[main.currency] ?? 1)
+      )
     }, 0)
   })
 
@@ -194,7 +199,7 @@
   })
 
   // --- Data loading ---
-type Crumb = { label: string; path: string | null; current: boolean }
+  type Crumb = { label: string; path: string | null; current: boolean }
   let breadcrumbs = $derived.by<Crumb[]>(() => {
     const root =
       drillPath?.split(':')[0] ??
@@ -296,8 +301,16 @@ type Crumb = { label: string; path: string | null; current: boolean }
   <div class="left-col" class:is-loading={loading}>
     <div class="month-bar">
       <div class="nav-btns">
-        <button class="nav-btn" onclick={() => navigate(-1)} aria-label="Previous month">‹</button>
-        <button class="nav-btn" onclick={() => navigate(1)} aria-label="Next month">›</button>
+        <button
+          class="nav-btn"
+          onclick={() => navigate(-1)}
+          aria-label="Previous month">‹</button
+        >
+        <button
+          class="nav-btn"
+          onclick={() => navigate(1)}
+          aria-label="Next month">›</button
+        >
       </div>
       <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
       {#if summary && needsConversion}
@@ -305,7 +318,9 @@ type Crumb = { label: string; path: string | null; current: boolean }
           class="convert-btn"
           class:active={converting}
           disabled={fxFetching}
-          aria-label={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
+          aria-label={converting
+            ? 'Show raw totals'
+            : `Convert to ${preferredCurrency}`}
           onclick={handleConvertToggle}
         >
           <CurrencyPill code={preferredCurrency} size="xs" />
@@ -329,11 +344,16 @@ type Crumb = { label: string; path: string | null; current: boolean }
               {#if fxFetching}
                 <span class="card-sigma-badge">Σ TOTAL</span>
                 <span class="card-sigma-loading">
-                  {fxRemaining > 0 ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…` : 'Converting…'}
+                  {fxRemaining > 0
+                    ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…`
+                    : 'Converting…'}
                 </span>
               {:else if convertedTotal !== null}
                 <span class="card-sigma-badge">Σ TOTAL</span>
-                <span class="card-sigma-amount"><CurrencyPill code={preferredCurrency} size="xs" /> {formatAmount(convertedTotal)}</span>
+                <span class="card-sigma-amount"
+                  ><CurrencyPill code={preferredCurrency} size="xs" />
+                  {formatAmount(convertedTotal)}</span
+                >
               {:else if conversionUnavailable}
                 <span class="card-sigma-warn">Some rates unavailable</span>
               {/if}
@@ -351,7 +371,11 @@ type Crumb = { label: string; path: string | null; current: boolean }
               {#if deltaLastMonth[c] !== undefined}
                 <div class="card-row">
                   {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
-                  <span class="card-delta" class:up={deltaLastMonth[c] > 0} class:down={deltaLastMonth[c] < 0}>
+                  <span
+                    class="card-delta"
+                    class:up={deltaLastMonth[c] > 0}
+                    class:down={deltaLastMonth[c] < 0}
+                  >
                     {formatDelta(deltaLastMonth[c])}
                   </span>
                 </div>
@@ -370,7 +394,11 @@ type Crumb = { label: string; path: string | null; current: boolean }
               {#if delta3moAvg[c] !== undefined}
                 <div class="card-row">
                   {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
-                  <span class="card-delta" class:up={delta3moAvg[c] > 0} class:down={delta3moAvg[c] < 0}>
+                  <span
+                    class="card-delta"
+                    class:up={delta3moAvg[c] > 0}
+                    class:down={delta3moAvg[c] < 0}
+                  >
                     {formatDelta(delta3moAvg[c])}
                   </span>
                 </div>
@@ -390,7 +418,9 @@ type Crumb = { label: string; path: string | null; current: boolean }
     {:else}
       <div class="breakdown-section">
         <div class="section-bar">
-          <span class="section-bar-title">Breakdown · {summary.categories.length} categories</span>
+          <span class="section-bar-title"
+            >Breakdown · {summary.categories.length} categories</span
+          >
           <nav class="breadcrumb" aria-label="Category navigation">
             {#each breadcrumbs as crumb, i}
               {#if i > 0}<span class="sep" aria-hidden="true">:</span>{/if}
@@ -441,22 +471,25 @@ type Crumb = { label: string; path: string | null; current: boolean }
         <span class="txn-header-spacer"></span>
         <a
           class="txn-view-all"
-          href="/transactions?from={monthStart(year, month)}&to={monthEnd(year, month)}"
-        >VIEW ALL</a>
+          href="/transactions?from={monthStart(year, month)}&to={monthEnd(
+            year,
+            month,
+          )}">VIEW ALL</a
+        >
       </div>
       <div class="txn-toolbar">
         <span class="txn-toolbar-label">FILTER</span>
         <button
           class="filter-chip"
           class:active={txnFilter === 'ALL'}
-          onclick={() => (txnFilter = 'ALL')}
-        >ALL</button>
+          onclick={() => (txnFilter = 'ALL')}>ALL</button
+        >
         {#each currencies as c}
           <button
             class="filter-chip"
             class:active={txnFilter === c}
-            onclick={() => (txnFilter = c)}
-          >{c}</button>
+            onclick={() => (txnFilter = c)}>{c}</button
+          >
         {/each}
         <span class="txn-toolbar-spacer"></span>
         <span class="txn-sort-label">↑↓ DATE</span>
@@ -487,12 +520,17 @@ type Crumb = { label: string; path: string | null; current: boolean }
         {/if}
       </div>
       <div class="txn-footer">
-        <span class="txn-footer-count">SHOWING {filteredTxns.length} / {txns.length}</span>
+        <span class="txn-footer-count"
+          >SHOWING {filteredTxns.length} / {txns.length}</span
+        >
         <span class="txn-footer-spacer"></span>
         {#if pageTotal !== null}
           <span class="txn-footer-label">page total</span>
           <span class="txn-footer-total">
-            {pageTotal.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {pageTotal.toLocaleString('en-CA', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
             {preferredCurrency}
           </span>
         {/if}
@@ -574,7 +612,11 @@ type Crumb = { label: string; path: string | null; current: boolean }
   }
 
   .convert-btn.active {
-    background: linear-gradient(180deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 80%, transparent));
+    background: linear-gradient(
+      180deg,
+      var(--color-accent),
+      color-mix(in srgb, var(--color-accent) 80%, transparent)
+    );
     border-color: var(--color-accent);
     color: #ffffff;
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
@@ -980,7 +1022,11 @@ type Crumb = { label: string; path: string | null; current: boolean }
     cursor: pointer;
     position: relative;
     margin-bottom: -1px;
-    background: linear-gradient(180deg, var(--color-rule-soft), var(--color-rule));
+    background: linear-gradient(
+      180deg,
+      var(--color-rule-soft),
+      var(--color-rule)
+    );
     color: var(--color-text-muted);
     z-index: 1;
     transition:

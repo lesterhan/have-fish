@@ -93,8 +93,6 @@
 <div class="desktop" class:maximized>
   <div class="window">
     <div class="titlebar">
-      <span class="titlebar-icon">🧧</span>
-      <span class="titlebar-title">have-fish</span>
       {#if $session.data}
         <div class="titlebar-pill-wrap">
           <button
@@ -114,6 +112,7 @@
           {/if}
         </div>
       {/if}
+      <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
         {#if $session.data}
           <!-- Mobile hamburger — lives in titlebar, hidden on desktop -->
