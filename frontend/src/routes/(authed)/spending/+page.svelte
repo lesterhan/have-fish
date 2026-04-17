@@ -14,8 +14,14 @@
     fetchSpendingFxPairs,
     fetchFxRate,
     fetchSpendingConverted,
+    fetchMonthlySpend,
   } from '$lib/api'
-  import type { SpendingSummary, Account, Transaction } from '$lib/api'
+  import type {
+    SpendingSummary,
+    Account,
+    Transaction,
+    MonthlySpend,
+  } from '$lib/api'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
 
   // --- Month state ---
@@ -45,12 +51,61 @@
   let convertedTotal = $state<string | null>(null)
   let conversionUnavailable = $state(false)
 
-  let needsConversion = $derived(currencyEntries.some(([c]) => c !== preferredCurrency))
+  let needsConversion = $derived(
+    currencyEntries.some(([c]) => c !== preferredCurrency),
+  )
   let prefFlag = $derived(currencyFlag(preferredCurrency))
+
+  // --- Monthly trend data ---
+  let monthlyData = $state<MonthlySpend[]>([])
+
+  let deltaLastMonth = $derived.by<Record<string, number> | null>(() => {
+    if (!summary || monthlyData.length === 0) return null
+    const key = `${year}-${String(month).padStart(2, '0')}`
+    const idx = monthlyData.findIndex((m) => m.month === key)
+    if (idx <= 0) return null
+    const curr = monthlyData[idx].total
+    const prev = monthlyData[idx - 1].total
+    const result: Record<string, number> = {}
+    for (const [c, amt] of Object.entries(curr)) {
+      if (!prev[c]) continue
+      const currAbs = Math.abs(parseFloat(amt))
+      const prevAbs = Math.abs(parseFloat(prev[c]))
+      if (prevAbs > 0) result[c] = ((currAbs - prevAbs) / prevAbs) * 100
+    }
+    return Object.keys(result).length > 0 ? result : null
+  })
+
+  let delta3moAvg = $derived.by<Record<string, number> | null>(() => {
+    if (!summary || monthlyData.length === 0) return null
+    const key = `${year}-${String(month).padStart(2, '0')}`
+    const idx = monthlyData.findIndex((m) => m.month === key)
+    if (idx < 3) return null
+    const curr = monthlyData[idx].total
+    const result: Record<string, number> = {}
+    for (const [c, amt] of Object.entries(curr)) {
+      const prior3 = monthlyData.slice(idx - 3, idx)
+      const vals = prior3.map((m) => Math.abs(parseFloat(m.total[c] ?? '0')))
+      const avg = vals.reduce((a, b) => a + b, 0) / 3
+      if (avg > 0) {
+        result[c] = ((Math.abs(parseFloat(amt)) - avg) / avg) * 100
+      }
+    }
+    return Object.keys(result).length > 0 ? result : null
+  })
+
+  let isMultiCurrency = $derived(currencyEntries.length > 1)
+
+  function formatDelta(pct: number): string {
+    return `${pct > 0 ? '↑' : '↓'} ${Math.round(Math.abs(pct))}%`
+  }
 
   function formatAmount(amount: string): string {
     const n = Math.abs(parseFloat(amount))
-    return n.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+    return n.toLocaleString('en-CA', {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
   }
 
   async function startConversion() {
@@ -98,7 +153,8 @@
 
   // Re-run conversion when month changes
   $effect(() => {
-    year; month
+    year
+    month
     convertedTotal = null
     conversionUnavailable = false
     if (converting) startConversion()
@@ -201,70 +257,146 @@
     fetchAccounts().then((a) => {
       accounts = a
     })
+    fetchMonthlySpend(7).then((d) => {
+      monthlyData = d
+    })
     load().then(loadTxns)
   })
 </script>
 
 <div class="page">
   <header class="page-header">
-    <div class="header-left">
-      <h1 class="month-name">{MONTH_NAMES[month - 1]} {year}</h1>
+    <div class="header-top-row">
       <div class="month-nav">
-        <Button variant="ghost" square onclick={() => navigate(-1)} aria-label="Previous month">
+        <Button
+          variant="ghost"
+          square
+          onclick={() => navigate(-1)}
+          aria-label="Previous month"
+        >
           <Icon name="left-circle" size={16} />
         </Button>
-        <Button variant="ghost" square onclick={() => navigate(1)} aria-label="Next month">
+        <Button
+          variant="ghost"
+          square
+          onclick={() => navigate(1)}
+          aria-label="Next month"
+        >
           <Icon name="right-circle" size={16} />
         </Button>
       </div>
+      <h1 class="month-name">{MONTH_NAMES[month - 1]} {year}</h1>
+      {#if summary && needsConversion}
+        <Button
+          variant="ghost"
+          square
+          active={converting}
+          disabled={fxFetching}
+          tooltip={converting
+            ? 'Show raw totals'
+            : `Convert to ${preferredCurrency}`}
+          aria-label={converting
+            ? 'Show raw totals'
+            : `Convert to ${preferredCurrency}`}
+          onclick={handleConvertToggle}
+        >
+          <Icon name="exchange" size={16} />
+        </Button>
+      {/if}
     </div>
 
-    <div class="header-right">
-      {#if summary && currencyEntries.length > 0}
-        <div class="totals-block">
-          <span class="totals-label">Total Spend</span>
-
+    {#if summary && currencyEntries.length > 0}
+      <div class="chips-row">
+        <!-- Total spend chip -->
+        <div class="chip">
+          <span class="chip-label">Total Spend</span>
+          {#each currencyEntries as [c, amount]}
+            <div class="chip-amount-row">
+              <span class="chip-currency"
+                >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
+              >
+              <span class="chip-amount">{formatAmount(amount)}</span>
+            </div>
+          {/each}
           {#if converting && fxFetching}
-            <div class="fx-status">
+            <div class="chip-converted-row chip-converted-loading">
               <span class="spinner" aria-label="Loading"></span>
-              <span class="fx-label">
-                {fxRemaining > 0 ? `Fetching ${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…` : 'Converting…'}
+              <span class="chip-fx-label">
+                {fxRemaining > 0
+                  ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…`
+                  : 'Converting…'}
               </span>
             </div>
           {:else if converting && convertedTotal !== null}
-            <div class="totals-secondary">
-              {currencyEntries.map(([c, a]) => `${currencyFlag(c) ? currencyFlag(c) + ' ' : ''}${c} ${formatAmount(a)}`).join(' · ')}
-            </div>
-            <div class="hero-main">
-              <span class="hero-currency">{prefFlag ? `${prefFlag} ` : ''}{preferredCurrency}</span>
-              <span class="hero-amount">{formatAmount(convertedTotal)}</span>
+            <div class="chip-converted-row">
+              <span class="chip-converted-eq">≈</span>
+              <span class="chip-currency"
+                >{prefFlag ? `${prefFlag} ` : ''}{preferredCurrency}</span
+              >
+              <span class="chip-amount">{formatAmount(convertedTotal)}</span>
             </div>
           {:else if converting && conversionUnavailable}
-            <span class="fx-label warn">Some rates unavailable</span>
-          {:else}
-            <div class="totals-list">
-              {#each currencyEntries as [c, amount]}
-                <div class="total-item">
-                  <span class="total-currency">{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span>
-                  <span class="total-amount">{formatAmount(amount)}</span>
-                </div>
-              {/each}
+            <div class="chip-converted-row">
+              <span class="chip-warn">Some rates unavailable</span>
             </div>
           {/if}
         </div>
 
-        {#if needsConversion}
-          <button
-            class="convert-btn"
-            class:active={converting}
-            onclick={handleConvertToggle}
-            disabled={fxFetching}
-            title={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
-            aria-label={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
-          >⇄</button>
-        {/if}
-      {/if}
-    </div>
+        <!-- vs last month chip -->
+        <div class="chip chip-delta">
+          <span class="chip-label">vs Last Month</span>
+          {#if deltaLastMonth === null}
+            <span class="chip-delta-null">—</span>
+          {:else}
+            {#each currencyEntries as [c]}
+              {#if deltaLastMonth[c] !== undefined}
+                <div class="chip-delta-row">
+                  {#if isMultiCurrency}
+                    <span class="chip-delta-currency"
+                      >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
+                    >
+                  {/if}
+                  <span
+                    class="chip-delta-value"
+                    class:up={deltaLastMonth[c] > 0}
+                    class:down={deltaLastMonth[c] < 0}
+                  >
+                    {formatDelta(deltaLastMonth[c])}
+                  </span>
+                </div>
+              {/if}
+            {/each}
+          {/if}
+        </div>
+
+        <!-- vs 3-month avg chip -->
+        <div class="chip chip-delta">
+          <span class="chip-label">vs 3-Mo Avg</span>
+          {#if delta3moAvg === null}
+            <span class="chip-delta-null">—</span>
+          {:else}
+            {#each currencyEntries as [c]}
+              {#if delta3moAvg[c] !== undefined}
+                <div class="chip-delta-row">
+                  {#if isMultiCurrency}
+                    <span class="chip-delta-currency"
+                      >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
+                    >
+                  {/if}
+                  <span
+                    class="chip-delta-value"
+                    class:up={delta3moAvg[c] > 0}
+                    class:down={delta3moAvg[c] < 0}
+                  >
+                    {formatDelta(delta3moAvg[c])}
+                  </span>
+                </div>
+              {/if}
+            {/each}
+          {/if}
+        </div>
+      </div>
+    {/if}
   </header>
 
   {#if loading && !summary}
@@ -284,8 +416,8 @@
                 class:active={currency === c}
                 role="tab"
                 aria-selected={currency === c}
-                onclick={() => (currency = c)}
-              >{c}</button>
+                onclick={() => (currency = c)}>{c}</button
+              >
             {/each}
           </div>
         {/if}
@@ -296,14 +428,21 @@
               {#if crumb.current}
                 <span class="crumb crumb-current">{crumb.label}</span>
               {:else}
-                <button class="crumb crumb-link" onclick={() => navigateTo(crumb.path)}>
+                <button
+                  class="crumb crumb-link"
+                  onclick={() => navigateTo(crumb.path)}
+                >
                   {crumb.label}
                 </button>
               {/if}
             {/each}
           </nav>
 
-          <SpendingChart categories={summary.categories} {currency} onclick={drill} />
+          <SpendingChart
+            categories={summary.categories}
+            {currency}
+            onclick={drill}
+          />
         </div>
       </Panel>
 
@@ -318,7 +457,9 @@
               <TransactionRow
                 {tx}
                 {accounts}
-                ondeleted={() => { txns = txns.filter((t) => t.id !== tx.id) }}
+                ondeleted={() => {
+                  txns = txns.filter((t) => t.id !== tx.id)
+                }}
               />
             {/each}
           </div>
@@ -329,47 +470,37 @@
 </div>
 
 <style>
-  /* Page header — follows AccountHeading DNA */
+  /* Page header */
   .page-header {
     display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    padding: var(--sp-lg) var(--sp-xl);
+    flex-direction: column;
+    gap: var(--sp-sm);
+    padding: var(--sp-md) var(--sp-xl);
     margin-bottom: var(--sp-xl);
     background: var(--color-window-raised);
     border-left: 4px solid var(--color-accent);
     border-bottom: 1px solid var(--color-border);
-    gap: var(--sp-xl);
   }
 
   @media (max-width: 520px) {
     .page-header {
-      flex-direction: column;
-      align-items: flex-start;
-      gap: var(--sp-md);
       padding: var(--sp-md);
     }
   }
 
-  .header-left {
+  .header-top-row {
     display: flex;
-    flex-direction: column;
-    gap: var(--sp-xs);
+    align-items: center;
+    gap: var(--sp-sm);
   }
 
   .month-name {
     font-family: var(--font-serif);
-    font-size: var(--text-3xl);
+    font-size: var(--text-2xl);
     font-weight: var(--weight-semibold);
     color: var(--color-text);
     line-height: var(--leading-tight);
     margin: 0;
-  }
-
-  @media (max-width: 520px) {
-    .month-name {
-      font-size: var(--text-2xl);
-    }
   }
 
   .month-nav {
@@ -378,119 +509,135 @@
     gap: var(--sp-xs);
   }
 
-  /* Right side */
-  .header-right {
+  /* Chip row */
+  .chips-row {
     display: flex;
-    align-items: flex-end;
-    gap: var(--sp-md);
-    flex-shrink: 0;
+    align-items: stretch;
+    gap: var(--sp-sm);
+    flex-wrap: wrap;
   }
 
-  @media (max-width: 520px) {
-    .header-right {
-      align-items: flex-start;
-      width: 100%;
-      justify-content: space-between;
-    }
-  }
-
-  .totals-block {
+  .chip {
     display: flex;
     flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
+    gap: 3px;
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    min-width: 0;
   }
 
-  @media (max-width: 520px) {
-    .totals-block {
-      align-items: flex-start;
-    }
-  }
-
-  .totals-label {
+  .chip-label {
     font-family: var(--font-sans);
     font-size: var(--text-xs);
-    letter-spacing: 0.1em;
+    letter-spacing: 0.08em;
     text-transform: uppercase;
     color: var(--color-text-muted);
+    white-space: nowrap;
   }
 
-  /* Raw per-currency list */
-  .totals-list {
+  /* Totals chip */
+  .chip-amount-row {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
+    align-items: baseline;
+    gap: var(--sp-sm);
+  }
+
+  .chip-currency {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .chip-amount {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    font-weight: var(--weight-normal);
+    color: var(--color-text);
+    line-height: var(--leading-tight);
+  }
+
+  .chip-secondary {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .chip-converted-row {
+    display: flex;
+    align-items: baseline;
     gap: var(--sp-xs);
+    margin-top: 2px;
+    padding-top: 3px;
+    border-top: 1px solid var(--color-border);
   }
 
-  @media (max-width: 520px) {
-    .totals-list {
-      align-items: flex-start;
-    }
+  .chip-converted-loading {
+    align-items: center;
   }
 
-  .total-item {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-sm);
-  }
-
-  .total-currency {
+  .chip-converted-eq {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
 
-  .total-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-    line-height: var(--leading-tight);
-  }
-
-  /* Converted hero total */
-  .totals-secondary {
-    font-family: var(--font-mono);
+  .chip-warn {
+    font-family: var(--font-sans);
     font-size: var(--text-xs);
-    color: var(--color-text-muted);
+    color: var(--color-warning);
   }
 
-  .hero-main {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-sm);
-  }
-
-  .hero-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .hero-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-    line-height: var(--leading-tight);
-  }
-
-  /* FX fetch status */
-  .fx-status {
+  /* FX fetch status inside chip */
+  .chip-fx-status {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
   }
 
-  .fx-label {
+  .chip-fx-label {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
 
-  .fx-label.warn {
-    color: var(--color-warning);
+  /* Delta chips */
+  .chip-delta {
+    min-width: 7rem;
+  }
+
+  .chip-delta-row {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-xs);
+  }
+
+  .chip-delta-currency {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .chip-delta-value {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-tight);
+  }
+
+  .chip-delta-value.up {
+    color: var(--color-amount-negative);
+  }
+
+  .chip-delta-value.down {
+    color: var(--color-amount-positive);
+  }
+
+  .chip-delta-null {
+    font-family: var(--font-mono);
+    font-size: var(--text-lg);
+    color: var(--color-text-disabled);
+    line-height: var(--leading-tight);
   }
 
   .spinner {
@@ -505,39 +652,9 @@
   }
 
   @keyframes spin {
-    to { transform: rotate(360deg); }
-  }
-
-  /* Convert button */
-  .convert-btn {
-    font-size: var(--text-base);
-    width: 28px;
-    height: 28px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-window);
-    border: none;
-    box-shadow: var(--shadow-raised);
-    cursor: pointer;
-    color: var(--color-text-muted);
-    transition: color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
-    flex-shrink: 0;
-    align-self: flex-end;
-  }
-
-  .convert-btn:hover {
-    color: var(--color-text);
-  }
-
-  .convert-btn.active {
-    box-shadow: var(--shadow-sunken);
-    color: var(--color-accent-mid);
-  }
-
-  .convert-btn:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+    to {
+      transform: rotate(360deg);
+    }
   }
 
   /* Panels */
