@@ -522,8 +522,7 @@
     flex-direction: column;
     gap: 3px;
     padding: var(--sp-xs) var(--sp-sm);
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
+    box-shadow: var(--shadow-sunken);
     min-width: 0;
   }
 
