@@ -408,16 +408,18 @@ type Crumb = { label: string; path: string | null; current: boolean }
           </nav>
         </div>
         {#if currencies.length > 1}
-          <div class="currency-tabs" role="tablist" aria-label="Currency">
-            {#each currencies as c}
-              <button
-                class="currency-tab"
-                class:active={currency === c}
-                role="tab"
-                aria-selected={currency === c}
-                onclick={() => (currency = c)}>{c}</button
-              >
-            {/each}
+          <div class="currency-tabs-row">
+            <div class="currency-tabs" role="tablist" aria-label="Currency">
+              {#each currencies as c}
+                <button
+                  class="currency-tab"
+                  class:active={currency === c}
+                  role="tab"
+                  aria-selected={currency === c}
+                  onclick={() => (currency = c)}>{c}</button
+                >
+              {/each}
+            </div>
           </div>
         {/if}
         <div class="panel-body">
@@ -699,12 +701,21 @@ type Crumb = { label: string; path: string | null; current: boolean }
     grid-column: 1 / -1;
   }
 
-  /* Page grid */
+  /* Page grid — negative margin escapes the content area padding */
   .page {
     display: grid;
     grid-template-columns: 1fr 360px;
-    height: 100%;
+    margin: calc(-1 * var(--sp-lg));
+    height: calc(100% + 2 * var(--sp-lg));
     overflow: hidden;
+  }
+
+  @media (max-width: 600px) {
+    .page {
+      grid-template-columns: 1fr;
+      margin: calc(-1 * var(--sp-md));
+      height: calc(100% + 2 * var(--sp-md));
+    }
   }
 
   .left-col {
@@ -897,7 +908,6 @@ type Crumb = { label: string; path: string | null; current: boolean }
     display: flex;
     flex-direction: column;
     background: var(--color-window);
-    box-shadow: var(--shadow-raised);
   }
 
   .section-bar {
@@ -946,42 +956,48 @@ type Crumb = { label: string; path: string | null; current: boolean }
   }
 
   /* Currency tabs */
-  .currency-tabs {
+  .currency-tabs-row {
     display: flex;
-    border-bottom: 2px solid var(--color-bevel-dark);
+    gap: 2px;
+    padding: 8px 14px 0;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+    flex-shrink: 0;
+  }
+
+  .currency-tabs {
+    display: contents;
   }
 
   .currency-tab {
-    padding: var(--sp-xs) var(--sp-md);
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
-    font-weight: var(--weight-normal);
-    color: var(--color-text-muted);
-    background: var(--color-bevel-mid);
-    border: none;
-    box-shadow: var(--shadow-raised);
+    padding: 5px 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--color-rule);
+    border-radius: 4px 4px 0 0;
     cursor: pointer;
-    transition: color var(--duration-fast) var(--ease);
     position: relative;
-    bottom: -2px;
+    margin-bottom: -1px;
+    background: linear-gradient(180deg, var(--color-rule-soft), var(--color-rule));
+    color: var(--color-text-muted);
+    z-index: 1;
+    transition:
+      background var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
   }
 
   .currency-tab:hover:not(.active) {
+    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
     color: var(--color-text);
   }
 
   .currency-tab.active {
-    background: var(--color-window);
+    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    border-bottom-color: var(--color-window);
     color: var(--color-text);
-    font-weight: var(--weight-semibold);
-    border-bottom: 2px solid var(--color-window);
-    box-shadow:
-      inset 1px 0 0 var(--color-bevel-light),
-      inset 2px 0 0 var(--color-bevel-mid),
-      inset 0 1px 0 var(--color-bevel-light),
-      inset 0 2px 0 var(--color-bevel-mid),
-      inset -1px 0 0 var(--color-bevel-dark),
-      inset -2px 0 0 var(--color-bevel-shadow);
+    z-index: 2;
   }
 
   .panel-body {
