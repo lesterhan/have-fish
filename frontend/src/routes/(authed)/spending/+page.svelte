@@ -1,7 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Button from '$lib/components/ui/Button.svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
   import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
@@ -161,15 +160,7 @@
   })
 
   // --- Data loading ---
-  let txnPanelTitle = $derived.by(() => {
-    const label = drillPath
-      ? drillPath.split(':').slice(1).join(':') || drillPath
-      : null
-    const count = txnsLoading ? '' : ` (${txns.length})`
-    return label ? `Transactions — ${label}${count}` : `Transactions${count}`
-  })
-
-  type Crumb = { label: string; path: string | null; current: boolean }
+type Crumb = { label: string; path: string | null; current: boolean }
   let breadcrumbs = $derived.by<Crumb[]>(() => {
     const root =
       drillPath?.split(':')[0] ??
@@ -404,25 +395,36 @@
   </div>
 
   <div class="right-col">
-    <Panel title={txnPanelTitle}>
-      {#if txnsLoading && txns.length === 0}
-        <p class="status">Loading…</p>
-      {:else if txns.length === 0}
-        <p class="status">No transactions found.</p>
-      {:else}
-        <div class="txn-list">
-          {#each txns as tx (tx.id)}
-            <TransactionRow
-              {tx}
-              {accounts}
-              ondeleted={() => {
-                txns = txns.filter((t) => t.id !== tx.id)
-              }}
-            />
-          {/each}
-        </div>
-      {/if}
-    </Panel>
+    <div class="txn-panel">
+      <div class="txn-header">
+        <span class="txn-header-title">Transactions</span>
+        <span class="txn-header-count">{txns.length} entries</span>
+        <span class="txn-header-spacer"></span>
+        <a
+          class="txn-view-all"
+          href="/transactions?from={monthStart(year, month)}&to={monthEnd(year, month)}"
+        >VIEW ALL</a>
+      </div>
+      <div class="txn-body">
+        {#if txnsLoading && txns.length === 0}
+          <p class="status">Loading…</p>
+        {:else if txns.length === 0}
+          <p class="status">No transactions found.</p>
+        {:else}
+          <div class="txn-list">
+            {#each txns as tx (tx.id)}
+              <TransactionRow
+                {tx}
+                {accounts}
+                ondeleted={() => {
+                  txns = txns.filter((t) => t.id !== tx.id)
+                }}
+              />
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
   </div>
 </div>
 
@@ -653,15 +655,60 @@
     overflow: hidden;
   }
 
-  .right-col :global(.panel) {
-    flex: 1;
-    margin-bottom: 0;
-    overflow: hidden;
+  /* Txn panel */
+  .txn-panel {
     display: flex;
     flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-window-raised);
   }
 
-  .right-col :global(.panel-body) {
+  .txn-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
+  }
+
+  .txn-header-title {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    font-weight: 700;
+  }
+
+  .txn-header-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.75;
+  }
+
+  .txn-header-spacer {
+    flex: 1;
+  }
+
+  .txn-view-all {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-section-bar-fg);
+    opacity: 0.75;
+    text-decoration: none;
+    transition: opacity var(--duration-fast) var(--ease);
+  }
+
+  .txn-view-all:hover {
+    opacity: 1;
+  }
+
+  .txn-body {
     flex: 1;
     overflow-y: auto;
   }
