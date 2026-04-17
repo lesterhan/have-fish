@@ -265,131 +265,29 @@
 </script>
 
 <div class="page">
-  <header class="page-header">
-    <div class="header-top-row">
-      <div class="month-nav">
-        <Button
-          variant="ghost"
-          square
-          onclick={() => navigate(-1)}
-          aria-label="Previous month"
-        >
-          <Icon name="left-circle" size={16} />
-        </Button>
-        <Button
-          variant="ghost"
-          square
-          onclick={() => navigate(1)}
-          aria-label="Next month"
-        >
-          <Icon name="right-circle" size={16} />
-        </Button>
-      </div>
-      <h1 class="month-name">{MONTH_NAMES[month - 1]} {year}</h1>
-      {#if summary && needsConversion}
-        <Button
-          variant="ghost"
-          square
-          active={converting}
-          disabled={fxFetching}
-          tooltip={converting
-            ? 'Show raw totals'
-            : `Convert to ${preferredCurrency}`}
-          aria-label={converting
-            ? 'Show raw totals'
-            : `Convert to ${preferredCurrency}`}
-          onclick={handleConvertToggle}
-        >
-          <Icon name="exchange" size={16} />
-        </Button>
-      {/if}
+  <div class="month-bar">
+    <div class="nav-btns">
+      <button class="nav-btn" onclick={() => navigate(-1)} aria-label="Previous month">‹</button>
+      <button class="nav-btn" onclick={() => navigate(1)} aria-label="Next month">›</button>
     </div>
-
-    {#if summary && currencyEntries.length > 0}
-      <div class="chips-row">
-        <!-- Total spend chip -->
-        <div class="chip">
-          <span class="chip-label">Total Spend</span>
-          {#each currencyEntries as [c, amount]}
-            <div class="chip-amount-row">
-              <CurrencyPill code={c} />
-              <span class="chip-amount">{formatAmount(amount)}</span>
-            </div>
-          {/each}
-          {#if needsConversion && converting && fxFetching}
-            <div class="chip-converted-row chip-converted-loading">
-              <span class="spinner" aria-label="Loading"></span>
-              <span class="chip-fx-label">
-                {fxRemaining > 0
-                  ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…`
-                  : 'Converting…'}
-              </span>
-            </div>
-          {:else if needsConversion && converting && convertedTotal !== null}
-            <div class="chip-converted-row">
-              <span class="chip-converted-eq">≈</span>
-              <CurrencyPill code={preferredCurrency} />
-              <span class="chip-amount">{formatAmount(convertedTotal)}</span>
-            </div>
-          {:else if needsConversion && converting && conversionUnavailable}
-            <div class="chip-converted-row">
-              <span class="chip-warn">Some rates unavailable</span>
-            </div>
-          {/if}
-        </div>
-
-        <!-- vs last month chip -->
-        <div class="chip chip-delta">
-          <span class="chip-label">vs Last Month</span>
-          {#if deltaLastMonth === null}
-            <span class="chip-delta-null">—</span>
-          {:else}
-            {#each currencyEntries as [c]}
-              {#if deltaLastMonth[c] !== undefined}
-                <div class="chip-delta-row">
-                  {#if isMultiCurrency}
-                    <CurrencyPill code={c} size="xs" />
-                  {/if}
-                  <span
-                    class="chip-delta-value"
-                    class:up={deltaLastMonth[c] > 0}
-                    class:down={deltaLastMonth[c] < 0}
-                  >
-                    {formatDelta(deltaLastMonth[c])}
-                  </span>
-                </div>
-              {/if}
-            {/each}
-          {/if}
-        </div>
-
-        <!-- vs 3-month avg chip -->
-        <div class="chip chip-delta">
-          <span class="chip-label">vs 3-Mo Avg</span>
-          {#if delta3moAvg === null}
-            <span class="chip-delta-null">—</span>
-          {:else}
-            {#each currencyEntries as [c]}
-              {#if delta3moAvg[c] !== undefined}
-                <div class="chip-delta-row">
-                  {#if isMultiCurrency}
-                    <CurrencyPill code={c} size="xs" />
-                  {/if}
-                  <span
-                    class="chip-delta-value"
-                    class:up={delta3moAvg[c] > 0}
-                    class:down={delta3moAvg[c] < 0}
-                  >
-                    {formatDelta(delta3moAvg[c])}
-                  </span>
-                </div>
-              {/if}
-            {/each}
-          {/if}
-        </div>
-      </div>
+    <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
+    {#if summary && needsConversion}
+      <button
+        class="convert-btn"
+        class:active={converting}
+        disabled={fxFetching}
+        aria-label={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
+        onclick={handleConvertToggle}
+      >
+        ↻ Convert
+      </button>
+      {#if converting && !fxFetching}
+        <span class="convert-label">
+          → {preferredCurrency} · rates @ {MONTH_NAMES[month - 1].slice(0, 3)} {new Date(year, month, 0).getDate()}
+        </span>
+      {/if}
     {/if}
-  </header>
+  </div>
 
   {#if loading && !summary}
     <p class="status">Loading…</p>
@@ -462,190 +360,94 @@
 </div>
 
 <style>
-  /* Page header */
-  .page-header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-sm);
-    padding: var(--sp-md) var(--sp-xl);
-    margin-bottom: var(--sp-xl);
-    background: var(--color-window-raised);
-    border-left: 4px solid var(--color-accent);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  @media (max-width: 520px) {
-    .page-header {
-      padding: var(--sp-md);
-    }
-  }
-
-  .header-top-row {
+  /* Month bar */
+  .month-bar {
     display: flex;
     align-items: center;
-    gap: var(--sp-sm);
-  }
-
-  .month-name {
-    font-family: var(--font-serif);
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-    line-height: var(--leading-tight);
-    margin: 0;
-  }
-
-  .month-nav {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-  }
-
-  /* Chip row */
-  .chips-row {
-    display: flex;
-    align-items: stretch;
-    gap: var(--sp-sm);
-    flex-wrap: wrap;
-  }
-
-  .chip {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: var(--sp-xs) var(--sp-sm);
-    box-shadow: var(--shadow-sunken);
-    min-width: 0;
-  }
-
-  .chip-label {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
-
-  /* Totals chip */
-  .chip-amount-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-sm);
-  }
-
-  .chip-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .chip-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-base);
-    font-weight: var(--weight-normal);
-    color: var(--color-text);
-    line-height: var(--leading-tight);
-  }
-
-  .chip-secondary {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .chip-converted-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-xs);
-    margin-top: 2px;
-    padding-top: 3px;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .chip-converted-loading {
-    align-items: center;
-  }
-
-  .chip-converted-eq {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .chip-warn {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    color: var(--color-warning);
-  }
-
-  /* FX fetch status inside chip */
-  .chip-fx-status {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-  }
-
-  .chip-fx-label {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  /* Delta chips */
-  .chip-delta {
-    min-width: 7rem;
-  }
-
-  .chip-delta-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-xs);
-  }
-
-  .chip-delta-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .chip-delta-value {
-    font-family: var(--font-mono);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
-    line-height: var(--leading-tight);
-  }
-
-  .chip-delta-value.up {
-    color: var(--color-amount-negative);
-  }
-
-  .chip-delta-value.down {
-    color: var(--color-amount-positive);
-  }
-
-  .chip-delta-null {
-    font-family: var(--font-mono);
-    font-size: var(--text-lg);
-    color: var(--color-text-disabled);
-    line-height: var(--leading-tight);
-  }
-
-  .spinner {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid var(--color-text-muted);
-    border-top-color: var(--color-text);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+    gap: 14px;
+    padding: 14px 22px 10px;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
     flex-shrink: 0;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
-    }
+  .nav-btns {
+    display: flex;
+    gap: 4px;
+  }
+
+  .nav-btn {
+    width: 24px;
+    height: 22px;
+    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    border: 1px solid var(--color-rule);
+    border-radius: 3px;
+    font-family: var(--font-serif);
+    font-size: 16px;
+    color: var(--color-accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    padding: 0;
+    line-height: 1;
+    transition: box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .nav-btn:hover {
+    box-shadow: var(--shadow-raised);
+  }
+
+  .nav-btn:active {
+    box-shadow: var(--shadow-sunken);
+  }
+
+  .month-label {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-text);
+    letter-spacing: -0.2px;
+  }
+
+  .convert-btn {
+    height: 24px;
+    padding: 0 10px;
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    border: 1px solid var(--color-rule);
+    border-radius: 3px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 600;
+    color: var(--color-text);
+    cursor: pointer;
+    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
+    transition:
+      background var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .convert-btn.active {
+    background: linear-gradient(180deg, var(--color-accent), color-mix(in srgb, var(--color-accent) 80%, transparent));
+    border-color: var(--color-accent);
+    color: #ffffff;
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .convert-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+  }
+
+  .convert-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-accent);
+    letter-spacing: 0.3px;
   }
 
   /* Panels */
