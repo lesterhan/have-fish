@@ -2,6 +2,7 @@
   import { afterNavigate } from '$app/navigation'
   import type { AccountBalance, UserSettings } from '$lib/api'
   import { formatCompact } from '$lib/currency'
+  import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { theme } from '$lib/theme.svelte'
   import { tooltip } from '$lib/tooltip'
   import { settingsStore } from '$lib/settings.svelte'
@@ -175,9 +176,10 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance"
-                            >{b.currency} {formatCompact(b.amount)}</span
-                          >
+                          <span class="account-balance">
+                            <CurrencyPill code={b.currency} size="xs" />
+                            {formatCompact(b.amount)}
+                          </span>
                         {/each}
                       {/if}
                     </span>
@@ -225,9 +227,10 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance"
-                            >{b.currency} {formatCompact(b.amount)}</span
-                          >
+                          <span class="account-balance">
+                            <CurrencyPill code={b.currency} size="xs" />
+                            {formatCompact(b.amount)}
+                          </span>
                         {/each}
                       {/if}
                     </span>
@@ -275,9 +278,10 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance"
-                            >{b.currency} {formatCompact(b.amount)}</span
-                          >
+                          <span class="account-balance">
+                            <CurrencyPill code={b.currency} size="xs" />
+                            {formatCompact(b.amount)}
+                          </span>
                         {/each}
                       {/if}
                     </span>
