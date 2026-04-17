@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { transactions, postings, accounts, userSettings } from '../db/schema'
+import { transactions, postings, accounts, userSettings, fxRates } from '../db/schema'
 import { eq, isNull, and, gte, lte, like } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { isValidCurrency } from '../currencies'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -261,6 +262,144 @@ app.get('/weekly-spend', async (c) => {
   }))
 
   return c.json(result)
+})
+
+// GET /api/reports/spending-fx-pairs?from=YYYY-MM-DD&to=YYYY-MM-DD&targetCurrency=CAD
+//
+// Returns the unique (date, from, to) rate pairs needed to convert all expense
+// transactions in the period to targetCurrency. Checks the DB cache for each pair
+// but does NOT fetch from any external source.
+//
+// Response: { pairs: [{ date, from, to, cached: boolean }] }
+app.get('/spending-fx-pairs', async (c) => {
+  const userId = c.get('userId')
+  const { from, to, targetCurrency } = c.req.query()
+
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/
+  if (!from || !dateRe.test(from)) return c.json({ error: 'Invalid from date' }, 400)
+  if (!to || !dateRe.test(to)) return c.json({ error: 'Invalid to date' }, 400)
+  if (!targetCurrency || !isValidCurrency(targetCurrency)) return c.json({ error: 'Invalid targetCurrency' }, 400)
+
+  const expensesRoot = await getExpensesRoot(userId)
+
+  const rows = await db
+    .select({ date: transactions.date, currency: postings.currency })
+    .from(postings)
+    .innerJoin(accounts, eq(postings.accountId, accounts.id))
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(and(
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      isNull(postings.deletedAt),
+      isNull(accounts.deletedAt),
+      like(accounts.path, `${expensesRoot}:%`),
+      gte(transactions.date, new Date(from)),
+      lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
+    ))
+
+  // Deduplicate to unique (date, currency) pairs, excluding the target currency
+  const seen = new Set<string>()
+  const uniquePairs: { date: string; from: string }[] = []
+  for (const row of rows) {
+    const dateStr = new Date(row.date).toISOString().slice(0, 10)
+    if (row.currency === targetCurrency) continue
+    const key = `${dateStr}:${row.currency}`
+    if (!seen.has(key)) {
+      seen.add(key)
+      uniquePairs.push({ date: dateStr, from: row.currency })
+    }
+  }
+
+  // Check DB cache for each pair
+  const pairs = await Promise.all(
+    uniquePairs.map(async ({ date, from: fromCurrency }) => {
+      const [cached] = await db
+        .select({ id: fxRates.id })
+        .from(fxRates)
+        .where(and(
+          eq(fxRates.date, date),
+          eq(fxRates.baseCurrency, fromCurrency),
+          eq(fxRates.quoteCurrency, targetCurrency),
+        ))
+        .limit(1)
+      return { date, from: fromCurrency, to: targetCurrency, cached: !!cached }
+    })
+  )
+
+  return c.json({ pairs })
+})
+
+// GET /api/reports/spending-converted?from=YYYY-MM-DD&to=YYYY-MM-DD&targetCurrency=CAD
+//
+// Converts all expense transactions in the period to targetCurrency using DB-cached
+// rates only (no external fetch). Returns the converted total if all rates are available,
+// or null with a missingCount if any rates are missing from the cache.
+//
+// Response: { total: string | null, missingCount: number }
+app.get('/spending-converted', async (c) => {
+  const userId = c.get('userId')
+  const { from, to, targetCurrency } = c.req.query()
+
+  const dateRe = /^\d{4}-\d{2}-\d{2}$/
+  if (!from || !dateRe.test(from)) return c.json({ error: 'Invalid from date' }, 400)
+  if (!to || !dateRe.test(to)) return c.json({ error: 'Invalid to date' }, 400)
+  if (!targetCurrency || !isValidCurrency(targetCurrency)) return c.json({ error: 'Invalid targetCurrency' }, 400)
+
+  const expensesRoot = await getExpensesRoot(userId)
+
+  const rows = await db
+    .select({ date: transactions.date, amount: postings.amount, currency: postings.currency })
+    .from(postings)
+    .innerJoin(accounts, eq(postings.accountId, accounts.id))
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(and(
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      isNull(postings.deletedAt),
+      isNull(accounts.deletedAt),
+      like(accounts.path, `${expensesRoot}:%`),
+      gte(transactions.date, new Date(from)),
+      lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
+    ))
+
+  // Build a cache of rates needed: (date:fromCurrency) → rate string | null
+  const rateCache = new Map<string, string | null>()
+  for (const row of rows) {
+    const dateStr = new Date(row.date).toISOString().slice(0, 10)
+    if (row.currency === targetCurrency) continue
+    const key = `${dateStr}:${row.currency}`
+    if (!rateCache.has(key)) {
+      const [cached] = await db
+        .select({ rate: fxRates.rate })
+        .from(fxRates)
+        .where(and(
+          eq(fxRates.date, dateStr),
+          eq(fxRates.baseCurrency, row.currency),
+          eq(fxRates.quoteCurrency, targetCurrency),
+        ))
+        .limit(1)
+      rateCache.set(key, cached?.rate ?? null)
+    }
+  }
+
+  const missingCount = [...rateCache.values()].filter((r) => r === null).length
+  if (missingCount > 0) {
+    return c.json({ total: null, missingCount })
+  }
+
+  let total = 0
+  for (const row of rows) {
+    const amount = parseFloat(row.amount)
+    if (row.currency === targetCurrency) {
+      total += amount
+    } else {
+      const dateStr = new Date(row.date).toISOString().slice(0, 10)
+      const rate = parseFloat(rateCache.get(`${dateStr}:${row.currency}`)!)
+      total += amount * rate
+    }
+  }
+
+  return c.json({ total: total.toFixed(2), missingCount: 0 })
 })
 
 export default app
