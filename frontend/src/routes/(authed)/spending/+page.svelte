@@ -265,101 +265,101 @@
 </script>
 
 <div class="page">
-  <div class="month-bar">
-    <div class="nav-btns">
-      <button class="nav-btn" onclick={() => navigate(-1)} aria-label="Previous month">‹</button>
-      <button class="nav-btn" onclick={() => navigate(1)} aria-label="Next month">›</button>
+  <div class="left-col" class:is-loading={loading}>
+    <div class="month-bar">
+      <div class="nav-btns">
+        <button class="nav-btn" onclick={() => navigate(-1)} aria-label="Previous month">‹</button>
+        <button class="nav-btn" onclick={() => navigate(1)} aria-label="Next month">›</button>
+      </div>
+      <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
+      {#if summary && needsConversion}
+        <button
+          class="convert-btn"
+          class:active={converting}
+          disabled={fxFetching}
+          aria-label={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
+          onclick={handleConvertToggle}
+        >
+          <CurrencyPill code={preferredCurrency} size="xs" />
+        </button>
+      {/if}
     </div>
-    <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
-    {#if summary && needsConversion}
-      <button
-        class="convert-btn"
-        class:active={converting}
-        disabled={fxFetching}
-        aria-label={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
-        onclick={handleConvertToggle}
-      >
-        <CurrencyPill code={preferredCurrency} size="xs" />
-      </button>
+
+    {#if summary && currencyEntries.length > 0}
+      <div class="summary-grid">
+        <!-- Total Spend -->
+        <div class="summary-card">
+          <div class="card-label">TOTAL SPEND</div>
+          {#each currencyEntries as [c, amount]}
+            <div class="card-row">
+              <CurrencyPill code={c} size="xs" />
+              <span class="card-amount">{formatAmount(amount)}</span>
+            </div>
+          {/each}
+          {#if needsConversion && converting}
+            <div class="card-sigma-row">
+              {#if fxFetching}
+                <span class="card-sigma-badge">Σ TOTAL</span>
+                <span class="card-sigma-loading">
+                  {fxRemaining > 0 ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…` : 'Converting…'}
+                </span>
+              {:else if convertedTotal !== null}
+                <span class="card-sigma-badge">Σ TOTAL</span>
+                <span class="card-sigma-amount"><CurrencyPill code={preferredCurrency} size="xs" /> {formatAmount(convertedTotal)}</span>
+              {:else if conversionUnavailable}
+                <span class="card-sigma-warn">Some rates unavailable</span>
+              {/if}
+            </div>
+          {/if}
+        </div>
+
+        <!-- vs Last Month -->
+        <div class="summary-card">
+          <div class="card-label">VS LAST MONTH</div>
+          {#if deltaLastMonth === null}
+            <span class="card-null">—</span>
+          {:else}
+            {#each currencyEntries as [c]}
+              {#if deltaLastMonth[c] !== undefined}
+                <div class="card-row">
+                  {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
+                  <span class="card-delta" class:up={deltaLastMonth[c] > 0} class:down={deltaLastMonth[c] < 0}>
+                    {formatDelta(deltaLastMonth[c])}
+                  </span>
+                </div>
+              {/if}
+            {/each}
+          {/if}
+        </div>
+
+        <!-- vs 3-Month Avg -->
+        <div class="summary-card">
+          <div class="card-label">VS 3-MO AVG</div>
+          {#if delta3moAvg === null}
+            <span class="card-null">—</span>
+          {:else}
+            {#each currencyEntries as [c]}
+              {#if delta3moAvg[c] !== undefined}
+                <div class="card-row">
+                  {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
+                  <span class="card-delta" class:up={delta3moAvg[c] > 0} class:down={delta3moAvg[c] < 0}>
+                    {formatDelta(delta3moAvg[c])}
+                  </span>
+                </div>
+              {/if}
+            {/each}
+          {/if}
+        </div>
+      </div>
     {/if}
-  </div>
 
-  {#if summary && currencyEntries.length > 0}
-    <div class="summary-grid">
-      <!-- Total Spend -->
-      <div class="summary-card">
-        <div class="card-label">TOTAL SPEND</div>
-        {#each currencyEntries as [c, amount]}
-          <div class="card-row">
-            <CurrencyPill code={c} size="xs" />
-            <span class="card-amount">{formatAmount(amount)}</span>
-          </div>
-        {/each}
-        {#if needsConversion && converting}
-          <div class="card-sigma-row">
-            {#if fxFetching}
-              <span class="card-sigma-badge">Σ TOTAL</span>
-              <span class="card-sigma-loading">
-                {fxRemaining > 0 ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…` : 'Converting…'}
-              </span>
-            {:else if convertedTotal !== null}
-              <span class="card-sigma-badge">Σ TOTAL</span>
-              <span class="card-sigma-amount"><CurrencyPill code={preferredCurrency} size="xs" /> {formatAmount(convertedTotal)}</span>
-            {:else if conversionUnavailable}
-              <span class="card-sigma-warn">Some rates unavailable</span>
-            {/if}
-          </div>
-        {/if}
-      </div>
-
-      <!-- vs Last Month -->
-      <div class="summary-card">
-        <div class="card-label">VS LAST MONTH</div>
-        {#if deltaLastMonth === null}
-          <span class="card-null">—</span>
-        {:else}
-          {#each currencyEntries as [c]}
-            {#if deltaLastMonth[c] !== undefined}
-              <div class="card-row">
-                {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
-                <span class="card-delta" class:up={deltaLastMonth[c] > 0} class:down={deltaLastMonth[c] < 0}>
-                  {formatDelta(deltaLastMonth[c])}
-                </span>
-              </div>
-            {/if}
-          {/each}
-        {/if}
-      </div>
-
-      <!-- vs 3-Month Avg -->
-      <div class="summary-card">
-        <div class="card-label">VS 3-MO AVG</div>
-        {#if delta3moAvg === null}
-          <span class="card-null">—</span>
-        {:else}
-          {#each currencyEntries as [c]}
-            {#if delta3moAvg[c] !== undefined}
-              <div class="card-row">
-                {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
-                <span class="card-delta" class:up={delta3moAvg[c] > 0} class:down={delta3moAvg[c] < 0}>
-                  {formatDelta(delta3moAvg[c])}
-                </span>
-              </div>
-            {/if}
-          {/each}
-        {/if}
-      </div>
-    </div>
-  {/if}
-
-  {#if loading && !summary}
-    <p class="status">Loading…</p>
-  {:else if error}
-    <p class="status error">{error}</p>
-  {:else if !summary || currencies.length === 0}
-    <p class="status">No expenses recorded for this month.</p>
-  {:else}
-    <div class="panels" class:is-loading={loading}>
+    {#if loading && !summary}
+      <p class="status">Loading…</p>
+    {:else if error}
+      <p class="status error">{error}</p>
+    {:else if !summary || currencies.length === 0}
+      <p class="status">No expenses recorded for this month.</p>
+    {:else}
       <div class="breakdown-section">
         <div class="section-bar">
           <span class="section-bar-title">Breakdown · {summary.categories.length} categories</span>
@@ -400,28 +400,30 @@
           />
         </div>
       </div>
+    {/if}
+  </div>
 
-      <Panel title={txnPanelTitle}>
-        {#if txnsLoading && txns.length === 0}
-          <p class="status">Loading…</p>
-        {:else if txns.length === 0}
-          <p class="status">No transactions found.</p>
-        {:else}
-          <div class="txn-list">
-            {#each txns as tx (tx.id)}
-              <TransactionRow
-                {tx}
-                {accounts}
-                ondeleted={() => {
-                  txns = txns.filter((t) => t.id !== tx.id)
-                }}
-              />
-            {/each}
-          </div>
-        {/if}
-      </Panel>
-    </div>
-  {/if}
+  <div class="right-col">
+    <Panel title={txnPanelTitle}>
+      {#if txnsLoading && txns.length === 0}
+        <p class="status">Loading…</p>
+      {:else if txns.length === 0}
+        <p class="status">No transactions found.</p>
+      {:else}
+        <div class="txn-list">
+          {#each txns as tx (tx.id)}
+            <TransactionRow
+              {tx}
+              {accounts}
+              ondeleted={() => {
+                txns = txns.filter((t) => t.id !== tx.id)
+              }}
+            />
+          {/each}
+        </div>
+      {/if}
+    </Panel>
+  </div>
 </div>
 
 <style>
@@ -624,17 +626,44 @@
     grid-column: 1 / -1;
   }
 
-  /* Panels */
-  .panels {
+  /* Page grid */
+  .page {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .left-col {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-lg);
+    overflow-y: auto;
+    border-right: 1px solid var(--color-rule);
     transition: opacity var(--duration-fast) var(--ease);
   }
 
-  .panels.is-loading {
+  .left-col.is-loading {
     opacity: 0.5;
     pointer-events: none;
+  }
+
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .right-col :global(.panel) {
+    flex: 1;
+    margin-bottom: 0;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+  }
+
+  .right-col :global(.panel-body) {
+    flex: 1;
+    overflow-y: auto;
   }
 
   /* Breakdown section */
