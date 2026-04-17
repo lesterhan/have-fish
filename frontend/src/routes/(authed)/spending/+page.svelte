@@ -42,6 +42,7 @@
   let accounts = $state<Account[]>([])
   let txns = $state<Transaction[]>([])
   let txnsLoading = $state(false)
+  let txnFilter = $state<string>('ALL')
 
   // --- FX conversion state ---
   let converting = $state(false)
@@ -54,6 +55,11 @@
     currencyEntries.some(([c]) => c !== preferredCurrency),
   )
 
+  let filteredTxns = $derived(
+    txnFilter === 'ALL'
+      ? txns
+      : txns.filter((tx) => tx.postings.some((p) => p.currency === txnFilter)),
+  )
 
   // --- Monthly trend data ---
   let monthlyData = $state<MonthlySpend[]>([])
@@ -226,17 +232,20 @@ type Crumb = { label: string; path: string | null; current: boolean }
     year = next.year
     month = next.month
     drillPath = null
+    txnFilter = 'ALL'
     load().then(loadTxns)
   }
 
   function drill(category: string) {
     drillPath = category
+    txnFilter = 'ALL'
     load()
     loadTxns()
   }
 
   function navigateTo(path: string | null) {
     drillPath = path
+    txnFilter = 'ALL'
     load()
     loadTxns()
   }
@@ -405,6 +414,23 @@ type Crumb = { label: string; path: string | null; current: boolean }
           href="/transactions?from={monthStart(year, month)}&to={monthEnd(year, month)}"
         >VIEW ALL</a>
       </div>
+      <div class="txn-toolbar">
+        <span class="txn-toolbar-label">FILTER</span>
+        <button
+          class="filter-chip"
+          class:active={txnFilter === 'ALL'}
+          onclick={() => (txnFilter = 'ALL')}
+        >ALL</button>
+        {#each currencies as c}
+          <button
+            class="filter-chip"
+            class:active={txnFilter === c}
+            onclick={() => (txnFilter = c)}
+          >{c}</button>
+        {/each}
+        <span class="txn-toolbar-spacer"></span>
+        <span class="txn-sort-label">↑↓ DATE</span>
+      </div>
       <div class="txn-body">
         {#if txnsLoading && txns.length === 0}
           <p class="status">Loading…</p>
@@ -412,7 +438,7 @@ type Crumb = { label: string; path: string | null; current: boolean }
           <p class="status">No transactions found.</p>
         {:else}
           <div class="txn-list">
-            {#each txns as tx (tx.id)}
+            {#each filteredTxns as tx (tx.id)}
               <TransactionRow
                 {tx}
                 {accounts}
@@ -706,6 +732,60 @@ type Crumb = { label: string; path: string | null; current: boolean }
 
   .txn-view-all:hover {
     opacity: 1;
+  }
+
+  .txn-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
+    background: var(--color-window);
+  }
+
+  .txn-toolbar-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--color-text-muted);
+    margin-right: 2px;
+  }
+
+  .filter-chip {
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--color-window);
+    color: var(--color-text);
+    border: 1px solid var(--color-rule);
+    cursor: pointer;
+    transition:
+      background var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+
+  .filter-chip.active {
+    background: var(--color-accent);
+    color: #ffffff;
+    border-color: var(--color-accent);
+  }
+
+  .filter-chip:not(.active):hover {
+    background: var(--color-accent-chip-bg);
+  }
+
+  .txn-toolbar-spacer {
+    flex: 1;
+  }
+
+  .txn-sort-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
   }
 
   .txn-body {
