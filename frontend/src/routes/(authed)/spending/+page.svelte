@@ -3,7 +3,7 @@
   import Button from '$lib/components/ui/Button.svelte'
   import Panel from '$lib/components/ui/Panel.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import SpendingChart from '$lib/components/spending/SpendingChart.svelte'
+  import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
   import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import {
@@ -279,13 +279,8 @@
         aria-label={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
         onclick={handleConvertToggle}
       >
-        ↻ Convert
+        <CurrencyPill code={preferredCurrency} size="xs" />
       </button>
-      {#if converting && !fxFetching}
-        <span class="convert-label">
-          → {preferredCurrency} · rates @ {MONTH_NAMES[month - 1].slice(0, 3)} {new Date(year, month, 0).getDate()}
-        </span>
-      {/if}
     {/if}
   </div>
 
@@ -309,7 +304,7 @@
               </span>
             {:else if convertedTotal !== null}
               <span class="card-sigma-badge">Σ TOTAL</span>
-              <span class="card-sigma-amount">{formatAmount(convertedTotal)}</span>
+              <span class="card-sigma-amount"><CurrencyPill code={preferredCurrency} size="xs" /> {formatAmount(convertedTotal)}</span>
             {:else if conversionUnavailable}
               <span class="card-sigma-warn">Some rates unavailable</span>
             {/if}
@@ -365,21 +360,9 @@
     <p class="status">No expenses recorded for this month.</p>
   {:else}
     <div class="panels" class:is-loading={loading}>
-      <Panel title="Breakdown">
-        {#if currencies.length > 1}
-          <div class="currency-tabs" role="tablist" aria-label="Currency">
-            {#each currencies as c}
-              <button
-                class="currency-tab"
-                class:active={currency === c}
-                role="tab"
-                aria-selected={currency === c}
-                onclick={() => (currency = c)}>{c}</button
-              >
-            {/each}
-          </div>
-        {/if}
-        <div class="panel-body">
+      <div class="breakdown-section">
+        <div class="section-bar">
+          <span class="section-bar-title">Breakdown · {summary.categories.length} categories</span>
           <nav class="breadcrumb" aria-label="Category navigation">
             {#each breadcrumbs as crumb, i}
               {#if i > 0}<span class="sep" aria-hidden="true">:</span>{/if}
@@ -395,14 +378,28 @@
               {/if}
             {/each}
           </nav>
-
-          <SpendingChart
+        </div>
+        {#if currencies.length > 1}
+          <div class="currency-tabs" role="tablist" aria-label="Currency">
+            {#each currencies as c}
+              <button
+                class="currency-tab"
+                class:active={currency === c}
+                role="tab"
+                aria-selected={currency === c}
+                onclick={() => (currency = c)}>{c}</button
+              >
+            {/each}
+          </div>
+        {/if}
+        <div class="panel-body">
+          <SpendingBreakdown
             categories={summary.categories}
             {currency}
             onclick={drill}
           />
         </div>
-      </Panel>
+      </div>
 
       <Panel title={txnPanelTitle}>
         {#if txnsLoading && txns.length === 0}
@@ -511,13 +508,6 @@
     cursor: not-allowed;
   }
 
-  .convert-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--color-accent);
-    letter-spacing: 0.3px;
-  }
-
   /* Summary grid */
   .summary-grid {
     display: grid;
@@ -609,11 +599,14 @@
   }
 
   .card-sigma-amount {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 6px;
     font-family: var(--font-mono);
     font-size: 19px;
     font-weight: 700;
     color: var(--color-accent);
-    text-align: right;
     font-variant-numeric: tabular-nums;
   }
 
@@ -642,6 +635,59 @@
   .panels.is-loading {
     opacity: 0.5;
     pointer-events: none;
+  }
+
+  /* Breakdown section */
+  .breakdown-section {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+  }
+
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 4px 12px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+  }
+
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .section-bar .breadcrumb {
+    margin-bottom: 0;
+    color: var(--color-section-bar-fg);
+    opacity: 0.85;
+  }
+
+  .section-bar .sep {
+    color: var(--color-section-bar-fg);
+    opacity: 0.5;
+  }
+
+  .section-bar .crumb-current {
+    color: var(--color-section-bar-fg);
+  }
+
+  .section-bar .crumb-link {
+    color: var(--color-section-bar-fg);
+    opacity: 0.7;
+  }
+
+  .section-bar .crumb-link:hover {
+    color: var(--color-section-bar-fg);
+    opacity: 1;
   }
 
   /* Currency tabs */
