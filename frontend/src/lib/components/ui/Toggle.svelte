@@ -78,7 +78,7 @@
 
   .track.on .thumb {
     transform: translateX(18px);
-    background: var(--color-titlebar-fg);
+    background: var(--color-text-on-dark);
     box-shadow:
       inset 1px 1px 0 rgba(255, 255, 255, 0.6),
       inset -1px -1px 0 rgba(0, 0, 0, 0.25);
