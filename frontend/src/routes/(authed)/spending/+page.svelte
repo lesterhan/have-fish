@@ -1,9 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
-  import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
+  import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import {
     fetchSpendingSummary,
@@ -50,6 +48,7 @@
   let fxRemaining = $state(0)
   let convertedTotal = $state<string | null>(null)
   let conversionUnavailable = $state(false)
+  let fxRates = $state<Record<string, number>>({})
 
   let needsConversion = $derived(
     currencyEntries.some(([c]) => c !== preferredCurrency),
@@ -60,6 +59,18 @@
       ? txns
       : txns.filter((tx) => tx.postings.some((p) => p.currency === txnFilter)),
   )
+
+  let pageTotal = $derived.by<number | null>(() => {
+    if (!converting || fxFetching || Object.keys(fxRates).length === 0) return null
+    return filteredTxns.reduce((sum, tx) => {
+      const main =
+        tx.postings.find((p) =>
+          accounts.find((a) => a.id === p.accountId)?.path.startsWith('expenses:'),
+        ) ?? tx.postings[0]
+      if (!main) return sum
+      return sum + Math.abs(parseFloat(main.amount)) * (fxRates[main.currency] ?? 1)
+    }, 0)
+  })
 
   // --- Monthly trend data ---
   let monthlyData = $state<MonthlySpend[]>([])
@@ -117,6 +128,7 @@
     fxFetching = true
     conversionUnavailable = false
     convertedTotal = null
+    fxRates = {}
 
     const from = monthStart(year, month)
     const to = monthEnd(year, month)
@@ -125,14 +137,29 @@
     const missing = pairs.filter((p) => !p.cached)
     fxRemaining = missing.length
 
+    const rateMap: Record<string, number> = {}
+
     if (missing.length > 0) {
       await Promise.all(
         missing.map(async (pair) => {
-          await fetchFxRate(pair.date, pair.from, pair.to)
+          const r = await fetchFxRate(pair.date, pair.from, pair.to)
+          if (r) rateMap[pair.from] = parseFloat(r.rate)
           fxRemaining -= 1
         }),
       )
     }
+
+    // Fill any currencies not yet in rateMap from cached pairs
+    await Promise.all(
+      pairs
+        .filter((p) => p.cached && !(p.from in rateMap))
+        .map(async (pair) => {
+          const r = await fetchFxRate(pair.date, pair.from, pair.to)
+          if (r) rateMap[pair.from] = parseFloat(r.rate)
+        }),
+    )
+
+    fxRates = rateMap
 
     const result = await fetchSpendingConverted(from, to, preferredCurrency)
     if (result.total !== null) {
@@ -153,6 +180,7 @@
       fxFetching = false
       fxRemaining = 0
       conversionUnavailable = false
+      fxRates = {}
     }
   }
 
@@ -431,6 +459,11 @@ type Crumb = { label: string; path: string | null; current: boolean }
         <span class="txn-toolbar-spacer"></span>
         <span class="txn-sort-label">↑↓ DATE</span>
       </div>
+      <div class="txn-col-header">
+        <span>DATE</span>
+        <span>PAYEE / ACCOUNT</span>
+        <span class="col-header-right">AMOUNT</span>
+      </div>
       <div class="txn-body">
         {#if txnsLoading && txns.length === 0}
           <p class="status">Loading…</p>
@@ -438,16 +471,28 @@ type Crumb = { label: string; path: string | null; current: boolean }
           <p class="status">No transactions found.</p>
         {:else}
           <div class="txn-list">
-            {#each filteredTxns as tx (tx.id)}
-              <TransactionRow
+            {#each filteredTxns as tx, i (tx.id)}
+              <SpendingTxnRow
                 {tx}
+                idx={i}
+                converted={converting && !fxFetching}
+                {fxRates}
+                baseCurrency={preferredCurrency}
                 {accounts}
-                ondeleted={() => {
-                  txns = txns.filter((t) => t.id !== tx.id)
-                }}
               />
             {/each}
           </div>
+        {/if}
+      </div>
+      <div class="txn-footer">
+        <span class="txn-footer-count">SHOWING {filteredTxns.length} / {txns.length}</span>
+        <span class="txn-footer-spacer"></span>
+        {#if pageTotal !== null}
+          <span class="txn-footer-label">page total</span>
+          <span class="txn-footer-total">
+            {pageTotal.toLocaleString('en-CA', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            {preferredCurrency}
+          </span>
         {/if}
       </div>
     </div>
@@ -786,6 +831,60 @@ type Crumb = { label: string; path: string | null; current: boolean }
     font-family: var(--font-mono);
     font-size: 10px;
     color: var(--color-text-muted);
+  }
+
+  .txn-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--color-sidebar-border);
+    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    flex-shrink: 0;
+  }
+
+  .txn-footer-count {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+  }
+
+  .txn-footer-spacer {
+    flex: 1;
+  }
+
+  .txn-footer-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .txn-footer-total {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .txn-col-header {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 10px;
+    padding: 4px 14px;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .col-header-right {
+    text-align: right;
   }
 
   .txn-body {
