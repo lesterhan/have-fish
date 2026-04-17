@@ -318,7 +318,7 @@
               <span class="chip-amount">{formatAmount(amount)}</span>
             </div>
           {/each}
-          {#if converting && fxFetching}
+          {#if needsConversion && converting && fxFetching}
             <div class="chip-converted-row chip-converted-loading">
               <span class="spinner" aria-label="Loading"></span>
               <span class="chip-fx-label">
@@ -327,7 +327,7 @@
                   : 'Converting…'}
               </span>
             </div>
-          {:else if converting && convertedTotal !== null}
+          {:else if needsConversion && converting && convertedTotal !== null}
             <div class="chip-converted-row">
               <span class="chip-converted-eq">≈</span>
               <span class="chip-currency"
@@ -335,7 +335,7 @@
               >
               <span class="chip-amount">{formatAmount(convertedTotal)}</span>
             </div>
-          {:else if converting && conversionUnavailable}
+          {:else if needsConversion && converting && conversionUnavailable}
             <div class="chip-converted-row">
               <span class="chip-warn">Some rates unavailable</span>
             </div>
