@@ -26,6 +26,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { currencyFlag } from '$lib/currency'
+  import { scrollShadow } from '$lib/scrollShadow'
 
   let id = $derived(page.params.id!)
 
@@ -189,6 +190,7 @@
   function navigate(params: Record<string, string>) {
     goto(`?${new URLSearchParams({ from, to, dir: sortDir, ...params })}`)
   }
+
 </script>
 
 {#if account}
@@ -275,7 +277,7 @@
     <span></span>
   </div>
 
-  <div class="tx-body">
+  <div class="tx-body" use:scrollShadow>
     {#if loading}
       {#each { length: 7 } as _}
         <AccountTransactionRowSkeleton />
@@ -397,7 +399,6 @@
   /* Scrollable body — passes --tx-cols to child rows */
   .tx-body {
     --tx-cols: 5.5rem 1fr 1.5fr 8rem;
-    flex: 1;
     overflow-y: auto;
     background: var(--color-window-raised);
   }
