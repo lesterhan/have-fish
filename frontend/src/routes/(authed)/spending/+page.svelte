@@ -21,6 +21,7 @@
   } from '$lib/api'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import { scrollShadow } from '$lib/scrollShadow'
 
   // --- Month state ---
   const now = new Date()
@@ -489,7 +490,7 @@
         <span>PAYEE / ACCOUNT</span>
         <span class="col-header-right">AMOUNT</span>
       </div>
-      <div class="txn-body">
+      <div class="txn-body" use:scrollShadow>
         {#if txnsLoading && txns.length === 0}
           <p class="status">Loading…</p>
         {:else if txns.length === 0}

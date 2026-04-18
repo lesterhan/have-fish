@@ -47,6 +47,10 @@ export function scrollShadow(node: HTMLElement) {
 
   const ro = new ResizeObserver(update)
   ro.observe(node)
+
+  const mo = new MutationObserver(update)
+  mo.observe(node, { childList: true, subtree: true })
+
   node.addEventListener('scroll', update)
   update()
 
@@ -54,6 +58,7 @@ export function scrollShadow(node: HTMLElement) {
     destroy() {
       node.removeEventListener('scroll', update)
       ro.disconnect()
+      mo.disconnect()
       // Unwrap: move node back to its original parent position
       wrapper.parentElement?.insertBefore(node, wrapper)
       wrapper.remove()
