@@ -262,17 +262,19 @@
     font-size: 11px;
     color: var(--color-text);
     background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
     padding: 2px var(--sp-xs);
     height: 22px;
     outline: none;
-    transition: outline var(--duration-fast) var(--ease);
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
   .path-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
+    border-color: var(--color-accent-mid);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   .path-input:disabled {

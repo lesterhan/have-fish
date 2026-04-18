@@ -377,18 +377,22 @@
     font-family: var(--font-sans);
     padding: 3px var(--sp-xs);
     background: var(--color-window-inset);
-    box-shadow: var(--shadow-sunken);
-    border: none;
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
     color: var(--color-text);
     width: 100%;
     box-sizing: border-box;
+    outline: none;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
   .form-grid input:focus,
   .form-grid select:focus,
   .multi-grid select:focus {
-    outline: 2px solid var(--color-accent-mid);
-    outline-offset: -2px;
+    border-color: var(--color-accent-mid);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   .toggle-label {
