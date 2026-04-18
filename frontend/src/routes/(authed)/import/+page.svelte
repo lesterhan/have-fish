@@ -434,8 +434,8 @@
     height: 120px;
     margin: var(--sp-md);
     background: var(--color-window-inset);
-    box-shadow: var(--shadow-sunken);
-    border: 2px dashed var(--color-bevel-dark);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
+    border: 2px dashed var(--color-border);
     cursor: pointer;
     transition:
       border-color var(--duration-fast) var(--ease),
@@ -532,7 +532,6 @@
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-md);
     background: var(--color-danger-light);
-    box-shadow: var(--shadow-sunken);
     font-size: var(--text-sm);
     border-top: 1px solid var(--color-danger);
   }

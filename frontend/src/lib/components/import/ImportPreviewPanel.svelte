@@ -291,7 +291,7 @@
     {/if}
     <div class="action-buttons">
       <GradientButton onclick={oncancel}>Cancel</GradientButton>
-      <GradientButton onclick={onconfirm} disabled={confirmDisabled}>
+      <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
         {loading ? 'Importing…' : 'Confirm import'}
       </GradientButton>
     </div>
@@ -363,9 +363,9 @@
     font-size: var(--text-sm);
     color: var(--color-danger);
     background: var(--color-danger-light);
-    box-shadow: var(--shadow-sunken);
+    border-left: 3px solid var(--color-danger);
     padding: var(--sp-xs) var(--sp-sm);
-    margin-bottom: var(--sp-md);
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .parse-errors p {
@@ -384,23 +384,24 @@
     flex-wrap: wrap;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
-    margin-bottom: var(--sp-md);
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
+    background: var(--color-warning-light);
+    border-left: 3px solid var(--color-warning);
+    border-bottom: 1px solid var(--color-rule);
     font-size: var(--text-sm);
   }
 
   .missing-label {
     font-weight: var(--weight-semibold);
     margin-right: var(--sp-xs);
+    color: var(--color-warning);
   }
 
   .missing-account {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    background: var(--color-window-raised);
-    box-shadow: var(--shadow-sunken);
+    gap: var(--sp-xs);
+    background: var(--color-window);
+    border: 1px solid var(--color-border);
     padding: 0 var(--sp-xs);
   }
 
@@ -418,7 +419,6 @@
   }
 
   .table-container {
-    box-shadow: var(--shadow-sunken);
     background: var(--color-window-inset);
     overflow-x: auto;
   }
@@ -426,7 +426,6 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--text-sm);
   }
 
   th {
@@ -570,16 +569,18 @@
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
     border-top: 1px solid var(--color-rule);
-    background: var(--color-window);
+    background: linear-gradient(180deg, var(--color-window), var(--color-window-raised));
+  }
+
+  .error {
+    flex: 1;
+    font-size: var(--text-xs);
+    color: var(--color-danger);
   }
 
   .action-buttons {
     display: flex;
     gap: var(--sp-sm);
-  }
-
-  .error {
-    font-size: var(--text-sm);
-    color: var(--color-danger);
+    margin-left: auto;
   }
 </style>

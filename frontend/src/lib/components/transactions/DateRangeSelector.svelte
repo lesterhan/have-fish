@@ -162,29 +162,31 @@
     font-size: 11px;
     color: var(--color-text);
     background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
     padding: 2px var(--sp-xs);
     height: 22px;
     width: 120px;
     outline: none;
-    transition: outline var(--duration-fast) var(--ease);
     cursor: text;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
   .range-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
+    border-color: var(--color-accent-mid);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   .dropdown {
     position: absolute;
-    top: calc(100% + 2px);
+    top: calc(100% + 1px);
     left: 0;
     z-index: 100;
     min-width: 100%;
     background: var(--color-window);
-    border: 1px solid var(--color-rule);
+    border: 1px solid var(--color-border);
     box-shadow: var(--shadow-window);
   }
 
@@ -197,22 +199,19 @@
     color: var(--color-text);
     background: transparent;
     border: none;
-    border-left: 2px solid transparent;
     text-align: left;
     cursor: pointer;
     white-space: nowrap;
     box-sizing: border-box;
     transition:
       background var(--duration-fast) var(--ease),
-      color var(--duration-fast) var(--ease),
-      border-color var(--duration-fast) var(--ease);
+      color var(--duration-fast) var(--ease);
   }
 
   .preset-option:hover,
   .preset-option.active {
-    background: var(--color-accent-chip-bg);
-    color: var(--color-accent);
-    border-left-color: var(--color-accent);
+    background: var(--color-accent);
+    color: #ffffff;
   }
 
   .error {
