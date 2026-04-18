@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Panel from '$lib/components/ui/Panel.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import TableShell from '$lib/components/ui/TableShell.svelte'
   import type { Account, CsvParser } from '$lib/api'
@@ -15,8 +14,9 @@
   let { parsers, accounts, loading, onedit, onadd }: Props = $props()
 </script>
 
-<Panel title="Available Parsers">
-  <div class="parsers-toolbar">
+<div class="parsers-window">
+  <div class="section-bar">
+    <span class="section-bar-title">PARSERS</span>
     <Button onclick={onadd}>Add parser</Button>
   </div>
   <div class="parsers-table">
@@ -52,12 +52,32 @@
       {/each}
     </TableShell>
   </div>
-</Panel>
+</div>
 
 <style>
-  .parsers-toolbar {
-    padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+  .parsers-window {
+    background: var(--color-window);
+    box-shadow: var(--shadow-window);
+  }
+
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 4px 12px;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+  }
+
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-section-bar-fg);
+    flex: 1;
+    white-space: nowrap;
   }
 
   .parsers-table :global(td) {

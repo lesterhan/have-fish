@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Panel from '$lib/components/ui/Panel.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
@@ -52,9 +51,6 @@
     return isNaN(n) ? amount : String(-n)
   }
 
-  let readyCount = $derived(rowStates.filter((r) => !r.skipped).length)
-  let skippedCount = $derived(rowStates.filter((r) => r.skipped).length)
-
   let confirmDisabled = $derived(
     loading ||
       rowStates.every((r) => r.skipped) ||
@@ -72,7 +68,16 @@
   )
 </script>
 
-<Panel title="Preview — {preview.parser}">
+<div class="preview-window">
+  <div class="section-bar">
+    <span class="section-bar-title">PREVIEW — {preview.parser}</span>
+    <span class="preview-counts">
+      {rowStates.filter((r) => !r.skipped).length} ready
+      {#if rowStates.filter((r) => r.skipped).length > 0}
+        · {rowStates.filter((r) => r.skipped).length} skipped
+      {/if}
+    </span>
+  </div>
   <div class="preview-body">
     {#if !preview.isMultiCurrency}
       <div class="account-row">
@@ -285,11 +290,6 @@
   </div>
 
   <div class="panel-actions">
-    <p class="summary">
-      {readyCount} transaction(s) ready to import{skippedCount > 0
-        ? `, ${skippedCount} skipped`
-        : ''}.
-    </p>
     {#if error}
       <p class="error">{error}</p>
     {/if}
@@ -300,9 +300,42 @@
       </Button>
     </div>
   </div>
-</Panel>
+</div>
 
 <style>
+  .preview-window {
+    background: var(--color-window);
+    box-shadow: var(--shadow-window);
+  }
+
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 4px 12px;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+  }
+
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-section-bar-fg);
+    flex: 1;
+    white-space: nowrap;
+  }
+
+  .preview-counts {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-section-bar-fg);
+    opacity: 0.75;
+    white-space: nowrap;
+  }
+
   .preview-body {
     display: flex;
     flex-direction: column;
@@ -559,12 +592,6 @@
     padding: var(--sp-xs) var(--sp-sm);
     border-top: 1px solid var(--color-bevel-mid);
     background: var(--color-window);
-  }
-
-  .summary {
-    flex: 1;
-    font-size: var(--text-sm);
-    color: var(--color-text);
   }
 
   .action-buttons {

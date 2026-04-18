@@ -1,5 +1,4 @@
 <script lang="ts">
-  import Panel from '../ui/Panel.svelte'
   import Button from '../ui/Button.svelte'
   import Icon from '../ui/Icon.svelte'
   import Toggle from '../ui/Toggle.svelte'
@@ -111,7 +110,10 @@
   }
 </script>
 
-<Panel title="Edit Parser — {parser.name}">
+<div class="edit-window">
+  <div class="section-bar">
+    <span class="section-bar-title">EDIT PARSER — {parser.name}</span>
+  </div>
   <div class="edit-body">
     <div class="columns">
       <!-- Left: general settings -->
@@ -289,9 +291,35 @@
       </div>
     </div>
   </div>
-</Panel>
+</div>
 
 <style>
+  .edit-window {
+    background: var(--color-window);
+    box-shadow: var(--shadow-window);
+  }
+
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 4px 12px;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+  }
+
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-section-bar-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .edit-body {
     display: flex;
     flex-direction: column;
