@@ -158,15 +158,15 @@
   }
 
   .range-input {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
     color: var(--color-text);
     background: var(--color-window-inset);
     border: none;
     box-shadow: var(--shadow-sunken);
     padding: 2px var(--sp-xs);
     height: 22px;
-    width: 150px;
+    width: 120px;
     outline: none;
     transition: outline var(--duration-fast) var(--ease);
     cursor: text;
@@ -183,38 +183,42 @@
     left: 0;
     z-index: 100;
     min-width: 100%;
-    background: var(--color-window-inset);
-    box-shadow:
-      var(--shadow-raised),
-      2px 2px 0 rgba(0, 0, 0, 0.25);
+    background: var(--color-window);
+    border: 1px solid var(--color-rule);
+    box-shadow: var(--shadow-window);
   }
 
   .preset-option {
     display: block;
     width: 100%;
-    padding: 3px var(--sp-xs);
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    padding: 3px 8px;
+    font-family: var(--font-mono);
+    font-size: 11px;
     color: var(--color-text);
     background: transparent;
     border: none;
+    border-left: 2px solid transparent;
     text-align: left;
     cursor: pointer;
     white-space: nowrap;
+    box-sizing: border-box;
     transition:
       background var(--duration-fast) var(--ease),
-      color var(--duration-fast) var(--ease);
+      color var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease);
   }
 
   .preset-option:hover,
   .preset-option.active {
-    background: var(--color-dropdown-active);
-    color: var(--color-accent-text);
+    background: var(--color-accent-chip-bg);
+    color: var(--color-accent);
+    border-left-color: var(--color-accent);
   }
 
   .error {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    font-size: 10px;
     color: var(--color-danger);
+    white-space: nowrap;
   }
 </style>
