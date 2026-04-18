@@ -23,6 +23,7 @@ function generate(): Particle[] {
     id: i,
     symbol: SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
     x: rand(-5, 105),
+    rise: rand(30, 70),
     delay: rand(0, 1.4),
     duration: rand(1, 2),
     size: rand(1.2, 2.2),
