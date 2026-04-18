@@ -322,8 +322,8 @@
   .edit-body {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-md);
-    padding: var(--sp-sm);
+    gap: var(--sp-sm);
+    padding: var(--sp-sm) var(--sp-md);
     background: var(--color-window);
   }
 
@@ -335,40 +335,45 @@
   }
 
   .section-heading {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
     padding-bottom: var(--sp-xs);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
     margin-bottom: var(--sp-sm);
   }
 
   .form-grid {
     display: grid;
-    grid-template-columns: 9rem 1fr;
-    gap: var(--sp-xs) var(--sp-sm);
+    grid-template-columns: 8rem 1fr;
+    gap: 5px var(--sp-sm);
     align-items: center;
   }
 
   /* 4-column layout for multi-currency: label col col label col col */
   .multi-grid {
     display: grid;
-    grid-template-columns: 9rem 1fr 9rem 1fr;
-    gap: var(--sp-xs) var(--sp-sm);
+    grid-template-columns: 8rem 1fr 8rem 1fr;
+    gap: 5px var(--sp-sm);
     align-items: center;
   }
 
   .form-grid label,
   .multi-grid label {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     text-align: right;
+    color: var(--color-text-muted);
   }
 
   .form-grid input,
   .form-grid select,
   .multi-grid select {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     font-family: var(--font-sans);
-    padding: var(--sp-xs) var(--sp-sm);
+    padding: 3px var(--sp-xs);
     background: var(--color-window-inset);
     box-shadow: var(--shadow-sunken);
     border: none;
@@ -416,7 +421,7 @@
     justify-content: flex-end;
     gap: var(--sp-sm);
     padding-top: var(--sp-sm);
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-rule);
   }
 
   .footer-actions {

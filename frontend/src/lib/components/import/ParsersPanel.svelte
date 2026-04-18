@@ -81,10 +81,24 @@
     white-space: nowrap;
   }
 
+  .parsers-table :global(th) {
+    background: var(--color-window);
+    box-shadow: none;
+    border-bottom: 1px solid var(--color-rule);
+    padding: 4px 12px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
   .parsers-table :global(td) {
-    padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    padding: 5px 12px;
+    border-bottom: 1px solid var(--color-rule-soft);
     background: var(--color-window-inset);
+    font-size: var(--text-xs);
   }
 
   .parsers-table :global(tbody tr:last-child td) {
@@ -97,14 +111,16 @@
 
   .cell-name {
     font-weight: var(--weight-semibold);
+    font-size: var(--text-xs);
   }
 
   .cell-mono {
     font-family: var(--font-mono);
+    font-size: var(--text-xs);
   }
 
   .cell-actions {
     white-space: nowrap;
-    padding: 0 var(--sp-xs);
+    padding: 2px var(--sp-xs);
   }
 </style>

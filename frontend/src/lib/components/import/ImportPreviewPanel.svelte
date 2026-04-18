@@ -341,7 +341,7 @@
     align-items: center;
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     font-size: var(--text-sm);
   }
@@ -413,7 +413,7 @@
     display: flex;
     align-items: center;
     padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
   }
 
@@ -431,10 +431,16 @@
 
   th {
     background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    padding: var(--sp-xs) var(--sp-sm);
+    box-shadow: none;
+    border-bottom: 1px solid var(--color-rule);
+    padding: 4px 12px;
     text-align: left;
-    font-weight: var(--weight-semibold);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
     white-space: nowrap;
     position: sticky;
     top: 0;
@@ -442,8 +448,9 @@
   }
 
   td {
-    padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    padding: 5px 12px;
+    border-bottom: 1px solid var(--color-rule-soft);
+    font-size: var(--text-xs);
   }
 
   tbody tr:last-child td {
@@ -554,7 +561,7 @@
   }
 
   .transfer-accounts :global(.wrapper:first-child .path-input) {
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .panel-actions {
@@ -562,7 +569,7 @@
     align-items: center;
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-rule);
     background: var(--color-window);
   }
 
