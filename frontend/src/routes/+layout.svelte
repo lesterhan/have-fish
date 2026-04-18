@@ -212,7 +212,7 @@
     align-items: flex-start;
     justify-content: center;
     padding: var(--sp-xl);
-    background-color: var(--color-desktop);
+    background: linear-gradient(135deg, #007070 0%, #008080 50%, #006858 100%);
   }
 
   .desktop {
@@ -235,7 +235,7 @@
     transition: max-width 150ms var(--ease);
   }
 
-  /* Restored (non-maximized): float as a windowed panel on the teal desktop */
+  /* Restored (non-maximized): float as a windowed panel on the classic teal desktop */
   .desktop:not(.maximized) .window {
     max-width: 1100px;
   }
@@ -257,8 +257,10 @@
   }
 
   .titlebar-title {
-    font-size: var(--text-sm);
+    font-family: var(--font-serif);
+    font-size: 13px;
     font-weight: var(--weight-semibold);
+    letter-spacing: 0.01em;
     flex: 1;
   }
 
@@ -300,23 +302,26 @@
   .chrome-btn {
     width: 21px;
     height: 21px;
-    background: var(--color-window);
+    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
     color: var(--color-text);
-    border: none;
-    box-shadow: var(--shadow-raised);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-xl);
     font-size: var(--text-xs);
     font-family: var(--font-sans);
     display: flex;
     align-items: center;
     justify-content: center;
     padding: 0;
+    cursor: pointer;
     transition:
-      box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
   .chrome-btn:hover {
-    background: var(--color-accent-light);
+    background: linear-gradient(180deg, #ffffff, var(--color-accent-chip-bg));
+    border-color: var(--color-accent);
   }
 
   .chrome-btn:active {
@@ -324,8 +329,9 @@
   }
 
   .chrome-btn.close:hover {
-    background: var(--color-danger);
-    color: var(--color-text-on-dark);
+    background: linear-gradient(180deg, #ff8080, var(--color-danger));
+    border-color: var(--color-danger);
+    color: #ffffff;
   }
 
   /* Hamburger — hidden on desktop, visible on mobile only */
