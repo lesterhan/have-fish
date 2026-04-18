@@ -128,8 +128,9 @@
   }
 
   .payee {
+    font-family: var(--font-serif);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 400;
     color: var(--color-accent);
     text-decoration: underline;
     text-decoration-style: dotted;

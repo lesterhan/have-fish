@@ -513,9 +513,9 @@
   }
 
   .description {
-    font-family: var(--font-sans);
+    font-family: var(--font-serif);
     font-size: 13px;
-    font-weight: 600;
+    font-weight: 400;
     color: var(--color-accent);
     text-decoration: underline;
     text-decoration-style: dotted;
@@ -534,8 +534,8 @@
   .desc-sizer {
     display: inline-grid;
     align-self: center;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-family: var(--font-serif);
+    font-size: 13px;
     min-width: 0;
     flex: 1;
   }
@@ -646,8 +646,8 @@
 
   /* --- Shared input style --- */
   .edit-input {
-    font-family: inherit;
-    font-size: inherit;
+    font-family: var(--font-serif);
+    font-size: 13px;
     color: var(--color-text);
     background: var(--color-window-inset);
     border: none;
