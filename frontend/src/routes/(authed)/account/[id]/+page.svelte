@@ -403,8 +403,10 @@
   }
 
   .empty {
-    padding: var(--sp-md) 14px;
+    padding: var(--sp-lg) 14px;
+    font-family: var(--font-serif);
     font-size: var(--text-sm);
+    font-style: italic;
     color: var(--color-text-muted);
   }
 
