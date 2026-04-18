@@ -362,10 +362,12 @@
   }
 
   .form-grid label,
+  .form-grid .toggle-label,
   .multi-grid label {
     font-size: var(--text-xs);
     text-align: right;
     color: var(--color-text-muted);
+    white-space: nowrap;
   }
 
   .form-grid input,

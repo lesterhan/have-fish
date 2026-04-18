@@ -288,27 +288,29 @@
         </label>
 
         <div class="config-strip">
-          <div class="config-field">
-            <span class="config-label">DEFAULT CURRENCY</span>
-            <TextInput
-              id="default-currency"
-              bind:value={defaultCurrency}
-              placeholder="CAD"
-              style="width: 5rem"
-              required
-            />
+          <div class="config-fields">
+            <div class="config-field">
+              <span class="config-label">DEFAULT CURRENCY</span>
+              <TextInput
+                id="default-currency"
+                bind:value={defaultCurrency}
+                placeholder="CAD"
+                style="width: 5rem"
+                required
+              />
+            </div>
+            <div class="config-field config-account">
+              <span class="config-label">UNCATEGORIZED ACCOUNT</span>
+              <AccountPathInput
+                {accounts}
+                bind:value={toAccountId}
+                placeholder="Select or create an account…"
+                oncreate={handleAccountCreated}
+              />
+            </div>
           </div>
-          <div class="config-field config-account">
-            <span class="config-label">UNCATEGORIZED ACCOUNT</span>
-            <AccountPathInput
-              {accounts}
-              bind:value={toAccountId}
-              placeholder="Select or create an account…"
-              oncreate={handleAccountCreated}
-            />
-          </div>
-          <div class="config-submit">
-            <GradientButton type="submit" disabled={loading}>
+          <div class="config-actions">
+            <GradientButton type="submit" disabled={loading} active>
               {loading ? 'Parsing…' : 'Preview import'}
             </GradientButton>
           </div>
@@ -483,10 +485,15 @@
 
   .config-strip {
     display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .config-fields {
+    display: flex;
     align-items: flex-end;
     gap: var(--sp-md);
     padding: var(--sp-sm) var(--sp-md);
-    border-top: 1px solid var(--color-bevel-mid);
   }
 
   .config-field {
@@ -507,8 +514,13 @@
     color: var(--color-text-muted);
   }
 
-  .config-submit {
-    flex-shrink: 0;
+  .config-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: var(--sp-xs) var(--sp-md);
+    border-top: 1px solid var(--color-rule);
+    background: linear-gradient(180deg, var(--color-window), var(--color-window-raised));
   }
 
   /* ── Error strip ── */
