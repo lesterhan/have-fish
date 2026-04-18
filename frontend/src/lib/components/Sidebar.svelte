@@ -1,5 +1,6 @@
 <script lang="ts">
   import { afterNavigate } from '$app/navigation'
+  import { page } from '$app/state'
   import type { AccountBalance, UserSettings } from '$lib/api'
   import { formatCompact } from '$lib/currency'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
@@ -26,6 +27,8 @@
   }: Props = $props()
 
   afterNavigate(() => onMobileClose?.())
+
+  let currentPath = $derived(page.url.pathname)
 
   let expanded = $state(true)
   let assetsOpen = $state(true)
@@ -108,23 +111,23 @@
   <div class="sidebar-inner">
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
-      <a href="/spending" class="nav-link" use:tooltip={'Spending'}>
+      <a href="/spending" class="nav-link" class:active={currentPath.startsWith('/spending')} use:tooltip={'Spending'}>
         <Icon name="spending" size={16} />
         <span class="nav-label">Spending</span>
       </a>
-      <a href="/import" class="nav-link" use:tooltip={'Import + Export'}>
+      <a href="/import" class="nav-link" class:active={currentPath.startsWith('/import')} use:tooltip={'Import + Export'}>
         <Icon name="import-export" size={16} />
         <span class="nav-label">Import + Export</span>
       </a>
-      <a href="/transactions" class="nav-link" use:tooltip={'Transactions'}>
+      <a href="/transactions" class="nav-link" class:active={currentPath.startsWith('/transactions')} use:tooltip={'Transactions'}>
         <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
       </a>
-      <a href="/assets" class="nav-link" use:tooltip={'Accounts'}>
+      <a href="/assets" class="nav-link" class:active={currentPath.startsWith('/assets') || currentPath.startsWith('/account/')} use:tooltip={'Accounts'}>
         <Icon name="accounts" size={16} />
         <span class="nav-label">Accounts</span>
       </a>
-      <a href="/fish-pie" class="nav-link" use:tooltip={'Fish Pie'}>
+      <a href="/fish-pie" class="nav-link" class:active={currentPath.startsWith('/fish-pie')} use:tooltip={'Fish Pie'}>
         <Icon name="pie" size={16} />
         <span class="nav-label">Fish Pie</span>
       </a>
@@ -150,7 +153,7 @@
               aria-hidden="true"
               width="12"
               height="12"
-              class="svg-icon group-chevron"
+              class="group-chevron"
               class:open={assetsOpen}
             />
             Assets
@@ -201,7 +204,7 @@
               aria-hidden="true"
               width="12"
               height="12"
-              class="svg-icon group-chevron"
+              class="group-chevron"
               class:open={liabilitiesOpen}
             />
             Liabilities
@@ -252,7 +255,7 @@
               aria-hidden="true"
               width="12"
               height="12"
-              class="svg-icon group-chevron"
+              class="group-chevron"
               class:open={equityOpen}
             />
             Equity
@@ -304,7 +307,7 @@
                 aria-hidden="true"
                 width="12"
                 height="12"
-                class="svg-icon group-chevron"
+                class="group-chevron"
                 class:open={hiddenOpen}
               />
               Hidden
@@ -383,7 +386,7 @@
   .sidebar {
     width: 200px;
     flex-shrink: 0;
-    background: var(--color-window);
+    background: var(--color-sidebar);
     box-shadow: inset -1px 0 0 var(--color-bevel-dark);
     display: flex;
     flex-direction: column;
@@ -453,30 +456,51 @@
     flex-shrink: 0;
   }
 
-  /* Expanded: left-border accent style — subtle, not busy */
   .nav-link {
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 6px var(--sp-sm);
-    font-size: var(--text-sm);
+    margin: 2px 5px;
+    padding: 5px calc(var(--sp-sm) - 5px);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
     color: var(--color-text);
     text-decoration: none;
-    border-left: 2px solid transparent;
+    outline: 1px solid transparent;
     transition:
       background var(--duration-fast) var(--ease),
-      border-color var(--duration-fast) var(--ease);
+      box-shadow var(--duration-fast) var(--ease),
+      outline-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
   }
 
-  .nav-link:hover {
-    background: var(--color-accent-light);
-    border-left-color: var(--color-accent-mid);
+  .nav-link:hover:not(.active) {
+    background: var(--color-window);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.15);
+    outline-color: var(--color-bevel-mid);
   }
 
-  .nav-link:active {
-    background: var(--color-accent-mid);
-    color: var(--color-text-on-dark);
-    border-left-color: var(--color-accent);
+  .nav-link:active:not(.active) {
+    background: var(--color-window);
+    box-shadow: var(--shadow-sunken);
+    outline-color: var(--color-bevel-dark);
+  }
+
+  .nav-link.active {
+    background: linear-gradient(180deg, var(--color-accent-mid), var(--color-accent));
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+      0 1px 3px rgba(0, 0, 0, 0.3);
+    outline-color: var(--color-accent);
   }
 
   /* Collapsed: icon-only toolbar buttons — Photoshop style */
@@ -485,24 +509,25 @@
     height: 28px;
     margin: var(--sp-xs) 10px;
     padding: 0;
+    border-radius: 4px;
     justify-content: center;
-    border-left: none;
     box-shadow: var(--shadow-raised);
     background: var(--color-window);
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
+    outline: none;
   }
 
   .sidebar.collapsed .nav-link:hover {
     background: var(--color-accent-light);
-    border-left: none;
+    box-shadow: var(--shadow-raised);
+    outline: none;
   }
 
-  .sidebar.collapsed .nav-link:active {
+  .sidebar.collapsed .nav-link:active,
+  .sidebar.collapsed .nav-link.active {
     box-shadow: var(--shadow-sunken);
     background: var(--color-window);
     color: var(--color-text);
+    outline: none;
   }
 
   .sidebar.collapsed .nav-label {
@@ -526,7 +551,7 @@
   }
 
   .group {
-    margin-bottom: var(--sp-xs);
+    margin-bottom: 0;
   }
 
   .group-header {
@@ -534,28 +559,32 @@
     align-items: center;
     gap: 4px;
     width: 100%;
-    padding: var(--sp-xs) var(--sp-sm) 2px;
+    padding: 3px var(--sp-sm);
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--color-text-muted);
-    background: none;
-    border: none;
+    letter-spacing: 1px;
+    color: var(--color-section-bar-fg);
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    border-left: none;
+    border-right: none;
     text-align: left;
     cursor: pointer;
-    transition: color var(--duration-fast) var(--ease);
+    transition: opacity var(--duration-fast) var(--ease);
   }
 
   .group-header:hover {
-    color: var(--color-accent-mid);
+    opacity: 0.85;
   }
 
   .group-chevron {
     flex-shrink: 0;
     transform-origin: center center;
     transition: transform var(--duration-fast) var(--ease);
+    filter: invert(1);
   }
 
   .group-chevron.open {
@@ -634,7 +663,7 @@
   }
 
   .group-hidden .group-header {
-    color: var(--color-text-disabled);
+    opacity: 0.6;
   }
 
   .account-row-hidden .account-name {
@@ -670,8 +699,8 @@
     gap: var(--sp-sm);
     width: 100%;
     padding: 6px var(--sp-sm);
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
+    font-size: 12px;
+    font-family: var(--font-mono);
     color: var(--color-text);
     text-decoration: none;
     text-align: left;
@@ -685,8 +714,8 @@
   }
 
   .footer-btn:hover {
-    background: var(--color-accent-light);
-    border-left-color: var(--color-accent-mid);
+    background: var(--color-window);
+    border-left-color: var(--color-accent);
   }
 
   .footer-settings .nav-label {
