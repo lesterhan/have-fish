@@ -649,7 +649,7 @@
     font-family: var(--font-serif);
     font-size: 13px;
     color: var(--color-text);
-    background: var(--color-window-inset);
+    background: transparent;
     border: none;
     box-shadow: var(--shadow-sunken);
     padding: 1px var(--sp-xs);
