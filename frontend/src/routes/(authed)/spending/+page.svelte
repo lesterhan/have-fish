@@ -307,17 +307,14 @@
       </div>
       <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
       {#if summary && needsConversion}
-        <button
-          class="convert-btn"
-          class:active={converting}
+        <GradientButton
+          active={converting}
           disabled={fxFetching}
-          aria-label={converting
-            ? 'Show raw totals'
-            : `Convert to ${preferredCurrency}`}
+          aria-label={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
           onclick={handleConvertToggle}
         >
           <CurrencyPill code={preferredCurrency} size="xs" />
-        </button>
+        </GradientButton>
       {/if}
     </div>
 
@@ -555,43 +552,6 @@
     font-weight: 600;
     color: var(--color-text);
     letter-spacing: -0.2px;
-  }
-
-  .convert-btn {
-    height: 24px;
-    padding: 0 10px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
-    border: 1px solid var(--color-rule);
-    border-radius: 3px;
-    font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 600;
-    color: var(--color-text);
-    cursor: pointer;
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6);
-    transition:
-      background var(--duration-fast) var(--ease),
-      color var(--duration-fast) var(--ease),
-      box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .convert-btn.active {
-    background: linear-gradient(
-      180deg,
-      var(--color-accent),
-      color-mix(in srgb, var(--color-accent) 80%, transparent)
-    );
-    border-color: var(--color-accent);
-    color: #ffffff;
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
-  }
-
-  .convert-btn:disabled {
-    opacity: 0.6;
-    cursor: not-allowed;
   }
 
   /* Summary grid */

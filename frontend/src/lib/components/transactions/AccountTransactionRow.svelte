@@ -21,6 +21,7 @@
 
   interface Props {
     tx: Transaction
+    idx: number
     accounts: Account[]
     currentAccountId: string
     defaultOffsetAccountId?: string | null
@@ -34,6 +35,7 @@
 
   let {
     tx,
+    idx,
     accounts,
     currentAccountId,
     defaultOffsetAccountId,
@@ -193,7 +195,7 @@
   })
 </script>
 
-<div class="row" class:transfer={isTransfer}>
+<div class="row" class:transfer={isTransfer} class:odd={idx % 2 !== 0}>
   <!-- Date -->
   <div class="date">
     <span class="date-meta">{dateParts.year} {dateParts.dow}</span>
@@ -457,10 +459,14 @@
     grid-template-columns: var(--tx-cols) auto;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 0 var(--sp-sm);
-    min-height: 2.75rem;
-    border-bottom: 1px solid var(--color-divider);
+    padding: 7px 14px;
+    background: var(--color-window-raised);
+    border-bottom: 1px solid var(--color-rule);
     transition: background var(--duration-fast) var(--ease);
+  }
+
+  .row.odd {
+    background: var(--color-window);
   }
 
   .row:hover {
@@ -475,18 +481,21 @@
   .date {
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    font-family: var(--font-sans);
+    gap: 2px;
+    font-family: var(--font-mono);
     flex-shrink: 0;
   }
 
   .date-meta {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .date-main {
-    font-size: var(--text-sm);
+    font-size: 10px;
+    font-weight: 700;
     color: var(--color-text);
   }
 
@@ -501,8 +510,12 @@
 
   .description {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-accent-mid);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -544,7 +557,7 @@
     gap: var(--sp-xs);
     min-width: 0;
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: 11px;
   }
 
   .dir-arrow {

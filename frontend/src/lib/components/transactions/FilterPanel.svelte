@@ -1,7 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import Panel from '$lib/components/ui/Panel.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import DateRangeSelector from '$lib/components/transactions/DateRangeSelector.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
@@ -16,6 +16,7 @@
     accountPath?: string
     actionRequiredCount?: number | null
     actionRequiredActive?: boolean
+    bare?: boolean
     onApply: (from: string, to: string) => void
     onSortChange: (dir: 'asc' | 'desc') => void
     onAccountPathChange?: (path: string) => void
@@ -29,6 +30,7 @@
     accountPath = '',
     actionRequiredCount = null,
     actionRequiredActive = false,
+    bare = false,
     onApply,
     onSortChange,
     onAccountPathChange,
@@ -72,29 +74,29 @@
   }
 </script>
 
-<Panel title="Filter">
+{#snippet content()}
   <div class="bar">
     <div class="left-controls">
       {#if onAccountPathChange}
-        <Button
+        <GradientButton
           onclick={toggleSearch}
           square
           tooltip="Filter by account path"
-          variant={accountPath ? 'primary' : undefined}
+          active={!!accountPath}
         >
           <Icon name="search" />
           {#if accountPath}<span class="filter-path">{accountPath}</span>{/if}
-        </Button>
+        </GradientButton>
       {/if}
-      <Button
+      <GradientButton
         onclick={() => onSortChange(sortDir === 'desc' ? 'asc' : 'desc')}
         tooltip="Sort by date"
         square
       >
         <Icon name="calendar-{sortDir === 'desc' ? 'desc' : 'asc'}" />
-      </Button>
+      </GradientButton>
       {#if actionRequiredCount !== null && actionRequiredCount > 0}
-        <Button
+        <GradientButton
           variant="warning"
           active={actionRequiredActive}
           onclick={onActionRequiredToggle}
@@ -102,11 +104,11 @@
         >
           <Icon name="warning" />
           ({actionRequiredCount})
-        </Button>
+        </GradientButton>
       {:else if actionRequiredCount === 0}
-        <Button disabled square tooltip="No actions required">
+        <GradientButton disabled square tooltip="No actions required">
           <Icon name="check" />
-        </Button>
+        </GradientButton>
       {/if}
     </div>
     <div class="date-controls">
@@ -114,9 +116,9 @@
         value={{ from, to }}
         onchange={(r) => onApply(r.from, r.to)}
       />
-      <Button square tooltip="Reset to last 3 months" onclick={handleReset}>
+      <GradientButton square tooltip="Reset to last 3 months" onclick={handleReset}>
         <Icon name="reset" />
-      </Button>
+      </GradientButton>
     </div>
   </div>
 
@@ -143,7 +145,15 @@
       </div>
     </div>
   {/if}
-</Panel>
+{/snippet}
+
+{#if bare}
+  {@render content()}
+{:else}
+  <Panel title="Filter">
+    {@render content()}
+  </Panel>
+{/if}
 
 <style>
   .bar {
