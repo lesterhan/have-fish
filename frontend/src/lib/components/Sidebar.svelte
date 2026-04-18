@@ -441,13 +441,6 @@
     }
   }
 
-  /* --- SVG icons (loaded via <img>, no currentColor) --- */
-
-  /* invert to white in dark mode */
-  :global([data-theme='dark']) .svg-icon {
-    filter: invert(1);
-  }
-
   /* --- Top nav --- */
 
   .top-nav {
@@ -503,33 +496,6 @@
     outline-color: var(--color-accent);
   }
 
-  /* Collapsed: icon-only toolbar buttons — Photoshop style */
-  .sidebar.collapsed .nav-link {
-    width: 28px;
-    height: 28px;
-    margin: var(--sp-xs) 10px;
-    padding: 0;
-    border-radius: 4px;
-    justify-content: center;
-    box-shadow: var(--shadow-raised);
-    background: var(--color-window);
-    outline: none;
-  }
-
-  .sidebar.collapsed .nav-link:hover {
-    background: var(--color-accent-light);
-    box-shadow: var(--shadow-raised);
-    outline: none;
-  }
-
-  .sidebar.collapsed .nav-link:active,
-  .sidebar.collapsed .nav-link.active {
-    box-shadow: var(--shadow-sunken);
-    background: var(--color-window);
-    color: var(--color-text);
-    outline: none;
-  }
-
   .sidebar.collapsed .nav-label {
     display: none;
   }
@@ -550,10 +516,6 @@
     padding: 0 0 var(--sp-xs);
   }
 
-  .group {
-    margin-bottom: 0;
-  }
-
   .group-header {
     display: flex;
     align-items: center;
@@ -569,8 +531,6 @@
     background: var(--color-section-bar-bg);
     border-top: 1px solid var(--color-section-bar-border-top);
     border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    border-left: none;
-    border-right: none;
     text-align: left;
     cursor: pointer;
     transition: opacity var(--duration-fast) var(--ease);
@@ -657,11 +617,6 @@
     color: var(--color-text-muted);
   }
 
-  .account-balance.muted {
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
-  }
-
   .group-hidden .group-header {
     opacity: 0.6;
   }
@@ -696,9 +651,11 @@
   .footer-btn {
     display: flex;
     align-items: center;
+    align-self: stretch;
     gap: var(--sp-sm);
-    width: 100%;
-    padding: 6px var(--sp-sm);
+    margin: 2px 5px;
+    padding: 5px calc(var(--sp-sm) - 5px);
+    border-radius: 6px;
     font-size: 12px;
     font-family: var(--font-mono);
     color: var(--color-text);
@@ -706,16 +663,28 @@
     text-align: left;
     background: none;
     border: none;
-    border-left: 2px solid transparent;
+    outline: 1px solid transparent;
     cursor: pointer;
     transition:
       background var(--duration-fast) var(--ease),
-      border-color var(--duration-fast) var(--ease);
+      box-shadow var(--duration-fast) var(--ease),
+      outline-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
   }
 
   .footer-btn:hover {
     background: var(--color-window);
-    border-left-color: var(--color-accent);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.15);
+    outline-color: var(--color-bevel-mid);
+  }
+
+  .footer-btn:active {
+    background: var(--color-window);
+    box-shadow: var(--shadow-sunken);
+    outline-color: var(--color-bevel-dark);
   }
 
   .footer-settings .nav-label {
@@ -725,29 +694,46 @@
     min-width: 0;
   }
 
-  /* Collapsed: icon-only toolbar buttons */
+  /* Collapsed: icon-only — gradient pill on hover, same as expanded active */
+  .sidebar.collapsed .nav-link,
   .sidebar.collapsed .footer-btn {
     width: 28px;
     height: 28px;
-    margin: var(--sp-xs) 10px;
+    margin: 3px 10px;
     padding: 0;
+    border-radius: 6px;
     justify-content: center;
-    border-left: none;
-    box-shadow: var(--shadow-raised);
-    background: var(--color-window);
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
+    background: none;
+    box-shadow: none;
+    outline: 1px solid transparent;
   }
 
+  .sidebar.collapsed .nav-link:hover:not(.active),
   .sidebar.collapsed .footer-btn:hover {
-    background: var(--color-accent-light);
-    border-left: none;
+    background: var(--color-window);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.15);
+    outline-color: var(--color-bevel-mid);
   }
 
+  .sidebar.collapsed .nav-link:active:not(.active),
   .sidebar.collapsed .footer-btn:active {
+    background: var(--color-accent);
+    color: #ffffff;
     box-shadow: var(--shadow-sunken);
-    background: var(--color-window);
+    outline-color: var(--color-accent);
+  }
+
+  .sidebar.collapsed .nav-link.active {
+    background: linear-gradient(180deg, var(--color-accent-mid), var(--color-accent));
+    color: #ffffff;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+      0 1px 3px rgba(0, 0, 0, 0.3);
+    outline-color: var(--color-accent);
   }
 
   @media (max-width: 600px) {
