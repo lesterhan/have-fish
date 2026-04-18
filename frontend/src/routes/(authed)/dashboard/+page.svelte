@@ -23,6 +23,7 @@
   } from 'chart.js'
   import { theme } from '$lib/theme.svelte'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
 
   Chart.register(
     BarController,
@@ -362,17 +363,9 @@
     <div class="panel-content">
       <!-- Month navigation -->
       <div class="month-nav">
-        <button
-          class="nav-btn"
-          onclick={() => navigate(-1)}
-          aria-label="Previous month">◀</button
-        >
+        <GradientButton onclick={() => navigate(-1)} aria-label="Previous month">◀</GradientButton>
         <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
-        <button
-          class="nav-btn"
-          onclick={() => navigate(1)}
-          aria-label="Next month">▶</button
-        >
+        <GradientButton onclick={() => navigate(1)} aria-label="Next month">▶</GradientButton>
       </div>
 
       {#if loading}
@@ -573,26 +566,6 @@
     margin-bottom: var(--sp-md);
     padding-bottom: var(--sp-sm);
     border-bottom: 1px solid var(--color-border);
-  }
-
-  .nav-btn {
-    background: var(--color-window);
-    border: none;
-    box-shadow: var(--shadow-raised);
-    padding: 1px var(--sp-xs);
-    font-size: var(--text-xs);
-    color: var(--color-text);
-    cursor: pointer;
-    font-family: var(--font-sans);
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .nav-btn:hover {
-    background: var(--color-accent-light);
-  }
-
-  .nav-btn:active {
-    box-shadow: var(--shadow-sunken);
   }
 
   .month-label {

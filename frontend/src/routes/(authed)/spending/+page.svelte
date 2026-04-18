@@ -20,6 +20,7 @@
     MonthlySpend,
   } from '$lib/api'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
 
   // --- Month state ---
   const now = new Date()
@@ -301,16 +302,8 @@
   <div class="left-col" class:is-loading={loading}>
     <div class="month-bar">
       <div class="nav-btns">
-        <button
-          class="nav-btn"
-          onclick={() => navigate(-1)}
-          aria-label="Previous month">‹</button
-        >
-        <button
-          class="nav-btn"
-          onclick={() => navigate(1)}
-          aria-label="Next month">›</button
-        >
+        <GradientButton onclick={() => navigate(-1)} aria-label="Previous month">‹</GradientButton>
+        <GradientButton onclick={() => navigate(1)} aria-label="Next month">›</GradientButton>
       </div>
       <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
       {#if summary && needsConversion}
@@ -554,32 +547,6 @@
   .nav-btns {
     display: flex;
     gap: 4px;
-  }
-
-  .nav-btn {
-    width: 24px;
-    height: 22px;
-    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
-    border: 1px solid var(--color-rule);
-    border-radius: 3px;
-    font-family: var(--font-serif);
-    font-size: 16px;
-    color: var(--color-accent);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    padding: 0;
-    line-height: 1;
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .nav-btn:hover {
-    box-shadow: var(--shadow-raised);
-  }
-
-  .nav-btn:active {
-    box-shadow: var(--shadow-sunken);
   }
 
   .month-label {
