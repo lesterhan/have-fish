@@ -289,10 +289,10 @@
     right: 0;
     z-index: 100;
     list-style: none;
-    margin: 2px 0 0;
+    margin: 1px 0 0;
     padding: 0;
     background: var(--color-window);
-    border: 1px solid var(--color-rule);
+    border: 1px solid var(--color-border);
     box-shadow: var(--shadow-window);
     max-height: 200px;
     overflow-y: auto;
@@ -307,13 +307,11 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    border-left: 2px solid transparent;
   }
 
   .option.active {
-    background: var(--color-accent-chip-bg);
-    color: var(--color-accent);
-    border-left-color: var(--color-accent);
+    background: var(--color-accent);
+    color: #ffffff;
   }
 
   .option.create {
@@ -323,8 +321,7 @@
   }
 
   .option.create.active {
-    background: var(--color-accent-chip-bg);
-    color: var(--color-accent);
-    border-left-color: var(--color-accent);
+    background: var(--color-accent);
+    color: #ffffff;
   }
 </style>
