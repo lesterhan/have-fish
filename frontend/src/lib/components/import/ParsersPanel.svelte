@@ -1,6 +1,7 @@
 <script lang="ts">
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TableShell from '$lib/components/ui/TableShell.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
   import type { Account, CsvParser } from '$lib/api'
 
   interface Props {
@@ -17,7 +18,7 @@
 <div class="parsers-window">
   <div class="section-bar">
     <span class="section-bar-title">PARSERS</span>
-    <Button onclick={onadd}>Add parser</Button>
+    <GradientButton onclick={onadd}>Add parser</GradientButton>
   </div>
   <div class="parsers-table">
     <TableShell
@@ -44,9 +45,9 @@
           <td>{parser.isMultiCurrency ? 'Yes' : 'No'}</td>
           <td class="cell-mono">{feePath}</td>
           <td class="cell-actions">
-            <Button variant="ghost" square onclick={() => onedit(parser)}
-              >⚙️</Button
-            >
+            <GradientButton square onclick={() => onedit(parser)}>
+              <Icon name="settings" />
+            </GradientButton>
           </td>
         </tr>
       {/each}
@@ -57,7 +58,7 @@
 <style>
   .parsers-window {
     background: var(--color-window);
-    box-shadow: var(--shadow-window);
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .section-bar {

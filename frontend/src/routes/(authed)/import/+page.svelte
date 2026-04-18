@@ -11,7 +11,7 @@
     type CommitTransaction,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import EditParserPanel from '$lib/components/import/EditParserPanel.svelte'
@@ -308,9 +308,9 @@
             />
           </div>
           <div class="config-submit">
-            <Button type="submit" variant="primary" disabled={loading}>
+            <GradientButton type="submit" disabled={loading}>
               {loading ? 'Parsing…' : 'Preview import'}
-            </Button>
+            </GradientButton>
           </div>
         </div>
 
@@ -387,14 +387,14 @@
   .page {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-lg);
+    margin: calc(-1 * var(--sp-lg));
   }
 
   /* ── Import setup window ── */
 
   .import-window {
     background: var(--color-window);
-    box-shadow: var(--shadow-window);
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .section-bar {
@@ -533,11 +533,10 @@
     color: var(--color-text-muted);
   }
 
-  /* ── Bottom two-column layout ── */
+  /* ── Bottom section ── */
 
   .bottom-cols {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-md);
   }
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Button from '../ui/Button.svelte'
+  import GradientButton from '../ui/GradientButton.svelte'
   import Icon from '../ui/Icon.svelte'
   import Toggle from '../ui/Toggle.svelte'
   import AccountPathInput from '../accounts/AccountPathInput.svelte'
@@ -280,14 +280,13 @@
         <p class="save-error">{saveError}</p>
       {/if}
       <div class="footer-actions">
-        <Button onclick={onCancel}>Cancel</Button>
-        <Button
-          variant="primary"
+        <GradientButton onclick={onCancel}>Cancel</GradientButton>
+        <GradientButton
           onclick={handleSave}
           disabled={saving || !valid}
         >
           <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
-        </Button>
+        </GradientButton>
       </div>
     </div>
   </div>
@@ -296,7 +295,7 @@
 <style>
   .edit-window {
     background: var(--color-window);
-    box-shadow: var(--shadow-window);
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .section-bar {

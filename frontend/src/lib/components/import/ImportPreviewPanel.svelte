@@ -1,5 +1,5 @@
 <script lang="ts">
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
   import type { Account, ImportPreviewResult } from '$lib/api'
@@ -113,14 +113,10 @@
         {#each missingPaths as path}
           <span class="missing-account">
             <code>{path}</code>
-            <button class="create-btn" onclick={() => oncreatemissing(path)}
-              >Create</button
-            >
+            <GradientButton onclick={() => oncreatemissing(path)}>Create</GradientButton>
           </span>
         {/each}
-        <button class="create-all-btn" onclick={oncreateallmissing}
-          >Create all</button
-        >
+        <GradientButton onclick={oncreateallmissing}>Create all</GradientButton>
       </div>
     {/if}
 
@@ -294,10 +290,10 @@
       <p class="error">{error}</p>
     {/if}
     <div class="action-buttons">
-      <Button onclick={oncancel}>Cancel</Button>
-      <Button variant="primary" onclick={onconfirm} disabled={confirmDisabled}>
+      <GradientButton onclick={oncancel}>Cancel</GradientButton>
+      <GradientButton onclick={onconfirm} disabled={confirmDisabled}>
         {loading ? 'Importing…' : 'Confirm import'}
-      </Button>
+      </GradientButton>
     </div>
   </div>
 </div>
@@ -305,7 +301,6 @@
 <style>
   .preview-window {
     background: var(--color-window);
-    box-shadow: var(--shadow-window);
   }
 
   .section-bar {
@@ -412,29 +407,6 @@
   .missing-account code {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-  }
-
-  .create-btn,
-  .create-all-btn {
-    font-family: inherit;
-    font-size: var(--text-xs);
-    padding: 1px var(--sp-xs);
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    border: none;
-    cursor: pointer;
-    color: var(--color-text);
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .create-btn:active,
-  .create-all-btn:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .create-all-btn {
-    margin-left: auto;
-    font-weight: var(--weight-semibold);
   }
 
   .liability-bar {
