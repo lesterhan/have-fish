@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
   import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
@@ -303,15 +304,24 @@
   <div class="left-col" class:is-loading={loading}>
     <div class="month-bar">
       <div class="nav-btns">
-        <GradientButton onclick={() => navigate(-1)} aria-label="Previous month">‹</GradientButton>
-        <GradientButton onclick={() => navigate(1)} aria-label="Next month">›</GradientButton>
+        <GradientButton
+          onclick={() => navigate(-1)}
+          aria-label="Previous month"
+        >
+          <Icon name="left-arrow" />
+        </GradientButton>
+        <GradientButton onclick={() => navigate(1)} aria-label="Next month">
+          <Icon name="right-arrow" />
+        </GradientButton>
       </div>
       <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
       {#if summary && needsConversion}
         <GradientButton
           active={converting}
           disabled={fxFetching}
-          aria-label={converting ? 'Show raw totals' : `Convert to ${preferredCurrency}`}
+          aria-label={converting
+            ? 'Show raw totals'
+            : `Convert to ${preferredCurrency}`}
           onclick={handleConvertToggle}
         >
           <CurrencyPill code={preferredCurrency} size="xs" />
