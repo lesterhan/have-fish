@@ -244,7 +244,6 @@
     position: fixed;
     inset: 0;
     z-index: 50;
-    background: rgba(0, 0, 0, 0.25);
   }
 
   .wrapper {
@@ -259,8 +258,8 @@
   .path-input {
     width: 100%;
     box-sizing: border-box;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
     color: var(--color-text);
     background: var(--color-window-inset);
     border: none;
@@ -288,40 +287,42 @@
     right: 0;
     z-index: 100;
     list-style: none;
-    margin: 0;
+    margin: 2px 0 0;
     padding: 0;
-    background: var(--color-window-inset);
-    box-shadow:
-      var(--shadow-window),
-      inset 0 0 0 1px var(--color-bevel-dark);
-    max-height: 180px;
+    background: var(--color-window);
+    border: 1px solid var(--color-rule);
+    box-shadow: var(--shadow-window);
+    max-height: 200px;
     overflow-y: auto;
   }
 
   .option {
-    padding: 2px var(--sp-xs);
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: var(--font-mono);
     color: var(--color-text);
     cursor: default;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    border-left: 2px solid transparent;
   }
 
   .option.active {
-    background: var(--color-dropdown-active);
-    color: var(--color-text-on-dark);
+    background: var(--color-accent-chip-bg);
+    color: var(--color-accent);
+    border-left-color: var(--color-accent);
   }
 
   .option.create {
     color: var(--color-text-muted);
     font-style: italic;
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-rule);
   }
 
   .option.create.active {
-    background: var(--color-dropdown-active);
-    color: var(--color-accent-text);
+    background: var(--color-accent-chip-bg);
+    color: var(--color-accent);
+    border-left-color: var(--color-accent);
   }
 </style>
