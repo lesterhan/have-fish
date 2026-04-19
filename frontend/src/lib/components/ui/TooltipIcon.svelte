@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { tooltip } from "$lib/tooltip"
+  import { tooltip } from '$lib/tooltip'
 
   interface Props {
     label: string
@@ -8,7 +8,12 @@
   let { label }: Props = $props()
 </script>
 
-<button type="button" class="tooltip-icon" use:tooltip={label} aria-label={label}>?</button>
+<button
+  type="button"
+  class="tooltip-icon"
+  use:tooltip={label}
+  aria-label={label}>?</button
+>
 
 <style>
   .tooltip-icon {
@@ -20,6 +25,7 @@
     border-radius: 50%;
     background: var(--color-text-muted);
     color: var(--color-window);
+    font-family: var(--font-sans);
     font-size: 10px;
     font-weight: bold;
     line-height: 1;
