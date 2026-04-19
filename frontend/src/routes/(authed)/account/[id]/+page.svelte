@@ -232,7 +232,6 @@
       {sortDir}
       {actionRequiredCount}
       {actionRequiredActive}
-      bare
       onApply={(f, t) => navigate({ from: f, to: t })}
       onSortChange={(dir) => navigate({ dir })}
       onActionRequiredToggle={toggleActionRequired}

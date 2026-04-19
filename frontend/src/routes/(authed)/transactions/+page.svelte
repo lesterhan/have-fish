@@ -8,7 +8,6 @@
   import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import { toISODate } from '$lib/date'
   import { page } from '$app/state'
@@ -147,7 +146,6 @@
       {to}
       {sortDir}
       {accountPath}
-      bare
       onApply={handleApply}
       onSortChange={handleSortChange}
       onAccountPathChange={handleAccountPathChange}
@@ -155,21 +153,18 @@
     <div class="toolbar-sep"></div>
     <div class="ops">
       {#if selectMode}
-        <Button
-          variant="danger"
+        <GradientButton
+          variant="warning"
+          active={selectedIds.size > 0}
           disabled={selectedIds.size === 0 || deleting}
           onclick={deleteSelected}
-        ><Icon name="trash" /> Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}</Button>
-        <Button onclick={toggleSelectMode}>Cancel</Button>
+        >
+          <Icon name="trash" /> Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+        </GradientButton>
+        <GradientButton onclick={toggleSelectMode}>Cancel</GradientButton>
       {:else}
         <GradientButton onclick={() => (addModalOpen = true)}>
           <Icon name="plus" /> New
-        </GradientButton>
-        <a href="/import" class="btn-link">
-          <GradientButton><Icon name="import" /> Import</GradientButton>
-        </a>
-        <GradientButton disabled tooltip="Coming soon">
-          <Icon name="export" /> Export
         </GradientButton>
         <GradientButton onclick={toggleSelectMode}>
           <Icon name="edit-txn" /> Select
@@ -241,11 +236,6 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
-  }
-
-  .btn-link {
-    text-decoration: none;
-    display: contents;
   }
 
   .section-bar {
