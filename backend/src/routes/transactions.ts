@@ -153,6 +153,65 @@ app.post('/', async (c) => {
   return c.json(created, 201)
 })
 
+// POST /api/transactions/bulk
+// Creates multiple transactions atomically — all succeed or all fail.
+// Request body: { transactions: Array<{ date, description?, postings }> }
+// Same posting rules as POST /api/transactions apply to each entry.
+app.post('/bulk', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json()
+  const { transactions: txInputs } = body
+
+  if (!Array.isArray(txInputs) || txInputs.length === 0) {
+    return c.json({ error: 'transactions array is required and must be non-empty' }, 400)
+  }
+
+  // Validate each transaction before touching the DB
+  for (let i = 0; i < txInputs.length; i++) {
+    const { postings: postingInputs } = txInputs[i]
+    if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
+      return c.json({ error: `Transaction at index ${i}: at least two postings are required` }, 400)
+    }
+    for (const p of postingInputs) {
+      if (!isValidCurrency(p.currency)) {
+        return c.json({ error: `Transaction at index ${i}: unsupported currency ${p.currency}` }, 400)
+      }
+    }
+    const balances: Record<string, number> = {}
+    for (const p of postingInputs) {
+      balances[p.currency] = (balances[p.currency] ?? 0) + parseFloat(p.amount)
+    }
+    for (const [currency, sum] of Object.entries(balances)) {
+      if (Math.abs(sum) > 0.001) {
+        return c.json({ error: `Transaction at index ${i}: postings do not balance for currency ${currency}` }, 400)
+      }
+    }
+  }
+
+  const created = await db.transaction(async (tx) => {
+    const results = []
+    for (const { date, description, postings: postingInputs } of txInputs) {
+      const [newTx] = await tx
+        .insert(transactions)
+        .values({ userId, date: new Date(date), description })
+        .returning()
+      const newPostings = await tx
+        .insert(postings)
+        .values(postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
+          transactionId: newTx.id,
+          accountId: p.accountId,
+          amount: p.amount,
+          currency: p.currency,
+        })))
+        .returning()
+      results.push({ ...newTx, postings: newPostings })
+    }
+    return results
+  })
+
+  return c.json(created, 201)
+})
+
 // PATCH /api/transactions/:id
 // Partial update for description and/or date. Ignores unknown fields.
 app.patch('/:id', async (c) => {

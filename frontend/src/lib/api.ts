@@ -6,6 +6,7 @@ export type Account = {
   id: string
   path: string
   name?: string | null
+  defaultCurrency?: string | null
   createdAt?: string
   deletedAt?: string | null
 }
@@ -20,7 +21,7 @@ export async function fetchAccount(id: string): Promise<Account> {
 
 export async function updateAccount(
   id: string,
-  updates: { name?: string | null },
+  updates: { name?: string | null; defaultCurrency?: string | null },
 ): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     method: 'PATCH',
@@ -537,6 +538,24 @@ export async function createTransaction(body: {
   })
   if (!res.ok)
     throw new Error((await res.json()).error ?? 'Failed to create transaction')
+  return res.json()
+}
+
+export async function createTransactionsBulk(
+  txns: {
+    date: string
+    description?: string
+    postings: { accountId: string; amount: string; currency: string }[]
+  }[],
+): Promise<Transaction[]> {
+  const res = await fetch(`${BASE}/api/transactions/bulk`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ transactions: txns }),
+  })
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to create transactions')
   return res.json()
 }
 

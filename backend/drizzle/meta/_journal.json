@@ -113,6 +113,13 @@
       "when": 1775900000000,
       "tag": "0015_preferred_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1775960000000,
+      "tag": "0016_account_default_currency",
+      "breakpoints": true
     }
   ]
 }

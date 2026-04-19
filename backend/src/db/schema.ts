@@ -61,6 +61,7 @@ export const accounts = pgTable('accounts', {
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   path: text('path').notNull(),
   name: text('name'),  // optional human-friendly display name; falls back to path when null
+  defaultCurrency: text('default_currency'),  // ISO 4217 code; pre-selects currency in quick entry
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })

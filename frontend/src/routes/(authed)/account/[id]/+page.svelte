@@ -11,6 +11,7 @@
     fetchFxRate,
     type Account,
   } from '$lib/api'
+  import QuickEntryPanel from '$lib/components/accounts/QuickEntryPanel.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import AccountHeading from '$lib/components/accounts/AccountHeading.svelte'
@@ -55,6 +56,7 @@
   let addModalOpen = $state(false)
   let settingsOpen = $state(false)
   let reconcileOpen = $state(false)
+  let quickEntryOpen = $state(false)
 
   // Action-required filter state
   let actionRequiredIds = $state<string[] | null>(null)
@@ -215,122 +217,168 @@
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
 
-<div class="page">
-  {#if account}
-    <AccountHeading {account} balances={accountBalances} />
-  {:else}
-    <div class="header-placeholder"></div>
-  {/if}
+<div class="page" class:two-col={quickEntryOpen}>
+  <div class="left-col">
+    {#if account}
+      <AccountHeading {account} balances={accountBalances} />
+    {:else}
+      <div class="header-placeholder"></div>
+    {/if}
 
-  <div class="toolbar">
-    <FilterPanel
-      {from}
-      {to}
-      {sortDir}
-      {actionRequiredCount}
-      {actionRequiredActive}
-      onApply={(f, t) => navigate({ from: f, to: t })}
-      onSortChange={(dir) => navigate({ dir })}
-      onActionRequiredToggle={toggleActionRequired}
-    />
-    <div class="toolbar-sep"></div>
-    <div class="ops">
-      <GradientButton
-        square
-        onclick={() => (addModalOpen = true)}
-        tooltip="New transaction"
-      >
-        <Icon name="plus" />
-      </GradientButton>
-      <GradientButton
-        square
-        onclick={() => (reconcileOpen = true)}
-        tooltip="Reconcile account"
-      >
-        <Icon name="reconcile" />
-      </GradientButton>
-      <GradientButton
-        square
-        onclick={() => (settingsOpen = !settingsOpen)}
-        tooltip="Account settings"
-      >
-        <Icon name="account-settings" />
-      </GradientButton>
-      <GradientButton
-        active={convertFx}
-        onclick={() => (convertFx = !convertFx)}
-        tooltip="Convert to {preferredCurrency}"
-      >
-        <CurrencyPill code={preferredCurrency} size="xs" />
-      </GradientButton>
+    <div class="toolbar">
+      <FilterPanel
+        {from}
+        {to}
+        {sortDir}
+        {actionRequiredCount}
+        {actionRequiredActive}
+        onApply={(f, t) => navigate({ from: f, to: t })}
+        onSortChange={(dir) => navigate({ dir })}
+        onActionRequiredToggle={toggleActionRequired}
+      />
+      <div class="toolbar-sep"></div>
+      <div class="ops">
+        <GradientButton
+          square
+          onclick={() => (addModalOpen = true)}
+          tooltip="New transaction"
+        >
+          <Icon name="plus" />
+        </GradientButton>
+        <GradientButton
+          square
+          onclick={() => (reconcileOpen = true)}
+          tooltip="Reconcile account"
+        >
+          <Icon name="reconcile" />
+        </GradientButton>
+        <GradientButton
+          square
+          onclick={() => (settingsOpen = !settingsOpen)}
+          tooltip="Account settings"
+        >
+          <Icon name="account-settings" />
+        </GradientButton>
+        <GradientButton
+          active={quickEntryOpen}
+          onclick={() => (quickEntryOpen = !quickEntryOpen)}
+          tooltip="Quick Entry"
+        >
+          Quick Entry
+        </GradientButton>
+        <GradientButton
+          active={convertFx}
+          onclick={() => (convertFx = !convertFx)}
+          tooltip="Convert to {preferredCurrency}"
+        >
+          <CurrencyPill code={preferredCurrency} size="xs" />
+        </GradientButton>
+      </div>
+    </div>
+
+    {#if settingsOpen && account}
+      <AccountSettings
+        {account}
+        hidden={isHidden}
+        onupdated={(a) => (account = a)}
+        ontogglehidden={toggleHidden}
+      />
+    {/if}
+
+    <div class="section-bar">
+      <span class="section-bar-title">
+        Transactions · {displayedTransactions.length} entries
+      </span>
+    </div>
+
+    <div class="tx-col-header">
+      <span>DATE</span>
+      <span>DESCRIPTION</span>
+      <span class="col-account">ACCOUNT</span>
+      <span class="col-amount">AMOUNT</span>
+      <span></span>
+    </div>
+
+    <div class="tx-body" use:scrollShadow>
+      {#if loading}
+        {#each { length: 7 } as _}
+          <AccountTransactionRowSkeleton />
+        {/each}
+      {:else if notFound}
+        <p class="empty">Account not found.</p>
+      {:else if displayedTransactions.length === 0}
+        <p class="empty">
+          {actionRequiredActive
+            ? 'No flagged transactions in this period.'
+            : 'No transactions in this period.'}
+        </p>
+      {:else}
+        {#each displayedTransactions as tx, i (tx.id)}
+          <AccountTransactionRow
+            {tx}
+            idx={i}
+            {accounts}
+            {defaultOffsetAccountId}
+            {defaultConversionAccountId}
+            currentAccountId={id}
+            {convertFx}
+            {preferredCurrency}
+            {fxRateMap}
+            onaccountcreated={(a) => (accounts = [...accounts, a])}
+            ondeleted={() =>
+              (transactions = transactions.filter(
+                (t: { id: string }) => t.id !== tx.id,
+              ))}
+          />
+        {/each}
+      {/if}
     </div>
   </div>
 
-  {#if settingsOpen && account}
-    <AccountSettings
-      {account}
-      hidden={isHidden}
-      onupdated={(a) => (account = a)}
-      ontogglehidden={toggleHidden}
-    />
+  {#if quickEntryOpen && account}
+    <div class="right-col">
+      <QuickEntryPanel
+        {account}
+        {accounts}
+        {defaultOffsetAccountId}
+        {preferredCurrency}
+        onaccountcreated={(a) => (accounts = [...accounts, a])}
+        onaccountupdated={(a) => (account = a)}
+        onsuccess={async () => {
+          quickEntryOpen = false
+          const txs = await fetchTransactions({ accountId: id, from, to })
+          transactions = txs
+          const allBalances = await fetchAccountBalances()
+          accountBalances = allBalances.find((b) => b.id === id)?.balances ?? []
+        }}
+        onclose={() => (quickEntryOpen = false)}
+      />
+    </div>
   {/if}
-
-  <div class="section-bar">
-    <span class="section-bar-title">
-      Transactions · {displayedTransactions.length} entries
-    </span>
-  </div>
-
-  <div class="tx-col-header">
-    <span>DATE</span>
-    <span>DESCRIPTION</span>
-    <span class="col-account">ACCOUNT</span>
-    <span class="col-amount">AMOUNT</span>
-    <span></span>
-  </div>
-
-  <div class="tx-body" use:scrollShadow>
-    {#if loading}
-      {#each { length: 7 } as _}
-        <AccountTransactionRowSkeleton />
-      {/each}
-    {:else if notFound}
-      <p class="empty">Account not found.</p>
-    {:else if displayedTransactions.length === 0}
-      <p class="empty">
-        {actionRequiredActive
-          ? 'No flagged transactions in this period.'
-          : 'No transactions in this period.'}
-      </p>
-    {:else}
-      {#each displayedTransactions as tx, i (tx.id)}
-        <AccountTransactionRow
-          {tx}
-          idx={i}
-          {accounts}
-          {defaultOffsetAccountId}
-          {defaultConversionAccountId}
-          currentAccountId={id}
-          {convertFx}
-          {preferredCurrency}
-          {fxRateMap}
-          onaccountcreated={(a) => (accounts = [...accounts, a])}
-          ondeleted={() =>
-            (transactions = transactions.filter(
-              (t: { id: string }) => t.id !== tx.id,
-            ))}
-        />
-      {/each}
-    {/if}
-  </div>
 </div>
 
 <style>
   .page {
     display: flex;
-    flex-direction: column;
+    flex-direction: row;
     margin: calc(-1 * var(--sp-lg));
     height: calc(100% + 2 * var(--sp-lg));
+    overflow: hidden;
+  }
+
+  .left-col {
+    flex: 1;
+    min-width: 0;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .right-col {
+    width: 400px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
     overflow: hidden;
   }
 
@@ -427,8 +475,14 @@
 
   @media (max-width: 520px) {
     .page {
+      flex-direction: column;
       margin: calc(-1 * var(--sp-md));
       height: calc(100% + 2 * var(--sp-md));
+    }
+
+    .right-col {
+      width: 100%;
+      height: 60vh;
     }
 
     .tx-col-header,

@@ -246,6 +246,31 @@ describe('accounts', () => {
     })
   })
 
+  it('PATCH /api/accounts/:id updates defaultCurrency and returns it on GET', async () => {
+    const createRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'assets:chequing' }),
+    })
+    const created = await createRes.json() as Account
+
+    const patchRes = await app.request(`/api/accounts/${created.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultCurrency: 'USD' }),
+    })
+    expect(patchRes.status).toBe(200)
+    const patched = await patchRes.json() as Account
+    expect(patched.defaultCurrency).toBe('USD')
+
+    const getRes = await app.request(`/api/accounts/${created.id}`, {
+      headers: { Cookie: cookie },
+    })
+    expect(getRes.status).toBe(200)
+    const fetched = await getRes.json() as Account
+    expect(fetched.defaultCurrency).toBe('USD')
+  })
+
   it('DELETE /api/accounts/:id soft-deletes an account', async () => {
     const createRes = await app.request('/api/accounts', {
       method: 'POST',

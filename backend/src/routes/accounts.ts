@@ -247,7 +247,7 @@ app.post('/', async (c) => {
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
-  const allowed = ['name'] as const
+  const allowed = ['name', 'defaultCurrency'] as const
   const updates: Partial<typeof body> = {}
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]

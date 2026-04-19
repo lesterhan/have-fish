@@ -188,4 +188,52 @@ describe('transactions', () => {
       expect(await res.json()).toHaveLength(2)
     })
   })
+
+  describe('POST /api/transactions/bulk', () => {
+    const headers = { Cookie: '', 'Content-Type': 'application/json' }
+    let accA: { id: string }, accB: { id: string }
+
+    beforeEach(async () => {
+      headers.Cookie = cookie
+      ;[accA, accB] = await Promise.all([
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+      ])
+    })
+
+    it('creates all transactions and returns them', async () => {
+      const res = await app.request('/api/transactions/bulk', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          transactions: [
+            { date: '2026-01-10', description: 'Grocery run', postings: [{ accountId: accA.id, amount: '-25.00', currency: 'CAD' }, { accountId: accB.id, amount: '25.00', currency: 'CAD' }] },
+            { date: '2026-01-11', description: 'Coffee', postings: [{ accountId: accA.id, amount: '-5.00', currency: 'CAD' }, { accountId: accB.id, amount: '5.00', currency: 'CAD' }] },
+          ],
+        }),
+      })
+      expect(res.status).toBe(201)
+      const created = await res.json()
+      expect(created).toHaveLength(2)
+      expect(created[0].description).toBe('Grocery run')
+      expect(created[1].description).toBe('Coffee')
+    })
+
+    it('rolls back the whole batch when one transaction has imbalanced postings', async () => {
+      const res = await app.request('/api/transactions/bulk', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          transactions: [
+            { date: '2026-01-10', postings: [{ accountId: accA.id, amount: '-25.00', currency: 'CAD' }, { accountId: accB.id, amount: '25.00', currency: 'CAD' }] },
+            { date: '2026-01-11', postings: [{ accountId: accA.id, amount: '-5.00', currency: 'CAD' }, { accountId: accB.id, amount: '99.00', currency: 'CAD' }] },
+          ],
+        }),
+      })
+      expect(res.status).toBe(400)
+      // Confirm nothing was persisted
+      const txns = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json())
+      expect(txns).toHaveLength(0)
+    })
+  })
 })
