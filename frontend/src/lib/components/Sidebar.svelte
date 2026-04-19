@@ -213,7 +213,7 @@
             <ul class="account-list">
               {#each assets as acct}
                 <li>
-                  <a href="/account/{acct.id}" class="account-row">
+                  <a href="/account/{acct.id}" class="account-row" class:active={currentPath === `/account/${acct.id}`}>
                     <span class="account-name"
                       >{acct.name ??
                         shortName(
@@ -272,7 +272,7 @@
             <ul class="account-list">
               {#each liabilities as acct}
                 <li>
-                  <a href="/account/{acct.id}" class="account-row">
+                  <a href="/account/{acct.id}" class="account-row" class:active={currentPath === `/account/${acct.id}`}>
                     <span class="account-name"
                       >{acct.name ??
                         shortName(
@@ -331,7 +331,7 @@
             <ul class="account-list">
               {#each equity as acct}
                 <li>
-                  <a href="/account/{acct.id}" class="account-row">
+                  <a href="/account/{acct.id}" class="account-row" class:active={currentPath === `/account/${acct.id}`}>
                     <span class="account-name"
                       >{acct.name ??
                         shortName(
@@ -386,6 +386,7 @@
                     <a
                       href="/account/{acct.id}"
                       class="account-row account-row-hidden"
+                      class:active={currentPath === `/account/${acct.id}`}
                     >
                       <span class="account-name">{acct.name ?? acct.path}</span>
                     </a>
@@ -675,6 +676,12 @@
 
   .account-row:hover {
     background: var(--color-accent-light);
+  }
+
+  .account-row.active {
+    background: var(--color-accent-light);
+    box-shadow: inset 2px 0 0 var(--color-accent);
+    font-weight: var(--weight-semibold);
   }
 
   @media (max-width: 600px) {
