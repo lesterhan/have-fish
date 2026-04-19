@@ -1,6 +1,7 @@
 <script lang="ts">
   import WizardFormGrid from './WizardFormGrid.svelte'
   import TextInput from '../ui/TextInput.svelte'
+  import CurrencyInput from '../ui/CurrencyInput.svelte'
 
   interface Props {
     accountPath: string
@@ -41,12 +42,9 @@
       placeholder="0.00"
       style="flex: 1; min-width: 0; width: auto"
     />
-    <TextInput
+    <CurrencyInput
       bind:value={startingCurrency}
-      placeholder="CAD"
-      style="width: 3.5rem; flex-shrink: 0; text-transform: uppercase"
-      maxlength={5}
-      spellcheck={false}
+      style="width: 3.5rem; flex-shrink: 0"
     />
   </div>
 

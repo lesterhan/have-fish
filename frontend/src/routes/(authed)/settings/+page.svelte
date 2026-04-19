@@ -3,10 +3,10 @@
   import { fetchAccounts, createAccount, deleteAccount } from '$lib/api'
   import type { Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
-  import { SUPPORTED_CURRENCIES } from '$lib/currency'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Select from '$lib/components/ui/Select.svelte'
+  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -201,19 +201,15 @@
             aria-label="Preferred currency help">?</button
           >
         </label>
-        <Select
+        <CurrencyInput
           id="preferred-currency"
           bind:value={preferredCurrency}
-          onchange={async () => {
+          style="width: 7rem"
+          oncommit={async () => {
             await settingsStore.update({ preferredCurrency })
             toast.show('Preferred currency saved')
           }}
-          style="width: 7rem"
-        >
-          {#each SUPPORTED_CURRENCIES as c}
-            <option value={c}>{c}</option>
-          {/each}
-        </Select>
+        />
       </div>
     </div>
   </div>

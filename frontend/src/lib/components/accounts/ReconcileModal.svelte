@@ -1,6 +1,7 @@
 <script lang="ts">
   import Modal from '../ui/Modal.svelte'
   import Button from '../ui/Button.svelte'
+  import CurrencyInput from '../ui/CurrencyInput.svelte'
   import { fetchAccountBalanceAtDate, createTransaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { toISODate } from '$lib/date'
@@ -164,14 +165,10 @@
             posted = false
           }}
         />
-        <input
-          type="text"
+        <CurrencyInput
           bind:value={currency}
-          placeholder="CAD"
-          class="balance-currency"
-          maxlength={5}
-          spellcheck={false}
-          onchange={() => {
+          style="width: 4rem; flex-shrink: 0"
+          oncommit={() => {
             result = null
             posted = false
           }}
@@ -304,12 +301,6 @@
   .balance-amount {
     flex: 1;
     min-width: 0;
-  }
-
-  .balance-currency {
-    width: 3.5rem;
-    flex-shrink: 0;
-    text-transform: uppercase;
   }
 
   .comparison {

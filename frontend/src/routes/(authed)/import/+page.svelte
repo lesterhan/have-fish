@@ -14,6 +14,7 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import EditParserPanel from '$lib/components/import/EditParserPanel.svelte'
   import AddParserWizard from '$lib/components/wizards/AddParserWizard.svelte'
   import ImportPreviewPanel from '$lib/components/import/ImportPreviewPanel.svelte'
@@ -291,12 +292,10 @@
           <div class="config-fields">
             <div class="config-field">
               <span class="config-label">DEFAULT CURRENCY</span>
-              <TextInput
+              <CurrencyInput
                 id="default-currency"
                 bind:value={defaultCurrency}
-                placeholder="CAD"
                 style="width: 5rem"
-                required
               />
             </div>
             <div class="config-field config-account">
