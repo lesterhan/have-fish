@@ -5,7 +5,6 @@
   import TransactionEditModal from '$lib/components/transactions/TransactionEditModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { patchTransaction, patchPosting, type Account } from '$lib/api'
-  import { currencyFlag } from '$lib/currency'
   import { settingsStore } from '$lib/settings.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
@@ -16,7 +15,6 @@
     classifyTransfer,
     fmt,
     handleEditableKeydown,
-    type Posting,
     type Transaction,
   } from './transactionUtils'
 
@@ -191,7 +189,6 @@
       status: 'ok' as const,
       convertedAmount: converted,
       originalCurrency: currentPosting.currency,
-      originalFlag: currencyFlag(currentPosting.currency),
     }
   })
 </script>
@@ -381,10 +378,16 @@
       </div>
     {:else if currentPosting}
       {#if fxConverted?.status === 'ok'}
-        <div class="fx-stack" class:flow-in={flowDirection === 'in'} class:flow-out={flowDirection === 'out'}>
+        <div
+          class="fx-stack"
+          class:flow-in={flowDirection === 'in'}
+          class:flow-out={flowDirection === 'out'}
+        >
           <div class="fx-primary">
             <CurrencyPill code={preferredCurrency} size="xs" />
-            <span class="fx-main-amount">{fmt(fxConverted.convertedAmount)}</span>
+            <span class="fx-main-amount"
+              >{fmt(fxConverted.convertedAmount)}</span
+            >
           </div>
           <div class="fx-secondary">
             <span class="fx-tilde">≈</span>
@@ -396,7 +399,9 @@
         <div class="fx-stack">
           <div class="fx-primary">
             <CurrencyPill code={currentPosting.currency} size="xs" />
-            <span class="fx-main-amount fx-muted">{fmt(currentPosting.amount)}</span>
+            <span class="fx-main-amount fx-muted"
+              >{fmt(currentPosting.amount)}</span
+            >
           </div>
           <div class="fx-secondary">
             <span class="fx-converting">converting…</span>
@@ -406,7 +411,9 @@
         <div class="fx-stack fx-no-rate">
           <div class="fx-primary">
             <CurrencyPill code={currentPosting.currency} size="xs" />
-            <span class="fx-main-amount fx-muted">{fmt(currentPosting.amount)}</span>
+            <span class="fx-main-amount fx-muted"
+              >{fmt(currentPosting.amount)}</span
+            >
           </div>
           <div class="fx-secondary">
             <Icon name="warning" size={9} />
@@ -703,8 +710,12 @@
     color: var(--color-text);
   }
 
-  .fx-stack.flow-in .fx-main-amount { color: var(--color-transfer-in); }
-  .fx-stack.flow-out .fx-main-amount { color: var(--color-transfer-out); }
+  .fx-stack.flow-in .fx-main-amount {
+    color: var(--color-transfer-in);
+  }
+  .fx-stack.flow-out .fx-main-amount {
+    color: var(--color-transfer-out);
+  }
 
   .fx-main-amount.fx-muted {
     color: var(--color-text-muted);

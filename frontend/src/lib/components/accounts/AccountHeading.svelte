@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { currencyFlag } from '$lib/currency'
+  import CurrencyPill from '../ui/CurrencyPill.svelte'
   import type { Account } from '$lib/api'
 
   interface Props {
@@ -34,8 +34,10 @@
       {#each balances as b}
         <div class="balance-item">
           <span class="balance-label">BALANCE</span>
-          <span class="balance-amount">{isNegative(b.amount) ? '−' : ''}{formatAmount(b.amount)}</span>
-          <span class="balance-currency">{currencyFlag(b.currency) ? `${currencyFlag(b.currency)} ` : ''}{b.currency}</span>
+          <span class="balance-amount">
+            <CurrencyPill code={b.currency} />
+            {isNegative(b.amount) ? '−' : ''}{formatAmount(b.amount)}</span
+          >
         </div>
       {/each}
     </div>
@@ -136,12 +138,5 @@
     font-weight: 600;
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
-  }
-
-  .balance-currency {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    margin-top: 1px;
   }
 </style>

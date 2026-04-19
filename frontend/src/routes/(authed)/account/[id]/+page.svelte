@@ -19,13 +19,11 @@
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
   import AccountTransactionRow from '$lib/components/transactions/AccountTransactionRow.svelte'
   import AccountTransactionRowSkeleton from '$lib/components/transactions/AccountTransactionRowSkeleton.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
-  import { currencyFlag } from '$lib/currency'
   import { scrollShadow } from '$lib/scrollShadow'
 
   let id = $derived(page.params.id!)
@@ -190,7 +188,6 @@
   function navigate(params: Record<string, string>) {
     goto(`?${new URLSearchParams({ from, to, dir: sortDir, ...params })}`)
   }
-
 </script>
 
 {#if account}
@@ -241,13 +238,25 @@
       <GradientButton onclick={() => (addModalOpen = true)}>
         <Icon name="plus" /> New
       </GradientButton>
-      <GradientButton square onclick={() => (reconcileOpen = true)} tooltip="Reconcile account">
+      <GradientButton
+        square
+        onclick={() => (reconcileOpen = true)}
+        tooltip="Reconcile account"
+      >
         <Icon name="reconcile" />
       </GradientButton>
-      <GradientButton square onclick={() => (settingsOpen = !settingsOpen)} tooltip="Account settings">
+      <GradientButton
+        square
+        onclick={() => (settingsOpen = !settingsOpen)}
+        tooltip="Account settings"
+      >
         <Icon name="account-settings" />
       </GradientButton>
-      <GradientButton active={convertFx} onclick={() => (convertFx = !convertFx)} tooltip="Convert to {preferredCurrency}">
+      <GradientButton
+        active={convertFx}
+        onclick={() => (convertFx = !convertFx)}
+        tooltip="Convert to {preferredCurrency}"
+      >
         <CurrencyPill code={preferredCurrency} size="xs" />
       </GradientButton>
     </div>
