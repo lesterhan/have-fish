@@ -9,6 +9,8 @@
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from './ui/Icon.svelte'
+  import AddAccountWizard from './wizards/AddAccountWizard.svelte'
+  import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
 
   interface Props {
     accounts: AccountBalance[]
@@ -35,6 +37,22 @@
   let liabilitiesOpen = $state(true)
   let equityOpen = $state(true)
   let hiddenOpen = $state(false)
+
+  let wizardOpen = $state(false)
+  let wizardType = $state<'asset' | 'liability'>('asset')
+
+  function openWizard(type: 'asset' | 'liability', e: Event) {
+    e.stopPropagation()
+    wizardType = type
+    wizardOpen = true
+  }
+
+  function handleAddKeydown(type: 'asset' | 'liability', e: KeyboardEvent) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      openWizard(type, e)
+    }
+  }
 
   let hiddenIds = $derived(
     new Set(settingsStore.value?.preferences.hiddenAccountIds ?? []),
@@ -103,6 +121,12 @@
   }
 </script>
 
+<AddAccountWizard
+  type={wizardType}
+  bind:open={wizardOpen}
+  onSuccess={refreshSidebar}
+/>
+
 <aside
   class="sidebar"
   class:collapsed={!expanded}
@@ -122,10 +146,6 @@
       <a href="/transactions" class="nav-link" class:active={currentPath.startsWith('/transactions')} use:tooltip={'Transactions'}>
         <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
-      </a>
-      <a href="/assets" class="nav-link" class:active={currentPath.startsWith('/assets') || currentPath.startsWith('/account/')} use:tooltip={'Accounts'}>
-        <Icon name="accounts" size={16} />
-        <span class="nav-label">Accounts</span>
       </a>
       <a href="/fish-pie" class="nav-link" class:active={currentPath.startsWith('/fish-pie')} use:tooltip={'Fish Pie'}>
         <Icon name="pie" size={16} />
@@ -157,6 +177,7 @@
               class:open={assetsOpen}
             />
             Assets
+            <span class="group-add" onclick={(e) => openWizard('asset', e)} onkeydown={(e) => handleAddKeydown('asset', e)} aria-label="Add asset account" role="button" tabindex="0">+</span>
           </button>
           {#if assetsOpen}
             <ul class="account-list">
@@ -208,6 +229,7 @@
               class:open={liabilitiesOpen}
             />
             Liabilities
+            <span class="group-add" onclick={(e) => openWizard('liability', e)} onkeydown={(e) => handleAddKeydown('liability', e)} aria-label="Add liability account" role="button" tabindex="0">+</span>
           </button>
           {#if liabilitiesOpen}
             <ul class="account-list">
@@ -545,6 +567,33 @@
     transform-origin: center center;
     transition: transform var(--duration-fast) var(--ease);
     filter: invert(1);
+  }
+
+  .group-add {
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--color-section-bar-fg);
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
+  }
+
+  .group-header:hover .group-add {
+    opacity: 0.7;
+  }
+
+  .group-add:hover {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.2);
   }
 
   .group-chevron.open {
