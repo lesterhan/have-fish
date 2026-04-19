@@ -350,7 +350,7 @@
                     : 'Converting…'}
                 </span>
               {:else if convertedTotal !== null}
-                <span class="card-sigma-badge">Σ TOTAL</span>
+                <span class="card-sigma-badge">Σ</span>
                 <span class="card-sigma-amount"
                   ><CurrencyPill code={preferredCurrency} size="xs" />
                   {formatAmount(convertedTotal)}</span
