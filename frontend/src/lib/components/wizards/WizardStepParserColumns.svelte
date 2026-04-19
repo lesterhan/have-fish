@@ -1,6 +1,6 @@
 <script lang="ts">
   import WizardFormGrid from './WizardFormGrid.svelte'
-  import { tooltip } from '$lib/tooltip'
+  import TooltipIcon from '../ui/TooltipIcon.svelte'
 
   interface Props {
     columns: string[]
@@ -50,12 +50,7 @@
 
   <label for="map-sign-column" class="toggle-label">
     Direction column
-    <button
-      type="button"
-      class="tooltip-icon"
-      use:tooltip={'For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT.'}
-      aria-label="Direction column help">?</button
-    >
+    <TooltipIcon label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT." />
   </label>
   <select id="map-sign-column" bind:value={mappingSignColumn}>
     <option value="">— not mapped —</option>

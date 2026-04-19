@@ -3,7 +3,7 @@
   import Button from '../ui/Button.svelte'
   import Toggle from '../ui/Toggle.svelte'
   import AccountPathInput from '../accounts/AccountPathInput.svelte'
-  import { tooltip } from '$lib/tooltip'
+  import TooltipIcon from '../ui/TooltipIcon.svelte'
   import { createParser, type Account, type CsvParser } from '$lib/api'
 
   interface Props {
@@ -260,13 +260,7 @@
         {#if columns.length > 0}
           <span class="field-label toggle-label">
             Multi-currency
-            <button
-              type="button"
-              class="tooltip-icon"
-              use:tooltip={'Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately.'}
-              aria-label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."
-              >?</button
-            >
+            <TooltipIcon label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately." />
           </span>
           <Toggle bind:checked={isMultiCurrency} />
         {/if}
@@ -299,13 +293,7 @@
 
         <label for="map-sign-column" class="toggle-label">
           Direction column
-          <button
-            type="button"
-            class="tooltip-icon"
-            use:tooltip={'For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT.'}
-            aria-label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT."
-            >?</button
-          >
+          <TooltipIcon label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT." />
         </label>
         <select id="map-sign-column" bind:value={mappingSignColumn}>
           <option value="">— not mapped —</option>
@@ -564,21 +552,6 @@
     align-items: center;
     gap: var(--sp-xs);
     justify-content: flex-end;
-  }
-
-  .tooltip-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--color-text-muted);
-    color: var(--color-window);
-    font-size: 10px;
-    font-weight: bold;
-    cursor: help;
-    flex-shrink: 0;
   }
 
   .summary {

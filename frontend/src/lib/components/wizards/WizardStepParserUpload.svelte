@@ -1,7 +1,7 @@
 <script lang="ts">
   import WizardFormGrid from './WizardFormGrid.svelte'
   import Toggle from '../ui/Toggle.svelte'
-  import { tooltip } from '$lib/tooltip'
+  import TooltipIcon from '../ui/TooltipIcon.svelte'
 
   interface Props {
     parserName: string
@@ -47,12 +47,7 @@
   {#if columns.length > 0}
     <span class="field-label toggle-label">
       Multi-currency
-      <button
-        type="button"
-        class="tooltip-icon"
-        use:tooltip={'Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately.'}
-        aria-label="Multi-currency help">?</button
-      >
+      <TooltipIcon label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately." />
     </span>
     <Toggle bind:checked={isMultiCurrency} />
   {/if}

@@ -11,7 +11,7 @@
     type Account,
     type ColumnMapping,
   } from '$lib/api'
-  import { tooltip } from '$lib/tooltip'
+  import TooltipIcon from '../ui/TooltipIcon.svelte'
 
   interface Props {
     parser: CsvParser
@@ -142,13 +142,7 @@
 
           <span class="toggle-label">
             Multi-currency
-            <button
-              type="button"
-              class="tooltip-icon"
-              use:tooltip={'Enable for banks that encode transfers inline (e.g. Wise).'}
-              aria-label="Enable for banks that encode transfers inline (e.g. Wise)."
-              >?</button
-            >
+            <TooltipIcon label="Enable for banks that encode transfers inline (e.g. Wise)." />
           </span>
           <Toggle bind:checked={isMultiCurrency} />
 
@@ -197,13 +191,7 @@
 
           <label for="ep-sign-col" class="toggle-label">
             Direction column
-            <button
-              type="button"
-              class="tooltip-icon"
-              use:tooltip={'For banks that put IN/OUT in a separate column (e.g. Wise).'}
-              aria-label="For banks that put IN/OUT in a separate column (e.g. Wise)."
-              >?</button
-            >
+            <TooltipIcon label="For banks that put IN/OUT in a separate column (e.g. Wise)." />
           </label>
           <Select id="ep-sign-col" bind:value={mappingSignColumn}>
             <option value="">— not mapped —</option>
@@ -382,21 +370,6 @@
     align-items: center;
     gap: var(--sp-xs);
     justify-content: flex-end;
-  }
-
-  .tooltip-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--color-text-muted);
-    color: var(--color-window);
-    font-size: 10px;
-    font-weight: bold;
-    cursor: help;
-    flex-shrink: 0;
   }
 
   .required {

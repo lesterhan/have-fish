@@ -88,19 +88,4 @@
     justify-content: flex-end;
   }
 
-  .form-grid :global(.tooltip-icon) {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 14px;
-    height: 14px;
-    border-radius: 50%;
-    background: var(--color-text-muted);
-    color: var(--color-window);
-    font-size: 10px;
-    font-weight: bold;
-    cursor: help;
-    flex-shrink: 0;
-    text-transform: none;
-  }
 </style>

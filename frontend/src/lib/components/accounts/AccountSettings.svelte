@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { untrack } from 'svelte'
   import { updateAccount, type Account } from '$lib/api'
   import Icon from '../ui/Icon.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
@@ -13,7 +14,7 @@
 
   let { account, hidden, onupdated, ontogglehidden }: Props = $props()
 
-  let nameValue = $state(account.name ?? '')
+  let nameValue = $state(untrack(() => account.name ?? ''))
   let saving = $state(false)
 
   $effect(() => {

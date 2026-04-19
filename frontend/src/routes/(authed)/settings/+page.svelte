@@ -14,7 +14,7 @@
   import { goto } from '$app/navigation'
   import { confetti } from '$lib/confetti.svelte'
   import { toast } from '$lib/toast.svelte'
-  import { tooltip } from '$lib/tooltip'
+  import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
   const session = useSession()
@@ -132,12 +132,7 @@
       <div class="setting-row">
         <span class="setting-label">
           Uncategorized
-          <button
-            type="button"
-            class="help-btn"
-            use:tooltip={'Imported transactions with no matched category will use this account.'}
-            aria-label="Uncategorized account help">?</button
-          >
+          <TooltipIcon label="Imported transactions with no matched category will use this account." />
         </span>
         <AccountPathInput
           {accounts}
@@ -152,12 +147,7 @@
       <div class="setting-row">
         <span class="setting-label">
           Conversion balance
-          <button
-            type="button"
-            class="help-btn"
-            use:tooltip={'Equity account used to balance cross-currency transfers. Required for multi-currency imports.'}
-            aria-label="Conversion balance help">?</button
-          >
+          <TooltipIcon label="Equity account used to balance cross-currency transfers. Required for multi-currency imports." />
         </span>
         <AccountPathInput
           {accounts}
@@ -173,12 +163,7 @@
       <div class="setting-row">
         <span class="setting-label">
           Adjustments
-          <button
-            type="button"
-            class="help-btn"
-            use:tooltip={'Equity account used as the offset when posting a reconciliation adjustment.'}
-            aria-label="Adjustments help">?</button
-          >
+          <TooltipIcon label="Equity account used as the offset when posting a reconciliation adjustment." />
         </span>
         <AccountPathInput
           {accounts}
@@ -194,12 +179,7 @@
       <div class="setting-row">
         <label class="setting-label" for="preferred-currency">
           Preferred currency
-          <button
-            type="button"
-            class="help-btn"
-            use:tooltip={'Your home currency. Used for FX conversion displays.'}
-            aria-label="Preferred currency help">?</button
-          >
+          <TooltipIcon label="Your home currency. Used for FX conversion displays." />
         </label>
         <CurrencyInput
           id="preferred-currency"
@@ -223,12 +203,7 @@
       <div class="setting-row">
         <label class="setting-label" for="assets-root-path">
           Assets
-          <button
-            type="button"
-            class="help-btn"
-            use:tooltip={"Root prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."}
-            aria-label="Assets root path help">?</button
-          >
+          <TooltipIcon label="Root prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')." />
         </label>
         <TextInput
           id="assets-root-path"
@@ -246,12 +221,7 @@
       <div class="setting-row">
         <label class="setting-label" for="liabilities-root-path">
           Liabilities
-          <button
-            type="button"
-            class="help-btn"
-            use:tooltip={"Root prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."}
-            aria-label="Liabilities root path help">?</button
-          >
+          <TooltipIcon label="Root prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')." />
         </label>
         <TextInput
           id="liabilities-root-path"
@@ -270,12 +240,7 @@
       <div class="setting-row">
         <label class="setting-label" for="expenses-root-path">
           Expenses
-          <button
-            type="button"
-            class="help-btn"
-            use:tooltip={'Root prefix for expense accounts. Used to filter spending reports.'}
-            aria-label="Expenses root path help">?</button
-          >
+          <TooltipIcon label="Root prefix for expense accounts. Used to filter spending reports." />
         </label>
         <TextInput
           id="expenses-root-path"
@@ -293,12 +258,7 @@
       <div class="setting-row">
         <label class="setting-label" for="equity-root-path">
           Equity
-          <button
-            type="button"
-            class="help-btn"
-            use:tooltip={"Root prefix for equity accounts. (e.g. 'equity' → 'equity:investments')."}
-            aria-label="Equity root path help">?</button
-          >
+          <TooltipIcon label="Root prefix for equity accounts. (e.g. 'equity' → 'equity:investments')." />
         </label>
         <TextInput
           id="equity-root-path"
@@ -528,23 +488,6 @@
     white-space: nowrap;
   }
 
-  .help-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 13px;
-    height: 13px;
-    border-radius: 50%;
-    background: var(--color-text-muted);
-    color: var(--color-window);
-    font-size: 9px;
-    font-weight: bold;
-    border: none;
-    cursor: help;
-    flex-shrink: 0;
-    line-height: 1;
-    padding: 0;
-  }
 
   /* --- Accounts column --- */
   .add-row {
