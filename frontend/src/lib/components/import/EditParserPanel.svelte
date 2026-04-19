@@ -2,6 +2,8 @@
   import GradientButton from '../ui/GradientButton.svelte'
   import Icon from '../ui/Icon.svelte'
   import Toggle from '../ui/Toggle.svelte'
+  import TextInput from '../ui/TextInput.svelte'
+  import Select from '../ui/Select.svelte'
   import AccountPathInput from '../accounts/AccountPathInput.svelte'
   import {
     updateParser,
@@ -121,9 +123,8 @@
         <h3 class="section-heading">General</h3>
         <div class="form-grid">
           <label for="ep-name">Name <span class="required">*</span></label>
-          <input
+          <TextInput
             id="ep-name"
-            type="text"
             bind:value={name}
             autocomplete="off"
           />
@@ -171,28 +172,28 @@
         <h3 class="section-heading">Column mapping</h3>
         <div class="form-grid">
           <label for="ep-date">Date <span class="required">*</span></label>
-          <select id="ep-date" bind:value={mappingDate}>
+          <Select id="ep-date" bind:value={mappingDate}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-amount">Amount <span class="required">*</span></label>
-          <select id="ep-amount" bind:value={mappingAmount}>
+          <Select id="ep-amount" bind:value={mappingAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-description">Description</label>
-          <select id="ep-description" bind:value={mappingDescription}>
+          <Select id="ep-description" bind:value={mappingDescription}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-currency">Currency</label>
-          <select id="ep-currency" bind:value={mappingCurrency}>
+          <Select id="ep-currency" bind:value={mappingCurrency}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-sign-col" class="toggle-label">
             Direction column
@@ -204,16 +205,15 @@
               >?</button
             >
           </label>
-          <select id="ep-sign-col" bind:value={mappingSignColumn}>
+          <Select id="ep-sign-col" bind:value={mappingSignColumn}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           {#if mappingSignColumn}
             <label for="ep-sign-neg">Negative value</label>
-            <input
+            <TextInput
               id="ep-sign-neg"
-              type="text"
               bind:value={mappingSignNegativeValue}
               placeholder="e.g. OUT"
               spellcheck={false}
@@ -231,46 +231,46 @@
           <label for="ep-src-amount"
             >Source amount <span class="required">*</span></label
           >
-          <select id="ep-src-amount" bind:value={mappingSourceAmount}>
+          <Select id="ep-src-amount" bind:value={mappingSourceAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-src-currency"
             >Source currency <span class="required">*</span></label
           >
-          <select id="ep-src-currency" bind:value={mappingSourceCurrency}>
+          <Select id="ep-src-currency" bind:value={mappingSourceCurrency}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-tgt-amount"
             >Target amount <span class="required">*</span></label
           >
-          <select id="ep-tgt-amount" bind:value={mappingTargetAmount}>
+          <Select id="ep-tgt-amount" bind:value={mappingTargetAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-tgt-currency"
             >Target currency <span class="required">*</span></label
           >
-          <select id="ep-tgt-currency" bind:value={mappingTargetCurrency}>
+          <Select id="ep-tgt-currency" bind:value={mappingTargetCurrency}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-fee-amount">Fee amount</label>
-          <select id="ep-fee-amount" bind:value={mappingFeeAmount}>
+          <Select id="ep-fee-amount" bind:value={mappingFeeAmount}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-fee-currency">Fee currency</label>
-          <select id="ep-fee-currency" bind:value={mappingFeeCurrency}>
+          <Select id="ep-fee-currency" bind:value={mappingFeeCurrency}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
         </div>
       </section>
     {/if}
@@ -370,29 +370,11 @@
     white-space: nowrap;
   }
 
-  .form-grid input,
-  .form-grid select,
-  .multi-grid select {
+  .form-grid :global(.text-input),
+  .form-grid :global(.select-input),
+  .multi-grid :global(.select-input) {
     font-size: var(--text-xs);
-    font-family: var(--font-sans);
-    padding: 3px var(--sp-xs);
-    background: var(--color-window-inset);
-    border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
-    color: var(--color-text);
     width: 100%;
-    box-sizing: border-box;
-    outline: none;
-    transition:
-      border-color var(--duration-fast) var(--ease),
-      box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .form-grid input:focus,
-  .form-grid select:focus,
-  .multi-grid select:focus {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   .toggle-label {

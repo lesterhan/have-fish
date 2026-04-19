@@ -1,17 +1,21 @@
 <script lang="ts">
-  import type { HTMLInputAttributes } from 'svelte/elements'
+  import type { HTMLSelectAttributes } from 'svelte/elements'
+  import type { Snippet } from 'svelte'
 
-  interface Props extends HTMLInputAttributes {
+  interface Props extends HTMLSelectAttributes {
     value?: string
+    children: Snippet
   }
 
-  let { value = $bindable(''), class: className = '', ...restProps }: Props = $props()
+  let { value = $bindable(''), children, class: className = '', ...restProps }: Props = $props()
 </script>
 
-<input class="text-input {className}" bind:value {...restProps} />
+<select class="select-input {className}" bind:value {...restProps}>
+  {@render children()}
+</select>
 
 <style>
-  .text-input {
+  .select-input {
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--color-text);
@@ -27,12 +31,12 @@
       box-shadow var(--duration-fast) var(--ease);
   }
 
-  .text-input:focus {
+  .select-input:focus {
     border-color: var(--color-accent-mid);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
-  .text-input:disabled {
+  .select-input:disabled {
     color: var(--color-text-disabled);
     cursor: not-allowed;
   }
