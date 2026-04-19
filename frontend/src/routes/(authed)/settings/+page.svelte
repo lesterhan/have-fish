@@ -300,7 +300,7 @@
           <button
             type="button"
             class="help-btn"
-            use:tooltip={'Root prefix for equity accounts.'}
+            use:tooltip={"Root prefix for equity accounts. (e.g. 'equity' → 'equity:investments')."}
             aria-label="Equity root path help">?</button
           >
         </label>
