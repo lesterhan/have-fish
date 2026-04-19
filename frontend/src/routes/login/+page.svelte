@@ -1,7 +1,8 @@
 <script lang="ts">
   import { signIn } from '$lib/auth'
   import { goto } from '$app/navigation'
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
 
   let email = $state('')
   let password = $state('')
@@ -14,7 +15,7 @@
     if (result.error) {
       error = result.error.message ?? 'Sign in failed'
     } else {
-      goto('/')
+      goto('/spending')
     }
   }
 </script>
@@ -29,7 +30,7 @@
     <form onsubmit={handleSubmit}>
       <div class="field">
         <label for="email">Email</label>
-        <input
+        <TextInput
           id="email"
           type="email"
           bind:value={email}
@@ -40,7 +41,7 @@
 
       <div class="field">
         <label for="password">Password</label>
-        <input
+        <TextInput
           id="password"
           type="password"
           bind:value={password}
@@ -54,7 +55,7 @@
       {/if}
 
       <div class="actions">
-        <Button type="submit" variant="primary">Sign in</Button>
+        <GradientButton type="submit">Sign in</GradientButton>
       </div>
     </form>
 
@@ -66,6 +67,7 @@
 
 <style>
   .panel {
+    font-family: var(--font-serif);
     width: 280px;
     margin: var(--sp-2xl) auto 0;
     background: var(--color-window);
@@ -104,26 +106,6 @@
     color: var(--color-text);
   }
 
-  input {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 3px var(--sp-xs);
-    height: 22px;
-    width: 100%;
-    box-sizing: border-box;
-    outline: none;
-    transition: outline var(--duration-fast) var(--ease);
-  }
-
-  input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
-  }
-
   .error {
     font-size: var(--text-sm);
     color: var(--color-danger);
@@ -137,12 +119,11 @@
     display: flex;
     justify-content: flex-end;
     padding-top: var(--sp-xs);
-    border-top: 1px solid var(--color-bevel-dark);
     margin-top: var(--sp-sm);
   }
 
   .switch-link {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
     text-align: center;
     margin-top: var(--sp-md);
