@@ -10,7 +10,7 @@
   import { settingsStore } from '$lib/settings.svelte'
 
   interface Props {
-    type: 'asset' | 'liability'
+    type: 'asset' | 'liability' | 'equity'
     open: boolean
     onSuccess?: () => void
   }
@@ -87,9 +87,12 @@
   let rootPrefix = $derived.by(() => {
     const s = settingsStore.value
     if (!s) return ''
-    return type === 'asset'
-      ? s.defaultAssetsRootPath + ':'
-      : s.defaultLiabilitiesRootPath + ':'
+    let typeToRoot = {
+      asset: s.defaultAssetsRootPath,
+      liability: s.defaultLiabilitiesRootPath,
+      equity: 'equity', // todo: add equity to user settings
+    }
+    return typeToRoot[type] + ':'
   })
 
   // --- Step 1 state ---

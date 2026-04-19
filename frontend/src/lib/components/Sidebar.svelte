@@ -39,15 +39,18 @@
   let hiddenOpen = $state(false)
 
   let wizardOpen = $state(false)
-  let wizardType = $state<'asset' | 'liability'>('asset')
+  let wizardType = $state<'asset' | 'liability' | 'equity'>('asset')
 
-  function openWizard(type: 'asset' | 'liability', e: Event) {
+  function openWizard(type: 'asset' | 'liability' | 'equity', e: Event) {
     e.stopPropagation()
     wizardType = type
     wizardOpen = true
   }
 
-  function handleAddKeydown(type: 'asset' | 'liability', e: KeyboardEvent) {
+  function handleAddKeydown(
+    type: 'asset' | 'liability' | 'equity',
+    e: KeyboardEvent,
+  ) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
       openWizard(type, e)
@@ -135,19 +138,39 @@
   <div class="sidebar-inner">
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
-      <a href="/spending" class="nav-link" class:active={currentPath.startsWith('/spending')} use:tooltip={'Spending'}>
+      <a
+        href="/spending"
+        class="nav-link"
+        class:active={currentPath.startsWith('/spending')}
+        use:tooltip={'Spending'}
+      >
         <Icon name="spending" size={16} />
         <span class="nav-label">Spending</span>
       </a>
-      <a href="/import" class="nav-link" class:active={currentPath.startsWith('/import')} use:tooltip={'Import + Export'}>
+      <a
+        href="/import"
+        class="nav-link"
+        class:active={currentPath.startsWith('/import')}
+        use:tooltip={'Import + Export'}
+      >
         <Icon name="import-export" size={16} />
         <span class="nav-label">Import + Export</span>
       </a>
-      <a href="/transactions" class="nav-link" class:active={currentPath.startsWith('/transactions')} use:tooltip={'Transactions'}>
+      <a
+        href="/transactions"
+        class="nav-link"
+        class:active={currentPath.startsWith('/transactions')}
+        use:tooltip={'Transactions'}
+      >
         <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
       </a>
-      <a href="/fish-pie" class="nav-link" class:active={currentPath.startsWith('/fish-pie')} use:tooltip={'Fish Pie'}>
+      <a
+        href="/fish-pie"
+        class="nav-link"
+        class:active={currentPath.startsWith('/fish-pie')}
+        use:tooltip={'Fish Pie'}
+      >
         <Icon name="pie" size={16} />
         <span class="nav-label">Fish Pie</span>
       </a>
@@ -177,7 +200,14 @@
               class:open={assetsOpen}
             />
             Assets
-            <span class="group-add" onclick={(e) => openWizard('asset', e)} onkeydown={(e) => handleAddKeydown('asset', e)} aria-label="Add asset account" role="button" tabindex="0">+</span>
+            <span
+              class="group-add"
+              onclick={(e) => openWizard('asset', e)}
+              onkeydown={(e) => handleAddKeydown('asset', e)}
+              aria-label="Add asset account"
+              role="button"
+              tabindex="0">+</span
+            >
           </button>
           {#if assetsOpen}
             <ul class="account-list">
@@ -229,7 +259,14 @@
               class:open={liabilitiesOpen}
             />
             Liabilities
-            <span class="group-add" onclick={(e) => openWizard('liability', e)} onkeydown={(e) => handleAddKeydown('liability', e)} aria-label="Add liability account" role="button" tabindex="0">+</span>
+            <span
+              class="group-add"
+              onclick={(e) => openWizard('liability', e)}
+              onkeydown={(e) => handleAddKeydown('liability', e)}
+              aria-label="Add liability account"
+              role="button"
+              tabindex="0">+</span
+            >
           </button>
           {#if liabilitiesOpen}
             <ul class="account-list">
@@ -281,6 +318,14 @@
               class:open={equityOpen}
             />
             Equity
+            <span
+              class="group-add"
+              onclick={(e) => openWizard('equity', e)}
+              onkeydown={(e) => handleAddKeydown('equity', e)}
+              aria-label="Add equity account"
+              role="button"
+              tabindex="0">+</span
+            >
           </button>
           {#if equityOpen}
             <ul class="account-list">
@@ -508,7 +553,11 @@
   }
 
   .nav-link.active {
-    background: linear-gradient(180deg, var(--color-accent-mid), var(--color-accent));
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-mid),
+      var(--color-accent)
+    );
     color: #ffffff;
     font-weight: 700;
     box-shadow:
@@ -776,7 +825,11 @@
   }
 
   .sidebar.collapsed .nav-link.active {
-    background: linear-gradient(180deg, var(--color-accent-mid), var(--color-accent));
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-mid),
+      var(--color-accent)
+    );
     color: #ffffff;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.35),
