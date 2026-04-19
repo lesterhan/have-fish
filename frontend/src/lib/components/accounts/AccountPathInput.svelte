@@ -12,6 +12,7 @@
     value: string // bound account ID (default) or path string (when searchOnly=true)
     placeholder?: string
     searchOnly?: boolean // path-string mode: no create option, no revert-on-blur
+    allowCreate?: boolean // when false, hides the create option (ID mode only)
     oncreate?: (account: Account) => void
     oncommit?: (accountId: string) => void // fires after any selection (existing or new)
   }
@@ -21,6 +22,7 @@
     value = $bindable(''),
     placeholder = 'Type an account path…',
     searchOnly = false,
+    allowCreate = true,
     oncreate,
     oncommit,
   }: Props = $props()
@@ -92,7 +94,7 @@
     const exactMatch = accounts.some(
       (a) => a.path.toLowerCase() === inputText.trim().toLowerCase(),
     )
-    const showCreate = !searchOnly && inputText.trim().length > 0 && !exactMatch
+    const showCreate = !searchOnly && allowCreate && inputText.trim().length > 0 && !exactMatch
 
     return showCreate
       ? [...matched, { kind: 'create', path: inputText.trim() }]
