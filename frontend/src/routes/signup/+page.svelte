@@ -2,6 +2,9 @@
   import { signUp } from '$lib/auth'
   import { goto } from '$app/navigation'
   import Button from '$lib/components/ui/Button.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
 
   let email = $state('')
   let password = $state('')
@@ -30,15 +33,17 @@
 
 <div class="panel">
   <div class="panel-titlebar">
-    <span class="panel-icon">🪪</span>
+    <Icon name="create-user" />
     <span>Create account</span>
   </div>
 
   <div class="panel-body">
     <form onsubmit={handleSubmit}>
       <div class="field">
-        <label for="email">Email</label>
-        <input
+        <label for="email">Email</label><span class="label-hint"
+          >(I will never email you)</span
+        >
+        <TextInput
           id="email"
           type="email"
           bind:value={email}
@@ -49,7 +54,7 @@
 
       <div class="field">
         <label for="password">Password</label>
-        <input
+        <TextInput
           id="password"
           type="password"
           bind:value={password}
@@ -60,7 +65,7 @@
 
       <div class="field">
         <label for="confirm-password">Confirm password</label>
-        <input
+        <TextInput
           id="confirm-password"
           type="password"
           bind:value={confirmPassword}
@@ -74,7 +79,7 @@
       {/if}
 
       <div class="actions">
-        <Button type="submit" variant="primary">Create account</Button>
+        <GradientButton type="submit">Create account</GradientButton>
       </div>
     </form>
 
@@ -90,6 +95,7 @@
     margin: var(--sp-2xl) auto 0;
     background: var(--color-window);
     box-shadow: var(--shadow-window);
+    font-family: var(--font-serif);
   }
 
   .panel-titlebar {
@@ -102,10 +108,6 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     user-select: none;
-  }
-
-  .panel-icon {
-    font-size: var(--text-sm);
   }
 
   .panel-body {
@@ -124,24 +126,9 @@
     color: var(--color-text);
   }
 
-  input {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 3px var(--sp-xs);
-    height: 22px;
-    width: 100%;
-    box-sizing: border-box;
-    outline: none;
-    transition: outline var(--duration-fast) var(--ease);
-  }
-
-  input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
+  .label-hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
   }
 
   .error {
@@ -157,12 +144,12 @@
     display: flex;
     justify-content: flex-end;
     padding-top: var(--sp-xs);
-    border-top: 1px solid var(--color-bevel-dark);
+    border-top: 1px solid var(--color-border);
     margin-top: var(--sp-sm);
   }
 
   .switch-link {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     color: var(--color-text-muted);
     text-align: center;
     margin-top: var(--sp-md);

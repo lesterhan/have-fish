@@ -3,6 +3,7 @@
   import { goto } from '$app/navigation'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
 
   let email = $state('')
   let password = $state('')
@@ -22,7 +23,7 @@
 
 <div class="panel">
   <div class="panel-titlebar">
-    <span class="panel-icon">🔑</span>
+    <Icon name="lock" />
     <span>Sign in</span>
   </div>
 
@@ -86,10 +87,6 @@
     user-select: none;
   }
 
-  .panel-icon {
-    font-size: var(--text-sm);
-  }
-
   .panel-body {
     padding: var(--sp-lg);
   }
@@ -119,6 +116,7 @@
     display: flex;
     justify-content: flex-end;
     padding-top: var(--sp-xs);
+    border-top: 1px solid var(--color-border);
     margin-top: var(--sp-sm);
   }
 
