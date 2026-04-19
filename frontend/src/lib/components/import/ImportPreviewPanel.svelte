@@ -1,6 +1,5 @@
 <script lang="ts">
-  import Panel from '$lib/components/ui/Panel.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
   import type { Account, ImportPreviewResult } from '$lib/api'
@@ -52,9 +51,6 @@
     return isNaN(n) ? amount : String(-n)
   }
 
-  let readyCount = $derived(rowStates.filter((r) => !r.skipped).length)
-  let skippedCount = $derived(rowStates.filter((r) => r.skipped).length)
-
   let confirmDisabled = $derived(
     loading ||
       rowStates.every((r) => r.skipped) ||
@@ -72,7 +68,16 @@
   )
 </script>
 
-<Panel title="Preview — {preview.parser}">
+<div class="preview-window">
+  <div class="section-bar">
+    <span class="section-bar-title">PREVIEW — {preview.parser}</span>
+    <span class="preview-counts">
+      {rowStates.filter((r) => !r.skipped).length} ready
+      {#if rowStates.filter((r) => r.skipped).length > 0}
+        · {rowStates.filter((r) => r.skipped).length} skipped
+      {/if}
+    </span>
+  </div>
   <div class="preview-body">
     {#if !preview.isMultiCurrency}
       <div class="account-row">
@@ -108,14 +113,10 @@
         {#each missingPaths as path}
           <span class="missing-account">
             <code>{path}</code>
-            <button class="create-btn" onclick={() => oncreatemissing(path)}
-              >Create</button
-            >
+            <GradientButton onclick={() => oncreatemissing(path)}>Create</GradientButton>
           </span>
         {/each}
-        <button class="create-all-btn" onclick={oncreateallmissing}
-          >Create all</button
-        >
+        <GradientButton onclick={oncreateallmissing}>Create all</GradientButton>
       </div>
     {/if}
 
@@ -285,24 +286,51 @@
   </div>
 
   <div class="panel-actions">
-    <p class="summary">
-      {readyCount} transaction(s) ready to import{skippedCount > 0
-        ? `, ${skippedCount} skipped`
-        : ''}.
-    </p>
     {#if error}
       <p class="error">{error}</p>
     {/if}
     <div class="action-buttons">
-      <Button onclick={oncancel}>Cancel</Button>
-      <Button variant="primary" onclick={onconfirm} disabled={confirmDisabled}>
+      <GradientButton onclick={oncancel}>Cancel</GradientButton>
+      <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
         {loading ? 'Importing…' : 'Confirm import'}
-      </Button>
+      </GradientButton>
     </div>
   </div>
-</Panel>
+</div>
 
 <style>
+  .preview-window {
+    background: var(--color-window);
+  }
+
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 4px 12px;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+  }
+
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-section-bar-fg);
+    flex: 1;
+    white-space: nowrap;
+  }
+
+  .preview-counts {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-section-bar-fg);
+    opacity: 0.75;
+    white-space: nowrap;
+  }
+
   .preview-body {
     display: flex;
     flex-direction: column;
@@ -313,7 +341,7 @@
     align-items: center;
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     font-size: var(--text-sm);
   }
@@ -335,9 +363,9 @@
     font-size: var(--text-sm);
     color: var(--color-danger);
     background: var(--color-danger-light);
-    box-shadow: var(--shadow-sunken);
+    border-left: 3px solid var(--color-danger);
     padding: var(--sp-xs) var(--sp-sm);
-    margin-bottom: var(--sp-md);
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .parse-errors p {
@@ -356,23 +384,24 @@
     flex-wrap: wrap;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
-    margin-bottom: var(--sp-md);
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
+    background: var(--color-warning-light);
+    border-left: 3px solid var(--color-warning);
+    border-bottom: 1px solid var(--color-rule);
     font-size: var(--text-sm);
   }
 
   .missing-label {
     font-weight: var(--weight-semibold);
     margin-right: var(--sp-xs);
+    color: var(--color-warning);
   }
 
   .missing-account {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    background: var(--color-window-raised);
-    box-shadow: var(--shadow-sunken);
+    gap: var(--sp-xs);
+    background: var(--color-window);
+    border: 1px solid var(--color-border);
     padding: 0 var(--sp-xs);
   }
 
@@ -381,39 +410,15 @@
     font-size: var(--text-xs);
   }
 
-  .create-btn,
-  .create-all-btn {
-    font-family: inherit;
-    font-size: var(--text-xs);
-    padding: 1px var(--sp-xs);
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    border: none;
-    cursor: pointer;
-    color: var(--color-text);
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .create-btn:active,
-  .create-all-btn:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .create-all-btn {
-    margin-left: auto;
-    font-weight: var(--weight-semibold);
-  }
-
   .liability-bar {
     display: flex;
     align-items: center;
     padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
   }
 
   .table-container {
-    box-shadow: var(--shadow-sunken);
     background: var(--color-window-inset);
     overflow-x: auto;
   }
@@ -421,15 +426,20 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--text-sm);
   }
 
   th {
     background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    padding: var(--sp-xs) var(--sp-sm);
+    box-shadow: none;
+    border-bottom: 1px solid var(--color-rule);
+    padding: 4px 12px;
     text-align: left;
-    font-weight: var(--weight-semibold);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
     white-space: nowrap;
     position: sticky;
     top: 0;
@@ -437,8 +447,9 @@
   }
 
   td {
-    padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    padding: 5px 12px;
+    border-bottom: 1px solid var(--color-rule-soft);
+    font-size: var(--text-xs);
   }
 
   tbody tr:last-child td {
@@ -549,7 +560,7 @@
   }
 
   .transfer-accounts :global(.wrapper:first-child .path-input) {
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .panel-actions {
@@ -557,23 +568,19 @@
     align-items: center;
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
-    border-top: 1px solid var(--color-bevel-mid);
-    background: var(--color-window);
+    border-top: 1px solid var(--color-rule);
+    background: linear-gradient(180deg, var(--color-window), var(--color-window-raised));
   }
 
-  .summary {
+  .error {
     flex: 1;
-    font-size: var(--text-sm);
-    color: var(--color-text);
+    font-size: var(--text-xs);
+    color: var(--color-danger);
   }
 
   .action-buttons {
     display: flex;
     gap: var(--sp-sm);
-  }
-
-  .error {
-    font-size: var(--text-sm);
-    color: var(--color-danger);
+    margin-left: auto;
   }
 </style>

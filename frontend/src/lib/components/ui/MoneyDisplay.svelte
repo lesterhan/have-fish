@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { currencyFlag } from '$lib/currency'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
 
   interface Props {
     amount: string
@@ -10,8 +10,6 @@
   }
 
   let { amount, currency, flowDirection = null, inline = false }: Props = $props()
-
-  let flag = $derived(currencyFlag(currency))
 </script>
 
 {#if inline}
@@ -21,13 +19,13 @@
     class:flow-out={flowDirection === 'out'}
   >
     {#if flowDirection === 'in'}<Icon name="arrow-right" size={11} />{/if}
-    <span class="currency">{flag ? `${flag} ` : ''}{currency}</span>
+    <CurrencyPill code={currency} size="xs" />
     <span class="amount">{amount}</span>
     {#if flowDirection === 'out'}<Icon name="arrow-right" size={11} />{/if}
   </div>
 {:else}
   <div class="money">
-    <span class="currency">{flag ? `${flag} ` : ''}{currency}</span>
+    <CurrencyPill code={currency} size="xs" />
     <div
       class="amount-row"
       class:flow-in={flowDirection === 'in'}
@@ -79,10 +77,6 @@
     color: var(--color-transfer-out);
   }
 
-  .money-inline .currency {
-    opacity: 0.75;
-  }
-
   /* --- Shared --- */
   .amount {
     font-family: var(--font-mono);
@@ -95,9 +89,4 @@
     font-size: var(--text-sm);
   }
 
-  .currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
 </style>

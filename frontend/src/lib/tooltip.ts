@@ -17,11 +17,21 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
   let always = typeof param === 'string' ? false : (param?.always ?? false)
   let el: HTMLDivElement | null = null
 
-  function show() {
+  function place(x: number, y: number) {
+    if (!el) return
+    const gap = 14
+    const tw = el.offsetWidth
+    const th = el.offsetHeight
+    const left = Math.min(x + gap, window.innerWidth - tw - 4)
+    const top = Math.min(y + gap, window.innerHeight - th - 4)
+    el.style.left = `${left}px`
+    el.style.top = `${top}px`
+  }
+
+  function show(e: MouseEvent) {
     if (!label) return
 
     // Suppress when inside an expanded sidebar (labels are already visible).
-    // Outside a sidebar, always show.
     const sidebar = node.closest('.sidebar')
     if (!always && sidebar && !sidebar.classList.contains('collapsed')) return
 
@@ -29,30 +39,11 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
     el.className = 'hf-tooltip'
     el.textContent = label
     document.body.appendChild(el)
+    place(e.clientX, e.clientY)
+  }
 
-    const rect = node.getBoundingClientRect()
-    const gap = 8
-
-    // offsetHeight/offsetWidth force layout so dimensions are available immediately
-    const tw = el.offsetWidth
-    const th = el.offsetHeight
-
-    // Prefer right of the element; flip left if it would overflow the viewport
-    const leftIfRight = rect.right + gap
-    const leftIfLeft = rect.left - gap - tw
-    const left =
-      leftIfRight + tw <= window.innerWidth
-        ? leftIfRight
-        : Math.max(0, leftIfLeft)
-
-    // Centre vertically; clamp so it stays within the viewport
-    const top = Math.min(
-      Math.max(0, rect.top + (rect.height - th) / 2),
-      window.innerHeight - th - gap,
-    )
-
-    el.style.left = `${left}px`
-    el.style.top = `${top}px`
+  function move(e: MouseEvent) {
+    place(e.clientX, e.clientY)
   }
 
   function hide() {
@@ -60,11 +51,14 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
     el = null
   }
 
-  function showOnKeyboard() {
-    if (node.matches(':focus-visible')) show()
+  function showOnKeyboard(e: FocusEvent) {
+    if (!node.matches(':focus-visible')) return
+    const rect = node.getBoundingClientRect()
+    show({ clientX: rect.left, clientY: rect.bottom } as MouseEvent)
   }
 
   node.addEventListener('mouseenter', show)
+  node.addEventListener('mousemove', move)
   node.addEventListener('mouseleave', hide)
   node.addEventListener('click', hide)
   node.addEventListener('focusin', showOnKeyboard)
@@ -78,6 +72,7 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
     },
     destroy() {
       node.removeEventListener('mouseenter', show)
+      node.removeEventListener('mousemove', move)
       node.removeEventListener('mouseleave', hide)
       node.removeEventListener('click', hide)
       node.removeEventListener('focusin', showOnKeyboard)

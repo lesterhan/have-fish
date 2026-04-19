@@ -11,12 +11,13 @@
   --sp-3xl: 4rem;
 
   /* --- Typography ---
-   * Verdana: taller and more readable than Tahoma, still Windows-era.
-   * Consolas: Microsoft's terminal/coding font, clean and period-accurate.
+   * Lucida Grande / Segoe UI: period-accurate Graphite shell body font.
+   * JetBrains Mono: all numeric data and code.
+   * Source Serif 4: section headers and month labels.
    */
-  --font-sans: 'Verdana', 'Tahoma', Arial, sans-serif;
-  --font-serif: Georgia, 'Book Antiqua', 'Times New Roman', serif;
-  --font-mono: 'Consolas', 'Lucida Console', ui-monospace, monospace;
+  --font-sans: 'Lucida Grande', 'Segoe UI', Tahoma, sans-serif;
+  --font-serif: 'Source Serif 4', Georgia, serif;
+  --font-mono: 'JetBrains Mono', Consolas, monospace;
 
   --text-xs: 0.75rem; /* 12px */
   --text-sm: 0.875rem; /* 14px */
@@ -35,26 +36,37 @@
   --weight-semibold: 700;
 
   /* --- The desktop --- */
-  --color-desktop: #008080; /* The teal. Non-negotiable. */
+  --color-desktop: #b8bcc2; /* Graphite grey shell */
 
-  /* --- Heading banner --- */
-  --color-banner-from: #1a3f3f; /* dark muted teal */
-  --color-banner-to: #7aa0a0; /* light muted teal */
+  /* --- Window chrome (cool silver-grey, Graphite shell) --- */
+  --color-window: #f4f5f7;        /* panel surface */
+  --color-window-raised: #eceef2; /* alternate panel surface */
+  --color-window-inset: #ffffff;  /* text inputs, list boxes */
+  --color-sidebar: #e2e5ea;
+  --color-sidebar-border: #8a909a;
 
-  /* --- Panel title bar (warm amber-orange, complements the teal desktop) --- */
-  --color-panel-header-from: #8b4a00; /* deep burnt orange */
-  --color-panel-header-to: #e8b86d; /* soft warm amber */
-  --color-panel-header-text: #ffffff;
+  /* --- Title bar (Graphite gradient) --- */
+  --color-titlebar-bg: linear-gradient(180deg, #d8dde4 0%, #a8aeb8 50%, #8a909a 100%);
+  --color-titlebar-fg: #1a1f28;
 
-  /* --- Window chrome (the silver-grey surfaces everything sits on) --- */
-  --color-window: #d4d0c8; /* classic window background */
-  --color-window-raised: #ece9d8; /* content area, slightly warmer (XP Luna) */
-  --color-window-inset: #ffffff; /* text inputs, list boxes */
+  /* --- Section bar (dark panel headers — Breakdown, Transactions) --- */
+  --color-section-bar-bg: linear-gradient(180deg, #5a6068, #2a3038);
+  --color-section-bar-fg: #f0f2f4;
+  --color-section-bar-border-top: #7a808a;
+  --color-section-bar-border-bottom: #0a1018;
 
-  /* --- Title bar gradient (XP blue — navy to sky) --- */
-  --color-titlebar-from: #0a246a;
-  --color-titlebar-to: #a6caf0;
-  --color-titlebar-text: #ffffff;
+  /* --- Rules and dividers --- */
+  --color-rule: #c8ccd2;
+  --color-rule-soft: #e2e5ea;
+
+  /* --- Heading banner (updated to Graphite tones) --- */
+  --color-banner-from: #2a3038;
+  --color-banner-to: #5a6068;
+
+  /* --- Panel title bar (legacy; used by Panel.svelte until epic redesign) --- */
+  --color-panel-header-from: #5a6068;
+  --color-panel-header-to: #8a909a;
+  --color-panel-header-text: #f0f2f4;
 
   /* --- The bevel system ---
    * These four values recreate the classic raised/sunken 3D chrome.
@@ -66,21 +78,27 @@
   --color-bevel-shadow: #404040;
 
   /* --- Text --- */
-  --color-text: #000000;
-  --color-text-muted: #444444;
-  --color-text-disabled: #808080;
-  --color-text-on-dark: #ffffff;
+  --color-text: #1a1f28;
+  --color-text-muted: #5a6068;
+  --color-text-disabled: #8a909a;
+  --color-text-on-dark: #f0f2f4;
 
-  /* --- Accent / selection (the classic XP highlight blue) --- */
-  --color-accent: #0a246a;
-  --color-accent-mid: #316ac5; /* the mid-blue used in hover states */
-  --color-accent-light: #c1d2ee; /* selection highlight background */
+  /* --- Accent (default: Aqua — overridden at runtime by accent.ts) --- */
+  --color-accent: #2a78c0;
+  --color-accent-hi: #5aa8e8;           /* highlight / icon tint */
+  --color-accent-chip-bg: #dde6f2;      /* currency pill background */
+  --color-accent-chip-fg: #1a3868;      /* currency pill text */
+  --color-accent-bar-track: #dde6f2;    /* block-bar unfilled track */
+  --color-titlebar-accent: linear-gradient(180deg, #5aa8e8, #2a78c0); /* title bar pill */
+  /* legacy aliases — components updated in story 4 */
+  --color-accent-mid: #5aa8e8;
+  --color-accent-light: #dde6f2;
   --color-accent-text: #ffffff;
-  --color-dropdown-active: #316ac5; /* dropdown row highlight — overridden in dark */
+  --color-dropdown-active: #2a78c0;
 
   /* --- Borders --- */
-  --color-border: #808080;
-  --color-divider: #808080;
+  --color-border: #c8ccd2;
+  --color-divider: #c8ccd2;
 
   /* --- Tooltip --- */
   --color-tooltip-bg: #ffffe1; /* classic Windows tooltip yellow */
@@ -144,29 +162,37 @@
   /* --- The desktop --- */
   --color-desktop: #1e1f29;
 
+  /* --- Window chrome --- */
+  --color-window: #44475a;
+  --color-window-raised: #282a36;
+  --color-window-inset: #21222c;
+  --color-sidebar: #2a2d3e;
+  --color-sidebar-border: #44475a;
+
+  /* --- Title bar (Dracula-adapted Graphite) --- */
+  --color-titlebar-bg: linear-gradient(180deg, #44475a 0%, #2a2d3e 50%, #1e1f29 100%);
+  --color-titlebar-fg: #f8f8f2;
+
+  /* --- Section bar --- */
+  --color-section-bar-bg: linear-gradient(180deg, #383a4e, #1e1f29);
+  --color-section-bar-fg: #f8f8f2;
+  --color-section-bar-border-top: #44475a;
+  --color-section-bar-border-bottom: #0d0e14;
+
+  /* --- Rules --- */
+  --color-rule: #44475a;
+  --color-rule-soft: #383a4e;
+
   /* --- Heading banner --- */
   --color-banner-from: #1e1f29;
   --color-banner-to: #44475a;
 
-  /* --- Panel title bar (Dracula slate) --- */
+  /* --- Panel title bar (legacy) --- */
   --color-panel-header-from: #2a2d4a;
   --color-panel-header-to: #6272a4;
   --color-panel-header-text: #f8f8f2;
 
-  /* --- Window chrome --- */
-  --color-window: #44475a; /* raised surfaces — current line */
-  --color-window-raised: #282a36; /* main content — Dracula background */
-  --color-window-inset: #21222c; /* inputs — darkest layer */
-
-  /* --- Title bar (Dracula purple) --- */
-  --color-titlebar-from: #44475a;
-  --color-titlebar-to: #bd93f9;
-  --color-titlebar-text: #f8f8f2;
-
-  /* --- Bevel system (dark-adapted)
-   * light edge becomes a soft purple highlight
-   * shadow edge becomes near-black
-   */
+  /* --- Bevel system (dark-adapted) --- */
   --color-bevel-light: #6272a4;
   --color-bevel-mid: #383a4e;
   --color-bevel-dark: #1a1b26;
@@ -178,20 +204,25 @@
   --color-text-disabled: #6272a4;
   --color-text-on-dark: #f8f8f2;
 
-  /* --- Accent (Dracula purple replaces XP blue) --- */
+  /* --- Accent (Dracula purple — runtime accent vars not overridden in dark) --- */
   --color-accent: #bd93f9;
+  --color-accent-hi: #d0b3fc;
+  --color-accent-chip-bg: #3a3560;
+  --color-accent-chip-fg: #e0d4fc;
+  --color-accent-bar-track: #3a3560;
+  --color-titlebar-accent: linear-gradient(180deg, #d0b3fc, #bd93f9);
   --color-accent-mid: #bd93f9;
   --color-accent-light: #565970;
   --color-accent-text: #f8f8f2;
-  --color-dropdown-active: #6272a4; /* slate — readable with white text */
+  --color-dropdown-active: #6272a4;
 
   /* --- Borders --- */
   --color-border: #6272a4;
   --color-divider: #6272a4;
 
   /* --- Tooltip --- */
-  --color-tooltip-bg: #2a2c3e; /* dark inset, distinct from window surface */
-  --color-tooltip-border: #6272a4; /* Dracula comment/border purple */
+  --color-tooltip-bg: #2a2c3e;
+  --color-tooltip-border: #6272a4;
   --color-tooltip-text: #f8f8f2;
 
   /* --- Semantic --- */
@@ -203,10 +234,10 @@
   --color-danger-light: #3b1a1a;
 
   /* --- Amounts --- */
-  --color-amount-positive: #50fa7b; /* Dracula green */
-  --color-amount-negative: #ff5555; /* Dracula red   */
+  --color-amount-positive: #50fa7b;
+  --color-amount-negative: #ff5555;
 
   /* --- Transfers --- */
-  --color-transfer-in: #8be9fd; /* Dracula cyan  */
-  --color-transfer-out: #7b8ec8; /* muted indigo  */
+  --color-transfer-in: #8be9fd;
+  --color-transfer-out: #7b8ec8;
 }

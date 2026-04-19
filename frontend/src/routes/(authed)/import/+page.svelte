@@ -11,9 +11,8 @@
     type CommitTransaction,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import EditParserPanel from '$lib/components/import/EditParserPanel.svelte'
   import AddParserWizard from '$lib/components/wizards/AddParserWizard.svelte'
@@ -34,6 +33,7 @@
   let fromAccountId = $state('')
   let defaultCurrency = $state('CAD')
   let file = $state<File | null>(null)
+  let dragOver = $state(false)
   let loading = $state(false)
   let error = $state('')
   let noParserFound = $state(false)
@@ -237,94 +237,145 @@
   }
 </script>
 
-{#if !preview}
-  <Panel title="Import CSV">
+<div class="page">
+  {#if !preview}
     <form
-      class="import-form"
+      class="import-window"
       onsubmit={(e) => {
         e.preventDefault()
         handleSubmit()
       }}
     >
-      <div class="form-grid">
-        <label class="field-label" for="to-account">Uncategorized account</label
-        >
-        <AccountPathInput
-          {accounts}
-          bind:value={toAccountId}
-          placeholder="Select or create an account…"
-          oncreate={handleAccountCreated}
-        />
-
-        <label class="field-label" for="default-currency"
-          >Default currency</label
-        >
-        <TextInput
-          id="default-currency"
-          bind:value={defaultCurrency}
-          placeholder="CAD"
-          style="width: 5rem"
-          required
-        />
-
-        <label class="field-label" for="csv-file">CSV file</label>
-        <input
-          id="csv-file"
-          type="file"
-          accept=".csv"
-          onchange={(e) => {
-            file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null
-          }}
-          required
-        />
+      <div class="section-bar">
+        <span class="section-bar-title">IMPORT CSV</span>
       </div>
 
-      {#if error}
-        <p class="error">{error}</p>
-        {#if noParserFound}
-          <p class="hint">
-            Go to <a href="/settings">Settings</a> to create a parser for this file.
-          </p>
-        {/if}
-      {/if}
+      <div class="import-body">
+        <label
+          class="drop-zone"
+          class:has-file={!!file}
+          class:drag-over={dragOver}
+          ondragover={(e) => {
+            e.preventDefault()
+            dragOver = true
+          }}
+          ondragleave={() => {
+            dragOver = false
+          }}
+          ondrop={(e) => {
+            e.preventDefault()
+            dragOver = false
+            const f = e.dataTransfer?.files[0]
+            if (f) file = f
+          }}
+        >
+          {#if file}
+            <span class="file-name">{file.name}</span>
+            <span class="file-size">{(file.size / 1024).toFixed(1)} KB</span>
+          {:else}
+            <span class="drop-label">DROP CSV OR CLICK TO BROWSE</span>
+            <span class="drop-hint">accepts .csv</span>
+          {/if}
+          <input
+            id="csv-file"
+            type="file"
+            accept=".csv"
+            class="file-input-hidden"
+            onchange={(e) => {
+              file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null
+            }}
+          />
+        </label>
 
-      <div class="form-actions">
-        <Button type="submit" variant="primary" disabled={loading}>
-          {loading ? 'Parsing…' : 'Preview import'}
-        </Button>
+        <div class="config-strip">
+          <div class="config-fields">
+            <div class="config-field">
+              <span class="config-label">DEFAULT CURRENCY</span>
+              <TextInput
+                id="default-currency"
+                bind:value={defaultCurrency}
+                placeholder="CAD"
+                style="width: 5rem"
+                required
+              />
+            </div>
+            <div class="config-field config-account">
+              <span class="config-label">UNCATEGORIZED ACCOUNT</span>
+              <AccountPathInput
+                {accounts}
+                bind:value={toAccountId}
+                placeholder="Select or create an account…"
+                oncreate={handleAccountCreated}
+              />
+            </div>
+          </div>
+          <div class="config-actions">
+            <GradientButton type="submit" disabled={loading} active>
+              {loading ? 'Parsing…' : 'Preview import'}
+            </GradientButton>
+          </div>
+        </div>
+
+        {#if error}
+          <div class="error-strip">
+            <span class="error-text">{error}</span>
+            {#if noParserFound}
+              <span class="hint-text">
+                Go to <a href="/settings">Settings</a> to add a parser for this
+                file.
+              </span>
+            {/if}
+          </div>
+        {/if}
       </div>
     </form>
-  </Panel>
 
-  <ParsersPanel
-    {parsers}
-    {accounts}
-    loading={parsersLoading}
-    onedit={(p) => {
-      editingParser = p
-    }}
-    onadd={() => {
-      showAddParser = true
-    }}
-  />
-{:else}
-  <ImportPreviewPanel
-    {preview}
-    bind:rowStates
-    {accounts}
-    bind:fromAccountId
-    bind:importAsLiabilities
-    {defaultCurrency}
-    {loading}
-    {error}
-    {missingPaths}
-    onaccountcreated={handleAccountCreated}
-    oncreatemissing={handleCreateMissingAccount}
-    oncreateallmissing={handleCreateAllMissing}
-    onconfirm={handleConfirm}
-    oncancel={handleCancel}
-  />
-{/if}
+    <div class="bottom-cols">
+      <ParsersPanel
+        {parsers}
+        {accounts}
+        loading={parsersLoading}
+        onedit={(p) => {
+          editingParser = p
+        }}
+        onadd={() => {
+          showAddParser = true
+        }}
+      />
+      {#if editingParser}
+        <EditParserPanel
+          parser={editingParser}
+          {accounts}
+          onSuccess={(updated) => {
+            parsers = parsers.map((p) => (p.id === updated.id ? updated : p))
+            editingParser = null
+          }}
+          onCancel={() => {
+            editingParser = null
+          }}
+          onAccountCreated={handleAccountCreated}
+        />
+      {/if}
+    </div>
+  {:else}
+    <ImportPreviewPanel
+      {preview}
+      bind:rowStates
+      {accounts}
+      bind:fromAccountId
+      bind:importAsLiabilities
+      {defaultCurrency}
+      {loading}
+      {error}
+      {missingPaths}
+      onaccountcreated={handleAccountCreated}
+      oncreatemissing={handleCreateMissingAccount}
+      oncreateallmissing={handleCreateAllMissing}
+      onconfirm={handleConfirm}
+      oncancel={handleCancel}
+    />
+  {/if}
+</div>
 
 <AddParserWizard
   bind:open={showAddParser}
@@ -334,57 +385,169 @@
   }}
 />
 
-{#if editingParser}
-  <EditParserPanel
-    parser={editingParser}
-    {accounts}
-    onSuccess={(updated) => {
-      parsers = parsers.map((p) => (p.id === updated.id ? updated : p))
-      editingParser = null
-    }}
-    onCancel={() => {
-      editingParser = null
-    }}
-    onAccountCreated={handleAccountCreated}
-  />
-{/if}
-
 <style>
-  .import-form {
+  .page {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-sm);
-    padding: var(--sp-sm);
+    margin: calc(-1 * var(--sp-lg));
   }
 
-  .form-grid {
-    display: grid;
-    grid-template-columns: max-content auto;
+  /* ── Import setup window ── */
+
+  .import-window {
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .section-bar {
+    display: flex;
     align-items: center;
-    gap: var(--sp-xs) var(--sp-sm);
-    font-size: var(--text-sm);
+    gap: var(--sp-md);
+    padding: 4px 12px;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
   }
 
-  .field-label {
-    font-weight: var(--weight-semibold);
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-section-bar-fg);
     white-space: nowrap;
   }
 
-  .form-actions {
+  .import-body {
     display: flex;
-    justify-content: flex-start;
-    padding-top: var(--sp-xs);
-    border-top: 1px solid var(--color-bevel-mid);
+    flex-direction: column;
   }
 
-  .error {
+  /* ── Drop zone ── */
+
+  .drop-zone {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-xs);
+    height: 120px;
+    margin: var(--sp-md);
+    background: var(--color-window-inset);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
+    border: 2px dashed var(--color-border);
+    cursor: pointer;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
+  }
+
+  .drop-zone:hover,
+  .drop-zone.drag-over {
+    border-color: var(--color-accent-mid);
+    background: var(--color-accent-light);
+  }
+
+  .drop-zone.has-file {
+    border-color: var(--color-accent);
+    border-style: solid;
+  }
+
+  .drop-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  .drop-hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-disabled);
+  }
+
+  .file-name {
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
+    color: var(--color-text);
+  }
+
+  .file-size {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .file-input-hidden {
+    display: none;
+  }
+
+  /* ── Config strip ── */
+
+  .config-strip {
+    display: flex;
+    flex-direction: column;
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .config-fields {
+    display: flex;
+    align-items: flex-end;
+    gap: var(--sp-md);
+    padding: var(--sp-sm) var(--sp-md);
+  }
+
+  .config-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .config-account {
+    flex: 1;
+  }
+
+  .config-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-text-muted);
+  }
+
+  .config-actions {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding: var(--sp-xs) var(--sp-md);
+    border-top: 1px solid var(--color-rule);
+    background: linear-gradient(180deg, var(--color-window), var(--color-window-raised));
+  }
+
+  /* ── Error strip ── */
+
+  .error-strip {
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: var(--sp-sm);
+    padding: var(--sp-xs) var(--sp-md);
+    background: var(--color-danger-light);
+    font-size: var(--text-sm);
+    border-top: 1px solid var(--color-danger);
+  }
+
+  .error-text {
     color: var(--color-danger);
   }
 
-  .hint {
-    font-size: var(--text-sm);
+  .hint-text {
     color: var(--color-text-muted);
-    margin-top: var(--sp-xs);
+  }
+
+  /* ── Bottom section ── */
+
+  .bottom-cols {
+    display: flex;
+    flex-direction: column;
   }
 </style>

@@ -1,11 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import SpendingChart from '$lib/components/spending/SpendingChart.svelte'
-  import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
-  import { currencyFlag } from '$lib/currency'
+  import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
+  import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
+  import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import {
     fetchSpendingSummary,
     fetchTransactions,
@@ -23,6 +21,8 @@
     MonthlySpend,
   } from '$lib/api'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import { scrollShadow } from '$lib/scrollShadow'
 
   // --- Month state ---
   const now = new Date()
@@ -43,6 +43,7 @@
   let accounts = $state<Account[]>([])
   let txns = $state<Transaction[]>([])
   let txnsLoading = $state(false)
+  let txnFilter = $state<string>('ALL')
 
   // --- FX conversion state ---
   let converting = $state(false)
@@ -50,11 +51,34 @@
   let fxRemaining = $state(0)
   let convertedTotal = $state<string | null>(null)
   let conversionUnavailable = $state(false)
+  let fxRates = $state<Record<string, number>>({})
 
   let needsConversion = $derived(
     currencyEntries.some(([c]) => c !== preferredCurrency),
   )
-  let prefFlag = $derived(currencyFlag(preferredCurrency))
+
+  let filteredTxns = $derived(
+    txnFilter === 'ALL'
+      ? txns
+      : txns.filter((tx) => tx.postings.some((p) => p.currency === txnFilter)),
+  )
+
+  let pageTotal = $derived.by<number | null>(() => {
+    if (!converting || fxFetching || Object.keys(fxRates).length === 0)
+      return null
+    return filteredTxns.reduce((sum, tx) => {
+      const main =
+        tx.postings.find((p) =>
+          accounts
+            .find((a) => a.id === p.accountId)
+            ?.path.startsWith('expenses:'),
+        ) ?? tx.postings[0]
+      if (!main) return sum
+      return (
+        sum + Math.abs(parseFloat(main.amount)) * (fxRates[main.currency] ?? 1)
+      )
+    }, 0)
+  })
 
   // --- Monthly trend data ---
   let monthlyData = $state<MonthlySpend[]>([])
@@ -112,6 +136,7 @@
     fxFetching = true
     conversionUnavailable = false
     convertedTotal = null
+    fxRates = {}
 
     const from = monthStart(year, month)
     const to = monthEnd(year, month)
@@ -120,14 +145,29 @@
     const missing = pairs.filter((p) => !p.cached)
     fxRemaining = missing.length
 
+    const rateMap: Record<string, number> = {}
+
     if (missing.length > 0) {
       await Promise.all(
         missing.map(async (pair) => {
-          await fetchFxRate(pair.date, pair.from, pair.to)
+          const r = await fetchFxRate(pair.date, pair.from, pair.to)
+          if (r) rateMap[pair.from] = parseFloat(r.rate)
           fxRemaining -= 1
         }),
       )
     }
+
+    // Fill any currencies not yet in rateMap from cached pairs
+    await Promise.all(
+      pairs
+        .filter((p) => p.cached && !(p.from in rateMap))
+        .map(async (pair) => {
+          const r = await fetchFxRate(pair.date, pair.from, pair.to)
+          if (r) rateMap[pair.from] = parseFloat(r.rate)
+        }),
+    )
+
+    fxRates = rateMap
 
     const result = await fetchSpendingConverted(from, to, preferredCurrency)
     if (result.total !== null) {
@@ -148,6 +188,7 @@
       fxFetching = false
       fxRemaining = 0
       conversionUnavailable = false
+      fxRates = {}
     }
   }
 
@@ -161,14 +202,6 @@
   })
 
   // --- Data loading ---
-  let txnPanelTitle = $derived.by(() => {
-    const label = drillPath
-      ? drillPath.split(':').slice(1).join(':') || drillPath
-      : null
-    const count = txnsLoading ? '' : ` (${txns.length})`
-    return label ? `Transactions — ${label}${count}` : `Transactions${count}`
-  })
-
   type Crumb = { label: string; path: string | null; current: boolean }
   let breadcrumbs = $derived.by<Crumb[]>(() => {
     const root =
@@ -235,17 +268,20 @@
     year = next.year
     month = next.month
     drillPath = null
+    txnFilter = 'ALL'
     load().then(loadTxns)
   }
 
   function drill(category: string) {
     drillPath = category
+    txnFilter = 'ALL'
     load()
     loadTxns()
   }
 
   function navigateTo(path: string | null) {
     drillPath = path
+    txnFilter = 'ALL'
     load()
     loadTxns()
   }
@@ -265,99 +301,79 @@
 </script>
 
 <div class="page">
-  <header class="page-header">
-    <div class="header-top-row">
-      <div class="month-nav">
-        <Button
-          variant="ghost"
-          square
+  <div class="left-col" class:is-loading={loading}>
+    <div class="month-bar">
+      <div class="nav-btns">
+        <GradientButton
           onclick={() => navigate(-1)}
           aria-label="Previous month"
         >
-          <Icon name="left-circle" size={16} />
-        </Button>
-        <Button
-          variant="ghost"
-          square
-          onclick={() => navigate(1)}
-          aria-label="Next month"
-        >
-          <Icon name="right-circle" size={16} />
-        </Button>
+          <Icon name="left-arrow" />
+        </GradientButton>
+        <GradientButton onclick={() => navigate(1)} aria-label="Next month">
+          <Icon name="right-arrow" />
+        </GradientButton>
       </div>
-      <h1 class="month-name">{MONTH_NAMES[month - 1]} {year}</h1>
+      <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
       {#if summary && needsConversion}
-        <Button
-          variant="ghost"
-          square
+        <GradientButton
           active={converting}
           disabled={fxFetching}
-          tooltip={converting
-            ? 'Show raw totals'
-            : `Convert to ${preferredCurrency}`}
           aria-label={converting
             ? 'Show raw totals'
             : `Convert to ${preferredCurrency}`}
           onclick={handleConvertToggle}
         >
-          <Icon name="exchange" size={16} />
-        </Button>
+          <CurrencyPill code={preferredCurrency} size="xs" />
+        </GradientButton>
       {/if}
     </div>
 
     {#if summary && currencyEntries.length > 0}
-      <div class="chips-row">
-        <!-- Total spend chip -->
-        <div class="chip">
-          <span class="chip-label">Total Spend</span>
+      <div class="summary-grid">
+        <!-- Total Spend -->
+        <div class="summary-card">
+          <div class="card-label">TOTAL SPEND</div>
           {#each currencyEntries as [c, amount]}
-            <div class="chip-amount-row">
-              <span class="chip-currency"
-                >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
-              >
-              <span class="chip-amount">{formatAmount(amount)}</span>
+            <div class="card-row">
+              <CurrencyPill code={c} size="xs" />
+              <span class="card-amount">{formatAmount(amount)}</span>
             </div>
           {/each}
-          {#if needsConversion && converting && fxFetching}
-            <div class="chip-converted-row chip-converted-loading">
-              <span class="spinner" aria-label="Loading"></span>
-              <span class="chip-fx-label">
-                {fxRemaining > 0
-                  ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…`
-                  : 'Converting…'}
-              </span>
-            </div>
-          {:else if needsConversion && converting && convertedTotal !== null}
-            <div class="chip-converted-row">
-              <span class="chip-converted-eq">≈</span>
-              <span class="chip-currency"
-                >{prefFlag ? `${prefFlag} ` : ''}{preferredCurrency}</span
-              >
-              <span class="chip-amount">{formatAmount(convertedTotal)}</span>
-            </div>
-          {:else if needsConversion && converting && conversionUnavailable}
-            <div class="chip-converted-row">
-              <span class="chip-warn">Some rates unavailable</span>
+          {#if needsConversion && converting}
+            <div class="card-sigma-row">
+              {#if fxFetching}
+                <span class="card-sigma-badge">Σ TOTAL</span>
+                <span class="card-sigma-loading">
+                  {fxRemaining > 0
+                    ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…`
+                    : 'Converting…'}
+                </span>
+              {:else if convertedTotal !== null}
+                <span class="card-sigma-badge">Σ TOTAL</span>
+                <span class="card-sigma-amount"
+                  ><CurrencyPill code={preferredCurrency} size="xs" />
+                  {formatAmount(convertedTotal)}</span
+                >
+              {:else if conversionUnavailable}
+                <span class="card-sigma-warn">Some rates unavailable</span>
+              {/if}
             </div>
           {/if}
         </div>
 
-        <!-- vs last month chip -->
-        <div class="chip chip-delta">
-          <span class="chip-label">vs Last Month</span>
+        <!-- vs Last Month -->
+        <div class="summary-card">
+          <div class="card-label">VS LAST MONTH</div>
           {#if deltaLastMonth === null}
-            <span class="chip-delta-null">—</span>
+            <span class="card-null">—</span>
           {:else}
             {#each currencyEntries as [c]}
               {#if deltaLastMonth[c] !== undefined}
-                <div class="chip-delta-row">
-                  {#if isMultiCurrency}
-                    <span class="chip-delta-currency"
-                      >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
-                    >
-                  {/if}
+                <div class="card-row">
+                  {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
                   <span
-                    class="chip-delta-value"
+                    class="card-delta"
                     class:up={deltaLastMonth[c] > 0}
                     class:down={deltaLastMonth[c] < 0}
                   >
@@ -369,22 +385,18 @@
           {/if}
         </div>
 
-        <!-- vs 3-month avg chip -->
-        <div class="chip chip-delta">
-          <span class="chip-label">vs 3-Mo Avg</span>
+        <!-- vs 3-Month Avg -->
+        <div class="summary-card">
+          <div class="card-label">VS 3-MO AVG</div>
           {#if delta3moAvg === null}
-            <span class="chip-delta-null">—</span>
+            <span class="card-null">—</span>
           {:else}
             {#each currencyEntries as [c]}
               {#if delta3moAvg[c] !== undefined}
-                <div class="chip-delta-row">
-                  {#if isMultiCurrency}
-                    <span class="chip-delta-currency"
-                      >{currencyFlag(c) ? `${currencyFlag(c)} ` : ''}{c}</span
-                    >
-                  {/if}
+                <div class="card-row">
+                  {#if isMultiCurrency}<CurrencyPill code={c} size="xs" />{/if}
                   <span
-                    class="chip-delta-value"
+                    class="card-delta"
                     class:up={delta3moAvg[c] > 0}
                     class:down={delta3moAvg[c] < 0}
                   >
@@ -397,31 +409,19 @@
         </div>
       </div>
     {/if}
-  </header>
 
-  {#if loading && !summary}
-    <p class="status">Loading…</p>
-  {:else if error}
-    <p class="status error">{error}</p>
-  {:else if !summary || currencies.length === 0}
-    <p class="status">No expenses recorded for this month.</p>
-  {:else}
-    <div class="panels" class:is-loading={loading}>
-      <Panel title="Breakdown">
-        {#if currencies.length > 1}
-          <div class="currency-tabs" role="tablist" aria-label="Currency">
-            {#each currencies as c}
-              <button
-                class="currency-tab"
-                class:active={currency === c}
-                role="tab"
-                aria-selected={currency === c}
-                onclick={() => (currency = c)}>{c}</button
-              >
-            {/each}
-          </div>
-        {/if}
-        <div class="panel-body">
+    {#if loading && !summary}
+      <p class="status">Loading…</p>
+    {:else if error}
+      <p class="status error">{error}</p>
+    {:else if !summary || currencies.length === 0}
+      <p class="status">No expenses recorded for this month.</p>
+    {:else}
+      <div class="breakdown-section">
+        <div class="section-bar">
+          <span class="section-bar-title"
+            >Breakdown · {summary.categories.length} categories</span
+          >
           <nav class="breadcrumb" aria-label="Category navigation">
             {#each breadcrumbs as crumb, i}
               {#if i > 0}<span class="sep" aria-hidden="true">:</span>{/if}
@@ -437,275 +437,565 @@
               {/if}
             {/each}
           </nav>
-
-          <SpendingChart
+        </div>
+        {#if currencies.length > 1}
+          <div class="currency-tabs-row">
+            <div class="currency-tabs" role="tablist" aria-label="Currency">
+              {#each currencies as c}
+                <button
+                  class="currency-tab"
+                  class:active={currency === c}
+                  role="tab"
+                  aria-selected={currency === c}
+                  onclick={() => (currency = c)}>{c}</button
+                >
+              {/each}
+            </div>
+          </div>
+        {/if}
+        <div class="panel-body">
+          <SpendingBreakdown
             categories={summary.categories}
             {currency}
             onclick={drill}
           />
         </div>
-      </Panel>
+      </div>
+    {/if}
+  </div>
 
-      <Panel title={txnPanelTitle}>
+  <div class="right-col">
+    <div class="txn-panel">
+      <div class="txn-header">
+        <span class="txn-header-title">Transactions</span>
+        <span class="txn-header-count">{txns.length} entries</span>
+        <span class="txn-header-spacer"></span>
+        <a
+          class="txn-view-all"
+          href="/transactions?from={monthStart(year, month)}&to={monthEnd(
+            year,
+            month,
+          )}">VIEW ALL</a
+        >
+      </div>
+      <div class="txn-toolbar">
+        <span class="txn-toolbar-label">FILTER</span>
+        <button
+          class="filter-chip"
+          class:active={txnFilter === 'ALL'}
+          onclick={() => (txnFilter = 'ALL')}>ALL</button
+        >
+        {#each currencies as c}
+          <button
+            class="filter-chip"
+            class:active={txnFilter === c}
+            onclick={() => (txnFilter = c)}>{c}</button
+          >
+        {/each}
+        <span class="txn-toolbar-spacer"></span>
+        <span class="txn-sort-label">↑↓ DATE</span>
+      </div>
+      <div class="txn-col-header">
+        <span>DATE</span>
+        <span>PAYEE / ACCOUNT</span>
+        <span class="col-header-right">AMOUNT</span>
+      </div>
+      <div class="txn-body" use:scrollShadow>
         {#if txnsLoading && txns.length === 0}
           <p class="status">Loading…</p>
         {:else if txns.length === 0}
           <p class="status">No transactions found.</p>
         {:else}
           <div class="txn-list">
-            {#each txns as tx (tx.id)}
-              <TransactionRow
+            {#each filteredTxns as tx, i (tx.id)}
+              <SpendingTxnRow
                 {tx}
+                idx={i}
+                converted={converting && !fxFetching}
+                {fxRates}
+                baseCurrency={preferredCurrency}
                 {accounts}
-                ondeleted={() => {
-                  txns = txns.filter((t) => t.id !== tx.id)
-                }}
               />
             {/each}
           </div>
         {/if}
-      </Panel>
+      </div>
+      <div class="txn-footer">
+        <span class="txn-footer-count"
+          >SHOWING {filteredTxns.length} / {txns.length}</span
+        >
+        <span class="txn-footer-spacer"></span>
+        {#if pageTotal !== null}
+          <span class="txn-footer-label">page total</span>
+          <span class="txn-footer-total">
+            {pageTotal.toLocaleString('en-CA', {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            })}
+            {preferredCurrency}
+          </span>
+        {/if}
+      </div>
     </div>
-  {/if}
+  </div>
 </div>
 
 <style>
-  /* Page header */
-  .page-header {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-sm);
-    padding: var(--sp-md) var(--sp-xl);
-    margin-bottom: var(--sp-xl);
-    background: var(--color-window-raised);
-    border-left: 4px solid var(--color-accent);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  @media (max-width: 520px) {
-    .page-header {
-      padding: var(--sp-md);
-    }
-  }
-
-  .header-top-row {
+  /* Month bar */
+  .month-bar {
     display: flex;
     align-items: center;
-    gap: var(--sp-sm);
-  }
-
-  .month-name {
-    font-family: var(--font-serif);
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-    line-height: var(--leading-tight);
-    margin: 0;
-  }
-
-  .month-nav {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-  }
-
-  /* Chip row */
-  .chips-row {
-    display: flex;
-    align-items: stretch;
-    gap: var(--sp-sm);
-    flex-wrap: wrap;
-  }
-
-  .chip {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    padding: var(--sp-xs) var(--sp-sm);
-    box-shadow: var(--shadow-sunken);
-    min-width: 0;
-  }
-
-  .chip-label {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    letter-spacing: 0.08em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
-
-  /* Totals chip */
-  .chip-amount-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-sm);
-  }
-
-  .chip-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .chip-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-base);
-    font-weight: var(--weight-normal);
-    color: var(--color-text);
-    line-height: var(--leading-tight);
-  }
-
-  .chip-secondary {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .chip-converted-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-xs);
-    margin-top: 2px;
-    padding-top: 3px;
-    border-top: 1px solid var(--color-border);
-  }
-
-  .chip-converted-loading {
-    align-items: center;
-  }
-
-  .chip-converted-eq {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .chip-warn {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    color: var(--color-warning);
-  }
-
-  /* FX fetch status inside chip */
-  .chip-fx-status {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-  }
-
-  .chip-fx-label {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  /* Delta chips */
-  .chip-delta {
-    min-width: 7rem;
-  }
-
-  .chip-delta-row {
-    display: flex;
-    align-items: baseline;
-    gap: var(--sp-xs);
-  }
-
-  .chip-delta-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .chip-delta-value {
-    font-family: var(--font-mono);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
-    line-height: var(--leading-tight);
-  }
-
-  .chip-delta-value.up {
-    color: var(--color-amount-negative);
-  }
-
-  .chip-delta-value.down {
-    color: var(--color-amount-positive);
-  }
-
-  .chip-delta-null {
-    font-family: var(--font-mono);
-    font-size: var(--text-lg);
-    color: var(--color-text-disabled);
-    line-height: var(--leading-tight);
-  }
-
-  .spinner {
-    display: inline-block;
-    width: 12px;
-    height: 12px;
-    border: 2px solid var(--color-text-muted);
-    border-top-color: var(--color-text);
-    border-radius: 50%;
-    animation: spin 0.7s linear infinite;
+    gap: 14px;
+    padding: 14px 22px 10px;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
     flex-shrink: 0;
   }
 
-  @keyframes spin {
-    to {
-      transform: rotate(360deg);
+  .nav-btns {
+    display: flex;
+    gap: 4px;
+  }
+
+  .month-label {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-text);
+    letter-spacing: -0.2px;
+  }
+
+  /* Summary grid */
+  .summary-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr 1fr;
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
+  }
+
+  .summary-card {
+    padding: 14px 22px;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-left: 1px solid var(--color-rule);
+  }
+
+  .summary-card:first-child {
+    border-left: none;
+  }
+
+  .card-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    color: var(--color-accent);
+    margin-bottom: 6px;
+  }
+
+  .card-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 10px;
+  }
+
+  .card-amount {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    font-weight: 600;
+    color: var(--color-text);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card-delta {
+    font-family: var(--font-mono);
+    font-size: 15px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  .card-delta.up {
+    color: var(--color-amount-negative);
+  }
+
+  .card-delta.down {
+    color: var(--color-amount-positive);
+  }
+
+  .card-null {
+    font-family: var(--font-mono);
+    font-size: 18px;
+    color: var(--color-text-disabled);
+  }
+
+  .card-sigma-row {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: baseline;
+    gap: 10px;
+    margin-top: 6px;
+    padding-top: 8px;
+    border-top: 1px dashed var(--color-accent);
+  }
+
+  .card-sigma-badge {
+    display: inline-flex;
+    align-items: center;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: #ffffff;
+    background: var(--color-accent);
+    padding: 2px 5px;
+    line-height: 1;
+  }
+
+  .card-sigma-amount {
+    display: flex;
+    align-items: baseline;
+    justify-content: flex-end;
+    gap: 6px;
+    font-family: var(--font-mono);
+    font-size: 19px;
+    font-weight: 700;
+    color: var(--color-accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .card-sigma-loading {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-align: right;
+  }
+
+  .card-sigma-warn {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    color: var(--color-warning);
+    grid-column: 1 / -1;
+  }
+
+  /* Page grid — negative margin escapes the content area padding */
+  .page {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    margin: calc(-1 * var(--sp-lg));
+    height: calc(100% + 2 * var(--sp-lg));
+    overflow: hidden;
+  }
+
+  @media (max-width: 600px) {
+    .page {
+      grid-template-columns: 1fr;
+      margin: calc(-1 * var(--sp-md));
+      height: calc(100% + 2 * var(--sp-md));
     }
   }
 
-  /* Panels */
-  .panels {
+  .left-col {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-lg);
+    overflow-y: auto;
+    border-right: 1px solid var(--color-rule);
     transition: opacity var(--duration-fast) var(--ease);
   }
 
-  .panels.is-loading {
+  .left-col.is-loading {
     opacity: 0.5;
     pointer-events: none;
   }
 
-  /* Currency tabs */
-  .currency-tabs {
+  .right-col {
     display: flex;
-    border-bottom: 2px solid var(--color-bevel-dark);
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  /* Txn panel */
+  .txn-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-window-raised);
+  }
+
+  .txn-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
+  }
+
+  .txn-header-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+  }
+
+  .txn-header-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 400;
+    opacity: 0.75;
+  }
+
+  .txn-header-spacer {
+    flex: 1;
+  }
+
+  .txn-view-all {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-section-bar-fg);
+    opacity: 0.75;
+    text-decoration: none;
+    transition: opacity var(--duration-fast) var(--ease);
+  }
+
+  .txn-view-all:hover {
+    opacity: 1;
+  }
+
+  .txn-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
+    background: var(--color-window);
+  }
+
+  .txn-toolbar-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    color: var(--color-text-muted);
+    margin-right: 2px;
+  }
+
+  .filter-chip {
+    padding: 2px 8px;
+    border-radius: 2px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--color-window);
+    color: var(--color-text);
+    border: 1px solid var(--color-rule);
+    cursor: pointer;
+    transition:
+      background var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+
+  .filter-chip.active {
+    background: var(--color-accent);
+    color: #ffffff;
+    border-color: var(--color-accent);
+  }
+
+  .filter-chip:not(.active):hover {
+    background: var(--color-accent-chip-bg);
+  }
+
+  .txn-toolbar-spacer {
+    flex: 1;
+  }
+
+  .txn-sort-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .txn-footer {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 14px;
+    border-top: 1px solid var(--color-rule);
+    background: var(--color-window);
+    flex-shrink: 0;
+  }
+
+  .txn-footer-count {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+  }
+
+  .txn-footer-spacer {
+    flex: 1;
+  }
+
+  .txn-footer-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .txn-footer-total {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-accent);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .txn-col-header {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 10px;
+    padding: 4px 14px;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .col-header-right {
+    text-align: right;
+  }
+
+  .txn-body {
+    flex: 1;
+    overflow-y: auto;
+  }
+
+  /* Breakdown section */
+  .breakdown-section {
+    display: flex;
+    flex-direction: column;
+    background: var(--color-window);
+  }
+
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 4px 12px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+  }
+
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  .section-bar .breadcrumb {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-section-bar-fg);
+    opacity: 0.85;
+  }
+
+  .section-bar .sep {
+    color: var(--color-section-bar-fg);
+    opacity: 0.5;
+  }
+
+  .section-bar .crumb-current {
+    font-weight: var(--weight-semibold);
+    color: var(--color-section-bar-fg);
+  }
+
+  .section-bar .crumb-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
+    color: var(--color-section-bar-fg);
+    text-decoration: none;
+    cursor: pointer;
+    opacity: 0.7;
+    transition: opacity var(--duration-fast) var(--ease);
+  }
+
+  .section-bar .crumb-link:hover {
+    opacity: 1;
+  }
+
+  /* Currency tabs */
+  .currency-tabs-row {
+    display: flex;
+    gap: 2px;
+    padding: 8px 14px 0;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+    flex-shrink: 0;
+  }
+
+  .currency-tabs {
+    display: contents;
   }
 
   .currency-tab {
-    padding: var(--sp-xs) var(--sp-md);
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
-    font-weight: var(--weight-normal);
-    color: var(--color-text-muted);
-    background: var(--color-bevel-mid);
-    border: none;
-    box-shadow: var(--shadow-raised);
+    padding: 5px 16px;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+    border: 1px solid var(--color-rule);
+    border-radius: 4px 4px 0 0;
     cursor: pointer;
-    transition: color var(--duration-fast) var(--ease);
     position: relative;
-    bottom: -2px;
+    margin-bottom: -1px;
+    background: linear-gradient(
+      180deg,
+      var(--color-rule-soft),
+      var(--color-rule)
+    );
+    color: var(--color-text-muted);
+    z-index: 1;
+    transition:
+      background var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
   }
 
   .currency-tab:hover:not(.active) {
+    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
     color: var(--color-text);
   }
 
   .currency-tab.active {
-    background: var(--color-window);
+    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    border-bottom-color: var(--color-window);
     color: var(--color-text);
-    font-weight: var(--weight-semibold);
-    border-bottom: 2px solid var(--color-window);
-    box-shadow:
-      inset 1px 0 0 var(--color-bevel-light),
-      inset 2px 0 0 var(--color-bevel-mid),
-      inset 0 1px 0 var(--color-bevel-light),
-      inset 0 2px 0 var(--color-bevel-mid),
-      inset -1px 0 0 var(--color-bevel-dark),
-      inset -2px 0 0 var(--color-bevel-shadow);
+    z-index: 2;
   }
 
   .panel-body {
@@ -713,6 +1003,7 @@
   }
 
   .status {
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     padding: var(--sp-md) 0;
@@ -727,37 +1018,5 @@
     flex-direction: column;
   }
 
-  /* Breadcrumb */
-  .breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    margin-bottom: var(--sp-md);
-    font-size: var(--text-sm);
-    font-family: var(--font-mono);
-  }
 
-  .sep {
-    color: var(--color-text-muted);
-    font-weight: var(--weight-semibold);
-  }
-
-  .crumb-current {
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-  }
-
-  .crumb-link {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--color-accent);
-    cursor: pointer;
-    text-decoration: underline;
-    transition: color var(--duration-fast) var(--ease);
-  }
-
-  .crumb-link:hover {
-    color: var(--color-accent-mid);
-  }
 </style>

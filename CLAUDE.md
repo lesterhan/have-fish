@@ -94,21 +94,26 @@ FRONTEND_URL=http://localhost:8888
 
 ### Aesthetic
 
-The UI is **retro-computing meets modern UX** — specifically Windows 98/ME/XP era visual language combined with contemporary interaction patterns (smooth transitions, proper focus states, material-style feedback).
+The UI is a **hybrid of 2000s Mac OS X and Windows XP era visual language**, layered with contemporary interaction patterns (smooth transitions, proper focus states, accessible focus rings).
 
 The goal is to feel like a real desktop application, not a website. It should say "you are using a computer program."
 
-Key references: Windows XP Luna theme, classic silver window chrome, the teal `#008080` desktop.
+**Primary reference: Mac OS X Graphite** — cool silver-grey shell, Lucida Grande as the system font, Aqua-style gradient buttons with subtle border-color hover rather than bevel. Dark section bars, Graphite desktop.
+
+**Secondary reference: Windows XP** — the 3D bevel system (`--shadow-raised` / `--shadow-sunken`) for standard buttons and inset fields. Sharp corners. Crisp pixel rendering.
+
+The two coexist: use Aqua-style gradients for pill/inline buttons (`GradientButton`), use XP-style bevels for dialog buttons (`Button`).
 
 ### Visual rules
 
-- **No rounded corners** — `--radius-sm` and `--radius-md` are both `0`. Sharp corners only. Use `--radius-lg` (2px) or `--radius-xl` (4px) very sparingly.
-- **Bevel everything** — raised surfaces use `--shadow-raised`, pressed/inset surfaces use `--shadow-sunken`. These are the core visual language. Never use a flat border where a bevel is appropriate.
-- **Tahoma at small sizes** — the system font is Tahoma. Text is small (13–14px base). This is intentional and period-accurate.
+- **No rounded corners** — `--radius-sm` and `--radius-md` are both `0`. Sharp corners only. Use `--radius-lg` (2px) or `--radius-xl` (4px) very sparingly — only on Aqua-style gradient buttons.
+- **Bevel standard controls** — raised surfaces use `--shadow-raised`, pressed/inset surfaces use `--shadow-sunken`. Core XP visual language for `Button`, form fields, tracks.
+- **Gradient buttons use border-color hover** — `GradientButton` and tab-style controls use a gradient background. Hover = accent border color, no bevel. Active = `--shadow-sunken`.
+- **Lucida Grande at small sizes** — the system font is `Lucida Grande, Segoe UI`. Text is small (13–14px base). Period-accurate for both Mac and XP eras.
 - **No font smoothing** — `base.css` sets `-webkit-font-smoothing: none` for crisp pixel rendering.
-- **The desktop is teal** — `--color-desktop: #008080`. The entire page background. Non-negotiable.
-- **Window chrome is silver-grey** — `--color-window: #d4d0c8`. Content areas are `--color-window-raised: #ece9d8`.
-- **Title bars use the XP gradient** — `linear-gradient(to right, --color-titlebar-from, --color-titlebar-to)`.
+- **The desktop is Graphite** — `--color-desktop: #b8bcc2`. The entire page background.
+- **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`. Content areas are `--color-window-raised: #eceef2`.
+- **Title bars use the Graphite gradient** — `linear-gradient(180deg, #d8dde4, #a8aeb8, #8a909a)`.
 
 ### Interaction rules (the modern layer)
 

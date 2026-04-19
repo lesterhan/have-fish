@@ -1,7 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import DateRangeSelector from '$lib/components/transactions/DateRangeSelector.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
@@ -35,12 +34,9 @@
     onActionRequiredToggle,
   }: Props = $props()
 
-  // Expand the search row if a filter is already active (e.g. on page load from URL)
   let searchExpanded = $state(untrack(() => !!accountPath))
-  // Local draft bound to AccountPathInput (path string in searchOnly mode)
   let draft = $state(untrack(() => accountPath))
 
-  // Keep draft in sync if the URL changes externally (e.g. browser back)
   $effect(() => {
     draft = accountPath
   })
@@ -72,78 +68,74 @@
   }
 </script>
 
-<Panel title="Filter">
-  <div class="bar">
-    <div class="left-controls">
-      {#if onAccountPathChange}
-        <Button
-          onclick={toggleSearch}
-          square
-          tooltip="Filter by account path"
-          variant={accountPath ? 'primary' : undefined}
-        >
-          <Icon name="search" />
-          {#if accountPath}<span class="filter-path">{accountPath}</span>{/if}
-        </Button>
-      {/if}
-      <Button
-        onclick={() => onSortChange(sortDir === 'desc' ? 'asc' : 'desc')}
-        tooltip="Sort by date"
+<div class="bar">
+  <div class="left-controls">
+    {#if onAccountPathChange}
+      <GradientButton
+        onclick={toggleSearch}
         square
+        tooltip="Filter by account path"
+        active={!!accountPath}
       >
-        <Icon name="calendar-{sortDir === 'desc' ? 'desc' : 'asc'}" />
-      </Button>
-      {#if actionRequiredCount !== null && actionRequiredCount > 0}
-        <Button
-          variant="warning"
-          active={actionRequiredActive}
-          onclick={onActionRequiredToggle}
-          tooltip="Actions required"
-        >
-          <Icon name="warning" />
-          ({actionRequiredCount})
-        </Button>
-      {:else if actionRequiredCount === 0}
-        <Button disabled square tooltip="No actions required">
-          <Icon name="check" />
-        </Button>
+        <Icon name="search" />
+      </GradientButton>
+      {#if accountPath}
+        <span class="active-filter-chip">
+          <span class="chip-text">{accountPath}</span>
+          <button class="chip-clear" onclick={handleClear} aria-label="Clear filter">×</button>
+        </span>
       {/if}
-    </div>
-    <div class="date-controls">
-      <DateRangeSelector
-        value={{ from, to }}
-        onchange={(r) => onApply(r.from, r.to)}
+    {/if}
+    <GradientButton
+      onclick={() => onSortChange(sortDir === 'desc' ? 'asc' : 'desc')}
+      tooltip="Sort by date"
+      square
+    >
+      <Icon name="calendar-{sortDir === 'desc' ? 'desc' : 'asc'}" />
+    </GradientButton>
+    {#if actionRequiredCount !== null && actionRequiredCount > 0}
+      <GradientButton
+        variant="warning"
+        active={actionRequiredActive}
+        onclick={onActionRequiredToggle}
+        tooltip="Actions required"
+      >
+        <Icon name="warning" />
+        ({actionRequiredCount})
+      </GradientButton>
+    {:else if actionRequiredCount === 0}
+      <GradientButton disabled square tooltip="No actions required">
+        <Icon name="check" />
+      </GradientButton>
+    {/if}
+  </div>
+  <div class="date-controls">
+    <DateRangeSelector
+      value={{ from, to }}
+      onchange={(r) => onApply(r.from, r.to)}
+    />
+    <GradientButton square tooltip="Reset to last 3 months" onclick={handleReset}>
+      <Icon name="reset" />
+    </GradientButton>
+  </div>
+</div>
+
+{#if searchExpanded}
+  <div class="search-row">
+    <span class="search-prefix">account path</span>
+    <div class="search-input-wrap">
+      <AccountPathInput
+        {accounts}
+        bind:value={draft}
+        placeholder="expenses:food"
+        searchOnly={true}
+        oncommit={(path) => {
+          if (path !== accountPath) onAccountPathChange?.(path)
+        }}
       />
-      <Button square tooltip="Reset to last 3 months" onclick={handleReset}>
-        <Icon name="reset" />
-      </Button>
     </div>
   </div>
-
-  {#if searchExpanded}
-    <div class="search-row">
-      <span class="search-prefix">account path</span>
-      {#if accountPath}
-        <button
-          class="clear-btn"
-          onclick={handleClear}
-          aria-label="Clear account filter">×</button
-        >
-      {/if}
-      <div class="search-input-wrap">
-        <AccountPathInput
-          {accounts}
-          bind:value={draft}
-          placeholder="expenses:food"
-          searchOnly={true}
-          oncommit={(path) => {
-            if (path !== accountPath) onAccountPathChange?.(path)
-          }}
-        />
-      </div>
-    </div>
-  {/if}
-</Panel>
+{/if}
 
 <style>
   .bar {
@@ -151,16 +143,6 @@
     align-items: flex-start;
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
-  }
-
-  @media (max-width: 520px) {
-    .bar {
-      flex-wrap: wrap;
-    }
-
-    .date-controls {
-      margin-left: 0;
-    }
   }
 
   .left-controls {
@@ -176,16 +158,16 @@
     margin-left: auto;
   }
 
-  /* Account search row */
   .search-row {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: var(--sp-xs) var(--sp-sm) var(--sp-sm);
-    border-top: 1px solid var(--color-bevel-dark);
+    padding: var(--sp-xs) var(--sp-sm);
+    border-left: 1px solid var(--color-rule);
   }
 
   .search-prefix {
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     white-space: nowrap;
@@ -196,32 +178,59 @@
     flex: 1;
   }
 
-  .clear-btn {
+  .active-filter-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    height: 20px;
+    padding: 0 4px 0 7px;
+    background: var(--color-accent-chip-bg);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-xl);
+    max-width: 14rem;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .chip-text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-accent-chip-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    min-width: 0;
+  }
+
+  .chip-clear {
     flex-shrink: 0;
-    width: 18px;
-    height: 18px;
+    width: 14px;
+    height: 14px;
     background: none;
     border: none;
-    color: var(--color-text-muted);
-    font-size: var(--text-base);
+    color: var(--color-accent);
+    font-size: 13px;
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
-    transition: color var(--duration-fast) var(--ease);
     padding: 0;
+    opacity: 0.7;
+    transition: opacity var(--duration-fast) var(--ease);
   }
 
-  .clear-btn:hover {
-    color: var(--color-danger);
+  .chip-clear:hover {
+    opacity: 1;
   }
 
-  .filter-path {
-    font-size: var(--text-xs);
-    max-width: 10rem;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+  @media (max-width: 520px) {
+    .bar {
+      flex-wrap: wrap;
+    }
+
+    .date-controls {
+      margin-left: 0;
+    }
   }
 </style>

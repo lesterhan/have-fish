@@ -539,7 +539,7 @@
   }
 
   .tx-description {
-    font-family: var(--font-sans);
+    font-family: var(--font-serif);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     color: var(--color-accent-mid);
@@ -549,7 +549,7 @@
     display: inline-grid;
     align-self: flex-start;
     flex: 1;
-    font-family: var(--font-sans);
+    font-family: var(--font-serif);
     font-size: var(--text-sm);
   }
 

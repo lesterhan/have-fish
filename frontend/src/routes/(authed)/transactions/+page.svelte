@@ -8,8 +8,7 @@
   import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import { toISODate } from '$lib/date'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
@@ -18,9 +17,9 @@
   import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
   import TransactionRowSkeleton from '$lib/components/transactions/TransactionRowSkeleton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import { scrollShadow } from '$lib/scrollShadow'
 
-  // Default range: today minus 30 days → today
-  // Computed once at module load; stable for the lifetime of the page.
+  // Default range: last 90 days → today, computed once at module load.
   function defaultRange() {
     const today = new Date()
     const from = new Date(today)
@@ -139,110 +138,147 @@
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
 
-<div class="panels">
-  <FilterPanel
-    {from}
-    {to}
-    {sortDir}
-    {accountPath}
-    onApply={handleApply}
-    onSortChange={handleSortChange}
-    onAccountPathChange={handleAccountPathChange}
-  />
-  <Panel title="Operations">
-    <div class="ops-body">
+<div class="page">
+  <div class="toolbar">
+    <FilterPanel
+      {from}
+      {to}
+      {sortDir}
+      {accountPath}
+      onApply={handleApply}
+      onSortChange={handleSortChange}
+      onAccountPathChange={handleAccountPathChange}
+    />
+    <div class="toolbar-sep"></div>
+    <div class="ops">
       {#if selectMode}
-        <Button
-          variant="danger"
+        <GradientButton
+          variant="warning"
+          active={selectedIds.size > 0}
           disabled={selectedIds.size === 0 || deleting}
           onclick={deleteSelected}
-          ><Icon name="trash" /> Delete{selectedIds.size > 0
-            ? ` (${selectedIds.size})`
-            : ''}</Button
         >
-        <Button onclick={toggleSelectMode}>Cancel</Button>
+          <Icon name="trash" /> Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+        </GradientButton>
+        <GradientButton onclick={toggleSelectMode}>Cancel</GradientButton>
       {:else}
-        <Button onclick={() => (addModalOpen = true)}
-          ><Icon name="plus" /> New</Button
-        >
-        <a href="/import" class="btn-link"
-          ><Button><Icon name="import" /> Import</Button></a
-        >
-        <Button disabled tooltip="Coming soon"
-          ><Icon name="export" /> Export</Button
-        >
-        <Button onclick={toggleSelectMode}
-          ><Icon name="edit-txn" /> Select</Button
-        >
+        <GradientButton onclick={() => (addModalOpen = true)}>
+          <Icon name="plus" /> New
+        </GradientButton>
+        <GradientButton onclick={toggleSelectMode}>
+          <Icon name="edit-txn" /> Select
+        </GradientButton>
       {/if}
     </div>
-  </Panel>
+  </div>
+
+  <div class="section-bar">
+    <span class="section-bar-title">
+      Transactions · {sortedTransactions.length} entries
+    </span>
+  </div>
+
+  <div class="tx-body" use:scrollShadow>
+    {#if loading}
+      {#each { length: 7 } as _}
+        <TransactionRowSkeleton />
+      {/each}
+    {:else if sortedTransactions.length === 0}
+      <p class="empty">No transactions in this period.</p>
+    {:else}
+      {#each sortedTransactions as tx (tx.id)}
+        <TransactionRow
+          {tx}
+          {accounts}
+          {defaultOffsetAccountId}
+          {defaultConversionAccountId}
+          selectable={selectMode}
+          selected={selectedIds.has(tx.id)}
+          ontoggleselect={toggleSelect}
+          onaccountcreated={(a) => (accounts = [...accounts, a])}
+          ondeleted={() =>
+            (transactions = transactions.filter(
+              (t: { id: string }) => t.id !== tx.id,
+            ))}
+        />
+      {/each}
+    {/if}
+  </div>
 </div>
 
-{#if loading}
-  <div class="tx-table">
-    {#each { length: 7 } as _}
-      <TransactionRowSkeleton />
-    {/each}
-  </div>
-{:else if sortedTransactions.length === 0}
-  <p class="empty">No transactions 🕵️</p>
-{:else}
-  <div class="tx-table">
-    {#each sortedTransactions as tx (tx.id)}
-      <TransactionRow
-        {tx}
-        {accounts}
-        {defaultOffsetAccountId}
-        {defaultConversionAccountId}
-        selectable={selectMode}
-        selected={selectedIds.has(tx.id)}
-        ontoggleselect={toggleSelect}
-        onaccountcreated={(a) => (accounts = [...accounts, a])}
-        ondeleted={() =>
-          (transactions = transactions.filter(
-            (t: { id: string }) => t.id !== tx.id,
-          ))}
-      />
-    {/each}
-  </div>
-{/if}
-
 <style>
-  .panels {
+  .page {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-sm);
-    margin-bottom: var(--sp-xl);
+    margin: calc(-1 * var(--sp-lg));
+    height: calc(100% + 2 * var(--sp-lg));
+    overflow: hidden;
   }
 
-  .panels :global(.panel) {
-    margin-bottom: 0;
-  }
-
-  .ops-body {
+  .toolbar {
     display: flex;
-    flex-direction: row;
+    align-items: stretch;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+    flex-shrink: 0;
+  }
+
+  .toolbar-sep {
+    width: 1px;
+    background: var(--color-rule);
+    margin: 6px 0;
+    flex-shrink: 0;
+  }
+
+  .ops {
+    display: flex;
+    align-items: center;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
   }
 
-  .btn-link {
-    text-decoration: none;
-    display: contents;
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 6px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
   }
 
-  .tx-table {
-    box-shadow: var(--shadow-sunken);
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+  }
+
+  .tx-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
     background: var(--color-window-raised);
   }
 
   .empty {
-    box-shadow: var(--shadow-sunken);
-    background: var(--color-window-raised);
-    padding: var(--sp-md);
+    padding: var(--sp-lg) 14px;
+    font-family: var(--font-serif);
     font-size: var(--text-sm);
+    font-style: italic;
     color: var(--color-text-muted);
-    margin: 0;
+  }
+
+  @media (max-width: 520px) {
+    .page {
+      margin: calc(-1 * var(--sp-md));
+      height: calc(100% + 2 * var(--sp-md));
+    }
+
+    .toolbar {
+      flex-wrap: wrap;
+    }
   }
 </style>

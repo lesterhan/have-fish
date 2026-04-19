@@ -1,12 +1,16 @@
 <script lang="ts">
   import { afterNavigate } from '$app/navigation'
+  import { page } from '$app/state'
   import type { AccountBalance, UserSettings } from '$lib/api'
   import { formatCompact } from '$lib/currency'
+  import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { theme } from '$lib/theme.svelte'
   import { tooltip } from '$lib/tooltip'
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from './ui/Icon.svelte'
+  import AddAccountWizard from './wizards/AddAccountWizard.svelte'
+  import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
 
   interface Props {
     accounts: AccountBalance[]
@@ -26,11 +30,32 @@
 
   afterNavigate(() => onMobileClose?.())
 
+  let currentPath = $derived(page.url.pathname)
+
   let expanded = $state(true)
   let assetsOpen = $state(true)
   let liabilitiesOpen = $state(true)
   let equityOpen = $state(true)
   let hiddenOpen = $state(false)
+
+  let wizardOpen = $state(false)
+  let wizardType = $state<'asset' | 'liability' | 'equity'>('asset')
+
+  function openWizard(type: 'asset' | 'liability' | 'equity', e: Event) {
+    e.stopPropagation()
+    wizardType = type
+    wizardOpen = true
+  }
+
+  function handleAddKeydown(
+    type: 'asset' | 'liability' | 'equity',
+    e: KeyboardEvent,
+  ) {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault()
+      openWizard(type, e)
+    }
+  }
 
   let hiddenIds = $derived(
     new Set(settingsStore.value?.preferences.hiddenAccountIds ?? []),
@@ -99,6 +124,12 @@
   }
 </script>
 
+<AddAccountWizard
+  type={wizardType}
+  bind:open={wizardOpen}
+  onSuccess={refreshSidebar}
+/>
+
 <aside
   class="sidebar"
   class:collapsed={!expanded}
@@ -107,23 +138,39 @@
   <div class="sidebar-inner">
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
-      <a href="/spending" class="nav-link" use:tooltip={'Spending'}>
+      <a
+        href="/spending"
+        class="nav-link"
+        class:active={currentPath.startsWith('/spending')}
+        use:tooltip={'Spending'}
+      >
         <Icon name="spending" size={16} />
         <span class="nav-label">Spending</span>
       </a>
-      <a href="/import" class="nav-link" use:tooltip={'Import + Export'}>
+      <a
+        href="/import"
+        class="nav-link"
+        class:active={currentPath.startsWith('/import')}
+        use:tooltip={'Import + Export'}
+      >
         <Icon name="import-export" size={16} />
         <span class="nav-label">Import + Export</span>
       </a>
-      <a href="/transactions" class="nav-link" use:tooltip={'Transactions'}>
+      <a
+        href="/transactions"
+        class="nav-link"
+        class:active={currentPath.startsWith('/transactions')}
+        use:tooltip={'Transactions'}
+      >
         <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
       </a>
-      <a href="/assets" class="nav-link" use:tooltip={'Accounts'}>
-        <Icon name="accounts" size={16} />
-        <span class="nav-label">Accounts</span>
-      </a>
-      <a href="/fish-pie" class="nav-link" use:tooltip={'Fish Pie'}>
+      <a
+        href="/fish-pie"
+        class="nav-link"
+        class:active={currentPath.startsWith('/fish-pie')}
+        use:tooltip={'Fish Pie'}
+      >
         <Icon name="pie" size={16} />
         <span class="nav-label">Fish Pie</span>
       </a>
@@ -149,10 +196,18 @@
               aria-hidden="true"
               width="12"
               height="12"
-              class="svg-icon group-chevron"
+              class="group-chevron"
               class:open={assetsOpen}
             />
             Assets
+            <span
+              class="group-add"
+              onclick={(e) => openWizard('asset', e)}
+              onkeydown={(e) => handleAddKeydown('asset', e)}
+              aria-label="Add asset account"
+              role="button"
+              tabindex="0">+</span
+            >
           </button>
           {#if assetsOpen}
             <ul class="account-list">
@@ -175,9 +230,10 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance"
-                            >{b.currency} {formatCompact(b.amount)}</span
-                          >
+                          <span class="account-balance">
+                            <CurrencyPill code={b.currency} size="xs" />
+                            {formatCompact(b.amount)}
+                          </span>
                         {/each}
                       {/if}
                     </span>
@@ -199,10 +255,18 @@
               aria-hidden="true"
               width="12"
               height="12"
-              class="svg-icon group-chevron"
+              class="group-chevron"
               class:open={liabilitiesOpen}
             />
             Liabilities
+            <span
+              class="group-add"
+              onclick={(e) => openWizard('liability', e)}
+              onkeydown={(e) => handleAddKeydown('liability', e)}
+              aria-label="Add liability account"
+              role="button"
+              tabindex="0">+</span
+            >
           </button>
           {#if liabilitiesOpen}
             <ul class="account-list">
@@ -225,9 +289,10 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance"
-                            >{b.currency} {formatCompact(b.amount)}</span
-                          >
+                          <span class="account-balance">
+                            <CurrencyPill code={b.currency} size="xs" />
+                            {formatCompact(b.amount)}
+                          </span>
                         {/each}
                       {/if}
                     </span>
@@ -249,10 +314,18 @@
               aria-hidden="true"
               width="12"
               height="12"
-              class="svg-icon group-chevron"
+              class="group-chevron"
               class:open={equityOpen}
             />
             Equity
+            <span
+              class="group-add"
+              onclick={(e) => openWizard('equity', e)}
+              onkeydown={(e) => handleAddKeydown('equity', e)}
+              aria-label="Add equity account"
+              role="button"
+              tabindex="0">+</span
+            >
           </button>
           {#if equityOpen}
             <ul class="account-list">
@@ -275,9 +348,10 @@
                         <span class="account-balance muted">—</span>
                       {:else}
                         {#each acct.balances as b}
-                          <span class="account-balance"
-                            >{b.currency} {formatCompact(b.amount)}</span
-                          >
+                          <span class="account-balance">
+                            <CurrencyPill code={b.currency} size="xs" />
+                            {formatCompact(b.amount)}
+                          </span>
                         {/each}
                       {/if}
                     </span>
@@ -300,7 +374,7 @@
                 aria-hidden="true"
                 width="12"
                 height="12"
-                class="svg-icon group-chevron"
+                class="group-chevron"
                 class:open={hiddenOpen}
               />
               Hidden
@@ -379,7 +453,7 @@
   .sidebar {
     width: 200px;
     flex-shrink: 0;
-    background: var(--color-window);
+    background: var(--color-sidebar);
     box-shadow: inset -1px 0 0 var(--color-bevel-dark);
     display: flex;
     flex-direction: column;
@@ -434,13 +508,6 @@
     }
   }
 
-  /* --- SVG icons (loaded via <img>, no currentColor) --- */
-
-  /* invert to white in dark mode */
-  :global([data-theme='dark']) .svg-icon {
-    filter: invert(1);
-  }
-
   /* --- Top nav --- */
 
   .top-nav {
@@ -449,56 +516,55 @@
     flex-shrink: 0;
   }
 
-  /* Expanded: left-border accent style — subtle, not busy */
   .nav-link {
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 6px var(--sp-sm);
-    font-size: var(--text-sm);
+    margin: 2px 5px;
+    padding: 5px calc(var(--sp-sm) - 5px);
+    border-radius: 6px;
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 500;
+    letter-spacing: 0.2px;
     color: var(--color-text);
     text-decoration: none;
-    border-left: 2px solid transparent;
+    outline: 1px solid transparent;
     transition:
       background var(--duration-fast) var(--ease),
-      border-color var(--duration-fast) var(--ease);
-  }
-
-  .nav-link:hover {
-    background: var(--color-accent-light);
-    border-left-color: var(--color-accent-mid);
-  }
-
-  .nav-link:active {
-    background: var(--color-accent-mid);
-    color: var(--color-text-on-dark);
-    border-left-color: var(--color-accent);
-  }
-
-  /* Collapsed: icon-only toolbar buttons — Photoshop style */
-  .sidebar.collapsed .nav-link {
-    width: 28px;
-    height: 28px;
-    margin: var(--sp-xs) 10px;
-    padding: 0;
-    justify-content: center;
-    border-left: none;
-    box-shadow: var(--shadow-raised);
-    background: var(--color-window);
-    transition:
       box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
+      outline-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
   }
 
-  .sidebar.collapsed .nav-link:hover {
-    background: var(--color-accent-light);
-    border-left: none;
-  }
-
-  .sidebar.collapsed .nav-link:active {
-    box-shadow: var(--shadow-sunken);
+  .nav-link:hover:not(.active) {
     background: var(--color-window);
-    color: var(--color-text);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.15);
+    outline-color: var(--color-bevel-mid);
+  }
+
+  .nav-link:active:not(.active) {
+    background: var(--color-window);
+    box-shadow: var(--shadow-sunken);
+    outline-color: var(--color-bevel-dark);
+  }
+
+  .nav-link.active {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-mid),
+      var(--color-accent)
+    );
+    color: #ffffff;
+    font-weight: 700;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+      0 1px 3px rgba(0, 0, 0, 0.3);
+    outline-color: var(--color-accent);
   }
 
   .sidebar.collapsed .nav-label {
@@ -521,37 +587,62 @@
     padding: 0 0 var(--sp-xs);
   }
 
-  .group {
-    margin-bottom: var(--sp-xs);
-  }
-
   .group-header {
     display: flex;
     align-items: center;
     gap: 4px;
     width: 100%;
-    padding: var(--sp-xs) var(--sp-sm) 2px;
+    padding: 3px var(--sp-sm);
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 0.05em;
-    color: var(--color-text-muted);
-    background: none;
-    border: none;
+    letter-spacing: 1px;
+    color: var(--color-section-bar-fg);
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     text-align: left;
     cursor: pointer;
-    transition: color var(--duration-fast) var(--ease);
+    transition: opacity var(--duration-fast) var(--ease);
   }
 
   .group-header:hover {
-    color: var(--color-accent-mid);
+    opacity: 0.85;
   }
 
   .group-chevron {
     flex-shrink: 0;
     transform-origin: center center;
     transition: transform var(--duration-fast) var(--ease);
+    filter: invert(1);
+  }
+
+  .group-add {
+    margin-left: auto;
+    width: 16px;
+    height: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 2px;
+    font-size: 14px;
+    font-weight: 400;
+    line-height: 1;
+    color: var(--color-section-bar-fg);
+    opacity: 0;
+    transition:
+      opacity var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
+  }
+
+  .group-header:hover .group-add {
+    opacity: 0.7;
+  }
+
+  .group-add:hover {
+    opacity: 1 !important;
+    background: rgba(255, 255, 255, 0.2);
   }
 
   .group-chevron.open {
@@ -624,13 +715,8 @@
     color: var(--color-text-muted);
   }
 
-  .account-balance.muted {
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
-  }
-
   .group-hidden .group-header {
-    color: var(--color-text-disabled);
+    opacity: 0.6;
   }
 
   .account-row-hidden .account-name {
@@ -663,26 +749,40 @@
   .footer-btn {
     display: flex;
     align-items: center;
+    align-self: stretch;
     gap: var(--sp-sm);
-    width: 100%;
-    padding: 6px var(--sp-sm);
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
+    margin: 2px 5px;
+    padding: 5px calc(var(--sp-sm) - 5px);
+    border-radius: 6px;
+    font-size: 12px;
+    font-family: var(--font-mono);
     color: var(--color-text);
     text-decoration: none;
     text-align: left;
     background: none;
     border: none;
-    border-left: 2px solid transparent;
+    outline: 1px solid transparent;
     cursor: pointer;
     transition:
       background var(--duration-fast) var(--ease),
-      border-color var(--duration-fast) var(--ease);
+      box-shadow var(--duration-fast) var(--ease),
+      outline-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
   }
 
   .footer-btn:hover {
-    background: var(--color-accent-light);
-    border-left-color: var(--color-accent-mid);
+    background: var(--color-window);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.15);
+    outline-color: var(--color-bevel-mid);
+  }
+
+  .footer-btn:active {
+    background: var(--color-window);
+    box-shadow: var(--shadow-sunken);
+    outline-color: var(--color-bevel-dark);
   }
 
   .footer-settings .nav-label {
@@ -692,29 +792,50 @@
     min-width: 0;
   }
 
-  /* Collapsed: icon-only toolbar buttons */
+  /* Collapsed: icon-only — gradient pill on hover, same as expanded active */
+  .sidebar.collapsed .nav-link,
   .sidebar.collapsed .footer-btn {
     width: 28px;
     height: 28px;
-    margin: var(--sp-xs) 10px;
+    margin: 3px 10px;
     padding: 0;
+    border-radius: 6px;
     justify-content: center;
-    border-left: none;
-    box-shadow: var(--shadow-raised);
-    background: var(--color-window);
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
+    background: none;
+    box-shadow: none;
+    outline: 1px solid transparent;
   }
 
+  .sidebar.collapsed .nav-link:hover:not(.active),
   .sidebar.collapsed .footer-btn:hover {
-    background: var(--color-accent-light);
-    border-left: none;
+    background: var(--color-window);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.8),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08),
+      0 1px 2px rgba(0, 0, 0, 0.15);
+    outline-color: var(--color-bevel-mid);
   }
 
+  .sidebar.collapsed .nav-link:active:not(.active),
   .sidebar.collapsed .footer-btn:active {
+    background: var(--color-accent);
+    color: #ffffff;
     box-shadow: var(--shadow-sunken);
-    background: var(--color-window);
+    outline-color: var(--color-accent);
+  }
+
+  .sidebar.collapsed .nav-link.active {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-mid),
+      var(--color-accent)
+    );
+    color: #ffffff;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.15),
+      0 1px 3px rgba(0, 0, 0, 0.3);
+    outline-color: var(--color-accent);
   }
 
   @media (max-width: 600px) {

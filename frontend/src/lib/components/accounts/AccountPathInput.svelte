@@ -244,7 +244,6 @@
     position: fixed;
     inset: 0;
     z-index: 50;
-    background: rgba(0, 0, 0, 0.25);
   }
 
   .wrapper {
@@ -259,21 +258,23 @@
   .path-input {
     width: 100%;
     box-sizing: border-box;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+    font-size: 11px;
     color: var(--color-text);
     background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
     padding: 2px var(--sp-xs);
     height: 22px;
     outline: none;
-    transition: outline var(--duration-fast) var(--ease);
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
   .path-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
+    border-color: var(--color-accent-mid);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   .path-input:disabled {
@@ -288,20 +289,19 @@
     right: 0;
     z-index: 100;
     list-style: none;
-    margin: 0;
+    margin: 1px 0 0;
     padding: 0;
-    background: var(--color-window-inset);
-    box-shadow:
-      var(--shadow-window),
-      inset 0 0 0 1px var(--color-bevel-dark);
-    max-height: 180px;
+    background: var(--color-window);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-window);
+    max-height: 200px;
     overflow-y: auto;
   }
 
   .option {
-    padding: 2px var(--sp-xs);
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
+    padding: 3px 8px;
+    font-size: 11px;
+    font-family: var(--font-mono);
     color: var(--color-text);
     cursor: default;
     white-space: nowrap;
@@ -310,18 +310,18 @@
   }
 
   .option.active {
-    background: var(--color-dropdown-active);
-    color: var(--color-text-on-dark);
+    background: var(--color-accent);
+    color: #ffffff;
   }
 
   .option.create {
     color: var(--color-text-muted);
     font-style: italic;
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-rule);
   }
 
   .option.create.active {
-    background: var(--color-dropdown-active);
-    color: var(--color-accent-text);
+    background: var(--color-accent);
+    color: #ffffff;
   }
 </style>

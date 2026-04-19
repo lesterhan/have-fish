@@ -97,12 +97,8 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: 3px var(--sp-xs);
-    background: linear-gradient(
-      to right,
-      var(--color-titlebar-from),
-      var(--color-titlebar-to)
-    );
-    color: var(--color-titlebar-text);
+    background: var(--color-titlebar-bg);
+    color: var(--color-titlebar-fg);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     user-select: none;

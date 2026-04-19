@@ -492,7 +492,7 @@
 
   .form-grid input {
     font-size: var(--text-sm);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window-inset);
     box-shadow: var(--shadow-sunken);
@@ -509,7 +509,7 @@
 
   .form-grid select {
     font-size: var(--text-sm);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window-inset);
     box-shadow: var(--shadow-sunken);
@@ -526,7 +526,7 @@
 
   .file-input {
     font-size: var(--text-sm);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     background: none !important;
     box-shadow: none !important;
     padding: 0 !important;
@@ -605,6 +605,7 @@
   }
 
   .summary-muted {
+    font-family: var();
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     font-style: italic;

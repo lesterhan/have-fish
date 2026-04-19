@@ -19,12 +19,14 @@
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
   import AccountTransactionRow from '$lib/components/transactions/AccountTransactionRow.svelte'
   import AccountTransactionRowSkeleton from '$lib/components/transactions/AccountTransactionRowSkeleton.svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
   import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { currencyFlag } from '$lib/currency'
+  import { scrollShadow } from '$lib/scrollShadow'
 
   let id = $derived(page.params.id!)
 
@@ -188,6 +190,7 @@
   function navigate(params: Record<string, string>) {
     goto(`?${new URLSearchParams({ from, to, dir: sortDir, ...params })}`)
   }
+
 </script>
 
 {#if account}
@@ -215,196 +218,217 @@
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
 
-{#if account}
-  <AccountHeading {account} balances={accountBalances} />
-{:else}
-  <div class="account-header-placeholder"></div>
-{/if}
+<div class="page">
+  {#if account}
+    <AccountHeading {account} balances={accountBalances} />
+  {:else}
+    <div class="header-placeholder"></div>
+  {/if}
 
-<div class="panels">
-  <FilterPanel
-    {from}
-    {to}
-    {sortDir}
-    {actionRequiredCount}
-    {actionRequiredActive}
-    onApply={(f, t) => navigate({ from: f, to: t })}
-    onSortChange={(dir) => navigate({ dir })}
-    onActionRequiredToggle={toggleActionRequired}
-  />
-  <Panel title="Operations">
-    <div class="ops-body">
-      <Button onclick={() => (addModalOpen = true)}>
-        <Icon name="plus" />
-        New
-      </Button>
-      <Button
-        square
-        onclick={() => (reconcileOpen = true)}
-        tooltip="Reconcile account"
-      >
+  <div class="toolbar">
+    <FilterPanel
+      {from}
+      {to}
+      {sortDir}
+      {actionRequiredCount}
+      {actionRequiredActive}
+      onApply={(f, t) => navigate({ from: f, to: t })}
+      onSortChange={(dir) => navigate({ dir })}
+      onActionRequiredToggle={toggleActionRequired}
+    />
+    <div class="toolbar-sep"></div>
+    <div class="ops">
+      <GradientButton onclick={() => (addModalOpen = true)}>
+        <Icon name="plus" /> New
+      </GradientButton>
+      <GradientButton square onclick={() => (reconcileOpen = true)} tooltip="Reconcile account">
         <Icon name="reconcile" />
-      </Button>
-      <Button
-        square
-        onclick={() => (settingsOpen = !settingsOpen)}
-        tooltip="Account settings"
-      >
+      </GradientButton>
+      <GradientButton square onclick={() => (settingsOpen = !settingsOpen)} tooltip="Account settings">
         <Icon name="account-settings" />
-      </Button>
-      <Button
-        square
-        active={convertFx}
-        onclick={() => (convertFx = !convertFx)}
-        tooltip="Convert to {preferredCurrency}"
-      >
-        {currencyFlag(preferredCurrency)}
-      </Button>
+      </GradientButton>
+      <GradientButton active={convertFx} onclick={() => (convertFx = !convertFx)} tooltip="Convert to {preferredCurrency}">
+        <CurrencyPill code={preferredCurrency} size="xs" />
+      </GradientButton>
     </div>
-  </Panel>
+  </div>
+
+  {#if settingsOpen && account}
+    <AccountSettings
+      {account}
+      hidden={isHidden}
+      onupdated={(a) => (account = a)}
+      ontogglehidden={toggleHidden}
+    />
+  {/if}
+
+  <div class="section-bar">
+    <span class="section-bar-title">
+      Transactions · {displayedTransactions.length} entries
+    </span>
+  </div>
+
+  <div class="tx-col-header">
+    <span>DATE</span>
+    <span>DESCRIPTION</span>
+    <span class="col-account">ACCOUNT</span>
+    <span class="col-amount">AMOUNT</span>
+    <span></span>
+  </div>
+
+  <div class="tx-body" use:scrollShadow>
+    {#if loading}
+      {#each { length: 7 } as _}
+        <AccountTransactionRowSkeleton />
+      {/each}
+    {:else if notFound}
+      <p class="empty">Account not found.</p>
+    {:else if displayedTransactions.length === 0}
+      <p class="empty">
+        {actionRequiredActive
+          ? 'No flagged transactions in this period.'
+          : 'No transactions in this period.'}
+      </p>
+    {:else}
+      {#each displayedTransactions as tx, i (tx.id)}
+        <AccountTransactionRow
+          {tx}
+          idx={i}
+          {accounts}
+          {defaultOffsetAccountId}
+          {defaultConversionAccountId}
+          currentAccountId={id}
+          {convertFx}
+          {preferredCurrency}
+          {fxRateMap}
+          onaccountcreated={(a) => (accounts = [...accounts, a])}
+          ondeleted={() =>
+            (transactions = transactions.filter(
+              (t: { id: string }) => t.id !== tx.id,
+            ))}
+        />
+      {/each}
+    {/if}
+  </div>
 </div>
 
-{#if settingsOpen && account}
-  <AccountSettings
-    {account}
-    hidden={isHidden}
-    onupdated={(a) => (account = a)}
-    ontogglehidden={toggleHidden}
-  />
-{/if}
-
-{#if loading}
-  <div class="tx-table">
-    <div class="tx-header">
-      <span>Date</span>
-      <span>Description</span>
-      <span class="col-account">Account</span>
-      <span class="col-amount">Amount</span>
-    </div>
-    {#each { length: 7 } as _}
-      <AccountTransactionRowSkeleton />
-    {/each}
-  </div>
-{:else if notFound}
-  <p class="empty">Account not found.</p>
-{:else if displayedTransactions.length === 0}
-  <p class="empty">
-    {actionRequiredActive
-      ? 'No flagged transactions in this period.'
-      : 'No transactions in this period.'}
-  </p>
-{:else}
-  <div class="tx-table">
-    <div class="tx-header">
-      <span>Date</span>
-      <span>Description</span>
-      <span class="col-account">Account</span>
-      <span class="col-amount">Amount</span>
-    </div>
-    {#each displayedTransactions as tx (tx.id)}
-      <AccountTransactionRow
-        {tx}
-        {accounts}
-        {defaultOffsetAccountId}
-        {defaultConversionAccountId}
-        currentAccountId={id}
-        {convertFx}
-        {preferredCurrency}
-        {fxRateMap}
-        onaccountcreated={(a) => (accounts = [...accounts, a])}
-        ondeleted={() =>
-          (transactions = transactions.filter(
-            (t: { id: string }) => t.id !== tx.id,
-          ))}
-      />
-    {/each}
-  </div>
-{/if}
-
 <style>
-  .account-header-placeholder {
-    height: calc(
-      var(--text-3xl) * var(--leading-tight) + var(--sp-xl) * 2 + var(--sp-lg)
-    );
-  }
-
-  .panels {
+  .page {
     display: flex;
-    gap: var(--sp-sm);
-    align-items: flex-start;
-    margin-bottom: var(--sp-xl);
+    flex-direction: column;
+    margin: calc(-1 * var(--sp-lg));
+    height: calc(100% + 2 * var(--sp-lg));
+    overflow: hidden;
   }
 
-  @media (max-width: 520px) {
-    .panels {
-      flex-direction: column;
-    }
-
-    .panels :global(.panel) {
-      width: 100%;
-    }
+  .header-placeholder {
+    height: 61px;
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
   }
 
-  .panels :global(.panel:first-child) {
-    flex: 1;
-    margin-bottom: 0;
-  }
-
-  .panels :global(.panel:last-child) {
-    margin-bottom: 0;
-  }
-
-  .ops-body {
+  /* Toolbar: FilterPanel (bare) + divider + ops buttons */
+  .toolbar {
     display: flex;
-    flex-direction: row;
+    align-items: stretch;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+    flex-shrink: 0;
+  }
+
+  .toolbar-sep {
+    width: 1px;
+    background: var(--color-rule);
+    margin: 6px 0;
+    flex-shrink: 0;
+  }
+
+  .ops {
+    display: flex;
+    align-items: center;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
   }
 
-  .tx-table {
-    /* 4 named columns only — actions lives outside this template in each row */
-    --tx-cols: 5.5rem 1fr 1.5fr 8rem;
-    box-shadow: var(--shadow-sunken);
-    background: var(--color-window-raised);
+  /* Section bar */
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 6px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
   }
 
-  .tx-header {
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+  }
+
+  /* Column header */
+  .tx-col-header {
+    --tx-cols: 5.5rem 1fr 1.5fr 8rem;
     display: grid;
-    grid-template-columns: var(--tx-cols);
+    grid-template-columns: var(--tx-cols) auto;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 3px var(--sp-sm);
+    padding: 4px 14px;
+    border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
-    border-bottom: 2px solid var(--color-bevel-dark);
-    box-shadow: inset 0 -1px 0 var(--color-bevel-light);
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
     user-select: none;
   }
 
-  .tx-header .col-amount {
+  .tx-col-header .col-amount {
     text-align: right;
   }
 
-  @media (max-width: 520px) {
-    .tx-table {
-      --tx-cols: auto 1fr auto;
-    }
-
-    .tx-header .col-account {
-      display: none;
-    }
+  /* Scrollable body — passes --tx-cols to child rows */
+  .tx-body {
+    --tx-cols: 5.5rem 1fr 1.5fr 8rem;
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--color-window-raised);
   }
 
   .empty {
-    box-shadow: var(--shadow-sunken);
-    background: var(--color-window-raised);
-    padding: var(--sp-md);
+    padding: var(--sp-lg) 14px;
+    font-family: var(--font-serif);
     font-size: var(--text-sm);
+    font-style: italic;
     color: var(--color-text-muted);
-    margin: 0;
+  }
+
+  @media (max-width: 520px) {
+    .page {
+      margin: calc(-1 * var(--sp-md));
+      height: calc(100% + 2 * var(--sp-md));
+    }
+
+    .tx-col-header,
+    .tx-body {
+      --tx-cols: auto 1fr auto;
+    }
+
+    .tx-col-header .col-account {
+      display: none;
+    }
+
+    .toolbar {
+      flex-wrap: wrap;
+    }
   }
 </style>

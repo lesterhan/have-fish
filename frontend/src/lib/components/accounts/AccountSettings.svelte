@@ -1,6 +1,8 @@
 <script lang="ts">
   import { updateAccount, type Account } from '$lib/api'
   import Icon from '../ui/Icon.svelte'
+  import GradientButton from '../ui/GradientButton.svelte'
+  import TextInput from '../ui/TextInput.svelte'
 
   interface Props {
     account: Account
@@ -45,30 +47,29 @@
     <div class="setting-row">
       <label class="setting-label" for="account-name">Display name</label>
       <div class="setting-control">
-        <input
+        <TextInput
           id="account-name"
-          class="name-input"
           bind:value={nameValue}
           placeholder={account.path}
           disabled={saving}
           onkeydown={handleKeydown}
+          style="width: 18rem"
         />
-        <button class="save-btn" onclick={save} disabled={saving}>
+        <GradientButton onclick={save} disabled={saving}>
           <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
-        </button>
+        </GradientButton>
       </div>
     </div>
 
     <div class="setting-row">
-      <label class="setting-label">Sidebar visibility</label>
+      <span class="setting-label" id="visibility-label">Sidebar visibility</span>
       <div class="setting-control">
-        <button
-          class="action-btn"
-          class:active={hidden}
+        <GradientButton
+          active={hidden}
           onclick={ontogglehidden}
         >
-          {hidden ? 'Hidden — click to show' : 'Visible — click to hide'}
-        </button>
+          {hidden ? 'Hidden' : 'Visible'}
+        </GradientButton>
       </div>
     </div>
   </div>
@@ -76,124 +77,52 @@
 
 <style>
   .settings-panel {
-    margin-bottom: var(--sp-xl);
-    box-shadow: 2px 2px 0 rgba(0, 0, 0, 0.3);
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .settings-header {
-    padding: 3px var(--sp-sm);
-    background: linear-gradient(
-      to right,
-      var(--color-panel-header-from),
-      var(--color-panel-header-to)
-    );
+    padding: 4px 14px;
+    background: var(--color-window-raised);
+    border-bottom: 1px solid var(--color-rule);
   }
 
   .settings-title {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
-    color: var(--color-panel-header-text);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
   }
 
   .settings-body {
     background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
-    padding: var(--sp-md) var(--sp-lg);
+    padding: var(--sp-sm) 14px;
     display: flex;
-    flex-direction: column;
-    gap: var(--sp-md);
+    align-items: center;
+    gap: var(--sp-xl);
   }
 
   .setting-row {
     display: flex;
     align-items: center;
-    gap: var(--sp-lg);
+    gap: var(--sp-sm);
   }
 
   .setting-label {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
     color: var(--color-text-muted);
-    width: 10rem;
-    flex-shrink: 0;
+    white-space: nowrap;
   }
 
   .setting-control {
     display: flex;
     align-items: center;
-    gap: var(--sp-sm);
-  }
-
-  .name-input {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    background: var(--color-window-inset);
-    border: 1px solid var(--color-border);
-    padding: 2px var(--sp-xs);
-    width: 20rem;
-    outline: none;
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .name-input:focus {
-    outline: 2px solid var(--color-accent-mid);
-    outline-offset: -2px;
-  }
-
-  .save-btn {
-    display: inline-flex;
-    align-items: center;
     gap: var(--sp-xs);
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    background: var(--color-window);
-    border: 1px solid var(--color-border);
-    padding: 2px var(--sp-sm);
-    cursor: pointer;
-    box-shadow: var(--shadow-raised);
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .save-btn:hover {
-    box-shadow: var(--shadow-raised);
-    filter: brightness(0.95);
-  }
-
-  .save-btn:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .save-btn:disabled {
-    opacity: 0.5;
-    cursor: default;
-  }
-
-  .action-btn {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    background: var(--color-window);
-    border: 1px solid var(--color-border);
-    padding: 2px var(--sp-sm);
-    cursor: pointer;
-    box-shadow: var(--shadow-raised);
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      color var(--duration-fast) var(--ease);
-  }
-
-  .action-btn:hover {
-    color: var(--color-text);
-  }
-
-  .action-btn:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .action-btn.active {
-    color: var(--color-accent-mid);
   }
 </style>

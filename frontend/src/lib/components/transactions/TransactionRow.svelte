@@ -164,6 +164,7 @@
   })
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="row"
   class:transfer={isTransfer}
@@ -200,18 +201,17 @@
           use:focusOnMount
         />
       </div>
-    {:else}
-      <span
-        class="description"
-        class:editable={!selectable}
-        role={!selectable ? "button" : undefined}
-        tabindex={!selectable ? 0 : undefined}
-        onclick={!selectable ? (e) => { e.stopPropagation(); startDescEdit() } : undefined}
-        onkeydown={!selectable ? (e) => handleEditableKeydown(e, startDescEdit) : undefined}
-        title={!selectable ? "Click to edit" : undefined}
+    {:else if !selectable}
+      <button
+        class="description editable"
+        onclick={(e) => { e.stopPropagation(); startDescEdit() }}
+        onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
+        title="Click to edit"
       >
         {localDescription || '—'}
-      </span>
+      </button>
+    {:else}
+      <span class="description">{localDescription || '—'}</span>
     {/if}
     {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
 
@@ -460,9 +460,14 @@
     grid-template-rows: auto;
     align-items: start;
     gap: var(--sp-xs);
-    padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-divider);
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window-raised);
     transition: background var(--duration-fast) var(--ease);
+  }
+
+  .row:nth-child(even) {
+    background: var(--color-window);
   }
 
   .row:hover {
@@ -491,25 +496,30 @@
   }
 
   .checkbox {
-    display: inline-block;
-    width: 13px;
-    height: 13px;
-    box-shadow: var(--shadow-sunken);
-    background: var(--color-window-raised);
+    width: 14px;
+    height: 14px;
+    border-radius: 50%;
+    border: 1.5px solid var(--color-rule);
+    background: var(--color-window-inset);
     flex-shrink: 0;
     position: relative;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
+  }
+
+  .checkbox.checked {
+    background: linear-gradient(180deg, var(--color-accent-mid), var(--color-accent));
+    border-color: var(--color-accent);
   }
 
   .checkbox.checked::after {
-    content: "✓";
+    content: "";
     position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 10px;
-    line-height: 1;
-    color: var(--color-text);
+    inset: 3px;
+    border-radius: 50%;
+    background: #fff;
+    opacity: 0.85;
   }
 
   .row:last-child {
@@ -520,17 +530,21 @@
     display: flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 1px;
-    font-family: var(--font-sans);
+    gap: 2px;
+    font-family: var(--font-mono);
+    flex-shrink: 0;
   }
 
   .date-meta {
-    font-size: var(--text-xs);
+    font-size: 9px;
     color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .date-main {
-    font-size: var(--text-base);
+    font-size: 10px;
+    font-weight: 700;
     color: var(--color-text);
   }
 
@@ -538,36 +552,44 @@
     display: flex;
     flex-direction: column;
     gap: 2px;
-    border-left: 1px solid var(--color-divider);
-    padding-left: var(--sp-xs);
+    min-width: 0;
   }
 
-  .transfer .account-from,
   .transfer .account-to {
     color: var(--color-text-muted);
   }
 
   .transfer-tag {
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     font-size: 10px;
     color: var(--color-text-muted);
     align-self: flex-start;
   }
 
   .description {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-accent-mid);
+    font-family: var(--font-serif);
+    font-size: 13px;
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  /* Auto-sizing description input.
-     The ::after pseudo-element mirrors the input value and sets the width;
-     the input overlays it in the same grid cell. */
+  button.description {
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
+  }
+
   .desc-sizer {
     display: inline-grid;
     align-self: flex-start;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-family: var(--font-serif);
+    font-size: 13px;
   }
 
   .desc-sizer::after {
@@ -586,7 +608,7 @@
 
   .summary-line {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: 11px;
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
@@ -599,14 +621,15 @@
 
   .fee-label {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: 10px;
     color: var(--color-text-muted);
   }
 
   .arrow {
     color: var(--color-text-muted);
     flex-shrink: 0;
-    padding: 0 var(--sp-xs);
+    flex: 0 0 1.25rem;
+    text-align: center;
   }
 
   .account {
@@ -638,11 +661,12 @@
     align-items: center;
     gap: var(--sp-xs);
     align-self: center;
+    flex-shrink: 0;
   }
 
   .cross-arrow {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: 10px;
     color: var(--color-text-muted);
   }
 
@@ -725,11 +749,6 @@
 
     .body {
       grid-area: body;
-      border-left: none;
-      padding-left: 0;
-      border-top: none;
-      padding-top: 0;
-      padding-bottom: 0;
     }
 
     .money-col { grid-area: money; justify-self: end; }

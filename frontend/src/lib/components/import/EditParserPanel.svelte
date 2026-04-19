@@ -1,8 +1,9 @@
 <script lang="ts">
-  import Panel from '../ui/Panel.svelte'
-  import Button from '../ui/Button.svelte'
+  import GradientButton from '../ui/GradientButton.svelte'
   import Icon from '../ui/Icon.svelte'
   import Toggle from '../ui/Toggle.svelte'
+  import TextInput from '../ui/TextInput.svelte'
+  import Select from '../ui/Select.svelte'
   import AccountPathInput from '../accounts/AccountPathInput.svelte'
   import {
     updateParser,
@@ -111,7 +112,10 @@
   }
 </script>
 
-<Panel title="Edit Parser — {parser.name}">
+<div class="edit-window">
+  <div class="section-bar">
+    <span class="section-bar-title">EDIT PARSER — {parser.name}</span>
+  </div>
   <div class="edit-body">
     <div class="columns">
       <!-- Left: general settings -->
@@ -119,9 +123,8 @@
         <h3 class="section-heading">General</h3>
         <div class="form-grid">
           <label for="ep-name">Name <span class="required">*</span></label>
-          <input
+          <TextInput
             id="ep-name"
-            type="text"
             bind:value={name}
             autocomplete="off"
           />
@@ -169,28 +172,28 @@
         <h3 class="section-heading">Column mapping</h3>
         <div class="form-grid">
           <label for="ep-date">Date <span class="required">*</span></label>
-          <select id="ep-date" bind:value={mappingDate}>
+          <Select id="ep-date" bind:value={mappingDate}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-amount">Amount <span class="required">*</span></label>
-          <select id="ep-amount" bind:value={mappingAmount}>
+          <Select id="ep-amount" bind:value={mappingAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-description">Description</label>
-          <select id="ep-description" bind:value={mappingDescription}>
+          <Select id="ep-description" bind:value={mappingDescription}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-currency">Currency</label>
-          <select id="ep-currency" bind:value={mappingCurrency}>
+          <Select id="ep-currency" bind:value={mappingCurrency}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-sign-col" class="toggle-label">
             Direction column
@@ -202,16 +205,15 @@
               >?</button
             >
           </label>
-          <select id="ep-sign-col" bind:value={mappingSignColumn}>
+          <Select id="ep-sign-col" bind:value={mappingSignColumn}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           {#if mappingSignColumn}
             <label for="ep-sign-neg">Negative value</label>
-            <input
+            <TextInput
               id="ep-sign-neg"
-              type="text"
               bind:value={mappingSignNegativeValue}
               placeholder="e.g. OUT"
               spellcheck={false}
@@ -229,46 +231,46 @@
           <label for="ep-src-amount"
             >Source amount <span class="required">*</span></label
           >
-          <select id="ep-src-amount" bind:value={mappingSourceAmount}>
+          <Select id="ep-src-amount" bind:value={mappingSourceAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-src-currency"
             >Source currency <span class="required">*</span></label
           >
-          <select id="ep-src-currency" bind:value={mappingSourceCurrency}>
+          <Select id="ep-src-currency" bind:value={mappingSourceCurrency}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-tgt-amount"
             >Target amount <span class="required">*</span></label
           >
-          <select id="ep-tgt-amount" bind:value={mappingTargetAmount}>
+          <Select id="ep-tgt-amount" bind:value={mappingTargetAmount}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-tgt-currency"
             >Target currency <span class="required">*</span></label
           >
-          <select id="ep-tgt-currency" bind:value={mappingTargetCurrency}>
+          <Select id="ep-tgt-currency" bind:value={mappingTargetCurrency}>
             <option value="">— select —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-fee-amount">Fee amount</label>
-          <select id="ep-fee-amount" bind:value={mappingFeeAmount}>
+          <Select id="ep-fee-amount" bind:value={mappingFeeAmount}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
 
           <label for="ep-fee-currency">Fee currency</label>
-          <select id="ep-fee-currency" bind:value={mappingFeeCurrency}>
+          <Select id="ep-fee-currency" bind:value={mappingFeeCurrency}>
             <option value="">— not mapped —</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
-          </select>
+          </Select>
         </div>
       </section>
     {/if}
@@ -278,25 +280,50 @@
         <p class="save-error">{saveError}</p>
       {/if}
       <div class="footer-actions">
-        <Button onclick={onCancel}>Cancel</Button>
-        <Button
-          variant="primary"
+        <GradientButton onclick={onCancel}>Cancel</GradientButton>
+        <GradientButton
           onclick={handleSave}
           disabled={saving || !valid}
         >
           <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
-        </Button>
+        </GradientButton>
       </div>
     </div>
   </div>
-</Panel>
+</div>
 
 <style>
+  .edit-window {
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .section-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 4px 12px;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+  }
+
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    color: var(--color-section-bar-fg);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
   .edit-body {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-md);
-    padding: var(--sp-sm);
+    gap: var(--sp-sm);
+    padding: var(--sp-sm) var(--sp-md);
     background: var(--color-window);
   }
 
@@ -308,53 +335,46 @@
   }
 
   .section-heading {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
     padding-bottom: var(--sp-xs);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
     margin-bottom: var(--sp-sm);
   }
 
   .form-grid {
     display: grid;
-    grid-template-columns: 9rem 1fr;
-    gap: var(--sp-xs) var(--sp-sm);
+    grid-template-columns: 8rem 1fr;
+    gap: 5px var(--sp-sm);
     align-items: center;
   }
 
   /* 4-column layout for multi-currency: label col col label col col */
   .multi-grid {
     display: grid;
-    grid-template-columns: 9rem 1fr 9rem 1fr;
-    gap: var(--sp-xs) var(--sp-sm);
+    grid-template-columns: 8rem 1fr 8rem 1fr;
+    gap: 5px var(--sp-sm);
     align-items: center;
   }
 
   .form-grid label,
+  .form-grid .toggle-label,
   .multi-grid label {
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
     text-align: right;
+    color: var(--color-text-muted);
+    white-space: nowrap;
   }
 
-  .form-grid input,
-  .form-grid select,
-  .multi-grid select {
-    font-size: var(--text-sm);
-    font-family: var(--font-sans);
-    padding: var(--sp-xs) var(--sp-sm);
-    background: var(--color-window-inset);
-    box-shadow: var(--shadow-sunken);
-    border: none;
-    color: var(--color-text);
+  .form-grid :global(.text-input),
+  .form-grid :global(.select-input),
+  .multi-grid :global(.select-input) {
+    font-size: var(--text-xs);
     width: 100%;
-    box-sizing: border-box;
-  }
-
-  .form-grid input:focus,
-  .form-grid select:focus,
-  .multi-grid select:focus {
-    outline: 2px solid var(--color-accent-mid);
-    outline-offset: -2px;
   }
 
   .toggle-label {
@@ -389,7 +409,7 @@
     justify-content: flex-end;
     gap: var(--sp-sm);
     padding-top: var(--sp-sm);
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-rule);
   }
 
   .footer-actions {

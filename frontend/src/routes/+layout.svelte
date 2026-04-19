@@ -10,7 +10,11 @@
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import ChromeButton from '$lib/components/ui/ChromeButton.svelte'
   import CashConfetti from '$lib/components/ui/CashConfetti.svelte'
+  import { applyAccent } from '$lib/accent'
+  import type { AccentKey } from '$lib/accent'
+  import AccentPicker from '$lib/components/AccentPicker.svelte'
 
   let { children } = $props()
 
@@ -19,6 +23,8 @@
   let maximized = $state(true)
   let showQuitDialog = $state(false)
   let mobileSidebarOpen = $state(false)
+  let pickerOpen = $state(false)
+  let currentAccent = $state<AccentKey>('aqua')
 
   const settingsDefault: UserSettings = {
     id: '',
@@ -51,8 +57,10 @@
         fetchAccountBalances(),
         settingsStore.load(),
         actionRequiredStore.load(),
-      ]).then(([accts]) => {
+      ]).then(([accts, settings]) => {
         sidebarAccounts = accts
+        currentAccent = settings.preferences.accentColor ?? 'aqua'
+        applyAccent(currentAccent)
       })
     }
   })
@@ -70,6 +78,13 @@
   function closeMobileSidebar() {
     mobileSidebarOpen = false
   }
+
+  function handleAccentSelect(key: AccentKey) {
+    currentAccent = key
+    applyAccent(key)
+    pickerOpen = false
+    settingsStore.update({ preferences: { accentColor: key } })
+  }
 </script>
 
 <svelte:head>
@@ -79,36 +94,54 @@
 <div class="desktop" class:maximized>
   <div class="window">
     <div class="titlebar">
-      <span class="titlebar-icon">🧧</span>
+      {#if $session.data}
+        <div class="titlebar-pill-wrap">
+          <button
+            class="titlebar-pill"
+            aria-label="Choose accent color"
+            aria-expanded={pickerOpen}
+            onclick={() => (pickerOpen = !pickerOpen)}
+          >
+            <span class="pill-dot"></span>
+          </button>
+          {#if pickerOpen}
+            <AccentPicker
+              current={currentAccent}
+              onselect={handleAccentSelect}
+              onclose={() => (pickerOpen = false)}
+            />
+          {/if}
+        </div>
+      {/if}
       <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
         {#if $session.data}
           <!-- Mobile hamburger — lives in titlebar, hidden on desktop -->
-          <button
-            class="chrome-btn hamburger"
+          <ChromeButton
+            class="hamburger"
             onclick={() => (mobileSidebarOpen = true)}
             aria-label="Open menu"
           >
             <Icon name="menu" size={12} />
-          </button>
+          </ChromeButton>
         {/if}
-        <button class="chrome-btn minimize" aria-label="Minimize">
+        <ChromeButton variant="minimize" aria-label="Minimize">
           <Icon name="minimize" size={12} />
-        </button>
-        <button
-          class="chrome-btn maximize"
+        </ChromeButton>
+        <ChromeButton
+          variant="maximize"
           aria-label="Maximize"
           onclick={() => (maximized = !maximized)}
         >
           <Icon name={maximized ? 'restore-window' : 'maximize'} size={12} />
-        </button>
-        <button
-          class="chrome-btn close"
+        </ChromeButton>
+        <ChromeButton
+          variant="close"
           aria-label="Close"
           onclick={() => (showQuitDialog = true)}
         >
           <Icon name="close" size={12} />
-        </button>
+        </ChromeButton>
       </div>
     </div>
 
@@ -180,7 +213,7 @@
     align-items: flex-start;
     justify-content: center;
     padding: var(--sp-xl);
-    background-color: var(--color-desktop);
+    background: linear-gradient(135deg, #007070 0%, #008080 50%, #006858 100%);
   }
 
   .desktop {
@@ -203,7 +236,7 @@
     transition: max-width 150ms var(--ease);
   }
 
-  /* Restored (non-maximized): float as a windowed panel on the teal desktop */
+  /* Restored (non-maximized): float as a windowed panel on the classic teal desktop */
   .desktop:not(.maximized) .window {
     max-width: 1100px;
   }
@@ -214,13 +247,10 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: 3px var(--sp-xs);
-    background: linear-gradient(
-      to right,
-      var(--color-titlebar-from),
-      var(--color-titlebar-to)
-    );
-    color: var(--color-titlebar-text);
+    background: var(--color-titlebar-bg);
+    color: var(--color-titlebar-fg);
     user-select: none;
+    position: relative;
   }
 
   .titlebar-icon {
@@ -228,9 +258,41 @@
   }
 
   .titlebar-title {
-    font-size: var(--text-sm);
+    font-family: var(--font-serif);
+    font-size: 13px;
     font-weight: var(--weight-semibold);
+    letter-spacing: 0.01em;
     flex: 1;
+  }
+
+  .titlebar-pill-wrap {
+    position: relative;
+  }
+
+  .titlebar-pill {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    background: none;
+    border: 1px solid rgba(0, 0, 0, 0.2);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    padding: 0;
+    transition: filter var(--duration-fast) var(--ease);
+  }
+
+  .titlebar-pill:hover {
+    filter: brightness(1.2);
+  }
+
+  .pill-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--color-titlebar-accent);
+    display: block;
   }
 
   .titlebar-controls {
@@ -238,51 +300,20 @@
     gap: 2px;
   }
 
-  .chrome-btn {
-    width: 21px;
-    height: 21px;
-    background: var(--color-window);
-    color: var(--color-text);
-    border: none;
-    box-shadow: var(--shadow-raised);
-    font-size: var(--text-xs);
-    font-family: var(--font-sans);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
-  }
-
-  .chrome-btn:hover {
-    background: var(--color-accent-light);
-  }
-
-  .chrome-btn:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .chrome-btn.close:hover {
-    background: var(--color-danger);
-    color: var(--color-text-on-dark);
-  }
-
   /* Hamburger — hidden on desktop, visible on mobile only */
-  .chrome-btn.hamburger {
+  :global(.chrome-btn.hamburger) {
     display: none;
   }
 
   @media (max-width: 600px) {
     /* Show hamburger, hide window management buttons on mobile */
-    .chrome-btn.hamburger {
+    :global(.chrome-btn.hamburger) {
       display: flex;
     }
 
-    .chrome-btn.minimize,
-    .chrome-btn.maximize,
-    .chrome-btn.close {
+    :global(.chrome-btn.minimize),
+    :global(.chrome-btn.maximize),
+    :global(.chrome-btn.close) {
       display: none;
     }
   }
@@ -387,12 +418,8 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: 3px var(--sp-xs);
-    background: linear-gradient(
-      to right,
-      var(--color-titlebar-from),
-      var(--color-titlebar-to)
-    );
-    color: var(--color-titlebar-text);
+    background: var(--color-titlebar-bg);
+    color: var(--color-titlebar-fg);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     user-select: none;

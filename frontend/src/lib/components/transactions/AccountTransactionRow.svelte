@@ -8,6 +8,7 @@
   import { currencyFlag } from '$lib/currency'
   import { settingsStore } from '$lib/settings.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
+  import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import {
     focusOnMount,
     parseDateParts,
@@ -21,6 +22,7 @@
 
   interface Props {
     tx: Transaction
+    idx: number
     accounts: Account[]
     currentAccountId: string
     defaultOffsetAccountId?: string | null
@@ -34,6 +36,7 @@
 
   let {
     tx,
+    idx,
     accounts,
     currentAccountId,
     defaultOffsetAccountId,
@@ -193,7 +196,7 @@
   })
 </script>
 
-<div class="row" class:transfer={isTransfer}>
+<div class="row" class:transfer={isTransfer} class:odd={idx % 2 !== 0}>
   <!-- Date -->
   <div class="date">
     <span class="date-meta">{dateParts.year} {dateParts.dow}</span>
@@ -378,34 +381,37 @@
       </div>
     {:else if currentPosting}
       {#if fxConverted?.status === 'ok'}
-        <div
-          class="fx-converted"
-          class:flow-in={flowDirection === 'in'}
-          class:flow-out={flowDirection === 'out'}
-        >
-          <span class="fx-amount">{fmt(fxConverted.convertedAmount)}</span>
-          <span class="fx-currency">{preferredCurrency}</span>
-          <span class="fx-original">
-            ({fxConverted.originalFlag
-              ? `${fxConverted.originalFlag} `
-              : ''}{fxConverted.originalCurrency})
-          </span>
+        <div class="fx-stack" class:flow-in={flowDirection === 'in'} class:flow-out={flowDirection === 'out'}>
+          <div class="fx-primary">
+            <CurrencyPill code={preferredCurrency} size="xs" />
+            <span class="fx-main-amount">{fmt(fxConverted.convertedAmount)}</span>
+          </div>
+          <div class="fx-secondary">
+            <span class="fx-tilde">≈</span>
+            <span class="fx-orig-code">{fxConverted.originalCurrency}</span>
+            <span class="fx-orig-amount">{fmt(currentPosting.amount)}</span>
+          </div>
         </div>
       {:else if fxConverted?.status === 'loading'}
-        <div class="fx-converted">
-          <span class="fx-amount">{fmt(currentPosting.amount)}</span>
-          <span class="fx-currency">{currentPosting.currency}</span>
-          <span class="fx-spinner" aria-label="Loading rate"></span>
+        <div class="fx-stack">
+          <div class="fx-primary">
+            <CurrencyPill code={currentPosting.currency} size="xs" />
+            <span class="fx-main-amount fx-muted">{fmt(currentPosting.amount)}</span>
+          </div>
+          <div class="fx-secondary">
+            <span class="fx-converting">converting…</span>
+          </div>
         </div>
       {:else if fxConverted?.status === 'missing'}
-        <div class="fx-converted fx-missing">
-          <Icon name="warning" size={11} />
-          <MoneyDisplay
-            amount={fmt(currentPosting.amount)}
-            currency={currentPosting.currency}
-            {flowDirection}
-            inline
-          />
+        <div class="fx-stack fx-no-rate">
+          <div class="fx-primary">
+            <CurrencyPill code={currentPosting.currency} size="xs" />
+            <span class="fx-main-amount fx-muted">{fmt(currentPosting.amount)}</span>
+          </div>
+          <div class="fx-secondary">
+            <Icon name="warning" size={9} />
+            <span>no rate</span>
+          </div>
         </div>
       {:else}
         <MoneyDisplay
@@ -457,10 +463,14 @@
     grid-template-columns: var(--tx-cols) auto;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 0 var(--sp-sm);
-    min-height: 2.75rem;
-    border-bottom: 1px solid var(--color-divider);
+    padding: 7px 14px;
+    background: var(--color-window-raised);
+    border-bottom: 1px solid var(--color-rule);
     transition: background var(--duration-fast) var(--ease);
+  }
+
+  .row.odd {
+    background: var(--color-window);
   }
 
   .row:hover {
@@ -475,18 +485,21 @@
   .date {
     display: flex;
     flex-direction: column;
-    gap: 1px;
-    font-family: var(--font-sans);
+    gap: 2px;
+    font-family: var(--font-mono);
     flex-shrink: 0;
   }
 
   .date-meta {
-    font-size: 10px;
+    font-size: 9px;
     color: var(--color-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
   }
 
   .date-main {
-    font-size: var(--text-sm);
+    font-size: 10px;
+    font-weight: 700;
     color: var(--color-text);
   }
 
@@ -500,9 +513,13 @@
   }
 
   .description {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-accent-mid);
+    font-family: var(--font-serif);
+    font-size: 13px;
+    font-weight: 400;
+    color: var(--color-accent);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -517,8 +534,8 @@
   .desc-sizer {
     display: inline-grid;
     align-self: center;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-family: var(--font-serif);
+    font-size: 13px;
     min-width: 0;
     flex: 1;
   }
@@ -544,7 +561,7 @@
     gap: var(--sp-xs);
     min-width: 0;
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: 11px;
   }
 
   .dir-arrow {
@@ -629,10 +646,10 @@
 
   /* --- Shared input style --- */
   .edit-input {
-    font-family: inherit;
-    font-size: inherit;
+    font-family: var(--font-serif);
+    font-size: 13px;
     color: var(--color-text);
-    background: var(--color-window-inset);
+    background: transparent;
     border: none;
     box-shadow: var(--shadow-sunken);
     padding: 1px var(--sp-xs);
@@ -664,59 +681,65 @@
   }
 
   /* --- FX converted amount --- */
-  .fx-converted {
+  .fx-stack {
     display: flex;
-    align-items: center;
-    gap: 3px;
-    justify-content: flex-end;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
     flex-shrink: 0;
   }
 
-  .fx-converted.flow-in {
-    color: var(--color-transfer-in);
-  }
-
-  .fx-converted.flow-out {
-    color: var(--color-transfer-out);
-  }
-
-  .fx-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-  }
-
-  .fx-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    opacity: 0.75;
-  }
-
-  .fx-original {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .fx-missing {
-    color: var(--color-warning);
+  .fx-primary {
+    display: flex;
+    align-items: center;
     gap: 4px;
   }
 
-  .fx-spinner {
-    display: inline-block;
-    width: 10px;
-    height: 10px;
-    border: 1.5px solid var(--color-text-muted);
-    border-top-color: var(--color-text);
-    border-radius: 50%;
-    animation: fx-spin 0.7s linear infinite;
-    flex-shrink: 0;
+  .fx-main-amount {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
   }
 
-  @keyframes fx-spin {
-    to {
-      transform: rotate(360deg);
-    }
+  .fx-stack.flow-in .fx-main-amount { color: var(--color-transfer-in); }
+  .fx-stack.flow-out .fx-main-amount { color: var(--color-transfer-out); }
+
+  .fx-main-amount.fx-muted {
+    color: var(--color-text-muted);
+  }
+
+  .fx-secondary {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+  }
+
+  .fx-tilde {
+    opacity: 0.5;
+  }
+
+  .fx-orig-code {
+    font-weight: 600;
+    letter-spacing: 0.02em;
+  }
+
+  .fx-orig-amount {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .fx-converting {
+    font-style: italic;
+    opacity: 0.6;
+  }
+
+  .fx-no-rate .fx-secondary {
+    color: var(--color-warning);
+    gap: 4px;
   }
 
   /* --- Actions --- */

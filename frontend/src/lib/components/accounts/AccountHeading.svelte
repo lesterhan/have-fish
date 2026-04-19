@@ -31,21 +31,13 @@
 
   {#if balances && balances.length > 0}
     <div class="balance-block">
-      <span class="balance-label">Current Balance</span>
-      <div class="balance-amounts">
-        {#each balances as b}
-          <div class="balance-item">
-            <span class="balance-currency">
-              {currencyFlag(b.currency)
-                ? `${currencyFlag(b.currency)} `
-                : ''}{b.currency}
-            </span>
-            <span class="balance-amount">
-              {isNegative(b.amount) ? '−' : ''}{formatAmount(b.amount)}
-            </span>
-          </div>
-        {/each}
-      </div>
+      {#each balances as b}
+        <div class="balance-item">
+          <span class="balance-label">BALANCE</span>
+          <span class="balance-amount">{isNegative(b.amount) ? '−' : ''}{formatAmount(b.amount)}</span>
+          <span class="balance-currency">{currencyFlag(b.currency) ? `${currencyFlag(b.currency)} ` : ''}{b.currency}</span>
+        </div>
+      {/each}
     </div>
   {/if}
 </header>
@@ -54,20 +46,19 @@
   .account-header {
     display: flex;
     justify-content: space-between;
-    align-items: flex-end;
-    padding: var(--sp-lg) var(--sp-xl);
-    margin-bottom: var(--sp-xl);
-    background: var(--color-window-raised);
-    border-left: 4px solid var(--color-accent);
-    border-bottom: 1px solid var(--color-border);
+    align-items: center;
+    padding: 14px 22px 10px;
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule);
     gap: var(--sp-xl);
+    flex-shrink: 0;
   }
 
   @media (max-width: 520px) {
     .account-header {
       flex-direction: column;
       align-items: flex-start;
-      gap: var(--sp-md);
+      gap: var(--sp-sm);
       padding: var(--sp-md);
     }
   }
@@ -75,85 +66,82 @@
   .header-left {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-xs);
+    gap: 2px;
     min-width: 0;
   }
 
   .account-name {
     font-family: var(--font-serif);
-    font-size: var(--text-3xl);
-    font-weight: var(--weight-semibold);
+    font-size: 24px;
+    font-weight: 600;
     color: var(--color-text);
     line-height: var(--leading-tight);
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    letter-spacing: -0.2px;
   }
 
   @media (max-width: 520px) {
     .account-name {
       white-space: normal;
-      font-size: var(--text-2xl);
+      font-size: var(--text-xl);
     }
   }
 
   .account-path {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    font-size: 10px;
     color: var(--color-text-muted);
-    letter-spacing: 0.06em;
-    text-transform: uppercase;
+    letter-spacing: 0.04em;
     margin: 0;
   }
 
   .balance-block {
     display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: 2px;
+    flex-direction: row;
+    align-items: center;
+    gap: var(--sp-lg);
     flex-shrink: 0;
   }
 
   @media (max-width: 520px) {
     .balance-block {
+      flex-direction: column;
       align-items: flex-start;
+      gap: var(--sp-sm);
     }
-  }
-
-  .balance-label {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    letter-spacing: 0.1em;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  .balance-amounts {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    gap: var(--sp-xs);
   }
 
   .balance-item {
     display: flex;
-    flex-direction: row;
-    align-items: baseline;
-    gap: var(--sp-sm);
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 2px;
   }
 
-  .balance-currency {
+  .balance-label {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 1.2px;
+    text-transform: uppercase;
+    color: var(--color-accent);
   }
 
   .balance-amount {
     font-family: var(--font-mono);
-    font-size: var(--text-2xl);
-    font-weight: var(--weight-semibold);
+    font-size: 18px;
+    font-weight: 600;
     color: var(--color-text);
-    line-height: var(--leading-tight);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .balance-currency {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    margin-top: 1px;
   }
 </style>
