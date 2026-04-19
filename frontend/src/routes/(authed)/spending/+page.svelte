@@ -739,9 +739,11 @@
   }
 
   .txn-header-title {
-    font-family: var(--font-serif);
-    font-size: 14px;
+    font-family: var(--font-mono);
+    font-size: 11px;
     font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
   }
 
   .txn-header-count {
@@ -829,8 +831,8 @@
     align-items: center;
     gap: 8px;
     padding: 8px 14px;
-    border-top: 1px solid var(--color-sidebar-border);
-    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    border-top: 1px solid var(--color-rule);
+    background: var(--color-window);
     flex-shrink: 0;
   }
 
@@ -911,7 +913,11 @@
   }
 
   .section-bar .breadcrumb {
-    margin-bottom: 0;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    font-family: var(--font-mono);
+    font-size: 10px;
     color: var(--color-section-bar-fg);
     opacity: 0.85;
   }
@@ -922,16 +928,24 @@
   }
 
   .section-bar .crumb-current {
+    font-weight: var(--weight-semibold);
     color: var(--color-section-bar-fg);
   }
 
   .section-bar .crumb-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-family: inherit;
+    font-size: inherit;
     color: var(--color-section-bar-fg);
+    text-decoration: none;
+    cursor: pointer;
     opacity: 0.7;
+    transition: opacity var(--duration-fast) var(--ease);
   }
 
   .section-bar .crumb-link:hover {
-    color: var(--color-section-bar-fg);
     opacity: 1;
   }
 
@@ -989,6 +1003,7 @@
   }
 
   .status {
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     padding: var(--sp-md) 0;
@@ -1003,37 +1018,5 @@
     flex-direction: column;
   }
 
-  /* Breadcrumb */
-  .breadcrumb {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    margin-bottom: var(--sp-md);
-    font-size: var(--text-sm);
-    font-family: var(--font-mono);
-  }
 
-  .sep {
-    color: var(--color-text-muted);
-    font-weight: var(--weight-semibold);
-  }
-
-  .crumb-current {
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-  }
-
-  .crumb-link {
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--color-accent);
-    cursor: pointer;
-    text-decoration: underline;
-    transition: color var(--duration-fast) var(--ease);
-  }
-
-  .crumb-link:hover {
-    color: var(--color-accent-mid);
-  }
 </style>
