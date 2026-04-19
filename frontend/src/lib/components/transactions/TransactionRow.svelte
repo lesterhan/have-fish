@@ -164,6 +164,7 @@
   })
 </script>
 
+<!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="row"
   class:transfer={isTransfer}
@@ -200,18 +201,17 @@
           use:focusOnMount
         />
       </div>
-    {:else}
-      <span
-        class="description"
-        class:editable={!selectable}
-        role={!selectable ? "button" : undefined}
-        tabindex={!selectable ? 0 : undefined}
-        onclick={!selectable ? (e) => { e.stopPropagation(); startDescEdit() } : undefined}
-        onkeydown={!selectable ? (e) => handleEditableKeydown(e, startDescEdit) : undefined}
-        title={!selectable ? "Click to edit" : undefined}
+    {:else if !selectable}
+      <button
+        class="description editable"
+        onclick={(e) => { e.stopPropagation(); startDescEdit() }}
+        onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
+        title="Click to edit"
       >
         {localDescription || '—'}
-      </span>
+      </button>
+    {:else}
+      <span class="description">{localDescription || '—'}</span>
     {/if}
     {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
 
@@ -558,6 +558,13 @@
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--color-accent-mid);
+  }
+
+  button.description {
+    background: none;
+    border: none;
+    padding: 0;
+    text-align: left;
   }
 
   /* Auto-sizing description input.
