@@ -26,7 +26,7 @@
   }
 
   .form-grid :global(input:not(.file-input)) {
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
     color: var(--color-text);
     background: var(--color-window-inset);
@@ -48,7 +48,7 @@
   }
 
   .form-grid :global(select) {
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
     color: var(--color-text);
     background: var(--color-window-inset);

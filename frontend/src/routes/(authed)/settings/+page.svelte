@@ -4,16 +4,18 @@
   import type { Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { SUPPORTED_CURRENCIES } from '$lib/currency'
-  import Button from '$lib/components/ui/Button.svelte'
-  import HeadingBanner from '$lib/components/ui/HeadingBanner.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
   import { signOut, useSession, authClient } from '$lib/auth'
   import { goto } from '$app/navigation'
   import { confetti } from '$lib/confetti.svelte'
   import { toast } from '$lib/toast.svelte'
   import { tooltip } from '$lib/tooltip'
+  import { scrollShadow } from '$lib/scrollShadow'
 
   const session = useSession()
 
@@ -22,13 +24,10 @@
     goto('/login')
   }
 
-  // --- Defaults ---
   let offsetAccountId = $state('')
   let conversionAccountId = $state('')
   let adjustmentsAccountId = $state('')
   let preferredCurrency = $state('CAD')
-
-  // --- Accounts ---
   let accounts = $state<Account[]>([])
   let newAccountPath = $state('')
 
@@ -45,7 +44,8 @@
   })
 
   async function handleCreateAccount() {
-    const created = await createAccount({ path: newAccountPath })
+    if (!newAccountPath.trim()) return
+    const created = await createAccount({ path: newAccountPath.trim() })
     accounts = [...accounts, created]
     newAccountPath = ''
   }
@@ -92,327 +92,351 @@
     toast.show(`${rootPathLabels[field]} saved`)
   }
 
-  // --- Accounts ---
-  let accountsExpanded = $state(false)
-
-  // --- Danger zone ---
   let showDeleteConfirm = $state(false)
 
   async function handleDeleteUser() {
     await authClient.deleteUser()
     goto('/login')
   }
+
+  let sortedAccounts = $derived(
+    [...accounts].sort((a, b) => a.path.localeCompare(b.path)),
+  )
 </script>
 
-{#if $session.data}
-  <HeadingBanner>
-    <h1>
+<div class="page">
+
+  <!-- User -->
+  <div class="settings-section section-user">
+    <div class="section-bar">
       <button
         class="secret-btn"
-        onclick={() => { toast.show('年年有鱼 Year Year Have Fish'); confetti.trigger() }}>🧧</button
-      >
-      {$session.data.user.email}
-    </h1>
-    <Button variant="danger" onclick={handleSignOut}>Sign out</Button>
-  </HeadingBanner>
-{/if}
+        onclick={() => { toast.show('年年有鱼 · Year Year Have Fish'); confetti.trigger() }}
+        aria-label="Year Year Have Fish"
+      >🧧</button>
+      {#if $session.data}
+        <span class="user-email">{$session.data.user.email}</span>
+      {/if}
+      <GradientButton onclick={handleSignOut}>Sign out</GradientButton>
+    </div>
+  </div>
 
-<section>
-  <h2>Defaults</h2>
-  <div class="defaults-columns">
-    <div class="defaults-panel">
-      <h3>Account defaults</h3>
-      <div class="field-grid">
-        <label for="default-offset" class="tip-label">
+  <!-- Account defaults -->
+  <div class="settings-section section-defaults">
+    <div class="section-bar">
+      <span class="section-bar-title">Account Defaults</span>
+    </div>
+    <div class="section-body">
+      <div class="setting-row">
+        <span class="setting-label">
           Uncategorized
-          <button
-            type="button"
-            class="tip"
-            use:tooltip={'Imported transactions with no matched category will use this account. Used to note uncategorized transactions.'}
-            aria-label="Imported transactions with no matched category will use this account. Used to note uncategorized transactions."
-            >?</button
-          >
-        </label>
+          <button type="button" class="help-btn" use:tooltip={'Imported transactions with no matched category will use this account.'} aria-label="Uncategorized account help">?</button>
+        </span>
         <AccountPathInput
           {accounts}
           bind:value={offsetAccountId}
           placeholder="liabilities:offset"
           oncommit={(id) => handleDefaultChange('defaultOffsetAccountId', id)}
-          oncreate={(a) => {
-            accounts = [...accounts, a]
-          }}
+          oncreate={(a) => { accounts = [...accounts, a] }}
         />
-
-        <label for="default-conversion" class="tip-label">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">
           Conversion balance
-          <button
-            type="button"
-            class="tip"
-            use:tooltip={'Equity account used to balance cross-currency transfers. Required for multi-currency imports.'}
-            aria-label="Equity account used to balance cross-currency transfers. Required for multi-currency imports."
-            >?</button
-          >
-        </label>
+          <button type="button" class="help-btn" use:tooltip={'Equity account used to balance cross-currency transfers. Required for multi-currency imports.'} aria-label="Conversion balance help">?</button>
+        </span>
         <AccountPathInput
           {accounts}
           bind:value={conversionAccountId}
           placeholder="equity:conversions"
-          oncommit={(id) =>
-            handleDefaultChange('defaultConversionAccountId', id)}
-          oncreate={(a) => {
-            accounts = [...accounts, a]
-          }}
+          oncommit={(id) => handleDefaultChange('defaultConversionAccountId', id)}
+          oncreate={(a) => { accounts = [...accounts, a] }}
         />
-
-        <label for="default-adjustments" class="tip-label">
+      </div>
+      <div class="setting-row">
+        <span class="setting-label">
           Adjustments
-          <button
-            type="button"
-            class="tip"
-            use:tooltip={'Equity account used as the offset when posting a reconciliation adjustment.'}
-            aria-label="Equity account used as the offset when posting a reconciliation adjustment."
-            >?</button
-          >
-        </label>
+          <button type="button" class="help-btn" use:tooltip={'Equity account used as the offset when posting a reconciliation adjustment.'} aria-label="Adjustments help">?</button>
+        </span>
         <AccountPathInput
           {accounts}
           bind:value={adjustmentsAccountId}
           placeholder="equity:adjustments"
-          oncommit={(id) =>
-            handleDefaultChange('defaultAdjustmentsAccountId', id)}
-          oncreate={(a) => {
-            accounts = [...accounts, a]
-          }}
+          oncommit={(id) => handleDefaultChange('defaultAdjustmentsAccountId', id)}
+          oncreate={(a) => { accounts = [...accounts, a] }}
         />
-
-        <label for="preferred-currency" class="tip-label">
+      </div>
+      <div class="setting-row">
+        <label class="setting-label" for="preferred-currency">
           Preferred currency
-          <button
-            type="button"
-            class="tip"
-            use:tooltip={"Your home currency. When entering transactions in another currency, the app will show the equivalent amount in this currency."}
-            aria-label="Your home currency. When entering transactions in another currency, the app will show the equivalent amount in this currency."
-            >?</button
-          >
+          <button type="button" class="help-btn" use:tooltip={'Your home currency. Used for FX conversion displays.'} aria-label="Preferred currency help">?</button>
         </label>
-        <select
+        <Select
           id="preferred-currency"
           bind:value={preferredCurrency}
           onchange={async () => {
             await settingsStore.update({ preferredCurrency })
             toast.show('Preferred currency saved')
           }}
+          style="width: 7rem"
         >
           {#each SUPPORTED_CURRENCIES as c}
             <option value={c}>{c}</option>
           {/each}
-        </select>
+        </Select>
       </div>
     </div>
+  </div>
 
-    <div class="defaults-panel">
-      <h3>Root paths</h3>
-      <div class="field-grid">
-        <label for="assets-root-path" class="tip-label">
+  <!-- Root paths -->
+  <div class="settings-section section-roots">
+    <div class="section-bar">
+      <span class="section-bar-title">Root Paths</span>
+    </div>
+    <div class="section-body">
+      <div class="setting-row">
+        <label class="setting-label" for="assets-root-path">
           Assets
-          <button
-            type="button"
-            class="tip"
-            use:tooltip={"Root path prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."}
-            aria-label="Root path prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."
-            >?</button
-          >
+          <button type="button" class="help-btn" use:tooltip={"Root prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."} aria-label="Assets root path help">?</button>
         </label>
-        <input
+        <TextInput
           id="assets-root-path"
-          type="text"
           value={settingsStore.value?.defaultAssetsRootPath ?? 'assets'}
-          onblur={(e) =>
-            handleRootPathChange(
-              'defaultAssetsRootPath',
-              (e.currentTarget as HTMLInputElement).value,
-            )}
+          onblur={(e) => handleRootPathChange('defaultAssetsRootPath', (e.currentTarget as HTMLInputElement).value)}
           placeholder="assets"
+          spellcheck={false}
+          style="width: 100%; box-sizing: border-box"
         />
-
-        <label for="liabilities-root-path" class="tip-label">
+      </div>
+      <div class="setting-row">
+        <label class="setting-label" for="liabilities-root-path">
           Liabilities
-          <button
-            type="button"
-            class="tip"
-            use:tooltip={"Root path prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."}
-            aria-label="Root path prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."
-            >?</button
-          >
+          <button type="button" class="help-btn" use:tooltip={"Root prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."} aria-label="Liabilities root path help">?</button>
         </label>
-        <input
+        <TextInput
           id="liabilities-root-path"
-          type="text"
-          value={settingsStore.value?.defaultLiabilitiesRootPath ??
-            'liabilities'}
-          onblur={(e) =>
-            handleRootPathChange(
-              'defaultLiabilitiesRootPath',
-              (e.currentTarget as HTMLInputElement).value,
-            )}
+          value={settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'}
+          onblur={(e) => handleRootPathChange('defaultLiabilitiesRootPath', (e.currentTarget as HTMLInputElement).value)}
           placeholder="liabilities"
+          spellcheck={false}
+          style="width: 100%; box-sizing: border-box"
         />
-
-        <label for="expenses-root-path" class="tip-label">
+      </div>
+      <div class="setting-row">
+        <label class="setting-label" for="expenses-root-path">
           Expenses
-          <button
-            type="button"
-            class="tip"
-            use:tooltip={"Root path prefix for expense accounts. Used to filter spending reports (e.g. 'expenses' → 'expenses:food')."}
-            aria-label="Root path prefix for expense accounts. Used to filter spending reports (e.g. 'expenses' → 'expenses:food')."
-            >?</button
-          >
+          <button type="button" class="help-btn" use:tooltip={"Root prefix for expense accounts. Used to filter spending reports."} aria-label="Expenses root path help">?</button>
         </label>
-        <input
+        <TextInput
           id="expenses-root-path"
-          type="text"
           value={settingsStore.value?.defaultExpensesRootPath ?? 'expenses'}
-          onblur={(e) =>
-            handleRootPathChange(
-              'defaultExpensesRootPath',
-              (e.currentTarget as HTMLInputElement).value,
-            )}
+          onblur={(e) => handleRootPathChange('defaultExpensesRootPath', (e.currentTarget as HTMLInputElement).value)}
           placeholder="expenses"
+          spellcheck={false}
+          style="width: 100%; box-sizing: border-box"
         />
-
-        <label for="equity-root-path" class="tip-label">
+      </div>
+      <div class="setting-row">
+        <label class="setting-label" for="equity-root-path">
           Equity
-          <button
-            type="button"
-            class="tip"
-            use:tooltip={"Root path prefix for equity accounts. Used to group equity in the sidebar (e.g. 'equity' → 'equity:conversions')."}
-            aria-label="Root path prefix for equity accounts. Used to group equity in the sidebar (e.g. 'equity' → 'equity:conversions')."
-            >?</button
-          >
+          <button type="button" class="help-btn" use:tooltip={"Root prefix for equity accounts. Used to group equity in the sidebar."} aria-label="Equity root path help">?</button>
         </label>
-        <input
+        <TextInput
           id="equity-root-path"
-          type="text"
           value={settingsStore.value?.defaultEquityRootPath ?? 'equity'}
-          onblur={(e) =>
-            handleRootPathChange(
-              'defaultEquityRootPath',
-              (e.currentTarget as HTMLInputElement).value,
-            )}
+          onblur={(e) => handleRootPathChange('defaultEquityRootPath', (e.currentTarget as HTMLInputElement).value)}
           placeholder="equity"
+          spellcheck={false}
+          style="width: 100%; box-sizing: border-box"
         />
       </div>
     </div>
   </div>
-</section>
 
-<section>
-  <button
-    class="accounts-toggle"
-    onclick={() => (accountsExpanded = !accountsExpanded)}
-  >
-    <span class="accounts-toggle-arrow">{accountsExpanded ? '🔽' : '▶️'}</span>
-    <h2>Accounts <span class="accounts-count">({accounts.length})</span></h2>
-  </button>
+  <!-- Danger zone -->
+  <div class="settings-section section-danger">
+    <div class="section-bar danger-bar">
+      <span class="section-bar-title">Danger Zone</span>
+    </div>
+    <div class="section-body">
+      <div class="setting-row danger-row">
+        <div class="danger-info">
+          <span class="danger-title">Delete my account</span>
+          <span class="danger-desc">Permanently removes your account and all associated data. This cannot be undone.</span>
+        </div>
+        <GradientButton variant="warning" active onclick={() => (showDeleteConfirm = true)}>
+          Delete account
+        </GradientButton>
+      </div>
+    </div>
+  </div>
 
-  {#if accountsExpanded}
+  <!-- Accounts (right column) -->
+  <div class="settings-section section-accounts">
+    <div class="section-bar">
+      <span class="section-bar-title">Accounts · {accounts.length}</span>
+    </div>
     <form
-      onsubmit={(e) => {
-        e.preventDefault()
-        handleCreateAccount()
-      }}
-      class="add-account-form"
+      class="add-row"
+      onsubmit={(e) => { e.preventDefault(); handleCreateAccount() }}
     >
-      <input
+      <TextInput
         bind:value={newAccountPath}
         placeholder="assets:cash"
-        class="add-input"
+        spellcheck={false}
+        style="flex: 1; min-width: 0; width: auto"
       />
-      <Button type="submit" variant="primary">Add</Button>
+      <GradientButton type="submit" active disabled={!newAccountPath.trim()}>Add</GradientButton>
     </form>
-
-    <div class="accounts-list">
-      {#each [...accounts].sort( (a, b) => a.path.localeCompare(b.path), ) as account}
+    <div class="accounts-list" use:scrollShadow>
+      {#each sortedAccounts as account (account.id)}
         <div class="list-row">
-          {account.path}
-          <Button
-            variant="danger"
-            onclick={() => handleDeleteAccount(account.id)}>delete</Button
+          <span class="account-path">{account.path}</span>
+          <GradientButton
+            square
+            variant="warning"
+            onclick={() => handleDeleteAccount(account.id)}
+            tooltip="Delete account"
           >
+            <Icon name="trash" size={12} />
+          </GradientButton>
         </div>
       {/each}
-    </div>
-  {/if}
-</section>
-
-<Panel title="DANGER">
-  <div class="danger-body">
-    <div class="danger-row">
-      <div class="danger-description">
-        <strong>Delete my account</strong>
-        <p>
-          Permanently removes your account and all associated data. This cannot
-          be undone.
-        </p>
-      </div>
-      <Button variant="danger" onclick={() => (showDeleteConfirm = true)}>
-        Delete my account
-      </Button>
+      {#if accounts.length === 0}
+        <p class="accounts-empty">No accounts yet.</p>
+      {/if}
     </div>
   </div>
-</Panel>
+
+</div>
 
 <Modal title="Delete account" bind:open={showDeleteConfirm}>
   <div class="delete-modal">
-    <p>Are you sure? You cannot restore your user account.</p>
+    <p>This will permanently delete your user account and all data. This cannot be undone.</p>
     <div class="delete-actions">
-      <Button onclick={() => (showDeleteConfirm = false)}>Cancel</Button>
-      <Button variant="danger" onclick={handleDeleteUser}>Delete user</Button>
+      <GradientButton onclick={() => (showDeleteConfirm = false)}>Cancel</GradientButton>
+      <GradientButton variant="warning" active onclick={handleDeleteUser}>Delete account</GradientButton>
     </div>
   </div>
 </Modal>
 
 <style>
-  .defaults-columns {
+  /* --- Two-column grid layout --- */
+  .page {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: var(--sp-md);
-    align-items: stretch;
+    grid-template-columns: 1fr 320px;
+    grid-template-rows: auto auto auto 1fr;
+    grid-template-areas:
+      "user     accts"
+      "defaults accts"
+      "roots    accts"
+      "danger   accts";
+    background: var(--color-window);
+    margin: calc(-1 * var(--sp-lg));
+    height: calc(100% + 2 * var(--sp-lg));
+    overflow: hidden;
   }
 
-  .defaults-panel {
-    box-shadow: var(--shadow-raised);
-    padding: var(--sp-sm);
+  .section-user     { grid-area: user;     border-bottom: 1px solid var(--color-rule); }
+  .section-defaults { grid-area: defaults; border-bottom: 1px solid var(--color-rule); }
+  .section-roots    { grid-area: roots;    border-bottom: 1px solid var(--color-rule); }
+  .section-danger   { grid-area: danger; }
+  .section-accounts {
+    grid-area: accts;
+    border-left: 1px solid var(--color-rule);
+    display: flex;
+    flex-direction: column;
+    min-height: 0;
   }
 
-  .defaults-panel h3 {
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
-    margin-bottom: var(--sp-sm);
+  @media (max-width: 640px) {
+    .page {
+      grid-template-columns: 1fr;
+      grid-template-rows: auto;
+      grid-template-areas:
+        "user"
+        "defaults"
+        "roots"
+        "accts"
+        "danger";
+      margin: calc(-1 * var(--sp-md));
+      height: auto;
+      overflow: visible;
+    }
+
+    .section-accounts {
+      border-left: none;
+      border-bottom: 1px solid var(--color-rule);
+    }
   }
 
-  .field-grid {
-    display: grid;
-    grid-template-columns: auto 1fr;
-    gap: var(--sp-xs) var(--sp-sm);
+  /* --- Section shell --- */
+  .section-bar {
+    display: flex;
     align-items: center;
+    gap: var(--sp-sm);
+    padding: 5px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
   }
 
-  .field-grid label {
-    font-size: var(--text-sm);
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    flex: 1;
+  }
+
+  .user-email {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-section-bar-fg);
+    opacity: 0.75;
+    flex: 1;
+  }
+
+  .danger-bar {
+    background: linear-gradient(180deg, #5a2020, #2a0808);
+    border-top-color: #8a4040;
+    border-bottom-color: #0a0202;
+  }
+
+  .section-body {
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* --- Setting rows --- */
+  .setting-row {
+    display: grid;
+    grid-template-columns: 10rem 1fr;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .setting-row:last-child {
+    border-bottom: none;
+  }
+
+  .setting-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    color: var(--color-text-muted);
+    display: flex;
+    align-items: center;
+    gap: 4px;
     white-space: nowrap;
   }
 
-  .tip-label {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-  }
-
-  .tip {
+  .help-btn {
     display: inline-flex;
     align-items: center;
     justify-content: center;
@@ -423,162 +447,118 @@
     color: var(--color-window);
     font-size: 9px;
     font-weight: bold;
+    border: none;
     cursor: help;
     flex-shrink: 0;
     line-height: 1;
+    padding: 0;
   }
 
-  .defaults-panel input,
-  .defaults-panel select {
-    background: var(--color-window-inset);
-    height: 22px;
-    padding: 2px var(--sp-xs);
-  }
-
-  section {
-    margin-bottom: var(--sp-xl);
-  }
-
-  h2 {
-    font-size: var(--text-sm);
-    font-weight: bold;
-    color: var(--color-text);
-    margin-bottom: var(--sp-sm);
-    padding-bottom: var(--sp-xs);
-    border-bottom: 1px solid var(--color-border);
-  }
-
-  .accounts-toggle {
+  /* --- Accounts column --- */
+  .add-row {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    background: none;
-    border: none;
-    padding: 0;
-    cursor: pointer;
-    width: 100%;
-    text-align: left;
-    margin-bottom: var(--sp-sm);
-  }
-
-  .accounts-toggle h2 {
-    margin-bottom: 0;
-    border-bottom: none;
-    padding-bottom: 0;
-  }
-
-  .accounts-toggle:hover h2 {
-    color: var(--color-accent-mid);
-  }
-
-  .accounts-toggle-arrow {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    width: 12px;
+    padding: 7px 14px;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window-raised);
     flex-shrink: 0;
   }
 
-  .accounts-count {
-    font-weight: normal;
-    color: var(--color-text-muted);
-  }
-
-  .add-account-form {
-    display: flex;
-    gap: var(--sp-sm);
-    margin-bottom: var(--sp-sm);
-  }
-
-  .add-input {
-    flex: 1;
-    width: 0; /* override global width: 100% so flex controls the width */
-    background: var(--color-window-inset) !important;
-  }
-
   .accounts-list {
-    max-height: 220px;
+    flex: 1;
     overflow-y: auto;
-    box-shadow: var(--shadow-sunken);
-    background: var(--color-window-inset);
+    min-height: 0;
   }
 
   .list-row {
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-border);
-    font-size: var(--text-sm);
+    padding: 4px 14px;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window-inset);
+    transition: background var(--duration-fast) var(--ease);
   }
 
   .list-row:last-child {
     border-bottom: none;
   }
 
-  /* --- Danger zone --- */
-
-  .danger-body {
-    background: var(--color-window);
-    padding: var(--sp-sm);
+  .list-row:hover {
+    background: var(--color-accent-light);
   }
 
-  .danger-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-md);
+  .account-path {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text);
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .danger-description {
+  .accounts-empty {
+    padding: var(--sp-md) 14px;
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
+    font-style: italic;
+    color: var(--color-text-muted);
+    margin: 0;
   }
 
-  .danger-description strong {
+  /* --- Danger row --- */
+  .danger-row {
+    grid-template-columns: 1fr auto;
+  }
+
+  .danger-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .danger-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 700;
     color: var(--color-danger);
   }
 
-  .danger-description p {
-    color: var(--color-text);
-    margin-top: 2px;
+  .danger-desc {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
   }
 
-  /* --- Delete confirmation modal --- */
-
-  .delete-modal {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-md);
-    padding: var(--sp-sm);
-    font-size: var(--text-sm);
-  }
-
-  .delete-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--sp-sm);
-  }
-
+  /* --- Secret button --- */
   .secret-btn {
     background: none;
     border: none;
     padding: 0;
     font: inherit;
-    cursor: default;
+    cursor: pointer;
+    line-height: 1;
+    font-size: 14px;
+    flex-shrink: 0;
   }
 
-  input {
+  /* --- Delete modal --- */
+  .delete-modal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
-    padding: var(--sp-xs) var(--sp-sm);
-    background: var(--color-window-raised);
-    box-shadow: var(--shadow-sunken);
-    border: none;
     color: var(--color-text);
-    font-family: inherit;
-    width: 100%;
+    min-width: 340px;
   }
 
-  input:focus {
-    outline: 2px solid var(--color-accent-mid);
-    outline-offset: -2px;
+  .delete-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-xs);
   }
 </style>

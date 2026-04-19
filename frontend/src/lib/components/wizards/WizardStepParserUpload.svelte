@@ -61,7 +61,7 @@
 <style>
   .file-input {
     font-size: var(--text-sm);
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     background: none;
     box-shadow: none;
     padding: 0;

@@ -12,7 +12,7 @@
 
 <style>
   .text-input {
-    font-family: var(--font-sans);
+    font-family: var(--font-mono);
     font-size: var(--text-sm);
     color: var(--color-text);
     background: var(--color-window-inset);
