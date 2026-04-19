@@ -34,6 +34,7 @@
     onActionRequiredToggle,
   }: Props = $props()
 
+  // searchExpanded covers both: entering new path AND editing existing pill
   let searchExpanded = $state(untrack(() => !!accountPath))
   let draft = $state(untrack(() => accountPath))
 
@@ -45,6 +46,10 @@
   onMount(async () => {
     accounts = await fetchAccounts()
   })
+
+  function focusFirst(node: HTMLElement) {
+    node.querySelector('input')?.focus()
+  }
 
   function toggleSearch() {
     searchExpanded = !searchExpanded
@@ -60,6 +65,17 @@
     searchExpanded = false
   }
 
+  function handleCommit(path: string) {
+    searchExpanded = false
+    if (path !== accountPath) onAccountPathChange?.(path)
+  }
+
+  function handleBlurWithNoCommit() {
+    // If there's an active path, collapse back to pill. Otherwise close search.
+    searchExpanded = false
+    draft = accountPath
+  }
+
   function handleReset() {
     const today = new Date()
     const f = new Date(today)
@@ -71,21 +87,52 @@
 <div class="bar">
   <div class="left-controls">
     {#if onAccountPathChange}
-      <GradientButton
-        onclick={toggleSearch}
-        square
-        tooltip="Filter by account path"
-        active={!!accountPath}
-      >
-        <Icon name="search" />
-      </GradientButton>
-      {#if accountPath}
+      {#if accountPath && !searchExpanded}
+        <!-- Pill state: click to re-edit -->
         <span class="active-filter-chip">
-          <span class="chip-text">{accountPath}</span>
-          <button class="chip-clear" onclick={handleClear} aria-label="Clear filter">×</button>
+          <!-- svelte-ignore a11y_click_events_have_key_events -->
+          <!-- svelte-ignore a11y_no_static_element_interactions -->
+          <span
+            class="chip-text chip-clickable"
+            onclick={() => (searchExpanded = true)}
+          >{accountPath}</span>
+          <button
+            class="chip-clear"
+            onclick={handleClear}
+            aria-label="Clear filter">×</button
+          >
         </span>
+      {:else if searchExpanded}
+        <!-- Inline input state -->
+        <GradientButton
+          onclick={toggleSearch}
+          square
+          tooltip="Close search"
+          active
+        >
+          <Icon name="search" />
+        </GradientButton>
+        <div class="search-input-wrap" use:focusFirst>
+          <AccountPathInput
+            {accounts}
+            bind:value={draft}
+            placeholder="expenses:food"
+            searchOnly={true}
+            oncommit={handleCommit}
+          />
+        </div>
+      {:else}
+        <!-- Default: search toggle button -->
+        <GradientButton
+          onclick={toggleSearch}
+          square
+          tooltip="Filter by account path"
+        >
+          <Icon name="search" />
+        </GradientButton>
       {/if}
     {/if}
+
     <GradientButton
       onclick={() => onSortChange(sortDir === 'desc' ? 'asc' : 'desc')}
       tooltip="Sort by date"
@@ -93,6 +140,7 @@
     >
       <Icon name="calendar-{sortDir === 'desc' ? 'desc' : 'asc'}" />
     </GradientButton>
+
     {#if actionRequiredCount !== null && actionRequiredCount > 0}
       <GradientButton
         variant="warning"
@@ -109,38 +157,26 @@
       </GradientButton>
     {/if}
   </div>
+
   <div class="date-controls">
     <DateRangeSelector
       value={{ from, to }}
       onchange={(r) => onApply(r.from, r.to)}
     />
-    <GradientButton square tooltip="Reset to last 3 months" onclick={handleReset}>
+    <GradientButton
+      square
+      tooltip="Reset to last 3 months"
+      onclick={handleReset}
+    >
       <Icon name="reset" />
     </GradientButton>
   </div>
 </div>
 
-{#if searchExpanded}
-  <div class="search-row">
-    <span class="search-prefix">account path</span>
-    <div class="search-input-wrap">
-      <AccountPathInput
-        {accounts}
-        bind:value={draft}
-        placeholder="expenses:food"
-        searchOnly={true}
-        oncommit={(path) => {
-          if (path !== accountPath) onAccountPathChange?.(path)
-        }}
-      />
-    </div>
-  </div>
-{/if}
-
 <style>
   .bar {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
   }
@@ -153,29 +189,13 @@
 
   .date-controls {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     gap: var(--sp-xs);
     margin-left: auto;
   }
 
-  .search-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    padding: var(--sp-xs) var(--sp-sm);
-    border-left: 1px solid var(--color-rule);
-  }
-
-  .search-prefix {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
   .search-input-wrap {
-    flex: 1;
+    width: 14rem;
   }
 
   .active-filter-chip {
@@ -187,7 +207,7 @@
     background: var(--color-accent-chip-bg);
     border: 1px solid var(--color-accent);
     border-radius: var(--radius-xl);
-    max-width: 14rem;
+    max-width: 16rem;
     flex-shrink: 1;
     min-width: 0;
   }
@@ -200,6 +220,15 @@
     overflow: hidden;
     text-overflow: ellipsis;
     min-width: 0;
+  }
+
+  .chip-clickable {
+    cursor: text;
+  }
+
+  .chip-clickable:hover {
+    text-decoration: underline;
+    text-underline-offset: 2px;
   }
 
   .chip-clear {
@@ -231,6 +260,10 @@
 
     .date-controls {
       margin-left: 0;
+    }
+
+    .search-input-wrap {
+      width: 10rem;
     }
   }
 </style>

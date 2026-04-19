@@ -140,15 +140,17 @@
 
 <div class="page">
   <div class="toolbar">
-    <FilterPanel
-      {from}
-      {to}
-      {sortDir}
-      {accountPath}
-      onApply={handleApply}
-      onSortChange={handleSortChange}
-      onAccountPathChange={handleAccountPathChange}
-    />
+    <div class="filter-wrap">
+      <FilterPanel
+        {from}
+        {to}
+        {sortDir}
+        {accountPath}
+        onApply={handleApply}
+        onSortChange={handleSortChange}
+        onAccountPathChange={handleAccountPathChange}
+      />
+    </div>
     <div class="toolbar-sep"></div>
     <div class="ops">
       {#if selectMode}
@@ -221,6 +223,11 @@
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
+  }
+
+  .filter-wrap {
+    flex: 1;
+    min-width: 0;
   }
 
   .toolbar-sep {
