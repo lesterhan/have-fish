@@ -343,7 +343,7 @@
           {#if needsConversion && converting}
             <div class="card-sigma-row">
               {#if fxFetching}
-                <span class="card-sigma-badge">Σ TOTAL</span>
+                <span class="card-sigma-badge">Σ</span>
                 <span class="card-sigma-loading">
                   {fxRemaining > 0
                     ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…`
@@ -1017,6 +1017,4 @@
     display: flex;
     flex-direction: column;
   }
-
-
 </style>
