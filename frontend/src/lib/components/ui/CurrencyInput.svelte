@@ -102,35 +102,47 @@
 {/if}
 
 <div class="wrapper" class:elevated={open} {style}>
-  <!-- Input always in DOM so focus works when pill is clicked -->
-  <input
-    bind:this={inputEl}
-    {id}
-    type="text"
-    class="currency-input"
-    class:hidden={showPill}
-    bind:value={inputText}
-    {placeholder}
-    autocomplete="off"
-    spellcheck={false}
-    role="combobox"
-    aria-expanded={open}
-    aria-autocomplete="list"
-    aria-haspopup="listbox"
-    aria-controls={listboxId}
-    oninput={handleInput}
-    onfocus={handleFocus}
-    onblur={handleBlur}
-    onkeydown={handleKeydown}
-  />
-
   {#if showPill}
-    <!-- Pill overlay: clicking focuses the real input beneath -->
+    <!-- Natural display: just the pill, no input chrome -->
+    <!-- Hidden zero-size input stays in DOM so focus() works -->
+    <input
+      bind:this={inputEl}
+      {id}
+      type="text"
+      class="ghost-input"
+      bind:value={inputText}
+      autocomplete="off"
+      tabindex="-1"
+      aria-hidden="true"
+      onfocus={handleFocus}
+      onblur={handleBlur}
+      onkeydown={handleKeydown}
+    />
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
     <div class="pill-display" onclick={() => inputEl?.focus()}>
       <CurrencyPill code={value} />
     </div>
+  {:else}
+    <input
+      bind:this={inputEl}
+      {id}
+      type="text"
+      class="currency-input"
+      bind:value={inputText}
+      {placeholder}
+      autocomplete="off"
+      spellcheck={false}
+      role="combobox"
+      aria-expanded={open}
+      aria-autocomplete="list"
+      aria-haspopup="listbox"
+      aria-controls={listboxId}
+      oninput={handleInput}
+      onfocus={handleFocus}
+      onblur={handleBlur}
+      onkeydown={handleKeydown}
+    />
   {/if}
 
   {#if open && filtered.length > 0}
@@ -188,12 +200,6 @@
       box-shadow var(--duration-fast) var(--ease);
   }
 
-  .currency-input.hidden {
-    /* Remain in DOM for focus, but invisible under pill overlay */
-    opacity: 0;
-    pointer-events: none;
-  }
-
   .currency-input:focus {
     border-color: var(--color-accent-mid);
     box-shadow:
@@ -201,24 +207,23 @@
       0 0 0 2px var(--color-accent-light);
   }
 
-  .pill-display {
+  .ghost-input {
     position: absolute;
-    inset: 0;
-    display: flex;
-    align-items: center;
-    padding: 0 var(--sp-xs);
-    cursor: text;
-    background: var(--color-window-inset);
-    border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    box-sizing: border-box;
-    transition:
-      border-color var(--duration-fast) var(--ease),
-      box-shadow var(--duration-fast) var(--ease);
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
   }
 
-  .pill-display:hover {
-    border-color: var(--color-accent-mid);
+  .pill-display {
+    display: inline-flex;
+    align-items: center;
+    cursor: text;
+  }
+
+  .pill-display:hover :global(.pill) {
+    outline: 2px solid var(--color-accent-light);
+    outline-offset: 1px;
   }
 
   .dropdown {
