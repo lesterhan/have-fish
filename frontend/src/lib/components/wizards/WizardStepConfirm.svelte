@@ -124,10 +124,14 @@
   }
 
   .summary-heading {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
     padding-bottom: var(--sp-xs);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-rule);
     margin-bottom: var(--sp-xs);
   }
 
@@ -139,6 +143,8 @@
   }
 
   .summary-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
     color: var(--color-text-muted);
     min-width: 9rem;
     text-align: right;

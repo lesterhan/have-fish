@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import Modal from '../ui/Modal.svelte'
-  import Button from '../ui/Button.svelte'
+  import GradientButton from '../ui/GradientButton.svelte'
   import WizardStepAccount from './WizardStepAccount.svelte'
   import WizardStepParserUpload from './WizardStepParserUpload.svelte'
   import WizardStepParserColumns from './WizardStepParserColumns.svelte'
@@ -20,6 +20,7 @@
   const TITLES = {
     asset: 'Add New Asset Account',
     liability: 'Add New Liability Account',
+    equity: 'Add New Equity Account',
   }
 
   const STEP = {
@@ -374,35 +375,35 @@
   <div class="wizard-footer">
     <div class="footer-left">
       {#if step !== STEP.ACCOUNT}
-        <Button onclick={back}>◀️ Back</Button>
+        <GradientButton onclick={back}>Back</GradientButton>
       {/if}
     </div>
     <div class="footer-right">
       {#if step === STEP.ACCOUNT}
-        <Button variant="primary" onclick={next} disabled={!step1Valid}
-          >Next ▶️</Button
+        <GradientButton active onclick={next} disabled={!step1Valid}
+          >Next</GradientButton
         >
       {:else if step === STEP.PARSER_UPLOAD}
-        <Button onclick={skip}>Skip</Button>
-        <Button variant="primary" onclick={next} disabled={!parserUploadValid}
-          >Next ▶️</Button
+        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton active onclick={next} disabled={!parserUploadValid}
+          >Next</GradientButton
         >
       {:else if step === STEP.PARSER_COLUMNS}
-        <Button onclick={skip}>Skip</Button>
-        <Button variant="primary" onclick={next} disabled={!parserColumnsValid}
-          >Next ▶️</Button
+        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton active onclick={next} disabled={!parserColumnsValid}
+          >Next</GradientButton
         >
       {:else if step === STEP.PARSER_MULTICURRENCY}
-        <Button onclick={skip}>Skip</Button>
-        <Button
-          variant="primary"
+        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton
+          active
           onclick={next}
-          disabled={!parserMultiCurrencyValid}>Next ▶️</Button
+          disabled={!parserMultiCurrencyValid}>Next</GradientButton
         >
       {:else if step === STEP.CONFIRM}
-        <Button variant="primary" onclick={handleConfirm} disabled={submitting}>
+        <GradientButton active onclick={handleConfirm} disabled={submitting}>
           {submitting ? 'Creating…' : 'Confirm'}
-        </Button>
+        </GradientButton>
       {/if}
     </div>
   </div>
@@ -418,7 +419,7 @@
     justify-content: space-between;
     align-items: center;
     padding-top: var(--sp-md);
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-rule);
     margin-top: var(--sp-md);
   }
 

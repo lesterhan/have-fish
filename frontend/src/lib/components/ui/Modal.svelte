@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import ChromeButton from './ChromeButton.svelte'
 
   interface Props {
     title: string
@@ -138,7 +139,7 @@
         onpointerup={handleTitlebarPointerUp}
       >
         <span id="modal-title" class="titlebar-text">{title}</span>
-        <button class="close-btn" onclick={close} aria-label="Close">✕</button>
+        <ChromeButton variant="close" onclick={close} aria-label="Close" class="close-btn">✕</ChromeButton>
       </div>
 
       <!-- Content area -->
@@ -192,41 +193,6 @@
     flex: 1;
   }
 
-  .close-btn {
-    /* reset button defaults */
-    border: none;
-    padding: 0;
-    line-height: 1;
-    cursor: pointer;
-
-    /* XP-style close button: small square with raised bevel */
-    width: 16px;
-    height: 14px;
-    font-size: 9px;
-    font-family: var(--font-sans);
-    color: var(--color-text);
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-
-    display: flex;
-    align-items: center;
-    justify-content: center;
-
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .close-btn:hover {
-    background: var(--color-window-raised);
-  }
-
-  .close-btn:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .close-btn:focus-visible {
-    outline: 1px dotted var(--color-text);
-    outline-offset: -2px;
-  }
 
   .body {
     padding: var(--sp-md);

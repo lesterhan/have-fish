@@ -605,6 +605,7 @@
   }
 
   .summary-muted {
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     font-style: italic;

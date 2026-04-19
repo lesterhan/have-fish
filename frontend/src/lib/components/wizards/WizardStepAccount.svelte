@@ -1,5 +1,6 @@
 <script lang="ts">
   import WizardFormGrid from './WizardFormGrid.svelte'
+  import TextInput from '../ui/TextInput.svelte'
 
   interface Props {
     accountPath: string
@@ -33,19 +34,17 @@
     Starting balance <span class="optional">(optional)</span>
   </label>
   <div class="balance-row">
-    <input
+    <TextInput
       id="starting-balance"
-      type="text"
       inputmode="decimal"
       bind:value={startingBalance}
       placeholder="0.00"
-      class="balance-amount"
+      style="flex: 1; min-width: 0; width: auto"
     />
-    <input
-      type="text"
+    <TextInput
       bind:value={startingCurrency}
       placeholder="CAD"
-      class="balance-currency"
+      style="width: 3.5rem; flex-shrink: 0; text-transform: uppercase"
       maxlength={5}
       spellcheck={false}
     />
@@ -61,21 +60,5 @@
   .balance-row {
     display: flex;
     gap: var(--sp-xs);
-  }
-
-  /* Override the form-grid's width:100% rule for inputs inside the balance row */
-  .balance-row :global(input) {
-    width: auto;
-  }
-
-  .balance-amount {
-    flex: 1;
-    min-width: 0;
-  }
-
-  .balance-currency {
-    width: 3.5rem;
-    flex-shrink: 0;
-    text-transform: uppercase;
   }
 </style>

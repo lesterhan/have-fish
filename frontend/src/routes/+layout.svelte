@@ -10,6 +10,7 @@
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import ChromeButton from '$lib/components/ui/ChromeButton.svelte'
   import CashConfetti from '$lib/components/ui/CashConfetti.svelte'
   import { applyAccent } from '$lib/accent'
   import type { AccentKey } from '$lib/accent'
@@ -116,31 +117,31 @@
       <div class="titlebar-controls">
         {#if $session.data}
           <!-- Mobile hamburger — lives in titlebar, hidden on desktop -->
-          <button
-            class="chrome-btn hamburger"
+          <ChromeButton
+            class="hamburger"
             onclick={() => (mobileSidebarOpen = true)}
             aria-label="Open menu"
           >
             <Icon name="menu" size={12} />
-          </button>
+          </ChromeButton>
         {/if}
-        <button class="chrome-btn minimize" aria-label="Minimize">
+        <ChromeButton variant="minimize" aria-label="Minimize">
           <Icon name="minimize" size={12} />
-        </button>
-        <button
-          class="chrome-btn maximize"
+        </ChromeButton>
+        <ChromeButton
+          variant="maximize"
           aria-label="Maximize"
           onclick={() => (maximized = !maximized)}
         >
           <Icon name={maximized ? 'restore-window' : 'maximize'} size={12} />
-        </button>
-        <button
-          class="chrome-btn close"
+        </ChromeButton>
+        <ChromeButton
+          variant="close"
           aria-label="Close"
           onclick={() => (showQuitDialog = true)}
         >
           <Icon name="close" size={12} />
-        </button>
+        </ChromeButton>
       </div>
     </div>
 
@@ -299,55 +300,20 @@
     gap: 2px;
   }
 
-  .chrome-btn {
-    width: 21px;
-    height: 21px;
-    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
-    color: var(--color-text);
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-xl);
-    font-size: var(--text-xs);
-    font-family: var(--font-sans);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    padding: 0;
-    cursor: pointer;
-    transition:
-      background var(--duration-fast) var(--ease),
-      border-color var(--duration-fast) var(--ease),
-      box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .chrome-btn:hover {
-    background: linear-gradient(180deg, #ffffff, var(--color-accent-chip-bg));
-    border-color: var(--color-accent);
-  }
-
-  .chrome-btn:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .chrome-btn.close:hover {
-    background: linear-gradient(180deg, #ff8080, var(--color-danger));
-    border-color: var(--color-danger);
-    color: #ffffff;
-  }
-
   /* Hamburger — hidden on desktop, visible on mobile only */
-  .chrome-btn.hamburger {
+  :global(.chrome-btn.hamburger) {
     display: none;
   }
 
   @media (max-width: 600px) {
     /* Show hamburger, hide window management buttons on mobile */
-    .chrome-btn.hamburger {
+    :global(.chrome-btn.hamburger) {
       display: flex;
     }
 
-    .chrome-btn.minimize,
-    .chrome-btn.maximize,
-    .chrome-btn.close {
+    :global(.chrome-btn.minimize),
+    :global(.chrome-btn.maximize),
+    :global(.chrome-btn.close) {
       display: none;
     }
   }
