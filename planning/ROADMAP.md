@@ -8,6 +8,8 @@
 | [Add Account Wizard](epics/archive/add-account-wizard.md) | Done |
 | [Starting Balances](epics/starting-balances.md) | Backlog |
 | [Manual Transaction Entry](epics/archive/manual-transaction-entry.md) | Done |
+| [Quick Entry](epics/quick-entry.md) | Backlog |
+| [Import Description Backfill](epics/import-description-backfill.md) | Backlog |
 | [Split Transactions](epics/split-transactions.md) | Backlog |
 | [Reconciliation](epics/archive/reconciliation.md) | Done |
 | [Transactions Edit UX](epics/archive/transactions-edit-ux.md) | Done |
