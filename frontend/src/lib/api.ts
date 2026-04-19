@@ -55,6 +55,11 @@ export async function deleteAccount(id: string) {
   })
 }
 
+export async function fetchAccountPostingCounts(): Promise<{ accountId: string; count: number }[]> {
+  const res = await fetch(`${BASE}/api/accounts/posting-counts`, { credentials: 'include' })
+  return res.json()
+}
+
 export async function fetchCategories() {
   const res = await fetch(`${BASE}/api/categories`, { credentials: 'include' })
   return res.json()

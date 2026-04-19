@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { fetchAccounts, createAccount, deleteAccount } from '$lib/api'
+  import { fetchAccounts, createAccount, deleteAccount, fetchAccountPostingCounts } from '$lib/api'
   import type { Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -30,13 +30,16 @@
   let preferredCurrency = $state('CAD')
   let accounts = $state<Account[]>([])
   let newAccountPath = $state('')
+  let postingCountMap = $state<Map<string, number>>(new Map())
 
   onMount(async () => {
-    const [accts, settings] = await Promise.all([
+    const [accts, settings, counts] = await Promise.all([
       fetchAccounts(),
       settingsStore.load(),
+      fetchAccountPostingCounts(),
     ])
     accounts = accts
+    postingCountMap = new Map(counts.map((c) => [c.accountId, c.count]))
     offsetAccountId = settings.defaultOffsetAccountId ?? ''
     conversionAccountId = settings.defaultConversionAccountId ?? ''
     adjustmentsAccountId = settings.defaultAdjustmentsAccountId ?? ''
@@ -327,6 +330,10 @@
       {#each sortedAccounts as account (account.id)}
         <div class="list-row">
           <span class="account-path">{account.path}</span>
+          {#if postingCountMap.has(account.id)}
+            {@const n = postingCountMap.get(account.id)!}
+            <span class="posting-count">({n > 99 ? '99+' : n})</span>
+          {/if}
           <GradientButton
             square
             variant="warning"
@@ -533,6 +540,13 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .posting-count {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    flex-shrink: 0;
   }
 
   .accounts-empty {

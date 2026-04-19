@@ -78,6 +78,23 @@ app.get('/balances', async (c) => {
   return c.json([...grouped.values()])
 })
 
+// GET /api/accounts/posting-counts
+// Returns { accountId, count }[] for all accounts belonging to this user.
+// Counts only non-deleted postings.
+app.get('/posting-counts', async (c) => {
+  const userId = c.get('userId')
+  const rows = await db
+    .select({
+      accountId: postings.accountId,
+      count: sql<number>`COUNT(*)::int`,
+    })
+    .from(postings)
+    .innerJoin(accounts, eq(accounts.id, postings.accountId))
+    .where(and(eq(accounts.userId, userId), isNull(postings.deletedAt), isNull(accounts.deletedAt)))
+    .groupBy(postings.accountId)
+  return c.json(rows)
+})
+
 // GET /api/accounts/:id/balance?date=YYYY-MM-DD
 // Returns the ledger balance for one account as of the end of the given date.
 // Balance = SUM of postings in non-deleted transactions on or before the date, grouped by currency.
