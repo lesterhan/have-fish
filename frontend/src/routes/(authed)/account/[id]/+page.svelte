@@ -398,6 +398,8 @@
   /* Scrollable body — passes --tx-cols to child rows */
   .tx-body {
     --tx-cols: 5.5rem 1fr 1.5fr 8rem;
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     background: var(--color-window-raised);
   }

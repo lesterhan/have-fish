@@ -19,8 +19,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
-  // Default range: today minus 30 days → today
-  // Computed once at module load; stable for the lifetime of the page.
+  // Default range: last 90 days → today, computed once at module load.
   function defaultRange() {
     const today = new Date()
     const from = new Date(today)
@@ -258,6 +257,8 @@
   }
 
   .tx-body {
+    flex: 1;
+    min-height: 0;
     overflow-y: auto;
     background: var(--color-window-raised);
   }

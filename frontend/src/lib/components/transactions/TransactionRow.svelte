@@ -555,7 +555,6 @@
     min-width: 0;
   }
 
-  .transfer .account-from,
   .transfer .account-to {
     color: var(--color-text-muted);
   }

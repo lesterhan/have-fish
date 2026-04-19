@@ -167,6 +167,7 @@
   }
 
   .search-prefix {
+    font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     white-space: nowrap;

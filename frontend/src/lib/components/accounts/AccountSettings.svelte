@@ -125,6 +125,4 @@
     align-items: center;
     gap: var(--sp-xs);
   }
-
-
 </style>
