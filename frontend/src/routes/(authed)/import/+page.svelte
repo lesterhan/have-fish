@@ -15,6 +15,7 @@
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
+  import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
   import EditParserPanel from '$lib/components/import/EditParserPanel.svelte'
   import AddParserWizard from '$lib/components/wizards/AddParserWizard.svelte'
   import ImportPreviewPanel from '$lib/components/import/ImportPreviewPanel.svelte'
@@ -291,7 +292,10 @@
         <div class="config-strip">
           <div class="config-fields">
             <div class="config-field">
-              <span class="config-label">DEFAULT CURRENCY</span>
+              <label class="config-label" for="default-currency">
+                Default currency
+                <TooltipIcon label="The currency to use when the CSV doesn't specify one." />
+              </label>
               <CurrencyInput
                 id="default-currency"
                 bind:value={defaultCurrency}
@@ -299,7 +303,10 @@
               />
             </div>
             <div class="config-field config-account">
-              <span class="config-label">UNCATEGORIZED ACCOUNT</span>
+              <span class="config-label">
+                Uncategorized account
+                <TooltipIcon label="Transactions with no matching import rule are posted to this account." />
+              </span>
               <AccountPathInput
                 {accounts}
                 bind:value={toAccountId}
@@ -490,15 +497,15 @@
 
   .config-fields {
     display: flex;
-    align-items: flex-end;
-    gap: var(--sp-md);
+    align-items: center;
+    gap: var(--sp-lg);
     padding: var(--sp-sm) var(--sp-md);
   }
 
   .config-field {
     display: flex;
-    flex-direction: column;
-    gap: 3px;
+    align-items: center;
+    gap: var(--sp-sm);
   }
 
   .config-account {
@@ -506,11 +513,15 @@
   }
 
   .config-label {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 0.6px;
     color: var(--color-text-muted);
+    white-space: nowrap;
   }
 
   .config-actions {
