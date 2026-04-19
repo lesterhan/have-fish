@@ -235,8 +235,12 @@
     />
     <div class="toolbar-sep"></div>
     <div class="ops">
-      <GradientButton onclick={() => (addModalOpen = true)}>
-        <Icon name="plus" /> New
+      <GradientButton
+        square
+        onclick={() => (addModalOpen = true)}
+        tooltip="New transaction"
+      >
+        <Icon name="plus" />
       </GradientButton>
       <GradientButton
         square
