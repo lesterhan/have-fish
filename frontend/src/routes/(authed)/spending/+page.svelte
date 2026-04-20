@@ -272,10 +272,10 @@
     load().then(loadTxns)
   }
 
-  function drill(category: string) {
+  function drill(category: string, childCount: number) {
     drillPath = category
     txnFilter = 'ALL'
-    load()
+    if (childCount > 0) load()
     loadTxns()
   }
 
@@ -323,6 +323,7 @@
             ? 'Show raw totals'
             : `Convert to ${preferredCurrency}`}
           onclick={handleConvertToggle}
+          tooltip={`Convert to ${preferredCurrency}`}
         >
           <CurrencyPill code={preferredCurrency} size="xs" />
         </GradientButton>
@@ -457,6 +458,7 @@
           <SpendingBreakdown
             categories={summary.categories}
             {currency}
+            activePath={drillPath}
             onclick={drill}
           />
         </div>

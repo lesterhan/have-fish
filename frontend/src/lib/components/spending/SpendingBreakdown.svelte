@@ -8,10 +8,11 @@
       childCount: number
     }[]
     currency: string
-    onclick: (category: string) => void
+    activePath?: string | null
+    onclick: (category: string, childCount: number) => void
   }
 
-  let { categories, currency, onclick }: Props = $props()
+  let { categories, currency, activePath = null, onclick }: Props = $props()
 
   const MAX_CELLS = 22
   const DASHES = '─'.repeat(MAX_CELLS)
@@ -63,14 +64,13 @@
     {#each sorted as cat}
       {@const pct = maxAbs > 0 ? (Math.abs(cat.amount) / maxAbs) * 100 : 0}
       <button
-        class="row data-row"
-        class:drillable={cat.childCount > 0}
-        onclick={() => cat.childCount > 0 && onclick(cat.category)}
-        title={cat.childCount > 0 ? `Drill into ${shortName(cat.category)}` : undefined}
+        class="row data-row drillable"
+        class:active={cat.category === activePath}
+        onclick={() => onclick(cat.category, cat.childCount)}
+        title={`Drill into ${shortName(cat.category)}`}
       >
         <span
-          class="col-cat cat-name"
-          class:drillable={cat.childCount > 0}
+          class="col-cat cat-name drillable"
           use:tooltip={{ label: shortName(cat.category), always: true }}
         >
           {shortName(cat.category)}
@@ -142,11 +142,15 @@
     background: var(--color-accent-chip-bg);
   }
 
+  .data-row.active {
+    background: var(--color-accent-chip-bg);
+  }
+
   .col-cat {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
   }
 
   .cat-name.drillable {
@@ -161,7 +165,7 @@
     letter-spacing: -1px;
   }
 
-.total-dashes {
+  .total-dashes {
     color: var(--color-rule);
     letter-spacing: -1px;
   }
