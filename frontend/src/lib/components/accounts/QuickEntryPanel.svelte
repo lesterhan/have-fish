@@ -200,12 +200,11 @@
         </div>
       </div>
     {/each}
+    <button class="add-row-btn" onclick={addRow}>+ Add row</button>
   </div>
 
   <div class="panel-footer">
-    <div class="footer-left">
-      <GradientButton onclick={addRow}>+ Add row</GradientButton>
-    </div>
+    <div class="footer-left"></div>
     <div class="footer-right">
       {#if error}
         <span class="error-msg">{error}</span>
@@ -397,6 +396,27 @@
 
   .remove-btn:hover {
     color: var(--color-amount-negative);
+  }
+
+  /* Inline add-row button */
+  .add-row-btn {
+    display: block;
+    width: 100%;
+    padding: 5px 8px;
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    background: none;
+    border: none;
+    border-bottom: 1px solid var(--color-rule);
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+  }
+
+  .add-row-btn:hover {
+    color: var(--color-accent);
+    background: var(--color-accent-light);
   }
 
   /* Footer */
