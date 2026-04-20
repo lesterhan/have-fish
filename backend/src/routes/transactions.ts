@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { transactions, postings } from '../db/schema'
-import { eq, isNull, and, inArray, gte, lte, or, like } from 'drizzle-orm'
+import { eq, isNull, and, inArray, gte, lte, or, like, desc } from 'drizzle-orm'
 import { accounts } from '../db/schema'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
@@ -34,6 +34,7 @@ app.get('/', async (c) => {
       from ? gte(transactions.date, new Date(from)) : undefined,
       to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
     ))
+    .orderBy(desc(transactions.date))
 
   if (accountId) {
     // Filter to transactions that have at least one posting for this account

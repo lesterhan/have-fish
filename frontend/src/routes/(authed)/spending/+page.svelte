@@ -495,7 +495,6 @@
           >
         {/each}
         <span class="txn-toolbar-spacer"></span>
-        <span class="txn-sort-label">↑↓ DATE</span>
       </div>
       <div class="txn-col-header">
         <span>DATE</span>
@@ -820,12 +819,6 @@
 
   .txn-toolbar-spacer {
     flex: 1;
-  }
-
-  .txn-sort-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--color-text-muted);
   }
 
   .txn-footer {
