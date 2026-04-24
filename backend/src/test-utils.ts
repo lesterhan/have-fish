@@ -1,5 +1,5 @@
 import { db } from './db'
-import { user, accounts, transactions, postings, csvParsers, userSettings, fxRates } from './db/schema'
+import { user, accounts, transactions, postings, csvParsers, userSettings, fxRates, importRules } from './db/schema'
 import { app } from './app'
 
 // Wipe all rows in dependency order (postings → transactions → userSettings → csvParsers → accounts → users)
@@ -7,6 +7,7 @@ import { app } from './app'
 export async function clearDatabase() {
   await db.delete(postings)
   await db.delete(transactions)
+  await db.delete(importRules)
   await db.delete(userSettings)
   await db.delete(csvParsers)
   await db.delete(accounts)

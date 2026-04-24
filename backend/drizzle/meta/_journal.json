@@ -120,6 +120,13 @@
       "when": 1775960000000,
       "tag": "0016_account_default_currency",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1777035645888,
+      "tag": "0017_sleepy_songbird",
+      "breakpoints": true
     }
   ]
 }

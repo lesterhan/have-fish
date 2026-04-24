@@ -1,4 +1,4 @@
-import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb } from 'drizzle-orm/pg-core'
+import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer } from 'drizzle-orm/pg-core'
 
 // --- Better Auth tables ---
 // These are required by Better Auth and must not be renamed or removed.
@@ -143,6 +143,21 @@ export const fxRates = pgTable('fx_rates', {
   quoteCurrency: text('quote_currency').notNull(),     // e.g. "CAD"
   rate: numeric('rate', { precision: 12, scale: 6 }).notNull(),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// A rule matches a description substring to an expense account.
+// status: 'active' = applied during import preview; 'suggested' = mined, awaiting user action.
+// Approving a suggestion flips status to 'active'; denying soft-deletes it.
+export const importRules = pgTable('import_rules', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  pattern: text('pattern').notNull(),
+  accountId: uuid('account_id').notNull().references(() => accounts.id),
+  status: text('status').notNull().default('active'),
+  matchCount: integer('match_count').notNull().default(0),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
 })
 
 // A posting is one leg of a transaction — money moving in or out of one account.
