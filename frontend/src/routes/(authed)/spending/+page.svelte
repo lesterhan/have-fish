@@ -924,7 +924,7 @@
 
   .section-bar .crumb-current {
     font-weight: var(--weight-semibold);
-    color: var(--color-section-bar-fg);
+    color: var(--color-accent);
   }
 
   .section-bar .crumb-link {
@@ -934,7 +934,7 @@
     font-family: inherit;
     font-size: inherit;
     color: var(--color-section-bar-fg);
-    text-decoration: none;
+    text-decoration: underline;
     cursor: pointer;
     opacity: 0.7;
     transition: opacity var(--duration-fast) var(--ease);
@@ -982,12 +982,20 @@
   }
 
   .currency-tab:hover:not(.active) {
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     color: var(--color-text);
   }
 
   .currency-tab.active {
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border-bottom-color: var(--color-window);
     color: var(--color-text);
     z-index: 2;
