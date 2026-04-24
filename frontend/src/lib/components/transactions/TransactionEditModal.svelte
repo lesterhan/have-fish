@@ -6,7 +6,7 @@
 
 <script lang="ts">
   import Modal from '$lib/components/ui/Modal.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import PostingEditorRow from '$lib/components/transactions/PostingEditorRow.svelte'
@@ -452,46 +452,47 @@
     {#if showDiscardConfirm}
       <div class="confirm-row">
         <span class="confirm-text">Discard changes?</span>
-        <Button
+        <GradientButton
           onclick={() => {
             showDiscardConfirm = false
-          }}>Keep editing</Button
+          }}>Keep editing</GradientButton
         >
-        <Button variant="danger" onclick={discard}>Discard</Button>
+        <GradientButton variant="warning" active onclick={discard}>Discard</GradientButton>
       </div>
     {:else if showDeleteConfirm}
       <div class="confirm-row">
         <span class="confirm-text">Delete this transaction?</span>
-        <Button
+        <GradientButton
           onclick={() => {
             showDeleteConfirm = false
-          }}>Cancel</Button
+          }}>Cancel</GradientButton
         >
-        <Button variant="danger" disabled={deleting} onclick={handleDelete}>
+        <GradientButton variant="warning" active disabled={deleting} onclick={handleDelete}>
           {deleting ? 'Deleting…' : 'Delete'}
-        </Button>
+        </GradientButton>
       </div>
     {:else}
       {#if saveError}
         <p class="save-error" role="alert">{saveError}</p>
       {/if}
       <div class="footer">
-        <Button
-          variant="danger"
+        <GradientButton
+          variant="warning"
+          active
           disabled={saving}
           onclick={() => {
             showDeleteConfirm = true
-          }}>Delete</Button
+          }}>Delete</GradientButton
         >
         <div class="footer-actions">
-          <Button disabled={saving} onclick={requestClose}>Cancel</Button>
-          <Button
-            variant="primary"
+          <GradientButton disabled={saving} onclick={requestClose}>Cancel</GradientButton>
+          <GradientButton
+            active
             disabled={!balanced || !dirty || saving}
             onclick={handleSave}
           >
             <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
-          </Button>
+          </GradientButton>
         </div>
       </div>
     {/if}
@@ -525,21 +526,25 @@
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 3px var(--sp-xs);
+    height: 24px;
     outline: none;
     flex-shrink: 0;
+    box-sizing: border-box;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
   .date-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
+    border-color: var(--color-accent-mid);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   .tx-description {
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     color: var(--color-accent-mid);
@@ -549,7 +554,7 @@
     display: inline-grid;
     align-self: flex-start;
     flex: 1;
-    font-family: var(--font-serif);
+    font-family: var(--font-sans);
     font-size: var(--text-sm);
   }
 
@@ -570,16 +575,20 @@
     font-weight: var(--weight-semibold);
     color: var(--color-accent-mid);
     background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 3px var(--sp-xs);
+    height: 24px;
     outline: none;
+    box-sizing: border-box;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
   .desc-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
+    border-color: var(--color-accent-mid);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   /* ---- Postings list ---- */

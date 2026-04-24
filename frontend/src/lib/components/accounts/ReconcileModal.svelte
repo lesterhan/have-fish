@@ -1,6 +1,6 @@
 <script lang="ts">
   import Modal from '../ui/Modal.svelte'
-  import Button from '../ui/Button.svelte'
+  import GradientButton from '../ui/GradientButton.svelte'
   import CurrencyInput from '../ui/CurrencyInput.svelte'
   import { fetchAccountBalanceAtDate, createTransaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
@@ -228,26 +228,26 @@
 
   <div class="footer">
     {#if !result || (!isBalanced && !posted)}
-      <Button
-        variant="primary"
+      <GradientButton
+        active
         onclick={handleCheck}
         disabled={!formValid || checking}
       >
         {checking ? 'Checking…' : 'Check balance'}
-      </Button>
+      </GradientButton>
     {/if}
     {#if result && !isBalanced && !posted}
-      <Button
-        variant="primary"
+      <GradientButton
+        active
         onclick={handlePostAdjustment}
         disabled={submitting ||
           !settingsStore.value?.defaultAdjustmentsAccountId}
       >
         {submitting ? 'Posting…' : 'Post adjustment'}
-      </Button>
+      </GradientButton>
     {/if}
     {#if isBalanced || posted}
-      <Button onclick={close}>Close</Button>
+      <GradientButton onclick={close}>Close</GradientButton>
     {/if}
   </div>
 </Modal>
@@ -340,7 +340,7 @@
   }
 
   .comparison-divider {
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-divider);
     margin: var(--sp-xs) 0;
   }
 
@@ -370,7 +370,7 @@
     justify-content: flex-end;
     gap: var(--sp-xs);
     padding-top: var(--sp-md);
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-divider);
     margin-top: var(--sp-md);
   }
 </style>

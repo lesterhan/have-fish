@@ -6,6 +6,7 @@
 
 <script lang="ts">
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import type { Account } from '$lib/api'
 
   interface LocalPosting {
@@ -109,35 +110,6 @@
     }
   }
 
-  // --- Currency editing ---
-  let editingCurrency = $state(false)
-  let editCurrencyValue = $state('')
-
-  function startCurrencyEdit() {
-    editCurrencyValue = posting.currency
-    editingCurrency = true
-  }
-
-  function commitCurrencyEdit() {
-    const c = editCurrencyValue.trim().toUpperCase()
-    const currency =
-      c.length >= 2 && c.length <= 4
-        ? c
-        : (origPosting?.currency ?? posting.currency)
-    editingCurrency = false
-    oncommitcurrency(posting.id, currency)
-  }
-
-  function handleCurrencyKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      commitCurrencyEdit()
-    }
-    if (e.key === 'Escape') {
-      editingCurrency = false
-    }
-  }
-
   function handleEditableKeydown(e: KeyboardEvent, action: () => void) {
     if (e.key === 'Enter' || e.key === ' ') {
       e.preventDefault()
@@ -209,34 +181,11 @@
   {/if}
 
   <!-- Currency -->
-  {#if editingCurrency && !posting.markedForDelete}
-    <input
-      type="text"
-      class="currency-input active"
-      aria-label="Currency"
-      bind:value={editCurrencyValue}
-      maxlength={4}
-      onblur={commitCurrencyEdit}
-      onkeydown={handleCurrencyKeydown}
-      use:focusOnMount
-    />
-  {:else}
-    <span
-      class="posting-currency"
-      class:editable={!posting.markedForDelete}
-      role="button"
-      aria-disabled={posting.markedForDelete}
-      tabindex={posting.markedForDelete ? -1 : 0}
-      onclick={() => {
-        if (!posting.markedForDelete) startCurrencyEdit()
-      }}
-      onkeydown={(e) =>
-        !posting.markedForDelete && handleEditableKeydown(e, startCurrencyEdit)}
-      title={posting.markedForDelete ? undefined : 'Click to edit'}
-    >
-      {posting.currency}
-    </span>
-  {/if}
+  <CurrencyInput
+    value={posting.currency}
+    oncommit={(c) => oncommitcurrency(posting.id, c)}
+    style="width: 4rem; flex-shrink: 0"
+  />
 
   <!-- Remove / undo -->
   <button
@@ -290,40 +239,27 @@
     text-align: right;
   }
 
-  .posting-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
-  .amount-input.active,
-  .currency-input.active {
+  .amount-input.active {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
     color: var(--color-text);
     background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 3px var(--sp-xs);
+    height: 24px;
     outline: none;
-  }
-
-  .amount-input.active {
     width: 10ch;
     text-align: right;
+    box-sizing: border-box;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
-  .currency-input.active {
-    width: 5.5ch;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  .amount-input.active:focus,
-  .currency-input.active:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
+  .amount-input.active:focus {
+    border-color: var(--color-accent-mid);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   .delete-btn {

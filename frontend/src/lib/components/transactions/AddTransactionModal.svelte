@@ -1,11 +1,12 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
+  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { createTransaction, fetchFxRate, type Account, type Transaction } from '$lib/api'
   import { toISODate } from '$lib/date'
-  import { SUPPORTED_CURRENCIES } from '$lib/currency'
 
   interface Props {
     accounts: Account[]
@@ -152,12 +153,6 @@
     postings.splice(i, 1)
   }
 
-  function handleCurrencyInput(e: Event, i: number) {
-    postings[i].currency = (
-      e.currentTarget as HTMLInputElement
-    ).value.toUpperCase()
-  }
-
   function handleAmountBlur(i: number) {
     const n = parseFloat(postings[i].amount)
     if (!isNaN(n) && postings[i].amount.trim() !== '') {
@@ -188,29 +183,24 @@
   }
 </script>
 
-<datalist id="currency-list">
-  {#each SUPPORTED_CURRENCIES as c}
-    <option value={c}></option>
-  {/each}
-</datalist>
-
 <Modal title="New Transaction" {open} {onclose}>
   <div class="modal-body">
     <!-- Date + description — always-visible inputs (creation form, not edit-in-place) -->
     <div class="header-row">
-      <input
+      <TextInput
         type="date"
-        class="date-input"
         aria-label="Date"
         bind:value={date}
         disabled={submitting}
+        style="color: var(--color-text-muted); flex-shrink: 0"
       />
-      <input
-        class="desc-input"
+      <TextInput
         bind:value={description}
         placeholder="Description (optional)"
         aria-label="Description"
         disabled={submitting}
+        class="desc-input"
+        style="font-family: var(--font-sans); font-weight: var(--weight-semibold); color: var(--color-accent-mid); flex: 1; min-width: 0"
       />
     </div>
 
@@ -227,26 +217,16 @@
               }}
             />
           </div>
-          <input
-            type="text"
+          <TextInput
             inputmode="decimal"
-            class="amount-input"
             aria-label="Amount"
             bind:value={posting.amount}
             placeholder="0.00"
             onblur={() => handleAmountBlur(i)}
             disabled={submitting}
+            style="width: 10ch; text-align: right"
           />
-          <input
-            type="text"
-            class="currency-input"
-            aria-label="Currency"
-            value={posting.currency}
-            oninput={(e) => handleCurrencyInput(e, i)}
-            maxlength={4}
-            list="currency-list"
-            disabled={submitting}
-          />
+          <CurrencyInput bind:value={posting.currency} style="width: 4rem; flex-shrink: 0" />
           <button
             class="delete-btn"
             title="Remove posting"
@@ -309,10 +289,10 @@
 
     <div class="footer">
       <div class="footer-actions">
-        <Button disabled={submitting} onclick={onclose}>Cancel</Button>
-        <Button variant="primary" disabled={!canSubmit} onclick={handleSubmit}>
+        <GradientButton disabled={submitting} onclick={onclose}>Cancel</GradientButton>
+        <GradientButton active disabled={!canSubmit} onclick={handleSubmit}>
           {submitting ? 'Adding…' : 'Add'}
-        </Button>
+        </GradientButton>
       </div>
     </div>
   </div>
@@ -334,45 +314,7 @@
     gap: var(--sp-md);
   }
 
-  .date-input {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
-    outline: none;
-    flex-shrink: 0;
-  }
-
-  .date-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
-  }
-
-  .desc-input {
-    flex: 1;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
-    color: var(--color-accent-mid);
-    background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
-    outline: none;
-    min-width: 0;
-  }
-
-  .desc-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
-  }
-
-  .desc-input::placeholder {
+  :global(.desc-input::placeholder) {
     font-weight: var(--weight-normal);
     color: var(--color-text-muted);
   }
@@ -396,41 +338,6 @@
     min-width: 0;
   }
 
-  .amount-input {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
-    outline: none;
-    width: 10ch;
-    text-align: right;
-    transition: outline var(--duration-fast) var(--ease);
-  }
-
-  .currency-input {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
-    outline: none;
-    width: 5.5ch;
-    text-transform: uppercase;
-    transition: outline var(--duration-fast) var(--ease);
-  }
-
-  .amount-input:focus,
-  .currency-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
-  }
 
   /* ---- Delete + add posting buttons — same as TransactionEditModal ---- */
   .delete-btn {
