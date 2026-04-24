@@ -68,6 +68,9 @@
   --color-panel-header-to: #8a909a;
   --color-panel-header-text: #f0f2f4;
 
+  /* --- Button gradient highlight --- */
+  --color-btn-gradient-hi: #ffffff; /* top of gradient buttons — white in light, Polar Night 2 in dark */
+
   /* --- The bevel system ---
    * These four values recreate the classic raised/sunken 3D chrome.
    * light = top-left edge (lit), shadow = bottom-right edge (dark)
@@ -94,6 +97,7 @@
   --color-accent-mid: #5aa8e8;
   --color-accent-light: #dde6f2;
   --color-accent-text: #ffffff;
+  --color-accent-fg: #ffffff;   /* foreground ON an accent-filled surface — flips in dark mode */
   --color-dropdown-active: #2a78c0;
 
   /* --- Borders --- */
@@ -153,91 +157,98 @@
 }
 
 /* =============================================================================
-   Dark theme — Dracula palette
+   Dark theme — Nord palette
    Applied when <html data-theme="dark"> is set.
    Only color tokens are overridden; spacing, type, radius, and shadows
    are inherited from :root unchanged (bevel shadows auto-update via vars).
+   Nord reference: Polar Night #2e3440 #3b4252 #434c5e #4c566a
+                   Snow Storm  #d8dee9 #e5e9f0 #eceff4
+                   Frost       #8fbcbb #88c0d0 #81a1c1 #5e81ac
+                   Aurora      red #bf616a  green #a3be8c  yellow #ebcb8b
    ============================================================================= */
 [data-theme='dark'] {
   /* --- The desktop --- */
-  --color-desktop: #1e1f29;
+  --color-desktop: #1a1f2a;
 
   /* --- Window chrome --- */
-  --color-window: #44475a;
-  --color-window-raised: #282a36;
-  --color-window-inset: #21222c;
-  --color-sidebar: #2a2d3e;
-  --color-sidebar-border: #44475a;
+  --color-window: #2e3440;        /* Nord Polar Night base — main panel bg */
+  --color-window-raised: #2a3040; /* slightly inset alt surface */
+  --color-window-inset: #232731;  /* darkest — text inputs, list boxes */
+  --color-sidebar: #262c38;
+  --color-sidebar-border: #373e4d;
 
-  /* --- Title bar (Dracula-adapted Graphite) --- */
-  --color-titlebar-bg: linear-gradient(180deg, #44475a 0%, #2a2d3e 50%, #1e1f29 100%);
-  --color-titlebar-fg: #f8f8f2;
+  /* --- Title bar (Nord Polar Night gradient) --- */
+  --color-titlebar-bg: linear-gradient(180deg, #3b4252 0%, #2e3440 100%);
+  --color-titlebar-fg: #eceff4;
 
   /* --- Section bar --- */
-  --color-section-bar-bg: linear-gradient(180deg, #383a4e, #1e1f29);
-  --color-section-bar-fg: #f8f8f2;
-  --color-section-bar-border-top: #44475a;
-  --color-section-bar-border-bottom: #0d0e14;
+  --color-section-bar-bg: linear-gradient(180deg, #373e4d, #1a1f2a);
+  --color-section-bar-fg: #eceff4;
+  --color-section-bar-border-top: #434c5e;
+  --color-section-bar-border-bottom: #0e1218;
 
   /* --- Rules --- */
-  --color-rule: #44475a;
-  --color-rule-soft: #383a4e;
+  --color-rule: #373e4d;
+  --color-rule-soft: #313744;
 
   /* --- Heading banner --- */
-  --color-banner-from: #1e1f29;
-  --color-banner-to: #44475a;
+  --color-banner-from: #1a1f2a;
+  --color-banner-to: #373e4d;
 
   /* --- Panel title bar (legacy) --- */
-  --color-panel-header-from: #2a2d4a;
-  --color-panel-header-to: #6272a4;
-  --color-panel-header-text: #f8f8f2;
+  --color-panel-header-from: #373e4d;
+  --color-panel-header-to: #434c5e;
+  --color-panel-header-text: #eceff4;
 
-  /* --- Bevel system (dark-adapted) --- */
-  --color-bevel-light: #6272a4;
-  --color-bevel-mid: #383a4e;
-  --color-bevel-dark: #1a1b26;
-  --color-bevel-shadow: #0d0e14;
+  /* --- Button gradient highlight --- */
+  --color-btn-gradient-hi: #3b4252; /* Nord Polar Night 2 — replaces white for dark gradient buttons */
+
+  /* --- Bevel system (Nord-adapted Polar Night edges) --- */
+  --color-bevel-light: #4c566a;
+  --color-bevel-mid: #3b4252;
+  --color-bevel-dark: #1a1f2a;
+  --color-bevel-shadow: #0e1218;
 
   /* --- Text --- */
-  --color-text: #f8f8f2;
-  --color-text-muted: #a0a9cc;
-  --color-text-disabled: #6272a4;
-  --color-text-on-dark: #f8f8f2;
+  --color-text: #d8dee9;          /* Nord Snow Storm 1 */
+  --color-text-muted: #616e88;    /* subdued labels */
+  --color-text-disabled: #4c566a; /* Nord Polar Night 4 */
+  --color-text-on-dark: #eceff4;  /* Nord Snow Storm 3 */
 
-  /* --- Accent (Dracula purple — runtime accent vars not overridden in dark) --- */
-  --color-accent: #bd93f9;
-  --color-accent-hi: #d0b3fc;
-  --color-accent-chip-bg: #3a3560;
-  --color-accent-chip-fg: #e0d4fc;
-  --color-accent-bar-track: #3a3560;
-  --color-titlebar-accent: linear-gradient(180deg, #d0b3fc, #bd93f9);
-  --color-accent-mid: #bd93f9;
-  --color-accent-light: #565970;
-  --color-accent-text: #f8f8f2;
-  --color-dropdown-active: #6272a4;
+  /* --- Accent (Nord Frost teal — runtime accent vars not overridden in dark) --- */
+  --color-accent: #4a8a9a;
+  --color-accent-hi: #88c0d0;
+  --color-accent-chip-bg: #2a3a44;
+  --color-accent-chip-fg: #88c0d0;
+  --color-accent-bar-track: #313744;
+  --color-titlebar-accent: linear-gradient(180deg, #88c0d0, #4a8a9a);
+  --color-accent-mid: #88c0d0;
+  --color-accent-light: #2a3a44;
+  --color-accent-text: #eceff4;
+  --color-dropdown-active: #4a8a9a;
 
   /* --- Borders --- */
-  --color-border: #6272a4;
-  --color-divider: #6272a4;
+  --color-border: #373e4d;
+  --color-divider: #373e4d;
 
   /* --- Tooltip --- */
-  --color-tooltip-bg: #2a2c3e;
-  --color-tooltip-border: #6272a4;
-  --color-tooltip-text: #f8f8f2;
+  --color-tooltip-bg: #2e3440;
+  --color-tooltip-border: #4c566a;
+  --color-tooltip-text: #eceff4;
 
   /* --- Semantic --- */
-  --color-success: #50fa7b;
-  --color-success-light: #1a3b25;
-  --color-warning: #ffb86c;
-  --color-warning-light: #3b2e1a;
-  --color-danger: #ff5555;
-  --color-danger-light: #3b1a1a;
+  --color-success: #a3be8c;
+  --color-success-light: #263322;
+  --color-warning: #ebcb8b;
+  --color-warning-light: #363020;
+  --color-danger: #bf616a;
+  --color-danger-light: #3a2020;
 
   /* --- Amounts --- */
-  --color-amount-positive: #50fa7b;
-  --color-amount-negative: #ff5555;
+  --color-amount-positive: #a3be8c; /* Nord Aurora green */
+  --color-amount-negative: #bf616a; /* Nord Aurora red */
 
   /* --- Transfers --- */
-  --color-transfer-in: #8be9fd;
-  --color-transfer-out: #7b8ec8;
+  --color-transfer-in: #88c0d0;  /* Nord Frost 2 */
+  --color-transfer-out: #81a1c1; /* Nord Frost 3 */
 }

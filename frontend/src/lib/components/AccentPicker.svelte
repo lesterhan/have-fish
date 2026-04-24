@@ -32,7 +32,7 @@
 <div class="picker" role="dialog" aria-label="Choose accent color">
   <div class="grid">
     {#each Object.keys(ACCENTS) as key (key)}
-      {@const a = ACCENTS[key as AccentKey]}
+      {@const a = ACCENTS[key as AccentKey].light}
       {@const active = key === current}
       <button
         class="swatch"

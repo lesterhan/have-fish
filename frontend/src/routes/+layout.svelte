@@ -15,6 +15,7 @@
   import { applyAccent } from '$lib/accent'
   import type { AccentKey } from '$lib/accent'
   import AccentPicker from '$lib/components/AccentPicker.svelte'
+  import { theme } from '$lib/theme.svelte'
 
   let { children } = $props()
 
@@ -60,9 +61,14 @@
       ]).then(([accts, settings]) => {
         sidebarAccounts = accts
         currentAccent = settings.preferences.accentColor ?? 'aqua'
-        applyAccent(currentAccent)
+        applyAccent(currentAccent, theme.dark)
       })
     }
+  })
+
+  // Re-apply accent whenever the theme toggles so dark variants kick in immediately.
+  $effect(() => {
+    applyAccent(currentAccent, theme.dark)
   })
 
   // Re-fetch sidebar balances whenever a page signals a mutation.
@@ -81,7 +87,7 @@
 
   function handleAccentSelect(key: AccentKey) {
     currentAccent = key
-    applyAccent(key)
+    applyAccent(key, theme.dark)
     pickerOpen = false
     settingsStore.update({ preferences: { accentColor: key } })
   }

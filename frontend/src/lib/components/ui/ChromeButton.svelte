@@ -16,7 +16,7 @@
   .chrome-btn {
     width: 21px;
     height: 21px;
-    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
     color: var(--color-text);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
@@ -34,7 +34,7 @@
   }
 
   .chrome-btn:hover {
-    background: linear-gradient(180deg, #ffffff, var(--color-accent-chip-bg));
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
     border-color: var(--color-accent);
   }
 
@@ -45,7 +45,7 @@
   .chrome-btn.close:hover {
     background: linear-gradient(180deg, #ff8080, var(--color-danger));
     border-color: var(--color-danger);
-    color: #ffffff;
+    color: var(--color-btn-gradient-hi);
   }
 
   .chrome-btn:focus-visible {

@@ -49,7 +49,7 @@
     gap: 5px;
     height: 24px;
     padding: 0 10px;
-    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
     font-family: var(--font-sans);
@@ -72,7 +72,7 @@
   }
 
   .btn:hover:not(:disabled):not(.active) {
-    background: linear-gradient(180deg, #ffffff, var(--color-accent-chip-bg));
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
     border-color: var(--color-accent);
   }
 
@@ -87,7 +87,7 @@
       color-mix(in srgb, var(--color-accent) 80%, black)
     );
     border-color: var(--color-accent);
-    color: #ffffff;
+    color: var(--color-btn-gradient-hi);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
   }
 
@@ -107,7 +107,7 @@
       color-mix(in srgb, var(--color-warning) 80%, black)
     );
     border-color: var(--color-warning);
-    color: #ffffff;
+    color: var(--color-btn-gradient-hi);
   }
 
   .btn.warning.active:hover:not(:disabled) {
@@ -116,7 +116,7 @@
       color-mix(in srgb, var(--color-warning) 70%, white),
       var(--color-warning)
     );
-    color: #ffffff;
+    color: var(--color-btn-gradient-hi);
   }
 
   .btn:focus-visible {

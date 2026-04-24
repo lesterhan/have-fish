@@ -559,7 +559,7 @@
       var(--color-accent-mid),
       var(--color-accent)
     );
-    color: #ffffff;
+    color: var(--color-accent-fg);
     font-weight: 700;
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.35),
@@ -826,7 +826,7 @@
   .sidebar.collapsed .nav-link:active:not(.active),
   .sidebar.collapsed .footer-btn:active {
     background: var(--color-accent);
-    color: #ffffff;
+    color: var(--color-accent-fg);
     box-shadow: var(--shadow-sunken);
     outline-color: var(--color-accent);
   }
@@ -837,7 +837,7 @@
       var(--color-accent-mid),
       var(--color-accent)
     );
-    color: #ffffff;
+    color: var(--color-accent-fg);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.35),
       inset 0 -1px 0 rgba(0, 0, 0, 0.15),

@@ -518,7 +518,7 @@
     position: absolute;
     inset: 3px;
     border-radius: 50%;
-    background: #fff;
+    background: var(--color-accent-text);
     opacity: 0.85;
   }
 

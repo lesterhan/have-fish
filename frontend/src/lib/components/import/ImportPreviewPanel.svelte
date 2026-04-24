@@ -514,8 +514,8 @@
     font-size: var(--text-xs);
     font-family: var(--font-sans);
     font-weight: var(--weight-semibold);
-    background: #fff3cd;
-    color: #856404;
+    background: var(--color-warning-light);
+    color: var(--color-warning);
     box-shadow: var(--shadow-raised);
     vertical-align: middle;
     cursor: default;

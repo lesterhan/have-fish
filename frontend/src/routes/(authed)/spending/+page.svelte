@@ -982,12 +982,12 @@
   }
 
   .currency-tab:hover:not(.active) {
-    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
     color: var(--color-text);
   }
 
   .currency-tab.active {
-    background: linear-gradient(180deg, #ffffff, var(--color-rule-soft));
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
     border-bottom-color: var(--color-window);
     color: var(--color-text);
     z-index: 2;
