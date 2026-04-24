@@ -84,7 +84,7 @@
     {#if !preview.isMultiCurrency}
       <div class="account-row">
         <label class="field-label" for="from-account">
-          From account
+          Import account
           {#if !fromAccountId}<span class="required">*</span>{/if}
         </label>
         <AccountPathInput
@@ -115,7 +115,9 @@
         {#each missingPaths as path}
           <span class="missing-account">
             <code>{path}</code>
-            <GradientButton onclick={() => oncreatemissing(path)}>Create</GradientButton>
+            <GradientButton onclick={() => oncreatemissing(path)}
+              >Create</GradientButton
+            >
           </span>
         {/each}
         <GradientButton onclick={oncreateallmissing}>Create all</GradientButton>
@@ -148,8 +150,14 @@
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span class="indicator-icon" use:tooltip={{ label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`, always: true }}>
-                      <Icon name="warning" size={12} />
+                    <span
+                      class="indicator-icon"
+                      use:tooltip={{
+                        label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`,
+                        always: true,
+                      }}
+                    >
+                      <Icon name="warning-filled" size={16} />
                     </span>
                   {/if}
                 </td>
@@ -197,8 +205,14 @@
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span class="indicator-icon" use:tooltip={{ label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`, always: true }}>
-                      <Icon name="warning" size={12} />
+                    <span
+                      class="indicator-icon"
+                      use:tooltip={{
+                        label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`,
+                        always: true,
+                      }}
+                    >
+                      <Icon name="warning-filled" size={16} />
                     </span>
                   {/if}
                 </td>
@@ -237,8 +251,14 @@
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span class="indicator-icon" use:tooltip={{ label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`, always: true }}>
-                      <Icon name="warning" size={12} />
+                    <span
+                      class="indicator-icon"
+                      use:tooltip={{
+                        label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`,
+                        always: true,
+                      }}
+                    >
+                      <Icon name="warning-filled" size={16} />
                     </span>
                   {/if}
                 </td>
@@ -265,8 +285,14 @@
                       oncreate={onaccountcreated}
                     />
                     {#if tx.suggestedOffsetAccountId}
-                      <span class="indicator-icon" use:tooltip={{ label: 'Pre-filled by import rule', always: true }}>
-                        <Icon name="edit-txn" size={12} />
+                      <span
+                        class="indicator-icon"
+                        use:tooltip={{
+                          label: 'Pre-filled by import rule',
+                          always: true,
+                        }}
+                      >
+                        <Icon name="computer" size={16} />
                       </span>
                     {/if}
                   </div>
@@ -351,7 +377,7 @@
   }
 
   .field-label {
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-xs);
     white-space: nowrap;
   }
 
@@ -517,7 +543,7 @@
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    color: var(--color-text-muted);
+    color: var(--color-accent);
     cursor: default;
     vertical-align: middle;
     margin-left: var(--sp-xs);
@@ -569,7 +595,11 @@
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
     border-top: 1px solid var(--color-rule);
-    background: linear-gradient(180deg, var(--color-window), var(--color-window-raised));
+    background: linear-gradient(
+      180deg,
+      var(--color-window),
+      var(--color-window-raised)
+    );
   }
 
   .error {

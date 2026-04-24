@@ -13,7 +13,6 @@
   import { settingsStore } from '$lib/settings.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
-  import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
   import EditParserPanel from '$lib/components/import/EditParserPanel.svelte'

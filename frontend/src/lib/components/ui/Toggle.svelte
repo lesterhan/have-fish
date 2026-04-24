@@ -25,7 +25,7 @@
     gap: var(--sp-xs);
     cursor: pointer;
     user-select: none;
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
   }
 
   .toggle-wrap.disabled {
