@@ -30,6 +30,14 @@
     if (!focused) inputText = value ?? ""
   })
 
+  // When transitioning from pill → regular input, the ghost input unmounts and
+  // focus is lost to body. Re-focus the regular input so blur/commit work correctly.
+  $effect(() => {
+    if (focused && inputEl && document.activeElement !== inputEl) {
+      inputEl.focus()
+    }
+  })
+
   let filtered = $derived(
     SUPPORTED_CURRENCIES.filter((c) =>
       c.startsWith(inputText.trim().toUpperCase()),
@@ -71,6 +79,22 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (e.key === "Enter") {
+      e.preventDefault()
+      if (open && filtered.length > 0) {
+        selectIndex(activeIndex)
+      } else {
+        const upper = inputText.trim().toUpperCase()
+        if (SUPPORTED_CURRENCIES.includes(upper)) {
+          value = upper
+          inputText = upper
+          open = false
+          oncommit?.(upper)
+          inputEl?.blur()
+        }
+      }
+      return
+    }
     if (!open) return
     if (e.key === "ArrowDown") {
       e.preventDefault()
@@ -78,9 +102,6 @@
     } else if (e.key === "ArrowUp") {
       e.preventDefault()
       activeIndex = (activeIndex - 1 + filtered.length) % filtered.length
-    } else if (e.key === "Enter") {
-      e.preventDefault()
-      selectIndex(activeIndex)
     } else if (e.key === "Escape") {
       open = false
       inputText = value ?? ""
@@ -95,6 +116,7 @@
     inputText = code
     open = false
     oncommit?.(code)
+    inputEl?.blur()
   }
 </script>
 
@@ -154,7 +176,7 @@
           class:active={i === activeIndex}
           role="option"
           aria-selected={i === activeIndex}
-          onmousedown={() => selectIndex(i)}
+          onmousedown={(e) => { e.preventDefault(); selectIndex(i) }}
           onmousemove={() => {
             activeIndex = i
           }}
