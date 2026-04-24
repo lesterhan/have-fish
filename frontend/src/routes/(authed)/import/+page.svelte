@@ -19,6 +19,7 @@
   import AddParserWizard from '$lib/components/wizards/AddParserWizard.svelte'
   import ImportPreviewPanel from '$lib/components/import/ImportPreviewPanel.svelte'
   import ParsersPanel from '$lib/components/import/ParsersPanel.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
   import type { RowState } from '$lib/components/import/ImportPreviewPanel.svelte'
   import { toast } from '$lib/toast.svelte'
   import { goto } from '$app/navigation'
@@ -278,7 +279,11 @@
             <span class="file-size">{(file.size / 1024).toFixed(1)} KB</span>
           {:else}
             <span class="drop-label">DROP CSV OR CLICK TO BROWSE</span>
-            <span class="drop-hint">accepts .csv</span>
+            <span class="drop-hint"
+              ><Icon name="pacman" size={16} /><Icon name="dot" /><Icon
+                name="dot"
+              /><Icon name="cherry" /><Icon name="dot" /></span
+            >
           {/if}
           <input
             id="csv-file"
@@ -430,18 +435,6 @@
     color: var(--color-section-bar-fg);
     white-space: nowrap;
     flex: 1;
-  }
-
-  .rules-link {
-    font-size: var(--text-xs);
-    color: var(--color-section-bar-fg);
-    opacity: 0.7;
-    text-decoration: none;
-    transition: opacity var(--duration-fast) var(--ease);
-  }
-
-  .rules-link:hover {
-    opacity: 1;
   }
 
   .import-body {
