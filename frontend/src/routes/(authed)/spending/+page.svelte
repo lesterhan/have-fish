@@ -809,7 +809,7 @@
 
   .filter-chip.active {
     background: var(--color-accent);
-    color: #ffffff;
+    color: var(--color-accent-fg);
     border-color: var(--color-accent);
   }
 
