@@ -2,6 +2,8 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import { tooltip } from '$lib/tooltip'
   import type { Account, ImportPreviewResult } from '$lib/api'
 
   export type RowState = {
@@ -146,12 +148,9 @@
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span
-                      class="dup-badge"
-                      title="Possible duplicate: {tx.possibleDuplicate.date} {tx
-                        .possibleDuplicate.amount} {tx.possibleDuplicate
-                        .currency}">dup</span
-                    >
+                    <span class="indicator-icon" use:tooltip={{ label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`, always: true }}>
+                      <Icon name="warning" size={12} />
+                    </span>
                   {/if}
                 </td>
                 <td>{tx.description ?? '—'}</td>
@@ -198,12 +197,9 @@
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span
-                      class="dup-badge"
-                      title="Possible duplicate: {tx.possibleDuplicate.date} {tx
-                        .possibleDuplicate.amount} {tx.possibleDuplicate
-                        .currency}">dup</span
-                    >
+                    <span class="indicator-icon" use:tooltip={{ label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`, always: true }}>
+                      <Icon name="warning" size={12} />
+                    </span>
                   {/if}
                 </td>
                 <td>{tx.description ?? '—'}</td>
@@ -241,12 +237,9 @@
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
                   {#if tx.possibleDuplicate}
-                    <span
-                      class="dup-badge"
-                      title="Possible duplicate: {tx.possibleDuplicate.date} {tx
-                        .possibleDuplicate.amount} {tx.possibleDuplicate
-                        .currency}">dup</span
-                    >
+                    <span class="indicator-icon" use:tooltip={{ label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`, always: true }}>
+                      <Icon name="warning" size={12} />
+                    </span>
                   {/if}
                 </td>
                 <td>{tx.description ?? '—'}</td>
@@ -272,7 +265,9 @@
                       oncreate={onaccountcreated}
                     />
                     {#if tx.suggestedOffsetAccountId}
-                      <span class="rule-badge" title="Pre-filled by import rule">rule</span>
+                      <span class="indicator-icon" use:tooltip={{ label: 'Pre-filled by import rule', always: true }}>
+                        <Icon name="edit-txn" size={12} />
+                      </span>
                     {/if}
                   </div>
                 </td>
@@ -518,35 +513,14 @@
     gap: var(--sp-xs);
   }
 
-  .rule-badge {
+  .indicator-icon {
+    display: inline-flex;
+    align-items: center;
     flex-shrink: 0;
-    padding: 0 3px;
-    font-size: var(--text-xs);
-    font-family: var(--font-mono);
-    font-weight: var(--weight-semibold);
-    background: var(--color-accent-light);
-    color: var(--color-accent);
-    box-shadow: var(--shadow-raised);
+    color: var(--color-text-muted);
     cursor: default;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-  }
-
-  .dup-badge {
-    display: inline-block;
-    margin-left: var(--sp-xs);
-    padding: 0 3px;
-    font-size: var(--text-xs);
-    font-family: var(--font-sans);
-    font-weight: var(--weight-semibold);
-    background: var(--color-warning-light);
-    color: var(--color-warning);
-    box-shadow: var(--shadow-raised);
     vertical-align: middle;
-    cursor: default;
-    text-transform: uppercase;
-    letter-spacing: 0.02em;
+    margin-left: var(--sp-xs);
   }
 
   .row-transfer td {
