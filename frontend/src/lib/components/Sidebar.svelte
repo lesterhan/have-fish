@@ -157,6 +157,15 @@
         <span class="nav-label">Import + Export</span>
       </a>
       <a
+        href="/rules"
+        class="nav-link"
+        class:active={currentPath.startsWith('/rules')}
+        use:tooltip={'Import Rules'}
+      >
+        <Icon name="edit-txn" size={16} />
+        <span class="nav-label">Import Rules</span>
+      </a>
+      <a
         href="/transactions"
         class="nav-link"
         class:active={currentPath.startsWith('/transactions')}

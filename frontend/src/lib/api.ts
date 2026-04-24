@@ -100,6 +100,7 @@ export type RegularParsedTransaction = {
   description?: string
   currency?: string
   possibleDuplicate?: PossibleDuplicate
+  suggestedOffsetAccountId?: string
 }
 
 export type TransferParsedTransaction = {
@@ -589,6 +590,64 @@ export async function fetchFxRate(
     { credentials: 'include' },
   )
   if (!res.ok) return null
+  return res.json()
+}
+
+export type ImportRule = {
+  id: string
+  pattern: string
+  accountId: string
+  accountPath: string
+  accountName: string | null
+  status: 'active' | 'suggested'
+  matchCount: number
+  createdAt: string
+  updatedAt: string
+}
+
+export async function fetchRules(): Promise<ImportRule[]> {
+  const res = await fetch(`${BASE}/api/rules`, { credentials: 'include' })
+  return res.json()
+}
+
+export async function createRule(body: { pattern: string; accountId: string }): Promise<ImportRule> {
+  const res = await fetch(`${BASE}/api/rules`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create rule')
+  return res.json()
+}
+
+export async function updateRule(id: string, body: { pattern?: string; accountId?: string }): Promise<ImportRule> {
+  const res = await fetch(`${BASE}/api/rules/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update rule')
+  return res.json()
+}
+
+export async function deleteRule(id: string): Promise<void> {
+  await fetch(`${BASE}/api/rules/${id}`, { method: 'DELETE', credentials: 'include' })
+}
+
+export async function approveRule(id: string): Promise<ImportRule> {
+  const res = await fetch(`${BASE}/api/rules/${id}/approve`, { method: 'POST', credentials: 'include' })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to approve rule')
+  return res.json()
+}
+
+export async function denyRule(id: string): Promise<void> {
+  await fetch(`${BASE}/api/rules/${id}/deny`, { method: 'POST', credentials: 'include' })
+}
+
+export async function mineRules(): Promise<{ created: number }> {
+  const res = await fetch(`${BASE}/api/rules/mine`, { method: 'POST', credentials: 'include' })
   return res.json()
 }
 

@@ -132,7 +132,10 @@
         accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
       importAsLiabilities = defaultAccountPath.startsWith(`${liabilitiesRoot}:`)
       rowStates = preview.transactions.map((tx) => ({
-        offsetAccountId: toAccountId,
+        offsetAccountId:
+          tx.isTransfer === false && tx.suggestedOffsetAccountId
+            ? tx.suggestedOffsetAccountId
+            : toAccountId,
         conversionAccountId:
           settingsStore.value?.defaultConversionAccountId ?? '',
         feeAccountId: preview!.defaultFeeAccountId ?? '',
@@ -250,6 +253,7 @@
     >
       <div class="section-bar">
         <span class="section-bar-title">IMPORT CSV</span>
+        <a href="/rules" class="rules-link">Manage rules</a>
       </div>
 
       <div class="import-body">
@@ -294,7 +298,9 @@
             <div class="config-field">
               <label class="config-label" for="default-currency">
                 Default currency
-                <TooltipIcon label="The currency to use when the CSV doesn't specify one." />
+                <TooltipIcon
+                  label="The currency to use when the CSV doesn't specify one."
+                />
               </label>
               <CurrencyInput
                 id="default-currency"
@@ -305,7 +311,9 @@
             <div class="config-field config-account">
               <span class="config-label">
                 Uncategorized account
-                <TooltipIcon label="Transactions with no matching import rule are posted to this account." />
+                <TooltipIcon
+                  label="Transactions with no matching import rule are posted to this account."
+                />
               </span>
               <AccountPathInput
                 {accounts}
@@ -327,8 +335,7 @@
             <span class="error-text">{error}</span>
             {#if noParserFound}
               <span class="hint-text">
-                Go to <a href="/settings">Settings</a> to add a parser for this
-                file.
+                Go to <a href="/settings">Settings</a> to add a parser for this file.
               </span>
             {/if}
           </div>
@@ -395,7 +402,6 @@
   .page {
     display: flex;
     flex-direction: column;
-    margin: calc(-1 * var(--sp-lg));
   }
 
   /* ── Import setup window ── */
@@ -422,6 +428,19 @@
     letter-spacing: 0.6px;
     color: var(--color-section-bar-fg);
     white-space: nowrap;
+    flex: 1;
+  }
+
+  .rules-link {
+    font-size: var(--text-xs);
+    color: var(--color-section-bar-fg);
+    opacity: 0.7;
+    text-decoration: none;
+    transition: opacity var(--duration-fast) var(--ease);
+  }
+
+  .rules-link:hover {
+    opacity: 1;
   }
 
   .import-body {
@@ -440,7 +459,7 @@
     height: 120px;
     margin: var(--sp-md);
     background: var(--color-window-inset);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     border: 2px dashed var(--color-border);
     cursor: pointer;
     transition:
@@ -530,7 +549,11 @@
     justify-content: flex-end;
     padding: var(--sp-xs) var(--sp-md);
     border-top: 1px solid var(--color-rule);
-    background: linear-gradient(180deg, var(--color-window), var(--color-window-raised));
+    background: linear-gradient(
+      180deg,
+      var(--color-window),
+      var(--color-window-raised)
+    );
   }
 
   /* ── Error strip ── */

@@ -264,12 +264,17 @@
                     >{tx.currency ?? defaultCurrency}</td
                   >{/if}
                 <td class="cell-offset">
-                  <AccountPathInput
-                    {accounts}
-                    bind:value={rowStates[i].offsetAccountId}
-                    placeholder="Select or create…"
-                    oncreate={onaccountcreated}
-                  />
+                  <div class="offset-wrap">
+                    <AccountPathInput
+                      {accounts}
+                      bind:value={rowStates[i].offsetAccountId}
+                      placeholder="Select or create…"
+                      oncreate={onaccountcreated}
+                    />
+                    {#if tx.suggestedOffsetAccountId}
+                      <span class="rule-badge" title="Pre-filled by import rule">rule</span>
+                    {/if}
+                  </div>
                 </td>
                 <td class="cell-skip"
                   ><input
@@ -505,6 +510,27 @@
   }
   .row-skipped .cell-skip {
     opacity: 1;
+  }
+
+  .offset-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+  }
+
+  .rule-badge {
+    flex-shrink: 0;
+    padding: 0 3px;
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    font-weight: var(--weight-semibold);
+    background: var(--color-accent-light);
+    color: var(--color-accent);
+    box-shadow: var(--shadow-raised);
+    cursor: default;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    white-space: nowrap;
   }
 
   .dup-badge {

@@ -111,9 +111,9 @@ app.post('/mine', async (c) => {
     .where(and(eq(importRules.userId, userId), isNull(importRules.deletedAt)))
   const coveredPatterns = new Set(existingRules.map((r) => r.pattern.toLowerCase()))
 
-  // Insert suggestions for uncovered descriptions
+  // Insert suggestions for uncovered descriptions with more than 2 matches
   const toInsert = [...bestByDescription.values()].filter(
-    (pair) => !coveredPatterns.has(pair.description.toLowerCase()),
+    (pair) => pair.count > 2 && !coveredPatterns.has(pair.description.toLowerCase()),
   )
 
   if (toInsert.length > 0) {

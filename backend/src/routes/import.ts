@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { transactions, postings, csvParsers } from '../db/schema'
+import { transactions, postings, csvParsers, importRules } from '../db/schema'
 import { eq, isNull, and, gte, lte } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
@@ -128,13 +128,28 @@ app.post('/preview', async (c) => {
     possibleDuplicate: duplicates[i],
   }))
 
+  // Apply active rules: for each regular (non-transfer) row, find the first rule
+  // whose pattern is a case-insensitive substring of the description.
+  const activeRules = await db
+    .select({ pattern: importRules.pattern, accountId: importRules.accountId })
+    .from(importRules)
+    .where(and(eq(importRules.userId, userId), eq(importRules.status, 'active'), isNull(importRules.deletedAt)))
+
+  const transactionsWithRules = transactionsWithDuplicates.map((t) => {
+    if (t.isTransfer !== false || !t.description) return t
+    const desc = t.description.toLowerCase()
+    const match = activeRules.find((r) => desc.includes(r.pattern.toLowerCase()))
+    if (!match) return t
+    return { ...t, suggestedOffsetAccountId: match.accountId }
+  })
+
   return c.json({
     parser: matched.name,
     defaultAccountId: matched.defaultAccountId,
     isMultiCurrency: matched.isMultiCurrency,
     defaultFeeAccountId: matched.defaultFeeAccountId,
     ...result,
-    transactions: transactionsWithDuplicates,
+    transactions: transactionsWithRules,
   })
 })
 
