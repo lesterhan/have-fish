@@ -1,6 +1,8 @@
 <script lang="ts">
+  import { onMount } from "svelte"
   import { SUPPORTED_CURRENCIES } from "$lib/currency"
   import CurrencyPill from "./CurrencyPill.svelte"
+  import { settingsStore } from "$lib/settings.svelte"
 
   interface Props {
     value?: string
@@ -38,15 +40,29 @@
     }
   })
 
-  let filtered = $derived(
-    SUPPORTED_CURRENCIES.filter((c) =>
-      c.startsWith(inputText.trim().toUpperCase()),
-    ),
+  let recentCurrencies = $derived(
+    settingsStore.value?.preferences?.recentCurrencies ?? []
   )
+
+  let filtered = $derived.by(() => {
+    const prefix = inputText.trim().toUpperCase()
+    const matches = SUPPORTED_CURRENCIES.filter((c) => c.startsWith(prefix))
+    if (recentCurrencies.length === 0) return matches
+    const recentSet = new Set(recentCurrencies)
+    const recentsFirst = recentCurrencies.filter((c) => matches.includes(c))
+    const others = matches.filter((c) => !recentSet.has(c))
+    return [...recentsFirst, ...others]
+  })
 
   $effect(() => {
     if (activeIndex >= filtered.length) activeIndex = 0
   })
+
+  function pushRecent(code: string) {
+    const current = settingsStore.value?.preferences?.recentCurrencies ?? []
+    const next = [code, ...current.filter((c) => c !== code)].slice(0, 8)
+    settingsStore.update({ preferences: { recentCurrencies: next } }).catch(() => {})
+  }
 
   // Show pill overlay when not focused and value is a known currency
   let showPill = $derived(
@@ -72,6 +88,7 @@
       if (SUPPORTED_CURRENCIES.includes(upper)) {
         value = upper
         oncommit?.(upper)
+        pushRecent(upper)
       } else {
         inputText = value ?? ""
       }
@@ -90,6 +107,7 @@
           inputText = upper
           open = false
           oncommit?.(upper)
+          pushRecent(upper)
           inputEl?.blur()
         }
       }
@@ -116,6 +134,7 @@
     inputText = code
     open = false
     oncommit?.(code)
+    pushRecent(code)
     inputEl?.blur()
   }
 </script>

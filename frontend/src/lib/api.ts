@@ -282,6 +282,7 @@ export type UserPreferences = {
   dashboardHiddenCurrencies?: string[]
   hiddenAccountIds?: string[]
   accentColor?: import('$lib/accent').AccentKey
+  recentCurrencies?: string[]
 }
 
 export type UserSettings = {
