@@ -84,6 +84,7 @@
     } else if (e.key === "Escape") {
       open = false
       inputText = value ?? ""
+      inputEl?.blur()
     }
   }
 
@@ -120,7 +121,7 @@
     />
     <!-- svelte-ignore a11y_click_events_have_key_events -->
     <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="pill-display" onclick={() => inputEl?.focus()}>
+    <div class="pill-display" onclick={() => { inputText = ""; inputEl?.focus() }}>
       <CurrencyPill code={value} />
     </div>
   {:else}

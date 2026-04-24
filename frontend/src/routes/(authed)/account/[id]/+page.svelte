@@ -113,6 +113,7 @@
     actionRequiredActive = false
     convertFx = false
     fxRateMap = new Map()
+    quickEntryOpen = false
   })
 
   $effect(() => {
