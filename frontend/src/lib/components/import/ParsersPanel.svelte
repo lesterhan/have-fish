@@ -110,7 +110,6 @@
   }
 
   .cell-name {
-    font-weight: var(--weight-semibold);
     font-size: var(--text-xs);
   }
 

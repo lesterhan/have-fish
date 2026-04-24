@@ -10,7 +10,6 @@
   import { settingsStore } from '$lib/settings.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
-  import Select from '$lib/components/ui/Select.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
