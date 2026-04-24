@@ -362,8 +362,7 @@
   .page {
     display: flex;
     flex-direction: row;
-    margin: calc(-1 * var(--sp-lg));
-    height: calc(100% + 2 * var(--sp-lg));
+    height: 100%;
     overflow: hidden;
   }
 
@@ -477,8 +476,6 @@
   @media (max-width: 520px) {
     .page {
       flex-direction: column;
-      margin: calc(-1 * var(--sp-md));
-      height: calc(100% + 2 * var(--sp-md));
     }
 
     .right-col {

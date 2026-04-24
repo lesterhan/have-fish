@@ -682,20 +682,16 @@
     grid-column: 1 / -1;
   }
 
-  /* Page grid — negative margin escapes the content area padding */
   .page {
     display: grid;
     grid-template-columns: 1fr 360px;
-    margin: calc(-1 * var(--sp-lg));
-    height: calc(100% + 2 * var(--sp-lg));
+    height: 100%;
     overflow: hidden;
   }
 
   @media (max-width: 600px) {
     .page {
       grid-template-columns: 1fr;
-      margin: calc(-1 * var(--sp-md));
-      height: calc(100% + 2 * var(--sp-md));
     }
   }
 

@@ -338,7 +338,7 @@
   .content {
     flex: 1;
     overflow-y: auto;
-    padding: var(--sp-lg);
+    padding: 0;
     background: var(--color-window-raised);
     min-width: 0; /* prevent flex blowout */
     scrollbar-width: auto;
