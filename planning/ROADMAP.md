@@ -26,7 +26,7 @@
 | [Add Import Parser](epics/archive/add-import-parser.md) | Done |
 | [Spending Page](epics/archive/spending-page.md) | Done |
 | [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
-| [Import Rules](epics/import-rules.md) | Backlog |
+| [Import Rules](epics/archive/import-rules.md) | Done |
 | [Spending Account Filter](epics/spending-account-filter.md) | Backlog |
 | [FX Rates & Preferred Currency](epics/archive/fx-rates.md) | Done |
 | [Action Required](epics/archive/action-required.md) | Done |
