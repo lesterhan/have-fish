@@ -1,6 +1,11 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { fetchAccounts, createAccount, deleteAccount, fetchAccountPostingCounts } from '$lib/api'
+  import {
+    fetchAccounts,
+    createAccount,
+    deleteAccount,
+    fetchAccountPostingCounts,
+  } from '$lib/api'
   import type { Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -135,7 +140,9 @@
       <div class="setting-row">
         <span class="setting-label">
           Uncategorized
-          <TooltipIcon label="Imported transactions with no matched category will use this account." />
+          <TooltipIcon
+            label="Imported transactions with no matched category will use this account."
+          />
         </span>
         <AccountPathInput
           {accounts}
@@ -150,7 +157,9 @@
       <div class="setting-row">
         <span class="setting-label">
           Conversion balance
-          <TooltipIcon label="Equity account used to balance cross-currency transfers. Required for multi-currency imports." />
+          <TooltipIcon
+            label="Equity account used to balance cross-currency transfers. Required for multi-currency imports."
+          />
         </span>
         <AccountPathInput
           {accounts}
@@ -166,7 +175,9 @@
       <div class="setting-row">
         <span class="setting-label">
           Adjustments
-          <TooltipIcon label="Equity account used as the offset when posting a reconciliation adjustment." />
+          <TooltipIcon
+            label="Equity account used as the offset when posting a reconciliation adjustment."
+          />
         </span>
         <AccountPathInput
           {accounts}
@@ -182,7 +193,9 @@
       <div class="setting-row">
         <label class="setting-label" for="preferred-currency">
           Preferred currency
-          <TooltipIcon label="Your home currency. Used for FX conversion displays." />
+          <TooltipIcon
+            label="Your home currency. Used for FX conversion displays."
+          />
         </label>
         <CurrencyInput
           id="preferred-currency"
@@ -206,7 +219,9 @@
       <div class="setting-row">
         <label class="setting-label" for="assets-root-path">
           Assets
-          <TooltipIcon label="Root prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')." />
+          <TooltipIcon
+            label="Root prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."
+          />
         </label>
         <TextInput
           id="assets-root-path"
@@ -224,7 +239,9 @@
       <div class="setting-row">
         <label class="setting-label" for="liabilities-root-path">
           Liabilities
-          <TooltipIcon label="Root prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')." />
+          <TooltipIcon
+            label="Root prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."
+          />
         </label>
         <TextInput
           id="liabilities-root-path"
@@ -243,7 +260,9 @@
       <div class="setting-row">
         <label class="setting-label" for="expenses-root-path">
           Expenses
-          <TooltipIcon label="Root prefix for expense accounts. Used to filter spending reports." />
+          <TooltipIcon
+            label="Root prefix for expense accounts. Used to filter spending reports."
+          />
         </label>
         <TextInput
           id="expenses-root-path"
@@ -261,7 +280,9 @@
       <div class="setting-row">
         <label class="setting-label" for="equity-root-path">
           Equity
-          <TooltipIcon label="Root prefix for equity accounts. (e.g. 'equity' → 'equity:investments')." />
+          <TooltipIcon
+            label="Root prefix for equity accounts. (e.g. 'equity' → 'equity:investments')."
+          />
         </label>
         <TextInput
           id="equity-root-path"
@@ -380,8 +401,7 @@
       'roots    accts'
       'danger   accts';
     background: var(--color-window);
-    margin: calc(-1 * var(--sp-lg));
-    height: calc(100% + 2 * var(--sp-lg));
+    height: 100%;
     overflow: hidden;
   }
 
@@ -494,7 +514,6 @@
     gap: 4px;
     white-space: nowrap;
   }
-
 
   /* --- Accounts column --- */
   .add-row {
