@@ -1,6 +1,7 @@
 <script lang="ts">
   import { ACCENTS } from '$lib/accent'
   import type { AccentKey } from '$lib/accent'
+  import { tooltip as tooltipAction } from '$lib/tooltip'
 
   interface Props {
     current: AccentKey
@@ -29,7 +30,7 @@
 <!-- Click-outside backdrop -->
 <div class="backdrop" role="presentation" onclick={onclose}></div>
 
-<div class="picker" role="dialog" aria-label="Choose accent color">
+<div class="picker" role="dialog" aria-label="Choose accent colour">
   <div class="grid">
     {#each Object.keys(ACCENTS) as key (key)}
       {@const a = ACCENTS[key as AccentKey].light}
@@ -40,6 +41,7 @@
         style="background: linear-gradient(180deg, {a.hi}, {a.hex})"
         title={LABELS[key as AccentKey]}
         aria-pressed={active}
+        use:tooltipAction={{ label: 'Choose accent colour', always: true }}
         onclick={() => onselect(key as AccentKey)}
       >
         {#if active}<span class="check" aria-hidden="true">✓</span>{/if}

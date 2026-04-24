@@ -211,7 +211,7 @@
 
   /* --- Text --- */
   --color-text: #d8dee9;          /* Nord Snow Storm 1 */
-  --color-text-muted: #616e88;    /* subdued labels */
+  --color-text-muted: #7e8ca8;    /* subdued labels */
   --color-text-disabled: #4c566a; /* Nord Polar Night 4 */
   --color-text-on-dark: #eceff4;  /* Nord Snow Storm 3 */
 
@@ -232,7 +232,7 @@
   --color-divider: #373e4d;
 
   /* --- Tooltip --- */
-  --color-tooltip-bg: #2e3440;
+  --color-tooltip-bg: #393f4c;
   --color-tooltip-border: #4c566a;
   --color-tooltip-text: #eceff4;
 
