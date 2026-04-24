@@ -252,7 +252,6 @@
     >
       <div class="section-bar">
         <span class="section-bar-title">IMPORT CSV</span>
-        <a href="/rules" class="rules-link">Manage rules</a>
       </div>
 
       <div class="import-body">
@@ -292,10 +291,10 @@
           />
         </label>
 
-        <div class="config-strip">
-          <div class="config-fields">
-            <div class="config-field">
-              <label class="config-label" for="default-currency">
+        <div class="import-strip">
+          <div class="import-fields">
+            <div class="import-field">
+              <label class="import-label" for="default-currency">
                 Default currency
                 <TooltipIcon
                   label="The currency to use when the CSV doesn't specify one."
@@ -307,8 +306,8 @@
                 style="width: 5rem"
               />
             </div>
-            <div class="config-field config-account">
-              <span class="config-label">
+            <div class="import-field import-account">
+              <span class="import-label">
                 Uncategorized account
                 <TooltipIcon
                   label="Transactions with no matching import rule are posted to this account."
@@ -322,7 +321,10 @@
               />
             </div>
           </div>
-          <div class="config-actions">
+          <div class="import-actions">
+            <a href="/rules">
+              <GradientButton type="button">Manage Rules</GradientButton>
+            </a>
             <GradientButton type="submit" disabled={loading} active>
               {loading ? 'Parsing…' : 'Preview import'}
             </GradientButton>
@@ -507,30 +509,30 @@
 
   /* ── Config strip ── */
 
-  .config-strip {
+  .import-strip {
     display: flex;
     flex-direction: column;
     border-top: 1px solid var(--color-rule);
   }
 
-  .config-fields {
+  .import-fields {
     display: flex;
     align-items: center;
     gap: var(--sp-lg);
     padding: var(--sp-sm) var(--sp-md);
   }
 
-  .config-field {
+  .import-field {
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
   }
 
-  .config-account {
+  .import-account {
     flex: 1;
   }
 
-  .config-label {
+  .import-label {
     display: flex;
     align-items: center;
     gap: 4px;
@@ -542,10 +544,8 @@
     white-space: nowrap;
   }
 
-  .config-actions {
-    display: flex;
+  .import-actions {
     align-items: center;
-    justify-content: flex-end;
     padding: var(--sp-xs) var(--sp-md);
     border-top: 1px solid var(--color-rule);
     background: linear-gradient(

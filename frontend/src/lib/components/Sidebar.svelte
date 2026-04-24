@@ -157,15 +157,6 @@
         <span class="nav-label">Import + Export</span>
       </a>
       <a
-        href="/rules"
-        class="nav-link"
-        class:active={currentPath.startsWith('/rules')}
-        use:tooltip={'Import Rules'}
-      >
-        <Icon name="edit-txn" size={16} />
-        <span class="nav-label">Import Rules</span>
-      </a>
-      <a
         href="/transactions"
         class="nav-link"
         class:active={currentPath.startsWith('/transactions')}
@@ -222,7 +213,11 @@
             <ul class="account-list">
               {#each assets as acct}
                 <li>
-                  <a href="/account/{acct.id}" class="account-row" class:active={currentPath === `/account/${acct.id}`}>
+                  <a
+                    href="/account/{acct.id}"
+                    class="account-row"
+                    class:active={currentPath === `/account/${acct.id}`}
+                  >
                     <span class="account-name"
                       >{acct.name ??
                         shortName(
@@ -281,7 +276,11 @@
             <ul class="account-list">
               {#each liabilities as acct}
                 <li>
-                  <a href="/account/{acct.id}" class="account-row" class:active={currentPath === `/account/${acct.id}`}>
+                  <a
+                    href="/account/{acct.id}"
+                    class="account-row"
+                    class:active={currentPath === `/account/${acct.id}`}
+                  >
                     <span class="account-name"
                       >{acct.name ??
                         shortName(
@@ -340,7 +339,11 @@
             <ul class="account-list">
               {#each equity as acct}
                 <li>
-                  <a href="/account/{acct.id}" class="account-row" class:active={currentPath === `/account/${acct.id}`}>
+                  <a
+                    href="/account/{acct.id}"
+                    class="account-row"
+                    class:active={currentPath === `/account/${acct.id}`}
+                  >
                     <span class="account-name"
                       >{acct.name ??
                         shortName(

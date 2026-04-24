@@ -24,6 +24,7 @@
   let accounts = $state<Account[]>([])
   let loading = $state(true)
   let mining = $state(false)
+  let minedOnce = $state(false)
 
   let showAddForm = $state(false)
   let newPattern = $state('')
@@ -35,7 +36,9 @@
 
   let activeRules = $derived(rules.filter((r) => r.status === 'active'))
   let suggestions = $derived(
-    rules.filter((r) => r.status === 'suggested').sort((a, b) => b.matchCount - a.matchCount),
+    rules
+      .filter((r) => r.status === 'suggested')
+      .sort((a, b) => b.matchCount - a.matchCount),
   )
 
   onMount(async () => {
@@ -61,7 +64,10 @@
   async function handleAdd() {
     if (!newPattern.trim() || !newAccountId) return
     try {
-      const created = await createRule({ pattern: newPattern.trim(), accountId: newAccountId })
+      const created = await createRule({
+        pattern: newPattern.trim(),
+        accountId: newAccountId,
+      })
       rules = [...rules, created]
       newPattern = ''
       newAccountId = ''
@@ -74,7 +80,10 @@
   async function handleSaveEdit() {
     if (!editingId || !editPattern.trim() || !editAccountId) return
     try {
-      const updated = await updateRule(editingId, { pattern: editPattern.trim(), accountId: editAccountId })
+      const updated = await updateRule(editingId, {
+        pattern: editPattern.trim(),
+        accountId: editAccountId,
+      })
       rules = rules.map((r) => (r.id === updated.id ? { ...updated } : r))
       cancelEdit()
     } catch (e) {
@@ -89,7 +98,9 @@
 
   async function handleApprove(id: string) {
     await approveRule(id)
-    rules = rules.map((r) => (r.id === id ? { ...r, status: 'active' as const } : r))
+    rules = rules.map((r) =>
+      r.id === id ? { ...r, status: 'active' as const } : r,
+    )
   }
 
   async function handleDeny(id: string) {
@@ -103,6 +114,7 @@
       const { created } = await mineRules()
       const fresh = await fetchRules()
       rules = fresh
+      minedOnce = true
       if (created === 0) toast.show('No new suggestions found.')
       else toast.show(`${created} suggestion${created === 1 ? '' : 's'} added.`)
     } finally {
@@ -112,13 +124,22 @@
 </script>
 
 <div class="page">
-
   <!-- Left: active rules -->
   <div class="left-col">
     <div class="section-bar">
+      <GradientButton
+        onclick={() => history.back()}
+        tooltip="Back to Import + Export"
+      >
+        <Icon name="back" />
+        Back
+      </GradientButton>
       <span class="section-bar-title">ACTIVE RULES</span>
       <GradientButton
-        onclick={() => { showAddForm = true; cancelEdit() }}
+        onclick={() => {
+          showAddForm = true
+          cancelEdit()
+        }}
         disabled={showAddForm}
       >
         Add rule
@@ -146,7 +167,11 @@
                 style="width: 100%; box-sizing: border-box"
                 onkeydown={(e) => {
                   if (e.key === 'Enter') handleAdd()
-                  if (e.key === 'Escape') { showAddForm = false; newPattern = ''; newAccountId = '' }
+                  if (e.key === 'Escape') {
+                    showAddForm = false
+                    newPattern = ''
+                    newAccountId = ''
+                  }
                 }}
               />
             </td>
@@ -155,15 +180,29 @@
                 {accounts}
                 bind:value={newAccountId}
                 placeholder="Select account…"
-                oncreate={(a) => { accounts = [...accounts, a] }}
+                oncreate={(a) => {
+                  accounts = [...accounts, a]
+                }}
               />
             </td>
             <td class="cell-actions">
               <div class="action-row">
-                <GradientButton onclick={handleAdd} disabled={!newPattern.trim() || !newAccountId} active>
+                <GradientButton
+                  onclick={handleAdd}
+                  disabled={!newPattern.trim() || !newAccountId}
+                  active
+                >
                   Save
                 </GradientButton>
-                <Button variant="ghost" square onclick={() => { showAddForm = false; newPattern = ''; newAccountId = '' }}>
+                <Button
+                  variant="ghost"
+                  square
+                  onclick={() => {
+                    showAddForm = false
+                    newPattern = ''
+                    newAccountId = ''
+                  }}
+                >
                   <Icon name="close" size={12} />
                 </Button>
               </div>
@@ -188,12 +227,16 @@
                 <AccountPathInput
                   {accounts}
                   bind:value={editAccountId}
-                  oncreate={(a) => { accounts = [...accounts, a] }}
+                  oncreate={(a) => {
+                    accounts = [...accounts, a]
+                  }}
                 />
               </td>
               <td class="cell-actions">
                 <div class="action-row">
-                  <GradientButton onclick={handleSaveEdit} active>Save</GradientButton>
+                  <GradientButton onclick={handleSaveEdit} active
+                    >Save</GradientButton
+                  >
                   <Button variant="ghost" square onclick={cancelEdit}>
                     <Icon name="close" size={12} />
                   </Button>
@@ -206,10 +249,20 @@
               <td class="cell-mono">{rule.accountPath}</td>
               <td class="cell-actions">
                 <div class="action-row">
-                  <Button variant="ghost" square onclick={() => startEdit(rule)} tooltip="Edit">
+                  <Button
+                    variant="ghost"
+                    square
+                    onclick={() => startEdit(rule)}
+                    tooltip="Edit"
+                  >
                     <Icon name="edit-txn" size={12} />
                   </Button>
-                  <Button variant="ghost" square onclick={() => handleDelete(rule.id)} tooltip="Delete">
+                  <Button
+                    variant="ghost"
+                    square
+                    onclick={() => handleDelete(rule.id)}
+                    tooltip="Delete"
+                  >
                     <Icon name="trash" size={12} />
                   </Button>
                 </div>
@@ -228,8 +281,11 @@
     </div>
 
     <div class="mine-strip">
-      <span class="mine-hint">Analyze transaction history to find patterns.</span>
-      <GradientButton onclick={handleMine} disabled={mining}>
+      <GradientButton
+        onclick={handleMine}
+        disabled={mining}
+        tooltip="Analyze to find patterns in transaction history."
+      >
         {mining ? 'Mining…' : 'Mine'}
       </GradientButton>
     </div>
@@ -238,7 +294,11 @@
       {#if loading}
         <div class="empty-state">Loading…</div>
       {:else if suggestions.length === 0}
-        <div class="empty-state">No suggestions. Click Mine to analyze your transaction history.</div>
+        <div class="empty-state">
+          {minedOnce
+            ? 'Nothing came up.'
+            : 'Click Mine to analyze your transaction history.'}
+        </div>
       {:else}
         {#each suggestions as rule (rule.id)}
           <div class="suggestion-card">
@@ -248,15 +308,18 @@
               <span class="suggestion-count">{rule.matchCount} matches</span>
             </div>
             <div class="suggestion-actions">
-              <GradientButton onclick={() => handleApprove(rule.id)} active>Approve</GradientButton>
-              <Button variant="ghost" onclick={() => handleDeny(rule.id)}>Deny</Button>
+              <GradientButton onclick={() => handleApprove(rule.id)} active
+                >Approve</GradientButton
+              >
+              <Button variant="ghost" onclick={() => handleDeny(rule.id)}
+                >Deny</Button
+              >
             </div>
           </div>
         {/each}
       {/if}
     </div>
   </div>
-
 </div>
 
 <style>
@@ -379,14 +442,8 @@
     align-items: center;
     gap: var(--sp-sm);
     padding: 6px 12px;
-    border-bottom: 1px solid var(--color-rule-soft);
+    border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
-  }
-
-  .mine-hint {
-    flex: 1;
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
   }
 
   .suggestions-list {
