@@ -3,7 +3,7 @@
 </script>
 
 <div class="page">
-  <Icon name="cone" size={16} /> Expense splitting coming soon <Icon
+  <Icon name="cone" size={16} /> Budgeting coming soon <Icon
     name="cone"
     size={16}
   />

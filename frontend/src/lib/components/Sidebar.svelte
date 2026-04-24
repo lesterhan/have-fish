@@ -148,6 +148,15 @@
         <span class="nav-label">Spending</span>
       </a>
       <a
+        href="/budgeting"
+        class="nav-link"
+        class:active={currentPath.startsWith('/budgeting')}
+        use:tooltip={'Budgeting'}
+      >
+        <Icon name="piggy-bank" size={16} />
+        <span class="nav-label">Budgeting</span>
+      </a>
+      <a
         href="/import"
         class="nav-link"
         class:active={currentPath.startsWith('/import')}

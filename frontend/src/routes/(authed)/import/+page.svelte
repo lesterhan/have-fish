@@ -327,7 +327,7 @@
             </div>
           </div>
           <div class="import-actions">
-            <a href="/rules">
+            <a href="/import/rules">
               <GradientButton type="button">Manage Rules</GradientButton>
             </a>
             <GradientButton type="submit" disabled={loading} active>
