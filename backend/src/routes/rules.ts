@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { importRules, accounts } from '../db/schema'
+import { importRules, accounts, transactions, postings, userSettings } from '../db/schema'
 import { eq, isNull, and } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 
@@ -49,6 +49,86 @@ app.post('/', async (c) => {
     .returning()
 
   return c.json(created, 201)
+})
+
+// POST /api/rules/mine
+// Analyzes transaction history and writes new 'suggested' rules.
+// Skips descriptions already covered by any existing non-deleted rule.
+// Returns { created: number }.
+app.post('/mine', async (c) => {
+  const userId = c.get('userId')
+
+  const [settings] = await db
+    .select({ defaultExpensesRootPath: userSettings.defaultExpensesRootPath })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+  const expensesRoot = settings?.defaultExpensesRootPath ?? 'expenses'
+
+  // Fetch all postings for non-deleted transactions, with account paths
+  const rows = await db
+    .select({
+      txId: transactions.id,
+      description: transactions.description,
+      accountId: postings.accountId,
+      accountPath: accounts.path,
+    })
+    .from(transactions)
+    .innerJoin(postings, and(eq(postings.transactionId, transactions.id), isNull(postings.deletedAt)))
+    .innerJoin(accounts, eq(accounts.id, postings.accountId))
+    .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+
+  // Group postings by transaction id
+  const byTx = new Map<string, { description: string | null; postings: { accountId: string; accountPath: string }[] }>()
+  for (const row of rows) {
+    if (!byTx.has(row.txId)) byTx.set(row.txId, { description: row.description, postings: [] })
+    byTx.get(row.txId)!.postings.push({ accountId: row.accountId, accountPath: row.accountPath })
+  }
+
+  // Count (description, expenseAccountId) pairs from 2-posting transactions
+  const pairCounts = new Map<string, { description: string; accountId: string; count: number }>()
+  for (const { description, postings: txPostings } of byTx.values()) {
+    if (!description || txPostings.length !== 2) continue
+    const expensePosting = txPostings.find((p) => p.accountPath.startsWith(`${expensesRoot}:`))
+    if (!expensePosting) continue
+    const key = `${description.toLowerCase()}|||${expensePosting.accountId}`
+    const existing = pairCounts.get(key)
+    if (existing) existing.count++
+    else pairCounts.set(key, { description, accountId: expensePosting.accountId, count: 1 })
+  }
+
+  // For each unique description, keep the pair with the highest count
+  const bestByDescription = new Map<string, { description: string; accountId: string; count: number }>()
+  for (const pair of pairCounts.values()) {
+    const descKey = pair.description.toLowerCase()
+    const current = bestByDescription.get(descKey)
+    if (!current || pair.count > current.count) bestByDescription.set(descKey, pair)
+  }
+
+  // Fetch existing non-deleted rules to skip already-covered descriptions
+  const existingRules = await db
+    .select({ pattern: importRules.pattern })
+    .from(importRules)
+    .where(and(eq(importRules.userId, userId), isNull(importRules.deletedAt)))
+  const coveredPatterns = new Set(existingRules.map((r) => r.pattern.toLowerCase()))
+
+  // Insert suggestions for uncovered descriptions
+  const toInsert = [...bestByDescription.values()].filter(
+    (pair) => !coveredPatterns.has(pair.description.toLowerCase()),
+  )
+
+  if (toInsert.length > 0) {
+    await db.insert(importRules).values(
+      toInsert.map((pair) => ({
+        userId,
+        pattern: pair.description,
+        accountId: pair.accountId,
+        status: 'suggested' as const,
+        matchCount: pair.count,
+      })),
+    )
+  }
+
+  return c.json({ created: toInsert.length })
 })
 
 // PATCH /api/rules/:id
