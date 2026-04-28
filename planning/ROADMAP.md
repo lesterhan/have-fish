@@ -31,7 +31,7 @@
 | [FX Rates & Preferred Currency](epics/archive/fx-rates.md) | Done |
 | [Action Required](epics/archive/action-required.md) | Done |
 | [Fish Pie: Groups & Membership](epics/archive/fish-pie-groups.md) | Done |
-| [Fish Pie: Invites](epics/fish-pie-invites.md) | Backlog |
+| [Fish Pie: Invites](epics/archive/fish-pie-invites.md) | Done |
 | [Fish Pie: Group Expenses](epics/fish-pie-expenses.md) | Backlog |
 | [Fish Pie: Balances & Settlement](epics/fish-pie-balances.md) | Backlog |
 | [Graphite Design System](epics/archive/graphite-design-system.md) | Done |
