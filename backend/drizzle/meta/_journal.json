@@ -141,6 +141,13 @@
       "when": 1777394304388,
       "tag": "0019_oval_wolf_cub",
       "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1777395274304,
+      "tag": "0020_odd_hitman",
+      "breakpoints": true
     }
   ]
 }

@@ -190,6 +190,27 @@ export const expenseGroupInvites = pgTable('expense_group_invites', {
   resolvedAt: timestamp('resolved_at'),
 })
 
+export const groupExpenses = pgTable('group_expenses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => expenseGroups.id, { onDelete: 'cascade' }),
+  paidByUserId: text('paid_by_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  description: text('description').notNull(),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  currency: text('currency').notNull(),
+  date: text('date').notNull(), // YYYY-MM-DD
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
+})
+
+export const groupExpenseSplits = pgTable('group_expense_splits', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  expenseId: uuid('expense_id').notNull().references(() => groupExpenses.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+}, (t) => [
+  unique().on(t.expenseId, t.userId),
+])
+
 // A posting is one leg of a transaction — money moving in or out of one account.
 // Every transaction has at least two postings, and they must balance to zero per currency.
 // Negative amount = money leaving the account (expense/debit).
