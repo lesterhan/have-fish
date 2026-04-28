@@ -180,6 +180,16 @@ export const expenseGroupMembers = pgTable('expense_group_members', {
   unique().on(t.groupId, t.userId),
 ])
 
+export const expenseGroupInvites = pgTable('expense_group_invites', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => expenseGroups.id, { onDelete: 'cascade' }),
+  invitedByUserId: text('invited_by_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  inviteeEmail: text('invitee_email').notNull(),
+  status: text('status').notNull().default('pending'), // 'pending' | 'accepted' | 'declined'
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  resolvedAt: timestamp('resolved_at'),
+})
+
 // A posting is one leg of a transaction — money moving in or out of one account.
 // Every transaction has at least two postings, and they must balance to zero per currency.
 // Negative amount = money leaving the account (expense/debit).

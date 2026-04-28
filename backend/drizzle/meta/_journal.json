@@ -134,6 +134,13 @@
       "when": 1777393023570,
       "tag": "0018_overjoyed_junta",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1777394304388,
+      "tag": "0019_oval_wolf_cub",
+      "breakpoints": true
     }
   ]
 }
