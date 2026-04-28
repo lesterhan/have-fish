@@ -3,10 +3,11 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import { fetchGroups, createGroup } from '$lib/api'
-  import type { ExpenseGroup } from '$lib/api'
+  import { fetchGroups, createGroup, fetchMyInvites, acceptInvite, declineInvite } from '$lib/api'
+  import type { ExpenseGroup, GroupInvite } from '$lib/api'
 
   let groups = $state<ExpenseGroup[]>([])
+  let invites = $state<GroupInvite[]>([])
   let loading = $state(true)
   let showForm = $state(false)
   let newName = $state('')
@@ -14,7 +15,9 @@
 
   onMount(async () => {
     try {
-      groups = await fetchGroups()
+      const [g, inv] = await Promise.all([fetchGroups(), fetchMyInvites()])
+      groups = g
+      invites = inv
     } finally {
       loading = false
     }
@@ -31,6 +34,18 @@
     } finally {
       submitting = false
     }
+  }
+
+  async function handleAccept(invite: GroupInvite) {
+    await acceptInvite(invite.id)
+    invites = invites.filter((i) => i.id !== invite.id)
+    const updated = await fetchGroups()
+    groups = updated
+  }
+
+  async function handleDecline(inviteId: string) {
+    await declineInvite(inviteId)
+    invites = invites.filter((i) => i.id !== inviteId)
   }
 
   function handleKeydown(e: KeyboardEvent) {
@@ -64,9 +79,25 @@
     </div>
   {/if}
 
-  <div class="section-bar">
-    <span class="section-bar-title">Groups</span>
-  </div>
+  {#if !loading && invites.length > 0}
+    <div class="section-bar"><span class="section-bar-title">Pending invites</span></div>
+    <div class="invites-body">
+      {#each invites as invite (invite.id)}
+        <div class="invite-row">
+          <div class="invite-info">
+            <span class="invite-group">{invite.groupName}</span>
+            <span class="invite-from">invited by {invite.inviterName}</span>
+          </div>
+          <div class="invite-actions">
+            <GradientButton onclick={() => handleAccept(invite)}>Accept</GradientButton>
+            <GradientButton onclick={() => handleDecline(invite.id)} variant="warning">Decline</GradientButton>
+          </div>
+        </div>
+      {/each}
+    </div>
+  {/if}
+
+  <div class="section-bar"><span class="section-bar-title">Groups</span></div>
 
   <div class="body">
     {#if loading}
@@ -145,6 +176,49 @@
     font-weight: 700;
     letter-spacing: 0.6px;
     text-transform: uppercase;
+  }
+
+  .invites-body {
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
+  }
+
+  .invite-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-md);
+    padding: 8px 22px;
+    border-bottom: 1px solid var(--color-rule-soft);
+  }
+
+  .invite-row:last-child {
+    border-bottom: none;
+  }
+
+  .invite-info {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .invite-group {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
+
+  .invite-from {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .invite-actions {
+    display: flex;
+    gap: var(--sp-xs);
+    flex-shrink: 0;
   }
 
   .body {

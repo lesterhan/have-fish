@@ -751,3 +751,67 @@ export async function deleteGroup(id: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete group')
 }
 
+export type GroupInvite = {
+  id: string
+  groupId: string
+  invitedByUserId: string
+  inviteeEmail: string
+  status: string
+  createdAt: string
+  resolvedAt: string | null
+  groupName?: string
+  inviterName?: string
+}
+
+export async function fetchGroupInvites(groupId: string): Promise<GroupInvite[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to fetch invites')
+  return res.json()
+}
+
+export async function sendInvite(groupId: string, email: string): Promise<GroupInvite> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to send invite')
+  }
+  return res.json()
+}
+
+export async function cancelInvite(groupId: string, inviteId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites/${inviteId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to cancel invite')
+}
+
+export async function fetchMyInvites(): Promise<GroupInvite[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/invites`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to fetch invites')
+  return res.json()
+}
+
+export async function acceptInvite(inviteId: string): Promise<GroupInvite> {
+  const res = await fetch(`${BASE}/api/fish-pie/invites/${inviteId}/accept`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to accept invite')
+  return res.json()
+}
+
+export async function declineInvite(inviteId: string): Promise<GroupInvite> {
+  const res = await fetch(`${BASE}/api/fish-pie/invites/${inviteId}/decline`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to decline invite')
+  return res.json()
+}
+
