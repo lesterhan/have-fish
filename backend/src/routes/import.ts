@@ -107,7 +107,7 @@ app.post('/preview', async (c) => {
         const dayMs = 24 * 60 * 60 * 1000
         return (
           Math.abs(eDate - txDate) <= dayMs &&
-          Math.abs(eAmount - txAmount) <= 0.01
+          Math.abs(Math.abs(eAmount) - Math.abs(txAmount)) <= 0.01
         )
       })
 
