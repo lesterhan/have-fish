@@ -868,3 +868,70 @@ export async function deleteExpense(groupId: string, expenseId: string): Promise
   if (!res.ok) throw new Error('Failed to delete expense')
 }
 
+export type BalanceTransfer = {
+  fromUserId: string
+  fromUserName: string | null
+  toUserId: string
+  toUserName: string | null
+  amount: string
+  currency: string
+}
+
+export type CurrencyBalance = {
+  currency: string
+  netPositions: { userId: string; userName: string | null; amount: string }[]
+  transfers: BalanceTransfer[]
+}
+
+export async function fetchBalances(groupId: string): Promise<CurrencyBalance[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/balances`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to fetch balances')
+  return res.json()
+}
+
+export type GroupSettlement = {
+  id: string
+  groupId: string
+  fromUserId: string
+  fromUserName: string | null
+  toUserId: string
+  toUserName: string | null
+  amount: string
+  currency: string
+  date: string
+  note: string | null
+  createdAt: string
+  deletedAt: string | null
+}
+
+export async function fetchSettlements(groupId: string): Promise<GroupSettlement[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to fetch settlements')
+  return res.json()
+}
+
+export async function createSettlement(
+  groupId: string,
+  body: { fromUserId: string; toUserId: string; amount: string; currency: string; date: string; note?: string },
+): Promise<GroupSettlement> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to create settlement')
+  }
+  return res.json()
+}
+
+export async function deleteSettlement(groupId: string, settlementId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to delete settlement')
+}
+

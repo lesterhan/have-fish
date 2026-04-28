@@ -1,8 +1,8 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { page } from '$app/state'
-  import { fetchGroup, fetchGroupInvites, sendInvite, cancelInvite, fetchExpenses, createExpense, deleteExpense } from '$lib/api'
-  import type { ExpenseGroup, GroupInvite, GroupExpense } from '$lib/api'
+  import { fetchGroup, fetchGroupInvites, sendInvite, cancelInvite, fetchExpenses, createExpense, deleteExpense, fetchBalances, fetchSettlements, createSettlement, deleteSettlement } from '$lib/api'
+  import type { ExpenseGroup, GroupInvite, GroupExpense, CurrencyBalance, GroupSettlement } from '$lib/api'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
@@ -33,17 +33,35 @@
 
   let expandedExpenseId = $state<string | null>(null)
 
+  let balances = $state<CurrencyBalance[]>([])
+  let settlements = $state<GroupSettlement[]>([])
+
+  let showSettleForm = $state(false)
+  let settleFrom = $state('')
+  let settleTo = $state('')
+  let settleAmount = $state('')
+  let settleCurrency = $state('CAD')
+  let settleDate = $state(new Date().toISOString().slice(0, 10))
+  let settleNote = $state('')
+  let settleError = $state('')
+  let settleSubmitting = $state(false)
+
   onMount(async () => {
     try {
-      const [g, inv, exp] = await Promise.all([
+      const [g, inv, exp, bal, sett] = await Promise.all([
         fetchGroup(groupId),
         fetchGroupInvites(groupId),
         fetchExpenses(groupId),
+        fetchBalances(groupId),
+        fetchSettlements(groupId),
       ])
       group = g
       invites = inv
       expenses = exp
+      balances = bal
+      settlements = sett
       expensePaidBy = currentUserId
+      settleFrom = currentUserId
     } catch {
       notFound = true
     } finally {
@@ -106,6 +124,53 @@
 
   function canDeleteExpense(expense: GroupExpense) {
     return expense.paidByUserId === currentUserId || group?.createdBy === currentUserId
+  }
+
+  async function refreshBalances() {
+    const [bal, sett] = await Promise.all([fetchBalances(groupId), fetchSettlements(groupId)])
+    balances = bal
+    settlements = sett
+  }
+
+  function prefillSettle(fromUserId: string, toUserId: string, amount: string, currency: string) {
+    settleFrom = fromUserId
+    settleTo = toUserId
+    settleAmount = amount
+    settleCurrency = currency
+    showSettleForm = true
+  }
+
+  async function handleSettle() {
+    if (!settleFrom || !settleTo || !settleAmount || settleSubmitting) return
+    settleError = ''
+    settleSubmitting = true
+    try {
+      await createSettlement(groupId, {
+        fromUserId: settleFrom,
+        toUserId: settleTo,
+        amount: settleAmount,
+        currency: settleCurrency,
+        date: settleDate,
+        note: settleNote.trim() || undefined,
+      })
+      settleAmount = ''
+      settleNote = ''
+      showSettleForm = false
+      await refreshBalances()
+    } catch (e: any) {
+      settleError = e.message ?? 'Failed to record settlement'
+    } finally {
+      settleSubmitting = false
+    }
+  }
+
+  async function handleDeleteSettlement(settlementId: string) {
+    await deleteSettlement(groupId, settlementId)
+    await refreshBalances()
+  }
+
+  function canDeleteSettlement(s: GroupSettlement) {
+    return s.fromUserId === currentUserId || s.toUserId === currentUserId || group?.createdBy === currentUserId
   }
 </script>
 
@@ -243,6 +308,93 @@
           {/each}
         </div>
       {/if}
+
+      <!-- Balances -->
+      <div class="section-bar">
+        <span class="section-bar-title">Balances</span>
+        <GradientButton onclick={() => { showSettleForm = !showSettleForm; settleError = '' }}>
+          <Icon name="plus" size={12} /> Record settlement
+        </GradientButton>
+      </div>
+
+      {#if showSettleForm && group}
+        <div class="settle-form-wrap">
+          <div class="settle-form">
+            <select class="paid-by-select" bind:value={settleFrom}>
+              {#each group.members as m (m.id)}
+                <option value={m.userId}>{m.userName}</option>
+              {/each}
+            </select>
+            <span class="settle-arrow">→</span>
+            <select class="paid-by-select" bind:value={settleTo}>
+              {#each group.members as m (m.id)}
+                <option value={m.userId}>{m.userName}</option>
+              {/each}
+            </select>
+            <TextInput bind:value={settleAmount} placeholder="0.00" type="number" min="0" step="0.01" class="settle-amount" />
+            <TextInput bind:value={settleCurrency} placeholder="CAD" class="settle-currency" />
+            <TextInput bind:value={settleDate} type="date" class="settle-date" />
+            <TextInput bind:value={settleNote} placeholder="Note (optional)" class="settle-note" />
+            <GradientButton onclick={handleSettle} disabled={settleSubmitting || !settleFrom || !settleTo || !settleAmount}>
+              Save
+            </GradientButton>
+          </div>
+          {#if settleError}
+            <span class="form-error">{settleError}</span>
+          {/if}
+        </div>
+      {/if}
+
+      {#if balances.length === 0 || balances.every((b) => b.transfers.length === 0)}
+        <p class="empty">All settled up.</p>
+      {:else}
+        <div class="balances-body">
+          {#each balances as cb (cb.currency)}
+            {#each cb.transfers as t}
+              <div class="transfer-row">
+                <span class="transfer-names">
+                  <span class="transfer-from">{t.fromUserName}</span>
+                  <span class="transfer-arrow">→</span>
+                  <span class="transfer-to">{t.toUserName}</span>
+                </span>
+                <span class="transfer-amount">{t.currency} {parseFloat(t.amount).toFixed(2)}</span>
+                <GradientButton onclick={() => prefillSettle(t.fromUserId, t.toUserId, t.amount, t.currency)}>
+                  Settle up
+                </GradientButton>
+              </div>
+            {/each}
+          {/each}
+        </div>
+      {/if}
+
+      <!-- Settlement history -->
+      {#if settlements.length > 0}
+        <div class="section-bar"><span class="section-bar-title">Settlement History</span></div>
+        <div class="settlement-list">
+          {#each settlements as s (s.id)}
+            <div class="settlement-row">
+              <span class="settlement-date">{s.date}</span>
+              <span class="settlement-names">
+                <span class="transfer-from">{s.fromUserName}</span>
+                <span class="transfer-arrow">→</span>
+                <span class="transfer-to">{s.toUserName}</span>
+              </span>
+              <span class="settlement-amount">{s.currency} {parseFloat(s.amount).toFixed(2)}</span>
+              {#if s.note}
+                <span class="settlement-note">{s.note}</span>
+              {/if}
+              {#if canDeleteSettlement(s)}
+                <button class="delete-btn" onclick={() => handleDeleteSettlement(s.id)} aria-label="Delete settlement">
+                  <Icon name="x" size={10} />
+                </button>
+              {:else}
+                <span class="delete-placeholder"></span>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
+
     </div>
   {/if}
 </div>
@@ -523,5 +675,103 @@
     font-size: var(--text-sm);
     font-style: italic;
     color: var(--color-text-muted);
+  }
+
+  /* Balances */
+  .balances-body { background: var(--color-window); }
+
+  .transfer-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 8px 22px;
+    border-bottom: 1px solid var(--color-rule-soft);
+    font-size: var(--text-sm);
+  }
+
+  .transfer-row:last-child { border-bottom: none; }
+
+  .transfer-names {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    flex: 1;
+  }
+
+  .transfer-from { font-weight: var(--weight-semibold); color: var(--color-text); }
+  .transfer-arrow { color: var(--color-text-muted); font-size: var(--text-xs); }
+  .transfer-to { color: var(--color-text); }
+
+  .transfer-amount {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-amount-negative);
+  }
+
+  /* Settlement form */
+  .settle-form-wrap {
+    background: var(--color-window);
+    padding: var(--sp-xs) 22px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .settle-form {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    flex-wrap: wrap;
+  }
+
+  .settle-arrow {
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .settle-form :global(.settle-amount) { width: 80px; }
+  .settle-form :global(.settle-currency) { width: 52px; }
+  .settle-form :global(.settle-date) { width: 120px; }
+  .settle-form :global(.settle-note) { flex: 1; min-width: 120px; }
+
+  /* Settlement history */
+  .settlement-list { background: var(--color-window); }
+
+  .settlement-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: 6px 22px 6px 14px;
+    border-bottom: 1px solid var(--color-rule-soft);
+    font-size: var(--text-sm);
+  }
+
+  .settlement-row:last-child { border-bottom: none; }
+
+  .settlement-date {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    min-width: 6rem;
+  }
+
+  .settlement-names {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    flex: 1;
+  }
+
+  .settlement-amount {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+  }
+
+  .settlement-note {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+    flex: 1;
   }
 </style>
