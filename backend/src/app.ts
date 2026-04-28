@@ -12,6 +12,7 @@ import reportsRoute from './routes/reports'
 import fxRatesRoute from './routes/fx-rates'
 import rulesRoute from './routes/rules'
 import fishPieGroupsRoute from './routes/fish-pie-groups'
+import fishPieInvitesRoute from './routes/fish-pie-invites'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -54,3 +55,4 @@ app.route('/api/reports', reportsRoute)
 app.route('/api/fx-rates', fxRatesRoute)
 app.route('/api/rules', rulesRoute)
 app.route('/api/fish-pie/groups', fishPieGroupsRoute)
+app.route('/api/fish-pie', fishPieInvitesRoute)
