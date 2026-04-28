@@ -25,6 +25,7 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import Toggle from '$lib/components/ui/Toggle.svelte'
 
   const groupId = $derived(page.params.id ?? '')
   const session = useSession()
@@ -220,9 +221,7 @@
   {:else}
     <header class="page-header">
       <h1 class="page-title">{group.name}</h1>
-      <GradientButton onclick={() => (showMembers = !showMembers)}>
-        Members
-      </GradientButton>
+      <Toggle bind:checked={showMembers} label="Show members" />
     </header>
 
     <div class="body">
