@@ -815,3 +815,56 @@ export async function declineInvite(inviteId: string): Promise<GroupInvite> {
   return res.json()
 }
 
+export type ExpenseSplit = {
+  id: string
+  expenseId: string
+  userId: string
+  amount: string
+  userName: string
+}
+
+export type GroupExpense = {
+  id: string
+  groupId: string
+  paidByUserId: string
+  payerName: string | null
+  description: string
+  amount: string
+  currency: string
+  date: string
+  createdAt: string
+  deletedAt: string | null
+  splits: ExpenseSplit[]
+}
+
+export async function fetchExpenses(groupId: string): Promise<GroupExpense[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to fetch expenses')
+  return res.json()
+}
+
+export async function createExpense(
+  groupId: string,
+  body: { description: string; amount: string; currency: string; date: string; paidByUserId?: string },
+): Promise<GroupExpense> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to create expense')
+  }
+  return res.json()
+}
+
+export async function deleteExpense(groupId: string, expenseId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to delete expense')
+}
+

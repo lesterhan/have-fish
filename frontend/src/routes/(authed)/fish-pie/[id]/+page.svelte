@@ -1,16 +1,20 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { page } from '$app/state'
-  import { fetchGroup, fetchGroupInvites, sendInvite, cancelInvite } from '$lib/api'
-  import type { ExpenseGroup, GroupInvite } from '$lib/api'
+  import { fetchGroup, fetchGroupInvites, sendInvite, cancelInvite, fetchExpenses, createExpense, deleteExpense } from '$lib/api'
+  import type { ExpenseGroup, GroupInvite, GroupExpense } from '$lib/api'
+  import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
 
   const groupId = $derived(page.params.id ?? '')
+  const session = useSession()
+  const currentUserId = $derived($session.data?.user.id ?? '')
 
   let group = $state<ExpenseGroup | null>(null)
   let invites = $state<GroupInvite[]>([])
+  let expenses = $state<GroupExpense[]>([])
   let loading = $state(true)
   let notFound = $state(false)
 
@@ -19,11 +23,27 @@
   let inviteError = $state('')
   let inviteSubmitting = $state(false)
 
+  let expenseDesc = $state('')
+  let expenseAmount = $state('')
+  let expenseCurrency = $state('CAD')
+  let expenseDate = $state(new Date().toISOString().slice(0, 10))
+  let expensePaidBy = $state('')
+  let expenseError = $state('')
+  let expenseSubmitting = $state(false)
+
+  let expandedExpenseId = $state<string | null>(null)
+
   onMount(async () => {
     try {
-      const [g, inv] = await Promise.all([fetchGroup(groupId), fetchGroupInvites(groupId)])
+      const [g, inv, exp] = await Promise.all([
+        fetchGroup(groupId),
+        fetchGroupInvites(groupId),
+        fetchExpenses(groupId),
+      ])
       group = g
       invites = inv
+      expenses = exp
+      expensePaidBy = currentUserId
     } catch {
       notFound = true
     } finally {
@@ -31,6 +51,7 @@
     }
   })
 
+  // Invite handlers
   async function handleInvite() {
     if (!inviteEmail.trim() || inviteSubmitting) return
     inviteError = ''
@@ -46,13 +67,45 @@
     }
   }
 
-  async function handleCancel(inviteId: string) {
+  async function handleCancelInvite(inviteId: string) {
     await cancelInvite(groupId, inviteId)
     invites = invites.filter((i) => i.id !== inviteId)
   }
 
   function handleInviteKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') handleInvite()
+  }
+
+  // Expense handlers
+  async function handleAddExpense() {
+    if (!expenseDesc.trim() || !expenseAmount || expenseSubmitting) return
+    expenseError = ''
+    expenseSubmitting = true
+    try {
+      const expense = await createExpense(groupId, {
+        description: expenseDesc.trim(),
+        amount: expenseAmount,
+        currency: expenseCurrency.trim().toUpperCase(),
+        date: expenseDate,
+        paidByUserId: expensePaidBy || currentUserId,
+      })
+      expenses = [expense, ...expenses]
+      expenseDesc = ''
+      expenseAmount = ''
+    } catch (e: any) {
+      expenseError = e.message ?? 'Failed to add expense'
+    } finally {
+      expenseSubmitting = false
+    }
+  }
+
+  async function handleDeleteExpense(expenseId: string) {
+    await deleteExpense(groupId, expenseId)
+    expenses = expenses.filter((e) => e.id !== expenseId)
+  }
+
+  function canDeleteExpense(expense: GroupExpense) {
+    return expense.paidByUserId === currentUserId || group?.createdBy === currentUserId
   }
 </script>
 
@@ -72,6 +125,7 @@
     </header>
 
     <div class="body">
+      <!-- Members -->
       <div class="section-bar">
         <span class="section-bar-title">Members</span>
         <GradientButton onclick={() => { showInvite = !showInvite; inviteEmail = ''; inviteError = '' }}>
@@ -89,42 +143,106 @@
       </div>
 
       {#if showInvite}
-      <div class="invite-section">
-        <div class="invite-form">
-          <TextInput
-            bind:value={inviteEmail}
-            placeholder="Email address"
-            onkeydown={handleInviteKeydown}
-            type="email"
-          />
-          <GradientButton onclick={handleInvite} disabled={inviteSubmitting || !inviteEmail.trim()}>
-            Send invite
-          </GradientButton>
-          {#if inviteError}
-            <span class="invite-error">{inviteError}</span>
+        <div class="invite-section">
+          <div class="invite-form">
+            <TextInput
+              bind:value={inviteEmail}
+              placeholder="Email address"
+              onkeydown={handleInviteKeydown}
+              type="email"
+            />
+            <GradientButton onclick={handleInvite} disabled={inviteSubmitting || !inviteEmail.trim()}>
+              Send invite
+            </GradientButton>
+            {#if inviteError}
+              <span class="form-error">{inviteError}</span>
+            {/if}
+          </div>
+          {#if invites.length > 0}
+            <div class="pending-list">
+              {#each invites as invite (invite.id)}
+                <div class="pending-row">
+                  <span class="pending-email">{invite.inviteeEmail}</span>
+                  <span class="pending-label">Pending</span>
+                  <GradientButton onclick={() => handleCancelInvite(invite.id)}>
+                    <Icon name="x" size={10} /> Cancel
+                  </GradientButton>
+                </div>
+              {/each}
+            </div>
           {/if}
         </div>
-
-        {#if invites.length > 0}
-          <div class="pending-list">
-            {#each invites as invite (invite.id)}
-              <div class="pending-row">
-                <span class="pending-email">{invite.inviteeEmail}</span>
-                <span class="pending-label">Pending</span>
-                <GradientButton onclick={() => handleCancel(invite.id)} variant="warning">
-                  <Icon name="x" size={10} /> Cancel
-                </GradientButton>
-              </div>
-            {/each}
-          </div>
-        {/if}
-      </div>
       {/if}
 
+      <!-- Expenses -->
       <div class="section-bar"><span class="section-bar-title">Expenses</span></div>
-      <div class="expenses-body">
-        <p class="empty">No expenses yet.</p>
+
+      <div class="expense-form-wrap">
+        <div class="expense-form">
+          <TextInput bind:value={expenseDesc} placeholder="Description" class="desc-input" />
+          <TextInput bind:value={expenseAmount} placeholder="0.00" class="amount-input" type="number" min="0" step="0.01" />
+          <TextInput bind:value={expenseCurrency} placeholder="CAD" class="currency-input" />
+          <TextInput bind:value={expenseDate} type="date" class="date-input" />
+          <select class="paid-by-select" bind:value={expensePaidBy}>
+            {#each group.members as m (m.id)}
+              <option value={m.userId}>{m.userName}</option>
+            {/each}
+          </select>
+          <GradientButton onclick={handleAddExpense} disabled={expenseSubmitting || !expenseDesc.trim() || !expenseAmount}>
+            Add
+          </GradientButton>
+        </div>
+        {#if expenseError}
+          <span class="form-error">{expenseError}</span>
+        {/if}
       </div>
+
+      {#if expenses.length === 0}
+        <p class="empty">No expenses yet.</p>
+      {:else}
+        <div class="expense-list">
+          {#each expenses as expense (expense.id)}
+            <div class="expense-item">
+              <div class="expense-row-wrap">
+                <div
+                  class="expense-row"
+                  role="button"
+                  tabindex="0"
+                  onclick={() => expandedExpenseId = expandedExpenseId === expense.id ? null : expense.id}
+                  onkeydown={(e) => e.key === 'Enter' && (expandedExpenseId = expandedExpenseId === expense.id ? null : expense.id)}
+                >
+                  <span class="expense-date">{expense.date}</span>
+                  <span class="expense-desc">{expense.description}</span>
+                  <span class="expense-payer">{expense.payerName}</span>
+                  <span class="expense-amount">{expense.currency} {parseFloat(expense.amount).toFixed(2)}</span>
+                  <Icon name={expandedExpenseId === expense.id ? 'chevron-up' : 'chevron-down'} size={12} />
+                </div>
+                {#if canDeleteExpense(expense)}
+                  <button
+                    class="delete-btn"
+                    onclick={() => handleDeleteExpense(expense.id)}
+                    aria-label="Delete expense"
+                  >
+                    <Icon name="x" size={10} />
+                  </button>
+                {:else}
+                  <span class="delete-placeholder"></span>
+                {/if}
+              </div>
+              {#if expandedExpenseId === expense.id}
+                <div class="splits">
+                  {#each expense.splits as split (split.id)}
+                    <div class="split-row">
+                      <span class="split-name">{split.userName}</span>
+                      <span class="split-amount">{expense.currency} {parseFloat(split.amount).toFixed(2)}</span>
+                    </div>
+                  {/each}
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   {/if}
 </div>
@@ -147,9 +265,7 @@
     flex-shrink: 0;
   }
 
-  .header-placeholder {
-    height: 28px;
-  }
+  .header-placeholder { height: 28px; }
 
   .page-title {
     font-family: var(--font-serif);
@@ -194,9 +310,8 @@
     text-transform: uppercase;
   }
 
-  .members-body {
-    background: var(--color-window);
-  }
+  /* Members */
+  .members-body { background: var(--color-window); }
 
   .member-row {
     display: flex;
@@ -207,9 +322,7 @@
     font-size: var(--text-sm);
   }
 
-  .member-row:last-child {
-    border-bottom: none;
-  }
+  .member-row:last-child { border-bottom: none; }
 
   .member-name {
     font-weight: var(--weight-semibold);
@@ -230,9 +343,8 @@
     color: var(--color-text-muted);
   }
 
-  .invite-section {
-    background: var(--color-window);
-  }
+  /* Invite */
+  .invite-section { background: var(--color-window); }
 
   .invite-form {
     display: flex;
@@ -242,19 +354,9 @@
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
-  .invite-form :global(.text-input) {
-    width: 240px;
-  }
+  .invite-form :global(.text-input) { width: 240px; }
 
-  .invite-error {
-    font-size: var(--text-xs);
-    color: var(--color-amount-negative);
-    font-family: var(--font-sans);
-  }
-
-  .pending-list {
-    border-top: 1px solid var(--color-rule-soft);
-  }
+  .pending-list { border-top: 1px solid var(--color-rule-soft); }
 
   .pending-row {
     display: flex;
@@ -265,9 +367,7 @@
     font-size: var(--text-sm);
   }
 
-  .pending-row:last-child {
-    border-bottom: none;
-  }
+  .pending-row:last-child { border-bottom: none; }
 
   .pending-email {
     flex: 1;
@@ -282,8 +382,139 @@
     color: var(--color-text-muted);
   }
 
-  .expenses-body {
+  /* Expense form */
+  .expense-form-wrap {
     background: var(--color-window);
+    padding: var(--sp-xs) 22px;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .expense-form {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+  }
+
+  .expense-form :global(.desc-input) { flex: 1; min-width: 0; }
+  .expense-form :global(.amount-input) { width: 80px; }
+  .expense-form :global(.currency-input) { width: 52px; }
+  .expense-form :global(.date-input) { width: 120px; }
+
+  .paid-by-select {
+    height: 24px;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    padding: 0 var(--sp-xs);
+    box-sizing: border-box;
+  }
+
+  .form-error {
+    font-size: var(--text-xs);
+    color: var(--color-amount-negative);
+    font-family: var(--font-sans);
+    display: block;
+    margin-top: 4px;
+  }
+
+  /* Expense list */
+  .expense-list { background: var(--color-window); }
+
+  .expense-item {
+    border-bottom: 1px solid var(--color-rule-soft);
+  }
+
+  .expense-item:last-child { border-bottom: none; }
+
+  .expense-row-wrap {
+    display: flex;
+    align-items: center;
+  }
+
+  .expense-row {
+    display: grid;
+    grid-template-columns: 6rem 1fr 8rem 8rem 1rem;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: 8px 14px 8px 22px;
+    flex: 1;
+    cursor: pointer;
+    font-family: var(--font-sans);
+    transition: background var(--duration-fast) var(--ease);
+  }
+
+  .expense-row:hover { background: var(--color-window-raised); }
+
+  .expense-date {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .expense-desc {
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .expense-payer {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .expense-amount {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    text-align: right;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .delete-btn, .delete-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    flex-shrink: 0;
+  }
+
+  .delete-btn {
+    height: 100%;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .delete-btn:hover { color: var(--color-amount-negative); }
+
+  /* Splits */
+  .splits { background: var(--color-window-raised); }
+
+  .split-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 22px 5px 36px;
+    border-top: 1px solid var(--color-rule-soft);
+    font-size: var(--text-xs);
+  }
+
+  .split-name {
+    font-family: var(--font-sans);
+    color: var(--color-text-muted);
+  }
+
+  .split-amount {
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
   }
 
   .empty {
