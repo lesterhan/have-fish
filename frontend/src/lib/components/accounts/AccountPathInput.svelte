@@ -42,6 +42,8 @@
   let open = $state(false)
   let activeIndex = $state(0)
   let creating = $state(false)
+  let dropUp = $state(false)
+  let wrapperEl: HTMLElement | null = null
 
   // Returns the text up to and including the last colon, or the full text
   // if there is no colon. Used to seed filterText on focus so that sibling
@@ -117,6 +119,10 @@
   function handleFocus() {
     filterText = prefixUpToLastColon(inputText)
     open = true
+    if (wrapperEl) {
+      const rect = wrapperEl.getBoundingClientRect()
+      dropUp = rect.bottom + 200 > window.innerHeight
+    }
   }
 
   function handleBlur() {
@@ -196,7 +202,7 @@
   <div class="backdrop"></div>
 {/if}
 
-<div class="wrapper" class:elevated={open}>
+<div class="wrapper" class:elevated={open} bind:this={wrapperEl}>
   <input
     type="text"
     class="path-input"
@@ -217,7 +223,7 @@
   />
 
   {#if open && options.length > 0}
-    <ul id={listboxId} class="dropdown" role="listbox">
+    <ul id={listboxId} class="dropdown" class:drop-up={dropUp} role="listbox">
       {#each options as option, i}
         <li
           class="option"
@@ -298,6 +304,12 @@
     box-shadow: var(--shadow-window);
     max-height: 200px;
     overflow-y: auto;
+  }
+
+  .dropdown.drop-up {
+    top: auto;
+    bottom: 100%;
+    margin: 0 0 1px;
   }
 
   .option {
