@@ -557,7 +557,8 @@
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-md);
     background: var(--color-danger-light);
-    font-size: var(--text-sm);
+    font-size: var(--text-xs);
+    font-family: var(--font-sans);
     border-top: 1px solid var(--color-danger);
   }
 

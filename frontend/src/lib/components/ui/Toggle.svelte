@@ -48,19 +48,17 @@
     width: 36px;
     height: 18px;
     border-radius: 9px;
-    background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    border: 1px solid var(--color-rule);
     transition:
       background var(--duration-normal) var(--ease),
-      box-shadow var(--duration-normal) var(--ease);
+      border-color var(--duration-normal) var(--ease);
     flex-shrink: 0;
   }
 
   .track.on {
-    background: var(--color-accent-mid);
-    box-shadow:
-      inset 1px 1px 0 #1a4fa0,
-      inset -1px -1px 0 #6fa8e8;
+    background: linear-gradient(180deg, var(--color-accent-hi), var(--color-accent));
+    border-color: var(--color-accent);
   }
 
   /* The sliding thumb */
@@ -68,20 +66,16 @@
     position: absolute;
     top: 2px;
     left: 2px;
-    width: 14px;
-    height: 14px;
+    width: 12px;
+    height: 12px;
     border-radius: 50%;
-    background: var(--color-window-raised);
-    box-shadow: var(--shadow-raised);
+    background: linear-gradient(180deg, #ffffff, #e8eaed);
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     transition: transform var(--duration-normal) var(--ease);
   }
 
   .track.on .thumb {
     transform: translateX(18px);
-    background: var(--color-text-on-dark);
-    box-shadow:
-      inset 1px 1px 0 rgba(255, 255, 255, 0.6),
-      inset -1px -1px 0 rgba(0, 0, 0, 0.25);
   }
 
   /* Focus ring on the track when the hidden input is focused */
