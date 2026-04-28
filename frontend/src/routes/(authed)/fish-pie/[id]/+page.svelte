@@ -1,8 +1,26 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { page } from '$app/state'
-  import { fetchGroup, fetchGroupInvites, sendInvite, cancelInvite, fetchExpenses, createExpense, deleteExpense, fetchBalances, fetchSettlements, createSettlement, deleteSettlement } from '$lib/api'
-  import type { ExpenseGroup, GroupInvite, GroupExpense, CurrencyBalance, GroupSettlement } from '$lib/api'
+  import {
+    fetchGroup,
+    fetchGroupInvites,
+    sendInvite,
+    cancelInvite,
+    fetchExpenses,
+    createExpense,
+    deleteExpense,
+    fetchBalances,
+    fetchSettlements,
+    createSettlement,
+    deleteSettlement,
+  } from '$lib/api'
+  import type {
+    ExpenseGroup,
+    GroupInvite,
+    GroupExpense,
+    CurrencyBalance,
+    GroupSettlement,
+  } from '$lib/api'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
@@ -18,6 +36,7 @@
   let loading = $state(true)
   let notFound = $state(false)
 
+  let showMembers = $state(false)
   let showInvite = $state(false)
   let inviteEmail = $state('')
   let inviteError = $state('')
@@ -123,16 +142,27 @@
   }
 
   function canDeleteExpense(expense: GroupExpense) {
-    return expense.paidByUserId === currentUserId || group?.createdBy === currentUserId
+    return (
+      expense.paidByUserId === currentUserId ||
+      group?.createdBy === currentUserId
+    )
   }
 
   async function refreshBalances() {
-    const [bal, sett] = await Promise.all([fetchBalances(groupId), fetchSettlements(groupId)])
+    const [bal, sett] = await Promise.all([
+      fetchBalances(groupId),
+      fetchSettlements(groupId),
+    ])
     balances = bal
     settlements = sett
   }
 
-  function prefillSettle(fromUserId: string, toUserId: string, amount: string, currency: string) {
+  function prefillSettle(
+    fromUserId: string,
+    toUserId: string,
+    amount: string,
+    currency: string,
+  ) {
     settleFrom = fromUserId
     settleTo = toUserId
     settleAmount = amount
@@ -170,7 +200,11 @@
   }
 
   function canDeleteSettlement(s: GroupSettlement) {
-    return s.fromUserId === currentUserId || s.toUserId === currentUserId || group?.createdBy === currentUserId
+    return (
+      s.fromUserId === currentUserId ||
+      s.toUserId === currentUserId ||
+      group?.createdBy === currentUserId
+    )
   }
 </script>
 
@@ -186,74 +220,111 @@
   {:else}
     <header class="page-header">
       <h1 class="page-title">{group.name}</h1>
-      <span class="member-count">{group.members.length} member{group.members.length === 1 ? '' : 's'}</span>
+      <GradientButton onclick={() => (showMembers = !showMembers)}>
+        Members
+      </GradientButton>
     </header>
 
     <div class="body">
       <!-- Members -->
-      <div class="section-bar">
-        <span class="section-bar-title">Members</span>
-        <GradientButton onclick={() => { showInvite = !showInvite; inviteEmail = ''; inviteError = '' }}>
-          <Icon name="plus" size={12} /> Invite
-        </GradientButton>
-      </div>
-      <div class="members-body">
-        {#each group.members as member (member.id)}
-          <div class="member-row">
-            <span class="member-name">{member.userName}</span>
-            <span class="member-email">{member.userEmail}</span>
-            <span class="member-weight">{member.shareWeight}</span>
-          </div>
-        {/each}
-      </div>
+      {#if showMembers}
+        <div class="section-bar">
+          <span class="section-bar-title">Members</span>
+          <GradientButton
+            onclick={() => {
+              showInvite = !showInvite
+              inviteEmail = ''
+              inviteError = ''
+            }}
+          >
+            <Icon name="plus" size={12} /> Invite
+          </GradientButton>
+        </div>
+        <div class="members-body">
+          {#each group.members as member (member.id)}
+            <div class="member-row">
+              <span class="member-name">{member.userName}</span>
+              <span class="member-email">{member.userEmail}</span>
+              <span class="member-weight">{member.shareWeight}</span>
+            </div>
+          {/each}
+        </div>
 
-      {#if showInvite}
-        <div class="invite-section">
-          <div class="invite-form">
-            <TextInput
-              bind:value={inviteEmail}
-              placeholder="Email address"
-              onkeydown={handleInviteKeydown}
-              type="email"
-            />
-            <GradientButton onclick={handleInvite} disabled={inviteSubmitting || !inviteEmail.trim()}>
-              Send invite
-            </GradientButton>
-            {#if inviteError}
-              <span class="form-error">{inviteError}</span>
+        {#if showInvite}
+          <div class="invite-section">
+            <div class="invite-form">
+              <TextInput
+                bind:value={inviteEmail}
+                placeholder="Email address"
+                onkeydown={handleInviteKeydown}
+                type="email"
+              />
+              <GradientButton
+                onclick={handleInvite}
+                disabled={inviteSubmitting || !inviteEmail.trim()}
+              >
+                Send invite
+              </GradientButton>
+              {#if inviteError}
+                <span class="form-error">{inviteError}</span>
+              {/if}
+            </div>
+            {#if invites.length > 0}
+              <div class="pending-list">
+                {#each invites as invite (invite.id)}
+                  <div class="pending-row">
+                    <span class="pending-email">{invite.inviteeEmail}</span>
+                    <span class="pending-label">Pending</span>
+                    <GradientButton
+                      onclick={() => handleCancelInvite(invite.id)}
+                    >
+                      <Icon name="x" size={10} /> Cancel
+                    </GradientButton>
+                  </div>
+                {/each}
+              </div>
             {/if}
           </div>
-          {#if invites.length > 0}
-            <div class="pending-list">
-              {#each invites as invite (invite.id)}
-                <div class="pending-row">
-                  <span class="pending-email">{invite.inviteeEmail}</span>
-                  <span class="pending-label">Pending</span>
-                  <GradientButton onclick={() => handleCancelInvite(invite.id)}>
-                    <Icon name="x" size={10} /> Cancel
-                  </GradientButton>
-                </div>
-              {/each}
-            </div>
-          {/if}
-        </div>
+        {/if}
       {/if}
 
       <!-- Expenses -->
-      <div class="section-bar"><span class="section-bar-title">Expenses</span></div>
+      <div class="section-bar">
+        <span class="section-bar-title">Expenses</span>
+      </div>
 
       <div class="expense-form-wrap">
         <div class="expense-form">
-          <TextInput bind:value={expenseDesc} placeholder="Description" class="desc-input" />
-          <TextInput bind:value={expenseAmount} placeholder="0.00" class="amount-input" type="number" min="0" step="0.01" />
-          <TextInput bind:value={expenseCurrency} placeholder="CAD" class="currency-input" />
+          <TextInput
+            bind:value={expenseDesc}
+            placeholder="Description"
+            class="desc-input"
+          />
+          <TextInput
+            bind:value={expenseAmount}
+            placeholder="0.00"
+            class="amount-input"
+            type="number"
+            min="0"
+            step="0.01"
+          />
+          <TextInput
+            bind:value={expenseCurrency}
+            placeholder="CAD"
+            class="currency-input"
+          />
           <TextInput bind:value={expenseDate} type="date" class="date-input" />
           <select class="paid-by-select" bind:value={expensePaidBy}>
             {#each group.members as m (m.id)}
               <option value={m.userId}>{m.userName}</option>
             {/each}
           </select>
-          <GradientButton onclick={handleAddExpense} disabled={expenseSubmitting || !expenseDesc.trim() || !expenseAmount}>
+          <GradientButton
+            onclick={handleAddExpense}
+            disabled={expenseSubmitting ||
+              !expenseDesc.trim() ||
+              !expenseAmount}
+          >
             Add
           </GradientButton>
         </div>
@@ -273,14 +344,27 @@
                   class="expense-row"
                   role="button"
                   tabindex="0"
-                  onclick={() => expandedExpenseId = expandedExpenseId === expense.id ? null : expense.id}
-                  onkeydown={(e) => e.key === 'Enter' && (expandedExpenseId = expandedExpenseId === expense.id ? null : expense.id)}
+                  onclick={() =>
+                    (expandedExpenseId =
+                      expandedExpenseId === expense.id ? null : expense.id)}
+                  onkeydown={(e) =>
+                    e.key === 'Enter' &&
+                    (expandedExpenseId =
+                      expandedExpenseId === expense.id ? null : expense.id)}
                 >
                   <span class="expense-date">{expense.date}</span>
                   <span class="expense-desc">{expense.description}</span>
                   <span class="expense-payer">{expense.payerName}</span>
-                  <span class="expense-amount">{expense.currency} {parseFloat(expense.amount).toFixed(2)}</span>
-                  <Icon name={expandedExpenseId === expense.id ? 'chevron-up' : 'chevron-down'} size={12} />
+                  <span class="expense-amount"
+                    >{expense.currency}
+                    {parseFloat(expense.amount).toFixed(2)}</span
+                  >
+                  <Icon
+                    name={expandedExpenseId === expense.id
+                      ? 'chevron-up'
+                      : 'chevron-down'}
+                    size={12}
+                  />
                 </div>
                 {#if canDeleteExpense(expense)}
                   <button
@@ -299,7 +383,10 @@
                   {#each expense.splits as split (split.id)}
                     <div class="split-row">
                       <span class="split-name">{split.userName}</span>
-                      <span class="split-amount">{expense.currency} {parseFloat(split.amount).toFixed(2)}</span>
+                      <span class="split-amount"
+                        >{expense.currency}
+                        {parseFloat(split.amount).toFixed(2)}</span
+                      >
                     </div>
                   {/each}
                 </div>
@@ -312,7 +399,12 @@
       <!-- Balances -->
       <div class="section-bar">
         <span class="section-bar-title">Balances</span>
-        <GradientButton onclick={() => { showSettleForm = !showSettleForm; settleError = '' }}>
+        <GradientButton
+          onclick={() => {
+            showSettleForm = !showSettleForm
+            settleError = ''
+          }}
+        >
           <Icon name="plus" size={12} /> Record settlement
         </GradientButton>
       </div>
@@ -331,11 +423,36 @@
                 <option value={m.userId}>{m.userName}</option>
               {/each}
             </select>
-            <TextInput bind:value={settleAmount} placeholder="0.00" type="number" min="0" step="0.01" class="settle-amount" />
-            <TextInput bind:value={settleCurrency} placeholder="CAD" class="settle-currency" />
-            <TextInput bind:value={settleDate} type="date" class="settle-date" />
-            <TextInput bind:value={settleNote} placeholder="Note (optional)" class="settle-note" />
-            <GradientButton onclick={handleSettle} disabled={settleSubmitting || !settleFrom || !settleTo || !settleAmount}>
+            <TextInput
+              bind:value={settleAmount}
+              placeholder="0.00"
+              type="number"
+              min="0"
+              step="0.01"
+              class="settle-amount"
+            />
+            <TextInput
+              bind:value={settleCurrency}
+              placeholder="CAD"
+              class="settle-currency"
+            />
+            <TextInput
+              bind:value={settleDate}
+              type="date"
+              class="settle-date"
+            />
+            <TextInput
+              bind:value={settleNote}
+              placeholder="Note (optional)"
+              class="settle-note"
+            />
+            <GradientButton
+              onclick={handleSettle}
+              disabled={settleSubmitting ||
+                !settleFrom ||
+                !settleTo ||
+                !settleAmount}
+            >
               Save
             </GradientButton>
           </div>
@@ -357,8 +474,18 @@
                   <span class="transfer-arrow">→</span>
                   <span class="transfer-to">{t.toUserName}</span>
                 </span>
-                <span class="transfer-amount">{t.currency} {parseFloat(t.amount).toFixed(2)}</span>
-                <GradientButton onclick={() => prefillSettle(t.fromUserId, t.toUserId, t.amount, t.currency)}>
+                <span class="transfer-amount"
+                  >{t.currency} {parseFloat(t.amount).toFixed(2)}</span
+                >
+                <GradientButton
+                  onclick={() =>
+                    prefillSettle(
+                      t.fromUserId,
+                      t.toUserId,
+                      t.amount,
+                      t.currency,
+                    )}
+                >
                   Settle up
                 </GradientButton>
               </div>
@@ -369,7 +496,9 @@
 
       <!-- Settlement history -->
       {#if settlements.length > 0}
-        <div class="section-bar"><span class="section-bar-title">Settlement History</span></div>
+        <div class="section-bar">
+          <span class="section-bar-title">Settlement History</span>
+        </div>
         <div class="settlement-list">
           {#each settlements as s (s.id)}
             <div class="settlement-row">
@@ -379,12 +508,18 @@
                 <span class="transfer-arrow">→</span>
                 <span class="transfer-to">{s.toUserName}</span>
               </span>
-              <span class="settlement-amount">{s.currency} {parseFloat(s.amount).toFixed(2)}</span>
+              <span class="settlement-amount"
+                >{s.currency} {parseFloat(s.amount).toFixed(2)}</span
+              >
               {#if s.note}
                 <span class="settlement-note">{s.note}</span>
               {/if}
               {#if canDeleteSettlement(s)}
-                <button class="delete-btn" onclick={() => handleDeleteSettlement(s.id)} aria-label="Delete settlement">
+                <button
+                  class="delete-btn"
+                  onclick={() => handleDeleteSettlement(s.id)}
+                  aria-label="Delete settlement"
+                >
                   <Icon name="x" size={10} />
                 </button>
               {:else}
@@ -394,7 +529,6 @@
           {/each}
         </div>
       {/if}
-
     </div>
   {/if}
 </div>
@@ -417,7 +551,9 @@
     flex-shrink: 0;
   }
 
-  .header-placeholder { height: 28px; }
+  .header-placeholder {
+    height: 28px;
+  }
 
   .page-title {
     font-family: var(--font-serif);
@@ -427,13 +563,6 @@
     line-height: var(--leading-tight);
     margin: 0;
     letter-spacing: -0.2px;
-  }
-
-  .member-count {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    letter-spacing: 0.04em;
   }
 
   .body {
@@ -463,7 +592,9 @@
   }
 
   /* Members */
-  .members-body { background: var(--color-window); }
+  .members-body {
+    background: var(--color-window);
+  }
 
   .member-row {
     display: flex;
@@ -474,7 +605,9 @@
     font-size: var(--text-sm);
   }
 
-  .member-row:last-child { border-bottom: none; }
+  .member-row:last-child {
+    border-bottom: none;
+  }
 
   .member-name {
     font-weight: var(--weight-semibold);
@@ -496,7 +629,9 @@
   }
 
   /* Invite */
-  .invite-section { background: var(--color-window); }
+  .invite-section {
+    background: var(--color-window);
+  }
 
   .invite-form {
     display: flex;
@@ -506,9 +641,13 @@
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
-  .invite-form :global(.text-input) { width: 240px; }
+  .invite-form :global(.text-input) {
+    width: 240px;
+  }
 
-  .pending-list { border-top: 1px solid var(--color-rule-soft); }
+  .pending-list {
+    border-top: 1px solid var(--color-rule-soft);
+  }
 
   .pending-row {
     display: flex;
@@ -519,7 +658,9 @@
     font-size: var(--text-sm);
   }
 
-  .pending-row:last-child { border-bottom: none; }
+  .pending-row:last-child {
+    border-bottom: none;
+  }
 
   .pending-email {
     flex: 1;
@@ -547,10 +688,19 @@
     gap: var(--sp-xs);
   }
 
-  .expense-form :global(.desc-input) { flex: 1; min-width: 0; }
-  .expense-form :global(.amount-input) { width: 80px; }
-  .expense-form :global(.currency-input) { width: 52px; }
-  .expense-form :global(.date-input) { width: 120px; }
+  .expense-form :global(.desc-input) {
+    flex: 1;
+    min-width: 0;
+  }
+  .expense-form :global(.amount-input) {
+    width: 80px;
+  }
+  .expense-form :global(.currency-input) {
+    width: 52px;
+  }
+  .expense-form :global(.date-input) {
+    width: 120px;
+  }
 
   .paid-by-select {
     height: 24px;
@@ -559,7 +709,7 @@
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0,0,0,0.1);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     padding: 0 var(--sp-xs);
     box-sizing: border-box;
   }
@@ -573,13 +723,17 @@
   }
 
   /* Expense list */
-  .expense-list { background: var(--color-window); }
+  .expense-list {
+    background: var(--color-window);
+  }
 
   .expense-item {
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
-  .expense-item:last-child { border-bottom: none; }
+  .expense-item:last-child {
+    border-bottom: none;
+  }
 
   .expense-row-wrap {
     display: flex;
@@ -598,7 +752,9 @@
     transition: background var(--duration-fast) var(--ease);
   }
 
-  .expense-row:hover { background: var(--color-window-raised); }
+  .expense-row:hover {
+    background: var(--color-window-raised);
+  }
 
   .expense-date {
     font-family: var(--font-mono);
@@ -627,7 +783,8 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .delete-btn, .delete-placeholder {
+  .delete-btn,
+  .delete-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -644,10 +801,14 @@
     transition: color var(--duration-fast) var(--ease);
   }
 
-  .delete-btn:hover { color: var(--color-amount-negative); }
+  .delete-btn:hover {
+    color: var(--color-amount-negative);
+  }
 
   /* Splits */
-  .splits { background: var(--color-window-raised); }
+  .splits {
+    background: var(--color-window-raised);
+  }
 
   .split-row {
     display: flex;
@@ -678,7 +839,9 @@
   }
 
   /* Balances */
-  .balances-body { background: var(--color-window); }
+  .balances-body {
+    background: var(--color-window);
+  }
 
   .transfer-row {
     display: flex;
@@ -689,7 +852,9 @@
     font-size: var(--text-sm);
   }
 
-  .transfer-row:last-child { border-bottom: none; }
+  .transfer-row:last-child {
+    border-bottom: none;
+  }
 
   .transfer-names {
     display: flex;
@@ -698,9 +863,17 @@
     flex: 1;
   }
 
-  .transfer-from { font-weight: var(--weight-semibold); color: var(--color-text); }
-  .transfer-arrow { color: var(--color-text-muted); font-size: var(--text-xs); }
-  .transfer-to { color: var(--color-text); }
+  .transfer-from {
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
+  .transfer-arrow {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+  .transfer-to {
+    color: var(--color-text);
+  }
 
   .transfer-amount {
     font-family: var(--font-mono);
@@ -728,13 +901,24 @@
     color: var(--color-text-muted);
   }
 
-  .settle-form :global(.settle-amount) { width: 80px; }
-  .settle-form :global(.settle-currency) { width: 52px; }
-  .settle-form :global(.settle-date) { width: 120px; }
-  .settle-form :global(.settle-note) { flex: 1; min-width: 120px; }
+  .settle-form :global(.settle-amount) {
+    width: 80px;
+  }
+  .settle-form :global(.settle-currency) {
+    width: 52px;
+  }
+  .settle-form :global(.settle-date) {
+    width: 120px;
+  }
+  .settle-form :global(.settle-note) {
+    flex: 1;
+    min-width: 120px;
+  }
 
   /* Settlement history */
-  .settlement-list { background: var(--color-window); }
+  .settlement-list {
+    background: var(--color-window);
+  }
 
   .settlement-row {
     display: flex;
@@ -745,7 +929,9 @@
     font-size: var(--text-sm);
   }
 
-  .settlement-row:last-child { border-bottom: none; }
+  .settlement-row:last-child {
+    border-bottom: none;
+  }
 
   .settlement-date {
     font-family: var(--font-mono);
