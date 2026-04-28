@@ -7,6 +7,7 @@ import type { AppVariables } from '../app'
 const app = new Hono<{ Variables: AppVariables }>()
 
 async function fetchMembersForGroups(groupIds: string[]) {
+  if (groupIds.length === 0) return []
   return db
     .select({
       id: expenseGroupMembers.id,
@@ -27,31 +28,19 @@ app.post('/', async (c) => {
   const body = await c.req.json<{ name?: string }>()
   if (!body.name?.trim()) return c.json({ error: 'name is required' }, 400)
 
-  const [group] = await db
-    .insert(expenseGroups)
-    .values({ name: body.name.trim(), createdBy: userId })
-    .returning()
+  const group = await db.transaction(async (tx) => {
+    const [g] = await tx
+      .insert(expenseGroups)
+      .values({ name: body.name!.trim(), createdBy: userId })
+      .returning()
+    await tx
+      .insert(expenseGroupMembers)
+      .values({ groupId: g.id, userId, shareWeight: 1 })
+    return g
+  })
 
-  const [member] = await db
-    .insert(expenseGroupMembers)
-    .values({ groupId: group.id, userId, shareWeight: 1 })
-    .returning()
-
-  const memberWithUser = await db
-    .select({
-      id: expenseGroupMembers.id,
-      groupId: expenseGroupMembers.groupId,
-      userId: expenseGroupMembers.userId,
-      shareWeight: expenseGroupMembers.shareWeight,
-      joinedAt: expenseGroupMembers.joinedAt,
-      userName: user.name,
-      userEmail: user.email,
-    })
-    .from(expenseGroupMembers)
-    .innerJoin(user, eq(expenseGroupMembers.userId, user.id))
-    .where(eq(expenseGroupMembers.id, member.id))
-
-  return c.json({ ...group, members: memberWithUser }, 201)
+  const members = await fetchMembersForGroups([group.id])
+  return c.json({ ...group, members }, 201)
 })
 
 app.get('/', async (c) => {

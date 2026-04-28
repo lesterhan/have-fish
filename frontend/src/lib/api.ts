@@ -688,3 +688,66 @@ export async function fetchTransactions(params?: {
   return res.json()
 }
 
+// --- Fish Pie ---
+
+export type GroupMember = {
+  id: string
+  groupId: string
+  userId: string
+  shareWeight: number
+  joinedAt: string
+  userName: string
+  userEmail: string
+}
+
+export type ExpenseGroup = {
+  id: string
+  name: string
+  createdBy: string
+  createdAt: string
+  deletedAt: string | null
+  members: GroupMember[]
+}
+
+export async function fetchGroups(): Promise<ExpenseGroup[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to fetch groups')
+  return res.json()
+}
+
+export async function fetchGroup(id: string): Promise<ExpenseGroup> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Group not found')
+  return res.json()
+}
+
+export async function createGroup(name: string): Promise<ExpenseGroup> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error('Failed to create group')
+  return res.json()
+}
+
+export async function updateGroup(id: string, name: string): Promise<ExpenseGroup> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error('Failed to update group')
+  return res.json()
+}
+
+export async function deleteGroup(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to delete group')
+}
+
