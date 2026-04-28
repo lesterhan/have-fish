@@ -270,19 +270,36 @@
         <!-- Expense entry -->
         <div class="section-bar"><span class="section-bar-title">Add Expense</span></div>
         <div class="expense-form-wrap">
-          <div class="expense-form">
-            <TextInput bind:value={expenseDesc} placeholder="Description" class="desc-input" />
-            <TextInput bind:value={expenseAmount} placeholder="0.00" class="amount-input" type="number" min="0" step="0.01" />
-            <TextInput bind:value={expenseCurrency} placeholder="CAD" class="currency-input" />
-            <TextInput bind:value={expenseDate} type="date" class="date-input" />
-            <select class="paid-by-select" bind:value={expensePaidBy}>
-              {#each group.members as m (m.id)}
-                <option value={m.userId}>{m.userName}</option>
-              {/each}
-            </select>
-            <GradientButton onclick={handleAddExpense} disabled={expenseSubmitting || !expenseDesc.trim() || !expenseAmount}>
-              Add
-            </GradientButton>
+          <div class="expense-fields">
+            <div class="field field-desc">
+              <span class="field-label">Description</span>
+              <TextInput bind:value={expenseDesc} placeholder="What was this for?" class="fill-input" />
+            </div>
+            <div class="field field-amount">
+              <span class="field-label">Amount</span>
+              <TextInput bind:value={expenseAmount} placeholder="0.00" class="fill-input" type="number" min="0" step="0.01" />
+            </div>
+            <div class="field field-currency">
+              <span class="field-label">Currency</span>
+              <TextInput bind:value={expenseCurrency} placeholder="CAD" class="fill-input" />
+            </div>
+            <div class="field field-date">
+              <span class="field-label">Date</span>
+              <TextInput bind:value={expenseDate} type="date" class="fill-input" />
+            </div>
+            <div class="field field-paidby">
+              <span class="field-label">Paid by</span>
+              <select class="paid-by-select paid-by-fill" bind:value={expensePaidBy}>
+                {#each group.members as m (m.id)}
+                  <option value={m.userId}>{m.userName}</option>
+                {/each}
+              </select>
+            </div>
+            <div class="field-actions">
+              <GradientButton onclick={handleAddExpense} disabled={expenseSubmitting || !expenseDesc.trim() || !expenseAmount}>
+                Add expense
+              </GradientButton>
+            </div>
           </div>
           {#if expenseError}
             <span class="form-error">{expenseError}</span>
@@ -588,21 +605,43 @@
   /* Expense form */
   .expense-form-wrap {
     background: var(--color-window);
-    padding: var(--sp-xs) 22px;
+    padding: 12px 22px;
     border-bottom: 1px solid var(--color-rule);
   }
 
-  .expense-form {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    flex-wrap: wrap;
+  .expense-fields {
+    display: grid;
+    grid-template-columns: 1fr 96px 60px 138px;
+    grid-template-rows: auto auto;
+    gap: var(--sp-sm);
+    align-items: end;
   }
 
-  .expense-form :global(.desc-input) { flex: 1; min-width: 0; }
-  .expense-form :global(.amount-input) { width: 80px; }
-  .expense-form :global(.currency-input) { width: 52px; }
-  .expense-form :global(.date-input) { width: 120px; }
+  .field-desc    { grid-column: 1; }
+  .field-amount  { grid-column: 2; }
+  .field-currency{ grid-column: 3; }
+  .field-date    { grid-column: 4; }
+  .field-paidby  { grid-column: 1; }
+  .field-actions { grid-column: 2 / -1; display: flex; justify-content: flex-end; align-items: flex-end; }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .expense-fields :global(.fill-input) { width: 100%; box-sizing: border-box; }
+
+  .paid-by-fill { width: 100%; box-sizing: border-box; }
 
   .paid-by-select {
     height: 24px;
