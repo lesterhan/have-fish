@@ -148,6 +148,13 @@
       "when": 1777395274304,
       "tag": "0020_odd_hitman",
       "breakpoints": true
+    },
+    {
+      "idx": 21,
+      "version": "7",
+      "when": 1777402961815,
+      "tag": "0021_cultured_jack_flag",
+      "breakpoints": true
     }
   ]
 }

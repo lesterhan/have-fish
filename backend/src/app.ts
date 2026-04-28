@@ -14,6 +14,8 @@ import rulesRoute from './routes/rules'
 import fishPieGroupsRoute from './routes/fish-pie-groups'
 import fishPieInvitesRoute from './routes/fish-pie-invites'
 import fishPieExpensesRoute from './routes/fish-pie-expenses'
+import fishPieBalancesRoute from './routes/fish-pie-balances'
+import fishPieSettlementsRoute from './routes/fish-pie-settlements'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -58,3 +60,5 @@ app.route('/api/rules', rulesRoute)
 app.route('/api/fish-pie/groups', fishPieGroupsRoute)
 app.route('/api/fish-pie', fishPieInvitesRoute)
 app.route('/api/fish-pie', fishPieExpensesRoute)
+app.route('/api/fish-pie', fishPieBalancesRoute)
+app.route('/api/fish-pie', fishPieSettlementsRoute)
