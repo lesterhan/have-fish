@@ -1,4 +1,4 @@
-import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer } from 'drizzle-orm/pg-core'
+import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer, unique } from 'drizzle-orm/pg-core'
 
 // --- Better Auth tables ---
 // These are required by Better Auth and must not be renamed or removed.
@@ -159,6 +159,26 @@ export const importRules = pgTable('import_rules', {
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })
+
+// --- Fish Pie (shared expense) tables ---
+
+export const expenseGroups = pgTable('expense_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  createdBy: text('created_by').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
+})
+
+export const expenseGroupMembers = pgTable('expense_group_members', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => expenseGroups.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  shareWeight: integer('share_weight').notNull().default(1),
+  joinedAt: timestamp('joined_at').notNull().defaultNow(),
+}, (t) => [
+  unique().on(t.groupId, t.userId),
+])
 
 // A posting is one leg of a transaction — money moving in or out of one account.
 // Every transaction has at least two postings, and they must balance to zero per currency.
