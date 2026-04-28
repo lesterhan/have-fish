@@ -1,7 +1,5 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { goto } from '$app/navigation'
-  import HeadingBanner from '$lib/components/ui/HeadingBanner.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -15,8 +13,11 @@
   let submitting = $state(false)
 
   onMount(async () => {
-    groups = await fetchGroups()
-    loading = false
+    try {
+      groups = await fetchGroups()
+    } finally {
+      loading = false
+    }
   })
 
   async function handleCreate() {
@@ -39,12 +40,12 @@
 </script>
 
 <div class="page">
-  <HeadingBanner>
-    <h1>Fish Pie</h1>
+  <header class="page-header">
+    <h1 class="page-title">Fish Pie</h1>
     <GradientButton onclick={() => { showForm = !showForm; newName = '' }}>
       <Icon name="plus" size={12} /> New group
     </GradientButton>
-  </HeadingBanner>
+  </header>
 
   {#if showForm}
     <div class="new-group-form">
@@ -63,72 +64,109 @@
     </div>
   {/if}
 
-  {#if loading}
-    <div class="empty">Loading…</div>
-  {:else if groups.length === 0}
-    <div class="empty">
-      No groups yet. Create one to start splitting expenses with others.
-    </div>
-  {:else}
-    <div class="group-list">
+  <div class="section-bar">
+    <span class="section-bar-title">Groups</span>
+  </div>
+
+  <div class="body">
+    {#if loading}
+      <p class="empty">Loading…</p>
+    {:else if groups.length === 0}
+      <p class="empty">No groups yet. Create one to start splitting expenses with others.</p>
+    {:else}
       {#each groups as group (group.id)}
-        <button class="group-card" onclick={() => goto(`/fish-pie/${group.id}`)}>
+        <a class="group-row" href="/fish-pie/{group.id}">
           <span class="group-name">{group.name}</span>
           <span class="group-meta">{group.members.length} member{group.members.length === 1 ? '' : 's'}</span>
           <Icon name="chevron-right" size={12} />
-        </button>
+        </a>
       {/each}
-    </div>
-  {/if}
+    {/if}
+  </div>
 </div>
 
 <style>
   .page {
-    padding: var(--sp-lg);
-    max-width: 640px;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+  }
+
+  .page-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 22px 10px;
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
+  }
+
+  .page-title {
+    font-family: var(--font-serif);
+    font-size: 24px;
+    font-weight: 600;
+    color: var(--color-text);
+    line-height: var(--leading-tight);
+    margin: 0;
+    letter-spacing: -0.2px;
   }
 
   .new-group-form {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: var(--sp-sm) var(--sp-md);
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
-    box-shadow: var(--shadow-raised);
-    margin-bottom: var(--sp-md);
+    padding: var(--sp-xs) 22px;
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
   }
 
   .new-group-form :global(.text-input) {
     flex: 1;
+    max-width: 280px;
   }
 
-  .group-list {
+  .section-bar {
     display: flex;
-    flex-direction: column;
-    border: 1px solid var(--color-rule);
-    box-shadow: var(--shadow-raised);
+    align-items: center;
+    padding: 6px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
   }
 
-  .group-card {
+  .section-bar-title {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+  }
+
+  .body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--color-window-raised);
+  }
+
+  .group-row {
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: var(--sp-sm) var(--sp-md);
+    padding: 10px 22px;
     background: var(--color-window);
-    border: none;
     border-bottom: 1px solid var(--color-rule-soft);
-    cursor: pointer;
-    text-align: left;
+    text-decoration: none;
     font-family: var(--font-sans);
     transition: background var(--duration-fast) var(--ease);
   }
 
-  .group-card:last-child {
-    border-bottom: none;
-  }
-
-  .group-card:hover {
+  .group-row:hover {
     background: var(--color-window-raised);
   }
 
@@ -145,12 +183,10 @@
   }
 
   .empty {
-    padding: var(--sp-lg);
+    padding: var(--sp-lg) 22px;
+    font-family: var(--font-serif);
     font-size: var(--text-sm);
+    font-style: italic;
     color: var(--color-text-muted);
-    text-align: center;
-    border: 1px solid var(--color-rule);
-    box-shadow: var(--shadow-raised);
-    background: var(--color-window);
   }
 </style>
