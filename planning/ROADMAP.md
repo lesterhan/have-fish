@@ -33,7 +33,7 @@
 | [Fish Pie: Groups & Membership](epics/archive/fish-pie-groups.md) | Done |
 | [Fish Pie: Invites](epics/archive/fish-pie-invites.md) | Done |
 | [Fish Pie: Group Expenses](epics/archive/fish-pie-expenses.md) | Done |
-| [Fish Pie: Balances & Settlement](epics/fish-pie-balances.md) | Backlog |
+| [Fish Pie: Balances & Settlement](epics/archive/fish-pie-balances.md) | Done |
 | [Graphite Design System](epics/archive/graphite-design-system.md) | Done |
 | [Accent Color Preference](epics/archive/accent-color-preference.md) | Done |
 | [Currency Pill Component](epics/archive/currency-pill.md) | Done |
