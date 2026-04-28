@@ -397,10 +397,7 @@
       display: block;
     }
 
-    /* On mobile, content takes full width (sidebar is an overlay) */
-    .content {
-      padding: var(--sp-md);
-    }
+
   }
 
   /* --- Quit dialog --- */

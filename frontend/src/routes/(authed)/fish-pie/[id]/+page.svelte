@@ -271,34 +271,38 @@
         <div class="section-bar"><span class="section-bar-title">Add Expense</span></div>
         <div class="expense-form-wrap">
           <div class="expense-fields">
-            <div class="field field-desc">
-              <span class="field-label">Description</span>
-              <TextInput bind:value={expenseDesc} placeholder="What was this for?" class="fill-input" />
+            <div class="expense-row-1">
+              <div class="field field-desc">
+                <span class="field-label">Description</span>
+                <TextInput bind:value={expenseDesc} placeholder="What was this for?" class="fill-input" />
+              </div>
+              <div class="field field-amount">
+                <span class="field-label">Amount</span>
+                <TextInput bind:value={expenseAmount} placeholder="0.00" class="fill-input" type="number" min="0" step="0.01" />
+              </div>
+              <div class="field field-currency">
+                <span class="field-label">Currency</span>
+                <TextInput bind:value={expenseCurrency} placeholder="CAD" class="fill-input" />
+              </div>
             </div>
-            <div class="field field-amount">
-              <span class="field-label">Amount</span>
-              <TextInput bind:value={expenseAmount} placeholder="0.00" class="fill-input" type="number" min="0" step="0.01" />
-            </div>
-            <div class="field field-currency">
-              <span class="field-label">Currency</span>
-              <TextInput bind:value={expenseCurrency} placeholder="CAD" class="fill-input" />
-            </div>
-            <div class="field field-date">
-              <span class="field-label">Date</span>
-              <TextInput bind:value={expenseDate} type="date" class="fill-input" />
-            </div>
-            <div class="field field-paidby">
-              <span class="field-label">Paid by</span>
-              <select class="paid-by-select paid-by-fill" bind:value={expensePaidBy}>
-                {#each group.members as m (m.id)}
-                  <option value={m.userId}>{m.userName}</option>
-                {/each}
-              </select>
-            </div>
-            <div class="field-actions">
-              <GradientButton onclick={handleAddExpense} disabled={expenseSubmitting || !expenseDesc.trim() || !expenseAmount}>
-                Add expense
-              </GradientButton>
+            <div class="expense-row-2">
+              <div class="field field-paidby">
+                <span class="field-label">Paid by</span>
+                <select class="paid-by-select paid-by-fill" bind:value={expensePaidBy}>
+                  {#each group.members as m (m.id)}
+                    <option value={m.userId}>{m.userName}</option>
+                  {/each}
+                </select>
+              </div>
+              <div class="field field-date">
+                <span class="field-label">Date</span>
+                <TextInput bind:value={expenseDate} type="date" class="fill-input" />
+              </div>
+              <div class="field-actions">
+                <GradientButton onclick={handleAddExpense} disabled={expenseSubmitting || !expenseDesc.trim() || !expenseAmount}>
+                  Add expense
+                </GradientButton>
+              </div>
             </div>
           </div>
           {#if expenseError}
@@ -609,20 +613,20 @@
     border-bottom: 1px solid var(--color-rule);
   }
 
-  .expense-fields {
-    display: grid;
-    grid-template-columns: 1fr 96px 60px 138px;
-    grid-template-rows: auto auto;
+  .expense-fields { display: flex; flex-direction: column; gap: var(--sp-sm); }
+
+  .expense-row-1, .expense-row-2 {
+    display: flex;
     gap: var(--sp-sm);
-    align-items: end;
+    align-items: flex-end;
   }
 
-  .field-desc    { grid-column: 1; }
-  .field-amount  { grid-column: 2; }
-  .field-currency{ grid-column: 3; }
-  .field-date    { grid-column: 4; }
-  .field-paidby  { grid-column: 1; }
-  .field-actions { grid-column: 2 / -1; display: flex; justify-content: flex-end; align-items: flex-end; }
+  .field-desc     { flex: 1; min-width: 0; }
+  .field-amount   { width: 96px; flex-shrink: 0; }
+  .field-currency { width: 60px; flex-shrink: 0; }
+  .field-paidby   { flex: 1; min-width: 0; }
+  .field-date     { width: 138px; flex-shrink: 0; }
+  .field-actions  { display: flex; align-items: flex-end; }
 
   .field {
     display: flex;
@@ -883,6 +887,75 @@
     font-family: var(--font-mono);
     color: var(--color-text-muted);
     font-variant-numeric: tabular-nums;
+  }
+
+  /* Responsive — mobile */
+  @media (max-width: 600px) {
+    /* Single column; parent .content handles scroll */
+    .page {
+      display: flex;
+      flex-direction: column;
+      height: auto;
+      overflow: visible;
+    }
+
+    .left-col {
+      overflow: visible;
+      border-right: none;
+      border-bottom: 1px solid var(--color-rule);
+    }
+
+    .left-body {
+      flex: none;
+      overflow: visible;
+      min-height: 0;
+    }
+
+    .right-col { flex: none; }
+
+    .txn-panel {
+      height: auto;
+      overflow: visible;
+    }
+
+    .panel-body {
+      flex: none;
+      overflow: visible;
+      min-height: 0;
+    }
+
+    /* Header */
+    .page-header { padding: 10px 14px 8px; flex-wrap: wrap; }
+
+    /* Expense form: wrap on small screens */
+    .expense-form-wrap { padding: 10px 14px; }
+    .expense-row-1 { flex-wrap: wrap; }
+    .field-desc { flex: 1 1 100%; }
+    .expense-row-2 { flex-wrap: wrap; }
+    .field-date { flex: 1; min-width: 120px; }
+    .field-actions { flex: 1 1 100%; justify-content: flex-end; }
+
+    /* Larger touch targets for selects */
+    .paid-by-select { height: 32px; }
+
+    /* Row padding reductions */
+    .member-row { padding-left: 14px; padding-right: 14px; }
+    .invite-form { padding-left: 14px; padding-right: 14px; }
+    .pending-row { padding-left: 14px; padding-right: 14px; }
+    .transfer-row { padding-left: 14px; padding-right: 14px; }
+    .settle-form-wrap { padding-left: 14px; padding-right: 14px; }
+
+    /* Expense rows: drop payer column, tighten */
+    .expense-row {
+      grid-template-columns: 5rem 1fr 5rem 1rem;
+      padding: 7px 6px 7px 12px;
+    }
+    .expense-payer { display: none; }
+
+    /* Settlement rows */
+    .settlement-row { padding-left: 12px; padding-right: 6px; }
+    .settlement-date { min-width: 5rem; }
+    .settlement-note { display: none; }
   }
 
   /* Settlement history */
