@@ -324,7 +324,7 @@
 <style>
   .page {
     display: grid;
-    grid-template-columns: 1fr 360px;
+    grid-template-columns: 1fr 420px;
     height: 100%;
     overflow: hidden;
   }

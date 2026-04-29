@@ -1,6 +1,7 @@
 <script lang="ts">
   import type { GroupExpense, GroupSettlement } from '$lib/api'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import CurrencyPill from '../ui/CurrencyPill.svelte'
   import { initials } from './utils'
 
   interface Props {
@@ -68,7 +69,10 @@
       {:else}
         <div class="expense-list">
           {#each expenses as expense (expense.id)}
-            <div class="expense-item">
+            <div
+              class="expense-item"
+              class:expanded={expandedExpenseId === expense.id}
+            >
               <div class="expense-row-wrap">
                 <div
                   class="expense-row"
@@ -93,12 +97,12 @@
                     <span class="expense-amount"
                       >{parseFloat(expense.amount).toFixed(2)}</span
                     >
-                    <span class="expense-currency">{expense.currency}</span>
+                    <CurrencyPill code={expense.currency} />
                   </div>
                   <Icon
                     name={expandedExpenseId === expense.id
-                      ? 'chevron-up'
-                      : 'chevron-down'}
+                      ? 'chevron-up-filled'
+                      : 'chevron-down-line'}
                     size={12}
                   />
                 </div>
@@ -108,7 +112,7 @@
                     onclick={() => onDeleteExpense(expense.id)}
                     aria-label="Delete expense"
                   >
-                    <Icon name="x" size={10} />
+                    <Icon name="trash" size={16} />
                   </button>
                 {:else}
                   <span class="delete-placeholder"></span>
@@ -247,6 +251,10 @@
     border-bottom: none;
   }
 
+  .expense-item.expanded {
+    border: 1px solid var(--color-accent);
+  }
+
   .expense-row-wrap {
     display: flex;
     align-items: stretch;
@@ -319,12 +327,6 @@
     font-weight: var(--weight-semibold);
   }
 
-  .expense-currency {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
   .delete-btn,
   .delete-placeholder {
     display: flex;
@@ -339,11 +341,11 @@
     border: none;
     cursor: pointer;
     color: var(--color-text-muted);
-    transition: color var(--duration-fast) var(--ease);
   }
 
   .delete-btn:hover {
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
+    background-color: var(--color-danger-light);
   }
 
   .splits {

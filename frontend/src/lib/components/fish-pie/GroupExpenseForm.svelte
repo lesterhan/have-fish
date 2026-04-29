@@ -129,9 +129,9 @@
     <div class="field">
       <div class="date-chip-wrap">
         <button class="date-chip" onclick={openDatePicker}>
-          <span class="date-chip-icon">📅</span>
+          <span class="date-chip-icon"><Icon name="calendar" /></span>
           <span class="date-chip-label">{dateLabel}</span>
-          <Icon name="chevron-down" size={10} />
+          <Icon name="chevron-down-line" size={10} />
         </button>
         <input
           bind:this={dateInputEl}
