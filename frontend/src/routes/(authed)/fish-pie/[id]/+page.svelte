@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
-  import { page } from '$app/state'
+  import { onMount } from "svelte"
+  import { page } from "$app/state"
   import {
     fetchGroup,
     fetchGroupInvites,
@@ -15,24 +15,24 @@
     deleteSettlement,
     updateGroup,
     updateMemberWeight,
-  } from '$lib/api'
+  } from "$lib/api"
   import type {
     ExpenseGroup,
     GroupInvite,
     GroupExpense,
     CurrencyBalance,
     GroupSettlement,
-  } from '$lib/api'
-  import { useSession } from '$lib/auth'
-  import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import TextInput from '$lib/components/ui/TextInput.svelte'
-  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
-  import Icon from '$lib/components/ui/Icon.svelte'
-  import Toggle from '$lib/components/ui/Toggle.svelte'
+  } from "$lib/api"
+  import { useSession } from "$lib/auth"
+  import GradientButton from "$lib/components/ui/GradientButton.svelte"
+  import TextInput from "$lib/components/ui/TextInput.svelte"
+  import CurrencyInput from "$lib/components/ui/CurrencyInput.svelte"
+  import Icon from "$lib/components/ui/Icon.svelte"
+  import Toggle from "$lib/components/ui/Toggle.svelte"
 
-  const groupId = $derived(page.params.id ?? '')
+  const groupId = $derived(page.params.id ?? "")
   const session = useSession()
-  const currentUserId = $derived($session.data?.user.id ?? '')
+  const currentUserId = $derived($session.data?.user.id ?? "")
 
   let group = $state<ExpenseGroup | null>(null)
   let invites = $state<GroupInvite[]>([])
@@ -42,43 +42,64 @@
 
   let showMembers = $state(false)
   let showConfig = $state(false)
-  let configCurrency = $state('')
+  let configCurrency = $state("")
   let shareSliders = $state<Record<string, number>>({})
   let weightSaving = $state(false)
 
   let showInvite = $state(false)
-  let inviteEmail = $state('')
-  let inviteError = $state('')
+  let inviteEmail = $state("")
+  let inviteError = $state("")
   let inviteSubmitting = $state(false)
 
-  let expenseDesc = $state('')
-  let expenseAmount = $state('')
-  let expenseCurrency = $state('CAD')
+  let expenseDesc = $state("")
+  let expenseAmount = $state("")
+  let expenseCurrency = $state("CAD")
   let expenseDate = $state(new Date().toISOString().slice(0, 10))
-  let expensePaidBy = $state('')
-  let expenseError = $state('')
+  let expensePaidBy = $state("")
+  let expenseError = $state("")
   let expenseSubmitting = $state(false)
+  let added = $state(false)
 
   let expandedExpenseId = $state<string | null>(null)
+  let panelTab = $state<"expenses" | "settlements">("expenses")
 
   let balances = $state<CurrencyBalance[]>([])
   let settlements = $state<GroupSettlement[]>([])
 
-  let panelTab = $state<'expenses' | 'settlements'>('expenses')
+  let showSettleForm = $state(false)
+  let settleFrom = $state("")
+  let settleTo = $state("")
+  let settleAmount = $state("")
+  let settleCurrency = $state("CAD")
+  let settleDate = $state(new Date().toISOString().slice(0, 10))
+  let settleNote = $state("")
+  let settleError = $state("")
+  let settleSubmitting = $state(false)
 
   const memberTotalWeight = $derived(
     group?.members.reduce((s, m) => s + m.shareWeight, 0) ?? 0,
   )
 
-  let showSettleForm = $state(false)
-  let settleFrom = $state('')
-  let settleTo = $state('')
-  let settleAmount = $state('')
-  let settleCurrency = $state('CAD')
-  let settleDate = $state(new Date().toISOString().slice(0, 10))
-  let settleNote = $state('')
-  let settleError = $state('')
-  let settleSubmitting = $state(false)
+  const allSettled = $derived(
+    balances.length === 0 || balances.every((b) => b.transfers.length === 0),
+  )
+
+  function memberPct(shareWeight: number): number {
+    return memberTotalWeight > 0
+      ? Math.round((shareWeight / memberTotalWeight) * 100)
+      : 0
+  }
+
+  function initials(name: string | null | undefined): string {
+    return (
+      (name ?? "")
+        .split(" ")
+        .map((w) => w[0] ?? "")
+        .join("")
+        .toUpperCase()
+        .slice(0, 2) || "?"
+    )
+  }
 
   onMount(async () => {
     try {
@@ -96,8 +117,8 @@
       settlements = sett
       expensePaidBy = currentUserId
       settleFrom = currentUserId
-      expenseCurrency = g.defaultCurrency ?? 'CAD'
-      settleCurrency = g.defaultCurrency ?? 'CAD'
+      expenseCurrency = g.defaultCurrency ?? "CAD"
+      settleCurrency = g.defaultCurrency ?? "CAD"
     } catch {
       notFound = true
     } finally {
@@ -107,14 +128,14 @@
 
   async function handleInvite() {
     if (!inviteEmail.trim() || inviteSubmitting) return
-    inviteError = ''
+    inviteError = ""
     inviteSubmitting = true
     try {
       const invite = await sendInvite(groupId, inviteEmail.trim())
       invites = [...invites, invite]
-      inviteEmail = ''
+      inviteEmail = ""
     } catch (e: any) {
-      inviteError = e.message ?? 'Failed to send invite'
+      inviteError = e.message ?? "Failed to send invite"
     } finally {
       inviteSubmitting = false
     }
@@ -126,26 +147,36 @@
   }
 
   function handleInviteKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') handleInvite()
+    if (e.key === "Enter") handleInvite()
   }
 
   async function handleAddExpense() {
-    if (!expenseDesc.trim() || !expenseAmount || expenseSubmitting) return
-    expenseError = ''
+    if (
+      !expenseAmount ||
+      parseFloat(expenseAmount) <= 0 ||
+      expenseSubmitting
+    )
+      return
+    expenseError = ""
     expenseSubmitting = true
     try {
       const expense = await createExpense(groupId, {
-        description: expenseDesc.trim(),
+        description: expenseDesc.trim() || "Expense",
         amount: expenseAmount,
         currency: expenseCurrency.trim().toUpperCase(),
         date: expenseDate,
         paidByUserId: expensePaidBy || currentUserId,
       })
       expenses = [expense, ...expenses]
-      expenseDesc = ''
-      expenseAmount = ''
+      expenseDesc = ""
+      expenseAmount = ""
+      added = true
+      await refreshBalances()
+      setTimeout(() => {
+        added = false
+      }, 1200)
     } catch (e: any) {
-      expenseError = e.message ?? 'Failed to add expense'
+      expenseError = e.message ?? "Failed to add expense"
     } finally {
       expenseSubmitting = false
     }
@@ -154,6 +185,7 @@
   async function handleDeleteExpense(expenseId: string) {
     await deleteExpense(groupId, expenseId)
     expenses = expenses.filter((e) => e.id !== expenseId)
+    await refreshBalances()
   }
 
   function canDeleteExpense(expense: GroupExpense) {
@@ -186,8 +218,8 @@
   }
 
   async function handleSettle() {
-    if (!settleFrom || !settleTo || !settleAmount || settleSubmitting) return
-    settleError = ''
+    if (!settleFrom || !settleTo || settleFrom === settleTo || !settleAmount || settleSubmitting) return
+    settleError = ""
     settleSubmitting = true
     try {
       await createSettlement(groupId, {
@@ -198,12 +230,12 @@
         date: settleDate,
         note: settleNote.trim() || undefined,
       })
-      settleAmount = ''
-      settleNote = ''
+      settleAmount = ""
+      settleNote = ""
       showSettleForm = false
       await refreshBalances()
     } catch (e: any) {
-      settleError = e.message ?? 'Failed to record settlement'
+      settleError = e.message ?? "Failed to record settlement"
     } finally {
       settleSubmitting = false
     }
@@ -224,7 +256,7 @@
 
   function openConfig() {
     if (!group) return
-    configCurrency = group.defaultCurrency ?? ''
+    configCurrency = group.defaultCurrency ?? ""
     const total = group.members.reduce((s, m) => s + m.shareWeight, 0)
     const sliders: Record<string, number> = {}
     for (const m of group.members) {
@@ -246,7 +278,10 @@
     const others = group.members
       .map((m) => m.userId)
       .filter((id) => id !== userId)
-    const oldOtherSum = others.reduce((s, id) => s + (shareSliders[id] ?? 0), 0)
+    const oldOtherSum = others.reduce(
+      (s, id) => s + (shareSliders[id] ?? 0),
+      0,
+    )
     const remaining = 100 - newPct
     const updated = { ...shareSliders, [userId]: newPct }
     if (oldOtherSum === 0 || remaining <= 0) {
@@ -372,12 +407,8 @@
                   </div>
                 {/each}
                 <div class="slider-actions">
-                  <GradientButton onclick={resetWeights}
-                    >Reset equal</GradientButton
-                  >
-                  <GradientButton onclick={saveWeights} disabled={weightSaving}
-                    >Save</GradientButton
-                  >
+                  <GradientButton onclick={resetWeights}>Reset equal</GradientButton>
+                  <GradientButton onclick={saveWeights} disabled={weightSaving}>Save</GradientButton>
                 </div>
               </div>
             </div>
@@ -393,8 +424,8 @@
             <GradientButton
               onclick={() => {
                 showInvite = !showInvite
-                inviteEmail = ''
-                inviteError = ''
+                inviteEmail = ""
+                inviteError = ""
               }}
             >
               <Icon name="plus" size={12} /> Invite
@@ -421,9 +452,7 @@
                 <GradientButton
                   onclick={handleInvite}
                   disabled={inviteSubmitting || !inviteEmail.trim()}
-                >
-                  Send invite
-                </GradientButton>
+                >Send invite</GradientButton>
                 {#if inviteError}
                   <span class="form-error">{inviteError}</span>
                 {/if}
@@ -434,9 +463,7 @@
                     <div class="pending-row">
                       <span class="pending-email">{invite.inviteeEmail}</span>
                       <span class="pending-label">Pending</span>
-                      <GradientButton
-                        onclick={() => handleCancelInvite(invite.id)}
-                      >
+                      <GradientButton onclick={() => handleCancelInvite(invite.id)}>
                         <Icon name="x" size={10} /> Cancel
                       </GradientButton>
                     </div>
@@ -452,76 +479,90 @@
           <span class="section-bar-title">Add Expense</span>
         </div>
         <div class="expense-form-wrap">
-          <div class="expense-fields">
-            <div class="expense-row-1">
-              <div class="field field-desc">
-                <span class="field-label">Description</span>
-                <TextInput
-                  bind:value={expenseDesc}
-                  placeholder="What was this for?"
-                  class="fill-input"
-                />
-              </div>
-              <div class="field field-amount">
-                <span class="field-label">Amount</span>
-                <TextInput
-                  bind:value={expenseAmount}
-                  placeholder="0.00"
-                  class="fill-input"
-                />
-              </div>
-              <div class="field field-currency">
-                <span class="field-label">Currency</span>
-                <CurrencyInput
-                  bind:value={expenseCurrency}
-                  style="width: 100%"
-                />
-              </div>
+          <!-- Description -->
+          <div class="field">
+            <span class="field-label">Description</span>
+            <TextInput
+              bind:value={expenseDesc}
+              placeholder="What was this for?"
+              class="fill-input"
+            />
+          </div>
+
+          <!-- Amount + currency -->
+          <div class="amount-row">
+            <div class="field field-amount">
+              <span class="field-label">Amount</span>
+              <TextInput
+                bind:value={expenseAmount}
+                placeholder="0.00"
+                type="number"
+                min="0"
+                step="0.01"
+                class="fill-input amount-text"
+              />
             </div>
-            <div class="expense-row-2">
-              <div class="field field-paidby">
-                <span class="field-label">Paid by</span>
-                <select
-                  class="paid-by-select paid-by-fill"
-                  bind:value={expensePaidBy}
-                >
-                  {#each group.members as m (m.id)}
-                    <option value={m.userId}>{m.userName}</option>
-                  {/each}
-                </select>
-              </div>
-              <div class="field field-date">
-                <span class="field-label">Date</span>
-                <TextInput
-                  bind:value={expenseDate}
-                  type="date"
-                  class="fill-input"
-                />
-              </div>
+            <div class="field field-currency">
+              <span class="field-label">Currency</span>
+              <CurrencyInput bind:value={expenseCurrency} style="width: 100%" />
+            </div>
+            <div class="field field-date">
+              <span class="field-label">Date</span>
+              <TextInput bind:value={expenseDate} type="date" class="fill-input" />
             </div>
           </div>
-          <div class="share-card">
-            {#each group.members as m (m.id)}
-              <div class="share-card-row">
-                <span class="share-card-name">{m.userName}</span>
-                <span class="share-card-pct"
-                  >{memberTotalWeight > 0
-                    ? Math.round((m.shareWeight / memberTotalWeight) * 100)
-                    : 0}%</span
+
+          <!-- Paid by chips -->
+          <div class="field">
+            <span class="field-label">Paid by</span>
+            <div class="payer-chips">
+              {#each group.members as m (m.id)}
+                {@const pct = memberPct(m.shareWeight)}
+                {@const selected = expensePaidBy === m.userId}
+                <button
+                  class="payer-chip"
+                  class:selected
+                  onclick={() => (expensePaidBy = m.userId)}
                 >
-              </div>
-            {/each}
+                  <div class="chip-avatar" class:selected>
+                    {initials(m.userName)}
+                  </div>
+                  <div class="chip-info">
+                    <span class="chip-name">{m.userName}</span>
+                    <span class="chip-share">{pct}% share</span>
+                  </div>
+                </button>
+              {/each}
+            </div>
           </div>
-          <div class="expense-cta">
+
+          <!-- Split bar (2+ members) -->
+          {#if group.members.length >= 2}
+            {@const firstPct = memberPct(group.members[0].shareWeight)}
+            <div class="split-bar-wrap">
+              <div class="split-track">
+                <div class="split-fill" style="width:{firstPct}%"></div>
+              </div>
+              <div class="split-labels">
+                <span>{group.members[0].userName} {firstPct}%</span>
+                <span>{group.members[1].userName} {100 - firstPct}%</span>
+              </div>
+            </div>
+          {/if}
+
+          <!-- Add button -->
+          <div class="add-cta">
             <GradientButton
+              active={added}
               onclick={handleAddExpense}
               disabled={expenseSubmitting ||
-                !expenseDesc.trim() ||
-                !expenseAmount}
+                !expenseAmount ||
+                parseFloat(expenseAmount) <= 0}
             >
-              Add expense
+              {added ? "✓ Added" : "Add Expense"}
             </GradientButton>
           </div>
+
           {#if expenseError}
             <span class="form-error">{expenseError}</span>
           {/if}
@@ -533,7 +574,7 @@
           <GradientButton
             onclick={() => {
               showSettleForm = !showSettleForm
-              settleError = ''
+              settleError = ""
             }}
           >
             <Icon name="plus" size={12} /> Record settlement
@@ -563,11 +604,7 @@
                 class="settle-amount"
               />
               <CurrencyInput bind:value={settleCurrency} style="width: 60px" />
-              <TextInput
-                bind:value={settleDate}
-                type="date"
-                class="settle-date"
-              />
+              <TextInput bind:value={settleDate} type="date" class="settle-date" />
               <TextInput
                 bind:value={settleNote}
                 placeholder="Note (optional)"
@@ -575,13 +612,8 @@
               />
               <GradientButton
                 onclick={handleSettle}
-                disabled={settleSubmitting ||
-                  !settleFrom ||
-                  !settleTo ||
-                  !settleAmount}
-              >
-                Save
-              </GradientButton>
+                disabled={settleSubmitting || !settleFrom || !settleTo || !settleAmount}
+              >Save</GradientButton>
             </div>
             {#if settleError}
               <span class="form-error">{settleError}</span>
@@ -589,7 +621,7 @@
           </div>
         {/if}
 
-        {#if balances.length === 0 || balances.every((b) => b.transfers.length === 0)}
+        {#if allSettled}
           <p class="empty">All settled up.</p>
         {:else}
           <div class="balances-body">
@@ -606,15 +638,8 @@
                   >
                   <GradientButton
                     onclick={() =>
-                      prefillSettle(
-                        t.fromUserId,
-                        t.toUserId,
-                        t.amount,
-                        t.currency,
-                      )}
-                  >
-                    Settle up
-                  </GradientButton>
+                      prefillSettle(t.fromUserId, t.toUserId, t.amount, t.currency)}
+                  >Settle up</GradientButton>
                 </div>
               {/each}
             {/each}
@@ -629,26 +654,24 @@
         <div class="panel-tabs">
           <button
             class="panel-tab"
-            class:active={panelTab === 'expenses'}
-            onclick={() => (panelTab = 'expenses')}
+            class:active={panelTab === "expenses"}
+            onclick={() => (panelTab = "expenses")}
           >
-            Expenses {#if expenses.length > 0}<span class="tab-count"
-                >{expenses.length}</span
-              >{/if}
+            Expenses{#if expenses.length > 0}
+              <span class="tab-count"> {expenses.length}</span>{/if}
           </button>
           <button
             class="panel-tab"
-            class:active={panelTab === 'settlements'}
-            onclick={() => (panelTab = 'settlements')}
+            class:active={panelTab === "settlements"}
+            onclick={() => (panelTab = "settlements")}
           >
-            Settlements {#if settlements.length > 0}<span class="tab-count"
-                >{settlements.length}</span
-              >{/if}
+            Settlements{#if settlements.length > 0}
+              <span class="tab-count"> {settlements.length}</span>{/if}
           </button>
         </div>
 
         <div class="panel-body">
-          {#if panelTab === 'expenses'}
+          {#if panelTab === "expenses"}
             {#if expenses.length === 0}
               <p class="empty">No expenses yet.</p>
             {:else}
@@ -666,23 +689,29 @@
                               ? null
                               : expense.id)}
                         onkeydown={(e) =>
-                          e.key === 'Enter' &&
+                          e.key === "Enter" &&
                           (expandedExpenseId =
                             expandedExpenseId === expense.id
                               ? null
                               : expense.id)}
                       >
-                        <span class="expense-date">{expense.date}</span>
-                        <span class="expense-desc">{expense.description}</span>
-                        <span class="expense-payer">{expense.payerName}</span>
-                        <span class="expense-amount"
-                          >{expense.currency}
-                          {parseFloat(expense.amount).toFixed(2)}</span
-                        >
+                        <div class="row-avatar">{initials(expense.payerName)}</div>
+                        <div class="expense-info">
+                          <span class="expense-desc">{expense.description}</span>
+                          <span class="expense-meta"
+                            >{expense.date} · {expense.payerName}</span
+                          >
+                        </div>
+                        <div class="expense-right">
+                          <span class="expense-amount"
+                            >{parseFloat(expense.amount).toFixed(2)}</span
+                          >
+                          <span class="expense-currency">{expense.currency}</span>
+                        </div>
                         <Icon
                           name={expandedExpenseId === expense.id
-                            ? 'chevron-up'
-                            : 'chevron-down'}
+                            ? "chevron-up"
+                            : "chevron-down"}
                           size={12}
                         />
                       </div>
@@ -762,7 +791,9 @@
     overflow: hidden;
   }
 
-  /* Left column */
+  /* ====================================================================
+     Left column
+     ==================================================================== */
   .left-col {
     display: flex;
     flex-direction: column;
@@ -821,7 +852,9 @@
     text-transform: uppercase;
   }
 
-  /* Members */
+  /* ====================================================================
+     Members
+     ==================================================================== */
   .members-body {
     background: var(--color-window);
   }
@@ -858,7 +891,9 @@
     color: var(--color-text-muted);
   }
 
-  /* Invite */
+  /* ====================================================================
+     Invite
+     ==================================================================== */
   .invite-section {
     background: var(--color-window);
   }
@@ -905,78 +940,16 @@
     color: var(--color-text-muted);
   }
 
-  /* Expense form */
+  /* ====================================================================
+     Expense form
+     ==================================================================== */
   .expense-form-wrap {
     background: var(--color-window);
     padding: 12px 22px;
     border-bottom: 1px solid var(--color-rule);
-  }
-
-  .expense-fields {
     display: flex;
     flex-direction: column;
     gap: var(--sp-sm);
-  }
-
-  .expense-row-1,
-  .expense-row-2 {
-    display: flex;
-    gap: var(--sp-sm);
-    align-items: flex-end;
-  }
-
-  .field-desc {
-    flex: 1;
-    min-width: 0;
-  }
-  .field-amount {
-    width: 96px;
-    flex-shrink: 0;
-  }
-  .field-currency {
-    width: 60px;
-    flex-shrink: 0;
-  }
-  .field-paidby {
-    flex: 1;
-    min-width: 0;
-  }
-  .field-date {
-    width: 138px;
-    flex-shrink: 0;
-  }
-  .share-card {
-    background: var(--color-accent-light);
-    border: 1px solid var(--color-rule-soft);
-    padding: var(--sp-xs) var(--sp-sm);
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-    margin-top: var(--sp-xs);
-  }
-
-  .share-card-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-sm);
-  }
-
-  .share-card-name {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .share-card-pct {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text);
-  }
-
-  .expense-cta {
-    display: flex;
-    justify-content: flex-end;
-    margin-top: var(--sp-xs);
   }
 
   .field {
@@ -994,26 +967,177 @@
     color: var(--color-text-muted);
   }
 
-  .expense-fields :global(.fill-input) {
+  .expense-form-wrap :global(.fill-input) {
     width: 100%;
     box-sizing: border-box;
   }
 
-  .paid-by-fill {
-    width: 100%;
-    box-sizing: border-box;
+  /* Amount row: amount + currency + date side by side */
+  .amount-row {
+    display: flex;
+    gap: var(--sp-sm);
+    align-items: flex-end;
   }
 
-  .paid-by-select {
+  .field-amount {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .field-currency {
+    width: 64px;
+    flex-shrink: 0;
+  }
+
+  .field-date {
+    width: 138px;
+    flex-shrink: 0;
+  }
+
+  /* Make amount input slightly more prominent */
+  .expense-form-wrap :global(.amount-text) {
+    font-family: var(--font-mono);
+    font-size: var(--text-base);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ====================================================================
+     Payer chips
+     ==================================================================== */
+  .payer-chips {
+    display: flex;
+    gap: var(--sp-xs);
+    flex-wrap: wrap;
+  }
+
+  .payer-chip {
+    flex: 1;
+    min-width: 100px;
+    padding: 8px 12px;
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition:
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .payer-chip:hover:not(.selected) {
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
+    border-color: var(--color-accent);
+  }
+
+  .payer-chip.selected {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent),
+      color-mix(in srgb, var(--color-accent) 80%, black)
+    );
+    border-color: var(--color-accent);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .chip-avatar {
+    width: 24px;
     height: 24px;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    color: var(--color-text);
+    border-radius: 50%;
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 0 var(--sp-xs);
-    box-sizing: border-box;
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition:
+      background var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease);
+  }
+
+  .chip-avatar.selected {
+    background: color-mix(in srgb, var(--color-accent-fg) 25%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent-fg) 50%, transparent);
+    color: var(--color-accent-fg);
+  }
+
+  .chip-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    text-align: left;
+    min-width: 0;
+  }
+
+  .chip-name {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .payer-chip.selected .chip-name {
+    color: var(--color-btn-gradient-hi);
+  }
+
+  .chip-share {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .payer-chip.selected .chip-share {
+    color: color-mix(in srgb, var(--color-accent-fg) 65%, transparent);
+  }
+
+  /* ====================================================================
+     Split bar
+     ==================================================================== */
+  .split-bar-wrap {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .split-track {
+    height: 5px;
+    background: var(--color-accent-bar-track);
+    box-shadow: var(--shadow-sunken);
+    overflow: hidden;
+  }
+
+  .split-fill {
+    height: 100%;
+    background: var(--color-accent);
+    transition: width 200ms var(--ease);
+  }
+
+  .split-labels {
+    display: flex;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+  }
+
+  /* ====================================================================
+     Add Expense button — full-width GradientButton override
+     ==================================================================== */
+  .add-cta :global(.btn) {
+    width: 100%;
+    height: 28px;
+    font-size: var(--text-sm);
   }
 
   .form-error {
@@ -1021,10 +1145,11 @@
     color: var(--color-amount-negative);
     font-family: var(--font-sans);
     display: block;
-    margin-top: 4px;
   }
 
-  /* Balances */
+  /* ====================================================================
+     Balances
+     ==================================================================== */
   .balances-body {
     background: var(--color-window);
   }
@@ -1053,10 +1178,12 @@
     font-weight: var(--weight-semibold);
     color: var(--color-text);
   }
+
   .transfer-arrow {
     color: var(--color-text-muted);
     font-size: var(--text-xs);
   }
+
   .transfer-to {
     color: var(--color-text);
   }
@@ -1068,7 +1195,9 @@
     color: var(--color-amount-negative);
   }
 
-  /* Settlement form */
+  /* ====================================================================
+     Settle form
+     ==================================================================== */
   .settle-form-wrap {
     background: var(--color-window);
     padding: var(--sp-xs) 22px;
@@ -1090,12 +1219,26 @@
   .settle-form :global(.settle-amount) {
     width: 80px;
   }
+
   .settle-form :global(.settle-date) {
     width: 120px;
   }
+
   .settle-form :global(.settle-note) {
     flex: 1;
     min-width: 120px;
+  }
+
+  .paid-by-select {
+    height: 24px;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 0 var(--sp-xs);
+    box-sizing: border-box;
   }
 
   .empty {
@@ -1106,178 +1249,9 @@
     color: var(--color-text-muted);
   }
 
-  /* Right column — transaction panel */
-  .right-col {
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-  }
-
-  .txn-panel {
-    display: flex;
-    flex-direction: column;
-    height: 100%;
-    overflow: hidden;
-    background: var(--color-window-raised);
-  }
-
-  .panel-tabs {
-    display: flex;
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    flex-shrink: 0;
-  }
-
-  .panel-tab {
-    padding: 5px 14px;
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
-    text-transform: uppercase;
-    border: none;
-    border-right: 1px solid var(--color-section-bar-border-bottom);
-    background: transparent;
-    color: var(--color-section-bar-fg);
-    opacity: 0.6;
-    cursor: pointer;
-    transition:
-      opacity var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
-  }
-
-  .panel-tab:hover:not(.active) {
-    opacity: 0.85;
-    background: rgba(0, 0, 0, 0.05);
-  }
-
-  .panel-tab.active {
-    opacity: 1;
-    background: rgba(0, 0, 0, 0.1);
-    box-shadow: inset 0 -2px 0 var(--color-accent);
-  }
-
-  .tab-count {
-    font-weight: 400;
-    opacity: 0.7;
-  }
-
-  .panel-body {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    background: var(--color-window);
-  }
-
-  /* Expense list */
-  .expense-list {
-    background: var(--color-window);
-  }
-
-  .expense-item {
-    border-bottom: 1px solid var(--color-rule-soft);
-  }
-  .expense-item:last-child {
-    border-bottom: none;
-  }
-
-  .expense-row-wrap {
-    display: flex;
-    align-items: center;
-  }
-
-  .expense-row {
-    display: grid;
-    grid-template-columns: 6rem 1fr 6rem 6rem 1rem;
-    align-items: center;
-    gap: var(--sp-xs);
-    padding: 7px 8px 7px 14px;
-    flex: 1;
-    cursor: pointer;
-    font-family: var(--font-sans);
-    transition: background var(--duration-fast) var(--ease);
-  }
-
-  .expense-row:hover {
-    background: var(--color-window-raised);
-  }
-
-  .expense-date {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .expense-desc {
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-  }
-
-  .expense-payer {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .expense-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    text-align: right;
-    font-variant-numeric: tabular-nums;
-  }
-
-  .delete-btn,
-  .delete-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 28px;
-    flex-shrink: 0;
-  }
-
-  .delete-btn {
-    height: 100%;
-    background: none;
-    border: none;
-    cursor: pointer;
-    color: var(--color-text-muted);
-    transition: color var(--duration-fast) var(--ease);
-  }
-
-  .delete-btn:hover {
-    color: var(--color-amount-negative);
-  }
-
-  /* Splits */
-  .splits {
-    background: var(--color-window-raised);
-  }
-
-  .split-row {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 5px 22px 5px 28px;
-    border-top: 1px solid var(--color-rule-soft);
-    font-size: var(--text-xs);
-  }
-
-  .split-name {
-    font-family: var(--font-sans);
-    color: var(--color-text-muted);
-  }
-
-  .split-amount {
-    font-family: var(--font-mono);
-    color: var(--color-text-muted);
-    font-variant-numeric: tabular-nums;
-  }
-
-  /* Config panel */
+  /* ====================================================================
+     Config panel
+     ==================================================================== */
   .config-panel {
     flex-shrink: 0;
     border-bottom: 1px solid var(--color-rule);
@@ -1372,7 +1346,217 @@
     margin-top: var(--sp-xs);
   }
 
-  /* Settlement history */
+  /* ====================================================================
+     Right column — transaction panel
+     ==================================================================== */
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .txn-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-window-raised);
+  }
+
+  .panel-tabs {
+    display: flex;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
+  }
+
+  .panel-tab {
+    padding: 5px 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: none;
+    border-right: 1px solid var(--color-section-bar-border-bottom);
+    background: transparent;
+    color: var(--color-section-bar-fg);
+    opacity: 0.6;
+    cursor: pointer;
+    transition:
+      opacity var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
+  }
+
+  .panel-tab:hover:not(.active) {
+    opacity: 0.85;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .panel-tab.active {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 -2px 0 var(--color-accent);
+  }
+
+  .tab-count {
+    font-weight: 400;
+    opacity: 0.7;
+  }
+
+  .panel-body {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    background: var(--color-window);
+  }
+
+  /* ====================================================================
+     Expense list (right panel)
+     ==================================================================== */
+  .expense-list {
+    background: var(--color-window);
+  }
+
+  .expense-item {
+    border-bottom: 1px solid var(--color-rule-soft);
+  }
+
+  .expense-item:last-child {
+    border-bottom: none;
+  }
+
+  .expense-row-wrap {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .expense-row {
+    display: grid;
+    grid-template-columns: auto 1fr auto 1rem;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: 8px 8px 8px 12px;
+    flex: 1;
+    cursor: pointer;
+    transition: background var(--duration-fast) var(--ease);
+  }
+
+  .expense-row:hover {
+    background: var(--color-window-raised);
+  }
+
+  /* Initials avatar in right panel */
+  .row-avatar {
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent-chip-fg);
+    font-family: var(--font-mono);
+    font-size: 8px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .expense-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+  }
+
+  .expense-desc {
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .expense-meta {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .expense-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    flex-shrink: 0;
+  }
+
+  .expense-amount {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+    font-weight: var(--weight-semibold);
+  }
+
+  .expense-currency {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .delete-btn,
+  .delete-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    flex-shrink: 0;
+  }
+
+  .delete-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .delete-btn:hover {
+    color: var(--color-amount-negative);
+  }
+
+  /* ====================================================================
+     Splits (expanded)
+     ==================================================================== */
+  .splits {
+    background: var(--color-window-raised);
+  }
+
+  .split-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 5px 22px 5px 28px;
+    border-top: 1px solid var(--color-rule-soft);
+    font-size: var(--text-xs);
+  }
+
+  .split-name {
+    color: var(--color-text-muted);
+  }
+
+  .split-amount {
+    font-family: var(--font-mono);
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ====================================================================
+     Settlement history (right panel)
+     ==================================================================== */
   .settlement-list {
     background: var(--color-window);
   }
@@ -1418,9 +1602,10 @@
     flex: 1;
   }
 
-  /* Responsive — mobile */
+  /* ====================================================================
+     Responsive — mobile
+     ==================================================================== */
   @media (max-width: 600px) {
-    /* Single column; parent .content handles scroll */
     .page {
       display: flex;
       flex-direction: column;
@@ -1455,76 +1640,43 @@
       min-height: 0;
     }
 
-    /* Header */
     .page-header {
       padding: 10px 14px 8px;
       flex-wrap: wrap;
     }
 
-    /* Expense form: wrap on small screens */
     .expense-form-wrap {
       padding: 10px 14px;
     }
-    .expense-row-1 {
+
+    .amount-row {
       flex-wrap: wrap;
     }
-    .field-desc {
-      flex: 1 1 100%;
-    }
-    .expense-row-2 {
-      flex-wrap: wrap;
-    }
+
     .field-date {
       flex: 1;
       min-width: 120px;
     }
 
-    /* Larger touch targets for selects */
     .paid-by-select {
       height: 32px;
     }
 
-    /* Row padding reductions */
-    .member-row {
-      padding-left: 14px;
-      padding-right: 14px;
-    }
-    .invite-form {
-      padding-left: 14px;
-      padding-right: 14px;
-    }
-    .pending-row {
-      padding-left: 14px;
-      padding-right: 14px;
-    }
-    .transfer-row {
-      padding-left: 14px;
-      padding-right: 14px;
-    }
+    .member-row,
+    .invite-form,
+    .pending-row,
+    .transfer-row,
     .settle-form-wrap {
       padding-left: 14px;
       padding-right: 14px;
     }
 
-    /* Expense rows: drop payer column, tighten */
-    .expense-row {
-      grid-template-columns: 5rem 1fr 5rem 1rem;
-      padding: 7px 6px 7px 12px;
-    }
-    .expense-payer {
-      display: none;
+    .payer-chips {
+      gap: var(--sp-xs);
     }
 
-    /* Settlement rows */
-    .settlement-row {
-      padding-left: 12px;
-      padding-right: 6px;
-    }
-    .settlement-date {
-      min-width: 5rem;
-    }
-    .settlement-note {
-      display: none;
+    .payer-chip {
+      min-width: 80px;
     }
   }
 </style>
