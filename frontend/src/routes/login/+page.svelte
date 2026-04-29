@@ -109,7 +109,6 @@
     margin-bottom: var(--sp-md);
     padding: var(--sp-xs);
     background: var(--color-danger-light);
-    box-shadow: var(--shadow-sunken);
   }
 
   .actions {

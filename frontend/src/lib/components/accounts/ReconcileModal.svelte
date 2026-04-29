@@ -308,7 +308,7 @@
     flex-direction: column;
     gap: var(--sp-xs);
     background: var(--color-window-inset);
-    box-shadow: var(--shadow-sunken);
+    border: 1px solid var(--color-rule-soft);
     padding: var(--sp-sm);
   }
 
@@ -362,7 +362,6 @@
     color: var(--color-amount-negative);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);
-    box-shadow: var(--shadow-sunken);
   }
 
   .footer {

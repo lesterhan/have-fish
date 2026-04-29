@@ -395,7 +395,6 @@
     color: var(--color-amount-negative);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);
-    box-shadow: var(--shadow-sunken);
     margin: 0;
   }
 </style>

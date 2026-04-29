@@ -64,7 +64,6 @@
     z-index: 500;
     background: var(--color-window);
     border: 1px solid var(--color-sidebar-border);
-    box-shadow: var(--shadow-raised);
     padding: var(--sp-xs);
   }
 

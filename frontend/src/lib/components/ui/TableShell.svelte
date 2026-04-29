@@ -62,7 +62,7 @@
 
   th {
     background: var(--color-window);
-    box-shadow: var(--shadow-raised);
+    border-bottom: 1px solid var(--color-rule);
     padding: var(--sp-xs) var(--sp-sm);
     text-align: left;
     font-weight: var(--weight-semibold);

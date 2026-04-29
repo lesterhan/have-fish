@@ -341,46 +341,6 @@
     padding: 0;
     background: var(--color-window-raised);
     min-width: 0; /* prevent flex blowout */
-    scrollbar-width: auto;
-    scrollbar-color: var(--color-window) var(--color-window);
-  }
-
-  .content::-webkit-scrollbar {
-    width: 16px;
-  }
-
-  .content::-webkit-scrollbar-track {
-    background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .content::-webkit-scrollbar-thumb {
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    min-height: 24px;
-  }
-
-  .content::-webkit-scrollbar-thumb:hover {
-    background: var(--color-window-raised);
-  }
-
-  .content::-webkit-scrollbar-thumb:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .content::-webkit-scrollbar-button {
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    display: block;
-    height: 16px;
-  }
-
-  .content::-webkit-scrollbar-button:hover {
-    background: var(--color-window-raised);
-  }
-
-  .content::-webkit-scrollbar-button:active {
-    box-shadow: var(--shadow-sunken);
   }
 
   /* --- Mobile backdrop (closes sidebar on outside click) --- */

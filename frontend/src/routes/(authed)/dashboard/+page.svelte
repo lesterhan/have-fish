@@ -692,7 +692,6 @@
     font-size: var(--text-xs);
     padding: 1px var(--sp-xs);
     font-weight: var(--weight-semibold);
-    box-shadow: var(--shadow-raised);
   }
 
   .zone-comfortable {

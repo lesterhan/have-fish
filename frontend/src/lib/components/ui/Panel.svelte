@@ -47,7 +47,6 @@
 
   .panel-body {
     background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
     flex: 1;
   }
 </style>

@@ -151,7 +151,7 @@
     align-items: flex-end;
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window-raised);
-    box-shadow: var(--shadow-sunken);
+    border: 1px solid var(--color-rule-soft);
     min-width: 96px;
   }
 
