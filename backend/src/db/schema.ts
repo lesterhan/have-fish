@@ -165,6 +165,7 @@ export const importRules = pgTable('import_rules', {
 export const expenseGroups = pgTable('expense_groups', {
   id: uuid('id').primaryKey().defaultRandom(),
   name: text('name').notNull(),
+  defaultCurrency: text('default_currency'),
   createdBy: text('created_by').notNull().references(() => user.id, { onDelete: 'cascade' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),

@@ -155,6 +155,13 @@
       "when": 1777402961815,
       "tag": "0021_cultured_jack_flag",
       "breakpoints": true
+    },
+    {
+      "idx": 22,
+      "version": "7",
+      "when": 1777421682317,
+      "tag": "0022_tricky_sister_grimm",
+      "breakpoints": true
     }
   ]
 }

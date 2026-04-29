@@ -1,0 +1,1 @@
+ALTER TABLE "expense_groups" ADD COLUMN "default_currency" text;

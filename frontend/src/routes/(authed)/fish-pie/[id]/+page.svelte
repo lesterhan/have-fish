@@ -13,6 +13,8 @@
     fetchSettlements,
     createSettlement,
     deleteSettlement,
+    updateGroup,
+    updateMemberWeight,
   } from '$lib/api'
   import type {
     ExpenseGroup,
@@ -24,6 +26,7 @@
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
 
@@ -38,6 +41,10 @@
   let notFound = $state(false)
 
   let showMembers = $state(false)
+  let showConfig = $state(false)
+  let configCurrency = $state('')
+  let weightEdits = $state<Record<string, string>>({})
+
   let showInvite = $state(false)
   let inviteEmail = $state('')
   let inviteError = $state('')
@@ -84,6 +91,8 @@
       settlements = sett
       expensePaidBy = currentUserId
       settleFrom = currentUserId
+      expenseCurrency = g.defaultCurrency ?? 'CAD'
+      settleCurrency = g.defaultCurrency ?? 'CAD'
     } catch {
       notFound = true
     } finally {
@@ -192,6 +201,38 @@
   function canDeleteSettlement(s: GroupSettlement) {
     return s.fromUserId === currentUserId || s.toUserId === currentUserId || group?.createdBy === currentUserId
   }
+
+  function openConfig() {
+    if (!group) return
+    configCurrency = group.defaultCurrency ?? ''
+    const edits: Record<string, string> = {}
+    for (const m of group.members) edits[m.userId] = String(m.shareWeight)
+    weightEdits = edits
+    showConfig = !showConfig
+  }
+
+  async function saveDefaultCurrency(code: string) {
+    if (!group) return
+    group = await updateGroup(groupId, { defaultCurrency: code })
+    expenseCurrency = code
+  }
+
+  async function saveWeight(userId: string) {
+    if (!group) return
+    const raw = weightEdits[userId]
+    const weight = parseInt(raw, 10)
+    const member = group.members.find((m) => m.userId === userId)
+    if (!member || isNaN(weight) || weight < 1 || weight === member.shareWeight) return
+    const updated = await updateMemberWeight(groupId, userId, weight)
+    group = {
+      ...group,
+      members: group.members.map((m) => m.userId === userId ? { ...m, shareWeight: updated.shareWeight } : m),
+    }
+  }
+
+  function handleWeightKeydown(e: KeyboardEvent, userId: string) {
+    if (e.key === 'Enter') saveWeight(userId)
+  }
 </script>
 
 <div class="page">
@@ -214,7 +255,51 @@
       <header class="page-header">
         <h1 class="page-title">{group.name}</h1>
         <Toggle bind:checked={showMembers} label="Show members" />
+        <GradientButton square active={showConfig} onclick={openConfig} tooltip="Group settings">
+          <Icon name="settings" size={12} />
+        </GradientButton>
       </header>
+
+      {#if showConfig && group}
+        <div class="config-panel">
+          <div class="config-header">
+            <span class="config-title">Group Settings</span>
+          </div>
+          <div class="config-body">
+            {#if group.createdBy === currentUserId}
+              <div class="setting-row">
+                <span class="setting-label">Default currency</span>
+                <div class="setting-control">
+                  <CurrencyInput
+                    bind:value={configCurrency}
+                    style="width: 60px"
+                    oncommit={saveDefaultCurrency}
+                  />
+                </div>
+              </div>
+            {/if}
+            <div class="setting-row">
+              <span class="setting-label">Share weights</span>
+              <div class="setting-control">
+                {#each group.members as member (member.id)}
+                  <div class="weight-item">
+                    <span class="weight-name">{member.userName}</span>
+                    <input
+                      type="number"
+                      class="weight-input"
+                      min="1"
+                      disabled={member.userId !== currentUserId && group.createdBy !== currentUserId}
+                      bind:value={weightEdits[member.userId]}
+                      onblur={() => saveWeight(member.userId)}
+                      onkeydown={(e) => handleWeightKeydown(e, member.userId)}
+                    />
+                  </div>
+                {/each}
+              </div>
+            </div>
+          </div>
+        </div>
+      {/if}
 
       <div class="left-body">
         <!-- Members (toggleable) -->
@@ -282,7 +367,7 @@
               </div>
               <div class="field field-currency">
                 <span class="field-label">Currency</span>
-                <TextInput bind:value={expenseCurrency} placeholder="CAD" class="fill-input" />
+                <CurrencyInput bind:value={expenseCurrency} style="width: 100%" />
               </div>
             </div>
             <div class="expense-row-2">
@@ -333,7 +418,7 @@
                 {/each}
               </select>
               <TextInput bind:value={settleAmount} placeholder="0.00" type="number" min="0" step="0.01" class="settle-amount" />
-              <TextInput bind:value={settleCurrency} placeholder="CAD" class="settle-currency" />
+              <CurrencyInput bind:value={settleCurrency} style="width: 60px" />
               <TextInput bind:value={settleDate} type="date" class="settle-date" />
               <TextInput bind:value={settleNote} placeholder="Note (optional)" class="settle-note" />
               <GradientButton onclick={handleSettle} disabled={settleSubmitting || !settleFrom || !settleTo || !settleAmount}>
@@ -719,7 +804,6 @@
   }
 
   .settle-form :global(.settle-amount) { width: 80px; }
-  .settle-form :global(.settle-currency) { width: 52px; }
   .settle-form :global(.settle-date) { width: 120px; }
   .settle-form :global(.settle-note) { flex: 1; min-width: 120px; }
 
@@ -889,6 +973,133 @@
     font-variant-numeric: tabular-nums;
   }
 
+  /* Config panel */
+  .config-panel {
+    flex-shrink: 0;
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .config-header {
+    padding: 3px 14px;
+    background: var(--color-window-raised);
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .config-title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .config-body {
+    background: var(--color-window);
+    padding: var(--sp-sm) 14px;
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-xl);
+    flex-wrap: wrap;
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    flex-wrap: wrap;
+  }
+
+  .setting-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .setting-control {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    flex-wrap: wrap;
+  }
+
+  .weight-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: var(--text-sm);
+  }
+
+  .weight-name {
+    color: var(--color-text);
+    font-size: var(--text-sm);
+  }
+
+  .weight-input {
+    width: 48px;
+    height: 24px;
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 0 var(--sp-xs);
+    box-sizing: border-box;
+    text-align: center;
+  }
+
+  .weight-input:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  /* Settlement history */
+  .settlement-list { background: var(--color-window); }
+
+  .settlement-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: 6px 8px 6px 14px;
+    border-bottom: 1px solid var(--color-rule-soft);
+    font-size: var(--text-sm);
+  }
+
+  .settlement-row:last-child { border-bottom: none; }
+
+  .settlement-date {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    min-width: 6rem;
+  }
+
+  .settlement-names {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    flex: 1;
+  }
+
+  .settlement-amount {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-variant-numeric: tabular-nums;
+    color: var(--color-text);
+  }
+
+  .settlement-note {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+    flex: 1;
+  }
+
   /* Responsive — mobile */
   @media (max-width: 600px) {
     /* Single column; parent .content handles scroll */
@@ -958,45 +1169,4 @@
     .settlement-note { display: none; }
   }
 
-  /* Settlement history */
-  .settlement-list { background: var(--color-window); }
-
-  .settlement-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    padding: 6px 8px 6px 14px;
-    border-bottom: 1px solid var(--color-rule-soft);
-    font-size: var(--text-sm);
-  }
-
-  .settlement-row:last-child { border-bottom: none; }
-
-  .settlement-date {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    min-width: 6rem;
-  }
-
-  .settlement-names {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    flex: 1;
-  }
-
-  .settlement-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-variant-numeric: tabular-nums;
-    color: var(--color-text);
-  }
-
-  .settlement-note {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    font-style: italic;
-    flex: 1;
-  }
 </style>

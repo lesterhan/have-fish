@@ -703,6 +703,7 @@ export type GroupMember = {
 export type ExpenseGroup = {
   id: string
   name: string
+  defaultCurrency: string | null
   createdBy: string
   createdAt: string
   deletedAt: string | null
@@ -732,14 +733,25 @@ export async function createGroup(name: string): Promise<ExpenseGroup> {
   return res.json()
 }
 
-export async function updateGroup(id: string, name: string): Promise<ExpenseGroup> {
+export async function updateGroup(id: string, data: { name?: string; defaultCurrency?: string | null }): Promise<ExpenseGroup> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, {
     method: 'PATCH',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ name }),
+    body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error('Failed to update group')
+  return res.json()
+}
+
+export async function updateMemberWeight(groupId: string, userId: string, shareWeight: number): Promise<GroupMember> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/members/${userId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shareWeight }),
+  })
+  if (!res.ok) throw new Error('Failed to update share weight')
   return res.json()
 }
 

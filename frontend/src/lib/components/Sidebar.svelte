@@ -154,6 +154,7 @@
         use:tooltip={'Budgeting'}
       >
         <Icon name="piggy-bank" size={16} />
+        <Icon name="cone" size={16} />
         <span class="nav-label">Budgeting</span>
       </a>
       <a
@@ -181,6 +182,7 @@
         use:tooltip={'Fish Pie'}
       >
         <Icon name="pie" size={16} />
+        <Icon name="cone" size={16} />
         <span class="nav-label">Fish Pie</span>
       </a>
       <!--

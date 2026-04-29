@@ -99,17 +99,58 @@ app.patch('/:id', async (c) => {
   if (!group) return c.json({ error: 'not found' }, 404)
   if (group.createdBy !== userId) return c.json({ error: 'forbidden' }, 403)
 
-  const body = await c.req.json<{ name?: string }>()
-  if (!body.name?.trim()) return c.json({ error: 'name is required' }, 400)
+  const body = await c.req.json<{ name?: string; defaultCurrency?: string | null }>()
+  if (body.name !== undefined && !body.name.trim()) return c.json({ error: 'name cannot be empty' }, 400)
+
+  const updates: Partial<typeof expenseGroups.$inferInsert> = {}
+  if (body.name !== undefined) updates.name = body.name.trim()
+  if ('defaultCurrency' in body) updates.defaultCurrency = body.defaultCurrency ?? null
+
+  if (Object.keys(updates).length === 0) return c.json({ error: 'no fields to update' }, 400)
 
   const [updated] = await db
     .update(expenseGroups)
-    .set({ name: body.name.trim() })
+    .set(updates)
     .where(eq(expenseGroups.id, groupId))
     .returning()
 
   const members = await fetchMembersForGroups([groupId])
   return c.json({ ...updated, members })
+})
+
+app.patch('/:id/members/:userId', async (c) => {
+  const requestingUserId = c.get('userId')
+  const groupId = c.req.param('id')
+  const targetUserId = c.req.param('userId')
+
+  const [group] = await db
+    .select()
+    .from(expenseGroups)
+    .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
+
+  if (!group) return c.json({ error: 'not found' }, 404)
+
+  const members = await fetchMembersForGroups([groupId])
+  if (!members.some((m) => m.userId === requestingUserId)) return c.json({ error: 'not found' }, 404)
+
+  const isSelf = targetUserId === requestingUserId
+  const isCreator = group.createdBy === requestingUserId
+  if (!isSelf && !isCreator) return c.json({ error: 'forbidden' }, 403)
+
+  const body = await c.req.json<{ shareWeight?: number }>()
+  const weight = body.shareWeight
+  if (typeof weight !== 'number' || !Number.isInteger(weight) || weight < 1) {
+    return c.json({ error: 'shareWeight must be a positive integer' }, 400)
+  }
+
+  const [updated] = await db
+    .update(expenseGroupMembers)
+    .set({ shareWeight: weight })
+    .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, targetUserId)))
+    .returning()
+
+  if (!updated) return c.json({ error: 'member not found' }, 404)
+  return c.json(updated)
 })
 
 app.delete('/:id', async (c) => {
