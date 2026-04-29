@@ -66,6 +66,10 @@
 
   let panelTab = $state<'expenses' | 'settlements'>('expenses')
 
+  const memberTotalWeight = $derived(
+    group?.members.reduce((s, m) => s + m.shareWeight, 0) ?? 0,
+  )
+
   let showSettleForm = $state(false)
   let settleFrom = $state('')
   let settleTo = $state('')
@@ -464,9 +468,6 @@
                   bind:value={expenseAmount}
                   placeholder="0.00"
                   class="fill-input"
-                  type="number"
-                  min="0"
-                  step="0.01"
                 />
               </div>
               <div class="field field-currency">
@@ -497,17 +498,29 @@
                   class="fill-input"
                 />
               </div>
-              <div class="field-actions">
-                <GradientButton
-                  onclick={handleAddExpense}
-                  disabled={expenseSubmitting ||
-                    !expenseDesc.trim() ||
-                    !expenseAmount}
-                >
-                  Add expense
-                </GradientButton>
-              </div>
             </div>
+          </div>
+          <div class="share-card">
+            {#each group.members as m (m.id)}
+              <div class="share-card-row">
+                <span class="share-card-name">{m.userName}</span>
+                <span class="share-card-pct"
+                  >{memberTotalWeight > 0
+                    ? Math.round((m.shareWeight / memberTotalWeight) * 100)
+                    : 0}%</span
+                >
+              </div>
+            {/each}
+          </div>
+          <div class="expense-cta">
+            <GradientButton
+              onclick={handleAddExpense}
+              disabled={expenseSubmitting ||
+                !expenseDesc.trim() ||
+                !expenseAmount}
+            >
+              Add expense
+            </GradientButton>
           </div>
           {#if expenseError}
             <span class="form-error">{expenseError}</span>
@@ -932,9 +945,38 @@
     width: 138px;
     flex-shrink: 0;
   }
-  .field-actions {
+  .share-card {
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-rule-soft);
+    padding: var(--sp-xs) var(--sp-sm);
     display: flex;
-    align-items: flex-end;
+    flex-direction: column;
+    gap: 3px;
+    margin-top: var(--sp-xs);
+  }
+
+  .share-card-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-sm);
+  }
+
+  .share-card-name {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .share-card-pct {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text);
+  }
+
+  .expense-cta {
+    display: flex;
+    justify-content: flex-end;
+    margin-top: var(--sp-xs);
   }
 
   .field {
@@ -1435,10 +1477,6 @@
     .field-date {
       flex: 1;
       min-width: 120px;
-    }
-    .field-actions {
-      flex: 1 1 100%;
-      justify-content: flex-end;
     }
 
     /* Larger touch targets for selects */
