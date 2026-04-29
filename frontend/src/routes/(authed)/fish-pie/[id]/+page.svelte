@@ -329,19 +329,21 @@
     <div class="left-col">
       <header class="page-header">
         <h1 class="page-title">{group.name}</h1>
-        <CurrencyInput
-          bind:value={configCurrency}
-          style="width: 60px"
-          oncommit={saveDefaultCurrency}
-        />
-        <Toggle bind:checked={showMembers} label="Show members" />
+        <div class="header-controls">
+          <CurrencyInput
+            bind:value={configCurrency}
+            style="width: 60px"
+            oncommit={saveDefaultCurrency}
+          />
+          <Toggle bind:checked={showMembers} label="Show balance" />
+        </div>
       </header>
 
       <div class="left-body">
         <!-- Members (toggleable) with balances integrated -->
         {#if showMembers}
           <div class="section-bar">
-            <span class="section-bar-title">Members</span>
+            <span class="section-bar-title">Balance</span>
           </div>
           <div class="members-body">
             {#each group.members as member (member.id)}
@@ -756,6 +758,12 @@
 
   .header-placeholder {
     height: 28px;
+  }
+
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
   }
 
   .page-title {
