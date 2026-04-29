@@ -44,7 +44,6 @@
   let showMembers = $state(false)
   let configCurrency = $state('')
 
-  let showInvite = $state(false)
   let inviteEmail = $state('')
   let inviteError = $state('')
   let inviteSubmitting = $state(false)
@@ -327,20 +326,51 @@
       </header>
     </div>
     <div class="right-col"></div>
-  {:else if group.members.length !== 2}
+  {:else if group.members.length === 1}
     <div class="left-col">
       <header class="page-header">
         <h1 class="page-title">{group.name}</h1>
       </header>
       <div class="left-body">
-        <p class="empty">
-          This view is designed for 2-member groups. Support for larger groups
-          is coming soon.
-        </p>
+        <div class="section-bar">
+          <span class="section-bar-title">Invite</span>
+        </div>
+        <div class="invite-section">
+          <div class="invite-form">
+            <TextInput
+              bind:value={inviteEmail}
+              placeholder="Email address"
+              onkeydown={handleInviteKeydown}
+              type="email"
+            />
+            <GradientButton
+              onclick={handleInvite}
+              disabled={inviteSubmitting || !inviteEmail.trim()}
+            >
+              Send invite
+            </GradientButton>
+            {#if inviteError}
+              <span class="form-error">{inviteError}</span>
+            {/if}
+          </div>
+          {#if invites.length > 0}
+            <div class="pending-list">
+              {#each invites as invite (invite.id)}
+                <div class="pending-row">
+                  <span class="pending-email">{invite.inviteeEmail}</span>
+                  <span class="pending-label">Pending</span>
+                  <GradientButton onclick={() => handleCancelInvite(invite.id)}>
+                    <Icon name="x" size={10} /> Cancel
+                  </GradientButton>
+                </div>
+              {/each}
+            </div>
+          {/if}
+        </div>
       </div>
     </div>
     <div class="right-col"></div>
-  {:else}
+  {:else if group.members.length === 2}
     <div class="left-col">
       <header class="page-header">
         <h1 class="page-title">{group.name}</h1>
@@ -416,42 +446,6 @@
             </div>
           {/if}
 
-          {#if showInvite}
-            <div class="invite-section">
-              <div class="invite-form">
-                <TextInput
-                  bind:value={inviteEmail}
-                  placeholder="Email address"
-                  onkeydown={handleInviteKeydown}
-                  type="email"
-                />
-                <GradientButton
-                  onclick={handleInvite}
-                  disabled={inviteSubmitting || !inviteEmail.trim()}
-                >
-                  Send invite
-                </GradientButton>
-                {#if inviteError}
-                  <span class="form-error">{inviteError}</span>
-                {/if}
-              </div>
-              {#if invites.length > 0}
-                <div class="pending-list">
-                  {#each invites as invite (invite.id)}
-                    <div class="pending-row">
-                      <span class="pending-email">{invite.inviteeEmail}</span>
-                      <span class="pending-label">Pending</span>
-                      <GradientButton
-                        onclick={() => handleCancelInvite(invite.id)}
-                      >
-                        <Icon name="x" size={10} /> Cancel
-                      </GradientButton>
-                    </div>
-                  {/each}
-                </div>
-              {/if}
-            </div>
-          {/if}
         {/if}
 
         <!-- Expense entry -->
