@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte"
-  import { page } from "$app/state"
+  import { onMount } from 'svelte'
+  import { page } from '$app/state'
   import {
     fetchGroup,
     fetchGroupInvites,
@@ -15,28 +15,28 @@
     deleteSettlement,
     updateGroup,
     updateMemberWeight,
-  } from "$lib/api"
+  } from '$lib/api'
   import type {
     ExpenseGroup,
     GroupInvite,
     GroupExpense,
     CurrencyBalance,
     GroupSettlement,
-  } from "$lib/api"
-  import { useSession } from "$lib/auth"
-  import GradientButton from "$lib/components/ui/GradientButton.svelte"
-  import TextInput from "$lib/components/ui/TextInput.svelte"
-  import CurrencyInput from "$lib/components/ui/CurrencyInput.svelte"
-  import Icon from "$lib/components/ui/Icon.svelte"
-  import Toggle from "$lib/components/ui/Toggle.svelte"
-  import GroupBalancePanel from "$lib/components/fish-pie/GroupBalancePanel.svelte"
-  import GroupExpenseForm from "$lib/components/fish-pie/GroupExpenseForm.svelte"
-  import GroupRightPanel from "$lib/components/fish-pie/GroupRightPanel.svelte"
-  import GroupSettleModal from "$lib/components/fish-pie/GroupSettleModal.svelte"
+  } from '$lib/api'
+  import { useSession } from '$lib/auth'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
+  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import Toggle from '$lib/components/ui/Toggle.svelte'
+  import GroupBalancePanel from '$lib/components/fish-pie/GroupBalancePanel.svelte'
+  import GroupExpenseForm from '$lib/components/fish-pie/GroupExpenseForm.svelte'
+  import GroupRightPanel from '$lib/components/fish-pie/GroupRightPanel.svelte'
+  import GroupSettleModal from '$lib/components/fish-pie/GroupSettleModal.svelte'
 
-  const groupId = $derived(page.params.id ?? "")
+  const groupId = $derived(page.params.id ?? '')
   const session = useSession()
-  const currentUserId = $derived($session.data?.user.id ?? "")
+  const currentUserId = $derived($session.data?.user.id ?? '')
 
   let group = $state<ExpenseGroup | null>(null)
   let invites = $state<GroupInvite[]>([])
@@ -47,19 +47,19 @@
   let notFound = $state(false)
 
   let showMembers = $state(false)
-  let configCurrency = $state("")
+  let configCurrency = $state('')
 
-  let inviteEmail = $state("")
-  let inviteError = $state("")
+  let inviteEmail = $state('')
+  let inviteError = $state('')
   let inviteSubmitting = $state(false)
 
   let showSettleModal = $state(false)
-  let settleFromUserId = $state("")
-  let settleToUserId = $state("")
-  let settleFromName = $state("")
-  let settleToName = $state("")
-  let settleInitialAmount = $state("")
-  let settleCurrency = $state("CAD")
+  let settleFromUserId = $state('')
+  let settleToUserId = $state('')
+  let settleFromName = $state('')
+  let settleToName = $state('')
+  let settleInitialAmount = $state('')
+  let settleCurrency = $state('CAD')
 
   let initialSliderPct = $state(50)
 
@@ -81,8 +81,8 @@
       expenses = exp
       balances = bal
       settlements = sett
-      settleCurrency = g.defaultCurrency ?? "CAD"
-      configCurrency = g.defaultCurrency ?? ""
+      settleCurrency = g.defaultCurrency ?? 'CAD'
+      configCurrency = g.defaultCurrency ?? ''
       if (g.members.length === 2) {
         const total = g.members[0].shareWeight + g.members[1].shareWeight
         initialSliderPct =
@@ -97,14 +97,14 @@
 
   async function handleInvite() {
     if (!inviteEmail.trim() || inviteSubmitting) return
-    inviteError = ""
+    inviteError = ''
     inviteSubmitting = true
     try {
       const invite = await sendInvite(groupId, inviteEmail.trim())
       invites = [...invites, invite]
-      inviteEmail = ""
+      inviteEmail = ''
     } catch (e: any) {
-      inviteError = e.message ?? "Failed to send invite"
+      inviteError = e.message ?? 'Failed to send invite'
     } finally {
       inviteSubmitting = false
     }
@@ -116,7 +116,7 @@
   }
 
   function handleInviteKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") handleInvite()
+    if (e.key === 'Enter') handleInvite()
   }
 
   async function handleAddExpense(data: {
@@ -173,9 +173,9 @@
     settleFromUserId = fromUserId
     settleToUserId = toUserId
     settleFromName =
-      group?.members.find((m) => m.userId === fromUserId)?.userName ?? ""
+      group?.members.find((m) => m.userId === fromUserId)?.userName ?? ''
     settleToName =
-      group?.members.find((m) => m.userId === toUserId)?.userName ?? ""
+      group?.members.find((m) => m.userId === toUserId)?.userName ?? ''
     settleInitialAmount = amount
     settleCurrency = currency
     showSettleModal = true
@@ -260,11 +260,16 @@
   {:else if group.members.length === 2}
     <div class="left-col">
       <header class="page-header">
+        <a href="/fish-pie">
+          <GradientButton square>
+            <Icon name="back" />
+          </GradientButton>
+        </a>
         <h1 class="page-title">{group.name}</h1>
         <div class="header-controls">
           <CurrencyInput
             bind:value={configCurrency}
-            style="width: 60px"
+            style="width: 40px"
             oncommit={saveDefaultCurrency}
           />
           <Toggle bind:checked={showMembers} label="Balances" />
@@ -284,7 +289,7 @@
         <GroupExpenseForm
           members={group.members}
           {currentUserId}
-          defaultCurrency={group.defaultCurrency ?? "CAD"}
+          defaultCurrency={group.defaultCurrency ?? 'CAD'}
           {initialSliderPct}
           onCreate={handleAddExpense}
           onSliderChange={saveShareSlider}

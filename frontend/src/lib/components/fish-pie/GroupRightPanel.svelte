@@ -1,7 +1,7 @@
 <script lang="ts">
-  import type { GroupExpense, GroupSettlement } from "$lib/api"
-  import Icon from "$lib/components/ui/Icon.svelte"
-  import { initials } from "./utils"
+  import type { GroupExpense, GroupSettlement } from '$lib/api'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import { initials } from './utils'
 
   interface Props {
     expenses: GroupExpense[]
@@ -21,11 +21,13 @@
     onDeleteSettlement,
   }: Props = $props()
 
-  let panelTab = $state<"expenses" | "settlements">("expenses")
+  let panelTab = $state<'expenses' | 'settlements'>('expenses')
   let expandedExpenseId = $state<string | null>(null)
 
   function canDeleteExpense(expense: GroupExpense) {
-    return expense.paidByUserId === currentUserId || groupCreatedBy === currentUserId
+    return (
+      expense.paidByUserId === currentUserId || groupCreatedBy === currentUserId
+    )
   }
 
   function canDeleteSettlement(s: GroupSettlement) {
@@ -41,8 +43,8 @@
   <div class="panel-tabs">
     <button
       class="panel-tab"
-      class:active={panelTab === "expenses"}
-      onclick={() => (panelTab = "expenses")}
+      class:active={panelTab === 'expenses'}
+      onclick={() => (panelTab = 'expenses')}
     >
       Expenses{#if expenses.length > 0}<span class="tab-count">
           {expenses.length}</span
@@ -50,8 +52,8 @@
     </button>
     <button
       class="panel-tab"
-      class:active={panelTab === "settlements"}
-      onclick={() => (panelTab = "settlements")}
+      class:active={panelTab === 'settlements'}
+      onclick={() => (panelTab = 'settlements')}
     >
       Settlements{#if settlements.length > 0}<span class="tab-count">
           {settlements.length}</span
@@ -60,7 +62,7 @@
   </div>
 
   <div class="panel-body">
-    {#if panelTab === "expenses"}
+    {#if panelTab === 'expenses'}
       {#if expenses.length === 0}
         <p class="empty">No expenses yet.</p>
       {:else}
@@ -76,7 +78,7 @@
                     (expandedExpenseId =
                       expandedExpenseId === expense.id ? null : expense.id)}
                   onkeydown={(e) =>
-                    e.key === "Enter" &&
+                    e.key === 'Enter' &&
                     (expandedExpenseId =
                       expandedExpenseId === expense.id ? null : expense.id)}
                 >
@@ -95,8 +97,8 @@
                   </div>
                   <Icon
                     name={expandedExpenseId === expense.id
-                      ? "chevron-up"
-                      : "chevron-down"}
+                      ? 'chevron-up'
+                      : 'chevron-down'}
                     size={12}
                   />
                 </div>
@@ -214,6 +216,7 @@
 
   .tab-count {
     font-weight: 400;
+    margin-left: var(--sp-xs);
     opacity: 0.7;
   }
 

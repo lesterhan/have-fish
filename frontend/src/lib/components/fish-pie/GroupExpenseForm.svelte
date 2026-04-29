@@ -1,9 +1,10 @@
 <script lang="ts">
-  import type { GroupMember, GroupExpense } from "$lib/api"
-  import GradientButton from "$lib/components/ui/GradientButton.svelte"
-  import TextInput from "$lib/components/ui/TextInput.svelte"
-  import Icon from "$lib/components/ui/Icon.svelte"
-  import { initials } from "./utils"
+  import { untrack } from 'svelte'
+  import type { GroupMember, GroupExpense } from '$lib/api'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import { initials } from './utils'
 
   interface CreateExpenseData {
     description: string
@@ -31,27 +32,27 @@
     onSliderChange,
   }: Props = $props()
 
-  let desc = $state("")
-  let amount = $state("")
-  let currency = $state(defaultCurrency)
+  let desc = $state('')
+  let amount = $state('')
+  let currency = $state(untrack(() => defaultCurrency))
   const today = new Date().toISOString().slice(0, 10)
   let date = $state(today)
-  let paidBy = $state(currentUserId)
-  let error = $state("")
+  let paidBy = $state(untrack(() => currentUserId))
+  let error = $state('')
   let submitting = $state(false)
   let added = $state(false)
 
-  let shareSliderPct = $state(initialSliderPct)
+  let shareSliderPct = $state(untrack(() => initialSliderPct))
   let sliderSaving = $state(false)
 
   let dateInputEl = $state<HTMLInputElement | null>(null)
 
   const dateLabel = $derived(
     date === today
-      ? "Today"
-      : new Date(date + "T00:00:00").toLocaleDateString("en-CA", {
-          month: "short",
-          day: "numeric",
+      ? 'Today'
+      : new Date(date + 'T00:00:00').toLocaleDateString('en-CA', {
+          month: 'short',
+          day: 'numeric',
         }),
   )
 
@@ -62,24 +63,24 @@
 
   async function handleAdd() {
     if (!amount || parseFloat(amount) <= 0 || submitting) return
-    error = ""
+    error = ''
     submitting = true
     try {
       await onCreate({
-        description: desc.trim() || "Expense",
+        description: desc.trim() || 'Expense',
         amount,
         currency: currency.trim().toUpperCase(),
         date,
         paidByUserId: paidBy || currentUserId,
       })
-      desc = ""
-      amount = ""
+      desc = ''
+      amount = ''
       added = true
       setTimeout(() => {
         added = false
       }, 1200)
     } catch (e: any) {
-      error = e.message ?? "Failed to add expense"
+      error = e.message ?? 'Failed to add expense'
     } finally {
       submitting = false
     }
@@ -197,7 +198,7 @@
       onclick={handleAdd}
       disabled={submitting || !amount || parseFloat(amount) <= 0}
     >
-      {added ? "✓ Added" : "Add Expense"}
+      {added ? '✓ Added' : 'Add Expense'}
     </GradientButton>
   </div>
 
@@ -269,6 +270,8 @@
     font-family: var(--font-mono);
     font-size: var(--text-2xl);
     height: 64px;
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-xl);
   }
 
   .date-chip-outer {
