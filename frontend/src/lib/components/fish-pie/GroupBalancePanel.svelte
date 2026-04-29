@@ -1,7 +1,9 @@
 <script lang="ts">
-  import type { GroupMember, CurrencyBalance } from "$lib/api"
-  import GradientButton from "$lib/components/ui/GradientButton.svelte"
-  import { initials } from "./utils"
+  import type { GroupMember, CurrencyBalance } from '$lib/api'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import CurrencyPill from '../ui/CurrencyPill.svelte'
+  import { initials } from './utils'
 
   interface Props {
     members: GroupMember[]
@@ -35,12 +37,14 @@
           {#each cb.transfers as t}
             {#if t.fromUserId === member.userId}
               <span class="member-balance member-balance--owes">
-                owes {t.currency}
+                owes
+                <CurrencyPill code={t.currency} />
                 {parseFloat(t.amount).toFixed(2)}
               </span>
             {:else if t.toUserId === member.userId}
               <span class="member-balance member-balance--owed">
-                gets back {t.currency}
+                gets
+                <CurrencyPill code={t.currency} />
                 {parseFloat(t.amount).toFixed(2)}
               </span>
             {/if}
