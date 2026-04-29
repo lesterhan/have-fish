@@ -25,6 +25,7 @@
   } from '$lib/api'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import Modal from '$lib/components/ui/Modal.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -63,7 +64,7 @@
   let balances = $state<CurrencyBalance[]>([])
   let settlements = $state<GroupSettlement[]>([])
 
-  let showSettleForm = $state(false)
+  let showSettleModal = $state(false)
   let settleFrom = $state('')
   let settleTo = $state('')
   let settleAmount = $state('')
@@ -91,6 +92,13 @@
 
   const allSettled = $derived(
     balances.length === 0 || balances.every((b) => b.transfers.length === 0),
+  )
+
+  const settleFromName = $derived(
+    group?.members.find((m) => m.userId === settleFrom)?.userName ?? '',
+  )
+  const settleToName = $derived(
+    group?.members.find((m) => m.userId === settleTo)?.userName ?? '',
   )
 
   function initials(name: string | null | undefined): string {
@@ -160,7 +168,8 @@
   }
 
   async function handleAddExpense() {
-    if (!expenseAmount || parseFloat(expenseAmount) <= 0 || expenseSubmitting) return
+    if (!expenseAmount || parseFloat(expenseAmount) <= 0 || expenseSubmitting)
+      return
     expenseError = ''
     expenseSubmitting = true
     try {
@@ -193,7 +202,10 @@
   }
 
   function canDeleteExpense(expense: GroupExpense) {
-    return expense.paidByUserId === currentUserId || group?.createdBy === currentUserId
+    return (
+      expense.paidByUserId === currentUserId ||
+      group?.createdBy === currentUserId
+    )
   }
 
   async function refreshBalances() {
@@ -215,8 +227,10 @@
     settleTo = toUserId
     settleAmount = amount
     settleCurrency = currency
-    showMembers = true
-    showSettleForm = true
+    settleDate = new Date().toISOString().slice(0, 10)
+    settleNote = ''
+    settleError = ''
+    showSettleModal = true
   }
 
   async function handleSettle() {
@@ -241,7 +255,7 @@
       })
       settleAmount = ''
       settleNote = ''
-      showSettleForm = false
+      showSettleModal = false
       await refreshBalances()
     } catch (e: any) {
       settleError = e.message ?? 'Failed to record settlement'
@@ -320,7 +334,8 @@
       </header>
       <div class="left-body">
         <p class="empty">
-          This view is designed for 2-member groups. Support for larger groups is coming soon.
+          This view is designed for 2-member groups. Support for larger groups
+          is coming soon.
         </p>
       </div>
     </div>
@@ -335,7 +350,7 @@
             style="width: 60px"
             oncommit={saveDefaultCurrency}
           />
-          <Toggle bind:checked={showMembers} label="Show balance" />
+          <Toggle bind:checked={showMembers} label="Balances" />
         </div>
       </header>
 
@@ -370,7 +385,9 @@
                     {/each}
                   {/each}
                   {#if allSettled}
-                    <span class="member-balance member-balance--settled">settled</span>
+                    <span class="member-balance member-balance--settled"
+                      >settled</span
+                    >
                   {/if}
                 </div>
               </div>
@@ -384,55 +401,18 @@
                   <div class="settle-btn-wrap">
                     <GradientButton
                       onclick={() =>
-                        prefillSettle(t.fromUserId, t.toUserId, t.amount, t.currency)}
+                        prefillSettle(
+                          t.fromUserId,
+                          t.toUserId,
+                          t.amount,
+                          t.currency,
+                        )}
                     >
                       Settle up
                     </GradientButton>
                   </div>
                 {/each}
               {/each}
-            </div>
-          {/if}
-
-          {#if showSettleForm}
-            <div class="settle-form-wrap">
-              <div class="settle-form">
-                <select class="paid-by-select" bind:value={settleFrom}>
-                  {#each group.members as m (m.id)}
-                    <option value={m.userId}>{m.userName}</option>
-                  {/each}
-                </select>
-                <span class="settle-arrow">→</span>
-                <select class="paid-by-select" bind:value={settleTo}>
-                  {#each group.members as m (m.id)}
-                    <option value={m.userId}>{m.userName}</option>
-                  {/each}
-                </select>
-                <TextInput
-                  bind:value={settleAmount}
-                  placeholder="0.00"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  class="settle-amount"
-                />
-                <CurrencyInput bind:value={settleCurrency} style="width: 60px" />
-                <TextInput bind:value={settleDate} type="date" class="settle-date" />
-                <TextInput
-                  bind:value={settleNote}
-                  placeholder="Note (optional)"
-                  class="settle-note"
-                />
-                <GradientButton
-                  onclick={handleSettle}
-                  disabled={settleSubmitting || !settleFrom || !settleTo || !settleAmount}
-                >
-                  Save
-                </GradientButton>
-              </div>
-              {#if settleError}
-                <span class="form-error">{settleError}</span>
-              {/if}
             </div>
           {/if}
 
@@ -461,7 +441,9 @@
                     <div class="pending-row">
                       <span class="pending-email">{invite.inviteeEmail}</span>
                       <span class="pending-label">Pending</span>
-                      <GradientButton onclick={() => handleCancelInvite(invite.id)}>
+                      <GradientButton
+                        onclick={() => handleCancelInvite(invite.id)}
+                      >
                         <Icon name="x" size={10} /> Cancel
                       </GradientButton>
                     </div>
@@ -521,15 +503,15 @@
             </div>
           </div>
 
-
           <!-- Paid by chips -->
           <div class="field">
             <span class="field-label">Paid by</span>
             <div class="payer-chips">
               {#each group.members as m, i (m.id)}
-                {@const pct = i === 0
-                  ? Math.round(shareSliderPct)
-                  : Math.round(100 - shareSliderPct)}
+                {@const pct =
+                  i === 0
+                    ? Math.round(shareSliderPct)
+                    : Math.round(100 - shareSliderPct)}
                 {@const selected = expensePaidBy === m.userId}
                 <button
                   class="payer-chip"
@@ -631,17 +613,22 @@
                         tabindex="0"
                         onclick={() =>
                           (expandedExpenseId =
-                            expandedExpenseId === expense.id ? null : expense.id)}
+                            expandedExpenseId === expense.id
+                              ? null
+                              : expense.id)}
                         onkeydown={(e) =>
                           e.key === 'Enter' &&
                           (expandedExpenseId =
-                            expandedExpenseId === expense.id ? null : expense.id)}
+                            expandedExpenseId === expense.id
+                              ? null
+                              : expense.id)}
                       >
                         <div class="row-avatar">
                           {initials(expense.payerName)}
                         </div>
                         <div class="expense-info">
-                          <span class="expense-desc">{expense.description}</span>
+                          <span class="expense-desc">{expense.description}</span
+                          >
                           <span class="expense-meta"
                             >{expense.date} · {expense.payerName}</span
                           >
@@ -650,7 +637,9 @@
                           <span class="expense-amount"
                             >{parseFloat(expense.amount).toFixed(2)}</span
                           >
-                          <span class="expense-currency">{expense.currency}</span>
+                          <span class="expense-currency"
+                            >{expense.currency}</span
+                          >
                         </div>
                         <Icon
                           name={expandedExpenseId === expense.id
@@ -727,6 +716,56 @@
     </div>
   {/if}
 </div>
+
+<Modal
+  title="Settle up"
+  bind:open={showSettleModal}
+  onclose={() => (settleError = '')}
+>
+  <div class="settle-modal">
+    <div class="settle-modal-summary">
+      <span class="settle-modal-name">{settleFromName}</span>
+      <span class="settle-modal-arrow">→</span>
+      <span class="settle-modal-name">{settleToName}</span>
+    </div>
+    <div class="settle-modal-amount-row">
+      <TextInput
+        bind:value={settleAmount}
+        placeholder="0.00"
+        type="number"
+        min="0"
+        step="0.01"
+        class="settle-modal-amount"
+      />
+      <span class="settle-modal-currency">{settleCurrency}</span>
+    </div>
+    <TextInput bind:value={settleDate} type="date" class="settle-modal-date" />
+    <TextInput
+      bind:value={settleNote}
+      placeholder="Note (optional)"
+      class="settle-modal-note"
+    />
+    {#if settleError}
+      <span class="form-error">{settleError}</span>
+    {/if}
+    <div class="settle-modal-actions">
+      <GradientButton
+        onclick={() => {
+          showSettleModal = false
+          settleError = ''
+        }}
+      >
+        Cancel
+      </GradientButton>
+      <GradientButton
+        onclick={handleSettle}
+        disabled={settleSubmitting || !settleAmount}
+      >
+        Record
+      </GradientButton>
+    </div>
+  </div>
+</Modal>
 
 <style>
   .page {
@@ -1228,49 +1267,64 @@
   }
 
   /* ====================================================================
-     Settle form
+     Settle modal
      ==================================================================== */
-  .settle-form-wrap {
-    background: var(--color-window);
-    padding: var(--sp-xs) 22px;
-    border-bottom: 1px solid var(--color-rule);
+  .settle-modal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+    min-width: 280px;
   }
 
-  .settle-form {
+  .settle-modal-summary {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    flex-wrap: wrap;
-  }
-
-  .settle-arrow {
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window);
+    box-shadow: var(--shadow-sunken);
     font-size: var(--text-sm);
-    color: var(--color-text-muted);
   }
 
-  .settle-form :global(.settle-amount) {
-    width: 80px;
-  }
-
-  .settle-form :global(.settle-date) {
-    width: 120px;
-  }
-
-  .settle-form :global(.settle-note) {
-    flex: 1;
-    min-width: 120px;
-  }
-
-  .paid-by-select {
-    height: 24px;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
+  .settle-modal-name {
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
-    background: var(--color-window-inset);
-    border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 0 var(--sp-xs);
+  }
+
+  .settle-modal-arrow {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .settle-modal-amount-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+  }
+
+  .settle-modal :global(.settle-modal-amount) {
+    flex: 1;
+  }
+
+  .settle-modal-currency {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    font-weight: 700;
+    color: var(--color-text-muted);
+    min-width: 32px;
+  }
+
+  .settle-modal :global(.settle-modal-date),
+  .settle-modal :global(.settle-modal-note) {
+    width: 100%;
     box-sizing: border-box;
+  }
+
+  .settle-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-xs);
+    padding-top: var(--sp-xs);
   }
 
   .empty {
@@ -1598,14 +1652,9 @@
       flex-wrap: wrap;
     }
 
-    .paid-by-select {
-      height: 32px;
-    }
-
     .member-row,
     .invite-form,
-    .pending-row,
-    .settle-form-wrap {
+    .pending-row {
       padding-left: 14px;
       padding-right: 14px;
     }
