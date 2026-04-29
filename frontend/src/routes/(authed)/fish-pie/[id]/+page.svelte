@@ -41,10 +41,7 @@
   let notFound = $state(false)
 
   let showMembers = $state(false)
-  let showConfig = $state(false)
   let configCurrency = $state('')
-  let shareSliders = $state<Record<string, number>>({})
-  let weightSaving = $state(false)
 
   let showInvite = $state(false)
   let inviteEmail = $state('')
@@ -76,19 +73,25 @@
   let settleError = $state('')
   let settleSubmitting = $state(false)
 
-  const memberTotalWeight = $derived(
-    group?.members.reduce((s, m) => s + m.shareWeight, 0) ?? 0,
+  // share slider — member[0]'s percentage, member[1] gets the rest
+  let shareSliderPct = $state(50)
+  let sliderSaving = $state(false)
+
+  // date chip
+  const today = new Date().toISOString().slice(0, 10)
+  let expenseDateEl = $state<HTMLInputElement | null>(null)
+  const expenseDateLabel = $derived(
+    expenseDate === today
+      ? 'Today'
+      : new Date(expenseDate + 'T00:00:00').toLocaleDateString('en-CA', {
+          month: 'short',
+          day: 'numeric',
+        }),
   )
 
   const allSettled = $derived(
     balances.length === 0 || balances.every((b) => b.transfers.length === 0),
   )
-
-  function memberPct(shareWeight: number): number {
-    return memberTotalWeight > 0
-      ? Math.round((shareWeight / memberTotalWeight) * 100)
-      : 0
-  }
 
   function initials(name: string | null | undefined): string {
     return (
@@ -119,6 +122,12 @@
       settleFrom = currentUserId
       expenseCurrency = g.defaultCurrency ?? 'CAD'
       settleCurrency = g.defaultCurrency ?? 'CAD'
+      configCurrency = g.defaultCurrency ?? ''
+      if (g.members.length === 2) {
+        const total = g.members[0].shareWeight + g.members[1].shareWeight
+        shareSliderPct =
+          total > 0 ? Math.round((g.members[0].shareWeight / total) * 100) : 50
+      }
     } catch {
       notFound = true
     } finally {
@@ -151,8 +160,7 @@
   }
 
   async function handleAddExpense() {
-    if (!expenseAmount || parseFloat(expenseAmount) <= 0 || expenseSubmitting)
-      return
+    if (!expenseAmount || parseFloat(expenseAmount) <= 0 || expenseSubmitting) return
     expenseError = ''
     expenseSubmitting = true
     try {
@@ -185,10 +193,7 @@
   }
 
   function canDeleteExpense(expense: GroupExpense) {
-    return (
-      expense.paidByUserId === currentUserId ||
-      group?.createdBy === currentUserId
-    )
+    return expense.paidByUserId === currentUserId || group?.createdBy === currentUserId
   }
 
   async function refreshBalances() {
@@ -210,6 +215,7 @@
     settleTo = toUserId
     settleAmount = amount
     settleCurrency = currency
+    showMembers = true
     showSettleForm = true
   }
 
@@ -257,79 +263,37 @@
     )
   }
 
-  function openConfig() {
-    if (!group) return
-    configCurrency = group.defaultCurrency ?? ''
-    const total = group.members.reduce((s, m) => s + m.shareWeight, 0)
-    const sliders: Record<string, number> = {}
-    for (const m of group.members) {
-      sliders[m.userId] =
-        total > 0 ? (m.shareWeight / total) * 100 : 100 / group.members.length
-    }
-    shareSliders = sliders
-    showConfig = !showConfig
-  }
-
   async function saveDefaultCurrency(code: string) {
     if (!group) return
     group = await updateGroup(groupId, { defaultCurrency: code })
     expenseCurrency = code
+    settleCurrency = code
   }
 
-  function adjustSlider(userId: string, newPct: number) {
-    if (!group) return
-    const others = group.members
-      .map((m) => m.userId)
-      .filter((id) => id !== userId)
-    const oldOtherSum = others.reduce((s, id) => s + (shareSliders[id] ?? 0), 0)
-    const remaining = 100 - newPct
-    const updated = { ...shareSliders, [userId]: newPct }
-    if (oldOtherSum === 0 || remaining <= 0) {
-      const perOther = others.length > 0 ? remaining / others.length : 0
-      for (const id of others) updated[id] = Math.max(0, perOther)
-    } else {
-      for (const id of others) {
-        updated[id] = ((shareSliders[id] ?? 0) / oldOtherSum) * remaining
-      }
-    }
-    shareSliders = updated
+  function openDatePicker() {
+    ;(expenseDateEl as any)?.showPicker?.()
+    expenseDateEl?.focus()
   }
 
-  function resetWeights() {
-    if (!group) return
-    const pct = 100 / group.members.length
-    const updated: Record<string, number> = {}
-    for (const m of group.members) updated[m.userId] = pct
-    shareSliders = updated
-  }
-
-  async function saveWeights() {
-    if (!group || weightSaving) return
-    weightSaving = true
+  async function saveShareSlider(pct: number) {
+    if (!group || group.members.length !== 2 || sliderSaving) return
+    sliderSaving = true
     try {
-      const rounded: Record<string, number> = {}
-      for (const id of Object.keys(shareSliders)) {
-        rounded[id] = Math.max(1, Math.round(shareSliders[id]))
-      }
-      await Promise.all(
-        group.members
-          .filter(
-            (m) =>
-              rounded[m.userId] !== undefined &&
-              rounded[m.userId] !== m.shareWeight,
-          )
-          .map((m) => updateMemberWeight(groupId, m.userId, rounded[m.userId])),
-      )
+      const w0 = Math.max(1, Math.round(pct))
+      const w1 = Math.max(1, 100 - w0)
+      await Promise.all([
+        updateMemberWeight(groupId, group.members[0].userId, w0),
+        updateMemberWeight(groupId, group.members[1].userId, w1),
+      ])
       group = {
         ...group,
-        members: group.members.map((m) => ({
-          ...m,
-          shareWeight: rounded[m.userId] ?? m.shareWeight,
-        })),
+        members: [
+          { ...group.members[0], shareWeight: w0 },
+          { ...group.members[1], shareWeight: w1 },
+        ],
       }
-      showConfig = false
     } finally {
-      weightSaving = false
+      sliderSaving = false
     }
   }
 </script>
@@ -349,101 +313,127 @@
       </header>
     </div>
     <div class="right-col"></div>
+  {:else if group.members.length !== 2}
+    <div class="left-col">
+      <header class="page-header">
+        <h1 class="page-title">{group.name}</h1>
+      </header>
+      <div class="left-body">
+        <p class="empty">
+          This view is designed for 2-member groups. Support for larger groups is coming soon.
+        </p>
+      </div>
+    </div>
+    <div class="right-col"></div>
   {:else}
     <div class="left-col">
       <header class="page-header">
         <h1 class="page-title">{group.name}</h1>
+        <CurrencyInput
+          bind:value={configCurrency}
+          style="width: 60px"
+          oncommit={saveDefaultCurrency}
+        />
         <Toggle bind:checked={showMembers} label="Show members" />
-        <GradientButton
-          square
-          active={showConfig}
-          onclick={openConfig}
-          tooltip="Group settings"
-        >
-          <Icon name="settings" size={12} />
-        </GradientButton>
       </header>
 
-      {#if showConfig && group}
-        <div class="config-panel">
-          <div class="config-header">
-            <span class="config-title">Group Settings</span>
-          </div>
-          <div class="config-body">
-            {#if group.createdBy === currentUserId}
-              <div class="setting-row">
-                <span class="setting-label">Default currency</span>
-                <div class="setting-control">
-                  <CurrencyInput
-                    bind:value={configCurrency}
-                    style="width: 60px"
-                    oncommit={saveDefaultCurrency}
-                  />
-                </div>
-              </div>
-            {/if}
-            <div class="setting-row setting-row--column">
-              <span class="setting-label">Share split</span>
-              <div class="share-sliders">
-                {#each group.members as member (member.id)}
-                  <div class="slider-row">
-                    <span class="slider-name">{member.userName}</span>
-                    <input
-                      type="range"
-                      class="slider-track"
-                      min="0"
-                      max="100"
-                      step="0.1"
-                      value={shareSliders[member.userId] ?? 0}
-                      oninput={(e) =>
-                        adjustSlider(
-                          member.userId,
-                          parseFloat((e.target as HTMLInputElement).value),
-                        )}
-                    />
-                    <span class="slider-pct"
-                      >{Math.round(shareSliders[member.userId] ?? 0)}%</span
-                    >
-                  </div>
-                {/each}
-                <div class="slider-actions">
-                  <GradientButton onclick={resetWeights}
-                    >Reset equal</GradientButton
-                  >
-                  <GradientButton onclick={saveWeights} disabled={weightSaving}
-                    >Save</GradientButton
-                  >
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      {/if}
-
       <div class="left-body">
-        <!-- Members (toggleable) -->
+        <!-- Members (toggleable) with balances integrated -->
         {#if showMembers}
           <div class="section-bar">
             <span class="section-bar-title">Members</span>
-            <GradientButton
-              onclick={() => {
-                showInvite = !showInvite
-                inviteEmail = ''
-                inviteError = ''
-              }}
-            >
-              <Icon name="plus" size={12} /> Invite
-            </GradientButton>
           </div>
           <div class="members-body">
             {#each group.members as member (member.id)}
               <div class="member-row">
-                <span class="member-name">{member.userName}</span>
-                <span class="member-email">{member.userEmail}</span>
-                <span class="member-weight">{member.shareWeight}</span>
+                <div class="member-avatar">{initials(member.userName)}</div>
+                <div class="member-info">
+                  <span class="member-name">{member.userName}</span>
+                  <span class="member-email">{member.userEmail}</span>
+                </div>
+                <div class="member-right">
+                  {#each balances as cb (cb.currency)}
+                    {#each cb.transfers as t}
+                      {#if t.fromUserId === member.userId}
+                        <span class="member-balance member-balance--owes">
+                          owes {t.currency}
+                          {parseFloat(t.amount).toFixed(2)}
+                        </span>
+                      {:else if t.toUserId === member.userId}
+                        <span class="member-balance member-balance--owed">
+                          gets back {t.currency}
+                          {parseFloat(t.amount).toFixed(2)}
+                        </span>
+                      {/if}
+                    {/each}
+                  {/each}
+                  {#if allSettled}
+                    <span class="member-balance member-balance--settled">settled</span>
+                  {/if}
+                </div>
               </div>
             {/each}
           </div>
+
+          {#if !allSettled}
+            <div class="settle-actions">
+              {#each balances as cb (cb.currency)}
+                {#each cb.transfers as t}
+                  <div class="settle-btn-wrap">
+                    <GradientButton
+                      onclick={() =>
+                        prefillSettle(t.fromUserId, t.toUserId, t.amount, t.currency)}
+                    >
+                      Settle up
+                    </GradientButton>
+                  </div>
+                {/each}
+              {/each}
+            </div>
+          {/if}
+
+          {#if showSettleForm}
+            <div class="settle-form-wrap">
+              <div class="settle-form">
+                <select class="paid-by-select" bind:value={settleFrom}>
+                  {#each group.members as m (m.id)}
+                    <option value={m.userId}>{m.userName}</option>
+                  {/each}
+                </select>
+                <span class="settle-arrow">→</span>
+                <select class="paid-by-select" bind:value={settleTo}>
+                  {#each group.members as m (m.id)}
+                    <option value={m.userId}>{m.userName}</option>
+                  {/each}
+                </select>
+                <TextInput
+                  bind:value={settleAmount}
+                  placeholder="0.00"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                  class="settle-amount"
+                />
+                <CurrencyInput bind:value={settleCurrency} style="width: 60px" />
+                <TextInput bind:value={settleDate} type="date" class="settle-date" />
+                <TextInput
+                  bind:value={settleNote}
+                  placeholder="Note (optional)"
+                  class="settle-note"
+                />
+                <GradientButton
+                  onclick={handleSettle}
+                  disabled={settleSubmitting || !settleFrom || !settleTo || !settleAmount}
+                >
+                  Save
+                </GradientButton>
+              </div>
+              {#if settleError}
+                <span class="form-error">{settleError}</span>
+              {/if}
+            </div>
+          {/if}
+
           {#if showInvite}
             <div class="invite-section">
               <div class="invite-form">
@@ -456,8 +446,9 @@
                 <GradientButton
                   onclick={handleInvite}
                   disabled={inviteSubmitting || !inviteEmail.trim()}
-                  >Send invite</GradientButton
                 >
+                  Send invite
+                </GradientButton>
                 {#if inviteError}
                   <span class="form-error">{inviteError}</span>
                 {/if}
@@ -468,9 +459,7 @@
                     <div class="pending-row">
                       <span class="pending-email">{invite.inviteeEmail}</span>
                       <span class="pending-label">Pending</span>
-                      <GradientButton
-                        onclick={() => handleCancelInvite(invite.id)}
-                      >
+                      <GradientButton onclick={() => handleCancelInvite(invite.id)}>
                         <Icon name="x" size={10} /> Cancel
                       </GradientButton>
                     </div>
@@ -495,6 +484,7 @@
               class="fill-input"
             />
           </div>
+
           <!-- Amount -->
           <div class="amount-row">
             <div class="field field-amount">
@@ -510,28 +500,34 @@
             </div>
           </div>
 
-          <!-- currency + date -->
-          <div class="currency-row">
-            <div class="field field-currency">
-              <span class="field-label">Currency</span>
-              <CurrencyInput bind:value={expenseCurrency} style="width: 100%" />
-            </div>
-            <div class="field field-date">
-              <span class="field-label">Date</span>
-              <TextInput
-                bind:value={expenseDate}
-                type="date"
-                class="fill-input"
-              />
+          <!-- Date chip -->
+          <div class="date-chip-outer">
+            <div class="field">
+              <div class="date-chip-wrap">
+                <button class="date-chip" onclick={openDatePicker}>
+                  <span class="date-chip-icon">📅</span>
+                  <span class="date-chip-label">{expenseDateLabel}</span>
+                  <Icon name="chevron-down" size={10} />
+                </button>
+                <input
+                  bind:this={expenseDateEl}
+                  type="date"
+                  class="date-input-hidden"
+                  bind:value={expenseDate}
+                />
+              </div>
             </div>
           </div>
+
 
           <!-- Paid by chips -->
           <div class="field">
             <span class="field-label">Paid by</span>
             <div class="payer-chips">
-              {#each group.members as m (m.id)}
-                {@const pct = memberPct(m.shareWeight)}
+              {#each group.members as m, i (m.id)}
+                {@const pct = i === 0
+                  ? Math.round(shareSliderPct)
+                  : Math.round(100 - shareSliderPct)}
                 {@const selected = expensePaidBy === m.userId}
                 <button
                   class="payer-chip"
@@ -550,19 +546,29 @@
             </div>
           </div>
 
-          <!-- Split bar (2+ members) -->
-          {#if group.members.length >= 2}
-            {@const firstPct = memberPct(group.members[0].shareWeight)}
-            <div class="split-bar-wrap">
-              <div class="split-track">
-                <div class="split-fill" style="width:{firstPct}%"></div>
-              </div>
-              <div class="split-labels">
-                <span>{group.members[0].userName} {firstPct}%</span>
-                <span>{group.members[1].userName} {100 - firstPct}%</span>
-              </div>
+          <!-- Share split slider -->
+          <div class="share-slider-wrap">
+            <div class="share-slider-labels">
+              <span class="share-slider-name">{group.members[0].userName}</span>
+              <span class="share-slider-pcts">
+                <span>{Math.round(shareSliderPct)}%</span>
+                <span class="share-slider-divider">/</span>
+                <span>{Math.round(100 - shareSliderPct)}%</span>
+              </span>
+              <span class="share-slider-name share-slider-name--right"
+                >{group.members[1].userName}</span
+              >
             </div>
-          {/if}
+            <input
+              type="range"
+              class="share-slider-track"
+              min="1"
+              max="99"
+              step="1"
+              bind:value={shareSliderPct}
+              onchange={() => saveShareSlider(shareSliderPct)}
+            />
+          </div>
 
           <!-- Add button -->
           <div class="add-cta">
@@ -581,96 +587,6 @@
             <span class="form-error">{expenseError}</span>
           {/if}
         </div>
-
-        <!-- Balances -->
-        <div class="section-bar">
-          <span class="section-bar-title">Balances</span>
-          <GradientButton
-            onclick={() => {
-              showSettleForm = !showSettleForm
-              settleError = ''
-            }}
-          >
-            <Icon name="plus" size={12} /> Record settlement
-          </GradientButton>
-        </div>
-
-        {#if showSettleForm}
-          <div class="settle-form-wrap">
-            <div class="settle-form">
-              <select class="paid-by-select" bind:value={settleFrom}>
-                {#each group.members as m (m.id)}
-                  <option value={m.userId}>{m.userName}</option>
-                {/each}
-              </select>
-              <span class="settle-arrow">→</span>
-              <select class="paid-by-select" bind:value={settleTo}>
-                {#each group.members as m (m.id)}
-                  <option value={m.userId}>{m.userName}</option>
-                {/each}
-              </select>
-              <TextInput
-                bind:value={settleAmount}
-                placeholder="0.00"
-                type="number"
-                min="0"
-                step="0.01"
-                class="settle-amount"
-              />
-              <CurrencyInput bind:value={settleCurrency} style="width: 60px" />
-              <TextInput
-                bind:value={settleDate}
-                type="date"
-                class="settle-date"
-              />
-              <TextInput
-                bind:value={settleNote}
-                placeholder="Note (optional)"
-                class="settle-note"
-              />
-              <GradientButton
-                onclick={handleSettle}
-                disabled={settleSubmitting ||
-                  !settleFrom ||
-                  !settleTo ||
-                  !settleAmount}>Save</GradientButton
-              >
-            </div>
-            {#if settleError}
-              <span class="form-error">{settleError}</span>
-            {/if}
-          </div>
-        {/if}
-
-        {#if allSettled}
-          <p class="empty">All settled up.</p>
-        {:else}
-          <div class="balances-body">
-            {#each balances as cb (cb.currency)}
-              {#each cb.transfers as t}
-                <div class="transfer-row">
-                  <span class="transfer-names">
-                    <span class="transfer-from">{t.fromUserName}</span>
-                    <span class="transfer-arrow">→</span>
-                    <span class="transfer-to">{t.toUserName}</span>
-                  </span>
-                  <span class="transfer-amount"
-                    >{t.currency} {parseFloat(t.amount).toFixed(2)}</span
-                  >
-                  <GradientButton
-                    onclick={() =>
-                      prefillSettle(
-                        t.fromUserId,
-                        t.toUserId,
-                        t.amount,
-                        t.currency,
-                      )}>Settle up</GradientButton
-                  >
-                </div>
-              {/each}
-            {/each}
-          </div>
-        {/if}
       </div>
     </div>
 
@@ -683,16 +599,18 @@
             class:active={panelTab === 'expenses'}
             onclick={() => (panelTab = 'expenses')}
           >
-            Expenses{#if expenses.length > 0}
-              <span class="tab-count"> {expenses.length}</span>{/if}
+            Expenses{#if expenses.length > 0}<span class="tab-count">
+                {expenses.length}</span
+              >{/if}
           </button>
           <button
             class="panel-tab"
             class:active={panelTab === 'settlements'}
             onclick={() => (panelTab = 'settlements')}
           >
-            Settlements{#if settlements.length > 0}
-              <span class="tab-count"> {settlements.length}</span>{/if}
+            Settlements{#if settlements.length > 0}<span class="tab-count">
+                {settlements.length}</span
+              >{/if}
           </button>
         </div>
 
@@ -711,22 +629,17 @@
                         tabindex="0"
                         onclick={() =>
                           (expandedExpenseId =
-                            expandedExpenseId === expense.id
-                              ? null
-                              : expense.id)}
+                            expandedExpenseId === expense.id ? null : expense.id)}
                         onkeydown={(e) =>
                           e.key === 'Enter' &&
                           (expandedExpenseId =
-                            expandedExpenseId === expense.id
-                              ? null
-                              : expense.id)}
+                            expandedExpenseId === expense.id ? null : expense.id)}
                       >
                         <div class="row-avatar">
                           {initials(expense.payerName)}
                         </div>
                         <div class="expense-info">
-                          <span class="expense-desc">{expense.description}</span
-                          >
+                          <span class="expense-desc">{expense.description}</span>
                           <span class="expense-meta"
                             >{expense.date} · {expense.payerName}</span
                           >
@@ -735,9 +648,7 @@
                           <span class="expense-amount"
                             >{parseFloat(expense.amount).toFixed(2)}</span
                           >
-                          <span class="expense-currency"
-                            >{expense.currency}</span
-                          >
+                          <span class="expense-currency">{expense.currency}</span>
                         </div>
                         <Icon
                           name={expandedExpenseId === expense.id
@@ -763,10 +674,10 @@
                         {#each expense.splits as split (split.id)}
                           <div class="split-row">
                             <span class="split-name">{split.userName}</span>
-                            <span class="split-amount"
-                              >{expense.currency}
-                              {parseFloat(split.amount).toFixed(2)}</span
-                            >
+                            <span class="split-amount">
+                              {expense.currency}
+                              {parseFloat(split.amount).toFixed(2)}
+                            </span>
                           </div>
                         {/each}
                       </div>
@@ -787,9 +698,10 @@
                     <span class="transfer-arrow">→</span>
                     <span class="transfer-to">{s.toUserName}</span>
                   </span>
-                  <span class="settlement-amount"
-                    >{s.currency} {parseFloat(s.amount).toFixed(2)}</span
-                  >
+                  <span class="settlement-amount">
+                    {s.currency}
+                    {parseFloat(s.amount).toFixed(2)}
+                  </span>
                   {#if s.note}
                     <span class="settlement-note">{s.note}</span>
                   {/if}
@@ -893,33 +805,95 @@
   .member-row {
     display: flex;
     align-items: center;
-    gap: var(--sp-md);
+    gap: var(--sp-sm);
     padding: 8px 22px;
     border-bottom: 1px solid var(--color-rule-soft);
-    font-size: var(--text-sm);
   }
 
   .member-row:last-child {
     border-bottom: none;
   }
 
+  .member-avatar {
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent-chip-fg);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+  }
+
+  .member-info {
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+    flex: 1;
+    min-width: 0;
+  }
+
   .member-name {
+    font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     color: var(--color-text);
-    min-width: 120px;
   }
 
   .member-email {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-    flex: 1;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .member-weight {
+  .member-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 1px;
+    flex-shrink: 0;
+  }
+
+  .member-balance {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+  }
+
+  .member-balance--owes {
+    color: var(--color-amount-negative);
+  }
+
+  .member-balance--owed {
+    color: var(--color-amount-positive);
+  }
+
+  .member-balance--settled {
     color: var(--color-text-muted);
+    font-weight: 400;
+    font-style: italic;
+  }
+
+  /* ====================================================================
+     Settle actions (inside members panel)
+     ==================================================================== */
+  .settle-actions {
+    background: var(--color-window);
+    border-top: 1px solid var(--color-rule-soft);
+    padding: var(--sp-xs) 22px;
+  }
+
+  .settle-btn-wrap :global(.btn) {
+    width: 100%;
+    height: 32px;
+    font-size: var(--text-sm);
   }
 
   /* ====================================================================
@@ -1003,15 +977,8 @@
     box-sizing: border-box;
   }
 
-  /* Amount row: amount + currency + date side by side */
   .amount-row {
     display: flex;
-    align-items: flex-end;
-  }
-
-  .currency-row {
-    display: flex;
-    gap: var(--sp-xs);
     align-items: flex-end;
   }
 
@@ -1020,21 +987,64 @@
     min-width: 0;
   }
 
-  .field-currency {
-    width: 64px;
-    flex-shrink: 0;
+  .date-chip-outer {
+    display: flex;
   }
 
-  .field-date {
-    width: 138px;
-    flex-shrink: 0;
-  }
-
-  /* Make amount input slightly more prominent */
   .expense-form-wrap :global(.amount-text) {
     font-family: var(--font-mono);
     font-size: var(--text-2xl);
     height: 64px;
+  }
+
+  /* ====================================================================
+     Date chip
+     ==================================================================== */
+  .date-chip-wrap {
+    position: relative;
+  }
+
+  .date-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    color: var(--color-text);
+    white-space: nowrap;
+    transition: border-color var(--duration-fast) var(--ease);
+  }
+
+  .date-chip:hover {
+    border-color: var(--color-accent);
+  }
+
+  .date-chip-icon {
+    font-size: 12px;
+    line-height: 1;
+  }
+
+  .date-chip-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+
+  .date-input-hidden {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+    top: 0;
+    left: 0;
   }
 
   /* ====================================================================
@@ -1146,37 +1156,55 @@
   }
 
   /* ====================================================================
-     Split bar
+     Share split slider
      ==================================================================== */
-  .split-bar-wrap {
+  .share-slider-wrap {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: 4px;
   }
 
-  .split-track {
-    height: 5px;
-    background: var(--color-accent-bar-track);
-    box-shadow: var(--shadow-sunken);
-    overflow: hidden;
-  }
-
-  .split-fill {
-    height: 100%;
-    background: var(--color-accent);
-    transition: width 200ms var(--ease);
-  }
-
-  .split-labels {
+  .share-slider-labels {
     display: flex;
+    align-items: center;
     justify-content: space-between;
     font-family: var(--font-mono);
     font-size: 9px;
     color: var(--color-text-muted);
   }
 
+  .share-slider-name {
+    width: 80px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .share-slider-name--right {
+    text-align: right;
+  }
+
+  .share-slider-pcts {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    font-weight: 700;
+    color: var(--color-text);
+  }
+
+  .share-slider-divider {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+
+  .share-slider-track {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--color-accent);
+  }
+
   /* ====================================================================
-     Add Expense button — full-width GradientButton override
+     Add Expense button
      ==================================================================== */
   .add-cta :global(.btn) {
     width: 100%;
@@ -1189,53 +1217,6 @@
     color: var(--color-amount-negative);
     font-family: var(--font-sans);
     display: block;
-  }
-
-  /* ====================================================================
-     Balances
-     ==================================================================== */
-  .balances-body {
-    background: var(--color-window);
-  }
-
-  .transfer-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-md);
-    padding: 8px 22px;
-    border-bottom: 1px solid var(--color-rule-soft);
-    font-size: var(--text-sm);
-  }
-
-  .transfer-row:last-child {
-    border-bottom: none;
-  }
-
-  .transfer-names {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    flex: 1;
-  }
-
-  .transfer-from {
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-  }
-
-  .transfer-arrow {
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
-  }
-
-  .transfer-to {
-    color: var(--color-text);
-  }
-
-  .transfer-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-amount-negative);
   }
 
   /* ====================================================================
@@ -1292,101 +1273,18 @@
     color: var(--color-text-muted);
   }
 
-  /* ====================================================================
-     Config panel
-     ==================================================================== */
-  .config-panel {
-    flex-shrink: 0;
-    border-bottom: 1px solid var(--color-rule);
-  }
-
-  .config-header {
-    padding: 3px 14px;
-    background: var(--color-window-raised);
-    border-bottom: 1px solid var(--color-rule);
-  }
-
-  .config-title {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-  }
-
-  .config-body {
-    background: var(--color-window);
-    padding: var(--sp-sm) 14px;
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-sm);
-  }
-
-  .setting-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-  }
-
-  .setting-row--column {
-    flex-direction: column;
-    align-items: flex-start;
-  }
-
-  .setting-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-    white-space: nowrap;
-  }
-
-  .share-sliders {
-    width: 100%;
-    display: flex;
-    flex-direction: column;
-    gap: 6px;
-  }
-
-  .slider-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-  }
-
-  .slider-name {
-    width: 120px;
-    font-size: var(--text-sm);
+  .transfer-from {
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
-    flex-shrink: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
   }
 
-  .slider-track {
-    flex: 1;
-    cursor: pointer;
-    accent-color: var(--color-accent);
-  }
-
-  .slider-pct {
-    width: 32px;
-    text-align: right;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
+  .transfer-arrow {
     color: var(--color-text-muted);
-    flex-shrink: 0;
+    font-size: var(--text-xs);
   }
 
-  .slider-actions {
-    display: flex;
-    gap: var(--sp-xs);
-    justify-content: flex-end;
-    margin-top: var(--sp-xs);
+  .transfer-to {
+    color: var(--color-text);
   }
 
   /* ====================================================================
@@ -1490,7 +1388,6 @@
     background: var(--color-window-raised);
   }
 
-  /* Initials avatar in right panel */
   .row-avatar {
     width: 24px;
     height: 24px;
@@ -1693,11 +1590,6 @@
       flex-wrap: wrap;
     }
 
-    .field-date {
-      flex: 1;
-      min-width: 120px;
-    }
-
     .paid-by-select {
       height: 32px;
     }
@@ -1705,7 +1597,6 @@
     .member-row,
     .invite-form,
     .pending-row,
-    .transfer-row,
     .settle-form-wrap {
       padding-left: 14px;
       padding-right: 14px;
