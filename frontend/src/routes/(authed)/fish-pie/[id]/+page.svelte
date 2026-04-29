@@ -1,6 +1,6 @@
 <script lang="ts">
-  import { onMount } from "svelte"
-  import { page } from "$app/state"
+  import { onMount } from 'svelte'
+  import { page } from '$app/state'
   import {
     fetchGroup,
     fetchGroupInvites,
@@ -15,24 +15,24 @@
     deleteSettlement,
     updateGroup,
     updateMemberWeight,
-  } from "$lib/api"
+  } from '$lib/api'
   import type {
     ExpenseGroup,
     GroupInvite,
     GroupExpense,
     CurrencyBalance,
     GroupSettlement,
-  } from "$lib/api"
-  import { useSession } from "$lib/auth"
-  import GradientButton from "$lib/components/ui/GradientButton.svelte"
-  import TextInput from "$lib/components/ui/TextInput.svelte"
-  import CurrencyInput from "$lib/components/ui/CurrencyInput.svelte"
-  import Icon from "$lib/components/ui/Icon.svelte"
-  import Toggle from "$lib/components/ui/Toggle.svelte"
+  } from '$lib/api'
+  import { useSession } from '$lib/auth'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
+  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
+  import Toggle from '$lib/components/ui/Toggle.svelte'
 
-  const groupId = $derived(page.params.id ?? "")
+  const groupId = $derived(page.params.id ?? '')
   const session = useSession()
-  const currentUserId = $derived($session.data?.user.id ?? "")
+  const currentUserId = $derived($session.data?.user.id ?? '')
 
   let group = $state<ExpenseGroup | null>(null)
   let invites = $state<GroupInvite[]>([])
@@ -42,38 +42,38 @@
 
   let showMembers = $state(false)
   let showConfig = $state(false)
-  let configCurrency = $state("")
+  let configCurrency = $state('')
   let shareSliders = $state<Record<string, number>>({})
   let weightSaving = $state(false)
 
   let showInvite = $state(false)
-  let inviteEmail = $state("")
-  let inviteError = $state("")
+  let inviteEmail = $state('')
+  let inviteError = $state('')
   let inviteSubmitting = $state(false)
 
-  let expenseDesc = $state("")
-  let expenseAmount = $state("")
-  let expenseCurrency = $state("CAD")
+  let expenseDesc = $state('')
+  let expenseAmount = $state('')
+  let expenseCurrency = $state('CAD')
   let expenseDate = $state(new Date().toISOString().slice(0, 10))
-  let expensePaidBy = $state("")
-  let expenseError = $state("")
+  let expensePaidBy = $state('')
+  let expenseError = $state('')
   let expenseSubmitting = $state(false)
   let added = $state(false)
 
   let expandedExpenseId = $state<string | null>(null)
-  let panelTab = $state<"expenses" | "settlements">("expenses")
+  let panelTab = $state<'expenses' | 'settlements'>('expenses')
 
   let balances = $state<CurrencyBalance[]>([])
   let settlements = $state<GroupSettlement[]>([])
 
   let showSettleForm = $state(false)
-  let settleFrom = $state("")
-  let settleTo = $state("")
-  let settleAmount = $state("")
-  let settleCurrency = $state("CAD")
+  let settleFrom = $state('')
+  let settleTo = $state('')
+  let settleAmount = $state('')
+  let settleCurrency = $state('CAD')
   let settleDate = $state(new Date().toISOString().slice(0, 10))
-  let settleNote = $state("")
-  let settleError = $state("")
+  let settleNote = $state('')
+  let settleError = $state('')
   let settleSubmitting = $state(false)
 
   const memberTotalWeight = $derived(
@@ -92,12 +92,12 @@
 
   function initials(name: string | null | undefined): string {
     return (
-      (name ?? "")
-        .split(" ")
-        .map((w) => w[0] ?? "")
-        .join("")
+      (name ?? '')
+        .split(' ')
+        .map((w) => w[0] ?? '')
+        .join('')
         .toUpperCase()
-        .slice(0, 2) || "?"
+        .slice(0, 2) || '?'
     )
   }
 
@@ -117,8 +117,8 @@
       settlements = sett
       expensePaidBy = currentUserId
       settleFrom = currentUserId
-      expenseCurrency = g.defaultCurrency ?? "CAD"
-      settleCurrency = g.defaultCurrency ?? "CAD"
+      expenseCurrency = g.defaultCurrency ?? 'CAD'
+      settleCurrency = g.defaultCurrency ?? 'CAD'
     } catch {
       notFound = true
     } finally {
@@ -128,14 +128,14 @@
 
   async function handleInvite() {
     if (!inviteEmail.trim() || inviteSubmitting) return
-    inviteError = ""
+    inviteError = ''
     inviteSubmitting = true
     try {
       const invite = await sendInvite(groupId, inviteEmail.trim())
       invites = [...invites, invite]
-      inviteEmail = ""
+      inviteEmail = ''
     } catch (e: any) {
-      inviteError = e.message ?? "Failed to send invite"
+      inviteError = e.message ?? 'Failed to send invite'
     } finally {
       inviteSubmitting = false
     }
@@ -147,36 +147,32 @@
   }
 
   function handleInviteKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") handleInvite()
+    if (e.key === 'Enter') handleInvite()
   }
 
   async function handleAddExpense() {
-    if (
-      !expenseAmount ||
-      parseFloat(expenseAmount) <= 0 ||
-      expenseSubmitting
-    )
+    if (!expenseAmount || parseFloat(expenseAmount) <= 0 || expenseSubmitting)
       return
-    expenseError = ""
+    expenseError = ''
     expenseSubmitting = true
     try {
       const expense = await createExpense(groupId, {
-        description: expenseDesc.trim() || "Expense",
+        description: expenseDesc.trim() || 'Expense',
         amount: expenseAmount,
         currency: expenseCurrency.trim().toUpperCase(),
         date: expenseDate,
         paidByUserId: expensePaidBy || currentUserId,
       })
       expenses = [expense, ...expenses]
-      expenseDesc = ""
-      expenseAmount = ""
+      expenseDesc = ''
+      expenseAmount = ''
       added = true
       await refreshBalances()
       setTimeout(() => {
         added = false
       }, 1200)
     } catch (e: any) {
-      expenseError = e.message ?? "Failed to add expense"
+      expenseError = e.message ?? 'Failed to add expense'
     } finally {
       expenseSubmitting = false
     }
@@ -218,8 +214,15 @@
   }
 
   async function handleSettle() {
-    if (!settleFrom || !settleTo || settleFrom === settleTo || !settleAmount || settleSubmitting) return
-    settleError = ""
+    if (
+      !settleFrom ||
+      !settleTo ||
+      settleFrom === settleTo ||
+      !settleAmount ||
+      settleSubmitting
+    )
+      return
+    settleError = ''
     settleSubmitting = true
     try {
       await createSettlement(groupId, {
@@ -230,12 +233,12 @@
         date: settleDate,
         note: settleNote.trim() || undefined,
       })
-      settleAmount = ""
-      settleNote = ""
+      settleAmount = ''
+      settleNote = ''
       showSettleForm = false
       await refreshBalances()
     } catch (e: any) {
-      settleError = e.message ?? "Failed to record settlement"
+      settleError = e.message ?? 'Failed to record settlement'
     } finally {
       settleSubmitting = false
     }
@@ -256,7 +259,7 @@
 
   function openConfig() {
     if (!group) return
-    configCurrency = group.defaultCurrency ?? ""
+    configCurrency = group.defaultCurrency ?? ''
     const total = group.members.reduce((s, m) => s + m.shareWeight, 0)
     const sliders: Record<string, number> = {}
     for (const m of group.members) {
@@ -278,10 +281,7 @@
     const others = group.members
       .map((m) => m.userId)
       .filter((id) => id !== userId)
-    const oldOtherSum = others.reduce(
-      (s, id) => s + (shareSliders[id] ?? 0),
-      0,
-    )
+    const oldOtherSum = others.reduce((s, id) => s + (shareSliders[id] ?? 0), 0)
     const remaining = 100 - newPct
     const updated = { ...shareSliders, [userId]: newPct }
     if (oldOtherSum === 0 || remaining <= 0) {
@@ -407,8 +407,12 @@
                   </div>
                 {/each}
                 <div class="slider-actions">
-                  <GradientButton onclick={resetWeights}>Reset equal</GradientButton>
-                  <GradientButton onclick={saveWeights} disabled={weightSaving}>Save</GradientButton>
+                  <GradientButton onclick={resetWeights}
+                    >Reset equal</GradientButton
+                  >
+                  <GradientButton onclick={saveWeights} disabled={weightSaving}
+                    >Save</GradientButton
+                  >
                 </div>
               </div>
             </div>
@@ -424,8 +428,8 @@
             <GradientButton
               onclick={() => {
                 showInvite = !showInvite
-                inviteEmail = ""
-                inviteError = ""
+                inviteEmail = ''
+                inviteError = ''
               }}
             >
               <Icon name="plus" size={12} /> Invite
@@ -452,7 +456,8 @@
                 <GradientButton
                   onclick={handleInvite}
                   disabled={inviteSubmitting || !inviteEmail.trim()}
-                >Send invite</GradientButton>
+                  >Send invite</GradientButton
+                >
                 {#if inviteError}
                   <span class="form-error">{inviteError}</span>
                 {/if}
@@ -463,7 +468,9 @@
                     <div class="pending-row">
                       <span class="pending-email">{invite.inviteeEmail}</span>
                       <span class="pending-label">Pending</span>
-                      <GradientButton onclick={() => handleCancelInvite(invite.id)}>
+                      <GradientButton
+                        onclick={() => handleCancelInvite(invite.id)}
+                      >
                         <Icon name="x" size={10} /> Cancel
                       </GradientButton>
                     </div>
@@ -488,8 +495,7 @@
               class="fill-input"
             />
           </div>
-
-          <!-- Amount + currency -->
+          <!-- Amount -->
           <div class="amount-row">
             <div class="field field-amount">
               <span class="field-label">Amount</span>
@@ -502,13 +508,21 @@
                 class="fill-input amount-text"
               />
             </div>
+          </div>
+
+          <!-- currency + date -->
+          <div class="currency-row">
             <div class="field field-currency">
               <span class="field-label">Currency</span>
               <CurrencyInput bind:value={expenseCurrency} style="width: 100%" />
             </div>
             <div class="field field-date">
               <span class="field-label">Date</span>
-              <TextInput bind:value={expenseDate} type="date" class="fill-input" />
+              <TextInput
+                bind:value={expenseDate}
+                type="date"
+                class="fill-input"
+              />
             </div>
           </div>
 
@@ -559,7 +573,7 @@
                 !expenseAmount ||
                 parseFloat(expenseAmount) <= 0}
             >
-              {added ? "✓ Added" : "Add Expense"}
+              {added ? '✓ Added' : 'Add Expense'}
             </GradientButton>
           </div>
 
@@ -574,7 +588,7 @@
           <GradientButton
             onclick={() => {
               showSettleForm = !showSettleForm
-              settleError = ""
+              settleError = ''
             }}
           >
             <Icon name="plus" size={12} /> Record settlement
@@ -604,7 +618,11 @@
                 class="settle-amount"
               />
               <CurrencyInput bind:value={settleCurrency} style="width: 60px" />
-              <TextInput bind:value={settleDate} type="date" class="settle-date" />
+              <TextInput
+                bind:value={settleDate}
+                type="date"
+                class="settle-date"
+              />
               <TextInput
                 bind:value={settleNote}
                 placeholder="Note (optional)"
@@ -612,8 +630,11 @@
               />
               <GradientButton
                 onclick={handleSettle}
-                disabled={settleSubmitting || !settleFrom || !settleTo || !settleAmount}
-              >Save</GradientButton>
+                disabled={settleSubmitting ||
+                  !settleFrom ||
+                  !settleTo ||
+                  !settleAmount}>Save</GradientButton
+              >
             </div>
             {#if settleError}
               <span class="form-error">{settleError}</span>
@@ -638,8 +659,13 @@
                   >
                   <GradientButton
                     onclick={() =>
-                      prefillSettle(t.fromUserId, t.toUserId, t.amount, t.currency)}
-                  >Settle up</GradientButton>
+                      prefillSettle(
+                        t.fromUserId,
+                        t.toUserId,
+                        t.amount,
+                        t.currency,
+                      )}>Settle up</GradientButton
+                  >
                 </div>
               {/each}
             {/each}
@@ -654,16 +680,16 @@
         <div class="panel-tabs">
           <button
             class="panel-tab"
-            class:active={panelTab === "expenses"}
-            onclick={() => (panelTab = "expenses")}
+            class:active={panelTab === 'expenses'}
+            onclick={() => (panelTab = 'expenses')}
           >
             Expenses{#if expenses.length > 0}
               <span class="tab-count"> {expenses.length}</span>{/if}
           </button>
           <button
             class="panel-tab"
-            class:active={panelTab === "settlements"}
-            onclick={() => (panelTab = "settlements")}
+            class:active={panelTab === 'settlements'}
+            onclick={() => (panelTab = 'settlements')}
           >
             Settlements{#if settlements.length > 0}
               <span class="tab-count"> {settlements.length}</span>{/if}
@@ -671,7 +697,7 @@
         </div>
 
         <div class="panel-body">
-          {#if panelTab === "expenses"}
+          {#if panelTab === 'expenses'}
             {#if expenses.length === 0}
               <p class="empty">No expenses yet.</p>
             {:else}
@@ -689,15 +715,18 @@
                               ? null
                               : expense.id)}
                         onkeydown={(e) =>
-                          e.key === "Enter" &&
+                          e.key === 'Enter' &&
                           (expandedExpenseId =
                             expandedExpenseId === expense.id
                               ? null
                               : expense.id)}
                       >
-                        <div class="row-avatar">{initials(expense.payerName)}</div>
+                        <div class="row-avatar">
+                          {initials(expense.payerName)}
+                        </div>
                         <div class="expense-info">
-                          <span class="expense-desc">{expense.description}</span>
+                          <span class="expense-desc">{expense.description}</span
+                          >
                           <span class="expense-meta"
                             >{expense.date} · {expense.payerName}</span
                           >
@@ -706,12 +735,14 @@
                           <span class="expense-amount"
                             >{parseFloat(expense.amount).toFixed(2)}</span
                           >
-                          <span class="expense-currency">{expense.currency}</span>
+                          <span class="expense-currency"
+                            >{expense.currency}</span
+                          >
                         </div>
                         <Icon
                           name={expandedExpenseId === expense.id
-                            ? "chevron-up"
-                            : "chevron-down"}
+                            ? 'chevron-up'
+                            : 'chevron-down'}
                           size={12}
                         />
                       </div>
@@ -975,7 +1006,12 @@
   /* Amount row: amount + currency + date side by side */
   .amount-row {
     display: flex;
-    gap: var(--sp-sm);
+    align-items: flex-end;
+  }
+
+  .currency-row {
+    display: flex;
+    gap: var(--sp-xs);
     align-items: flex-end;
   }
 
@@ -997,8 +1033,8 @@
   /* Make amount input slightly more prominent */
   .expense-form-wrap :global(.amount-text) {
     font-family: var(--font-mono);
-    font-size: var(--text-base);
-    font-variant-numeric: tabular-nums;
+    font-size: var(--text-2xl);
+    height: 64px;
   }
 
   /* ====================================================================
@@ -1014,7 +1050,11 @@
     flex: 1;
     min-width: 100px;
     padding: 8px 12px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
     cursor: pointer;
@@ -1028,7 +1068,11 @@
   }
 
   .payer-chip:hover:not(.selected) {
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-accent-chip-bg)
+    );
     border-color: var(--color-accent);
   }
 
@@ -1136,7 +1180,7 @@
      ==================================================================== */
   .add-cta :global(.btn) {
     width: 100%;
-    height: 28px;
+    height: 36px;
     font-size: var(--text-sm);
   }
 
@@ -1191,7 +1235,6 @@
   .transfer-amount {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    font-variant-numeric: tabular-nums;
     color: var(--color-amount-negative);
   }
 
@@ -1496,7 +1539,6 @@
   .expense-amount {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    font-variant-numeric: tabular-nums;
     color: var(--color-text);
     font-weight: var(--weight-semibold);
   }
@@ -1551,7 +1593,6 @@
   .split-amount {
     font-family: var(--font-mono);
     color: var(--color-text-muted);
-    font-variant-numeric: tabular-nums;
   }
 
   /* ====================================================================
@@ -1591,7 +1632,6 @@
   .settlement-amount {
     font-family: var(--font-mono);
     font-size: var(--text-sm);
-    font-variant-numeric: tabular-nums;
     color: var(--color-text);
   }
 
