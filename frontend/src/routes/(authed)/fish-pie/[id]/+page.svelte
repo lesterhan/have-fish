@@ -43,7 +43,8 @@
   let showMembers = $state(false)
   let showConfig = $state(false)
   let configCurrency = $state('')
-  let weightEdits = $state<Record<string, string>>({})
+  let shareSliders = $state<Record<string, number>>({})
+  let weightSaving = $state(false)
 
   let showInvite = $state(false)
   let inviteEmail = $state('')
@@ -152,16 +153,27 @@
   }
 
   function canDeleteExpense(expense: GroupExpense) {
-    return expense.paidByUserId === currentUserId || group?.createdBy === currentUserId
+    return (
+      expense.paidByUserId === currentUserId ||
+      group?.createdBy === currentUserId
+    )
   }
 
   async function refreshBalances() {
-    const [bal, sett] = await Promise.all([fetchBalances(groupId), fetchSettlements(groupId)])
+    const [bal, sett] = await Promise.all([
+      fetchBalances(groupId),
+      fetchSettlements(groupId),
+    ])
     balances = bal
     settlements = sett
   }
 
-  function prefillSettle(fromUserId: string, toUserId: string, amount: string, currency: string) {
+  function prefillSettle(
+    fromUserId: string,
+    toUserId: string,
+    amount: string,
+    currency: string,
+  ) {
     settleFrom = fromUserId
     settleTo = toUserId
     settleAmount = amount
@@ -199,15 +211,23 @@
   }
 
   function canDeleteSettlement(s: GroupSettlement) {
-    return s.fromUserId === currentUserId || s.toUserId === currentUserId || group?.createdBy === currentUserId
+    return (
+      s.fromUserId === currentUserId ||
+      s.toUserId === currentUserId ||
+      group?.createdBy === currentUserId
+    )
   }
 
   function openConfig() {
     if (!group) return
     configCurrency = group.defaultCurrency ?? ''
-    const edits: Record<string, string> = {}
-    for (const m of group.members) edits[m.userId] = String(m.shareWeight)
-    weightEdits = edits
+    const total = group.members.reduce((s, m) => s + m.shareWeight, 0)
+    const sliders: Record<string, number> = {}
+    for (const m of group.members) {
+      sliders[m.userId] =
+        total > 0 ? (m.shareWeight / total) * 100 : 100 / group.members.length
+    }
+    shareSliders = sliders
     showConfig = !showConfig
   }
 
@@ -217,21 +237,61 @@
     expenseCurrency = code
   }
 
-  async function saveWeight(userId: string) {
+  function adjustSlider(userId: string, newPct: number) {
     if (!group) return
-    const raw = weightEdits[userId]
-    const weight = parseInt(raw, 10)
-    const member = group.members.find((m) => m.userId === userId)
-    if (!member || isNaN(weight) || weight < 1 || weight === member.shareWeight) return
-    const updated = await updateMemberWeight(groupId, userId, weight)
-    group = {
-      ...group,
-      members: group.members.map((m) => m.userId === userId ? { ...m, shareWeight: updated.shareWeight } : m),
+    const others = group.members
+      .map((m) => m.userId)
+      .filter((id) => id !== userId)
+    const oldOtherSum = others.reduce((s, id) => s + (shareSliders[id] ?? 0), 0)
+    const remaining = 100 - newPct
+    const updated = { ...shareSliders, [userId]: newPct }
+    if (oldOtherSum === 0 || remaining <= 0) {
+      const perOther = others.length > 0 ? remaining / others.length : 0
+      for (const id of others) updated[id] = Math.max(0, perOther)
+    } else {
+      for (const id of others) {
+        updated[id] = ((shareSliders[id] ?? 0) / oldOtherSum) * remaining
+      }
     }
+    shareSliders = updated
   }
 
-  function handleWeightKeydown(e: KeyboardEvent, userId: string) {
-    if (e.key === 'Enter') saveWeight(userId)
+  function resetWeights() {
+    if (!group) return
+    const pct = 100 / group.members.length
+    const updated: Record<string, number> = {}
+    for (const m of group.members) updated[m.userId] = pct
+    shareSliders = updated
+  }
+
+  async function saveWeights() {
+    if (!group || weightSaving) return
+    weightSaving = true
+    try {
+      const rounded: Record<string, number> = {}
+      for (const id of Object.keys(shareSliders)) {
+        rounded[id] = Math.max(1, Math.round(shareSliders[id]))
+      }
+      await Promise.all(
+        group.members
+          .filter(
+            (m) =>
+              rounded[m.userId] !== undefined &&
+              rounded[m.userId] !== m.shareWeight,
+          )
+          .map((m) => updateMemberWeight(groupId, m.userId, rounded[m.userId])),
+      )
+      group = {
+        ...group,
+        members: group.members.map((m) => ({
+          ...m,
+          shareWeight: rounded[m.userId] ?? m.shareWeight,
+        })),
+      }
+      showConfig = false
+    } finally {
+      weightSaving = false
+    }
   }
 </script>
 
@@ -255,7 +315,12 @@
       <header class="page-header">
         <h1 class="page-title">{group.name}</h1>
         <Toggle bind:checked={showMembers} label="Show members" />
-        <GradientButton square active={showConfig} onclick={openConfig} tooltip="Group settings">
+        <GradientButton
+          square
+          active={showConfig}
+          onclick={openConfig}
+          tooltip="Group settings"
+        >
           <Icon name="settings" size={12} />
         </GradientButton>
       </header>
@@ -278,23 +343,38 @@
                 </div>
               </div>
             {/if}
-            <div class="setting-row">
-              <span class="setting-label">Share weights</span>
-              <div class="setting-control">
+            <div class="setting-row setting-row--column">
+              <span class="setting-label">Share split</span>
+              <div class="share-sliders">
                 {#each group.members as member (member.id)}
-                  <div class="weight-item">
-                    <span class="weight-name">{member.userName}</span>
+                  <div class="slider-row">
+                    <span class="slider-name">{member.userName}</span>
                     <input
-                      type="number"
-                      class="weight-input"
-                      min="1"
-                      disabled={member.userId !== currentUserId && group.createdBy !== currentUserId}
-                      bind:value={weightEdits[member.userId]}
-                      onblur={() => saveWeight(member.userId)}
-                      onkeydown={(e) => handleWeightKeydown(e, member.userId)}
+                      type="range"
+                      class="slider-track"
+                      min="0"
+                      max="100"
+                      step="0.1"
+                      value={shareSliders[member.userId] ?? 0}
+                      oninput={(e) =>
+                        adjustSlider(
+                          member.userId,
+                          parseFloat((e.target as HTMLInputElement).value),
+                        )}
                     />
+                    <span class="slider-pct"
+                      >{Math.round(shareSliders[member.userId] ?? 0)}%</span
+                    >
                   </div>
                 {/each}
+                <div class="slider-actions">
+                  <GradientButton onclick={resetWeights}
+                    >Reset equal</GradientButton
+                  >
+                  <GradientButton onclick={saveWeights} disabled={weightSaving}
+                    >Save</GradientButton
+                  >
+                </div>
               </div>
             </div>
           </div>
@@ -306,7 +386,13 @@
         {#if showMembers}
           <div class="section-bar">
             <span class="section-bar-title">Members</span>
-            <GradientButton onclick={() => { showInvite = !showInvite; inviteEmail = ''; inviteError = '' }}>
+            <GradientButton
+              onclick={() => {
+                showInvite = !showInvite
+                inviteEmail = ''
+                inviteError = ''
+              }}
+            >
               <Icon name="plus" size={12} /> Invite
             </GradientButton>
           </div>
@@ -328,7 +414,10 @@
                   onkeydown={handleInviteKeydown}
                   type="email"
                 />
-                <GradientButton onclick={handleInvite} disabled={inviteSubmitting || !inviteEmail.trim()}>
+                <GradientButton
+                  onclick={handleInvite}
+                  disabled={inviteSubmitting || !inviteEmail.trim()}
+                >
                   Send invite
                 </GradientButton>
                 {#if inviteError}
@@ -341,7 +430,9 @@
                     <div class="pending-row">
                       <span class="pending-email">{invite.inviteeEmail}</span>
                       <span class="pending-label">Pending</span>
-                      <GradientButton onclick={() => handleCancelInvite(invite.id)}>
+                      <GradientButton
+                        onclick={() => handleCancelInvite(invite.id)}
+                      >
                         <Icon name="x" size={10} /> Cancel
                       </GradientButton>
                     </div>
@@ -353,27 +444,46 @@
         {/if}
 
         <!-- Expense entry -->
-        <div class="section-bar"><span class="section-bar-title">Add Expense</span></div>
+        <div class="section-bar">
+          <span class="section-bar-title">Add Expense</span>
+        </div>
         <div class="expense-form-wrap">
           <div class="expense-fields">
             <div class="expense-row-1">
               <div class="field field-desc">
                 <span class="field-label">Description</span>
-                <TextInput bind:value={expenseDesc} placeholder="What was this for?" class="fill-input" />
+                <TextInput
+                  bind:value={expenseDesc}
+                  placeholder="What was this for?"
+                  class="fill-input"
+                />
               </div>
               <div class="field field-amount">
                 <span class="field-label">Amount</span>
-                <TextInput bind:value={expenseAmount} placeholder="0.00" class="fill-input" type="number" min="0" step="0.01" />
+                <TextInput
+                  bind:value={expenseAmount}
+                  placeholder="0.00"
+                  class="fill-input"
+                  type="number"
+                  min="0"
+                  step="0.01"
+                />
               </div>
               <div class="field field-currency">
                 <span class="field-label">Currency</span>
-                <CurrencyInput bind:value={expenseCurrency} style="width: 100%" />
+                <CurrencyInput
+                  bind:value={expenseCurrency}
+                  style="width: 100%"
+                />
               </div>
             </div>
             <div class="expense-row-2">
               <div class="field field-paidby">
                 <span class="field-label">Paid by</span>
-                <select class="paid-by-select paid-by-fill" bind:value={expensePaidBy}>
+                <select
+                  class="paid-by-select paid-by-fill"
+                  bind:value={expensePaidBy}
+                >
                   {#each group.members as m (m.id)}
                     <option value={m.userId}>{m.userName}</option>
                   {/each}
@@ -381,10 +491,19 @@
               </div>
               <div class="field field-date">
                 <span class="field-label">Date</span>
-                <TextInput bind:value={expenseDate} type="date" class="fill-input" />
+                <TextInput
+                  bind:value={expenseDate}
+                  type="date"
+                  class="fill-input"
+                />
               </div>
               <div class="field-actions">
-                <GradientButton onclick={handleAddExpense} disabled={expenseSubmitting || !expenseDesc.trim() || !expenseAmount}>
+                <GradientButton
+                  onclick={handleAddExpense}
+                  disabled={expenseSubmitting ||
+                    !expenseDesc.trim() ||
+                    !expenseAmount}
+                >
                   Add expense
                 </GradientButton>
               </div>
@@ -398,7 +517,12 @@
         <!-- Balances -->
         <div class="section-bar">
           <span class="section-bar-title">Balances</span>
-          <GradientButton onclick={() => { showSettleForm = !showSettleForm; settleError = '' }}>
+          <GradientButton
+            onclick={() => {
+              showSettleForm = !showSettleForm
+              settleError = ''
+            }}
+          >
             <Icon name="plus" size={12} /> Record settlement
           </GradientButton>
         </div>
@@ -417,11 +541,32 @@
                   <option value={m.userId}>{m.userName}</option>
                 {/each}
               </select>
-              <TextInput bind:value={settleAmount} placeholder="0.00" type="number" min="0" step="0.01" class="settle-amount" />
+              <TextInput
+                bind:value={settleAmount}
+                placeholder="0.00"
+                type="number"
+                min="0"
+                step="0.01"
+                class="settle-amount"
+              />
               <CurrencyInput bind:value={settleCurrency} style="width: 60px" />
-              <TextInput bind:value={settleDate} type="date" class="settle-date" />
-              <TextInput bind:value={settleNote} placeholder="Note (optional)" class="settle-note" />
-              <GradientButton onclick={handleSettle} disabled={settleSubmitting || !settleFrom || !settleTo || !settleAmount}>
+              <TextInput
+                bind:value={settleDate}
+                type="date"
+                class="settle-date"
+              />
+              <TextInput
+                bind:value={settleNote}
+                placeholder="Note (optional)"
+                class="settle-note"
+              />
+              <GradientButton
+                onclick={handleSettle}
+                disabled={settleSubmitting ||
+                  !settleFrom ||
+                  !settleTo ||
+                  !settleAmount}
+              >
                 Save
               </GradientButton>
             </div>
@@ -443,8 +588,18 @@
                     <span class="transfer-arrow">→</span>
                     <span class="transfer-to">{t.toUserName}</span>
                   </span>
-                  <span class="transfer-amount">{t.currency} {parseFloat(t.amount).toFixed(2)}</span>
-                  <GradientButton onclick={() => prefillSettle(t.fromUserId, t.toUserId, t.amount, t.currency)}>
+                  <span class="transfer-amount"
+                    >{t.currency} {parseFloat(t.amount).toFixed(2)}</span
+                  >
+                  <GradientButton
+                    onclick={() =>
+                      prefillSettle(
+                        t.fromUserId,
+                        t.toUserId,
+                        t.amount,
+                        t.currency,
+                      )}
+                  >
                     Settle up
                   </GradientButton>
                 </div>
@@ -464,14 +619,18 @@
             class:active={panelTab === 'expenses'}
             onclick={() => (panelTab = 'expenses')}
           >
-            Expenses {#if expenses.length > 0}<span class="tab-count">{expenses.length}</span>{/if}
+            Expenses {#if expenses.length > 0}<span class="tab-count"
+                >{expenses.length}</span
+              >{/if}
           </button>
           <button
             class="panel-tab"
             class:active={panelTab === 'settlements'}
             onclick={() => (panelTab = 'settlements')}
           >
-            Settlements {#if settlements.length > 0}<span class="tab-count">{settlements.length}</span>{/if}
+            Settlements {#if settlements.length > 0}<span class="tab-count"
+                >{settlements.length}</span
+              >{/if}
           </button>
         </div>
 
@@ -488,17 +647,38 @@
                         class="expense-row"
                         role="button"
                         tabindex="0"
-                        onclick={() => (expandedExpenseId = expandedExpenseId === expense.id ? null : expense.id)}
-                        onkeydown={(e) => e.key === 'Enter' && (expandedExpenseId = expandedExpenseId === expense.id ? null : expense.id)}
+                        onclick={() =>
+                          (expandedExpenseId =
+                            expandedExpenseId === expense.id
+                              ? null
+                              : expense.id)}
+                        onkeydown={(e) =>
+                          e.key === 'Enter' &&
+                          (expandedExpenseId =
+                            expandedExpenseId === expense.id
+                              ? null
+                              : expense.id)}
                       >
                         <span class="expense-date">{expense.date}</span>
                         <span class="expense-desc">{expense.description}</span>
                         <span class="expense-payer">{expense.payerName}</span>
-                        <span class="expense-amount">{expense.currency} {parseFloat(expense.amount).toFixed(2)}</span>
-                        <Icon name={expandedExpenseId === expense.id ? 'chevron-up' : 'chevron-down'} size={12} />
+                        <span class="expense-amount"
+                          >{expense.currency}
+                          {parseFloat(expense.amount).toFixed(2)}</span
+                        >
+                        <Icon
+                          name={expandedExpenseId === expense.id
+                            ? 'chevron-up'
+                            : 'chevron-down'}
+                          size={12}
+                        />
                       </div>
                       {#if canDeleteExpense(expense)}
-                        <button class="delete-btn" onclick={() => handleDeleteExpense(expense.id)} aria-label="Delete expense">
+                        <button
+                          class="delete-btn"
+                          onclick={() => handleDeleteExpense(expense.id)}
+                          aria-label="Delete expense"
+                        >
                           <Icon name="x" size={10} />
                         </button>
                       {:else}
@@ -510,7 +690,10 @@
                         {#each expense.splits as split (split.id)}
                           <div class="split-row">
                             <span class="split-name">{split.userName}</span>
-                            <span class="split-amount">{expense.currency} {parseFloat(split.amount).toFixed(2)}</span>
+                            <span class="split-amount"
+                              >{expense.currency}
+                              {parseFloat(split.amount).toFixed(2)}</span
+                            >
                           </div>
                         {/each}
                       </div>
@@ -519,34 +702,38 @@
                 {/each}
               </div>
             {/if}
+          {:else if settlements.length === 0}
+            <p class="empty">No settlements recorded.</p>
           {:else}
-            {#if settlements.length === 0}
-              <p class="empty">No settlements recorded.</p>
-            {:else}
-              <div class="settlement-list">
-                {#each settlements as s (s.id)}
-                  <div class="settlement-row">
-                    <span class="settlement-date">{s.date}</span>
-                    <span class="settlement-names">
-                      <span class="transfer-from">{s.fromUserName}</span>
-                      <span class="transfer-arrow">→</span>
-                      <span class="transfer-to">{s.toUserName}</span>
-                    </span>
-                    <span class="settlement-amount">{s.currency} {parseFloat(s.amount).toFixed(2)}</span>
-                    {#if s.note}
-                      <span class="settlement-note">{s.note}</span>
-                    {/if}
-                    {#if canDeleteSettlement(s)}
-                      <button class="delete-btn" onclick={() => handleDeleteSettlement(s.id)} aria-label="Delete settlement">
-                        <Icon name="x" size={10} />
-                      </button>
-                    {:else}
-                      <span class="delete-placeholder"></span>
-                    {/if}
-                  </div>
-                {/each}
-              </div>
-            {/if}
+            <div class="settlement-list">
+              {#each settlements as s (s.id)}
+                <div class="settlement-row">
+                  <span class="settlement-date">{s.date}</span>
+                  <span class="settlement-names">
+                    <span class="transfer-from">{s.fromUserName}</span>
+                    <span class="transfer-arrow">→</span>
+                    <span class="transfer-to">{s.toUserName}</span>
+                  </span>
+                  <span class="settlement-amount"
+                    >{s.currency} {parseFloat(s.amount).toFixed(2)}</span
+                  >
+                  {#if s.note}
+                    <span class="settlement-note">{s.note}</span>
+                  {/if}
+                  {#if canDeleteSettlement(s)}
+                    <button
+                      class="delete-btn"
+                      onclick={() => handleDeleteSettlement(s.id)}
+                      aria-label="Delete settlement"
+                    >
+                      <Icon name="x" size={10} />
+                    </button>
+                  {:else}
+                    <span class="delete-placeholder"></span>
+                  {/if}
+                </div>
+              {/each}
+            </div>
           {/if}
         </div>
       </div>
@@ -580,7 +767,9 @@
     flex-shrink: 0;
   }
 
-  .header-placeholder { height: 28px; }
+  .header-placeholder {
+    height: 28px;
+  }
 
   .page-title {
     font-family: var(--font-serif);
@@ -620,7 +809,9 @@
   }
 
   /* Members */
-  .members-body { background: var(--color-window); }
+  .members-body {
+    background: var(--color-window);
+  }
 
   .member-row {
     display: flex;
@@ -631,7 +822,9 @@
     font-size: var(--text-sm);
   }
 
-  .member-row:last-child { border-bottom: none; }
+  .member-row:last-child {
+    border-bottom: none;
+  }
 
   .member-name {
     font-weight: var(--weight-semibold);
@@ -653,7 +846,9 @@
   }
 
   /* Invite */
-  .invite-section { background: var(--color-window); }
+  .invite-section {
+    background: var(--color-window);
+  }
 
   .invite-form {
     display: flex;
@@ -663,9 +858,13 @@
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
-  .invite-form :global(.text-input) { width: 240px; }
+  .invite-form :global(.text-input) {
+    width: 240px;
+  }
 
-  .pending-list { border-top: 1px solid var(--color-rule-soft); }
+  .pending-list {
+    border-top: 1px solid var(--color-rule-soft);
+  }
 
   .pending-row {
     display: flex;
@@ -676,7 +875,9 @@
     font-size: var(--text-sm);
   }
 
-  .pending-row:last-child { border-bottom: none; }
+  .pending-row:last-child {
+    border-bottom: none;
+  }
 
   .pending-email {
     flex: 1;
@@ -698,20 +899,43 @@
     border-bottom: 1px solid var(--color-rule);
   }
 
-  .expense-fields { display: flex; flex-direction: column; gap: var(--sp-sm); }
+  .expense-fields {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+  }
 
-  .expense-row-1, .expense-row-2 {
+  .expense-row-1,
+  .expense-row-2 {
     display: flex;
     gap: var(--sp-sm);
     align-items: flex-end;
   }
 
-  .field-desc     { flex: 1; min-width: 0; }
-  .field-amount   { width: 96px; flex-shrink: 0; }
-  .field-currency { width: 60px; flex-shrink: 0; }
-  .field-paidby   { flex: 1; min-width: 0; }
-  .field-date     { width: 138px; flex-shrink: 0; }
-  .field-actions  { display: flex; align-items: flex-end; }
+  .field-desc {
+    flex: 1;
+    min-width: 0;
+  }
+  .field-amount {
+    width: 96px;
+    flex-shrink: 0;
+  }
+  .field-currency {
+    width: 60px;
+    flex-shrink: 0;
+  }
+  .field-paidby {
+    flex: 1;
+    min-width: 0;
+  }
+  .field-date {
+    width: 138px;
+    flex-shrink: 0;
+  }
+  .field-actions {
+    display: flex;
+    align-items: flex-end;
+  }
 
   .field {
     display: flex;
@@ -728,9 +952,15 @@
     color: var(--color-text-muted);
   }
 
-  .expense-fields :global(.fill-input) { width: 100%; box-sizing: border-box; }
+  .expense-fields :global(.fill-input) {
+    width: 100%;
+    box-sizing: border-box;
+  }
 
-  .paid-by-fill { width: 100%; box-sizing: border-box; }
+  .paid-by-fill {
+    width: 100%;
+    box-sizing: border-box;
+  }
 
   .paid-by-select {
     height: 24px;
@@ -753,7 +983,9 @@
   }
 
   /* Balances */
-  .balances-body { background: var(--color-window); }
+  .balances-body {
+    background: var(--color-window);
+  }
 
   .transfer-row {
     display: flex;
@@ -764,7 +996,9 @@
     font-size: var(--text-sm);
   }
 
-  .transfer-row:last-child { border-bottom: none; }
+  .transfer-row:last-child {
+    border-bottom: none;
+  }
 
   .transfer-names {
     display: flex;
@@ -773,9 +1007,17 @@
     flex: 1;
   }
 
-  .transfer-from { font-weight: var(--weight-semibold); color: var(--color-text); }
-  .transfer-arrow { color: var(--color-text-muted); font-size: var(--text-xs); }
-  .transfer-to { color: var(--color-text); }
+  .transfer-from {
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
+  .transfer-arrow {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+  .transfer-to {
+    color: var(--color-text);
+  }
 
   .transfer-amount {
     font-family: var(--font-mono);
@@ -803,9 +1045,16 @@
     color: var(--color-text-muted);
   }
 
-  .settle-form :global(.settle-amount) { width: 80px; }
-  .settle-form :global(.settle-date) { width: 120px; }
-  .settle-form :global(.settle-note) { flex: 1; min-width: 120px; }
+  .settle-form :global(.settle-amount) {
+    width: 80px;
+  }
+  .settle-form :global(.settle-date) {
+    width: 120px;
+  }
+  .settle-form :global(.settle-note) {
+    flex: 1;
+    min-width: 120px;
+  }
 
   .empty {
     padding: var(--sp-lg) 22px;
@@ -880,10 +1129,16 @@
   }
 
   /* Expense list */
-  .expense-list { background: var(--color-window); }
+  .expense-list {
+    background: var(--color-window);
+  }
 
-  .expense-item { border-bottom: 1px solid var(--color-rule-soft); }
-  .expense-item:last-child { border-bottom: none; }
+  .expense-item {
+    border-bottom: 1px solid var(--color-rule-soft);
+  }
+  .expense-item:last-child {
+    border-bottom: none;
+  }
 
   .expense-row-wrap {
     display: flex;
@@ -902,7 +1157,9 @@
     transition: background var(--duration-fast) var(--ease);
   }
 
-  .expense-row:hover { background: var(--color-window-raised); }
+  .expense-row:hover {
+    background: var(--color-window-raised);
+  }
 
   .expense-date {
     font-family: var(--font-mono);
@@ -931,7 +1188,8 @@
     font-variant-numeric: tabular-nums;
   }
 
-  .delete-btn, .delete-placeholder {
+  .delete-btn,
+  .delete-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -948,10 +1206,14 @@
     transition: color var(--duration-fast) var(--ease);
   }
 
-  .delete-btn:hover { color: var(--color-amount-negative); }
+  .delete-btn:hover {
+    color: var(--color-amount-negative);
+  }
 
   /* Splits */
-  .splits { background: var(--color-window-raised); }
+  .splits {
+    background: var(--color-window-raised);
+  }
 
   .split-row {
     display: flex;
@@ -998,16 +1260,19 @@
     background: var(--color-window);
     padding: var(--sp-sm) 14px;
     display: flex;
-    align-items: flex-start;
-    gap: var(--sp-xl);
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: var(--sp-sm);
   }
 
   .setting-row {
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    flex-wrap: wrap;
+  }
+
+  .setting-row--column {
+    flex-direction: column;
+    align-items: flex-start;
   }
 
   .setting-label {
@@ -1020,46 +1285,55 @@
     white-space: nowrap;
   }
 
-  .setting-control {
+  .share-sliders {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+  }
+
+  .slider-row {
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    flex-wrap: wrap;
   }
 
-  .weight-item {
-    display: flex;
-    align-items: center;
-    gap: 6px;
+  .slider-name {
+    width: 120px;
     font-size: var(--text-sm);
-  }
-
-  .weight-name {
     color: var(--color-text);
-    font-size: var(--text-sm);
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
   }
 
-  .weight-input {
-    width: 48px;
-    height: 24px;
+  .slider-track {
+    flex: 1;
+    cursor: pointer;
+    accent-color: var(--color-accent);
+  }
+
+  .slider-pct {
+    width: 32px;
+    text-align: right;
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-    background: var(--color-window-inset);
-    border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 0 var(--sp-xs);
-    box-sizing: border-box;
-    text-align: center;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    flex-shrink: 0;
   }
 
-  .weight-input:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
+  .slider-actions {
+    display: flex;
+    gap: var(--sp-xs);
+    justify-content: flex-end;
+    margin-top: var(--sp-xs);
   }
 
   /* Settlement history */
-  .settlement-list { background: var(--color-window); }
+  .settlement-list {
+    background: var(--color-window);
+  }
 
   .settlement-row {
     display: flex;
@@ -1070,7 +1344,9 @@
     font-size: var(--text-sm);
   }
 
-  .settlement-row:last-child { border-bottom: none; }
+  .settlement-row:last-child {
+    border-bottom: none;
+  }
 
   .settlement-date {
     font-family: var(--font-mono);
@@ -1122,7 +1398,9 @@
       min-height: 0;
     }
 
-    .right-col { flex: none; }
+    .right-col {
+      flex: none;
+    }
 
     .txn-panel {
       height: auto;
@@ -1136,37 +1414,79 @@
     }
 
     /* Header */
-    .page-header { padding: 10px 14px 8px; flex-wrap: wrap; }
+    .page-header {
+      padding: 10px 14px 8px;
+      flex-wrap: wrap;
+    }
 
     /* Expense form: wrap on small screens */
-    .expense-form-wrap { padding: 10px 14px; }
-    .expense-row-1 { flex-wrap: wrap; }
-    .field-desc { flex: 1 1 100%; }
-    .expense-row-2 { flex-wrap: wrap; }
-    .field-date { flex: 1; min-width: 120px; }
-    .field-actions { flex: 1 1 100%; justify-content: flex-end; }
+    .expense-form-wrap {
+      padding: 10px 14px;
+    }
+    .expense-row-1 {
+      flex-wrap: wrap;
+    }
+    .field-desc {
+      flex: 1 1 100%;
+    }
+    .expense-row-2 {
+      flex-wrap: wrap;
+    }
+    .field-date {
+      flex: 1;
+      min-width: 120px;
+    }
+    .field-actions {
+      flex: 1 1 100%;
+      justify-content: flex-end;
+    }
 
     /* Larger touch targets for selects */
-    .paid-by-select { height: 32px; }
+    .paid-by-select {
+      height: 32px;
+    }
 
     /* Row padding reductions */
-    .member-row { padding-left: 14px; padding-right: 14px; }
-    .invite-form { padding-left: 14px; padding-right: 14px; }
-    .pending-row { padding-left: 14px; padding-right: 14px; }
-    .transfer-row { padding-left: 14px; padding-right: 14px; }
-    .settle-form-wrap { padding-left: 14px; padding-right: 14px; }
+    .member-row {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .invite-form {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .pending-row {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .transfer-row {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
+    .settle-form-wrap {
+      padding-left: 14px;
+      padding-right: 14px;
+    }
 
     /* Expense rows: drop payer column, tighten */
     .expense-row {
       grid-template-columns: 5rem 1fr 5rem 1rem;
       padding: 7px 6px 7px 12px;
     }
-    .expense-payer { display: none; }
+    .expense-payer {
+      display: none;
+    }
 
     /* Settlement rows */
-    .settlement-row { padding-left: 12px; padding-right: 6px; }
-    .settlement-date { min-width: 5rem; }
-    .settlement-note { display: none; }
+    .settlement-row {
+      padding-left: 12px;
+      padding-right: 6px;
+    }
+    .settlement-date {
+      min-width: 5rem;
+    }
+    .settlement-note {
+      display: none;
+    }
   }
-
 </style>

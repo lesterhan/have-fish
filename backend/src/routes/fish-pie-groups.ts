@@ -133,9 +133,7 @@ app.patch('/:id/members/:userId', async (c) => {
   const members = await fetchMembersForGroups([groupId])
   if (!members.some((m) => m.userId === requestingUserId)) return c.json({ error: 'not found' }, 404)
 
-  const isSelf = targetUserId === requestingUserId
-  const isCreator = group.createdBy === requestingUserId
-  if (!isSelf && !isCreator) return c.json({ error: 'forbidden' }, 403)
+  // Any group member may adjust share weights (not just self or creator)
 
   const body = await c.req.json<{ shareWeight?: number }>()
   const weight = body.shareWeight
