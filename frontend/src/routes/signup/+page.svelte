@@ -7,6 +7,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
 
   let email = $state('')
+  let name = $state('')
   let password = $state('')
   let confirmPassword = $state('')
   let error = $state('')
@@ -20,9 +21,7 @@
       return
     }
 
-    // Better Auth requires a name field — use email as the display name since
-    // we don't collect a separate name on sign-up.
-    const result = await signUp.email({ email, password, name: email })
+    const result = await signUp.email({ email, password, name: name.trim() || email })
     if (result.error) {
       error = result.error.message ?? 'Sign up failed'
     } else {
@@ -49,6 +48,18 @@
           bind:value={email}
           required
           autocomplete="email"
+        />
+      </div>
+
+      <div class="field">
+        <label for="name">Display name</label><span class="label-hint"
+          >(optional)</span
+        >
+        <TextInput
+          id="name"
+          bind:value={name}
+          autocomplete="name"
+          placeholder="How you appear in shared expenses"
         />
       </div>
 

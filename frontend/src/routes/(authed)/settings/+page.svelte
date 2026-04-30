@@ -16,12 +16,45 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import { signOut, useSession, authClient } from '$lib/auth'
   import { goto } from '$app/navigation'
+  import { tick } from 'svelte'
   import { confetti } from '$lib/confetti.svelte'
   import { toast } from '$lib/toast.svelte'
   import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
   const session = useSession()
+
+  let editingName = $state(false)
+  let nameInput = $state('')
+
+  let displayName = $derived(
+    $session.data?.user.name !== $session.data?.user.email
+      ? ($session.data?.user.name ?? '')
+      : '',
+  )
+
+  async function startEditName() {
+    nameInput = $session.data?.user.name ?? ''
+    editingName = true
+    await tick()
+    document.querySelector<HTMLInputElement>('.name-section input')?.focus()
+  }
+
+  async function handleSaveName() {
+    const trimmed = nameInput.trim()
+    if (!trimmed) return
+    const result = await authClient.updateUser({ name: trimmed })
+    if (result.error) {
+      toast.show('Failed to save display name')
+    } else {
+      toast.show('Display name saved')
+      editingName = false
+    }
+  }
+
+  function cancelEditName() {
+    editingName = false
+  }
 
   async function handleSignOut() {
     await signOut()
@@ -125,6 +158,37 @@
       >
       {#if $session.data}
         <span class="user-email">{$session.data.user.email}</span>
+        <div class="name-section">
+          {#if editingName}
+            <TextInput
+              bind:value={nameInput}
+              placeholder="Display name"
+              spellcheck={false}
+              style="flex: 1; min-width: 0; height: 20px; font-size: 11px"
+              onkeydown={(e: KeyboardEvent) => {
+                if (e.key === 'Enter') handleSaveName()
+                if (e.key === 'Escape') cancelEditName()
+              }}
+            />
+            <GradientButton square onclick={handleSaveName} tooltip="Save name">
+              <Icon name="check" size={10} />
+            </GradientButton>
+            <GradientButton square onclick={cancelEditName} tooltip="Cancel">
+              <Icon name="close" size={10} />
+            </GradientButton>
+          {:else}
+            <span class="user-display-name" class:placeholder={!displayName}>
+              [ {displayName || "what's your name…"} ]
+            </span>
+            <GradientButton
+              square
+              onclick={startEditName}
+              tooltip="Edit display name"
+            >
+              <Icon name="edit-txn" size={10} />
+            </GradientButton>
+          {/if}
+        </div>
       {/if}
       <GradientButton onclick={handleSignOut}>Sign out</GradientButton>
     </div>
@@ -464,7 +528,7 @@
   .section-bar-title {
     font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: 700;
+    font-weight: var(--weight-semibold);
     letter-spacing: 0.6px;
     flex: 1;
   }
@@ -474,7 +538,32 @@
     font-size: 11px;
     color: var(--color-section-bar-fg);
     opacity: 0.75;
+    flex-shrink: 0;
+  }
+
+  .name-section {
     flex: 1;
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    min-width: 0;
+  }
+
+  .user-display-name {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-weight: var(--weight-semibold);
+    font-size: 11px;
+    color: var(--color-section-bar-fg);
+    opacity: 0.6;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .user-display-name.placeholder {
+    font-style: italic;
+    opacity: 0.3;
   }
 
   .danger-bar {
@@ -505,7 +594,7 @@
   .setting-label {
     font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: 700;
+    font-weight: var(--weight-semibold);
     letter-spacing: 0.4px;
     color: var(--color-text-muted);
     display: flex;
@@ -590,7 +679,7 @@
   .danger-title {
     font-family: var(--font-sans);
     font-size: var(--text-sm);
-    font-weight: 700;
+    font-weight: var(--weight-semibold);
     color: var(--color-danger);
   }
 
