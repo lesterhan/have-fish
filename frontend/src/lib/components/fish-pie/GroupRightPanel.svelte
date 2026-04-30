@@ -140,31 +140,35 @@
     {:else}
       <div class="settlement-list">
         {#each settlements as s (s.id)}
-          <div class="settlement-row">
-            <span class="settlement-date">{s.date}</span>
-            <span class="settlement-names">
-              <span class="transfer-from">{s.fromUserName}</span>
-              <span class="transfer-arrow">→</span>
-              <span class="transfer-to">{s.toUserName}</span>
-            </span>
-            <span class="settlement-amount">
-              {s.currency}
-              {parseFloat(s.amount).toFixed(2)}
-            </span>
-            {#if s.note}
-              <span class="settlement-note">{s.note}</span>
-            {/if}
-            {#if canDeleteSettlement(s)}
-              <button
-                class="delete-btn"
-                onclick={() => onDeleteSettlement(s.id)}
-                aria-label="Delete settlement"
-              >
-                <Icon name="x" size={10} />
-              </button>
-            {:else}
-              <span class="delete-placeholder"></span>
-            {/if}
+          <div class="expense-item">
+            <div class="expense-row-wrap">
+              <div class="expense-row settlement-row-inner">
+                <div class="row-avatar">{initials(s.fromUserName)}</div>
+                <div class="expense-info">
+                  <span class="expense-desc">
+                    {s.fromUserName} → {s.toUserName}
+                  </span>
+                  <span class="expense-meta">
+                    {s.date}{s.note ? ` · ${s.note}` : ""}
+                  </span>
+                </div>
+                <div class="expense-right">
+                  <span class="expense-amount">{parseFloat(s.amount).toFixed(2)}</span>
+                  <CurrencyPill code={s.currency} />
+                </div>
+              </div>
+              {#if canDeleteSettlement(s)}
+                <button
+                  class="delete-btn"
+                  onclick={() => onDeleteSettlement(s.id)}
+                  aria-label="Delete settlement"
+                >
+                  <Icon name="trash" size={16} />
+                </button>
+              {:else}
+                <span class="delete-placeholder"></span>
+              {/if}
+            </div>
           </div>
         {/each}
       </div>
@@ -374,58 +378,8 @@
     background: var(--color-window);
   }
 
-  .settlement-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    padding: 6px 8px 6px 14px;
-    border-bottom: 1px solid var(--color-rule-soft);
-    font-size: var(--text-sm);
-  }
-
-  .settlement-row:last-child {
-    border-bottom: none;
-  }
-
-  .settlement-date {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    min-width: 6rem;
-  }
-
-  .settlement-names {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    flex: 1;
-  }
-
-  .settlement-amount {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text);
-  }
-
-  .settlement-note {
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    font-style: italic;
-    flex: 1;
-  }
-
-  .transfer-from {
-    font-weight: var(--weight-semibold);
-    color: var(--color-text);
-  }
-
-  .transfer-arrow {
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
-  }
-
-  .transfer-to {
-    color: var(--color-text);
+  .settlement-row-inner {
+    cursor: default;
   }
 
   @media (max-width: 600px) {
