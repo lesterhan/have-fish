@@ -200,7 +200,7 @@
             onclick={() => (assetsOpen = !assetsOpen)}
           >
             <img
-              src="/icons/chevron.svg"
+              src="/icons/chevron-right-filled.svg"
               alt=""
               aria-hidden="true"
               width="12"
@@ -263,7 +263,7 @@
             onclick={() => (liabilitiesOpen = !liabilitiesOpen)}
           >
             <img
-              src="/icons/chevron.svg"
+              src="/icons/chevron-right-filled.svg"
               alt=""
               aria-hidden="true"
               width="12"
@@ -326,7 +326,7 @@
             onclick={() => (equityOpen = !equityOpen)}
           >
             <img
-              src="/icons/chevron.svg"
+              src="/icons/chevron-right-filled.svg"
               alt=""
               aria-hidden="true"
               width="12"
@@ -390,7 +390,7 @@
               onclick={() => (hiddenOpen = !hiddenOpen)}
             >
               <img
-                src="/icons/chevron.svg"
+                src="/icons/chevron-right-filled.svg"
                 alt=""
                 aria-hidden="true"
                 width="12"

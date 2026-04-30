@@ -3,7 +3,13 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import { fetchGroups, createGroup, fetchMyInvites, acceptInvite, declineInvite } from '$lib/api'
+  import {
+    fetchGroups,
+    createGroup,
+    fetchMyInvites,
+    acceptInvite,
+    declineInvite,
+  } from '$lib/api'
   import type { ExpenseGroup, GroupInvite } from '$lib/api'
 
   let groups = $state<ExpenseGroup[]>([])
@@ -50,14 +56,22 @@
 
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'Enter') handleCreate()
-    if (e.key === 'Escape') { showForm = false; newName = '' }
+    if (e.key === 'Escape') {
+      showForm = false
+      newName = ''
+    }
   }
 </script>
 
 <div class="page">
   <header class="page-header">
     <h1 class="page-title">Fish Pie</h1>
-    <GradientButton onclick={() => { showForm = !showForm; newName = '' }}>
+    <GradientButton
+      onclick={() => {
+        showForm = !showForm
+        newName = ''
+      }}
+    >
       <Icon name="plus" size={12} /> New group
     </GradientButton>
   </header>
@@ -70,17 +84,27 @@
         onkeydown={handleKeydown}
         autofocus
       />
-      <GradientButton onclick={handleCreate} disabled={submitting || !newName.trim()}>
+      <GradientButton
+        onclick={handleCreate}
+        disabled={submitting || !newName.trim()}
+      >
         Create
       </GradientButton>
-      <GradientButton onclick={() => { showForm = false; newName = '' }}>
+      <GradientButton
+        onclick={() => {
+          showForm = false
+          newName = ''
+        }}
+      >
         Cancel
       </GradientButton>
     </div>
   {/if}
 
   {#if !loading && invites.length > 0}
-    <div class="section-bar"><span class="section-bar-title">Pending invites</span></div>
+    <div class="section-bar">
+      <span class="section-bar-title">Pending invites</span>
+    </div>
     <div class="invites-body">
       {#each invites as invite (invite.id)}
         <div class="invite-row">
@@ -89,8 +113,13 @@
             <span class="invite-from">invited by {invite.inviterName}</span>
           </div>
           <div class="invite-actions">
-            <GradientButton onclick={() => handleAccept(invite)}>Accept</GradientButton>
-            <GradientButton onclick={() => handleDecline(invite.id)} variant="warning">Decline</GradientButton>
+            <GradientButton onclick={() => handleAccept(invite)}
+              >Accept</GradientButton
+            >
+            <GradientButton
+              onclick={() => handleDecline(invite.id)}
+              variant="warning">Decline</GradientButton
+            >
           </div>
         </div>
       {/each}
@@ -103,13 +132,19 @@
     {#if loading}
       <p class="empty">Loading…</p>
     {:else if groups.length === 0}
-      <p class="empty">No groups yet. Create one to start splitting expenses with others.</p>
+      <p class="empty">
+        No groups yet. Create one to start splitting expenses with others.
+      </p>
     {:else}
       {#each groups as group (group.id)}
         <a class="group-row" href="/fish-pie/{group.id}">
           <span class="group-name">{group.name}</span>
-          <span class="group-meta">{group.members.length} member{group.members.length === 1 ? '' : 's'}</span>
-          <Icon name="chevron-right" size={12} />
+          <span class="group-meta"
+            >{group.members.length} member{group.members.length === 1
+              ? ''
+              : 's'}</span
+          >
+          <Icon name="chevron-right-filled" size={12} />
         </a>
       {/each}
     {/if}
