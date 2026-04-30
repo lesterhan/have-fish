@@ -157,6 +157,15 @@
         <span class="nav-label">Budgeting</span>
       </a>
       <a
+        href="/fish-pie"
+        class="nav-link"
+        class:active={currentPath.startsWith('/fish-pie')}
+        use:tooltip={'Fish Pie'}
+      >
+        <Icon name="pie" size={16} />
+        <span class="nav-label">Fish Pie</span>
+      </a>
+      <a
         href="/import"
         class="nav-link"
         class:active={currentPath.startsWith('/import')}
@@ -173,15 +182,6 @@
       >
         <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
-      </a>
-      <a
-        href="/fish-pie"
-        class="nav-link"
-        class:active={currentPath.startsWith('/fish-pie')}
-        use:tooltip={'Fish Pie'}
-      >
-        <Icon name="pie" size={16} />
-        <span class="nav-label">Fish Pie</span>
       </a>
       <!--
         <a href="/dashboard" class="nav-link nav-link-wip" use:tooltip={'Dashboard [WIP]'}>
