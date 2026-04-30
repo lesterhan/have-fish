@@ -154,8 +154,8 @@
         use:tooltip={'Budgeting'}
       >
         <Icon name="piggy-bank" size={16} />
-        <Icon name="cone" size={16} />
         <span class="nav-label">Budgeting</span>
+        <Icon name="cone" size={10} />
       </a>
       <a
         href="/import"
@@ -182,8 +182,8 @@
         use:tooltip={'Fish Pie'}
       >
         <Icon name="pie" size={16} />
-        <Icon name="cone" size={16} />
         <span class="nav-label">Fish Pie</span>
+        <Icon name="cone" size={10} />
       </a>
       <!--
         <a href="/dashboard" class="nav-link nav-link-wip" use:tooltip={'Dashboard [WIP]'}>
