@@ -48,7 +48,11 @@
     width: 36px;
     height: 18px;
     border-radius: 9px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-rule-soft),
+      var(--color-rule)
+    );
     border: 1px solid var(--color-rule);
     transition:
       background var(--duration-normal) var(--ease),
@@ -57,7 +61,11 @@
   }
 
   .track.on {
-    background: linear-gradient(180deg, var(--color-accent-hi), var(--color-accent));
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-hi),
+      var(--color-accent)
+    );
     border-color: var(--color-accent);
   }
 
