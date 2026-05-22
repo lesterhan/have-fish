@@ -134,22 +134,21 @@
         accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
       importAsLiabilities = defaultAccountPath.startsWith(`${liabilitiesRoot}:`)
 
-      // For multi-currency imports, each regular row maps to a sub-account
-      // (e.g. assets:wise:usd) that the preview endpoint doesn't know about.
-      // Re-check duplicates now that we can resolve per-row account IDs.
-      let perRowDuplicates: (PossibleDuplicate | null)[] | null = null
-      if (preview.isMultiCurrency) {
-        const previewRef = preview
-        const checkRows = previewRef.transactions.map((tx) => ({
-          accountId:
-            tx.isTransfer === false
-              ? getInferredAccountId(tx.currency ?? defaultCurrency)
-              : '',
-          date: tx.date,
-          amount: tx.isTransfer === false ? tx.amount : '0',
-        }))
-        perRowDuplicates = await checkDuplicates(checkRows)
-      }
+      // Resolve per-row account IDs and check for duplicates. For single-currency
+      // imports every row maps to defaultAccountId; for multi-currency each row
+      // maps to a currency sub-account (e.g. assets:wise:usd). Transfer rows
+      // pass an empty accountId and are skipped by the backend.
+      const checkRows = preview.transactions.map((tx) => ({
+        accountId:
+          tx.isTransfer === false
+            ? (preview!.isMultiCurrency
+                ? getInferredAccountId(tx.currency ?? defaultCurrency)
+                : (preview!.defaultAccountId ?? ''))
+            : '',
+        date: tx.date,
+        amount: tx.isTransfer === false ? tx.amount : '0',
+      }))
+      const perRowDuplicates = await checkDuplicates(checkRows)
 
       rowStates = preview.transactions.map((tx, i) => ({
         offsetAccountId:
@@ -159,7 +158,7 @@
         conversionAccountId:
           settingsStore.value?.defaultConversionAccountId ?? '',
         feeAccountId: preview!.defaultFeeAccountId ?? '',
-        skipped: (perRowDuplicates ? perRowDuplicates[i] : tx.possibleDuplicate) != null,
+        skipped: perRowDuplicates[i] != null,
       }))
     } catch (e) {
       error =
