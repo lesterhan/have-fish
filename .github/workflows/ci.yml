@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: havefish
+          POSTGRES_PASSWORD: havefish
+          POSTGRES_DB: havefish
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      DATABASE_URL: postgres://havefish:havefish@localhost:5432/havefish
+      TEST_DATABASE_URL: postgres://havefish:havefish@localhost:5432/havefish_test
+      BETTER_AUTH_SECRET: ci-secret-not-used-in-tests
+      BETTER_AUTH_URL: http://localhost:8887
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Create test database
+        run: psql postgres://havefish:havefish@localhost:5432/havefish -c 'CREATE DATABASE havefish_test;'
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: bun install
+
+      - name: Run migrations
+        working-directory: backend
+        run: bun run db:migrate:test
+
+      - name: Run tests
+        working-directory: backend
+        run: bun test
