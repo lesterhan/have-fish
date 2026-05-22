@@ -17,6 +17,7 @@ Three guiding principles that should inform every feature decision:
 
 - **Backend**: Hono + Bun (TypeScript)
 - **Frontend**: SvelteKit + Svelte 5 (TypeScript)
+- **Mobile**: React Native + Expo (Android, `mobile/`)
 - **Database**: PostgreSQL via Drizzle ORM
 - **Auth**: Better Auth (email + password)
 - **Deployment**: Docker/Podman Compose
@@ -35,15 +36,25 @@ have-fish/
 │   │   ├── routes/          # One file per resource, co-located with tests
 │   │   └── test-utils.ts    # clearDatabase() helper for tests
 │   └── drizzle/             # Generated migration files (do not edit by hand)
-└── frontend/
-    └── src/
-        ├── styles/
-        │   ├── tokens.css   # Design tokens — single source of truth for all visual values
-        │   └── base.css     # Global reset and baseline typography
-        ├── routes/          # SvelteKit file-based routing
-        └── lib/
-            ├── components/  # Reusable Svelte components
-            └── api.ts       # Typed fetch helpers for the backend
+├── frontend/
+│   └── src/
+│       ├── styles/
+│       │   ├── tokens.css   # Design tokens — single source of truth for all visual values
+│       │   └── base.css     # Global reset and baseline typography
+│       ├── routes/          # SvelteKit file-based routing
+│       └── lib/
+│           ├── components/  # Reusable Svelte components
+│           └── api.ts       # Typed fetch helpers for the backend
+└── mobile/
+    ├── app/                 # Expo Router file-based routes
+    │   ├── (auth)/          # Login screen
+    │   └── (app)/           # Authenticated screens (groups, settings)
+    ├── components/          # Shared React Native components
+    ├── lib/
+    │   ├── api.ts           # Typed fetch helpers — set BASE_URL to your server
+    │   └── auth.ts          # Session management via SecureStore
+    ├── app.json             # Expo config (package: com.lesterhan.havefish)
+    └── eas.json             # EAS build profiles (preview → APK, production → AAB)
 ```
 
 ## Key Commands
@@ -62,6 +73,11 @@ bun run db:studio         # open Drizzle Studio (DB GUI in browser)
 bun run dev           # start dev server
 bun run build         # production build
 bun run check         # TypeScript + Svelte type checking
+
+# Mobile (run from /mobile)
+bun run start         # start Metro bundler (scan QR with Expo Go)
+bun run android       # run on connected device / emulator (needs Android SDK)
+eas build --platform android --profile preview   # build sideload APK via EAS cloud
 
 # Infrastructure (run from project root)
 podman compose up postgres -d     # start just Postgres locally
@@ -165,11 +181,11 @@ Use `--color-amount-positive` (green) for income and `--color-amount-negative` (
 When the user says this:
 
 1. Read the epic file from `planning/epics/`. List all stories as a numbered checklist so the user can see the full scope.
-2. Start story 1. Follow the coding conventions (skeleton code, minimal tests, explain decisions).
-3. After finishing the story's implementation, present a brief summary of what was produced and **ask the user to review the code**.
+2. Start story 1. Implement it fully — complete, production-quality code with comprehensive tests.
+3. After finishing the story, present a brief summary of what was produced and **open a PR** against `main` on the public (`have-fish`) repo. Share the PR link for review.
 4. Wait for the user to confirm they are done reviewing.
-5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. Report findings clearly — fix anything that warrants fixing before shipping.
-6. Confirm the story is prod-ready and tell the user they can push.
+5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. Fix anything that warrants fixing before shipping (push the fix to the same PR branch).
+6. Confirm the story is prod-ready. The user merges the PR on GitHub, then runs `git pull && git push` locally to sync both remotes.
 7. Move to the next story and repeat from step 2.
 8. After all stories are complete, ask if the user wants any additional tweaks before wrapping up.
 
@@ -183,9 +199,48 @@ When the user says this:
 
 ## How I Like to Be Assisted
 
-- **Learning is the priority** — we are pair programming. Explain decisions, don't just generate code.
-- **Skeleton code only** — when generating implementation files, produce the bare structure with comments describing what needs to be written, not the finished code.
-- **Minimal tests** — when generating test files, only write a single sanity/smoke test to establish the pattern. I will write the rest of the tests myself.
+- **I'm hands-off on code** — implement features fully and correctly. Don't produce skeleton or partial code that requires me to fill in the gaps.
+- **We design together** — before writing code for a new epic or a non-trivial feature, discuss the approach in the epic file under `planning/`. I want to understand and shape what we're building, even if I'm not writing it.
+- **Tests prevent regression** — I'm using the app in the wild while traveling. Write comprehensive tests for every new route and behaviour. Tests are not an afterthought.
+- **PRs, not direct pushes** — all work goes through a branch and a pull request opened against `main` on the public `have-fish` repo. Never push directly to `main`. This is the gate that keeps the deployed app stable.
+- **Explain non-obvious decisions** — when you make a choice that isn't dictated by the existing conventions (data model trade-offs, architectural decisions, security choices), say so briefly. I don't need narration of mechanical steps.
+
+## Remotes & PR Workflow
+
+This repo has two remotes:
+
+- **`have-fish`** (public, GitHub) — where PRs are opened and reviewed
+- **`have-fish-private`** (private, GitHub) — deployed to the home server via Tailscale
+
+Both are configured as push targets on `origin`. A single `git push` sends to both.
+
+### Normal feature flow
+
+```bash
+# 1. branch off main
+git checkout -b feature/my-thing
+
+# 2. implement, commit
+git push -u origin feature/my-thing
+
+# 3. open PR on have-fish (public GitHub) — Claude does this in the epic workflow
+# 4. review, iterate, merge on GitHub
+
+# 5. sync both remotes after merge
+git checkout main
+git pull origin main
+git push                  # pushes merged main to both have-fish and have-fish-private
+```
+
+### After merging a PR that originated elsewhere
+
+If a PR was merged on GitHub (e.g. a dependabot or external contribution), the same two steps apply:
+
+```bash
+git pull origin main && git push
+```
+
+This is the only manual step needed to keep `have-fish-private` (and the deployed server) in sync.
 
 ## Conventions
 

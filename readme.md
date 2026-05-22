@@ -8,6 +8,7 @@ Personal finance tracker that brings clarity to money spent while out and about.
 
 - **Backend** — [Hono](https://hono.dev/) + [Bun](https://bun.sh/)
 - **Frontend** — [SvelteKit](https://kit.svelte.dev/) + Svelte 5
+- **Mobile** — React Native + [Expo](https://expo.dev/) (Android)
 - **Database** — PostgreSQL via [Drizzle ORM](https://orm.drizzle.team/)
 - **Auth** — [Better Auth](https://www.better-auth.com/) (email + password)
 - **Deployment** — Docker/Podman Compose
@@ -54,3 +55,39 @@ podman compose up --build
 ```
 
 Frontend at `http://localhost:8888`, backend at `http://localhost:8887`.
+
+## Mobile App (Android)
+
+The `mobile/` directory is a React Native + Expo app that talks directly to the Hono backend. It targets Android only and is distributed as a sideloaded APK — no Play Store.
+
+**Prerequisites:** Node.js, [Expo CLI](https://docs.expo.dev/more/expo-cli/), [EAS CLI](https://docs.expo.dev/eas-update/getting-started/) (`npm i -g expo-cli eas-cli`)
+
+### Run on device / emulator (Expo Go)
+
+```bash
+cd mobile
+bun install          # or npm install
+
+# Point the app at your server — edit mobile/lib/api.ts and set BASE_URL
+# to your backend's Tailscale or local address, e.g. http://100.x.x.x:8887
+
+bun run start        # starts Metro bundler — scan QR with Expo Go on device
+```
+
+### Dev build (full native, no Expo Go)
+
+```bash
+cd mobile
+bun run android      # requires Android SDK / connected device or emulator
+```
+
+### Build a sideload-ready APK (EAS)
+
+```bash
+cd mobile
+eas build --platform android --profile preview
+# EAS builds in the cloud and gives you a download link for the .apk
+# Install on device: adb install have-fish.apk
+```
+
+The `production` EAS profile produces an `.aab` (App Bundle) for Play Store submission if ever needed.
