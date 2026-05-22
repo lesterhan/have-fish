@@ -5,10 +5,12 @@
     fetchParsers,
     importPreview,
     importCommit,
+    checkDuplicates,
     createAccount,
     type Account,
     type CsvParser,
     type CommitTransaction,
+    type PossibleDuplicate,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -131,7 +133,25 @@
       const defaultAccountPath =
         accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
       importAsLiabilities = defaultAccountPath.startsWith(`${liabilitiesRoot}:`)
-      rowStates = preview.transactions.map((tx) => ({
+
+      // For multi-currency imports, each regular row maps to a sub-account
+      // (e.g. assets:wise:usd) that the preview endpoint doesn't know about.
+      // Re-check duplicates now that we can resolve per-row account IDs.
+      let perRowDuplicates: (PossibleDuplicate | null)[] | null = null
+      if (preview.isMultiCurrency) {
+        const previewRef = preview
+        const checkRows = previewRef.transactions.map((tx) => ({
+          accountId:
+            tx.isTransfer === false
+              ? getInferredAccountId(tx.currency ?? defaultCurrency)
+              : '',
+          date: tx.date,
+          amount: tx.isTransfer === false ? tx.amount : '0',
+        }))
+        perRowDuplicates = await checkDuplicates(checkRows)
+      }
+
+      rowStates = preview.transactions.map((tx, i) => ({
         offsetAccountId:
           tx.isTransfer === false && tx.suggestedOffsetAccountId
             ? tx.suggestedOffsetAccountId
@@ -139,7 +159,7 @@
         conversionAccountId:
           settingsStore.value?.defaultConversionAccountId ?? '',
         feeAccountId: preview!.defaultFeeAccountId ?? '',
-        skipped: tx.possibleDuplicate != null,
+        skipped: (perRowDuplicates ? perRowDuplicates[i] : tx.possibleDuplicate) != null,
       }))
     } catch (e) {
       error =

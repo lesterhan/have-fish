@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { transactions, postings, csvParsers, importRules } from '../db/schema'
+import { transactions, postings, csvParsers, importRules, accounts } from '../db/schema'
 import { eq, isNull, and, gte, lte } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
@@ -151,6 +151,103 @@ app.post('/preview', async (c) => {
     ...result,
     transactions: transactionsWithRules,
   })
+})
+
+// POST /api/import/check-duplicates
+// Checks a list of rows (each with a resolved accountId, date, and amount)
+// against existing postings. Used by the frontend for multi-currency imports
+// where each row maps to a different sub-account (e.g. assets:wise:usd) that
+// the /preview endpoint cannot know about until the frontend resolves them.
+//
+// Request body: { rows: [{ accountId: string, date: string, amount: string }] }
+// Response: { duplicates: (PossibleDuplicate | null)[] }
+//   where PossibleDuplicate = { transactionId, date, amount, currency } | null
+app.post('/check-duplicates', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json()
+  const { rows } = body
+
+  if (!Array.isArray(rows) || rows.length === 0) {
+    return c.json({ duplicates: [] })
+  }
+
+  type InputRow = { accountId: string; date: string; amount: string }
+  type PossibleDuplicate = { transactionId: string; date: string; amount: string; currency: string } | null
+
+  const inputRows = rows as InputRow[]
+  const result: PossibleDuplicate[] = inputRows.map(() => null)
+
+  // Group row indices by accountId; skip empty strings (transfer rows not checked).
+  const byAccount = new Map<string, number[]>()
+  for (let i = 0; i < inputRows.length; i++) {
+    const { accountId } = inputRows[i]
+    if (!accountId) continue
+    if (!byAccount.has(accountId)) byAccount.set(accountId, [])
+    byAccount.get(accountId)!.push(i)
+  }
+
+  for (const [accountId, indices] of byAccount) {
+    // Verify the account belongs to this user before querying postings.
+    const owned = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+      .limit(1)
+    if (owned.length === 0) continue
+
+    const dates = indices.map((i) => new Date(inputRows[i].date))
+    const minDate = new Date(Math.min(...dates.map((d) => d.getTime())))
+    const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())))
+    minDate.setDate(minDate.getDate() - 1)
+    maxDate.setDate(maxDate.getDate() + 1)
+    maxDate.setHours(23, 59, 59, 999)
+
+    const existing = await db
+      .select({
+        transactionId: postings.transactionId,
+        date: transactions.date,
+        amount: postings.amount,
+        currency: postings.currency,
+      })
+      .from(postings)
+      .innerJoin(transactions, eq(transactions.id, postings.transactionId))
+      .where(
+        and(
+          eq(postings.accountId, accountId),
+          isNull(postings.deletedAt),
+          isNull(transactions.deletedAt),
+          gte(transactions.date, minDate),
+          lte(transactions.date, maxDate),
+        ),
+      )
+
+    const dayMs = 24 * 60 * 60 * 1000
+    for (const i of indices) {
+      const row = inputRows[i]
+      const txDate = new Date(row.date).getTime()
+      const txAmount = parseFloat(row.amount)
+
+      const match = existing.find((e) => {
+        const eDate = new Date(e.date).getTime()
+        const eAmount = parseFloat(e.amount)
+        return (
+          Math.abs(eDate - txDate) <= dayMs &&
+          Math.abs(Math.abs(eAmount) - Math.abs(txAmount)) <= 0.01
+        )
+      })
+
+      if (match) {
+        result[i] = {
+          transactionId: match.transactionId,
+          date: match.date.toISOString().substring(0, 10),
+          amount: match.amount,
+          currency: match.currency,
+        }
+      }
+    }
+  }
+
+  return c.json({ duplicates: result })
 })
 
 // POST /api/import/commit
