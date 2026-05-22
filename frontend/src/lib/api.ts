@@ -184,6 +184,20 @@ export async function importPreview(
   return res.json()
 }
 
+export async function checkDuplicates(
+  rows: { accountId: string; date: string; amount: string }[],
+): Promise<(PossibleDuplicate | null)[]> {
+  const res = await fetch(`${BASE}/api/import/check-duplicates`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows }),
+  })
+  if (!res.ok) throw new Error('Failed to check for duplicates.')
+  const data = await res.json()
+  return data.duplicates
+}
+
 export async function importCommit(body: {
   accountId: string // empty string for multi-currency imports (source is per-row)
   defaultCurrency: string

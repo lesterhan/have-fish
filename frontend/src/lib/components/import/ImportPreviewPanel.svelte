@@ -4,13 +4,14 @@
   import Toggle from '$lib/components/ui/Toggle.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
-  import type { Account, ImportPreviewResult } from '$lib/api'
+  import type { Account, ImportPreviewResult, PossibleDuplicate } from '$lib/api'
 
   export type RowState = {
     offsetAccountId: string
     conversionAccountId: string
     feeAccountId: string
     skipped: boolean
+    possibleDuplicate?: PossibleDuplicate
   }
 
   interface Props {
@@ -149,11 +150,11 @@
               <tr class="row-transfer" class:row-skipped={rowStates[i].skipped}>
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
-                  {#if tx.possibleDuplicate}
+                  {#if rowStates[i].possibleDuplicate}
                     <span
                       class="indicator-icon"
                       use:tooltip={{
-                        label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`,
+                        label: `Possible duplicate: ${rowStates[i].possibleDuplicate!.date} ${rowStates[i].possibleDuplicate!.amount} ${rowStates[i].possibleDuplicate!.currency}`,
                         always: true,
                       }}
                     >
@@ -204,11 +205,11 @@
               <tr class="row-transfer" class:row-skipped={rowStates[i].skipped}>
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
-                  {#if tx.possibleDuplicate}
+                  {#if rowStates[i].possibleDuplicate}
                     <span
                       class="indicator-icon"
                       use:tooltip={{
-                        label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`,
+                        label: `Possible duplicate: ${rowStates[i].possibleDuplicate!.date} ${rowStates[i].possibleDuplicate!.amount} ${rowStates[i].possibleDuplicate!.currency}`,
                         always: true,
                       }}
                     >
@@ -250,11 +251,11 @@
               <tr class:row-skipped={rowStates[i].skipped}>
                 <td class="cell-mono">
                   {new Date(tx.date).toLocaleDateString()}
-                  {#if tx.possibleDuplicate}
+                  {#if rowStates[i].possibleDuplicate}
                     <span
                       class="indicator-icon"
                       use:tooltip={{
-                        label: `Possible duplicate: ${tx.possibleDuplicate.date} ${tx.possibleDuplicate.amount} ${tx.possibleDuplicate.currency}`,
+                        label: `Possible duplicate: ${rowStates[i].possibleDuplicate!.date} ${rowStates[i].possibleDuplicate!.amount} ${rowStates[i].possibleDuplicate!.currency}`,
                         always: true,
                       }}
                     >

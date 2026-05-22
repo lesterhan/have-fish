@@ -89,7 +89,7 @@ describe('POST /api/import/preview', () => {
   })
 })
 
-describe('POST /api/import/preview — duplicate detection', () => {
+describe('POST /api/import/check-duplicates', () => {
   let cookie: string
 
   beforeEach(async () => {
@@ -97,47 +97,123 @@ describe('POST /api/import/preview — duplicate detection', () => {
     cookie = await createTestUser()
   })
 
-  it('flags possibleDuplicate when a matching posting already exists', async () => {
-    // Create accounts
-    const source = await createAccount(cookie, 'assets:chequing')
-    const offset = await createAccount(cookie, 'expenses:uncategorized')
-
-    // Create a parser with defaultAccountId pointing at source
-    const parserRes = await app.request('/api/parsers', {
+  it('returns null for all rows when no matches exist', async () => {
+    const source = await createAccount(cookie, 'assets:wise:usd')
+    const res = await app.request('/api/import/check-duplicates', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ...TEST_PARSER, defaultAccountId: source.id }),
+      body: JSON.stringify({
+        rows: [{ accountId: source.id, date: '2026-02-01', amount: '-42.50' }],
+      }),
     })
-    expect(parserRes.status).toBe(201)
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.duplicates).toEqual([null])
+  })
 
-    // Seed an existing transaction for the same account and amount
+  it('flags a duplicate when posting exists on the exact sub-account', async () => {
+    const source = await createAccount(cookie, 'assets:wise:usd')
+    const offset = await createAccount(cookie, 'expenses:uncategorized')
+
+    // Seed an existing transaction on assets:wise:usd
     await app.request('/api/import/commit', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         accountId: source.id,
-        defaultCurrency: 'CAD',
+        defaultCurrency: 'USD',
         transactions: [
-          { date: new Date('2026-02-01').toISOString(), amount: '-42.50', description: 'Coffee', currency: 'CAD', offsetAccountId: offset.id },
+          { isTransfer: false, date: new Date('2026-02-01').toISOString(), amount: '-42.50', currency: 'USD', offsetAccountId: offset.id },
         ],
       }),
     })
 
-    // Preview the same CSV — should flag the duplicate
-    const res = await app.request('/api/import/preview', {
+    const res = await app.request('/api/import/check-duplicates', {
       method: 'POST',
-      headers: { Cookie: cookie },
-      body: csvForm(TEST_CSV),
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rows: [{ accountId: source.id, date: '2026-02-01', amount: '-42.50' }],
+      }),
     })
     expect(res.status).toBe(200)
     const body = await res.json()
-    const coffee = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
-    expect(coffee.possibleDuplicate).not.toBeNull()
-    expect(coffee.possibleDuplicate.amount).toBe('-42.50')
+    expect(body.duplicates[0]).not.toBeNull()
+    expect(body.duplicates[0].amount).toBe('-42.50')
+  })
 
-    // The other row (Salary, +100.00) should not be flagged
-    const salary = body.transactions.find((t: { description: string }) => t.description === 'Salary')
-    expect(salary.possibleDuplicate).toBeNull()
+  it('does not flag a duplicate when the posting is on a sibling sub-account (the original multi-currency bug)', async () => {
+    const usd = await createAccount(cookie, 'assets:wise:usd')
+    const cad = await createAccount(cookie, 'assets:wise:cad')
+    const offset = await createAccount(cookie, 'expenses:uncategorized')
+
+    // Seed a transaction on assets:wise:usd
+    await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: usd.id,
+        defaultCurrency: 'USD',
+        transactions: [
+          { isTransfer: false, date: new Date('2026-02-01').toISOString(), amount: '-42.50', currency: 'USD', offsetAccountId: offset.id },
+        ],
+      }),
+    })
+
+    // Check against assets:wise:cad — same date/amount but different sub-account
+    const res = await app.request('/api/import/check-duplicates', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rows: [{ accountId: cad.id, date: '2026-02-01', amount: '-42.50' }],
+      }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.duplicates[0]).toBeNull()
+  })
+
+  it('skips rows with empty accountId (transfer rows)', async () => {
+    const res = await app.request('/api/import/check-duplicates', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rows: [{ accountId: '', date: '2026-02-01', amount: '-42.50' }],
+      }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.duplicates[0]).toBeNull()
+  })
+
+  it('does not expose postings from another user', async () => {
+    const otherCookie = await createTestUser('other@example.com')
+    const otherAccount = await createAccount(otherCookie, 'assets:wise:usd')
+    const otherOffset = await createAccount(otherCookie, 'expenses:uncategorized')
+
+    await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: otherCookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: otherAccount.id,
+        defaultCurrency: 'USD',
+        transactions: [
+          { isTransfer: false, date: new Date('2026-02-01').toISOString(), amount: '-42.50', currency: 'USD', offsetAccountId: otherOffset.id },
+        ],
+      }),
+    })
+
+    // This user tries to check against the other user's account ID
+    const res = await app.request('/api/import/check-duplicates', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rows: [{ accountId: otherAccount.id, date: '2026-02-01', amount: '-42.50' }],
+      }),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    // Account ownership check silently skips the row — returns null, not the other user's data
+    expect(body.duplicates[0]).toBeNull()
   })
 })
 
