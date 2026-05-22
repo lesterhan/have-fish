@@ -159,6 +159,7 @@
           settingsStore.value?.defaultConversionAccountId ?? '',
         feeAccountId: preview!.defaultFeeAccountId ?? '',
         skipped: perRowDuplicates[i] != null,
+        possibleDuplicate: perRowDuplicates[i] ?? null,
       }))
     } catch (e) {
       error =

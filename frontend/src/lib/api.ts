@@ -193,6 +193,7 @@ export async function checkDuplicates(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows }),
   })
+  if (!res.ok) throw new Error('Failed to check for duplicates.')
   const data = await res.json()
   return data.duplicates
 }
