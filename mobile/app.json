@@ -1,7 +1,7 @@
 {
   "expo": {
     "name": "have-fish",
-    "slug": "have-fish",
+    "slug": "have-fish-mobile",
     "version": "1.0.0",
     "orientation": "portrait",
     "scheme": "havefish",
@@ -18,8 +18,20 @@
       "expo-router",
       "expo-secure-store"
     ],
+    "updates": {
+      "enabled": false
+    },
     "experiments": {
       "typedRoutes": true
-    }
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "131583bb-53ef-45ca-855e-9511b29efefc"
+      }
+    },
+    "owner": "laserdanger-co"
   }
 }
