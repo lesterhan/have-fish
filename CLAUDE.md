@@ -185,7 +185,7 @@ When the user says this:
 3. After finishing the story, present a brief summary of what was produced and **open a PR** against `main` on the public (`have-fish`) repo. Share the PR link for review.
 4. Wait for the user to confirm they are done reviewing.
 5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. Fix anything that warrants fixing before shipping (push the fix to the same PR branch).
-6. Confirm the story is prod-ready. The user merges the PR on GitHub, then runs `git pull && git push` locally to sync both remotes.
+6. Confirm the story is prod-ready. The user merges the PR on GitHub, then runs `git checkout main && git pull origin main` locally.
 7. Move to the next story and repeat from step 2.
 8. After all stories are complete, ask if the user wants any additional tweaks before wrapping up.
 
@@ -205,14 +205,7 @@ When the user says this:
 - **PRs, not direct pushes** — all work goes through a branch and a pull request opened against `main` on the public `have-fish` repo. Never push directly to `main`. This is the gate that keeps the deployed app stable.
 - **Explain non-obvious decisions** — when you make a choice that isn't dictated by the existing conventions (data model trade-offs, architectural decisions, security choices), say so briefly. I don't need narration of mechanical steps.
 
-## Remotes & PR Workflow
-
-This repo has two remotes:
-
-- **`have-fish`** (public, GitHub) — where PRs are opened and reviewed
-- **`have-fish-private`** (private, GitHub) — deployed to the home server via Tailscale
-
-Both are configured as push targets on `origin`. A single `git push` sends to both.
+## PR Workflow
 
 ### Normal feature flow
 
@@ -223,24 +216,19 @@ git checkout -b feature/my-thing
 # 2. implement, commit
 git push -u origin feature/my-thing
 
-# 3. open PR on have-fish (public GitHub) — Claude does this in the epic workflow
+# 3. open PR on GitHub — Claude does this in the epic workflow
 # 4. review, iterate, merge on GitHub
 
-# 5. sync both remotes after merge
+# 5. sync local main after merge
 git checkout main
 git pull origin main
-git push                  # pushes merged main to both have-fish and have-fish-private
 ```
 
 ### After merging a PR that originated elsewhere
 
-If a PR was merged on GitHub (e.g. a dependabot or external contribution), the same two steps apply:
-
 ```bash
-git pull origin main && git push
+git checkout main && git pull origin main
 ```
-
-This is the only manual step needed to keep `have-fish-private` (and the deployed server) in sync.
 
 ## Conventions
 
