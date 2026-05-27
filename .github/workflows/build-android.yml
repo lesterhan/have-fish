@@ -1,0 +1,63 @@
+name: Build Android APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: "Release tag (e.g. v1.2.0) — leave empty to skip creating a GitHub Release"
+        required: false
+        type: string
+
+jobs:
+  build:
+    name: Build APK via EAS
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: mobile
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install dependencies
+        run: bun install
+
+      - name: Install EAS CLI
+        run: npm install -g eas-cli
+
+      - name: Build APK
+        id: eas
+        env:
+          EXPO_TOKEN: ${{ secrets.EXPO_TOKEN }}
+        run: |
+          OUTPUT=$(eas build \
+            --platform android \
+            --profile preview \
+            --non-interactive \
+            --wait \
+            --json 2>/dev/null)
+          BUILD_URL=$(echo "$OUTPUT" | jq -r '.[0].artifacts.buildUrl // empty')
+          echo "build_url=$BUILD_URL" >> "$GITHUB_OUTPUT"
+
+      - name: Download APK
+        run: curl -L "${{ steps.eas.outputs.build_url }}" -o have-fish.apk
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: have-fish-android
+          path: mobile/have-fish.apk
+          retention-days: 30
+
+      - name: Create GitHub Release
+        if: ${{ inputs.release_tag != '' }}
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ inputs.release_tag }}
+          name: have-fish ${{ inputs.release_tag }}
+          files: mobile/have-fish.apk
+          generate_release_notes: true
