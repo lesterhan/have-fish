@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { PUBLIC_VERSION } from '$env/static/public'
   import '../styles/tokens.css'
   import '../styles/base.css'
   import Sidebar from '$lib/components/Sidebar.svelte'
@@ -177,7 +178,7 @@
     </div>
 
     <div class="statusbar">
-      <span class="statusbar-ready">Ready</span>
+      <span class="statusbar-ready" title={PUBLIC_VERSION}>Ready</span>
       {#if toast.message}
         <span class="statusbar-toast">{toast.message}</span>
       {/if}
