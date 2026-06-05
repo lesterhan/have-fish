@@ -3,6 +3,8 @@ WORKDIR /app
 COPY package.json bun.lockb* ./
 RUN bun install --frozen-lockfile
 COPY . .
+ARG PUBLIC_VERSION=dev
+ENV PUBLIC_VERSION=$PUBLIC_VERSION
 RUN bun run build
 
 FROM node:22-alpine
