@@ -538,6 +538,7 @@ export type Transaction = {
   userId: string
   date: string
   description: string | null
+  groupExpenseId: string | null
   postings: Posting[]
 }
 
@@ -709,6 +710,7 @@ export type GroupMember = {
   groupId: string
   userId: string
   shareWeight: number
+  defaultExpenseAccountId: string | null
   joinedAt: string
   userName: string
   userEmail: string
@@ -766,6 +768,17 @@ export async function updateMemberWeight(groupId: string, userId: string, shareW
     body: JSON.stringify({ shareWeight }),
   })
   if (!res.ok) throw new Error('Failed to update share weight')
+  return res.json()
+}
+
+export async function updateMyExpenseAccount(groupId: string, defaultExpenseAccountId: string | null): Promise<GroupMember> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/members/me`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ defaultExpenseAccountId }),
+  })
+  if (!res.ok) throw new Error('Failed to update expense account')
   return res.json()
 }
 
@@ -892,6 +905,14 @@ export async function deleteExpense(groupId: string, expenseId: string): Promise
     credentials: 'include',
   })
   if (!res.ok) throw new Error('Failed to delete expense')
+}
+
+export async function removeGroupExpense(expenseId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/group-expenses/${expenseId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to remove from group')
 }
 
 export type BalanceTransfer = {

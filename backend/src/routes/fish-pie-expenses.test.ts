@@ -182,6 +182,41 @@ describe('fish-pie expenses', () => {
       .where(eq(postings.transactionId, txsAfter[0].id))
     expect(ps.every((p) => p.deletedAt !== null)).toBe(true)
   })
+
+  it('DELETE /api/fish-pie/group-expenses/:id removes from group via convenience endpoint', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Train', amount: '20.00', currency: 'CAD', date: '2026-05-20' }),
+    })
+    const expense = await createRes.json() as any
+
+    const res = await app.request(`/api/fish-pie/group-expenses/${expense.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: cookie },
+    })
+    expect(res.status).toBe(204)
+
+    const txs = await db.select().from(transactions).where(eq(transactions.groupExpenseId, expense.id))
+    expect(txs[0].deletedAt).not.toBeNull()
+  })
+
+  it('DELETE /api/fish-pie/group-expenses/:id returns 403 for non-payer', async () => {
+    const cookie2 = await createTestUser('other@example.com')
+
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Bus', amount: '10.00', currency: 'CAD', date: '2026-05-22' }),
+    })
+    const expense = await createRes.json() as any
+
+    const res = await app.request(`/api/fish-pie/group-expenses/${expense.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: cookie2 },
+    })
+    expect(res.status).toBe(403)
+  })
 })
 
 describe('fish-pie group members/me', () => {

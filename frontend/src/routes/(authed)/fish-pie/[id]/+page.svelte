@@ -16,7 +16,9 @@
     deleteSettlement,
     updateGroup,
     updateMemberWeight,
+    updateMyExpenseAccount,
     deleteGroup,
+    fetchAccounts,
   } from '$lib/api'
   import type {
     ExpenseGroup,
@@ -24,12 +26,14 @@
     GroupExpense,
     CurrencyBalance,
     GroupSettlement,
+    Account,
   } from '$lib/api'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
+  import Select from '$lib/components/ui/Select.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
   import GroupBalancePanel from '$lib/components/fish-pie/GroupBalancePanel.svelte'
@@ -68,26 +72,34 @@
   let confirmDelete = $state(false)
   let deleting = $state(false)
 
+  let allAccounts = $state<Account[]>([])
+  let myExpenseAccountId = $state<string>('')
+  let savingExpenseAccount = $state(false)
+
   const allSettled = $derived(
     balances.length === 0 || balances.every((b) => b.transfers.length === 0),
   )
 
   onMount(async () => {
     try {
-      const [g, inv, exp, bal, sett] = await Promise.all([
+      const [g, inv, exp, bal, sett, accts] = await Promise.all([
         fetchGroup(groupId),
         fetchGroupInvites(groupId),
         fetchExpenses(groupId),
         fetchBalances(groupId),
         fetchSettlements(groupId),
+        fetchAccounts(),
       ])
       group = g
       invites = inv
       expenses = exp
       balances = bal
       settlements = sett
+      allAccounts = accts
       settleCurrency = g.defaultCurrency ?? 'CAD'
       configCurrency = g.defaultCurrency ?? ''
+      const myMember = g.members.find((m) => m.userId === currentUserId)
+      myExpenseAccountId = myMember?.defaultExpenseAccountId ?? ''
       if (g.members.length === 2) {
         const total = g.members[0].shareWeight + g.members[1].shareWeight
         initialSliderPct =
@@ -212,6 +224,27 @@
       deleting = false
     }
   }
+
+  async function handleExpenseAccountChange(accountId: string) {
+    if (savingExpenseAccount) return
+    savingExpenseAccount = true
+    try {
+      const updated = await updateMyExpenseAccount(groupId, accountId || null)
+      myExpenseAccountId = updated.defaultExpenseAccountId ?? ''
+      if (group) {
+        group = {
+          ...group,
+          members: group.members.map((m) =>
+            m.userId === currentUserId
+              ? { ...m, defaultExpenseAccountId: updated.defaultExpenseAccountId }
+              : m,
+          ),
+        }
+      }
+    } finally {
+      savingExpenseAccount = false
+    }
+  }
 </script>
 
 <div class="page">
@@ -323,6 +356,27 @@
       </header>
 
       <div class="left-body">
+        <div class="section-bar">
+          <span class="section-bar-title">My Settings</span>
+        </div>
+        <div class="my-settings">
+          <label class="setting-row" for="expense-account-select">
+            <span class="setting-label">My expense account</span>
+            <span class="setting-hint">Your share of group expenses posts here</span>
+          </label>
+          <Select
+            id="expense-account-select"
+            value={myExpenseAccountId}
+            onchange={(e) => handleExpenseAccountChange((e.target as HTMLSelectElement).value)}
+            disabled={savingExpenseAccount}
+          >
+            <option value="">Uncategorized (default)</option>
+            {#each allAccounts as acct (acct.id)}
+              <option value={acct.id}>{acct.path}</option>
+            {/each}
+          </Select>
+        </div>
+
         {#if showMembers}
           <GroupBalancePanel
             members={group.members}
@@ -453,6 +507,34 @@
     font-weight: 700;
     letter-spacing: 0.6px;
     text-transform: uppercase;
+  }
+
+  .my-settings {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: var(--sp-xs) 22px;
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule-soft);
+  }
+
+  .setting-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    flex: 1;
+    cursor: default;
+  }
+
+  .setting-label {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
+
+  .setting-hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
   }
 
   .invite-section {

@@ -224,4 +224,42 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
   return new Response(null, { status: 204 })
 })
 
+// DELETE /api/fish-pie/group-expenses/:expenseId
+// Convenience endpoint for the edit modal: removes the group expense (and its
+// auto-postings) without requiring the caller to know the group ID.
+app.delete('/group-expenses/:expenseId', async (c) => {
+  const userId = c.get('userId')
+  const expenseId = c.req.param('expenseId')
+
+  const [expense] = await db
+    .select()
+    .from(groupExpenses)
+    .where(and(eq(groupExpenses.id, expenseId), isNull(groupExpenses.deletedAt)))
+  if (!expense) return c.json({ error: 'not found' }, 404)
+
+  const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, expense.groupId))
+  if (!group) return c.json({ error: 'not found' }, 404)
+
+  const isPayer = expense.paidByUserId === userId
+  const isCreator = group.createdBy === userId
+  if (!isPayer && !isCreator) return c.json({ error: 'forbidden' }, 403)
+
+  const now = new Date()
+  await db.transaction(async (tx) => {
+    await tx.update(groupExpenses).set({ deletedAt: now }).where(eq(groupExpenses.id, expenseId))
+
+    const linkedTxs = await tx
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.groupExpenseId, expenseId))
+
+    if (linkedTxs.length > 0) {
+      const txIds = linkedTxs.map((t) => t.id)
+      await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))
+      await tx.update(postings).set({ deletedAt: now }).where(inArray(postings.transactionId, txIds))
+    }
+  })
+  return new Response(null, { status: 204 })
+})
+
 export default app

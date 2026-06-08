@@ -17,6 +17,7 @@
     createPosting,
     deletePosting,
     deleteTransaction,
+    removeGroupExpense,
     type Account,
   } from '$lib/api'
 
@@ -41,6 +42,7 @@
     id: string
     date: string
     description: string | null
+    groupExpenseId?: string | null
     postings: Posting[]
   }
 
@@ -57,6 +59,7 @@
       postings: Posting[]
     }) => void
     ondeleted?: () => void
+    onremovedFromGroup?: () => void
   }
 
   let {
@@ -68,6 +71,7 @@
     onaccountcreated,
     onsaved,
     ondeleted,
+    onremovedFromGroup,
   }: Props = $props()
 
   // --- Snapshot of original values (captured when modal opens) ---
@@ -353,6 +357,25 @@
     }
   }
 
+  // --- Remove from group ---
+  let showRemoveGroupConfirm = $state(false)
+  let removingFromGroup = $state(false)
+
+  async function handleRemoveFromGroup() {
+    if (!tx.groupExpenseId) return
+    removingFromGroup = true
+    try {
+      await removeGroupExpense(tx.groupExpenseId)
+      onremovedFromGroup?.()
+      onclose()
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : 'Remove failed'
+      showRemoveGroupConfirm = false
+    } finally {
+      removingFromGroup = false
+    }
+  }
+
   // --- Helpers ---
   let accountPaths = $derived(
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
@@ -448,6 +471,26 @@
         </div>
       {/if}
     </div>
+
+    {#if tx.groupExpenseId}
+      <div class="group-link-row">
+        <span class="group-link-label">Shared Fish Pie expense</span>
+        {#if showRemoveGroupConfirm}
+          <span class="confirm-inline-text">Remove for all members?</span>
+          <GradientButton
+            variant="warning"
+            active
+            disabled={removingFromGroup}
+            onclick={handleRemoveFromGroup}
+          >
+            {removingFromGroup ? 'Removing…' : 'Confirm remove'}
+          </GradientButton>
+          <GradientButton disabled={removingFromGroup} onclick={() => (showRemoveGroupConfirm = false)}>Cancel</GradientButton>
+        {:else}
+          <GradientButton variant="warning" onclick={() => (showRemoveGroupConfirm = true)}>Remove from group</GradientButton>
+        {/if}
+      </div>
+    {/if}
 
     {#if showDiscardConfirm}
       <div class="confirm-row">
@@ -687,6 +730,30 @@
     font-size: var(--text-sm);
     color: var(--color-text-muted);
     flex: 1;
+  }
+
+  /* ---- Group link row ---- */
+  .group-link-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    font-size: var(--text-xs);
+  }
+
+  .group-link-label {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .confirm-inline-text {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-danger);
   }
 
   /* ---- Shared editable style ---- */
