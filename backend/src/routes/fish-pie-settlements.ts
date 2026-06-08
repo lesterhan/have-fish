@@ -230,7 +230,7 @@ app.delete('/groups/:groupId/settlements/:settlementId', async (c) => {
     .where(and(eq(groupSettlements.id, settlementId), eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt)))
   if (!settlement) return c.json({ error: 'not found' }, 404)
 
-  const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, groupId))
+  const [group] = await db.select().from(expenseGroups).where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
   if (!group) return c.json({ error: 'not found' }, 404)
 
   const isParty = settlement.fromUserId === userId || settlement.toUserId === userId
