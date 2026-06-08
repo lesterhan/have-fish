@@ -104,7 +104,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
       .values({
         userId: body.fromUserId!,
         date: txDate,
-        description: body.note?.trim() || `Settlement to group`,
+        description: body.note?.trim() || `Settlement to ${group.name}`,
       })
       .returning()
 
@@ -170,7 +170,7 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
       .values({
         userId,
         date: txDate,
-        description: settlement.note || `Settlement from group`,
+        description: settlement.note || `Settlement from ${group.name}`,
       })
       .returning()
 
