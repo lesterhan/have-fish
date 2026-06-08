@@ -176,6 +176,20 @@
       "when": 1780922910853,
       "tag": "0024_lean_quasimodo",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1780927738569,
+      "tag": "0025_cloudy_sue_storm",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1780927943510,
+      "tag": "0026_fine_star_brand",
+      "breakpoints": true
     }
   ]
 }

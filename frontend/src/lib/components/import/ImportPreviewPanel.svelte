@@ -263,7 +263,17 @@
                     </span>
                   {/if}
                 </td>
-                <td>{tx.description ?? '—'}</td>
+                <td>
+                  {tx.description ?? '—'}
+                  {#if rowStates[i].possibleDuplicate?.fishPieGroupName}
+                    <span class="fishpie-hint">
+                      · Fish Pie settlement in
+                      <a href="/fish-pie/{rowStates[i].possibleDuplicate!.fishPieGroupId}" class="fishpie-hint-link">
+                        {rowStates[i].possibleDuplicate!.fishPieGroupName}
+                      </a>
+                    </span>
+                  {/if}
+                </td>
                 <td
                   class="cell-amount"
                   class:positive={parseFloat(displayAmount(tx.amount)) > 0}
@@ -548,6 +558,21 @@
     cursor: default;
     vertical-align: middle;
     margin-left: var(--sp-xs);
+  }
+
+  .fishpie-hint {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .fishpie-hint-link {
+    color: var(--color-accent-mid);
+    text-decoration: none;
+  }
+
+  .fishpie-hint-link:hover {
+    text-decoration: underline;
   }
 
   .row-transfer td {

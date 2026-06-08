@@ -13,6 +13,7 @@
     fetchBalances,
     fetchSettlements,
     createSettlement,
+    confirmSettlement,
     deleteSettlement,
     updateGroup,
     updateMemberWeight,
@@ -162,6 +163,7 @@
     currency: string
     date: string
     note: string | undefined
+    payerAccountId: string
   }) {
     await createSettlement(groupId, data)
     await refreshBalances()
@@ -169,6 +171,11 @@
 
   async function handleDeleteSettlement(settlementId: string) {
     await deleteSettlement(groupId, settlementId)
+    await refreshBalances()
+  }
+
+  async function handleConfirmSettlement(settlementId: string, receiverAccountId: string) {
+    await confirmSettlement(groupId, settlementId, receiverAccountId)
     await refreshBalances()
   }
 
@@ -361,9 +368,12 @@
         {expenses}
         {settlements}
         {currentUserId}
+        {groupId}
+        {allAccounts}
         groupCreatedBy={group.createdBy}
         onDeleteExpense={handleDeleteExpense}
         onDeleteSettlement={handleDeleteSettlement}
+        onConfirmSettlement={handleConfirmSettlement}
       />
     </div>
   {/if}
@@ -377,6 +387,7 @@
   toName={settleToName}
   initialAmount={settleInitialAmount}
   currency={settleCurrency}
+  payerAccounts={allAccounts}
   onSettle={handleSettle}
 />
 

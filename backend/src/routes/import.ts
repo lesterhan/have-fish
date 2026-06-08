@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { transactions, postings, csvParsers, importRules, accounts } from '../db/schema'
-import { eq, isNull, and, gte, lte } from 'drizzle-orm'
+import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups } from '../db/schema'
+import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
@@ -96,7 +96,14 @@ app.post('/check-duplicates', async (c) => {
   }
 
   type InputRow = { accountId: string; date: string; amount: string }
-  type PossibleDuplicate = { transactionId: string; date: string; amount: string; currency: string } | null
+  type PossibleDuplicate = {
+    transactionId: string
+    date: string
+    amount: string
+    currency: string
+    fishPieGroupId?: string
+    fishPieGroupName?: string
+  } | null
 
   const inputRows = rows as InputRow[]
   const result: PossibleDuplicate[] = inputRows.map(() => null)
@@ -167,6 +174,44 @@ app.post('/check-duplicates', async (c) => {
           amount: match.amount,
           currency: match.currency,
         }
+      }
+    }
+  }
+
+  // Enrich matched duplicates: check if any matched transaction is a Fish Pie settlement
+  const matchedTxIds = result.filter((r) => r !== null).map((r) => r!.transactionId)
+  if (matchedTxIds.length > 0) {
+    const settlementRows = await db
+      .select({
+        payerTransactionId: groupSettlements.payerTransactionId,
+        receiverTransactionId: groupSettlements.receiverTransactionId,
+        groupId: expenseGroups.id,
+        groupName: expenseGroups.name,
+      })
+      .from(groupSettlements)
+      .innerJoin(expenseGroups, eq(groupSettlements.groupId, expenseGroups.id))
+      .where(
+        and(
+          isNull(groupSettlements.deletedAt),
+          or(
+            inArray(groupSettlements.payerTransactionId, matchedTxIds),
+            inArray(groupSettlements.receiverTransactionId, matchedTxIds),
+          ),
+        ),
+      )
+
+    const settlementByTxId = new Map<string, { groupId: string; groupName: string }>()
+    for (const row of settlementRows) {
+      if (row.payerTransactionId) settlementByTxId.set(row.payerTransactionId, { groupId: row.groupId, groupName: row.groupName })
+      if (row.receiverTransactionId) settlementByTxId.set(row.receiverTransactionId, { groupId: row.groupId, groupName: row.groupName })
+    }
+
+    for (const entry of result) {
+      if (!entry) continue
+      const settlement = settlementByTxId.get(entry.transactionId)
+      if (settlement) {
+        entry.fishPieGroupId = settlement.groupId
+        entry.fishPieGroupName = settlement.groupName
       }
     }
   }
