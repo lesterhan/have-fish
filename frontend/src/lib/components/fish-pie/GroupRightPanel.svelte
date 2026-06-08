@@ -190,8 +190,13 @@
                 {#if canDeleteExpense(expense)}
                   <button
                     class="delete-btn"
-                    class:delete-btn--active={expenseDeleteConfirmId === expense.id}
-                    onclick={() => (expenseDeleteConfirmId = expenseDeleteConfirmId === expense.id ? null : expense.id)}
+                    class:delete-btn--active={expenseDeleteConfirmId ===
+                      expense.id}
+                    onclick={() =>
+                      (expenseDeleteConfirmId =
+                        expenseDeleteConfirmId === expense.id
+                          ? null
+                          : expense.id)}
                     aria-label="Delete expense"
                   >
                     <Icon name="trash" size={16} />
@@ -202,17 +207,18 @@
               </div>
               {#if expenseDeleteConfirmId === expense.id}
                 <div class="delete-confirm-bar">
-                  <span class="delete-confirm-text">Cannot be undone.</span>
+                  <span class="delete-confirm-text">Are you sure?</span>
                   <GradientButton
                     onclick={() => (expenseDeleteConfirmId = null)}
-                    disabled={expenseDeleting}
-                  >Cancel</GradientButton>
+                    disabled={expenseDeleting}>Cancel</GradientButton
+                  >
                   <GradientButton
                     variant="warning"
                     active
                     onclick={confirmDeleteExpense}
                     disabled={expenseDeleting}
-                  >{expenseDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
+                    >{expenseDeleting ? 'Deleting…' : 'Delete'}</GradientButton
+                  >
                 </div>
               {/if}
               {#if expandedExpenseId === expense.id}
