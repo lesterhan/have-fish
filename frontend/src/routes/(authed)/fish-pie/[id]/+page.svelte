@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { page } from '$app/state'
+  import { goto } from '$app/navigation'
   import {
     fetchGroup,
     fetchGroupInvites,
@@ -15,6 +16,7 @@
     deleteSettlement,
     updateGroup,
     updateMemberWeight,
+    deleteGroup,
   } from '$lib/api'
   import type {
     ExpenseGroup,
@@ -25,6 +27,7 @@
   } from '$lib/api'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import Button from '$lib/components/ui/Button.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -62,6 +65,8 @@
   let settleCurrency = $state('CAD')
 
   let initialSliderPct = $state(50)
+  let confirmDelete = $state(false)
+  let deleting = $state(false)
 
   const allSettled = $derived(
     balances.length === 0 || balances.every((b) => b.transfers.length === 0),
@@ -196,6 +201,17 @@
       updateMemberWeight(groupId, group.members[1].userId, w1),
     ])
   }
+
+  async function handleDeleteGroup() {
+    if (deleting) return
+    deleting = true
+    try {
+      await deleteGroup(groupId)
+      goto('/fish-pie')
+    } catch {
+      deleting = false
+    }
+  }
 </script>
 
 <div class="page">
@@ -216,8 +232,31 @@
   {:else if group.members.length === 1}
     <div class="left-col">
       <header class="page-header">
+        <a href="/fish-pie">
+          <GradientButton square>
+            <Icon name="back" />
+          </GradientButton>
+        </a>
         <h1 class="page-title">{group.name}</h1>
+        {#if group.createdBy === currentUserId}
+          <GradientButton
+            square
+            active={confirmDelete}
+            onclick={() => (confirmDelete = !confirmDelete)}
+          >
+            <Icon name="trash" size={12} />
+          </GradientButton>
+        {/if}
       </header>
+      {#if confirmDelete}
+        <div class="confirm-bar">
+          <span class="confirm-text">Delete <strong>{group.name}</strong>?</span>
+          <Button variant="danger" onclick={handleDeleteGroup} disabled={deleting}>
+            {deleting ? 'Deleting…' : 'Delete'}
+          </Button>
+          <Button onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</Button>
+        </div>
+      {/if}
       <div class="left-body">
         <div class="section-bar">
           <span class="section-bar-title">Invite</span>
@@ -273,6 +312,13 @@
             oncommit={saveDefaultCurrency}
           />
           <Toggle bind:checked={showMembers} label="Balances" />
+          {#if group.createdBy === currentUserId}
+            <a href="/fish-pie/{groupId}/settings">
+              <GradientButton square>
+                <Icon name="settings" size={12} />
+              </GradientButton>
+            </a>
+          {/if}
         </div>
       </header>
 
@@ -354,6 +400,22 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
+  }
+
+  .confirm-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: var(--sp-xs) 22px;
+    background: var(--color-danger-light);
+    border-bottom: 1px solid var(--color-danger);
+    flex-shrink: 0;
+  }
+
+  .confirm-text {
+    flex: 1;
+    font-size: var(--text-sm);
+    color: var(--color-danger);
   }
 
   .page-title {
