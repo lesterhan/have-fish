@@ -39,3 +39,6 @@
 | [Currency Pill Component](epics/archive/currency-pill.md) | Done |
 | [Spending Page Redesign](epics/archive/spending-page-redesign.md) | Done |
 | [Transactions Panel Redesign](epics/archive/transactions-panel-redesign.md) | Done |
+| [Fish Pie: Account Integration](epics/fish-pie-account-integration.md) | Backlog |
+| [Fish Pie: Settlement Confirmation](epics/fish-pie-settlement-confirmation.md) | Backlog |
+| [Fish Pie: CSV Import Integration](epics/fish-pie-csv-import.md) | Backlog |
