@@ -33,14 +33,16 @@
   let panelTab = $state<'expenses' | 'settlements'>('expenses')
   let expandedExpenseId = $state<string | null>(null)
 
-  // Per-settlement confirm state: settlementId → { accountId, submitting, error }
+  // Per-settlement confirm state: settlementId → { accountId, submitting, error, open }
+  // Never mutate this during rendering — only from event handlers.
   let confirmStates = $state<Record<string, { accountId: string; submitting: boolean; error: string; open: boolean }>>({})
 
-  function getConfirmState(id: string) {
-    if (!confirmStates[id]) {
-      confirmStates[id] = { accountId: '', submitting: false, error: '', open: false }
-    }
-    return confirmStates[id]
+  function openConfirmForm(id: string) {
+    confirmStates[id] = { accountId: '', submitting: false, error: '', open: true }
+  }
+
+  function closeConfirmForm(id: string) {
+    if (confirmStates[id]) confirmStates[id].open = false
   }
 
   function canDeleteExpense(expense: GroupExpense) {
@@ -58,8 +60,8 @@
   }
 
   async function handleConfirm(s: GroupSettlement) {
-    const state = getConfirmState(s.id)
-    if (!state.accountId || state.submitting) return
+    const state = confirmStates[s.id]
+    if (!state || !state.accountId || state.submitting) return
     state.error = ''
     state.submitting = true
     try {
@@ -182,7 +184,7 @@
           </div>
           {#each pendingSettlements as s (s.id)}
             {@const isReceiver = s.toUserId === currentUserId}
-            {@const confirmState = getConfirmState(s.id)}
+            {@const cs = confirmStates[s.id]}
             <div class="expense-item pending-item">
               <div class="expense-row-wrap">
                 <div class="expense-row settlement-row-inner">
@@ -214,32 +216,32 @@
               </div>
 
               {#if isReceiver}
-                {#if confirmState.open}
+                {#if cs?.open}
                   <div class="confirm-form">
                     <AccountPathInput
                       accounts={allAccounts}
-                      bind:value={confirmState.accountId}
+                      bind:value={cs.accountId}
                       placeholder="Account received into…"
                       allowCreate={false}
                     />
-                    {#if confirmState.error}
-                      <span class="form-error">{confirmState.error}</span>
+                    {#if cs.error}
+                      <span class="form-error">{cs.error}</span>
                     {/if}
                     <div class="confirm-actions">
-                      <GradientButton onclick={() => (confirmState.open = false)}>
+                      <GradientButton onclick={() => closeConfirmForm(s.id)}>
                         Cancel
                       </GradientButton>
                       <GradientButton
                         onclick={() => handleConfirm(s)}
-                        disabled={confirmState.submitting || !confirmState.accountId}
+                        disabled={cs.submitting || !cs.accountId}
                       >
-                        {confirmState.submitting ? 'Confirming…' : 'Confirm receipt'}
+                        {cs.submitting ? 'Confirming…' : 'Confirm receipt'}
                       </GradientButton>
                     </div>
                   </div>
                 {:else}
                   <div class="confirm-prompt">
-                    <GradientButton onclick={() => (confirmState.open = true)}>
+                    <GradientButton onclick={() => openConfirmForm(s.id)}>
                       Confirm receipt
                     </GradientButton>
                   </div>
