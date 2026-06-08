@@ -9,6 +9,7 @@
 // Expenses always reproduce the same set — seeded from the group name string.
 
 import { db } from '../src/db'
+import { auth } from '../src/auth'
 import {
   user,
   accounts,
@@ -28,6 +29,7 @@ import { eq, and, isNull } from 'drizzle-orm'
 
 const email = process.env.SEED_EMAIL
 const partnerEmail = process.env.SEED_PARTNER_EMAIL
+const partnerPassword = process.env.SEED_PARTNER_PASSWORD ?? 'password123'
 
 if (!email || !partnerEmail) {
   console.error('Usage: SEED_EMAIL=you@example.com SEED_PARTNER_EMAIL=partner@example.com bun run scripts/seed-fish-pie.ts')
@@ -81,10 +83,18 @@ if (!foundUser) {
   process.exit(1)
 }
 
-const [foundPartner] = await db.select().from(user).where(eq(user.email, partnerEmail))
+let [foundPartner] = await db.select().from(user).where(eq(user.email, partnerEmail))
 if (!foundPartner) {
-  console.error(`No user with email ${partnerEmail}. Run seed-user.ts first.`)
-  process.exit(1)
+  console.log(`Partner ${partnerEmail} not found — creating…`)
+  const result = await auth.api.signUpEmail({
+    body: { email: partnerEmail, password: partnerPassword, name: partnerEmail.split('@')[0] },
+  })
+  if (!result.user) {
+    console.error('Failed to create partner account:', result)
+    process.exit(1)
+  }
+  const [created] = await db.select().from(user).where(eq(user.email, partnerEmail))
+  foundPartner = created
 }
 
 const userId = foundUser.id
