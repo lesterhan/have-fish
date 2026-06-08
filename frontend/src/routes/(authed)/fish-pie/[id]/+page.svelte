@@ -346,6 +346,7 @@
             members={group.members}
             {balances}
             {allSettled}
+            {currentUserId}
             onSettleClick={prefillSettle}
           />
         {/if}

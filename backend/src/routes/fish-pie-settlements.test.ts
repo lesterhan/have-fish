@@ -59,19 +59,25 @@ describe('fish-pie settlements', () => {
     accountBId = ((await accB.json()) as any).id
   })
 
-  it('POST creates pending settlement with payer transaction', async () => {
+  // Helper: B proposes settlement to A (B is payer, must use cookieB)
+  async function proposeSettlement(amount = '30.00') {
     const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
       method: 'POST',
-      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         fromUserId: userBId,
         toUserId: userAId,
-        amount: '30.00',
+        amount,
         currency: 'CAD',
         date: '2026-04-28',
         payerAccountId: accountBId,
       }),
     })
+    return res
+  }
+
+  it('POST creates pending settlement with payer transaction', async () => {
+    const res = await proposeSettlement()
     expect(res.status).toBe(201)
     const s = (await res.json()) as any
     expect(s.amount).toBe('30.00')
@@ -100,16 +106,33 @@ describe('fish-pie settlements', () => {
   it('POST requires payerAccountId', async () => {
     const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
       method: 'POST',
-      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
       body: JSON.stringify({ fromUserId: userBId, toUserId: userAId, amount: '30.00', currency: 'CAD', date: '2026-04-28' }),
     })
     expect(res.status).toBe(400)
   })
 
-  it('payerAccountId must belong to fromUser', async () => {
+  it('only payer (fromUserId) can initiate a settlement', async () => {
+    // cookieA tries to create a settlement where B is the payer — forbidden
     const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromUserId: userBId,
+        toUserId: userAId,
+        amount: '30.00',
+        currency: 'CAD',
+        date: '2026-04-28',
+        payerAccountId: accountBId,
+      }),
+    })
+    expect(res.status).toBe(403)
+  })
+
+  it('payerAccountId must belong to fromUser', async () => {
+    const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
+      method: 'POST',
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
       body: JSON.stringify({
         fromUserId: userBId,
         toUserId: userAId,
@@ -136,19 +159,7 @@ describe('fish-pie settlements', () => {
     const balBeforeData = (await balBefore.json()) as any[]
     const transfersBefore = balBeforeData[0]?.transfers ?? []
 
-    // B proposes settlement
-    await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
-      method: 'POST',
-      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        fromUserId: userBId,
-        toUserId: userAId,
-        amount: '50.00',
-        currency: 'CAD',
-        date: '2026-04-28',
-        payerAccountId: accountBId,
-      }),
-    })
+    await proposeSettlement('50.00')
 
     // Balance unchanged (pending doesn't count)
     const balAfter = await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
@@ -163,11 +174,7 @@ describe('fish-pie settlements', () => {
   })
 
   it('GET lists all settlements', async () => {
-    await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
-      method: 'POST',
-      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fromUserId: userBId, toUserId: userAId, amount: '30.00', currency: 'CAD', date: '2026-04-28', payerAccountId: accountBId }),
-    })
+    await proposeSettlement()
 
     const listRes = await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
       headers: { Cookie: cookieA },
@@ -182,11 +189,7 @@ describe('fish-pie settlements', () => {
     let settlementId: string
 
     beforeEach(async () => {
-      const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
-        method: 'POST',
-        headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromUserId: userBId, toUserId: userAId, amount: '30.00', currency: 'CAD', date: '2026-04-28', payerAccountId: accountBId }),
-      })
+      const res = await proposeSettlement()
       settlementId = ((await res.json()) as any).id
     })
 

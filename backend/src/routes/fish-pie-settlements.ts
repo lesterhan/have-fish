@@ -60,6 +60,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
   if (!body.fromUserId || !memberIds.has(body.fromUserId)) return c.json({ error: 'fromUserId must be a group member' }, 400)
   if (!body.toUserId || !memberIds.has(body.toUserId)) return c.json({ error: 'toUserId must be a group member' }, 400)
   if (body.fromUserId === body.toUserId) return c.json({ error: 'from and to must differ' }, 400)
+  if (body.fromUserId !== userId) return c.json({ error: 'only the payer can initiate a settlement' }, 403)
   if (!body.amount || isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
     return c.json({ error: 'amount must be a positive number' }, 400)
   if (!body.currency?.trim()) return c.json({ error: 'currency is required' }, 400)

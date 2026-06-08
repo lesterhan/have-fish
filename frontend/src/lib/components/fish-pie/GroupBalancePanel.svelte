@@ -9,6 +9,7 @@
     members: GroupMember[]
     balances: CurrencyBalance[]
     allSettled: boolean
+    currentUserId: string
     onSettleClick: (
       fromUserId: string,
       toUserId: string,
@@ -17,7 +18,7 @@
     ) => void
   }
 
-  let { members, balances, allSettled, onSettleClick }: Props = $props()
+  let { members, balances, allSettled, currentUserId, onSettleClick }: Props = $props()
 </script>
 
 <div class="section-bar">
@@ -62,13 +63,23 @@
   <div class="settle-actions">
     {#each balances as cb (cb.currency)}
       {#each cb.transfers as t}
+        {@const isPayer = t.fromUserId === currentUserId}
         <div class="settle-btn-wrap">
-          <GradientButton
-            onclick={() =>
-              onSettleClick(t.fromUserId, t.toUserId, t.amount, t.currency)}
-          >
-            Settle up
-          </GradientButton>
+          {#if isPayer}
+            <GradientButton
+              onclick={() =>
+                onSettleClick(t.fromUserId, t.toUserId, t.amount, t.currency)}
+            >
+              Settle up
+            </GradientButton>
+          {:else}
+            <GradientButton disabled>
+              Waiting for {t.fromUserName ?? 'them'} to pay
+            </GradientButton>
+            <p class="settle-hint">
+              {t.fromUserName ?? 'The other person'} needs to initiate the settlement.
+            </p>
+          {/if}
         </div>
       {/each}
     {/each}
@@ -188,5 +199,13 @@
     width: 100%;
     height: 32px;
     font-size: var(--text-sm);
+  }
+
+  .settle-hint {
+    margin: 4px 0 0;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    text-align: center;
   }
 </style>
