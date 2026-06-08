@@ -15,7 +15,10 @@
     groupCreatedBy: string
     onDeleteExpense: (id: string) => Promise<void>
     onDeleteSettlement: (id: string) => Promise<void>
-    onConfirmSettlement: (id: string, receiverAccountId: string) => Promise<void>
+    onConfirmSettlement: (
+      id: string,
+      receiverAccountId: string,
+    ) => Promise<void>
   }
 
   let {
@@ -34,17 +37,40 @@
   let expandedExpenseId = $state<string | null>(null)
   let settlementDeleteConfirmId = $state<string | null>(null)
   let settlementDeleting = $state(false)
+  let expenseDeleteConfirmId = $state<string | null>(null)
+  let expenseDeleting = $state(false)
 
   // Per-settlement confirm state: settlementId → { accountId, submitting, error, open }
   // Never mutate this during rendering — only from event handlers.
-  let confirmStates = $state<Record<string, { accountId: string; submitting: boolean; error: string; open: boolean }>>({})
+  let confirmStates = $state<
+    Record<
+      string,
+      { accountId: string; submitting: boolean; error: string; open: boolean }
+    >
+  >({})
 
   function openConfirmForm(id: string) {
-    confirmStates[id] = { accountId: '', submitting: false, error: '', open: true }
+    confirmStates[id] = {
+      accountId: '',
+      submitting: false,
+      error: '',
+      open: true,
+    }
   }
 
   function closeConfirmForm(id: string) {
     if (confirmStates[id]) confirmStates[id].open = false
+  }
+
+  async function confirmDeleteExpense() {
+    if (!expenseDeleteConfirmId || expenseDeleting) return
+    expenseDeleting = true
+    try {
+      await onDeleteExpense(expenseDeleteConfirmId)
+      expenseDeleteConfirmId = null
+    } finally {
+      expenseDeleting = false
+    }
   }
 
   async function confirmDeleteSettlement() {
@@ -87,8 +113,12 @@
     }
   }
 
-  const pendingSettlements = $derived(settlements.filter((s) => s.status === 'pending'))
-  const completedSettlements = $derived(settlements.filter((s) => s.status === 'completed'))
+  const pendingSettlements = $derived(
+    settlements.filter((s) => s.status === 'pending'),
+  )
+  const completedSettlements = $derived(
+    settlements.filter((s) => s.status === 'completed'),
+  )
 </script>
 
 <div class="txn-panel">
@@ -160,7 +190,8 @@
                 {#if canDeleteExpense(expense)}
                   <button
                     class="delete-btn"
-                    onclick={() => onDeleteExpense(expense.id)}
+                    class:delete-btn--active={expenseDeleteConfirmId === expense.id}
+                    onclick={() => (expenseDeleteConfirmId = expenseDeleteConfirmId === expense.id ? null : expense.id)}
                     aria-label="Delete expense"
                   >
                     <Icon name="trash" size={16} />
@@ -169,6 +200,21 @@
                   <span class="delete-placeholder"></span>
                 {/if}
               </div>
+              {#if expenseDeleteConfirmId === expense.id}
+                <div class="delete-confirm-bar">
+                  <span class="delete-confirm-text">Cannot be undone.</span>
+                  <GradientButton
+                    onclick={() => (expenseDeleteConfirmId = null)}
+                    disabled={expenseDeleting}
+                  >Cancel</GradientButton>
+                  <GradientButton
+                    variant="warning"
+                    active
+                    onclick={confirmDeleteExpense}
+                    disabled={expenseDeleting}
+                  >{expenseDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
+                </div>
+              {/if}
               {#if expandedExpenseId === expense.id}
                 <div class="splits">
                   {#each expense.splits as split (split.id)}
@@ -201,7 +247,9 @@
             <div class="expense-item pending-item">
               <div class="expense-row-wrap">
                 <div class="expense-row settlement-row-inner">
-                  <div class="row-avatar pending-avatar">{initials(s.fromUserName)}</div>
+                  <div class="row-avatar pending-avatar">
+                    {initials(s.fromUserName)}
+                  </div>
                   <div class="expense-info">
                     <span class="expense-desc">
                       {s.fromUserName} → {s.toUserName}
@@ -211,15 +259,20 @@
                     </span>
                   </div>
                   <div class="expense-right">
-                    <span class="expense-amount">{parseFloat(s.amount).toFixed(2)}</span>
+                    <span class="expense-amount"
+                      >{parseFloat(s.amount).toFixed(2)}</span
+                    >
                     <CurrencyPill code={s.currency} />
                   </div>
                 </div>
                 {#if canDeleteSettlement(s)}
                   <button
                     class="delete-btn"
-                    class:delete-btn--active={settlementDeleteConfirmId === s.id}
-                    onclick={() => (settlementDeleteConfirmId = settlementDeleteConfirmId === s.id ? null : s.id)}
+                    class:delete-btn--active={settlementDeleteConfirmId ===
+                      s.id}
+                    onclick={() =>
+                      (settlementDeleteConfirmId =
+                        settlementDeleteConfirmId === s.id ? null : s.id)}
                     aria-label="Delete settlement"
                   >
                     <Icon name="trash" size={16} />
@@ -231,17 +284,20 @@
 
               {#if settlementDeleteConfirmId === s.id}
                 <div class="delete-confirm-bar">
-                  <span class="delete-confirm-text">Cannot be undone.</span>
+                  <span class="delete-confirm-text">Are you sure?</span>
                   <GradientButton
                     onclick={() => (settlementDeleteConfirmId = null)}
-                    disabled={settlementDeleting}
-                  >Cancel</GradientButton>
+                    disabled={settlementDeleting}>Cancel</GradientButton
+                  >
                   <GradientButton
                     variant="warning"
                     active
                     onclick={confirmDeleteSettlement}
                     disabled={settlementDeleting}
-                  >{settlementDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
+                    >{settlementDeleting
+                      ? 'Deleting…'
+                      : 'Delete'}</GradientButton
+                  >
                 </div>
               {/if}
 
@@ -277,7 +333,9 @@
                   </div>
                 {/if}
               {:else}
-                <div class="awaiting-label">Awaiting confirmation from {s.toUserName}</div>
+                <div class="awaiting-label">
+                  Awaiting confirmation from {s.toUserName}
+                </div>
               {/if}
             </div>
           {/each}
@@ -297,7 +355,9 @@
                   </span>
                 </div>
                 <div class="expense-right">
-                  <span class="expense-amount">{parseFloat(s.amount).toFixed(2)}</span>
+                  <span class="expense-amount"
+                    >{parseFloat(s.amount).toFixed(2)}</span
+                  >
                   <CurrencyPill code={s.currency} />
                 </div>
               </div>
@@ -305,7 +365,9 @@
                 <button
                   class="delete-btn"
                   class:delete-btn--active={settlementDeleteConfirmId === s.id}
-                  onclick={() => (settlementDeleteConfirmId = settlementDeleteConfirmId === s.id ? null : s.id)}
+                  onclick={() =>
+                    (settlementDeleteConfirmId =
+                      settlementDeleteConfirmId === s.id ? null : s.id)}
                   aria-label="Delete settlement"
                 >
                   <Icon name="trash" size={16} />
@@ -316,17 +378,18 @@
             </div>
             {#if settlementDeleteConfirmId === s.id}
               <div class="delete-confirm-bar">
-                <span class="delete-confirm-text">Cannot be undone.</span>
+                <span class="delete-confirm-text">Are you sure?</span>
                 <GradientButton
                   onclick={() => (settlementDeleteConfirmId = null)}
-                  disabled={settlementDeleting}
-                >Cancel</GradientButton>
+                  disabled={settlementDeleting}>Cancel</GradientButton
+                >
                 <GradientButton
                   variant="warning"
                   active
                   onclick={confirmDeleteSettlement}
                   disabled={settlementDeleting}
-                >{settlementDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
+                  >{settlementDeleting ? 'Deleting…' : 'Delete'}</GradientButton
+                >
               </div>
             {/if}
           </div>
