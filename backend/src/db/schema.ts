@@ -75,6 +75,8 @@ export const transactions = pgTable('transactions', {
   description: text('description'),
   // Set when this transaction was auto-created by Fish Pie expense splitting.
   // Used by the edit modal to surface "Remove from group" and by DELETE to cascade.
+  // No DB FK intentional: groupExpenses already has a FK to transactions (transactionId),
+  // so adding a back-reference here would create a circular FK constraint.
   groupExpenseId: uuid('group_expense_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),

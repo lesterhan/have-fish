@@ -146,9 +146,10 @@ app.post('/groups/:groupId/expenses', async (c) => {
         })
         .returning()
 
+      const currency = body.currency!.trim().toUpperCase()
       await tx.insert(postings).values([
-        { transactionId: t.id, accountId: expenseAccountId, amount: (-parseFloat(split.amount)).toFixed(2), currency: body.currency!.trim().toUpperCase() },
-        { transactionId: t.id, accountId: sharedAccountId, amount: split.amount, currency: body.currency!.trim().toUpperCase() },
+        { transactionId: t.id, accountId: expenseAccountId, amount: `-${split.amount}`, currency },
+        { transactionId: t.id, accountId: sharedAccountId, amount: split.amount, currency },
       ])
     }
 

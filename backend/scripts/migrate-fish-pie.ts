@@ -87,7 +87,7 @@ await db.transaction(async (tx) => {
         .returning()
 
       await tx.insert(postings).values([
-        { transactionId: t.id, accountId: expenseAccountId, amount: (-parseFloat(split.amount)).toFixed(2), currency: expense.currency },
+        { transactionId: t.id, accountId: expenseAccountId, amount: `-${split.amount}`, currency: expense.currency },
         { transactionId: t.id, accountId: sharedAccountId, amount: split.amount, currency: expense.currency },
       ])
 
