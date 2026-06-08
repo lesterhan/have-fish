@@ -43,6 +43,7 @@
     date: string
     description: string | null
     groupExpenseId?: string | null
+    groupName?: string | null
     postings: Posting[]
   }
 
@@ -474,7 +475,7 @@
 
     {#if tx.groupExpenseId}
       <div class="group-link-row">
-        <span class="group-link-label">Shared Fish Pie expense</span>
+        <span class="group-link-label">Shared to <strong>{tx.groupName ?? 'Fish Pie'}</strong></span>
         {#if showRemoveGroupConfirm}
           <span class="confirm-inline-text">Remove for all members?</span>
           <GradientButton

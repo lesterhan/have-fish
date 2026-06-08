@@ -539,6 +539,7 @@ export type Transaction = {
   date: string
   description: string | null
   groupExpenseId: string | null
+  groupName: string | null
   postings: Posting[]
 }
 

@@ -17,6 +17,7 @@
     updateGroup,
     updateMemberWeight,
     deleteGroup,
+    fetchAccounts,
   } from '$lib/api'
   import type {
     ExpenseGroup,
@@ -24,6 +25,7 @@
     GroupExpense,
     CurrencyBalance,
     GroupSettlement,
+    Account,
   } from '$lib/api'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -46,6 +48,7 @@
   let expenses = $state<GroupExpense[]>([])
   let balances = $state<CurrencyBalance[]>([])
   let settlements = $state<GroupSettlement[]>([])
+  let allAccounts = $state<Account[]>([])
   let loading = $state(true)
   let notFound = $state(false)
 
@@ -72,20 +75,29 @@
     balances.length === 0 || balances.every((b) => b.transfers.length === 0),
   )
 
+  const myExpenseAccountPath = $derived.by(() => {
+    if (!group) return null
+    const myMember = group.members.find((m) => m.userId === currentUserId)
+    if (!myMember?.defaultExpenseAccountId) return null
+    return allAccounts.find((a) => a.id === myMember.defaultExpenseAccountId)?.path ?? null
+  })
+
   onMount(async () => {
     try {
-      const [g, inv, exp, bal, sett] = await Promise.all([
+      const [g, inv, exp, bal, sett, accts] = await Promise.all([
         fetchGroup(groupId),
         fetchGroupInvites(groupId),
         fetchExpenses(groupId),
         fetchBalances(groupId),
         fetchSettlements(groupId),
+        fetchAccounts(),
       ])
       group = g
       invites = inv
       expenses = exp
       balances = bal
       settlements = sett
+      allAccounts = accts
       settleCurrency = g.defaultCurrency ?? 'CAD'
       configCurrency = g.defaultCurrency ?? ''
       if (g.members.length === 2) {
@@ -336,6 +348,8 @@
           {currentUserId}
           defaultCurrency={group.defaultCurrency ?? 'CAD'}
           {initialSliderPct}
+          {groupId}
+          {myExpenseAccountPath}
           onCreate={handleAddExpense}
           onSliderChange={saveShareSlider}
         />
