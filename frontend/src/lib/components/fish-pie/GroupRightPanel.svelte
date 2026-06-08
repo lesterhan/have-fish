@@ -231,17 +231,17 @@
 
               {#if settlementDeleteConfirmId === s.id}
                 <div class="delete-confirm-bar">
-                  <span class="delete-confirm-text">Also removes linked ledger transactions.</span>
-                  <button
-                    class="delete-confirm-cancel"
+                  <span class="delete-confirm-text">Cannot be undone.</span>
+                  <GradientButton
                     onclick={() => (settlementDeleteConfirmId = null)}
                     disabled={settlementDeleting}
-                  >Cancel</button>
-                  <button
-                    class="delete-confirm-ok"
+                  >Cancel</GradientButton>
+                  <GradientButton
+                    variant="warning"
+                    active
                     onclick={confirmDeleteSettlement}
                     disabled={settlementDeleting}
-                  >{settlementDeleting ? 'Deleting…' : 'Delete'}</button>
+                  >{settlementDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
                 </div>
               {/if}
 
@@ -316,17 +316,17 @@
             </div>
             {#if settlementDeleteConfirmId === s.id}
               <div class="delete-confirm-bar">
-                <span class="delete-confirm-text">Also removes linked ledger transactions.</span>
-                <button
-                  class="delete-confirm-cancel"
+                <span class="delete-confirm-text">Cannot be undone.</span>
+                <GradientButton
                   onclick={() => (settlementDeleteConfirmId = null)}
                   disabled={settlementDeleting}
-                >Cancel</button>
-                <button
-                  class="delete-confirm-ok"
+                >Cancel</GradientButton>
+                <GradientButton
+                  variant="warning"
+                  active
                   onclick={confirmDeleteSettlement}
                   disabled={settlementDeleting}
-                >{settlementDeleting ? 'Deleting…' : 'Delete'}</button>
+                >{settlementDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
               </div>
             {/if}
           </div>
@@ -528,35 +528,6 @@
     font-size: var(--text-xs);
     color: var(--color-danger);
     font-family: var(--font-mono);
-  }
-
-  .delete-confirm-cancel,
-  .delete-confirm-ok {
-    padding: 2px 8px;
-    font-size: var(--text-xs);
-    font-family: var(--font-mono);
-    font-weight: 700;
-    border: 1px solid var(--color-rule);
-    cursor: pointer;
-    background: var(--color-window);
-    box-shadow: var(--shadow-raised);
-    transition: box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .delete-confirm-cancel:active,
-  .delete-confirm-ok:active {
-    box-shadow: var(--shadow-sunken);
-  }
-
-  .delete-confirm-ok {
-    color: var(--color-danger);
-    border-color: var(--color-danger);
-  }
-
-  .delete-confirm-cancel:disabled,
-  .delete-confirm-ok:disabled {
-    opacity: 0.5;
-    cursor: not-allowed;
   }
 
   .splits {
