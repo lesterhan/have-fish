@@ -398,7 +398,7 @@ app.post('/commit', async (c) => {
 
         // If this row was flagged for a group split, create the group expense linked to this transaction.
         const groupSplit = splitByRowIndex.get(rowIndex)
-        if (groupSplit && t.isTransfer === false) {
+        if (groupSplit) {
           const { group, members } = groupCache.get(groupSplit.groupId)!
           const amount = Math.abs(parseFloat(t.amount)).toFixed(2)
           // t.date is an ISO string; service expects YYYY-MM-DD

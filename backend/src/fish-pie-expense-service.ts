@@ -18,8 +18,10 @@ export function computeSplits(
   members: Pick<Member, 'userId' | 'shareWeight'>[],
   payerId: string,
 ): { userId: string; amount: string }[] {
+  if (members.length === 0) throw new Error('cannot split among zero members')
   const total = parseFloat(amount)
   const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
+  if (totalWeight === 0) throw new Error('total member share weight is zero')
 
   let remaining = total
   const splits = members.map((m) => {
