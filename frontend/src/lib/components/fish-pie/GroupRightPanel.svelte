@@ -32,6 +32,8 @@
 
   let panelTab = $state<'expenses' | 'settlements'>('expenses')
   let expandedExpenseId = $state<string | null>(null)
+  let settlementDeleteConfirmId = $state<string | null>(null)
+  let settlementDeleting = $state(false)
 
   // Per-settlement confirm state: settlementId → { accountId, submitting, error, open }
   // Never mutate this during rendering — only from event handlers.
@@ -43,6 +45,17 @@
 
   function closeConfirmForm(id: string) {
     if (confirmStates[id]) confirmStates[id].open = false
+  }
+
+  async function confirmDeleteSettlement() {
+    if (!settlementDeleteConfirmId || settlementDeleting) return
+    settlementDeleting = true
+    try {
+      await onDeleteSettlement(settlementDeleteConfirmId)
+      settlementDeleteConfirmId = null
+    } finally {
+      settlementDeleting = false
+    }
   }
 
   function canDeleteExpense(expense: GroupExpense) {
@@ -205,7 +218,8 @@
                 {#if canDeleteSettlement(s)}
                   <button
                     class="delete-btn"
-                    onclick={() => onDeleteSettlement(s.id)}
+                    class:delete-btn--active={settlementDeleteConfirmId === s.id}
+                    onclick={() => (settlementDeleteConfirmId = settlementDeleteConfirmId === s.id ? null : s.id)}
                     aria-label="Delete settlement"
                   >
                     <Icon name="trash" size={16} />
@@ -214,6 +228,22 @@
                   <span class="delete-placeholder"></span>
                 {/if}
               </div>
+
+              {#if settlementDeleteConfirmId === s.id}
+                <div class="delete-confirm-bar">
+                  <span class="delete-confirm-text">Also removes linked ledger transactions.</span>
+                  <button
+                    class="delete-confirm-cancel"
+                    onclick={() => (settlementDeleteConfirmId = null)}
+                    disabled={settlementDeleting}
+                  >Cancel</button>
+                  <button
+                    class="delete-confirm-ok"
+                    onclick={confirmDeleteSettlement}
+                    disabled={settlementDeleting}
+                  >{settlementDeleting ? 'Deleting…' : 'Delete'}</button>
+                </div>
+              {/if}
 
               {#if isReceiver}
                 {#if cs?.open}
@@ -274,7 +304,8 @@
               {#if canDeleteSettlement(s)}
                 <button
                   class="delete-btn"
-                  onclick={() => onDeleteSettlement(s.id)}
+                  class:delete-btn--active={settlementDeleteConfirmId === s.id}
+                  onclick={() => (settlementDeleteConfirmId = settlementDeleteConfirmId === s.id ? null : s.id)}
                   aria-label="Delete settlement"
                 >
                   <Icon name="trash" size={16} />
@@ -283,6 +314,21 @@
                 <span class="delete-placeholder"></span>
               {/if}
             </div>
+            {#if settlementDeleteConfirmId === s.id}
+              <div class="delete-confirm-bar">
+                <span class="delete-confirm-text">Also removes linked ledger transactions.</span>
+                <button
+                  class="delete-confirm-cancel"
+                  onclick={() => (settlementDeleteConfirmId = null)}
+                  disabled={settlementDeleting}
+                >Cancel</button>
+                <button
+                  class="delete-confirm-ok"
+                  onclick={confirmDeleteSettlement}
+                  disabled={settlementDeleting}
+                >{settlementDeleting ? 'Deleting…' : 'Delete'}</button>
+              </div>
+            {/if}
           </div>
         {/each}
       </div>
@@ -462,9 +508,55 @@
     color: var(--color-text-muted);
   }
 
-  .delete-btn:hover {
+  .delete-btn:hover,
+  .delete-btn--active {
     color: var(--color-danger);
     background-color: var(--color-danger-light);
+  }
+
+  .delete-confirm-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: 5px 8px 5px 12px;
+    background: var(--color-danger-light);
+    border-top: 1px solid var(--color-danger);
+  }
+
+  .delete-confirm-text {
+    flex: 1;
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+    font-family: var(--font-mono);
+  }
+
+  .delete-confirm-cancel,
+  .delete-confirm-ok {
+    padding: 2px 8px;
+    font-size: var(--text-xs);
+    font-family: var(--font-mono);
+    font-weight: 700;
+    border: 1px solid var(--color-rule);
+    cursor: pointer;
+    background: var(--color-window);
+    box-shadow: var(--shadow-raised);
+    transition: box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .delete-confirm-cancel:active,
+  .delete-confirm-ok:active {
+    box-shadow: var(--shadow-sunken);
+  }
+
+  .delete-confirm-ok {
+    color: var(--color-danger);
+    border-color: var(--color-danger);
+  }
+
+  .delete-confirm-cancel:disabled,
+  .delete-confirm-ok:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
   }
 
   .splits {
