@@ -1,0 +1,1 @@
+ALTER TABLE "transactions" ADD COLUMN "group_expense_id" uuid;

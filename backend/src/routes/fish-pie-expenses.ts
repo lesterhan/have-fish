@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { groupExpenses, groupExpenseSplits, expenseGroupMembers, expenseGroups, user } from '../db/schema'
+import { groupExpenses, groupExpenseSplits, expenseGroupMembers, expenseGroups, transactions, postings, user } from '../db/schema'
 import { eq, isNull, and, inArray, desc } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { ensureSharedAccount, ensureUncategorizedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -120,6 +121,37 @@ app.post('/groups/:groupId/expenses', async (c) => {
       splits.map((s) => ({ expenseId: e.id, userId: s.userId, amount: s.amount })),
     )
 
+    // Auto-post each member's share to their configured expense account.
+    // Debit: member's expense account (negative = money leaving)
+    // Credit: shared:<group> account (positive = balance owed/receivable)
+    const sharedAccountIds = new Map<string, string>()
+    for (const split of splits) {
+      const member = members.find((m) => m.userId === split.userId)!
+      const expenseAccountId = member.defaultExpenseAccountId
+        ?? await ensureUncategorizedAccount(split.userId, tx)
+
+      if (!sharedAccountIds.has(split.userId)) {
+        sharedAccountIds.set(split.userId, await ensureSharedAccount(split.userId, group, tx))
+      }
+      const sharedAccountId = sharedAccountIds.get(split.userId)!
+
+      const txDate = new Date(`${body.date!}T00:00:00Z`)
+      const [t] = await tx
+        .insert(transactions)
+        .values({
+          userId: split.userId,
+          date: txDate,
+          description: body.description!.trim(),
+          groupExpenseId: e.id,
+        })
+        .returning()
+
+      await tx.insert(postings).values([
+        { transactionId: t.id, accountId: expenseAccountId, amount: (-parseFloat(split.amount)).toFixed(2), currency: body.currency!.trim().toUpperCase() },
+        { transactionId: t.id, accountId: sharedAccountId, amount: split.amount, currency: body.currency!.trim().toUpperCase() },
+      ])
+    }
+
     return e
   })
 
@@ -173,7 +205,22 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
   const isCreator = group.createdBy === userId
   if (!isPayer && !isCreator) return c.json({ error: 'forbidden' }, 403)
 
-  await db.update(groupExpenses).set({ deletedAt: new Date() }).where(eq(groupExpenses.id, expenseId))
+  const now = new Date()
+  await db.transaction(async (tx) => {
+    await tx.update(groupExpenses).set({ deletedAt: now }).where(eq(groupExpenses.id, expenseId))
+
+    // Soft-delete all auto-created transactions for this expense (one per member).
+    const linkedTxs = await tx
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(eq(transactions.groupExpenseId, expenseId))
+
+    if (linkedTxs.length > 0) {
+      const txIds = linkedTxs.map((t) => t.id)
+      await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))
+      await tx.update(postings).set({ deletedAt: now }).where(inArray(postings.transactionId, txIds))
+    }
+  })
   return new Response(null, { status: 204 })
 })
 

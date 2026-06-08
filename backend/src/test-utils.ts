@@ -10,13 +10,14 @@ export async function clearDatabase() {
   await db.delete(importRules)
   await db.delete(userSettings)
   await db.delete(csvParsers)
-  await db.delete(accounts)
+  // Fish Pie tables deleted before accounts — expenseGroupMembers has a FK to accounts
   await db.delete(groupExpenseSplits)
   await db.delete(groupExpenses)
   await db.delete(groupSettlements)
   await db.delete(expenseGroupInvites)
   await db.delete(expenseGroupMembers)
   await db.delete(expenseGroups)
+  await db.delete(accounts)
   await db.delete(user)
   await db.delete(fxRates)
 }

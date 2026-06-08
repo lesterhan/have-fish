@@ -3,6 +3,7 @@ import { db } from '../db'
 import { expenseGroupInvites, expenseGroupMembers, expenseGroups, user } from '../db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { ensureSharedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -160,6 +161,8 @@ app.post('/invites/:inviteId/accept', async (c) => {
     )
   if (!invite) return c.json({ error: 'not found' }, 404)
 
+  const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, invite.groupId))
+
   await db.transaction(async (tx) => {
     await tx
       .insert(expenseGroupMembers)
@@ -168,6 +171,7 @@ app.post('/invites/:inviteId/accept', async (c) => {
       .update(expenseGroupInvites)
       .set({ status: 'accepted', resolvedAt: new Date() })
       .where(eq(expenseGroupInvites.id, inviteId))
+    if (group) await ensureSharedAccount(userId, group, tx)
   })
 
   const [updated] = await db
