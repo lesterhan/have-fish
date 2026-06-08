@@ -73,6 +73,11 @@ export const transactions = pgTable('transactions', {
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   date: timestamp('date').notNull(),
   description: text('description'),
+  // Set when this transaction was auto-created by Fish Pie expense splitting.
+  // Used by the edit modal to surface "Remove from group" and by DELETE to cascade.
+  // No DB FK intentional: groupExpenses already has a FK to transactions (transactionId),
+  // so adding a back-reference here would create a circular FK constraint.
+  groupExpenseId: uuid('group_expense_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })
@@ -176,6 +181,9 @@ export const expenseGroupMembers = pgTable('expense_group_members', {
   groupId: uuid('group_id').notNull().references(() => expenseGroups.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   shareWeight: integer('share_weight').notNull().default(1),
+  // Account where this member's share of group expenses is posted (e.g. expenses:food).
+  // Null = falls back to uncategorized account.
+  defaultExpenseAccountId: uuid('default_expense_account_id').references(() => accounts.id),
   joinedAt: timestamp('joined_at').notNull().defaultNow(),
 }, (t) => [
   unique().on(t.groupId, t.userId),
@@ -199,6 +207,8 @@ export const groupExpenses = pgTable('group_expenses', {
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   currency: text('currency').notNull(),
   date: text('date').notNull(), // YYYY-MM-DD
+  // The transaction created for the payer's share auto-posting. Null on pre-integration expenses.
+  transactionId: uuid('transaction_id').references(() => transactions.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })

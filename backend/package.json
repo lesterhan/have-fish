@@ -13,7 +13,10 @@
     "test": "NODE_ENV=test bun test",
     "test:watch": "NODE_ENV=test bun test --watch",
     "seed-user": "bun run scripts/seed-user.ts",
-    "reset-db": "bun run scripts/reset-db.ts"
+    "reset-db": "bun run scripts/reset-db.ts",
+    "migrate:fish-pie": "bun run scripts/migrate-fish-pie.ts",
+    "seed-fish-pie": "bun run scripts/seed-fish-pie.ts",
+    "seed-all": "bun run scripts/seed-all.ts"
   },
   "dependencies": {
     "better-auth": "^1.5.4",

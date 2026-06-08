@@ -1,8 +1,9 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { expenseGroups, expenseGroupMembers, user } from '../db/schema'
+import { expenseGroups, expenseGroupMembers, accounts, user } from '../db/schema'
 import { eq, isNull, and, inArray } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { ensureSharedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -14,6 +15,7 @@ async function fetchMembersForGroups(groupIds: string[]) {
       groupId: expenseGroupMembers.groupId,
       userId: expenseGroupMembers.userId,
       shareWeight: expenseGroupMembers.shareWeight,
+      defaultExpenseAccountId: expenseGroupMembers.defaultExpenseAccountId,
       joinedAt: expenseGroupMembers.joinedAt,
       userName: user.name,
       userEmail: user.email,
@@ -36,6 +38,7 @@ app.post('/', async (c) => {
     await tx
       .insert(expenseGroupMembers)
       .values({ groupId: g.id, userId, shareWeight: 1 })
+    await ensureSharedAccount(userId, g, tx)
     return g
   })
 
@@ -116,6 +119,50 @@ app.patch('/:id', async (c) => {
 
   const members = await fetchMembersForGroups([groupId])
   return c.json({ ...updated, members })
+})
+
+// PATCH /api/fish-pie/groups/:id/members/me — update own member settings (expense account)
+app.patch('/:id/members/me', async (c) => {
+  const userId = c.get('userId')
+  const groupId = c.req.param('id')
+
+  const [group] = await db
+    .select()
+    .from(expenseGroups)
+    .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
+
+  if (!group) return c.json({ error: 'not found' }, 404)
+
+  const [membership] = await db
+    .select()
+    .from(expenseGroupMembers)
+    .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
+
+  if (!membership) return c.json({ error: 'not found' }, 404)
+
+  const body = await c.req.json<{ defaultExpenseAccountId?: string | null }>()
+
+  if (!('defaultExpenseAccountId' in body)) {
+    return c.json({ error: 'no fields to update' }, 400)
+  }
+
+  const accountId = body.defaultExpenseAccountId ?? null
+
+  if (accountId !== null) {
+    const [acct] = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    if (!acct) return c.json({ error: 'account not found or does not belong to you' }, 400)
+  }
+
+  const [updated] = await db
+    .update(expenseGroupMembers)
+    .set({ defaultExpenseAccountId: accountId })
+    .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
+    .returning()
+
+  return c.json(updated)
 })
 
 app.patch('/:id/members/:userId', async (c) => {

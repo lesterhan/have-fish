@@ -19,6 +19,8 @@
     currentUserId: string
     defaultCurrency: string
     initialSliderPct: number
+    groupId: string
+    myExpenseAccountPath: string | null
     onCreate: (data: CreateExpenseData) => Promise<GroupExpense>
     onSliderChange: (pct: number) => Promise<void>
   }
@@ -28,6 +30,8 @@
     currentUserId,
     defaultCurrency,
     initialSliderPct,
+    groupId,
+    myExpenseAccountPath,
     onCreate,
     onSliderChange,
   }: Props = $props()
@@ -201,6 +205,11 @@
       {added ? '✓ Added' : 'Add Expense'}
     </GradientButton>
   </div>
+
+  <p class="expense-account-hint">
+    Posting to <span class="hint-account">{myExpenseAccountPath ?? 'uncategorized'}</span>
+    · <a href="/fish-pie/{groupId}/settings" class="hint-link">Change</a>
+  </p>
 
   {#if error}
     <span class="form-error">{error}</span>
@@ -479,6 +488,27 @@
     width: 100%;
     height: 36px;
     font-size: var(--text-sm);
+  }
+
+  .expense-account-hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    margin: 0;
+  }
+
+  .hint-account {
+    color: var(--color-text);
+    font-weight: 700;
+  }
+
+  .hint-link {
+    color: var(--color-accent-mid);
+    text-decoration: none;
+  }
+
+  .hint-link:hover {
+    text-decoration: underline;
   }
 
   .form-error {

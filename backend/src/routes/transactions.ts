@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { transactions, postings } from '../db/schema'
+import { transactions, postings, groupExpenses, expenseGroups } from '../db/schema'
 import { eq, isNull, and, inArray, gte, lte, or, like, desc } from 'drizzle-orm'
 import { accounts } from '../db/schema'
 import type { AppVariables } from '../app'
@@ -90,7 +90,27 @@ app.get('/', async (c) => {
     return acc
   }, {})
 
-  const result = txRows.map((tx) => ({ ...tx, postings: postingsByTx[tx.id] ?? [] }))
+  // Resolve group names for transactions linked to a group expense
+  const groupExpenseIds = txRows
+    .map((tx) => tx.groupExpenseId)
+    .filter((id): id is string => id !== null)
+  let groupNameByExpenseId: Record<string, string> = {}
+  if (groupExpenseIds.length > 0) {
+    const rows = await db
+      .select({ expenseId: groupExpenses.id, groupName: expenseGroups.name })
+      .from(groupExpenses)
+      .innerJoin(expenseGroups, eq(groupExpenses.groupId, expenseGroups.id))
+      .where(inArray(groupExpenses.id, groupExpenseIds))
+    for (const row of rows) {
+      groupNameByExpenseId[row.expenseId] = row.groupName
+    }
+  }
+
+  const result = txRows.map((tx) => ({
+    ...tx,
+    postings: postingsByTx[tx.id] ?? [],
+    groupName: tx.groupExpenseId ? (groupNameByExpenseId[tx.groupExpenseId] ?? null) : null,
+  }))
   return c.json(result)
 })
 

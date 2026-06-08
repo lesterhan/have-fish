@@ -2,18 +2,22 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
-  import { fetchGroup, deleteGroup } from '$lib/api'
-  import type { ExpenseGroup } from '$lib/api'
+  import { fetchGroup, fetchAccounts, deleteGroup, updateMyExpenseAccount } from '$lib/api'
+  import type { ExpenseGroup, Account } from '$lib/api'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
 
   const groupId = $derived(page.params.id ?? '')
   const session = useSession()
   const currentUserId = $derived($session.data?.user.id ?? '')
 
   let group = $state<ExpenseGroup | null>(null)
+  let allAccounts = $state<Account[]>([])
+  let myExpenseAccountId = $state('')
+  let savingExpenseAccount = $state(false)
   let loading = $state(true)
   let notFound = $state(false)
   let confirmDelete = $state(false)
@@ -21,7 +25,11 @@
 
   onMount(async () => {
     try {
-      group = await fetchGroup(groupId)
+      const [g, accts] = await Promise.all([fetchGroup(groupId), fetchAccounts()])
+      group = g
+      allAccounts = accts
+      const myMember = g.members.find((m) => m.userId === currentUserId)
+      myExpenseAccountId = myMember?.defaultExpenseAccountId ?? ''
     } catch {
       notFound = true
     } finally {
@@ -37,6 +45,17 @@
       goto('/fish-pie')
     } catch {
       deleting = false
+    }
+  }
+
+  async function handleExpenseAccountCommit(accountId: string) {
+    if (savingExpenseAccount) return
+    savingExpenseAccount = true
+    try {
+      const updated = await updateMyExpenseAccount(groupId, accountId || null)
+      myExpenseAccountId = updated.defaultExpenseAccountId ?? ''
+    } finally {
+      savingExpenseAccount = false
     }
   }
 
@@ -61,33 +80,52 @@
     <div class="body">
       <p class="empty">Group not found.</p>
     </div>
-  {:else if !isCreator}
-    <div class="body">
-      <p class="empty">Only the group creator can access settings.</p>
-    </div>
   {:else}
     <div class="section-bar">
-      <span class="section-bar-title">Danger Zone</span>
+      <span class="section-bar-title">My Settings</span>
     </div>
     <div class="body">
-      <div class="danger-row">
-        <div class="danger-info">
-          <span class="danger-label">Delete group</span>
-          <span class="danger-desc">Removes this group for all members. This cannot be undone.</span>
+      <div class="setting-row">
+        <div class="setting-info">
+          <span class="setting-label">My expense account</span>
+          <span class="setting-hint">Your share of group expenses posts here</span>
         </div>
-        {#if !confirmDelete}
-          <Button variant="danger" onclick={() => (confirmDelete = true)}>Delete group</Button>
-        {:else}
-          <div class="confirm-actions">
-            <span class="confirm-text">Are you sure?</span>
-            <Button variant="danger" onclick={handleDeleteGroup} disabled={deleting}>
-              {deleting ? 'Deleting…' : 'Confirm delete'}
-            </Button>
-            <Button onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</Button>
-          </div>
-        {/if}
+        <div class="setting-input">
+          <AccountPathInput
+            accounts={allAccounts}
+            bind:value={myExpenseAccountId}
+            placeholder="Uncategorized (default)"
+            allowCreate={false}
+            oncommit={handleExpenseAccountCommit}
+          />
+        </div>
       </div>
     </div>
+
+    {#if isCreator}
+      <div class="section-bar">
+        <span class="section-bar-title">Danger Zone</span>
+      </div>
+      <div class="body">
+        <div class="danger-row">
+          <div class="danger-info">
+            <span class="danger-label">Delete group</span>
+            <span class="danger-desc">Removes this group for all members. This cannot be undone.</span>
+          </div>
+          {#if !confirmDelete}
+            <Button variant="danger" onclick={() => (confirmDelete = true)}>Delete group</Button>
+          {:else}
+            <div class="confirm-actions">
+              <span class="confirm-text">Are you sure?</span>
+              <Button variant="danger" onclick={handleDeleteGroup} disabled={deleting}>
+                {deleting ? 'Deleting…' : 'Confirm delete'}
+              </Button>
+              <Button onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</Button>
+            </div>
+          {/if}
+        </div>
+      </div>
+    {/if}
   {/if}
 </div>
 
@@ -144,6 +182,39 @@
     min-height: 0;
     overflow-y: auto;
     background: var(--color-window-raised);
+  }
+
+  .setting-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-md);
+    padding: var(--sp-md) 22px;
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule-soft);
+  }
+
+  .setting-info {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    flex: 1;
+  }
+
+  .setting-label {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
+
+  .setting-hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .setting-input {
+    flex-shrink: 0;
+    width: 220px;
   }
 
   .danger-row {
