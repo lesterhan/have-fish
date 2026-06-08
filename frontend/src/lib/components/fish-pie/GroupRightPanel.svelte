@@ -1,29 +1,88 @@
 <script lang="ts">
-  import type { GroupExpense, GroupSettlement } from '$lib/api'
+  import type { GroupExpense, GroupSettlement, Account } from '$lib/api'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import CurrencyPill from '../ui/CurrencyPill.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { initials } from './utils'
 
   interface Props {
     expenses: GroupExpense[]
     settlements: GroupSettlement[]
     currentUserId: string
+    groupId: string
+    allAccounts: Account[]
     groupCreatedBy: string
     onDeleteExpense: (id: string) => Promise<void>
     onDeleteSettlement: (id: string) => Promise<void>
+    onConfirmSettlement: (
+      id: string,
+      receiverAccountId: string,
+    ) => Promise<void>
   }
 
   let {
     expenses,
     settlements,
     currentUserId,
+    groupId,
+    allAccounts,
     groupCreatedBy,
     onDeleteExpense,
     onDeleteSettlement,
+    onConfirmSettlement,
   }: Props = $props()
 
   let panelTab = $state<'expenses' | 'settlements'>('expenses')
   let expandedExpenseId = $state<string | null>(null)
+  let settlementDeleteConfirmId = $state<string | null>(null)
+  let settlementDeleting = $state(false)
+  let expenseDeleteConfirmId = $state<string | null>(null)
+  let expenseDeleting = $state(false)
+
+  // Per-settlement confirm state: settlementId → { accountId, submitting, error, open }
+  // Never mutate this during rendering — only from event handlers.
+  let confirmStates = $state<
+    Record<
+      string,
+      { accountId: string; submitting: boolean; error: string; open: boolean }
+    >
+  >({})
+
+  function openConfirmForm(id: string) {
+    confirmStates[id] = {
+      accountId: '',
+      submitting: false,
+      error: '',
+      open: true,
+    }
+  }
+
+  function closeConfirmForm(id: string) {
+    if (confirmStates[id]) confirmStates[id].open = false
+  }
+
+  async function confirmDeleteExpense() {
+    if (!expenseDeleteConfirmId || expenseDeleting) return
+    expenseDeleting = true
+    try {
+      await onDeleteExpense(expenseDeleteConfirmId)
+      expenseDeleteConfirmId = null
+    } finally {
+      expenseDeleting = false
+    }
+  }
+
+  async function confirmDeleteSettlement() {
+    if (!settlementDeleteConfirmId || settlementDeleting) return
+    settlementDeleting = true
+    try {
+      await onDeleteSettlement(settlementDeleteConfirmId)
+      settlementDeleteConfirmId = null
+    } finally {
+      settlementDeleting = false
+    }
+  }
 
   function canDeleteExpense(expense: GroupExpense) {
     return (
@@ -38,6 +97,28 @@
       groupCreatedBy === currentUserId
     )
   }
+
+  async function handleConfirm(s: GroupSettlement) {
+    const state = confirmStates[s.id]
+    if (!state || !state.accountId || state.submitting) return
+    state.error = ''
+    state.submitting = true
+    try {
+      await onConfirmSettlement(s.id, state.accountId)
+      state.open = false
+    } catch (e: any) {
+      state.error = e.message ?? 'Failed to confirm'
+    } finally {
+      state.submitting = false
+    }
+  }
+
+  const pendingSettlements = $derived(
+    settlements.filter((s) => s.status === 'pending'),
+  )
+  const completedSettlements = $derived(
+    settlements.filter((s) => s.status === 'completed'),
+  )
 </script>
 
 <div class="txn-panel">
@@ -109,7 +190,13 @@
                 {#if canDeleteExpense(expense)}
                   <button
                     class="delete-btn"
-                    onclick={() => onDeleteExpense(expense.id)}
+                    class:delete-btn--active={expenseDeleteConfirmId ===
+                      expense.id}
+                    onclick={() =>
+                      (expenseDeleteConfirmId =
+                        expenseDeleteConfirmId === expense.id
+                          ? null
+                          : expense.id)}
                     aria-label="Delete expense"
                   >
                     <Icon name="trash" size={16} />
@@ -118,6 +205,22 @@
                   <span class="delete-placeholder"></span>
                 {/if}
               </div>
+              {#if expenseDeleteConfirmId === expense.id}
+                <div class="delete-confirm-bar">
+                  <span class="delete-confirm-text">Are you sure?</span>
+                  <GradientButton
+                    onclick={() => (expenseDeleteConfirmId = null)}
+                    disabled={expenseDeleting}>Cancel</GradientButton
+                  >
+                  <GradientButton
+                    variant="warning"
+                    active
+                    onclick={confirmDeleteExpense}
+                    disabled={expenseDeleting}
+                    >{expenseDeleting ? 'Deleting…' : 'Delete'}</GradientButton
+                  >
+                </div>
+              {/if}
               {#if expandedExpenseId === expense.id}
                 <div class="splits">
                   {#each expense.splits as split (split.id)}
@@ -139,7 +242,112 @@
       <p class="empty">No settlements recorded.</p>
     {:else}
       <div class="settlement-list">
-        {#each settlements as s (s.id)}
+        {#if pendingSettlements.length > 0}
+          <div class="pending-header">
+            <Icon name="warning-filled" size={12} />
+            <span>Pending confirmation</span>
+          </div>
+          {#each pendingSettlements as s (s.id)}
+            {@const isReceiver = s.toUserId === currentUserId}
+            {@const cs = confirmStates[s.id]}
+            <div class="expense-item pending-item">
+              <div class="expense-row-wrap">
+                <div class="expense-row settlement-row-inner">
+                  <div class="row-avatar pending-avatar">
+                    {initials(s.fromUserName)}
+                  </div>
+                  <div class="expense-info">
+                    <span class="expense-desc">
+                      {s.fromUserName} → {s.toUserName}
+                    </span>
+                    <span class="expense-meta">
+                      {s.date}{s.note ? ` · ${s.note}` : ''}
+                    </span>
+                  </div>
+                  <div class="expense-right">
+                    <span class="expense-amount"
+                      >{parseFloat(s.amount).toFixed(2)}</span
+                    >
+                    <CurrencyPill code={s.currency} />
+                  </div>
+                </div>
+                {#if canDeleteSettlement(s)}
+                  <button
+                    class="delete-btn"
+                    class:delete-btn--active={settlementDeleteConfirmId ===
+                      s.id}
+                    onclick={() =>
+                      (settlementDeleteConfirmId =
+                        settlementDeleteConfirmId === s.id ? null : s.id)}
+                    aria-label="Delete settlement"
+                  >
+                    <Icon name="trash" size={16} />
+                  </button>
+                {:else}
+                  <span class="delete-placeholder"></span>
+                {/if}
+              </div>
+
+              {#if settlementDeleteConfirmId === s.id}
+                <div class="delete-confirm-bar">
+                  <span class="delete-confirm-text">Are you sure?</span>
+                  <GradientButton
+                    onclick={() => (settlementDeleteConfirmId = null)}
+                    disabled={settlementDeleting}>Cancel</GradientButton
+                  >
+                  <GradientButton
+                    variant="warning"
+                    active
+                    onclick={confirmDeleteSettlement}
+                    disabled={settlementDeleting}
+                    >{settlementDeleting
+                      ? 'Deleting…'
+                      : 'Delete'}</GradientButton
+                  >
+                </div>
+              {/if}
+
+              {#if isReceiver}
+                {#if cs?.open}
+                  <div class="confirm-form">
+                    <AccountPathInput
+                      accounts={allAccounts}
+                      bind:value={cs.accountId}
+                      placeholder="Account received into…"
+                      allowCreate={false}
+                    />
+                    {#if cs.error}
+                      <span class="form-error">{cs.error}</span>
+                    {/if}
+                    <div class="confirm-actions">
+                      <GradientButton onclick={() => closeConfirmForm(s.id)}>
+                        Cancel
+                      </GradientButton>
+                      <GradientButton
+                        onclick={() => handleConfirm(s)}
+                        disabled={cs.submitting || !cs.accountId}
+                      >
+                        {cs.submitting ? 'Confirming…' : 'Confirm receipt'}
+                      </GradientButton>
+                    </div>
+                  </div>
+                {:else}
+                  <div class="confirm-prompt">
+                    <GradientButton onclick={() => openConfirmForm(s.id)}>
+                      Confirm receipt
+                    </GradientButton>
+                  </div>
+                {/if}
+              {:else}
+                <div class="awaiting-label">
+                  Awaiting confirmation from {s.toUserName}
+                </div>
+              {/if}
+            </div>
+          {/each}
+        {/if}
+
+        {#each completedSettlements as s (s.id)}
           <div class="expense-item">
             <div class="expense-row-wrap">
               <div class="expense-row settlement-row-inner">
@@ -149,18 +357,23 @@
                     {s.fromUserName} → {s.toUserName}
                   </span>
                   <span class="expense-meta">
-                    {s.date}{s.note ? ` · ${s.note}` : ""}
+                    {s.date}{s.note ? ` · ${s.note}` : ''}
                   </span>
                 </div>
                 <div class="expense-right">
-                  <span class="expense-amount">{parseFloat(s.amount).toFixed(2)}</span>
+                  <span class="expense-amount"
+                    >{parseFloat(s.amount).toFixed(2)}</span
+                  >
                   <CurrencyPill code={s.currency} />
                 </div>
               </div>
               {#if canDeleteSettlement(s)}
                 <button
                   class="delete-btn"
-                  onclick={() => onDeleteSettlement(s.id)}
+                  class:delete-btn--active={settlementDeleteConfirmId === s.id}
+                  onclick={() =>
+                    (settlementDeleteConfirmId =
+                      settlementDeleteConfirmId === s.id ? null : s.id)}
                   aria-label="Delete settlement"
                 >
                   <Icon name="trash" size={16} />
@@ -169,6 +382,22 @@
                 <span class="delete-placeholder"></span>
               {/if}
             </div>
+            {#if settlementDeleteConfirmId === s.id}
+              <div class="delete-confirm-bar">
+                <span class="delete-confirm-text">Are you sure?</span>
+                <GradientButton
+                  onclick={() => (settlementDeleteConfirmId = null)}
+                  disabled={settlementDeleting}>Cancel</GradientButton
+                >
+                <GradientButton
+                  variant="warning"
+                  active
+                  onclick={confirmDeleteSettlement}
+                  disabled={settlementDeleting}
+                  >{settlementDeleting ? 'Deleting…' : 'Delete'}</GradientButton
+                >
+              </div>
+            {/if}
           </div>
         {/each}
       </div>
@@ -243,7 +472,8 @@
     color: var(--color-text-muted);
   }
 
-  .expense-list {
+  .expense-list,
+  .settlement-list {
     background: var(--color-window);
   }
 
@@ -347,9 +577,26 @@
     color: var(--color-text-muted);
   }
 
-  .delete-btn:hover {
+  .delete-btn:hover,
+  .delete-btn--active {
     color: var(--color-danger);
     background-color: var(--color-danger-light);
+  }
+
+  .delete-confirm-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: 5px 8px 5px 12px;
+    background: var(--color-danger-light);
+    border-top: 1px solid var(--color-danger);
+  }
+
+  .delete-confirm-text {
+    flex: 1;
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+    font-family: var(--font-mono);
   }
 
   .splits {
@@ -374,12 +621,69 @@
     color: var(--color-text-muted);
   }
 
-  .settlement-list {
-    background: var(--color-window);
-  }
-
   .settlement-row-inner {
     cursor: default;
+  }
+
+  /* Pending settlements */
+  .pending-header {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: 4px 12px;
+    background: color-mix(in srgb, #e8a000 12%, var(--color-window));
+    border-bottom: 1px solid color-mix(in srgb, #e8a000 30%, transparent);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: #8a5500;
+  }
+
+  .pending-item {
+    background: color-mix(in srgb, #e8a000 5%, var(--color-window));
+  }
+
+  .pending-avatar {
+    background: color-mix(in srgb, #e8a000 20%, var(--color-window));
+    border-color: #e8a000;
+    color: #8a5500;
+  }
+
+  .confirm-prompt {
+    padding: 6px 12px 8px;
+    display: flex;
+    justify-content: flex-end;
+  }
+
+  .confirm-form {
+    padding: 8px 12px;
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    background: var(--color-window-raised);
+    border-top: 1px solid var(--color-rule-soft);
+  }
+
+  .confirm-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-xs);
+  }
+
+  .awaiting-label {
+    padding: 5px 12px 7px;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .form-error {
+    font-size: var(--text-xs);
+    color: var(--color-amount-negative);
+    font-family: var(--font-sans);
   }
 
   @media (max-width: 600px) {

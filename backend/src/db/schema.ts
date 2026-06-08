@@ -231,6 +231,10 @@ export const groupSettlements = pgTable('group_settlements', {
   currency: text('currency').notNull(),
   date: text('date').notNull(),
   note: text('note'),
+  status: text('status').notNull().default('pending'),
+  payerAccountId: uuid('payer_account_id').references(() => accounts.id, { onDelete: 'set null' }),
+  payerTransactionId: uuid('payer_transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
+  receiverTransactionId: uuid('receiver_transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })

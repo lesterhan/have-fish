@@ -5,6 +5,8 @@
   import TextInput from "$lib/components/ui/TextInput.svelte"
   import CurrencyInput from "$lib/components/ui/CurrencyInput.svelte"
   import Icon from "$lib/components/ui/Icon.svelte"
+  import AccountPathInput from "$lib/components/accounts/AccountPathInput.svelte"
+  import type { Account } from "$lib/api"
   import { initials } from "./utils"
 
   interface SettlePayload {
@@ -14,6 +16,7 @@
     currency: string
     date: string
     note: string | undefined
+    payerAccountId: string
   }
 
   interface Props {
@@ -24,6 +27,7 @@
     toName: string
     initialAmount: string
     currency: string
+    payerAccounts: Account[]
     onSettle: (data: SettlePayload) => Promise<void>
   }
 
@@ -35,6 +39,7 @@
     toName,
     initialAmount,
     currency,
+    payerAccounts,
     onSettle,
   }: Props = $props()
 
@@ -42,6 +47,7 @@
   let selectedCurrency = $state(untrack(() => currency))
   let date = $state(new Date().toISOString().slice(0, 10))
   let note = $state("")
+  let payerAccountId = $state("")
   let error = $state("")
   let submitting = $state(false)
 
@@ -68,12 +74,13 @@
       selectedCurrency = currency
       date = new Date().toISOString().slice(0, 10)
       note = ""
+      payerAccountId = ""
       error = ""
     }
   })
 
   async function handleSettle() {
-    if (!fromUserId || !toUserId || fromUserId === toUserId || !amount || submitting)
+    if (!fromUserId || !toUserId || fromUserId === toUserId || !amount || !payerAccountId || submitting)
       return
     error = ""
     submitting = true
@@ -85,10 +92,11 @@
         currency: selectedCurrency,
         date,
         note: note.trim() || undefined,
+        payerAccountId,
       })
       open = false
     } catch (e: any) {
-      error = e.message ?? "Failed to record settlement"
+      error = e.message ?? "Failed to propose settlement"
     } finally {
       submitting = false
     }
@@ -154,6 +162,16 @@
       </div>
     </div>
 
+    <div class="field">
+      <span class="field-label">Paid from</span>
+      <AccountPathInput
+        accounts={payerAccounts}
+        bind:value={payerAccountId}
+        placeholder="Account paid from…"
+        allowCreate={false}
+      />
+    </div>
+
     {#if error}
       <span class="form-error">{error}</span>
     {/if}
@@ -167,8 +185,8 @@
       >
         Cancel
       </GradientButton>
-      <GradientButton onclick={handleSettle} disabled={submitting || !amount}>
-        {submitting ? "Recording…" : "Record"}
+      <GradientButton onclick={handleSettle} disabled={submitting || !amount || !payerAccountId}>
+        {submitting ? "Proposing…" : "Propose"}
       </GradientButton>
     </div>
   </div>
@@ -350,6 +368,21 @@
     justify-content: flex-end;
     gap: var(--sp-xs);
     padding-top: var(--sp-xs);
+  }
+
+  .field {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+  }
+
+  .field-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
   }
 
   .form-error {

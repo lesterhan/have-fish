@@ -9,6 +9,7 @@
     members: GroupMember[]
     balances: CurrencyBalance[]
     allSettled: boolean
+    currentUserId: string
     onSettleClick: (
       fromUserId: string,
       toUserId: string,
@@ -17,7 +18,8 @@
     ) => void
   }
 
-  let { members, balances, allSettled, onSettleClick }: Props = $props()
+  let { members, balances, allSettled, currentUserId, onSettleClick }: Props =
+    $props()
 </script>
 
 <div class="section-bar">
@@ -62,13 +64,20 @@
   <div class="settle-actions">
     {#each balances as cb (cb.currency)}
       {#each cb.transfers as t}
+        {@const isPayer = t.fromUserId === currentUserId}
         <div class="settle-btn-wrap">
-          <GradientButton
-            onclick={() =>
-              onSettleClick(t.fromUserId, t.toUserId, t.amount, t.currency)}
-          >
-            Settle up
-          </GradientButton>
+          {#if isPayer}
+            <GradientButton
+              onclick={() =>
+                onSettleClick(t.fromUserId, t.toUserId, t.amount, t.currency)}
+            >
+              Settle up
+            </GradientButton>
+          {:else}
+            <GradientButton disabled>
+              Waiting for {t.fromUserName ?? 'them'} to pay
+            </GradientButton>
+          {/if}
         </div>
       {/each}
     {/each}

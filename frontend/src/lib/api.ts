@@ -91,6 +91,8 @@ export type PossibleDuplicate = {
   date: string
   amount: string
   currency: string
+  fishPieGroupId?: string
+  fishPieGroupName?: string
 } | null
 
 export type RegularParsedTransaction = {
@@ -948,6 +950,10 @@ export type GroupSettlement = {
   currency: string
   date: string
   note: string | null
+  status: 'pending' | 'completed'
+  payerAccountId: string | null
+  payerTransactionId: string | null
+  receiverTransactionId: string | null
   createdAt: string
   deletedAt: string | null
 }
@@ -960,7 +966,7 @@ export async function fetchSettlements(groupId: string): Promise<GroupSettlement
 
 export async function createSettlement(
   groupId: string,
-  body: { fromUserId: string; toUserId: string; amount: string; currency: string; date: string; note?: string },
+  body: { fromUserId: string; toUserId: string; amount: string; currency: string; date: string; note?: string; payerAccountId: string },
 ): Promise<GroupSettlement> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, {
     method: 'POST',
@@ -971,6 +977,24 @@ export async function createSettlement(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to create settlement')
+  }
+  return res.json()
+}
+
+export async function confirmSettlement(
+  groupId: string,
+  settlementId: string,
+  receiverAccountId: string,
+): Promise<GroupSettlement> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ receiverAccountId }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to confirm settlement')
   }
   return res.json()
 }

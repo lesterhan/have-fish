@@ -79,7 +79,7 @@ app.get('/groups/:groupId/balances', async (c) => {
     db
       .select({ fromUserId: groupSettlements.fromUserId, toUserId: groupSettlements.toUserId, amount: groupSettlements.amount, currency: groupSettlements.currency })
       .from(groupSettlements)
-      .where(and(eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt))),
+      .where(and(eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt), eq(groupSettlements.status, 'completed'))),
   ])
 
   if (expenses.length === 0 && settlements.length === 0) return c.json([])
