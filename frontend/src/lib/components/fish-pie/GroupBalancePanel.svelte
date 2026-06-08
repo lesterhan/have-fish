@@ -18,7 +18,8 @@
     ) => void
   }
 
-  let { members, balances, allSettled, currentUserId, onSettleClick }: Props = $props()
+  let { members, balances, allSettled, currentUserId, onSettleClick }: Props =
+    $props()
 </script>
 
 <div class="section-bar">
@@ -76,9 +77,6 @@
             <GradientButton disabled>
               Waiting for {t.fromUserName ?? 'them'} to pay
             </GradientButton>
-            <p class="settle-hint">
-              {t.fromUserName ?? 'The other person'} needs to initiate the settlement.
-            </p>
           {/if}
         </div>
       {/each}
@@ -199,13 +197,5 @@
     width: 100%;
     height: 32px;
     font-size: var(--text-sm);
-  }
-
-  .settle-hint {
-    margin: 4px 0 0;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    text-align: center;
   }
 </style>
