@@ -1,11 +1,12 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups } from '../db/schema'
+import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, expenseGroupMembers } from '../db/schema'
 import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
+import { createGroupExpenseInTx, fetchGroupWithMembers } from '../fish-pie-expense-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -243,10 +244,32 @@ app.post('/check-duplicates', async (c) => {
 app.post('/commit', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
-  const { accountId, defaultCurrency, transactions: parsed } = body
+  const { accountId, defaultCurrency, transactions: parsed, groupSplits } = body
 
   if (!defaultCurrency || typeof defaultCurrency !== 'string') return c.json({ error: 'defaultCurrency is required' }, 400)
   if (!Array.isArray(parsed) || parsed.length === 0) return c.json({ error: 'transactions must be a non-empty array' }, 400)
+
+  // Validate groupSplits and verify membership up front (fail fast before any DB writes)
+  type GroupSplit = { rowIndex: number; groupId: string }
+  const splits: GroupSplit[] = Array.isArray(groupSplits) ? groupSplits : []
+  const groupCache = new Map<string, Awaited<ReturnType<typeof fetchGroupWithMembers>>>()
+  for (const split of splits) {
+    if (typeof split.rowIndex !== 'number' || typeof split.groupId !== 'string') {
+      return c.json({ error: 'groupSplits entries must have rowIndex and groupId' }, 400)
+    }
+    if (split.rowIndex < 0 || split.rowIndex >= parsed.length) {
+      return c.json({ error: `groupSplits rowIndex ${split.rowIndex} out of range` }, 400)
+    }
+    if (!groupCache.has(split.groupId)) {
+      const result = await fetchGroupWithMembers(split.groupId)
+      if (!result) return c.json({ error: `group ${split.groupId} not found` }, 404)
+      if (!result.members.some((m) => m.userId === userId)) {
+        return c.json({ error: `not a member of group ${split.groupId}` }, 403)
+      }
+      groupCache.set(split.groupId, result)
+    }
+  }
+  const splitByRowIndex = new Map(splits.map((s) => [s.rowIndex, s]))
 
   // Per-row validation — requirements differ by row type
   for (const t of parsed as Record<string, unknown>[]) {
@@ -303,8 +326,10 @@ app.post('/commit', async (c) => {
     feeAccountId: string
   }
 
+  let fishPieExpenses = 0
+
   await db.transaction(async (tx) => {
-    for (const t of parsed as (RegularRow | TransferRow | SameCurrencyTransferRow)[]) {
+    for (const [rowIndex, t] of (parsed as (RegularRow | TransferRow | SameCurrencyTransferRow)[]).entries()) {
       const [newTx] = await tx
         .insert(transactions)
         .values({ userId, date: new Date(t.date), description: t.description })
@@ -370,11 +395,31 @@ app.post('/commit', async (c) => {
           { transactionId: newTx.id, accountId: sourceId, amount: t.amount, currency },
           { transactionId: newTx.id, accountId: t.offsetAccountId, amount: negated, currency },
         ])
+
+        // If this row was flagged for a group split, create the group expense linked to this transaction.
+        const groupSplit = splitByRowIndex.get(rowIndex)
+        if (groupSplit) {
+          const { group, members } = groupCache.get(groupSplit.groupId)!
+          const amount = Math.abs(parseFloat(t.amount)).toFixed(2)
+          // t.date is an ISO string; service expects YYYY-MM-DD
+          const dateStr = new Date(t.date).toISOString().slice(0, 10)
+          await createGroupExpenseInTx(tx, {
+            group,
+            members,
+            payerId: userId,
+            description: t.description ?? '',
+            amount,
+            currency,
+            date: dateStr,
+            linkedTransactionId: newTx.id,
+          })
+          fishPieExpenses++
+        }
       }
     }
   })
 
-  return c.json({ created: parsed.length }, 201)
+  return c.json({ created: parsed.length, fishPieExpenses }, 201)
 })
 
 export default app

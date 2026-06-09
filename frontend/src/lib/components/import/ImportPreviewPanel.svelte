@@ -4,7 +4,7 @@
   import Toggle from '$lib/components/ui/Toggle.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
-  import type { Account, ImportPreviewResult, PossibleDuplicate } from '$lib/api'
+  import type { Account, ImportPreviewResult, PossibleDuplicate, ExpenseGroup } from '$lib/api'
 
   export type RowState = {
     offsetAccountId: string
@@ -12,12 +12,14 @@
     feeAccountId: string
     skipped: boolean
     possibleDuplicate?: PossibleDuplicate
+    groupId: string | null
   }
 
   interface Props {
     preview: ImportPreviewResult
     rowStates: RowState[]
     accounts: Account[]
+    groups: ExpenseGroup[]
     fromAccountId: string
     importAsLiabilities: boolean
     defaultCurrency: string
@@ -35,6 +37,7 @@
     preview,
     rowStates = $bindable(),
     accounts,
+    groups,
     fromAccountId = $bindable(),
     importAsLiabilities = $bindable(),
     defaultCurrency,
@@ -47,6 +50,18 @@
     onconfirm,
     oncancel,
   }: Props = $props()
+
+  let splitSelectOpenIndex = $state<number | null>(null)
+
+  function groupName(id: string | null): string {
+    if (!id) return ''
+    return groups.find((g) => g.id === id)?.name ?? ''
+  }
+
+  function clearGroupSplit(i: number) {
+    rowStates[i].groupId = null
+    splitSelectOpenIndex = null
+  }
 
   function displayAmount(amount: string): string {
     if (!importAsLiabilities) return amount
@@ -141,6 +156,7 @@
             <th class="col-amount">Amount</th>
             {#if !preview.isMultiCurrency}<th>Currency</th>{/if}
             <th class="col-offset">To account</th>
+            {#if groups.length > 0}<th class="col-split">Fish Pie</th>{/if}
             <th class="col-skip">Skip</th>
           </tr>
         </thead>
@@ -194,6 +210,7 @@
                     />
                   </div>
                 </td>
+                {#if groups.length > 0}<td class="cell-split"></td>{/if}
                 <td class="cell-skip"
                   ><input
                     type="checkbox"
@@ -240,6 +257,7 @@
                     />
                   </div>
                 </td>
+                {#if groups.length > 0}<td class="cell-split"></td>{/if}
                 <td class="cell-skip"
                   ><input
                     type="checkbox"
@@ -308,6 +326,45 @@
                     {/if}
                   </div>
                 </td>
+                {#if groups.length > 0}
+                  <td class="cell-split">
+                    {#if !rowStates[i].skipped}
+                      {#if rowStates[i].groupId}
+                        <span class="split-badge">
+                          {groupName(rowStates[i].groupId)}
+                          <button
+                            class="split-badge-clear"
+                            onclick={() => clearGroupSplit(i)}
+                            aria-label="Remove split"
+                          >×</button>
+                        </span>
+                      {:else if splitSelectOpenIndex === i}
+                        <select
+                          class="split-select"
+                          onchange={(e) => {
+                            const val = (e.currentTarget as HTMLSelectElement).value
+                            if (val) rowStates[i].groupId = val
+                            splitSelectOpenIndex = null
+                          }}
+                          onblur={() => (splitSelectOpenIndex = null)}
+                        >
+                          <option value="">Choose group…</option>
+                          {#each groups as g (g.id)}
+                            <option value={g.id}>{g.name}</option>
+                          {/each}
+                        </select>
+                      {:else}
+                        <button
+                          class="split-btn"
+                          onclick={() => (splitSelectOpenIndex = i)}
+                          aria-label="Split with group"
+                        >
+                          <Icon name="pie" size={12} />
+                        </button>
+                      {/if}
+                    {/if}
+                  </td>
+                {/if}
                 <td class="cell-skip"
                   ><input
                     type="checkbox"
@@ -506,6 +563,10 @@
   .col-offset {
     min-width: 18rem;
   }
+  .col-split {
+    width: 7rem;
+    text-align: center;
+  }
   .col-skip {
     width: 3rem;
     text-align: center;
@@ -638,5 +699,72 @@
     display: flex;
     gap: var(--sp-sm);
     margin-left: auto;
+  }
+
+  .cell-split {
+    text-align: center;
+    vertical-align: middle;
+    padding: 2px 4px;
+    white-space: nowrap;
+  }
+
+  .split-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    background: none;
+    border: 1px solid var(--color-rule);
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
+  }
+
+  .split-btn:hover {
+    color: var(--color-accent-mid);
+    border-color: var(--color-accent-mid);
+  }
+
+  .split-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    padding: 1px 5px 1px 6px;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent-chip-fg);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    max-width: 6.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .split-badge-clear {
+    flex-shrink: 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-accent-mid);
+    font-size: 12px;
+    line-height: 1;
+    padding: 0;
+  }
+
+  .split-badge-clear:hover {
+    color: var(--color-danger);
+  }
+
+  .split-select {
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    border: 1px solid var(--color-accent);
+    background: var(--color-window);
+    padding: 1px 2px;
+    outline: none;
   }
 </style>

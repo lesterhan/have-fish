@@ -3,36 +3,9 @@ import { db } from '../db'
 import { groupExpenses, groupExpenseSplits, expenseGroupMembers, expenseGroups, transactions, postings, user } from '../db/schema'
 import { eq, isNull, and, inArray, desc } from 'drizzle-orm'
 import type { AppVariables } from '../app'
-import { ensureSharedAccount, ensureUncategorizedAccount } from '../fish-pie-accounts'
+import { computeSplits, createGroupExpenseInTx } from '../fish-pie-expense-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
-
-// Compute splits from member weights. Rounding remainder goes to payer.
-function computeSplits(
-  amount: string,
-  members: { userId: string; shareWeight: number }[],
-  payerId: string,
-): { userId: string; amount: string }[] {
-  const total = parseFloat(amount)
-  const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
-
-  let remaining = total
-  const splits = members.map((m) => {
-    const share = Math.round((total * m.shareWeight / totalWeight) * 100) / 100
-    remaining = Math.round((remaining - share) * 100) / 100
-    return { userId: m.userId, amount: share.toFixed(2) }
-  })
-
-  // Add rounding remainder to payer's split
-  if (remaining !== 0) {
-    const payerSplit = splits.find((s) => s.userId === payerId)
-    if (payerSplit) {
-      payerSplit.amount = (parseFloat(payerSplit.amount) + remaining).toFixed(2)
-    }
-  }
-
-  return splits
-}
 
 async function fetchExpenseWithDetails(expenseIds: string[]) {
   if (expenseIds.length === 0) return []
@@ -52,7 +25,6 @@ async function fetchExpenseWithDetails(expenseIds: string[]) {
       .where(inArray(groupExpenseSplits.expenseId, expenseIds)),
   ])
 
-  // Fetch only the payer names needed
   const payerIds = [...new Set(expenses.map((e) => e.paidByUserId))]
   const payers = await db
     .select({ id: user.id, name: user.name })
@@ -102,61 +74,19 @@ app.post('/groups/:groupId/expenses', async (c) => {
   const payerId = body.paidByUserId ?? userId
   if (!members.some((m) => m.userId === payerId)) return c.json({ error: 'payer is not a member' }, 400)
 
-  const splits = computeSplits(body.amount, members, payerId)
+  const expenseId = await db.transaction((tx) =>
+    createGroupExpenseInTx(tx, {
+      group,
+      members,
+      payerId,
+      description: body.description!,
+      amount: body.amount!,
+      currency: body.currency!,
+      date: body.date!,
+    }),
+  )
 
-  const expense = await db.transaction(async (tx) => {
-    const [e] = await tx
-      .insert(groupExpenses)
-      .values({
-        groupId,
-        paidByUserId: payerId,
-        description: body.description!.trim(),
-        amount: parseFloat(body.amount!).toFixed(2),
-        currency: body.currency!.trim().toUpperCase(),
-        date: body.date!,
-      })
-      .returning()
-
-    await tx.insert(groupExpenseSplits).values(
-      splits.map((s) => ({ expenseId: e.id, userId: s.userId, amount: s.amount })),
-    )
-
-    // Auto-post each member's share to their configured expense account.
-    // Debit: member's expense account (negative = money leaving)
-    // Credit: shared:<group> account (positive = balance owed/receivable)
-    const sharedAccountIds = new Map<string, string>()
-    for (const split of splits) {
-      const member = members.find((m) => m.userId === split.userId)!
-      const expenseAccountId = member.defaultExpenseAccountId
-        ?? await ensureUncategorizedAccount(split.userId, tx)
-
-      if (!sharedAccountIds.has(split.userId)) {
-        sharedAccountIds.set(split.userId, await ensureSharedAccount(split.userId, group, tx))
-      }
-      const sharedAccountId = sharedAccountIds.get(split.userId)!
-
-      const txDate = new Date(`${body.date!}T00:00:00Z`)
-      const [t] = await tx
-        .insert(transactions)
-        .values({
-          userId: split.userId,
-          date: txDate,
-          description: body.description!.trim(),
-          groupExpenseId: e.id,
-        })
-        .returning()
-
-      const currency = body.currency!.trim().toUpperCase()
-      await tx.insert(postings).values([
-        { transactionId: t.id, accountId: expenseAccountId, amount: `-${split.amount}`, currency },
-        { transactionId: t.id, accountId: sharedAccountId, amount: split.amount, currency },
-      ])
-    }
-
-    return e
-  })
-
-  const [withDetails] = await fetchExpenseWithDetails([expense.id])
+  const [withDetails] = await fetchExpenseWithDetails([expenseId])
   return c.json(withDetails, 201)
 })
 
@@ -210,7 +140,6 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
   await db.transaction(async (tx) => {
     await tx.update(groupExpenses).set({ deletedAt: now }).where(eq(groupExpenses.id, expenseId))
 
-    // Soft-delete all auto-created transactions for this expense (one per member).
     const linkedTxs = await tx
       .select({ id: transactions.id })
       .from(transactions)
@@ -226,8 +155,7 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
 })
 
 // DELETE /api/fish-pie/group-expenses/:expenseId
-// Convenience endpoint for the edit modal: removes the group expense (and its
-// auto-postings) without requiring the caller to know the group ID.
+// Convenience endpoint: removes expense without requiring the group ID in the URL.
 app.delete('/group-expenses/:expenseId', async (c) => {
   const userId = c.get('userId')
   const expenseId = c.req.param('expenseId')

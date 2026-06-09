@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
+import { db } from '../db'
+import { groupExpenses, groupExpenseSplits, transactions } from '../db/schema'
+import { eq, isNull, and } from 'drizzle-orm'
 
 // Minimal CSV that matches the parser we create in tests.
 // Headers: Date, Amount, Description — normalised fingerprint: amount|date|description
@@ -310,5 +313,160 @@ describe('POST /api/import/commit', () => {
 
     expect(Math.abs(cadSum)).toBeLessThan(0.001)
     expect(Math.abs(gbpSum)).toBeLessThan(0.001)
+  })
+})
+
+describe('POST /api/import/commit — group splits', () => {
+  let cookieA: string
+  let cookieB: string
+  let userAId: string
+  let userBId: string
+  let groupId: string
+  let sourceId: string
+  let offsetId: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+
+    cookieA = await createTestUser('a@test.com', 'passwordA')
+    cookieB = await createTestUser('b@test.com', 'passwordB')
+
+    const sessA = await app.request('/api/auth/get-session', { headers: { Cookie: cookieA } })
+    const sessB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    userAId = ((await sessA.json()) as any).user.id
+    userBId = ((await sessB.json()) as any).user.id
+
+    const groupRes = await app.request('/api/fish-pie/groups', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Housing' }),
+    })
+    groupId = ((await groupRes.json()) as any).id
+
+    const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'b@test.com' }),
+    })
+    const inviteId = ((await invRes.json()) as any).id
+    await app.request(`/api/fish-pie/invites/${inviteId}/accept`, {
+      method: 'POST',
+      headers: { Cookie: cookieB },
+    })
+
+    const src = await createAccount(cookieA, 'assets:chequing')
+    const off = await createAccount(cookieA, 'expenses:food')
+    sourceId = src.id
+    offsetId = off.id
+  })
+
+  const regularRow = (description = 'Rent', amount = '-1200.00') => ({
+    isTransfer: false,
+    date: new Date('2026-05-01').toISOString(),
+    description,
+    amount,
+    offsetAccountId: offsetId,
+    sourceAccountId: sourceId,
+  })
+
+  it('creates transaction + group expense + member postings when groupSplits provided', async () => {
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [regularRow()],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    const body = (await res.json()) as any
+    expect(body.created).toBe(1)
+    expect(body.fishPieExpenses).toBe(1)
+
+    // Group expense created
+    const expenses = await db
+      .select()
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    expect(expenses).toHaveLength(1)
+    expect(expenses[0].amount).toBe('1200.00')
+    expect(expenses[0].paidByUserId).toBe(userAId)
+    expect(expenses[0].transactionId).toBeTruthy()
+
+    // Splits created for both members
+    const splits = await db
+      .select()
+      .from(groupExpenseSplits)
+      .where(eq(groupExpenseSplits.expenseId, expenses[0].id))
+    expect(splits).toHaveLength(2)
+    const total = splits.reduce((s, r) => s + parseFloat(r.amount), 0)
+    expect(total).toBeCloseTo(1200, 1)
+  })
+
+  it('row without split creates transaction only', async () => {
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [regularRow('Coffee', '-5.00')],
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    expect((await res.json() as any).fishPieExpenses).toBe(0)
+
+    const expenses = await db
+      .select()
+      .from(groupExpenses)
+      .where(eq(groupExpenses.groupId, groupId))
+    expect(expenses).toHaveLength(0)
+  })
+
+  it('returns 403 if user is not a member of the group', async () => {
+    // User B tries to import with a group A created (B is a member), but use a random group ID
+    const fakeGroupId = '00000000-0000-0000-0000-000000000000'
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [regularRow()],
+        groupSplits: [{ rowIndex: 0, groupId: fakeGroupId }],
+      }),
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('links group expense transactionId to the imported transaction', async () => {
+    await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [regularRow()],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    const [expense] = await db
+      .select()
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+
+    expect(expense.transactionId).toBeTruthy()
+
+    const [linkedTx] = await db
+      .select()
+      .from(transactions)
+      .where(eq(transactions.id, expense.transactionId!))
+    expect(linkedTx).toBeTruthy()
+    expect(linkedTx.userId).toBe(userAId)
   })
 })

@@ -208,7 +208,7 @@ export const groupExpenses = pgTable('group_expenses', {
   currency: text('currency').notNull(),
   date: text('date').notNull(), // YYYY-MM-DD
   // The transaction created for the payer's share auto-posting. Null on pre-integration expenses.
-  transactionId: uuid('transaction_id').references(() => transactions.id),
+  transactionId: uuid('transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })

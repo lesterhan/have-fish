@@ -3,6 +3,7 @@
   import {
     fetchAccounts,
     fetchParsers,
+    fetchGroups,
     importPreview,
     importCommit,
     checkDuplicates,
@@ -11,6 +12,7 @@
     type CsvParser,
     type CommitTransaction,
     type PossibleDuplicate,
+    type ExpenseGroup,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -49,17 +51,20 @@
   let showAddParser = $state(false)
 
   let rowStates = $state<RowState[]>([])
+  let groups = $state<ExpenseGroup[]>([])
 
   onMount(async () => {
-    const [accts, settings, parsersData] = await Promise.all([
+    const [accts, settings, parsersData, groupsData] = await Promise.all([
       fetchAccounts(),
       settingsStore.load(),
       fetchParsers(),
+      fetchGroups(),
     ])
     accounts = accts
     parsers = parsersData
     parsersLoading = false
     toAccountId = settings.defaultOffsetAccountId ?? ''
+    groups = groupsData
   })
 
   // --- Multi-currency derived values ---
@@ -160,6 +165,7 @@
         feeAccountId: preview!.defaultFeeAccountId ?? '',
         skipped: perRowDuplicates[i] != null,
         possibleDuplicate: perRowDuplicates[i] ?? null,
+        groupId: null,
       }))
     } catch (e) {
       error =
@@ -238,12 +244,27 @@
           }
         }
       })
+      // Build groupSplits re-indexed to txs positions (skipped rows excluded from txs)
+      const groupSplits: { rowIndex: number; groupId: string }[] = []
+      let txIdx = 0
+      for (let i = 0; i < rowStates.length; i++) {
+        if (rowStates[i].skipped) continue
+        if (rowStates[i].groupId) {
+          groupSplits.push({ rowIndex: txIdx, groupId: rowStates[i].groupId! })
+        }
+        txIdx++
+      }
+
       const result = await importCommit({
         accountId: fromAccountId,
         defaultCurrency,
         transactions: txs,
+        groupSplits: groupSplits.length > 0 ? groupSplits : undefined,
       })
-      toast.show(`${result.created} transaction(s) imported`)
+      const fishPieMsg = result.fishPieExpenses > 0
+        ? `, ${result.fishPieExpenses} added to Fish Pie`
+        : ''
+      toast.show(`${result.created} transaction(s) imported${fishPieMsg}`)
       refreshSidebar()
       confetti.trigger()
       goto('/transactions')
@@ -401,6 +422,7 @@
       {preview}
       bind:rowStates
       {accounts}
+      {groups}
       bind:fromAccountId
       bind:importAsLiabilities
       {defaultCurrency}
