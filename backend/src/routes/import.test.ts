@@ -3,7 +3,7 @@ import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
 import { groupExpenses, groupExpenseSplits, transactions, postings, accounts } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
+import { eq, isNull, and, inArray } from 'drizzle-orm'
 
 // Minimal CSV that matches the parser we create in tests.
 // Headers: Date, Amount, Description — normalised fingerprint: amount|date|description
@@ -493,7 +493,7 @@ describe('POST /api/import/commit — group splits', () => {
     expect((await res.json() as any).fishPieExpenses).toBe(1)
   })
 
-  it('uses the payer expense account as the import offset posting for Fish Pie rows', async () => {
+  it('uses the shared clearing account as the import offset for Fish Pie rows', async () => {
     const res = await app.request('/api/import/commit', {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
@@ -507,19 +507,61 @@ describe('POST /api/import/commit — group splits', () => {
     })
     expect(res.status).toBe(201)
 
-    // The import transaction has no groupExpenseId; the Fish Pie member transactions do.
     const allTxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
     const importTx = allTxs.find((t) => !t.groupExpenseId)
     expect(importTx).toBeTruthy()
 
-    // The credit posting should be the payer's expense account (uncategorized, since no
-    // defaultExpenseAccountId is configured for userA in this group), not the user-supplied
-    // expenses:food account and not shared:housing.
+    // The offset posting must go to shared:housing, not to the user-supplied offsetAccountId
+    // and not to uncategorized. This prevents double-counting the payer's share.
     const txPostings = await db.select().from(postings).where(eq(postings.transactionId, importTx!.id))
-    const creditPosting = txPostings.find((p) => parseFloat(p.amount) > 0)
-    expect(creditPosting).toBeTruthy()
+    const offsetPosting = txPostings.find((p) => p.accountId !== sourceId)
+    expect(offsetPosting).toBeTruthy()
 
-    const [creditAccount] = await db.select().from(accounts).where(eq(accounts.id, creditPosting!.accountId))
-    expect(creditAccount.path).toBe('uncategorized')
+    const [offsetAccount] = await db.select().from(accounts).where(eq(accounts.id, offsetPosting!.accountId))
+    expect(offsetAccount.path).toBe('shared:housing')
+  })
+
+  it('payer expense account shows only their share when Fish Pie split on credit card import', async () => {
+    // Simulate a credit card import: positive amount = charge to card.
+    // User A pays $100, 50/50 split → payer's share = $50.
+    const cardId = (await createAccount(cookieA, 'liabilities:visa')).id
+    const expenseId = (await createAccount(cookieA, 'expenses:food')).id
+
+    // Set user A's defaultExpenseAccountId so the member tx posts to expenses:food.
+    await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultExpenseAccountId: expenseId }),
+    })
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: cardId,
+        defaultCurrency: 'CAD',
+        transactions: [{
+          isTransfer: false,
+          date: new Date('2026-05-01').toISOString(),
+          description: 'Tim Hortons',
+          amount: '100.00',   // positive = credit card charge convention
+          sourceAccountId: cardId,
+        }],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+    expect(res.status).toBe(201)
+
+    // Sum all postings to expenses:food across all of user A's transactions.
+    const userATxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
+    const userATxIds = userATxs.map((t) => t.id)
+    const allPostings = await db
+      .select()
+      .from(postings)
+      .where(and(eq(postings.accountId, expenseId), inArray(postings.transactionId, userATxIds)))
+
+    const net = allPostings.reduce((s, p) => s + parseFloat(p.amount), 0)
+    // Payer's 50% share = $50. Must not be $100 (import only) or $150 (double-counted).
+    expect(net).toBeCloseTo(-50, 1)
   })
 })
