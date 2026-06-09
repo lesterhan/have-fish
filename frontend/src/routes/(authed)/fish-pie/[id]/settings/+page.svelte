@@ -5,8 +5,8 @@
   import { fetchGroup, fetchAccounts, deleteGroup, updateMyExpenseAccount } from '$lib/api'
   import type { ExpenseGroup, Account } from '$lib/api'
   import { useSession } from '$lib/auth'
+  import { toast } from '$lib/toast.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
 
@@ -54,6 +54,7 @@
     try {
       const updated = await updateMyExpenseAccount(groupId, accountId || null)
       myExpenseAccountId = updated.defaultExpenseAccountId ?? ''
+      toast.show('Expense account updated')
     } finally {
       savingExpenseAccount = false
     }
@@ -113,14 +114,14 @@
             <span class="danger-desc">Removes this group for all members. This cannot be undone.</span>
           </div>
           {#if !confirmDelete}
-            <Button variant="danger" onclick={() => (confirmDelete = true)}>Delete group</Button>
+            <GradientButton variant="warning" onclick={() => (confirmDelete = true)}>Delete group</GradientButton>
           {:else}
             <div class="confirm-actions">
               <span class="confirm-text">Are you sure?</span>
-              <Button variant="danger" onclick={handleDeleteGroup} disabled={deleting}>
+              <GradientButton variant="warning" active onclick={handleDeleteGroup} disabled={deleting}>
                 {deleting ? 'Deleting…' : 'Confirm delete'}
-              </Button>
-              <Button onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</Button>
+              </GradientButton>
+              <GradientButton onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</GradientButton>
             </div>
           {/if}
         </div>
