@@ -369,19 +369,11 @@
                   <td class="cell-split">
                     {#if !rowStates[i].skipped}
                       {#if rowStates[i].groupId}
-                        <button
-                          class="split-clear-btn"
-                          onclick={() => clearGroupSplit(i)}
-                          aria-label="Remove Fish Pie split"
-                        >×</button>
+                        <GradientButton square aria-label="Remove Fish Pie split" onclick={() => clearGroupSplit(i)}>×</GradientButton>
                       {:else}
-                        <button
-                          class="split-btn"
-                          onclick={() => (splitSelectOpenIndex = i)}
-                          aria-label="Split with group"
-                        >
+                        <GradientButton square aria-label="Split with group" onclick={() => (splitSelectOpenIndex = i)}>
                           <Icon name="pie" size={12} />
-                        </button>
+                        </GradientButton>
                       {/if}
                     {/if}
                   </td>
@@ -729,23 +721,6 @@
     white-space: nowrap;
   }
 
-  .split-btn {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 22px;
-    height: 22px;
-    background: none;
-    border: 1px solid var(--color-rule);
-    cursor: pointer;
-    color: var(--color-text-muted);
-    transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
-  }
-
-  .split-btn:hover {
-    color: var(--color-accent-mid);
-    border-color: var(--color-accent-mid);
-  }
 
   .fishpie-pills {
     display: flex;
@@ -788,27 +763,7 @@
     min-width: 0;
   }
 
-  .split-clear-btn {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    width: 100%;
-    height: 22px;
-    background: none;
-    border: 1px solid var(--color-rule);
-    cursor: pointer;
-    color: var(--color-text-muted);
-    font-size: 14px;
-    line-height: 1;
-    transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
-  }
-
-  .split-clear-btn:hover {
-    color: var(--color-danger);
-    border-color: var(--color-danger);
-  }
-
-  .split-select {
+.split-select {
     width: 100%;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
