@@ -146,8 +146,9 @@
       //
       // Compute rootPath from `fetched` directly — we can't use the `rootPath`
       // $derived here because `preview` hasn't been assigned yet at this point.
+      // Reuse defaultAccountPath computed above rather than scanning accounts twice.
       const fetchedRootPath = fetched.isMultiCurrency && fetched.defaultAccountId
-        ? (accounts.find((a) => a.id === fetched.defaultAccountId)?.path ?? null)
+        ? (defaultAccountPath || null)
         : null
       const getAccountIdForRow = (currency: string): string => {
         if (!fetchedRootPath) return ''
