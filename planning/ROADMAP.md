@@ -41,4 +41,4 @@
 | [Transactions Panel Redesign](epics/archive/transactions-panel-redesign.md) | Done |
 | [Fish Pie: Account Integration](epics/archive/fish-pie-account-integration.md) | Done |
 | [Fish Pie: Settlement Confirmation](epics/archive/fish-pie-settlement-confirmation.md) | Done |
-| [Fish Pie: CSV Import Integration](epics/fish-pie-csv-import.md) | Backlog |
+| [Fish Pie: CSV Import Integration](epics/fish-pie-csv-import.md) | Testing |
