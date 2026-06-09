@@ -145,8 +145,13 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
       .from(transactions)
       .where(eq(transactions.groupExpenseId, expenseId))
 
-    if (linkedTxs.length > 0) {
-      const txIds = linkedTxs.map((t) => t.id)
+    // Also include the import transaction if this expense was created via CSV import.
+    // That transaction links in the opposite direction (groupExpenses.transactionId) so
+    // the groupExpenseId query above misses it.
+    const txIds = linkedTxs.map((t) => t.id)
+    if (expense.transactionId) txIds.push(expense.transactionId)
+
+    if (txIds.length > 0) {
       await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))
       await tx.update(postings).set({ deletedAt: now }).where(inArray(postings.transactionId, txIds))
     }
@@ -182,8 +187,10 @@ app.delete('/group-expenses/:expenseId', async (c) => {
       .from(transactions)
       .where(eq(transactions.groupExpenseId, expenseId))
 
-    if (linkedTxs.length > 0) {
-      const txIds = linkedTxs.map((t) => t.id)
+    const txIds = linkedTxs.map((t) => t.id)
+    if (expense.transactionId) txIds.push(expense.transactionId)
+
+    if (txIds.length > 0) {
       await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))
       await tx.update(postings).set({ deletedAt: now }).where(inArray(postings.transactionId, txIds))
     }
