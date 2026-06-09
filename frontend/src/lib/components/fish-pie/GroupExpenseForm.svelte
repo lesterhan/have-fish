@@ -5,6 +5,7 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { initials } from './utils'
+  import { toast } from '$lib/toast.svelte'
 
   interface CreateExpenseData {
     description: string
@@ -48,6 +49,7 @@
 
   let shareSliderPct = $state(untrack(() => initialSliderPct))
   let sliderSaving = $state(false)
+  let sliderLocked = $state(true)
 
   let dateInputEl = $state<HTMLInputElement | null>(null)
 
@@ -95,6 +97,7 @@
     sliderSaving = true
     try {
       await onSliderChange(shareSliderPct)
+      toast.show(`Split updated: ${Math.round(shareSliderPct)}% / ${Math.round(100 - shareSliderPct)}%`)
     } finally {
       sliderSaving = false
     }
@@ -185,15 +188,28 @@
         >{members[1].userName}</span
       >
     </div>
-    <input
-      type="range"
-      class="share-slider-track"
-      min="1"
-      max="99"
-      step="1"
-      bind:value={shareSliderPct}
-      onchange={handleSliderChange}
-    />
+    <div class="share-slider-row">
+      <button
+        class="slider-lock-btn"
+        class:unlocked={!sliderLocked}
+        onclick={() => (sliderLocked = !sliderLocked)}
+        title={sliderLocked ? 'Unlock to edit split' : 'Lock split'}
+        aria-label={sliderLocked ? 'Unlock split ratio' : 'Lock split ratio'}
+      >
+        <Icon name={sliderLocked ? 'lock' : 'unlock'} size={11} />
+      </button>
+      <input
+        type="range"
+        class="share-slider-track"
+        class:slider-disabled={sliderLocked}
+        min="1"
+        max="99"
+        step="1"
+        bind:value={shareSliderPct}
+        onchange={handleSliderChange}
+        disabled={sliderLocked}
+      />
+    </div>
   </div>
 
   <div class="add-cta">
@@ -478,10 +494,48 @@
     font-weight: 400;
   }
 
+  .share-slider-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+  }
+
+  .slider-lock-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    flex-shrink: 0;
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    color: var(--color-text-muted);
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+
+  .slider-lock-btn:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent-mid);
+  }
+
+  .slider-lock-btn.unlocked {
+    border-color: var(--color-accent);
+    color: var(--color-accent-mid);
+  }
+
   .share-slider-track {
-    width: 100%;
+    flex: 1;
     cursor: pointer;
     accent-color: var(--color-accent);
+  }
+
+  .share-slider-track.slider-disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .add-cta :global(.btn) {
