@@ -1,4 +1,5 @@
 name: Build Android APK
+# triggers EAS cloud build, downloads APK, uploads as artifact
 
 on:
   workflow_dispatch:
