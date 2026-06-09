@@ -2,11 +2,12 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
-  import { fetchGroup, fetchAccounts, deleteGroup, updateMyExpenseAccount } from '$lib/api'
+  import { fetchGroup, fetchAccounts, deleteGroup, updateMyExpenseAccount, updateGroup } from '$lib/api'
   import type { ExpenseGroup, Account } from '$lib/api'
   import { useSession } from '$lib/auth'
   import { toast } from '$lib/toast.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
 
@@ -18,6 +19,8 @@
   let allAccounts = $state<Account[]>([])
   let myExpenseAccountId = $state('')
   let savingExpenseAccount = $state(false)
+  let groupName = $state('')
+  let savingGroupName = $state(false)
   let loading = $state(true)
   let notFound = $state(false)
   let confirmDelete = $state(false)
@@ -28,6 +31,7 @@
       const [g, accts] = await Promise.all([fetchGroup(groupId), fetchAccounts()])
       group = g
       allAccounts = accts
+      groupName = g.name
       const myMember = g.members.find((m) => m.userId === currentUserId)
       myExpenseAccountId = myMember?.defaultExpenseAccountId ?? ''
     } catch {
@@ -45,6 +49,20 @@
       goto('/fish-pie')
     } catch {
       deleting = false
+    }
+  }
+
+  async function handleGroupNameSave() {
+    const trimmed = groupName.trim()
+    if (!trimmed || savingGroupName || trimmed === group?.name) return
+    savingGroupName = true
+    try {
+      const updated = await updateGroup(groupId, { name: trimmed })
+      group = updated
+      groupName = updated.name
+      toast.show('Group name updated')
+    } finally {
+      savingGroupName = false
     }
   }
 
@@ -82,6 +100,29 @@
       <p class="empty">Group not found.</p>
     </div>
   {:else}
+    {#if isCreator}
+      <div class="section-bar">
+        <span class="section-bar-title">Group Settings</span>
+      </div>
+      <div class="body">
+        <div class="setting-row">
+          <div class="setting-info">
+            <span class="setting-label">Group name</span>
+            <span class="setting-hint">Visible to all members</span>
+          </div>
+          <div class="setting-input setting-input--name">
+            <TextInput
+              bind:value={groupName}
+              onkeydown={(e) => e.key === 'Enter' && handleGroupNameSave()}
+              onblur={handleGroupNameSave}
+              disabled={savingGroupName}
+              style="width: 100%"
+            />
+          </div>
+        </div>
+      </div>
+    {/if}
+
     <div class="section-bar">
       <span class="section-bar-title">My Settings</span>
     </div>
@@ -96,7 +137,7 @@
             accounts={allAccounts}
             bind:value={myExpenseAccountId}
             placeholder="Uncategorized (default)"
-            allowCreate={false}
+            allowCreate={true}
             oncommit={handleExpenseAccountCommit}
           />
         </div>
@@ -216,6 +257,10 @@
   .setting-input {
     flex-shrink: 0;
     width: 220px;
+  }
+
+  .setting-input--name {
+    width: 260px;
   }
 
   .danger-row {
