@@ -20,6 +20,7 @@
     rowStates: RowState[]
     accounts: Account[]
     groups: ExpenseGroup[]
+    currentUserId: string
     fromAccountId: string
     importAsLiabilities: boolean
     defaultCurrency: string
@@ -38,6 +39,7 @@
     rowStates = $bindable(),
     accounts,
     groups,
+    currentUserId,
     fromAccountId = $bindable(),
     importAsLiabilities = $bindable(),
     defaultCurrency,
@@ -56,6 +58,15 @@
   function groupName(id: string | null): string {
     if (!id) return ''
     return groups.find((g) => g.id === id)?.name ?? ''
+  }
+
+  function groupExpenseAccountPath(groupId: string | null): string {
+    if (!groupId) return ''
+    const group = groups.find((g) => g.id === groupId)
+    if (!group) return ''
+    const member = group.members.find((m) => m.userId === currentUserId)
+    if (!member || !member.defaultExpenseAccountId) return 'uncategorized'
+    return accounts.find((a) => a.id === member.defaultExpenseAccountId)?.path ?? 'uncategorized'
   }
 
   function clearGroupSplit(i: number) {
@@ -308,12 +319,30 @@
                   >{/if}
                 <td class="cell-offset">
                   {#if rowStates[i].groupId}
-                    <div class="offset-wrap">
-                      <span class="fishpie-offset-lock" use:tooltip={{ label: 'Offset account set automatically to the group expense account', always: true }}>
-                        <Icon name="pie" size={12} />
-                        auto
+                    <div class="fishpie-pills">
+                      <span class="fishpie-pill-group">
+                        <Icon name="pie" size={11} />
+                        {groupName(rowStates[i].groupId)}
+                      </span>
+                      <span class="fishpie-pill-account">
+                        {groupExpenseAccountPath(rowStates[i].groupId)}
                       </span>
                     </div>
+                  {:else if splitSelectOpenIndex === i}
+                    <select
+                      class="split-select"
+                      onchange={(e) => {
+                        const val = (e.currentTarget as HTMLSelectElement).value
+                        if (val) rowStates[i].groupId = val
+                        splitSelectOpenIndex = null
+                      }}
+                      onblur={() => (splitSelectOpenIndex = null)}
+                    >
+                      <option value="">Choose group…</option>
+                      {#each groups as g (g.id)}
+                        <option value={g.id}>{g.name}</option>
+                      {/each}
+                    </select>
                   {:else}
                     <div class="offset-wrap">
                       <AccountPathInput
@@ -340,29 +369,11 @@
                   <td class="cell-split">
                     {#if !rowStates[i].skipped}
                       {#if rowStates[i].groupId}
-                        <span class="split-badge">
-                          {groupName(rowStates[i].groupId)}
-                          <button
-                            class="split-badge-clear"
-                            onclick={() => clearGroupSplit(i)}
-                            aria-label="Remove split"
-                          >×</button>
-                        </span>
-                      {:else if splitSelectOpenIndex === i}
-                        <select
-                          class="split-select"
-                          onchange={(e) => {
-                            const val = (e.currentTarget as HTMLSelectElement).value
-                            if (val) rowStates[i].groupId = val
-                            splitSelectOpenIndex = null
-                          }}
-                          onblur={() => (splitSelectOpenIndex = null)}
-                        >
-                          <option value="">Choose group…</option>
-                          {#each groups as g (g.id)}
-                            <option value={g.id}>{g.name}</option>
-                          {/each}
-                        </select>
+                        <button
+                          class="split-clear-btn"
+                          onclick={() => clearGroupSplit(i)}
+                          aria-label="Remove Fish Pie split"
+                        >×</button>
                       {:else}
                         <button
                           class="split-btn"
@@ -736,36 +747,65 @@
     border-color: var(--color-accent-mid);
   }
 
-  .split-badge {
+  .fishpie-pills {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    flex-wrap: nowrap;
+    min-width: 0;
+  }
+
+  .fishpie-pill-group {
     display: inline-flex;
     align-items: center;
-    gap: 2px;
-    padding: 1px 5px 1px 6px;
+    gap: 3px;
+    padding: 2px 6px;
     background: var(--color-accent-light);
     border: 1px solid var(--color-accent);
     color: var(--color-accent-chip-fg);
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: 10px;
     font-weight: 700;
-    max-width: 6.5rem;
+    white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    flex-shrink: 1;
+    min-width: 0;
+  }
+
+  .fishpie-pill-account {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
     white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 2;
+    min-width: 0;
   }
 
-  .split-badge-clear {
-    flex-shrink: 0;
+  .split-clear-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 100%;
+    height: 22px;
     background: none;
-    border: none;
+    border: 1px solid var(--color-rule);
     cursor: pointer;
-    color: var(--color-accent-mid);
-    font-size: 12px;
+    color: var(--color-text-muted);
+    font-size: 14px;
     line-height: 1;
-    padding: 0;
+    transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
   }
 
-  .split-badge-clear:hover {
+  .split-clear-btn:hover {
     color: var(--color-danger);
+    border-color: var(--color-danger);
   }
 
   .split-select {
@@ -776,19 +816,5 @@
     background: var(--color-window);
     padding: 1px 2px;
     outline: none;
-  }
-
-  .fishpie-offset-lock {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
-    background: var(--color-accent-light);
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent-chip-fg);
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-style: italic;
-    cursor: default;
   }
 </style>
