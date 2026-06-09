@@ -143,11 +143,22 @@
       // imports every row maps to defaultAccountId; for multi-currency each row
       // maps to a currency sub-account (e.g. assets:wise:usd). Transfer rows
       // pass an empty accountId and are skipped by the backend.
+      //
+      // Compute rootPath from `fetched` directly — we can't use the `rootPath`
+      // $derived here because `preview` hasn't been assigned yet at this point.
+      const fetchedRootPath = fetched.isMultiCurrency && fetched.defaultAccountId
+        ? (accounts.find((a) => a.id === fetched.defaultAccountId)?.path ?? null)
+        : null
+      const getAccountIdForRow = (currency: string): string => {
+        if (!fetchedRootPath) return ''
+        const path = `${fetchedRootPath}:${currency.toLowerCase()}`
+        return accounts.find((a) => a.path === path)?.id ?? ''
+      }
       const checkRows = fetched.transactions.map((tx) => ({
         accountId:
           tx.isTransfer === false
             ? (fetched.isMultiCurrency
-                ? getInferredAccountId(tx.currency ?? defaultCurrency)
+                ? getAccountIdForRow(tx.currency ?? defaultCurrency)
                 : (fetched.defaultAccountId ?? ''))
             : '',
         date: tx.date,
