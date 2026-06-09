@@ -65,7 +65,7 @@
 
 <div class="page">
   <header class="page-header">
-    <h1 class="page-title">Fish Pie</h1>
+    <h1 class="page-title">Fish Pie Expense Splitting</h1>
     <GradientButton
       onclick={() => {
         showForm = !showForm
