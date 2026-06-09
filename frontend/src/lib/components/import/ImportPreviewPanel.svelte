@@ -81,7 +81,8 @@
           return !row.conversionAccountId || !row.feeAccountId
         if (tx.isTransfer === 'same-currency')
           return !row.feeAccountId || !row.offsetAccountId
-        return !row.offsetAccountId
+        // Fish Pie rows: backend derives the offset account (shared:<group>) automatically
+        return !row.groupId && !row.offsetAccountId
       }),
   )
 </script>
@@ -306,25 +307,34 @@
                     >{tx.currency ?? defaultCurrency}</td
                   >{/if}
                 <td class="cell-offset">
-                  <div class="offset-wrap">
-                    <AccountPathInput
-                      {accounts}
-                      bind:value={rowStates[i].offsetAccountId}
-                      placeholder="Select or create…"
-                      oncreate={onaccountcreated}
-                    />
-                    {#if tx.suggestedOffsetAccountId}
-                      <span
-                        class="indicator-icon"
-                        use:tooltip={{
-                          label: 'Pre-filled by import rule',
-                          always: true,
-                        }}
-                      >
-                        <Icon name="computer" size={16} />
+                  {#if rowStates[i].groupId}
+                    <div class="offset-wrap">
+                      <span class="fishpie-offset-lock" use:tooltip={{ label: 'Offset account is managed by Fish Pie (shared:{group} account)', always: true }}>
+                        <Icon name="pie" size={12} />
+                        auto
                       </span>
-                    {/if}
-                  </div>
+                    </div>
+                  {:else}
+                    <div class="offset-wrap">
+                      <AccountPathInput
+                        {accounts}
+                        bind:value={rowStates[i].offsetAccountId}
+                        placeholder="Select or create…"
+                        oncreate={onaccountcreated}
+                      />
+                      {#if tx.suggestedOffsetAccountId}
+                        <span
+                          class="indicator-icon"
+                          use:tooltip={{
+                            label: 'Pre-filled by import rule',
+                            always: true,
+                          }}
+                        >
+                          <Icon name="computer" size={16} />
+                        </span>
+                      {/if}
+                    </div>
+                  {/if}
                 </td>
                 {#if groups.length > 0}
                   <td class="cell-split">
@@ -766,5 +776,19 @@
     background: var(--color-window);
     padding: 1px 2px;
     outline: none;
+  }
+
+  .fishpie-offset-lock {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent-chip-fg);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-style: italic;
+    cursor: default;
   }
 </style>
