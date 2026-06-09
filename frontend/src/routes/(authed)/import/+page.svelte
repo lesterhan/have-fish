@@ -129,44 +129,48 @@
     noParserFound = false
     loading = true
     try {
-      preview = await importPreview(file, defaultCurrency)
-      if (!preview.isMultiCurrency) {
-        fromAccountId = preview.defaultAccountId ?? ''
+      const fetched = await importPreview(file, defaultCurrency)
+      if (!fetched.isMultiCurrency) {
+        fromAccountId = fetched.defaultAccountId ?? ''
       }
       const liabilitiesRoot =
         settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
       const defaultAccountPath =
-        accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
+        accounts.find((a) => a.id === fetched.defaultAccountId)?.path ?? ''
       importAsLiabilities = defaultAccountPath.startsWith(`${liabilitiesRoot}:`)
 
       // Resolve per-row account IDs and check for duplicates. For single-currency
       // imports every row maps to defaultAccountId; for multi-currency each row
       // maps to a currency sub-account (e.g. assets:wise:usd). Transfer rows
       // pass an empty accountId and are skipped by the backend.
-      const checkRows = preview.transactions.map((tx) => ({
+      const checkRows = fetched.transactions.map((tx) => ({
         accountId:
           tx.isTransfer === false
-            ? (preview!.isMultiCurrency
+            ? (fetched.isMultiCurrency
                 ? getInferredAccountId(tx.currency ?? defaultCurrency)
-                : (preview!.defaultAccountId ?? ''))
+                : (fetched.defaultAccountId ?? ''))
             : '',
         date: tx.date,
         amount: tx.isTransfer === false ? tx.amount : '0',
       }))
       const perRowDuplicates = await checkDuplicates(checkRows)
 
-      rowStates = preview.transactions.map((tx, i) => ({
+      // Populate rowStates BEFORE assigning preview — the template renders
+      // ImportPreviewPanel as soon as preview is truthy, so rowStates must
+      // already have one entry per transaction to avoid undefined[i] errors.
+      rowStates = fetched.transactions.map((tx, i) => ({
         offsetAccountId:
           tx.isTransfer === false && tx.suggestedOffsetAccountId
             ? tx.suggestedOffsetAccountId
             : toAccountId,
         conversionAccountId:
           settingsStore.value?.defaultConversionAccountId ?? '',
-        feeAccountId: preview!.defaultFeeAccountId ?? '',
+        feeAccountId: fetched.defaultFeeAccountId ?? '',
         skipped: perRowDuplicates[i] != null,
         possibleDuplicate: perRowDuplicates[i] ?? null,
         groupId: null,
       }))
+      preview = fetched
     } catch (e) {
       error =
         e instanceof Error
