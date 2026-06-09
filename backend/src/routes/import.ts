@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, expenseGroupMembers } from '../db/schema'
+import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups } from '../db/schema'
 import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
@@ -259,6 +259,9 @@ app.post('/commit', async (c) => {
     }
     if (split.rowIndex < 0 || split.rowIndex >= parsed.length) {
       return c.json({ error: `groupSplits rowIndex ${split.rowIndex} out of range` }, 400)
+    }
+    if ((parsed[split.rowIndex] as Record<string, unknown>).isTransfer !== false) {
+      return c.json({ error: `groupSplits rowIndex ${split.rowIndex} is a transfer row and cannot be split` }, 400)
     }
     if (!groupCache.has(split.groupId)) {
       const result = await fetchGroupWithMembers(split.groupId)
