@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { transactions, postings, accounts, expenseGroupMembers } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
+import { transactions, postings, accounts, expenseGroupMembers, groupExpenses } from '../db/schema'
+import { eq, isNull, and, inArray } from 'drizzle-orm'
 
 describe('fish-pie expenses', () => {
   let cookie: string
@@ -384,5 +384,97 @@ describe('fish-pie shared account auto-creation', () => {
     const shared = accts.find((a) => a.path.startsWith('group:'))
     expect(shared).toBeDefined()
     expect(shared!.path).toBe('group:housing')
+  })
+})
+
+describe('fish-pie delete import-linked expense', () => {
+  let cookieA: string
+  let cookieB: string
+  let groupId: string
+  let sourceId: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+    cookieA = await createTestUser('a@test.com', 'passwordA')
+    cookieB = await createTestUser('b@test.com', 'passwordB')
+
+    const groupRes = await app.request('/api/fish-pie/groups', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Food' }),
+    })
+    groupId = (await groupRes.json() as any).id
+
+    const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'b@test.com' }),
+    })
+    const inviteId = (await invRes.json() as any).id
+    await app.request(`/api/fish-pie/invites/${inviteId}/accept`, {
+      method: 'POST',
+      headers: { Cookie: cookieB },
+    })
+
+    const srcRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'liabilities:visa', name: 'Visa' }),
+    })
+    sourceId = (await srcRes.json() as any).id
+  })
+
+  it('DELETE also soft-deletes the import transaction linked via groupExpenses.transactionId', async () => {
+    // Import a row with Fish Pie group split
+    await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [{
+          isTransfer: false,
+          date: new Date('2026-05-01').toISOString(),
+          description: 'Tim Hortons',
+          amount: '10.00',
+          sourceAccountId: sourceId,
+        }],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    const [expense] = await db
+      .select()
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+
+    expect(expense).toBeTruthy()
+    expect(expense.transactionId).toBeTruthy()
+    const importTxId = expense.transactionId!
+
+    // Delete the group expense
+    const res = await app.request(`/api/fish-pie/group-expenses/${expense.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: cookieA },
+    })
+    expect(res.status).toBe(204)
+
+    // Import transaction must be soft-deleted
+    const [importTx] = await db.select().from(transactions).where(eq(transactions.id, importTxId))
+    expect(importTx.deletedAt).not.toBeNull()
+
+    // Its postings must also be soft-deleted
+    const importPostings = await db.select().from(postings).where(eq(postings.transactionId, importTxId))
+    expect(importPostings.every((p) => p.deletedAt !== null)).toBe(true)
+
+    // Member transactions must also be soft-deleted
+    const memberTxs = await db
+      .select()
+      .from(transactions)
+      .where(inArray(transactions.id,
+        (await db.select({ id: transactions.id }).from(transactions).where(eq(transactions.groupExpenseId, expense.id)))
+          .map((t) => t.id)
+      ))
+    expect(memberTxs.every((t) => t.deletedAt !== null)).toBe(true)
   })
 })
