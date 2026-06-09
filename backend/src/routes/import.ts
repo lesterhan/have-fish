@@ -7,6 +7,7 @@ import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
 import { createGroupExpenseInTx, fetchGroupWithMembers } from '../fish-pie-expense-service'
+import { ensureUncategorizedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -275,7 +276,7 @@ app.post('/commit', async (c) => {
   const splitByRowIndex = new Map(splits.map((s) => [s.rowIndex, s]))
 
   // Per-row validation — requirements differ by row type
-  for (const t of parsed as Record<string, unknown>[]) {
+  for (const [rowIdx, t] of (parsed as Record<string, unknown>[]).entries()) {
     if (t.isTransfer === true) {
       if (!t.sourceAccountId) return c.json({ error: 'transfer rows must include sourceAccountId' }, 400)
       if (!t.targetAccountId) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
@@ -286,7 +287,8 @@ app.post('/commit', async (c) => {
       if (!t.sourceAccountId) return c.json({ error: 'same-currency transfer rows must include sourceAccountId' }, 400)
       if (!t.feeAccountId) return c.json({ error: 'same-currency transfer rows must include feeAccountId' }, 400)
     } else {
-      if (!t.offsetAccountId) return c.json({ error: 'regular rows must include offsetAccountId' }, 400)
+      // Fish Pie rows don't need offsetAccountId — the backend derives it from ensureSharedAccount
+      if (!t.offsetAccountId && !splitByRowIndex.has(rowIdx)) return c.json({ error: 'regular rows must include offsetAccountId' }, 400)
       if (!t.sourceAccountId && !accountId) return c.json({ error: 'regular rows require sourceAccountId or a global accountId' }, 400)
     }
   }
@@ -394,13 +396,23 @@ app.post('/commit', async (c) => {
         const sourceId = t.sourceAccountId ?? accountId
         const negated = (-parseFloat(t.amount)).toFixed(2)
 
+        // If this row is a Fish Pie group split, use the payer's expense account for the
+        // group as the offset (same account Fish Pie uses for the payer's split posting).
+        // Falls back to the uncategorized account if no default is configured.
+        const groupSplit = splitByRowIndex.get(rowIndex)
+        let offsetAccountId = t.offsetAccountId
+        if (groupSplit) {
+          const { members } = groupCache.get(groupSplit.groupId)!
+          const payerMember = members.find((m) => m.userId === userId)!
+          offsetAccountId = payerMember.defaultExpenseAccountId
+            ?? await ensureUncategorizedAccount(userId, tx)
+        }
+
         await tx.insert(postings).values([
           { transactionId: newTx.id, accountId: sourceId, amount: t.amount, currency },
-          { transactionId: newTx.id, accountId: t.offsetAccountId, amount: negated, currency },
+          { transactionId: newTx.id, accountId: offsetAccountId, amount: negated, currency },
         ])
 
-        // If this row was flagged for a group split, create the group expense linked to this transaction.
-        const groupSplit = splitByRowIndex.get(rowIndex)
         if (groupSplit) {
           const { group, members } = groupCache.get(groupSplit.groupId)!
           const amount = Math.abs(parseFloat(t.amount)).toFixed(2)

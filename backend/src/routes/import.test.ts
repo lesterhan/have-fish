@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { groupExpenses, groupExpenseSplits, transactions } from '../db/schema'
+import { groupExpenses, groupExpenseSplits, transactions, postings, accounts } from '../db/schema'
 import { eq, isNull, and } from 'drizzle-orm'
 
 // Minimal CSV that matches the parser we create in tests.
@@ -468,5 +468,58 @@ describe('POST /api/import/commit — group splits', () => {
       .where(eq(transactions.id, expense.transactionId!))
     expect(linkedTx).toBeTruthy()
     expect(linkedTx.userId).toBe(userAId)
+  })
+
+  it('accepts Fish Pie row without offsetAccountId (backend derives shared account)', async () => {
+    const rowWithoutOffset = {
+      isTransfer: false,
+      date: new Date('2026-05-01').toISOString(),
+      description: 'Dinner',
+      amount: '-90.00',
+      sourceAccountId: sourceId,
+      // offsetAccountId intentionally omitted
+    }
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [rowWithoutOffset],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+    expect(res.status).toBe(201)
+    expect((await res.json() as any).fishPieExpenses).toBe(1)
+  })
+
+  it('uses the payer expense account as the import offset posting for Fish Pie rows', async () => {
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        // offsetAccountId is present but should be ignored for Fish Pie rows
+        transactions: [{ ...regularRow('Groceries', '-60.00'), offsetAccountId: offsetId }],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+    expect(res.status).toBe(201)
+
+    // The import transaction has no groupExpenseId; the Fish Pie member transactions do.
+    const allTxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
+    const importTx = allTxs.find((t) => !t.groupExpenseId)
+    expect(importTx).toBeTruthy()
+
+    // The credit posting should be the payer's expense account (uncategorized, since no
+    // defaultExpenseAccountId is configured for userA in this group), not the user-supplied
+    // expenses:food account and not shared:housing.
+    const txPostings = await db.select().from(postings).where(eq(postings.transactionId, importTx!.id))
+    const creditPosting = txPostings.find((p) => parseFloat(p.amount) > 0)
+    expect(creditPosting).toBeTruthy()
+
+    const [creditAccount] = await db.select().from(accounts).where(eq(accounts.id, creditPosting!.accountId))
+    expect(creditAccount.path).toBe('uncategorized')
   })
 })

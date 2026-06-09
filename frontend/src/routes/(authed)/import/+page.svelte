@@ -15,6 +15,7 @@
     type ExpenseGroup,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
@@ -52,6 +53,9 @@
 
   let rowStates = $state<RowState[]>([])
   let groups = $state<ExpenseGroup[]>([])
+
+  const session = useSession()
+  const currentUserId = $derived($session.data?.user.id ?? '')
 
   onMount(async () => {
     const [accts, settings, parsersData, groupsData] = await Promise.all([
@@ -439,6 +443,7 @@
       bind:rowStates
       {accounts}
       {groups}
+      {currentUserId}
       bind:fromAccountId
       bind:importAsLiabilities
       {defaultCurrency}
