@@ -309,7 +309,7 @@
                 <td class="cell-offset">
                   {#if rowStates[i].groupId}
                     <div class="offset-wrap">
-                      <span class="fishpie-offset-lock" use:tooltip={{ label: 'Offset account is managed by Fish Pie (shared:{group} account)', always: true }}>
+                      <span class="fishpie-offset-lock" use:tooltip={{ label: 'Offset account set automatically to the group expense account', always: true }}>
                         <Icon name="pie" size={12} />
                         auto
                       </span>
