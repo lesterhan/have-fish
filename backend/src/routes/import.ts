@@ -7,7 +7,7 @@ import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
 import { createGroupExpenseInTx, fetchGroupWithMembers } from '../fish-pie-expense-service'
-import { ensureUncategorizedAccount } from '../fish-pie-accounts'
+import { ensureSharedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -396,16 +396,15 @@ app.post('/commit', async (c) => {
         const sourceId = t.sourceAccountId ?? accountId
         const negated = (-parseFloat(t.amount)).toFixed(2)
 
-        // If this row is a Fish Pie group split, use the payer's expense account for the
-        // group as the offset (same account Fish Pie uses for the payer's split posting).
-        // Falls back to the uncategorized account if no default is configured.
+        // If this row is a Fish Pie group split, offset the import transaction against the
+        // shared clearing account. The member transactions created by createGroupExpenseInTx
+        // distribute the expense to each member's own expense account. Using the expense
+        // account here would double-count the payer's share.
         const groupSplit = splitByRowIndex.get(rowIndex)
         let offsetAccountId = t.offsetAccountId
         if (groupSplit) {
-          const { members } = groupCache.get(groupSplit.groupId)!
-          const payerMember = members.find((m) => m.userId === userId)!
-          offsetAccountId = payerMember.defaultExpenseAccountId
-            ?? await ensureUncategorizedAccount(userId, tx)
+          const { group } = groupCache.get(groupSplit.groupId)!
+          offsetAccountId = await ensureSharedAccount(userId, group, tx)
         }
 
         await tx.insert(postings).values([

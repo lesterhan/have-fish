@@ -75,7 +75,7 @@ describe('fish-pie expenses', () => {
     expect(uncategorized[0].path).toBe('uncategorized')
 
     const shared = await db.select().from(accounts).where(and(eq(accounts.id, credit.accountId), isNull(accounts.deletedAt)))
-    expect(shared[0].path).toMatch(/^shared:/)
+    expect(shared[0].path).toMatch(/^group:/)
   })
 
   it('POST auto-posts to configured defaultExpenseAccountId', async () => {
@@ -350,9 +350,9 @@ describe('fish-pie shared account auto-creation', () => {
       .select()
       .from(accounts)
       .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-    const shared = sharedAccounts.find((a) => a.path.startsWith('shared:'))
+    const shared = sharedAccounts.find((a) => a.path.startsWith('group:'))
     expect(shared).toBeDefined()
-    expect(shared!.path).toBe('shared:food-group')
+    expect(shared!.path).toBe('group:food-group')
   })
 
   it('accepting invite auto-creates shared account for new member', async () => {
@@ -381,8 +381,8 @@ describe('fish-pie shared account auto-creation', () => {
     })
 
     const accts = await db.select().from(accounts).where(and(eq(accounts.userId, userId2), isNull(accounts.deletedAt)))
-    const shared = accts.find((a) => a.path.startsWith('shared:'))
+    const shared = accts.find((a) => a.path.startsWith('group:'))
     expect(shared).toBeDefined()
-    expect(shared!.path).toBe('shared:housing')
+    expect(shared!.path).toBe('group:housing')
   })
 })
