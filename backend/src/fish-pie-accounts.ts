@@ -16,14 +16,14 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
-// Find or create the shared:<group-slug> account for a user in a group.
+// Find or create the group:<group-slug> account for a user in a group.
 // Used as the balancing credit leg for all group expense auto-postings.
 export async function ensureSharedAccount(
   userId: string,
   group: { id: string; name: string },
   tx?: Tx,
 ): Promise<string> {
-  const path = `shared:${slugify(group.name)}`
+  const path = `group:${slugify(group.name)}`
   const client = tx ?? db
 
   const [existing] = await client
@@ -35,7 +35,7 @@ export async function ensureSharedAccount(
 
   const [created] = await client
     .insert(accounts)
-    .values({ userId, path, name: `Shared: ${group.name}` })
+    .values({ userId, path, name: `Group: ${group.name}` })
     .returning({ id: accounts.id })
 
   return created.id

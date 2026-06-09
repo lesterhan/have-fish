@@ -96,7 +96,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
 
     // Payer's ledger transaction:
     // debit payerAccount (cash out): -amount
-    // credit shared:<group> (payment into group recorded): +amount
+    // credit group:<group> (payment into group recorded): +amount
     const sharedAccountId = await ensureSharedAccount(body.fromUserId!, group, tx)
 
     const [payerTx] = await tx
@@ -161,7 +161,7 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
   const result = await db.transaction(async (tx) => {
     // Receiver's ledger transaction:
     // credit receiverAccount (cash in): +amount
-    // debit shared:<group> (payment received, clears shared balance): -amount
+    // debit group:<group> (payment received, clears shared balance): -amount
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     const txDate = new Date(`${settlement.date}T00:00:00Z`)
 

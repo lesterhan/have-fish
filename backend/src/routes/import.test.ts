@@ -511,14 +511,14 @@ describe('POST /api/import/commit — group splits', () => {
     const importTx = allTxs.find((t) => !t.groupExpenseId)
     expect(importTx).toBeTruthy()
 
-    // The offset posting must go to shared:housing, not to the user-supplied offsetAccountId
+    // The offset posting must go to group:housing, not to the user-supplied offsetAccountId
     // and not to uncategorized. This prevents double-counting the payer's share.
     const txPostings = await db.select().from(postings).where(eq(postings.transactionId, importTx!.id))
     const offsetPosting = txPostings.find((p) => p.accountId !== sourceId)
     expect(offsetPosting).toBeTruthy()
 
     const [offsetAccount] = await db.select().from(accounts).where(eq(accounts.id, offsetPosting!.accountId))
-    expect(offsetAccount.path).toBe('shared:housing')
+    expect(offsetAccount.path).toBe('group:housing')
   })
 
   it('payer expense account shows only their share when Fish Pie split on credit card import', async () => {
