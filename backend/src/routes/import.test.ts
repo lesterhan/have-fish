@@ -642,4 +642,161 @@ describe('POST /api/import/commit — group splits', () => {
     expect(userBTxs).toHaveLength(1)
     expect(userBTxs[0].groupExpenseId).toBeTruthy()
   })
+
+  it('Fish Pie cross-currency: splits net target amount, fee posting untouched', async () => {
+    const cadAccountId = (await createAccount(cookieA, 'assets:wise:cad')).id
+    const eurAccountId = (await createAccount(cookieA, 'assets:wise:eur')).id
+    const convAccountId = (await createAccount(cookieA, 'equity:conversion')).id
+    const feeAccountId = (await createAccount(cookieA, 'expenses:wise-fees')).id
+    const expenseAccId = (await createAccount(cookieA, 'expenses:dining')).id
+
+    await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultExpenseAccountId: expenseAccId }),
+    })
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: '',
+        defaultCurrency: 'CAD',
+        transactions: [{
+          isTransfer: true,
+          date: new Date('2026-05-10').toISOString(),
+          description: 'Dinner in Paris',
+          sourceAmount: '-15.20',
+          sourceCurrency: 'CAD',
+          targetAmount: '10.00',
+          targetCurrency: 'EUR',
+          feeAmount: '0.20',
+          feeCurrency: 'CAD',
+          sourceAccountId: cadAccountId,
+          targetAccountId: eurAccountId,  // sent but ignored — group/expense replace it
+          conversionAccountId: convAccountId,
+          feeAccountId: feeAccountId,
+        }],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    const body = await res.json() as any
+    expect(body.fishPieExpenses).toBe(1)
+
+    // Group expense created in target currency (EUR) for net amount only
+    const expenses = await db
+      .select()
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    expect(expenses).toHaveLength(1)
+    expect(expenses[0].amount).toBe('10.00')
+    expect(expenses[0].currency).toBe('EUR')
+
+    // Import tx: 6 postings (with fee)
+    const userATxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
+    const importTx = userATxs.find((t) => !t.groupExpenseId)!
+    const txPostings = await db
+      .select()
+      .from(postings)
+      .where(and(eq(postings.transactionId, importTx.id), isNull(postings.deletedAt)))
+    expect(txPostings).toHaveLength(6)
+
+    // Both currencies balance to zero
+    const cadSum = txPostings.filter(p => p.currency === 'CAD').reduce((s, p) => s + parseFloat(p.amount), 0)
+    const eurSum = txPostings.filter(p => p.currency === 'EUR').reduce((s, p) => s + parseFloat(p.amount), 0)
+    expect(Math.abs(cadSum)).toBeLessThan(0.01)
+    expect(Math.abs(eurSum)).toBeLessThan(0.01)
+
+    // Fee posting untouched: 0.20 CAD to feeAccount
+    const feePosting = txPostings.find(p => p.accountId === feeAccountId)
+    expect(feePosting).toBeTruthy()
+    expect(feePosting!.amount).toBe('0.20')
+    expect(feePosting!.currency).toBe('CAD')
+
+    // Target (eurAccount) did NOT receive net — group/expense replaced it
+    const targetPosting = txPostings.find(p => p.accountId === eurAccountId)
+    expect(targetPosting).toBeUndefined()
+
+    // EUR postings go to group clearing + payer expense (50/50 split)
+    const eurPostings = txPostings.filter(p => p.currency === 'EUR' && parseFloat(p.amount) > 0)
+    expect(eurPostings).toHaveLength(2)
+    const eurPositiveSum = eurPostings.reduce((s, p) => s + parseFloat(p.amount), 0)
+    expect(eurPositiveSum).toBeCloseTo(10, 2)
+  })
+
+  it('Fish Pie same-currency: splits net amount, fee posting untouched', async () => {
+    const externalBankId = (await createAccount(cookieA, 'assets:external-bank')).id
+    const targetAccId = (await createAccount(cookieA, 'assets:chequing2')).id
+    const feeAccId = (await createAccount(cookieA, 'expenses:bank-fees')).id
+    const expenseAccId = (await createAccount(cookieA, 'expenses:shared')).id
+
+    await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultExpenseAccountId: expenseAccId }),
+    })
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: '',
+        defaultCurrency: 'CAD',
+        transactions: [{
+          isTransfer: 'same-currency',
+          date: new Date('2026-05-10').toISOString(),
+          description: 'Shared expense transfer',
+          amount: '99.38',
+          feeAmount: '0.62',
+          currency: 'CAD',
+          targetAccountId: targetAccId,  // sent but ignored for fish pie
+          sourceAccountId: externalBankId,
+          feeAccountId: feeAccId,
+        }],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    const body = await res.json() as any
+    expect(body.fishPieExpenses).toBe(1)
+
+    // Group expense in CAD for net amount only (not gross)
+    const expenses = await db
+      .select()
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    expect(expenses).toHaveLength(1)
+    expect(expenses[0].amount).toBe('99.38')
+    expect(expenses[0].currency).toBe('CAD')
+
+    // Import tx: 4 postings
+    const userATxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
+    const importTx = userATxs.find((t) => !t.groupExpenseId)!
+    const txPostings = await db
+      .select()
+      .from(postings)
+      .where(and(eq(postings.transactionId, importTx.id), isNull(postings.deletedAt)))
+    expect(txPostings).toHaveLength(4)
+
+    // All postings balance to zero
+    const sum = txPostings.reduce((s, p) => s + parseFloat(p.amount), 0)
+    expect(Math.abs(sum)).toBeLessThan(0.01)
+
+    // Fee posting untouched: 0.62 CAD to feeAccount
+    const feePosting = txPostings.find(p => p.accountId === feeAccId)
+    expect(feePosting).toBeTruthy()
+    expect(feePosting!.amount).toBe('0.62')
+
+    // Target account did NOT receive net — group/expense replaced it
+    const targetPosting = txPostings.find(p => p.accountId === targetAccId)
+    expect(targetPosting).toBeUndefined()
+
+    // Source account loses gross (net + fee)
+    const sourcePosting = txPostings.find(p => p.accountId === externalBankId)
+    expect(sourcePosting).toBeTruthy()
+    expect(parseFloat(sourcePosting!.amount)).toBeCloseTo(-100, 2)
+  })
 })

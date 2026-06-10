@@ -208,12 +208,39 @@
                 </td>
                 <td class="cell-offset">
                   <div class="transfer-accounts">
-                    <AccountPathInput
-                      {accounts}
-                      bind:value={rowStates[i].conversionAccountId}
-                      placeholder="equity:conversion…"
-                      oncreate={onaccountcreated}
-                    />
+                    {#if rowStates[i].groupId}
+                      <div class="fishpie-pills">
+                        <span class="fishpie-pill-group">
+                          <Icon name="pie" size={11} />
+                          {groupName(rowStates[i].groupId)}
+                        </span>
+                        <span class="fishpie-pill-account">
+                          {groupExpenseAccountPath(rowStates[i].groupId)}
+                        </span>
+                      </div>
+                    {:else if splitSelectOpenIndex === i}
+                      <select
+                        class="split-select"
+                        onchange={(e) => {
+                          const val = (e.currentTarget as HTMLSelectElement).value
+                          if (val) rowStates[i].groupId = val
+                          splitSelectOpenIndex = null
+                        }}
+                        onblur={() => (splitSelectOpenIndex = null)}
+                      >
+                        <option value="">Choose group…</option>
+                        {#each groups as g (g.id)}
+                          <option value={g.id}>{g.name}</option>
+                        {/each}
+                      </select>
+                    {:else}
+                      <AccountPathInput
+                        {accounts}
+                        bind:value={rowStates[i].conversionAccountId}
+                        placeholder="equity:conversion…"
+                        oncreate={onaccountcreated}
+                      />
+                    {/if}
                     <AccountPathInput
                       {accounts}
                       bind:value={rowStates[i].feeAccountId}
@@ -222,7 +249,19 @@
                     />
                   </div>
                 </td>
-                {#if groups.length > 0}<td class="cell-split"></td>{/if}
+                {#if groups.length > 0}
+                  <td class="cell-split">
+                    {#if !rowStates[i].skipped}
+                      {#if rowStates[i].groupId}
+                        <GradientButton square aria-label="Remove Fish Pie split" onclick={() => clearGroupSplit(i)}>×</GradientButton>
+                      {:else}
+                        <GradientButton square aria-label="Split with group" onclick={() => (splitSelectOpenIndex = i)}>
+                          <Icon name="pie" size={12} />
+                        </GradientButton>
+                      {/if}
+                    {/if}
+                  </td>
+                {/if}
                 <td class="cell-skip"
                   ><input
                     type="checkbox"
@@ -255,12 +294,39 @@
                 </td>
                 <td class="cell-offset">
                   <div class="transfer-accounts">
-                    <AccountPathInput
-                      {accounts}
-                      bind:value={rowStates[i].offsetAccountId}
-                      placeholder="Source account…"
-                      oncreate={onaccountcreated}
-                    />
+                    {#if rowStates[i].groupId}
+                      <div class="fishpie-pills">
+                        <span class="fishpie-pill-group">
+                          <Icon name="pie" size={11} />
+                          {groupName(rowStates[i].groupId)}
+                        </span>
+                        <span class="fishpie-pill-account">
+                          {groupExpenseAccountPath(rowStates[i].groupId)}
+                        </span>
+                      </div>
+                    {:else if splitSelectOpenIndex === i}
+                      <select
+                        class="split-select"
+                        onchange={(e) => {
+                          const val = (e.currentTarget as HTMLSelectElement).value
+                          if (val) rowStates[i].groupId = val
+                          splitSelectOpenIndex = null
+                        }}
+                        onblur={() => (splitSelectOpenIndex = null)}
+                      >
+                        <option value="">Choose group…</option>
+                        {#each groups as g (g.id)}
+                          <option value={g.id}>{g.name}</option>
+                        {/each}
+                      </select>
+                    {:else}
+                      <AccountPathInput
+                        {accounts}
+                        bind:value={rowStates[i].offsetAccountId}
+                        placeholder="Source account…"
+                        oncreate={onaccountcreated}
+                      />
+                    {/if}
                     <AccountPathInput
                       {accounts}
                       bind:value={rowStates[i].feeAccountId}
@@ -269,7 +335,19 @@
                     />
                   </div>
                 </td>
-                {#if groups.length > 0}<td class="cell-split"></td>{/if}
+                {#if groups.length > 0}
+                  <td class="cell-split">
+                    {#if !rowStates[i].skipped}
+                      {#if rowStates[i].groupId}
+                        <GradientButton square aria-label="Remove Fish Pie split" onclick={() => clearGroupSplit(i)}>×</GradientButton>
+                      {:else}
+                        <GradientButton square aria-label="Split with group" onclick={() => (splitSelectOpenIndex = i)}>
+                          <Icon name="pie" size={12} />
+                        </GradientButton>
+                      {/if}
+                    {/if}
+                  </td>
+                {/if}
                 <td class="cell-skip"
                   ><input
                     type="checkbox"

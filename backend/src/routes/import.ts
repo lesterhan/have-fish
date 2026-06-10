@@ -6,7 +6,7 @@ import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
-import { buildRegularPostings, buildFishPiePostings } from '../import/postings'
+import { buildRegularPostings, buildFishPiePostings, buildFishPieCrossCurrencyPostings, buildFishPieSameCurrencyPostings } from '../import/postings'
 import { createGroupExpenseInTx, fetchGroupWithMembers } from '../fish-pie-expense-service'
 import { ensureSharedAccount, ensureUncategorizedAccount } from '../fish-pie-accounts'
 
@@ -262,9 +262,6 @@ app.post('/commit', async (c) => {
     if (split.rowIndex < 0 || split.rowIndex >= parsed.length) {
       return c.json({ error: `groupSplits rowIndex ${split.rowIndex} out of range` }, 400)
     }
-    if ((parsed[split.rowIndex] as Record<string, unknown>).isTransfer !== false) {
-      return c.json({ error: `groupSplits rowIndex ${split.rowIndex} is a transfer row and cannot be split` }, 400)
-    }
     if (!groupCache.has(split.groupId)) {
       const result = await fetchGroupWithMembers(split.groupId)
       if (!result) return c.json({ error: `group ${split.groupId} not found` }, 404)
@@ -342,9 +339,12 @@ app.post('/commit', async (c) => {
         .returning()
 
       if (t.isTransfer === true) {
-        // Cross-currency transfer — 4 or 5 postings depending on whether a fee is present.
+        // Cross-currency transfer — 4 or 5 postings (regular) or 5 or 6 (Fish Pie).
         //
-        // The equity:conversion account bridges the two currencies:
+        // Fish Pie variant: net target amount split between group clearing + payer expense.
+        // Fee posting is untouched. targetAccountId is ignored (group/expense accounts replace it).
+        //
+        // Regular: equity:conversion bridges the two currencies:
         //   1. source account loses sourceAmount in sourceCurrency  (e.g. −200.00 CAD)
         //   2. equity:conversion gains the amount minus fee         (e.g. +199.04 CAD)
         //   3. fee expense account gains feeAmount                  (e.g.   +0.96 CAD)  ← omitted if no fee
@@ -357,40 +357,127 @@ app.post('/commit', async (c) => {
         const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0  // positive or 0
         const tgtAmount = parseFloat(t.targetAmount)  // positive
         const feeCurrency = t.feeCurrency ?? t.sourceCurrency
-
-        // conversion in source currency offsets source minus fee
         const conversionSrcAmount = (-(srcAmount + feeVal)).toFixed(2)
 
-        type PostingRow = { transactionId: string; accountId: string; amount: string; currency: string }
-        const postingRows: PostingRow[] = [
-          { transactionId: newTx.id, accountId: t.sourceAccountId,     amount: t.sourceAmount,              currency: t.sourceCurrency },
-          { transactionId: newTx.id, accountId: t.conversionAccountId, amount: conversionSrcAmount,          currency: t.sourceCurrency },
-          { transactionId: newTx.id, accountId: t.conversionAccountId, amount: (-tgtAmount).toFixed(2),      currency: t.targetCurrency },
-          { transactionId: newTx.id, accountId: t.targetAccountId,     amount: t.targetAmount,               currency: t.targetCurrency },
-        ]
+        const groupSplit = splitByRowIndex.get(rowIndex)
+        if (groupSplit) {
+          const { group, members } = groupCache.get(groupSplit.groupId)!
+          const groupAccountId = await ensureSharedAccount(userId, group, tx)
+          const payerMember = members.find((m) => m.userId === userId)!
+          const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
+          const payerShareRatio = payerMember.shareWeight / totalWeight
+          const payerExpenseAccountId =
+            payerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(userId, tx))
 
-        if (t.feeAmount && feeVal !== 0) {
-          // Insert fee posting at index 2 to follow the natural ledger order
-          postingRows.splice(2, 0, {
-            transactionId: newTx.id,
-            accountId: t.feeAccountId,
-            amount: t.feeAmount,
-            currency: feeCurrency,
+          await tx.insert(postings).values(
+            buildFishPieCrossCurrencyPostings({
+              transactionId: newTx.id,
+              sourceAccountId: t.sourceAccountId,
+              sourceAmount: t.sourceAmount,
+              sourceCurrency: t.sourceCurrency,
+              conversionAccountId: t.conversionAccountId,
+              conversionSrcAmount,
+              targetAmount: t.targetAmount,
+              targetCurrency: t.targetCurrency,
+              feeAmount: t.feeAmount,
+              feeCurrency,
+              feeAccountId: t.feeAccountId,
+              groupAccountId,
+              expenseAccountId: payerExpenseAccountId,
+              payerShareRatio,
+            }),
+          )
+
+          const absAmount = Math.abs(tgtAmount).toFixed(2)
+          const dateStr = new Date(t.date).toISOString().slice(0, 10)
+          await createGroupExpenseInTx(tx, {
+            group,
+            members,
+            payerId: userId,
+            description: t.description ?? '',
+            amount: absAmount,
+            currency: t.targetCurrency,
+            date: dateStr,
+            linkedTransactionId: newTx.id,
+            skipPayerMemberTx: true,
           })
-        }
+          fishPieExpenses++
+        } else {
+          type PostingRow = { transactionId: string; accountId: string; amount: string; currency: string }
+          const postingRows: PostingRow[] = [
+            { transactionId: newTx.id, accountId: t.sourceAccountId,     amount: t.sourceAmount,         currency: t.sourceCurrency },
+            { transactionId: newTx.id, accountId: t.conversionAccountId, amount: conversionSrcAmount,     currency: t.sourceCurrency },
+            { transactionId: newTx.id, accountId: t.conversionAccountId, amount: (-tgtAmount).toFixed(2), currency: t.targetCurrency },
+            { transactionId: newTx.id, accountId: t.targetAccountId,     amount: t.targetAmount,          currency: t.targetCurrency },
+          ]
 
-        await tx.insert(postings).values(postingRows)
+          if (t.feeAmount && feeVal !== 0) {
+            postingRows.splice(2, 0, {
+              transactionId: newTx.id,
+              accountId: t.feeAccountId,
+              amount: t.feeAmount,
+              currency: feeCurrency,
+            })
+          }
+
+          await tx.insert(postings).values(postingRows)
+        }
       } else if (t.isTransfer === 'same-currency') {
-        // Same-currency IN transfer — 3 postings:
+        // Same-currency IN transfer — 3 postings (regular) or 4 (Fish Pie).
+        //
+        // Fish Pie variant: net amount split between group clearing + payer expense.
+        // Fee and source postings are untouched. targetAccountId is ignored.
+        //
+        // Regular:
         //   1. target account receives net amount (positive)
         //   2. fee expense account records the fee (positive)
         //   3. source account loses the gross amount (negative)
-        const gross = (parseFloat(t.amount) + parseFloat(t.feeAmount)).toFixed(2)
-        await tx.insert(postings).values([
-          { transactionId: newTx.id, accountId: t.targetAccountId, amount: t.amount,         currency: t.currency },
-          { transactionId: newTx.id, accountId: t.feeAccountId,    amount: t.feeAmount,       currency: t.currency },
-          { transactionId: newTx.id, accountId: t.sourceAccountId, amount: `-${gross}`,       currency: t.currency },
-        ])
+        const groupSplit = splitByRowIndex.get(rowIndex)
+        if (groupSplit) {
+          const { group, members } = groupCache.get(groupSplit.groupId)!
+          const groupAccountId = await ensureSharedAccount(userId, group, tx)
+          const payerMember = members.find((m) => m.userId === userId)!
+          const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
+          const payerShareRatio = payerMember.shareWeight / totalWeight
+          const payerExpenseAccountId =
+            payerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(userId, tx))
+
+          await tx.insert(postings).values(
+            buildFishPieSameCurrencyPostings({
+              transactionId: newTx.id,
+              sourceAccountId: t.sourceAccountId,
+              amount: t.amount,
+              feeAmount: t.feeAmount,
+              currency: t.currency,
+              feeAccountId: t.feeAccountId,
+              groupAccountId,
+              expenseAccountId: payerExpenseAccountId,
+              payerShareRatio,
+            }),
+          )
+
+          const absAmount = Math.abs(parseFloat(t.amount)).toFixed(2)
+          const dateStr = new Date(t.date).toISOString().slice(0, 10)
+          await createGroupExpenseInTx(tx, {
+            group,
+            members,
+            payerId: userId,
+            description: t.description ?? '',
+            amount: absAmount,
+            currency: t.currency,
+            date: dateStr,
+            linkedTransactionId: newTx.id,
+            skipPayerMemberTx: true,
+          })
+          fishPieExpenses++
+        } else {
+          const gross = (parseFloat(t.amount) + parseFloat(t.feeAmount)).toFixed(2)
+          await tx.insert(postings).values([
+            { transactionId: newTx.id, accountId: t.targetAccountId, amount: t.amount,   currency: t.currency },
+            { transactionId: newTx.id, accountId: t.feeAccountId,    amount: t.feeAmount, currency: t.currency },
+            { transactionId: newTx.id, accountId: t.sourceAccountId, amount: `-${gross}`, currency: t.currency },
+          ])
+        }
       } else {
         const currency = t.currency ?? defaultCurrency
         const sourceId = t.sourceAccountId ?? accountId
