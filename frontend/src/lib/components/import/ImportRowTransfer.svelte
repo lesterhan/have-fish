@@ -3,7 +3,12 @@
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
-  import type { Account, TransferParsedTransaction, SameCurrencyTransferParsedTransaction, ExpenseGroup } from '$lib/api'
+  import type {
+    Account,
+    TransferParsedTransaction,
+    SameCurrencyTransferParsedTransaction,
+    ExpenseGroup,
+  } from '$lib/api'
   import type { RowState } from './ImportPreviewPanel.svelte'
   import { groupName, groupExpenseAccountPath } from './import-helpers'
 
@@ -57,7 +62,9 @@
       <span class="transfer-arrow">→</span>
       <span class="transfer-to">{tx.targetAmount} {tx.targetCurrency}</span>
       {#if tx.feeAmount}
-        <span class="transfer-fee">fee: {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}</span>
+        <span class="transfer-fee"
+          >fee: {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}</span
+        >
       {/if}
     </td>
   {:else}
@@ -76,7 +83,12 @@
             {groupName(groups, rowState.groupId)}
           </span>
           <span class="fishpie-pill-account">
-            {groupExpenseAccountPath(groups, accounts, currentUserId, rowState.groupId)}
+            {groupExpenseAccountPath(
+              groups,
+              accounts,
+              currentUserId,
+              rowState.groupId,
+            )}
           </span>
         </div>
       {:else if splitSelectOpen}
@@ -124,14 +136,18 @@
         {#if rowState.groupId}
           <GradientButton
             square
-            aria-label="Remove Fish Pie split"
+            aria-label="Remove group split"
             onclick={() => {
               rowState.groupId = null
               onclosesplit()
-            }}
-          >×</GradientButton>
+            }}>×</GradientButton
+          >
         {:else}
-          <GradientButton square aria-label="Split with group" onclick={onsplitopen}>
+          <GradientButton
+            square
+            aria-label="Split with group"
+            onclick={onsplitopen}
+          >
             <Icon name="pie" size={12} />
           </GradientButton>
         {/if}
