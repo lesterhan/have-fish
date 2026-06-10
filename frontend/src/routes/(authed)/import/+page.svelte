@@ -11,7 +11,6 @@
     type Account,
     type CsvParser,
     type CommitTransaction,
-    type PossibleDuplicate,
     type ExpenseGroup,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
@@ -151,9 +150,10 @@
       // Compute rootPath from `fetched` directly — we can't use the `rootPath`
       // $derived here because `preview` hasn't been assigned yet at this point.
       // Reuse defaultAccountPath computed above rather than scanning accounts twice.
-      const fetchedRootPath = fetched.isMultiCurrency && fetched.defaultAccountId
-        ? (defaultAccountPath || null)
-        : null
+      const fetchedRootPath =
+        fetched.isMultiCurrency && fetched.defaultAccountId
+          ? defaultAccountPath || null
+          : null
       const getAccountIdForRow = (currency: string): string => {
         if (!fetchedRootPath) return ''
         const path = `${fetchedRootPath}:${currency.toLowerCase()}`
@@ -162,9 +162,9 @@
       const checkRows = fetched.transactions.map((tx) => ({
         accountId:
           tx.isTransfer === false
-            ? (fetched.isMultiCurrency
-                ? getAccountIdForRow(tx.currency ?? defaultCurrency)
-                : (fetched.defaultAccountId ?? ''))
+            ? fetched.isMultiCurrency
+              ? getAccountIdForRow(tx.currency ?? defaultCurrency)
+              : (fetched.defaultAccountId ?? '')
             : '',
         date: tx.date,
         amount: tx.isTransfer === false ? tx.amount : '0',
@@ -281,9 +281,10 @@
         transactions: txs,
         groupSplits: groupSplits.length > 0 ? groupSplits : undefined,
       })
-      const fishPieMsg = result.fishPieExpenses > 0
-        ? `, ${result.fishPieExpenses} added to Fish Pie`
-        : ''
+      const fishPieMsg =
+        result.fishPieExpenses > 0
+          ? `, ${result.fishPieExpenses} added to Fish Pie`
+          : ''
       toast.show(`${result.created} transaction(s) imported${fishPieMsg}`)
       refreshSidebar()
       confetti.trigger()

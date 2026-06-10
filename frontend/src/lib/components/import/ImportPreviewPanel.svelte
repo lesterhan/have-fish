@@ -2,9 +2,9 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
-  import Icon from '$lib/components/ui/Icon.svelte'
-  import { tooltip } from '$lib/tooltip'
   import type { Account, ImportPreviewResult, PossibleDuplicate, ExpenseGroup } from '$lib/api'
+  import ImportRowTransfer from './ImportRowTransfer.svelte'
+  import ImportRowRegular from './ImportRowRegular.svelte'
 
   export type RowState = {
     offsetAccountId: string
@@ -55,31 +55,6 @@
 
   let splitSelectOpenIndex = $state<number | null>(null)
 
-  function groupName(id: string | null): string {
-    if (!id) return ''
-    return groups.find((g) => g.id === id)?.name ?? ''
-  }
-
-  function groupExpenseAccountPath(groupId: string | null): string {
-    if (!groupId) return ''
-    const group = groups.find((g) => g.id === groupId)
-    if (!group) return ''
-    const member = group.members.find((m) => m.userId === currentUserId)
-    if (!member || !member.defaultExpenseAccountId) return 'uncategorized'
-    return accounts.find((a) => a.id === member.defaultExpenseAccountId)?.path ?? 'uncategorized'
-  }
-
-  function clearGroupSplit(i: number) {
-    rowStates[i].groupId = null
-    splitSelectOpenIndex = null
-  }
-
-  function displayAmount(amount: string): string {
-    if (!importAsLiabilities) return amount
-    const n = parseFloat(amount)
-    return isNaN(n) ? amount : String(-n)
-  }
-
   let confirmDisabled = $derived(
     loading ||
       rowStates.every((r) => r.skipped) ||
@@ -126,9 +101,7 @@
 
     {#if preview.errors.length > 0}
       <div class="parse-errors">
-        <p>
-          {preview.errors.length} row(s) could not be parsed and will be skipped.
-        </p>
+        <p>{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
         <ul>
           {#each preview.errors as e}
             <li>Row {e.row}: {e.reason}</li>
@@ -143,9 +116,7 @@
         {#each missingPaths as path}
           <span class="missing-account">
             <code>{path}</code>
-            <GradientButton onclick={() => oncreatemissing(path)}
-              >Create</GradientButton
-            >
+            <GradientButton onclick={() => oncreatemissing(path)}>Create</GradientButton>
           </span>
         {/each}
         <GradientButton onclick={oncreateallmissing}>Create all</GradientButton>
@@ -153,10 +124,7 @@
     {/if}
 
     <div class="liability-bar">
-      <Toggle
-        bind:checked={importAsLiabilities}
-        label="Import as liabilities"
-      />
+      <Toggle bind:checked={importAsLiabilities} label="Import as liabilities" />
     </div>
 
     <div class="table-container">
@@ -174,217 +142,35 @@
         </thead>
         <tbody>
           {#each preview.transactions as tx, i}
-            {#if tx.isTransfer === true}
-              <tr class="row-transfer" class:row-skipped={rowStates[i].skipped}>
-                <td class="cell-mono">
-                  {new Date(tx.date).toLocaleDateString()}
-                  {#if rowStates[i].possibleDuplicate}
-                    <span
-                      class="indicator-icon"
-                      use:tooltip={{
-                        label: `Possible duplicate: ${rowStates[i].possibleDuplicate!.date} ${rowStates[i].possibleDuplicate!.amount} ${rowStates[i].possibleDuplicate!.currency}`,
-                        always: true,
-                      }}
-                    >
-                      <Icon name="warning-filled" size={16} />
-                    </span>
-                  {/if}
-                </td>
-                <td>{tx.description ?? '—'}</td>
-                <td class="cell-transfer-amount">
-                  <span class="transfer-from"
-                    >{tx.sourceAmount} {tx.sourceCurrency}</span
-                  >
-                  <span class="transfer-arrow">→</span>
-                  <span class="transfer-to"
-                    >{tx.targetAmount} {tx.targetCurrency}</span
-                  >
-                  {#if tx.feeAmount}
-                    <span class="transfer-fee"
-                      >fee: {tx.feeAmount}
-                      {tx.feeCurrency ?? tx.sourceCurrency}</span
-                    >
-                  {/if}
-                </td>
-                <td class="cell-offset">
-                  <div class="transfer-accounts">
-                    <AccountPathInput
-                      {accounts}
-                      bind:value={rowStates[i].conversionAccountId}
-                      placeholder="equity:conversion…"
-                      oncreate={onaccountcreated}
-                    />
-                    <AccountPathInput
-                      {accounts}
-                      bind:value={rowStates[i].feeAccountId}
-                      placeholder="expenses:fees…"
-                      oncreate={onaccountcreated}
-                    />
-                  </div>
-                </td>
-                {#if groups.length > 0}<td class="cell-split"></td>{/if}
-                <td class="cell-skip"
-                  ><input
-                    type="checkbox"
-                    bind:checked={rowStates[i].skipped}
-                  /></td
-                >
-              </tr>
-            {:else if tx.isTransfer === 'same-currency'}
-              <tr class="row-transfer" class:row-skipped={rowStates[i].skipped}>
-                <td class="cell-mono">
-                  {new Date(tx.date).toLocaleDateString()}
-                  {#if rowStates[i].possibleDuplicate}
-                    <span
-                      class="indicator-icon"
-                      use:tooltip={{
-                        label: `Possible duplicate: ${rowStates[i].possibleDuplicate!.date} ${rowStates[i].possibleDuplicate!.amount} ${rowStates[i].possibleDuplicate!.currency}`,
-                        always: true,
-                      }}
-                    >
-                      <Icon name="warning-filled" size={16} />
-                    </span>
-                  {/if}
-                </td>
-                <td>{tx.description ?? '—'}</td>
-                <td class="cell-transfer-amount">
-                  <span class="transfer-to">+{tx.amount} {tx.currency}</span>
-                  <span class="transfer-fee"
-                    >fee: {tx.feeAmount} {tx.currency}</span
-                  >
-                </td>
-                <td class="cell-offset">
-                  <div class="transfer-accounts">
-                    <AccountPathInput
-                      {accounts}
-                      bind:value={rowStates[i].offsetAccountId}
-                      placeholder="Source account…"
-                      oncreate={onaccountcreated}
-                    />
-                    <AccountPathInput
-                      {accounts}
-                      bind:value={rowStates[i].feeAccountId}
-                      placeholder="expenses:fees…"
-                      oncreate={onaccountcreated}
-                    />
-                  </div>
-                </td>
-                {#if groups.length > 0}<td class="cell-split"></td>{/if}
-                <td class="cell-skip"
-                  ><input
-                    type="checkbox"
-                    bind:checked={rowStates[i].skipped}
-                  /></td
-                >
-              </tr>
+            {#if tx.isTransfer === false}
+              <ImportRowRegular
+                {tx}
+                bind:rowState={rowStates[i]}
+                {accounts}
+                {groups}
+                {currentUserId}
+                isMultiCurrency={preview.isMultiCurrency}
+                {importAsLiabilities}
+                {defaultCurrency}
+                splitSelectOpen={splitSelectOpenIndex === i}
+                showFishPie={groups.length > 0}
+                onsplitopen={() => (splitSelectOpenIndex = i)}
+                onclosesplit={() => (splitSelectOpenIndex = null)}
+                {onaccountcreated}
+              />
             {:else}
-              <tr class:row-skipped={rowStates[i].skipped}>
-                <td class="cell-mono">
-                  {new Date(tx.date).toLocaleDateString()}
-                  {#if rowStates[i].possibleDuplicate}
-                    <span
-                      class="indicator-icon"
-                      use:tooltip={{
-                        label: `Possible duplicate: ${rowStates[i].possibleDuplicate!.date} ${rowStates[i].possibleDuplicate!.amount} ${rowStates[i].possibleDuplicate!.currency}`,
-                        always: true,
-                      }}
-                    >
-                      <Icon name="warning-filled" size={16} />
-                    </span>
-                  {/if}
-                </td>
-                <td>
-                  {tx.description ?? '—'}
-                  {#if rowStates[i].possibleDuplicate?.fishPieGroupName}
-                    <span class="fishpie-hint">
-                      · Fish Pie settlement in
-                      <a href="/fish-pie/{rowStates[i].possibleDuplicate!.fishPieGroupId}" class="fishpie-hint-link">
-                        {rowStates[i].possibleDuplicate!.fishPieGroupName}
-                      </a>
-                    </span>
-                  {/if}
-                </td>
-                <td
-                  class="cell-amount"
-                  class:positive={parseFloat(displayAmount(tx.amount)) > 0}
-                  class:negative={parseFloat(displayAmount(tx.amount)) < 0}
-                >
-                  {displayAmount(
-                    tx.amount,
-                  )}{#if preview.isMultiCurrency}{tx.currency ??
-                      defaultCurrency}{/if}
-                </td>
-                {#if !preview.isMultiCurrency}<td
-                    >{tx.currency ?? defaultCurrency}</td
-                  >{/if}
-                <td class="cell-offset">
-                  {#if rowStates[i].groupId}
-                    <div class="fishpie-pills">
-                      <span class="fishpie-pill-group">
-                        <Icon name="pie" size={11} />
-                        {groupName(rowStates[i].groupId)}
-                      </span>
-                      <span class="fishpie-pill-account">
-                        {groupExpenseAccountPath(rowStates[i].groupId)}
-                      </span>
-                    </div>
-                  {:else if splitSelectOpenIndex === i}
-                    <select
-                      class="split-select"
-                      onchange={(e) => {
-                        const val = (e.currentTarget as HTMLSelectElement).value
-                        if (val) rowStates[i].groupId = val
-                        splitSelectOpenIndex = null
-                      }}
-                      onblur={() => (splitSelectOpenIndex = null)}
-                    >
-                      <option value="">Choose group…</option>
-                      {#each groups as g (g.id)}
-                        <option value={g.id}>{g.name}</option>
-                      {/each}
-                    </select>
-                  {:else}
-                    <div class="offset-wrap">
-                      <AccountPathInput
-                        {accounts}
-                        bind:value={rowStates[i].offsetAccountId}
-                        placeholder="Select or create…"
-                        oncreate={onaccountcreated}
-                      />
-                      {#if tx.suggestedOffsetAccountId}
-                        <span
-                          class="indicator-icon"
-                          use:tooltip={{
-                            label: 'Pre-filled by import rule',
-                            always: true,
-                          }}
-                        >
-                          <Icon name="computer" size={16} />
-                        </span>
-                      {/if}
-                    </div>
-                  {/if}
-                </td>
-                {#if groups.length > 0}
-                  <td class="cell-split">
-                    {#if !rowStates[i].skipped}
-                      {#if rowStates[i].groupId}
-                        <GradientButton square aria-label="Remove Fish Pie split" onclick={() => clearGroupSplit(i)}>×</GradientButton>
-                      {:else}
-                        <GradientButton square aria-label="Split with group" onclick={() => (splitSelectOpenIndex = i)}>
-                          <Icon name="pie" size={12} />
-                        </GradientButton>
-                      {/if}
-                    {/if}
-                  </td>
-                {/if}
-                <td class="cell-skip"
-                  ><input
-                    type="checkbox"
-                    bind:checked={rowStates[i].skipped}
-                  /></td
-                >
-              </tr>
+              <ImportRowTransfer
+                {tx}
+                bind:rowState={rowStates[i]}
+                {accounts}
+                {groups}
+                {currentUserId}
+                splitSelectOpen={splitSelectOpenIndex === i}
+                showFishPie={groups.length > 0}
+                onsplitopen={() => (splitSelectOpenIndex = i)}
+                onclosesplit={() => (splitSelectOpenIndex = null)}
+                {onaccountcreated}
+              />
             {/if}
           {/each}
         </tbody>
@@ -525,6 +311,8 @@
     background: var(--color-window);
   }
 
+  /* ── Table structure ── */
+
   .table-container {
     background: var(--color-window-inset);
     overflow-x: auto;
@@ -553,78 +341,58 @@
     z-index: 1;
   }
 
-  td {
+  .col-description { width: 100%; }
+  .col-amount      { width: 7rem; }
+  .col-offset      { min-width: 18rem; }
+  .col-split       { width: 7rem; text-align: center; }
+  .col-skip        { width: 3rem; text-align: center; }
+
+  /* ── Shared row/cell styles — :global so they reach child-rendered <td> elements ── */
+
+  :global(.table-container td) {
     padding: 5px 12px;
     border-bottom: 1px solid var(--color-rule-soft);
     font-size: var(--text-xs);
   }
 
-  tbody tr:last-child td {
+  :global(.table-container tbody tr:last-child td) {
     border-bottom: none;
   }
 
-  tbody tr:hover td {
+  :global(.table-container tbody tr:hover td) {
     background: var(--color-accent-light);
   }
 
-  .col-description {
-    width: 100%;
-  }
-  .col-amount {
-    width: 7rem;
-  }
-  .col-offset {
-    min-width: 18rem;
-  }
-  .col-split {
-    width: 7rem;
-    text-align: center;
-  }
-  .col-skip {
-    width: 3rem;
-    text-align: center;
-  }
-
-  .cell-mono {
+  :global(.table-container .cell-mono) {
     font-family: var(--font-mono);
     white-space: nowrap;
   }
 
-  .cell-amount {
-    font-family: var(--font-mono);
-    text-align: right;
-    white-space: nowrap;
-  }
-
-  .cell-amount.positive {
-    color: var(--color-amount-positive);
-  }
-  .cell-amount.negative {
-    color: var(--color-amount-negative);
-  }
-
-  .cell-offset {
+  :global(.table-container .cell-offset) {
     padding: 0;
   }
-  .cell-skip {
+
+  :global(.table-container .cell-skip) {
     text-align: center;
     vertical-align: middle;
   }
 
-  .row-skipped td {
+  :global(.table-container .cell-split) {
+    text-align: center;
+    vertical-align: middle;
+    padding: 2px 4px;
+    white-space: nowrap;
+  }
+
+  :global(.table-container .row-skipped td) {
     opacity: 0.4;
   }
-  .row-skipped .cell-skip {
+
+  :global(.table-container .row-skipped .cell-skip) {
     opacity: 1;
   }
 
-  .offset-wrap {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-  }
-
-  .indicator-icon {
+  :global(.table-container .indicator-icon) {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
@@ -634,60 +402,58 @@
     margin-left: var(--sp-xs);
   }
 
-  .fishpie-hint {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .fishpie-hint-link {
-    color: var(--color-accent-mid);
-    text-decoration: none;
-  }
-
-  .fishpie-hint-link:hover {
-    text-decoration: underline;
-  }
-
-  .row-transfer td {
-    background: var(--color-window);
-  }
-  .row-transfer:hover td {
-    background: var(--color-accent-light);
-  }
-
-  .cell-transfer-amount {
-    font-family: var(--font-mono);
-    white-space: nowrap;
-    padding: var(--sp-xs) var(--sp-sm);
-  }
-
-  .transfer-from {
-    color: var(--color-amount-negative);
-  }
-  .transfer-arrow {
-    color: var(--color-text-muted);
-    margin: 0 var(--sp-xs);
-  }
-  .transfer-to {
-    color: var(--color-amount-positive);
-  }
-
-  .transfer-fee {
-    display: block;
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    margin-top: 1px;
-  }
-
-  .transfer-accounts {
+  :global(.table-container .fishpie-pills) {
     display: flex;
-    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    flex-wrap: nowrap;
+    min-width: 0;
   }
 
-  .transfer-accounts :global(.wrapper:first-child .path-input) {
-    border-bottom: 1px solid var(--color-rule);
+  :global(.table-container .fishpie-pill-group) {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent-chip-fg);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 1;
+    min-width: 0;
   }
+
+  :global(.table-container .fishpie-pill-account) {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 2;
+    min-width: 0;
+  }
+
+  :global(.table-container .split-select) {
+    width: 100%;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    border: 1px solid var(--color-accent);
+    background: var(--color-window);
+    padding: 1px 2px;
+    outline: none;
+  }
+
+  /* ── Panel footer ── */
 
   .panel-actions {
     display: flex;
@@ -712,64 +478,5 @@
     display: flex;
     gap: var(--sp-sm);
     margin-left: auto;
-  }
-
-  .cell-split {
-    text-align: center;
-    vertical-align: middle;
-    padding: 2px 4px;
-    white-space: nowrap;
-  }
-
-
-  .fishpie-pills {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    flex-wrap: nowrap;
-    min-width: 0;
-  }
-
-  .fishpie-pill-group {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
-    background: var(--color-accent-light);
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent-chip-fg);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 1;
-    min-width: 0;
-  }
-
-  .fishpie-pill-account {
-    display: inline-block;
-    padding: 2px 6px;
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 2;
-    min-width: 0;
-  }
-
-.split-select {
-    width: 100%;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    border: 1px solid var(--color-accent);
-    background: var(--color-window);
-    padding: 1px 2px;
-    outline: none;
   }
 </style>
