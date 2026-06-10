@@ -6,6 +6,7 @@ import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
+import { buildRegularPostings } from '../import/postings'
 import { createGroupExpenseInTx, fetchGroupWithMembers } from '../fish-pie-expense-service'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 
@@ -391,43 +392,44 @@ app.post('/commit', async (c) => {
           { transactionId: newTx.id, accountId: t.sourceAccountId, amount: `-${gross}`,       currency: t.currency },
         ])
       } else {
-        // Regular 2-posting transaction
         const currency = t.currency ?? defaultCurrency
         const sourceId = t.sourceAccountId ?? accountId
-        const negated = (-parseFloat(t.amount)).toFixed(2)
-
-        // If this row is a Fish Pie group split, offset the import transaction against the
-        // shared clearing account. The member transactions created by createGroupExpenseInTx
-        // distribute the expense to each member's own expense account. Using the expense
-        // account here would double-count the payer's share.
         const groupSplit = splitByRowIndex.get(rowIndex)
-        let offsetAccountId = t.offsetAccountId
-        if (groupSplit) {
-          const { group } = groupCache.get(groupSplit.groupId)!
-          offsetAccountId = await ensureSharedAccount(userId, group, tx)
-        }
-
-        await tx.insert(postings).values([
-          { transactionId: newTx.id, accountId: sourceId, amount: t.amount, currency },
-          { transactionId: newTx.id, accountId: offsetAccountId, amount: negated, currency },
-        ])
 
         if (groupSplit) {
+          // Fish Pie path — 2-posting for now; will become 3-posting in BUG-004b fix.
           const { group, members } = groupCache.get(groupSplit.groupId)!
-          const amount = Math.abs(parseFloat(t.amount)).toFixed(2)
-          // t.date is an ISO string; service expects YYYY-MM-DD
+          const groupAccountId = await ensureSharedAccount(userId, group, tx)
+          const negated = (-parseFloat(t.amount)).toFixed(2)
+
+          await tx.insert(postings).values([
+            { transactionId: newTx.id, accountId: sourceId, amount: t.amount, currency },
+            { transactionId: newTx.id, accountId: groupAccountId, amount: negated, currency },
+          ])
+
+          const absAmount = Math.abs(parseFloat(t.amount)).toFixed(2)
           const dateStr = new Date(t.date).toISOString().slice(0, 10)
           await createGroupExpenseInTx(tx, {
             group,
             members,
             payerId: userId,
             description: t.description ?? '',
-            amount,
+            amount: absAmount,
             currency,
             date: dateStr,
             linkedTransactionId: newTx.id,
           })
           fishPieExpenses++
+        } else {
+          await tx.insert(postings).values(
+            buildRegularPostings({
+              transactionId: newTx.id,
+              sourceAccountId: sourceId,
+              amount: t.amount,
+              offsetAccountId: t.offsetAccountId,
+              currency,
+            }),
+          )
         }
       }
     }
