@@ -6,8 +6,9 @@ import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
+import { buildRegularPostings, buildFishPiePostings } from '../import/postings'
 import { createGroupExpenseInTx, fetchGroupWithMembers } from '../fish-pie-expense-service'
-import { ensureSharedAccount } from '../fish-pie-accounts'
+import { ensureSharedAccount, ensureUncategorizedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -391,43 +392,60 @@ app.post('/commit', async (c) => {
           { transactionId: newTx.id, accountId: t.sourceAccountId, amount: `-${gross}`,       currency: t.currency },
         ])
       } else {
-        // Regular 2-posting transaction
         const currency = t.currency ?? defaultCurrency
         const sourceId = t.sourceAccountId ?? accountId
-        const negated = (-parseFloat(t.amount)).toFixed(2)
-
-        // If this row is a Fish Pie group split, offset the import transaction against the
-        // shared clearing account. The member transactions created by createGroupExpenseInTx
-        // distribute the expense to each member's own expense account. Using the expense
-        // account here would double-count the payer's share.
         const groupSplit = splitByRowIndex.get(rowIndex)
-        let offsetAccountId = t.offsetAccountId
-        if (groupSplit) {
-          const { group } = groupCache.get(groupSplit.groupId)!
-          offsetAccountId = await ensureSharedAccount(userId, group, tx)
-        }
-
-        await tx.insert(postings).values([
-          { transactionId: newTx.id, accountId: sourceId, amount: t.amount, currency },
-          { transactionId: newTx.id, accountId: offsetAccountId, amount: negated, currency },
-        ])
 
         if (groupSplit) {
+          // Fish Pie path — 3-posting import tx (BUG-004b fix).
+          // The payer's share is recorded directly as a posting to their expense account,
+          // so createGroupExpenseInTx skips the payer member tx (skipPayerMemberTx).
+          // offsetAccountId on the row is intentionally ignored; groupAccountId is derived here.
           const { group, members } = groupCache.get(groupSplit.groupId)!
-          const amount = Math.abs(parseFloat(t.amount)).toFixed(2)
-          // t.date is an ISO string; service expects YYYY-MM-DD
+          const groupAccountId = await ensureSharedAccount(userId, group, tx)
+
+          const payerMember = members.find((m) => m.userId === userId)!
+          const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
+          const payerShareRatio = payerMember.shareWeight / totalWeight
+          const payerExpenseAccountId =
+            payerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(userId, tx))
+
+          await tx.insert(postings).values(
+            buildFishPiePostings({
+              transactionId: newTx.id,
+              sourceAccountId: sourceId,
+              amount: t.amount,
+              groupAccountId,
+              expenseAccountId: payerExpenseAccountId,
+              payerShareRatio,
+              currency,
+            }),
+          )
+
+          const absAmount = Math.abs(parseFloat(t.amount)).toFixed(2)
           const dateStr = new Date(t.date).toISOString().slice(0, 10)
           await createGroupExpenseInTx(tx, {
             group,
             members,
             payerId: userId,
             description: t.description ?? '',
-            amount,
+            amount: absAmount,
             currency,
             date: dateStr,
             linkedTransactionId: newTx.id,
+            skipPayerMemberTx: true,
           })
           fishPieExpenses++
+        } else {
+          await tx.insert(postings).values(
+            buildRegularPostings({
+              transactionId: newTx.id,
+              sourceAccountId: sourceId,
+              amount: t.amount,
+              offsetAccountId: t.offsetAccountId,
+              currency,
+            }),
+          )
         }
       }
     }
