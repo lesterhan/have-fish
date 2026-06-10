@@ -49,9 +49,12 @@ export async function createGroupExpenseInTx(
     currency: string
     date: string
     linkedTransactionId?: string
+    // When true, skips creating the payer's member transaction. Used for import-linked
+    // expenses where the import tx already records the payer's share as a direct posting.
+    skipPayerMemberTx?: boolean
   },
 ): Promise<string> {
-  const { group, members, payerId, description, amount, currency, date, linkedTransactionId } = opts
+  const { group, members, payerId, description, amount, currency, date, linkedTransactionId, skipPayerMemberTx } = opts
 
   const splits = computeSplits(amount, members, payerId)
   const normalizedAmount = parseFloat(amount).toFixed(2)
@@ -77,6 +80,7 @@ export async function createGroupExpenseInTx(
 
   const sharedAccountIds = new Map<string, string>()
   for (const split of splits) {
+    if (skipPayerMemberTx && split.userId === payerId) continue
     const member = members.find((m) => m.userId === split.userId)!
     const expenseAccountId =
       member.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(split.userId, tx))

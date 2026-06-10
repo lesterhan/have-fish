@@ -6,9 +6,9 @@ import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
-import { buildRegularPostings } from '../import/postings'
+import { buildRegularPostings, buildFishPiePostings } from '../import/postings'
 import { createGroupExpenseInTx, fetchGroupWithMembers } from '../fish-pie-expense-service'
-import { ensureSharedAccount } from '../fish-pie-accounts'
+import { ensureSharedAccount, ensureUncategorizedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -397,15 +397,30 @@ app.post('/commit', async (c) => {
         const groupSplit = splitByRowIndex.get(rowIndex)
 
         if (groupSplit) {
-          // Fish Pie path — 2-posting for now; will become 3-posting in BUG-004b fix.
+          // Fish Pie path — 3-posting import tx (BUG-004b fix).
+          // The payer's share is recorded directly as a posting to their expense account,
+          // so createGroupExpenseInTx skips the payer member tx (skipPayerMemberTx).
+          // offsetAccountId on the row is intentionally ignored; groupAccountId is derived here.
           const { group, members } = groupCache.get(groupSplit.groupId)!
           const groupAccountId = await ensureSharedAccount(userId, group, tx)
-          const negated = (-parseFloat(t.amount)).toFixed(2)
 
-          await tx.insert(postings).values([
-            { transactionId: newTx.id, accountId: sourceId, amount: t.amount, currency },
-            { transactionId: newTx.id, accountId: groupAccountId, amount: negated, currency },
-          ])
+          const payerMember = members.find((m) => m.userId === userId)!
+          const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
+          const payerShareRatio = payerMember.shareWeight / totalWeight
+          const payerExpenseAccountId =
+            payerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(userId, tx))
+
+          await tx.insert(postings).values(
+            buildFishPiePostings({
+              transactionId: newTx.id,
+              sourceAccountId: sourceId,
+              amount: t.amount,
+              groupAccountId,
+              expenseAccountId: payerExpenseAccountId,
+              payerShareRatio,
+              currency,
+            }),
+          )
 
           const absAmount = Math.abs(parseFloat(t.amount)).toFixed(2)
           const dateStr = new Date(t.date).toISOString().slice(0, 10)
@@ -418,6 +433,7 @@ app.post('/commit', async (c) => {
             currency,
             date: dateStr,
             linkedTransactionId: newTx.id,
+            skipPayerMemberTx: true,
           })
           fishPieExpenses++
         } else {

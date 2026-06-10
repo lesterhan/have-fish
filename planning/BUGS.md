@@ -91,109 +91,52 @@ The import tx and payer member tx both post in the **same direction** to `group:
 
 ---
 
-#### 004a — Settlement postings have inverted signs
+#### 004a — Payer group: account does not clear after settlement ⚠ Deferred
 
 **Debtor's group:** is always `+split.amount` (positive) from their member tx.  
 **Creditor's group:** with the 004b fix in place = `+others_share` (positive) for chequing/liability-flag CC.
 
-After the fix, **both debtor and creditor have a positive `group:` balance**. To clear a positive balance, you post a negative amount.
-
 Current settlement code (`fish-pie-settlements.ts`):
-- Payer (debtor) tx, line 113: posts `+amount` → balance goes **up** ✗ (should be `−amount`)
-- Receiver (creditor) confirm tx, line 179: posts `−amount` → balance also goes **down** ✗ (should be `−amount` for chequing/liability-flag too, but sign of current code happens to be wrong for all cases)
+- Receiver (creditor) confirm tx: posts `−amount` to group: → **correctly clears** creditor's +balance to 0 ✓
+- Payer (debtor) tx: posts `+amount` to group: → balance goes **up** (accumulates, never clears) ✗
 
-**Concrete example**, chequing $10 after 004b fix, 50/50:
-- Debtor group: = +5, creditor group: = +5
-- Settlement $5: debtor should go +5 → 0, creditor should go +5 → 0
-- Fix: both payer tx and receiver tx post `−amount` to `group:`
+**Why the obvious fix doesn't work:**
 
-**Important caveat — raw CC without liability flag:**  
-For `t.amount > 0` (no liability flag), `negated < 0`, creditor `group:` ends up negative (e.g., −5). To clear a negative balance you need `+amount`. So the settlement receiver direction depends on the sign of the original import's `negated`. Since the user always uses the liability flag, the `−amount` fix covers all real-world usage. The raw CC case can be noted and left for later or handled via convention documentation.
+Changing line 113 from `amount` to `\`-${amount}\`` would post `−5` to group: for the payer. But the payer tx already posts `−amount` to the chequing account. Two negative postings sum to `−2×amount`, not 0 — the transaction would be unbalanced. This would break the existing settlement test.
+
+**Root cause:** The expense member tx for all members (including debtors) posts `+split.amount` to group:. This is required for the 2-posting member tx to balance (`expenses: -5, group: +5 = 0`). For the RECEIVER's settlement tx, this works perfectly: receiver gets `+cash`, posts `-amount` to group: → balanced, cleared. For the PAYER's settlement tx, balancing requires `+amount` to group:, which increases rather than clears.
+
+**Why it's deferred:** The group: account is purely cosmetic — the balance screen recomputes from first principles and is unaffected. Fixing payer clearing without breaking balance requires either a 3-posting payer tx (needs a third account) or redesigning how debtor member txs post. Scope is larger than 004b.
 
 ---
 
-#### Fix plan — do in this order
+#### Fix plan for 004b (implemented) ✓
 
-**Step 1: Refactor posting creation into one place**
+**Step 1: Refactor posting creation into one place** ✓ (PR #25)
 
-Create `backend/src/import/postings.ts`. Move all import-transaction posting logic here. This makes the fix in step 2 legible.
+`backend/src/import/postings.ts` with `buildRegularPostings` and `buildFishPiePostings`.
 
-```typescript
-// postings.ts
-export type PostingSpec = {
-  accountId: string
-  amount: string
-  currency: string
-}
+**Step 2: Wire up the 3-posting import tx** ✓ (PR #26)
 
-// Builds the postings for a regular (non-Fish-Pie) import transaction.
-export function buildRegularPostings(opts: {
-  transactionId: string
-  sourceAccountId: string
-  amount: string          // t.amount, already sign-adjusted by frontend
-  offsetAccountId: string
-  currency: string
-}): PostingSpec[]
-
-// Builds the postings for a Fish Pie import transaction (3 postings).
-// Also returns the payer's expense amount so the caller can skip the
-// payer member tx in createGroupExpenseInTx.
-export function buildFishPiePostings(opts: {
-  transactionId: string
-  sourceAccountId: string
-  amount: string          // t.amount, already sign-adjusted
-  groupAccountId: string  // group:<slug>
-  expenseAccountId: string
-  payerShareRatio: number // e.g. 0.5 for 50%
-  currency: string
-}): PostingSpec[]
-```
-
-The 3-posting Fish Pie structure — splits `negated` proportionally between `group:` (others' share) and `expenses:` (payer's share). They always sum to zero with the source:
+3-posting structure — splits `negated` proportionally between `group:` (others' share) and `expenses:` (payer's share). Sum always zero:
 
 ```
-source:   t.amount                           (e.g. −10 for chequing)
-group::   negated × others_share_ratio       (e.g. +5 for 50/50)
-expense:  negated × payer_share_ratio        (e.g. +5 for 50/50)
+source:   t.amount                        (e.g. −10 for chequing)
+group::   negated × others_share_ratio    (e.g. +5 for 50/50)
+expense:  negated × payer_share_ratio     (e.g. +5 for 50/50)
 ```
 
-Sum: `t.amount + negated × 1 = t.amount + (−t.amount) = 0` ✓
+`createGroupExpenseInTx` skips the payer member tx (`skipPayerMemberTx: true`) since the import tx already records their share.
 
-**Step 2: Wire up the 3-posting import tx**
+**Files changed:**
+- `backend/src/import/postings.ts` — `buildFishPiePostings` wired
+- `backend/src/routes/import.ts` — 3-posting Fish Pie branch, payerShareRatio computed from member weights
+- `backend/src/fish-pie-expense-service.ts` — `skipPayerMemberTx` param added
 
-In `import.ts`, when `groupSplit` is set:
-1. Compute `payerShareRatio` from the group member weights
-2. Call `buildFishPiePostings` with the payer's `expenseAccountId` (from `member.defaultExpenseAccountId` or `ensureUncategorizedAccount`) and `groupAccountId` (from `ensureSharedAccount`)
-3. Pass a flag/option to `createGroupExpenseInTx` telling it to **skip the payer member tx** (since the import tx already covers it)
-
-In `fish-pie-expense-service.ts`, add an optional `skipPayerMemberTx: boolean` param to `createGroupExpenseInTx`. When true, skip creating the member tx for the payer (still create splits in `groupExpenseSplits`, still create non-payer member txs).
-
-**Step 3: Fix settlement signs**
-
-Current code in `fish-pie-settlements.ts`:
-- Payer (debtor) tx, line 113: posts `+amount` to group: — **wrong**, increases balance
-- Receiver (creditor) confirm tx, line 179: posts `−amount` to group: — **correct** for chequing/liability-flag
-
-With the 004b fix, creditor group: is +5 and debtor group: is +5. To clear both toward zero, both need `−amount`.
-
-```
-Payer (debtor):   group: +5 → post −5 → 0  ✓
-Receiver (creditor): group: +5 → post −5 → 0  ✓
-```
-
-Receiver tx already posts `−amount`, so only **one line needs changing**: line 113 from `amount` to `\`-${amount}\``.
-
-**Files to change:**
-- `backend/src/import/postings.ts` — new file
-- `backend/src/routes/import.ts` — use postings.ts, compute payerShareRatio, pass skipPayerMemberTx
-- `backend/src/fish-pie-expense-service.ts` — add skipPayerMemberTx param, skip payer member tx when set
-- `backend/src/routes/fish-pie-settlements.ts:113` — change `amount` to `-${amount}` for payer group: posting
-- Tests for all of the above
-
-**Test the fix with:**
-- Chequing $10, 50/50: group: = +5 for both, settlement clears both to 0
-- Liability-flag CC $10, 50/50: same as chequing (identical t.amount path)
-- Expense-only (no import): member txs unchanged, settlement unchanged
+**Verified by tests:**
+- Import tx has exactly 3 balanced postings
+- group: posting = others' share only (not full negated amount)
+- No payer member tx created for import-linked expenses
 
 ---
 

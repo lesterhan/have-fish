@@ -564,4 +564,82 @@ describe('POST /api/import/commit — group splits', () => {
     // Payer's 50% share = $50. Must not be $100 (import only) or $150 (double-counted).
     expect(net).toBeCloseTo(-50, 1)
   })
+
+  it('Fish Pie chequing import creates 3 balanced postings on the import tx', async () => {
+    // Chequing $1200, 50/50. Import tx must have 3 postings that sum to zero:
+    //   chequing −1200, group:housing +600 (B's share), expense +600 (A's share).
+    const expenseAccId = (await createAccount(cookieA, 'expenses:food')).id
+    await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultExpenseAccountId: expenseAccId }),
+    })
+
+    await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [regularRow('Rent', '-1200.00')],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    const allTxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
+    const importTx = allTxs.find((t) => !t.groupExpenseId)!
+    const txPostings = await db
+      .select()
+      .from(postings)
+      .where(and(eq(postings.transactionId, importTx.id), isNull(postings.deletedAt)))
+
+    expect(txPostings).toHaveLength(3)
+
+    const sum = txPostings.reduce((s, p) => s + parseFloat(p.amount), 0)
+    expect(Math.abs(sum)).toBeLessThan(0.01)
+
+    // group:housing gets only others' share (+600), not the full negated amount (+1200).
+    const [groupAccount] = await db
+      .select()
+      .from(accounts)
+      .where(and(eq(accounts.userId, userAId), eq(accounts.path, 'group:housing'), isNull(accounts.deletedAt)))
+    const groupPosting = txPostings.find((p) => p.accountId === groupAccount.id)
+    expect(groupPosting).toBeTruthy()
+    expect(parseFloat(groupPosting!.amount)).toBeCloseTo(600, 1)
+
+    // Expense account gets payer's share (+600 for chequing convention).
+    const expensePosting = txPostings.find((p) => p.accountId === expenseAccId)
+    expect(expensePosting).toBeTruthy()
+    expect(parseFloat(expensePosting!.amount)).toBeCloseTo(600, 1)
+  })
+
+  it('does not create a payer member transaction for import-linked Fish Pie expenses', async () => {
+    // Only B (non-payer) should get a member tx. A (payer) has only the import tx.
+    await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [regularRow('Groceries', '-60.00')],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    const userATxs = await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.userId, userAId), isNull(transactions.deletedAt)))
+    // A has exactly 1 tx: the import tx (no groupExpenseId)
+    expect(userATxs).toHaveLength(1)
+    expect(userATxs[0].groupExpenseId).toBeNull()
+
+    const userBTxs = await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.userId, userBId), isNull(transactions.deletedAt)))
+    // B has exactly 1 tx: their member tx (has groupExpenseId)
+    expect(userBTxs).toHaveLength(1)
+    expect(userBTxs[0].groupExpenseId).toBeTruthy()
+  })
 })
