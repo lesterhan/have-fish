@@ -1,5 +1,4 @@
 <script lang="ts">
-  import { onMount } from "svelte"
   import { SUPPORTED_CURRENCIES } from "$lib/currency"
   import CurrencyPill from "./CurrencyPill.svelte"
   import { settingsStore } from "$lib/settings.svelte"
@@ -30,14 +29,6 @@
 
   $effect(() => {
     if (!focused) inputText = value ?? ""
-  })
-
-  // When transitioning from pill → regular input, the ghost input unmounts and
-  // focus is lost to body. Re-focus the regular input so blur/commit work correctly.
-  $effect(() => {
-    if (focused && inputEl && document.activeElement !== inputEl) {
-      inputEl.focus()
-    }
   })
 
   let recentCurrencies = $derived(
@@ -137,6 +128,11 @@
     pushRecent(code)
     inputEl?.blur()
   }
+
+  function activatePill() {
+    inputText = ""
+    inputEl?.focus()
+  }
 </script>
 
 {#if open}
@@ -144,47 +140,48 @@
 {/if}
 
 <div class="wrapper" class:elevated={open} {style}>
+  <!--
+    Single input always in DOM — avoids the unmount→blur→focus-loss loop that
+    occurred when switching between ghost-input (pill mode) and currency-input
+    (edit mode). The pill-overlay sits on top when not editing.
+  -->
+  <input
+    bind:this={inputEl}
+    {id}
+    type="text"
+    class="currency-input"
+    bind:value={inputText}
+    {placeholder}
+    tabindex={showPill ? -1 : 0}
+    autocomplete="off"
+    spellcheck={false}
+    role="combobox"
+    aria-expanded={open}
+    aria-autocomplete="list"
+    aria-haspopup="listbox"
+    aria-controls={listboxId}
+    oninput={handleInput}
+    onfocus={handleFocus}
+    onblur={handleBlur}
+    onkeydown={handleKeydown}
+  />
+
   {#if showPill}
-    <!-- Natural display: just the pill, no input chrome -->
-    <!-- Hidden zero-size input stays in DOM so focus() works -->
-    <input
-      bind:this={inputEl}
-      {id}
-      type="text"
-      class="ghost-input"
-      bind:value={inputText}
-      autocomplete="off"
-      tabindex="-1"
-      aria-hidden="true"
-      onfocus={handleFocus}
-      onblur={handleBlur}
-      onkeydown={handleKeydown}
-    />
-    <!-- svelte-ignore a11y_click_events_have_key_events -->
-    <!-- svelte-ignore a11y_no_static_element_interactions -->
-    <div class="pill-display" onclick={() => { inputText = ""; inputEl?.focus() }}>
+    <div
+      class="pill-overlay"
+      tabindex="0"
+      role="button"
+      aria-label="Edit currency {value}"
+      onclick={activatePill}
+      onkeydown={(e) => {
+        if (e.key === "Enter" || e.key === " ") {
+          e.preventDefault()
+          activatePill()
+        }
+      }}
+    >
       <CurrencyPill code={value} />
     </div>
-  {:else}
-    <input
-      bind:this={inputEl}
-      {id}
-      type="text"
-      class="currency-input"
-      bind:value={inputText}
-      {placeholder}
-      autocomplete="off"
-      spellcheck={false}
-      role="combobox"
-      aria-expanded={open}
-      aria-autocomplete="list"
-      aria-haspopup="listbox"
-      aria-controls={listboxId}
-      oninput={handleInput}
-      onfocus={handleFocus}
-      onblur={handleBlur}
-      onkeydown={handleKeydown}
-    />
   {/if}
 
   {#if open && filtered.length > 0}
@@ -249,23 +246,33 @@
       0 0 0 2px var(--color-accent-light);
   }
 
-  .ghost-input {
+  /* Covers the input visually when a valid currency is set and not being edited */
+  .pill-overlay {
     position: absolute;
-    opacity: 0;
-    width: 0;
-    height: 0;
-    pointer-events: none;
-  }
-
-  .pill-display {
-    display: inline-flex;
+    inset: 0;
+    z-index: 1;
+    display: flex;
     align-items: center;
+    padding: 0 2px;
     cursor: text;
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    outline: none;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
   }
 
-  .pill-display:hover :global(.pill) {
-    outline: 2px solid var(--color-accent-light);
-    outline-offset: 1px;
+  .pill-overlay:hover {
+    border-color: var(--color-accent-mid);
+  }
+
+  .pill-overlay:focus {
+    border-color: var(--color-accent-mid);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-light);
   }
 
   .dropdown {

@@ -43,6 +43,7 @@
   let activeIndex = $state(0)
   let creating = $state(false)
   let dropUp = $state(false)
+  let dropdownStyle = $state('')
   let wrapperEl: HTMLElement | null = null
 
   // Returns the text up to and including the last colon, or the full text
@@ -121,7 +122,14 @@
     open = true
     if (wrapperEl) {
       const rect = wrapperEl.getBoundingClientRect()
-      dropUp = rect.bottom + 200 > window.innerHeight
+      const spaceBelow = window.innerHeight - rect.bottom
+      if (spaceBelow < 200 && rect.top > spaceBelow) {
+        dropUp = true
+        dropdownStyle = `position: fixed; bottom: ${window.innerHeight - rect.top + 1}px; left: ${rect.left}px; width: ${rect.width}px;`
+      } else {
+        dropUp = false
+        dropdownStyle = `position: fixed; top: ${rect.bottom + 1}px; left: ${rect.left}px; width: ${rect.width}px;`
+      }
     }
   }
 
@@ -223,7 +231,7 @@
   />
 
   {#if open && options.length > 0}
-    <ul id={listboxId} class="dropdown" class:drop-up={dropUp} role="listbox">
+    <ul id={listboxId} class="dropdown" style={dropdownStyle} role="listbox">
       {#each options as option, i}
         <li
           class="option"
@@ -231,7 +239,7 @@
           class:create={option.kind === 'create'}
           role="option"
           aria-selected={i === activeIndex}
-          onmousedown={() => selectOption(i)}
+          onmousedown={(e) => { e.preventDefault(); selectOption(i) }}
           onmousemove={() => {
             activeIndex = i
           }}
@@ -291,25 +299,15 @@
   }
 
   .dropdown {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
     z-index: 100;
     list-style: none;
-    margin: 1px 0 0;
+    margin: 0;
     padding: 0;
     background: var(--color-window);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-window);
     max-height: 200px;
     overflow-y: auto;
-  }
-
-  .dropdown.drop-up {
-    top: auto;
-    bottom: 100%;
-    margin: 0 0 1px;
   }
 
   .option {

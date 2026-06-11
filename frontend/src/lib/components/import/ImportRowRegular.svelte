@@ -1,6 +1,7 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import GroupSelect from './GroupSelect.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
   import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
@@ -92,20 +93,11 @@
         </span>
       </div>
     {:else if splitSelectOpen}
-      <select
-        class="split-select"
-        onchange={(e) => {
-          const val = (e.currentTarget as HTMLSelectElement).value
-          if (val) rowState.groupId = val
-          onclosesplit()
-        }}
-        onblur={onclosesplit}
-      >
-        <option value="">Choose group…</option>
-        {#each groups as g (g.id)}
-          <option value={g.id}>{g.name}</option>
-        {/each}
-      </select>
+      <GroupSelect
+        {groups}
+        onselect={(id) => { rowState.groupId = id }}
+        onclose={onclosesplit}
+      />
     {:else}
       <div class="offset-wrap">
         <AccountPathInput

@@ -125,6 +125,12 @@
 
     <div class="liability-bar">
       <Toggle bind:checked={importAsLiabilities} label="Import as liabilities" />
+      <div class="bar-actions">
+        <GradientButton onclick={oncancel}>Cancel</GradientButton>
+        <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
+          {loading ? 'Importing…' : 'Confirm import'}
+        </GradientButton>
+      </div>
     </div>
 
     <div class="table-container">
@@ -306,9 +312,15 @@
   .liability-bar {
     display: flex;
     align-items: center;
+    justify-content: space-between;
     padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
+  }
+
+  .bar-actions {
+    display: flex;
+    gap: var(--sp-sm);
   }
 
   /* ── Table structure ── */
@@ -441,16 +453,6 @@
     text-overflow: ellipsis;
     flex-shrink: 2;
     min-width: 0;
-  }
-
-  :global(.table-container .split-select) {
-    width: 100%;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    border: 1px solid var(--color-accent);
-    background: var(--color-window);
-    padding: 1px 2px;
-    outline: none;
   }
 
   /* ── Panel footer ── */
