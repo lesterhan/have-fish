@@ -121,26 +121,29 @@
             </span>
           {/if}
         </div>
-      {:else if splitSelectOpen}
+      {:else if !splitSelectOpen}
+        {#if tx.isTransfer === true}
+          <AccountPathInput
+            {accounts}
+            bind:value={rowState.conversionAccountId}
+            placeholder="equity:conversion…"
+            oncreate={onaccountcreated}
+          />
+        {:else}
+          <AccountPathInput
+            {accounts}
+            bind:value={rowState.offsetAccountId}
+            placeholder="Source account…"
+            oncreate={onaccountcreated}
+          />
+        {/if}
+      {/if}
+      {#if !rowState.groupId && splitSelectOpen}
         <GroupSelect
           {groups}
           anchorEl={offsetCellEl}
           onselect={(id) => { rowState = { ...rowState, groupId: id } }}
           onclose={onclosesplit}
-        />
-      {:else if tx.isTransfer === true}
-        <AccountPathInput
-          {accounts}
-          bind:value={rowState.conversionAccountId}
-          placeholder="equity:conversion…"
-          oncreate={onaccountcreated}
-        />
-      {:else}
-        <AccountPathInput
-          {accounts}
-          bind:value={rowState.offsetAccountId}
-          placeholder="Source account…"
-          oncreate={onaccountcreated}
         />
       {/if}
       {#if feeAccountPath}

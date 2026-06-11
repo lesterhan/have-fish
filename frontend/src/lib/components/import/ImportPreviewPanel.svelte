@@ -375,12 +375,6 @@
     background: var(--color-accent-light);
   }
 
-  /* fishpie-pill-group bg = --color-accent-light, same as row hover.
-     Pin cell-offset to window so pills stay visible on both row types. */
-  :global(.table-container tbody tr:hover .cell-offset) {
-    background: var(--color-window);
-  }
-
   :global(.table-container .cell-mono) {
     font-family: var(--font-mono);
     white-space: nowrap;
