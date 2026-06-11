@@ -13,6 +13,8 @@ async function fetchExpenseWithDetails(expenseIds: string[]) {
 
   const [expenses, splits] = await Promise.all([
     db.select().from(groupExpenses).where(inArray(groupExpenses.id, expenseIds)),
+    // Join through groupExpenses → expenseGroupMembers → accounts to get each
+    // member's configured expense account path for the delete impact dialog.
     db
       .select({
         id: groupExpenseSplits.id,
@@ -20,9 +22,19 @@ async function fetchExpenseWithDetails(expenseIds: string[]) {
         userId: groupExpenseSplits.userId,
         amount: groupExpenseSplits.amount,
         userName: user.name,
+        expenseAccountPath: accounts.path,
       })
       .from(groupExpenseSplits)
       .innerJoin(user, eq(groupExpenseSplits.userId, user.id))
+      .innerJoin(groupExpenses, eq(groupExpenseSplits.expenseId, groupExpenses.id))
+      .leftJoin(
+        expenseGroupMembers,
+        and(
+          eq(expenseGroupMembers.groupId, groupExpenses.groupId),
+          eq(expenseGroupMembers.userId, groupExpenseSplits.userId),
+        ),
+      )
+      .leftJoin(accounts, eq(accounts.id, expenseGroupMembers.defaultExpenseAccountId))
       .where(inArray(groupExpenseSplits.expenseId, expenseIds)),
   ])
 

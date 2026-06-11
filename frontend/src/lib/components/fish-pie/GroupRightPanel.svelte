@@ -384,18 +384,55 @@
                     <span class="form-error">{editError}</span>
                   {/if}
                   {#if editDeleteConfirm}
-                    <div class="delete-confirm-bar">
-                      <span class="delete-confirm-text">Delete this expense?</span>
-                      <GradientButton
-                        onclick={() => (editDeleteConfirm = false)}
-                        disabled={editDeleting}
-                      >Cancel</GradientButton>
-                      <GradientButton
-                        variant="warning"
-                        active
-                        onclick={handleDeleteFromEdit}
-                        disabled={editDeleting}
-                      >{editDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
+                    {@const isImportLinked = !!expense.transactionId}
+                    {@const uniqueAccountPaths = [...new Set(
+                      expense.splits.map((s) => s.expenseAccountPath ?? 'uncategorized')
+                    )]}
+                    {@const groupAccount = allAccounts.find((a) => a.path.startsWith('group:'))}
+                    <div class="delete-dialog">
+                      <p class="delete-dialog-title">Delete "{expense.description}"?</p>
+                      {#if isImportLinked}
+                        <p class="delete-dialog-note delete-dialog-note--warn">
+                          This will remove the group split <strong>and</strong> the original import transaction.
+                        </p>
+                      {:else}
+                        <p class="delete-dialog-note">
+                          {expense.splits.length} member transaction{expense.splits.length !== 1 ? 's' : ''} will be removed.
+                        </p>
+                      {/if}
+                      <div class="delete-accounts">
+                        <span class="delete-accounts-label">Accounts affected:</span>
+                        <ul class="delete-accounts-list">
+                          {#if isImportLinked}
+                            <li class="delete-account-item delete-account-item--warn">
+                              source account <span class="account-note">(original payment erased)</span>
+                            </li>
+                          {/if}
+                          {#each uniqueAccountPaths as path}
+                            <li class="delete-account-item">{path}</li>
+                          {/each}
+                          {#if groupAccount}
+                            <li class="delete-account-item">{groupAccount.path}</li>
+                          {/if}
+                        </ul>
+                      </div>
+                      <div class="delete-dialog-actions">
+                        <GradientButton
+                          onclick={() => (editDeleteConfirm = false)}
+                          disabled={editDeleting}
+                        >Cancel</GradientButton>
+                        {#if isImportLinked}
+                          <GradientButton disabled>
+                            Remove from group
+                          </GradientButton>
+                        {/if}
+                        <GradientButton
+                          variant="warning"
+                          active
+                          onclick={handleDeleteFromEdit}
+                          disabled={editDeleting}
+                        >{editDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
+                      </div>
                     </div>
                   {:else}
                     <button class="delete-link" onclick={() => (editDeleteConfirm = true)}>
@@ -955,22 +992,87 @@
     padding-top: var(--sp-xs);
   }
 
-  .delete-confirm-bar {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    padding: 5px 0;
-    border-top: 1px solid var(--color-danger);
-    background: var(--color-danger-light);
+  .delete-dialog {
     margin: 0 -12px -10px;
-    padding: 5px 12px;
+    padding: 10px 12px;
+    background: var(--color-danger-light);
+    border-top: 1px solid var(--color-danger);
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
   }
 
-  .delete-confirm-text {
-    flex: 1;
-    font-size: var(--text-xs);
+  .delete-dialog-title {
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
     color: var(--color-danger);
+    margin: 0;
+  }
+
+  .delete-dialog-note {
+    font-size: var(--text-xs);
+    color: var(--color-text);
+    margin: 0;
+    font-family: var(--font-sans);
+  }
+
+  .delete-dialog-note--warn {
+    color: var(--color-danger);
+  }
+
+  .delete-accounts {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .delete-accounts-label {
     font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .delete-accounts-list {
+    list-style: none;
+    margin: 0;
+    padding: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 1px;
+  }
+
+  .delete-account-item {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text);
+    padding-left: 10px;
+    position: relative;
+  }
+
+  .delete-account-item::before {
+    content: '·';
+    position: absolute;
+    left: 2px;
+    color: var(--color-text-muted);
+  }
+
+  .delete-account-item--warn {
+    color: var(--color-danger);
+  }
+
+  .account-note {
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .delete-dialog-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-xs);
+    padding-top: 4px;
   }
 
   .delete-link {

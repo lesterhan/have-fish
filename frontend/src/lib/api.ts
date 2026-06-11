@@ -864,6 +864,7 @@ export type ExpenseSplit = {
   userId: string
   amount: string
   userName: string
+  expenseAccountPath: string | null
 }
 
 export type GroupExpense = {
@@ -875,6 +876,7 @@ export type GroupExpense = {
   amount: string
   currency: string
   date: string
+  transactionId: string | null
   createdAt: string
   deletedAt: string | null
   splits: ExpenseSplit[]
