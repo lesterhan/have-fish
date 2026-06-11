@@ -117,7 +117,7 @@
       <GroupSelect
         {groups}
         anchorEl={offsetCellEl}
-        onselect={(id) => { rowState.groupId = id }}
+        onselect={(id) => { rowState = { ...rowState, groupId: id } }}
         onclose={onclosesplit}
       />
     {:else}
@@ -147,7 +147,7 @@
             square
             aria-label="Remove Fish Pie split"
             onclick={() => {
-              rowState.groupId = null
+              rowState = { ...rowState, groupId: null }
               onclosesplit()
             }}
           >×</GradientButton>
