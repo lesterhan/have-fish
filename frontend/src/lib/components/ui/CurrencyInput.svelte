@@ -241,7 +241,8 @@
   }
 
   .currency-input.pill-mode {
-    visibility: hidden;
+    opacity: 0;
+    pointer-events: none;
   }
 
   .currency-input:focus {
