@@ -148,7 +148,7 @@
             square
             aria-label="Remove Fish Pie split"
             onclick={() => {
-              rowState.groupId = null
+              rowState = { ...rowState, groupId: null }
               onclosesplit()
             }}
           >×</GradientButton>
