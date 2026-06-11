@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import type { GroupMember, GroupExpense, Account } from '$lib/api'
+  import { updateMyPaymentAccount } from '$lib/api'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
@@ -50,6 +51,7 @@
   let date = $state(today)
   let paidBy = $state(untrack(() => currentUserId))
   let paymentAccountId = $state(untrack(() => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? ''))
+  let savedPaymentAccountId = $state(untrack(() => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? ''))
   let localAccounts = $state(untrack(() => [...allAccounts]))
   let error = $state('')
   let submitting = $state(false)
@@ -73,6 +75,16 @@
   function openDatePicker() {
     ;(dateInputEl as any)?.showPicker?.()
     dateInputEl?.focus()
+  }
+
+  async function handlePaymentAccountCommit(id: string) {
+    if (!id || id === savedPaymentAccountId) return
+    try {
+      await updateMyPaymentAccount(groupId, id)
+      savedPaymentAccountId = id
+    } catch {
+      // silent — the user can still use the selected account for this expense
+    }
   }
 
   async function handleAdd() {
@@ -128,7 +140,8 @@
       accounts={localAccounts}
       bind:value={paymentAccountId}
       placeholder="liabilities:visa"
-      oncreate={(a) => (localAccounts = [...localAccounts, a])}
+      allowCreate={false}
+      oncommit={handlePaymentAccountCommit}
     />
   </div>
 
