@@ -113,14 +113,7 @@
           </span>
         {/if}
       </div>
-    {:else if splitSelectOpen}
-      <GroupSelect
-        {groups}
-        anchorEl={offsetCellEl}
-        onselect={(id) => { rowState.groupId = id }}
-        onclose={onclosesplit}
-      />
-    {:else}
+    {:else if !splitSelectOpen}
       <div class="offset-wrap">
         <AccountPathInput
           {accounts}
@@ -137,6 +130,14 @@
           </span>
         {/if}
       </div>
+    {/if}
+    {#if !rowState.groupId && splitSelectOpen}
+      <GroupSelect
+        {groups}
+        anchorEl={offsetCellEl}
+        onselect={(id) => { rowState.groupId = id }}
+        onclose={onclosesplit}
+      />
     {/if}
   </td>
   {#if showFishPie}
