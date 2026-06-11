@@ -3,6 +3,7 @@
   import type { GroupMember, GroupExpense, Account } from '$lib/api'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { initials } from './utils'
   import { toast } from '$lib/toast.svelte'
@@ -48,7 +49,8 @@
   const today = new Date().toISOString().slice(0, 10)
   let date = $state(today)
   let paidBy = $state(untrack(() => currentUserId))
-  let paymentAccountPath = $state(untrack(() => myPaymentAccountPath ?? ''))
+  let paymentAccountId = $state(untrack(() => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? ''))
+  let localAccounts = $state(untrack(() => [...allAccounts]))
   let error = $state('')
   let submitting = $state(false)
   let added = $state(false)
@@ -75,9 +77,8 @@
 
   async function handleAdd() {
     if (!amount || parseFloat(amount) <= 0 || submitting) return
-    const paymentAccount = allAccounts.find((a) => a.path === paymentAccountPath.trim())
-    if (!paymentAccount) {
-      error = 'Payment account not found — enter an account path like "liabilities:visa"'
+    if (!paymentAccountId) {
+      error = 'Select a payment account'
       return
     }
     error = ''
@@ -89,7 +90,7 @@
         currency: currency.trim().toUpperCase(),
         date,
         paidByUserId: paidBy || currentUserId,
-        paymentAccountId: paymentAccount.id,
+        paymentAccountId,
       })
       desc = ''
       amount = ''
@@ -123,10 +124,11 @@
 <div class="expense-form-wrap">
   <div class="field">
     <span class="field-label">Paid from account</span>
-    <TextInput
-      bind:value={paymentAccountPath}
+    <AccountPathInput
+      accounts={localAccounts}
+      bind:value={paymentAccountId}
       placeholder="liabilities:visa"
-      class="fill-input"
+      oncreate={(a) => (localAccounts = [...localAccounts, a])}
     />
   </div>
 
