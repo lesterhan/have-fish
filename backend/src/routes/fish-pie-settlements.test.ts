@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { transactions, postings } from '../db/schema'
+import { transactions, postings, accounts } from '../db/schema'
 import { eq, isNull, and } from 'drizzle-orm'
 
 describe('fish-pie settlements', () => {
@@ -284,5 +284,43 @@ describe('fish-pie settlements', () => {
         expect(txRow[0].deletedAt).not.toBeNull()
       }
     })
+  })
+
+  it('expense + settlement round-trip clears both clearing accounts to zero (BUG-004a)', async () => {
+    // A pays $100, 50/50 → B owes A $50
+    const expRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-04-27', paymentAccountId: accountAId }),
+    })
+    expect(expRes.status).toBe(201)
+
+    // B settles $50 to A, A confirms receipt
+    const setRes = await proposeSettlement('50.00')
+    expect(setRes.status).toBe(201)
+    const settlement = (await setRes.json()) as any
+    const confRes = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlement.id}/confirm`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiverAccountId: accountAId }),
+    })
+    expect(confRes.status).toBe(200)
+
+    async function clearingBalance(ownerId: string): Promise<number> {
+      const [acct] = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(and(eq(accounts.userId, ownerId), eq(accounts.path, 'group:trip'), isNull(accounts.deletedAt)))
+      const ps = await db
+        .select({ amount: postings.amount })
+        .from(postings)
+        .where(and(eq(postings.accountId, acct.id), isNull(postings.deletedAt)))
+      return ps.reduce((s, p) => s + parseFloat(p.amount), 0)
+    }
+
+    // Payer: +50 receivable at expense time, -50 on confirm → 0
+    expect(await clearingBalance(userAId)).toBeCloseTo(0, 2)
+    // Debtor: -50 debt at expense time, +50 on settlement → 0
+    expect(await clearingBalance(userBId)).toBeCloseTo(0, 2)
   })
 })

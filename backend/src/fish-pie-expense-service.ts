@@ -40,9 +40,11 @@ export function computeSplits(
 }
 
 // Creates member transactions for each split member.
-// Non-payer members always get a 2-posting tx (expense + shared clearing).
+// Non-payer members always get a 2-posting tx: expense +share (their spending),
+// shared clearing -share (their debt — cleared by the settlement payer leg's +amount).
 // Payer gets a 3-posting tx if paymentAccountId is provided (source - total, group + others, expense + payer share),
-// matching the import-path structure. Without paymentAccountId the payer also gets a 2-posting tx (legacy).
+// matching the import-path structure. Without paymentAccountId the payer gets a legacy
+// 2-posting tx with pre-BUG-005 signs (still reachable via PATCH — see BUG-006).
 // Called from both createGroupExpenseInTx (new expense) and the PATCH edit handler (rebuild after edit).
 export async function createMemberTransactionsInTx(
   tx: TxDb,
@@ -116,8 +118,29 @@ export async function createMemberTransactionsInTx(
         currency: normalizedCurrency,
       })
       await tx.insert(postings).values(payerPostings)
+    } else if (split.userId !== payerId) {
+      // 2-posting non-payer tx. Expense positive (their share of the spending,
+      // consistent with every other expense-posting path), clearing negative
+      // (their debt to the payer — the settlement payer leg posts +amount, which
+      // clears this to zero). BUG-005.
+      await tx.insert(postings).values([
+        {
+          transactionId: memberTx.id,
+          accountId: expenseAccountId,
+          amount: split.amount,
+          currency: normalizedCurrency,
+        },
+        {
+          transactionId: memberTx.id,
+          accountId: sharedAccountId,
+          amount: `-${split.amount}`,
+          currency: normalizedCurrency,
+        },
+      ])
     } else {
-      // 2-posting member tx (non-payer, or payer without source account)
+      // Legacy 2-posting payer tx (no source account). Signs intentionally kept
+      // pre-BUG-005: this path is only reachable via PATCH without
+      // paymentAccountId (BUG-006) and is removed by the proposals epic.
       await tx.insert(postings).values([
         {
           transactionId: memberTx.id,

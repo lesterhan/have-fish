@@ -43,4 +43,29 @@
 | [Fish Pie: Settlement Confirmation](epics/archive/fish-pie-settlement-confirmation.md) | Done |
 | [Fish Pie: CSV Import Integration](epics/fish-pie-csv-import.md) | Testing |
 | [Fish Pie: Expense Management](epics/fish-pie-expense-management.md) | Backlog |
+| [Fish Pie: Ledger Signs](epics/fish-pie-ledger-signs.md) | In Progress |
+| [Fish Pie: Categories](epics/fish-pie-categories.md) | Ready |
 | [Fish Pie: Expense Proposals](epics/fish-pie-expense-proposals.md) | Backlog |
+
+## Fish Pie sequence
+
+Agreed order for the Fish Pie overhaul (background and findings in
+[`planning/exploration/fish-pie-experience.md`](exploration/fish-pie-experience.md)).
+Pick up the first non-Done item:
+
+1. **[Ledger Signs](epics/fish-pie-ledger-signs.md)** — fix BUG-005 (debtor posting
+   signs) + data migration. Closes BUG-004a.
+2. **[Categories](epics/fish-pie-categories.md)** — single group per household,
+   category per expense, per-category weights, merge migration. Includes renaming
+   clearing accounts `group:<slug>` → `assets:receivable:<slug>` (decided 2026-06-11).
+3. **[Expense Proposals](epics/fish-pie-expense-proposals.md)** — amended: settlement
+   *warns* instead of hard-blocking on pending proposals; rebase onto categories.
+   Also resolves BUG-006 properly.
+4. **Mobile revival** (no epic yet) — payment account, categories, proposals support;
+   mobile expense entry is known-broken until then.
+5. **Import Rules v2** (no epic yet, see exploration F16) — then the fish-pie
+   auto-split rule action.
+6. **Fish Pie attention/notifications** (no epic yet, see exploration F17).
+7. **Settlement FX consolidation** (no epic yet) — settle all currencies as one
+   amount using stored FX rates.
+8. **hledger export** — after 1–2 stabilize ledger semantics.

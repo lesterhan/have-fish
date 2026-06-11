@@ -140,6 +140,71 @@ expense:  negated × payer_share_ratio     (e.g. +5 for 50/50)
 
 ---
 
+### BUG-005 — Non-payer member transactions post with inverted signs
+
+**Verified 2026-06-11** with a throwaway test (group of A+B, A pays $100 dinner 50/50,
+B's `defaultExpenseAccountId` = `expenses:food`):
+
+- B's `expenses:food` posting: `-50.00` — every other path (CSV import offset, payer
+  3-posting manual, import-linked 3-posting) posts expense shares **positive**.
+- B's `/api/reports/spending-summary`: `{"total":{"CAD":"-50.00"}}` — her share of
+  shared expenses *subtracts* from her spending reports instead of adding.
+
+**Root cause:** the 2-posting member transaction in
+`fish-pie-expense-service.ts` (`createMemberTransactionsInTx`, non-payer branch) posts
+`expenses:cat -share / group:slug +share`. Correct double-entry in this codebase's
+sign convention is `expenses:cat +share / group:slug -share` (debt = negative balance
+on the clearing account).
+
+**This is also the root cause of BUG-004a.** With the debtor's group: balance recorded
+as `-share`, the *existing* settlement payer leg (`fish-pie-settlements.ts:113`, posts
+`+amount` to group:) clears it to zero with no code change. The receiver side already
+clears correctly. 004a stops being a "larger redesign" and becomes part of this fix.
+
+**Fix direction:**
+1. Flip both signs in the non-payer branch of `createMemberTransactionsInTx`
+   (single choke point — POST, PATCH rebuild, and the future confirm endpoint all
+   route through it).
+2. One-off data migration for historical rows. Clean discriminator: flip postings of
+   transactions where `groupExpenseId IS NOT NULL AND transactions.userId != groupExpenses.paidByUserId`.
+   This hits exactly the debtor member txs; payer 3-posting txs, legacy payer
+   2-posting txs, import txs, and settlement txs are untouched.
+3. Regression tests: posting signs, spending-summary includes `+share`, settlement
+   clears the debtor's group: balance to 0.
+
+**Note:** legacy payer 2-posting transactions (pre-expense-management, no source
+account) also under-record the payer's own spending (`expenses -share`). Out of scope
+here — flag separately if it matters for historical reports.
+
+---
+
+### BUG-006 — Editing a manual expense silently degrades the payer's transaction
+
+**Found 2026-06-11** while scoping the BUG-005 fix.
+
+**Steps to reproduce:**
+1. Create a manual fish-pie expense (payer tx correctly gets 3 postings:
+   payment −total / group +others / expense +share)
+2. Edit the expense in the web UI (change description, amount, anything)
+
+**Expected:** payer tx rebuilt with the same 3-posting structure.
+
+**Actual:** payer tx rebuilt as a legacy 2-posting tx — the source-account posting is
+gone, so the payment is no longer recorded against the payer's real account.
+
+**Root cause:** `GroupRightPanel.handleSaveEdit` never sends `paymentAccountId`
+(GroupRightPanel.svelte:153-160). `PATCH /expenses/:id` treats it as optional and
+passes `undefined` into `createMemberTransactionsInTx`, which falls back to the
+legacy 2-posting payer path (`isPayerWithSource` false).
+
+**Fix direction:** PATCH falls back to the payer member's `defaultPaymentAccountId`
+(auto-saved on every create, so almost always set) when the body omits
+`paymentAccountId` and the expense is not import-linked. Frontend can also send the
+known account. Fully superseded later by the expense-proposals epic, which reworks
+the payer/account flow on PATCH.
+
+---
+
 ## CSV Import
 
 ### BUG-002 — Liability account imports have inverted signs ✓ Fixed
