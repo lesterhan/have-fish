@@ -1,6 +1,7 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import GroupSelect from './GroupSelect.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
   import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
@@ -38,6 +39,22 @@
     onclosesplit,
     onaccountcreated,
   }: Props = $props()
+
+  let offsetCellEl: HTMLElement | null = $state(null)
+
+  let shareHint = $derived.by(() => {
+    if (!rowState.groupId) return null
+    const group = groups.find((g) => g.id === rowState.groupId)
+    if (!group) return null
+    const me = group.members.find((m) => m.userId === currentUserId)
+    if (!me) return null
+    const totalWeight = group.members.reduce((s, m) => s + m.shareWeight, 0)
+    if (totalWeight === 0) return null
+    const ratio = me.shareWeight / totalWeight
+    const raw = Math.abs(parseFloat(tx.amount)) * ratio
+    if (isNaN(raw)) return null
+    return `${raw.toFixed(2)} ${tx.currency ?? defaultCurrency}`
+  })
 
   function displayAmount(amount: string): string {
     if (!importAsLiabilities) return amount
@@ -80,7 +97,7 @@
     {displayAmount(tx.amount)}{#if isMultiCurrency}{tx.currency ?? defaultCurrency}{/if}
   </td>
   {#if !isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
-  <td class="cell-offset">
+  <td class="cell-offset" bind:this={offsetCellEl}>
     {#if rowState.groupId}
       <div class="fishpie-pills">
         <span class="fishpie-pill-group">
@@ -90,22 +107,19 @@
         <span class="fishpie-pill-account">
           {groupExpenseAccountPath(groups, accounts, currentUserId, rowState.groupId)}
         </span>
+        {#if shareHint}
+          <span class="fishpie-pill-share">
+            <Icon name="pie-chart" size={9} />{shareHint}
+          </span>
+        {/if}
       </div>
     {:else if splitSelectOpen}
-      <select
-        class="split-select"
-        onchange={(e) => {
-          const val = (e.currentTarget as HTMLSelectElement).value
-          if (val) rowState.groupId = val
-          onclosesplit()
-        }}
-        onblur={onclosesplit}
-      >
-        <option value="">Choose group…</option>
-        {#each groups as g (g.id)}
-          <option value={g.id}>{g.name}</option>
-        {/each}
-      </select>
+      <GroupSelect
+        {groups}
+        anchorEl={offsetCellEl}
+        onselect={(id) => { rowState.groupId = id }}
+        onclose={onclosesplit}
+      />
     {:else}
       <div class="offset-wrap">
         <AccountPathInput

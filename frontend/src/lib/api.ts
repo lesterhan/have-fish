@@ -301,6 +301,7 @@ export type UserPreferences = {
   hiddenAccountIds?: string[]
   accentColor?: import('$lib/accent').AccentKey
   recentCurrencies?: string[]
+  recentGroups?: string[]
 }
 
 export type UserSettings = {
