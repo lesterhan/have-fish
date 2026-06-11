@@ -71,15 +71,20 @@
   function handleKeydown(e: KeyboardEvent) {
     if (e.key === 'ArrowDown') {
       e.preventDefault()
+      e.stopPropagation()
       activeIndex = (activeIndex + 1) % sortedGroups.length
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
+      e.stopPropagation()
       activeIndex = (activeIndex - 1 + sortedGroups.length) % sortedGroups.length
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      e.stopPropagation()
       const g = sortedGroups[activeIndex]
       if (g) select(g.id)
     } else if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
       onclose()
     }
   }
