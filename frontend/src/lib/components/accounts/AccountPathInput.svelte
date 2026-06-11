@@ -156,21 +156,34 @@
 
     if (e.key === 'ArrowDown') {
       e.preventDefault()
+      e.stopPropagation()
       activeIndex = (activeIndex + 1) % options.length
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
+      e.stopPropagation()
       activeIndex = (activeIndex - 1 + options.length) % options.length
     } else if (e.key === 'Enter') {
       e.preventDefault()
+      e.stopPropagation()
       if (searchOnly) {
-        // Commit the raw input as a partial path prefix — don't force an exact account match.
-        open = false
-        value = inputText.trim()
-        oncommit?.(value)
+        // If an option is highlighted, select its path. Otherwise commit the raw typed text.
+        const highlighted = options[activeIndex]
+        if (highlighted?.kind === 'existing') {
+          value = highlighted.account.path
+          inputText = highlighted.account.path
+          open = false
+          oncommit?.(value)
+        } else {
+          open = false
+          value = inputText.trim()
+          oncommit?.(value)
+        }
       } else {
         selectOption(activeIndex)
       }
     } else if (e.key === 'Escape') {
+      e.preventDefault()
+      e.stopPropagation()
       open = false
       inputText = searchOnly
         ? value
