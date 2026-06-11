@@ -95,7 +95,7 @@
 </script>
 
 <!-- Takes up 22px in the cell so the row height doesn't change -->
-<div class="placeholder"></div>
+<div class="placeholder">Choose group…</div>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -128,6 +128,15 @@
 <style>
   .placeholder {
     height: 22px;
+    display: flex;
+    align-items: center;
+    padding: 0 var(--sp-xs);
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--color-text-muted);
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-accent-mid);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
   }
 
   .backdrop {
