@@ -197,6 +197,12 @@
     background: var(--color-accent-light);
   }
 
+  /* fishpie-pill-group background = var(--color-accent-light), so it vanishes
+     against the hovered row. Pin cell-offset to window bg to keep pills visible. */
+  .row-transfer:hover .cell-offset {
+    background: var(--color-window);
+  }
+
   .cell-transfer-amount {
     font-family: var(--font-mono);
     white-space: nowrap;
