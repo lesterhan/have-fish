@@ -163,11 +163,15 @@ describe('fish-pie expenses', () => {
     const payerCredits = payerPs.filter((p) => parseFloat(p.amount) > 0)
     expect(payerCredits.reduce((s, p) => s + parseFloat(p.amount), 0)).toBeCloseTo(200, 2)
 
-    // Non-payer gets 2 postings: expense(-100), shared(+100)
+    // Non-payer gets 2 postings: expense +100 (their share of spending), shared -100 (their debt)
     const nonPayerPs = await db.select().from(postings).where(eq(postings.transactionId, nonPayerTx.id))
     expect(nonPayerPs).toHaveLength(2)
-    const nonPayerDebit = nonPayerPs.find((p) => parseFloat(p.amount) < 0)!
-    expect(Math.abs(parseFloat(nonPayerDebit.amount))).toBeCloseTo(100, 2)
+    const nonPayerAccts = await db.select().from(accounts).where(inArray(accounts.id, nonPayerPs.map((p) => p.accountId)))
+    const sharedAcct = nonPayerAccts.find((a) => a.path.startsWith('group:'))!
+    const sharedPosting = nonPayerPs.find((p) => p.accountId === sharedAcct.id)!
+    const expensePosting = nonPayerPs.find((p) => p.accountId !== sharedAcct.id)!
+    expect(parseFloat(expensePosting.amount)).toBeCloseTo(100, 2)
+    expect(parseFloat(sharedPosting.amount)).toBeCloseTo(-100, 2)
   })
 
   it('DELETE soft-deletes group expense and all linked transactions + postings', async () => {
@@ -902,11 +906,15 @@ describe('fish-pie Story 3 — paymentAccountId required, 3-posting payer tx, de
     const payerSum = payerPs.reduce((s, p) => s + parseFloat(p.amount), 0)
     expect(Math.abs(payerSum)).toBeLessThan(0.01)
 
-    // Non-payer tx: 2 postings (expense -50, shared +50)
+    // Non-payer tx: 2 postings (expense +50, shared -50) — see BUG-005
     const nonPayerPs = await db.select().from(postings).where(eq(postings.transactionId, nonPayerTx.id))
     expect(nonPayerPs).toHaveLength(2)
-    const nonPayerDebit = nonPayerPs.find((p) => parseFloat(p.amount) < 0)!
-    expect(Math.abs(parseFloat(nonPayerDebit.amount))).toBeCloseTo(50, 2)
+    const nonPayerAccts = await db.select().from(accounts).where(inArray(accounts.id, nonPayerPs.map((p) => p.accountId)))
+    const sharedAcct = nonPayerAccts.find((a) => a.path.startsWith('group:'))!
+    const sharedPosting = nonPayerPs.find((p) => p.accountId === sharedAcct.id)!
+    const expensePosting = nonPayerPs.find((p) => p.accountId !== sharedAcct.id)!
+    expect(parseFloat(expensePosting.amount)).toBeCloseTo(50, 2)
+    expect(parseFloat(sharedPosting.amount)).toBeCloseTo(-50, 2)
     const nonPayerSum = nonPayerPs.reduce((s, p) => s + parseFloat(p.amount), 0)
     expect(Math.abs(nonPayerSum)).toBeLessThan(0.01)
   })
@@ -974,5 +982,106 @@ describe('fish-pie Story 3 — paymentAccountId required, 3-posting payer tx, de
     expect(res.status).toBe(200)
     const updated = await res.json() as any
     expect(updated.defaultPaymentAccountId).toBeNull()
+  })
+})
+
+describe('fish-pie BUG-005 — non-payer posting signs', () => {
+  let cookieA: string
+  let cookieB: string
+  let groupId: string
+  let userId: string
+  let userIdB: string
+  let paymentAccountId: string
+  let foodAccountBId: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+    cookieA = await createTestUser('a@test.com', 'passwordA')
+    cookieB = await createTestUser('b@test.com', 'passwordB')
+
+    const sessionA = await app.request('/api/auth/get-session', { headers: { Cookie: cookieA } })
+    userId = (await sessionA.json() as any).user.id
+    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    userIdB = (await sessionB.json() as any).user.id
+
+    const groupRes = await app.request('/api/fish-pie/groups', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Household' }),
+    })
+    groupId = (await groupRes.json() as any).id
+
+    const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'b@test.com' }),
+    })
+    const inviteId = (await invRes.json() as any).id
+    await app.request(`/api/fish-pie/invites/${inviteId}/accept`, {
+      method: 'POST',
+      headers: { Cookie: cookieB },
+    })
+
+    const srcRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'liabilities:visa', name: 'Visa' }),
+    })
+    paymentAccountId = (await srcRes.json() as any).id
+
+    // B routes their group shares to expenses:food
+    const foodRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'expenses:food', name: 'Food' }),
+    })
+    foodAccountBId = (await foodRes.json() as any).id
+    await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultExpenseAccountId: foodAccountBId }),
+    })
+  })
+
+  it('non-payer share counts positively in their spending summary', async () => {
+    const res = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-06-01', paymentAccountId }),
+    })
+    expect(res.status).toBe(201)
+
+    const sumRes = await app.request('/api/reports/spending-summary?from=2026-06-01&to=2026-06-30', {
+      headers: { Cookie: cookieB },
+    })
+    expect(sumRes.status).toBe(200)
+    const summary = await sumRes.json() as any
+    expect(summary.total.CAD).toBe('50.00')
+    const food = summary.categories.find((cat: any) => cat.category === 'expenses:food')
+    expect(food.total.CAD).toBe('50.00')
+  })
+
+  it('clearing accounts carry +others share for the payer and -share for the non-payer', async () => {
+    const res = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-06-01', paymentAccountId }),
+    })
+    expect(res.status).toBe(201)
+
+    async function clearingBalance(ownerId: string): Promise<number> {
+      const [acct] = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(and(eq(accounts.userId, ownerId), eq(accounts.path, 'group:household'), isNull(accounts.deletedAt)))
+      const ps = await db
+        .select({ amount: postings.amount })
+        .from(postings)
+        .where(and(eq(postings.accountId, acct.id), isNull(postings.deletedAt)))
+      return ps.reduce((s, p) => s + parseFloat(p.amount), 0)
+    }
+
+    expect(await clearingBalance(userId)).toBeCloseTo(50, 2)   // payer is owed B's share
+    expect(await clearingBalance(userIdB)).toBeCloseTo(-50, 2) // B owes their share
   })
 })
