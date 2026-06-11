@@ -204,6 +204,11 @@
       }
     }
   }
+
+  function portal(node: HTMLElement) {
+    document.body.appendChild(node)
+    return { destroy() { node.remove() } }
+  }
 </script>
 
 {#if open}
@@ -231,7 +236,7 @@
   />
 
   {#if open && options.length > 0}
-    <ul id={listboxId} class="dropdown" style={dropdownStyle} role="listbox">
+    <ul use:portal id={listboxId} class="dropdown" style={dropdownStyle} role="listbox">
       {#each options as option, i}
         <li
           class="option"
