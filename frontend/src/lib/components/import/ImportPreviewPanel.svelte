@@ -416,10 +416,25 @@
 
   :global(.table-container .fishpie-pills) {
     display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 2px;
+    min-width: 0;
+  }
+
+  :global(.table-container .fishpie-pills-row) {
+    display: flex;
     align-items: center;
     gap: 3px;
     flex-wrap: nowrap;
     min-width: 0;
+  }
+
+  :global(.table-container .share-hint) {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
   }
 
   :global(.table-container .fishpie-pill-group) {

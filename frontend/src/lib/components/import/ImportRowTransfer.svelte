@@ -41,6 +41,22 @@
 
   let offsetCellEl: HTMLElement | null = $state(null)
 
+  let shareHint = $derived.by(() => {
+    if (!rowState.groupId) return null
+    const group = groups.find((g) => g.id === rowState.groupId)
+    if (!group) return null
+    const me = group.members.find((m) => m.userId === currentUserId)
+    if (!me) return null
+    const totalWeight = group.members.reduce((s, m) => s + m.shareWeight, 0)
+    if (totalWeight === 0) return null
+    const ratio = me.shareWeight / totalWeight
+    const amountStr = tx.isTransfer === true ? tx.sourceAmount : tx.amount
+    const currency = tx.isTransfer === true ? tx.sourceCurrency : tx.currency
+    const raw = Math.abs(parseFloat(amountStr)) * ratio
+    if (isNaN(raw)) return null
+    return `${raw.toFixed(2)} ${currency}`
+  })
+
   let feeAccountPath = $derived(
     rowState.feeAccountId
       ? (accounts.find((a) => a.id === rowState.feeAccountId)?.path ?? null)
@@ -87,18 +103,23 @@
     <div class="transfer-accounts">
       {#if rowState.groupId}
         <div class="fishpie-pills">
-          <span class="fishpie-pill-group">
-            <Icon name="pie" size={11} />
-            {groupName(groups, rowState.groupId)}
-          </span>
-          <span class="fishpie-pill-account">
-            {groupExpenseAccountPath(
-              groups,
-              accounts,
-              currentUserId,
-              rowState.groupId,
-            )}
-          </span>
+          <div class="fishpie-pills-row">
+            <span class="fishpie-pill-group">
+              <Icon name="pie" size={11} />
+              {groupName(groups, rowState.groupId)}
+            </span>
+            <span class="fishpie-pill-account">
+              {groupExpenseAccountPath(
+                groups,
+                accounts,
+                currentUserId,
+                rowState.groupId,
+              )}
+            </span>
+          </div>
+          {#if shareHint}
+            <span class="share-hint">your share: {shareHint}</span>
+          {/if}
         </div>
       {:else if splitSelectOpen}
         <GroupSelect
@@ -210,11 +231,7 @@
   .fee-pill {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    height: 22px;
-    padding: 0 var(--sp-xs);
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
+    gap: 3px;
     font-family: var(--font-mono);
     font-size: 10px;
     color: var(--color-text-muted);
@@ -222,7 +239,7 @@
   }
 
   .fee-pill code {
-    color: var(--color-text);
+    color: var(--color-text-muted);
     font-family: var(--font-mono);
     font-size: 10px;
   }

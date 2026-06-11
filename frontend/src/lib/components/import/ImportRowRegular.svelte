@@ -42,6 +42,20 @@
 
   let offsetCellEl: HTMLElement | null = $state(null)
 
+  let shareHint = $derived.by(() => {
+    if (!rowState.groupId) return null
+    const group = groups.find((g) => g.id === rowState.groupId)
+    if (!group) return null
+    const me = group.members.find((m) => m.userId === currentUserId)
+    if (!me) return null
+    const totalWeight = group.members.reduce((s, m) => s + m.shareWeight, 0)
+    if (totalWeight === 0) return null
+    const ratio = me.shareWeight / totalWeight
+    const raw = Math.abs(parseFloat(tx.amount)) * ratio
+    if (isNaN(raw)) return null
+    return `${raw.toFixed(2)} ${tx.currency ?? defaultCurrency}`
+  })
+
   function displayAmount(amount: string): string {
     if (!importAsLiabilities) return amount
     const n = parseFloat(amount)
@@ -86,13 +100,18 @@
   <td class="cell-offset" bind:this={offsetCellEl}>
     {#if rowState.groupId}
       <div class="fishpie-pills">
-        <span class="fishpie-pill-group">
-          <Icon name="pie" size={11} />
-          {groupName(groups, rowState.groupId)}
-        </span>
-        <span class="fishpie-pill-account">
-          {groupExpenseAccountPath(groups, accounts, currentUserId, rowState.groupId)}
-        </span>
+        <div class="fishpie-pills-row">
+          <span class="fishpie-pill-group">
+            <Icon name="pie" size={11} />
+            {groupName(groups, rowState.groupId)}
+          </span>
+          <span class="fishpie-pill-account">
+            {groupExpenseAccountPath(groups, accounts, currentUserId, rowState.groupId)}
+          </span>
+        </div>
+        {#if shareHint}
+          <span class="share-hint">your share: {shareHint}</span>
+        {/if}
       </div>
     {:else if splitSelectOpen}
       <GroupSelect
