@@ -10,6 +10,7 @@
     fetchExpenses,
     createExpense,
     deleteExpense,
+    updateExpense,
     fetchBalances,
     fetchSettlements,
     createSettlement,
@@ -154,6 +155,16 @@
     await deleteExpense(groupId, expenseId)
     expenses = expenses.filter((e) => e.id !== expenseId)
     await refreshBalances()
+  }
+
+  async function handleUpdateExpense(
+    expenseId: string,
+    data: Parameters<typeof updateExpense>[2],
+  ) {
+    const updated = await updateExpense(groupId, expenseId, data)
+    expenses = expenses.map((e) => (e.id === expenseId ? updated : e))
+    await refreshBalances()
+    return updated
   }
 
   async function handleSettle(data: {
@@ -368,12 +379,14 @@
       <GroupRightPanel
         {expenses}
         {settlements}
+        members={group.members}
         {currentUserId}
         {groupId}
         {allAccounts}
         groupCreatedBy={group.createdBy}
         onDeleteExpense={handleDeleteExpense}
         onDeleteSettlement={handleDeleteSettlement}
+        onUpdateExpense={handleUpdateExpense}
         onConfirmSettlement={handleConfirmSettlement}
       />
     </div>

@@ -903,6 +903,31 @@ export async function createExpense(
   return res.json()
 }
 
+export async function updateExpense(
+  groupId: string,
+  expenseId: string,
+  body: {
+    description?: string
+    amount?: string
+    currency?: string
+    date?: string
+    paidByUserId?: string
+    splits?: { userId: string; shareWeight: number }[]
+  },
+): Promise<GroupExpense> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to update expense')
+  }
+  return res.json()
+}
+
 export async function deleteExpense(groupId: string, expenseId: string): Promise<void> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
     method: 'DELETE',

@@ -1,20 +1,32 @@
 <script lang="ts">
-  import type { GroupExpense, GroupSettlement, Account } from '$lib/api'
+  import type { GroupExpense, GroupSettlement, Account, GroupMember } from '$lib/api'
   import Icon from '$lib/components/ui/Icon.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyPill from '../ui/CurrencyPill.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { initials } from './utils'
 
+  interface UpdateExpenseData {
+    description?: string
+    amount?: string
+    currency?: string
+    date?: string
+    paidByUserId?: string
+    splits?: { userId: string; shareWeight: number }[]
+  }
+
   interface Props {
     expenses: GroupExpense[]
     settlements: GroupSettlement[]
+    members: GroupMember[]
     currentUserId: string
     groupId: string
     allAccounts: Account[]
     groupCreatedBy: string
     onDeleteExpense: (id: string) => Promise<void>
     onDeleteSettlement: (id: string) => Promise<void>
+    onUpdateExpense: (id: string, data: UpdateExpenseData) => Promise<GroupExpense>
     onConfirmSettlement: (
       id: string,
       receiverAccountId: string,
@@ -24,12 +36,14 @@
   let {
     expenses,
     settlements,
+    members,
     currentUserId,
     groupId,
     allAccounts,
     groupCreatedBy,
     onDeleteExpense,
     onDeleteSettlement,
+    onUpdateExpense,
     onConfirmSettlement,
   }: Props = $props()
 
@@ -37,11 +51,24 @@
   let expandedExpenseId = $state<string | null>(null)
   let settlementDeleteConfirmId = $state<string | null>(null)
   let settlementDeleting = $state(false)
-  let expenseDeleteConfirmId = $state<string | null>(null)
-  let expenseDeleting = $state(false)
 
-  // Per-settlement confirm state: settlementId → { accountId, submitting, error, open }
-  // Never mutate this during rendering — only from event handlers.
+  // Edit form state
+  let expenseEditId = $state<string | null>(null)
+  let editDesc = $state('')
+  let editAmount = $state('')
+  let editCurrency = $state('')
+  let editDate = $state('')
+  let editPayerId = $state('')
+  let editSliderPct = $state(50)
+  let editSubmitting = $state(false)
+  let editSaved = $state(false)
+  let editError = $state('')
+  let editDeleteConfirm = $state(false)
+  let editDeleting = $state(false)
+
+  let editDateInputEl = $state<HTMLInputElement | null>(null)
+
+  // Per-settlement confirm state
   let confirmStates = $state<
     Record<
       string,
@@ -50,26 +77,107 @@
   >({})
 
   function openConfirmForm(id: string) {
-    confirmStates[id] = {
-      accountId: '',
-      submitting: false,
-      error: '',
-      open: true,
-    }
+    confirmStates[id] = { accountId: '', submitting: false, error: '', open: true }
   }
 
   function closeConfirmForm(id: string) {
     if (confirmStates[id]) confirmStates[id].open = false
   }
 
-  async function confirmDeleteExpense() {
-    if (!expenseDeleteConfirmId || expenseDeleting) return
-    expenseDeleting = true
+  function canActOnExpense(expense: GroupExpense) {
+    return expense.paidByUserId === currentUserId || groupCreatedBy === currentUserId
+  }
+
+  function canDeleteSettlement(s: GroupSettlement) {
+    return (
+      s.fromUserId === currentUserId ||
+      s.toUserId === currentUserId ||
+      groupCreatedBy === currentUserId
+    )
+  }
+
+  function computeInitialSlider(expense: GroupExpense): number {
+    if (members.length !== 2) return 50
+    const total = expense.splits.reduce((s, sp) => s + parseFloat(sp.amount), 0)
+    if (total === 0) return 50
+    const first = expense.splits.find((s) => s.userId === members[0].userId)
+    return first ? Math.round((parseFloat(first.amount) / total) * 100) : 50
+  }
+
+  function openEdit(expense: GroupExpense) {
+    expenseEditId = expense.id
+    expandedExpenseId = null
+    editDesc = expense.description
+    editAmount = expense.amount
+    editCurrency = expense.currency
+    editDate = expense.date
+    editPayerId = expense.paidByUserId
+    editSliderPct = computeInitialSlider(expense)
+    editError = ''
+    editSaved = false
+    editDeleteConfirm = false
+  }
+
+  function closeEdit() {
+    expenseEditId = null
+    editError = ''
+    editDeleteConfirm = false
+  }
+
+  function openEditDatePicker() {
+    ;(editDateInputEl as any)?.showPicker?.()
+    editDateInputEl?.focus()
+  }
+
+  const editDateLabel = $derived.by(() => {
+    if (!editDate) return ''
+    const today = new Date().toISOString().slice(0, 10)
+    return editDate === today
+      ? 'Today'
+      : new Date(editDate + 'T00:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+  })
+
+  async function handleSaveEdit() {
+    if (!expenseEditId || editSubmitting) return
+    editError = ''
+    editSubmitting = true
     try {
-      await onDeleteExpense(expenseDeleteConfirmId)
-      expenseDeleteConfirmId = null
+      const splits =
+        members.length === 2
+          ? [
+              { userId: members[0].userId, shareWeight: Math.max(1, Math.round(editSliderPct)) },
+              { userId: members[1].userId, shareWeight: Math.max(1, 100 - Math.round(editSliderPct)) },
+            ]
+          : undefined
+      await onUpdateExpense(expenseEditId, {
+        description: editDesc.trim(),
+        amount: editAmount,
+        currency: editCurrency.trim().toUpperCase(),
+        date: editDate,
+        paidByUserId: editPayerId,
+        splits,
+      })
+      editSaved = true
+      setTimeout(() => {
+        expenseEditId = null
+        editSaved = false
+      }, 900)
+    } catch (e: any) {
+      editError = e.message ?? 'Failed to save'
     } finally {
-      expenseDeleting = false
+      editSubmitting = false
+    }
+  }
+
+  async function handleDeleteFromEdit() {
+    if (!expenseEditId || editDeleting) return
+    editDeleting = true
+    try {
+      await onDeleteExpense(expenseEditId)
+      expenseEditId = null
+      editDeleteConfirm = false
+    } finally {
+      editDeleting = false
     }
   }
 
@@ -82,20 +190,6 @@
     } finally {
       settlementDeleting = false
     }
-  }
-
-  function canDeleteExpense(expense: GroupExpense) {
-    return (
-      expense.paidByUserId === currentUserId || groupCreatedBy === currentUserId
-    )
-  }
-
-  function canDeleteSettlement(s: GroupSettlement) {
-    return (
-      s.fromUserId === currentUserId ||
-      s.toUserId === currentUserId ||
-      groupCreatedBy === currentUserId
-    )
   }
 
   async function handleConfirm(s: GroupSettlement) {
@@ -113,12 +207,8 @@
     }
   }
 
-  const pendingSettlements = $derived(
-    settlements.filter((s) => s.status === 'pending'),
-  )
-  const completedSettlements = $derived(
-    settlements.filter((s) => s.status === 'completed'),
-  )
+  const pendingSettlements = $derived(settlements.filter((s) => s.status === 'pending'))
+  const completedSettlements = $derived(settlements.filter((s) => s.status === 'completed'))
 </script>
 
 <div class="txn-panel">
@@ -128,18 +218,14 @@
       class:active={panelTab === 'expenses'}
       onclick={() => (panelTab = 'expenses')}
     >
-      Expenses{#if expenses.length > 0}<span class="tab-count">
-          {expenses.length}</span
-        >{/if}
+      Expenses{#if expenses.length > 0}<span class="tab-count">{expenses.length}</span>{/if}
     </button>
     <button
       class="panel-tab"
       class:active={panelTab === 'settlements'}
       onclick={() => (panelTab = 'settlements')}
     >
-      Settlements{#if settlements.length > 0}<span class="tab-count">
-          {settlements.length}</span
-        >{/if}
+      Settlements{#if settlements.length > 0}<span class="tab-count">{settlements.length}</span>{/if}
     </button>
   </div>
 
@@ -150,85 +236,180 @@
       {:else}
         <div class="expense-list">
           {#each expenses as expense (expense.id)}
+            {@const isEditing = expenseEditId === expense.id}
             <div
               class="expense-item"
               class:expanded={expandedExpenseId === expense.id}
+              class:editing={isEditing}
             >
               <div class="expense-row-wrap">
                 <div
                   class="expense-row"
                   role="button"
                   tabindex="0"
-                  onclick={() =>
-                    (expandedExpenseId =
-                      expandedExpenseId === expense.id ? null : expense.id)}
+                  onclick={() => {
+                    if (isEditing) {
+                      closeEdit()
+                    } else {
+                      expandedExpenseId = expandedExpenseId === expense.id ? null : expense.id
+                    }
+                  }}
                   onkeydown={(e) =>
                     e.key === 'Enter' &&
-                    (expandedExpenseId =
-                      expandedExpenseId === expense.id ? null : expense.id)}
+                    (isEditing
+                      ? closeEdit()
+                      : (expandedExpenseId =
+                          expandedExpenseId === expense.id ? null : expense.id))}
                 >
                   <div class="row-avatar">{initials(expense.payerName)}</div>
                   <div class="expense-info">
                     <span class="expense-desc">{expense.description}</span>
-                    <span class="expense-meta"
-                      >{expense.date} · {expense.payerName}</span
-                    >
+                    <span class="expense-meta">{expense.date} · {expense.payerName}</span>
                   </div>
                   <div class="expense-right">
-                    <span class="expense-amount"
-                      >{parseFloat(expense.amount).toFixed(2)}</span
-                    >
+                    <span class="expense-amount">{parseFloat(expense.amount).toFixed(2)}</span>
                     <CurrencyPill code={expense.currency} />
                   </div>
                   <Icon
-                    name={expandedExpenseId === expense.id
+                    name={expandedExpenseId === expense.id || isEditing
                       ? 'chevron-up-filled'
                       : 'chevron-down-line'}
                     size={12}
                   />
                 </div>
-                {#if canDeleteExpense(expense)}
+                {#if canActOnExpense(expense)}
                   <button
-                    class="delete-btn"
-                    class:delete-btn--active={expenseDeleteConfirmId ===
-                      expense.id}
-                    onclick={() =>
-                      (expenseDeleteConfirmId =
-                        expenseDeleteConfirmId === expense.id
-                          ? null
-                          : expense.id)}
-                    aria-label="Delete expense"
+                    class="action-btn"
+                    class:action-btn--active={isEditing}
+                    onclick={() => (isEditing ? closeEdit() : openEdit(expense))}
+                    aria-label={isEditing ? 'Close edit' : 'Edit expense'}
                   >
-                    <Icon name="trash" size={16} />
+                    <Icon name="edit-txn" size={14} />
                   </button>
                 {:else}
-                  <span class="delete-placeholder"></span>
+                  <span class="action-placeholder"></span>
                 {/if}
               </div>
-              {#if expenseDeleteConfirmId === expense.id}
-                <div class="delete-confirm-bar">
-                  <span class="delete-confirm-text">Are you sure?</span>
-                  <GradientButton
-                    onclick={() => (expenseDeleteConfirmId = null)}
-                    disabled={expenseDeleting}>Cancel</GradientButton
-                  >
-                  <GradientButton
-                    variant="warning"
-                    active
-                    onclick={confirmDeleteExpense}
-                    disabled={expenseDeleting}
-                    >{expenseDeleting ? 'Deleting…' : 'Delete'}</GradientButton
-                  >
+
+              {#if isEditing}
+                <div class="edit-form">
+                  <div class="edit-field">
+                    <span class="field-label">Description</span>
+                    <TextInput bind:value={editDesc} class="edit-input" />
+                  </div>
+                  <div class="edit-amount-row">
+                    <div class="edit-field edit-field--amount">
+                      <span class="field-label">Amount</span>
+                      <TextInput
+                        bind:value={editAmount}
+                        type="number"
+                        min="0"
+                        step="0.01"
+                        class="edit-input"
+                      />
+                    </div>
+                    <div class="edit-field edit-field--currency">
+                      <span class="field-label">Currency</span>
+                      <TextInput
+                        bind:value={editCurrency}
+                        maxlength={3}
+                        class="edit-input edit-input--currency"
+                      />
+                    </div>
+                  </div>
+                  <div class="edit-date-wrap">
+                    <button class="date-chip" onclick={openEditDatePicker}>
+                      <Icon name="calendar" size={12} />
+                      <span class="date-chip-label">{editDateLabel}</span>
+                      <Icon name="chevron-down-line" size={10} />
+                    </button>
+                    <input
+                      bind:this={editDateInputEl}
+                      type="date"
+                      class="date-input-hidden"
+                      bind:value={editDate}
+                    />
+                  </div>
+                  {#if members.length >= 2}
+                    <div class="edit-field">
+                      <span class="field-label">Paid by</span>
+                      <div class="payer-chips">
+                        {#each members as m (m.id)}
+                          <button
+                            class="payer-chip"
+                            class:selected={editPayerId === m.userId}
+                            onclick={() => (editPayerId = m.userId)}
+                          >
+                            <div class="chip-avatar" class:selected={editPayerId === m.userId}>
+                              {initials(m.userName)}
+                            </div>
+                            <span class="chip-name">{m.userName}</span>
+                          </button>
+                        {/each}
+                      </div>
+                    </div>
+                    {#if members.length === 2}
+                      <div class="edit-field">
+                        <span class="field-label">Split</span>
+                        <div class="split-slider-labels">
+                          <span class="split-name">{members[0].userName}</span>
+                          <span class="split-pcts">
+                            <strong>{Math.round(editSliderPct)}%</strong>
+                            <span class="split-divider">/</span>
+                            <strong>{Math.round(100 - editSliderPct)}%</strong>
+                          </span>
+                          <span class="split-name split-name--right">{members[1].userName}</span>
+                        </div>
+                        <input
+                          type="range"
+                          class="split-slider"
+                          min="1"
+                          max="99"
+                          step="1"
+                          bind:value={editSliderPct}
+                        />
+                      </div>
+                    {/if}
+                  {/if}
+                  <div class="edit-actions">
+                    <GradientButton onclick={closeEdit} disabled={editSubmitting}>Cancel</GradientButton>
+                    <GradientButton
+                      onclick={handleSaveEdit}
+                      disabled={editSubmitting || !editAmount || parseFloat(editAmount) <= 0}
+                    >
+                      {editSubmitting ? 'Saving…' : editSaved ? '✓ Saved' : 'Save'}
+                    </GradientButton>
+                  </div>
+                  {#if editError}
+                    <span class="form-error">{editError}</span>
+                  {/if}
+                  {#if editDeleteConfirm}
+                    <div class="delete-confirm-bar">
+                      <span class="delete-confirm-text">Delete this expense?</span>
+                      <GradientButton
+                        onclick={() => (editDeleteConfirm = false)}
+                        disabled={editDeleting}
+                      >Cancel</GradientButton>
+                      <GradientButton
+                        variant="warning"
+                        active
+                        onclick={handleDeleteFromEdit}
+                        disabled={editDeleting}
+                      >{editDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
+                    </div>
+                  {:else}
+                    <button class="delete-link" onclick={() => (editDeleteConfirm = true)}>
+                      Delete expense
+                    </button>
+                  {/if}
                 </div>
-              {/if}
-              {#if expandedExpenseId === expense.id}
+              {:else if expandedExpenseId === expense.id}
                 <div class="splits">
                   {#each expense.splits as split (split.id)}
                     <div class="split-row">
-                      <span class="split-name">{split.userName}</span>
+                      <span class="split-row-name">{split.userName}</span>
                       <span class="split-amount">
-                        {expense.currency}
-                        {parseFloat(split.amount).toFixed(2)}
+                        {expense.currency} {parseFloat(split.amount).toFixed(2)}
                       </span>
                     </div>
                   {/each}
@@ -253,29 +434,20 @@
             <div class="expense-item pending-item">
               <div class="expense-row-wrap">
                 <div class="expense-row settlement-row-inner">
-                  <div class="row-avatar pending-avatar">
-                    {initials(s.fromUserName)}
-                  </div>
+                  <div class="row-avatar pending-avatar">{initials(s.fromUserName)}</div>
                   <div class="expense-info">
-                    <span class="expense-desc">
-                      {s.fromUserName} → {s.toUserName}
-                    </span>
-                    <span class="expense-meta">
-                      {s.date}{s.note ? ` · ${s.note}` : ''}
-                    </span>
+                    <span class="expense-desc">{s.fromUserName} → {s.toUserName}</span>
+                    <span class="expense-meta">{s.date}{s.note ? ` · ${s.note}` : ''}</span>
                   </div>
                   <div class="expense-right">
-                    <span class="expense-amount"
-                      >{parseFloat(s.amount).toFixed(2)}</span
-                    >
+                    <span class="expense-amount">{parseFloat(s.amount).toFixed(2)}</span>
                     <CurrencyPill code={s.currency} />
                   </div>
                 </div>
                 {#if canDeleteSettlement(s)}
                   <button
-                    class="delete-btn"
-                    class:delete-btn--active={settlementDeleteConfirmId ===
-                      s.id}
+                    class="action-btn"
+                    class:action-btn--active={settlementDeleteConfirmId === s.id}
                     onclick={() =>
                       (settlementDeleteConfirmId =
                         settlementDeleteConfirmId === s.id ? null : s.id)}
@@ -284,7 +456,7 @@
                     <Icon name="trash" size={16} />
                   </button>
                 {:else}
-                  <span class="delete-placeholder"></span>
+                  <span class="action-placeholder"></span>
                 {/if}
               </div>
 
@@ -300,9 +472,7 @@
                     active
                     onclick={confirmDeleteSettlement}
                     disabled={settlementDeleting}
-                    >{settlementDeleting
-                      ? 'Deleting…'
-                      : 'Delete'}</GradientButton
+                    >{settlementDeleting ? 'Deleting…' : 'Delete'}</GradientButton
                   >
                 </div>
               {/if}
@@ -320,9 +490,7 @@
                       <span class="form-error">{cs.error}</span>
                     {/if}
                     <div class="confirm-actions">
-                      <GradientButton onclick={() => closeConfirmForm(s.id)}>
-                        Cancel
-                      </GradientButton>
+                      <GradientButton onclick={() => closeConfirmForm(s.id)}>Cancel</GradientButton>
                       <GradientButton
                         onclick={() => handleConfirm(s)}
                         disabled={cs.submitting || !cs.accountId}
@@ -353,24 +521,18 @@
               <div class="expense-row settlement-row-inner">
                 <div class="row-avatar">{initials(s.fromUserName)}</div>
                 <div class="expense-info">
-                  <span class="expense-desc">
-                    {s.fromUserName} → {s.toUserName}
-                  </span>
-                  <span class="expense-meta">
-                    {s.date}{s.note ? ` · ${s.note}` : ''}
-                  </span>
+                  <span class="expense-desc">{s.fromUserName} → {s.toUserName}</span>
+                  <span class="expense-meta">{s.date}{s.note ? ` · ${s.note}` : ''}</span>
                 </div>
                 <div class="expense-right">
-                  <span class="expense-amount"
-                    >{parseFloat(s.amount).toFixed(2)}</span
-                  >
+                  <span class="expense-amount">{parseFloat(s.amount).toFixed(2)}</span>
                   <CurrencyPill code={s.currency} />
                 </div>
               </div>
               {#if canDeleteSettlement(s)}
                 <button
-                  class="delete-btn"
-                  class:delete-btn--active={settlementDeleteConfirmId === s.id}
+                  class="action-btn"
+                  class:action-btn--active={settlementDeleteConfirmId === s.id}
                   onclick={() =>
                     (settlementDeleteConfirmId =
                       settlementDeleteConfirmId === s.id ? null : s.id)}
@@ -379,7 +541,7 @@
                   <Icon name="trash" size={16} />
                 </button>
               {:else}
-                <span class="delete-placeholder"></span>
+                <span class="action-placeholder"></span>
               {/if}
             </div>
             {#if settlementDeleteConfirmId === s.id}
@@ -485,7 +647,8 @@
     border-bottom: none;
   }
 
-  .expense-item.expanded {
+  .expense-item.expanded,
+  .expense-item.editing {
     border: 1px solid var(--color-accent);
   }
 
@@ -561,8 +724,8 @@
     font-weight: var(--weight-semibold);
   }
 
-  .delete-btn,
-  .delete-placeholder {
+  .action-btn,
+  .action-placeholder {
     display: flex;
     align-items: center;
     justify-content: center;
@@ -570,26 +733,237 @@
     flex-shrink: 0;
   }
 
-  .delete-btn {
+  .action-btn {
     background: none;
     border: none;
     cursor: pointer;
     color: var(--color-text-muted);
+    transition:
+      color var(--duration-fast) var(--ease),
+      background-color var(--duration-fast) var(--ease);
   }
 
-  .delete-btn:hover,
-  .delete-btn--active {
-    color: var(--color-danger);
-    background-color: var(--color-danger-light);
+  .action-btn:hover,
+  .action-btn--active {
+    color: var(--color-accent-mid);
+    background-color: var(--color-accent-light);
+  }
+
+  /* Edit form */
+  .edit-form {
+    padding: 10px 12px;
+    background: var(--color-window-raised);
+    border-top: 1px solid var(--color-accent);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+  }
+
+  .edit-field {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+  }
+
+  .field-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .edit-form :global(.edit-input) {
+    width: 100%;
+    box-sizing: border-box;
+  }
+
+  .edit-form :global(.edit-input--currency) {
+    width: 48px;
+    text-transform: uppercase;
+  }
+
+  .edit-amount-row {
+    display: flex;
+    gap: var(--sp-sm);
+    align-items: flex-end;
+  }
+
+  .edit-field--amount {
+    flex: 1;
+  }
+
+  .edit-field--currency {
+    flex-shrink: 0;
+  }
+
+  .edit-date-wrap {
+    position: relative;
+  }
+
+  .date-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 4px 8px;
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    color: var(--color-text);
+    white-space: nowrap;
+    transition: border-color var(--duration-fast) var(--ease);
+  }
+
+  .date-chip:hover {
+    border-color: var(--color-accent);
+  }
+
+  .date-chip-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: 700;
+  }
+
+  .date-input-hidden {
+    position: absolute;
+    opacity: 0;
+    pointer-events: none;
+    width: 0;
+    height: 0;
+    top: 0;
+    left: 0;
+  }
+
+  .payer-chips {
+    display: flex;
+    gap: var(--sp-xs);
+  }
+
+  .payer-chip {
+    flex: 1;
+    padding: 5px 8px;
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition:
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease);
+  }
+
+  .payer-chip:hover:not(.selected) {
+    border-color: var(--color-accent);
+  }
+
+  .payer-chip.selected {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent),
+      color-mix(in srgb, var(--color-accent) 80%, black)
+    );
+    border-color: var(--color-accent);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .chip-avatar {
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 7px;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition:
+      background var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+
+  .chip-avatar.selected {
+    background: color-mix(in srgb, var(--color-accent-fg) 25%, transparent);
+    border-color: color-mix(in srgb, var(--color-accent-fg) 50%, transparent);
+    color: var(--color-accent-fg);
+  }
+
+  .chip-name {
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .payer-chip.selected .chip-name {
+    color: var(--color-btn-gradient-hi);
+  }
+
+  .split-slider-labels {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    margin-bottom: 2px;
+  }
+
+  .split-name {
+    max-width: 70px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .split-name--right {
+    text-align: right;
+  }
+
+  .split-pcts {
+    display: flex;
+    align-items: center;
+    gap: 3px;
+    color: var(--color-text);
+  }
+
+  .split-divider {
+    color: var(--color-text-muted);
+    font-weight: 400;
+  }
+
+  .split-slider {
+    width: 100%;
+    cursor: pointer;
+    accent-color: var(--color-accent);
+  }
+
+  .edit-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-xs);
+    padding-top: var(--sp-xs);
   }
 
   .delete-confirm-bar {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 5px 8px 5px 12px;
-    background: var(--color-danger-light);
+    padding: 5px 0;
     border-top: 1px solid var(--color-danger);
+    background: var(--color-danger-light);
+    margin: 0 -12px -10px;
+    padding: 5px 12px;
   }
 
   .delete-confirm-text {
@@ -597,6 +971,25 @@
     font-size: var(--text-xs);
     color: var(--color-danger);
     font-family: var(--font-mono);
+  }
+
+  .delete-link {
+    background: none;
+    border: none;
+    padding: 0;
+    cursor: pointer;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    opacity: 0.7;
+    transition: opacity var(--duration-fast) var(--ease);
+    align-self: flex-start;
+  }
+
+  .delete-link:hover {
+    opacity: 1;
   }
 
   .splits {
@@ -612,7 +1005,7 @@
     font-size: var(--text-xs);
   }
 
-  .split-name {
+  .split-row-name {
     color: var(--color-text-muted);
   }
 

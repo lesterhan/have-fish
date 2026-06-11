@@ -12,6 +12,7 @@ import { ensureSharedAccount, ensureUncategorizedAccount } from './fish-pie-acco
 
 type Group = typeof expenseGroups.$inferSelect
 type Member = { userId: string; shareWeight: number; defaultExpenseAccountId: string | null }
+type TxDb = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 export function computeSplits(
   amount: string,
@@ -38,45 +39,25 @@ export function computeSplits(
   return splits
 }
 
-export async function createGroupExpenseInTx(
-  tx: Parameters<Parameters<typeof db.transaction>[0]>[0],
+// Creates member transactions with 2-posting entries for each member's share.
+// Called from both createGroupExpenseInTx (new expense) and the PATCH edit handler (rebuild after edit).
+export async function createMemberTransactionsInTx(
+  tx: TxDb,
   opts: {
+    expenseId: string
     group: Group
     members: Member[]
-    payerId: string
+    splits: { userId: string; amount: string }[]
     description: string
-    amount: string
     currency: string
     date: string
-    linkedTransactionId?: string
-    // When true, skips creating the payer's member transaction. Used for import-linked
-    // expenses where the import tx already records the payer's share as a direct posting.
+    payerId: string
     skipPayerMemberTx?: boolean
   },
-): Promise<string> {
-  const { group, members, payerId, description, amount, currency, date, linkedTransactionId, skipPayerMemberTx } = opts
-
-  const splits = computeSplits(amount, members, payerId)
-  const normalizedAmount = parseFloat(amount).toFixed(2)
+): Promise<void> {
+  const { expenseId, group, members, splits, description, currency, date, payerId, skipPayerMemberTx } = opts
   const normalizedCurrency = currency.trim().toUpperCase()
   const txDate = new Date(`${date}T00:00:00Z`)
-
-  const [expense] = await tx
-    .insert(groupExpenses)
-    .values({
-      groupId: group.id,
-      paidByUserId: payerId,
-      description: description.trim(),
-      amount: normalizedAmount,
-      currency: normalizedCurrency,
-      date,
-      transactionId: linkedTransactionId ?? null,
-    })
-    .returning()
-
-  await tx.insert(groupExpenseSplits).values(
-    splits.map((s) => ({ expenseId: expense.id, userId: s.userId, amount: s.amount })),
-  )
 
   const sharedAccountIds = new Map<string, string>()
   for (const split of splits) {
@@ -96,7 +77,7 @@ export async function createGroupExpenseInTx(
         userId: split.userId,
         date: txDate,
         description: description.trim(),
-        groupExpenseId: expense.id,
+        groupExpenseId: expenseId,
       })
       .returning()
 
@@ -115,6 +96,58 @@ export async function createGroupExpenseInTx(
       },
     ])
   }
+}
+
+export async function createGroupExpenseInTx(
+  tx: TxDb,
+  opts: {
+    group: Group
+    members: Member[]
+    payerId: string
+    description: string
+    amount: string
+    currency: string
+    date: string
+    linkedTransactionId?: string
+    // When true, skips creating the payer's member transaction. Used for import-linked
+    // expenses where the import tx already records the payer's share as a direct posting.
+    skipPayerMemberTx?: boolean
+  },
+): Promise<string> {
+  const { group, members, payerId, description, amount, currency, date, linkedTransactionId, skipPayerMemberTx } = opts
+
+  const splits = computeSplits(amount, members, payerId)
+  const normalizedAmount = parseFloat(amount).toFixed(2)
+  const normalizedCurrency = currency.trim().toUpperCase()
+
+  const [expense] = await tx
+    .insert(groupExpenses)
+    .values({
+      groupId: group.id,
+      paidByUserId: payerId,
+      description: description.trim(),
+      amount: normalizedAmount,
+      currency: normalizedCurrency,
+      date,
+      transactionId: linkedTransactionId ?? null,
+    })
+    .returning()
+
+  await tx.insert(groupExpenseSplits).values(
+    splits.map((s) => ({ expenseId: expense.id, userId: s.userId, amount: s.amount })),
+  )
+
+  await createMemberTransactionsInTx(tx, {
+    expenseId: expense.id,
+    group,
+    members,
+    splits,
+    description,
+    currency,
+    date,
+    payerId,
+    skipPayerMemberTx,
+  })
 
   return expense.id
 }

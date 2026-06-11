@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { transactions, postings, accounts, expenseGroupMembers, groupExpenses } from '../db/schema'
+import { transactions, postings, accounts, expenseGroupMembers, groupExpenses, groupExpenseSplits } from '../db/schema'
 import { eq, isNull, and, inArray } from 'drizzle-orm'
 
 describe('fish-pie expenses', () => {
@@ -476,5 +476,240 @@ describe('fish-pie delete import-linked expense', () => {
           .map((t) => t.id)
       ))
     expect(memberTxs.every((t) => t.deletedAt !== null)).toBe(true)
+  })
+})
+
+describe('fish-pie PATCH expense', () => {
+  let cookieA: string
+  let cookieB: string
+  let groupId: string
+  let userId: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+    cookieA = await createTestUser('a@test.com', 'passwordA')
+    cookieB = await createTestUser('b@test.com', 'passwordB')
+
+    const sessionRes = await app.request('/api/auth/get-session', { headers: { Cookie: cookieA } })
+    userId = (await sessionRes.json() as any).user.id
+
+    const groupRes = await app.request('/api/fish-pie/groups', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Trip' }),
+    })
+    groupId = (await groupRes.json() as any).id
+
+    const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'b@test.com' }),
+    })
+    const inviteId = (await invRes.json() as any).id
+    await app.request(`/api/fish-pie/invites/${inviteId}/accept`, {
+      method: 'POST',
+      headers: { Cookie: cookieB },
+    })
+  })
+
+  it('PATCH updates description, amount, and date; recomputes postings', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-05-01' }),
+    })
+    const expense = await createRes.json() as any
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner edited', amount: '80.00', date: '2026-05-02' }),
+    })
+    expect(patchRes.status).toBe(200)
+    const updated = await patchRes.json() as any
+    expect(updated.description).toBe('Dinner edited')
+    expect(parseFloat(updated.amount)).toBeCloseTo(80, 2)
+    expect(updated.date).toBe('2026-05-02')
+
+    // Old member transactions soft-deleted, new ones created with new amount
+    const allTxs = await db.select().from(transactions).where(eq(transactions.groupExpenseId, expense.id))
+    const activeTxs = allTxs.filter((t) => t.deletedAt === null)
+    expect(activeTxs).toHaveLength(2)  // one per member
+
+    for (const tx of activeTxs) {
+      const ps = await db.select().from(postings).where(and(eq(postings.transactionId, tx.id), isNull(postings.deletedAt)))
+      expect(ps).toHaveLength(2)
+      const debit = ps.find((p) => parseFloat(p.amount) < 0)!
+      expect(Math.abs(parseFloat(debit.amount))).toBeCloseTo(40, 2)  // 80 / 2 members
+    }
+  })
+
+  it('PATCH with split weights recomputes amounts per weight', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Hotel', amount: '100.00', currency: 'CAD', date: '2026-06-01' }),
+    })
+    const expense = await createRes.json() as any
+
+    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    const userIdB = (await sessionB.json() as any).user.id
+
+    // Edit with 70/30 split (userA gets 70, userB gets 30)
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        splits: [
+          { userId, shareWeight: 70 },
+          { userId: userIdB, shareWeight: 30 },
+        ],
+      }),
+    })
+    expect(patchRes.status).toBe(200)
+    const updated = await patchRes.json() as any
+
+    const splitA = updated.splits.find((s: any) => s.userId === userId)
+    const splitB = updated.splits.find((s: any) => s.userId === userIdB)
+    expect(parseFloat(splitA.amount)).toBeCloseTo(70, 2)
+    expect(parseFloat(splitB.amount)).toBeCloseTo(30, 2)
+  })
+
+  it('PATCH with new payer creates correct member transactions', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Taxi', amount: '60.00', currency: 'CAD', date: '2026-06-10' }),
+    })
+    const expense = await createRes.json() as any
+    expect(expense.paidByUserId).toBe(userId)
+
+    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    const userIdB = (await sessionB.json() as any).user.id
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paidByUserId: userIdB }),
+    })
+    expect(patchRes.status).toBe(200)
+    const updated = await patchRes.json() as any
+    expect(updated.paidByUserId).toBe(userIdB)
+
+    // Both members still have active member transactions
+    const activeTxs = await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.groupExpenseId, expense.id), isNull(transactions.deletedAt)))
+    expect(activeTxs).toHaveLength(2)
+    const txUserIds = activeTxs.map((t) => t.userId).sort()
+    expect(txUserIds).toContain(userId)
+    expect(txUserIds).toContain(userIdB)
+  })
+
+  it('PATCH returns 403 for non-payer non-creator', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Lunch', amount: '20.00', currency: 'CAD', date: '2026-06-01' }),
+    })
+    const expense = await createRes.json() as any
+
+    // cookieB is a member but not the payer and not the creator
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Edited' }),
+    })
+    expect(patchRes.status).toBe(403)
+  })
+
+  it('PATCH returns 400 for invalid amount', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Snack', amount: '5.00', currency: 'CAD', date: '2026-06-01' }),
+    })
+    const expense = await createRes.json() as any
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ amount: '-10.00' }),
+    })
+    expect(patchRes.status).toBe(400)
+  })
+
+  it('PATCH import-linked expense updates import tx split postings, does not delete import tx', async () => {
+    // Create source account and import a row with fish pie split
+    const srcRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'liabilities:visa' }),
+    })
+    const sourceId = (await srcRes.json() as any).id
+
+    await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [{
+          isTransfer: false,
+          date: new Date('2026-05-01').toISOString(),
+          description: 'Restaurant',
+          amount: '100.00',
+          sourceAccountId: sourceId,
+        }],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    const [expense] = await db
+      .select()
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+
+    expect(expense.transactionId).toBeTruthy()
+    const importTxId = expense.transactionId!
+
+    // Count original postings on import tx
+    const originalImportPostings = await db
+      .select()
+      .from(postings)
+      .where(and(eq(postings.transactionId, importTxId), isNull(postings.deletedAt)))
+    expect(originalImportPostings).toHaveLength(3)  // standard 3-posting
+
+    // Edit the split to 70/30
+    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    const userIdB = (await sessionB.json() as any).user.id
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        splits: [
+          { userId, shareWeight: 70 },
+          { userId: userIdB, shareWeight: 30 },
+        ],
+      }),
+    })
+    expect(patchRes.status).toBe(200)
+
+    // Import transaction NOT deleted
+    const [importTx] = await db.select().from(transactions).where(eq(transactions.id, importTxId))
+    expect(importTx.deletedAt).toBeNull()
+
+    // Active postings on import tx: source posting unchanged + new group + new expense = 3 active
+    const activeImportPostings = await db
+      .select()
+      .from(postings)
+      .where(and(eq(postings.transactionId, importTxId), isNull(postings.deletedAt)))
+    expect(activeImportPostings).toHaveLength(3)
+
+    // Verify postings still balance (sum to zero)
+    const sum = activeImportPostings.reduce((s, p) => s + parseFloat(p.amount), 0)
+    expect(Math.abs(sum)).toBeLessThan(0.01)
   })
 })
