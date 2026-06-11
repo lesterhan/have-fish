@@ -205,6 +205,46 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
     if (!paymentAcct) return c.json({ error: 'payment account not found or does not belong to payer' }, 400)
   }
 
+  // BUG-006: the edit form doesn't send paymentAccountId, which used to rebuild the
+  // payer's tx as a degraded 2-posting (source posting lost). For non-import-linked
+  // expenses, resolve one: explicit body value > source recovered from the existing
+  // payer tx (payer unchanged) > the payer's stored default. Derived values that
+  // fail validation degrade to the legacy path rather than failing the edit.
+  let paymentAccountId = body.paymentAccountId
+  if (!paymentAccountId && !expense.transactionId) {
+    if (payerId === expense.paidByUserId) {
+      const [oldPayerTx] = await db
+        .select({ id: transactions.id })
+        .from(transactions)
+        .where(and(
+          eq(transactions.groupExpenseId, expenseId),
+          eq(transactions.userId, expense.paidByUserId),
+          isNull(transactions.deletedAt),
+        ))
+      if (oldPayerTx) {
+        const oldPostings = await db
+          .select({ accountId: postings.accountId, amount: postings.amount })
+          .from(postings)
+          .where(and(eq(postings.transactionId, oldPayerTx.id), isNull(postings.deletedAt)))
+        // Only a 3-posting payer tx records the source (its single negative posting);
+        // legacy 2-posting txs have nothing to recover.
+        if (oldPostings.length === 3) {
+          paymentAccountId = oldPostings.find((p) => parseFloat(p.amount) < 0)?.accountId
+        }
+      }
+    }
+    if (!paymentAccountId) {
+      paymentAccountId = members.find((m) => m.userId === payerId)?.defaultPaymentAccountId ?? undefined
+    }
+    if (paymentAccountId) {
+      const [acct] = await db
+        .select({ id: accounts.id })
+        .from(accounts)
+        .where(and(eq(accounts.id, paymentAccountId), eq(accounts.userId, payerId), isNull(accounts.deletedAt)))
+      if (!acct) paymentAccountId = undefined
+    }
+  }
+
   // Apply optional per-expense split weight overrides (defaults to stored member weights)
   const membersForSplit = body.splits
     ? members.map((m) => ({
@@ -251,9 +291,21 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
       date,
       payerId,
       totalAmount: parseFloat(amount).toFixed(2),
-      paymentAccountId: body.paymentAccountId,
+      paymentAccountId,
       skipPayerMemberTx: !!expense.transactionId,
     })
+
+    // Auto-save the payer's defaultPaymentAccountId when explicitly changed
+    // (parity with POST). Recovered/derived accounts don't overwrite the default.
+    if (body.paymentAccountId) {
+      const payerMember = members.find((m) => m.userId === payerId)!
+      if (payerMember.defaultPaymentAccountId !== body.paymentAccountId) {
+        await tx
+          .update(expenseGroupMembers)
+          .set({ defaultPaymentAccountId: body.paymentAccountId })
+          .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, payerId)))
+      }
+    }
 
     // If import-linked: update the split postings on the import transaction
     if (expense.transactionId) {
