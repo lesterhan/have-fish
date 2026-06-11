@@ -10,6 +10,7 @@ describe('fish-pie balances', () => {
   let userAId: string
   let userBId: string
   let userCId: string
+  let paymentAccountId: string
 
   beforeEach(async () => {
     await clearDatabase()
@@ -47,6 +48,13 @@ describe('fish-pie balances', () => {
         headers: { Cookie: cookie },
       })
     }
+
+    const acctRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'liabilities:visa', name: 'Visa' }),
+    })
+    paymentAccountId = ((await acctRes.json()) as any).id
   })
 
   it('3 members, 1 expense — correct net positions and minimal transfers', async () => {
@@ -56,7 +64,7 @@ describe('fish-pie balances', () => {
     await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: 'Hotel', amount: '90.00', currency: 'CAD', date: '2026-04-28', paidByUserId: userAId }),
+      body: JSON.stringify({ description: 'Hotel', amount: '90.00', currency: 'CAD', date: '2026-04-28', paidByUserId: userAId, paymentAccountId }),
     })
 
     const res = await app.request(`/api/fish-pie/groups/${groupId}/balances`, {

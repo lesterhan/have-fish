@@ -76,6 +76,7 @@ app.post('/groups/:groupId/expenses', async (c) => {
     currency?: string
     date?: string
     paidByUserId?: string
+    paymentAccountId?: string
   }>()
 
   if (!body.description?.trim()) return c.json({ error: 'description is required' }, 400)
@@ -83,12 +84,20 @@ app.post('/groups/:groupId/expenses', async (c) => {
     return c.json({ error: 'amount must be a positive number' }, 400)
   if (!body.currency?.trim()) return c.json({ error: 'currency is required' }, 400)
   if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
+  if (!body.paymentAccountId?.trim()) return c.json({ error: 'paymentAccountId is required' }, 400)
 
   const payerId = body.paidByUserId ?? userId
   if (!members.some((m) => m.userId === payerId)) return c.json({ error: 'payer is not a member' }, 400)
 
-  const expenseId = await db.transaction((tx) =>
-    createGroupExpenseInTx(tx, {
+  // Validate payment account belongs to the payer
+  const [paymentAcct] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, body.paymentAccountId), eq(accounts.userId, payerId), isNull(accounts.deletedAt)))
+  if (!paymentAcct) return c.json({ error: 'payment account not found or does not belong to payer' }, 400)
+
+  const expenseId = await db.transaction(async (tx) => {
+    const id = await createGroupExpenseInTx(tx, {
       group,
       members,
       payerId,
@@ -96,8 +105,20 @@ app.post('/groups/:groupId/expenses', async (c) => {
       amount: body.amount!,
       currency: body.currency!,
       date: body.date!,
-    }),
-  )
+      paymentAccountId: body.paymentAccountId,
+    })
+
+    // Auto-save the payer's defaultPaymentAccountId if it changed
+    const payerMember = members.find((m) => m.userId === payerId)!
+    if (payerMember.defaultPaymentAccountId !== body.paymentAccountId) {
+      await tx
+        .update(expenseGroupMembers)
+        .set({ defaultPaymentAccountId: body.paymentAccountId })
+        .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, payerId)))
+    }
+
+    return id
+  })
 
   const [withDetails] = await fetchExpenseWithDetails([expenseId])
   return c.json(withDetails, 201)
@@ -161,6 +182,7 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
     date?: string
     paidByUserId?: string
     splits?: { userId: string; shareWeight: number }[]
+    paymentAccountId?: string
   }>()
 
   const description = body.description?.trim() ?? expense.description
@@ -220,6 +242,8 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
       currency,
       date,
       payerId,
+      totalAmount: parseFloat(amount).toFixed(2),
+      paymentAccountId: body.paymentAccountId,
       skipPayerMemberTx: !!expense.transactionId,
     })
 

@@ -84,6 +84,13 @@
     return allAccounts.find((a) => a.id === myMember.defaultExpenseAccountId)?.path ?? null
   })
 
+  const myPaymentAccountPath = $derived.by(() => {
+    if (!group) return null
+    const myMember = group.members.find((m) => m.userId === currentUserId)
+    if (!myMember?.defaultPaymentAccountId) return null
+    return allAccounts.find((a) => a.id === myMember.defaultPaymentAccountId)?.path ?? null
+  })
+
   onMount(async () => {
     try {
       const [g, inv, exp, bal, sett, accts] = await Promise.all([
@@ -144,6 +151,7 @@
     currency: string
     date: string
     paidByUserId: string
+    paymentAccountId: string
   }): Promise<GroupExpense> {
     const expense = await createExpense(groupId, data)
     expenses = [expense, ...expenses]
@@ -369,6 +377,8 @@
           {initialSliderPct}
           {groupId}
           {myExpenseAccountPath}
+          {myPaymentAccountPath}
+          {allAccounts}
           onCreate={handleAddExpense}
           onSliderChange={saveShareSlider}
         />

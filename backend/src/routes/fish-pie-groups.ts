@@ -16,6 +16,7 @@ async function fetchMembersForGroups(groupIds: string[]) {
       userId: expenseGroupMembers.userId,
       shareWeight: expenseGroupMembers.shareWeight,
       defaultExpenseAccountId: expenseGroupMembers.defaultExpenseAccountId,
+      defaultPaymentAccountId: expenseGroupMembers.defaultPaymentAccountId,
       joinedAt: expenseGroupMembers.joinedAt,
       userName: user.name,
       userEmail: user.email,
@@ -121,7 +122,7 @@ app.patch('/:id', async (c) => {
   return c.json({ ...updated, members })
 })
 
-// PATCH /api/fish-pie/groups/:id/members/me — update own member settings (expense account)
+// PATCH /api/fish-pie/groups/:id/members/me — update own member settings (expense/payment account)
 app.patch('/:id/members/me', async (c) => {
   const userId = c.get('userId')
   const groupId = c.req.param('id')
@@ -140,25 +141,38 @@ app.patch('/:id/members/me', async (c) => {
 
   if (!membership) return c.json({ error: 'not found' }, 404)
 
-  const body = await c.req.json<{ defaultExpenseAccountId?: string | null }>()
+  const body = await c.req.json<{
+    defaultExpenseAccountId?: string | null
+    defaultPaymentAccountId?: string | null
+  }>()
 
-  if (!('defaultExpenseAccountId' in body)) {
-    return c.json({ error: 'no fields to update' }, 400)
-  }
+  const hasExpense = 'defaultExpenseAccountId' in body
+  const hasPayment = 'defaultPaymentAccountId' in body
+  if (!hasExpense && !hasPayment) return c.json({ error: 'no fields to update' }, 400)
 
-  const accountId = body.defaultExpenseAccountId ?? null
-
-  if (accountId !== null) {
+  async function validateAccount(id: string | null | undefined) {
+    if (id == null) return null
     const [acct] = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-    if (!acct) return c.json({ error: 'account not found or does not belong to you' }, 400)
+      .where(and(eq(accounts.id, id), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    if (!acct) return 'invalid'
+    return id
   }
+
+  const expenseAccountId = hasExpense ? await validateAccount(body.defaultExpenseAccountId) : undefined
+  if (expenseAccountId === 'invalid') return c.json({ error: 'account not found or does not belong to you' }, 400)
+
+  const paymentAccountId = hasPayment ? await validateAccount(body.defaultPaymentAccountId) : undefined
+  if (paymentAccountId === 'invalid') return c.json({ error: 'account not found or does not belong to you' }, 400)
+
+  const patch: Partial<typeof expenseGroupMembers.$inferInsert> = {}
+  if (expenseAccountId !== undefined) patch.defaultExpenseAccountId = expenseAccountId
+  if (paymentAccountId !== undefined) patch.defaultPaymentAccountId = paymentAccountId
 
   const [updated] = await db
     .update(expenseGroupMembers)
-    .set({ defaultExpenseAccountId: accountId })
+    .set(patch)
     .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
     .returning()
 

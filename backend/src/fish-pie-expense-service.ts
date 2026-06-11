@@ -39,7 +39,10 @@ export function computeSplits(
   return splits
 }
 
-// Creates member transactions with 2-posting entries for each member's share.
+// Creates member transactions for each split member.
+// Non-payer members always get a 2-posting tx (expense + shared clearing).
+// Payer gets a 3-posting tx if paymentAccountId is provided (source - total, group + others, expense + payer share),
+// matching the import-path structure. Without paymentAccountId the payer also gets a 2-posting tx (legacy).
 // Called from both createGroupExpenseInTx (new expense) and the PATCH edit handler (rebuild after edit).
 export async function createMemberTransactionsInTx(
   tx: TxDb,
@@ -52,10 +55,12 @@ export async function createMemberTransactionsInTx(
     currency: string
     date: string
     payerId: string
+    totalAmount: string
+    paymentAccountId?: string
     skipPayerMemberTx?: boolean
   },
 ): Promise<void> {
-  const { expenseId, group, members, splits, description, currency, date, payerId, skipPayerMemberTx } = opts
+  const { expenseId, group, members, splits, description, currency, date, payerId, totalAmount, paymentAccountId, skipPayerMemberTx } = opts
   const normalizedCurrency = currency.trim().toUpperCase()
   const txDate = new Date(`${date}T00:00:00Z`)
 
@@ -81,20 +86,53 @@ export async function createMemberTransactionsInTx(
       })
       .returning()
 
-    await tx.insert(postings).values([
-      {
+    const isPayerWithSource = split.userId === payerId && !!paymentAccountId
+    if (isPayerWithSource) {
+      // 3-posting payer tx: mirrors the import-path structure.
+      // payment: -(total), group: +(others share), expense: +(payer share)
+      // When there is only one member (no others), the shared posting is omitted.
+      const payerShare = parseFloat(split.amount)
+      const othersShare = (parseFloat(totalAmount) - payerShare).toFixed(2)
+      const payerPostings: { transactionId: string; accountId: string; amount: string; currency: string }[] = [
+        {
+          transactionId: memberTx.id,
+          accountId: paymentAccountId!,
+          amount: (-parseFloat(totalAmount)).toFixed(2),
+          currency: normalizedCurrency,
+        },
+      ]
+      if (parseFloat(othersShare) !== 0) {
+        payerPostings.push({
+          transactionId: memberTx.id,
+          accountId: sharedAccountId,
+          amount: othersShare,
+          currency: normalizedCurrency,
+        })
+      }
+      payerPostings.push({
         transactionId: memberTx.id,
         accountId: expenseAccountId,
-        amount: `-${split.amount}`,
-        currency: normalizedCurrency,
-      },
-      {
-        transactionId: memberTx.id,
-        accountId: sharedAccountId,
         amount: split.amount,
         currency: normalizedCurrency,
-      },
-    ])
+      })
+      await tx.insert(postings).values(payerPostings)
+    } else {
+      // 2-posting member tx (non-payer, or payer without source account)
+      await tx.insert(postings).values([
+        {
+          transactionId: memberTx.id,
+          accountId: expenseAccountId,
+          amount: `-${split.amount}`,
+          currency: normalizedCurrency,
+        },
+        {
+          transactionId: memberTx.id,
+          accountId: sharedAccountId,
+          amount: split.amount,
+          currency: normalizedCurrency,
+        },
+      ])
+    }
   }
 }
 
@@ -112,9 +150,12 @@ export async function createGroupExpenseInTx(
     // When true, skips creating the payer's member transaction. Used for import-linked
     // expenses where the import tx already records the payer's share as a direct posting.
     skipPayerMemberTx?: boolean
+    // Account the payer is paying from. When provided, the payer gets a 3-posting tx
+    // (source, group clearing, expense) instead of the legacy 2-posting tx.
+    paymentAccountId?: string
   },
 ): Promise<string> {
-  const { group, members, payerId, description, amount, currency, date, linkedTransactionId, skipPayerMemberTx } = opts
+  const { group, members, payerId, description, amount, currency, date, linkedTransactionId, skipPayerMemberTx, paymentAccountId } = opts
 
   const splits = computeSplits(amount, members, payerId)
   const normalizedAmount = parseFloat(amount).toFixed(2)
@@ -146,6 +187,8 @@ export async function createGroupExpenseInTx(
     currency,
     date,
     payerId,
+    totalAmount: normalizedAmount,
+    paymentAccountId,
     skipPayerMemberTx,
   })
 

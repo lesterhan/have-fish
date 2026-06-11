@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { GroupMember, GroupExpense } from '$lib/api'
+  import type { GroupMember, GroupExpense, Account } from '$lib/api'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -13,6 +13,7 @@
     currency: string
     date: string
     paidByUserId: string
+    paymentAccountId: string
   }
 
   interface Props {
@@ -22,6 +23,8 @@
     initialSliderPct: number
     groupId: string
     myExpenseAccountPath: string | null
+    myPaymentAccountPath: string | null
+    allAccounts: Account[]
     onCreate: (data: CreateExpenseData) => Promise<GroupExpense>
     onSliderChange: (pct: number) => Promise<void>
   }
@@ -33,6 +36,8 @@
     initialSliderPct,
     groupId,
     myExpenseAccountPath,
+    myPaymentAccountPath,
+    allAccounts,
     onCreate,
     onSliderChange,
   }: Props = $props()
@@ -43,6 +48,7 @@
   const today = new Date().toISOString().slice(0, 10)
   let date = $state(today)
   let paidBy = $state(untrack(() => currentUserId))
+  let paymentAccountPath = $state(untrack(() => myPaymentAccountPath ?? ''))
   let error = $state('')
   let submitting = $state(false)
   let added = $state(false)
@@ -69,6 +75,11 @@
 
   async function handleAdd() {
     if (!amount || parseFloat(amount) <= 0 || submitting) return
+    const paymentAccount = allAccounts.find((a) => a.path === paymentAccountPath.trim())
+    if (!paymentAccount) {
+      error = 'Payment account not found — enter an account path like "liabilities:visa"'
+      return
+    }
     error = ''
     submitting = true
     try {
@@ -78,6 +89,7 @@
         currency: currency.trim().toUpperCase(),
         date,
         paidByUserId: paidBy || currentUserId,
+        paymentAccountId: paymentAccount.id,
       })
       desc = ''
       amount = ''
@@ -109,6 +121,15 @@
 </div>
 
 <div class="expense-form-wrap">
+  <div class="field">
+    <span class="field-label">Paid from account</span>
+    <TextInput
+      bind:value={paymentAccountPath}
+      placeholder="liabilities:visa"
+      class="fill-input"
+    />
+  </div>
+
   <div class="field">
     <span class="field-label">Description</span>
     <TextInput
