@@ -50,8 +50,8 @@
     const totalWeight = group.members.reduce((s, m) => s + m.shareWeight, 0)
     if (totalWeight === 0) return null
     const ratio = me.shareWeight / totalWeight
-    const amountStr = tx.isTransfer === true ? tx.sourceAmount : tx.amount
-    const currency = tx.isTransfer === true ? tx.sourceCurrency : tx.currency
+    const amountStr = tx.isTransfer === true ? tx.targetAmount : tx.amount
+    const currency = tx.isTransfer === true ? tx.targetCurrency : tx.currency
     const raw = Math.abs(parseFloat(amountStr)) * ratio
     if (isNaN(raw)) return null
     return `${raw.toFixed(2)} ${currency}`
@@ -103,22 +103,22 @@
     <div class="transfer-accounts">
       {#if rowState.groupId}
         <div class="fishpie-pills">
-          <div class="fishpie-pills-row">
-            <span class="fishpie-pill-group">
-              <Icon name="pie" size={11} />
-              {groupName(groups, rowState.groupId)}
-            </span>
-            <span class="fishpie-pill-account">
-              {groupExpenseAccountPath(
-                groups,
-                accounts,
-                currentUserId,
-                rowState.groupId,
-              )}
-            </span>
-          </div>
+          <span class="fishpie-pill-group">
+            <Icon name="pie" size={11} />
+            {groupName(groups, rowState.groupId)}
+          </span>
+          <span class="fishpie-pill-account">
+            {groupExpenseAccountPath(
+              groups,
+              accounts,
+              currentUserId,
+              rowState.groupId,
+            )}
+          </span>
           {#if shareHint}
-            <span class="share-hint">your share: {shareHint}</span>
+            <span class="fishpie-pill-share">
+              <Icon name="pie-chart" size={9} />{shareHint}
+            </span>
           {/if}
         </div>
       {:else if splitSelectOpen}
@@ -145,7 +145,7 @@
       {/if}
       {#if feeAccountPath}
         <span class="fee-pill">
-          Fee: <code>{feeAccountPath}</code>
+          <Icon name="coin" size={10} /><code>{feeAccountPath}</code>
           <button class="pill-remove" onclick={() => { rowState.feeAccountId = '' }}>×</button>
         </span>
       {:else}

@@ -100,17 +100,17 @@
   <td class="cell-offset" bind:this={offsetCellEl}>
     {#if rowState.groupId}
       <div class="fishpie-pills">
-        <div class="fishpie-pills-row">
-          <span class="fishpie-pill-group">
-            <Icon name="pie" size={11} />
-            {groupName(groups, rowState.groupId)}
-          </span>
-          <span class="fishpie-pill-account">
-            {groupExpenseAccountPath(groups, accounts, currentUserId, rowState.groupId)}
-          </span>
-        </div>
+        <span class="fishpie-pill-group">
+          <Icon name="pie" size={11} />
+          {groupName(groups, rowState.groupId)}
+        </span>
+        <span class="fishpie-pill-account">
+          {groupExpenseAccountPath(groups, accounts, currentUserId, rowState.groupId)}
+        </span>
         {#if shareHint}
-          <span class="share-hint">your share: {shareHint}</span>
+          <span class="fishpie-pill-share">
+            <Icon name="pie-chart" size={9} />{shareHint}
+          </span>
         {/if}
       </div>
     {:else if splitSelectOpen}

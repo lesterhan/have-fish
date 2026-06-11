@@ -416,25 +416,24 @@
 
   :global(.table-container .fishpie-pills) {
     display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    min-width: 0;
-  }
-
-  :global(.table-container .fishpie-pills-row) {
-    display: flex;
     align-items: center;
     gap: 3px;
     flex-wrap: nowrap;
     min-width: 0;
   }
 
-  :global(.table-container .share-hint) {
+  :global(.table-container .fishpie-pill-share) {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    color: var(--color-text-muted);
     font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--color-text-muted);
     white-space: nowrap;
+    flex-shrink: 0;
   }
 
   :global(.table-container .fishpie-pill-group) {
