@@ -3,6 +3,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import CurrencyPill from '../ui/CurrencyPill.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { initials } from './utils'
@@ -310,11 +311,7 @@
                     </div>
                     <div class="edit-field edit-field--currency">
                       <span class="field-label">Currency</span>
-                      <TextInput
-                        bind:value={editCurrency}
-                        maxlength={3}
-                        class="edit-input edit-input--currency"
-                      />
+                      <CurrencyInput bind:value={editCurrency} />
                     </div>
                   </div>
                   <div class="edit-date-wrap">
@@ -814,11 +811,6 @@
   .edit-form :global(.edit-input) {
     width: 100%;
     box-sizing: border-box;
-  }
-
-  .edit-form :global(.edit-input--currency) {
-    width: 48px;
-    text-transform: uppercase;
   }
 
   .edit-amount-row {
