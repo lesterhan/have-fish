@@ -39,6 +39,8 @@
     onaccountcreated,
   }: Props = $props()
 
+  let offsetCellEl: HTMLElement | null = $state(null)
+
   let feeAccountPath = $derived(
     rowState.feeAccountId
       ? (accounts.find((a) => a.id === rowState.feeAccountId)?.path ?? null)
@@ -81,7 +83,7 @@
     </td>
   {/if}
 
-  <td class="cell-offset">
+  <td class="cell-offset" bind:this={offsetCellEl}>
     <div class="transfer-accounts">
       {#if rowState.groupId}
         <div class="fishpie-pills">
@@ -101,6 +103,7 @@
       {:else if splitSelectOpen}
         <GroupSelect
           {groups}
+          anchorEl={offsetCellEl}
           onselect={(id) => { rowState.groupId = id }}
           onclose={onclosesplit}
         />

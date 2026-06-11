@@ -40,6 +40,8 @@
     onaccountcreated,
   }: Props = $props()
 
+  let offsetCellEl: HTMLElement | null = $state(null)
+
   function displayAmount(amount: string): string {
     if (!importAsLiabilities) return amount
     const n = parseFloat(amount)
@@ -81,7 +83,7 @@
     {displayAmount(tx.amount)}{#if isMultiCurrency}{tx.currency ?? defaultCurrency}{/if}
   </td>
   {#if !isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
-  <td class="cell-offset">
+  <td class="cell-offset" bind:this={offsetCellEl}>
     {#if rowState.groupId}
       <div class="fishpie-pills">
         <span class="fishpie-pill-group">
@@ -95,6 +97,7 @@
     {:else if splitSelectOpen}
       <GroupSelect
         {groups}
+        anchorEl={offsetCellEl}
         onselect={(id) => { rowState.groupId = id }}
         onclose={onclosesplit}
       />
