@@ -146,7 +146,7 @@
       {#if feeAccountPath}
         <span class="fee-pill">
           <Icon name="coin" size={10} /><code>{feeAccountPath}</code>
-          <button class="pill-remove" onclick={() => { rowState.feeAccountId = '' }}>×</button>
+          <button type="button" class="pill-remove" onclick={() => { rowState.feeAccountId = '' }}>×</button>
         </span>
       {:else}
         <AccountPathInput

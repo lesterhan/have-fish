@@ -69,6 +69,7 @@
   }
 
   function handleKeydown(e: KeyboardEvent) {
+    if (sortedGroups.length === 0) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       e.stopPropagation()
