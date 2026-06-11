@@ -197,6 +197,14 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
   if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
   if (!members.some((m) => m.userId === payerId)) return c.json({ error: 'payer is not a member' }, 400)
 
+  if (body.paymentAccountId) {
+    const [paymentAcct] = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, body.paymentAccountId), eq(accounts.userId, payerId), isNull(accounts.deletedAt)))
+    if (!paymentAcct) return c.json({ error: 'payment account not found or does not belong to payer' }, 400)
+  }
+
   // Apply optional per-expense split weight overrides (defaults to stored member weights)
   const membersForSplit = body.splits
     ? members.map((m) => ({

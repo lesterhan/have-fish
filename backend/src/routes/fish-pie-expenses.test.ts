@@ -704,6 +704,30 @@ describe('fish-pie PATCH expense', () => {
     expect(debit.accountId).toBe(paymentAccountId2)
   })
 
+  it('PATCH returns 400 when paymentAccountId belongs to another user', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner', amount: '50.00', currency: 'CAD', date: '2026-06-01', paymentAccountId }),
+    })
+    const expense = await createRes.json() as any
+
+    // Create an account belonging to B
+    const acctBRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'liabilities:visa' }),
+    })
+    const acctBId = (await acctBRes.json() as any).id
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentAccountId: acctBId }),
+    })
+    expect(patchRes.status).toBe(400)
+  })
+
   it('PATCH import-linked expense updates import tx split postings, does not delete import tx', async () => {
     // Create source account and import a row with fish pie split
     const srcRes = await app.request('/api/accounts', {
@@ -871,11 +895,6 @@ describe('fish-pie Story 3 — paymentAccountId required, 3-posting payer tx, de
     expect(payerDebit.accountId).toBe(paymentAccountId)
     expect(parseFloat(payerDebit.amount)).toBeCloseTo(-100, 2)
 
-    const sharedPosting = payerPs.find((p) => {
-      if (p.accountId === paymentAccountId) return false
-      const acctRecord = allTxs // just need to distinguish — check via shared account
-      return true
-    })
     const payerCreditsSum = payerPs.filter((p) => parseFloat(p.amount) > 0).reduce((s, p) => s + parseFloat(p.amount), 0)
     expect(payerCreditsSum).toBeCloseTo(100, 2)
 
