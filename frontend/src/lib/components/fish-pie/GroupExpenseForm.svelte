@@ -1,8 +1,10 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { GroupMember, GroupExpense } from '$lib/api'
+  import type { GroupMember, GroupExpense, Account } from '$lib/api'
+  import { updateMyPaymentAccount } from '$lib/api'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { initials } from './utils'
   import { toast } from '$lib/toast.svelte'
@@ -13,6 +15,7 @@
     currency: string
     date: string
     paidByUserId: string
+    paymentAccountId: string
   }
 
   interface Props {
@@ -22,6 +25,8 @@
     initialSliderPct: number
     groupId: string
     myExpenseAccountPath: string | null
+    myPaymentAccountPath: string | null
+    allAccounts: Account[]
     onCreate: (data: CreateExpenseData) => Promise<GroupExpense>
     onSliderChange: (pct: number) => Promise<void>
   }
@@ -33,6 +38,8 @@
     initialSliderPct,
     groupId,
     myExpenseAccountPath,
+    myPaymentAccountPath,
+    allAccounts,
     onCreate,
     onSliderChange,
   }: Props = $props()
@@ -43,6 +50,9 @@
   const today = new Date().toISOString().slice(0, 10)
   let date = $state(today)
   let paidBy = $state(untrack(() => currentUserId))
+  let paymentAccountId = $state(untrack(() => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? ''))
+  let savedPaymentAccountId = $state(untrack(() => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? ''))
+  let localAccounts = $state(untrack(() => [...allAccounts]))
   let error = $state('')
   let submitting = $state(false)
   let added = $state(false)
@@ -67,8 +77,22 @@
     dateInputEl?.focus()
   }
 
+  async function handlePaymentAccountCommit(id: string) {
+    if (!id || id === savedPaymentAccountId) return
+    try {
+      await updateMyPaymentAccount(groupId, id)
+      savedPaymentAccountId = id
+    } catch {
+      // silent — the user can still use the selected account for this expense
+    }
+  }
+
   async function handleAdd() {
     if (!amount || parseFloat(amount) <= 0 || submitting) return
+    if (!paymentAccountId) {
+      error = 'Select a payment account'
+      return
+    }
     error = ''
     submitting = true
     try {
@@ -78,6 +102,7 @@
         currency: currency.trim().toUpperCase(),
         date,
         paidByUserId: paidBy || currentUserId,
+        paymentAccountId,
       })
       desc = ''
       amount = ''
@@ -109,6 +134,17 @@
 </div>
 
 <div class="expense-form-wrap">
+  <div class="field">
+    <span class="field-label">Paid from account</span>
+    <AccountPathInput
+      accounts={localAccounts}
+      bind:value={paymentAccountId}
+      placeholder="liabilities:visa"
+      allowCreate={false}
+      oncommit={handlePaymentAccountCommit}
+    />
+  </div>
+
   <div class="field">
     <span class="field-label">Description</span>
     <TextInput

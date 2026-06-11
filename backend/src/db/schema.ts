@@ -184,6 +184,9 @@ export const expenseGroupMembers = pgTable('expense_group_members', {
   // Account where this member's share of group expenses is posted (e.g. expenses:food).
   // Null = falls back to uncategorized account.
   defaultExpenseAccountId: uuid('default_expense_account_id').references(() => accounts.id),
+  // Account the payer pays from when manually creating an expense (e.g. liabilities:visa).
+  // Required by the UI when creating a manual expense; stored so it can be pre-filled next time.
+  defaultPaymentAccountId: uuid('default_payment_account_id').references(() => accounts.id),
   joinedAt: timestamp('joined_at').notNull().defaultNow(),
 }, (t) => [
   unique().on(t.groupId, t.userId),

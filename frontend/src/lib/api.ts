@@ -715,6 +715,7 @@ export type GroupMember = {
   userId: string
   shareWeight: number
   defaultExpenseAccountId: string | null
+  defaultPaymentAccountId: string | null
   joinedAt: string
   userName: string
   userEmail: string
@@ -864,6 +865,7 @@ export type ExpenseSplit = {
   userId: string
   amount: string
   userName: string
+  expenseAccountPath: string | null
 }
 
 export type GroupExpense = {
@@ -875,6 +877,7 @@ export type GroupExpense = {
   amount: string
   currency: string
   date: string
+  transactionId: string | null
   createdAt: string
   deletedAt: string | null
   splits: ExpenseSplit[]
@@ -886,9 +889,20 @@ export async function fetchExpenses(groupId: string): Promise<GroupExpense[]> {
   return res.json()
 }
 
+export async function updateMyPaymentAccount(groupId: string, defaultPaymentAccountId: string | null): Promise<GroupMember> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/members/me`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ defaultPaymentAccountId }),
+  })
+  if (!res.ok) throw new Error('Failed to update payment account')
+  return res.json()
+}
+
 export async function createExpense(
   groupId: string,
-  body: { description: string; amount: string; currency: string; date: string; paidByUserId?: string },
+  body: { description: string; amount: string; currency: string; date: string; paidByUserId?: string; paymentAccountId: string },
 ): Promise<GroupExpense> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
     method: 'POST',
@@ -899,6 +913,31 @@ export async function createExpense(
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to create expense')
+  }
+  return res.json()
+}
+
+export async function updateExpense(
+  groupId: string,
+  expenseId: string,
+  body: {
+    description?: string
+    amount?: string
+    currency?: string
+    date?: string
+    paidByUserId?: string
+    splits?: { userId: string; shareWeight: number }[]
+  },
+): Promise<GroupExpense> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to update expense')
   }
   return res.json()
 }

@@ -10,6 +10,7 @@
     fetchExpenses,
     createExpense,
     deleteExpense,
+    updateExpense,
     fetchBalances,
     fetchSettlements,
     createSettlement,
@@ -83,6 +84,13 @@
     return allAccounts.find((a) => a.id === myMember.defaultExpenseAccountId)?.path ?? null
   })
 
+  const myPaymentAccountPath = $derived.by(() => {
+    if (!group) return null
+    const myMember = group.members.find((m) => m.userId === currentUserId)
+    if (!myMember?.defaultPaymentAccountId) return null
+    return allAccounts.find((a) => a.id === myMember.defaultPaymentAccountId)?.path ?? null
+  })
+
   onMount(async () => {
     try {
       const [g, inv, exp, bal, sett, accts] = await Promise.all([
@@ -143,6 +151,7 @@
     currency: string
     date: string
     paidByUserId: string
+    paymentAccountId: string
   }): Promise<GroupExpense> {
     const expense = await createExpense(groupId, data)
     expenses = [expense, ...expenses]
@@ -154,6 +163,16 @@
     await deleteExpense(groupId, expenseId)
     expenses = expenses.filter((e) => e.id !== expenseId)
     await refreshBalances()
+  }
+
+  async function handleUpdateExpense(
+    expenseId: string,
+    data: Parameters<typeof updateExpense>[2],
+  ) {
+    const updated = await updateExpense(groupId, expenseId, data)
+    expenses = expenses.map((e) => (e.id === expenseId ? updated : e))
+    await refreshBalances()
+    return updated
   }
 
   async function handleSettle(data: {
@@ -358,6 +377,8 @@
           {initialSliderPct}
           {groupId}
           {myExpenseAccountPath}
+          {myPaymentAccountPath}
+          {allAccounts}
           onCreate={handleAddExpense}
           onSliderChange={saveShareSlider}
         />
@@ -368,12 +389,14 @@
       <GroupRightPanel
         {expenses}
         {settlements}
+        members={group.members}
         {currentUserId}
         {groupId}
         {allAccounts}
         groupCreatedBy={group.createdBy}
         onDeleteExpense={handleDeleteExpense}
         onDeleteSettlement={handleDeleteSettlement}
+        onUpdateExpense={handleUpdateExpense}
         onConfirmSettlement={handleConfirmSettlement}
       />
     </div>
