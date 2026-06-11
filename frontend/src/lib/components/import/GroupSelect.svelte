@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { onMount } from 'svelte'
+  import { onMount, tick } from 'svelte'
 
   interface Group {
     id: string
@@ -17,9 +17,12 @@
   let wrapperEl: HTMLElement | null = null
   let listEl: HTMLElement | null = null
   let activeIndex = $state(0)
-  let listStyle = $state('')
+  // Start off-screen so the list is never in normal flow during measurement —
+  // if listStyle starts empty, the <ul> expands the anchor div before onMount
+  // runs, making getBoundingClientRect() report the wrong (inflated) bottom.
+  let listStyle = $state('position: fixed; top: -9999px; left: -9999px;')
 
-  onMount(() => {
+  onMount(async () => {
     if (wrapperEl) {
       const rect = wrapperEl.getBoundingClientRect()
       const spaceBelow = window.innerHeight - rect.bottom
@@ -29,6 +32,7 @@
         listStyle = `position: fixed; top: ${rect.bottom}px; left: ${rect.left}px; min-width: ${rect.width}px;`
       }
     }
+    await tick()
     listEl?.focus()
   })
 
