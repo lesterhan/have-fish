@@ -150,6 +150,7 @@
     {id}
     type="text"
     class="currency-input"
+    class:pill-mode={showPill}
     bind:value={inputText}
     {placeholder}
     tabindex={showPill ? -1 : 0}
@@ -237,6 +238,10 @@
     transition:
       border-color var(--duration-fast) var(--ease),
       box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .currency-input.pill-mode {
+    visibility: hidden;
   }
 
   .currency-input:focus {
