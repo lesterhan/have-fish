@@ -10,12 +10,12 @@ import {
   groupCategoryWeights,
   accounts,
   postings,
-  user,
 } from '../db/schema'
 import { eq, and, isNull, inArray } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { ensureSharedAccount, slugify, CLEARING_PREFIX } from '../fish-pie-accounts'
 import { fetchCategoriesForGroups } from './fish-pie-categories'
+import { fetchMembersForGroups } from './fish-pie-groups'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -172,22 +172,7 @@ app.post('/merge', async (c) => {
     return created
   })
 
-  const members = await db
-    .select({
-      id: expenseGroupMembers.id,
-      groupId: expenseGroupMembers.groupId,
-      userId: expenseGroupMembers.userId,
-      shareWeight: expenseGroupMembers.shareWeight,
-      defaultExpenseAccountId: expenseGroupMembers.defaultExpenseAccountId,
-      defaultPaymentAccountId: expenseGroupMembers.defaultPaymentAccountId,
-      joinedAt: expenseGroupMembers.joinedAt,
-      userName: user.name,
-      userEmail: user.email,
-    })
-    .from(expenseGroupMembers)
-    .innerJoin(user, eq(expenseGroupMembers.userId, user.id))
-    .where(eq(expenseGroupMembers.groupId, newGroup.id))
-
+  const members = await fetchMembersForGroups([newGroup.id])
   const categories = await fetchCategoriesForGroups([newGroup.id], userId)
   return c.json({ ...newGroup, members, categories }, 201)
 })

@@ -8,7 +8,7 @@ import { fetchCategoriesForGroups } from './fish-pie-categories'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
-async function fetchMembersForGroups(groupIds: string[]) {
+export async function fetchMembersForGroups(groupIds: string[]) {
   if (groupIds.length === 0) return []
   return db
     .select({
