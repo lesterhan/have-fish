@@ -225,6 +225,13 @@
       "when": 1781257378339,
       "tag": "0031_first_moon_knight",
       "breakpoints": true
+    },
+    {
+      "idx": 32,
+      "version": "7",
+      "when": 1781258441421,
+      "tag": "0032_first_onslaught",
+      "breakpoints": true
     }
   ]
 }

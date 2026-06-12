@@ -160,23 +160,21 @@ describe('fish-pie categories', () => {
       accountA = await createAccount(cookie, 'expenses:food', 'Food')
     })
 
-    it('PUT my-mapping upserts the caller’s own mapping', async () => {
+    it('PUT my-mapping upserts the caller’s own account mapping', async () => {
       const cat = (await (await createCategory(groupId, cookie, { name: 'Food' })).json()) as any
       const res = await app.request(`/api/fish-pie/groups/${groupId}/categories/${cat.id}/my-mapping`, {
         method: 'PUT',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: accountA, shareWeight: 7 }),
+        body: JSON.stringify({ accountId: accountA }),
       })
       expect(res.status).toBe(200)
-      const body = (await res.json()) as any
-      expect(body.accountId).toBe(accountA)
-      expect(body.shareWeight).toBe(7)
+      expect(((await res.json()) as any).accountId).toBe(accountA)
 
       // Surfaced on the category GET for that member
       const cats = (await (await app.request(`/api/fish-pie/groups/${groupId}/categories`, {
         headers: { Cookie: cookie },
       })).json()) as any[]
-      expect(cats[0].myMapping).toEqual({ accountId: accountA, shareWeight: 7 })
+      expect(cats[0].myMapping).toEqual({ accountId: accountA })
     })
 
     it('PUT my-mapping is idempotent (second call updates, not duplicates)', async () => {
@@ -188,12 +186,15 @@ describe('fish-pie categories', () => {
           headers: { Cookie: cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify(b),
         })
-      await put({ accountId: accountA, shareWeight: 3 })
+      await put({ accountId: accountA })
       const res = await put({ accountId: account2 })
       expect(res.status).toBe(200)
-      const body = (await res.json()) as any
-      expect(body.accountId).toBe(account2)
-      expect(body.shareWeight).toBeNull()
+      expect(((await res.json()) as any).accountId).toBe(account2)
+
+      const cats = (await (await app.request(`/api/fish-pie/groups/${groupId}/categories`, {
+        headers: { Cookie: cookie },
+      })).json()) as any[]
+      expect(cats[0].myMapping).toEqual({ accountId: account2 })
     })
 
     it('PUT my-mapping rejects an account the caller does not own', async () => {
@@ -207,29 +208,19 @@ describe('fish-pie categories', () => {
       expect(res.status).toBe(400)
     })
 
-    it('PUT my-mapping rejects a non-positive shareWeight', async () => {
-      const cat = (await (await createCategory(groupId, cookie, { name: 'Food' })).json()) as any
-      const res = await app.request(`/api/fish-pie/groups/${groupId}/categories/${cat.id}/my-mapping`, {
-        method: 'PUT',
-        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: accountA, shareWeight: 0 }),
-      })
-      expect(res.status).toBe(400)
-    })
-
-    it('two members map the same category independently', async () => {
+    it('two members map the same category to their own accounts independently', async () => {
       const cat = (await (await createCategory(groupId, cookie, { name: 'Food' })).json()) as any
       const accountB = await createAccount(cookieB, 'expenses:groceries', 'Groceries')
 
       await app.request(`/api/fish-pie/groups/${groupId}/categories/${cat.id}/my-mapping`, {
         method: 'PUT',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: accountA, shareWeight: 6 }),
+        body: JSON.stringify({ accountId: accountA }),
       })
       await app.request(`/api/fish-pie/groups/${groupId}/categories/${cat.id}/my-mapping`, {
         method: 'PUT',
         headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: accountB, shareWeight: 4 }),
+        body: JSON.stringify({ accountId: accountB }),
       })
 
       const catsA = (await (await app.request(`/api/fish-pie/groups/${groupId}/categories`, {
@@ -239,8 +230,81 @@ describe('fish-pie categories', () => {
         headers: { Cookie: cookieB },
       })).json()) as any[]
 
-      expect(catsA[0].myMapping).toEqual({ accountId: accountA, shareWeight: 6 })
-      expect(catsB[0].myMapping).toEqual({ accountId: accountB, shareWeight: 4 })
+      expect(catsA[0].myMapping).toEqual({ accountId: accountA })
+      expect(catsB[0].myMapping).toEqual({ accountId: accountB })
+    })
+  })
+
+  describe('shared category weights', () => {
+    let cookieB: string
+    let userId: string
+    let userBId: string
+
+    beforeEach(async () => {
+      cookieB = await createTestUser('b@test.com', 'passwordB')
+      await inviteAndAccept(groupId, cookie, 'b@test.com', cookieB)
+      userId = await getUserId(cookie)
+      userBId = await getUserId(cookieB)
+    })
+
+    function putWeights(catId: string, asCookie: string, weights: { userId: string; weight: number }[]) {
+      return app.request(`/api/fish-pie/groups/${groupId}/categories/${catId}/weights`, {
+        method: 'PUT',
+        headers: { Cookie: asCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weights }),
+      })
+    }
+
+    it('any member can set the whole vector (agreement implied)', async () => {
+      const cat = (await (await createCategory(groupId, cookie, { name: 'Housing' })).json()) as any
+      // Member B sets weights for BOTH members
+      const res = await putWeights(cat.id, cookieB, [
+        { userId, weight: 60 },
+        { userId: userBId, weight: 40 },
+      ])
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as any
+      const map = Object.fromEntries(body.weights.map((w: any) => [w.userId, w.weight]))
+      expect(map).toEqual({ [userId]: 60, [userBId]: 40 })
+    })
+
+    it('weights are shared — visible to every member on GET', async () => {
+      const cat = (await (await createCategory(groupId, cookie, { name: 'Housing' })).json()) as any
+      await putWeights(cat.id, cookie, [{ userId, weight: 70 }, { userId: userBId, weight: 30 }])
+
+      const catsB = (await (await app.request(`/api/fish-pie/groups/${groupId}/categories`, {
+        headers: { Cookie: cookieB },
+      })).json()) as any[]
+      const map = Object.fromEntries(catsB[0].weights.map((w: any) => [w.userId, w.weight]))
+      expect(map).toEqual({ [userId]: 70, [userBId]: 30 })
+    })
+
+    it('PUT weights replaces the vector wholesale', async () => {
+      const cat = (await (await createCategory(groupId, cookie, { name: 'Housing' })).json()) as any
+      await putWeights(cat.id, cookie, [{ userId, weight: 60 }, { userId: userBId, weight: 40 }])
+      // Resend with only one member — the other is cleared
+      const res = await putWeights(cat.id, cookie, [{ userId, weight: 100 }])
+      const body = (await res.json()) as any
+      expect(body.weights).toEqual([{ userId, weight: 100 }])
+    })
+
+    it('rejects a weight for a non-member', async () => {
+      const cat = (await (await createCategory(groupId, cookie, { name: 'Housing' })).json()) as any
+      const res = await putWeights(cat.id, cookie, [{ userId: 'not-a-member', weight: 50 }])
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects a non-positive weight', async () => {
+      const cat = (await (await createCategory(groupId, cookie, { name: 'Housing' })).json()) as any
+      const res = await putWeights(cat.id, cookie, [{ userId, weight: 0 }])
+      expect(res.status).toBe(400)
+    })
+
+    it('non-member cannot set weights', async () => {
+      const cat = (await (await createCategory(groupId, cookie, { name: 'Housing' })).json()) as any
+      const outsider = await createTestUser('out@test.com', 'passwordO')
+      const res = await putWeights(cat.id, outsider, [{ userId, weight: 50 }])
+      expect(res.status).toBe(404)
     })
   })
 

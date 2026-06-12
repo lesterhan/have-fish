@@ -184,12 +184,17 @@ describe('fish-pie expense categories', () => {
       catId = await createCategory(groupId, cookie, 'Housing')
     })
 
+    function putWeights(weights: { userId: string; weight: number }[]) {
+      return app.request(`/api/fish-pie/groups/${groupId}/categories/${catId}/weights`, {
+        method: 'PUT',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ weights }),
+      })
+    }
+
     it('uses category weights when every member has one', async () => {
-      // Category weights 60/40 (group weights are the default 1/1)
-      const acctA = await createAccount(cookie, 'expenses:housing')
-      const acctB = await createAccount(cookieB, 'expenses:rent')
-      await setMapping(groupId, catId, cookie, { accountId: acctA, shareWeight: 60 })
-      await setMapping(groupId, catId, cookieB, { accountId: acctB, shareWeight: 40 })
+      // Shared category weights 60/40 (group weights are the default 1/1)
+      await putWeights([{ userId, weight: 60 }, { userId: userBId, weight: 40 }])
 
       const expense = (await (await createExpense(groupId, cookie, {
         description: 'Rent', amount: '100.00', currency: 'CAD', date: '2026-05-01',
@@ -202,10 +207,9 @@ describe('fish-pie expense categories', () => {
       expect(splitB.amount).toBe('40.00')
     })
 
-    it('falls back to group weights when only one member has a category weight', async () => {
-      const acctA = await createAccount(cookie, 'expenses:housing')
-      // Only member A sets a category weight — should NOT reshape the split
-      await setMapping(groupId, catId, cookie, { accountId: acctA, shareWeight: 90 })
+    it('falls back to group weights when the category vector is incomplete', async () => {
+      // Only member A has a category weight — incomplete vector, should NOT reshape
+      await putWeights([{ userId, weight: 90 }])
 
       const expense = (await (await createExpense(groupId, cookie, {
         description: 'Rent', amount: '100.00', currency: 'CAD', date: '2026-05-01',
@@ -220,10 +224,7 @@ describe('fish-pie expense categories', () => {
     })
 
     it('explicit per-expense splits override category weights (on PATCH)', async () => {
-      const acctA = await createAccount(cookie, 'expenses:housing')
-      const acctB = await createAccount(cookieB, 'expenses:rent')
-      await setMapping(groupId, catId, cookie, { accountId: acctA, shareWeight: 60 })
-      await setMapping(groupId, catId, cookieB, { accountId: acctB, shareWeight: 40 })
+      await putWeights([{ userId, weight: 60 }, { userId: userBId, weight: 40 }])
 
       const expense = (await (await createExpense(groupId, cookie, {
         description: 'Rent', amount: '100.00', currency: 'CAD', date: '2026-05-01',

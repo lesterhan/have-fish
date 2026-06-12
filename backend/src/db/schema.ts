@@ -215,14 +215,26 @@ export const groupCategories = pgTable('group_categories', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
 })
 
-// One member's mapping of a category to their own expense account, plus an optional
-// per-category split weight (null = fall back to the member's group share weight).
+// One member's private mapping of a category to their own expense account.
+// Self-owned: each member manages only their own row.
 export const groupCategoryMemberAccounts = pgTable('group_category_member_accounts', {
   id: uuid('id').primaryKey().defaultRandom(),
   categoryId: uuid('category_id').notNull().references(() => groupCategories.id, { onDelete: 'cascade' }),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   accountId: uuid('account_id').notNull().references(() => accounts.id),
-  shareWeight: integer('share_weight'),
+}, (t) => [
+  unique().on(t.categoryId, t.userId),
+])
+
+// The group's agreed split weight for a member within a category (Housing 60/40,
+// Food 70/30). Shared, not private: any member may set the whole vector — the
+// agreement is implied. A category's weights apply only when every current member
+// has one; otherwise the split falls back to group member weights.
+export const groupCategoryWeights = pgTable('group_category_weights', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  categoryId: uuid('category_id').notNull().references(() => groupCategories.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  weight: integer('weight').notNull(),
 }, (t) => [
   unique().on(t.categoryId, t.userId),
 ])

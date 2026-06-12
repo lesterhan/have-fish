@@ -3,6 +3,7 @@ import {
   groupExpenses,
   groupExpenseSplits,
   groupCategoryMemberAccounts,
+  groupCategoryWeights,
   expenseGroupMembers,
   expenseGroups,
   transactions,
@@ -23,9 +24,10 @@ export type CategoryContext = {
   weights: Map<string, number> | null // userId → category weight, or null
 }
 
-// Load a category's member mappings and decide whether its weights apply. Category
-// weights only take effect when all split members have one — a partial set would
-// silently reshape the split, so we fall back to group weights instead.
+// Load a category's private account mappings and shared weight vector, and decide
+// whether the weights apply. Category weights only take effect when every split
+// member has one — a partial set would silently reshape the split, so we fall back
+// to group weights instead.
 export async function resolveCategoryContext(
   tx: TxDb,
   categoryId: string | null | undefined,
@@ -33,17 +35,16 @@ export async function resolveCategoryContext(
 ): Promise<CategoryContext> {
   if (!categoryId) return { accounts: new Map(), weights: null }
 
-  const mappings = await tx
-    .select()
-    .from(groupCategoryMemberAccounts)
-    .where(eq(groupCategoryMemberAccounts.categoryId, categoryId))
+  const [mappings, weightRows] = await Promise.all([
+    tx.select().from(groupCategoryMemberAccounts).where(eq(groupCategoryMemberAccounts.categoryId, categoryId)),
+    tx.select().from(groupCategoryWeights).where(eq(groupCategoryWeights.categoryId, categoryId)),
+  ])
 
   const accounts = new Map<string, string>()
+  for (const m of mappings) accounts.set(m.userId, m.accountId)
+
   const weights = new Map<string, number>()
-  for (const m of mappings) {
-    accounts.set(m.userId, m.accountId)
-    if (m.shareWeight != null) weights.set(m.userId, m.shareWeight)
-  }
+  for (const w of weightRows) weights.set(w.userId, w.weight)
 
   const allHaveWeight = members.length > 0 && members.every((mem) => weights.has(mem.userId))
   return { accounts, weights: allHaveWeight ? weights : null }
