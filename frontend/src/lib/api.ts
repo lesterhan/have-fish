@@ -722,6 +722,16 @@ export type GroupMember = {
   userEmail: string
 }
 
+export type GroupCategory = {
+  id: string
+  groupId: string
+  name: string
+  sortOrder: number
+  archivedAt: string | null
+  myMapping: { accountId: string } | null
+  weights: { userId: string; weight: number }[]
+}
+
 export type ExpenseGroup = {
   id: string
   name: string
@@ -730,6 +740,7 @@ export type ExpenseGroup = {
   createdAt: string
   deletedAt: string | null
   members: GroupMember[]
+  categories: GroupCategory[]
 }
 
 export async function fetchGroups(): Promise<ExpenseGroup[]> {
@@ -794,6 +805,73 @@ export async function deleteGroup(id: string): Promise<void> {
     credentials: 'include',
   })
   if (!res.ok) throw new Error('Failed to delete group')
+}
+
+// --- Fish-pie group categories (epic: fish-pie-categories) ---
+
+export async function fetchGroupCategories(groupId: string): Promise<GroupCategory[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to fetch categories')
+  return res.json()
+}
+
+export async function createGroupCategory(groupId: string, name: string): Promise<GroupCategory> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name }),
+  })
+  if (!res.ok) throw new Error('Failed to create category')
+  return res.json()
+}
+
+export async function updateGroupCategory(
+  groupId: string,
+  categoryId: string,
+  data: { name?: string; sortOrder?: number; archived?: boolean },
+): Promise<GroupCategory> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error('Failed to update category')
+  return res.json()
+}
+
+// Upsert the requesting user's own (private) account mapping for a category.
+export async function setCategoryMyMapping(
+  groupId: string,
+  categoryId: string,
+  accountId: string,
+): Promise<{ categoryId: string; accountId: string }> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}/my-mapping`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId }),
+  })
+  if (!res.ok) throw new Error('Failed to set category account')
+  return res.json()
+}
+
+// Set the category's shared split weights. The vector must be complete (one entry per
+// current member) or empty to clear — the backend rejects a partial vector.
+export async function setCategoryWeights(
+  groupId: string,
+  categoryId: string,
+  weights: { userId: string; weight: number }[],
+): Promise<GroupCategory> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}/weights`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ weights }),
+  })
+  if (!res.ok) throw new Error('Failed to set category weights')
+  return res.json()
 }
 
 export type GroupInvite = {

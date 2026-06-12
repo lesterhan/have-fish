@@ -10,6 +10,7 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import CategoryManager from '$lib/components/fish-pie/CategoryManager.svelte'
 
   const groupId = $derived(page.params.id ?? '')
   const session = useSession()
@@ -142,6 +143,19 @@
           />
         </div>
       </div>
+    </div>
+
+    <div class="section-bar">
+      <span class="section-bar-title">Categories</span>
+    </div>
+    <div class="body">
+      <CategoryManager
+        {groupId}
+        members={group.members}
+        {currentUserId}
+        accounts={allAccounts}
+        categories={group.categories}
+      />
     </div>
 
     {#if isCreator}
