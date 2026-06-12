@@ -511,14 +511,14 @@ describe('POST /api/import/commit — group splits', () => {
     const importTx = allTxs.find((t) => !t.groupExpenseId)
     expect(importTx).toBeTruthy()
 
-    // The offset posting must go to group:housing, not to the user-supplied offsetAccountId
+    // The offset posting must go to assets:receivable:housing, not to the user-supplied offsetAccountId
     // and not to uncategorized. This prevents double-counting the payer's share.
     const txPostings = await db.select().from(postings).where(eq(postings.transactionId, importTx!.id))
     const offsetPosting = txPostings.find((p) => p.accountId !== sourceId)
     expect(offsetPosting).toBeTruthy()
 
     const [offsetAccount] = await db.select().from(accounts).where(eq(accounts.id, offsetPosting!.accountId))
-    expect(offsetAccount.path).toBe('group:housing')
+    expect(offsetAccount.path).toBe('assets:receivable:housing')
   })
 
   it('payer expense account shows only their share when Fish Pie split on credit card import', async () => {
@@ -567,7 +567,7 @@ describe('POST /api/import/commit — group splits', () => {
 
   it('Fish Pie chequing import creates 3 balanced postings on the import tx', async () => {
     // Chequing $1200, 50/50. Import tx must have 3 postings that sum to zero:
-    //   chequing −1200, group:housing +600 (B's share), expense +600 (A's share).
+    //   chequing −1200, assets:receivable:housing +600 (B's share), expense +600 (A's share).
     const expenseAccId = (await createAccount(cookieA, 'expenses:food')).id
     await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
       method: 'PATCH',
@@ -598,11 +598,11 @@ describe('POST /api/import/commit — group splits', () => {
     const sum = txPostings.reduce((s, p) => s + parseFloat(p.amount), 0)
     expect(Math.abs(sum)).toBeLessThan(0.01)
 
-    // group:housing gets only others' share (+600), not the full negated amount (+1200).
+    // assets:receivable:housing gets only others' share (+600), not the full negated amount (+1200).
     const [groupAccount] = await db
       .select()
       .from(accounts)
-      .where(and(eq(accounts.userId, userAId), eq(accounts.path, 'group:housing'), isNull(accounts.deletedAt)))
+      .where(and(eq(accounts.userId, userAId), eq(accounts.path, 'assets:receivable:housing'), isNull(accounts.deletedAt)))
     const groupPosting = txPostings.find((p) => p.accountId === groupAccount.id)
     expect(groupPosting).toBeTruthy()
     expect(parseFloat(groupPosting!.amount)).toBeCloseTo(600, 1)

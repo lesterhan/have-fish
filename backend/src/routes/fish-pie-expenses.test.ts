@@ -67,7 +67,7 @@ describe('fish-pie expenses', () => {
     expect(txs).toHaveLength(1)
     expect(txs[0].userId).toBe(userId)
 
-    // 1-member group: 2 postings (payment debit + expense credit; no shared posting since zero)
+    // 1-member assets:receivable: 2 postings (payment debit + expense credit; no shared posting since zero)
     const ps = await db.select().from(postings).where(eq(postings.transactionId, txs[0].id))
     expect(ps).toHaveLength(2)
 
@@ -167,7 +167,7 @@ describe('fish-pie expenses', () => {
     const nonPayerPs = await db.select().from(postings).where(eq(postings.transactionId, nonPayerTx.id))
     expect(nonPayerPs).toHaveLength(2)
     const nonPayerAccts = await db.select().from(accounts).where(inArray(accounts.id, nonPayerPs.map((p) => p.accountId)))
-    const sharedAcct = nonPayerAccts.find((a) => a.path.startsWith('group:'))!
+    const sharedAcct = nonPayerAccts.find((a) => a.path.startsWith('assets:receivable:'))!
     const sharedPosting = nonPayerPs.find((p) => p.accountId === sharedAcct.id)!
     const expensePosting = nonPayerPs.find((p) => p.accountId !== sharedAcct.id)!
     expect(parseFloat(expensePosting.amount)).toBeCloseTo(100, 2)
@@ -372,9 +372,9 @@ describe('fish-pie shared account auto-creation', () => {
       .select()
       .from(accounts)
       .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-    const shared = sharedAccounts.find((a) => a.path.startsWith('group:'))
+    const shared = sharedAccounts.find((a) => a.path.startsWith('assets:receivable:'))
     expect(shared).toBeDefined()
-    expect(shared!.path).toBe('group:food-group')
+    expect(shared!.path).toBe('assets:receivable:food-group')
   })
 
   it('accepting invite auto-creates shared account for new member', async () => {
@@ -403,9 +403,9 @@ describe('fish-pie shared account auto-creation', () => {
     })
 
     const accts = await db.select().from(accounts).where(and(eq(accounts.userId, userId2), isNull(accounts.deletedAt)))
-    const shared = accts.find((a) => a.path.startsWith('group:'))
+    const shared = accts.find((a) => a.path.startsWith('assets:receivable:'))
     expect(shared).toBeDefined()
-    expect(shared!.path).toBe('group:housing')
+    expect(shared!.path).toBe('assets:receivable:housing')
   })
 })
 
@@ -1072,7 +1072,7 @@ describe('fish-pie Story 3 — paymentAccountId required, 3-posting payer tx, de
     const nonPayerPs = await db.select().from(postings).where(eq(postings.transactionId, nonPayerTx.id))
     expect(nonPayerPs).toHaveLength(2)
     const nonPayerAccts = await db.select().from(accounts).where(inArray(accounts.id, nonPayerPs.map((p) => p.accountId)))
-    const sharedAcct = nonPayerAccts.find((a) => a.path.startsWith('group:'))!
+    const sharedAcct = nonPayerAccts.find((a) => a.path.startsWith('assets:receivable:'))!
     const sharedPosting = nonPayerPs.find((p) => p.accountId === sharedAcct.id)!
     const expensePosting = nonPayerPs.find((p) => p.accountId !== sharedAcct.id)!
     expect(parseFloat(expensePosting.amount)).toBeCloseTo(50, 2)
@@ -1235,7 +1235,7 @@ describe('fish-pie BUG-005 — non-payer posting signs', () => {
       const [acct] = await db
         .select({ id: accounts.id })
         .from(accounts)
-        .where(and(eq(accounts.userId, ownerId), eq(accounts.path, 'group:household'), isNull(accounts.deletedAt)))
+        .where(and(eq(accounts.userId, ownerId), eq(accounts.path, 'assets:receivable:household'), isNull(accounts.deletedAt)))
       const ps = await db
         .select({ amount: postings.amount })
         .from(postings)

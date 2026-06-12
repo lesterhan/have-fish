@@ -310,7 +310,7 @@ describe('fish-pie settlements', () => {
       const [acct] = await db
         .select({ id: accounts.id })
         .from(accounts)
-        .where(and(eq(accounts.userId, ownerId), eq(accounts.path, 'group:trip'), isNull(accounts.deletedAt)))
+        .where(and(eq(accounts.userId, ownerId), eq(accounts.path, 'assets:receivable:trip'), isNull(accounts.deletedAt)))
       const ps = await db
         .select({ amount: postings.amount })
         .from(postings)

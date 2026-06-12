@@ -7,7 +7,7 @@ import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
 
 type Tx = PgTransaction<PostgresJsQueryResultHKT, typeof import('./db/schema'), ExtractTablesWithRelations<typeof import('./db/schema')>>
 
-function slugify(name: string): string {
+export function slugify(name: string): string {
   return name
     .toLowerCase()
     .replace(/\s+/g, '-')
@@ -16,14 +16,32 @@ function slugify(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
-// Find or create the group:<group-slug> account for a user in a group.
-// Used as the balancing credit leg for all group expense auto-postings.
+// Clearing-account path scheme. A member's per-group clearing account nets what the
+// group owes them (positive) against what they owe the group (negative) — a single
+// receivable account per group. Switched from the legacy `group:<slug>` scheme
+// (decided 2026-06-11, categories epic); the merge endpoint re-points old postings.
+export const CLEARING_PREFIX = 'assets:receivable'
+const LEGACY_CLEARING_PREFIX = 'group:'
+
+export function clearingAccountPath(name: string): string {
+  return `${CLEARING_PREFIX}:${slugify(name)}`
+}
+
+// True for both the current (`assets:receivable:…`) and legacy (`group:…`) clearing
+// account paths. Used where postings are matched by path during the transition window
+// (e.g. the import-linked PATCH rebuild) so pre-migration data still resolves.
+export function isClearingAccountPath(path: string): boolean {
+  return path.startsWith(`${CLEARING_PREFIX}:`) || path.startsWith(LEGACY_CLEARING_PREFIX)
+}
+
+// Find or create the clearing (receivable) account for a user in a group.
+// Used as the balancing leg for all group expense and settlement auto-postings.
 export async function ensureSharedAccount(
   userId: string,
   group: { id: string; name: string },
   tx?: Tx,
 ): Promise<string> {
-  const path = `group:${slugify(group.name)}`
+  const path = clearingAccountPath(group.name)
   const client = tx ?? db
 
   const [existing] = await client
@@ -35,7 +53,7 @@ export async function ensureSharedAccount(
 
   const [created] = await client
     .insert(accounts)
-    .values({ userId, path, name: `Group: ${group.name}` })
+    .values({ userId, path, name: `Receivable: ${group.name}` })
     .returning({ id: accounts.id })
 
   return created.id

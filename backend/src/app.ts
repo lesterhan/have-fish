@@ -13,6 +13,7 @@ import fxRatesRoute from './routes/fx-rates'
 import rulesRoute from './routes/rules'
 import fishPieGroupsRoute from './routes/fish-pie-groups'
 import fishPieCategoriesRoute from './routes/fish-pie-categories'
+import fishPieMergeRoute from './routes/fish-pie-merge'
 import fishPieInvitesRoute from './routes/fish-pie-invites'
 import fishPieExpensesRoute from './routes/fish-pie-expenses'
 import fishPieBalancesRoute from './routes/fish-pie-balances'
@@ -58,6 +59,7 @@ app.route('/api/user-settings', userSettingsRoute)
 app.route('/api/reports', reportsRoute)
 app.route('/api/fx-rates', fxRatesRoute)
 app.route('/api/rules', rulesRoute)
+app.route('/api/fish-pie/groups', fishPieMergeRoute)
 app.route('/api/fish-pie/groups', fishPieGroupsRoute)
 app.route('/api/fish-pie/groups', fishPieCategoriesRoute)
 app.route('/api/fish-pie', fishPieInvitesRoute)
