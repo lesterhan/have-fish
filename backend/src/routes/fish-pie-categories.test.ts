@@ -279,13 +279,19 @@ describe('fish-pie categories', () => {
       expect(map).toEqual({ [userId]: 70, [userBId]: 30 })
     })
 
-    it('PUT weights replaces the vector wholesale', async () => {
+    it('rejects a partial vector (must cover every member)', async () => {
+      const cat = (await (await createCategory(groupId, cookie, { name: 'Housing' })).json()) as any
+      // 2-member group, only one weight supplied → 400
+      const res = await putWeights(cat.id, cookie, [{ userId, weight: 100 }])
+      expect(res.status).toBe(400)
+    })
+
+    it('an empty vector clears the weights', async () => {
       const cat = (await (await createCategory(groupId, cookie, { name: 'Housing' })).json()) as any
       await putWeights(cat.id, cookie, [{ userId, weight: 60 }, { userId: userBId, weight: 40 }])
-      // Resend with only one member — the other is cleared
-      const res = await putWeights(cat.id, cookie, [{ userId, weight: 100 }])
-      const body = (await res.json()) as any
-      expect(body.weights).toEqual([{ userId, weight: 100 }])
+      const res = await putWeights(cat.id, cookie, [])
+      expect(res.status).toBe(200)
+      expect(((await res.json()) as any).weights).toEqual([])
     })
 
     it('rejects a weight for a non-member', async () => {

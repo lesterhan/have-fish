@@ -207,20 +207,30 @@ describe('fish-pie expense categories', () => {
       expect(splitB.amount).toBe('40.00')
     })
 
-    it('falls back to group weights when the category vector is incomplete', async () => {
-      // Only member A has a category weight — incomplete vector, should NOT reshape
-      await putWeights([{ userId, weight: 90 }])
+    it('rejects a partial vector at the endpoint', async () => {
+      const res = await putWeights([{ userId, weight: 90 }])
+      expect(res.status).toBe(400)
+    })
+
+    it('falls back to group weights when a member joins after weights were set', async () => {
+      // Complete 60/40 vector for the original two members…
+      const ok = await putWeights([{ userId, weight: 60 }, { userId: userBId, weight: 40 }])
+      expect(ok.status).toBe(200)
+
+      // …then a third member joins, making the saved vector incomplete.
+      const cookieC = await createTestUser('c@test.com', 'passwordC')
+      const userCId = await getUserId(cookieC)
+      await inviteAndAccept(groupId, cookie, 'c@test.com', cookieC)
 
       const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Rent', amount: '100.00', currency: 'CAD', date: '2026-05-01',
+        description: 'Rent', amount: '90.00', currency: 'CAD', date: '2026-05-01',
         paymentAccountId, categoryId: catId,
       })).json()) as any
 
-      // group weights are 1/1 → even 50/50 split
-      const splitA = expense.splits.find((s: any) => s.userId === userId)
-      const splitB = expense.splits.find((s: any) => s.userId === userBId)
-      expect(splitA.amount).toBe('50.00')
-      expect(splitB.amount).toBe('50.00')
+      // group weights are 1/1/1 → even 30/30/30 split, not the stale 60/40
+      const amounts = expense.splits.map((s: any) => s.amount).sort()
+      expect(amounts).toEqual(['30.00', '30.00', '30.00'])
+      expect(expense.splits.find((s: any) => s.userId === userCId)).toBeDefined()
     })
 
     it('explicit per-expense splits override category weights (on PATCH)', async () => {

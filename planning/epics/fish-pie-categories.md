@@ -151,9 +151,15 @@ non-identical member sets → 400.
 ### 4. Frontend — category management (group settings page)
 
 Section on `fish-pie/[id]/settings`: list/add/rename/archive categories, my account
-mapping per category (AccountPathInput, with the name-match auto-suggestion), my
-per-category split display. Members see which categories lack a mapping for them
-(badge — these fall back to defaults/uncategorized).
+mapping per category (AccountPathInput, with the name-match auto-suggestion), and the
+category's **shared** weight editor. Members see which categories lack a mapping for
+them (badge — these fall back to defaults/uncategorized).
+
+Shared-weights UX (decided 2026-06-12): the `PUT …/weights` endpoint requires a
+**complete** vector (one entry per current member) or empty-to-clear; a partial vector
+is rejected. So the weights editor must submit **all members at once** — when one
+member edits a weight, the form sends every member's weight, not just their own. Show
+the whole split (e.g. two sliders that sum), not a single per-user field.
 
 ### 5. Frontend — category chips in add/edit expense
 

@@ -222,10 +222,11 @@ app.put('/:groupId/categories/:id/my-mapping', async (c) => {
 })
 
 // PUT /:groupId/categories/:id/weights — set the category's shared split weights.
-// Any member may set the whole vector (the group agreement is implied). The body
-// replaces the category's weights wholesale: members omitted are cleared, so the
-// category either has a complete vector (every current member) or partial/none, and
-// the split logic only honours complete vectors.
+// Any member may set the whole vector (the group agreement is implied). The vector
+// must be COMPLETE — one entry per current member — or empty to clear it; a partial
+// vector is rejected so a half-set split can never be saved. (Incomplete state can
+// still arise later if a member joins after the weights were set; the split logic
+// detects that and falls back to group weights.)
 app.put('/:groupId/categories/:id/weights', async (c) => {
   const userId = c.get('userId')
   const groupId = c.req.param('groupId')
@@ -260,6 +261,13 @@ app.put('/:groupId/categories/:id/weights', async (c) => {
     if (!Number.isInteger(w.weight) || w.weight < 1) {
       return c.json({ error: 'weights: weight must be a positive integer' }, 400)
     }
+  }
+
+  // Require a complete vector (or empty to clear). A partial set is meaningless —
+  // a split needs a weight for every member — so reject it rather than silently
+  // saving a vector that the split logic will ignore.
+  if (body.weights.length > 0 && seen.size !== memberIds.size) {
+    return c.json({ error: 'weights must cover every group member (or be empty to clear)' }, 400)
   }
 
   // Replace the whole vector atomically.
