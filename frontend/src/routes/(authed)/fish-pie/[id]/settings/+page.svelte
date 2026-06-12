@@ -101,11 +101,11 @@
       <p class="empty">Group not found.</p>
     </div>
   {:else}
-    {#if isCreator}
+    <div class="body">
       <div class="section-bar">
-        <span class="section-bar-title">Group Settings</span>
+        <span class="section-bar-title">Settings</span>
       </div>
-      <div class="body">
+      {#if isCreator}
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">Group name</span>
@@ -121,13 +121,7 @@
             />
           </div>
         </div>
-      </div>
-    {/if}
-
-    <div class="section-bar">
-      <span class="section-bar-title">My Settings</span>
-    </div>
-    <div class="body">
+      {/if}
       <div class="setting-row">
         <div class="setting-info">
           <span class="setting-label">My expense account</span>
@@ -143,12 +137,10 @@
           />
         </div>
       </div>
-    </div>
 
-    <div class="section-bar">
-      <span class="section-bar-title">Categories</span>
-    </div>
-    <div class="body">
+      <div class="section-bar">
+        <span class="section-bar-title">Categories</span>
+      </div>
       <CategoryManager
         {groupId}
         members={group.members}
@@ -156,20 +148,12 @@
         accounts={allAccounts}
         categories={group.categories}
       />
-    </div>
 
-    {#if isCreator}
-      <div class="section-bar">
-        <span class="section-bar-title">Danger Zone</span>
-      </div>
-      <div class="body">
-        <div class="danger-row">
-          <div class="danger-info">
-            <span class="danger-label">Delete group</span>
-            <span class="danger-desc">Removes this group for all members. This cannot be undone.</span>
-          </div>
+      {#if isCreator}
+        <div class="danger-footer">
           {#if !confirmDelete}
-            <GradientButton variant="warning" onclick={() => (confirmDelete = true)}>Delete group</GradientButton>
+            <button class="danger-link" onclick={() => (confirmDelete = true)}>Delete group…</button>
+            <span class="danger-desc">Removes this group for all members. This cannot be undone.</span>
           {:else}
             <div class="confirm-actions">
               <span class="confirm-text">Are you sure?</span>
@@ -180,8 +164,8 @@
             </div>
           {/if}
         </div>
-      </div>
-    {/if}
+      {/if}
+    </div>
   {/if}
 </div>
 
@@ -277,26 +261,27 @@
     width: 260px;
   }
 
-  .danger-row {
+  .danger-footer {
     display: flex;
     align-items: center;
-    justify-content: space-between;
     gap: var(--sp-md);
-    padding: var(--sp-md) 22px;
-    background: var(--color-window);
-    border-bottom: 1px solid var(--color-rule-soft);
+    padding: var(--sp-md) 22px var(--sp-lg);
+    border-top: 1px solid var(--color-rule-soft);
+    margin-top: var(--sp-lg);
   }
 
-  .danger-info {
-    display: flex;
-    flex-direction: column;
-    gap: 3px;
-  }
-
-  .danger-label {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+  .danger-link {
+    background: none;
+    border: none;
+    padding: 0;
+    font-size: var(--text-xs);
     color: var(--color-danger);
+    cursor: pointer;
+    transition: opacity var(--duration-fast) var(--ease);
+  }
+
+  .danger-link:hover {
+    text-decoration: underline;
   }
 
   .danger-desc {
