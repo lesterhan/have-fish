@@ -222,6 +222,8 @@
     min-height: 0;
     overflow-y: auto;
     background: var(--color-window-raised);
+    display: flex;
+    flex-direction: column;
   }
 
   .setting-row {
@@ -267,7 +269,10 @@
     gap: var(--sp-md);
     padding: var(--sp-md) 22px var(--sp-lg);
     border-top: 1px solid var(--color-rule-soft);
-    margin-top: var(--sp-lg);
+    /* Push to the very bottom of the scroll body so the delete action sits far
+       from the regularly-used controls and can't be clicked by accident. */
+    margin-top: auto;
+    padding-top: var(--sp-lg);
   }
 
   .danger-link {
