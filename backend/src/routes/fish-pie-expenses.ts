@@ -1,10 +1,21 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { groupExpenses, groupExpenseSplits, expenseGroupMembers, expenseGroups, transactions, postings, accounts, user } from '../db/schema'
-import { eq, isNull, and, inArray, desc } from 'drizzle-orm'
+import { groupExpenses, groupExpenseSplits, groupCategories, expenseGroupMembers, expenseGroups, transactions, postings, accounts, user } from '../db/schema'
+import { eq, isNull, and, inArray, desc, getTableColumns } from 'drizzle-orm'
 import type { AppVariables } from '../app'
-import { computeSplits, createGroupExpenseInTx, createMemberTransactionsInTx } from '../fish-pie-expense-service'
-import { ensureUncategorizedAccount } from '../fish-pie-accounts'
+import { computeSplits, createGroupExpenseInTx, createMemberTransactionsInTx, resolveCategoryContext, resolveExpenseAccountId, applyCategoryWeights } from '../fish-pie-expense-service'
+
+// Validate a categoryId against a group. Returns 'ok' | 'not-found' | 'archived'.
+// Callers decide whether 'archived' is fatal (create) or tolerated (edit).
+async function validateCategory(categoryId: string, groupId: string): Promise<'ok' | 'not-found' | 'archived'> {
+  const [cat] = await db
+    .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
+    .from(groupCategories)
+    .where(and(eq(groupCategories.id, categoryId), eq(groupCategories.groupId, groupId)))
+  if (!cat) return 'not-found'
+  if (cat.archivedAt) return 'archived'
+  return 'ok'
+}
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -12,7 +23,11 @@ async function fetchExpenseWithDetails(expenseIds: string[]) {
   if (expenseIds.length === 0) return []
 
   const [expenses, splits] = await Promise.all([
-    db.select().from(groupExpenses).where(inArray(groupExpenses.id, expenseIds)),
+    db
+      .select({ ...getTableColumns(groupExpenses), categoryName: groupCategories.name })
+      .from(groupExpenses)
+      .leftJoin(groupCategories, eq(groupExpenses.categoryId, groupCategories.id))
+      .where(inArray(groupExpenses.id, expenseIds)),
     // Join through groupExpenses → expenseGroupMembers → accounts to get each
     // member's configured expense account path for the delete impact dialog.
     db
@@ -77,6 +92,7 @@ app.post('/groups/:groupId/expenses', async (c) => {
     date?: string
     paidByUserId?: string
     paymentAccountId?: string
+    categoryId?: string | null
   }>()
 
   if (!body.description?.trim()) return c.json({ error: 'description is required' }, 400)
@@ -85,6 +101,13 @@ app.post('/groups/:groupId/expenses', async (c) => {
   if (!body.currency?.trim()) return c.json({ error: 'currency is required' }, 400)
   if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
   if (!body.paymentAccountId?.trim()) return c.json({ error: 'paymentAccountId is required' }, 400)
+
+  // Categorizing is optional; if given the category must belong to the group and be active.
+  if (body.categoryId) {
+    const result = await validateCategory(body.categoryId, groupId)
+    if (result === 'not-found') return c.json({ error: 'category not found in this group' }, 400)
+    if (result === 'archived') return c.json({ error: 'cannot assign an archived category' }, 400)
+  }
 
   const payerId = body.paidByUserId ?? userId
   if (!members.some((m) => m.userId === payerId)) return c.json({ error: 'payer is not a member' }, 400)
@@ -106,6 +129,7 @@ app.post('/groups/:groupId/expenses', async (c) => {
       currency: body.currency!,
       date: body.date!,
       paymentAccountId: body.paymentAccountId,
+      categoryId: body.categoryId ?? null,
     })
 
     // Auto-save the payer's defaultPaymentAccountId if it changed
@@ -183,7 +207,18 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
     paidByUserId?: string
     splits?: { userId: string; shareWeight: number }[]
     paymentAccountId?: string
+    categoryId?: string | null
   }>()
+
+  // Recategorization is optional. Omitted → keep existing; explicit null → clear it.
+  // Archived categories are tolerated on edit (the category may have been archived
+  // after this expense was first assigned) but must still belong to the group.
+  const categoryProvided = 'categoryId' in body
+  const newCategoryId = categoryProvided ? (body.categoryId ?? null) : expense.categoryId
+  if (categoryProvided && body.categoryId) {
+    const result = await validateCategory(body.categoryId, groupId)
+    if (result === 'not-found') return c.json({ error: 'category not found in this group' }, 400)
+  }
 
   const description = body.description?.trim() ?? expense.description
   const amount = body.amount ?? expense.amount
@@ -245,17 +280,20 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
     }
   }
 
-  // Apply optional per-expense split weight overrides (defaults to stored member weights)
-  const membersForSplit = body.splits
-    ? members.map((m) => ({
-        ...m,
-        shareWeight: body.splits!.find((s) => s.userId === m.userId)?.shareWeight ?? m.shareWeight,
-      }))
-    : members
-
   const now = new Date()
 
   await db.transaction(async (tx) => {
+    // Weight resolution order: explicit per-expense splits > category weights (when
+    // every member has one) > stored group member weights. Account resolution per
+    // member runs through the (new) category as well.
+    const catCtx = await resolveCategoryContext(tx, newCategoryId, members)
+    const membersForSplit = body.splits
+      ? members.map((m) => ({
+          ...m,
+          shareWeight: body.splits!.find((s) => s.userId === m.userId)?.shareWeight ?? m.shareWeight,
+        }))
+      : applyCategoryWeights(members, catCtx)
+
     // Soft-delete existing member transactions + their postings (NOT the import tx)
     const memberTxRows = await tx
       .select({ id: transactions.id })
@@ -270,7 +308,7 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
     // Update groupExpenses row in-place
     await tx
       .update(groupExpenses)
-      .set({ description, amount: parseFloat(amount).toFixed(2), currency, date, paidByUserId: payerId })
+      .set({ description, amount: parseFloat(amount).toFixed(2), currency, date, paidByUserId: payerId, categoryId: newCategoryId })
       .where(eq(groupExpenses.id, expenseId))
 
     // Hard-delete old splits (no deletedAt on groupExpenseSplits) and insert recomputed ones
@@ -293,6 +331,7 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
       totalAmount: parseFloat(amount).toFixed(2),
       paymentAccountId,
       skipPayerMemberTx: !!expense.transactionId,
+      categoryAccounts: catCtx.accounts,
     })
 
     // Auto-save the payer's defaultPaymentAccountId when explicitly changed
@@ -309,13 +348,15 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
 
     // If import-linked: update the split postings on the import transaction
     if (expense.transactionId) {
-      const oldPayerMember = members.find((m) => m.userId === expense.paidByUserId)!
-      const oldExpenseAccountId =
-        oldPayerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(expense.paidByUserId, tx))
+      // The existing payer posting was written against the *old* category's account;
+      // the rebuilt one resolves through the new category. Both fall back to the
+      // member default → uncategorized.
+      const oldCtx = await resolveCategoryContext(tx, expense.categoryId, members)
+      const oldPayerMember = members.find((m) => m.userId === expense.paidByUserId)
+      const oldExpenseAccountId = await resolveExpenseAccountId(tx, oldCtx.accounts, oldPayerMember, expense.paidByUserId)
 
-      const newPayerMember = members.find((m) => m.userId === payerId)!
-      const newExpenseAccountId =
-        newPayerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(payerId, tx))
+      const newPayerMember = members.find((m) => m.userId === payerId)
+      const newExpenseAccountId = await resolveExpenseAccountId(tx, catCtx.accounts, newPayerMember, payerId)
 
       const importPostings = await tx
         .select({

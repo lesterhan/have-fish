@@ -43,24 +43,42 @@ groupCategories
   sortOrder   integer
   archivedAt  timestamp     -- soft archive; expenses keep pointing at archived rows
 
-groupCategoryMemberAccounts
+groupCategoryMemberAccounts                 -- PRIVATE: each member edits only their own
   id          uuid pk
   categoryId  uuid fk → groupCategories (cascade)
   userId      text fk → user
   accountId   uuid fk → accounts        -- this member's expense account for the category
-  shareWeight integer                    -- nullable; per-category default split
+  unique(categoryId, userId)
+
+groupCategoryWeights                        -- SHARED: any member sets the whole vector
+  id          uuid pk
+  categoryId  uuid fk → groupCategories (cascade)
+  userId      text fk → user
+  weight      integer notnull           -- agreed split weight for this member in the category
   unique(categoryId, userId)
 
 groupExpenses
   + categoryId uuid fk → groupCategories, nullable (null = uncategorized/legacy)
 ```
 
+**Account mapping vs. weight ownership (decided 2026-06-12).** Originally the
+per-category split weight lived as a nullable column on `groupCategoryMemberAccounts`,
+which made it *self-owned* — each member set their own weight. But a split weight is
+group-relevant, not private: it's the agreed division (Housing 60/40), and one member
+setting "their 60" in isolation is meaningless. So weights moved to a separate
+`groupCategoryWeights` table that **any member may set as a whole vector** (the
+agreement is implied — no explicit accept step). The account mapping stays private and
+self-owned. Splitting the tables also decoupled the two: you can record an agreed
+weight for a member before they've picked their account.
+
 Resolution order for a member's expense account:
 `groupCategoryMemberAccounts.accountId` → `expenseGroupMembers.defaultExpenseAccountId`
 → `ensureUncategorizedAccount`.
 
 Resolution order for split weights: per-expense override (PATCH `splits`) →
-category weights (if every member has one) → group member weights.
+category weights (**only when the vector is complete — every current member has one**)
+→ group member weights. An incomplete category vector falls back to group weights
+rather than mixing scales.
 
 Each member maps a category to *their own* account tree (my `expenses:food` vs her
 `expenses:groceries`) — preserves the principle that fish pie posts into each user's
@@ -75,7 +93,9 @@ real accounts on their own terms.
 - `GET/POST /api/fish-pie/groups/:groupId/categories`
 - `PATCH /api/fish-pie/groups/:groupId/categories/:id` (rename, sortOrder, archive)
 - `PUT /api/fish-pie/groups/:groupId/categories/:id/my-mapping`
-  `{ accountId, shareWeight? }` — each member manages only their own mapping.
+  `{ accountId }` — each member manages only their own (private) account mapping.
+- `PUT /api/fish-pie/groups/:groupId/categories/:id/weights`
+  `{ weights: [{ userId, weight }] }` — shared; any member sets the whole vector.
 - Group GET includes categories + the current user's mappings.
 - Auto-suggest mapping on first use: if the member has an account whose leaf name
   matches the category name (case-insensitive), pre-fill it in the UI (frontend
@@ -131,9 +151,15 @@ non-identical member sets → 400.
 ### 4. Frontend — category management (group settings page)
 
 Section on `fish-pie/[id]/settings`: list/add/rename/archive categories, my account
-mapping per category (AccountPathInput, with the name-match auto-suggestion), my
-per-category split display. Members see which categories lack a mapping for them
-(badge — these fall back to defaults/uncategorized).
+mapping per category (AccountPathInput, with the name-match auto-suggestion), and the
+category's **shared** weight editor. Members see which categories lack a mapping for
+them (badge — these fall back to defaults/uncategorized).
+
+Shared-weights UX (decided 2026-06-12): the `PUT …/weights` endpoint requires a
+**complete** vector (one entry per current member) or empty-to-clear; a partial vector
+is rejected. So the weights editor must submit **all members at once** — when one
+member edits a weight, the form sends every member's weight, not just their own. Show
+the whole split (e.g. two sliders that sum), not a single per-user field.
 
 ### 5. Frontend — category chips in add/edit expense
 
