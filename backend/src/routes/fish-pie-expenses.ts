@@ -4,6 +4,7 @@ import { groupExpenses, groupExpenseSplits, groupCategories, expenseGroupMembers
 import { eq, isNull, and, inArray, desc, getTableColumns } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { computeSplits, createGroupExpenseInTx, createMemberTransactionsInTx, resolveCategoryContext, resolveExpenseAccountId, applyCategoryWeights } from '../fish-pie-expense-service'
+import { isClearingAccountPath } from '../fish-pie-accounts'
 
 // Validate a categoryId against a group. Returns 'ok' | 'not-found' | 'archived'.
 // Callers decide whether 'archived' is fatal (create) or tolerated (edit).
@@ -370,7 +371,7 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
         .innerJoin(accounts, eq(postings.accountId, accounts.id))
         .where(and(eq(postings.transactionId, expense.transactionId), isNull(postings.deletedAt)))
 
-      const groupPosting = importPostings.find((p) => p.accountPath.startsWith('group:'))
+      const groupPosting = importPostings.find((p) => isClearingAccountPath(p.accountPath))
       const expensePosting = importPostings.find((p) => p.accountId === oldExpenseAccountId)
 
       if (groupPosting && expensePosting) {
