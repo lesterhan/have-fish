@@ -4,6 +4,7 @@ import { expenseGroups, expenseGroupMembers, accounts, user } from '../db/schema
 import { eq, isNull, and, inArray } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { ensureSharedAccount } from '../fish-pie-accounts'
+import { fetchCategoriesForGroups } from './fish-pie-categories'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -44,7 +45,7 @@ app.post('/', async (c) => {
   })
 
   const members = await fetchMembersForGroups([group.id])
-  return c.json({ ...group, members }, 201)
+  return c.json({ ...group, members, categories: [] }, 201)
 })
 
 app.get('/', async (c) => {
@@ -66,10 +67,12 @@ app.get('/', async (c) => {
     .where(and(inArray(expenseGroups.id, groupIds), isNull(expenseGroups.deletedAt)))
 
   const members = await fetchMembersForGroups(groupIds)
+  const categories = await fetchCategoriesForGroups(groupIds, userId)
 
   return c.json(groups.map((g) => ({
     ...g,
     members: members.filter((m) => m.groupId === g.id),
+    categories: categories.filter((cat) => cat.groupId === g.id),
   })))
 })
 
@@ -88,7 +91,8 @@ app.get('/:id', async (c) => {
   const isMember = members.some((m) => m.userId === userId)
   if (!isMember) return c.json({ error: 'not found' }, 404)
 
-  return c.json({ ...group, members })
+  const categories = await fetchCategoriesForGroups([groupId], userId)
+  return c.json({ ...group, members, categories })
 })
 
 app.patch('/:id', async (c) => {
@@ -119,7 +123,8 @@ app.patch('/:id', async (c) => {
     .returning()
 
   const members = await fetchMembersForGroups([groupId])
-  return c.json({ ...updated, members })
+  const categories = await fetchCategoriesForGroups([groupId], userId)
+  return c.json({ ...updated, members, categories })
 })
 
 // PATCH /api/fish-pie/groups/:id/members/me — update own member settings (expense/payment account)

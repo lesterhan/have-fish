@@ -211,6 +211,13 @@
       "when": 1781208237365,
       "tag": "0029_flip_nonpayer_member_tx_postings",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1781256190971,
+      "tag": "0030_lucky_captain_stacy",
+      "breakpoints": true
     }
   ]
 }

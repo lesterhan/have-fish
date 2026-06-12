@@ -202,6 +202,31 @@ export const expenseGroupInvites = pgTable('expense_group_invites', {
   resolvedAt: timestamp('resolved_at'),
 })
 
+// A spending category within a group (Food, Housing, …). Shared vocabulary for the
+// whole group; each member maps it to their own expense account via
+// groupCategoryMemberAccounts. Soft-archived via archivedAt — archived categories are
+// hidden from create flows but still resolvable for existing expenses that point at them.
+export const groupCategories = pgTable('group_categories', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  groupId: uuid('group_id').notNull().references(() => expenseGroups.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  sortOrder: integer('sort_order').notNull().default(0),
+  archivedAt: timestamp('archived_at'),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// One member's mapping of a category to their own expense account, plus an optional
+// per-category split weight (null = fall back to the member's group share weight).
+export const groupCategoryMemberAccounts = pgTable('group_category_member_accounts', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  categoryId: uuid('category_id').notNull().references(() => groupCategories.id, { onDelete: 'cascade' }),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  accountId: uuid('account_id').notNull().references(() => accounts.id),
+  shareWeight: integer('share_weight'),
+}, (t) => [
+  unique().on(t.categoryId, t.userId),
+])
+
 export const groupExpenses = pgTable('group_expenses', {
   id: uuid('id').primaryKey().defaultRandom(),
   groupId: uuid('group_id').notNull().references(() => expenseGroups.id, { onDelete: 'cascade' }),
