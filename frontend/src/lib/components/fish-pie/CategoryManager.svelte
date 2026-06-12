@@ -196,6 +196,7 @@
               step="1"
               bind:value={sliderPct[cat.id]}
               onchange={() => handleSliderChange(cat)}
+              aria-label="{cat.name} split — {members[0].userName}'s percentage"
             />
             <div class="split-foot">
               {#if hasWeights(cat)}
