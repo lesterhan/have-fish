@@ -230,6 +230,9 @@ export const groupCategoryMemberAccounts = pgTable('group_category_member_accoun
 export const groupExpenses = pgTable('group_expenses', {
   id: uuid('id').primaryKey().defaultRandom(),
   groupId: uuid('group_id').notNull().references(() => expenseGroups.id, { onDelete: 'cascade' }),
+  // Spending category for this expense. Null = uncategorized (legacy/pre-categories).
+  // No cascade: archiving/deleting a category must not delete its expenses.
+  categoryId: uuid('category_id').references(() => groupCategories.id, { onDelete: 'set null' }),
   paidByUserId: text('paid_by_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   description: text('description').notNull(),
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),

@@ -1,14 +1,14 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups } from '../db/schema'
+import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, groupCategories } from '../db/schema'
 import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
 import { buildRegularPostings, buildFishPiePostings, buildFishPieCrossCurrencyPostings, buildFishPieSameCurrencyPostings } from '../import/postings'
-import { createGroupExpenseInTx, fetchGroupWithMembers } from '../fish-pie-expense-service'
-import { ensureSharedAccount, ensureUncategorizedAccount } from '../fish-pie-accounts'
+import { createGroupExpenseInTx, fetchGroupWithMembers, resolvePayerImportContext } from '../fish-pie-expense-service'
+import { ensureSharedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -252,7 +252,7 @@ app.post('/commit', async (c) => {
   if (!Array.isArray(parsed) || parsed.length === 0) return c.json({ error: 'transactions must be a non-empty array' }, 400)
 
   // Validate groupSplits and verify membership up front (fail fast before any DB writes)
-  type GroupSplit = { rowIndex: number; groupId: string }
+  type GroupSplit = { rowIndex: number; groupId: string; categoryId?: string | null }
   const splits: GroupSplit[] = Array.isArray(groupSplits) ? groupSplits : []
   const groupCache = new Map<string, Awaited<ReturnType<typeof fetchGroupWithMembers>>>()
   for (const split of splits) {
@@ -269,6 +269,16 @@ app.post('/commit', async (c) => {
         return c.json({ error: `not a member of group ${split.groupId}` }, 403)
       }
       groupCache.set(split.groupId, result)
+    }
+    // Category (optional) must belong to the split's group and be active — import is a
+    // create flow, so archived categories are rejected.
+    if (split.categoryId) {
+      const [cat] = await db
+        .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
+        .from(groupCategories)
+        .where(and(eq(groupCategories.id, split.categoryId), eq(groupCategories.groupId, split.groupId)))
+      if (!cat) return c.json({ error: `category ${split.categoryId} not found in group ${split.groupId}` }, 400)
+      if (cat.archivedAt) return c.json({ error: `category ${split.categoryId} is archived` }, 400)
     }
   }
   const splitByRowIndex = new Map(splits.map((s) => [s.rowIndex, s]))
@@ -363,11 +373,11 @@ app.post('/commit', async (c) => {
         if (groupSplit) {
           const { group, members } = groupCache.get(groupSplit.groupId)!
           const groupAccountId = await ensureSharedAccount(userId, group, tx)
-          const payerMember = members.find((m) => m.userId === userId)!
-          const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
-          const payerShareRatio = payerMember.shareWeight / totalWeight
-          const payerExpenseAccountId =
-            payerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(userId, tx))
+          const { payerExpenseAccountId, payerShareRatio } = await resolvePayerImportContext(tx, {
+            categoryId: groupSplit.categoryId,
+            members,
+            payerId: userId,
+          })
 
           await tx.insert(postings).values(
             buildFishPieCrossCurrencyPostings({
@@ -400,6 +410,7 @@ app.post('/commit', async (c) => {
             date: dateStr,
             linkedTransactionId: newTx.id,
             skipPayerMemberTx: true,
+            categoryId: groupSplit.categoryId ?? null,
           })
           fishPieExpenses++
         } else {
@@ -436,11 +447,11 @@ app.post('/commit', async (c) => {
         if (groupSplit) {
           const { group, members } = groupCache.get(groupSplit.groupId)!
           const groupAccountId = await ensureSharedAccount(userId, group, tx)
-          const payerMember = members.find((m) => m.userId === userId)!
-          const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
-          const payerShareRatio = payerMember.shareWeight / totalWeight
-          const payerExpenseAccountId =
-            payerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(userId, tx))
+          const { payerExpenseAccountId, payerShareRatio } = await resolvePayerImportContext(tx, {
+            categoryId: groupSplit.categoryId,
+            members,
+            payerId: userId,
+          })
 
           await tx.insert(postings).values(
             buildFishPieSameCurrencyPostings({
@@ -468,6 +479,7 @@ app.post('/commit', async (c) => {
             date: dateStr,
             linkedTransactionId: newTx.id,
             skipPayerMemberTx: true,
+            categoryId: groupSplit.categoryId ?? null,
           })
           fishPieExpenses++
         } else {
@@ -490,12 +502,11 @@ app.post('/commit', async (c) => {
           // offsetAccountId on the row is intentionally ignored; groupAccountId is derived here.
           const { group, members } = groupCache.get(groupSplit.groupId)!
           const groupAccountId = await ensureSharedAccount(userId, group, tx)
-
-          const payerMember = members.find((m) => m.userId === userId)!
-          const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
-          const payerShareRatio = payerMember.shareWeight / totalWeight
-          const payerExpenseAccountId =
-            payerMember.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(userId, tx))
+          const { payerExpenseAccountId, payerShareRatio } = await resolvePayerImportContext(tx, {
+            categoryId: groupSplit.categoryId,
+            members,
+            payerId: userId,
+          })
 
           await tx.insert(postings).values(
             buildFishPiePostings({
@@ -521,6 +532,7 @@ app.post('/commit', async (c) => {
             date: dateStr,
             linkedTransactionId: newTx.id,
             skipPayerMemberTx: true,
+            categoryId: groupSplit.categoryId ?? null,
           })
           fishPieExpenses++
         } else {
