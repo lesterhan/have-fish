@@ -178,9 +178,16 @@ here — flag separately if it matters for historical reports.
 
 ---
 
-### BUG-006 — Editing a manual expense silently degrades the payer's transaction
+### BUG-006 — Editing a manual expense silently degrades the payer's transaction ✓ Fixed
 
-**Found 2026-06-11** while scoping the BUG-005 fix.
+**Found 2026-06-11** while scoping the BUG-005 fix. **Fixed same day**
+(branch `fix/fish-pie-edit-payment-account`): PATCH now resolves a payment account
+when the body omits one — source recovered from the existing 3-posting payer tx
+(payer unchanged) > the payer's stored `defaultPaymentAccountId` — and only falls
+back to the legacy 2-posting tx when neither resolves (e.g. payer changed to a
+member who has never logged an expense; properly handled by the proposals epic).
+PATCH with an explicit `paymentAccountId` now also auto-saves the payer default,
+matching POST.
 
 **Steps to reproduce:**
 1. Create a manual fish-pie expense (payer tx correctly gets 3 postings:

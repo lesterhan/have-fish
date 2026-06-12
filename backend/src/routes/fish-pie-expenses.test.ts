@@ -566,12 +566,19 @@ describe('fish-pie PATCH expense', () => {
     const activeTxs = allTxs.filter((t) => t.deletedAt === null)
     expect(activeTxs).toHaveLength(2)  // one per member
 
-    for (const tx of activeTxs) {
-      const ps = await db.select().from(postings).where(and(eq(postings.transactionId, tx.id), isNull(postings.deletedAt)))
-      expect(ps).toHaveLength(2)
-      const debit = ps.find((p) => parseFloat(p.amount) < 0)!
-      expect(Math.abs(parseFloat(debit.amount))).toBeCloseTo(40, 2)  // 80 / 2 members
-    }
+    // Payer tx rebuilt as 3-posting with the recovered source account (BUG-006)
+    const payerTx = activeTxs.find((t) => t.userId === userId)!
+    const payerPs = await db.select().from(postings).where(and(eq(postings.transactionId, payerTx.id), isNull(postings.deletedAt)))
+    expect(payerPs).toHaveLength(3)
+    const source = payerPs.find((p) => parseFloat(p.amount) < 0)!
+    expect(source.accountId).toBe(paymentAccountId)
+    expect(parseFloat(source.amount)).toBeCloseTo(-80, 2)
+
+    // Non-payer tx: expense +40, shared -40
+    const nonPayerTx = activeTxs.find((t) => t.userId !== userId)!
+    const nonPayerPs = await db.select().from(postings).where(and(eq(postings.transactionId, nonPayerTx.id), isNull(postings.deletedAt)))
+    expect(nonPayerPs).toHaveLength(2)
+    expect(parseFloat(nonPayerPs.find((p) => parseFloat(p.amount) > 0)!.amount)).toBeCloseTo(40, 2)
   })
 
   it('PATCH with split weights recomputes amounts per weight', async () => {
@@ -635,6 +642,161 @@ describe('fish-pie PATCH expense', () => {
     const txUserIds = activeTxs.map((t) => t.userId).sort()
     expect(txUserIds).toContain(userId)
     expect(txUserIds).toContain(userIdB)
+  })
+
+  it('PATCH without paymentAccountId keeps the original source account, not the current default (BUG-006)', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-06-01', paymentAccountId }),
+    })
+    const expense = await createRes.json() as any
+
+    // The stored default moves to a different account after creation
+    const chequingRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'assets:chequing', name: 'Chequing' }),
+    })
+    const chequingId = (await chequingRes.json() as any).id
+    await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultPaymentAccountId: chequingId }),
+    })
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner edited' }),
+    })
+    expect(patchRes.status).toBe(200)
+
+    const activeTxs = await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.groupExpenseId, expense.id), isNull(transactions.deletedAt)))
+    const payerTx = activeTxs.find((t) => t.userId === userId)!
+    const ps = await db.select().from(postings).where(and(eq(postings.transactionId, payerTx.id), isNull(postings.deletedAt)))
+    expect(ps).toHaveLength(3)
+    const source = ps.find((p) => parseFloat(p.amount) < 0)!
+    expect(source.accountId).toBe(paymentAccountId) // the visa it was paid with, not the new default
+    expect(parseFloat(source.amount)).toBeCloseTo(-100, 2)
+  })
+
+  it('PATCH changing payer to a member with a stored default builds their 3-posting tx', async () => {
+    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    const userIdB = (await sessionB.json() as any).user.id
+
+    const acctBRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'liabilities:mastercard', name: 'MC' }),
+    })
+    const acctBId = (await acctBRes.json() as any).id
+    await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultPaymentAccountId: acctBId }),
+    })
+
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Taxi', amount: '100.00', currency: 'CAD', date: '2026-06-10', paymentAccountId }),
+    })
+    const expense = await createRes.json() as any
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paidByUserId: userIdB }),
+    })
+    expect(patchRes.status).toBe(200)
+
+    const activeTxs = await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.groupExpenseId, expense.id), isNull(transactions.deletedAt)))
+
+    // New payer B: 3-posting tx sourced from their stored default
+    const payerTx = activeTxs.find((t) => t.userId === userIdB)!
+    const payerPs = await db.select().from(postings).where(and(eq(postings.transactionId, payerTx.id), isNull(postings.deletedAt)))
+    expect(payerPs).toHaveLength(3)
+    const source = payerPs.find((p) => parseFloat(p.amount) < 0)!
+    expect(source.accountId).toBe(acctBId)
+    expect(parseFloat(source.amount)).toBeCloseTo(-100, 2)
+
+    // A becomes a non-payer: expense +50, shared -50
+    const aTx = activeTxs.find((t) => t.userId === userId)!
+    const aPs = await db.select().from(postings).where(and(eq(postings.transactionId, aTx.id), isNull(postings.deletedAt)))
+    expect(aPs).toHaveLength(2)
+    expect(parseFloat(aPs.find((p) => parseFloat(p.amount) > 0)!.amount)).toBeCloseTo(50, 2)
+    expect(parseFloat(aPs.find((p) => parseFloat(p.amount) < 0)!.amount)).toBeCloseTo(-50, 2)
+  })
+
+  it('PATCH changing payer to a member without a default falls back to the legacy 2-posting tx', async () => {
+    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    const userIdB = (await sessionB.json() as any).user.id
+
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Taxi', amount: '100.00', currency: 'CAD', date: '2026-06-10', paymentAccountId }),
+    })
+    const expense = await createRes.json() as any
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paidByUserId: userIdB }),
+    })
+    expect(patchRes.status).toBe(200)
+
+    // B has no stored default and no recoverable source → legacy 2-posting payer tx
+    const activeTxs = await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.groupExpenseId, expense.id), isNull(transactions.deletedAt)))
+    const payerTx = activeTxs.find((t) => t.userId === userIdB)!
+    const payerPs = await db.select().from(postings).where(and(eq(postings.transactionId, payerTx.id), isNull(postings.deletedAt)))
+    expect(payerPs).toHaveLength(2)
+  })
+
+  it('PATCH with explicit paymentAccountId auto-saves the payer default', async () => {
+    const createRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-06-01', paymentAccountId }),
+    })
+    const expense = await createRes.json() as any
+
+    const chequingRes = await app.request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: 'assets:chequing', name: 'Chequing' }),
+    })
+    const chequingId = (await chequingRes.json() as any).id
+
+    const patchRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ paymentAccountId: chequingId }),
+    })
+    expect(patchRes.status).toBe(200)
+
+    const groupRes = await app.request(`/api/fish-pie/groups/${groupId}`, { headers: { Cookie: cookieA } })
+    const member = (await groupRes.json() as any).members.find((m: any) => m.userId === userId)
+    expect(member.defaultPaymentAccountId).toBe(chequingId)
+
+    const activeTxs = await db
+      .select()
+      .from(transactions)
+      .where(and(eq(transactions.groupExpenseId, expense.id), isNull(transactions.deletedAt)))
+    const payerTx = activeTxs.find((t) => t.userId === userId)!
+    const payerPs = await db.select().from(postings).where(and(eq(postings.transactionId, payerTx.id), isNull(postings.deletedAt)))
+    const source = payerPs.find((p) => parseFloat(p.amount) < 0)!
+    expect(source.accountId).toBe(chequingId)
   })
 
   it('PATCH returns 403 for non-payer non-creator', async () => {
