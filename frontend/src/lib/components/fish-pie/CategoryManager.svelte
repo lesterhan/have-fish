@@ -33,8 +33,10 @@
   let newName = $state('')
   let adding = $state(false)
 
-  // Per-row UI state, keyed by category id, kept in sync with `cats` below.
-  let mappingValue = $state<Record<string, string>>({})
+  // Per-row slider state, keyed by category id, kept in sync with `cats` below.
+  // The account mapping is one-way (value from cat.myMapping, persisted via oncommit),
+  // so it needs no record here — binding an unseeded key into AccountPathInput's
+  // fallback-valued prop throws and unmounts the page.
   let sliderPct = $state<Record<string, number>>({})
 
   // Whether this group's split is editable as a simple two-person slider. The app's
@@ -42,17 +44,14 @@
   // any other size we hide the weight editor rather than invent a multi-member control.
   const isPair = $derived(members.length === 2)
 
-  // Seed/refresh the row state whenever the category list changes.
+  // Seed/refresh the slider state whenever the category list changes.
   $effect(() => {
-    const nextMapping: Record<string, string> = {}
     const nextSlider: Record<string, number> = {}
     for (const cat of cats) {
-      nextMapping[cat.id] = cat.myMapping?.accountId ?? ''
       if (isPair) {
         nextSlider[cat.id] = weightsToPct(cat.weights, members[0].userId, members[1].userId) ?? 50
       }
     }
-    mappingValue = nextMapping
     sliderPct = nextSlider
   })
 
@@ -69,6 +68,7 @@
     adding = true
     try {
       const created = await createGroupCategory(groupId, name)
+      if (isPair) sliderPct[created.id] = 50
       cats = [...cats, created]
       newName = ''
       toast.show(`Added “${created.name}”`)
@@ -162,7 +162,7 @@
         <div class="cat-field-input">
           <AccountPathInput
             {accounts}
-            bind:value={mappingValue[cat.id]}
+            value={cat.myMapping?.accountId ?? ''}
             placeholder="Uncategorized (default)"
             allowCreate={true}
             oncommit={(id) => handleMappingCommit(cat, id)}
