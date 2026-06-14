@@ -103,6 +103,16 @@
     categoryId = categoryId === id ? null : id
   }
 
+  // The expense account my share actually posts to, mirroring the backend's
+  // resolution order: selected category's mapping → my group default → uncategorized.
+  const postingAccountPath = $derived.by(() => {
+    const mappedId = selectedCategory?.myMapping?.accountId
+    if (mappedId) {
+      return allAccounts.find((a) => a.id === mappedId)?.path ?? myExpenseAccountPath ?? 'uncategorized'
+    }
+    return myExpenseAccountPath ?? 'uncategorized'
+  })
+
   let dateInputEl = $state<HTMLInputElement | null>(null)
 
   const dateLabel = $derived(
@@ -332,7 +342,7 @@
   </div>
 
   <p class="expense-account-hint">
-    Posting to <span class="hint-account">{myExpenseAccountPath ?? 'uncategorized'}</span>
+    Posting to <span class="hint-account">{postingAccountPath}</span>
     · <a href="/fish-pie/{groupId}/settings" class="hint-link">Change</a>
   </p>
 
