@@ -36,6 +36,7 @@
   // category not archived). Returns null for stale entries so they self-prune.
   function resolveRecent(key: string): Option | null {
     const sep = key.indexOf(':')
+    if (sep === -1) return null
     const gid = key.slice(0, sep)
     const cid = key.slice(sep + 1)
     const group = groups.find((g) => g.id === gid)
