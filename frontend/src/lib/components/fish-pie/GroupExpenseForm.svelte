@@ -1,7 +1,9 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { GroupMember, GroupExpense, Account } from '$lib/api'
+  import type { GroupMember, GroupExpense, GroupCategory, Account } from '$lib/api'
   import { updateMyPaymentAccount } from '$lib/api'
+  import { settingsStore } from '$lib/settings.svelte'
+  import { weightsToPct } from '$lib/fish-pie-categories'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
@@ -16,6 +18,7 @@
     date: string
     paidByUserId: string
     paymentAccountId: string
+    categoryId: string | null
   }
 
   interface Props {
@@ -27,6 +30,7 @@
     myExpenseAccountPath: string | null
     myPaymentAccountPath: string | null
     allAccounts: Account[]
+    categories: GroupCategory[]
     onCreate: (data: CreateExpenseData) => Promise<GroupExpense>
     onSliderChange: (pct: number) => Promise<void>
   }
@@ -40,6 +44,7 @@
     myExpenseAccountPath,
     myPaymentAccountPath,
     allAccounts,
+    categories,
     onCreate,
     onSliderChange,
   }: Props = $props()
@@ -60,6 +65,53 @@
   let shareSliderPct = $state(untrack(() => initialSliderPct))
   let sliderSaving = $state(false)
   let sliderLocked = $state(true)
+
+  // The group's default split, used whenever the selected category has no weights
+  // of its own. Captured once — saveShareSlider edits this same group default.
+  const groupDefaultPct = untrack(() => initialSliderPct)
+
+  // Categories (active only) and the sticky last-used selection for this group.
+  const activeCategories = $derived(categories.filter((c) => !c.archivedAt))
+  let categoryId = $state<string | null>(
+    untrack(() => {
+      const last = settingsStore.value?.preferences?.lastCategoryByGroup?.[groupId]
+      return last && categories.some((c) => c.id === last && !c.archivedAt) ? last : null
+    }),
+  )
+
+  const selectedCategory = $derived(activeCategories.find((c) => c.id === categoryId) ?? null)
+
+  // The split percentage this category dictates, when it carries a complete weight
+  // vector. Null means "fall back to the group default" — slider stays editable.
+  const categoryPct = $derived(
+    selectedCategory && members.length === 2
+      ? weightsToPct(selectedCategory.weights, members[0].userId, members[1].userId)
+      : null,
+  )
+
+  // When a category dictates the split, the slider is read-only — those weights are
+  // managed on the settings page, not per expense.
+  const splitFromCategory = $derived(categoryPct !== null)
+
+  // Sync the slider display to the selected category's split (or the group default).
+  // Writes only — never reads shareSliderPct — so dragging the slider can't re-trigger this.
+  $effect(() => {
+    shareSliderPct = categoryPct ?? groupDefaultPct
+  })
+
+  function selectCategory(id: string) {
+    categoryId = categoryId === id ? null : id
+  }
+
+  // The expense account my share actually posts to, mirroring the backend's
+  // resolution order: selected category's mapping → my group default → uncategorized.
+  const postingAccountPath = $derived.by(() => {
+    const mappedId = selectedCategory?.myMapping?.accountId
+    if (mappedId) {
+      return allAccounts.find((a) => a.id === mappedId)?.path ?? myExpenseAccountPath ?? 'uncategorized'
+    }
+    return myExpenseAccountPath ?? 'uncategorized'
+  })
 
   let dateInputEl = $state<HTMLInputElement | null>(null)
 
@@ -103,7 +155,15 @@
         date,
         paidByUserId: paidBy || currentUserId,
         paymentAccountId,
+        categoryId,
       })
+      // Remember the category for next time (sticky default, per group).
+      if (categoryId) {
+        const prev = settingsStore.value?.preferences?.lastCategoryByGroup ?? {}
+        settingsStore
+          .update({ preferences: { lastCategoryByGroup: { ...prev, [groupId]: categoryId } } })
+          .catch(() => {})
+      }
       desc = ''
       amount = ''
       added = true
@@ -118,7 +178,7 @@
   }
 
   async function handleSliderChange() {
-    if (sliderSaving) return
+    if (sliderSaving || splitFromCategory) return
     sliderSaving = true
     try {
       await onSliderChange(shareSliderPct)
@@ -186,6 +246,23 @@
     </div>
   </div>
 
+  {#if activeCategories.length > 0}
+    <div class="field">
+      <span class="field-label">Category</span>
+      <div class="cat-chips">
+        {#each activeCategories as cat (cat.id)}
+          <button
+            class="cat-chip"
+            class:selected={categoryId === cat.id}
+            onclick={() => selectCategory(cat.id)}
+          >
+            {cat.name}
+          </button>
+        {/each}
+      </div>
+    </div>
+  {/if}
+
   <div class="field">
     <span class="field-label">Paid by</span>
     <div class="payer-chips">
@@ -231,21 +308,27 @@
         onclick={() => (sliderLocked = !sliderLocked)}
         title={sliderLocked ? 'Unlock to edit split' : 'Lock split'}
         aria-label={sliderLocked ? 'Unlock split ratio' : 'Lock split ratio'}
+        disabled={splitFromCategory}
       >
         <Icon name={sliderLocked ? 'lock' : 'unlock'} size={11} />
       </button>
       <input
         type="range"
         class="share-slider-track"
-        class:slider-disabled={sliderLocked}
+        class:slider-disabled={sliderLocked || splitFromCategory}
         min="1"
         max="99"
         step="1"
         bind:value={shareSliderPct}
         onchange={handleSliderChange}
-        disabled={sliderLocked}
+        disabled={sliderLocked || splitFromCategory}
       />
     </div>
+    {#if splitFromCategory}
+      <span class="split-source-hint">
+        Split set by {selectedCategory?.name} · edit in settings
+      </span>
+    {/if}
   </div>
 
   <div class="add-cta">
@@ -259,7 +342,7 @@
   </div>
 
   <p class="expense-account-hint">
-    Posting to <span class="hint-account">{myExpenseAccountPath ?? 'uncategorized'}</span>
+    Posting to <span class="hint-account">{postingAccountPath}</span>
     · <a href="/fish-pie/{groupId}/settings" class="hint-link">Change</a>
   </p>
 
@@ -384,6 +467,58 @@
     height: 0;
     top: 0;
     left: 0;
+  }
+
+  .cat-chips {
+    display: flex;
+    gap: var(--sp-xs);
+    flex-wrap: wrap;
+  }
+
+  .cat-chip {
+    padding: 4px 10px;
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+    transition:
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+
+  .cat-chip:hover:not(.selected) {
+    border-color: var(--color-accent);
+  }
+
+  .cat-chip.selected {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent),
+      color-mix(in srgb, var(--color-accent) 80%, black)
+    );
+    border-color: var(--color-accent);
+    color: var(--color-btn-gradient-hi);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+  }
+
+  .split-source-hint {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    color: var(--color-text-muted);
+    font-style: italic;
+  }
+
+  .slider-lock-btn:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 
   .payer-chips {

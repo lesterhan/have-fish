@@ -1,5 +1,5 @@
 <script lang="ts">
-  import type { GroupExpense, GroupSettlement, Account, GroupMember } from '$lib/api'
+  import type { GroupExpense, GroupSettlement, GroupCategory, Account, GroupMember } from '$lib/api'
   import Icon from '$lib/components/ui/Icon.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
@@ -15,6 +15,7 @@
     date?: string
     paidByUserId?: string
     splits?: { userId: string; shareWeight: number }[]
+    categoryId?: string | null
   }
 
   interface Props {
@@ -24,6 +25,7 @@
     currentUserId: string
     groupId: string
     allAccounts: Account[]
+    categories: GroupCategory[]
     groupCreatedBy: string
     onDeleteExpense: (id: string) => Promise<void>
     onDeleteSettlement: (id: string) => Promise<void>
@@ -41,6 +43,7 @@
     currentUserId,
     groupId,
     allAccounts,
+    categories,
     groupCreatedBy,
     onDeleteExpense,
     onDeleteSettlement,
@@ -60,7 +63,12 @@
   let editCurrency = $state('')
   let editDate = $state('')
   let editPayerId = $state('')
+  let editCategoryId = $state<string | null>(null)
   let editSliderPct = $state(50)
+
+  // Active categories for the chip row; an archived category already on an expense
+  // is still shown as selected via the expense's own categoryName.
+  const activeCategories = $derived(categories.filter((c) => !c.archivedAt))
   let editSubmitting = $state(false)
   let editSaved = $state(false)
   let editError = $state('')
@@ -113,6 +121,7 @@
     editCurrency = expense.currency
     editDate = expense.date
     editPayerId = expense.paidByUserId
+    editCategoryId = expense.categoryId
     editSliderPct = computeInitialSlider(expense)
     editError = ''
     editSaved = false
@@ -157,6 +166,7 @@
         date: editDate,
         paidByUserId: editPayerId,
         splits,
+        categoryId: editCategoryId,
       })
       editSaved = true
       setTimeout(() => {
@@ -264,7 +274,12 @@
                 >
                   <div class="row-avatar">{initials(expense.payerName)}</div>
                   <div class="expense-info">
-                    <span class="expense-desc">{expense.description}</span>
+                    <div class="expense-desc-line">
+                      <span class="expense-desc">{expense.description}</span>
+                      {#if expense.categoryName}
+                        <span class="category-pill">{expense.categoryName}</span>
+                      {/if}
+                    </div>
                     <span class="expense-meta">{expense.date} · {expense.payerName}</span>
                   </div>
                   <div class="expense-right">
@@ -327,6 +342,23 @@
                       bind:value={editDate}
                     />
                   </div>
+                  {#if activeCategories.length > 0}
+                    <div class="edit-field">
+                      <span class="field-label">Category</span>
+                      <div class="cat-chips">
+                        {#each activeCategories as cat (cat.id)}
+                          <button
+                            class="cat-chip"
+                            class:selected={editCategoryId === cat.id}
+                            onclick={() =>
+                              (editCategoryId = editCategoryId === cat.id ? null : cat.id)}
+                          >
+                            {cat.name}
+                          </button>
+                        {/each}
+                      </div>
+                    </div>
+                  {/if}
                   {#if members.length >= 2}
                     <div class="edit-field">
                       <span class="field-label">Paid by</span>
@@ -729,12 +761,33 @@
     min-width: 0;
   }
 
+  .expense-desc-line {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    min-width: 0;
+  }
+
   .expense-desc {
     font-size: var(--text-sm);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+  }
+
+  .category-pill {
+    flex-shrink: 0;
+    padding: 1px 6px;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-accent);
+    border-radius: var(--radius-xl);
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--color-accent-chip-fg);
+    white-space: nowrap;
   }
 
   .expense-meta {
@@ -863,6 +916,42 @@
     height: 0;
     top: 0;
     left: 0;
+  }
+
+  .cat-chips {
+    display: flex;
+    gap: var(--sp-xs);
+    flex-wrap: wrap;
+  }
+
+  .cat-chip {
+    padding: 3px 9px;
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-xl);
+    cursor: pointer;
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+    transition:
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+
+  .cat-chip:hover:not(.selected) {
+    border-color: var(--color-accent);
+  }
+
+  .cat-chip.selected {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent),
+      color-mix(in srgb, var(--color-accent) 80%, black)
+    );
+    border-color: var(--color-accent);
+    color: var(--color-btn-gradient-hi);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
   }
 
   .payer-chips {

@@ -152,6 +152,7 @@
     date: string
     paidByUserId: string
     paymentAccountId: string
+    categoryId: string | null
   }): Promise<GroupExpense> {
     const expense = await createExpense(groupId, data)
     expenses = [expense, ...expenses]
@@ -379,6 +380,7 @@
           {myExpenseAccountPath}
           {myPaymentAccountPath}
           {allAccounts}
+          categories={group.categories}
           onCreate={handleAddExpense}
           onSliderChange={saveShareSlider}
         />
@@ -393,6 +395,7 @@
         {currentUserId}
         {groupId}
         {allAccounts}
+        categories={group.categories}
         groupCreatedBy={group.createdBy}
         onDeleteExpense={handleDeleteExpense}
         onDeleteSettlement={handleDeleteSettlement}
