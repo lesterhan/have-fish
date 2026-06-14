@@ -38,6 +38,9 @@
   // so it needs no record here — binding an unseeded key into AccountPathInput's
   // fallback-valued prop throws and unmounts the page.
   let sliderPct = $state<Record<string, number>>({})
+  // Per-category in-flight guard so two quick slider releases can't race their
+  // PUTs and land out of order.
+  let savingWeights = $state<Record<string, boolean>>({})
 
   // Whether this group's split is editable as a simple two-person slider. The app's
   // share UI is two-member throughout (the index page makes the same assumption); for
@@ -115,22 +118,29 @@
   }
 
   async function handleSliderChange(cat: GroupCategory) {
-    if (!isPair) return
+    if (!isPair || savingWeights[cat.id]) return
     const vector = pctToVector(sliderPct[cat.id] ?? 50, members[0].userId, members[1].userId)
+    savingWeights[cat.id] = true
     try {
       replaceCat(await setCategoryWeights(groupId, cat.id, vector))
       toast.show('Split updated')
     } catch {
       toast.show('Failed to update split')
+    } finally {
+      savingWeights[cat.id] = false
     }
   }
 
   async function handleResetWeights(cat: GroupCategory) {
+    if (savingWeights[cat.id]) return
+    savingWeights[cat.id] = true
     try {
       replaceCat(await setCategoryWeights(groupId, cat.id, []))
       toast.show('Split reset to group default')
     } catch {
       toast.show('Failed to reset split')
+    } finally {
+      savingWeights[cat.id] = false
     }
   }
 
