@@ -232,6 +232,13 @@
       "when": 1781258441421,
       "tag": "0032_first_onslaught",
       "breakpoints": true
+    },
+    {
+      "idx": 33,
+      "version": "7",
+      "when": 1781429898038,
+      "tag": "0033_clear_the_spike",
+      "breakpoints": true
     }
   ]
 }

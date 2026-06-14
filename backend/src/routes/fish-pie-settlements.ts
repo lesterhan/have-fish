@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { expenseGroups, expenseGroupMembers, groupSettlements, user, accounts, transactions, postings } from '../db/schema'
-import { eq, isNull, and, inArray, desc } from 'drizzle-orm'
+import { eq, isNull, and, inArray } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 
@@ -24,6 +24,20 @@ async function fetchSettlementsWithNames(settlementIds: string[]) {
     fromUserName: nameMap.get(s.fromUserId) ?? null,
     toUserName: nameMap.get(s.toUserId) ?? null,
   }))
+}
+
+// All of a group's settlements with payer/payee names, newest first.
+// Shared by the settlements list endpoint and the group overview.
+export async function fetchGroupSettlements(groupId: string) {
+  const settlements = await db
+    .select({ id: groupSettlements.id })
+    .from(groupSettlements)
+    .where(and(eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt)))
+  if (settlements.length === 0) return []
+  const named = await fetchSettlementsWithNames(settlements.map((s) => s.id))
+  return named.sort(
+    (a, b) => b.date.localeCompare(a.date) || b.createdAt.getTime() - a.createdAt.getTime(),
+  )
 }
 
 // POST /api/fish-pie/groups/:groupId/settlements
@@ -209,14 +223,7 @@ app.get('/groups/:groupId/settlements', async (c) => {
     .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
   if (!membership) return c.json({ error: 'not found' }, 404)
 
-  const settlements = await db
-    .select()
-    .from(groupSettlements)
-    .where(and(eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt)))
-    .orderBy(desc(groupSettlements.date), desc(groupSettlements.createdAt))
-
-  if (settlements.length === 0) return c.json([])
-  return c.json(await fetchSettlementsWithNames(settlements.map((s) => s.id)))
+  return c.json(await fetchGroupSettlements(groupId))
 })
 
 // DELETE /api/fish-pie/groups/:groupId/settlements/:settlementId

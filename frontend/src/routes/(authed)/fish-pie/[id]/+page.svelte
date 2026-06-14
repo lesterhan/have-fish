@@ -3,11 +3,9 @@
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
   import {
-    fetchGroup,
-    fetchGroupInvites,
+    fetchGroupOverview,
     sendInvite,
     cancelInvite,
-    fetchExpenses,
     createExpense,
     deleteExpense,
     updateExpense,
@@ -21,6 +19,7 @@
     deleteGroup,
     fetchAccounts,
   } from '$lib/api'
+  import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import type {
     ExpenseGroup,
     GroupInvite,
@@ -93,19 +92,17 @@
 
   onMount(async () => {
     try {
-      const [g, inv, exp, bal, sett, accts] = await Promise.all([
-        fetchGroup(groupId),
-        fetchGroupInvites(groupId),
-        fetchExpenses(groupId),
-        fetchBalances(groupId),
-        fetchSettlements(groupId),
+      // One round-trip for the group bundle; accounts in parallel.
+      const [overview, accts] = await Promise.all([
+        fetchGroupOverview(groupId),
         fetchAccounts(),
       ])
+      const g = overview.group
       group = g
-      invites = inv
-      expenses = exp
-      balances = bal
-      settlements = sett
+      invites = overview.invites
+      expenses = overview.expenses
+      balances = overview.balances
+      settlements = overview.settlements
       allAccounts = accts
       settleCurrency = g.defaultCurrency ?? 'CAD'
       configCurrency = g.defaultCurrency ?? ''
@@ -258,10 +255,41 @@
   {#if loading}
     <div class="left-col">
       <header class="page-header">
-        <div class="header-placeholder"></div>
+        <a href="/fish-pie">
+          <GradientButton square>
+            <Icon name="back" />
+          </GradientButton>
+        </a>
+        <div class="skel-title"><Shimmer width="190px" height="24px" /></div>
       </header>
+      <div class="left-body">
+        <div class="skel-bar"></div>
+        <div class="skel-form">
+          {#each Array.from({ length: 4 }) as _, i (i)}
+            <div class="skel-field">
+              <Shimmer width="90px" height="9px" />
+              <Shimmer width="100%" height="26px" />
+            </div>
+          {/each}
+          <Shimmer width="100%" height="36px" />
+        </div>
+      </div>
     </div>
-    <div class="right-col"></div>
+    <div class="right-col">
+      <div class="skel-bar"></div>
+      <div class="skel-rows">
+        {#each Array.from({ length: 6 }) as _, i (i)}
+          <div class="skel-row">
+            <Shimmer width="24px" height="24px" />
+            <div class="skel-row-text">
+              <Shimmer width="55%" height="13px" />
+              <Shimmer width="35%" height="10px" />
+            </div>
+            <Shimmer width="60px" height="13px" />
+          </div>
+        {/each}
+      </div>
+    </div>
   {:else if notFound || !group}
     <div class="left-col">
       <header class="page-header">
@@ -443,8 +471,52 @@
     flex-shrink: 0;
   }
 
-  .header-placeholder {
-    height: 28px;
+  /* ── Loading skeleton ── */
+  .skel-title {
+    flex: 1;
+    display: flex;
+    align-items: center;
+  }
+
+  .skel-bar {
+    height: 22px;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
+  }
+
+  .skel-form {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    padding: 12px 22px;
+    background: var(--color-window);
+  }
+
+  .skel-field {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  .skel-rows {
+    background: var(--color-window);
+  }
+
+  .skel-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: 8px 12px;
+    border-bottom: 1px solid var(--color-rule-soft);
+  }
+
+  .skel-row-text {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
   }
 
   .header-controls {

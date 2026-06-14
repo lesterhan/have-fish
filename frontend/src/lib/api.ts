@@ -1063,6 +1063,23 @@ export async function fetchBalances(groupId: string): Promise<CurrencyBalance[]>
   return res.json()
 }
 
+// Everything the group page needs in one round-trip — see the backend
+// /groups/:id/overview endpoint. Replaces the separate group/expenses/
+// balances/settlements/invites fetches.
+export type GroupOverview = {
+  group: ExpenseGroup
+  expenses: GroupExpense[]
+  settlements: GroupSettlement[]
+  invites: GroupInvite[]
+  balances: CurrencyBalance[]
+}
+
+export async function fetchGroupOverview(groupId: string): Promise<GroupOverview> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/overview`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to load group')
+  return res.json()
+}
+
 export type GroupSettlement = {
   id: string
   groupId: string

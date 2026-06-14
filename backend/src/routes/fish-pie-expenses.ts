@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { groupExpenses, groupExpenseSplits, groupCategories, expenseGroupMembers, expenseGroups, transactions, postings, accounts, user } from '../db/schema'
-import { eq, isNull, and, inArray, desc, getTableColumns } from 'drizzle-orm'
+import { eq, isNull, and, inArray, getTableColumns } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { computeSplits, createGroupExpenseInTx, createMemberTransactionsInTx, resolveCategoryContext, resolveExpenseAccountId, applyCategoryWeights } from '../fish-pie-expense-service'
 import { isClearingAccountPath } from '../fish-pie-accounts'
@@ -20,7 +20,7 @@ async function validateCategory(categoryId: string, groupId: string): Promise<'o
 
 const app = new Hono<{ Variables: AppVariables }>()
 
-async function fetchExpenseWithDetails(expenseIds: string[]) {
+export async function fetchExpenseWithDetails(expenseIds: string[]) {
   if (expenseIds.length === 0) return []
 
   const [expenses, splits] = await Promise.all([
@@ -66,6 +66,22 @@ async function fetchExpenseWithDetails(expenseIds: string[]) {
     payerName: userMap.get(e.paidByUserId) ?? null,
     splits: splits.filter((s) => s.expenseId === e.id),
   }))
+}
+
+// All of a group's active expenses with details, newest first. Shared by the
+// expenses list endpoint and the group overview.
+export async function fetchGroupExpenses(groupId: string) {
+  const rows = await db
+    .select({ id: groupExpenses.id })
+    .from(groupExpenses)
+    .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+  if (rows.length === 0) return []
+  const detailed = await fetchExpenseWithDetails(rows.map((r) => r.id))
+  // Sort newest-first here — fetchExpenseWithDetails fetches by id set and doesn't
+  // guarantee order on its own.
+  return detailed.sort(
+    (a, b) => b.date.localeCompare(a.date) || b.createdAt.getTime() - a.createdAt.getTime(),
+  )
 }
 
 // POST /api/fish-pie/groups/:groupId/expenses
@@ -166,14 +182,7 @@ app.get('/groups/:groupId/expenses', async (c) => {
     .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
   if (!membership) return c.json({ error: 'not found' }, 404)
 
-  const expenses = await db
-    .select()
-    .from(groupExpenses)
-    .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
-    .orderBy(desc(groupExpenses.date), desc(groupExpenses.createdAt))
-
-  if (expenses.length === 0) return c.json([])
-  return c.json(await fetchExpenseWithDetails(expenses.map((e) => e.id)))
+  return c.json(await fetchGroupExpenses(groupId))
 })
 
 // PATCH /api/fish-pie/groups/:groupId/expenses/:expenseId
