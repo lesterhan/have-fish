@@ -23,9 +23,10 @@
     currentUserId: string
     accounts: Account[]
     categories: GroupCategory[]
+    onAccountCreated: (account: Account) => void
   }
 
-  let { groupId, members, currentUserId, accounts, categories }: Props = $props()
+  let { groupId, members, currentUserId, accounts, categories, onAccountCreated }: Props = $props()
 
   // Take a snapshot of the initial categories; this component owns the list afterwards
   // and updates it in place as the user edits (the parent loads the group only once).
@@ -154,79 +155,87 @@
     <p class="empty">No categories yet. Add one below to start tagging expenses.</p>
   {/if}
 
-  {#each active as cat (cat.id)}
-    {@const suggestion = suggestionFor(cat)}
-    <div class="cat-row">
-      <div class="cat-head">
-        <TextInput
-          value={cat.name}
-          onblur={(e) => handleRename(cat, (e.target as HTMLInputElement).value)}
-          onkeydown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
-          style="width: 200px; font-weight: 600"
-        />
-        <button class="link-btn" onclick={() => handleArchiveToggle(cat)}>Archive</button>
-      </div>
-
-      <div class="cat-field">
-        <span class="cat-field-label">My account</span>
-        <div class="cat-field-input">
-          <AccountPathInput
-            {accounts}
-            value={cat.myMapping?.accountId ?? ''}
-            placeholder="Uncategorized (default)"
-            allowCreate={true}
-            oncommit={(id) => handleMappingCommit(cat, id)}
-          />
-          {#if !cat.myMapping}
-            {#if suggestion}
-              <button class="suggest" onclick={() => handleMappingCommit(cat, suggestion.id)}>
-                Suggested: <code>{suggestion.path}</code> · Use
-              </button>
-            {:else}
-              <span class="cat-hint">No account set — your share posts to the default.</span>
-            {/if}
-          {/if}
-        </div>
-      </div>
-
-      {#if isPair}
-        <div class="cat-field">
-          <span class="cat-field-label">Split</span>
-          <div class="cat-field-input">
-            <div class="split-labels">
-              <span>{members[0].userName} {Math.round(sliderPct[cat.id] ?? 50)}%</span>
-              <span class="split-divider">/</span>
-              <span>{Math.round(100 - (sliderPct[cat.id] ?? 50))}% {members[1].userName}</span>
-            </div>
-            <input
-              type="range"
-              class="split-track"
-              min="1"
-              max="99"
-              step="1"
-              bind:value={sliderPct[cat.id]}
-              onchange={() => handleSliderChange(cat)}
-              aria-label="{cat.name} split — {members[0].userName}'s percentage"
+  {#if active.length > 0}
+    <div class="cat-list">
+      {#each active as cat (cat.id)}
+        {@const suggestion = suggestionFor(cat)}
+        <div class="cat-card">
+          <div class="cat-head">
+            <TextInput
+              value={cat.name}
+              onblur={(e) => handleRename(cat, (e.target as HTMLInputElement).value)}
+              onkeydown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              style="width: 220px; font-weight: 600"
             />
-            <div class="split-foot">
-              {#if hasWeights(cat)}
-                <button class="link-btn" onclick={() => handleResetWeights(cat)}>Use group default</button>
-              {:else}
-                <span class="cat-hint">Using the group default split.</span>
-              {/if}
+            <button class="link-btn" onclick={() => handleArchiveToggle(cat)}>Archive</button>
+          </div>
+
+          <div class="cat-body">
+            <div class="cat-field">
+              <span class="cat-field-label">My account</span>
+              <div class="cat-field-input">
+                <AccountPathInput
+                  {accounts}
+                  value={cat.myMapping?.accountId ?? ''}
+                  placeholder="Uncategorized (default)"
+                  allowCreate={true}
+                  oncreate={onAccountCreated}
+                  oncommit={(id) => handleMappingCommit(cat, id)}
+                />
+                {#if !cat.myMapping}
+                  {#if suggestion}
+                    <button class="suggest" onclick={() => handleMappingCommit(cat, suggestion.id)}>
+                      Use <code>{suggestion.path}</code>?
+                    </button>
+                  {:else}
+                    <span class="cat-hint">My share of {cat.name} posts here — defaults to my group account.</span>
+                  {/if}
+                {/if}
+              </div>
             </div>
+
+            {#if isPair}
+              <div class="cat-field">
+                <span class="cat-field-label">Split</span>
+                <div class="cat-field-input">
+                  <div class="split-labels">
+                    <span>{members[0].userName} {Math.round(sliderPct[cat.id] ?? 50)}%</span>
+                    <span class="split-divider">/</span>
+                    <span>{Math.round(100 - (sliderPct[cat.id] ?? 50))}% {members[1].userName}</span>
+                  </div>
+                  <input
+                    type="range"
+                    class="split-track"
+                    min="1"
+                    max="99"
+                    step="1"
+                    bind:value={sliderPct[cat.id]}
+                    onchange={() => handleSliderChange(cat)}
+                    aria-label="{cat.name} split — {members[0].userName}'s percentage"
+                  />
+                  <div class="split-foot">
+                    {#if hasWeights(cat)}
+                      <span class="cat-hint">Custom split ·</span>
+                      <button class="link-btn" onclick={() => handleResetWeights(cat)}>Reset to group default</button>
+                    {:else}
+                      <span class="cat-hint">Using the group's default split.</span>
+                    {/if}
+                  </div>
+                </div>
+              </div>
+            {/if}
           </div>
         </div>
-      {/if}
+      {/each}
     </div>
-  {/each}
+  {/if}
 
   <div class="add-row">
     <TextInput
       bind:value={newName}
       placeholder="New category (e.g. Food)"
       onkeydown={(e) => e.key === 'Enter' && handleAdd()}
-      style="width: 200px"
+      style="width: 260px"
     />
     <GradientButton onclick={handleAdd} disabled={adding || !newName.trim()}>Add category</GradientButton>
   </div>
@@ -248,6 +257,7 @@
   .categories {
     display: flex;
     flex-direction: column;
+    background: var(--color-window-raised);
   }
 
   .empty {
@@ -259,13 +269,21 @@
     margin: 0;
   }
 
-  .cat-row {
+  /* Each category reads as its own card, lifted off the section background. */
+  .cat-list {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-sm);
+    gap: var(--sp-md);
     padding: var(--sp-md) 22px;
-    background: var(--color-window);
-    border-bottom: 1px solid var(--color-rule-soft);
+  }
+
+  .cat-card {
+    display: flex;
+    flex-direction: column;
+    background: var(--card-bg);
+    border: 1px solid var(--card-border-color);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
   }
 
   .cat-head {
@@ -273,31 +291,34 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-md);
+    padding: var(--sp-sm) var(--sp-md);
+    border-bottom: 1px solid var(--color-rule-soft);
+  }
+
+  .cat-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    padding: var(--sp-md);
   }
 
   .cat-field {
     display: flex;
-    align-items: flex-start;
-    gap: var(--sp-md);
+    flex-direction: column;
+    gap: 5px;
   }
 
   .cat-field-label {
-    width: 64px;
-    flex-shrink: 0;
-    padding-top: 5px;
     font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
     color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.4px;
-    font-family: var(--font-mono);
   }
 
   .cat-field-input {
-    flex: 1;
-    max-width: 320px;
+    max-width: 380px;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 5px;
   }
 
   .cat-hint {
@@ -349,9 +370,14 @@
 
   .split-track {
     width: 100%;
+    cursor: pointer;
+    accent-color: var(--color-accent);
   }
 
   .split-foot {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     min-height: 14px;
   }
 
@@ -360,8 +386,8 @@
     align-items: center;
     gap: var(--sp-md);
     padding: var(--sp-md) 22px;
-    background: var(--color-window);
-    border-bottom: 1px solid var(--color-rule-soft);
+    background: var(--color-window-raised);
+    border-top: 1px solid var(--color-rule-soft);
   }
 
   .archived {
