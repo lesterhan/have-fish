@@ -302,6 +302,8 @@ export type UserPreferences = {
   accentColor?: import('$lib/accent').AccentKey
   recentCurrencies?: string[]
   recentGroups?: string[]
+  // Sticky last-used category per fish-pie group, keyed by groupId → categoryId.
+  lastCategoryByGroup?: Record<string, string>
 }
 
 export type UserSettings = {
@@ -957,6 +959,8 @@ export type GroupExpense = {
   currency: string
   date: string
   transactionId: string | null
+  categoryId: string | null
+  categoryName: string | null
   createdAt: string
   deletedAt: string | null
   splits: ExpenseSplit[]
@@ -981,7 +985,7 @@ export async function updateMyPaymentAccount(groupId: string, defaultPaymentAcco
 
 export async function createExpense(
   groupId: string,
-  body: { description: string; amount: string; currency: string; date: string; paidByUserId?: string; paymentAccountId: string },
+  body: { description: string; amount: string; currency: string; date: string; paidByUserId?: string; paymentAccountId: string; categoryId?: string | null },
 ): Promise<GroupExpense> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
     method: 'POST',
@@ -1006,6 +1010,7 @@ export async function updateExpense(
     date?: string
     paidByUserId?: string
     splits?: { userId: string; shareWeight: number }[]
+    categoryId?: string | null
   },
 ): Promise<GroupExpense> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
