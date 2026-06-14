@@ -178,7 +178,7 @@
 >
   {#each built.sections as section (section.header ?? '__only__')}
     {#if section.header}
-      <li class="section-header">{section.header}</li>
+      <li class="section-header" role="presentation">{section.header}</li>
     {/if}
     {#each section.options as o (o.idx)}
       <li
