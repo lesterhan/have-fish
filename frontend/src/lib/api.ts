@@ -204,7 +204,7 @@ export async function importCommit(body: {
   accountId: string // empty string for multi-currency imports (source is per-row)
   defaultCurrency: string
   transactions: CommitTransaction[]
-  groupSplits?: { rowIndex: number; groupId: string }[]
+  groupSplits?: { rowIndex: number; groupId: string; categoryId?: string | null }[]
 }): Promise<{ created: number; fishPieExpenses: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
@@ -304,6 +304,9 @@ export type UserPreferences = {
   recentGroups?: string[]
   // Sticky last-used category per fish-pie group, keyed by groupId → categoryId.
   lastCategoryByGroup?: Record<string, string>
+  // Recently used import split targets, most-recent first. Each entry is
+  // `${groupId}:${categoryId}` (empty categoryId = no category).
+  recentFishPieSplits?: string[]
 }
 
 export type UserSettings = {

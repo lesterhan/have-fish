@@ -13,6 +13,8 @@
     skipped: boolean
     possibleDuplicate?: PossibleDuplicate
     groupId: string | null
+    // Meaningful only when groupId is set; null = uncategorized fish-pie split.
+    categoryId: string | null
   }
 
   interface Props {
@@ -436,7 +438,7 @@
     flex-shrink: 0;
   }
 
-  :global(.table-container .fishpie-pill-group) {
+  :global(.table-container .fishpie-pill-hero) {
     display: inline-flex;
     align-items: center;
     gap: 3px;
@@ -454,7 +456,7 @@
     min-width: 0;
   }
 
-  :global(.table-container .fishpie-pill-account) {
+  :global(.table-container .fishpie-pill-sub) {
     display: inline-block;
     padding: 2px 6px;
     background: var(--color-window-raised);
