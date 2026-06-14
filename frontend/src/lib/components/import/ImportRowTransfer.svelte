@@ -11,7 +11,7 @@
     ExpenseGroup,
   } from '$lib/api'
   import type { RowState } from './ImportPreviewPanel.svelte'
-  import { groupName, groupExpenseAccountPath } from './import-helpers'
+  import { groupName, categoryName, myShareRatio } from './import-helpers'
 
   interface Props {
     tx: TransferParsedTransaction | SameCurrencyTransferParsedTransaction
@@ -44,12 +44,8 @@
   let shareHint = $derived.by(() => {
     if (!rowState.groupId) return null
     const group = groups.find((g) => g.id === rowState.groupId)
-    if (!group) return null
-    const me = group.members.find((m) => m.userId === currentUserId)
-    if (!me) return null
-    const totalWeight = group.members.reduce((s, m) => s + m.shareWeight, 0)
-    if (totalWeight === 0) return null
-    const ratio = me.shareWeight / totalWeight
+    const ratio = myShareRatio(group, currentUserId, rowState.categoryId)
+    if (ratio === null) return null
     const amountStr = tx.isTransfer === true ? tx.targetAmount : tx.amount
     const currency = tx.isTransfer === true ? tx.targetCurrency : tx.currency
     const raw = Math.abs(parseFloat(amountStr)) * ratio
@@ -103,18 +99,17 @@
     <div class="transfer-accounts">
       {#if rowState.groupId}
         <div class="fishpie-pills">
-          <span class="fishpie-pill-group">
+          <span class="fishpie-pill-hero">
             <Icon name="pie" size={11} />
-            {groupName(groups, rowState.groupId)}
+            {rowState.categoryId
+              ? categoryName(groups, rowState.groupId, rowState.categoryId)
+              : groupName(groups, rowState.groupId)}
           </span>
-          <span class="fishpie-pill-account">
-            {groupExpenseAccountPath(
-              groups,
-              accounts,
-              currentUserId,
-              rowState.groupId,
-            )}
-          </span>
+          {#if rowState.categoryId && groups.length > 1}
+            <span class="fishpie-pill-sub">
+              {groupName(groups, rowState.groupId)}
+            </span>
+          {/if}
           {#if shareHint}
             <span class="fishpie-pill-share">
               <Icon name="pie-chart" size={9} />{shareHint}
@@ -142,7 +137,7 @@
         <GroupSelect
           {groups}
           anchorEl={offsetCellEl}
-          onselect={(id) => { rowState = { ...rowState, groupId: id } }}
+          onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
           onclose={onclosesplit}
         />
       {/if}
@@ -170,7 +165,7 @@
             square
             aria-label="Remove group split"
             onclick={() => {
-              rowState = { ...rowState, groupId: null }
+              rowState = { ...rowState, groupId: null, categoryId: null }
               onclosesplit()
             }}>×</GradientButton
           >

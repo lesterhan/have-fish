@@ -144,6 +144,21 @@
   --shadow-window:
     2px 2px 0 var(--color-bevel-shadow), -1px -1px 0 var(--color-bevel-light);
 
+  /* --- Card surface (Aqua-style grouped panel) ---
+   * The Aqua alternative to the XP bevel: a flat panel that floats on a soft
+   * drop shadow with a faint glossy top highlight, hairline border, and a
+   * whisper of corner rounding. Reusable anywhere a "card" surface is needed.
+   *   background: var(--card-bg);
+   *   border: 1px solid var(--card-border-color);
+   *   border-radius: var(--card-radius);
+   *   box-shadow: var(--card-shadow);
+   */
+  --card-bg: var(--color-window);
+  --card-border-color: var(--color-rule);
+  --card-radius: var(--radius-lg);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --card-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+
   /* --- Shape --- */
   --radius-sm: 0; /* retro: sharp corners everywhere */
   --radius-md: 0;
@@ -251,4 +266,8 @@
   /* --- Transfers --- */
   --color-transfer-in: #88c0d0;  /* Nord Frost 2 */
   --color-transfer-out: #81a1c1; /* Nord Frost 3 */
+
+  /* --- Card surface (dark: stronger lift, barely-there gloss) --- */
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --card-shadow-hover: 0 2px 7px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 }

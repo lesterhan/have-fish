@@ -185,6 +185,7 @@
         skipped: perRowDuplicates[i] != null,
         possibleDuplicate: perRowDuplicates[i] ?? null,
         groupId: null,
+        categoryId: null,
       }))
       preview = fetched
     } catch (e) {
@@ -265,12 +266,16 @@
         }
       })
       // Build groupSplits re-indexed to txs positions (skipped rows excluded from txs)
-      const groupSplits: { rowIndex: number; groupId: string }[] = []
+      const groupSplits: { rowIndex: number; groupId: string; categoryId: string | null }[] = []
       let txIdx = 0
       for (let i = 0; i < rowStates.length; i++) {
         if (rowStates[i].skipped) continue
         if (rowStates[i].groupId) {
-          groupSplits.push({ rowIndex: txIdx, groupId: rowStates[i].groupId! })
+          groupSplits.push({
+            rowIndex: txIdx,
+            groupId: rowStates[i].groupId!,
+            categoryId: rowStates[i].categoryId,
+          })
         }
         txIdx++
       }
