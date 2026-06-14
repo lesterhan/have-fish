@@ -456,7 +456,7 @@
     min-width: 0;
   }
 
-  :global(.table-container .fishpie-pill-account) {
+  :global(.table-container .fishpie-pill-category) {
     display: inline-block;
     padding: 2px 6px;
     background: var(--color-window-raised);

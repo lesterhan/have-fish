@@ -1,4 +1,4 @@
-import type { Account, ExpenseGroup } from '$lib/api'
+import type { ExpenseGroup } from '$lib/api'
 
 export function groupName(groups: ExpenseGroup[], id: string | null): string {
   if (!id) return ''
@@ -13,27 +13,6 @@ export function categoryName(
   if (!groupId || !categoryId) return ''
   const group = groups.find((g) => g.id === groupId)
   return group?.categories.find((c) => c.id === categoryId)?.name ?? ''
-}
-
-export function groupExpenseAccountPath(
-  groups: ExpenseGroup[],
-  accounts: Account[],
-  currentUserId: string,
-  groupId: string | null,
-  categoryId: string | null = null,
-): string {
-  if (!groupId) return ''
-  const group = groups.find((g) => g.id === groupId)
-  if (!group) return ''
-  // The category's private mapping wins over the member default, matching the
-  // backend's per-member account resolution order.
-  if (categoryId) {
-    const mappedId = group.categories.find((c) => c.id === categoryId)?.myMapping?.accountId
-    if (mappedId) return accounts.find((a) => a.id === mappedId)?.path ?? 'uncategorized'
-  }
-  const member = group.members.find((m) => m.userId === currentUserId)
-  if (!member || !member.defaultExpenseAccountId) return 'uncategorized'
-  return accounts.find((a) => a.id === member.defaultExpenseAccountId)?.path ?? 'uncategorized'
 }
 
 // My share of an expense, as a 0..1 ratio. Prefers the category's complete weight

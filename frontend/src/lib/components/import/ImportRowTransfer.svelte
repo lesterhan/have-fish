@@ -11,7 +11,7 @@
     ExpenseGroup,
   } from '$lib/api'
   import type { RowState } from './ImportPreviewPanel.svelte'
-  import { groupName, categoryName, groupExpenseAccountPath, myShareRatio } from './import-helpers'
+  import { groupName, categoryName, myShareRatio } from './import-helpers'
 
   interface Props {
     tx: TransferParsedTransaction | SameCurrencyTransferParsedTransaction
@@ -101,17 +101,13 @@
         <div class="fishpie-pills">
           <span class="fishpie-pill-group">
             <Icon name="pie" size={11} />
-            {groupName(groups, rowState.groupId)}{#if rowState.categoryId} · {categoryName(groups, rowState.groupId, rowState.categoryId)}{/if}
+            {groupName(groups, rowState.groupId)}
           </span>
-          <span class="fishpie-pill-account">
-            {groupExpenseAccountPath(
-              groups,
-              accounts,
-              currentUserId,
-              rowState.groupId,
-              rowState.categoryId,
-            )}
-          </span>
+          {#if rowState.categoryId}
+            <span class="fishpie-pill-category">
+              {categoryName(groups, rowState.groupId, rowState.categoryId)}
+            </span>
+          {/if}
           {#if shareHint}
             <span class="fishpie-pill-share">
               <Icon name="pie-chart" size={9} />{shareHint}
