@@ -360,6 +360,8 @@
 
   .split-track {
     width: 100%;
+    cursor: pointer;
+    accent-color: var(--color-accent);
   }
 
   .split-foot {
