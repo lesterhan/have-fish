@@ -238,19 +238,12 @@
     background: var(--color-window-raised);
     display: flex;
     flex-direction: column;
-    align-items: center;
   }
 
-  /* Cap the content to a readable column so labels and inputs sit together
-     instead of being flung to opposite edges of a very wide window. */
   .body-inner {
-    width: 100%;
-    max-width: 880px;
     flex: 1;
     display: flex;
     flex-direction: column;
-    border-left: 1px solid var(--color-rule-soft);
-    border-right: 1px solid var(--color-rule-soft);
   }
 
   .section-intro {
