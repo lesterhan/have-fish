@@ -304,6 +304,9 @@ export type UserPreferences = {
   recentGroups?: string[]
   // Sticky last-used category per fish-pie group, keyed by groupId → categoryId.
   lastCategoryByGroup?: Record<string, string>
+  // Recently used import split targets, most-recent first. Each entry is
+  // `${groupId}:${categoryId}` (empty categoryId = no category).
+  recentFishPieSplits?: string[]
 }
 
 export type UserSettings = {

@@ -99,13 +99,15 @@
     <div class="transfer-accounts">
       {#if rowState.groupId}
         <div class="fishpie-pills">
-          <span class="fishpie-pill-group">
+          <span class="fishpie-pill-hero">
             <Icon name="pie" size={11} />
-            {groupName(groups, rowState.groupId)}
+            {rowState.categoryId
+              ? categoryName(groups, rowState.groupId, rowState.categoryId)
+              : groupName(groups, rowState.groupId)}
           </span>
-          {#if rowState.categoryId}
-            <span class="fishpie-pill-category">
-              {categoryName(groups, rowState.groupId, rowState.categoryId)}
+          {#if rowState.categoryId && groups.length > 1}
+            <span class="fishpie-pill-sub">
+              {groupName(groups, rowState.groupId)}
             </span>
           {/if}
           {#if shareHint}

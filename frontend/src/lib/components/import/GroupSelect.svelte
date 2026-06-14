@@ -1,6 +1,7 @@
 <script lang="ts">
-  import { onMount, untrack } from 'svelte'
+  import { onMount } from 'svelte'
   import { settingsStore } from '$lib/settings.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
   import type { ExpenseGroup } from '$lib/api'
 
   interface Props {
@@ -17,45 +18,75 @@
   // Off-screen until rAF positions it correctly after paint
   let listStyle = $state('position: fixed; top: -9999px; left: -9999px;')
 
-  let recentGroupIds = $derived(settingsStore.value?.preferences?.recentGroups ?? [])
-
-  let sortedGroups = $derived.by(() => {
-    const recentSet = new Set(recentGroupIds)
-    const recents = recentGroupIds
-      .map((id) => groups.find((g) => g.id === id))
-      .filter((g): g is ExpenseGroup => g !== undefined)
-    const others = groups.filter((g) => !recentSet.has(g.id))
-    return [...recents, ...others]
-  })
+  const multiGroup = $derived(groups.length > 1)
 
   function activeCats(group: ExpenseGroup) {
     return group.categories.filter((c) => !c.archivedAt)
   }
 
-  // Two stages: pick a group, then pick a category. With a single group we skip
-  // straight to its categories so the tap count matches the pre-categories flow.
-  let stageGroupId = $state<string | null>(untrack(() => (groups.length === 1 ? groups[0].id : null)))
-  const stage = $derived<'groups' | 'categories'>(stageGroupId ? 'categories' : 'groups')
-  const stageGroup = $derived(groups.find((g) => g.id === stageGroupId) ?? null)
-  const showBack = $derived(stage === 'categories' && groups.length > 1)
+  type Option = { groupId: string; categoryId: string | null; label: string; recent: boolean }
+  type Section = { header: string | null; options: (Option & { idx: number })[] }
 
-  type Item =
-    | { kind: 'group'; id: string; label: string }
-    | { kind: 'category'; groupId: string; categoryId: string | null; label: string }
+  // The split key persisted in recents. UUIDs never contain ':', so this round-trips.
+  function splitKey(groupId: string, categoryId: string | null) {
+    return `${groupId}:${categoryId ?? ''}`
+  }
 
-  let items = $derived.by<Item[]>(() => {
-    if (stage === 'categories' && stageGroup) {
-      const lead: Item = { kind: 'category', groupId: stageGroup.id, categoryId: null, label: 'No category' }
-      const cats = activeCats(stageGroup).map(
-        (c): Item => ({ kind: 'category', groupId: stageGroup.id, categoryId: c.id, label: c.name }),
-      )
-      return [lead, ...cats]
+  // Resolve a persisted recent key to a still-valid option (group/category exist,
+  // category not archived). Returns null for stale entries so they self-prune.
+  function resolveRecent(key: string): Option | null {
+    const sep = key.indexOf(':')
+    const gid = key.slice(0, sep)
+    const cid = key.slice(sep + 1)
+    const group = groups.find((g) => g.id === gid)
+    if (!group) return null
+    if (cid) {
+      const cat = activeCats(group).find((c) => c.id === cid)
+      if (!cat) return null
+      return { groupId: gid, categoryId: cid, label: `${group.name} · ${cat.name}`, recent: true }
     }
-    return sortedGroups.map((g): Item => ({ kind: 'group', id: g.id, label: g.name }))
+    return { groupId: gid, categoryId: null, label: `${group.name} · No category`, recent: true }
+  }
+
+  const recentKeys = $derived(settingsStore.value?.preferences?.recentFishPieSplits ?? [])
+
+  // Build display sections plus a flat, index-stamped option list for keyboard nav.
+  const built = $derived.by(() => {
+    const sections: Section[] = []
+    let idx = 0
+    const push = (header: string | null, options: Option[]) => {
+      if (options.length === 0) return
+      sections.push({ header, options: options.map((o) => ({ ...o, idx: idx++ })) })
+    }
+
+    // Recent combos only make sense across multiple groups; for a single group the
+    // category list below already is the full, short menu.
+    if (multiGroup) {
+      const recents = recentKeys
+        .map(resolveRecent)
+        .filter((o): o is Option => o !== null)
+        .slice(0, 5)
+      push('Recent', recents)
+    }
+
+    for (const group of groups) {
+      const opts: Option[] = [
+        { groupId: group.id, categoryId: null, label: 'No category', recent: false },
+        ...activeCats(group).map((c) => ({
+          groupId: group.id,
+          categoryId: c.id,
+          label: c.name,
+          recent: false,
+        })),
+      ]
+      push(multiGroup ? group.name : null, opts)
+    }
+
+    return { sections, flat: sections.flatMap((s) => s.options) }
   })
 
   $effect(() => {
-    if (activeIndex >= items.length) activeIndex = 0
+    if (activeIndex >= built.flat.length) activeIndex = 0
   })
 
   onMount(() => {
@@ -66,7 +97,7 @@
       if (anchorEl) {
         const rect = anchorEl.getBoundingClientRect()
         const spaceBelow = window.innerHeight - rect.bottom
-        if (spaceBelow < 150 && rect.top > spaceBelow) {
+        if (spaceBelow < 200 && rect.top > spaceBelow) {
           listStyle = `position: fixed; bottom: ${window.innerHeight - rect.top}px; left: ${rect.left}px; width: ${rect.width}px;`
         } else {
           listStyle = `position: fixed; top: ${rect.bottom}px; left: ${rect.left}px; width: ${rect.width}px;`
@@ -76,60 +107,42 @@
     })
   })
 
-  function pushRecent(id: string) {
-    const current = settingsStore.value?.preferences?.recentGroups ?? []
-    const next = [id, ...current.filter((g) => g !== id)].slice(0, 8)
-    settingsStore.update({ preferences: { recentGroups: next } }).catch(() => {})
-  }
-
-  function commit(groupId: string, categoryId: string | null) {
-    pushRecent(groupId)
-    onselect(groupId, categoryId)
+  function commit(o: Option) {
+    const splits = settingsStore.value?.preferences?.recentFishPieSplits ?? []
+    const groupsRecent = settingsStore.value?.preferences?.recentGroups ?? []
+    const key = splitKey(o.groupId, o.categoryId)
+    settingsStore
+      .update({
+        preferences: {
+          recentFishPieSplits: [key, ...splits.filter((k) => k !== key)].slice(0, 8),
+          recentGroups: [o.groupId, ...groupsRecent.filter((g) => g !== o.groupId)].slice(0, 8),
+        },
+      })
+      .catch(() => {})
+    onselect(o.groupId, o.categoryId)
     onclose()
   }
 
-  function choose(item: Item) {
-    if (item.kind === 'group') {
-      const g = groups.find((x) => x.id === item.id)
-      if (!g) return
-      // Drill into categories only when there's something to choose; otherwise commit.
-      if (activeCats(g).length > 0) {
-        stageGroupId = g.id
-        activeIndex = 0
-      } else {
-        commit(g.id, null)
-      }
-    } else {
-      commit(item.groupId, item.categoryId)
-    }
-  }
-
-  function goBack() {
-    stageGroupId = null
-    activeIndex = 0
-  }
-
   function handleKeydown(e: KeyboardEvent) {
-    if (items.length === 0) return
+    const n = built.flat.length
+    if (n === 0) return
     if (e.key === 'ArrowDown') {
       e.preventDefault()
       e.stopPropagation()
-      activeIndex = (activeIndex + 1) % items.length
+      activeIndex = (activeIndex + 1) % n
     } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       e.stopPropagation()
-      activeIndex = (activeIndex - 1 + items.length) % items.length
+      activeIndex = (activeIndex - 1 + n) % n
     } else if (e.key === 'Enter') {
       e.preventDefault()
       e.stopPropagation()
-      const item = items[activeIndex]
-      if (item) choose(item)
+      const o = built.flat[activeIndex]
+      if (o) commit(o)
     } else if (e.key === 'Escape') {
       e.preventDefault()
       e.stopPropagation()
-      // Escape steps back to the group list when we drilled in; otherwise closes.
-      if (showBack) goBack()
-      else onclose()
+      onclose()
     }
   }
 
@@ -146,7 +159,7 @@
 </script>
 
 <!-- Takes up 22px in the cell so the row height doesn't change -->
-<div class="placeholder">{stage === 'categories' ? 'Choose category…' : 'Choose group…'}</div>
+<div class="placeholder">{multiGroup ? 'Choose split…' : 'Choose category…'}</div>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -162,24 +175,24 @@
   tabindex="-1"
   onkeydown={handleKeydown}
 >
-  {#if showBack && stageGroup}
-    <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
-    <li class="group-header" onmousedown={(e) => { e.preventDefault(); goBack() }}>
-      ‹ {stageGroup.name}
-    </li>
-  {/if}
-  {#each items as item, i (item.kind === 'group' ? item.id : (item.categoryId ?? '__none__'))}
-    <li
-      class="group-option"
-      class:active={i === activeIndex}
-      class:lead={item.kind === 'category' && item.categoryId === null}
-      role="option"
-      aria-selected={i === activeIndex}
-      onmousedown={(e) => { e.preventDefault(); choose(item) }}
-      onmousemove={() => { activeIndex = i }}
-    >
-      {item.label}
-    </li>
+  {#each built.sections as section (section.header ?? '__only__')}
+    {#if section.header}
+      <li class="section-header">{section.header}</li>
+    {/if}
+    {#each section.options as o (o.idx)}
+      <li
+        class="group-option"
+        class:active={o.idx === activeIndex}
+        class:lead={o.categoryId === null && !o.recent}
+        role="option"
+        aria-selected={o.idx === activeIndex}
+        onmousedown={(e) => { e.preventDefault(); commit(o) }}
+        onmousemove={() => { activeIndex = o.idx }}
+      >
+        {#if o.recent}<span class="recent-icon"><Icon name="pie" size={10} /></span>{/if}
+        {o.label}
+      </li>
+    {/each}
   {/each}
 </ul>
 
@@ -211,28 +224,30 @@
     background: var(--color-window);
     border: 1px solid var(--color-border);
     box-shadow: var(--shadow-window);
-    max-height: 180px;
+    max-height: 220px;
     overflow-y: auto;
     outline: none;
   }
 
-  .group-header {
-    padding: 3px 10px;
+  .section-header {
+    padding: 4px 10px 2px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
-    letter-spacing: 0.4px;
+    letter-spacing: 0.6px;
     text-transform: uppercase;
     color: var(--color-text-muted);
-    cursor: pointer;
-    border-bottom: 1px solid var(--color-rule-soft);
+    border-top: 1px solid var(--color-rule-soft);
   }
 
-  .group-header:hover {
-    color: var(--color-accent-mid);
+  .group-list > .section-header:first-child {
+    border-top: none;
   }
 
   .group-option {
+    display: flex;
+    align-items: center;
+    gap: 5px;
     padding: 3px 10px;
     font-size: var(--text-sm);
     color: var(--color-text);
@@ -245,8 +260,17 @@
     font-style: italic;
   }
 
+  .recent-icon {
+    display: inline-flex;
+    color: var(--color-accent-mid);
+  }
+
   .group-option.active {
     background: var(--color-accent);
+    color: #ffffff;
+  }
+
+  .group-option.active .recent-icon {
     color: #ffffff;
   }
 </style>
