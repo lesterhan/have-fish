@@ -67,6 +67,13 @@
     }
   }
 
+  // A new account created from any AccountPathInput on this page must be folded
+  // into the local list — otherwise the input can't match it back on blur and
+  // reverts to blank even though the value was saved.
+  function handleAccountCreated(account: Account) {
+    allAccounts = [...allAccounts, account]
+  }
+
   async function handleExpenseAccountCommit(accountId: string) {
     if (savingExpenseAccount) return
     savingExpenseAccount = true
@@ -90,7 +97,7 @@
       </GradientButton>
     </a>
     <h1 class="page-title">
-      {#if group}{group.name} — {:else}Group {/if}Settings
+      {group ? `${group.name} — Settings` : 'Group Settings'}
     </h1>
   </header>
 
@@ -102,55 +109,61 @@
     </div>
   {:else}
     <div class="body">
-      <div class="section-bar">
-        <span class="section-bar-title">Settings</span>
-      </div>
-      {#if isCreator}
+      <div class="body-inner">
+        <div class="section-bar">
+          <span class="section-bar-title">Group</span>
+        </div>
+        {#if isCreator}
+          <div class="setting-row">
+            <div class="setting-info">
+              <span class="setting-label">Name</span>
+              <span class="setting-hint">Shown to everyone in this group.</span>
+            </div>
+            <div class="setting-input setting-input--name">
+              <TextInput
+                bind:value={groupName}
+                onkeydown={(e) => e.key === 'Enter' && handleGroupNameSave()}
+                onblur={handleGroupNameSave}
+                disabled={savingGroupName}
+                style="width: 100%"
+              />
+            </div>
+          </div>
+        {/if}
         <div class="setting-row">
           <div class="setting-info">
-            <span class="setting-label">Group name</span>
-            <span class="setting-hint">Visible to all members</span>
+            <span class="setting-label">My default account</span>
+            <span class="setting-hint">Where my share posts when an expense has no category. Categories below can override it.</span>
           </div>
-          <div class="setting-input setting-input--name">
-            <TextInput
-              bind:value={groupName}
-              onkeydown={(e) => e.key === 'Enter' && handleGroupNameSave()}
-              onblur={handleGroupNameSave}
-              disabled={savingGroupName}
-              style="width: 100%"
+          <div class="setting-input">
+            <AccountPathInput
+              accounts={allAccounts}
+              bind:value={myExpenseAccountId}
+              placeholder="Uncategorized (default)"
+              allowCreate={true}
+              oncreate={handleAccountCreated}
+              oncommit={handleExpenseAccountCommit}
             />
           </div>
         </div>
-      {/if}
-      <div class="setting-row">
-        <div class="setting-info">
-          <span class="setting-label">My expense account</span>
-          <span class="setting-hint">Your share of group expenses posts here</span>
-        </div>
-        <div class="setting-input">
-          <AccountPathInput
-            accounts={allAccounts}
-            bind:value={myExpenseAccountId}
-            placeholder="Uncategorized (default)"
-            allowCreate={true}
-            oncommit={handleExpenseAccountCommit}
-          />
-        </div>
-      </div>
 
-      <div class="section-bar">
-        <span class="section-bar-title">Categories</span>
-      </div>
-      <CategoryManager
-        {groupId}
-        members={group.members}
-        {currentUserId}
-        accounts={allAccounts}
-        categories={group.categories}
-      />
+        <div class="section-bar">
+          <span class="section-bar-title">Categories</span>
+        </div>
+        <p class="section-intro">
+          Tag each expense with a category. Per category, you can set your own account and a custom split — both fall back to the group defaults above.
+        </p>
+        <CategoryManager
+          {groupId}
+          members={group.members}
+          {currentUserId}
+          accounts={allAccounts}
+          categories={group.categories}
+          onAccountCreated={handleAccountCreated}
+        />
 
-      {#if isCreator}
-        <div class="danger-footer">
+        {#if isCreator}
+          <div class="danger-footer">
           {#if !confirmDelete}
             <button class="danger-link" onclick={() => (confirmDelete = true)}>Delete group…</button>
             <span class="danger-desc">Removes this group for all members. This cannot be undone.</span>
@@ -163,8 +176,9 @@
               <GradientButton onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</GradientButton>
             </div>
           {/if}
-        </div>
-      {/if}
+          </div>
+        {/if}
+      </div>
     </div>
   {/if}
 </div>
@@ -224,13 +238,35 @@
     background: var(--color-window-raised);
     display: flex;
     flex-direction: column;
+    align-items: center;
+  }
+
+  /* Cap the content to a readable column so labels and inputs sit together
+     instead of being flung to opposite edges of a very wide window. */
+  .body-inner {
+    width: 100%;
+    max-width: 880px;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    border-left: 1px solid var(--color-rule-soft);
+    border-right: 1px solid var(--color-rule-soft);
+  }
+
+  .section-intro {
+    margin: 0;
+    padding: var(--sp-sm) 22px;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule-soft);
+    line-height: var(--leading-normal);
   }
 
   .setting-row {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-md);
+    gap: var(--sp-xl);
     padding: var(--sp-md) 22px;
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule-soft);
@@ -240,7 +276,8 @@
     display: flex;
     flex-direction: column;
     gap: 3px;
-    flex: 1;
+    width: 300px;
+    flex-shrink: 0;
   }
 
   .setting-label {
@@ -252,15 +289,16 @@
   .setting-hint {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+    line-height: var(--leading-normal);
   }
 
   .setting-input {
-    flex-shrink: 0;
-    width: 220px;
+    flex: 1;
+    max-width: 360px;
   }
 
   .setting-input--name {
-    width: 260px;
+    max-width: 280px;
   }
 
   .danger-footer {

@@ -23,9 +23,10 @@
     currentUserId: string
     accounts: Account[]
     categories: GroupCategory[]
+    onAccountCreated: (account: Account) => void
   }
 
-  let { groupId, members, currentUserId, accounts, categories }: Props = $props()
+  let { groupId, members, currentUserId, accounts, categories, onAccountCreated }: Props = $props()
 
   // Take a snapshot of the initial categories; this component owns the list afterwards
   // and updates it in place as the user edits (the parent loads the group only once).
@@ -144,10 +145,12 @@
     <p class="empty">No categories yet. Add one below to start tagging expenses.</p>
   {/if}
 
-  {#each active as cat (cat.id)}
-    {@const suggestion = suggestionFor(cat)}
-    <div class="cat-row">
-      <div class="cat-head">
+  {#if active.length > 0}
+    <div class="cat-list">
+      {#each active as cat (cat.id)}
+        {@const suggestion = suggestionFor(cat)}
+        <div class="cat-card">
+          <div class="cat-head">
         <TextInput
           value={cat.name}
           onblur={(e) => handleRename(cat, (e.target as HTMLInputElement).value)}
@@ -165,15 +168,16 @@
             value={cat.myMapping?.accountId ?? ''}
             placeholder="Uncategorized (default)"
             allowCreate={true}
+            oncreate={onAccountCreated}
             oncommit={(id) => handleMappingCommit(cat, id)}
           />
           {#if !cat.myMapping}
             {#if suggestion}
               <button class="suggest" onclick={() => handleMappingCommit(cat, suggestion.id)}>
-                Suggested: <code>{suggestion.path}</code> · Use
+                Use <code>{suggestion.path}</code>?
               </button>
             {:else}
-              <span class="cat-hint">No account set — your share posts to the default.</span>
+              <span class="cat-hint">Uses your default account.</span>
             {/if}
           {/if}
         </div>
@@ -200,23 +204,26 @@
             />
             <div class="split-foot">
               {#if hasWeights(cat)}
-                <button class="link-btn" onclick={() => handleResetWeights(cat)}>Use group default</button>
+                <span class="cat-hint">Custom split ·</span>
+                <button class="link-btn" onclick={() => handleResetWeights(cat)}>Reset to group default</button>
               {:else}
-                <span class="cat-hint">Using the group default split.</span>
+                <span class="cat-hint">Using the group's default split.</span>
               {/if}
             </div>
           </div>
         </div>
-      {/if}
+          {/if}
+        </div>
+      {/each}
     </div>
-  {/each}
+  {/if}
 
   <div class="add-row">
     <TextInput
       bind:value={newName}
       placeholder="New category (e.g. Food)"
       onkeydown={(e) => e.key === 'Enter' && handleAdd()}
-      style="width: 200px"
+      style="width: 260px"
     />
     <GradientButton onclick={handleAdd} disabled={adding || !newName.trim()}>Add category</GradientButton>
   </div>
@@ -238,6 +245,7 @@
   .categories {
     display: flex;
     flex-direction: column;
+    background: var(--color-window-raised);
   }
 
   .empty {
@@ -249,13 +257,22 @@
     margin: 0;
   }
 
-  .cat-row {
+  /* Each category reads as its own card, lifted off the section background. */
+  .cat-list {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-sm);
+    gap: var(--sp-md);
     padding: var(--sp-md) 22px;
+  }
+
+  .cat-card {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    padding: var(--sp-md);
     background: var(--color-window);
-    border-bottom: 1px solid var(--color-rule-soft);
+    border: 1px solid var(--color-rule);
+    box-shadow: var(--shadow-raised);
   }
 
   .cat-head {
@@ -263,6 +280,8 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-md);
+    padding-bottom: var(--sp-sm);
+    border-bottom: 1px solid var(--color-rule-soft);
   }
 
   .cat-field {
@@ -342,6 +361,9 @@
   }
 
   .split-foot {
+    display: flex;
+    align-items: center;
+    gap: 4px;
     min-height: 14px;
   }
 
@@ -350,8 +372,8 @@
     align-items: center;
     gap: var(--sp-md);
     padding: var(--sp-md) 22px;
-    background: var(--color-window);
-    border-bottom: 1px solid var(--color-rule-soft);
+    background: var(--color-window-raised);
+    border-top: 1px solid var(--color-rule-soft);
   }
 
   .archived {
