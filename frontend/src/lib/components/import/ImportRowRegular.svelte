@@ -6,7 +6,7 @@
   import { tooltip } from '$lib/tooltip'
   import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
   import type { RowState } from './ImportPreviewPanel.svelte'
-  import { groupName, groupExpenseAccountPath } from './import-helpers'
+  import { groupName, categoryName, groupExpenseAccountPath, myShareRatio } from './import-helpers'
 
   interface Props {
     tx: RegularParsedTransaction
@@ -45,12 +45,8 @@
   let shareHint = $derived.by(() => {
     if (!rowState.groupId) return null
     const group = groups.find((g) => g.id === rowState.groupId)
-    if (!group) return null
-    const me = group.members.find((m) => m.userId === currentUserId)
-    if (!me) return null
-    const totalWeight = group.members.reduce((s, m) => s + m.shareWeight, 0)
-    if (totalWeight === 0) return null
-    const ratio = me.shareWeight / totalWeight
+    const ratio = myShareRatio(group, currentUserId, rowState.categoryId)
+    if (ratio === null) return null
     const raw = Math.abs(parseFloat(tx.amount)) * ratio
     if (isNaN(raw)) return null
     return `${raw.toFixed(2)} ${tx.currency ?? defaultCurrency}`
@@ -102,10 +98,10 @@
       <div class="fishpie-pills">
         <span class="fishpie-pill-group">
           <Icon name="pie" size={11} />
-          {groupName(groups, rowState.groupId)}
+          {groupName(groups, rowState.groupId)}{#if rowState.categoryId} · {categoryName(groups, rowState.groupId, rowState.categoryId)}{/if}
         </span>
         <span class="fishpie-pill-account">
-          {groupExpenseAccountPath(groups, accounts, currentUserId, rowState.groupId)}
+          {groupExpenseAccountPath(groups, accounts, currentUserId, rowState.groupId, rowState.categoryId)}
         </span>
         {#if shareHint}
           <span class="fishpie-pill-share">
@@ -135,7 +131,7 @@
       <GroupSelect
         {groups}
         anchorEl={offsetCellEl}
-        onselect={(id) => { rowState.groupId = id }}
+        onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
         onclose={onclosesplit}
       />
     {/if}
@@ -148,7 +144,7 @@
             square
             aria-label="Remove Fish Pie split"
             onclick={() => {
-              rowState = { ...rowState, groupId: null }
+              rowState = { ...rowState, groupId: null, categoryId: null }
               onclosesplit()
             }}
           >×</GradientButton>

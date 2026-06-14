@@ -13,6 +13,8 @@
     skipped: boolean
     possibleDuplicate?: PossibleDuplicate
     groupId: string | null
+    // Meaningful only when groupId is set; null = uncategorized fish-pie split.
+    categoryId: string | null
   }
 
   interface Props {

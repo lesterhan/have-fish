@@ -204,7 +204,7 @@ export async function importCommit(body: {
   accountId: string // empty string for multi-currency imports (source is per-row)
   defaultCurrency: string
   transactions: CommitTransaction[]
-  groupSplits?: { rowIndex: number; groupId: string }[]
+  groupSplits?: { rowIndex: number; groupId: string; categoryId?: string | null }[]
 }): Promise<{ created: number; fishPieExpenses: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
