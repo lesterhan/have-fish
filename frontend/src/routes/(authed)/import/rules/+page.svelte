@@ -8,6 +8,7 @@
     deleteRule,
     approveRule,
     denyRule,
+    reviveRule,
     mineRules,
     type ImportRule,
     type Account,
@@ -34,11 +35,18 @@
   let editPattern = $state('')
   let editAccountId = $state('')
 
+  let panelTab = $state<'suggestions' | 'denied'>('suggestions')
+
   let activeRules = $derived(rules.filter((r) => r.status === 'active'))
   let suggestions = $derived(
     rules
       .filter((r) => r.status === 'suggested')
       .sort((a, b) => b.matchCount - a.matchCount),
+  )
+  let denied = $derived(
+    rules
+      .filter((r) => r.status === 'denied')
+      .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)),
   )
 
   onMount(async () => {
@@ -104,8 +112,17 @@
   }
 
   async function handleDeny(id: string) {
-    await denyRule(id)
-    rules = rules.filter((r) => r.id !== id)
+    const updated = await denyRule(id)
+    rules = rules.map((r) =>
+      r.id === id ? { ...r, status: updated.status, updatedAt: updated.updatedAt } : r,
+    )
+  }
+
+  async function handleRevive(id: string) {
+    const updated = await reviveRule(id)
+    rules = rules.map((r) =>
+      r.id === id ? { ...r, status: updated.status, updatedAt: updated.updatedAt } : r,
+    )
   }
 
   async function handleMine() {
@@ -274,51 +291,95 @@
     </div>
   </div>
 
-  <!-- Right: suggestions sidebar -->
+  <!-- Right: suggestions / denied sidebar -->
   <div class="right-col">
-    <div class="section-bar">
-      <span class="section-bar-title">SUGGESTIONS</span>
-    </div>
-
-    <div class="mine-strip">
-      <GradientButton
-        onclick={handleMine}
-        disabled={mining}
-        tooltip="Analyze to find patterns in transaction history."
+    <div class="panel-tabs">
+      <button
+        class="panel-tab"
+        class:active={panelTab === 'suggestions'}
+        onclick={() => (panelTab = 'suggestions')}
       >
-        {mining ? 'Mining…' : 'Mine'}
-      </GradientButton>
+        Suggestions{#if suggestions.length > 0}<span class="tab-count"
+            >{suggestions.length}</span
+          >{/if}
+      </button>
+      <button
+        class="panel-tab"
+        class:active={panelTab === 'denied'}
+        onclick={() => (panelTab = 'denied')}
+      >
+        Denied{#if denied.length > 0}<span class="tab-count">{denied.length}</span
+          >{/if}
+      </button>
     </div>
 
-    <div class="suggestions-list">
-      {#if loading}
-        <div class="empty-state">Loading…</div>
-      {:else if suggestions.length === 0}
-        <div class="empty-state">
-          {minedOnce
-            ? 'Nothing came up.'
-            : 'Click Mine to analyze your transaction history.'}
-        </div>
-      {:else}
-        {#each suggestions as rule (rule.id)}
-          <div class="suggestion-card">
-            <div class="suggestion-info">
-              <span class="suggestion-pattern">{rule.pattern}</span>
-              <span class="suggestion-account">{rule.accountPath}</span>
-              <span class="suggestion-count">{rule.matchCount} matches</span>
-            </div>
-            <div class="suggestion-actions">
-              <GradientButton onclick={() => handleApprove(rule.id)} active
-                >Approve</GradientButton
-              >
-              <Button variant="ghost" onclick={() => handleDeny(rule.id)}
-                >Deny</Button
-              >
-            </div>
+    {#if panelTab === 'suggestions'}
+      <div class="mine-strip">
+        <GradientButton
+          onclick={handleMine}
+          disabled={mining}
+          tooltip="Analyze to find patterns in transaction history."
+        >
+          {mining ? 'Mining…' : 'Mine'}
+        </GradientButton>
+      </div>
+
+      <div class="suggestions-list">
+        {#if loading}
+          <div class="empty-state">Loading…</div>
+        {:else if suggestions.length === 0}
+          <div class="empty-state">
+            {minedOnce
+              ? 'Nothing came up.'
+              : 'Click Mine to analyze your transaction history.'}
           </div>
-        {/each}
-      {/if}
-    </div>
+        {:else}
+          {#each suggestions as rule (rule.id)}
+            <div class="suggestion-card">
+              <div class="suggestion-info">
+                <span class="suggestion-pattern">{rule.pattern}</span>
+                <span class="suggestion-account">{rule.accountPath}</span>
+                <span class="suggestion-count">{rule.matchCount} matches</span>
+              </div>
+              <div class="suggestion-actions">
+                <GradientButton onclick={() => handleApprove(rule.id)} active
+                  >Approve</GradientButton
+                >
+                <Button variant="ghost" onclick={() => handleDeny(rule.id)}
+                  >Deny</Button
+                >
+              </div>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    {:else}
+      <div class="suggestions-list">
+        {#if loading}
+          <div class="empty-state">Loading…</div>
+        {:else if denied.length === 0}
+          <div class="empty-state">
+            Denied suggestions are hidden here. Mining won't suggest them again
+            until you revive one.
+          </div>
+        {:else}
+          {#each denied as rule (rule.id)}
+            <div class="suggestion-card">
+              <div class="suggestion-info">
+                <span class="suggestion-pattern">{rule.pattern}</span>
+                <span class="suggestion-account">{rule.accountPath}</span>
+                <span class="suggestion-count">{rule.matchCount} matches</span>
+              </div>
+              <div class="suggestion-actions">
+                <GradientButton onclick={() => handleRevive(rule.id)}
+                  >Revive</GradientButton
+                >
+              </div>
+            </div>
+          {/each}
+        {/if}
+      </div>
+    {/if}
   </div>
 </div>
 
@@ -435,6 +496,49 @@
     flex-direction: column;
     overflow: hidden;
     background: var(--color-window-raised);
+  }
+
+  .panel-tabs {
+    display: flex;
+    background: var(--color-section-bar-bg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
+  }
+
+  .panel-tab {
+    padding: 5px 14px;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    border: none;
+    border-right: 1px solid var(--color-section-bar-border-bottom);
+    background: transparent;
+    color: var(--color-section-bar-fg);
+    opacity: 0.6;
+    cursor: pointer;
+    transition:
+      opacity var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
+  }
+
+  .panel-tab:hover:not(.active) {
+    opacity: 0.85;
+    background: rgba(0, 0, 0, 0.05);
+  }
+
+  .panel-tab.active {
+    opacity: 1;
+    background: rgba(0, 0, 0, 0.1);
+    box-shadow: inset 0 -2px 0 var(--color-accent);
+  }
+
+  .tab-count {
+    font-weight: 400;
+    margin-left: var(--sp-xs);
+    opacity: 0.7;
   }
 
   .mine-strip {

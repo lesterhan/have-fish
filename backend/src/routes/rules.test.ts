@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { accounts, transactions, postings } from '../db/schema'
+import { accounts, transactions, postings, importRules } from '../db/schema'
 
 async function createAccount(userId: string, path: string) {
   const [acct] = await db.insert(accounts).values({ userId, path }).returning()
@@ -58,6 +58,84 @@ describe('rules', () => {
     expect(rules[0].pattern).toBe('LOBLAWS #042')
     expect(rules[0].status).toBe('suggested')
     expect(rules[0].matchCount).toBe(3)
+  })
+
+  it('denying a suggestion hides it without re-mining it later', async () => {
+    const chequing = await createAccount(userId, 'assets:chequing')
+    const groceries = await createAccount(userId, 'expenses:food:groceries')
+
+    await seedTransaction(userId, 'LOBLAWS #042', chequing.id, groceries.id)
+    await seedTransaction(userId, 'LOBLAWS #042', chequing.id, groceries.id)
+    await seedTransaction(userId, 'LOBLAWS #042', chequing.id, groceries.id)
+
+    // First mine produces the suggestion.
+    await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    let rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    expect(rules).toBeArrayOfSize(1)
+    const ruleId = rules[0].id
+
+    // Deny it.
+    const denyRes = await app.request(`/api/rules/${ruleId}/deny`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
+    expect(denyRes.status).toBe(200)
+    const denied = await denyRes.json()
+    expect(denied.status).toBe('denied')
+
+    // Mining again must NOT re-create the suggestion — the denied pattern stays suppressed.
+    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    expect((await mineRes.json()).created).toBe(0)
+
+    rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    expect(rules).toBeArrayOfSize(1)
+    expect(rules[0].status).toBe('denied')
+  })
+
+  it('reviving a denied rule returns it to the suggestions list', async () => {
+    const acct = await createAccount(userId, 'expenses:food:groceries')
+    const [rule] = await db
+      .insert(importRules)
+      .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'denied', matchCount: 5 })
+      .returning()
+
+    const reviveRes = await app.request(`/api/rules/${rule.id}/revive`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
+    expect(reviveRes.status).toBe(200)
+    expect((await reviveRes.json()).status).toBe('suggested')
+
+    const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    expect(rules[0].status).toBe('suggested')
+  })
+
+  it('deny rejects a rule that is not a suggestion', async () => {
+    const acct = await createAccount(userId, 'expenses:food:groceries')
+    const [active] = await db
+      .insert(importRules)
+      .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'active' })
+      .returning()
+
+    const res = await app.request(`/api/rules/${active.id}/deny`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
+    expect(res.status).toBe(404)
+  })
+
+  it('revive rejects a rule that is not denied', async () => {
+    const acct = await createAccount(userId, 'expenses:food:groceries')
+    const [suggested] = await db
+      .insert(importRules)
+      .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'suggested', matchCount: 3 })
+      .returning()
+
+    const res = await app.request(`/api/rules/${suggested.id}/revive`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
+    expect(res.status).toBe(404)
   })
 
   it('creates a rule and fetches it', async () => {
