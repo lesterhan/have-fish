@@ -113,12 +113,16 @@
 
   async function handleDeny(id: string) {
     const updated = await denyRule(id)
-    rules = rules.map((r) => (r.id === id ? { ...r, status: updated.status } : r))
+    rules = rules.map((r) =>
+      r.id === id ? { ...r, status: updated.status, updatedAt: updated.updatedAt } : r,
+    )
   }
 
   async function handleRevive(id: string) {
     const updated = await reviveRule(id)
-    rules = rules.map((r) => (r.id === id ? { ...r, status: updated.status } : r))
+    rules = rules.map((r) =>
+      r.id === id ? { ...r, status: updated.status, updatedAt: updated.updatedAt } : r,
+    )
   }
 
   async function handleMine() {
