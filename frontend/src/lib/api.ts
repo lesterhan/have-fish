@@ -624,7 +624,7 @@ export type ImportRule = {
   accountId: string
   accountPath: string
   accountName: string | null
-  status: 'active' | 'suggested'
+  status: 'active' | 'suggested' | 'denied'
   matchCount: number
   createdAt: string
   updatedAt: string
@@ -667,8 +667,16 @@ export async function approveRule(id: string): Promise<ImportRule> {
   return res.json()
 }
 
-export async function denyRule(id: string): Promise<void> {
-  await fetch(`${BASE}/api/rules/${id}/deny`, { method: 'POST', credentials: 'include' })
+export async function denyRule(id: string): Promise<ImportRule> {
+  const res = await fetch(`${BASE}/api/rules/${id}/deny`, { method: 'POST', credentials: 'include' })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to deny rule')
+  return res.json()
+}
+
+export async function reviveRule(id: string): Promise<ImportRule> {
+  const res = await fetch(`${BASE}/api/rules/${id}/revive`, { method: 'POST', credentials: 'include' })
+  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to revive rule')
+  return res.json()
 }
 
 export async function mineRules(): Promise<{ created: number }> {

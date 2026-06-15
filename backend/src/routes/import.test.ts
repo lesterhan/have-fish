@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { groupExpenses, groupExpenseSplits, transactions, postings, accounts } from '../db/schema'
+import { groupExpenses, groupExpenseSplits, transactions, postings, accounts, importRules } from '../db/schema'
 import { eq, isNull, and, inArray } from 'drizzle-orm'
 
 // Minimal CSV that matches the parser we create in tests.
@@ -77,6 +77,40 @@ describe('POST /api/import/preview', () => {
     expect(body.errors).toBeArrayOfSize(0)
     expect(body.transactions[0].description).toBe('Coffee')
     expect(body.transactions[0].amount).toBe('-42.50')
+  })
+
+  it('applies an active rule but not a denied one', async () => {
+    await createParser(cookie)
+    const coffeeShop = await createAccount(cookie, 'expenses:coffee')
+    const sessionRes = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+    const userId = (await sessionRes.json()).user.id
+
+    // Active rule for "Coffee" should populate suggestedOffsetAccountId.
+    const [activeRule] = await db
+      .insert(importRules)
+      .values({ userId, pattern: 'Coffee', accountId: coffeeShop.id, status: 'active' })
+      .returning()
+
+    let res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    let body = await res.json()
+    const coffeeRow = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    expect(coffeeRow.suggestedOffsetAccountId).toBe(coffeeShop.id)
+
+    // Flip it to denied — it must no longer be applied.
+    await db.update(importRules).set({ status: 'denied' }).where(eq(importRules.id, activeRule.id))
+
+    res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    body = await res.json()
+    const coffeeRowAfter = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    expect(coffeeRowAfter.suggestedOffsetAccountId).toBeFalsy()
   })
 
   it('does not use a parser belonging to another user', async () => {

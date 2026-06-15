@@ -151,8 +151,10 @@ export const fxRates = pgTable('fx_rates', {
 })
 
 // A rule matches a description substring to an expense account.
-// status: 'active' = applied during import preview; 'suggested' = mined, awaiting user action.
-// Approving a suggestion flips status to 'active'; denying soft-deletes it.
+// status: 'active' = applied during import preview; 'suggested' = mined, awaiting user action;
+// 'denied' = a suggestion the user hid. Denied rules keep their row (not soft-deleted) so their
+// pattern stays in mining's skip-set and is never re-suggested. Approving a suggestion flips it to
+// 'active'; denying flips it to 'denied'; reviving flips 'denied' back to 'suggested'.
 export const importRules = pgTable('import_rules', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),

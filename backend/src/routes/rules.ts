@@ -189,14 +189,48 @@ app.post('/:id/approve', async (c) => {
 })
 
 // POST /api/rules/:id/deny
-// Soft-deletes a suggested rule (semantically distinct from DELETE).
+// Hides a suggested rule by flipping it to 'denied'. The row is kept (not soft-deleted) so its
+// pattern stays in mining's skip-set and is never re-suggested. Reversible via /revive.
 app.post('/:id/deny', async (c) => {
   const userId = c.get('userId')
-  await db
+
+  const [updated] = await db
     .update(importRules)
-    .set({ deletedAt: new Date() })
-    .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
-  return c.body(null, 204)
+    .set({ status: 'denied', updatedAt: new Date() })
+    .where(
+      and(
+        eq(importRules.id, c.req.param('id')),
+        eq(importRules.userId, userId),
+        eq(importRules.status, 'suggested'),
+        isNull(importRules.deletedAt),
+      ),
+    )
+    .returning()
+
+  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  return c.json(updated)
+})
+
+// POST /api/rules/:id/revive
+// Flips a denied rule back to 'suggested' so it reappears in the suggestions list.
+app.post('/:id/revive', async (c) => {
+  const userId = c.get('userId')
+
+  const [updated] = await db
+    .update(importRules)
+    .set({ status: 'suggested', updatedAt: new Date() })
+    .where(
+      and(
+        eq(importRules.id, c.req.param('id')),
+        eq(importRules.userId, userId),
+        eq(importRules.status, 'denied'),
+        isNull(importRules.deletedAt),
+      ),
+    )
+    .returning()
+
+  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  return c.json(updated)
 })
 
 export default app
