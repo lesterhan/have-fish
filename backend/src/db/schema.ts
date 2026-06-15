@@ -1,4 +1,4 @@
-import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer, unique } from 'drizzle-orm/pg-core'
+import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer, unique, index } from 'drizzle-orm/pg-core'
 
 // --- Better Auth tables ---
 // These are required by Better Auth and must not be renamed or removed.
@@ -190,6 +190,7 @@ export const expenseGroupMembers = pgTable('expense_group_members', {
   joinedAt: timestamp('joined_at').notNull().defaultNow(),
 }, (t) => [
   unique().on(t.groupId, t.userId),
+  index('expense_group_members_user_id_idx').on(t.userId),
 ])
 
 export const expenseGroupInvites = pgTable('expense_group_invites', {
@@ -200,7 +201,10 @@ export const expenseGroupInvites = pgTable('expense_group_invites', {
   status: text('status').notNull().default('pending'), // 'pending' | 'accepted' | 'declined'
   createdAt: timestamp('created_at').notNull().defaultNow(),
   resolvedAt: timestamp('resolved_at'),
-})
+}, (t) => [
+  index('expense_group_invites_group_id_idx').on(t.groupId),
+  index('expense_group_invites_invitee_email_idx').on(t.inviteeEmail),
+])
 
 // A spending category within a group (Food, Housing, …). Shared vocabulary for the
 // whole group; each member maps it to their own expense account via
@@ -213,7 +217,9 @@ export const groupCategories = pgTable('group_categories', {
   sortOrder: integer('sort_order').notNull().default(0),
   archivedAt: timestamp('archived_at'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-})
+}, (t) => [
+  index('group_categories_group_id_idx').on(t.groupId),
+])
 
 // One member's private mapping of a category to their own expense account.
 // Self-owned: each member manages only their own row.
@@ -254,7 +260,10 @@ export const groupExpenses = pgTable('group_expenses', {
   transactionId: uuid('transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
-})
+}, (t) => [
+  index('group_expenses_group_id_idx').on(t.groupId),
+  index('group_expenses_category_id_idx').on(t.categoryId),
+])
 
 export const groupExpenseSplits = pgTable('group_expense_splits', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -280,7 +289,9 @@ export const groupSettlements = pgTable('group_settlements', {
   receiverTransactionId: uuid('receiver_transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
-})
+}, (t) => [
+  index('group_settlements_group_id_idx').on(t.groupId),
+])
 
 // A posting is one leg of a transaction — money moving in or out of one account.
 // Every transaction has at least two postings, and they must balance to zero per currency.
@@ -298,4 +309,7 @@ export const postings = pgTable('postings', {
   currency: text('currency').notNull().default('CAD'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
-})
+}, (t) => [
+  index('postings_transaction_id_idx').on(t.transactionId),
+  index('postings_account_id_idx').on(t.accountId),
+])
