@@ -16,7 +16,16 @@
     },
     "plugins": [
       "expo-router",
-      "expo-secure-store"
+      "expo-secure-store",
+      "./plugins/withReleaseSigning",
+      [
+        "expo-build-properties",
+        {
+          "android": {
+            "kotlinVersion": "1.9.25"
+          }
+        }
+      ]
     ],
     "updates": {
       "enabled": false
@@ -27,11 +36,7 @@
     "extra": {
       "router": {
         "origin": false
-      },
-      "eas": {
-        "projectId": "131583bb-53ef-45ca-855e-9511b29efefc"
       }
-    },
-    "owner": "laserdanger-co"
+    }
   }
 }
