@@ -6,7 +6,6 @@
     "orientation": "portrait",
     "scheme": "havefish",
     "userInterfaceStyle": "light",
-    "newArchEnabled": true,
     "android": {
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -18,14 +17,9 @@
       "expo-router",
       "expo-secure-store",
       "./plugins/withReleaseSigning",
-      [
-        "expo-build-properties",
-        {
-          "android": {
-            "kotlinVersion": "1.9.25"
-          }
-        }
-      ]
+      "./plugins/withDebugAppIdSuffix",
+      "@react-native-community/datetimepicker",
+      "expo-status-bar"
     ],
     "updates": {
       "enabled": false

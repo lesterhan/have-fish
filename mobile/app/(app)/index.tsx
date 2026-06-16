@@ -10,8 +10,7 @@ import {
   ActivityIndicator,
   RefreshControl,
 } from 'react-native'
-import { useRouter } from 'expo-router'
-import { useFocusEffect } from '@react-navigation/native'
+import { useRouter, useFocusEffect } from 'expo-router'
 import {
   fetchGroups,
   fetchMyInvites,

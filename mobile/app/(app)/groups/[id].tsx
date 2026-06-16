@@ -7,8 +7,7 @@ import {
   ActivityIndicator,
   ScrollView,
 } from 'react-native'
-import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useFocusEffect } from '@react-navigation/native'
+import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router'
 import {
   fetchGroup,
   fetchExpenses,

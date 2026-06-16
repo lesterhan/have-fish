@@ -20,21 +20,29 @@ export default function RootLayout() {
 
   useEffect(() => {
     async function bootstrap() {
-      const authed = await isAuthenticated()
-      const inAuthGroup = segments[0] === '(auth)'
+      try {
+        const authed = await isAuthenticated()
+        const inAuthGroup = segments[0] === '(auth)'
 
-      if (!authed && !inAuthGroup) {
+        if (!authed && !inAuthGroup) {
+          router.replace('/(auth)/login')
+        } else if (authed && inAuthGroup) {
+          router.replace('/(app)')
+        }
+
+        if (authed) {
+          // Best-effort: flush queued offline requests on startup
+          flushOfflineQueue().catch(() => null)
+        }
+      } catch {
+        // SecureStore can throw (e.g. keystore unavailable). Fall back to the
+        // login screen rather than leaving the app stuck on a blank null render.
         router.replace('/(auth)/login')
-      } else if (authed && inAuthGroup) {
-        router.replace('/(app)')
+      } finally {
+        // Always flip `checked` so the navigator mounts — a thrown bootstrap must
+        // never leave the root rendering `null` forever (the old blank-screen bug).
+        setChecked(true)
       }
-
-      if (authed) {
-        // Best-effort: flush queued offline requests on startup
-        flushOfflineQueue().catch(() => null)
-      }
-
-      setChecked(true)
     }
     bootstrap()
   }, [])

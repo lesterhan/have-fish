@@ -53,10 +53,11 @@ function patchReleaseBuildType(contents) {
   // property is present, otherwise keep debug signing (local builds).
   //
   // The release buildType's `signingConfig signingConfigs.debug` is uniquely
-  // identified by being immediately followed by `shrinkResources` — the debug
-  // buildType has no such line. Anchoring on that avoids accidentally patching
+  // identified by being immediately followed by the `def enableShrinkResources`
+  // line (SDK 56 template) — the debug buildType's signingConfig line is
+  // followed by a closing brace. Anchoring on that avoids accidentally patching
   // the debug buildType.
-  const anchor = /signingConfig signingConfigs\.debug(\n\s*shrinkResources)/
+  const anchor = /signingConfig signingConfigs\.debug(\n\s*def enableShrinkResources)/
   if (!anchor.test(contents)) {
     throw new Error(
       'withReleaseSigning: could not find release buildType signingConfig anchor — Expo template changed, plugin needs updating',
