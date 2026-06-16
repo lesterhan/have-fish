@@ -17,9 +17,9 @@
 // the release build falls back to debug signing so the build still succeeds —
 // only CI produces a properly-signed, Obtainium-installable APK.
 //
-// Additionally, versionCode becomes overridable via a `versionCode` Gradle
-// property so CI can drive it from the run number (must strictly increase or
-// Android refuses the update).
+// Additionally, versionCode and versionName become overridable via Gradle
+// properties so CI can drive versionCode from the run number (must strictly
+// increase or Android refuses the update) and versionName from the release tag.
 
 const { withAppBuildGradle } = require('@expo/config-plugins')
 
@@ -80,6 +80,17 @@ function patchVersionCode(contents) {
   )
 }
 
+function patchVersionName(contents) {
+  // Make versionName overridable from a Gradle property so CI can set it from
+  // the release tag (the app otherwise always shows app.json's version). Falls
+  // back to the literal from app.json when unset.
+  const current = contents.match(/versionName "([^"]+)"/)?.[1] ?? '1.0.0'
+  return contents.replace(
+    /versionName "[^"]+"/,
+    `versionName (findProperty('versionName') ?: "${current}")`,
+  )
+}
+
 module.exports = function withReleaseSigning(config) {
   return withAppBuildGradle(config, (cfg) => {
     if (cfg.modResults.language !== 'groovy') {
@@ -91,6 +102,7 @@ module.exports = function withReleaseSigning(config) {
     contents = patchSigningConfigs(contents)
     contents = patchReleaseBuildType(contents)
     contents = patchVersionCode(contents)
+    contents = patchVersionName(contents)
     cfg.modResults.contents = contents
     return cfg
   })
