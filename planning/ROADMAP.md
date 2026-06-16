@@ -46,6 +46,7 @@
 | [Fish Pie: Ledger Signs](epics/fish-pie-ledger-signs.md) | In Progress |
 | [Fish Pie: Categories](epics/fish-pie-categories.md) | Ready |
 | [Fish Pie: Expense Proposals](epics/fish-pie-expense-proposals.md) | Backlog |
+| [Mobile Local APK CI](epics/archive/mobile-local-apk-ci.md) | Done |
 
 ## Fish Pie sequence
 
