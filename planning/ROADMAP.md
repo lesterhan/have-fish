@@ -43,10 +43,11 @@
 | [Fish Pie: Settlement Confirmation](epics/archive/fish-pie-settlement-confirmation.md) | Done |
 | [Fish Pie: CSV Import Integration](epics/fish-pie-csv-import.md) | Testing |
 | [Fish Pie: Expense Management](epics/fish-pie-expense-management.md) | Backlog |
-| [Fish Pie: Ledger Signs](epics/fish-pie-ledger-signs.md) | In Progress |
-| [Fish Pie: Categories](epics/fish-pie-categories.md) | Ready |
+| [Fish Pie: Ledger Signs](epics/archive/fish-pie-ledger-signs.md) | Done |
+| [Fish Pie: Categories](epics/archive/fish-pie-categories.md) | Done |
 | [Fish Pie: Expense Proposals](epics/fish-pie-expense-proposals.md) | Backlog |
 | [Mobile Local APK CI](epics/archive/mobile-local-apk-ci.md) | Done |
+| [Mobile Revival → MVP](epics/mobile-revival.md) | Ready |
 
 ## Fish Pie sequence
 
@@ -54,16 +55,16 @@ Agreed order for the Fish Pie overhaul (background and findings in
 [`planning/exploration/fish-pie-experience.md`](exploration/fish-pie-experience.md)).
 Pick up the first non-Done item:
 
-1. **[Ledger Signs](epics/fish-pie-ledger-signs.md)** — fix BUG-005 (debtor posting
-   signs) + data migration. Closes BUG-004a.
-2. **[Categories](epics/fish-pie-categories.md)** — single group per household,
-   category per expense, per-category weights, merge migration. Includes renaming
+1. ~~**[Ledger Signs](epics/archive/fish-pie-ledger-signs.md)**~~ — **Done.** Fixed
+   BUG-005 (debtor posting signs) + data migration. Closed BUG-004a.
+2. ~~**[Categories](epics/archive/fish-pie-categories.md)**~~ — **Done.** Single group
+   per household, category per expense, per-category weights, merge migration. Renamed
    clearing accounts `group:<slug>` → `assets:receivable:<slug>` (decided 2026-06-11).
 3. **[Expense Proposals](epics/fish-pie-expense-proposals.md)** — amended: settlement
    *warns* instead of hard-blocking on pending proposals; rebase onto categories.
    Also resolves BUG-006 properly.
-4. **Mobile revival** (no epic yet) — payment account, categories, proposals support;
-   mobile expense entry is known-broken until then.
+4. **[Mobile Revival → MVP](epics/mobile-revival.md)** — payment account + categories
+   support; expense entry is known-broken until then. Settlement/proposals deferred.
 5. **Import Rules v2** (no epic yet, see exploration F16) — then the fish-pie
    auto-split rule action.
 6. **Fish Pie attention/notifications** (no epic yet, see exploration F17).
