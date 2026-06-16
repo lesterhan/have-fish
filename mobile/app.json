@@ -36,11 +36,7 @@
     "extra": {
       "router": {
         "origin": false
-      },
-      "eas": {
-        "projectId": "131583bb-53ef-45ca-855e-9511b29efefc"
       }
-    },
-    "owner": "laserdanger-co"
+    }
   }
 }

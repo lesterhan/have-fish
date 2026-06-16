@@ -51,10 +51,10 @@ have-fish/
     │   └── (app)/           # Authenticated screens (groups, settings)
     ├── components/          # Shared React Native components
     ├── lib/
-    │   ├── api.ts           # Typed fetch helpers — set BASE_URL to your server
-    │   └── auth.ts          # Session management via SecureStore
-    ├── app.json             # Expo config (package: com.lesterhan.havefish)
-    └── eas.json             # EAS build profiles (preview → APK, production → AAB)
+    │   ├── api.ts           # Typed fetch helpers — base URL + session pulled from SecureStore
+    │   └── auth.ts          # Session + server base URL stored in SecureStore
+    ├── plugins/             # Expo config plugins applied during prebuild (e.g. release signing)
+    └── app.json             # Expo config (package: com.lesterhan.havefish)
 ```
 
 ## Key Commands
@@ -77,7 +77,9 @@ bun run check         # TypeScript + Svelte type checking
 # Mobile (run from /mobile)
 bun run start         # start Metro bundler (scan QR with Expo Go)
 bun run android       # run on connected device / emulator (needs Android SDK)
-eas build --platform android --profile preview   # build sideload APK via EAS cloud
+# Signed release APKs are built in CI (.github/workflows/build-android.yml) and
+# published as GitHub Releases for Obtainium. Cut a v* tag to trigger a build.
+# See mobile/README.md for the local prebuild + gradle assembleRelease flow.
 
 # Infrastructure (run from project root)
 podman compose up postgres -d     # start just Postgres locally

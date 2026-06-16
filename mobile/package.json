@@ -4,8 +4,7 @@
   "main": "expo-router/entry",
   "scripts": {
     "start": "expo start",
-    "android": "expo run:android",
-    "build": "eas build --platform android --profile preview"
+    "android": "expo run:android"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.1.0",
