@@ -58,21 +58,19 @@ Frontend at `http://localhost:8888`, backend at `http://localhost:8887`.
 
 ## Mobile App (Android)
 
-The `mobile/` directory is a React Native + Expo app that talks directly to the Hono backend. It targets Android only and is distributed as a sideloaded APK — no Play Store.
-
-**Prerequisites:** Node.js, [Expo CLI](https://docs.expo.dev/more/expo-cli/), [EAS CLI](https://docs.expo.dev/eas-update/getting-started/) (`npm i -g expo-cli eas-cli`)
+The `mobile/` directory is a React Native + Expo app that talks directly to the Hono backend. It targets Android only and is distributed as a sideloaded APK — no Play Store. See [`mobile/README.md`](mobile/README.md) for full details.
 
 ### Run on device / emulator (Expo Go)
 
 ```bash
 cd mobile
-bun install          # or npm install
-
-# Point the app at your server — edit mobile/lib/api.ts and set BASE_URL
-# to your backend's Tailscale or local address, e.g. http://100.x.x.x:8887
-
+bun install
 bun run start        # starts Metro bundler — scan QR with Expo Go on device
 ```
+
+Point the app at your server **from within the app** (server URL is stored in
+SecureStore, not hardcoded) — use your backend's Tailscale or LAN address, e.g.
+`http://100.x.x.x:8887`, not `localhost`.
 
 ### Dev build (full native, no Expo Go)
 
@@ -81,13 +79,9 @@ cd mobile
 bun run android      # requires Android SDK / connected device or emulator
 ```
 
-### Build a sideload-ready APK (EAS)
+### Install on your phone (Obtainium)
 
-```bash
-cd mobile
-eas build --platform android --profile preview
-# EAS builds in the cloud and gives you a download link for the .apk
-# Install on device: adb install have-fish.apk
-```
-
-The `production` EAS profile produces an `.aab` (App Bundle) for Play Store submission if ever needed.
+Signed release APKs are built in CI (`.github/workflows/build-android.yml`) and
+published as GitHub Releases. Install and auto-update them with
+[Obtainium](https://github.com/ImranR98/Obtainium): add the app by this repo's
+URL and it tracks each Release. Cutting a `v*` tag produces a new release build.
