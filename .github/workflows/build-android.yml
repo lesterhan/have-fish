@@ -64,12 +64,25 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
+          # Derive versionName from the release tag (strip leading "v"); leave
+          # unset for a tagless manual run so the plugin falls back to app.json.
+          if [ "${{ github.event_name }}" = "push" ]; then
+            VERSION_NAME="${GITHUB_REF_NAME#v}"
+          else
+            VERSION_NAME="${{ inputs.release_tag }}"
+            VERSION_NAME="${VERSION_NAME#v}"
+          fi
+          GRADLE_ARGS=()
+          if [ -n "$VERSION_NAME" ]; then
+            GRADLE_ARGS+=("-PversionName=$VERSION_NAME")
+          fi
           ./gradlew assembleRelease --no-daemon \
             -PMYAPP_RELEASE_STORE_FILE="$GITHUB_WORKSPACE/mobile/release.keystore" \
             -PMYAPP_RELEASE_STORE_PASSWORD="$ANDROID_KEYSTORE_PASSWORD" \
             -PMYAPP_RELEASE_KEY_ALIAS="$ANDROID_KEY_ALIAS" \
             -PMYAPP_RELEASE_KEY_PASSWORD="$ANDROID_KEY_PASSWORD" \
-            -PversionCode=${{ github.run_number }}
+            -PversionCode=${{ github.run_number }} \
+            "${GRADLE_ARGS[@]}"
 
       - name: Verify signature
         working-directory: mobile/android
