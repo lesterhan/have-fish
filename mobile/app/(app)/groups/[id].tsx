@@ -151,7 +151,9 @@ export default function GroupDetailScreen() {
             <ExpenseList
               expenses={expenses}
               groupId={id}
+              categories={group.categories}
               onDeleted={refreshBalancesAndHistory}
+              onChanged={refreshBalancesAndHistory}
             />
             <SettlementList
               settlements={settlements}

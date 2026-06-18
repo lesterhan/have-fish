@@ -21,6 +21,7 @@ interface Props {
 
 const LAST_CURRENCY_KEY = (groupId: string) => `havefish_last_currency_${groupId}`
 const LAST_DESC_KEY = (groupId: string) => `havefish_last_desc_${groupId}`
+const LAST_CATEGORY_KEY = (groupId: string) => `havefish_last_category_${groupId}`
 
 /**
  * Expense entry form — Tab 1 on the group detail screen.
@@ -48,18 +49,31 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
   )
   const [accounts, setAccounts] = useState<Account[]>([])
   const [paymentAccountId, setPaymentAccountId] = useState('')
+  const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [myUserId, setMyUserId] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastDesc, setLastDesc] = useState<string | null>(null)
 
+  // Active categories for this group, in their configured order. Categories are
+  // created/mapped on the web app; mobile only picks among them.
+  const activeCategories = group.categories
+    .filter((c) => !c.archivedAt)
+    .sort((a, b) => a.sortOrder - b.sortOrder)
+
   useEffect(() => {
     async function loadDefaults() {
-      const [savedCurrency, savedDesc] = await Promise.all([
+      const [savedCurrency, savedDesc, savedCategory] = await Promise.all([
         AsyncStorage.getItem(LAST_CURRENCY_KEY(group.id)),
         AsyncStorage.getItem(LAST_DESC_KEY(group.id)),
+        AsyncStorage.getItem(LAST_CATEGORY_KEY(group.id)),
       ])
       if (savedCurrency) setCurrency(savedCurrency)
       if (savedDesc) setLastDesc(savedDesc)
+      // Restore the sticky category only if it is still an active category.
+      if (savedCategory && group.categories.some((c) => c.id === savedCategory && !c.archivedAt)) {
+        setCategoryId(savedCategory)
+      }
     }
     loadDefaults()
   }, [group.id])
@@ -67,8 +81,8 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
   // Load the caller's accounts for the payment-account picker, identify which
   // member is the caller (by email), and pre-select the caller as payer + their
   // default payment account. Account ownership is per-user, so the picker lists
-  // the caller's own accounts; recording on behalf of another payer is a
-  // story-4 concern.
+  // the caller's own accounts — mirroring the web form, which likewise posts the
+  // payer chip plus the caller's payment account.
   useEffect(() => {
     let cancelled = false
     async function loadAccounts() {
@@ -78,7 +92,10 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
         const active = accs.filter((a) => !a.deletedAt)
         setAccounts(active)
         const me = group.members.find((m) => m.userEmail === email)
-        if (me) setPaidByUserId(me.userId)
+        if (me) {
+          setMyUserId(me.userId)
+          setPaidByUserId(me.userId)
+        }
         const defaultId = me?.defaultPaymentAccountId
         if (defaultId && active.some((a) => a.id === defaultId)) {
           setPaymentAccountId(defaultId)
@@ -92,6 +109,23 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
       cancelled = true
     }
   }, [group.id])
+
+  // Where the caller's own share will post, mirroring the backend resolution:
+  // selected category's mapping → the caller's group default expense account →
+  // uncategorized. Helps the user see what picking a category actually does.
+  const selectedCategory = activeCategories.find((c) => c.id === categoryId) ?? null
+  const myMember = group.members.find((m) => m.userId === myUserId) ?? null
+  const accountPath = (id: string | null | undefined) =>
+    id ? (accounts.find((a) => a.id === id)?.path ?? null) : null
+  const postingAccountPath =
+    accountPath(selectedCategory?.myMapping?.accountId) ??
+    accountPath(myMember?.defaultExpenseAccountId) ??
+    'uncategorized'
+
+  function selectCategory(id: string) {
+    // Tap the selected chip again to clear the category (uncategorized).
+    setCategoryId((current) => (current === id ? null : id))
+  }
 
   async function handleSubmit() {
     if (!amount.trim() || isNaN(parseFloat(amount))) {
@@ -113,11 +147,16 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
         date,
         paidByUserId,
         paymentAccountId,
+        categoryId,
       })
-      // Persist for next time
+      // Persist for next time. The category is kept sticky per group (or the
+      // sticky entry cleared when this expense was left uncategorized).
       await Promise.all([
         AsyncStorage.setItem(LAST_CURRENCY_KEY(group.id), currency),
         AsyncStorage.setItem(LAST_DESC_KEY(group.id), description.trim() || 'Expense'),
+        categoryId
+          ? AsyncStorage.setItem(LAST_CATEGORY_KEY(group.id), categoryId)
+          : AsyncStorage.removeItem(LAST_CATEGORY_KEY(group.id)),
       ])
       setLastDesc(description.trim() || 'Expense')
       setAmount('')
@@ -188,6 +227,35 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
         placeholder="YYYY-MM-DD"
         keyboardType="numeric"
       />
+
+      {/* Category — chips of the group's active categories (managed on web).
+          Tap the selected chip to clear. Drives where each member's share posts. */}
+      {activeCategories.length > 0 && (
+        <>
+          <Text style={styles.label}>Category</Text>
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+            {activeCategories.map((c) => (
+              <TouchableOpacity
+                key={c.id}
+                style={[styles.categoryChip, categoryId === c.id && styles.categoryChipActive]}
+                onPress={() => selectCategory(c.id)}
+              >
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    categoryId === c.id && styles.categoryChipTextActive,
+                  ]}
+                >
+                  {c.name}
+                </Text>
+              </TouchableOpacity>
+            ))}
+          </ScrollView>
+          <Text style={styles.postingHint} numberOfLines={1}>
+            Your share posts to {postingAccountPath}
+          </Text>
+        </>
+      )}
 
       {/* Payment account — the account the payer fronted the money from */}
       <AccountPicker
@@ -266,6 +334,20 @@ const styles = StyleSheet.create({
   currencyChipText: { fontSize: 13, color: '#444' },
   currencyChipTextActive: { color: '#fff', fontWeight: '600' },
   label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4, marginTop: 8 },
+  categoryRow: { marginBottom: 4 },
+  categoryChip: {
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#ccc',
+    marginRight: 8,
+    backgroundColor: '#fff',
+  },
+  categoryChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
+  categoryChipText: { fontSize: 13, color: '#444' },
+  categoryChipTextActive: { color: '#fff', fontWeight: '600' },
+  postingHint: { fontSize: 12, color: '#888', marginTop: 2, marginBottom: 4 },
   input: {
     backgroundColor: '#fff',
     borderWidth: 1,
