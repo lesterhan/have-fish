@@ -10,7 +10,9 @@ import {
 } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createExpense, type ExpenseGroup, type GroupMember } from '@/lib/api'
+import { createExpense, fetchAccounts, type Account, type ExpenseGroup, type GroupMember } from '@/lib/api'
+import { getEmail } from '@/lib/auth'
+import { AccountPicker } from './AccountPicker'
 
 interface Props {
   group: ExpenseGroup
@@ -44,6 +46,8 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
   const [paidByUserId, setPaidByUserId] = useState<string>(
     group.members[0]?.userId ?? '',
   )
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [paymentAccountId, setPaymentAccountId] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [lastDesc, setLastDesc] = useState<string | null>(null)
@@ -60,20 +64,43 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
     loadDefaults()
   }, [group.id])
 
+  // Load the caller's accounts for the payment-account picker, identify which
+  // member is the caller (by email), and pre-select the caller as payer + their
+  // default payment account. Account ownership is per-user, so the picker lists
+  // the caller's own accounts; recording on behalf of another payer is a
+  // story-4 concern.
+  useEffect(() => {
+    let cancelled = false
+    async function loadAccounts() {
+      try {
+        const [accs, email] = await Promise.all([fetchAccounts(), getEmail()])
+        if (cancelled) return
+        const active = accs.filter((a) => !a.deletedAt)
+        setAccounts(active)
+        const me = group.members.find((m) => m.userEmail === email)
+        if (me) setPaidByUserId(me.userId)
+        const defaultId = me?.defaultPaymentAccountId
+        if (defaultId && active.some((a) => a.id === defaultId)) {
+          setPaymentAccountId(defaultId)
+        }
+      } catch {
+        // Non-fatal: the picker just starts empty; submit is guarded below.
+      }
+    }
+    loadAccounts()
+    return () => {
+      cancelled = true
+    }
+  }, [group.id])
+
   async function handleSubmit() {
     if (!amount.trim() || isNaN(parseFloat(amount))) {
       setError('Enter a valid amount')
       return
     }
-    // The backend requires the payer's payment account. Until the dedicated
-    // account picker lands (mobile-revival story 4), fall back to the payer's
-    // default payment account configured on the web app.
-    const payer = group.members.find((m) => m.userId === paidByUserId)
-    const paymentAccountId = payer?.defaultPaymentAccountId
+    // The backend requires the payment account the payer fronted the money from.
     if (!paymentAccountId) {
-      setError(
-        `No default payment account for ${payer?.userName ?? 'this member'}. Set one in the web app first.`,
-      )
+      setError('Choose a payment account')
       return
     }
     setError(null)
@@ -160,6 +187,15 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
         onChangeText={setDate}
         placeholder="YYYY-MM-DD"
         keyboardType="numeric"
+      />
+
+      {/* Payment account — the account the payer fronted the money from */}
+      <AccountPicker
+        label="Paid from"
+        accounts={accounts}
+        selectedId={paymentAccountId}
+        onSelect={setPaymentAccountId}
+        placeholder="Select payment account"
       />
 
       {/* Paid by */}
