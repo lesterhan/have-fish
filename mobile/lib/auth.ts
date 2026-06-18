@@ -47,7 +47,16 @@ export async function isAuthenticated(): Promise<boolean> {
 export async function signIn(baseUrl: string, email: string, password: string): Promise<string> {
   const res = await fetch(`${baseUrl}/api/auth/sign-in/email`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      // Better Auth validates the Origin header on any request that carries a
+      // cookie (React Native's Android cookie jar auto-attaches one). Native
+      // fetch sends no Origin, which trips its CSRF guard with a 403
+      // (MISSING_OR_NULL_ORIGIN). Send the backend's own origin — Better Auth
+      // auto-trusts its `baseURL` origin, which is exactly the server we're
+      // talking to — so the request is accepted without weakening web CSRF.
+      Origin: baseUrl,
+    },
     body: JSON.stringify({ email, password }),
   })
 
