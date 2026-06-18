@@ -65,6 +65,17 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
       setError('Enter a valid amount')
       return
     }
+    // The backend requires the payer's payment account. Until the dedicated
+    // account picker lands (mobile-revival story 4), fall back to the payer's
+    // default payment account configured on the web app.
+    const payer = group.members.find((m) => m.userId === paidByUserId)
+    const paymentAccountId = payer?.defaultPaymentAccountId
+    if (!paymentAccountId) {
+      setError(
+        `No default payment account for ${payer?.userName ?? 'this member'}. Set one in the web app first.`,
+      )
+      return
+    }
     setError(null)
     setLoading(true)
     try {
@@ -74,6 +85,7 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
         currency,
         date,
         paidByUserId,
+        paymentAccountId,
       })
       // Persist for next time
       await Promise.all([
