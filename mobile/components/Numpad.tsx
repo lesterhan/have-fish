@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
+import * as Haptics from 'expo-haptics'
 import { theme } from '@/lib/theme'
 import { GlossLayers } from './GlossLayers'
 
@@ -48,7 +49,12 @@ function NumpadButton({ value, onPress }: { value: NumpadKey; onPress: () => voi
   return (
     <Pressable
       onPress={onPress}
-      onPressIn={() => setPressed(true)}
+      onPressIn={() => {
+        setPressed(true)
+        // Subtle tactile tick on each key — the lightest haptic. Fire-and-forget;
+        // ignore failures on devices without a haptic engine.
+        Haptics.selectionAsync().catch(() => {})
+      }}
       onPressOut={() => setPressed(false)}
       style={[styles.key, pressed && styles.keyPressed]}
     >
