@@ -24,7 +24,6 @@ import { ExpenseForm } from '@/components/ExpenseForm'
 import { BalanceCard } from '@/components/BalanceCard'
 import { ExpenseList } from '@/components/ExpenseList'
 import { SettlementList } from '@/components/SettlementList'
-import { SettleModal } from '@/components/SettleModal'
 import { GroupSettingsPanel } from '@/components/GroupSettingsPanel'
 
 type Tab = 'add' | 'balances' | 'history' | 'settings'
@@ -33,7 +32,7 @@ type Tab = 'add' | 'balances' | 'history' | 'settings'
  * Group detail screen — 4-tab layout.
  *
  * Add       — expense entry form
- * Balances  — net positions + settle-up
+ * Balances  — net positions (view-only; settle on web until story 6)
  * History   — expenses + settlements list
  * Settings  — name, currency, members, invites, delete
  *
@@ -54,7 +53,6 @@ export default function GroupDetailScreen() {
   const [invites, setInvites] = useState<GroupInvite[]>([])
   const [loading, setLoading] = useState(true)
   const [activeTab, setActiveTab] = useState<Tab>('add')
-  const [settleTarget, setSettleTarget] = useState<CurrencyBalance['transfers'][number] | null>(null)
 
   async function load() {
     try {
@@ -139,11 +137,7 @@ export default function GroupDetailScreen() {
         )}
 
         {activeTab === 'balances' && (
-          <BalanceCard
-            balances={balances}
-            members={group.members}
-            onSettleUp={(transfer) => setSettleTarget(transfer)}
-          />
+          <BalanceCard balances={balances} members={group.members} />
         )}
 
         {activeTab === 'history' && (
@@ -162,6 +156,8 @@ export default function GroupDetailScreen() {
             />
           </>
         )}
+        {/* Settlement creation/confirmation is deferred to mobile-revival
+            story 6 — balances are view-only in the MVP. */}
 
         {activeTab === 'settings' && (
           <GroupSettingsPanel
@@ -172,21 +168,6 @@ export default function GroupDetailScreen() {
           />
         )}
       </ScrollView>
-
-      {/* Settle-up modal */}
-      {settleTarget && (
-        <SettleModal
-          transfer={settleTarget}
-          groupId={id}
-          members={group.members}
-          defaultCurrency={group.defaultCurrency ?? 'CAD'}
-          onSettled={() => {
-            setSettleTarget(null)
-            refreshBalancesAndHistory()
-          }}
-          onClose={() => setSettleTarget(null)}
-        />
-      )}
     </View>
   )
 }
