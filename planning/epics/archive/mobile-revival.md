@@ -6,7 +6,7 @@ client is built against the *pre-categories* fish-pie model, so expense entry re
 400. Ship a usable MVP: **log in, view groups, create and categorize expenses, view
 netted balances.**
 
-**Status:** Draft — designed together 2026-06-16.
+**Status:** Done — MVP shipped 2026-06-18 (stories 1–5). Stories 6–8 deferred.
 
 **Scope decisions (2026-06-16):**
 - **MVP bar = expense entry minus settle.** Create/categorize expenses + view
@@ -64,7 +64,7 @@ fires). Story 1 diagnoses it from the real stack trace; do not guess a fix.
 
 ## Stories
 
-### 1. Boot & diagnose — get to a non-blank screen
+### 1. Boot & diagnose — get to a non-blank screen ✅ Done (#51)
 
 Run the app on a device/emulator against a dev backend. Capture the real error behind
 the blank screen and fix it. Confirm the happy path: launch → login (server URL +
@@ -72,7 +72,26 @@ credentials) → land on groups list → open a group. No API-contract work yet;
 the existing screens render and navigate. Document the root cause in this epic file so
 the next revival (if SDK bumps) is faster.
 
-### 2. API client resync
+**Root cause (resolved).** Two compounding problems:
+
+1. **SDK too old to run.** The project was on Expo SDK 52; the installed Expo Go and
+   tooling had moved on, so the bundle never loaded on device ("Failed to download
+   remote update"). The fix was to bump to **SDK 56** (RN 0.76→0.85, React 18→19,
+   expo-router v4→v56). SDK 56 also dropped the `@react-navigation/native` direct-import
+   compat shim, so `useFocusEffect` had to be imported from `expo-router` instead.
+2. **Latent blank-render bug.** `app/_layout.tsx`'s bootstrap set `checked = true` only
+   on the success path. If `isAuthenticated()` threw (e.g. a SecureStore read error), the
+   flag stayed false and the layout returned `null` forever — a permanent blank screen
+   with no error surfaced. Fixed by wrapping the bootstrap in `try/finally` so
+   `setChecked(true)` always runs and a thrown check redirects to login.
+
+**Dev workflow that works:** `bunx expo run:android` (a dev build — **not** Expo Go,
+which can't host an SDK-56 dev-client project), reaching the backend over
+`adb reverse tcp:8887 tcp:8887` with the login server URL set to `http://localhost:8887`.
+The debug build carries a `.dev` applicationId suffix and a `have-fish-dev` label
+(`plugins/withDebugAppIdSuffix.js`) so it coexists with the signed Obtainium release.
+
+### 2. API client resync ✅ Done (#53)
 
 Realign `mobile/lib/api.ts` types and calls with the current backend, mirroring
 `frontend/src/lib/api.ts`:
@@ -92,14 +111,14 @@ Realign `mobile/lib/api.ts` types and calls with the current backend, mirroring
 No UI yet — this is the contract layer. Keep it a faithful mirror so future drift is a
 diff against the frontend client.
 
-### 3. Account picker + payment account
+### 3. Account picker + payment account ✅ Done (#54)
 
 Mobile has no way to choose an account today. Add a lightweight account picker
 (fetch the caller's accounts, group/sort sensibly, search if the list is long). Used
 by the expense form to supply `paymentAccountId`, pre-filled from the member's
 `defaultPaymentAccountId` when present.
 
-### 4. Category-aware expense entry
+### 4. Category-aware expense entry ✅ Done (#55)
 
 Rework `ExpenseForm` + `createExpense` to the new contract:
 
@@ -112,7 +131,7 @@ Rework `ExpenseForm` + `createExpense` to the new contract:
 
 Expense list rows show a category pill.
 
-### 5. Balances & history against the netted single-group model
+### 5. Balances & history against the netted single-group model ✅ Done (#56)
 
 Verify `BalanceCard` / `ExpenseList` / `SettlementList` render correctly against the
 current balances and overview endpoints (single group, cross-category netting). Fix
@@ -136,6 +155,18 @@ Proper optimistic-create + connectivity-driven flush. The current code is a stub
 either finish it or rip it out. Not MVP.
 
 ---
+
+## Outcome (2026-06-18)
+
+MVP shipped: **log in → groups → create/categorize expenses → view netted balances**,
+running as a coexisting `have-fish-dev` debug build and validated on the signed CI
+release path. Stories 1–5 merged (#51, #53, #54, #55, #56) plus the dev-label change
+(#52). Stories 6–8 remain deferred as separate future work:
+
+- **6 — settlement creation/confirmation.** `SettleModal.tsx` is left in the tree
+  (orphaned, not wired) as the starting point; balances are view-only for now.
+- **7 — Graphite/XP design pass.** Screens still use the scaffold's iOS-blue styling.
+- **8 — real offline queue.** The stub in `lib/api.ts` is left as-is.
 
 ## Sequencing notes
 
