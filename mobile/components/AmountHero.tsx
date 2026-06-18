@@ -1,6 +1,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
 import { theme } from '@/lib/theme'
+import * as haptics from '@/lib/haptics'
 import { formatAmountDisplay, isPositiveAmount } from '@/lib/amount-input'
 import { GlossLayers } from './GlossLayers'
 import { GlossSurface } from './GlossSurface'
@@ -32,14 +33,24 @@ export function AmountHero({ amount, currency, dateLabel, onPressCurrency, onPre
       <View style={styles.topRow}>
         <View style={styles.leftCluster}>
           <Label>Amount</Label>
-          <Pressable style={styles.dateChip} onPress={onPressDate} hitSlop={6}>
+          <Pressable
+            style={styles.dateChip}
+            onPress={onPressDate}
+            onPressIn={onPressDate && haptics.selection}
+            hitSlop={6}
+          >
             <Ionicons name="calendar-outline" size={12} color={theme.color.ink2} />
             <Text style={styles.dateLabel}>{dateLabel}</Text>
             <Text style={styles.dateCaret}>▾</Text>
           </Pressable>
         </View>
 
-        <Pressable style={styles.currencyPill} onPress={onPressCurrency} hitSlop={6}>
+        <Pressable
+          style={styles.currencyPill}
+          onPress={onPressCurrency}
+          onPressIn={onPressCurrency && haptics.selection}
+          hitSlop={6}
+        >
           <GlossLayers base={theme.color.accent} radius={theme.radius.md} accent />
           <Text style={styles.currencyText}>{currency} ▾</Text>
         </Pressable>

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { currencyFlag, orderByRecent, topRecents } from '@/lib/currency'
+import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { BottomSheet } from './BottomSheet'
 import { GlossButton } from './GlossButton'
@@ -68,7 +69,12 @@ export function CurrencySheet({ visible, selected, recents, onSelect, onClose }:
               code == null ? (
                 <View key={`spacer-${j}`} style={styles.tileSlot} />
               ) : (
-                <Pressable key={code} style={styles.tileSlot} onPress={() => pick(code)}>
+                <Pressable
+                  key={code}
+                  style={styles.tileSlot}
+                  onPress={() => pick(code)}
+                  onPressIn={haptics.selection}
+                >
                   <GlossSurface
                     base={code === selected ? theme.color.accentSoft : theme.color.surface2}
                     radius={theme.radius.field}
