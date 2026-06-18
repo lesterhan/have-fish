@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import * as Haptics from 'expo-haptics'
+import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { GlossLayers } from './GlossLayers'
 
@@ -74,16 +74,15 @@ function NumpadButton({
         onLongPress
           ? () => {
               // Longer/stronger feedback marks the destructive clear.
-              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
+              haptics.warning()
               onLongPress()
             }
           : undefined
       }
       onPressIn={() => {
         setPressed(true)
-        // Subtle tactile tick on each key — the lightest haptic. Fire-and-forget;
-        // ignore failures on devices without a haptic engine.
-        Haptics.selectionAsync().catch(() => {})
+        // Subtle tactile tick on each key — the lightest haptic.
+        haptics.selection()
       }}
       onPressOut={() => setPressed(false)}
       style={[styles.key, pressed && styles.keyPressed]}

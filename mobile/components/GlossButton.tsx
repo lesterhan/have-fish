@@ -10,6 +10,7 @@ import {
 } from 'react-native'
 import { theme } from '@/lib/theme'
 import { alpha } from '@/lib/color'
+import * as haptics from '@/lib/haptics'
 import { GlossLayers } from './GlossLayers'
 
 type Variant = 'accent' | 'neutral'
@@ -70,7 +71,11 @@ export function GlossButton({
   return (
     <Pressable
       onPress={interactive ? onPress : undefined}
-      onPressIn={() => interactive && setPressed(true)}
+      onPressIn={() => {
+        if (!interactive) return
+        setPressed(true)
+        haptics.selection()
+      }}
       onPressOut={() => setPressed(false)}
       disabled={!interactive}
       style={[

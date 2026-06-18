@@ -5,6 +5,7 @@ import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { isAuthenticated } from '@/lib/auth'
 import { flushOfflineQueue } from '@/lib/api'
+import { loadHapticsEnabled } from '@/lib/haptics'
 import { fontAssets } from '@/lib/fonts'
 
 /**
@@ -25,6 +26,9 @@ export default function RootLayout() {
   useEffect(() => {
     async function bootstrap() {
       try {
+        // Hydrate the haptics preference before any tactile UI can fire.
+        loadHapticsEnabled()
+
         const authed = await isAuthenticated()
         const inAuthGroup = segments[0] === '(auth)'
 
