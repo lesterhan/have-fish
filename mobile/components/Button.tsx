@@ -72,7 +72,11 @@ const styles = StyleSheet.create({
   },
   sizeMd: { paddingVertical: theme.sp.sm, paddingHorizontal: theme.sp.md },
   sizeSm: { paddingVertical: theme.sp.xs, paddingHorizontal: theme.sp.sm },
-  primary: { backgroundColor: theme.color.accent },
+  primary: {
+    backgroundColor: theme.color.accent,
+    borderWidth: 1,
+    borderColor: theme.color.accent,
+  },
   neutral: {
     backgroundColor: theme.color.windowInset,
     borderWidth: 1,
