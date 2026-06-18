@@ -40,15 +40,18 @@ export function SpeedEntry({ group }: Props) {
 
   // Restore the group's sticky currency (per group) and the global recent list
   // (shared across groups). Both persist across submits and app launches.
+  // Switching groups re-resolves the currency: the new group's saved value, or
+  // its default — never leaving the previous group's currency stuck in state.
   useEffect(() => {
     let cancelled = false
     AsyncStorage.getItem(lastCurrencyKey(group.id)).then((saved) => {
-      if (!cancelled && saved) setCurrency(saved)
+      if (cancelled) return
+      setCurrency(saved ?? group.defaultCurrency ?? 'CAD')
     })
     return () => {
       cancelled = true
     }
-  }, [group.id])
+  }, [group.id, group.defaultCurrency])
 
   useEffect(() => {
     AsyncStorage.getItem(RECENT_CURRENCIES_KEY).then((raw) => {
