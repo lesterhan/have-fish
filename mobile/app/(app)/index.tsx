@@ -22,7 +22,8 @@ import {
 } from '@/lib/api'
 import { InviteRow } from '@/components/InviteRow'
 import { ScreenHeader } from '@/components/ScreenHeader'
-import { theme } from '@/lib/theme'
+import { Button } from '@/components/Button'
+import { theme, cardStyle } from '@/lib/theme'
 
 /**
  * Groups list screen.
@@ -130,6 +131,7 @@ export default function GroupsScreen() {
       <FlatList
         data={groups}
         keyExtractor={(g) => g.id}
+        contentContainerStyle={styles.listContent}
         refreshControl={
           <RefreshControl
             refreshing={refreshing}
@@ -177,23 +179,18 @@ export default function GroupsScreen() {
               autoFocus
             />
             <View style={styles.modalActions}>
-              <TouchableOpacity
-                style={styles.modalCancel}
+              <Button
+                title="Cancel"
+                variant="neutral"
+                size="sm"
                 onPress={() => setCreateModalVisible(false)}
-              >
-                <Text>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.modalCreate}
+              />
+              <Button
+                title="Create"
+                size="sm"
                 onPress={handleCreateGroup}
-                disabled={creating}
-              >
-                {creating ? (
-                  <ActivityIndicator color="#fff" />
-                ) : (
-                  <Text style={styles.modalCreateText}>Create</Text>
-                )}
-              </TouchableOpacity>
+                loading={creating}
+              />
             </View>
           </View>
         </View>
@@ -221,62 +218,61 @@ const styles = StyleSheet.create({
     fontWeight: theme.weight.semibold,
     fontSize: theme.text.sm,
   },
-  error: { color: '#c0392b', padding: 12, fontSize: 13 },
+  error: { color: theme.color.danger, padding: theme.sp.sm, fontSize: theme.text.sm },
   invitesSection: {
-    backgroundColor: '#fffbeb',
+    backgroundColor: theme.color.warningLight,
     borderBottomWidth: 1,
-    borderBottomColor: '#fde68a',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    borderBottomColor: theme.color.warning,
+    paddingHorizontal: theme.sp.md,
+    paddingVertical: theme.sp.xs,
   },
-  sectionLabel: { fontSize: 11, fontWeight: '700', color: '#92400e', marginBottom: 4 },
+  sectionLabel: {
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.warning,
+    marginBottom: 4,
+  },
+  listContent: { padding: theme.sp.md, gap: theme.sp.xs },
   groupRow: {
+    ...cardStyle,
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    paddingHorizontal: 16,
-    paddingVertical: 14,
-    borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    paddingHorizontal: theme.sp.md,
+    paddingVertical: theme.sp.sm,
   },
-  groupName: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
-  groupMeta: { fontSize: 12, color: '#888', marginTop: 2 },
-  chevron: { fontSize: 20, color: '#bbb' },
-  empty: { padding: 24, color: '#888', textAlign: 'center' },
+  groupName: {
+    fontSize: theme.text.base,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+  },
+  groupMeta: { fontSize: theme.text.xs, color: theme.color.textMuted, marginTop: 2 },
+  chevron: { fontSize: theme.text.xl, color: theme.color.textDisabled },
+  empty: { padding: theme.sp.lg, color: theme.color.textMuted, textAlign: 'center' },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0,0,0,0.4)',
     justifyContent: 'center',
-    padding: 32,
+    padding: theme.sp.xl,
   },
   modalCard: {
-    backgroundColor: '#fff',
-    borderRadius: 10,
-    padding: 20,
+    ...cardStyle,
+    padding: theme.sp.lg,
   },
-  modalTitle: { fontSize: 16, fontWeight: '700', marginBottom: 12 },
+  modalTitle: {
+    fontSize: theme.text.lg,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+    marginBottom: theme.sp.sm,
+  },
   modalInput: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 15,
-    marginBottom: 16,
+    borderColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
+    padding: theme.sp.sm,
+    fontSize: theme.text.base,
+    backgroundColor: theme.color.windowInset,
+    marginBottom: theme.sp.md,
   },
-  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: 8 },
-  modalCancel: {
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  modalCreate: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 16,
-    paddingVertical: 10,
-    borderRadius: 6,
-  },
-  modalCreateText: { color: '#fff', fontWeight: '600' },
+  modalActions: { flexDirection: 'row', justifyContent: 'flex-end', gap: theme.sp.xs },
 })
