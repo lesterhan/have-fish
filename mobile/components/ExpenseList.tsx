@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { View, Text, TouchableOpacity, ScrollView, StyleSheet, Alert } from 'react-native'
 import { deleteExpense, updateExpense, type GroupCategory, type GroupExpense } from '@/lib/api'
+import { Chip } from './Chip'
+import { Button } from './Button'
+import { theme, cardStyle } from '@/lib/theme'
 
 interface Props {
   expenses: GroupExpense[]
@@ -105,34 +108,28 @@ export function ExpenseList({ expenses, groupId, categories, onDeleted, onChange
                     horizontal
                     showsHorizontalScrollIndicator={false}
                     style={styles.recatRow}
+                    contentContainerStyle={styles.chipStrip}
                   >
                     {activeCategories.map((c) => (
-                      <TouchableOpacity
+                      <Chip
                         key={c.id}
-                        style={[styles.recatChip, expense.categoryId === c.id && styles.recatChipActive]}
+                        label={c.name}
+                        active={expense.categoryId === c.id}
                         disabled={recategorizing === expense.id}
                         onPress={() => handleRecategorize(expense, c.id)}
-                      >
-                        <Text
-                          style={[
-                            styles.recatChipText,
-                            expense.categoryId === c.id && styles.recatChipTextActive,
-                          ]}
-                        >
-                          {c.name}
-                        </Text>
-                      </TouchableOpacity>
+                      />
                     ))}
                   </ScrollView>
                 </>
               )}
 
-              <TouchableOpacity
-                style={styles.deleteButton}
+              <Button
+                title="Delete expense"
+                variant="danger"
+                size="sm"
                 onPress={() => handleDelete(expense.id, expense.description)}
-              >
-                <Text style={styles.deleteText}>Delete expense</Text>
-              </TouchableOpacity>
+                style={styles.deleteButton}
+              />
             </View>
           )}
         </View>
@@ -142,77 +139,75 @@ export function ExpenseList({ expenses, groupId, categories, onDeleted, onChange
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 16 },
+  container: { marginBottom: theme.sp.md },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#888',
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: theme.sp.xs,
   },
-  empty: { color: '#888', fontSize: 13, marginBottom: 16 },
+  empty: { color: theme.color.textMuted, fontSize: theme.text.sm, marginBottom: theme.sp.md },
   row: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginBottom: 8,
+    ...cardStyle,
+    marginBottom: theme.sp.xs,
     overflow: 'hidden',
   },
   main: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: theme.sp.sm,
   },
-  meta: { flex: 1, marginRight: 12 },
-  description: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
-  submeta: { fontSize: 12, color: '#888', marginTop: 2 },
+  meta: { flex: 1, marginRight: theme.sp.sm },
+  description: {
+    fontSize: theme.text.sm,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+  },
+  submeta: { fontSize: theme.text.xs, color: theme.color.textMuted, marginTop: 2 },
   amountBlock: { alignItems: 'flex-end' },
-  amount: { fontSize: 16, fontWeight: '700', color: '#1a1a1a' },
+  amount: { fontSize: theme.text.base, fontWeight: theme.weight.semibold, color: theme.color.text },
   currencyPill: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
+    backgroundColor: theme.color.windowRaised,
+    borderRadius: theme.radius.lg,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginTop: 2,
   },
-  currencyText: { fontSize: 11, color: '#666', fontWeight: '600' },
+  currencyText: {
+    fontSize: theme.text.xs,
+    color: theme.color.textMuted,
+    fontWeight: theme.weight.semibold,
+  },
   categoryPill: {
     alignSelf: 'flex-start',
-    backgroundColor: '#eff6ff',
+    backgroundColor: theme.color.accentChipBg,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
-    borderRadius: 10,
-    paddingHorizontal: 8,
+    borderColor: theme.color.accentHi,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.sp.xs,
     paddingVertical: 2,
     marginTop: 4,
   },
-  categoryPillText: { fontSize: 11, color: '#2563eb', fontWeight: '600' },
+  categoryPillText: {
+    fontSize: theme.text.xs,
+    color: theme.color.accentChipFg,
+    fontWeight: theme.weight.semibold,
+  },
   recatLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#888',
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
     textTransform: 'uppercase',
-    marginTop: 8,
+    marginTop: theme.sp.xs,
   },
   recatRow: { marginTop: 6 },
-  recatChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginRight: 8,
-    backgroundColor: '#fff',
-  },
-  recatChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  recatChipText: { fontSize: 12, color: '#444' },
-  recatChipTextActive: { color: '#fff', fontWeight: '600' },
+  chipStrip: { gap: theme.sp.xs },
   splits: {
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    padding: 12,
+    borderTopColor: theme.color.ruleSoft,
+    padding: theme.sp.sm,
     gap: 4,
   },
   splitRow: {
@@ -220,15 +215,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingVertical: 2,
   },
-  splitName: { fontSize: 13, color: '#555' },
-  splitAmount: { fontSize: 13, color: '#555', fontWeight: '600' },
-  deleteButton: {
-    marginTop: 8,
-    padding: 8,
-    alignItems: 'center',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#fca5a5',
+  splitName: { fontSize: theme.text.sm, color: theme.color.textMuted },
+  splitAmount: {
+    fontSize: theme.text.sm,
+    color: theme.color.textMuted,
+    fontWeight: theme.weight.semibold,
   },
-  deleteText: { fontSize: 13, color: '#e74c3c' },
+  deleteButton: { marginTop: theme.sp.xs },
 })

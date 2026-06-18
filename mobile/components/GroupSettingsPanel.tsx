@@ -1,13 +1,5 @@
 import { useState } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-  ActivityIndicator,
-} from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, Alert } from 'react-native'
 import {
   updateGroup,
   updateMemberWeight,
@@ -17,6 +9,8 @@ import {
   type ExpenseGroup,
   type GroupInvite,
 } from '@/lib/api'
+import { Button } from './Button'
+import { theme, cardStyle } from '@/lib/theme'
 
 interface Props {
   group: ExpenseGroup
@@ -120,13 +114,13 @@ export function GroupSettingsPanel({ group, invites, onGroupUpdated, onGroupDele
           maxLength={3}
         />
 
-        <TouchableOpacity style={styles.saveButton} onPress={handleSaveName} disabled={savingName}>
-          {savingName ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.saveText}>Save changes</Text>
-          )}
-        </TouchableOpacity>
+        <Button
+          title="Save changes"
+          size="sm"
+          onPress={handleSaveName}
+          loading={savingName}
+          style={styles.saveButton}
+        />
       </View>
 
       {/* Members & share weights */}
@@ -169,17 +163,13 @@ export function GroupSettingsPanel({ group, invites, onGroupUpdated, onGroupDele
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          <TouchableOpacity
-            style={styles.inviteButton}
+          <Button
+            title="Send"
+            size="sm"
             onPress={handleSendInvite}
-            disabled={sendingInvite}
-          >
-            {sendingInvite ? (
-              <ActivityIndicator color="#fff" size="small" />
-            ) : (
-              <Text style={styles.inviteButtonText}>Send</Text>
-            )}
-          </TouchableOpacity>
+            loading={sendingInvite}
+            style={styles.inviteButton}
+          />
         </View>
 
         {invites.length > 0 && (
@@ -201,48 +191,41 @@ export function GroupSettingsPanel({ group, invites, onGroupUpdated, onGroupDele
 
       {/* Danger zone */}
       <View style={[styles.section, styles.danger]}>
-        <TouchableOpacity style={styles.deleteButton} onPress={handleDeleteGroup}>
-          <Text style={styles.deleteText}>Delete group</Text>
-        </TouchableOpacity>
+        <Button title="Delete group" variant="danger" onPress={handleDeleteGroup} />
       </View>
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 12 },
+  container: { gap: theme.sp.sm },
   section: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    padding: 16,
-    gap: 8,
+    ...cardStyle,
+    padding: theme.sp.md,
+    gap: theme.sp.xs,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#888',
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
-  label: { fontSize: 13, fontWeight: '600', color: '#444', marginTop: 4 },
-  input: {
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 14,
-    backgroundColor: '#fafafa',
-  },
-  saveButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 6,
-    padding: 10,
-    alignItems: 'center',
+  label: {
+    fontSize: theme.text.sm,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
     marginTop: 4,
   },
-  saveText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  input: {
+    borderWidth: 1,
+    borderColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
+    padding: theme.sp.sm,
+    fontSize: theme.text.sm,
+    backgroundColor: theme.color.windowInset,
+  },
+  saveButton: { marginTop: 4 },
   memberRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -250,46 +233,49 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   memberInfo: { flex: 1 },
-  memberName: { fontSize: 14, fontWeight: '600', color: '#1a1a1a' },
-  memberEmail: { fontSize: 12, color: '#888' },
-  weightControl: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  memberName: {
+    fontSize: theme.text.sm,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+  },
+  memberEmail: { fontSize: theme.text.xs, color: theme.color.textMuted },
+  weightControl: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.xs },
   weightButton: {
     width: 28,
     height: 28,
-    borderRadius: 14,
+    borderRadius: theme.radius.lg,
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: theme.color.rule,
+    backgroundColor: theme.color.windowInset,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  weightButtonText: { fontSize: 16, color: '#444', lineHeight: 20 },
-  weightValue: { fontSize: 15, fontWeight: '700', minWidth: 24, textAlign: 'center' },
-  inviteRow: { flexDirection: 'row', gap: 8 },
-  inviteInput: { flex: 1 },
-  inviteButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 6,
-    paddingHorizontal: 16,
-    justifyContent: 'center',
+  weightButtonText: { fontSize: theme.text.base, color: theme.color.text, lineHeight: 20 },
+  weightValue: {
+    fontSize: theme.text.base,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+    minWidth: 24,
+    textAlign: 'center',
   },
-  inviteButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  pendingInvites: { marginTop: 8 },
-  pendingLabel: { fontSize: 11, fontWeight: '700', color: '#888', marginBottom: 4 },
+  inviteRow: { flexDirection: 'row', gap: theme.sp.xs, alignItems: 'stretch' },
+  inviteInput: { flex: 1 },
+  inviteButton: { justifyContent: 'center' },
+  pendingInvites: { marginTop: theme.sp.xs },
+  pendingLabel: {
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
+    marginBottom: 4,
+  },
   pendingRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
+    alignItems: 'center',
     paddingVertical: 4,
   },
-  pendingEmail: { fontSize: 13, color: '#444' },
-  cancelInviteText: { fontSize: 13, color: '#e74c3c' },
-  error: { color: '#e74c3c', fontSize: 13 },
-  danger: { borderColor: '#fca5a5' },
-  deleteButton: {
-    padding: 10,
-    alignItems: 'center',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#fca5a5',
-  },
-  deleteText: { color: '#e74c3c', fontWeight: '600', fontSize: 14 },
+  pendingEmail: { fontSize: theme.text.sm, color: theme.color.text },
+  cancelInviteText: { fontSize: theme.text.sm, color: theme.color.danger },
+  error: { color: theme.color.danger, fontSize: theme.text.sm },
+  danger: { borderColor: theme.color.danger },
 })
