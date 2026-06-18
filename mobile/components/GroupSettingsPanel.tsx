@@ -151,41 +151,45 @@ export function GroupSettingsPanel({ group, invites, onGroupUpdated, onGroupDele
         ))}
       </View>
 
-      {/* Invitations */}
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Invite</Text>
-        <View style={styles.inviteRow}>
-          <TextInput
-            style={[styles.input, styles.inviteInput]}
-            value={inviteEmail}
-            onChangeText={setInviteEmail}
-            placeholder="email@example.com"
-            keyboardType="email-address"
-            autoCapitalize="none"
-          />
-          <Button
-            title="Send"
-            size="sm"
-            onPress={handleSendInvite}
-            loading={sendingInvite}
-            style={styles.inviteButton}
-          />
-        </View>
-
-        {invites.length > 0 && (
-          <View style={styles.pendingInvites}>
-            <Text style={styles.pendingLabel}>Pending</Text>
-            {invites.map((inv) => (
-              <View key={inv.id} style={styles.pendingRow}>
-                <Text style={styles.pendingEmail}>{inv.inviteeEmail}</Text>
-                <TouchableOpacity onPress={() => handleCancelInvite(inv.id)}>
-                  <Text style={styles.cancelInviteText}>Cancel</Text>
-                </TouchableOpacity>
-              </View>
-            ))}
+      {/* Invitations — only while the group can still grow. We currently support
+          two-member groups, so hide the invite UI once a second member has
+          joined. A lone member can still invite (and cancel a pending invite). */}
+      {group.members.length < 2 && (
+        <View style={styles.section}>
+          <Text style={styles.sectionLabel}>Invite</Text>
+          <View style={styles.inviteRow}>
+            <TextInput
+              style={[styles.input, styles.inviteInput]}
+              value={inviteEmail}
+              onChangeText={setInviteEmail}
+              placeholder="email@example.com"
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <Button
+              title="Send"
+              size="sm"
+              onPress={handleSendInvite}
+              loading={sendingInvite}
+              style={styles.inviteButton}
+            />
           </View>
-        )}
-      </View>
+
+          {invites.length > 0 && (
+            <View style={styles.pendingInvites}>
+              <Text style={styles.pendingLabel}>Pending</Text>
+              {invites.map((inv) => (
+                <View key={inv.id} style={styles.pendingRow}>
+                  <Text style={styles.pendingEmail}>{inv.inviteeEmail}</Text>
+                  <TouchableOpacity onPress={() => handleCancelInvite(inv.id)}>
+                    <Text style={styles.cancelInviteText}>Cancel</Text>
+                  </TouchableOpacity>
+                </View>
+              ))}
+            </View>
+          )}
+        </View>
+      )}
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
