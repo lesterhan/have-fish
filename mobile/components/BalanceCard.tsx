@@ -1,5 +1,6 @@
 import { View, Text, StyleSheet } from 'react-native'
 import type { CurrencyBalance, GroupMember } from '@/lib/api'
+import { theme, cardStyle } from '@/lib/theme'
 
 interface Props {
   balances: CurrencyBalance[]
@@ -87,47 +88,52 @@ export function BalanceCard({ balances, members: _members }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { gap: 12 },
+  container: { gap: theme.sp.sm },
   settled: {
     alignItems: 'center',
-    paddingVertical: 48,
+    paddingVertical: theme.sp['2xl'],
   },
-  settledEmoji: { fontSize: 40, marginBottom: 8 },
-  settledText: { fontSize: 16, color: '#27ae60', fontWeight: '600' },
+  settledEmoji: { fontSize: 40, marginBottom: theme.sp.xs },
+  settledText: {
+    fontSize: theme.text.base,
+    color: theme.color.success,
+    fontWeight: theme.weight.semibold,
+  },
   currencyBlock: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    padding: 16,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
+    ...cardStyle,
+    padding: theme.sp.md,
   },
   currencyLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#888',
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
     textTransform: 'uppercase',
-    marginBottom: 12,
+    marginBottom: theme.sp.sm,
   },
-  positions: { gap: 6, marginBottom: 12 },
+  positions: { gap: 6, marginBottom: theme.sp.sm },
   positionRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  memberName: { fontSize: 14, color: '#444' },
-  positionAmount: { fontSize: 14, fontWeight: '600', color: '#888' },
-  positive: { color: '#27ae60' },
-  negative: { color: '#e74c3c' },
+  memberName: { fontSize: theme.text.sm, color: theme.color.text },
+  positionAmount: {
+    fontSize: theme.text.sm,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
+  },
+  positive: { color: theme.color.amountPositive },
+  negative: { color: theme.color.amountNegative },
   transfers: {
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    paddingTop: 10,
-    gap: 8,
+    borderTopColor: theme.color.ruleSoft,
+    paddingTop: theme.sp.xs,
+    gap: theme.sp.xs,
   },
   transfersLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#888',
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
     textTransform: 'uppercase',
     marginBottom: 4,
   },
@@ -136,12 +142,17 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
   },
-  transferText: { flex: 1, fontSize: 13, color: '#444', marginRight: 12 },
-  bold: { fontWeight: '600' },
-  transferAmount: { color: '#e74c3c', fontWeight: '700' },
+  transferText: {
+    flex: 1,
+    fontSize: theme.text.sm,
+    color: theme.color.text,
+    marginRight: theme.sp.sm,
+  },
+  bold: { fontWeight: theme.weight.semibold },
+  transferAmount: { color: theme.color.amountNegative, fontWeight: theme.weight.semibold },
   settleNote: {
-    fontSize: 12,
-    color: '#888',
+    fontSize: theme.text.xs,
+    color: theme.color.textMuted,
     textAlign: 'center',
     fontStyle: 'italic',
     marginTop: 4,
