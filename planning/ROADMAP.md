@@ -47,7 +47,7 @@
 | [Fish Pie: Categories](epics/archive/fish-pie-categories.md) | Done |
 | [Fish Pie: Expense Proposals](epics/fish-pie-expense-proposals.md) | Backlog |
 | [Mobile Local APK CI](epics/archive/mobile-local-apk-ci.md) | Done |
-| [Mobile Revival → MVP](epics/mobile-revival.md) | Ready |
+| [Mobile Revival → MVP](epics/archive/mobile-revival.md) | Done |
 
 ## Fish Pie sequence
 
@@ -63,8 +63,9 @@ Pick up the first non-Done item:
 3. **[Expense Proposals](epics/fish-pie-expense-proposals.md)** — amended: settlement
    *warns* instead of hard-blocking on pending proposals; rebase onto categories.
    Also resolves BUG-006 properly.
-4. **[Mobile Revival → MVP](epics/mobile-revival.md)** — payment account + categories
-   support; expense entry is known-broken until then. Settlement/proposals deferred.
+4. ~~**[Mobile Revival → MVP](epics/archive/mobile-revival.md)**~~ — **Done.** SDK 56
+   bump, API resync, account picker, category-aware entry, view-only balances. Mobile
+   settlement/design/offline deferred (stories 6–8).
 5. **Import Rules v2** (no epic yet, see exploration F16) — then the fish-pie
    auto-split rule action.
 6. **Fish Pie attention/notifications** (no epic yet, see exploration F17).
