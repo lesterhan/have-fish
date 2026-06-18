@@ -21,6 +21,8 @@ import {
   type GroupInvite,
 } from '@/lib/api'
 import { InviteRow } from '@/components/InviteRow'
+import { ScreenHeader } from '@/components/ScreenHeader'
+import { theme } from '@/lib/theme'
 
 /**
  * Groups list screen.
@@ -97,15 +99,17 @@ export default function GroupsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Groups</Text>
-        <TouchableOpacity
-          style={styles.newButton}
-          onPress={() => setCreateModalVisible(true)}
-        >
-          <Text style={styles.newButtonText}>+ New</Text>
-        </TouchableOpacity>
-      </View>
+      <ScreenHeader
+        title="Groups"
+        right={
+          <TouchableOpacity
+            style={styles.newButton}
+            onPress={() => setCreateModalVisible(true)}
+          >
+            <Text style={styles.newButtonText}>+ New</Text>
+          </TouchableOpacity>
+        }
+      />
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
@@ -199,27 +203,24 @@ export default function GroupsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f2f5' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+  container: { flex: 1, backgroundColor: theme.color.desktop },
+  center: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
+    backgroundColor: theme.color.desktop,
   },
-  title: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
   newButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 14,
+    backgroundColor: theme.color.accent,
+    paddingHorizontal: theme.sp.sm,
     paddingVertical: 7,
-    borderRadius: 6,
+    borderRadius: theme.radius.lg,
   },
-  newButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
+  newButtonText: {
+    color: theme.color.textOnAccent,
+    fontWeight: theme.weight.semibold,
+    fontSize: theme.text.sm,
+  },
   error: { color: '#c0392b', padding: 12, fontSize: 13 },
   invitesSection: {
     backgroundColor: '#fffbeb',

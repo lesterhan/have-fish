@@ -9,6 +9,8 @@ import {
 } from 'react-native'
 import { useRouter } from 'expo-router'
 import { getEmail, getBaseUrl, setBaseUrl, clearSession } from '@/lib/auth'
+import { ScreenHeader } from '@/components/ScreenHeader'
+import { theme } from '@/lib/theme'
 
 /**
  * Settings screen.
@@ -54,9 +56,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.title}>Settings</Text>
-      </View>
+      <ScreenHeader title="Settings" />
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Account</Text>
@@ -93,16 +93,7 @@ export default function SettingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f2f5' },
-  header: {
-    paddingHorizontal: 16,
-    paddingTop: 56,
-    paddingBottom: 12,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  title: { fontSize: 20, fontWeight: '700', color: '#1a1a1a' },
+  container: { flex: 1, backgroundColor: theme.color.desktop },
   section: {
     backgroundColor: '#fff',
     marginTop: 16,
