@@ -18,6 +18,7 @@
       "expo-secure-store",
       "./plugins/withReleaseSigning",
       "./plugins/withDebugAppIdSuffix",
+      "./plugins/withTailscaleCleartext",
       "@react-native-community/datetimepicker",
       "expo-status-bar"
     ],
