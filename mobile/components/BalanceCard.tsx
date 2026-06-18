@@ -1,10 +1,9 @@
-import { View, Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { View, Text, StyleSheet } from 'react-native'
 import type { CurrencyBalance, GroupMember } from '@/lib/api'
 
 interface Props {
   balances: CurrencyBalance[]
   members: GroupMember[]
-  onSettleUp: (transfer: CurrencyBalance['transfers'][number]) => void
 }
 
 /**
@@ -13,11 +12,14 @@ interface Props {
  * Positive amount = creditor (is owed money).
  * Negative amount = debtor (owes money).
  *
+ * View-only in the MVP: recording a settlement is deferred to mobile-revival
+ * story 6 (settlement confirmation). The transfers are shown without a settle
+ * action; the user settles on the web app for now.
+ *
  * TODO:
  * - Highlight the current user's row
- * - Grey out "Settle up" buttons for transfers the current user isn't a party to
  */
-export function BalanceCard({ balances, members: _members, onSettleUp }: Props) {
+export function BalanceCard({ balances, members: _members }: Props) {
   if (balances.length === 0 || balances.every((b) => b.transfers.length === 0)) {
     return (
       <View style={styles.settled}>
@@ -57,7 +59,7 @@ export function BalanceCard({ balances, members: _members, onSettleUp }: Props) 
             })}
           </View>
 
-          {/* Transfers (simplified) */}
+          {/* Transfers (suggested minimal settlement set) — view-only */}
           {balance.transfers.length > 0 && (
             <View style={styles.transfers}>
               <Text style={styles.transfersLabel}>To settle:</Text>
@@ -72,15 +74,14 @@ export function BalanceCard({ balances, members: _members, onSettleUp }: Props) 
                       {t.amount} {t.currency}
                     </Text>
                   </Text>
-                  <TouchableOpacity style={styles.settleButton} onPress={() => onSettleUp(t)}>
-                    <Text style={styles.settleButtonText}>Settle up</Text>
-                  </TouchableOpacity>
                 </View>
               ))}
             </View>
           )}
         </View>
       ))}
+
+      <Text style={styles.settleNote}>Record settlements on the web app for now.</Text>
     </View>
   )
 }
@@ -138,11 +139,11 @@ const styles = StyleSheet.create({
   transferText: { flex: 1, fontSize: 13, color: '#444', marginRight: 12 },
   bold: { fontWeight: '600' },
   transferAmount: { color: '#e74c3c', fontWeight: '700' },
-  settleButton: {
-    backgroundColor: '#2563eb',
-    paddingHorizontal: 12,
-    paddingVertical: 6,
-    borderRadius: 6,
+  settleNote: {
+    fontSize: 12,
+    color: '#888',
+    textAlign: 'center',
+    fontStyle: 'italic',
+    marginTop: 4,
   },
-  settleButtonText: { color: '#fff', fontSize: 12, fontWeight: '600' },
 })

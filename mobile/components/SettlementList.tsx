@@ -40,11 +40,20 @@ export function SettlementList({ settlements, groupId, onDeleted }: Props) {
         <View key={s.id} style={styles.row}>
           <View style={styles.main}>
             <View style={styles.meta}>
-              <Text style={styles.transfer}>
-                <Text style={styles.bold}>{s.fromUserName ?? s.fromUserId}</Text>
-                {' → '}
-                <Text style={styles.bold}>{s.toUserName ?? s.toUserId}</Text>
-              </Text>
+              <View style={styles.transferLine}>
+                <Text style={styles.transfer}>
+                  <Text style={styles.bold}>{s.fromUserName ?? s.fromUserId}</Text>
+                  {' → '}
+                  <Text style={styles.bold}>{s.toUserName ?? s.toUserId}</Text>
+                </Text>
+                <View style={[styles.statusPill, s.status === 'pending' && styles.statusPillPending]}>
+                  <Text
+                    style={[styles.statusText, s.status === 'pending' && styles.statusTextPending]}
+                  >
+                    {s.status === 'pending' ? 'Pending' : 'Completed'}
+                  </Text>
+                </View>
+              </View>
               <Text style={styles.submeta}>
                 {s.date}
                 {s.note ? ` · ${s.note}` : ''}
@@ -94,8 +103,18 @@ const styles = StyleSheet.create({
     padding: 12,
   },
   meta: { flex: 1, marginRight: 12 },
+  transferLine: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
   transfer: { fontSize: 14, color: '#1a1a1a' },
   bold: { fontWeight: '600' },
+  statusPill: {
+    backgroundColor: '#dcfce7',
+    borderRadius: 8,
+    paddingHorizontal: 7,
+    paddingVertical: 1,
+  },
+  statusPillPending: { backgroundColor: '#fef3c7' },
+  statusText: { fontSize: 10, fontWeight: '700', color: '#16a34a', textTransform: 'uppercase' },
+  statusTextPending: { color: '#b45309' },
   submeta: { fontSize: 12, color: '#888', marginTop: 2 },
   amountBlock: { alignItems: 'flex-end' },
   amount: { fontSize: 16, fontWeight: '700', color: '#27ae60' },
