@@ -1,6 +1,5 @@
 import { Pressable, StyleSheet, Text } from 'react-native'
 import { theme } from '@/lib/theme'
-import { GlossSurface } from './GlossSurface'
 
 interface Props {
   label: string
@@ -15,45 +14,30 @@ interface Props {
  * Toggle chip — the shared pill for currency / category / quick-pick selection.
  *
  * Companion design: inactive = `field` bg + 1.5px `line` border, `ink2`; active =
- * neutral soft-gloss on `accentSoft` + 1.5px `accentLine` border, `accentInk`,
- * weight 700.
+ * `accentSoft` fill + 1.5px `accentLine` border, `accentInk`.
+ *
+ * Both states share one box and one font family/weight so the chip does **not**
+ * resize or shift its glyph metrics on toggle — only the colors change. (The
+ * design's selected-chip weight bump is dropped on purpose: swapping the mono
+ * face Regular→Bold changed the chip's width on every tap.)
  */
 export function Chip({ label, active = false, onPress, disabled = false, mono = true }: Props) {
-  const fontFamily = mono
-    ? active
-      ? theme.font.monoBold
-      : theme.font.mono
-    : theme.font.sans
-  const text = (
-    <Text
-      style={[
-        styles.text,
-        { fontFamily },
-        active ? styles.textActive : styles.textInactive,
-      ]}
-      numberOfLines={1}
-    >
-      {label}
-    </Text>
-  )
-
-  if (active) {
-    return (
-      <Pressable onPress={onPress} disabled={disabled}>
-        <GlossSurface base={theme.color.accentSoft} radius={theme.radius.chip} bordered={false} style={styles.activeShell}>
-          {text}
-        </GlossSurface>
-      </Pressable>
-    )
-  }
-
   return (
     <Pressable
       onPress={onPress}
       disabled={disabled}
-      style={[styles.chip, styles.inactiveShell]}
+      style={[styles.chip, active ? styles.active : styles.inactive]}
     >
-      {text}
+      <Text
+        style={[
+          styles.text,
+          { fontFamily: mono ? theme.font.monoMedium : theme.font.sans },
+          active ? styles.textActive : styles.textInactive,
+        ]}
+        numberOfLines={1}
+      >
+        {label}
+      </Text>
     </Pressable>
   )
 }
@@ -63,19 +47,11 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.sp.sm,
     paddingVertical: 7,
     borderRadius: theme.radius.chip,
-  },
-  inactiveShell: {
     borderWidth: 1.5,
-    borderColor: theme.color.line,
-    backgroundColor: theme.color.field,
   },
-  activeShell: {
-    paddingHorizontal: theme.sp.sm,
-    paddingVertical: 7,
-    borderWidth: 1.5,
-    borderColor: theme.color.accentLine,
-  },
-  text: { fontSize: theme.text.sm },
+  inactive: { borderColor: theme.color.line, backgroundColor: theme.color.field },
+  active: { borderColor: theme.color.accentLine, backgroundColor: theme.color.accentSoft },
+  text: { fontSize: theme.text.sm, fontWeight: theme.weight.medium },
   textInactive: { color: theme.color.ink2 },
-  textActive: { color: theme.color.accentInk, fontWeight: theme.weight.bold },
+  textActive: { color: theme.color.accentInk },
 })
