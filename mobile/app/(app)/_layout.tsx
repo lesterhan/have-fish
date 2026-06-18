@@ -1,49 +1,70 @@
+import { View, StyleSheet } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { Tabs } from 'expo-router'
-import { Text } from 'react-native'
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
+import { GroupProvider } from '@/lib/group-context'
+import { AppHeader } from '@/components/AppHeader'
 import { theme } from '@/lib/theme'
 
 /**
- * Bottom tab navigator for the authenticated app shell.
- * Tabs: Groups (home), Settings.
- *
- * TODO: Add a pending-invites badge on the Groups tab using a count from
- * fetchMyInvites(). Fetch count on mount and re-fetch on app foreground.
+ * Authenticated shell (Companion). The group is the shell, not a pushed detail
+ * screen: a persistent header (group switcher + gear) sits above a 3-tab bar
+ * (Add / Balances / History). Settings is reached from the gear, not a tab.
  */
 export default function AppLayout() {
   return (
-    <Tabs
-      screenOptions={{
-        headerShown: false,
-        tabBarActiveTintColor: theme.color.accent,
-        tabBarInactiveTintColor: theme.color.textMuted,
-        tabBarStyle: {
-          backgroundColor: theme.color.window,
-          borderTopWidth: 1,
-          borderTopColor: theme.color.rule,
-        },
-        tabBarLabelStyle: { fontSize: theme.text.xs },
-      }}
-    >
-      <Tabs.Screen
-        name="index"
-        options={{
-          title: 'Groups',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>⚖️</Text>,
-        }}
-      />
-      <Tabs.Screen
-        name="groups/[id]"
-        options={{
-          href: null, // hidden from tab bar — navigated to by pressing a group row
-        }}
-      />
-      <Tabs.Screen
-        name="settings"
-        options={{
-          title: 'Settings',
-          tabBarIcon: ({ color }) => <Text style={{ fontSize: 18, color }}>⚙️</Text>,
-        }}
-      />
-    </Tabs>
+    <GroupProvider>
+      <SafeAreaView edges={['top']} style={styles.safe}>
+        <AppHeader />
+        <View style={styles.body}>
+          <Tabs
+            screenOptions={{
+              headerShown: false,
+              tabBarActiveTintColor: theme.color.accent,
+              tabBarInactiveTintColor: theme.color.ink3,
+              tabBarStyle: {
+                backgroundColor: theme.color.chrome,
+                borderTopWidth: 1,
+                borderTopColor: theme.color.line,
+              },
+              tabBarLabelStyle: { fontSize: 11 },
+            }}
+          >
+            <Tabs.Screen
+              name="index"
+              options={{
+                title: 'Add',
+                tabBarIcon: ({ color }) => <Ionicons name="add" size={22} color={color} />,
+              }}
+            />
+            <Tabs.Screen
+              name="balances"
+              options={{
+                title: 'Balances',
+                tabBarIcon: ({ color }) => (
+                  <MaterialCommunityIcons name="scale-balance" size={22} color={color} />
+                ),
+              }}
+            />
+            <Tabs.Screen
+              name="history"
+              options={{
+                title: 'History',
+                tabBarIcon: ({ color }) => <Ionicons name="list" size={22} color={color} />,
+              }}
+            />
+            {/* Reached from the header gear, not the tab bar. */}
+            <Tabs.Screen name="settings" options={{ href: null }} />
+            {/* Legacy deep-link screen — removed in Epic 4. */}
+            <Tabs.Screen name="groups/[id]" options={{ href: null }} />
+          </Tabs>
+        </View>
+      </SafeAreaView>
+    </GroupProvider>
   )
 }
+
+const styles = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: theme.color.chrome },
+  body: { flex: 1, backgroundColor: theme.color.appBg },
+})

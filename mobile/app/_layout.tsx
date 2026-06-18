@@ -1,9 +1,11 @@
 import { useEffect, useState } from 'react'
+import { useFonts } from 'expo-font'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { isAuthenticated } from '@/lib/auth'
 import { flushOfflineQueue } from '@/lib/api'
+import { fontAssets } from '@/lib/fonts'
 
 /**
  * Root layout — guards the entire app behind authentication.
@@ -18,6 +20,7 @@ export default function RootLayout() {
   const router = useRouter()
   const segments = useSegments()
   const [checked, setChecked] = useState(false)
+  const [fontsLoaded] = useFonts(fontAssets)
 
   useEffect(() => {
     async function bootstrap() {
@@ -48,7 +51,9 @@ export default function RootLayout() {
     bootstrap()
   }, [])
 
-  if (!checked) return null
+  // Gate the navigator on both the auth check and the bundled fonts so the UI
+  // never flashes a system-font frame before the Companion faces are ready.
+  if (!checked || !fontsLoaded) return null
 
   return (
     <SafeAreaProvider>

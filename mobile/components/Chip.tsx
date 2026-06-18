@@ -1,30 +1,46 @@
-import { Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { Pressable, StyleSheet, Text } from 'react-native'
 import { theme } from '@/lib/theme'
+import { GlossLayers } from './GlossLayers'
 
 interface Props {
   label: string
   active?: boolean
   onPress: () => void
   disabled?: boolean
+  /** Mono label (currency codes). Off for word chips like categories. */
+  mono?: boolean
 }
 
 /**
- * Toggle chip — the shared pill used for currency / category / payer / member
- * selection across the group screens. Active = accent fill; inactive = inset
- * surface with a hairline border. Sharp-ish corners, on-brand with the Graphite
- * design system (no fully-rounded pills).
+ * Toggle chip — the shared pill for currency / category / quick-pick selection.
+ *
+ * Companion design: inactive = `field` bg + 1.5px `line` border, `ink2`; active =
+ * neutral soft-gloss on `accentSoft` + 1.5px `accentLine` border, `accentInk`.
+ *
+ * Both states share one box and one font family/weight so the chip never resizes
+ * or shifts its glyph metrics on toggle. The active gloss is an absolutely-
+ * positioned overlay (no layout impact); the selected-weight bump from the
+ * handoff is dropped because swapping the mono face Regular→Bold changed width.
  */
-export function Chip({ label, active = false, onPress, disabled = false }: Props) {
+export function Chip({ label, active = false, onPress, disabled = false, mono = true }: Props) {
   return (
-    <TouchableOpacity
-      style={[styles.chip, active && styles.chipActive]}
+    <Pressable
       onPress={onPress}
       disabled={disabled}
+      style={[styles.chip, active ? styles.active : styles.inactive]}
     >
-      <Text style={[styles.text, active && styles.textActive]} numberOfLines={1}>
+      {active && <GlossLayers base={theme.color.accentSoft} radius={theme.radius.chip} />}
+      <Text
+        style={[
+          styles.text,
+          { fontFamily: mono ? theme.font.monoMedium : theme.font.sans },
+          active ? styles.textActive : styles.textInactive,
+        ]}
+        numberOfLines={1}
+      >
         {label}
       </Text>
-    </TouchableOpacity>
+    </Pressable>
   )
 }
 
@@ -32,15 +48,13 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: theme.sp.sm,
     paddingVertical: 7,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.color.rule,
-    backgroundColor: theme.color.windowInset,
+    borderRadius: theme.radius.chip,
+    borderWidth: 1.5,
+    overflow: 'hidden',
   },
-  chipActive: {
-    backgroundColor: theme.color.accent,
-    borderColor: theme.color.accent,
-  },
-  text: { fontSize: theme.text.sm, color: theme.color.text },
-  textActive: { color: theme.color.textOnAccent, fontWeight: theme.weight.semibold },
+  inactive: { borderColor: theme.color.line, backgroundColor: theme.color.field },
+  active: { borderColor: theme.color.accentLine, backgroundColor: theme.color.accentSoft },
+  text: { fontSize: theme.text.sm, fontWeight: theme.weight.medium },
+  textInactive: { color: theme.color.ink2 },
+  textActive: { color: theme.color.accentInk },
 })

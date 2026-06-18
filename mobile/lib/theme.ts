@@ -1,45 +1,48 @@
-import { Platform, type TextStyle, type ViewStyle } from 'react-native'
+import { type TextStyle, type ViewStyle } from 'react-native'
 
 /**
  * have-fish Pocket Companion — design tokens.
  *
- * Single source of truth for every visual value in the mobile app. The mobile
- * equivalent of the web's `frontend/src/styles/tokens.css`. New UI must read
- * from `theme` — never hardcode a hex, spacing, radius, or font size.
+ * Single source of truth for every visual value in the mobile app. New UI must
+ * read from `theme` — never hardcode a hex, spacing, radius, or font size. The
+ * `bun run lint:tokens` guardrail fails the build if a color literal appears
+ * outside this file.
  *
- * ## Web-token → mobile-token mapping
+ * ## Source of truth
  *
- * The web tokens are CSS custom properties in rem; mobile mirrors the **light**
- * `:root` block as a typed object in px (1rem = 16px). The web
- * `[data-theme='dark']` block is the future dark variant — this epic ships light
- * only, but the palette is structured so a dark `theme` can be swapped in later
- * at a single point.
+ * The Pocket Companion redesign spec is `.design/handoff/README.md` (warm/rust
+ * Aqua palette, layered-gradient "gloss" recipe, Source Serif 4 + JetBrains
+ * Mono). This file is the RN materialization of that spec's **light theme**
+ * with the locked variant `gloss: Subtle (level 1)`, `corners: Default`.
  *
- *   web                          mobile
- *   ---------------------------  --------------------------------
- *   --sp-md: 1rem                sp.md: 16
- *   --text-sm: 0.875rem          text.sm: 14
- *   --color-window: #f4f5f7      color.window
- *   --color-accent: #2a78c0      color.accent       (fixed default Aqua)
- *   --radius-lg: 2px             radius.lg: 2
- *   --card-* surface             card.* (RN-approximated: bg + border + elevation)
- *   --duration-fast: 80ms        duration.fast: 80
+ * ## Palette shape
  *
- * ## Design decisions baked in here (2026-06-18)
+ * The Companion palette is the primary set (`appBg`, `chrome`, `surface`, `ink`,
+ * `accent`, `accentSoft`, …). A block of **legacy aliases** maps the old
+ * Graphite token names (`window`, `text`, `rule`, …) onto the nearest Companion
+ * value so screens not yet migrated to the new shell keep compiling and render
+ * in the new palette. Those aliases disappear when the old Groups-list/detail
+ * screens are removed (Companion epic 4).
  *
- * - **Aqua-card subset, not XP bevels.** RN has no `--shadow-raised`/`--shadow-sunken`
- *   parity; we use the web `--card-*` model (flat bg + hairline border + soft
- *   elevation) instead.
- * - **System font.** Lucida Grande/Segoe UI don't exist on Android; `font.sans` is
- *   `undefined` (= system default). Named here so a bundled face is a one-line swap.
- * - **Fixed default accent.** Web's default Aqua `#2a78c0`. Per-user accent
- *   preference is not fetched this epic.
- * - **Sharp corners.** `radius.sm`/`radius.md` are 0, matching the web design system;
- *   `lg`/`xl` are tiny and used sparingly.
+ * ## Departures from the web design system
+ *
+ * - **Soft radii, not sharp corners.** The web rule is `radius: 0`; the
+ *   Companion mobile design intentionally uses a `4·8·9·11·12·14·16·18` radius
+ *   scale (rounded cards, chips, sheets). This is deliberate, not a regression.
+ * - **Bundled fonts.** Source Serif 4 (headers) + JetBrains Mono (all numerals,
+ *   labels, tags) are bundled (see `font`). `sans` stays the system face
+ *   (Roboto on Android) for body copy, names, and button labels.
+ *
+ * Decisions baked in 2026-06-18.
  */
 
-/** Spacing scale — 4px base unit. Use for margin / padding / gap, never raw px. */
+/**
+ * Spacing scale. Semantic steps (`xs`…`3xl`) plus the exact in-between pixel
+ * values the Companion layout is tuned to (`7·9·10·11·13`) so the Add screen
+ * fits a 412×892 frame without scrolling. Numeric keys are read as `sp[9]`.
+ */
 const sp = {
+  /* semantic steps */
   xs: 8,
   sm: 12,
   md: 16,
@@ -47,9 +50,19 @@ const sp = {
   xl: 32,
   '2xl': 48,
   '3xl': 64,
+  /* exact Companion layout values */
+  4: 4,
+  7: 7,
+  9: 9,
+  10: 10,
+  11: 11,
+  13: 13,
+  16: 16,
 } as const
 
-/** Type scale (px). Body text runs small, period-accurate for the Graphite shell. */
+/** Type scale (px). The Companion design specifies many exact sizes inline
+ * (e.g. amount hero 40, group name 23, sheet title 19); those stay raw at the
+ * call site. These named steps cover ordinary body / caption text. */
 const text = {
   xs: 12,
   sm: 14,
@@ -60,102 +73,175 @@ const text = {
   '3xl': 32,
 } as const
 
-/** RN fontWeight strings. Web maps semibold → 700. */
+/** RN fontWeight strings. */
 const weight = {
   normal: '400',
   medium: '500',
-  semibold: '700',
+  semibold: '600',
+  bold: '700',
 } as const satisfies Record<string, TextStyle['fontWeight']>
 
 /**
- * Font families. `sans` is `undefined` → the platform system font (Roboto on
- * Android), mirroring the web's Lucida Grande → Segoe UI → system fallback chain.
- * Swap in a bundled face here when one is added.
+ * Font families.
+ * - `sans` is `undefined` → platform system font (Roboto on Android). Body
+ *   copy, member names, button labels, settings rows.
+ * - `serif` is bundled Source Serif 4 600 — headers and sheet titles.
+ * - `mono*` are the bundled JetBrains Mono weights. Android does not synthesize
+ *   weight from a single custom family, so pick the explicit family for the
+ *   weight you need (do not combine `fontFamily: mono` with `fontWeight`).
+ *   Defined in `lib/fonts.ts`; loaded in `app/_layout.tsx`.
  */
 const font = {
   sans: undefined as string | undefined,
-  mono: Platform.select({ ios: 'Menlo', android: 'monospace', default: 'monospace' }),
-} as const
-
-/** Sharp corners by default; lg/xl are the only rounding, used sparingly. */
-const radius = {
-  sm: 0,
-  md: 0,
-  lg: 2,
-  xl: 4,
+  serif: 'SourceSerif4-SemiBold',
+  mono: 'JetBrainsMono-Regular', // 400
+  monoMedium: 'JetBrainsMono-Medium', // 500
+  monoSemibold: 'JetBrainsMono-SemiBold', // 600
+  monoBold: 'JetBrainsMono-Bold', // 700
 } as const
 
 /**
- * Graphite light palette — mirrors the web light `:root` color tokens.
- * (The web `[data-theme='dark']` Nord palette is the future dark variant.)
+ * Radius scale (Companion "Default" corners). Named by role so call sites read
+ * intent, not a raw number.
+ */
+const radius = {
+  sm: 4,
+  md: 8,
+  chip: 9,
+  field: 11,
+  btn: 12,
+  cardSm: 14,
+  card: 16,
+  sheet: 18,
+  /* legacy aliases (old screens) */
+  lg: 4,
+  xl: 8,
+} as const
+
+/**
+ * Companion warm/rust light palette (from handoff "Design tokens"). The dark
+ * tokens in the handoff are future parity — not shipped this epic.
  */
 const color = {
-  /* The desktop — page background */
-  desktop: '#b8bcc2',
-
-  /* Window chrome (cool silver-grey) */
-  window: '#f4f5f7', // panel / card surface
-  windowRaised: '#eceef2', // alternate panel surface
-  windowInset: '#ffffff', // text inputs, list boxes
-
-  /* Rules and dividers */
-  rule: '#c8ccd2',
-  ruleSoft: '#e2e5ea',
+  /* Surfaces */
+  appBg: '#e7e3da', // page background behind cards
+  chrome: '#efece6', // header + tab bar
+  surface: '#fcfbf8', // cards
+  surface2: '#f3f0ea', // recessed / tags
+  field: '#ffffff', // inputs
+  line: '#dbd5ca', // borders
+  lineSoft: '#e8e4db', // dividers
 
   /* Text */
-  text: '#1a1f28',
-  textMuted: '#5a6068',
-  textDisabled: '#8a909a',
+  ink: '#2a2620', // primary
+  ink2: '#746d61', // secondary / labels-on-fill
+  ink3: '#a89f90', // faint / placeholders
   textOnAccent: '#ffffff',
 
-  /* Accent — fixed default Aqua */
-  accent: '#2a78c0',
-  accentHi: '#5aa8e8',
-  accentChipBg: '#dde6f2',
-  accentChipFg: '#1a3868',
+  /* Accent (rust) */
+  accent: '#c0651f',
+  accentSoft: '#f5e6db', // selected chip / segment fill
+  accentLine: '#e3ba9a', // selected border
+  accentInk: '#b45f1d', // text on accentSoft fills
+  accentGlossTop: '#c8793c', // accent gloss gradient top stop
+  accentGlossBorder: '#a1551a', // accent gloss border
 
-  /* Semantic */
-  success: '#007700',
-  successLight: '#e0ffe0',
-  warning: '#b86800',
-  warningLight: '#fff3e0',
-  danger: '#cc0000',
-  dangerLight: '#ffe0e0',
+  /* Status */
+  green: '#3f7d5a',
+  greenBg: 'rgba(63,125,90,0.12)',
+  red: '#b3492a',
+  redBg: 'rgba(179,73,42,0.10)',
 
-  /* Amounts — green income, red expense (matches web convention) */
-  amountPositive: '#007700',
-  amountNegative: '#cc0000',
+  /* Modal scrim — the dimmed backdrop behind sheets */
+  scrim: 'rgba(0,0,0,0.32)',
 
-  /* Transfers — neutral directional, no good/bad judgment */
-  transferIn: '#006e8a', // teal — money arriving
-  transferOut: '#4a5fa8', // slate blue — money leaving
-
-  /* Modal scrim — the dimmed backdrop behind dialogs and bottom sheets */
-  scrim: 'rgba(0, 0, 0, 0.5)',
+  /* ── Legacy aliases (Graphite names → Companion values) ──────────────
+   * Used only by screens awaiting migration; removed in Companion epic 4. */
+  desktop: '#e7e3da', // → appBg
+  window: '#fcfbf8', // → surface
+  windowRaised: '#f3f0ea', // → surface2
+  windowInset: '#ffffff', // → field
+  rule: '#dbd5ca', // → line
+  ruleSoft: '#e8e4db', // → lineSoft
+  text: '#2a2620', // → ink
+  textMuted: '#746d61', // → ink2
+  textDisabled: '#a89f90', // → ink3
+  accentHi: '#c8793c', // → accentGlossTop
+  accentChipBg: '#f5e6db', // → accentSoft
+  accentChipFg: '#b45f1d', // → accentInk
+  success: '#3f7d5a', // → green
+  successLight: 'rgba(63,125,90,0.12)', // → greenBg
+  warning: '#b8801f', // amber (no Companion equivalent; kept for old screens)
+  warningLight: 'rgba(184,128,31,0.12)',
+  danger: '#b3492a', // → red
+  dangerLight: 'rgba(179,73,42,0.10)', // → redBg
+  amountPositive: '#3f7d5a', // → green
+  amountNegative: '#b3492a', // → red
 } as const
 
 /** Transition durations (ms). */
 const duration = {
-  fast: 80,
+  fast: 100,
   normal: 120,
 } as const
 
 /**
- * Aqua card surface — the RN approximation of the web `--card-*` tokens.
- * A flat panel on a hairline border with a soft drop shadow. The shadow is
- * expressed as RN style props (iOS shadow* + Android elevation), not a CSS string.
+ * Neutral card surface — the flat RN approximation used by legacy screens
+ * (the gloss primitives in Story 3 supersede this for new UI).
  */
 const card = {
-  bg: color.window,
-  borderColor: color.rule,
-  radius: radius.lg,
-  /** Spread into a card View's style. */
+  bg: color.surface,
+  borderColor: color.line,
+  radius: radius.card,
   shadow: {
     shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowRadius: 3,
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
     shadowOffset: { width: 0, height: 1 },
     elevation: 2,
+  } satisfies ViewStyle,
+} as const
+
+/**
+ * Gloss recipe constants (handoff "Gloss recipe", locked = Subtle / level 1).
+ *
+ * The per-base lighten/darken stops are computed at render time from `lib/color`
+ * (RN has no `color-mix`); only the fixed white-sheen / shadow values live here.
+ * Shadows are RN style props (iOS `shadow*` + Android `elevation`).
+ */
+const gloss = {
+  /** White sheen overlay (top → transparent ~60%) on neutral surfaces. */
+  neutralSheenTop: 'rgba(255,255,255,0.28)',
+  /** 1px top inset highlight on neutral surfaces. */
+  neutralInsetTop: 'rgba(255,255,255,0.7)',
+  /** 1px top inset highlight on the accent gloss. */
+  accentInsetTop: 'rgba(255,255,255,0.32)',
+  /** Text shadow under white text on the accent gloss. */
+  accentTextShadow: 'rgba(0,0,0,0.18)',
+
+  /** Soft drop shadow for neutral cards / keys (elevation ~2). */
+  shadowCard: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    shadowOffset: { width: 0, height: 1 },
+    elevation: 2,
+  } satisfies ViewStyle,
+  /** Stronger shadow for accent buttons (elevation ~4). */
+  shadowButton: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.16,
+    shadowRadius: 6,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 4,
+  } satisfies ViewStyle,
+  /** Sheet shadow — large, upward (elevation ~12). */
+  shadowSheet: {
+    shadowColor: '#000000',
+    shadowOpacity: 0.25,
+    shadowRadius: 30,
+    shadowOffset: { width: 0, height: -10 },
+    elevation: 12,
   } satisfies ViewStyle,
 } as const
 
@@ -168,13 +254,14 @@ export const theme = {
   color,
   duration,
   card,
+  gloss,
 } as const
 
 export type Theme = typeof theme
 
 /**
- * Base card surface as a ready-to-spread style object. Equivalent to the web
- * `--card-*` recipe (bg + border + radius + soft elevation).
+ * Base card surface as a ready-to-spread style object (bg + border + radius +
+ * soft elevation). Used by legacy screens; new UI uses `GlossSurface`.
  *
  *   <View style={[cardStyle, { padding: theme.sp.md }]} />
  */
