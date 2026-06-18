@@ -48,6 +48,7 @@
 | [Fish Pie: Expense Proposals](epics/fish-pie-expense-proposals.md) | Backlog |
 | [Mobile Local APK CI](epics/archive/mobile-local-apk-ci.md) | Done |
 | [Mobile Revival → MVP](epics/archive/mobile-revival.md) | Done |
+| [Pocket Companion: Mobile Design](epics/mobile-pocket-companion-design.md) | Backlog |
 
 ## Fish Pie sequence
 
