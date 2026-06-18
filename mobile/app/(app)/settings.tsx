@@ -1,16 +1,10 @@
 import { useEffect, useState } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  Alert,
-} from 'react-native'
+import { View, Text, TextInput, StyleSheet, Alert } from 'react-native'
 import { useRouter } from 'expo-router'
 import { getEmail, getBaseUrl, setBaseUrl, clearSession } from '@/lib/auth'
 import { ScreenHeader } from '@/components/ScreenHeader'
-import { theme } from '@/lib/theme'
+import { Button } from '@/components/Button'
+import { theme, cardStyle } from '@/lib/theme'
 
 /**
  * Settings screen.
@@ -78,15 +72,16 @@ export default function SettingsScreen() {
           keyboardType="url"
           placeholder="http://myserver:8887"
         />
-        <TouchableOpacity style={styles.saveButton} onPress={handleSaveUrl}>
-          <Text style={styles.saveButtonText}>{saved ? 'Saved ✓' : 'Save URL'}</Text>
-        </TouchableOpacity>
+        <Button
+          title={saved ? 'Saved ✓' : 'Save URL'}
+          size="sm"
+          onPress={handleSaveUrl}
+          style={styles.saveButton}
+        />
       </View>
 
       <View style={styles.section}>
-        <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-          <Text style={styles.logoutText}>Sign out</Text>
-        </TouchableOpacity>
+        <Button title="Sign out" variant="danger" onPress={handleLogout} />
       </View>
     </View>
   )
@@ -95,51 +90,34 @@ export default function SettingsScreen() {
 const styles = StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.color.desktop },
   section: {
-    backgroundColor: '#fff',
-    marginTop: 16,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    borderTopWidth: 1,
-    borderBottomWidth: 1,
-    borderColor: '#e0e0e0',
+    ...cardStyle,
+    marginHorizontal: theme.sp.md,
+    marginTop: theme.sp.md,
+    padding: theme.sp.md,
   },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#666',
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: theme.sp.xs,
   },
   row: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     paddingVertical: 4,
   },
-  rowLabel: { fontSize: 14, color: '#444' },
-  rowValue: { fontSize: 14, color: '#888' },
-  inputLabel: { fontSize: 13, color: '#444', marginBottom: 6 },
+  rowLabel: { fontSize: theme.text.sm, color: theme.color.text },
+  rowValue: { fontSize: theme.text.sm, color: theme.color.textMuted },
+  inputLabel: { fontSize: theme.text.sm, color: theme.color.text, marginBottom: 6 },
   input: {
     borderWidth: 1,
-    borderColor: '#ccc',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 14,
-    backgroundColor: '#fafafa',
-    marginBottom: 10,
+    borderColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
+    padding: theme.sp.sm,
+    fontSize: theme.text.sm,
+    backgroundColor: theme.color.windowInset,
+    marginBottom: theme.sp.xs,
   },
-  saveButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 6,
-    padding: 10,
-    alignItems: 'center',
-  },
-  saveButtonText: { color: '#fff', fontWeight: '600', fontSize: 13 },
-  logoutButton: {
-    padding: 12,
-    alignItems: 'center',
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#e74c3c',
-  },
-  logoutText: { color: '#e74c3c', fontWeight: '600', fontSize: 14 },
+  saveButton: { alignSelf: 'flex-start' },
 })
