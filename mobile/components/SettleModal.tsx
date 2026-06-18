@@ -30,7 +30,7 @@ interface Props {
  * - Replace with a proper bottom sheet (e.g. @gorhom/bottom-sheet) for native feel
  * - Add a date picker
  */
-export function SettleModal({ transfer, groupId, members: _members, defaultCurrency, onSettled, onClose }: Props) {
+export function SettleModal({ transfer, groupId, members, defaultCurrency, onSettled, onClose }: Props) {
   const [amount, setAmount] = useState(transfer.amount)
   const [currency, setCurrency] = useState(transfer.currency || defaultCurrency)
   const [date, setDate] = useState(new Date().toISOString().split('T')[0])
@@ -43,6 +43,15 @@ export function SettleModal({ transfer, groupId, members: _members, defaultCurre
       setError('Enter a valid amount')
       return
     }
+    // The backend requires the payer's account the money leaves from. Until a
+    // dedicated picker lands (settlement UI is deferred past MVP), use the
+    // payer's default payment account set on the web app.
+    const payer = members.find((m) => m.userId === transfer.fromUserId)
+    const payerAccountId = payer?.defaultPaymentAccountId
+    if (!payerAccountId) {
+      setError('No default payment account for the payer. Set one in the web app first.')
+      return
+    }
     setLoading(true)
     setError(null)
     try {
@@ -53,6 +62,7 @@ export function SettleModal({ transfer, groupId, members: _members, defaultCurre
         currency,
         date,
         note: note.trim() || undefined,
+        payerAccountId,
       })
       onSettled()
     } catch (e: any) {
