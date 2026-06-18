@@ -50,7 +50,7 @@ export default function SettingsScreen() {
 
   return (
     <View style={styles.container}>
-      <ScreenHeader title="Settings" />
+      <ScreenHeader title="Settings" onBack={() => router.back()} />
 
       <View style={styles.section}>
         <Text style={styles.sectionLabel}>Account</Text>

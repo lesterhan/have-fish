@@ -1,14 +1,22 @@
+import { useCallback } from 'react'
 import { ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native'
-import { ExpenseForm } from '@/components/ExpenseForm'
+import { useFocusEffect } from 'expo-router'
+import { BalanceCard } from '@/components/BalanceCard'
 import { useGroups } from '@/lib/group-context'
 import { theme } from '@/lib/theme'
 
 /**
- * Add tab — the shell's home. Interim: hosts the existing expense form for the
- * active group. Epic 2 replaces this with the numpad speed-entry screen.
+ * Balances tab — interim view over the existing balance card. Epic 3 rebuilds
+ * this as per-currency gloss cards with settlement.
  */
-export default function AddScreen() {
-  const { group, loadingGroups, reloadData } = useGroups()
+export default function BalancesScreen() {
+  const { group, data, loadingGroups, reloadData } = useGroups()
+
+  useFocusEffect(
+    useCallback(() => {
+      reloadData()
+    }, [reloadData]),
+  )
 
   if (loadingGroups && !group) {
     return (
@@ -21,14 +29,14 @@ export default function AddScreen() {
   if (!group) {
     return (
       <View style={styles.center}>
-        <Text style={styles.empty}>No group selected. Create one from the header.</Text>
+        <Text style={styles.empty}>No group selected.</Text>
       </View>
     )
   }
 
   return (
     <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-      <ExpenseForm group={group} onExpenseAdded={reloadData} />
+      <BalanceCard balances={data.balances} members={group.members} />
     </ScrollView>
   )
 }

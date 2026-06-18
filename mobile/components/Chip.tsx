@@ -1,30 +1,60 @@
-import { Text, TouchableOpacity, StyleSheet } from 'react-native'
+import { Pressable, StyleSheet, Text } from 'react-native'
 import { theme } from '@/lib/theme'
+import { GlossSurface } from './GlossSurface'
 
 interface Props {
   label: string
   active?: boolean
   onPress: () => void
   disabled?: boolean
+  /** Mono label (currency codes). Off for word chips like categories. */
+  mono?: boolean
 }
 
 /**
- * Toggle chip — the shared pill used for currency / category / payer / member
- * selection across the group screens. Active = accent fill; inactive = inset
- * surface with a hairline border. Sharp-ish corners, on-brand with the Graphite
- * design system (no fully-rounded pills).
+ * Toggle chip — the shared pill for currency / category / quick-pick selection.
+ *
+ * Companion design: inactive = `field` bg + 1.5px `line` border, `ink2`; active =
+ * neutral soft-gloss on `accentSoft` + 1.5px `accentLine` border, `accentInk`,
+ * weight 700.
  */
-export function Chip({ label, active = false, onPress, disabled = false }: Props) {
+export function Chip({ label, active = false, onPress, disabled = false, mono = true }: Props) {
+  const fontFamily = mono
+    ? active
+      ? theme.font.monoBold
+      : theme.font.mono
+    : theme.font.sans
+  const text = (
+    <Text
+      style={[
+        styles.text,
+        { fontFamily },
+        active ? styles.textActive : styles.textInactive,
+      ]}
+      numberOfLines={1}
+    >
+      {label}
+    </Text>
+  )
+
+  if (active) {
+    return (
+      <Pressable onPress={onPress} disabled={disabled}>
+        <GlossSurface base={theme.color.accentSoft} radius={theme.radius.chip} bordered={false} style={styles.activeShell}>
+          {text}
+        </GlossSurface>
+      </Pressable>
+    )
+  }
+
   return (
-    <TouchableOpacity
-      style={[styles.chip, active && styles.chipActive]}
+    <Pressable
       onPress={onPress}
       disabled={disabled}
+      style={[styles.chip, styles.inactiveShell]}
     >
-      <Text style={[styles.text, active && styles.textActive]} numberOfLines={1}>
-        {label}
-      </Text>
-    </TouchableOpacity>
+      {text}
+    </Pressable>
   )
 }
 
@@ -32,15 +62,20 @@ const styles = StyleSheet.create({
   chip: {
     paddingHorizontal: theme.sp.sm,
     paddingVertical: 7,
-    borderRadius: theme.radius.lg,
-    borderWidth: 1,
-    borderColor: theme.color.rule,
-    backgroundColor: theme.color.windowInset,
+    borderRadius: theme.radius.chip,
   },
-  chipActive: {
-    backgroundColor: theme.color.accent,
-    borderColor: theme.color.accent,
+  inactiveShell: {
+    borderWidth: 1.5,
+    borderColor: theme.color.line,
+    backgroundColor: theme.color.field,
   },
-  text: { fontSize: theme.text.sm, color: theme.color.text },
-  textActive: { color: theme.color.textOnAccent, fontWeight: theme.weight.semibold },
+  activeShell: {
+    paddingHorizontal: theme.sp.sm,
+    paddingVertical: 7,
+    borderWidth: 1.5,
+    borderColor: theme.color.accentLine,
+  },
+  text: { fontSize: theme.text.sm },
+  textInactive: { color: theme.color.ink2 },
+  textActive: { color: theme.color.accentInk, fontWeight: theme.weight.bold },
 })
