@@ -48,9 +48,12 @@ mobile/
 │       ├── groups/[id].tsx # group detail (balances, expenses, settle)
 │       └── settings.tsx
 ├── components/             # screen-level UI (ExpenseForm, SettleModal, …)
+│                           #   + design primitives: Chip, Button, ScreenHeader,
+│                           #     SegmentedTabs
 ├── lib/
 │   ├── api.ts              # typed fetch helpers; pulls base URL + session
-│   └── auth.ts             # SecureStore-backed base URL + session storage
+│   ├── auth.ts             # SecureStore-backed base URL + session storage
+│   └── theme.ts            # design tokens — the only place raw colors live
 ├── plugins/                # Expo config plugins applied during prebuild
 └── app.json               # Expo config (package: com.lesterhan.havefish)
 ```
@@ -58,6 +61,27 @@ mobile/
 Auth is a Better Auth session cookie captured at login and replayed on each
 request — see `getSession`/`setSession` in `lib/auth.ts` and how `api.ts`
 attaches it.
+
+## Design system — "have-fish Pocket Companion"
+
+The mobile UI mirrors the web's Graphite aesthetic as an **Aqua-card subset**:
+flat bordered cards on a graphite desktop, a fixed Aqua accent, sharp corners,
+and the system font. (No XP bevels — React Native has no `box-shadow` parity.)
+
+**The one rule: never hardcode a visual value. Always read from `lib/theme.ts`.**
+
+- `theme` — spacing (`sp`), type scale (`text`), `weight`, `font`, `radius`,
+  the Graphite `color` palette, `duration`, and the `card` surface. `cardStyle`
+  is a ready-to-spread card style.
+- Reuse the shared primitives instead of re-styling: **`Chip`** (toggle pills),
+  **`Button`** (`primary`/`neutral`/`danger`), **`ScreenHeader`**, and
+  **`SegmentedTabs`**.
+- `bun run lint:tokens` fails if a raw hex or `rgba(...)` appears anywhere
+  outside `lib/theme.ts`. Run it before opening a PR.
+
+Light theme only today; the palette is structured so a dark variant can be
+swapped in at a single point later. The per-user accent preference (web's
+`accent.ts`) is not yet honored — the accent is the fixed Aqua default.
 
 ## `android/` is generated, not committed
 

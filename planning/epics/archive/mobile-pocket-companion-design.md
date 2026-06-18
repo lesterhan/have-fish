@@ -10,7 +10,12 @@ Graphite/Aqua design system.
 This is the deferred **story 7** of [Mobile Revival](archive/mobile-revival.md), now
 its own epic.
 
-**Status:** Backlog — design refined 2026-06-18, awaiting build.
+**Status:** Done — shipped 2026-06-18 (stories 1–5, PRs #59, #60, #61, #62, #64;
+plus #63 hiding the invite UI on full two-member groups). Mobile now reads from a
+single `lib/theme.ts`, shares Chip/Button/ScreenHeader/SegmentedTabs primitives,
+and a `bun run lint:tokens` guardrail blocks raw color literals outside the token
+file. Light-only; dark variant, per-user accent, and a bundled font remain
+deferred as noted in "Out of scope".
 
 ---
 
