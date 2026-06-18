@@ -3,10 +3,14 @@ import { StyleSheet, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { ExpenseGroup } from '@/lib/api'
 import { appendDigit, appendDot, backspace } from '@/lib/amount-input'
-import { QUICK_CURRENCIES, lastCurrencyKey } from '@/lib/currency'
+import {
+  RECENT_CURRENCIES_KEY,
+  isSupportedCurrency,
+  lastCurrencyKey,
+  pushRecent,
+} from '@/lib/currency'
 import { theme } from '@/lib/theme'
 import { AmountHero } from './AmountHero'
-import { Chip } from './Chip'
 import { CurrencySheet } from './CurrencySheet'
 import { Numpad, type NumpadKey } from './Numpad'
 
@@ -23,7 +27,7 @@ interface Props {
  *
  * Built incrementally across Companion epic 2:
  * - Story 1: amount hero + custom numpad input model.
- * - Story 2 (here): currency pill + quick chips + Currency sheet.
+ * - Story 2 (here): currency pill + two-step Currency sheet (recents + full).
  * - Story 3: date chip + Date sheet.
  * - Story 4: paid-by segments + category rail.
  * - Story 5: submit, success flash, persistence.
@@ -31,10 +35,11 @@ interface Props {
 export function SpeedEntry({ group }: Props) {
   const [amount, setAmount] = useState('')
   const [currency, setCurrency] = useState(group.defaultCurrency ?? 'CAD')
+  const [recents, setRecents] = useState<string[]>([])
   const [currencyOpen, setCurrencyOpen] = useState(false)
 
-  // Restore the last currency used in this group (persists across submits and
-  // app launches). Falls back to the group default already in state.
+  // Restore the group's sticky currency (per group) and the global recent list
+  // (shared across groups). Both persist across submits and app launches.
   useEffect(() => {
     let cancelled = false
     AsyncStorage.getItem(lastCurrencyKey(group.id)).then((saved) => {
@@ -45,9 +50,28 @@ export function SpeedEntry({ group }: Props) {
     }
   }, [group.id])
 
+  useEffect(() => {
+    AsyncStorage.getItem(RECENT_CURRENCIES_KEY).then((raw) => {
+      if (!raw) return
+      try {
+        const parsed = JSON.parse(raw)
+        if (Array.isArray(parsed)) {
+          setRecents(parsed.filter((c): c is string => typeof c === 'string' && isSupportedCurrency(c)))
+        }
+      } catch {
+        // Corrupt value — ignore and start fresh.
+      }
+    })
+  }, [])
+
   function selectCurrency(code: string) {
     setCurrency(code)
     AsyncStorage.setItem(lastCurrencyKey(group.id), code).catch(() => {})
+    setRecents((current) => {
+      const next = pushRecent(current, code)
+      AsyncStorage.setItem(RECENT_CURRENCIES_KEY, JSON.stringify(next)).catch(() => {})
+      return next
+    })
   }
 
   function handleKey(key: NumpadKey) {
@@ -67,23 +91,12 @@ export function SpeedEntry({ group }: Props) {
         onPressCurrency={() => setCurrencyOpen(true)}
       />
 
-      <View style={styles.quickRow}>
-        {QUICK_CURRENCIES.map((code) => (
-          <Chip
-            key={code}
-            label={code}
-            active={currency === code}
-            onPress={() => selectCurrency(code)}
-          />
-        ))}
-        <Chip label="···" active={false} onPress={() => setCurrencyOpen(true)} />
-      </View>
-
       <Numpad onKey={handleKey} onClear={() => setAmount('')} />
 
       <CurrencySheet
         visible={currencyOpen}
         selected={currency}
+        recents={recents}
         onSelect={selectCurrency}
         onClose={() => setCurrencyOpen(false)}
       />
@@ -97,10 +110,5 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.sp.md,
     paddingBottom: theme.sp.sm,
     gap: theme.sp[9],
-  },
-  quickRow: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: theme.sp[7],
   },
 })
