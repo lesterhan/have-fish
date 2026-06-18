@@ -39,7 +39,7 @@ export function SpeedEntry({ group }: Props) {
   return (
     <View style={styles.column}>
       <AmountHero amount={amount} currency={currency} dateLabel="Today" />
-      <Numpad onKey={handleKey} />
+      <Numpad onKey={handleKey} onClear={() => setAmount('')} />
     </View>
   )
 }

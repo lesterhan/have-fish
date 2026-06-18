@@ -23,20 +23,31 @@ const KEY_HEIGHT = 46
 interface Props {
   /** Fired with the pressed key. The parent owns the amount input model. */
   onKey: (key: NumpadKey) => void
+  /** Long-pressing ⌫ clears the whole amount. */
+  onClear: () => void
 }
 
 /**
  * Custom 3×4 amount numpad — the Add screen never raises the OS keyboard for the
  * amount. Each key is a neutral soft-gloss tile; press feedback nudges it down a
  * pixel and dims it slightly (handoff "Custom Numpad").
+ *
+ * Tactile feedback: a light `selection` tick on every key press; long-pressing
+ * ⌫ clears the amount and fires a longer `warning` notification to mark the
+ * larger action.
  */
-export function Numpad({ onKey }: Props) {
+export function Numpad({ onKey, onClear }: Props) {
   return (
     <View style={styles.grid}>
       {ROWS.map((row, i) => (
         <View key={i} style={styles.row}>
           {row.map((key) => (
-            <NumpadButton key={key} value={key} onPress={() => onKey(key)} />
+            <NumpadButton
+              key={key}
+              value={key}
+              onPress={() => onKey(key)}
+              onLongPress={key === '⌫' ? onClear : undefined}
+            />
           ))}
         </View>
       ))}
@@ -44,11 +55,30 @@ export function Numpad({ onKey }: Props) {
   )
 }
 
-function NumpadButton({ value, onPress }: { value: NumpadKey; onPress: () => void }) {
+function NumpadButton({
+  value,
+  onPress,
+  onLongPress,
+}: {
+  value: NumpadKey
+  onPress: () => void
+  onLongPress?: () => void
+}) {
   const [pressed, setPressed] = useState(false)
   return (
     <Pressable
       onPress={onPress}
+      // When a long press fires, RN suppresses the trailing onPress, so ⌫'s
+      // single-delete never doubles up with the clear.
+      onLongPress={
+        onLongPress
+          ? () => {
+              // Longer/stronger feedback marks the destructive clear.
+              Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(() => {})
+              onLongPress()
+            }
+          : undefined
+      }
       onPressIn={() => {
         setPressed(true)
         // Subtle tactile tick on each key — the lightest haptic. Fire-and-forget;
