@@ -251,7 +251,7 @@ const styles = StyleSheet.create({
   empty: { padding: theme.sp.lg, color: theme.color.textMuted, textAlign: 'center' },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.4)',
+    backgroundColor: theme.color.scrim,
     justifyContent: 'center',
     padding: theme.sp.xl,
   },

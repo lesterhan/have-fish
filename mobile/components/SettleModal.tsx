@@ -1,15 +1,9 @@
 import { useState } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  Modal,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native'
+import { View, Text, TextInput, Modal, StyleSheet, ScrollView } from 'react-native'
 import { createSettlement, type CurrencyBalance, type GroupMember } from '@/lib/api'
+import { Chip } from './Chip'
+import { Button } from './Button'
+import { theme } from '@/lib/theme'
 
 interface Props {
   transfer: CurrencyBalance['transfers'][number]
@@ -88,17 +82,14 @@ export function SettleModal({ transfer, groupId, members, defaultCurrency, onSet
 
           <Text style={styles.label}>Amount</Text>
           <View style={styles.amountRow}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.currencyRow}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={styles.currencyRow}
+              contentContainerStyle={styles.chipStrip}
+            >
               {['CAD', 'USD', 'EUR', 'GBP', 'JPY'].map((c) => (
-                <TouchableOpacity
-                  key={c}
-                  style={[styles.currencyChip, currency === c && styles.currencyChipActive]}
-                  onPress={() => setCurrency(c)}
-                >
-                  <Text style={[styles.currencyChipText, currency === c && styles.currencyChipTextActive]}>
-                    {c}
-                  </Text>
-                </TouchableOpacity>
+                <Chip key={c} label={c} active={currency === c} onPress={() => setCurrency(c)} />
               ))}
             </ScrollView>
             <TextInput
@@ -130,16 +121,18 @@ export function SettleModal({ transfer, groupId, members, defaultCurrency, onSet
           {error ? <Text style={styles.error}>{error}</Text> : null}
 
           <View style={styles.actions}>
-            <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-              <Text style={styles.cancelText}>Cancel</Text>
-            </TouchableOpacity>
-            <TouchableOpacity style={styles.recordButton} onPress={handleRecord} disabled={loading}>
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.recordText}>Record</Text>
-              )}
-            </TouchableOpacity>
+            <Button
+              title="Cancel"
+              variant="neutral"
+              onPress={onClose}
+              style={styles.cancelButton}
+            />
+            <Button
+              title="Record"
+              onPress={handleRecord}
+              loading={loading}
+              style={styles.recordButton}
+            />
           </View>
         </View>
       </View>
@@ -150,85 +143,82 @@ export function SettleModal({ transfer, groupId, members, defaultCurrency, onSet
 const styles = StyleSheet.create({
   overlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
+    backgroundColor: theme.color.scrim,
     justifyContent: 'flex-end',
   },
   sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    paddingBottom: 36,
+    backgroundColor: theme.color.window,
+    borderTopLeftRadius: theme.radius.xl,
+    borderTopRightRadius: theme.radius.xl,
+    padding: theme.sp.lg,
+    paddingBottom: theme.sp.xl,
   },
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: '#ddd',
-    borderRadius: 2,
+    backgroundColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
     alignSelf: 'center',
-    marginBottom: 16,
+    marginBottom: theme.sp.md,
   },
-  title: { fontSize: 17, fontWeight: '700', marginBottom: 16 },
+  title: {
+    fontSize: theme.text.lg,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+    marginBottom: theme.sp.md,
+  },
   transferDisplay: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 12,
-    marginBottom: 20,
-    padding: 12,
-    backgroundColor: '#f8faff',
-    borderRadius: 8,
+    gap: theme.sp.sm,
+    marginBottom: theme.sp.lg,
+    padding: theme.sp.sm,
+    backgroundColor: theme.color.accentChipBg,
+    borderRadius: theme.radius.lg,
   },
-  fromName: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
-  arrow: { fontSize: 18, color: '#888' },
-  toName: { fontSize: 15, fontWeight: '600', color: '#1a1a1a' },
-  label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4, marginTop: 12 },
-  amountRow: { gap: 8 },
+  fromName: {
+    fontSize: theme.text.base,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+  },
+  arrow: { fontSize: theme.text.lg, color: theme.color.textMuted },
+  toName: {
+    fontSize: theme.text.base,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+  },
+  label: {
+    fontSize: theme.text.sm,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+    marginBottom: 4,
+    marginTop: theme.sp.sm,
+  },
+  amountRow: { gap: theme.sp.xs },
   currencyRow: { marginBottom: 4 },
-  currencyChip: {
-    paddingHorizontal: 12,
-    paddingVertical: 5,
-    borderRadius: 14,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginRight: 8,
-    backgroundColor: '#fff',
-  },
-  currencyChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  currencyChipText: { fontSize: 12, color: '#444' },
-  currencyChipTextActive: { color: '#fff', fontWeight: '600' },
+  chipStrip: { gap: theme.sp.xs },
   amountInput: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 24,
+    borderColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
+    padding: theme.sp.sm,
+    fontSize: theme.text['2xl'],
     fontWeight: '300',
+    backgroundColor: theme.color.windowInset,
+    color: theme.color.text,
   },
   input: {
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 15,
+    borderColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
+    padding: theme.sp.sm,
+    fontSize: theme.text.base,
+    backgroundColor: theme.color.windowInset,
+    color: theme.color.text,
   },
-  error: { color: '#e74c3c', fontSize: 13, marginTop: 8 },
-  actions: { flexDirection: 'row', gap: 10, marginTop: 20 },
-  cancelButton: {
-    flex: 1,
-    padding: 14,
-    alignItems: 'center',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#ccc',
-  },
-  cancelText: { fontSize: 15, color: '#444', fontWeight: '600' },
-  recordButton: {
-    flex: 2,
-    padding: 14,
-    alignItems: 'center',
-    borderRadius: 8,
-    backgroundColor: '#2563eb',
-  },
-  recordText: { fontSize: 15, color: '#fff', fontWeight: '600' },
+  error: { color: theme.color.danger, fontSize: theme.text.sm, marginTop: theme.sp.xs },
+  actions: { flexDirection: 'row', gap: theme.sp.xs, marginTop: theme.sp.lg },
+  cancelButton: { flex: 1 },
+  recordButton: { flex: 2 },
 })

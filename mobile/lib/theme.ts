@@ -129,6 +129,9 @@ const color = {
   /* Transfers — neutral directional, no good/bad judgment */
   transferIn: '#006e8a', // teal — money arriving
   transferOut: '#4a5fa8', // slate blue — money leaving
+
+  /* Modal scrim — the dimmed backdrop behind dialogs and bottom sheets */
+  scrim: 'rgba(0, 0, 0, 0.5)',
 } as const
 
 /** Transition durations (ms). */

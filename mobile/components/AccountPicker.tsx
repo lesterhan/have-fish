@@ -154,7 +154,7 @@ const styles = StyleSheet.create({
     marginLeft: 2,
   },
   chevron: { fontSize: theme.text.xs, color: theme.color.textMuted, marginLeft: theme.sp.xs },
-  overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  overlay: { flex: 1, backgroundColor: theme.color.scrim, justifyContent: 'flex-end' },
   sheet: {
     backgroundColor: theme.color.window,
     borderTopLeftRadius: theme.radius.xl,

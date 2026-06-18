@@ -5,7 +5,8 @@
   "scripts": {
     "start": "expo start",
     "android": "expo run:android",
-    "ios": "expo run:ios"
+    "ios": "expo run:ios",
+    "lint:tokens": "if grep -rnE '#[0-9a-fA-F]{3,6}|rgba\\(' app components --include='*.ts' --include='*.tsx' | grep -v 'lib/theme.ts'; then echo '\\nRaw color literals found outside lib/theme.ts — use a theme token instead.' && exit 1; fi"
   },
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
