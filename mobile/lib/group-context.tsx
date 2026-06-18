@@ -22,7 +22,7 @@ import {
 } from '@/lib/api'
 import { LAST_GROUP_KEY, resolveActiveGroupId } from '@/lib/group-store'
 
-interface GroupData {
+export interface GroupData {
   expenses: GroupExpense[]
   balances: CurrencyBalance[]
   settlements: GroupSettlement[]

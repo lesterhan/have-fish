@@ -1,41 +1,14 @@
-import { ScrollView, StyleSheet, Text, View, ActivityIndicator } from 'react-native'
 import { ExpenseForm } from '@/components/ExpenseForm'
-import { useGroups } from '@/lib/group-context'
-import { theme } from '@/lib/theme'
+import { GroupScreen } from '@/components/GroupScreen'
 
 /**
  * Add tab — the shell's home. Interim: hosts the existing expense form for the
  * active group. Epic 2 replaces this with the numpad speed-entry screen.
  */
 export default function AddScreen() {
-  const { group, loadingGroups, reloadData } = useGroups()
-
-  if (loadingGroups && !group) {
-    return (
-      <View style={styles.center}>
-        <ActivityIndicator />
-      </View>
-    )
-  }
-
-  if (!group) {
-    return (
-      <View style={styles.center}>
-        <Text style={styles.empty}>No group selected. Create one from the header.</Text>
-      </View>
-    )
-  }
-
   return (
-    <ScrollView style={styles.flex} contentContainerStyle={styles.content}>
-      <ExpenseForm group={group} onExpenseAdded={reloadData} />
-    </ScrollView>
+    <GroupScreen>
+      {({ group, reloadData }) => <ExpenseForm group={group} onExpenseAdded={reloadData} />}
+    </GroupScreen>
   )
 }
-
-const styles = StyleSheet.create({
-  flex: { flex: 1, backgroundColor: theme.color.appBg },
-  content: { padding: theme.sp.md },
-  center: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: theme.color.appBg, padding: theme.sp.lg },
-  empty: { color: theme.color.ink3, textAlign: 'center' },
-})

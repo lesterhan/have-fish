@@ -8,9 +8,9 @@ import {
   type TextStyle,
   type ViewStyle,
 } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
 import { theme } from '@/lib/theme'
-import { alpha, darken, lighten } from '@/lib/color'
+import { alpha } from '@/lib/color'
+import { GlossLayers } from './GlossLayers'
 
 type Variant = 'accent' | 'neutral'
 
@@ -84,22 +84,9 @@ export function GlossButton({
         style,
       ]}
     >
-      {/* Accent / neutral gloss gradient layers (filled tones draw their own). */}
-      {tone === 'accent' && (
-        <GradientLayers
-          radius={radius}
-          base={[theme.color.accentGlossTop, theme.color.accent]}
-          insetTop={theme.gloss.accentInsetTop}
-        />
-      )}
-      {tone === 'neutral' && (
-        <GradientLayers
-          radius={radius}
-          base={[lighten(theme.color.surface2, 2), darken(theme.color.surface2, 5)]}
-          sheen={theme.gloss.neutralSheenTop}
-          insetTop={theme.gloss.neutralInsetTop}
-        />
-      )}
+      {/* Gloss overlay (filled disabled/success tones stay flat). */}
+      {tone === 'accent' && <GlossLayers base={theme.color.accent} radius={radius} accent />}
+      {tone === 'neutral' && <GlossLayers base={theme.color.surface2} radius={radius} />}
 
       <Text
         style={[
@@ -125,40 +112,6 @@ export function GlossButton({
   )
 }
 
-/** The two stacked gloss gradients + top inset highlight, clipped to `radius`. */
-function GradientLayers({
-  radius,
-  base,
-  sheen,
-  insetTop,
-}: {
-  radius: number
-  base: [string, string]
-  sheen?: string
-  insetTop: string
-}) {
-  return (
-    <View style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden' }]}>
-      <LinearGradient
-        colors={base}
-        start={{ x: 0, y: 0 }}
-        end={{ x: 0, y: 1 }}
-        style={StyleSheet.absoluteFill}
-      />
-      {sheen && (
-        <LinearGradient
-          colors={[sheen, alpha(theme.color.field, 0)]}
-          locations={[0, 0.6]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-      )}
-      <View style={[styles.insetTop, { backgroundColor: insetTop }]} />
-    </View>
-  )
-}
-
 const styles = StyleSheet.create({
   base: {
     alignItems: 'center',
@@ -181,5 +134,4 @@ const styles = StyleSheet.create({
     textShadowOffset: { width: 0, height: 1 },
     textShadowRadius: 1,
   },
-  insetTop: { position: 'absolute', top: 0, left: 0, right: 0, height: 1 },
 })

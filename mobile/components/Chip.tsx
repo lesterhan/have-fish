@@ -1,7 +1,6 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
+import { Pressable, StyleSheet, Text } from 'react-native'
 import { theme } from '@/lib/theme'
-import { alpha, darken, lighten } from '@/lib/color'
+import { GlossLayers } from './GlossLayers'
 
 interface Props {
   label: string
@@ -30,24 +29,7 @@ export function Chip({ label, active = false, onPress, disabled = false, mono = 
       disabled={disabled}
       style={[styles.chip, active ? styles.active : styles.inactive]}
     >
-      {active && (
-        <View style={[styles.gloss, { borderRadius: theme.radius.chip }]}>
-          <LinearGradient
-            colors={[lighten(theme.color.accentSoft, 2), darken(theme.color.accentSoft, 5)]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.fill}
-          />
-          <LinearGradient
-            colors={[theme.gloss.neutralSheenTop, alpha(theme.color.field, 0)]}
-            locations={[0, 0.6]}
-            start={{ x: 0, y: 0 }}
-            end={{ x: 0, y: 1 }}
-            style={styles.fill}
-          />
-          <View style={[styles.insetTop, { backgroundColor: theme.gloss.neutralInsetTop }]} />
-        </View>
-      )}
+      {active && <GlossLayers base={theme.color.accentSoft} radius={theme.radius.chip} />}
       <Text
         style={[
           styles.text,
@@ -72,9 +54,6 @@ const styles = StyleSheet.create({
   },
   inactive: { borderColor: theme.color.line, backgroundColor: theme.color.field },
   active: { borderColor: theme.color.accentLine, backgroundColor: theme.color.accentSoft },
-  gloss: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, overflow: 'hidden' },
-  fill: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0 },
-  insetTop: { position: 'absolute', top: 0, left: 0, right: 0, height: 1 },
   text: { fontSize: theme.text.sm, fontWeight: theme.weight.medium },
   textInactive: { color: theme.color.ink2 },
   textActive: { color: theme.color.accentInk },

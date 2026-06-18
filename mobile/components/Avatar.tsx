@@ -1,7 +1,7 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
 import { theme } from '@/lib/theme'
 import { initials } from '@/lib/initials'
+import { GlossLayers } from './GlossLayers'
 
 interface Props {
   name: string | null | undefined
@@ -29,14 +29,7 @@ export function Avatar({ name, size = 32, selected = false }: Props) {
         selected ? styles.selectedBorder : styles.neutralBorder,
       ]}
     >
-      {selected && (
-        <LinearGradient
-          colors={[theme.color.accentGlossTop, theme.color.accent]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={[StyleSheet.absoluteFill, { borderRadius: size / 2 }]}
-        />
-      )}
+      {selected && <GlossLayers base={theme.color.accent} radius={size / 2} accent />}
       <Text
         style={[
           styles.initials,

@@ -1,8 +1,8 @@
 import { type ReactNode } from 'react'
-import { StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native'
-import { LinearGradient } from 'expo-linear-gradient'
+import { View, type StyleProp, type ViewStyle } from 'react-native'
 import { theme } from '@/lib/theme'
-import { alpha, darken, lighten } from '@/lib/color'
+import { darken } from '@/lib/color'
+import { GlossLayers } from './GlossLayers'
 
 interface Props {
   /** Base color the gloss is mixed from. Defaults to the card surface. */
@@ -19,12 +19,11 @@ interface Props {
 
 /**
  * Neutral soft-gloss container — the workhorse surface of the Companion design:
- * cards, numpad keys, the gear button, sheets, active chips.
+ * cards, the gear button, group rows, active chips' backdrop, etc.
  *
- * Recreates the handoff "Gloss recipe → Neutral soft-gloss" with two stacked
- * gradients (a base light→dark fill + a white sheen overlay), a 1px top inset
- * highlight, a darkened hairline border, and a soft elevation. Purely visual —
- * wrap it in a `Pressable` for interactive surfaces (e.g. numpad keys).
+ * Owns the box (solid base bg + darkened hairline border + soft elevation) and
+ * drops a {@link GlossLayers} overlay inside to paint the sheen. Purely visual —
+ * wrap it in a `Pressable` for interactive surfaces.
  */
 export function GlossSurface({
   base = theme.color.surface,
@@ -45,35 +44,8 @@ export function GlossSurface({
         style,
       ]}
     >
-      {/* Gradient layers, clipped to the rounded rect. */}
-      <View style={[StyleSheet.absoluteFill, { borderRadius: radius, overflow: 'hidden' }]}>
-        <LinearGradient
-          colors={[lighten(base, 2), darken(base, 5)]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        <LinearGradient
-          colors={[theme.gloss.neutralSheenTop, alpha(theme.color.field, 0)]}
-          locations={[0, 0.6]}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={StyleSheet.absoluteFill}
-        />
-        {/* 1px top inset highlight. */}
-        <View style={[styles.insetTop, { backgroundColor: theme.gloss.neutralInsetTop }]} />
-      </View>
+      <GlossLayers base={base} radius={radius} />
       {children}
     </View>
   )
 }
-
-const styles = StyleSheet.create({
-  insetTop: {
-    position: 'absolute',
-    top: 0,
-    left: 0,
-    right: 0,
-    height: 1,
-  },
-})
