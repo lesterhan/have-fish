@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { SafeAreaProvider } from 'react-native-safe-area-context'
 import { isAuthenticated } from '@/lib/auth'
 import { flushOfflineQueue } from '@/lib/api'
 
@@ -50,9 +51,9 @@ export default function RootLayout() {
   if (!checked) return null
 
   return (
-    <>
+    <SafeAreaProvider>
       <StatusBar style="dark" />
       <Slot />
-    </>
+    </SafeAreaProvider>
   )
 }

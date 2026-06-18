@@ -1,5 +1,6 @@
 import { Tabs } from 'expo-router'
 import { Text } from 'react-native'
+import { theme } from '@/lib/theme'
 
 /**
  * Bottom tab navigator for the authenticated app shell.
@@ -13,10 +14,14 @@ export default function AppLayout() {
     <Tabs
       screenOptions={{
         headerShown: false,
-        tabBarActiveTintColor: '#2563eb',
-        tabBarInactiveTintColor: '#888',
-        tabBarStyle: { borderTopWidth: 1, borderTopColor: '#e0e0e0' },
-        tabBarLabelStyle: { fontSize: 11 },
+        tabBarActiveTintColor: theme.color.accent,
+        tabBarInactiveTintColor: theme.color.textMuted,
+        tabBarStyle: {
+          backgroundColor: theme.color.window,
+          borderTopWidth: 1,
+          borderTopColor: theme.color.rule,
+        },
+        tabBarLabelStyle: { fontSize: theme.text.xs },
       }}
     >
       <Tabs.Screen

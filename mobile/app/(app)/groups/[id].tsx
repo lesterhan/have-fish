@@ -1,12 +1,5 @@
 import { useCallback, useState } from 'react'
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native'
+import { View, StyleSheet, ActivityIndicator, ScrollView } from 'react-native'
 import { useLocalSearchParams, useRouter, useFocusEffect } from 'expo-router'
 import {
   fetchGroup,
@@ -25,6 +18,9 @@ import { BalanceCard } from '@/components/BalanceCard'
 import { ExpenseList } from '@/components/ExpenseList'
 import { SettlementList } from '@/components/SettlementList'
 import { GroupSettingsPanel } from '@/components/GroupSettingsPanel'
+import { ScreenHeader } from '@/components/ScreenHeader'
+import { SegmentedTabs } from '@/components/SegmentedTabs'
+import { theme } from '@/lib/theme'
 
 type Tab = 'add' | 'balances' | 'history' | 'settings'
 
@@ -101,31 +97,13 @@ export default function GroupDetailScreen() {
 
   return (
     <View style={styles.container}>
-      {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
-          <Text style={styles.backText}>‹ Back</Text>
-        </TouchableOpacity>
-        <Text style={styles.groupName} numberOfLines={1}>
-          {group.name}
-        </Text>
-        <View style={{ width: 56 }} />
-      </View>
+      <ScreenHeader title={group.name} onBack={() => router.back()} />
 
-      {/* Tab bar */}
-      <View style={styles.tabBar}>
-        {(['add', 'balances', 'history', 'settings'] as Tab[]).map((tab) => (
-          <TouchableOpacity
-            key={tab}
-            style={[styles.tab, activeTab === tab && styles.tabActive]}
-            onPress={() => setActiveTab(tab)}
-          >
-            <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
-              {tab.charAt(0).toUpperCase() + tab.slice(1)}
-            </Text>
-          </TouchableOpacity>
-        ))}
-      </View>
+      <SegmentedTabs<Tab>
+        tabs={['add', 'balances', 'history', 'settings']}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
 
       {/* Tab content */}
       <ScrollView style={styles.content} contentContainerStyle={styles.contentPad}>
@@ -173,38 +151,13 @@ export default function GroupDetailScreen() {
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#f0f2f5' },
-  center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  header: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    paddingTop: 52,
-    paddingBottom: 10,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  backButton: { width: 56 },
-  backText: { fontSize: 16, color: '#2563eb' },
-  groupName: { flex: 1, textAlign: 'center', fontSize: 16, fontWeight: '700' },
-  tabBar: {
-    flexDirection: 'row',
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#e0e0e0',
-  },
-  tab: {
+  container: { flex: 1, backgroundColor: theme.color.desktop },
+  center: {
     flex: 1,
-    paddingVertical: 10,
+    justifyContent: 'center',
     alignItems: 'center',
-    borderBottomWidth: 2,
-    borderBottomColor: 'transparent',
+    backgroundColor: theme.color.desktop,
   },
-  tabActive: { borderBottomColor: '#2563eb' },
-  tabText: { fontSize: 13, color: '#888' },
-  tabTextActive: { color: '#2563eb', fontWeight: '600' },
   content: { flex: 1 },
-  contentPad: { padding: 16, paddingBottom: 32 },
+  contentPad: { padding: theme.sp.md, paddingBottom: theme.sp.xl },
 })
