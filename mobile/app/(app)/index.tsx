@@ -1,14 +1,15 @@
-import { ExpenseForm } from '@/components/ExpenseForm'
 import { GroupScreen } from '@/components/GroupScreen'
+import { SpeedEntry } from '@/components/SpeedEntry'
 
 /**
- * Add tab — the shell's home. Interim: hosts the existing expense form for the
- * active group. Epic 2 replaces this with the numpad speed-entry screen.
+ * Add tab — the shell's home and the design's single-job speed-entry screen
+ * (Companion epic 2). The screen owns its own padding, so the GroupScreen
+ * scaffold contributes none.
  */
 export default function AddScreen() {
   return (
-    <GroupScreen>
-      {({ group, reloadData }) => <ExpenseForm group={group} onExpenseAdded={reloadData} />}
+    <GroupScreen contentStyle={{ padding: 0 }}>
+      {({ group, reloadData }) => <SpeedEntry group={group} onExpenseAdded={reloadData} />}
     </GroupScreen>
   )
 }
