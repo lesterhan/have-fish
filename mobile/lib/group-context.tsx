@@ -4,6 +4,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from 'react'
@@ -56,6 +57,10 @@ const GroupContext = createContext<GroupContextValue | null>(null)
  * Owns the Companion shell's group state: the group list, the active group, and
  * that group's data bundle. Lives above the tab navigator so Add / Balances /
  * History share one source of truth and one refresh.
+ *
+ * The active id is mirrored in a ref so async fetches can discard their result
+ * if the user switched groups mid-flight — a clean stale-guard without poking
+ * state from inside state updaters.
  */
 export function GroupProvider({ children }: { children: ReactNode }) {
   const [groups, setGroups] = useState<ExpenseGroup[]>([])
@@ -66,6 +71,14 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   const [loadingData, setLoadingData] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Latest requested active id — the source of truth for discarding stale loads.
+  const activeIdRef = useRef<string | null>(null)
+
+  const applyActiveId = useCallback((id: string | null) => {
+    activeIdRef.current = id
+    setActiveGroupId(id)
+  }, [])
+
   const loadDataFor = useCallback(async (id: string) => {
     setLoadingData(true)
     try {
@@ -75,18 +88,14 @@ export function GroupProvider({ children }: { children: ReactNode }) {
         fetchBalances(id),
         fetchSettlements(id),
       ])
-      // Guard against a race where the user switched groups mid-fetch.
-      setActiveGroupId((current) => {
-        if (current === id) {
-          setGroup(g)
-          setData({ expenses, balances, settlements })
-        }
-        return current
-      })
+      if (activeIdRef.current !== id) return // user switched away — discard.
+      setGroup(g)
+      setData({ expenses, balances, settlements })
+      setError(null)
     } catch (e: any) {
-      setError(e?.message ?? 'Failed to load group')
+      if (activeIdRef.current === id) setError(e?.message ?? 'Failed to load group')
     } finally {
-      setLoadingData(false)
+      if (activeIdRef.current === id) setLoadingData(false)
     }
   }, [])
 
@@ -96,42 +105,49 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       const list = await fetchGroups()
       setGroups(list)
       const stored = await AsyncStorage.getItem(LAST_GROUP_KEY)
-      setActiveGroupId((current) => {
-        const next = resolveActiveGroupId(current ?? stored, list)
-        if (next && next !== current) loadDataFor(next)
-        if (!next) {
-          setGroup(null)
-          setData(EMPTY_DATA)
-        }
-        return next
-      })
+      const next = resolveActiveGroupId(activeIdRef.current ?? stored, list)
+      if (next) {
+        applyActiveId(next)
+        loadDataFor(next)
+      } else {
+        applyActiveId(null)
+        setGroup(null)
+        setData(EMPTY_DATA)
+      }
+      setError(null)
     } catch (e: any) {
       setError(e?.message ?? 'Failed to load groups')
     } finally {
       setLoadingGroups(false)
     }
-  }, [loadDataFor])
+  }, [applyActiveId, loadDataFor])
 
   const setActiveGroup = useCallback(
     (id: string) => {
-      if (id === activeGroupId) return
-      setActiveGroupId(id)
+      if (id === activeIdRef.current) return
+      applyActiveId(id)
+      // Show the group shell immediately from the list entry; data streams in.
       setGroup(groups.find((g) => g.id === id) ?? null)
       setData(EMPTY_DATA)
       AsyncStorage.setItem(LAST_GROUP_KEY, id).catch(() => null)
       loadDataFor(id)
     },
-    [activeGroupId, groups, loadDataFor],
+    [groups, applyActiveId, loadDataFor],
   )
 
   const reloadData = useCallback(async () => {
-    if (activeGroupId) await loadDataFor(activeGroupId)
-  }, [activeGroupId, loadDataFor])
+    const id = activeIdRef.current
+    if (id) await loadDataFor(id)
+  }, [loadDataFor])
 
+  // Initial load — guarded so React StrictMode's double-mount in dev doesn't
+  // fire two group fetches.
+  const initialized = useRef(false)
   useEffect(() => {
+    if (initialized.current) return
+    initialized.current = true
     reloadGroups()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [reloadGroups])
 
   const value = useMemo<GroupContextValue>(
     () => ({

@@ -37,7 +37,9 @@ export function GlossSurface({
   return (
     <View
       style={[
-        { borderRadius: radius },
+        // Solid base behind the gradient so Android renders the elevation
+        // shadow (a transparent elevated View casts none).
+        { borderRadius: radius, backgroundColor: base },
         elevated && theme.gloss.shadowCard,
         bordered && { borderWidth: 1, borderColor: darken(base, 10) },
         style,

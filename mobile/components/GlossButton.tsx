@@ -165,8 +165,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     paddingHorizontal: theme.sp.md,
   },
-  accentBorder: { borderWidth: 1, borderColor: theme.color.accentGlossBorder },
-  neutralBorder: { borderWidth: 1, borderColor: theme.color.line },
+  // Solid base behind the gradient so Android renders the elevation shadow.
+  accentBorder: { borderWidth: 1, borderColor: theme.color.accentGlossBorder, backgroundColor: theme.color.accent },
+  neutralBorder: { borderWidth: 1, borderColor: theme.color.line, backgroundColor: theme.color.surface2 },
   successFill: { backgroundColor: theme.color.green },
   disabledFill: { backgroundColor: theme.color.surface2 },
   pressed: { transform: [{ translateY: 1 }] },
