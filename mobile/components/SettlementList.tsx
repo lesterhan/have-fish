@@ -1,5 +1,7 @@
-import { View, Text, TouchableOpacity, StyleSheet, Alert } from 'react-native'
+import { View, Text, StyleSheet, Alert } from 'react-native'
 import { deleteSettlement, type GroupSettlement } from '@/lib/api'
+import { Button } from './Button'
+import { theme, cardStyle } from '@/lib/theme'
 
 interface Props {
   settlements: GroupSettlement[]
@@ -66,12 +68,14 @@ export function SettlementList({ settlements, groupId, onDeleted }: Props) {
               </View>
             </View>
           </View>
-          <TouchableOpacity
-            style={styles.deleteButton}
-            onPress={() => handleDelete(s.id)}
-          >
-            <Text style={styles.deleteText}>Delete</Text>
-          </TouchableOpacity>
+          <View style={styles.deleteFooter}>
+            <Button
+              title="Delete"
+              variant="danger"
+              size="sm"
+              onPress={() => handleDelete(s.id)}
+            />
+          </View>
         </View>
       ))}
     </View>
@@ -79,58 +83,72 @@ export function SettlementList({ settlements, groupId, onDeleted }: Props) {
 }
 
 const styles = StyleSheet.create({
-  container: { marginBottom: 16 },
+  container: { marginBottom: theme.sp.md },
   sectionLabel: {
-    fontSize: 11,
-    fontWeight: '700',
-    color: '#888',
+    fontSize: theme.text.xs,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.textMuted,
     textTransform: 'uppercase',
-    marginBottom: 8,
+    marginBottom: theme.sp.xs,
   },
-  empty: { color: '#888', fontSize: 13, marginBottom: 16 },
+  empty: { color: theme.color.textMuted, fontSize: theme.text.sm, marginBottom: theme.sp.md },
   row: {
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    marginBottom: 8,
+    ...cardStyle,
+    marginBottom: theme.sp.xs,
     overflow: 'hidden',
   },
   main: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 12,
+    padding: theme.sp.sm,
   },
-  meta: { flex: 1, marginRight: 12 },
-  transferLine: { flexDirection: 'row', alignItems: 'center', gap: 8, flexWrap: 'wrap' },
-  transfer: { fontSize: 14, color: '#1a1a1a' },
-  bold: { fontWeight: '600' },
+  meta: { flex: 1, marginRight: theme.sp.sm },
+  transferLine: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.sp.xs,
+    flexWrap: 'wrap',
+  },
+  transfer: { fontSize: theme.text.sm, color: theme.color.text },
+  bold: { fontWeight: theme.weight.semibold },
   statusPill: {
-    backgroundColor: '#dcfce7',
-    borderRadius: 8,
+    backgroundColor: theme.color.successLight,
+    borderRadius: theme.radius.lg,
     paddingHorizontal: 7,
     paddingVertical: 1,
   },
-  statusPillPending: { backgroundColor: '#fef3c7' },
-  statusText: { fontSize: 10, fontWeight: '700', color: '#16a34a', textTransform: 'uppercase' },
-  statusTextPending: { color: '#b45309' },
-  submeta: { fontSize: 12, color: '#888', marginTop: 2 },
+  statusPillPending: { backgroundColor: theme.color.warningLight },
+  statusText: {
+    fontSize: 10,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.success,
+    textTransform: 'uppercase',
+  },
+  statusTextPending: { color: theme.color.warning },
+  submeta: { fontSize: theme.text.xs, color: theme.color.textMuted, marginTop: 2 },
   amountBlock: { alignItems: 'flex-end' },
-  amount: { fontSize: 16, fontWeight: '700', color: '#27ae60' },
+  amount: {
+    fontSize: theme.text.base,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.amountPositive,
+  },
   currencyPill: {
-    backgroundColor: '#f0f0f0',
-    borderRadius: 4,
+    backgroundColor: theme.color.windowRaised,
+    borderRadius: theme.radius.lg,
     paddingHorizontal: 6,
     paddingVertical: 2,
     marginTop: 2,
   },
-  currencyText: { fontSize: 11, color: '#666', fontWeight: '600' },
-  deleteButton: {
+  currencyText: {
+    fontSize: theme.text.xs,
+    color: theme.color.textMuted,
+    fontWeight: theme.weight.semibold,
+  },
+  deleteFooter: {
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    padding: 8,
+    borderTopColor: theme.color.ruleSoft,
+    padding: theme.sp.xs,
     alignItems: 'center',
   },
-  deleteText: { fontSize: 12, color: '#e74c3c' },
 })

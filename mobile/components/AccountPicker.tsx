@@ -9,6 +9,7 @@ import {
   StyleSheet,
 } from 'react-native'
 import type { Account } from '@/lib/api'
+import { theme } from '@/lib/theme'
 
 interface Props {
   accounts: Account[]
@@ -93,7 +94,7 @@ export function AccountPicker({ accounts, selectedId, onSelect, placeholder = 'S
               value={query}
               onChangeText={setQuery}
               placeholder="Search accounts"
-              placeholderTextColor="#aaa"
+              placeholderTextColor={theme.color.textDisabled}
               autoCorrect={false}
               autoCapitalize="none"
             />
@@ -127,68 +128,85 @@ export function AccountPicker({ accounts, selectedId, onSelect, placeholder = 'S
 }
 
 const styles = StyleSheet.create({
-  label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4, marginTop: 8 },
+  label: {
+    fontSize: theme.text.sm,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+    marginBottom: 4,
+    marginTop: theme.sp.xs,
+  },
   trigger: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fff',
+    backgroundColor: theme.color.windowInset,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 6,
-    padding: 10,
+    borderColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
+    padding: theme.sp.sm,
   },
-  triggerText: { flex: 1, fontSize: 15, color: '#1a1a1a' },
-  triggerPlaceholder: { color: '#aaa' },
-  triggerSubtitle: { fontSize: 12, color: '#888', marginTop: 3, marginLeft: 2 },
-  chevron: { fontSize: 12, color: '#888', marginLeft: 8 },
+  triggerText: { flex: 1, fontSize: theme.text.base, color: theme.color.text },
+  triggerPlaceholder: { color: theme.color.textDisabled },
+  triggerSubtitle: {
+    fontSize: theme.text.xs,
+    color: theme.color.textMuted,
+    marginTop: 3,
+    marginLeft: 2,
+  },
+  chevron: { fontSize: theme.text.xs, color: theme.color.textMuted, marginLeft: theme.sp.xs },
   overlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
   sheet: {
-    backgroundColor: '#fff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    padding: 20,
-    paddingBottom: 24,
+    backgroundColor: theme.color.window,
+    borderTopLeftRadius: theme.radius.xl,
+    borderTopRightRadius: theme.radius.xl,
+    padding: theme.sp.lg,
+    paddingBottom: theme.sp.lg,
     maxHeight: '80%',
   },
   handle: {
     width: 40,
     height: 4,
-    backgroundColor: '#ddd',
-    borderRadius: 2,
+    backgroundColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
     alignSelf: 'center',
-    marginBottom: 12,
+    marginBottom: theme.sp.sm,
   },
   sheetHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: theme.sp.sm,
   },
-  sheetTitle: { fontSize: 17, fontWeight: '700', color: '#1a1a1a' },
-  cancel: { fontSize: 15, color: '#2563eb' },
+  sheetTitle: {
+    fontSize: theme.text.lg,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+  },
+  cancel: { fontSize: theme.text.base, color: theme.color.accent },
   search: {
-    backgroundColor: '#f2f3f5',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    fontSize: 15,
-    marginBottom: 8,
+    backgroundColor: theme.color.windowInset,
+    borderWidth: 1,
+    borderColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
+    paddingHorizontal: theme.sp.sm,
+    paddingVertical: theme.sp.sm,
+    fontSize: theme.text.base,
+    marginBottom: theme.sp.xs,
   },
   list: { flexGrow: 0 },
   row: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: theme.sp.sm,
     paddingHorizontal: 4,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: theme.color.ruleSoft,
   },
-  rowSelected: { backgroundColor: '#eff6ff' },
+  rowSelected: { backgroundColor: theme.color.accentChipBg },
   rowText: { flex: 1 },
-  rowName: { fontSize: 15, color: '#1a1a1a', fontWeight: '500' },
-  rowPath: { fontSize: 12, color: '#888', marginTop: 2 },
-  check: { fontSize: 16, color: '#2563eb', marginLeft: 10 },
-  empty: { padding: 24, color: '#888', textAlign: 'center' },
+  rowName: { fontSize: theme.text.base, color: theme.color.text, fontWeight: theme.weight.medium },
+  rowPath: { fontSize: theme.text.xs, color: theme.color.textMuted, marginTop: 2 },
+  check: { fontSize: theme.text.base, color: theme.color.accent, marginLeft: theme.sp.xs },
+  empty: { padding: theme.sp.lg, color: theme.color.textMuted, textAlign: 'center' },
 })

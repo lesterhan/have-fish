@@ -1,18 +1,13 @@
 import { useState, useEffect } from 'react'
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  ScrollView,
-} from 'react-native'
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ScrollView } from 'react-native'
 import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { createExpense, fetchAccounts, type Account, type ExpenseGroup, type GroupMember } from '@/lib/api'
 import { getEmail } from '@/lib/auth'
 import { AccountPicker } from './AccountPicker'
+import { Chip } from './Chip'
+import { Button } from './Button'
+import { theme, cardStyle } from '@/lib/theme'
 
 interface Props {
   group: ExpenseGroup
@@ -182,22 +177,19 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
           onChangeText={setAmount}
           keyboardType="decimal-pad"
           placeholder="0.00"
-          placeholderTextColor="#bbb"
+          placeholderTextColor={theme.color.textDisabled}
         />
       </View>
 
       {/* Currency quick-select — TODO: expand to a full bottom-sheet picker */}
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.currencyRow}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        style={styles.currencyRow}
+        contentContainerStyle={styles.chipStrip}
+      >
         {['CAD', 'USD', 'EUR', 'GBP', 'JPY'].map((c) => (
-          <TouchableOpacity
-            key={c}
-            style={[styles.currencyChip, currency === c && styles.currencyChipActive]}
-            onPress={() => setCurrency(c)}
-          >
-            <Text style={[styles.currencyChipText, currency === c && styles.currencyChipTextActive]}>
-              {c}
-            </Text>
-          </TouchableOpacity>
+          <Chip key={c} label={c} active={currency === c} onPress={() => setCurrency(c)} />
         ))}
       </ScrollView>
 
@@ -233,22 +225,19 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
       {activeCategories.length > 0 && (
         <>
           <Text style={styles.label}>Category</Text>
-          <ScrollView horizontal showsHorizontalScrollIndicator={false} style={styles.categoryRow}>
+          <ScrollView
+            horizontal
+            showsHorizontalScrollIndicator={false}
+            style={styles.categoryRow}
+            contentContainerStyle={styles.chipStrip}
+          >
             {activeCategories.map((c) => (
-              <TouchableOpacity
+              <Chip
                 key={c.id}
-                style={[styles.categoryChip, categoryId === c.id && styles.categoryChipActive]}
+                label={c.name}
+                active={categoryId === c.id}
                 onPress={() => selectCategory(c.id)}
-              >
-                <Text
-                  style={[
-                    styles.categoryChipText,
-                    categoryId === c.id && styles.categoryChipTextActive,
-                  ]}
-                >
-                  {c.name}
-                </Text>
-              </TouchableOpacity>
+              />
             ))}
           </ScrollView>
           <Text style={styles.postingHint} numberOfLines={1}>
@@ -270,32 +259,23 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
       <Text style={styles.label}>Paid by</Text>
       <View style={styles.memberRow}>
         {group.members.map((m: GroupMember) => (
-          <TouchableOpacity
+          <Chip
             key={m.userId}
-            style={[styles.memberChip, paidByUserId === m.userId && styles.memberChipActive]}
+            label={m.userName}
+            active={paidByUserId === m.userId}
             onPress={() => setPaidByUserId(m.userId)}
-          >
-            <Text
-              style={[
-                styles.memberChipText,
-                paidByUserId === m.userId && styles.memberChipTextActive,
-              ]}
-            >
-              {m.userName}
-            </Text>
-          </TouchableOpacity>
+          />
         ))}
       </View>
 
       {error ? <Text style={styles.error}>{error}</Text> : null}
 
-      <TouchableOpacity style={styles.submitButton} onPress={handleSubmit} disabled={loading}>
-        {loading ? (
-          <ActivityIndicator color="#fff" />
-        ) : (
-          <Text style={styles.submitText}>Add expense</Text>
-        )}
-      </TouchableOpacity>
+      <Button
+        title="Add expense"
+        onPress={handleSubmit}
+        loading={loading}
+        style={styles.submitButton}
+      />
     </View>
   )
 }
@@ -303,89 +283,60 @@ export function ExpenseForm({ group, onExpenseAdded }: Props) {
 const styles = StyleSheet.create({
   container: { gap: 4 },
   amountRow: {
+    ...cardStyle,
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#fff',
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#e0e0e0',
-    paddingHorizontal: 16,
-    marginBottom: 8,
+    paddingHorizontal: theme.sp.md,
+    marginBottom: theme.sp.xs,
   },
-  currencyPrefix: { fontSize: 18, color: '#888', marginRight: 8 },
+  currencyPrefix: {
+    fontSize: theme.text.lg,
+    color: theme.color.textMuted,
+    marginRight: theme.sp.xs,
+  },
   amountInput: {
     flex: 1,
     fontSize: 36,
     fontWeight: '300',
-    paddingVertical: 16,
-    color: '#1a1a1a',
+    paddingVertical: theme.sp.md,
+    color: theme.color.text,
   },
-  currencyRow: { marginBottom: 16 },
-  currencyChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginRight: 8,
-    backgroundColor: '#fff',
+  currencyRow: { marginBottom: theme.sp.md },
+  chipStrip: { gap: theme.sp.xs },
+  label: {
+    fontSize: theme.text.sm,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.text,
+    marginBottom: 4,
+    marginTop: theme.sp.xs,
   },
-  currencyChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  currencyChipText: { fontSize: 13, color: '#444' },
-  currencyChipTextActive: { color: '#fff', fontWeight: '600' },
-  label: { fontSize: 13, fontWeight: '600', color: '#444', marginBottom: 4, marginTop: 8 },
   categoryRow: { marginBottom: 4 },
-  categoryChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 7,
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    marginRight: 8,
-    backgroundColor: '#fff',
+  postingHint: {
+    fontSize: theme.text.xs,
+    color: theme.color.textMuted,
+    marginTop: 2,
+    marginBottom: 4,
   },
-  categoryChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  categoryChipText: { fontSize: 13, color: '#444' },
-  categoryChipTextActive: { color: '#fff', fontWeight: '600' },
-  postingHint: { fontSize: 12, color: '#888', marginTop: 2, marginBottom: 4 },
   input: {
-    backgroundColor: '#fff',
+    backgroundColor: theme.color.windowInset,
     borderWidth: 1,
-    borderColor: '#e0e0e0',
-    borderRadius: 6,
-    padding: 10,
-    fontSize: 15,
+    borderColor: theme.color.rule,
+    borderRadius: theme.radius.lg,
+    padding: theme.sp.sm,
+    fontSize: theme.text.base,
   },
   againChip: {
     marginTop: 6,
     alignSelf: 'flex-start',
-    paddingHorizontal: 10,
+    paddingHorizontal: theme.sp.xs,
     paddingVertical: 4,
-    borderRadius: 12,
-    backgroundColor: '#eff6ff',
+    borderRadius: theme.radius.lg,
+    backgroundColor: theme.color.accentChipBg,
     borderWidth: 1,
-    borderColor: '#bfdbfe',
+    borderColor: theme.color.accentHi,
   },
-  againChipText: { fontSize: 12, color: '#2563eb' },
-  memberRow: { flexDirection: 'row', gap: 8, flexWrap: 'wrap' },
-  memberChip: {
-    paddingHorizontal: 14,
-    paddingVertical: 8,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#ccc',
-    backgroundColor: '#fff',
-  },
-  memberChipActive: { backgroundColor: '#2563eb', borderColor: '#2563eb' },
-  memberChipText: { fontSize: 14, color: '#444' },
-  memberChipTextActive: { color: '#fff', fontWeight: '600' },
-  error: { color: '#c0392b', fontSize: 13, marginTop: 8 },
-  submitButton: {
-    backgroundColor: '#2563eb',
-    borderRadius: 8,
-    padding: 16,
-    alignItems: 'center',
-    marginTop: 16,
-  },
-  submitText: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  againChipText: { fontSize: theme.text.xs, color: theme.color.accentChipFg },
+  memberRow: { flexDirection: 'row', gap: theme.sp.xs, flexWrap: 'wrap' },
+  error: { color: theme.color.danger, fontSize: theme.text.sm, marginTop: theme.sp.xs },
+  submitButton: { marginTop: theme.sp.md },
 })
