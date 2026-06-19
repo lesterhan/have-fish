@@ -31,6 +31,74 @@ export function pendingOutgoing(
   )
 }
 
+/** Active pending settlements awaiting the current user's confirmation (they are
+ *  the receiver / payee). */
+export function pendingIncoming(
+  settlements: GroupSettlement[],
+  myUserId: string,
+): GroupSettlement[] {
+  return settlements.filter(
+    (s) => s.status === 'pending' && s.toUserId === myUserId && s.deletedAt == null,
+  )
+}
+
+/**
+ * A pending batch awaiting the current user's confirmation, with its rows grouped
+ * so the banner shows one confirm action per combined payer transaction. Rows with
+ * a `batchId` group together; a legacy single settlement (null `batchId`) stands
+ * alone, keyed and confirmed by its own id.
+ */
+export type IncomingBatch = {
+  /** Stable list key. */
+  key: string
+  /** Set for batch rows; null for a legacy single settlement. */
+  batchId: string | null
+  /** Representative settlement id — used to confirm a legacy single row. */
+  settlementId: string
+  /** Who paid (all rows in a batch share the payer). */
+  fromUserName: string
+  rows: GroupSettlement[]
+}
+
+export function incomingBatches(
+  settlements: GroupSettlement[],
+  myUserId: string,
+): IncomingBatch[] {
+  const groups = new Map<string, IncomingBatch>()
+  for (const s of pendingIncoming(settlements, myUserId)) {
+    const key = s.batchId ?? `single:${s.id}`
+    const existing = groups.get(key)
+    if (existing) {
+      existing.rows.push(s)
+    } else {
+      groups.set(key, {
+        key,
+        batchId: s.batchId,
+        settlementId: s.id,
+        fromUserName: s.fromUserName ?? 'they',
+        rows: [s],
+      })
+    }
+  }
+  return [...groups.values()]
+}
+
+/**
+ * What the receiver actually collects, summed by cash currency. A converted line
+ * carries the cash in `settledAmount`/`settledCurrency`; a native/legacy line in
+ * `amount`/`currency`. Returns amounts as 2dp strings.
+ */
+export function receiptLines(rows: GroupSettlement[]): { currency: string; amount: string }[] {
+  const totals = new Map<string, number>()
+  for (const r of rows) {
+    const currency = r.settledCurrency ?? r.currency
+    const amount = parseFloat(r.settledAmount ?? r.amount)
+    if (!Number.isFinite(amount)) continue
+    totals.set(currency, (totals.get(currency) ?? 0) + amount)
+  }
+  return [...totals.entries()].map(([currency, amount]) => ({ currency, amount: amount.toFixed(2) }))
+}
+
 export function settleAction(
   balances: CurrencyBalance[],
   settlements: GroupSettlement[],
