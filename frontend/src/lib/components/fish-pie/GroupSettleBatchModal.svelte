@@ -5,7 +5,7 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
-  import Icon from '$lib/components/ui/Icon.svelte'
+  import Checkbox from '$lib/components/ui/Checkbox.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import type { Account, BatchSettlementLine } from '$lib/api'
   import { fetchFxRateAsOf } from '$lib/api'
@@ -97,10 +97,6 @@
     void refreshRates()
   }
 
-  function toggleInclude(i: number) {
-    lines[i].include = !lines[i].include
-  }
-
   const ready = $derived(linesReady(lines, target) && !!payerAccountId)
 
   async function handleSubmit() {
@@ -126,19 +122,16 @@
       <span class="target-hint">converted debts are paid in this currency</span>
     </div>
 
-    <div class="lines">
+    <div class="debts-group">
+      <span class="group-label">Balances to settle</span>
+      <div class="lines">
       {#each lines as l, i (l.toUserId + l.debtCurrency)}
         {@const converted = isConverted(l, target)}
         <div class="line" class:line--excluded={!l.include}>
-          <button
-            type="button"
-            class="include-box"
-            class:include-box--on={l.include}
-            onclick={() => toggleInclude(i)}
-            aria-label={l.include ? 'Exclude this debt' : 'Include this debt'}
-          >
-            {#if l.include}<Icon name="check" size={11} />{/if}
-          </button>
+          <Checkbox
+            bind:checked={l.include}
+            ariaLabel={l.include ? 'Exclude this debt' : 'Include this debt'}
+          />
 
           <div class="line-main">
             <div class="line-debt">
@@ -195,27 +188,31 @@
           </div>
         </div>
       {/each}
-    </div>
-
-    <div class="meta-row">
-      <div class="date-field">
-        <span class="field-label">Date</span>
-        <input type="date" class="date-input" bind:value={date} />
-      </div>
-      <div class="note-field">
-        <span class="field-label">Note</span>
-        <TextInput bind:value={note} placeholder="Optional" class="note-input" />
       </div>
     </div>
 
-    <div class="field">
-      <span class="field-label">Paid from</span>
-      <AccountPathInput
-        accounts={payerAccounts}
-        bind:value={payerAccountId}
-        placeholder="Account paid from…"
-        allowCreate={false}
-      />
+    <div class="payment-group">
+      <span class="group-label">Payment</span>
+      <div class="meta-row">
+        <div class="date-field">
+          <span class="field-label">Date</span>
+          <input type="date" class="date-input" bind:value={date} />
+        </div>
+        <div class="note-field">
+          <span class="field-label">Note</span>
+          <TextInput bind:value={note} placeholder="Optional" class="note-input" />
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field-label">Paid from</span>
+        <AccountPathInput
+          accounts={payerAccounts}
+          bind:value={payerAccountId}
+          placeholder="Account paid from…"
+          allowCreate={false}
+        />
+      </div>
     </div>
 
     {#if error}
@@ -243,8 +240,6 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding-bottom: var(--sp-xs);
-    border-bottom: 1px solid var(--color-rule-soft);
   }
 
   .target-hint {
@@ -252,16 +247,37 @@
     color: var(--color-text-muted);
   }
 
+  /* Small section label shared by the debts + payment groups. */
+  .group-label {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .debts-group {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+  }
+
+  /* The balances sit in their own inset card so they read as one distinct block,
+     clearly separated from the payment fields below. */
   .lines {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-xs);
+    background: var(--color-window-inset, var(--color-window));
+    box-shadow: var(--shadow-sunken);
+    padding: 2px var(--sp-sm);
   }
 
   .line {
     display: flex;
+    align-items: flex-start;
     gap: var(--sp-sm);
-    padding: var(--sp-xs) 0;
+    padding: var(--sp-sm) 0;
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
@@ -273,23 +289,15 @@
     opacity: 0.5;
   }
 
-  .include-box {
-    width: 18px;
-    height: 18px;
-    flex-shrink: 0;
-    margin-top: 2px;
+  /* Strong break between the balances block and the payment form so the bottom
+     balance row no longer reads as part of the date/note/paid-from fields. */
+  .payment-group {
     display: flex;
-    align-items: center;
-    justify-content: center;
-    background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
-    color: var(--color-accent-mid);
-    cursor: pointer;
-    transition: background var(--duration-fast) var(--ease);
-  }
-
-  .include-box--on {
-    background: var(--color-accent-light);
+    flex-direction: column;
+    gap: var(--sp-sm);
+    margin-top: var(--sp-xs);
+    padding-top: var(--sp-md);
+    border-top: 2px solid var(--color-rule);
   }
 
   .line-main {
