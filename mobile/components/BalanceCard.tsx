@@ -1,3 +1,4 @@
+import { type ReactNode } from 'react'
 import { View, Text, StyleSheet } from 'react-native'
 import type { CurrencyBalance, GroupMember } from '@/lib/api'
 import { theme } from '@/lib/theme'
@@ -15,6 +16,8 @@ import { Label } from './Label'
 interface Props {
   balances: CurrencyBalance[]
   members: GroupMember[]
+  /** Settle action button, rendered between the cards and the footnote. */
+  action?: ReactNode
 }
 
 /**
@@ -26,7 +29,7 @@ interface Props {
  *
  * The settle action itself is added at the tab level in Story 3.
  */
-export function BalanceCard({ balances }: Props) {
+export function BalanceCard({ balances, action }: Props) {
   if (isAllSettled(balances)) {
     return (
       <GlossSurface style={styles.settled}>
@@ -42,6 +45,7 @@ export function BalanceCard({ balances }: Props) {
       {visibleBalances(balances).map((balance) => (
         <CurrencyCard key={balance.currency} balance={balance} />
       ))}
+      {action}
       <Text style={styles.footnote}>Balances update live as you add expenses.</Text>
     </View>
   )

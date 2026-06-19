@@ -1,14 +1,21 @@
-import { BalanceCard } from '@/components/BalanceCard'
+import { BalancesPanel } from '@/components/BalancesPanel'
 import { GroupScreen } from '@/components/GroupScreen'
 
 /**
- * Balances tab — interim view over the existing balance card. Epic 3 rebuilds
- * this as per-currency gloss cards with settlement.
+ * Balances tab — per-currency balance cards plus the cross-currency batch
+ * settle-up flow (Companion epic 3). All orchestration lives in BalancesPanel.
  */
 export default function BalancesScreen() {
   return (
     <GroupScreen refreshOnFocus>
-      {({ group, data }) => <BalanceCard balances={data.balances} members={group.members} />}
+      {({ group, data, reloadData }) => (
+        <BalancesPanel
+          group={group}
+          balances={data.balances}
+          settlements={data.settlements}
+          reloadData={reloadData}
+        />
+      )}
     </GroupScreen>
   )
 }
