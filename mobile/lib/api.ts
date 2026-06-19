@@ -207,6 +207,13 @@ export type GroupSettlement = {
   payerAccountId: string | null
   payerTransactionId: string | null
   receiverTransactionId: string | null
+  // Cross-currency batch settlement columns (null on legacy/native rows). `amount`/
+  // `currency` always describe the *debt* cleared; settled*/fxRate describe the
+  // actual cash leg, and batchId groups rows confirmed/deleted together.
+  batchId: string | null
+  settledAmount: string | null
+  settledCurrency: string | null
+  fxRate: string | null
   createdAt: string
   deletedAt: string | null
 }
@@ -220,6 +227,15 @@ export type GroupOverview = {
   settlements: GroupSettlement[]
   invites: GroupInvite[]
   balances: CurrencyBalance[]
+}
+
+// The user's settings. The backend returns more (root paths, offset accounts,
+// preferences…); mobile only reads the two fields the settle flow needs — the
+// home currency to default the batch target to, and the conversion account a
+// cross-currency leg books its FX bridge against.
+export type UserSettings = {
+  preferredCurrency: string
+  defaultConversionAccountId: string | null
 }
 
 // ---------------------------------------------------------------------------
@@ -484,4 +500,80 @@ export async function deleteSettlement(groupId: string, settlementId: string): P
     method: 'DELETE',
   })
   if (!res.ok) throw new Error('Failed to delete settlement')
+}
+
+// One debt being settled in a batch. Native lines repeat the debt currency/amount
+// in the settled* fields; converted lines pay settledAmount of settledCurrency at
+// fxRate. Mirrors the web `BatchSettlementLine`.
+export type BatchSettlementLine = {
+  toUserId: string
+  debtAmount: string
+  debtCurrency: string
+  settledAmount: string
+  settledCurrency: string
+  fxRate?: string
+}
+
+// Create a pending batch — one combined payer transaction, one settlement row per
+// debt line, all sharing a batchId. Native-only batches reproduce the old single
+// settlement behavior; converted lines require fxRate + the payer's conversion
+// account (enforced server-side).
+export async function createBatchSettlement(
+  groupId: string,
+  body: { payerAccountId: string; date: string; note?: string; lines: BatchSettlementLine[] },
+): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
+  const res = await apiFetch(`/api/fish-pie/groups/${groupId}/settlements/batch`, {
+    method: 'POST',
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to create settlement')
+  }
+  return res.json()
+}
+
+// Receiver-only: confirm a pending batch, booking one combined receiver transaction
+// and flipping every row in the batch to `completed`.
+export async function confirmBatchSettlement(
+  groupId: string,
+  batchId: string,
+  receiverAccountId: string,
+): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
+  const res = await apiFetch(
+    `/api/fish-pie/groups/${groupId}/settlements/batch/${batchId}/confirm`,
+    {
+      method: 'POST',
+      body: JSON.stringify({ receiverAccountId }),
+    },
+  )
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+  }
+  return res.json()
+}
+
+// ---------------------------------------------------------------------------
+// User settings & FX rates
+// ---------------------------------------------------------------------------
+
+export async function fetchUserSettings(): Promise<UserSettings> {
+  const res = await apiFetch('/api/user-settings')
+  if (!res.ok) throw new Error('Failed to fetch user settings')
+  return res.json()
+}
+
+// Most recent published FX rate for from→to (the backend walks back ~7 days).
+// Returns null when no rate is available or the request fails — callers fall back
+// to a manually entered cash amount.
+export async function fetchFxRateAsOf(
+  from: string,
+  to: string,
+): Promise<{ from: string; to: string; rate: string; asOfDate: string } | null> {
+  const res = await apiFetch(
+    `/api/fx-rates/as-of?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+  )
+  if (!res.ok) return null
+  return res.json()
 }
