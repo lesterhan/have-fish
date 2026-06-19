@@ -96,15 +96,17 @@ export function SpeedEntry({ group }: Props) {
   }
 
   // Resolve relative modes against the current clock each render so the chip
-  // (and the eventual submit) reflect "today" even past midnight.
-  const resolvedDate = resolveDate(dateMode, pickDate)
+  // (and the eventual submit) reflect "today" even past midnight. One `now`
+  // feeds both calls so they can't straddle a midnight tick.
+  const now = new Date()
+  const resolvedDate = resolveDate(dateMode, pickDate, now)
 
   return (
     <View style={styles.column}>
       <AmountHero
         amount={amount}
         currency={currency}
-        dateLabel={dateLabel(resolvedDate)}
+        dateLabel={dateLabel(resolvedDate, now)}
         onPressCurrency={() => setCurrencyOpen(true)}
         onPressDate={() => setDateOpen(true)}
       />
