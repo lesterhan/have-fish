@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { StyleSheet, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import type { ExpenseGroup } from '@/lib/api'
+import { getEmail } from '@/lib/auth'
 import { appendDigit, appendDot, backspace } from '@/lib/amount-input'
 import {
   RECENT_CURRENCIES_KEY,
@@ -10,11 +11,15 @@ import {
   pushRecent,
 } from '@/lib/currency'
 import { type DateMode, dateLabel, resolveDate } from '@/lib/expense-date'
+import { activeCategories, defaultPayerId, resolveMyUserId } from '@/lib/group-entry'
 import { theme } from '@/lib/theme'
 import { AmountHero } from './AmountHero'
+import { CategoryRail } from './CategoryRail'
 import { CurrencySheet } from './CurrencySheet'
 import { DateSheet } from './DateSheet'
+import { Label } from './Label'
 import { Numpad, type NumpadKey } from './Numpad'
+import { PaidBySegments } from './PaidBySegments'
 
 interface Props {
   group: ExpenseGroup
@@ -42,6 +47,10 @@ export function SpeedEntry({ group }: Props) {
   const [dateMode, setDateMode] = useState<DateMode>('today')
   const [pickDate, setPickDate] = useState<string | null>(null)
   const [dateOpen, setDateOpen] = useState(false)
+  const [paidByUserId, setPaidByUserId] = useState(group.members[0]?.userId ?? '')
+  const [categoryId, setCategoryId] = useState<string | null>(null)
+
+  const categories = useMemo(() => activeCategories(group), [group])
 
   // Restore the group's sticky currency (per group) and the global recent list
   // (shared across groups). Both persist across submits and app launches.
@@ -57,6 +66,22 @@ export function SpeedEntry({ group }: Props) {
       cancelled = true
     }
   }, [group.id, group.defaultCurrency])
+
+  // Default the payer to the caller (matched by email), falling back to the
+  // first member. Reset the sticky category on a group switch — a category id
+  // from another group wouldn't resolve here.
+  useEffect(() => {
+    let cancelled = false
+    getEmail().then((email) => {
+      if (cancelled) return
+      setPaidByUserId(defaultPayerId(group, resolveMyUserId(group, email)) ?? '')
+    })
+    setCategoryId(null)
+    return () => {
+      cancelled = true
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [group.id])
 
   useEffect(() => {
     AsyncStorage.getItem(RECENT_CURRENCIES_KEY).then((raw) => {
@@ -111,6 +136,18 @@ export function SpeedEntry({ group }: Props) {
         onPressDate={() => setDateOpen(true)}
       />
 
+      <View style={styles.block}>
+        <Label>Paid by</Label>
+        <PaidBySegments group={group} paidByUserId={paidByUserId} onSelect={setPaidByUserId} />
+      </View>
+
+      {categories.length > 0 && (
+        <View style={styles.block}>
+          <Label>Category</Label>
+          <CategoryRail categories={categories} selectedId={categoryId} onSelect={setCategoryId} />
+        </View>
+      )}
+
       <Numpad onKey={handleKey} onClear={() => setAmount('')} />
 
       <CurrencySheet
@@ -139,4 +176,5 @@ const styles = StyleSheet.create({
     paddingBottom: theme.sp.sm,
     gap: theme.sp[9],
   },
+  block: { gap: 6 },
 })
