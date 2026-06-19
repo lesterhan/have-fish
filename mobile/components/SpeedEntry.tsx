@@ -72,10 +72,14 @@ export function SpeedEntry({ group }: Props) {
   // from another group wouldn't resolve here.
   useEffect(() => {
     let cancelled = false
-    getEmail().then((email) => {
-      if (cancelled) return
-      setPaidByUserId(defaultPayerId(group, resolveMyUserId(group, email)) ?? '')
-    })
+    getEmail()
+      .then((email) => {
+        if (cancelled) return
+        setPaidByUserId(defaultPayerId(group, resolveMyUserId(group, email)) ?? '')
+      })
+      .catch(() => {
+        // SecureStore read failed — keep the first-member default.
+      })
     setCategoryId(null)
     return () => {
       cancelled = true
