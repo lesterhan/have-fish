@@ -1,6 +1,16 @@
 import { View, Text, StyleSheet } from 'react-native'
 import type { CurrencyBalance, GroupMember } from '@/lib/api'
-import { theme, cardStyle } from '@/lib/theme'
+import { theme } from '@/lib/theme'
+import {
+  currencySymbol,
+  formatAmount,
+  formatSigned,
+  isAllSettled,
+  visibleBalances,
+} from '@/lib/balances-view'
+import { GlossSurface } from './GlossSurface'
+import { Avatar } from './Avatar'
+import { Label } from './Label'
 
 interface Props {
   balances: CurrencyBalance[]
@@ -8,153 +18,185 @@ interface Props {
 }
 
 /**
- * Balances tab — shows per-currency net positions and the minimal transfer set.
+ * Balances tab body — one soft-gloss card per currency with a non-zero net,
+ * sorted by magnitude. Each card shows every member's signed net (green = owed,
+ * red = owes) and a "to settle" sentence + amount pill derived from the minimal
+ * transfer set. All balance math comes straight from `fetchBalances`; this view
+ * only formats it (see `lib/balances-view`).
  *
- * Positive amount = creditor (is owed money).
- * Negative amount = debtor (owes money).
- *
- * View-only in the MVP: recording a settlement is deferred to mobile-revival
- * story 6 (settlement confirmation). The transfers are shown without a settle
- * action; the user settles on the web app for now.
- *
- * TODO:
- * - Highlight the current user's row
+ * The settle action itself is added at the tab level in Story 3.
  */
-export function BalanceCard({ balances, members: _members }: Props) {
-  if (balances.length === 0 || balances.every((b) => b.transfers.length === 0)) {
+export function BalanceCard({ balances }: Props) {
+  if (isAllSettled(balances)) {
     return (
-      <View style={styles.settled}>
-        <Text style={styles.settledEmoji}>✓</Text>
-        <Text style={styles.settledText}>All settled up</Text>
-      </View>
+      <GlossSurface style={styles.settled}>
+        <Text style={styles.settledEmoji}>🎉</Text>
+        <Text style={styles.settledTitle}>All settled up</Text>
+        <Text style={styles.settledSub}>nobody owes anybody</Text>
+      </GlossSurface>
     )
   }
 
   return (
     <View style={styles.container}>
-      {balances.map((balance) => (
-        <View key={balance.currency} style={styles.currencyBlock}>
-          <Text style={styles.currencyLabel}>{balance.currency}</Text>
-
-          {/* Net positions */}
-          <View style={styles.positions}>
-            {balance.netPositions.map((pos) => {
-              const amount = parseFloat(pos.amount)
-              const isCreditor = amount > 0
-              const isDebtor = amount < 0
-              return (
-                <View key={pos.userId} style={styles.positionRow}>
-                  <Text style={styles.memberName}>{pos.userName ?? pos.userId}</Text>
-                  <Text
-                    style={[
-                      styles.positionAmount,
-                      isCreditor && styles.positive,
-                      isDebtor && styles.negative,
-                    ]}
-                  >
-                    {isCreditor ? '+' : ''}
-                    {pos.amount}
-                  </Text>
-                </View>
-              )
-            })}
-          </View>
-
-          {/* Transfers (suggested minimal settlement set) — view-only */}
-          {balance.transfers.length > 0 && (
-            <View style={styles.transfers}>
-              <Text style={styles.transfersLabel}>To settle:</Text>
-              {balance.transfers.map((t, i) => (
-                <View key={i} style={styles.transferRow}>
-                  <Text style={styles.transferText}>
-                    <Text style={styles.bold}>{t.fromUserName ?? t.fromUserId}</Text>
-                    {' owes '}
-                    <Text style={styles.bold}>{t.toUserName ?? t.toUserId}</Text>
-                    {'  '}
-                    <Text style={styles.transferAmount}>
-                      {t.amount} {t.currency}
-                    </Text>
-                  </Text>
-                </View>
-              ))}
-            </View>
-          )}
-        </View>
+      {visibleBalances(balances).map((balance) => (
+        <CurrencyCard key={balance.currency} balance={balance} />
       ))}
-
-      <Text style={styles.settleNote}>Record settlements on the web app for now.</Text>
+      <Text style={styles.footnote}>Balances update live as you add expenses.</Text>
     </View>
   )
 }
 
+function CurrencyCard({ balance }: { balance: CurrencyBalance }) {
+  const symbol = currencySymbol(balance.currency)
+  return (
+    <GlossSurface style={styles.card}>
+      {/* Header: currency code + faint symbol */}
+      <View style={styles.header}>
+        <Text style={styles.code}>{balance.currency}</Text>
+        {symbol !== '' && <Text style={styles.symbol}>{symbol}</Text>}
+      </View>
+
+      {/* One row per member with their signed net */}
+      {balance.netPositions.map((pos) => {
+        const signed = formatSigned(pos.amount)
+        return (
+          <View key={pos.userId} style={styles.memberRow}>
+            <Avatar name={pos.userName} size={28} />
+            <Text style={styles.memberName}>{pos.userName ?? pos.userId}</Text>
+            <Text style={[styles.memberAmount, signed.positive ? styles.green : styles.red]}>
+              {signed.text}
+            </Text>
+          </View>
+        )
+      })}
+
+      {/* To settle: one sentence + pill per transfer */}
+      <View style={styles.settleBlock}>
+        <Label style={styles.settleLabel}>To settle</Label>
+        {balance.transfers.map((t, i) => (
+          <View key={i} style={styles.settleRow}>
+            <Text style={styles.settleSentence}>
+              <Text style={styles.bold}>{t.fromUserName ?? t.fromUserId}</Text>
+              {' owes '}
+              <Text style={styles.bold}>{t.toUserName ?? t.toUserId}</Text>
+            </Text>
+            <Text style={styles.pill}>
+              {formatAmount(t.amount)} {t.currency}
+            </Text>
+          </View>
+        ))}
+      </View>
+    </GlossSurface>
+  )
+}
+
 const styles = StyleSheet.create({
-  container: { gap: theme.sp.sm },
+  container: { gap: 13 },
+
+  card: { overflow: 'hidden' },
+
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: theme.sp.md,
+    paddingTop: theme.sp.sm,
+    paddingBottom: 6,
+  },
+  code: {
+    fontFamily: theme.font.monoBold,
+    fontWeight: theme.weight.bold,
+    fontSize: 13,
+    letterSpacing: 1,
+    color: theme.color.ink2,
+  },
+  symbol: {
+    fontFamily: theme.font.mono,
+    fontSize: 10.5,
+    color: theme.color.ink3,
+  },
+
+  memberRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.sp[11],
+    paddingHorizontal: theme.sp.md,
+    paddingVertical: theme.sp.xs,
+  },
+  memberName: {
+    flex: 1,
+    fontFamily: theme.font.sans,
+    fontSize: 15,
+    fontWeight: theme.weight.medium,
+    color: theme.color.ink,
+  },
+  memberAmount: {
+    fontFamily: theme.font.monoBold,
+    fontWeight: theme.weight.bold,
+    fontSize: 15,
+  },
+  green: { color: theme.color.green },
+  red: { color: theme.color.red },
+
+  settleBlock: {
+    borderTopWidth: 1,
+    borderTopColor: theme.color.lineSoft,
+    marginHorizontal: theme.sp.md,
+    marginTop: 6,
+    paddingTop: theme.sp.sm,
+    paddingBottom: 14,
+  },
+  settleLabel: { marginBottom: theme.sp.xs },
+  settleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flexWrap: 'wrap',
+    gap: theme.sp.xs,
+    marginTop: theme.sp.xs,
+  },
+  settleSentence: {
+    fontFamily: theme.font.sans,
+    fontSize: 14.5,
+    color: theme.color.ink,
+  },
+  bold: { fontWeight: theme.weight.bold },
+  pill: {
+    fontFamily: theme.font.monoBold,
+    fontWeight: theme.weight.bold,
+    fontSize: 13,
+    color: theme.color.red,
+    backgroundColor: theme.color.redBg,
+    paddingHorizontal: 9,
+    paddingVertical: 2,
+    borderRadius: 6,
+    overflow: 'hidden',
+  },
+
   settled: {
     alignItems: 'center',
-    paddingVertical: theme.sp['2xl'],
+    paddingVertical: 28,
+    paddingHorizontal: 18,
   },
-  settledEmoji: { fontSize: 40, marginBottom: theme.sp.xs },
-  settledText: {
-    fontSize: theme.text.base,
-    color: theme.color.success,
-    fontWeight: theme.weight.semibold,
+  settledEmoji: { fontSize: 30, marginBottom: 6 },
+  settledTitle: {
+    fontFamily: theme.font.sans,
+    fontSize: 16,
+    fontWeight: theme.weight.bold,
+    color: theme.color.green,
   },
-  currencyBlock: {
-    ...cardStyle,
-    padding: theme.sp.md,
-  },
-  currencyLabel: {
-    fontSize: theme.text.xs,
-    fontWeight: theme.weight.semibold,
-    color: theme.color.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: theme.sp.sm,
-  },
-  positions: { gap: 6, marginBottom: theme.sp.sm },
-  positionRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  memberName: { fontSize: theme.text.sm, color: theme.color.text },
-  positionAmount: {
-    fontSize: theme.text.sm,
-    fontWeight: theme.weight.semibold,
-    color: theme.color.textMuted,
-  },
-  positive: { color: theme.color.amountPositive },
-  negative: { color: theme.color.amountNegative },
-  transfers: {
-    borderTopWidth: 1,
-    borderTopColor: theme.color.ruleSoft,
-    paddingTop: theme.sp.xs,
-    gap: theme.sp.xs,
-  },
-  transfersLabel: {
-    fontSize: theme.text.xs,
-    fontWeight: theme.weight.semibold,
-    color: theme.color.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: 4,
-  },
-  transferRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-  },
-  transferText: {
-    flex: 1,
-    fontSize: theme.text.sm,
-    color: theme.color.text,
-    marginRight: theme.sp.sm,
-  },
-  bold: { fontWeight: theme.weight.semibold },
-  transferAmount: { color: theme.color.amountNegative, fontWeight: theme.weight.semibold },
-  settleNote: {
-    fontSize: theme.text.xs,
-    color: theme.color.textMuted,
-    textAlign: 'center',
-    fontStyle: 'italic',
+  settledSub: {
+    fontFamily: theme.font.mono,
+    fontSize: 12,
+    color: theme.color.ink3,
     marginTop: 4,
+  },
+
+  footnote: {
+    fontFamily: theme.font.mono,
+    fontSize: 11,
+    color: theme.color.ink3,
+    textAlign: 'center',
+    marginTop: 2,
   },
 })
