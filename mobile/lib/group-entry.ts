@@ -52,6 +52,9 @@ export function resolveMyUserId(group: ExpenseGroup, email: string | null): stri
   return group.members.find((m) => m.userEmail === email)?.userId ?? null
 }
 
+/** AsyncStorage key for a group's sticky category (the rail's remembered pick). */
+export const lastCategoryKey = (groupId: string) => `havefish_last_category_${groupId}`
+
 /** Default payer: the caller if identified, else the first member, else null. */
 export function defaultPayerId(group: ExpenseGroup, myUserId: string | null): string | null {
   return myUserId ?? group.members[0]?.userId ?? null
