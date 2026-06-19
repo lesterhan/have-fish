@@ -9,9 +9,11 @@ import {
   lastCurrencyKey,
   pushRecent,
 } from '@/lib/currency'
+import { type DateMode, dateLabel, resolveDate } from '@/lib/expense-date'
 import { theme } from '@/lib/theme'
 import { AmountHero } from './AmountHero'
 import { CurrencySheet } from './CurrencySheet'
+import { DateSheet } from './DateSheet'
 import { Numpad, type NumpadKey } from './Numpad'
 
 interface Props {
@@ -37,6 +39,9 @@ export function SpeedEntry({ group }: Props) {
   const [currency, setCurrency] = useState(group.defaultCurrency ?? 'CAD')
   const [recents, setRecents] = useState<string[]>([])
   const [currencyOpen, setCurrencyOpen] = useState(false)
+  const [dateMode, setDateMode] = useState<DateMode>('today')
+  const [pickDate, setPickDate] = useState<string | null>(null)
+  const [dateOpen, setDateOpen] = useState(false)
 
   // Restore the group's sticky currency (per group) and the global recent list
   // (shared across groups). Both persist across submits and app launches.
@@ -77,6 +82,11 @@ export function SpeedEntry({ group }: Props) {
     })
   }
 
+  function selectDate(mode: DateMode, pickISO?: string) {
+    setDateMode(mode)
+    if (mode === 'pick') setPickDate(pickISO ?? null)
+  }
+
   function handleKey(key: NumpadKey) {
     setAmount((current) => {
       if (key === '⌫') return backspace(current)
@@ -85,13 +95,18 @@ export function SpeedEntry({ group }: Props) {
     })
   }
 
+  // Resolve relative modes against the current clock each render so the chip
+  // (and the eventual submit) reflect "today" even past midnight.
+  const resolvedDate = resolveDate(dateMode, pickDate)
+
   return (
     <View style={styles.column}>
       <AmountHero
         amount={amount}
         currency={currency}
-        dateLabel="Today"
+        dateLabel={dateLabel(resolvedDate)}
         onPressCurrency={() => setCurrencyOpen(true)}
+        onPressDate={() => setDateOpen(true)}
       />
 
       <Numpad onKey={handleKey} onClear={() => setAmount('')} />
@@ -102,6 +117,14 @@ export function SpeedEntry({ group }: Props) {
         recents={recents}
         onSelect={selectCurrency}
         onClose={() => setCurrencyOpen(false)}
+      />
+
+      <DateSheet
+        visible={dateOpen}
+        mode={dateMode}
+        pickDate={pickDate}
+        onSelect={selectDate}
+        onClose={() => setDateOpen(false)}
       />
     </View>
   )
