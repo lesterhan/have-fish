@@ -127,7 +127,7 @@
       <div class="lines">
       {#each lines as l, i (l.toUserId + l.debtCurrency)}
         {@const converted = isConverted(l, target)}
-        <div class="line" class:line--excluded={!l.include}>
+        <div class="line-card" class:line-card--off={!l.include}>
           <Checkbox
             bind:checked={l.include}
             ariaLabel={l.include ? 'Exclude this debt' : 'Include this debt'}
@@ -263,30 +263,42 @@
     gap: 5px;
   }
 
-  /* The balances sit in their own inset card so they read as one distinct block,
-     clearly separated from the payment fields below. */
+  /* Each debt is its own selectable Aqua gloss card (soft top-light gradient,
+     hairline border, drop shadow) — the web echo of the mobile balance cards. */
   .lines {
     display: flex;
     flex-direction: column;
-    background: var(--color-window-inset, var(--color-window));
-    box-shadow: var(--shadow-sunken);
-    padding: 2px var(--sp-sm);
+    gap: var(--sp-sm);
   }
 
-  .line {
+  .line-card {
     display: flex;
     align-items: flex-start;
     gap: var(--sp-sm);
-    padding: var(--sp-sm) 0;
-    border-bottom: 1px solid var(--color-rule-soft);
+    padding: var(--sp-sm) var(--sp-md);
+    background: linear-gradient(180deg, var(--color-window-inset), var(--color-window));
+    border: 1px solid var(--card-border-color);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
+    transition:
+      box-shadow var(--duration-fast) var(--ease),
+      opacity var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
   }
 
-  .line:last-child {
-    border-bottom: none;
+  .line-card:hover {
+    box-shadow: var(--card-shadow-hover);
   }
 
-  .line--excluded {
-    opacity: 0.5;
+  /* Excluded line: flatten the gloss and dim, so the card reads as "off". */
+  .line-card--off {
+    opacity: 0.55;
+    background: var(--color-window-raised);
+    box-shadow: none;
+  }
+
+  .line-card--off:hover {
+    box-shadow: none;
   }
 
   /* Strong break between the balances block and the payment form so the bottom

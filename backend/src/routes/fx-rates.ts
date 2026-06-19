@@ -61,7 +61,7 @@ export async function getRateAsOf(
   maxLookbackDays = 7,
 ): Promise<{ rate: string; asOfDate: string } | null> {
   const today = new Date()
-  for (let i = 1; i <= maxLookbackDays; i++) {
+  for (let i = 0; i <= maxLookbackDays; i++) {
     const d = new Date(today)
     d.setUTCDate(d.getUTCDate() - i)
     const date = d.toISOString().substring(0, 10)
