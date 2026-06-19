@@ -51,6 +51,49 @@ export async function getOrFetchRate(
   return rateStr
 }
 
+// Frankfurter has no same-day rate, so for "what's the rate right now" we walk back
+// from yesterday to the most recent day with published data (skips weekends/holidays
+// where the API returns no rate). Returns the rate and the date it applies to so the
+// UI can show an "as of {asOfDate}" hint.
+export async function getRateAsOf(
+  baseCurrency: string,
+  quoteCurrency: string,
+  maxLookbackDays = 7,
+): Promise<{ rate: string; asOfDate: string } | null> {
+  const today = new Date()
+  for (let i = 1; i <= maxLookbackDays; i++) {
+    const d = new Date(today)
+    d.setUTCDate(d.getUTCDate() - i)
+    const date = d.toISOString().substring(0, 10)
+    const rate = await getOrFetchRate(date, baseCurrency, quoteCurrency)
+    if (rate !== null) return { rate, asOfDate: date }
+  }
+  return null
+}
+
+// GET /api/fx-rates/as-of?from=EUR&to=CAD
+// 200: { from, to, rate, asOfDate }  — most recent published rate (see getRateAsOf)
+// 400: missing/invalid query params
+// 404: no rate available in the lookback window
+app.get('/as-of', async (c) => {
+  const { from, to } = c.req.query()
+
+  if (!from || !to) {
+    return c.json({ error: 'from and to are required' }, 400)
+  }
+
+  if (!isValidCurrency(from) || !isValidCurrency(to)) {
+    return c.json({ error: 'Unsupported currency' }, 400)
+  }
+
+  const result = await getRateAsOf(from, to)
+  if (result === null) {
+    return c.json({ error: 'rate unavailable' }, 404)
+  }
+
+  return c.json({ from, to, ...result })
+})
+
 // GET /api/fx-rates?date=YYYY-MM-DD&from=EUR&to=CAD
 // 200: { date, from, to, rate }
 // 400: missing/invalid query params
