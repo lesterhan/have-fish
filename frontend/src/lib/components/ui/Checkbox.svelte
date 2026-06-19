@@ -30,7 +30,10 @@
     onchange={() => onchange?.(checked)}
   />
   <span class="cb-box" class:checked style="--cb-size: {size}px">
-    {#if checked}<Icon name="check" size={Math.round(size * 0.68)} />{/if}
+    {#if checked}<Icon
+        name="checkbox-check"
+        size={Math.round(size * 0.7)}
+      />{/if}
   </span>
   {#if label}<span class="cb-label">{label}</span>{/if}
 </label>
@@ -80,7 +83,11 @@
   }
 
   .cb-box.checked {
-    background: linear-gradient(180deg, var(--color-accent-hi), var(--color-accent));
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-hi),
+      var(--color-accent)
+    );
     border-color: var(--color-accent);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.45),
