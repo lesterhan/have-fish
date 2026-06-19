@@ -618,6 +618,20 @@ export async function fetchFxRate(
   return res.json()
 }
 
+// Most recent published rate (frankfurter has no same-day rate, so the backend walks
+// back to the last business day). Returns the rate and the date it applies to, or null.
+export async function fetchFxRateAsOf(
+  from: string,
+  to: string,
+): Promise<{ from: string; to: string; rate: string; asOfDate: string } | null> {
+  const res = await fetch(
+    `${BASE}/api/fx-rates/as-of?${new URLSearchParams({ from, to })}`,
+    { credentials: 'include' },
+  )
+  if (!res.ok) return null
+  return res.json()
+}
+
 export type ImportRule = {
   id: string
   pattern: string
@@ -1100,6 +1114,11 @@ export type GroupSettlement = {
   toUserName: string | null
   amount: string
   currency: string
+  // Cross-currency cash leg. Null ⇒ native settlement (paid in the debt currency).
+  settledAmount: string | null
+  settledCurrency: string | null
+  fxRate: string | null
+  batchId: string | null
   date: string
   note: string | null
   status: 'pending' | 'completed'
@@ -1157,5 +1176,51 @@ export async function deleteSettlement(groupId: string, settlementId: string): P
     credentials: 'include',
   })
   if (!res.ok) throw new Error('Failed to delete settlement')
+}
+
+// One debt being settled. Native lines repeat the debt currency/amount in the
+// settled* fields; converted lines pay settledAmount of settledCurrency at fxRate.
+export type BatchSettlementLine = {
+  toUserId: string
+  debtAmount: string
+  debtCurrency: string
+  settledAmount: string
+  settledCurrency: string
+  fxRate?: string
+}
+
+export async function createSettlementBatch(
+  groupId: string,
+  body: { payerAccountId: string; date: string; note?: string; lines: BatchSettlementLine[] },
+): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/batch`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to create settlement')
+  }
+  return res.json()
+}
+
+export async function confirmSettlementBatch(
+  groupId: string,
+  batchId: string,
+  receiverAccountId: string,
+): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/batch/${batchId}/confirm`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ receiverAccountId }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+  }
+  return res.json()
 }
 

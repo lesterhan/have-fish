@@ -11,14 +11,17 @@
     updateExpense,
     fetchBalances,
     fetchSettlements,
-    createSettlement,
+    createSettlementBatch,
     confirmSettlement,
+    confirmSettlementBatch,
     deleteSettlement,
     updateGroup,
     updateMemberWeight,
     deleteGroup,
     fetchAccounts,
+    fetchUserSettings,
   } from '$lib/api'
+  import { owedDebts } from '$lib/fish-pie-settle'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import type {
     ExpenseGroup,
@@ -38,7 +41,7 @@
   import GroupBalancePanel from '$lib/components/fish-pie/GroupBalancePanel.svelte'
   import GroupExpenseForm from '$lib/components/fish-pie/GroupExpenseForm.svelte'
   import GroupRightPanel from '$lib/components/fish-pie/GroupRightPanel.svelte'
-  import GroupSettleModal from '$lib/components/fish-pie/GroupSettleModal.svelte'
+  import GroupSettleBatchModal from '$lib/components/fish-pie/GroupSettleBatchModal.svelte'
 
   const groupId = $derived(page.params.id ?? '')
   const session = useSession()
@@ -61,12 +64,8 @@
   let inviteSubmitting = $state(false)
 
   let showSettleModal = $state(false)
-  let settleFromUserId = $state('')
-  let settleToUserId = $state('')
-  let settleFromName = $state('')
-  let settleToName = $state('')
-  let settleInitialAmount = $state('')
-  let settleCurrency = $state('CAD')
+  // Home currency the batch modal defaults its "settle in" selector to.
+  let preferredCurrency = $state('CAD')
 
   let initialSliderPct = $state(50)
   let confirmDelete = $state(false)
@@ -75,6 +74,9 @@
   const allSettled = $derived(
     balances.length === 0 || balances.every((b) => b.transfers.length === 0),
   )
+
+  // Debts the current user owes, across all currencies — fed to the settle modal.
+  const myDebts = $derived(owedDebts(balances, currentUserId))
 
   const myExpenseAccountPath = $derived.by(() => {
     if (!group) return null
@@ -92,10 +94,11 @@
 
   onMount(async () => {
     try {
-      // One round-trip for the group bundle; accounts in parallel.
-      const [overview, accts] = await Promise.all([
+      // One round-trip for the group bundle; accounts + settings in parallel.
+      const [overview, accts, settings] = await Promise.all([
         fetchGroupOverview(groupId),
         fetchAccounts(),
+        fetchUserSettings(),
       ])
       const g = overview.group
       group = g
@@ -104,7 +107,7 @@
       balances = overview.balances
       settlements = overview.settlements
       allAccounts = accts
-      settleCurrency = g.defaultCurrency ?? 'CAD'
+      preferredCurrency = settings.preferredCurrency ?? g.defaultCurrency ?? 'CAD'
       configCurrency = g.defaultCurrency ?? ''
       if (g.members.length === 2) {
         const total = g.members[0].shareWeight + g.members[1].shareWeight
@@ -173,16 +176,8 @@
     return updated
   }
 
-  async function handleSettle(data: {
-    fromUserId: string
-    toUserId: string
-    amount: string
-    currency: string
-    date: string
-    note: string | undefined
-    payerAccountId: string
-  }) {
-    await createSettlement(groupId, data)
+  async function handleSettle(data: Parameters<typeof createSettlementBatch>[1]) {
+    await createSettlementBatch(groupId, data)
     await refreshBalances()
   }
 
@@ -192,7 +187,11 @@
   }
 
   async function handleConfirmSettlement(settlementId: string, receiverAccountId: string) {
-    await confirmSettlement(groupId, settlementId, receiverAccountId)
+    // Batch rows confirm through the batch endpoint (the single-row path rejects them,
+    // since a cross-currency row's cash leg is in the settled, not the debt, currency).
+    const s = settlements.find((x) => x.id === settlementId)
+    if (s?.batchId) await confirmSettlementBatch(groupId, s.batchId, receiverAccountId)
+    else await confirmSettlement(groupId, settlementId, receiverAccountId)
     await refreshBalances()
   }
 
@@ -205,27 +204,9 @@
     settlements = sett
   }
 
-  function prefillSettle(
-    fromUserId: string,
-    toUserId: string,
-    amount: string,
-    currency: string,
-  ) {
-    settleFromUserId = fromUserId
-    settleToUserId = toUserId
-    settleFromName =
-      group?.members.find((m) => m.userId === fromUserId)?.userName ?? ''
-    settleToName =
-      group?.members.find((m) => m.userId === toUserId)?.userName ?? ''
-    settleInitialAmount = amount
-    settleCurrency = currency
-    showSettleModal = true
-  }
-
   async function saveDefaultCurrency(code: string) {
     if (!group) return
     group = await updateGroup(groupId, { defaultCurrency: code })
-    settleCurrency = code
   }
 
   async function saveShareSlider(pct: number) {
@@ -395,7 +376,7 @@
             {balances}
             {allSettled}
             {currentUserId}
-            onSettleClick={prefillSettle}
+            onSettleClick={() => (showSettleModal = true)}
           />
         {/if}
 
@@ -434,14 +415,10 @@
   {/if}
 </div>
 
-<GroupSettleModal
+<GroupSettleBatchModal
   bind:open={showSettleModal}
-  fromUserId={settleFromUserId}
-  toUserId={settleToUserId}
-  fromName={settleFromName}
-  toName={settleToName}
-  initialAmount={settleInitialAmount}
-  currency={settleCurrency}
+  debts={myDebts}
+  defaultTargetCurrency={preferredCurrency}
   payerAccounts={allAccounts}
   onSettle={handleSettle}
 />
