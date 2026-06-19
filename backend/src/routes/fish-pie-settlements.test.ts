@@ -323,4 +323,203 @@ describe('fish-pie settlements', () => {
     // Debtor: -50 debt at expense time, +50 on settlement → 0
     expect(await clearingBalance(userBId)).toBeCloseTo(0, 2)
   })
+
+  describe('batch settlement', () => {
+    // B is always the payer. Sum a transaction's postings per currency.
+    async function postingsByCurrency(txId: string): Promise<Record<string, number>> {
+      const rows = await db
+        .select({ amount: postings.amount, currency: postings.currency })
+        .from(postings)
+        .where(and(eq(postings.transactionId, txId), isNull(postings.deletedAt)))
+      const totals: Record<string, number> = {}
+      for (const r of rows) totals[r.currency] = (totals[r.currency] ?? 0) + parseFloat(r.amount)
+      return totals
+    }
+
+    function batch(body: unknown, cookie = cookieB) {
+      return app.request(`/api/fish-pie/groups/${groupId}/settlements/batch`, {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    it('native-only single line behaves like a plain settlement', async () => {
+      const res = await batch({
+        payerAccountId: accountBId,
+        date: '2026-04-28',
+        lines: [{ toUserId: userAId, debtAmount: '30.00', debtCurrency: 'CAD', settledAmount: '30.00', settledCurrency: 'CAD' }],
+      })
+      expect(res.status).toBe(201)
+      const { batchId, settlements } = (await res.json()) as any
+      expect(batchId).toBeTruthy()
+      expect(settlements).toHaveLength(1)
+      const s = settlements[0]
+      expect(s.status).toBe('pending')
+      expect(s.amount).toBe('30.00')
+      expect(s.currency).toBe('CAD')
+      // Native ⇒ FX columns stay null.
+      expect(s.settledAmount).toBeNull()
+      expect(s.settledCurrency).toBeNull()
+      expect(s.fxRate).toBeNull()
+
+      // One payer tx, two balanced CAD postings (cash out, clearing in).
+      const totals = await postingsByCurrency(s.payerTransactionId)
+      expect(totals.CAD).toBeCloseTo(0, 2)
+      const rows = await db
+        .select()
+        .from(postings)
+        .where(and(eq(postings.transactionId, s.payerTransactionId), isNull(postings.deletedAt)))
+      expect(rows).toHaveLength(2)
+    })
+
+    it('converted line bridges currencies and balances per currency', async () => {
+      // Owe 50 EUR, pay 80 CAD at 1.60.
+      const res = await batch({
+        payerAccountId: accountBId,
+        date: '2026-04-28',
+        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' }],
+      })
+      expect(res.status).toBe(201)
+      const { settlements } = (await res.json()) as any
+      const s = settlements[0]
+      expect(s.currency).toBe('EUR')
+      expect(s.amount).toBe('50.00')
+      expect(s.settledAmount).toBe('80.00')
+      expect(s.settledCurrency).toBe('CAD')
+      expect(parseFloat(s.fxRate)).toBeCloseTo(1.6)
+
+      const totals = await postingsByCurrency(s.payerTransactionId)
+      expect(totals.CAD).toBeCloseTo(0, 2) // -80 cash + 80 conversion
+      expect(totals.EUR).toBeCloseTo(0, 2) // +50 clearing - 50 conversion
+      // Cash leg is a single -80 CAD movement out of the payer account.
+      const cash = await db
+        .select({ amount: postings.amount, currency: postings.currency })
+        .from(postings)
+        .where(and(eq(postings.transactionId, s.payerTransactionId), eq(postings.accountId, accountBId), isNull(postings.deletedAt)))
+      expect(cash).toHaveLength(1)
+      expect(parseFloat(cash[0].amount)).toBeCloseTo(-80, 2)
+      expect(cash[0].currency).toBe('CAD')
+    })
+
+    it('mixed batch produces one combined cash tx and rows sharing batchId', async () => {
+      // Owe 500 CAD (native) + 50 EUR→80 CAD. Pay 580 CAD total.
+      const res = await batch({
+        payerAccountId: accountBId,
+        date: '2026-04-28',
+        note: 'trip settle',
+        lines: [
+          { toUserId: userAId, debtAmount: '500.00', debtCurrency: 'CAD', settledAmount: '500.00', settledCurrency: 'CAD' },
+          { toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' },
+        ],
+      })
+      expect(res.status).toBe(201)
+      const { batchId, settlements } = (await res.json()) as any
+      expect(settlements).toHaveLength(2)
+      // All rows share the same batchId and the single payer transaction.
+      expect(new Set(settlements.map((x: any) => x.batchId))).toEqual(new Set([batchId]))
+      const txIds = new Set(settlements.map((x: any) => x.payerTransactionId))
+      expect(txIds.size).toBe(1)
+      const txId = settlements[0].payerTransactionId
+
+      const totals = await postingsByCurrency(txId)
+      expect(totals.CAD).toBeCloseTo(0, 2)
+      expect(totals.EUR).toBeCloseTo(0, 2)
+      // Single combined cash movement: -580 CAD.
+      const cash = await db
+        .select({ amount: postings.amount, currency: postings.currency })
+        .from(postings)
+        .where(and(eq(postings.transactionId, txId), eq(postings.accountId, accountBId), isNull(postings.deletedAt)))
+      expect(cash).toHaveLength(1)
+      expect(parseFloat(cash[0].amount)).toBeCloseTo(-580, 2)
+    })
+
+    it('a pending batch does not change balances until confirmed', async () => {
+      // A pays 100 EUR, split 50/50 ⇒ B owes A 50 EUR.
+      await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+        method: 'POST',
+        headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: 'dinner', amount: '100.00', currency: 'EUR', date: '2026-04-20', paidByUserId: userAId }),
+      })
+
+      const before = await (await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })).json()
+
+      const res = await batch({
+        payerAccountId: accountBId,
+        date: '2026-04-28',
+        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' }],
+      })
+      expect(res.status).toBe(201)
+
+      const after = await (await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })).json()
+      // Pending settlement is excluded from balances (only completed ones net).
+      expect(after).toEqual(before)
+    })
+
+    it('rejects a converted line when the payer has no conversion account', async () => {
+      // Null out B's seeded default conversion account.
+      await app.request('/api/user-settings', {
+        method: 'PATCH',
+        headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultConversionAccountId: null }),
+      })
+      const res = await batch({
+        payerAccountId: accountBId,
+        date: '2026-04-28',
+        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' }],
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects a native line whose settledAmount differs from debtAmount', async () => {
+      const res = await batch({
+        payerAccountId: accountBId,
+        date: '2026-04-28',
+        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'CAD', settledAmount: '60.00', settledCurrency: 'CAD' }],
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects an empty lines array', async () => {
+      const res = await batch({ payerAccountId: accountBId, date: '2026-04-28', lines: [] })
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects settling with yourself', async () => {
+      const res = await batch({
+        payerAccountId: accountBId,
+        date: '2026-04-28',
+        lines: [{ toUserId: userBId, debtAmount: '50.00', debtCurrency: 'CAD', settledAmount: '50.00', settledCurrency: 'CAD' }],
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it("rejects a payer account that isn't the caller's", async () => {
+      const res = await batch({
+        payerAccountId: accountAId, // A's account, but B is calling
+        date: '2026-04-28',
+        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'CAD', settledAmount: '50.00', settledCurrency: 'CAD' }],
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 404 for a non-member', async () => {
+      const cookieC = await createTestUser('c@test.com', 'passwordC')
+      const accC = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookieC, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      })
+      const accCId = ((await accC.json()) as any).id
+      const res = await batch(
+        {
+          payerAccountId: accCId,
+          date: '2026-04-28',
+          lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'CAD', settledAmount: '50.00', settledCurrency: 'CAD' }],
+        },
+        cookieC,
+      )
+      expect(res.status).toBe(404)
+    })
+  })
 })
