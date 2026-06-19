@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getBaseUrl, getSession } from './auth'
+import { ExpenseQueuedError } from './expense-submit'
 
 // ---------------------------------------------------------------------------
 // Core fetch wrapper
@@ -365,13 +366,19 @@ export async function createExpense(
     categoryId?: string | null
   },
 ): Promise<GroupExpense> {
-  const res = await apiFetch(`/api/fish-pie/groups/${groupId}/expenses`, {
-    method: 'POST',
-    body: JSON.stringify(body),
-  })
+  const path = `/api/fish-pie/groups/${groupId}/expenses`
+  let res: Response
+  try {
+    res = await apiFetch(path, { method: 'POST', body: JSON.stringify(body) })
+  } catch {
+    // No connectivity (fetch rejected before any response) — enqueue for retry
+    // and signal the UI to show a soft "queued" outcome rather than an error.
+    await enqueueOffline(path, 'POST', body)
+    throw new ExpenseQueuedError()
+  }
   if (!res.ok) {
-    // Queue for retry if offline, then surface the error
-    await enqueueOffline(`/api/fish-pie/groups/${groupId}/expenses`, 'POST', body)
+    // The server reached us and rejected the request — a real error, not an
+    // offline case. Surface it.
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to create expense')
   }
