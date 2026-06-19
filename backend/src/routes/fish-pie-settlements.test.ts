@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { transactions, postings, accounts } from '../db/schema'
+import { transactions, postings, accounts, groupSettlements } from '../db/schema'
 import { eq, isNull, and } from 'drizzle-orm'
 
 describe('fish-pie settlements', () => {
@@ -435,19 +435,21 @@ describe('fish-pie settlements', () => {
     })
 
     it('a pending batch does not change balances until confirmed', async () => {
-      // A pays 100 EUR, split 50/50 ⇒ B owes A 50 EUR.
+      // A pays 100 EUR ⇒ B owes A their EUR share (a real, non-empty balance).
       await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
         method: 'POST',
         headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: 'dinner', amount: '100.00', currency: 'EUR', date: '2026-04-20', paidByUserId: userAId }),
+        body: JSON.stringify({ description: 'dinner', amount: '100.00', currency: 'EUR', date: '2026-04-20', paidByUserId: userAId, paymentAccountId: accountAId }),
       })
 
-      const before = await (await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })).json()
+      const before = (await (await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })).json()) as any[]
+      const owed = before.find((b) => b.currency === 'EUR').transfers[0]
+      expect(owed.fromUserId).toBe(userBId)
 
       const res = await batch({
         payerAccountId: accountBId,
         date: '2026-04-28',
-        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' }],
+        lines: [{ toUserId: userAId, debtAmount: owed.amount, debtCurrency: 'EUR', settledAmount: (parseFloat(owed.amount) * 1.6).toFixed(2), settledCurrency: 'CAD', fxRate: '1.60' }],
       })
       expect(res.status).toBe(201)
 
@@ -520,6 +522,148 @@ describe('fish-pie settlements', () => {
         cookieC,
       )
       expect(res.status).toBe(404)
+    })
+
+    // Create a mixed batch (B pays A: 500 CAD native + 50 EUR→80 CAD) and return it.
+    async function mixedBatch() {
+      const res = await batch({
+        payerAccountId: accountBId,
+        date: '2026-04-28',
+        lines: [
+          { toUserId: userAId, debtAmount: '500.00', debtCurrency: 'CAD', settledAmount: '500.00', settledCurrency: 'CAD' },
+          { toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' },
+        ],
+      })
+      return (await res.json()) as { batchId: string; settlements: any[] }
+    }
+
+    function confirmBatch(batchId: string, receiverAccountId: string, cookie = cookieA) {
+      return app.request(`/api/fish-pie/groups/${groupId}/settlements/batch/${batchId}/confirm`, {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiverAccountId }),
+      })
+    }
+
+    it('receiver confirms a batch into one combined receiving tx and completes all rows', async () => {
+      const { batchId } = await mixedBatch()
+      const res = await confirmBatch(batchId, accountAId)
+      expect(res.status).toBe(200)
+      const { settlements } = (await res.json()) as any
+      expect(settlements).toHaveLength(2)
+      expect(settlements.every((s: any) => s.status === 'completed')).toBe(true)
+      // One shared receiver transaction.
+      const rxIds = new Set(settlements.map((s: any) => s.receiverTransactionId))
+      expect(rxIds.size).toBe(1)
+      const rxId = settlements[0].receiverTransactionId
+
+      const totals = await postingsByCurrency(rxId)
+      expect(totals.CAD).toBeCloseTo(0, 2)
+      expect(totals.EUR).toBeCloseTo(0, 2)
+      // Single combined cash-in: +580 CAD into the receiver's account.
+      const cash = await db
+        .select({ amount: postings.amount, currency: postings.currency })
+        .from(postings)
+        .where(and(eq(postings.transactionId, rxId), eq(postings.accountId, accountAId), isNull(postings.deletedAt)))
+      expect(cash).toHaveLength(1)
+      expect(parseFloat(cash[0].amount)).toBeCloseTo(580, 2)
+      expect(cash[0].currency).toBe('CAD')
+    })
+
+    it('only the receiver can confirm — the payer gets 404', async () => {
+      const { batchId } = await mixedBatch()
+      // B is the payer; no rows in the batch are addressed to B.
+      const res = await confirmBatch(batchId, accountBId, cookieB)
+      expect(res.status).toBe(404)
+    })
+
+    it('confirming an already-confirmed batch returns 409', async () => {
+      const { batchId } = await mixedBatch()
+      expect((await confirmBatch(batchId, accountAId)).status).toBe(200)
+      const again = await confirmBatch(batchId, accountAId)
+      expect(again.status).toBe(409)
+    })
+
+    it('the single confirm endpoint rejects a batch row', async () => {
+      const { settlements } = await mixedBatch()
+      const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlements[0].id}/confirm`, {
+        method: 'POST',
+        headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiverAccountId: accountAId }),
+      })
+      expect(res.status).toBe(409)
+    })
+
+    it('balances reflect completion after a cross-currency confirm', async () => {
+      // A pays 100 EUR ⇒ B owes A their share. Read the exact owed amount rather
+      // than assume the split, then settle that and confirm.
+      await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+        method: 'POST',
+        headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ description: 'dinner', amount: '100.00', currency: 'EUR', date: '2026-04-20', paidByUserId: userAId, paymentAccountId: accountAId }),
+      })
+
+      const beforeBalances = (await (
+        await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })
+      ).json()) as any[]
+      const owed = beforeBalances.find((b) => b.currency === 'EUR').transfers[0]
+      expect(owed.fromUserId).toBe(userBId)
+      const owedAmount = owed.amount
+      const settledCad = (parseFloat(owedAmount) * 1.6).toFixed(2)
+
+      const { batchId } = (await (
+        await batch({
+          payerAccountId: accountBId,
+          date: '2026-04-28',
+          lines: [{ toUserId: userAId, debtAmount: owedAmount, debtCurrency: 'EUR', settledAmount: settledCad, settledCurrency: 'CAD', fxRate: '1.60' }],
+        })
+      ).json()) as any
+
+      expect((await confirmBatch(batchId, accountAId)).status).toBe(200)
+
+      const balances = (await (
+        await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })
+      ).json()) as any[]
+      // EUR debt is settled, so it nets zero — no outstanding EUR transfers remain.
+      const eur = balances.find((b) => b.currency === 'EUR')
+      expect(eur?.transfers ?? []).toHaveLength(0)
+    })
+
+    it('deleting a batch soft-deletes every row, the payer tx, and the receiver tx', async () => {
+      const { batchId, settlements } = await mixedBatch()
+      const payerTxId = settlements[0].payerTransactionId
+      await confirmBatch(batchId, accountAId)
+      const [confirmed] = await db.select().from(groupSettlements).where(eq(groupSettlements.id, settlements[0].id))
+      const receiverTxId = confirmed.receiverTransactionId!
+
+      // Delete via a single row id — cascades to the whole batch.
+      const del = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlements[1].id}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookieB },
+      })
+      expect(del.status).toBe(204)
+
+      // All rows soft-deleted.
+      const rows = await db
+        .select()
+        .from(groupSettlements)
+        .where(and(eq(groupSettlements.batchId, batchId), isNull(groupSettlements.deletedAt)))
+      expect(rows).toHaveLength(0)
+
+      // Both transactions + their postings soft-deleted.
+      for (const txId of [payerTxId, receiverTxId]) {
+        const [txRow] = await db.select().from(transactions).where(eq(transactions.id, txId))
+        expect(txRow.deletedAt).not.toBeNull()
+        const livePostings = await db
+          .select()
+          .from(postings)
+          .where(and(eq(postings.transactionId, txId), isNull(postings.deletedAt)))
+        expect(livePostings).toHaveLength(0)
+      }
+
+      // GET no longer lists the batch.
+      const list = (await (await app.request(`/api/fish-pie/groups/${groupId}/settlements`, { headers: { Cookie: cookieB } })).json()) as any[]
+      expect(list.filter((s) => s.batchId === batchId)).toHaveLength(0)
     })
   })
 })

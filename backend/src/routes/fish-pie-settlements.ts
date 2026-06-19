@@ -332,6 +332,10 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
 
   if (settlement.toUserId !== userId) return c.json({ error: 'forbidden' }, 403)
   if (settlement.status === 'completed') return c.json({ error: 'already confirmed' }, 409)
+  // Batch rows (esp. cross-currency) must confirm through the batch endpoint, which
+  // books the cash leg in the settled currency. This single-row path would wrongly
+  // book the debt currency/amount as the cash received.
+  if (settlement.batchId) return c.json({ error: 'use the batch confirm endpoint' }, 409)
 
   const body = await c.req.json<{ receiverAccountId?: string }>()
   if (!body.receiverAccountId) return c.json({ error: 'receiverAccountId is required' }, 400)
@@ -382,6 +386,113 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
   return c.json(withNames)
 })
 
+// POST /api/fish-pie/groups/:groupId/settlements/batch/:batchId/confirm
+// Receiver confirms a batch: books ONE combined receiving transaction mirroring the
+// payer's, then flips every pending row in the batch addressed to the caller to
+// completed. A batch can name more than one receiver (e.g. owe two people at once);
+// each receiver confirms only the rows addressed to them.
+// Body: { receiverAccountId }
+app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
+  const userId = c.get('userId')
+  const groupId = c.req.param('groupId')
+  const batchId = c.req.param('batchId')
+
+  const [group] = await db
+    .select()
+    .from(expenseGroups)
+    .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
+  if (!group) return c.json({ error: 'not found' }, 404)
+
+  // Rows in this batch addressed to the caller (the receiver).
+  const rows = await db
+    .select()
+    .from(groupSettlements)
+    .where(
+      and(
+        eq(groupSettlements.batchId, batchId),
+        eq(groupSettlements.groupId, groupId),
+        eq(groupSettlements.toUserId, userId),
+        isNull(groupSettlements.deletedAt),
+      ),
+    )
+  if (rows.length === 0) return c.json({ error: 'not found' }, 404)
+  if (rows.every((r) => r.status === 'completed')) return c.json({ error: 'already confirmed' }, 409)
+  const pending = rows.filter((r) => r.status !== 'completed')
+
+  const body = await c.req.json<{ receiverAccountId?: string }>()
+  if (!body.receiverAccountId) return c.json({ error: 'receiverAccountId is required' }, 400)
+
+  const [receiverAccount] = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.id, body.receiverAccountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+  if (!receiverAccount) return c.json({ error: 'receiverAccountId not found' }, 400)
+
+  // Cross-currency rows need the receiver's conversion account to bridge currencies.
+  const hasConverted = pending.some((r) => r.settledCurrency !== null)
+  let conversionAccountId: string | null = null
+  if (hasConverted) {
+    const [settings] = await db
+      .select({ conversionAccountId: userSettings.defaultConversionAccountId })
+      .from(userSettings)
+      .where(eq(userSettings.userId, userId))
+    conversionAccountId = settings?.conversionAccountId ?? null
+    if (!conversionAccountId)
+      return c.json({ error: 'a conversion account is required for cross-currency settlement; set one in settings' }, 400)
+  }
+
+  const result = await db.transaction(async (tx) => {
+    const sharedAccountId = await ensureSharedAccount(userId, group, tx)
+    // All rows in a batch share the payer's date; use the first.
+    const txDate = new Date(`${pending[0].date}T00:00:00Z`)
+
+    const [receiverTx] = await tx
+      .insert(transactions)
+      .values({
+        userId,
+        date: txDate,
+        description: pending[0].note || `Settlement from ${group.name}`,
+      })
+      .returning()
+
+    const postingRows: { transactionId: string; accountId: string; amount: string; currency: string }[] = []
+
+    // One combined cash-in leg per received currency (mirror of the payer's cash-out).
+    const cashByCurrency = new Map<string, number>()
+    for (const r of pending) {
+      const cashCurrency = r.settledCurrency ?? r.currency
+      const cashAmount = parseFloat(r.settledAmount ?? r.amount)
+      cashByCurrency.set(cashCurrency, (cashByCurrency.get(cashCurrency) ?? 0) + cashAmount)
+    }
+    for (const [currency, total] of cashByCurrency) {
+      postingRows.push({ transactionId: receiverTx.id, accountId: body.receiverAccountId!, amount: total.toFixed(2), currency })
+    }
+
+    // Drain the receiver's clearing account per debt; bridge converted rows through
+    // their equity:conversions so every currency nets to zero.
+    for (const r of pending) {
+      postingRows.push({ transactionId: receiverTx.id, accountId: sharedAccountId, amount: `-${r.amount}`, currency: r.currency })
+      if (r.settledCurrency !== null) {
+        postingRows.push({ transactionId: receiverTx.id, accountId: conversionAccountId!, amount: `-${r.settledAmount}`, currency: r.settledCurrency })
+        postingRows.push({ transactionId: receiverTx.id, accountId: conversionAccountId!, amount: r.amount, currency: r.currency })
+      }
+    }
+
+    await tx.insert(postings).values(postingRows)
+
+    const updated = await tx
+      .update(groupSettlements)
+      .set({ status: 'completed', receiverTransactionId: receiverTx.id })
+      .where(inArray(groupSettlements.id, pending.map((r) => r.id)))
+      .returning()
+
+    return updated
+  })
+
+  const named = await fetchSettlementsWithNames(result.map((s) => s.id))
+  return c.json({ batchId, settlements: named })
+})
+
 // GET /api/fish-pie/groups/:groupId/settlements
 app.get('/groups/:groupId/settlements', async (c) => {
   const userId = c.get('userId')
@@ -421,11 +532,28 @@ app.delete('/groups/:groupId/settlements/:settlementId', async (c) => {
   const isCreator = group.createdBy === userId
   if (!isParty && !isCreator) return c.json({ error: 'forbidden' }, 403)
 
-  await db.transaction(async (tx) => {
-    await tx.update(groupSettlements).set({ deletedAt: new Date() }).where(eq(groupSettlements.id, settlementId))
+  // A batch shares one payer transaction across all its rows, so a single row can't be
+  // removed in isolation without unbalancing that transaction — delete the whole batch
+  // (every row + the shared payer tx + each receiver tx).
+  const siblings = settlement.batchId
+    ? await db
+        .select()
+        .from(groupSettlements)
+        .where(and(eq(groupSettlements.batchId, settlement.batchId), isNull(groupSettlements.deletedAt)))
+    : [settlement]
 
-    // Soft-delete linked ledger transactions
-    const txIds = [settlement.payerTransactionId, settlement.receiverTransactionId].filter((id): id is string => id !== null)
+  const settlementIds = siblings.map((s) => s.id)
+  const txIds = [
+    ...new Set(
+      siblings
+        .flatMap((s) => [s.payerTransactionId, s.receiverTransactionId])
+        .filter((id): id is string => id !== null),
+    ),
+  ]
+
+  await db.transaction(async (tx) => {
+    await tx.update(groupSettlements).set({ deletedAt: new Date() }).where(inArray(groupSettlements.id, settlementIds))
+
     if (txIds.length > 0) {
       await tx.update(transactions).set({ deletedAt: new Date() }).where(inArray(transactions.id, txIds))
       await tx.update(postings).set({ deletedAt: new Date() }).where(inArray(postings.transactionId, txIds))
