@@ -71,7 +71,10 @@ function CurrencyCard({ balance }: { balance: CurrencyBalance }) {
         )
       })}
 
-      {/* To settle: one sentence + pill per transfer */}
+      {/* To settle: one sentence + pill per transfer. Guarded — a non-zero net
+          can round to no transfer (sub-cent), and an empty "TO SETTLE" reads as
+          a bug. */}
+      {balance.transfers.length > 0 && (
       <View style={styles.settleBlock}>
         <Label style={styles.settleLabel}>To settle</Label>
         {balance.transfers.map((t, i) => (
@@ -87,6 +90,7 @@ function CurrencyCard({ balance }: { balance: CurrencyBalance }) {
           </View>
         ))}
       </View>
+      )}
     </GlossSurface>
   )
 }
