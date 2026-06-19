@@ -10,16 +10,26 @@
     balances: CurrencyBalance[]
     allSettled: boolean
     currentUserId: string
-    onSettleClick: (
-      fromUserId: string,
-      toUserId: string,
-      amount: string,
-      currency: string,
-    ) => void
+    onSettleClick: () => void
   }
 
   let { members, balances, allSettled, currentUserId, onSettleClick }: Props =
     $props()
+
+  // Every transfer flattened. The current user either owes (is the payer in some
+  // transfer) — then they settle — or is only owed, and waits for the other party.
+  const allTransfers = $derived(balances.flatMap((b) => b.transfers))
+  const iOwe = $derived(allTransfers.some((t) => t.fromUserId === currentUserId))
+  const waitingOnName = $derived.by(() => {
+    const debtors = [
+      ...new Set(
+        allTransfers
+          .filter((t) => t.toUserId === currentUserId)
+          .map((t) => t.fromUserName ?? 'them'),
+      ),
+    ]
+    return debtors.length === 1 ? debtors[0] : null
+  })
 </script>
 
 <div class="section-bar">
@@ -62,25 +72,15 @@
 
 {#if !allSettled}
   <div class="settle-actions">
-    {#each balances as cb (cb.currency)}
-      {#each cb.transfers as t}
-        {@const isPayer = t.fromUserId === currentUserId}
-        <div class="settle-btn-wrap">
-          {#if isPayer}
-            <GradientButton
-              onclick={() =>
-                onSettleClick(t.fromUserId, t.toUserId, t.amount, t.currency)}
-            >
-              Settle up
-            </GradientButton>
-          {:else}
-            <GradientButton disabled>
-              Waiting for {t.fromUserName ?? 'them'} to pay
-            </GradientButton>
-          {/if}
-        </div>
-      {/each}
-    {/each}
+    <div class="settle-btn-wrap">
+      {#if iOwe}
+        <GradientButton onclick={onSettleClick}>Settle up</GradientButton>
+      {:else}
+        <GradientButton disabled>
+          Waiting for {waitingOnName ?? 'payment'}{waitingOnName ? ' to pay' : ''}
+        </GradientButton>
+      {/if}
+    </div>
   </div>
 {/if}
 

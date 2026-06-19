@@ -15,6 +15,7 @@
   import { toast } from '$lib/toast.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import Card from '$lib/components/ui/Card.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
 
   interface Props {
@@ -159,7 +160,7 @@
     <div class="cat-list">
       {#each active as cat (cat.id)}
         {@const suggestion = suggestionFor(cat)}
-        <div class="cat-card">
+        <Card>
           <div class="cat-head">
             <TextInput
               value={cat.name}
@@ -225,7 +226,7 @@
               </div>
             {/if}
           </div>
-        </div>
+        </Card>
       {/each}
     </div>
   {/if}
@@ -275,15 +276,6 @@
     flex-direction: column;
     gap: var(--sp-md);
     padding: var(--sp-md) 22px;
-  }
-
-  .cat-card {
-    display: flex;
-    flex-direction: column;
-    background: var(--card-bg);
-    border: 1px solid var(--card-border-color);
-    border-radius: var(--card-radius);
-    box-shadow: var(--card-shadow);
   }
 
   .cat-head {
