@@ -71,4 +71,86 @@ describe('fx-rates', () => {
     })
     expect(res.status).toBe(400)
   })
+
+  // Helper: the YYYY-MM-DD string for `daysAgo` days before today (UTC).
+  function dateDaysAgo(daysAgo: number): string {
+    const d = new Date()
+    d.setUTCDate(d.getUTCDate() - daysAgo)
+    return d.toISOString().substring(0, 10)
+  }
+
+  describe('GET /api/fx-rates/as-of', () => {
+    it("returns yesterday's rate with asOfDate when it is published", async () => {
+      const yesterday = dateDaysAgo(1)
+      const fetchSpy = spyOn(global, 'fetch').mockResolvedValueOnce(
+        new Response(JSON.stringify({ rates: { CAD: 1.4732 } }), { status: 200 }),
+      )
+
+      const res = await app.request('/api/fx-rates/as-of?from=EUR&to=CAD', {
+        headers: { Cookie: cookie },
+      })
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { from: string; to: string; rate: string; asOfDate: string }
+      expect(body.from).toBe('EUR')
+      expect(body.to).toBe('CAD')
+      expect(parseFloat(body.rate)).toBeCloseTo(1.4732)
+      expect(body.asOfDate).toBe(yesterday)
+      // First try (yesterday) succeeds — no walk-back.
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      fetchSpy.mockRestore()
+    })
+
+    it('walks back over a no-data day to the last published day', async () => {
+      const twoDaysAgo = dateDaysAgo(2)
+      // Yesterday: no data (e.g. weekend/holiday). Two days ago: published.
+      const fetchSpy = spyOn(global, 'fetch').mockImplementation(async (input) => {
+        const url = String(input)
+        if (url.includes(twoDaysAgo)) {
+          return new Response(JSON.stringify({ rates: { CAD: 1.5 } }), { status: 200 })
+        }
+        return new Response(JSON.stringify({ rates: {} }), { status: 200 })
+      })
+
+      const res = await app.request('/api/fx-rates/as-of?from=EUR&to=CAD', {
+        headers: { Cookie: cookie },
+      })
+
+      expect(res.status).toBe(200)
+      const body = (await res.json()) as { rate: string; asOfDate: string }
+      expect(parseFloat(body.rate)).toBeCloseTo(1.5)
+      expect(body.asOfDate).toBe(twoDaysAgo)
+      expect(fetchSpy).toHaveBeenCalledTimes(2)
+      fetchSpy.mockRestore()
+    })
+
+    it('returns 404 when no rate is published in the lookback window', async () => {
+      // Fresh Response per call — a single Response body can only be read once,
+      // and the helper walks back several days (reading each).
+      const fetchSpy = spyOn(global, 'fetch').mockImplementation(
+        async () => new Response(JSON.stringify({ rates: {} }), { status: 200 }),
+      )
+
+      const res = await app.request('/api/fx-rates/as-of?from=EUR&to=CAD', {
+        headers: { Cookie: cookie },
+      })
+
+      expect(res.status).toBe(404)
+      fetchSpy.mockRestore()
+    })
+
+    it('returns 400 when from/to are missing', async () => {
+      const res = await app.request('/api/fx-rates/as-of?from=EUR', {
+        headers: { Cookie: cookie },
+      })
+      expect(res.status).toBe(400)
+    })
+
+    it('returns 400 for an unsupported currency', async () => {
+      const res = await app.request('/api/fx-rates/as-of?from=EUR&to=ZZZ', {
+        headers: { Cookie: cookie },
+      })
+      expect(res.status).toBe(400)
+    })
+  })
 })

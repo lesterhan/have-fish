@@ -281,8 +281,18 @@ export const groupSettlements = pgTable('group_settlements', {
   groupId: uuid('group_id').notNull().references(() => expenseGroups.id, { onDelete: 'cascade' }),
   fromUserId: text('from_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   toUserId: text('to_user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  // The debt being cleared, in its own currency. Balance math nets on these.
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   currency: text('currency').notNull(),
+  // The cash actually paid. Null ⇒ native settlement (settledAmount == amount,
+  // settledCurrency == currency, no FX). Non-null ⇒ cross-currency: the debt above
+  // was cleared by paying settledAmount of settledCurrency at fxRate.
+  settledAmount: numeric('settled_amount', { precision: 12, scale: 2 }),
+  settledCurrency: text('settled_currency'),
+  fxRate: numeric('fx_rate', { precision: 12, scale: 6 }),
+  // Settlements created together (one combined cash transaction) share a batchId.
+  // Drives combined confirm + cascade delete. Null on legacy single settlements.
+  batchId: uuid('batch_id'),
   date: text('date').notNull(),
   note: text('note'),
   status: text('status').notNull().default('pending'),
@@ -293,6 +303,7 @@ export const groupSettlements = pgTable('group_settlements', {
   deletedAt: timestamp('deleted_at'),
 }, (t) => [
   index('group_settlements_group_id_idx').on(t.groupId),
+  index('group_settlements_batch_id_idx').on(t.batchId),
 ])
 
 // A posting is one leg of a transaction — money moving in or out of one account.
