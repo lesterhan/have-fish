@@ -6,6 +6,7 @@
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import Checkbox from '$lib/components/ui/Checkbox.svelte'
+  import Card from '$lib/components/ui/Card.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import type { Account, BatchSettlementLine } from '$lib/api'
   import { fetchFxRateAsOf } from '$lib/api'
@@ -127,7 +128,8 @@
       <div class="lines">
       {#each lines as l, i (l.toUserId + l.debtCurrency)}
         {@const converted = isConverted(l, target)}
-        <div class="line-card" class:line-card--off={!l.include}>
+        <Card gloss muted={!l.include}>
+          <div class="line-row">
           <Checkbox
             bind:checked={l.include}
             ariaLabel={l.include ? 'Exclude this debt' : 'Include this debt'}
@@ -186,7 +188,8 @@
               </span>
             {/if}
           </div>
-        </div>
+          </div>
+        </Card>
       {/each}
       </div>
     </div>
@@ -263,42 +266,19 @@
     gap: 5px;
   }
 
-  /* Each debt is its own selectable Aqua gloss card (soft top-light gradient,
-     hairline border, drop shadow) — the web echo of the mobile balance cards. */
+  /* Each debt is its own selectable Aqua gloss Card; this is just the row layout
+     inside one. */
   .lines {
     display: flex;
     flex-direction: column;
     gap: var(--sp-sm);
   }
 
-  .line-card {
+  .line-row {
     display: flex;
     align-items: flex-start;
     gap: var(--sp-sm);
     padding: var(--sp-sm) var(--sp-md);
-    background: linear-gradient(180deg, var(--color-window-inset), var(--color-window));
-    border: 1px solid var(--card-border-color);
-    border-radius: var(--card-radius);
-    box-shadow: var(--card-shadow);
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      opacity var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
-  }
-
-  .line-card:hover {
-    box-shadow: var(--card-shadow-hover);
-  }
-
-  /* Excluded line: flatten the gloss and dim, so the card reads as "off". */
-  .line-card--off {
-    opacity: 0.55;
-    background: var(--color-window-raised);
-    box-shadow: none;
-  }
-
-  .line-card--off:hover {
-    box-shadow: none;
   }
 
   /* Strong break between the balances block and the payment form so the bottom
