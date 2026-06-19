@@ -1,7 +1,14 @@
 /// <reference types="bun-types" />
 import { describe, it, expect } from 'bun:test'
 import type { CurrencyBalance, GroupSettlement } from './api'
-import { needsConversionAccount, pendingOutgoing, settleAction } from './settle-actions'
+import {
+  incomingBatches,
+  needsConversionAccount,
+  pendingIncoming,
+  pendingOutgoing,
+  receiptLines,
+  settleAction,
+} from './settle-actions'
 import type { SettleLine } from './fish-pie-settle'
 
 const transfer = (from: string, to: string, amount: string, currency: string) => ({
@@ -104,6 +111,58 @@ describe('pendingOutgoing', () => {
       settlement({ id: 'd', status: 'pending', fromUserId: 'me', deletedAt: '2026-06-19T00:00:00Z' }),
     ]
     expect(pendingOutgoing(rows, 'me').map((r) => r.id)).toEqual(['a'])
+  })
+})
+
+describe('pendingIncoming', () => {
+  it('returns only active pending rows the user receives', () => {
+    const rows = [
+      settlement({ id: 'a', status: 'pending', toUserId: 'me', fromUserId: 'partner' }),
+      settlement({ id: 'b', status: 'completed', toUserId: 'me' }),
+      settlement({ id: 'c', status: 'pending', toUserId: 'partner' }),
+      settlement({ id: 'd', status: 'pending', toUserId: 'me', deletedAt: '2026-06-19T00:00:00Z' }),
+    ]
+    expect(pendingIncoming(rows, 'me').map((r) => r.id)).toEqual(['a'])
+  })
+})
+
+describe('incomingBatches', () => {
+  it('groups rows sharing a batchId into one confirmable batch', () => {
+    const rows = [
+      settlement({ id: 'a', batchId: 'b1', toUserId: 'me', fromUserName: 'Partner', settledCurrency: 'CAD', settledAmount: '500.00' }),
+      settlement({ id: 'b', batchId: 'b1', toUserId: 'me', fromUserName: 'Partner', settledCurrency: 'CAD', settledAmount: '80.00' }),
+    ]
+    const batches = incomingBatches(rows, 'me')
+    expect(batches).toHaveLength(1)
+    expect(batches[0].batchId).toBe('b1')
+    expect(batches[0].fromUserName).toBe('Partner')
+    expect(batches[0].rows).toHaveLength(2)
+  })
+
+  it('keeps a legacy single (null batchId) on its own, keyed by id', () => {
+    const rows = [
+      settlement({ id: 's1', batchId: null, toUserId: 'me' }),
+      settlement({ id: 's2', batchId: null, toUserId: 'me' }),
+    ]
+    const batches = incomingBatches(rows, 'me')
+    expect(batches).toHaveLength(2)
+    expect(batches.map((b) => b.settlementId).sort()).toEqual(['s1', 's2'])
+    expect(batches.every((b) => b.batchId === null)).toBe(true)
+  })
+})
+
+describe('receiptLines', () => {
+  it('sums cash by settled currency, preferring settled over debt fields', () => {
+    const rows = [
+      settlement({ settledCurrency: 'CAD', settledAmount: '500.00', currency: 'CAD', amount: '500.00' }),
+      settlement({ settledCurrency: 'CAD', settledAmount: '80.00', currency: 'EUR', amount: '50.00' }),
+    ]
+    expect(receiptLines(rows)).toEqual([{ currency: 'CAD', amount: '580.00' }])
+  })
+
+  it('falls back to debt amount/currency for native or legacy rows', () => {
+    const rows = [settlement({ settledCurrency: null, settledAmount: null, currency: 'EUR', amount: '50.00' })]
+    expect(receiptLines(rows)).toEqual([{ currency: 'EUR', amount: '50.00' }])
   })
 })
 
