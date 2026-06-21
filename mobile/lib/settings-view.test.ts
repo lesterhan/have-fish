@@ -2,7 +2,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Account, ExpenseGroup, GroupCategory, GroupMember } from './api'
 import {
-  QUICK_CURRENCIES,
   accountRows,
   activeCategories,
   categoryHasOverride,
@@ -174,11 +173,5 @@ describe('categoryWeightRows', () => {
   it('falls back to the baseline shareWeight when not overridden', () => {
     const cat = category({ weights: [] })
     expect(categoryWeightRows(cat, members).map((r) => r.weight)).toEqual([1, 1])
-  })
-})
-
-describe('QUICK_CURRENCIES', () => {
-  it('is the fixed quick-pick set', () => {
-    expect(QUICK_CURRENCIES).toEqual(['CAD', 'CZK', 'CNY', 'EUR'])
   })
 })

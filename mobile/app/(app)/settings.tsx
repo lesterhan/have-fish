@@ -11,7 +11,6 @@ import {
 } from '@/lib/api'
 import { useGroups } from '@/lib/group-context'
 import {
-  QUICK_CURRENCIES,
   accountRows,
   activeCategories,
   groupCard,
@@ -19,7 +18,6 @@ import {
   splitRows,
 } from '@/lib/settings-view'
 import { theme } from '@/lib/theme'
-import { Chip } from '@/components/Chip'
 import { GlossButton } from '@/components/GlossButton'
 import { GroupsSheet } from '@/components/GroupsSheet'
 import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
@@ -89,7 +87,6 @@ export default function GroupSettingsScreen() {
               <SettingsCard title="Group">
                 <SettingsRow label="Name" value={card.name} />
                 <SettingsRow label="Default currency" value={card.currency} />
-                <SettingsRow label="Members" value={String(card.memberCount)} />
               </SettingsCard>
             )
           })()}
@@ -146,15 +143,6 @@ export default function GroupSettingsScreen() {
             </SettingsCard>
           )}
 
-          {/* Quick currencies (display only) */}
-          <SettingsCard title="Quick currencies">
-            <View style={styles.chips}>
-              {QUICK_CURRENCIES.map((ccy) => (
-                <Chip key={ccy} label={ccy} active disabled onPress={() => {}} />
-              ))}
-            </View>
-          </SettingsCard>
-
           <GlossButton label="All groups" variant="neutral" onPress={() => setGroupsOpen(true)} />
         </ScrollView>
       )}
@@ -207,6 +195,4 @@ const styles = StyleSheet.create({
   },
   badgeMuted: { backgroundColor: theme.color.surface2, color: theme.color.ink3 },
   badgeCustom: { backgroundColor: theme.color.accentSoft, color: theme.color.accentInk },
-
-  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.sp.xs, paddingVertical: theme.sp[10] },
 })

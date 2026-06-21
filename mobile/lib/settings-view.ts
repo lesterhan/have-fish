@@ -13,9 +13,6 @@
  */
 import type { Account, ExpenseGroup, GroupCategory, GroupMember } from './api'
 
-/** Static quick-pick currencies shown as active chips (display only — no backend). */
-export const QUICK_CURRENCIES = ['CAD', 'CZK', 'CNY', 'EUR'] as const
-
 export interface GroupCard {
   name: string
   currency: string

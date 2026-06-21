@@ -76,7 +76,8 @@ read-only / web-managed.
 `padding 16`, `gap 16`. Each card = `Label` heading + soft-gloss `surface` container
 (radius 14), rows divided by `1px lineSoft`; each row = label (`ink2` 14.5, left) +
 mono value (13/600, `ink`, right):
-- **Group** — Name / Default currency / Members (read-only).
+- **Group** — Name / Default currency (read-only). (Member count dropped — not
+  useful while groups are ~2 members; revisit when >2 is supported.)
 - **Split** — baseline weights. Each member row → editable weight with a live `{pct}%`
   (percent of the weight sum). Persists via `updateMemberWeight`. Reloads group on save.
 - **Categories · posting accounts** — each active category → its ledger account
@@ -86,9 +87,11 @@ mono value (13/600, `ink`, right):
   clears the override (sends an empty `weights` array → backend falls back to baseline).
   Saving sends the full vector via the new `updateCategoryWeights`. Caption below the
   card: "Category→account mappings are configured on the web app to keep entry fast."
-- **Quick currencies** — the static quick-pick chips (CAD · CZK · CNY · EUR), shown
-  active (display only).
 - **All groups** — neutral `GlossButton` → opens the Groups sheet (Epic 1).
+
+(The design's static "Quick currencies" chip row was dropped — it was a prototype
+artifact hardcoding CAD·CZK·CNY·EUR, which doesn't reflect the app's real
+device-local *recent* currencies in `lib/currency.ts`.)
 
 New API method `updateCategoryWeights(groupId, categoryId, weights[])` →
 `PUT /api/fish-pie/groups/:groupId/categories/:id/weights` (endpoint already exists;
