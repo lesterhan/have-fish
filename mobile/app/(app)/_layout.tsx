@@ -8,8 +8,9 @@ import { theme } from '@/lib/theme'
 
 /**
  * Authenticated shell (Companion). The group is the shell, not a pushed detail
- * screen: a persistent header (group switcher + gear) sits above a 3-tab bar
- * (Add / Balances / History). Settings is reached from the gear, not a tab.
+ * screen: a persistent header (group switcher + gear) sits above a 4-tab bar
+ * (Add / Balances / History / Account). Group settings is reached from the gear,
+ * not a tab; the Account tab holds app/device settings.
  */
 export default function AppLayout() {
   return (
@@ -53,7 +54,16 @@ export default function AppLayout() {
                 tabBarIcon: ({ color }) => <Ionicons name="list" size={22} color={color} />,
               }}
             />
-            {/* Reached from the header gear, not the tab bar. */}
+            <Tabs.Screen
+              name="account"
+              options={{
+                title: 'Account',
+                tabBarIcon: ({ color }) => (
+                  <Ionicons name="person-circle-outline" size={23} color={color} />
+                ),
+              }}
+            />
+            {/* Group settings — reached from the header gear, not the tab bar. */}
             <Tabs.Screen name="settings" options={{ href: null }} />
             {/* Legacy deep-link screen — removed in Epic 4. */}
             <Tabs.Screen name="groups/[id]" options={{ href: null }} />

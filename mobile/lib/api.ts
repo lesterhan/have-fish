@@ -309,6 +309,24 @@ export async function deleteGroup(id: string): Promise<void> {
   if (!res.ok) throw new Error('Failed to delete group')
 }
 
+/**
+ * Replace a category's shared split-weight vector. Pass one entry per member
+ * (every current member, or the backend rejects it); pass an empty array to
+ * clear the override so the split falls back to the group baseline weights.
+ */
+export async function updateCategoryWeights(
+  groupId: string,
+  categoryId: string,
+  weights: { userId: string; weight: number }[],
+): Promise<GroupCategory> {
+  const res = await apiFetch(
+    `/api/fish-pie/groups/${groupId}/categories/${categoryId}/weights`,
+    { method: 'PUT', body: JSON.stringify({ weights }) },
+  )
+  if (!res.ok) throw new Error('Failed to update category weights')
+  return res.json()
+}
+
 // ---------------------------------------------------------------------------
 // Invitations
 // ---------------------------------------------------------------------------

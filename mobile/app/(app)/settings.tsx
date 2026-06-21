@@ -1,162 +1,232 @@
-import { useEffect, useState } from 'react'
-import { View, Text, TextInput, StyleSheet, Switch, Alert } from 'react-native'
-import { useRouter } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { getEmail, getBaseUrl, setBaseUrl, clearSession } from '@/lib/auth'
-import { ScreenHeader } from '@/components/ScreenHeader'
-import { Button } from '@/components/Button'
-import * as haptics from '@/lib/haptics'
-import { theme, cardStyle } from '@/lib/theme'
+import { useCallback, useEffect, useState } from 'react'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import {
+  fetchAccounts,
+  updateCategoryWeights,
+  updateMemberWeight,
+  type Account,
+  type GroupCategory,
+} from '@/lib/api'
+import { getEmail } from '@/lib/auth'
+import { resolveMyUserId } from '@/lib/group-entry'
+import { useGroups } from '@/lib/group-context'
+import {
+  accountRows,
+  activeCategories,
+  baselineVector,
+  categoryVector,
+  categoryWeightRows,
+  groupCard,
+  inheritsBaseline,
+  splitRows,
+  splitSummary,
+  type WeightVector,
+} from '@/lib/settings-view'
+import { theme } from '@/lib/theme'
+import { GlossButton } from '@/components/GlossButton'
+import { GroupsSheet } from '@/components/GroupsSheet'
+import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
+import { SplitSheet } from '@/components/SplitSheet'
+
+/** Which split the bottom sheet is currently editing. */
+type Editing = { kind: 'baseline' } | { kind: 'category'; category: GroupCategory } | null
 
 /**
- * Settings screen.
- *
- * TODO:
- * - Show offline queue length with a "Clear queue" button
- * - Add a "Test connection" button that pings /api/health (or any unauthenticated endpoint)
+ * Group settings — the header gear's destination. Group-scoped only (app/device
+ * settings live on the separate Account tab). Most config is read-only and
+ * web-managed; the editable surfaces here are the split weights — the group
+ * baseline and per-category overrides — each set through the shared slider
+ * `SplitSheet`.
  */
-export default function SettingsScreen() {
+export default function GroupSettingsScreen() {
   const router = useRouter()
-  const [email, setEmail] = useState<string | null>(null)
-  const [serverUrl, setServerUrlState] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [hapticsOn, setHapticsOn] = useState(haptics.isHapticsEnabled())
+  const { group, reloadData } = useGroups()
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [groupsOpen, setGroupsOpen] = useState(false)
+  const [editing, setEditing] = useState<Editing>(null)
+  const [myUserId, setMyUserId] = useState<string | null>(null)
 
+  // Accounts power the category → ledger-path display; refetch on focus so a
+  // web-side mapping change shows up next time the screen is opened.
+  useFocusEffect(
+    useCallback(() => {
+      fetchAccounts().then(setAccounts).catch(() => setAccounts([]))
+    }, []),
+  )
+
+  // Identify the caller (by email) so their share can be highlighted in a split.
   useEffect(() => {
-    async function load() {
-      const [e, u, raw] = await Promise.all([
-        getEmail(),
-        getBaseUrl(),
-        AsyncStorage.getItem(haptics.HAPTICS_ENABLED_KEY),
-      ])
-      setEmail(e)
-      if (u) setServerUrlState(u)
-      setHapticsOn(haptics.parseHapticsEnabled(raw))
+    let cancelled = false
+    getEmail().then((email) => {
+      if (!cancelled) setMyUserId(group ? resolveMyUserId(group, email) : null)
+    })
+    return () => {
+      cancelled = true
     }
-    load()
-  }, [])
+  }, [group])
 
-  async function toggleHaptics(value: boolean) {
-    setHapticsOn(value)
-    await haptics.setHapticsEnabled(value)
-    // Buzz once when turning on so the change is felt immediately.
-    if (value) haptics.selection()
+  async function saveBaseline(weights: WeightVector) {
+    if (!group) return
+    await Promise.all(weights.map((w) => updateMemberWeight(group.id, w.userId, w.weight)))
+    await reloadData()
   }
 
-  async function handleSaveUrl() {
-    await setBaseUrl(serverUrl.trim())
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
+  async function saveCategory(categoryId: string, weights: WeightVector) {
+    if (!group) return
+    await updateCategoryWeights(group.id, categoryId, weights)
+    await reloadData()
   }
 
-  function handleLogout() {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          await clearSession()
-          router.replace('/(auth)/login')
-        },
-      },
-    ])
-  }
+  const members = group?.members ?? []
+  const editingCategory = editing?.kind === 'category' ? editing.category : null
+  const categoryInherits = editingCategory != null && inheritsBaseline(editingCategory, members)
 
   return (
-    <View style={styles.container}>
-      <ScreenHeader title="Settings" onBack={() => router.back()} />
+    <View style={styles.screen}>
+      <View style={styles.bar}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.back}>
+          <Ionicons name="chevron-back" size={18} color={theme.color.accent} />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Text style={styles.barTitle}>Group settings</Text>
+        <View style={styles.back} />
+      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Account</Text>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Signed in as</Text>
-          <Text style={styles.rowValue}>{email ?? '—'}</Text>
+      {group == null ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No group selected.</Text>
         </View>
-      </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content}>
+          {/* Group summary */}
+          {(() => {
+            const card = groupCard(group)
+            return (
+              <SettingsCard title="Group">
+                <SettingsRow label="Name" value={card.name} />
+                <SettingsRow label="Default currency" value={card.currency} />
+              </SettingsCard>
+            )
+          })()}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Server</Text>
-        <Text style={styles.inputLabel}>Backend URL</Text>
-        <TextInput
-          style={styles.input}
-          value={serverUrl}
-          onChangeText={setServerUrlState}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder="http://myserver:8887"
-        />
-        <Button
-          title={saved ? 'Saved ✓' : 'Save URL'}
-          size="sm"
-          onPress={handleSaveUrl}
-          style={styles.saveButton}
-        />
-      </View>
+          {/* Baseline split — opens the slider sheet */}
+          <SettingsCard title="Split" caption="The default split. Categories can override it below.">
+            <Pressable style={styles.linkRow} onPress={() => setEditing({ kind: 'baseline' })}>
+              <Text style={styles.linkValue} numberOfLines={1}>
+                {splitSummary(splitRows(group.members))}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.color.ink3} />
+            </Pressable>
+          </SettingsCard>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Preferences</Text>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleText}>
-            <Text style={styles.rowLabel}>Haptics</Text>
-            <Text style={styles.toggleHint}>Subtle vibration on numpad and buttons</Text>
-          </View>
-          <Switch
-            value={hapticsOn}
-            onValueChange={toggleHaptics}
-            trackColor={{ true: theme.color.accent, false: theme.color.line }}
-            thumbColor={theme.color.surface}
-          />
-        </View>
-      </View>
+          {/* Per-category split overrides */}
+          {activeCategories(group.categories).length > 0 && (
+            <SettingsCard title="Category splits">
+              {activeCategories(group.categories).map((c) => {
+                const inherited = inheritsBaseline(c, group.members)
+                return (
+                  <Pressable
+                    key={c.id}
+                    style={styles.linkRow}
+                    onPress={() => setEditing({ kind: 'category', category: c })}
+                  >
+                    <Text style={styles.linkLabel} numberOfLines={1}>
+                      {c.name}
+                    </Text>
+                    <Text style={styles.splitValue} numberOfLines={1}>
+                      {categoryWeightRows(c, group.members).map((r, i) => (
+                        <Text key={r.userId}>
+                          {i > 0 ? '/' : ''}
+                          <Text style={r.userId === myUserId ? styles.splitMine : undefined}>
+                            {r.percent}
+                          </Text>
+                        </Text>
+                      ))}
+                    </Text>
+                    <Text style={[styles.badge, inherited ? styles.badgeMuted : styles.badgeCustom]}>
+                      {inherited ? 'Baseline' : 'Custom'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={theme.color.ink3} />
+                  </Pressable>
+                )
+              })}
+            </SettingsCard>
+          )}
 
-      <View style={styles.section}>
-        <Button title="Sign out" variant="danger" onPress={handleLogout} />
-      </View>
+          {/* Category → account mappings (read-only) */}
+          {accountRows(group.categories, accounts).length > 0 && (
+            <SettingsCard title="Categories · posting accounts">
+              {accountRows(group.categories, accounts).map((r) => (
+                <SettingsRow key={r.categoryId} label={r.name} value={r.accountPath ?? 'Set on web'} />
+              ))}
+            </SettingsCard>
+          )}
+
+          <GlossButton label="All groups" variant="neutral" onPress={() => setGroupsOpen(true)} />
+        </ScrollView>
+      )}
+
+      <GroupsSheet visible={groupsOpen} onClose={() => setGroupsOpen(false)} />
+
+      <SplitSheet
+        visible={editing != null}
+        title={editingCategory ? editingCategory.name : 'Split'}
+        hint={
+          editingCategory
+            ? categoryInherits
+              ? 'Inheriting the group baseline. Adjust to set a split just for this category.'
+              : 'This category uses its own split.'
+            : 'The default split applied when a category has no override.'
+        }
+        members={members}
+        initial={editingCategory ? categoryVector(editingCategory, members) : baselineVector(members)}
+        onClose={() => setEditing(null)}
+        onSave={(weights) =>
+          editingCategory ? saveCategory(editingCategory.id, weights) : saveBaseline(weights)
+        }
+        onClear={
+          editingCategory && !categoryInherits ? () => saveCategory(editingCategory.id, []) : undefined
+        }
+      />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.color.desktop },
-  section: {
-    ...cardStyle,
-    marginHorizontal: theme.sp.md,
-    marginTop: theme.sp.md,
-    padding: theme.sp.md,
-  },
-  sectionLabel: {
-    fontSize: theme.text.xs,
-    fontWeight: theme.weight.semibold,
-    color: theme.color.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: theme.sp.xs,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  rowLabel: { fontSize: theme.text.sm, color: theme.color.text },
-  rowValue: { fontSize: theme.text.sm, color: theme.color.textMuted },
-  toggleRow: {
+  screen: { flex: 1, backgroundColor: theme.color.appBg },
+  bar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingHorizontal: theme.sp.md,
+    paddingVertical: theme.sp.sm,
+    backgroundColor: theme.color.chrome,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.color.line,
   },
-  toggleText: { flex: 1, paddingRight: theme.sp.sm },
-  toggleHint: { fontSize: theme.text.xs, color: theme.color.textMuted, marginTop: 2 },
-  inputLabel: { fontSize: theme.text.sm, color: theme.color.text, marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.color.rule,
-    borderRadius: theme.radius.lg,
-    padding: theme.sp.sm,
-    fontSize: theme.text.sm,
-    backgroundColor: theme.color.windowInset,
-    marginBottom: theme.sp.xs,
+  back: { flexDirection: 'row', alignItems: 'center', minWidth: 64 },
+  backText: { fontFamily: theme.font.sans, fontSize: 15, color: theme.color.accent },
+  barTitle: { fontFamily: theme.font.serif, fontSize: 17, color: theme.color.ink },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { fontFamily: theme.font.mono, fontSize: 12, color: theme.color.ink3 },
+  content: { padding: theme.sp.md, gap: theme.sp.md, paddingBottom: theme.sp.xl },
+
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.sm, paddingVertical: theme.sp[13], minHeight: 44 },
+  linkLabel: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
+  linkValue: { flex: 1, fontFamily: theme.font.mono, fontSize: 13, color: theme.color.ink2 },
+  splitValue: { flexShrink: 0, fontFamily: theme.font.monoSemibold, fontSize: 12, color: theme.color.ink2 },
+  splitMine: { fontFamily: theme.font.monoBold, color: theme.color.accentInk, textDecorationLine: 'underline' },
+  badge: {
+    fontFamily: theme.font.monoBold,
+    fontSize: 9.5,
+    letterSpacing: 0.4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+    overflow: 'hidden',
   },
-  saveButton: { alignSelf: 'flex-start' },
+  badgeMuted: { backgroundColor: theme.color.surface2, color: theme.color.ink3 },
+  badgeCustom: { backgroundColor: theme.color.accentSoft, color: theme.color.accentInk },
 })
