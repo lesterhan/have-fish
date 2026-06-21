@@ -157,10 +157,7 @@ export default function GroupSettingsScreen() {
 
           {/* Category → account mappings (read-only) */}
           {accountRows(group.categories, accounts).length > 0 && (
-            <SettingsCard
-              title="Categories · posting accounts"
-              caption="Category → account mappings are configured on the web app to keep entry fast here."
-            >
+            <SettingsCard title="Categories · posting accounts">
               {accountRows(group.categories, accounts).map((r) => (
                 <SettingsRow key={r.categoryId} label={r.name} value={r.accountPath ?? 'Set on web'} />
               ))}
