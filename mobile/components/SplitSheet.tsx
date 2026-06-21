@@ -36,10 +36,12 @@ export function SplitSheet({ visible, title, hint, members, initial, onClose, on
   const [pct, setPct] = useState(50)
   const [busy, setBusy] = useState(false)
 
-  // Re-seed from the incoming vector each time the sheet opens.
+  // Re-seed from the incoming vector each time the sheet opens, snapped onto the
+  // slider's 5% grid so the thumb starts on a step.
   useEffect(() => {
     if (!visible || !twoMember) return
-    setPct(weightsToPct(initial, members[0].userId, members[1].userId) ?? 50)
+    const seed = weightsToPct(initial, members[0].userId, members[1].userId) ?? 50
+    setPct(Math.min(95, Math.max(5, Math.round(seed / 5) * 5)))
   }, [visible, twoMember, initial, members])
 
   async function run(action: () => Promise<void>) {

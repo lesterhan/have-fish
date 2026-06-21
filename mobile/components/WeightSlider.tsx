@@ -8,6 +8,8 @@ interface Props {
   onChange: (next: number) => void
   min?: number
   max?: number
+  /** Snap increment. Touches round to the nearest multiple. */
+  step?: number
   disabled?: boolean
 }
 
@@ -15,12 +17,16 @@ interface Props {
  * Pure-JS percentage slider — a track + fill + draggable thumb built from core
  * RN primitives (PanResponder), so it needs no native module and works in Expo
  * Go and any existing binary. Tap or drag anywhere on the track to set the
- * value; clamps to `[min, max]` and buzzes on each whole-step change.
+ * value; snaps to `step`, clamps to `[min, max]`, and buzzes on each change.
  *
- * The track width is measured once via `onLayout`; positions render as
- * percentages so the bar reflows with the sheet.
+ * The visual layers are `pointerEvents="none"` so the touch always lands on the
+ * track itself — otherwise a tap on the thumb/fill reports `locationX` relative
+ * to that child (near 0) and the value snaps to the floor before correcting.
+ *
+ * The track width is measured via `onLayout`; positions render as percentages so
+ * the bar reflows with the sheet.
  */
-export function WeightSlider({ value, onChange, min = 1, max = 99, disabled = false }: Props) {
+export function WeightSlider({ value, onChange, min = 5, max = 95, step = 5, disabled = false }: Props) {
   const widthRef = useRef(0)
   // Keep the latest props reachable from the PanResponder closure (created once).
   const onChangeRef = useRef(onChange)
@@ -44,8 +50,8 @@ export function WeightSlider({ value, onChange, min = 1, max = 99, disabled = fa
   function setFromX(x: number) {
     const w = widthRef.current
     if (w <= 0) return
-    const pct = Math.round((x / w) * 100)
-    const clamped = Math.min(max, Math.max(min, pct))
+    const snapped = Math.round((x / w) * 100 / step) * step
+    const clamped = Math.min(max, Math.max(min, snapped))
     if (clamped === lastRef.current) return
     lastRef.current = clamped
     haptics.selection()
@@ -60,9 +66,9 @@ export function WeightSlider({ value, onChange, min = 1, max = 99, disabled = fa
       onLayout={(e) => (widthRef.current = e.nativeEvent.layout.width)}
       {...pan.panHandlers}
     >
-      <View style={styles.rail} />
-      <View style={[styles.fill, { width: `${pct}%` }]} />
-      <View style={[styles.thumb, { left: `${pct}%` }, disabled && styles.thumbDisabled]} />
+      <View pointerEvents="none" style={styles.rail} />
+      <View pointerEvents="none" style={[styles.fill, { width: `${pct}%` }]} />
+      <View pointerEvents="none" style={[styles.thumb, { left: `${pct}%` }, disabled && styles.thumbDisabled]} />
     </View>
   )
 }
