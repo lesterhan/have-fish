@@ -19,9 +19,8 @@ import {
 } from '@/lib/server-url'
 import { GlossButton } from '@/components/GlossButton'
 import { GlossSurface } from '@/components/GlossSurface'
+import { ServerAddressFields } from '@/components/ServerAddressFields'
 import { theme } from '@/lib/theme'
-
-const SCHEMES: Scheme[] = ['http', 'https']
 
 /**
  * Login screen — first launch (and every re-login) asks for the self-hosted
@@ -141,48 +140,17 @@ export default function LoginScreen() {
           )}
 
           {selectedServer == null && (
-            <>
+            <View style={styles.serverFields}>
               <Text style={styles.label}>Server</Text>
-              <View style={styles.scheme}>
-                {SCHEMES.map((s) => {
-                  const active = s === scheme
-                  return (
-                    <Pressable key={s} style={styles.schemeBtn} onPress={() => setScheme(s)}>
-                      <GlossSurface
-                        base={active ? theme.color.accentSoft : theme.color.surface2}
-                        radius={theme.radius.field}
-                        elevated={false}
-                        style={styles.schemeInner}
-                      >
-                        <Text style={[styles.schemeText, active && styles.schemeTextActive]}>
-                          {s}://
-                        </Text>
-                      </GlossSurface>
-                    </Pressable>
-                  )
-                })}
-              </View>
-              <View style={styles.hostRow}>
-                <TextInput
-                  style={[styles.input, styles.hostInput]}
-                  value={host}
-                  onChangeText={setHost}
-                  placeholder="myserver"
-                  placeholderTextColor={theme.color.ink3}
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  keyboardType="url"
-                />
-                <TextInput
-                  style={[styles.input, styles.portInput]}
-                  value={port}
-                  onChangeText={setPort}
-                  placeholder={DEFAULT_PORT}
-                  placeholderTextColor={theme.color.ink3}
-                  keyboardType="number-pad"
-                />
-              </View>
-            </>
+              <ServerAddressFields
+                scheme={scheme}
+                host={host}
+                port={port}
+                onScheme={setScheme}
+                onHost={setHost}
+                onPort={setPort}
+              />
+            </View>
           )}
 
           <Text style={styles.label}>Email</Text>
@@ -258,12 +226,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   forgetText: { fontSize: theme.text.base, color: theme.color.ink3 },
-  scheme: { flexDirection: 'row', gap: theme.sp.xs, marginBottom: theme.sp.xs },
-  schemeBtn: { flex: 1 },
-  schemeInner: { alignItems: 'center', justifyContent: 'center', height: 40 },
-  schemeText: { fontFamily: theme.font.mono, fontSize: theme.text.sm, color: theme.color.ink2 },
-  schemeTextActive: { color: theme.color.accentInk },
-  hostRow: { flexDirection: 'row', gap: theme.sp.xs, marginBottom: theme.sp.md },
+  serverFields: { marginBottom: theme.sp.md },
   input: {
     borderWidth: 1,
     borderColor: theme.color.line,
@@ -275,8 +238,6 @@ const styles = StyleSheet.create({
     backgroundColor: theme.color.field,
     marginBottom: theme.sp.md,
   },
-  hostInput: { flex: 1, marginBottom: 0 },
-  portInput: { width: 88, marginBottom: 0, textAlign: 'center' },
   error: {
     color: theme.color.red,
     fontFamily: theme.font.sans,

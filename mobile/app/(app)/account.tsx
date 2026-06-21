@@ -1,12 +1,14 @@
 import { useEffect, useState } from 'react'
-import { Alert, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native'
+import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { clearSession, getBaseUrl, getEmail, setBaseUrl } from '@/lib/auth'
+import { addServer, clearSession, getBaseUrl, getEmail, setBaseUrl } from '@/lib/auth'
+import { composeServerUrl, DEFAULT_PORT, parseServerUrl, type Scheme } from '@/lib/server-url'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { Button } from '@/components/Button'
 import { GlossButton } from '@/components/GlossButton'
+import { ServerAddressFields } from '@/components/ServerAddressFields'
 import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
 
 /**
@@ -17,8 +19,11 @@ import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
 export default function AccountScreen() {
   const router = useRouter()
   const [email, setEmailState] = useState<string | null>(null)
-  const [serverUrl, setServerUrlState] = useState('')
+  const [scheme, setScheme] = useState<Scheme>('http')
+  const [host, setHost] = useState('')
+  const [port, setPort] = useState(DEFAULT_PORT)
   const [saved, setSaved] = useState(false)
+  const [error, setError] = useState<string | null>(null)
   const [hapticsOn, setHapticsOn] = useState(haptics.isHapticsEnabled())
 
   useEffect(() => {
@@ -29,7 +34,12 @@ export default function AccountScreen() {
         AsyncStorage.getItem(haptics.HAPTICS_ENABLED_KEY),
       ])
       setEmailState(e)
-      if (u) setServerUrlState(u)
+      if (u) {
+        const parts = parseServerUrl(u)
+        setScheme(parts.scheme)
+        setHost(parts.host)
+        setPort(parts.port || DEFAULT_PORT)
+      }
       setHapticsOn(haptics.parseHapticsEnabled(raw))
     }
     load()
@@ -42,7 +52,14 @@ export default function AccountScreen() {
   }
 
   async function handleSaveUrl() {
-    await setBaseUrl(serverUrl.trim())
+    const url = composeServerUrl({ scheme, host, port })
+    if (!url) {
+      setError('Enter a server address')
+      return
+    }
+    setError(null)
+    await setBaseUrl(url)
+    await addServer(url)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
@@ -69,17 +86,15 @@ export default function AccountScreen() {
 
       <SettingsCard title="Server" caption="The backend this app talks to.">
         <View style={styles.field}>
-          <Text style={styles.fieldLabel}>Backend URL</Text>
-          <TextInput
-            style={styles.input}
-            value={serverUrl}
-            onChangeText={setServerUrlState}
-            autoCapitalize="none"
-            autoCorrect={false}
-            keyboardType="url"
-            placeholder="http://myserver:8887"
-            placeholderTextColor={theme.color.ink3}
+          <ServerAddressFields
+            scheme={scheme}
+            host={host}
+            port={port}
+            onScheme={setScheme}
+            onHost={setHost}
+            onPort={setPort}
           />
+          {error != null && <Text style={styles.error}>{error}</Text>}
           <GlossButton
             label={saved ? '✓ Saved' : 'Save URL'}
             success={saved}
@@ -114,19 +129,8 @@ const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: theme.color.appBg },
   content: { padding: theme.sp.md, gap: theme.sp.md, paddingBottom: theme.sp.xl },
 
-  field: { paddingVertical: theme.sp.sm, gap: theme.sp.xs },
-  fieldLabel: { fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink2 },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.color.line,
-    borderRadius: theme.radius.field,
-    paddingHorizontal: theme.sp.sm,
-    paddingVertical: theme.sp[10],
-    fontFamily: theme.font.mono,
-    fontSize: 13,
-    color: theme.color.ink,
-    backgroundColor: theme.color.surface2,
-  },
+  field: { paddingVertical: theme.sp.sm, gap: theme.sp.sm },
+  error: { fontFamily: theme.font.sans, fontSize: theme.text.sm, color: theme.color.red },
   saveBtn: { alignSelf: 'flex-start', minWidth: 120, marginTop: theme.sp[4] },
 
   toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: theme.sp.sm, gap: theme.sp.sm },
