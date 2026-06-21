@@ -17,8 +17,7 @@ interface Props {
 /**
  * Groups sheet — the group switcher reached from the header. Lists the user's
  * groups with a "{n} members · {ccy}" sub-line, switches + persists the active
- * group on tap, and offers a minimal inline create. Full all-groups / settings
- * polish lands in Epic 4.
+ * group on tap, and offers a minimal inline create.
  */
 export function GroupsSheet({ visible, onClose }: Props) {
   const { groups, activeGroupId, setActiveGroup, reloadGroups } = useGroups()

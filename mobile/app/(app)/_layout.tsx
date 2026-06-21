@@ -65,8 +65,6 @@ export default function AppLayout() {
             />
             {/* Group settings — reached from the header gear, not the tab bar. */}
             <Tabs.Screen name="settings" options={{ href: null }} />
-            {/* Legacy deep-link screen — removed in Epic 4. */}
-            <Tabs.Screen name="groups/[id]" options={{ href: null }} />
           </Tabs>
         </View>
       </SafeAreaView>
