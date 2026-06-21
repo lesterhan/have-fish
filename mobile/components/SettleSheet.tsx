@@ -24,7 +24,7 @@ import { theme } from '@/lib/theme'
 import { BottomSheet } from './BottomSheet'
 import { CurrencySheet } from './CurrencySheet'
 import { DateSheet } from './DateSheet'
-import { AccountPicker } from './AccountPicker'
+import { AccountSelect } from './AccountSelect'
 import { GlossButton } from './GlossButton'
 import { GlossSurface } from './GlossSurface'
 import { Label } from './Label'
@@ -290,7 +290,7 @@ export function SettleSheet({
       )}
 
       {/* Payment */}
-      <AccountPicker
+      <AccountSelect
         accounts={accounts}
         selectedId={payerAccountId}
         onSelect={setPayerAccountId}
