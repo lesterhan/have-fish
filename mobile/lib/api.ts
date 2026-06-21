@@ -248,6 +248,22 @@ export async function fetchAccounts(): Promise<Account[]> {
   return res.json()
 }
 
+// Create a ledger account from the Companion account selector's inline-create
+// row. The backend derives the root type from the path's first segment and
+// stamps the owning userId from the session; only the path is required here.
+export async function createAccount(data: {
+  path: string
+  name?: string | null
+  defaultCurrency?: string | null
+}): Promise<Account> {
+  const res = await apiFetch('/api/accounts', {
+    method: 'POST',
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw new Error('Failed to create account')
+  return res.json()
+}
+
 // ---------------------------------------------------------------------------
 // Group management
 // ---------------------------------------------------------------------------

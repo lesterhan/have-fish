@@ -10,7 +10,7 @@ import { receiptLines, type IncomingBatch } from '@/lib/settle-actions'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { BottomSheet } from './BottomSheet'
-import { AccountPicker } from './AccountPicker'
+import { AccountSelect } from './AccountSelect'
 import { GlossButton } from './GlossButton'
 import { Label } from './Label'
 
@@ -94,7 +94,7 @@ export function ConfirmSheet({
             ))}
           </View>
 
-          <AccountPicker
+          <AccountSelect
             accounts={accounts}
             selectedId={receiverAccountId}
             onSelect={setReceiverAccountId}
