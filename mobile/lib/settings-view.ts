@@ -112,3 +112,48 @@ export function categoryWeightRows(category: GroupCategory, members: GroupMember
 export function inheritsBaseline(category: GroupCategory, members: GroupMember[]): boolean {
   return !categoryHasOverride(category, members)
 }
+
+/** Member weight vector — what the editor saves and the API expects. */
+export type WeightVector = { userId: string; weight: number }[]
+
+/** Baseline vector straight from the members' group-level `shareWeight`. */
+export function baselineVector(members: GroupMember[]): WeightVector {
+  return members.map((m) => ({ userId: m.userId, weight: m.shareWeight }))
+}
+
+/** Per-category seed vector (override when complete, else inherited baseline). */
+export function categoryVector(category: GroupCategory, members: GroupMember[]): WeightVector {
+  return categoryWeightRows(category, members).map((r) => ({ userId: r.userId, weight: r.weight }))
+}
+
+/**
+ * The first member's percentage of a two-member split — the value the slider
+ * binds to. Null when the vector doesn't cover both members or sums to zero
+ * (the caller then falls back to 50). Mirrors the web `weightsToPct`.
+ */
+export function weightsToPct(weights: WeightVector, member0Id: string, member1Id: string): number | null {
+  const w0 = weights.find((w) => w.userId === member0Id)?.weight
+  const w1 = weights.find((w) => w.userId === member1Id)?.weight
+  if (w0 === undefined || w1 === undefined) return null
+  const total = w0 + w1
+  if (total <= 0) return null
+  return Math.round((w0 / total) * 100)
+}
+
+/**
+ * Build a complete two-member vector from the first member's slider percentage,
+ * clamping each side to at least 1 so neither member gets a zero weight. Mirrors
+ * the web `pctToVector`.
+ */
+export function pctToVector(pct: number, member0Id: string, member1Id: string): WeightVector {
+  const w0 = Math.min(99, Math.max(1, Math.round(pct)))
+  return [
+    { userId: member0Id, weight: w0 },
+    { userId: member1Id, weight: 100 - w0 },
+  ]
+}
+
+/** One-line `Ada 60% · Bo 40%` summary for a split row's value. */
+export function splitSummary(rows: WeightRow[]): string {
+  return rows.map((r) => `${r.name} ${r.percent}%`).join(' · ')
+}

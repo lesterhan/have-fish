@@ -78,16 +78,26 @@ read-only / web-managed.
 mono value (13/600, `ink`, right):
 - **Group** — Name / Default currency (read-only). (Member count dropped — not
   useful while groups are ~2 members; revisit when >2 is supported.)
-- **Split** — baseline weights. Each member row → editable weight with a live `{pct}%`
-  (percent of the weight sum). Persists via `updateMemberWeight`. Reloads group on save.
+- **Split** — the baseline. A single tappable row (summary `Ada 60% · Bo 40%`) that
+  opens the shared slider sheet (below). Saving writes each member via
+  `updateMemberWeight`; reloads group on save.
+- **Category splits** — each active category is a tappable row with a `Baseline`/
+  `Custom` badge that opens the same slider sheet. Saving sends the full vector via the
+  new `updateCategoryWeights`; "Use baseline" clears the override (empty `weights` array
+  → backend falls back to the baseline).
 - **Categories · posting accounts** — each active category → its ledger account
   (e.g. `Food → expenses:food`, read-only; path from `myMapping.accountId` resolved
-  against `fetchAccounts`). Tapping a category opens a **weight-override editor**
-  (BottomSheet): a row per member with an editable weight, a "Use baseline" action that
-  clears the override (sends an empty `weights` array → backend falls back to baseline).
-  Saving sends the full vector via the new `updateCategoryWeights`. Caption below the
-  card: "Category→account mappings are configured on the web app to keep entry fast."
+  against `fetchAccounts`). Caption: "Category→account mappings are configured on the web
+  app to keep entry fast."
 - **All groups** — neutral `GlossButton` → opens the Groups sheet (Epic 1).
+
+**Split editor (`components/SplitSheet.tsx`):** a reusable bottom sheet with a single
+1–99% **slider** for the first member (the second takes the remainder), mirroring the
+web's two-member weight control (`pctToVector`/`weightsToPct` ported to
+`settings-view.ts`). Splits are a two-member concept (groups are ~2); for any other size
+the sheet shows a "manage on the web app" note rather than inventing a multi-member
+control — same stance as the web. Uses `@react-native-community/slider` (**new native
+dep** — Expo-managed `~5.2.0`; bundled in Expo Go, so dev + the CI APK both pick it up).
 
 (The design's static "Quick currencies" chip row was dropped — it was a prototype
 artifact hardcoding CAD·CZK·CNY·EUR, which doesn't reflect the app's real
@@ -144,5 +154,5 @@ imports / dead screens; lint:tokens green; app builds + APK release succeeds.
   Companion epics to `planning/epics/archive/` and mark them Done in
   `planning/ROADMAP.md` (the "wrapping up an epic" flow), and re-confirm the APK
   release pipeline (`build-android.yml`) still produces a signed build with the new
-  fonts + `expo-linear-gradient` native dep.
+  fonts + the native deps (`expo-linear-gradient`, `@react-native-community/slider`).
 </content>

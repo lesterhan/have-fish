@@ -13,30 +13,36 @@ import { useGroups } from '@/lib/group-context'
 import {
   accountRows,
   activeCategories,
+  baselineVector,
+  categoryVector,
   groupCard,
   inheritsBaseline,
   splitRows,
+  splitSummary,
+  type WeightVector,
 } from '@/lib/settings-view'
 import { theme } from '@/lib/theme'
 import { GlossButton } from '@/components/GlossButton'
 import { GroupsSheet } from '@/components/GroupsSheet'
 import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
-import { Stepper } from '@/components/Stepper'
-import { CategoryWeightSheet } from '@/components/CategoryWeightSheet'
+import { SplitSheet } from '@/components/SplitSheet'
+
+/** Which split the bottom sheet is currently editing. */
+type Editing = { kind: 'baseline' } | { kind: 'category'; category: GroupCategory } | null
 
 /**
  * Group settings — the header gear's destination. Group-scoped only (app/device
  * settings live on the separate Account tab). Most config is read-only and
  * web-managed; the editable surfaces here are the split weights — the group
- * baseline (`Split`) and per-category overrides (`Category splits`).
+ * baseline and per-category overrides — each set through the shared slider
+ * `SplitSheet`.
  */
 export default function GroupSettingsScreen() {
   const router = useRouter()
   const { group, reloadData } = useGroups()
   const [accounts, setAccounts] = useState<Account[]>([])
   const [groupsOpen, setGroupsOpen] = useState(false)
-  const [weightCat, setWeightCat] = useState<GroupCategory | null>(null)
-  const [savingUserId, setSavingUserId] = useState<string | null>(null)
+  const [editing, setEditing] = useState<Editing>(null)
 
   // Accounts power the category → ledger-path display; refetch on focus so a
   // web-side mapping change shows up next time the screen is opened.
@@ -46,22 +52,21 @@ export default function GroupSettingsScreen() {
     }, []),
   )
 
-  async function saveBaseline(userId: string, weight: number) {
+  async function saveBaseline(weights: WeightVector) {
     if (!group) return
-    setSavingUserId(userId)
-    try {
-      await updateMemberWeight(group.id, userId, weight)
-      await reloadData()
-    } finally {
-      setSavingUserId(null)
-    }
+    await Promise.all(weights.map((w) => updateMemberWeight(group.id, w.userId, w.weight)))
+    await reloadData()
   }
 
-  async function saveCategoryWeights(categoryId: string, weights: { userId: string; weight: number }[]) {
+  async function saveCategory(categoryId: string, weights: WeightVector) {
     if (!group) return
     await updateCategoryWeights(group.id, categoryId, weights)
     await reloadData()
   }
+
+  const members = group?.members ?? []
+  const editingCategory = editing?.kind === 'category' ? editing.category : null
+  const categoryInherits = editingCategory != null && inheritsBaseline(editingCategory, members)
 
   return (
     <View style={styles.screen}>
@@ -91,24 +96,14 @@ export default function GroupSettingsScreen() {
             )
           })()}
 
-          {/* Baseline split */}
-          <SettingsCard
-            title="Split"
-            caption="The default split. Categories can override it below."
-          >
-            {splitRows(group.members).map((r) => (
-              <View key={r.userId} style={styles.weightRow}>
-                <Text style={styles.weightName} numberOfLines={1}>
-                  {r.name}
-                </Text>
-                <Text style={styles.weightPct}>{r.percent}%</Text>
-                <Stepper
-                  value={r.weight}
-                  disabled={savingUserId != null}
-                  onChange={(next) => saveBaseline(r.userId, next)}
-                />
-              </View>
-            ))}
+          {/* Baseline split — opens the slider sheet */}
+          <SettingsCard title="Split" caption="The default split. Categories can override it below.">
+            <Pressable style={styles.linkRow} onPress={() => setEditing({ kind: 'baseline' })}>
+              <Text style={styles.linkValue} numberOfLines={1}>
+                {splitSummary(splitRows(group.members))}
+              </Text>
+              <Ionicons name="chevron-forward" size={16} color={theme.color.ink3} />
+            </Pressable>
           </SettingsCard>
 
           {/* Per-category split overrides */}
@@ -117,7 +112,11 @@ export default function GroupSettingsScreen() {
               {activeCategories(group.categories).map((c) => {
                 const inherited = inheritsBaseline(c, group.members)
                 return (
-                  <Pressable key={c.id} style={styles.linkRow} onPress={() => setWeightCat(c)}>
+                  <Pressable
+                    key={c.id}
+                    style={styles.linkRow}
+                    onPress={() => setEditing({ kind: 'category', category: c })}
+                  >
                     <Text style={styles.linkLabel} numberOfLines={1}>
                       {c.name}
                     </Text>
@@ -148,12 +147,26 @@ export default function GroupSettingsScreen() {
       )}
 
       <GroupsSheet visible={groupsOpen} onClose={() => setGroupsOpen(false)} />
-      <CategoryWeightSheet
-        visible={weightCat != null}
-        category={weightCat}
-        members={group?.members ?? []}
-        onClose={() => setWeightCat(null)}
-        onSave={saveCategoryWeights}
+
+      <SplitSheet
+        visible={editing != null}
+        title={editingCategory ? editingCategory.name : 'Split'}
+        hint={
+          editingCategory
+            ? categoryInherits
+              ? 'Inheriting the group baseline. Adjust to set a split just for this category.'
+              : 'This category uses its own split.'
+            : 'The default split applied when a category has no override.'
+        }
+        members={members}
+        initial={editingCategory ? categoryVector(editingCategory, members) : baselineVector(members)}
+        onClose={() => setEditing(null)}
+        onSave={(weights) =>
+          editingCategory ? saveCategory(editingCategory.id, weights) : saveBaseline(weights)
+        }
+        onClear={
+          editingCategory && !categoryInherits ? () => saveCategory(editingCategory.id, []) : undefined
+        }
       />
     </View>
   )
@@ -178,12 +191,9 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: theme.font.mono, fontSize: 12, color: theme.color.ink3 },
   content: { padding: theme.sp.md, gap: theme.sp.md, paddingBottom: theme.sp.xl },
 
-  weightRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.sm, paddingVertical: theme.sp[10], minHeight: 44 },
-  weightName: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
-  weightPct: { minWidth: 40, textAlign: 'right', fontFamily: theme.font.mono, fontSize: 12, color: theme.color.ink3 },
-
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.sm, paddingVertical: theme.sp[13], minHeight: 44 },
   linkLabel: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
+  linkValue: { flex: 1, fontFamily: theme.font.mono, fontSize: 13, color: theme.color.ink2 },
   badge: {
     fontFamily: theme.font.monoBold,
     fontSize: 9.5,

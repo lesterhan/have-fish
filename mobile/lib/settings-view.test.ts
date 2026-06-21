@@ -4,12 +4,17 @@ import type { Account, ExpenseGroup, GroupCategory, GroupMember } from './api'
 import {
   accountRows,
   activeCategories,
+  baselineVector,
   categoryHasOverride,
+  categoryVector,
   categoryWeightRows,
   groupCard,
   inheritsBaseline,
+  pctToVector,
   percent,
   splitRows,
+  splitSummary,
+  weightsToPct,
 } from './settings-view'
 
 function member(over: Partial<GroupMember> = {}): GroupMember {
@@ -173,5 +178,82 @@ describe('categoryWeightRows', () => {
   it('falls back to the baseline shareWeight when not overridden', () => {
     const cat = category({ weights: [] })
     expect(categoryWeightRows(cat, members).map((r) => r.weight)).toEqual([1, 1])
+  })
+})
+
+describe('baselineVector / categoryVector', () => {
+  const members = [
+    member({ userId: 'u1', userName: 'Ada', shareWeight: 3 }),
+    member({ userId: 'u2', userName: 'Bo', shareWeight: 1 }),
+  ]
+
+  it('baselineVector reads the members shareWeight', () => {
+    expect(baselineVector(members)).toEqual([
+      { userId: 'u1', weight: 3 },
+      { userId: 'u2', weight: 1 },
+    ])
+  })
+
+  it('categoryVector uses the override when complete', () => {
+    const cat = category({ weights: [{ userId: 'u1', weight: 7 }, { userId: 'u2', weight: 3 }] })
+    expect(categoryVector(cat, members)).toEqual([
+      { userId: 'u1', weight: 7 },
+      { userId: 'u2', weight: 3 },
+    ])
+  })
+
+  it('categoryVector inherits baseline when not overridden', () => {
+    expect(categoryVector(category({ weights: [] }), members)).toEqual([
+      { userId: 'u1', weight: 3 },
+      { userId: 'u2', weight: 1 },
+    ])
+  })
+})
+
+describe('weightsToPct', () => {
+  it('returns the first member percentage', () => {
+    const weights = [{ userId: 'u1', weight: 60 }, { userId: 'u2', weight: 40 }]
+    expect(weightsToPct(weights, 'u1', 'u2')).toBe(60)
+    expect(weightsToPct(weights, 'u2', 'u1')).toBe(40)
+  })
+
+  it('rounds to a whole percent', () => {
+    const weights = [{ userId: 'u1', weight: 1 }, { userId: 'u2', weight: 2 }]
+    expect(weightsToPct(weights, 'u1', 'u2')).toBe(33)
+  })
+
+  it('is null when a member is missing or the total is zero', () => {
+    expect(weightsToPct([], 'u1', 'u2')).toBeNull()
+    expect(weightsToPct([{ userId: 'u1', weight: 5 }], 'u1', 'u2')).toBeNull()
+  })
+})
+
+describe('pctToVector', () => {
+  it('splits 100 into the two members from the first percentage', () => {
+    expect(pctToVector(60, 'u1', 'u2')).toEqual([
+      { userId: 'u1', weight: 60 },
+      { userId: 'u2', weight: 40 },
+    ])
+  })
+
+  it('clamps each side to at least 1', () => {
+    expect(pctToVector(0, 'u1', 'u2')).toEqual([
+      { userId: 'u1', weight: 1 },
+      { userId: 'u2', weight: 99 },
+    ])
+    expect(pctToVector(100, 'u1', 'u2')).toEqual([
+      { userId: 'u1', weight: 99 },
+      { userId: 'u2', weight: 1 },
+    ])
+  })
+})
+
+describe('splitSummary', () => {
+  it('joins each member name and percent', () => {
+    const rows = splitRows([
+      member({ userId: 'u1', userName: 'Ada', shareWeight: 3 }),
+      member({ userId: 'u2', userName: 'Bo', shareWeight: 1 }),
+    ])
+    expect(splitSummary(rows)).toBe('Ada 75% · Bo 25%')
   })
 })
