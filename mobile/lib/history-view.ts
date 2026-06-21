@@ -12,6 +12,7 @@
  */
 
 import type { GroupExpense, GroupSettlement } from './api'
+import { formatAmount } from './balances-view'
 import { monthDay } from './expense-date'
 
 export interface ExpenseRow {
@@ -58,7 +59,7 @@ function expenseRow(e: GroupExpense): ExpenseRow {
     payer: e.payerName ?? UNKNOWN,
     description: e.description,
     date: monthDay(e.date),
-    amount: e.amount,
+    amount: formatAmount(e.amount),
     currency: e.currency,
     category: e.categoryName ? e.categoryName.toUpperCase() : null,
   }
@@ -71,7 +72,7 @@ function settlementRow(s: GroupSettlement): SettlementRow {
     from: s.fromUserName ?? UNKNOWN,
     to: s.toUserName ?? UNKNOWN,
     date: monthDay(s.date),
-    amount: s.amount,
+    amount: formatAmount(s.amount),
     currency: s.currency,
     status,
     statusLabel: status.toUpperCase(),
