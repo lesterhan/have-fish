@@ -65,3 +65,21 @@ export function dateLabel(iso: string, now: Date = new Date()): string {
   if (iso === yesterdayISO(now)) return 'Yesterday'
   return iso
 }
+
+const MONTHS = [
+  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+] as const
+
+/**
+ * Short `Mon D` label for a local-calendar ISO date (e.g. `2026-06-18` →
+ * `Jun 18`). Used by the History feed. Parses the string parts directly rather
+ * than `new Date(iso)` (which interprets a bare date as UTC midnight and can
+ * shift the day for negative-offset users). A malformed string is returned
+ * unchanged so the feed never renders `NaN`.
+ */
+export function monthDay(iso: string): string {
+  const [y, m, d] = iso.split('-').map(Number)
+  if (!y || !m || !d || m < 1 || m > 12) return iso
+  return `${MONTHS[m - 1]} ${d}`
+}
