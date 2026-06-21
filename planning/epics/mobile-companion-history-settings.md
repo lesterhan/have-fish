@@ -96,8 +96,10 @@ mono value (13/600, `ink`, right):
 web's two-member weight control (`pctToVector`/`weightsToPct` ported to
 `settings-view.ts`). Splits are a two-member concept (groups are ~2); for any other size
 the sheet shows a "manage on the web app" note rather than inventing a multi-member
-control — same stance as the web. Uses `@react-native-community/slider` (**new native
-dep** — Expo-managed `~5.2.0`; bundled in Expo Go, so dev + the CI APK both pick it up).
+control — same stance as the web. The slider (`components/WeightSlider.tsx`) is a
+**pure-JS** PanResponder control — no native module — so it works in Expo Go and any
+existing binary without a rebuild (a native slider dep failed at runtime: `Can't find
+ViewManager 'RNCSlider'`).
 
 (The design's static "Quick currencies" chip row was dropped — it was a prototype
 artifact hardcoding CAD·CZK·CNY·EUR, which doesn't reflect the app's real
@@ -154,5 +156,5 @@ imports / dead screens; lint:tokens green; app builds + APK release succeeds.
   Companion epics to `planning/epics/archive/` and mark them Done in
   `planning/ROADMAP.md` (the "wrapping up an epic" flow), and re-confirm the APK
   release pipeline (`build-android.yml`) still produces a signed build with the new
-  fonts + the native deps (`expo-linear-gradient`, `@react-native-community/slider`).
+  fonts + `expo-linear-gradient` native dep.
 </content>

@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import Slider from '@react-native-community/slider'
 import type { GroupMember } from '@/lib/api'
 import { pctToVector, weightsToPct, type WeightVector } from '@/lib/settings-view'
 import { theme } from '@/lib/theme'
 import { BottomSheet } from './BottomSheet'
 import { GlossButton } from './GlossButton'
+import { WeightSlider } from './WeightSlider'
 
 interface Props {
   visible: boolean
@@ -73,18 +73,9 @@ export function SplitSheet({ visible, title, hint, members, initial, onClose, on
             </Text>
           </View>
 
-          <Slider
-            style={styles.slider}
-            minimumValue={1}
-            maximumValue={99}
-            step={1}
-            value={pct}
-            disabled={busy}
-            onValueChange={setPct}
-            minimumTrackTintColor={theme.color.accent}
-            maximumTrackTintColor={theme.color.line}
-            thumbTintColor={theme.color.accent}
-          />
+          <View style={styles.slider}>
+            <WeightSlider value={pct} onChange={setPct} disabled={busy} />
+          </View>
 
           <GlossButton
             label="Save split"
