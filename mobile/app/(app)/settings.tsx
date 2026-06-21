@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { useFocusEffect, useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
@@ -9,6 +9,8 @@ import {
   type Account,
   type GroupCategory,
 } from '@/lib/api'
+import { getEmail } from '@/lib/auth'
+import { resolveMyUserId } from '@/lib/group-entry'
 import { useGroups } from '@/lib/group-context'
 import {
   accountRows,
@@ -19,7 +21,6 @@ import {
   groupCard,
   inheritsBaseline,
   splitRows,
-  splitShort,
   splitSummary,
   type WeightVector,
 } from '@/lib/settings-view'
@@ -45,6 +46,7 @@ export default function GroupSettingsScreen() {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [groupsOpen, setGroupsOpen] = useState(false)
   const [editing, setEditing] = useState<Editing>(null)
+  const [myUserId, setMyUserId] = useState<string | null>(null)
 
   // Accounts power the category → ledger-path display; refetch on focus so a
   // web-side mapping change shows up next time the screen is opened.
@@ -53,6 +55,17 @@ export default function GroupSettingsScreen() {
       fetchAccounts().then(setAccounts).catch(() => setAccounts([]))
     }, []),
   )
+
+  // Identify the caller (by email) so their share can be highlighted in a split.
+  useEffect(() => {
+    let cancelled = false
+    getEmail().then((email) => {
+      if (!cancelled) setMyUserId(group ? resolveMyUserId(group, email) : null)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [group])
 
   async function saveBaseline(weights: WeightVector) {
     if (!group) return
@@ -122,7 +135,16 @@ export default function GroupSettingsScreen() {
                     <Text style={styles.linkLabel} numberOfLines={1}>
                       {c.name}
                     </Text>
-                    <Text style={styles.splitValue}>{splitShort(categoryWeightRows(c, group.members))}</Text>
+                    <Text style={styles.splitValue} numberOfLines={1}>
+                      {categoryWeightRows(c, group.members).map((r, i) => (
+                        <Text key={r.userId}>
+                          {i > 0 ? '/' : ''}
+                          <Text style={r.userId === myUserId ? styles.splitMine : undefined}>
+                            {r.percent}
+                          </Text>
+                        </Text>
+                      ))}
+                    </Text>
                     <Text style={[styles.badge, inherited ? styles.badgeMuted : styles.badgeCustom]}>
                       {inherited ? 'Baseline' : 'Custom'}
                     </Text>
@@ -197,7 +219,8 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.sm, paddingVertical: theme.sp[13], minHeight: 44 },
   linkLabel: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
   linkValue: { flex: 1, fontFamily: theme.font.mono, fontSize: 13, color: theme.color.ink2 },
-  splitValue: { fontFamily: theme.font.monoSemibold, fontSize: 12, color: theme.color.ink2 },
+  splitValue: { flexShrink: 0, fontFamily: theme.font.monoSemibold, fontSize: 12, color: theme.color.ink2 },
+  splitMine: { fontFamily: theme.font.monoBold, color: theme.color.accentInk, textDecorationLine: 'underline' },
   badge: {
     fontFamily: theme.font.monoBold,
     fontSize: 9.5,
