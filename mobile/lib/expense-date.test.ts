@@ -3,6 +3,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   clampISO,
   dateLabel,
+  monthDay,
   resolveDate,
   toISODate,
   todayISO,
@@ -85,5 +86,23 @@ describe('dateLabel', () => {
 
   it('shows the ISO string for older dates', () => {
     expect(dateLabel('2026-06-10', NOW)).toBe('2026-06-10')
+  })
+})
+
+describe('monthDay', () => {
+  it('formats a local ISO date as `Mon D`', () => {
+    expect(monthDay('2026-06-18')).toBe('Jun 18')
+    expect(monthDay('2026-01-01')).toBe('Jan 1')
+    expect(monthDay('2026-12-31')).toBe('Dec 31')
+  })
+
+  it('does not shift the day across UTC (parses parts, not new Date)', () => {
+    // A bare `new Date('2026-06-01')` is UTC midnight → May 31 for west-of-UTC.
+    expect(monthDay('2026-06-01')).toBe('Jun 1')
+  })
+
+  it('returns the input unchanged when malformed', () => {
+    expect(monthDay('not-a-date')).toBe('not-a-date')
+    expect(monthDay('2026-13-01')).toBe('2026-13-01')
   })
 })
