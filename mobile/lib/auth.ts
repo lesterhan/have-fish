@@ -1,8 +1,10 @@
 import * as SecureStore from 'expo-secure-store'
+import { pushServer } from './server-url'
 
 const KEY_BASE_URL = 'havefish_base_url'
 const KEY_SESSION = 'havefish_session'
 const KEY_EMAIL = 'havefish_email'
+const KEY_SERVERS = 'havefish_servers'
 
 export async function getBaseUrl(): Promise<string | null> {
   return SecureStore.getItemAsync(KEY_BASE_URL)
@@ -11,6 +13,37 @@ export async function getBaseUrl(): Promise<string | null> {
 export async function setBaseUrl(url: string): Promise<void> {
   // Normalise: strip trailing slash
   await SecureStore.setItemAsync(KEY_BASE_URL, url.replace(/\/$/, ''))
+}
+
+/**
+ * The remembered server addresses, most-recent-first, for the login screen's
+ * quick-pick list. Returns an empty list on first launch or if the stored blob
+ * is missing / corrupt.
+ */
+export async function getServers(): Promise<string[]> {
+  const raw = await SecureStore.getItemAsync(KEY_SERVERS)
+  if (!raw) return []
+  try {
+    const parsed = JSON.parse(raw)
+    return Array.isArray(parsed) ? parsed.filter((s): s is string => typeof s === 'string') : []
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Record a successfully-used server address: pushes it to the front of the
+ * remembered list (deduped by canonical form, capped) and persists it.
+ */
+export async function addServer(url: string): Promise<void> {
+  const next = pushServer(await getServers(), url)
+  await SecureStore.setItemAsync(KEY_SERVERS, JSON.stringify(next))
+}
+
+/** Drop a server from the remembered list (the login screen's "forget" action). */
+export async function removeServer(url: string): Promise<void> {
+  const next = (await getServers()).filter((s) => s !== url)
+  await SecureStore.setItemAsync(KEY_SERVERS, JSON.stringify(next))
 }
 
 export async function getSession(): Promise<string | null> {

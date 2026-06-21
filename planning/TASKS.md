@@ -119,7 +119,14 @@ category-settings page.
 
 ---
 
-## Companion: better server-address entry on login
+## Companion: better server-address entry on login — ✅ Done (PR #93)
+
+Shipped: scheme toggle + host + prefilled-port (`8887`) inputs and a remembered-server
+quick-pick (deselectable; tapping a recent hides the form). Servers persist in
+SecureStore (`getServers`/`addServer`/`removeServer`) via the RN-free
+`lib/server-url.ts` helper. The account-settings Server card shares the same
+`ServerAddressFields` component and records to the remembered list on "Update URL". The
+login screen was also restyled onto the Companion gloss design.
 
 **Noticed while testing:** login / re-login on the Companion app is painful — you
 re-type the full server URL (scheme, host, port) every time. Server base URL lives in

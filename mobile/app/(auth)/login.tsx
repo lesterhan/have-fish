@@ -1,44 +1,89 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
-  View,
-  Text,
-  TextInput,
-  StyleSheet,
   KeyboardAvoidingView,
   Platform,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  TextInput,
+  View,
 } from 'react-native'
 import { useRouter } from 'expo-router'
-import { signIn, setBaseUrl, setSession } from '@/lib/auth'
-import { Button } from '@/components/Button'
-import { theme, cardStyle } from '@/lib/theme'
+import { addServer, getServers, removeServer, setBaseUrl, setSession, signIn } from '@/lib/auth'
+import {
+  composeServerUrl,
+  DEFAULT_PORT,
+  parseServerUrl,
+  type Scheme,
+} from '@/lib/server-url'
+import { GlossButton } from '@/components/GlossButton'
+import { GlossSurface } from '@/components/GlossSurface'
+import { ServerAddressFields } from '@/components/ServerAddressFields'
+import { theme } from '@/lib/theme'
 
 /**
- * Login screen — first launch asks for server URL + credentials.
- *
- * TODO:
- * - Validate that the URL looks like http(s)://... before attempting sign-in
- * - Show a "forgot password" note (Better Auth supports reset flows if configured)
- * - On success navigate to /(app) and let the root layout handle redirect
+ * Login screen — first launch (and every re-login) asks for the self-hosted
+ * server address + credentials. The address is entered as a scheme toggle +
+ * host + port (port prefilled to the app's standard backend port) and
+ * previously-used servers are remembered for one-tap re-selection, so returning
+ * users rarely hand-type the whole URL.
  */
 export default function LoginScreen() {
   const router = useRouter()
-  const [serverUrl, setServerUrl] = useState('')
+  const [scheme, setScheme] = useState<Scheme>('http')
+  const [host, setHost] = useState('')
+  const [port, setPort] = useState(DEFAULT_PORT)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [servers, setServers] = useState<string[]>([])
+  // The remembered server picked from the list, if any. When set, its address
+  // is captured into the fields and the Server form is hidden for a cleaner
+  // flow; tapping the selected server again deselects it and reveals the form.
+  const [selectedServer, setSelectedServer] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  useEffect(() => {
+    getServers().then(setServers)
+  }, [])
+
+  function pickServer(url: string) {
+    if (url === selectedServer) {
+      setSelectedServer(null)
+      return
+    }
+    const parts = parseServerUrl(url)
+    setScheme(parts.scheme)
+    setHost(parts.host)
+    setPort(parts.port || DEFAULT_PORT)
+    setSelectedServer(url)
+    setError(null)
+  }
+
+  async function forgetServer(url: string) {
+    await removeServer(url)
+    setServers((prev) => prev.filter((s) => s !== url))
+    if (url === selectedServer) setSelectedServer(null)
+  }
+
   async function handleLogin() {
     setError(null)
+    const url = composeServerUrl({ scheme, host, port })
+    if (!url) {
+      setError('Enter a server address')
+      return
+    }
     setLoading(true)
     try {
-      const url = serverUrl.trim().replace(/\/$/, '')
-      const cookie = await signIn(url, email.trim(), password)
+      const trimmedEmail = email.trim()
+      const cookie = await signIn(url, trimmedEmail, password)
       await setBaseUrl(url)
-      await setSession(cookie, email.trim())
+      await setSession(cookie, trimmedEmail)
+      await addServer(url)
       router.replace('/(app)')
     } catch (e: any) {
-      setError(e.message ?? 'Login failed')
+      setError(e?.message ?? 'Login failed')
     } finally {
       setLoading(false)
     }
@@ -47,101 +92,157 @@ export default function LoginScreen() {
   return (
     <KeyboardAvoidingView
       style={styles.container}
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
     >
-      <View style={styles.card}>
-        <Text style={styles.title}>有鱼 · have-fish</Text>
-        <Text style={styles.subtitle}>Pocket Companion</Text>
+      <ScrollView
+        contentContainerStyle={styles.scroll}
+        keyboardShouldPersistTaps="handled"
+        showsVerticalScrollIndicator={false}
+      >
+        <GlossSurface radius={theme.radius.card} style={styles.card}>
+          <Text style={styles.title}>有鱼 · have-fish</Text>
+          <Text style={styles.subtitle}>Pocket Companion</Text>
 
-        <Text style={styles.label}>Server URL</Text>
-        <TextInput
-          style={styles.input}
-          value={serverUrl}
-          onChangeText={setServerUrl}
-          placeholder="http://myserver:8887"
-          placeholderTextColor={theme.color.textDisabled}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-        />
+          {servers.length > 0 && (
+            <View style={styles.recents}>
+              <Text style={styles.label}>Recent servers</Text>
+              {servers.map((url) => {
+                const active = url === selectedServer
+                return (
+                  <View key={url} style={styles.recentRow}>
+                    <Pressable style={styles.recentPick} onPress={() => pickServer(url)}>
+                      <GlossSurface
+                        base={active ? theme.color.accentSoft : theme.color.surface2}
+                        radius={theme.radius.chip}
+                        elevated={false}
+                        style={styles.recentChip}
+                      >
+                        <Text
+                          style={[styles.recentText, active && styles.recentTextActive]}
+                          numberOfLines={1}
+                        >
+                          {url}
+                        </Text>
+                      </GlossSurface>
+                    </Pressable>
+                    <Pressable
+                      style={styles.forget}
+                      hitSlop={8}
+                      onPress={() => forgetServer(url)}
+                      accessibilityLabel={`Forget ${url}`}
+                    >
+                      <Text style={styles.forgetText}>✕</Text>
+                    </Pressable>
+                  </View>
+                )
+              })}
+            </View>
+          )}
 
-        <Text style={styles.label}>Email</Text>
-        <TextInput
-          style={styles.input}
-          value={email}
-          onChangeText={setEmail}
-          placeholder="you@example.com"
-          placeholderTextColor={theme.color.textDisabled}
-          autoCapitalize="none"
-          keyboardType="email-address"
-        />
+          {selectedServer == null && (
+            <View style={styles.serverFields}>
+              <Text style={styles.label}>Server</Text>
+              <ServerAddressFields
+                scheme={scheme}
+                host={host}
+                port={port}
+                onScheme={setScheme}
+                onHost={setHost}
+                onPort={setPort}
+              />
+            </View>
+          )}
 
-        <Text style={styles.label}>Password</Text>
-        <TextInput
-          style={styles.input}
-          value={password}
-          onChangeText={setPassword}
-          secureTextEntry
-          placeholder="••••••••"
-          placeholderTextColor={theme.color.textDisabled}
-        />
+          <Text style={styles.label}>Email</Text>
+          <TextInput
+            style={styles.input}
+            value={email}
+            onChangeText={setEmail}
+            placeholder="you@example.com"
+            placeholderTextColor={theme.color.ink3}
+            autoCapitalize="none"
+            autoCorrect={false}
+            keyboardType="email-address"
+          />
 
-        {error ? <Text style={styles.error}>{error}</Text> : null}
+          <Text style={styles.label}>Password</Text>
+          <TextInput
+            style={styles.input}
+            value={password}
+            onChangeText={setPassword}
+            secureTextEntry
+            placeholder="••••••••"
+            placeholderTextColor={theme.color.ink3}
+          />
 
-        <Button
-          title="Sign in"
-          onPress={handleLogin}
-          loading={loading}
-          style={styles.button}
-        />
-      </View>
+          {error != null && <Text style={styles.error}>{error}</Text>}
+
+          <GlossButton
+            label={loading ? 'Signing in…' : 'Sign in'}
+            onPress={handleLogin}
+            disabled={loading}
+            height={48}
+            style={styles.button}
+          />
+        </GlossSurface>
+      </ScrollView>
     </KeyboardAvoidingView>
   )
 }
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    backgroundColor: theme.color.desktop,
-    justifyContent: 'center',
-    padding: theme.sp.lg,
-  },
-  card: {
-    ...cardStyle,
-    padding: theme.sp.lg,
-  },
+  container: { flex: 1, backgroundColor: theme.color.appBg },
+  scroll: { flexGrow: 1, justifyContent: 'center', padding: theme.sp.lg },
+  card: { padding: theme.sp.lg },
   title: {
+    fontFamily: theme.font.serif,
     fontSize: theme.text['2xl'],
-    fontWeight: theme.weight.semibold,
-    marginBottom: 4,
-    color: theme.color.text,
+    color: theme.color.ink,
+    marginBottom: 2,
   },
   subtitle: {
+    fontFamily: theme.font.mono,
     fontSize: theme.text.sm,
-    color: theme.color.textMuted,
+    color: theme.color.ink2,
     marginBottom: theme.sp.lg,
   },
   label: {
+    fontFamily: theme.font.sans,
     fontSize: theme.text.sm,
     fontWeight: theme.weight.semibold,
-    color: theme.color.text,
-    marginBottom: 4,
+    color: theme.color.ink,
+    marginBottom: theme.sp.xs,
   },
+  recents: { marginBottom: theme.sp.md },
+  recentRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.xs, marginBottom: theme.sp.xs },
+  recentPick: { flex: 1 },
+  recentChip: { paddingHorizontal: theme.sp.sm, paddingVertical: theme.sp[10] },
+  recentText: { fontFamily: theme.font.mono, fontSize: theme.text.sm, color: theme.color.ink2 },
+  recentTextActive: { color: theme.color.accentInk },
+  forget: {
+    width: 32,
+    height: 32,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  forgetText: { fontSize: theme.text.base, color: theme.color.ink3 },
+  serverFields: { marginBottom: theme.sp.md },
   input: {
     borderWidth: 1,
-    borderColor: theme.color.rule,
-    borderRadius: theme.radius.lg,
-    padding: theme.sp.sm,
+    borderColor: theme.color.line,
+    borderRadius: theme.radius.field,
+    paddingHorizontal: theme.sp.sm,
+    height: 44,
     fontSize: theme.text.base,
+    color: theme.color.ink,
+    backgroundColor: theme.color.field,
     marginBottom: theme.sp.md,
-    backgroundColor: theme.color.windowInset,
   },
   error: {
-    color: theme.color.danger,
+    color: theme.color.red,
+    fontFamily: theme.font.sans,
     fontSize: theme.text.sm,
     marginBottom: theme.sp.sm,
   },
-  button: {
-    marginTop: 4,
-  },
+  button: { marginTop: theme.sp.xs },
 })
