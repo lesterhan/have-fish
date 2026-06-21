@@ -157,3 +157,8 @@ export function pctToVector(pct: number, member0Id: string, member1Id: string): 
 export function splitSummary(rows: WeightRow[]): string {
   return rows.map((r) => `${r.name} ${r.percent}%`).join(' · ')
 }
+
+/** Compact `60/40` percent label for a tight row (no member names). */
+export function splitShort(rows: WeightRow[]): string {
+  return rows.map((r) => r.percent).join('/')
+}

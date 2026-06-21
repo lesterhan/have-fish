@@ -15,9 +15,11 @@ import {
   activeCategories,
   baselineVector,
   categoryVector,
+  categoryWeightRows,
   groupCard,
   inheritsBaseline,
   splitRows,
+  splitShort,
   splitSummary,
   type WeightVector,
 } from '@/lib/settings-view'
@@ -120,6 +122,7 @@ export default function GroupSettingsScreen() {
                     <Text style={styles.linkLabel} numberOfLines={1}>
                       {c.name}
                     </Text>
+                    <Text style={styles.splitValue}>{splitShort(categoryWeightRows(c, group.members))}</Text>
                     <Text style={[styles.badge, inherited ? styles.badgeMuted : styles.badgeCustom]}>
                       {inherited ? 'Baseline' : 'Custom'}
                     </Text>
@@ -194,6 +197,7 @@ const styles = StyleSheet.create({
   linkRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.sm, paddingVertical: theme.sp[13], minHeight: 44 },
   linkLabel: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
   linkValue: { flex: 1, fontFamily: theme.font.mono, fontSize: 13, color: theme.color.ink2 },
+  splitValue: { fontFamily: theme.font.monoSemibold, fontSize: 12, color: theme.color.ink2 },
   badge: {
     fontFamily: theme.font.monoBold,
     fontSize: 9.5,

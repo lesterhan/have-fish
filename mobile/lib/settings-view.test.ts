@@ -13,6 +13,7 @@ import {
   pctToVector,
   percent,
   splitRows,
+  splitShort,
   splitSummary,
   weightsToPct,
 } from './settings-view'
@@ -248,12 +249,17 @@ describe('pctToVector', () => {
   })
 })
 
-describe('splitSummary', () => {
+describe('splitSummary / splitShort', () => {
+  const rows = splitRows([
+    member({ userId: 'u1', userName: 'Ada', shareWeight: 3 }),
+    member({ userId: 'u2', userName: 'Bo', shareWeight: 1 }),
+  ])
+
   it('joins each member name and percent', () => {
-    const rows = splitRows([
-      member({ userId: 'u1', userName: 'Ada', shareWeight: 3 }),
-      member({ userId: 'u2', userName: 'Bo', shareWeight: 1 }),
-    ])
     expect(splitSummary(rows)).toBe('Ada 75% · Bo 25%')
+  })
+
+  it('renders a compact percent-only pair', () => {
+    expect(splitShort(rows)).toBe('75/25')
   })
 })

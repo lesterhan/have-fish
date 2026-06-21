@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { GroupMember } from '@/lib/api'
 import { pctToVector, weightsToPct, type WeightVector } from '@/lib/settings-view'
@@ -35,13 +35,21 @@ export function SplitSheet({ visible, title, hint, members, initial, onClose, on
   const twoMember = members.length === 2
   const [pct, setPct] = useState(50)
   const [busy, setBusy] = useState(false)
+  const seeded = useRef(false)
 
-  // Re-seed from the incoming vector each time the sheet opens, snapped onto the
-  // slider's 5% grid so the thumb starts on a step.
+  // Seed once per open, snapped onto the slider's 5% grid. Seeding only on the
+  // open edge (not on every `initial` change) avoids a flicker on save: the
+  // post-save reload would otherwise re-seed from the stale category snapshot
+  // still held in the parent's `editing` state, snapping the thumb back briefly.
   useEffect(() => {
-    if (!visible || !twoMember) return
-    const seed = weightsToPct(initial, members[0].userId, members[1].userId) ?? 50
-    setPct(Math.min(95, Math.max(5, Math.round(seed / 5) * 5)))
+    if (!visible) {
+      seeded.current = false
+      return
+    }
+    if (seeded.current || !twoMember) return
+    seeded.current = true
+    const value = weightsToPct(initial, members[0].userId, members[1].userId) ?? 50
+    setPct(Math.min(95, Math.max(5, Math.round(value / 5) * 5)))
   }, [visible, twoMember, initial, members])
 
   async function run(action: () => Promise<void>) {
