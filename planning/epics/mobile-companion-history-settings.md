@@ -56,29 +56,61 @@ when uncategorized); settlement rows render direction + correct status badge;
 sections show counts; pending vs completed badge correct; empty states for each
 section.
 
-### Story 2 — Settings screen
+### Story 2 — Settings screens
 
-Reached via the header gear (Epic 1). `padding 16`, `gap 16`. Each card = `Label`
-heading + soft-gloss `surface` container (radius 14), rows divided by `1px lineSoft`;
-each row = label (`ink2` 14.5, left) + mono value (13/600, `ink`, right):
-- **Group** — Name / Default currency / Members.
-- **Split** — each member → `{pct}%` (from `shareWeight`).
+**Resolved with Lester (2026-06-21):** Settings splits into two distinct surfaces so
+group config and app/device config don't muddle:
+
+1. **Group settings** — reached via the header gear (Epic 1), group-scoped only.
+2. **App settings** — a **new rightmost bottom-nav tab** (person/account icon), the
+   future home for account/device config.
+
+**Group admin scope:** rename / invite / delete group stay **web-only** (no mobile UI;
+`lib/api.ts` methods retained). Member **weights are editable on mobile** — both the
+group-level baseline (`shareWeight`) *and* per-category overrides
+(`groupCategoryWeights`). All other group config (category→account mappings) stays
+read-only / web-managed.
+
+#### Group settings screen (`app/(app)/settings.tsx`, gear target)
+
+`padding 16`, `gap 16`. Each card = `Label` heading + soft-gloss `surface` container
+(radius 14), rows divided by `1px lineSoft`; each row = label (`ink2` 14.5, left) +
+mono value (13/600, `ink`, right):
+- **Group** — Name / Default currency / Members (read-only).
+- **Split** — baseline weights. Each member row → editable weight with a live `{pct}%`
+  (percent of the weight sum). Persists via `updateMemberWeight`. Reloads group on save.
 - **Categories · posting accounts** — each active category → its ledger account
-  (e.g. `Food → expenses:food`). Account path from the category's mapping
-  (`myMapping.accountId` → resolve to the account `path` via `fetchAccounts`, the
-  current user's view). Caption below: "Categories & accounts are configured on the
-  web app to keep entry fast here."
-- **Quick currencies** — the static quick-pick chips, shown active (display only).
+  (e.g. `Food → expenses:food`, read-only; path from `myMapping.accountId` resolved
+  against `fetchAccounts`). Tapping a category opens a **weight-override editor**
+  (BottomSheet): a row per member with an editable weight, a "Use baseline" action that
+  clears the override (sends an empty `weights` array → backend falls back to baseline).
+  Saving sends the full vector via the new `updateCategoryWeights`. Caption below the
+  card: "Category→account mappings are configured on the web app to keep entry fast."
+- **Quick currencies** — the static quick-pick chips (CAD · CZK · CNY · EUR), shown
+  active (display only).
 - **All groups** — neutral `GlossButton` → opens the Groups sheet (Epic 1).
 
-Decide (with Lester) whether to keep rename / member-weight / invite / delete actions
-somewhere (they exist in the current `GroupSettingsPanel` + `lib/api.ts`). Default:
-keep them out of the Companion Settings (web-managed), but don't delete the API
-methods.
+New API method `updateCategoryWeights(groupId, categoryId, weights[])` →
+`PUT /api/fish-pie/groups/:groupId/categories/:id/weights` (endpoint already exists;
+validates positive ints + full-member coverage, or empty to clear).
 
-**Tests:** group/split/category-account/quick-currency rows render from real group
-data; account paths resolve from mappings; "All groups" opens the sheet; graceful
-render for a 1-member group.
+Pure view model `lib/settings-view.ts` (+ `.test.ts`): group/split/account-row mapping,
+account-path resolution (with a graceful fallback when a mapping/account is missing),
+percent computation from a weight vector, and baseline-fallback detection (a category
+with no override shows the baseline weights, flagged as inherited).
+
+#### App settings screen (`app/(app)/account.tsx`, new tab)
+
+Moves the existing functional settings off the group screen: Account (signed-in email),
+Server (backend URL + save), Preferences (haptics toggle), Sign out. Rightmost tab in
+`(app)/_layout.tsx` with a person/account icon. Group settings stays gear-only
+(`href: null`); the `AppHeader` gear continues to route there.
+
+**Tests:** `settings-view` maps group/split/category-account/quick-currency rows from
+real group data; account paths resolve from mappings (and degrade gracefully when
+absent); percent math is correct; a category with no override inherits baseline weights;
+graceful render for a 1-member group. (Weight-editor and screen chrome are RN components
+— logic lives in `settings-view.ts` per the repo's no-RN-render-test convention.)
 
 ### Story 3 — Groups sheet polish + cleanup
 

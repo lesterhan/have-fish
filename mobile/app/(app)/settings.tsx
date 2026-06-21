@@ -1,162 +1,212 @@
-import { useEffect, useState } from 'react'
-import { View, Text, TextInput, StyleSheet, Switch, Alert } from 'react-native'
-import { useRouter } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { getEmail, getBaseUrl, setBaseUrl, clearSession } from '@/lib/auth'
-import { ScreenHeader } from '@/components/ScreenHeader'
-import { Button } from '@/components/Button'
-import * as haptics from '@/lib/haptics'
-import { theme, cardStyle } from '@/lib/theme'
+import { useCallback, useState } from 'react'
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
+import { useFocusEffect, useRouter } from 'expo-router'
+import { Ionicons } from '@expo/vector-icons'
+import {
+  fetchAccounts,
+  updateCategoryWeights,
+  updateMemberWeight,
+  type Account,
+  type GroupCategory,
+} from '@/lib/api'
+import { useGroups } from '@/lib/group-context'
+import {
+  QUICK_CURRENCIES,
+  accountRows,
+  activeCategories,
+  groupCard,
+  inheritsBaseline,
+  splitRows,
+} from '@/lib/settings-view'
+import { theme } from '@/lib/theme'
+import { Chip } from '@/components/Chip'
+import { GlossButton } from '@/components/GlossButton'
+import { GroupsSheet } from '@/components/GroupsSheet'
+import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
+import { Stepper } from '@/components/Stepper'
+import { CategoryWeightSheet } from '@/components/CategoryWeightSheet'
 
 /**
- * Settings screen.
- *
- * TODO:
- * - Show offline queue length with a "Clear queue" button
- * - Add a "Test connection" button that pings /api/health (or any unauthenticated endpoint)
+ * Group settings — the header gear's destination. Group-scoped only (app/device
+ * settings live on the separate Account tab). Most config is read-only and
+ * web-managed; the editable surfaces here are the split weights — the group
+ * baseline (`Split`) and per-category overrides (`Category splits`).
  */
-export default function SettingsScreen() {
+export default function GroupSettingsScreen() {
   const router = useRouter()
-  const [email, setEmail] = useState<string | null>(null)
-  const [serverUrl, setServerUrlState] = useState('')
-  const [saved, setSaved] = useState(false)
-  const [hapticsOn, setHapticsOn] = useState(haptics.isHapticsEnabled())
+  const { group, reloadData } = useGroups()
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [groupsOpen, setGroupsOpen] = useState(false)
+  const [weightCat, setWeightCat] = useState<GroupCategory | null>(null)
+  const [savingUserId, setSavingUserId] = useState<string | null>(null)
 
-  useEffect(() => {
-    async function load() {
-      const [e, u, raw] = await Promise.all([
-        getEmail(),
-        getBaseUrl(),
-        AsyncStorage.getItem(haptics.HAPTICS_ENABLED_KEY),
-      ])
-      setEmail(e)
-      if (u) setServerUrlState(u)
-      setHapticsOn(haptics.parseHapticsEnabled(raw))
+  // Accounts power the category → ledger-path display; refetch on focus so a
+  // web-side mapping change shows up next time the screen is opened.
+  useFocusEffect(
+    useCallback(() => {
+      fetchAccounts().then(setAccounts).catch(() => setAccounts([]))
+    }, []),
+  )
+
+  async function saveBaseline(userId: string, weight: number) {
+    if (!group) return
+    setSavingUserId(userId)
+    try {
+      await updateMemberWeight(group.id, userId, weight)
+      await reloadData()
+    } finally {
+      setSavingUserId(null)
     }
-    load()
-  }, [])
-
-  async function toggleHaptics(value: boolean) {
-    setHapticsOn(value)
-    await haptics.setHapticsEnabled(value)
-    // Buzz once when turning on so the change is felt immediately.
-    if (value) haptics.selection()
   }
 
-  async function handleSaveUrl() {
-    await setBaseUrl(serverUrl.trim())
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2000)
-  }
-
-  function handleLogout() {
-    Alert.alert('Sign out', 'Are you sure you want to sign out?', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Sign out',
-        style: 'destructive',
-        onPress: async () => {
-          await clearSession()
-          router.replace('/(auth)/login')
-        },
-      },
-    ])
+  async function saveCategoryWeights(categoryId: string, weights: { userId: string; weight: number }[]) {
+    if (!group) return
+    await updateCategoryWeights(group.id, categoryId, weights)
+    await reloadData()
   }
 
   return (
-    <View style={styles.container}>
-      <ScreenHeader title="Settings" onBack={() => router.back()} />
+    <View style={styles.screen}>
+      <View style={styles.bar}>
+        <Pressable onPress={() => router.back()} hitSlop={8} style={styles.back}>
+          <Ionicons name="chevron-back" size={18} color={theme.color.accent} />
+          <Text style={styles.backText}>Back</Text>
+        </Pressable>
+        <Text style={styles.barTitle}>Group settings</Text>
+        <View style={styles.back} />
+      </View>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Account</Text>
-        <View style={styles.row}>
-          <Text style={styles.rowLabel}>Signed in as</Text>
-          <Text style={styles.rowValue}>{email ?? '—'}</Text>
+      {group == null ? (
+        <View style={styles.empty}>
+          <Text style={styles.emptyText}>No group selected.</Text>
         </View>
-      </View>
+      ) : (
+        <ScrollView contentContainerStyle={styles.content}>
+          {/* Group summary */}
+          {(() => {
+            const card = groupCard(group)
+            return (
+              <SettingsCard title="Group">
+                <SettingsRow label="Name" value={card.name} />
+                <SettingsRow label="Default currency" value={card.currency} />
+                <SettingsRow label="Members" value={String(card.memberCount)} />
+              </SettingsCard>
+            )
+          })()}
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Server</Text>
-        <Text style={styles.inputLabel}>Backend URL</Text>
-        <TextInput
-          style={styles.input}
-          value={serverUrl}
-          onChangeText={setServerUrlState}
-          autoCapitalize="none"
-          autoCorrect={false}
-          keyboardType="url"
-          placeholder="http://myserver:8887"
-        />
-        <Button
-          title={saved ? 'Saved ✓' : 'Save URL'}
-          size="sm"
-          onPress={handleSaveUrl}
-          style={styles.saveButton}
-        />
-      </View>
+          {/* Baseline split */}
+          <SettingsCard
+            title="Split"
+            caption="The default split. Categories can override it below."
+          >
+            {splitRows(group.members).map((r) => (
+              <View key={r.userId} style={styles.weightRow}>
+                <Text style={styles.weightName} numberOfLines={1}>
+                  {r.name}
+                </Text>
+                <Text style={styles.weightPct}>{r.percent}%</Text>
+                <Stepper
+                  value={r.weight}
+                  disabled={savingUserId != null}
+                  onChange={(next) => saveBaseline(r.userId, next)}
+                />
+              </View>
+            ))}
+          </SettingsCard>
 
-      <View style={styles.section}>
-        <Text style={styles.sectionLabel}>Preferences</Text>
-        <View style={styles.toggleRow}>
-          <View style={styles.toggleText}>
-            <Text style={styles.rowLabel}>Haptics</Text>
-            <Text style={styles.toggleHint}>Subtle vibration on numpad and buttons</Text>
-          </View>
-          <Switch
-            value={hapticsOn}
-            onValueChange={toggleHaptics}
-            trackColor={{ true: theme.color.accent, false: theme.color.line }}
-            thumbColor={theme.color.surface}
-          />
-        </View>
-      </View>
+          {/* Per-category split overrides */}
+          {activeCategories(group.categories).length > 0 && (
+            <SettingsCard title="Category splits">
+              {activeCategories(group.categories).map((c) => {
+                const inherited = inheritsBaseline(c, group.members)
+                return (
+                  <Pressable key={c.id} style={styles.linkRow} onPress={() => setWeightCat(c)}>
+                    <Text style={styles.linkLabel} numberOfLines={1}>
+                      {c.name}
+                    </Text>
+                    <Text style={[styles.badge, inherited ? styles.badgeMuted : styles.badgeCustom]}>
+                      {inherited ? 'Baseline' : 'Custom'}
+                    </Text>
+                    <Ionicons name="chevron-forward" size={16} color={theme.color.ink3} />
+                  </Pressable>
+                )
+              })}
+            </SettingsCard>
+          )}
 
-      <View style={styles.section}>
-        <Button title="Sign out" variant="danger" onPress={handleLogout} />
-      </View>
+          {/* Category → account mappings (read-only) */}
+          {accountRows(group.categories, accounts).length > 0 && (
+            <SettingsCard
+              title="Categories · posting accounts"
+              caption="Category → account mappings are configured on the web app to keep entry fast here."
+            >
+              {accountRows(group.categories, accounts).map((r) => (
+                <SettingsRow key={r.categoryId} label={r.name} value={r.accountPath ?? 'Set on web'} />
+              ))}
+            </SettingsCard>
+          )}
+
+          {/* Quick currencies (display only) */}
+          <SettingsCard title="Quick currencies">
+            <View style={styles.chips}>
+              {QUICK_CURRENCIES.map((ccy) => (
+                <Chip key={ccy} label={ccy} active disabled onPress={() => {}} />
+              ))}
+            </View>
+          </SettingsCard>
+
+          <GlossButton label="All groups" variant="neutral" onPress={() => setGroupsOpen(true)} />
+        </ScrollView>
+      )}
+
+      <GroupsSheet visible={groupsOpen} onClose={() => setGroupsOpen(false)} />
+      <CategoryWeightSheet
+        visible={weightCat != null}
+        category={weightCat}
+        members={group?.members ?? []}
+        onClose={() => setWeightCat(null)}
+        onSave={saveCategoryWeights}
+      />
     </View>
   )
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: theme.color.desktop },
-  section: {
-    ...cardStyle,
-    marginHorizontal: theme.sp.md,
-    marginTop: theme.sp.md,
-    padding: theme.sp.md,
-  },
-  sectionLabel: {
-    fontSize: theme.text.xs,
-    fontWeight: theme.weight.semibold,
-    color: theme.color.textMuted,
-    textTransform: 'uppercase',
-    marginBottom: theme.sp.xs,
-  },
-  row: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    paddingVertical: 4,
-  },
-  rowLabel: { fontSize: theme.text.sm, color: theme.color.text },
-  rowValue: { fontSize: theme.text.sm, color: theme.color.textMuted },
-  toggleRow: {
+  screen: { flex: 1, backgroundColor: theme.color.appBg },
+  bar: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 4,
+    paddingHorizontal: theme.sp.md,
+    paddingVertical: theme.sp.sm,
+    backgroundColor: theme.color.chrome,
+    borderBottomWidth: 1,
+    borderBottomColor: theme.color.line,
   },
-  toggleText: { flex: 1, paddingRight: theme.sp.sm },
-  toggleHint: { fontSize: theme.text.xs, color: theme.color.textMuted, marginTop: 2 },
-  inputLabel: { fontSize: theme.text.sm, color: theme.color.text, marginBottom: 6 },
-  input: {
-    borderWidth: 1,
-    borderColor: theme.color.rule,
-    borderRadius: theme.radius.lg,
-    padding: theme.sp.sm,
-    fontSize: theme.text.sm,
-    backgroundColor: theme.color.windowInset,
-    marginBottom: theme.sp.xs,
+  back: { flexDirection: 'row', alignItems: 'center', minWidth: 64 },
+  backText: { fontFamily: theme.font.sans, fontSize: 15, color: theme.color.accent },
+  barTitle: { fontFamily: theme.font.serif, fontSize: 17, color: theme.color.ink },
+  empty: { flex: 1, alignItems: 'center', justifyContent: 'center' },
+  emptyText: { fontFamily: theme.font.mono, fontSize: 12, color: theme.color.ink3 },
+  content: { padding: theme.sp.md, gap: theme.sp.md, paddingBottom: theme.sp.xl },
+
+  weightRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.sm, paddingVertical: theme.sp[10], minHeight: 44 },
+  weightName: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
+  weightPct: { minWidth: 40, textAlign: 'right', fontFamily: theme.font.mono, fontSize: 12, color: theme.color.ink3 },
+
+  linkRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.sm, paddingVertical: theme.sp[13], minHeight: 44 },
+  linkLabel: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
+  badge: {
+    fontFamily: theme.font.monoBold,
+    fontSize: 9.5,
+    letterSpacing: 0.4,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 5,
+    overflow: 'hidden',
   },
-  saveButton: { alignSelf: 'flex-start' },
+  badgeMuted: { backgroundColor: theme.color.surface2, color: theme.color.ink3 },
+  badgeCustom: { backgroundColor: theme.color.accentSoft, color: theme.color.accentInk },
+
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: theme.sp.xs, paddingVertical: theme.sp[10] },
 })
