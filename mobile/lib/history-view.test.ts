@@ -63,6 +63,11 @@ describe('historyView — expenses', () => {
     })
   })
 
+  it('formats the amount with grouping and 2 decimals', () => {
+    const { expenses } = historyView([expense({ amount: '1234.5' })], [])
+    expect(expenses[0].amount).toBe('1,234.50')
+  })
+
   it('uppercases the category tag', () => {
     const { expenses } = historyView([expense({ categoryName: 'dining out' })], [])
     expect(expenses[0].category).toBe('DINING OUT')
