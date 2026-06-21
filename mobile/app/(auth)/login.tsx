@@ -38,6 +38,10 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [servers, setServers] = useState<string[]>([])
+  // The remembered server picked from the list, if any. When set, its address
+  // is captured into the fields and the Server form is hidden for a cleaner
+  // flow; tapping the selected server again deselects it and reveals the form.
+  const [selectedServer, setSelectedServer] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -46,16 +50,22 @@ export default function LoginScreen() {
   }, [])
 
   function pickServer(url: string) {
+    if (url === selectedServer) {
+      setSelectedServer(null)
+      return
+    }
     const parts = parseServerUrl(url)
     setScheme(parts.scheme)
     setHost(parts.host)
     setPort(parts.port || DEFAULT_PORT)
+    setSelectedServer(url)
     setError(null)
   }
 
   async function forgetServer(url: string) {
     await removeServer(url)
     setServers((prev) => prev.filter((s) => s !== url))
+    if (url === selectedServer) setSelectedServer(null)
   }
 
   async function handleLogin() {
@@ -98,8 +108,7 @@ export default function LoginScreen() {
             <View style={styles.recents}>
               <Text style={styles.label}>Recent servers</Text>
               {servers.map((url) => {
-                const current = composeServerUrl({ scheme, host, port })
-                const active = url === current
+                const active = url === selectedServer
                 return (
                   <View key={url} style={styles.recentRow}>
                     <Pressable style={styles.recentPick} onPress={() => pickServer(url)}>
@@ -131,46 +140,50 @@ export default function LoginScreen() {
             </View>
           )}
 
-          <Text style={styles.label}>Server</Text>
-          <View style={styles.scheme}>
-            {SCHEMES.map((s) => {
-              const active = s === scheme
-              return (
-                <Pressable key={s} style={styles.schemeBtn} onPress={() => setScheme(s)}>
-                  <GlossSurface
-                    base={active ? theme.color.accentSoft : theme.color.surface2}
-                    radius={theme.radius.field}
-                    elevated={false}
-                    style={styles.schemeInner}
-                  >
-                    <Text style={[styles.schemeText, active && styles.schemeTextActive]}>
-                      {s}://
-                    </Text>
-                  </GlossSurface>
-                </Pressable>
-              )
-            })}
-          </View>
-          <View style={styles.hostRow}>
-            <TextInput
-              style={[styles.input, styles.hostInput]}
-              value={host}
-              onChangeText={setHost}
-              placeholder="myserver"
-              placeholderTextColor={theme.color.ink3}
-              autoCapitalize="none"
-              autoCorrect={false}
-              keyboardType="url"
-            />
-            <TextInput
-              style={[styles.input, styles.portInput]}
-              value={port}
-              onChangeText={setPort}
-              placeholder={DEFAULT_PORT}
-              placeholderTextColor={theme.color.ink3}
-              keyboardType="number-pad"
-            />
-          </View>
+          {selectedServer == null && (
+            <>
+              <Text style={styles.label}>Server</Text>
+              <View style={styles.scheme}>
+                {SCHEMES.map((s) => {
+                  const active = s === scheme
+                  return (
+                    <Pressable key={s} style={styles.schemeBtn} onPress={() => setScheme(s)}>
+                      <GlossSurface
+                        base={active ? theme.color.accentSoft : theme.color.surface2}
+                        radius={theme.radius.field}
+                        elevated={false}
+                        style={styles.schemeInner}
+                      >
+                        <Text style={[styles.schemeText, active && styles.schemeTextActive]}>
+                          {s}://
+                        </Text>
+                      </GlossSurface>
+                    </Pressable>
+                  )
+                })}
+              </View>
+              <View style={styles.hostRow}>
+                <TextInput
+                  style={[styles.input, styles.hostInput]}
+                  value={host}
+                  onChangeText={setHost}
+                  placeholder="myserver"
+                  placeholderTextColor={theme.color.ink3}
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="url"
+                />
+                <TextInput
+                  style={[styles.input, styles.portInput]}
+                  value={port}
+                  onChangeText={setPort}
+                  placeholder={DEFAULT_PORT}
+                  placeholderTextColor={theme.color.ink3}
+                  keyboardType="number-pad"
+                />
+              </View>
+            </>
+          )}
 
           <Text style={styles.label}>Email</Text>
           <TextInput
