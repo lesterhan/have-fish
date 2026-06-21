@@ -86,7 +86,7 @@ export default function AccountScreen() {
 
       <SettingsCard
         title="Server"
-        caption="The backend this app talks to. Updating re-points the app immediately — you stay signed in."
+        caption="Update the server address without logging out."
       >
         <View style={styles.field}>
           <ServerAddressFields
