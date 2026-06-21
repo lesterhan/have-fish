@@ -52,7 +52,7 @@
 | [Companion 1: Shell, Theme & Nav](epics/archive/mobile-companion-shell.md) | Done |
 | [Companion 2: Add / Speed Entry](epics/archive/mobile-companion-add.md) | Done |
 | [Companion 3: Balances & Settlement](epics/archive/mobile-companion-balances.md) | Done |
-| [Companion 4: History & Settings](epics/mobile-companion-history-settings.md) | Backlog |
+| [Companion 4: History & Settings](epics/archive/mobile-companion-history-settings.md) | Done |
 | [Fish Pie: Cross-Currency Settlement](epics/archive/fish-pie-cross-currency-settlement.md) | Done |
 
 ## Fish Pie sequence
