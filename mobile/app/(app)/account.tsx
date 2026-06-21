@@ -51,7 +51,7 @@ export default function AccountScreen() {
     if (value) haptics.selection() // buzz once so the change is felt immediately
   }
 
-  async function handleSaveUrl() {
+  async function handleUpdateUrl() {
     const url = composeServerUrl({ scheme, host, port })
     if (!url) {
       setError('Enter a server address')
@@ -84,7 +84,10 @@ export default function AccountScreen() {
         <SettingsRow label="Signed in as" value={email ?? '—'} />
       </SettingsCard>
 
-      <SettingsCard title="Server" caption="The backend this app talks to.">
+      <SettingsCard
+        title="Server"
+        caption="The backend this app talks to. Updating re-points the app immediately — you stay signed in."
+      >
         <View style={styles.field}>
           <ServerAddressFields
             scheme={scheme}
@@ -96,9 +99,9 @@ export default function AccountScreen() {
           />
           {error != null && <Text style={styles.error}>{error}</Text>}
           <GlossButton
-            label={saved ? '✓ Saved' : 'Save URL'}
+            label={saved ? '✓ Updated' : 'Update URL'}
             success={saved}
-            onPress={handleSaveUrl}
+            onPress={handleUpdateUrl}
             height={42}
             style={styles.saveBtn}
           />
