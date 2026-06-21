@@ -49,9 +49,9 @@
 | [Mobile Local APK CI](epics/archive/mobile-local-apk-ci.md) | Done |
 | [Mobile Revival → MVP](epics/archive/mobile-revival.md) | Done |
 | [Pocket Companion: Mobile Design](epics/archive/mobile-pocket-companion-design.md) | Done |
-| [Companion 1: Shell, Theme & Nav](epics/mobile-companion-shell.md) | Done |
+| [Companion 1: Shell, Theme & Nav](epics/archive/mobile-companion-shell.md) | Done |
 | [Companion 2: Add / Speed Entry](epics/archive/mobile-companion-add.md) | Done |
-| [Companion 3: Balances & Settlement](epics/mobile-companion-balances.md) | Backlog |
+| [Companion 3: Balances & Settlement](epics/archive/mobile-companion-balances.md) | Done |
 | [Companion 4: History & Settings](epics/mobile-companion-history-settings.md) | Backlog |
 | [Fish Pie: Cross-Currency Settlement](epics/archive/fish-pie-cross-currency-settlement.md) | Done |
 
