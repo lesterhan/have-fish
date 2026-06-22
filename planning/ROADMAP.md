@@ -53,6 +53,8 @@
 | [Companion 2: Add / Speed Entry](epics/archive/mobile-companion-add.md) | Done |
 | [Companion 3: Balances & Settlement](epics/archive/mobile-companion-balances.md) | Done |
 | [Companion 4: History & Settings](epics/archive/mobile-companion-history-settings.md) | Done |
+| [Companion Payment Row](epics/companion-payment-row.md) | Backlog |
+| [Companion Theming (Light/Dark + Accents)](epics/companion-theming.md) | Backlog |
 | [Fish Pie: Cross-Currency Settlement](epics/archive/fish-pie-cross-currency-settlement.md) | Done |
 
 ## Fish Pie sequence
