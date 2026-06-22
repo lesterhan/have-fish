@@ -3,6 +3,20 @@ import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { db } from './db'
 import { accounts, userSettings } from './db/schema'
 
+// Builds the list of origins allowed to make authenticated requests (Better Auth's
+// CSRF guard). FRONTEND_URL covers the web app; TRUSTED_ORIGINS is a comma-separated
+// list for additional hosts the mobile app may point at (e.g. the tailnet MagicDNS
+// URL), kept in env so deployment-specific hostnames stay out of the repo.
+export function buildTrustedOrigins(env: NodeJS.ProcessEnv = process.env): string[] {
+  return [
+    env.FRONTEND_URL ?? 'http://localhost:8888',
+    ...(env.TRUSTED_ORIGINS ?? '')
+      .split(',')
+      .map((o) => o.trim())
+      .filter(Boolean),
+  ]
+}
+
 // Better Auth configuration.
 // - Email/password only for now (no OAuth, no email verification)
 // - Uses the same Drizzle/Postgres DB as the rest of the app
@@ -20,7 +34,7 @@ export const auth = betterAuth({
       enabled: true,
     },
   },
-  trustedOrigins: [process.env.FRONTEND_URL ?? 'http://localhost:8888'],
+  trustedOrigins: buildTrustedOrigins(),
   databaseHooks: {
     user: {
       create: {
