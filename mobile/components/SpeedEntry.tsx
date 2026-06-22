@@ -10,6 +10,7 @@ import {
   lastCurrencyKey,
   pushRecent,
 } from '@/lib/currency'
+import { randomPlaceholder } from '@/lib/description-placeholder'
 import { type DateMode, dateLabel, resolveDate } from '@/lib/expense-date'
 import {
   activeCategories,
@@ -70,6 +71,8 @@ interface Props {
 export function SpeedEntry({ group, onExpenseAdded }: Props) {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
+  // Picked once per mount so the hint stays stable while typing, fresh per visit.
+  const placeholder = useMemo(() => randomPlaceholder(), [])
   const [currency, setCurrency] = useState(group.defaultCurrency ?? 'CAD')
   const [recents, setRecents] = useState<string[]>([])
   const [currencyOpen, setCurrencyOpen] = useState(false)
@@ -305,7 +308,7 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
           style={styles.input}
           value={description}
           onChangeText={setDescription}
-          placeholder="Untitled"
+          placeholder={placeholder}
           placeholderTextColor={theme.color.ink3}
           returnKeyType="done"
           maxLength={120}
