@@ -3,7 +3,6 @@ import { Ionicons } from '@expo/vector-icons'
 import { theme } from '@/lib/theme'
 import * as haptics from '@/lib/haptics'
 import { formatAmountDisplay, isPositiveAmount } from '@/lib/amount-input'
-import { GlossLayers } from './GlossLayers'
 import { GlossSurface } from './GlossSurface'
 import { Label } from './Label'
 
@@ -51,7 +50,6 @@ export function AmountHero({ amount, currency, dateLabel, onPressCurrency, onPre
           onPressIn={onPressCurrency && haptics.selection}
           hitSlop={6}
         >
-          <GlossLayers base={theme.color.accent} radius={theme.radius.md} accent />
           <Text style={styles.currencyText}>{currency} ▾</Text>
         </Pressable>
       </View>
@@ -101,20 +99,15 @@ const styles = StyleSheet.create({
     paddingVertical: 5,
     paddingHorizontal: theme.sp[11],
     borderRadius: theme.radius.md,
-    backgroundColor: theme.color.accent,
+    backgroundColor: theme.color.accentSoft,
     borderWidth: 1,
-    borderColor: theme.color.accentGlossBorder,
-    overflow: 'hidden',
-    ...theme.gloss.shadowButton,
+    borderColor: theme.color.accentLine,
   },
   currencyText: {
     fontFamily: theme.font.monoBold,
     fontSize: 12,
     letterSpacing: 0.8,
-    color: theme.color.textOnAccent,
-    textShadowColor: theme.gloss.accentTextShadow,
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 1,
+    color: theme.color.accentInk,
   },
   amount: {
     fontFamily: theme.font.monoBold,

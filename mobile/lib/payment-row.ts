@@ -6,7 +6,7 @@
  * pattern: logic in lib, the `PaymentRow` component is a render shell.
  */
 
-import type { ExpenseGroup } from './api'
+import type { Account, ExpenseGroup } from './api'
 
 /**
  * The payment account to seed when `payerId` is the payer — that member's
@@ -64,19 +64,12 @@ export function resolveAccountOnPayerChange(
 }
 
 /**
- * Compact label for the payment-account chip. Head-truncation keeps the leaf —
- * the identifying segment — and collapses any ancestors behind an ellipsis:
- * `liabilities:visa` → `…:visa`, a bare `cash` → `cash`. We never tail-truncate
- * (`liabilities:cre…`), since the leaf is what tells the accounts apart; the full
- * path is always available in the AccountSelect sheet. RN's `ellipsizeMode="head"`
- * on the chip is the pixel-level backstop for an over-long leaf.
+ * Label for the payment-account chip: the account's friendly `name` when set,
+ * otherwise its full ledger `path` (e.g. `assets:wise:czk`). The chip flexes to
+ * fill the row, so the whole string is shown; RN's `ellipsizeMode="head"` on the
+ * chip is the pixel-level backstop for an over-long value, collapsing ancestors
+ * behind an ellipsis so the identifying leaf survives.
  */
-export function accountChipLabel(path: string): string {
-  const segments = path
-    .split(':')
-    .map((s) => s.trim())
-    .filter(Boolean)
-  if (segments.length === 0) return path
-  const leaf = segments[segments.length - 1]
-  return segments.length > 1 ? `…:${leaf}` : leaf
+export function accountChipLabel(account: Pick<Account, 'name' | 'path'>): string {
+  return account.name?.trim() || account.path
 }

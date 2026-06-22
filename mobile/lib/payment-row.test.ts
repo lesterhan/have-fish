@@ -119,21 +119,20 @@ describe('resolveAccountOnPayerChange', () => {
 })
 
 describe('accountChipLabel', () => {
-  it('head-truncates a multi-segment path to …:leaf', () => {
-    expect(accountChipLabel('liabilities:visa')).toBe('…:visa')
-    expect(accountChipLabel('expenses:groceries:veg')).toBe('…:veg')
+  it('prefers the friendly name when set', () => {
+    expect(accountChipLabel({ name: 'Wise CZK', path: 'assets:wise:czk' })).toBe('Wise CZK')
   })
 
-  it('leaves a single-segment path bare', () => {
-    expect(accountChipLabel('cash')).toBe('cash')
+  it('falls back to the full path when name is absent', () => {
+    expect(accountChipLabel({ name: null, path: 'assets:wise:czk' })).toBe('assets:wise:czk')
+    expect(accountChipLabel({ path: 'liabilities:visa' })).toBe('liabilities:visa')
   })
 
-  it('trims and ignores blank segments', () => {
-    expect(accountChipLabel(' assets : chequing ')).toBe('…:chequing')
-    expect(accountChipLabel('liabilities::visa')).toBe('…:visa')
+  it('falls back to the path when name is blank', () => {
+    expect(accountChipLabel({ name: '   ', path: 'cash' })).toBe('cash')
   })
 
-  it('returns the raw string for an empty path', () => {
-    expect(accountChipLabel('')).toBe('')
+  it('trims surrounding whitespace from the name', () => {
+    expect(accountChipLabel({ name: '  Chequing  ', path: 'assets:chequing' })).toBe('Chequing')
   })
 })

@@ -95,7 +95,7 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
   // keep the chip in its "set" state with a neutral placeholder rather than
   // flipping to the required visual.
   const accountLabel = selectedAccount
-    ? accountChipLabel(selectedAccount.path)
+    ? accountChipLabel(selectedAccount)
     : accountMissing
       ? null
       : '…'
@@ -321,14 +321,17 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
 
       <Numpad onKey={handleKey} onClear={() => setAmount('')} />
 
-      <PaymentRow
-        group={group}
-        payerName={payer?.userName ?? ''}
-        accountLabel={accountLabel}
-        accountMissing={accountMissing}
-        onPressPayer={handlePressPayer}
-        onPressAccount={() => setAccountSheetOpen(true)}
-      />
+      <View style={styles.block}>
+        <Label>Paid by</Label>
+        <PaymentRow
+          group={group}
+          payerName={payer?.userName ?? ''}
+          accountLabel={accountLabel}
+          accountMissing={accountMissing}
+          onPressPayer={handlePressPayer}
+          onPressAccount={() => setAccountSheetOpen(true)}
+        />
+      </View>
 
       {status === 'error' && errorMsg != null && <Text style={styles.error}>{errorMsg}</Text>}
 
