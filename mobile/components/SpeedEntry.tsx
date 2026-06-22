@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, TextInput, View } from 'react-native'
 import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createExpense, type ExpenseGroup } from '@/lib/api'
+import { createExpense, fetchAccounts, type Account, type ExpenseGroup } from '@/lib/api'
 import { getEmail } from '@/lib/auth'
 import { appendDigit, appendDot, backspace } from '@/lib/amount-input'
 import {
@@ -15,12 +15,19 @@ import {
   activeCategories,
   defaultPayerId,
   lastCategoryKey,
-  payerDefaultAccountId,
   resolveMyUserId,
 } from '@/lib/group-entry'
+import {
+  accountChipLabel,
+  nextPayerOnTap,
+  resolveAccountOnPayerChange,
+  seedAccountForPayer,
+  shouldOpenPayerSheet,
+} from '@/lib/payment-row'
 import { buildExpenseBody, canSubmit, submitOutcome } from '@/lib/expense-submit'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
+import { AccountSelect } from './AccountSelect'
 import { AmountHero } from './AmountHero'
 import { CategoryRail } from './CategoryRail'
 import { CurrencySheet } from './CurrencySheet'
@@ -28,7 +35,8 @@ import { DateSheet } from './DateSheet'
 import { GlossButton } from './GlossButton'
 import { Label } from './Label'
 import { Numpad, type NumpadKey } from './Numpad'
-import { PaidBySegments } from './PaidBySegments'
+import { PaymentRow } from './PaymentRow'
+import { PayerSheet } from './PayerSheet'
 
 /** How long the green "✓ Added" / "✓ Queued" confirmation lingers (ms). */
 const FLASH_MS = 1300
@@ -43,15 +51,21 @@ interface Props {
 
 /**
  * The Add tab — single-job speed-entry screen. A mono amount hero driven by a
- * custom numpad, with inline currency / date / payer / category controls and a
- * one-tap Add. Tuned to fit a 412×892 frame without scrolling.
+ * custom numpad, a description + category rail, then a compact payer/account
+ * confirmation row beneath the numpad, and a one-tap Add. Reads top-to-bottom as
+ * "Les paid 150.55 from Visa". Tuned to fit a 412×892 frame without scrolling.
  *
  * Built incrementally across Companion epic 2:
  * - Story 1: amount hero + custom numpad input model.
- * - Story 2 (here): currency pill + two-step Currency sheet (recents + full).
+ * - Story 2: currency pill + two-step Currency sheet (recents + full).
  * - Story 3: date chip + Date sheet.
- * - Story 4: paid-by segments + category rail.
+ * - Story 4: paid-by + category rail.
  * - Story 5: submit, success flash, persistence.
+ *
+ * Companion Payment Row epic: the paid-by segments were replaced by the in-app
+ * {@link PaymentRow} (payer chip + payment-account picker), seeding from the
+ * payer's per-group default but user-overridable — removing the web-only
+ * default-account dependency.
  */
 export function SpeedEntry({ group, onExpenseAdded }: Props) {
   const [amount, setAmount] = useState('')
@@ -64,16 +78,43 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
   const [dateOpen, setDateOpen] = useState(false)
   const [paidByUserId, setPaidByUserId] = useState(group.members[0]?.userId ?? '')
   const [categoryId, setCategoryId] = useState<string | null>(null)
+  const [accounts, setAccounts] = useState<Account[]>([])
+  const [paymentAccountId, setPaymentAccountId] = useState('')
+  const [userTouchedAccount, setUserTouchedAccount] = useState(false)
+  const [accountSheetOpen, setAccountSheetOpen] = useState(false)
+  const [payerSheetOpen, setPayerSheetOpen] = useState(false)
   const [status, setStatus] = useState<Status>('idle')
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const categories = useMemo(() => activeCategories(group), [group])
-  const paymentAccountId = payerDefaultAccountId(group, paidByUserId)
   const payer = group.members.find((m) => m.userId === paidByUserId) ?? null
+  const selectedAccount = accounts.find((a) => a.id === paymentAccountId) ?? null
+  const accountMissing = paymentAccountId === ''
+  // Resolved id but the account isn't in the (possibly offline/empty) list yet —
+  // keep the chip in its "set" state with a neutral placeholder rather than
+  // flipping to the required visual.
+  const accountLabel = selectedAccount
+    ? accountChipLabel(selectedAccount.path)
+    : accountMissing
+      ? null
+      : '…'
 
   useEffect(() => () => {
     if (flashTimer.current) clearTimeout(flashTimer.current)
+  }, [])
+
+  // Load the caller's accounts once (for the payment-account picker's label
+  // resolution). Tolerate offline — an empty list still lets the sheet's inline
+  // "create" path work, and the chip falls back gracefully.
+  useEffect(() => {
+    let cancelled = false
+    fetchAccounts()
+      .then((a) => !cancelled && setAccounts(a))
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   // Restore the group's sticky currency (per group) and the global recent list
@@ -92,17 +133,26 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
   }, [group.id, group.defaultCurrency])
 
   // Default the payer to the caller (matched by email), falling back to the
-  // first member. Restore the sticky category for this group (validated against
-  // the group's active categories), else clear it.
+  // first member, and seed that payer's default payment account. Restore the
+  // sticky category for this group (validated against the group's active
+  // categories), else clear it. A new group is a fresh entry context: clear any
+  // manual account override so the seed applies.
   useEffect(() => {
     let cancelled = false
+    setUserTouchedAccount(false)
     getEmail()
       .then((email) => {
         if (cancelled) return
-        setPaidByUserId(defaultPayerId(group, resolveMyUserId(group, email)) ?? '')
+        const payerId = defaultPayerId(group, resolveMyUserId(group, email)) ?? ''
+        setPaidByUserId(payerId)
+        setPaymentAccountId(seedAccountForPayer(group, payerId))
       })
       .catch(() => {
-        // SecureStore read failed — keep the first-member default.
+        // SecureStore read failed — fall back to the first member and seed from it.
+        if (cancelled) return
+        const payerId = group.members[0]?.userId ?? ''
+        setPaidByUserId(payerId)
+        setPaymentAccountId(seedAccountForPayer(group, payerId))
       })
     AsyncStorage.getItem(lastCategoryKey(group.id))
       .then((saved) => {
@@ -146,6 +196,31 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
     if (mode === 'pick') setPickDate(pickISO ?? null)
   }
 
+  // Change the payer and re-seed the payment account from the new payer's default
+  // — unless the user manually overrode the account this session (override wins).
+  function selectPayer(nextPayerId: string) {
+    setPaymentAccountId((current) =>
+      resolveAccountOnPayerChange(group, paidByUserId, nextPayerId, userTouchedAccount, current),
+    )
+    setPaidByUserId(nextPayerId)
+  }
+
+  // Payer chip tap: flip instantly for a 2-member group; open the picker for 3+.
+  function handlePressPayer() {
+    if (shouldOpenPayerSheet(group)) {
+      setPayerSheetOpen(true)
+      return
+    }
+    selectPayer(nextPayerOnTap(group, paidByUserId))
+  }
+
+  // Manual account pick from the AccountSelect sheet — flags the override so a
+  // later payer flip won't clobber it.
+  function selectAccount(id: string) {
+    setPaymentAccountId(id)
+    setUserTouchedAccount(true)
+  }
+
   function handleKey(key: NumpadKey) {
     setAmount((current) => {
       if (key === '⌫') return backspace(current)
@@ -178,8 +253,8 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
       currency,
       date: resolveDate(dateMode, pickDate),
       paidByUserId,
-      // Guarded by canSubmit: paymentAccountId is non-null here.
-      paymentAccountId: paymentAccountId as string,
+      // Guarded by canSubmit: paymentAccountId is non-empty here.
+      paymentAccountId,
       categoryId,
     })
     try {
@@ -237,11 +312,6 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
         />
       </View>
 
-      <View style={styles.block}>
-        <Label>Paid by</Label>
-        <PaidBySegments group={group} paidByUserId={paidByUserId} onSelect={setPaidByUserId} />
-      </View>
-
       {categories.length > 0 && (
         <View style={styles.block}>
           <Label>Category</Label>
@@ -251,11 +321,15 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
 
       <Numpad onKey={handleKey} onClear={() => setAmount('')} />
 
-      {paymentAccountId == null && payer != null && (
-        <Text style={styles.guard}>
-          Set a default payment account for {payer.userName} on the web app to add expenses.
-        </Text>
-      )}
+      <PaymentRow
+        group={group}
+        payerName={payer?.userName ?? ''}
+        accountLabel={accountLabel}
+        accountMissing={accountMissing}
+        onPressPayer={handlePressPayer}
+        onPressAccount={() => setAccountSheetOpen(true)}
+      />
+
       {status === 'error' && errorMsg != null && <Text style={styles.error}>{errorMsg}</Text>}
 
       <GlossButton
@@ -280,6 +354,24 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
         onSelect={selectDate}
         onClose={() => setDateOpen(false)}
       />
+
+      <PayerSheet
+        visible={payerSheetOpen}
+        group={group}
+        paidByUserId={paidByUserId}
+        onSelect={selectPayer}
+        onClose={() => setPayerSheetOpen(false)}
+      />
+
+      <AccountSelect
+        accounts={accounts}
+        selectedId={paymentAccountId}
+        onSelect={selectAccount}
+        onCreate={(account) => setAccounts((prev) => [...prev, account])}
+        label="Payment account"
+        open={accountSheetOpen}
+        onOpenChange={setAccountSheetOpen}
+      />
     </View>
   )
 }
@@ -302,12 +394,6 @@ const styles = StyleSheet.create({
     borderRadius: theme.radius.field,
     paddingVertical: 9,
     paddingHorizontal: 12,
-  },
-  guard: {
-    fontFamily: theme.font.sans,
-    fontSize: 12.5,
-    color: theme.color.ink2,
-    textAlign: 'center',
   },
   error: {
     fontFamily: theme.font.sans,

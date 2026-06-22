@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   FlatList,
   Pressable,
@@ -35,6 +35,13 @@ interface Props {
   placeholder?: string
   /** Shown above the trigger and as the sheet title. */
   label?: string
+  /**
+   * When provided, the sheet's open state is *controlled* by the parent and the
+   * built-in trigger is not rendered — the parent supplies its own trigger (e.g.
+   * the PaymentRow account chip). Omit both for the default self-triggering mode.
+   */
+  open?: boolean
+  onOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -55,13 +62,32 @@ export function AccountSelect({
   onCreate,
   placeholder = 'Select account',
   label,
+  open,
+  onOpenChange,
 }: Props) {
-  const [open, setOpen] = useState(false)
+  const controlled = open !== undefined
+  const [internalOpen, setInternalOpen] = useState(false)
+  const sheetOpen = controlled ? (open as boolean) : internalOpen
   const [query, setQuery] = useState('')
   const [root, setRoot] = useState<Root | null>(null)
   const [created, setCreated] = useState<Account[]>([])
   const [creating, setCreating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  function setOpen(next: boolean) {
+    if (controlled) onOpenChange?.(next)
+    else setInternalOpen(next)
+  }
+
+  // Reset the in-sheet search/scope/error whenever the sheet opens, so both the
+  // self-triggered and parent-controlled paths start from a clean filter state.
+  useEffect(() => {
+    if (sheetOpen) {
+      setQuery('')
+      setRoot(null)
+      setError(null)
+    }
+  }, [sheetOpen])
 
   // Created accounts merged in so the trigger label and selection resolve even
   // before the parent passes them back down.
@@ -81,13 +107,6 @@ export function AccountSelect({
     () => createSuggestion(allAccounts, query, root ?? undefined),
     [allAccounts, query, root],
   )
-
-  function openSheet() {
-    setQuery('')
-    setRoot(null)
-    setError(null)
-    setOpen(true)
-  }
 
   function choose(id: string) {
     onSelect(id)
@@ -114,23 +133,27 @@ export function AccountSelect({
 
   return (
     <View>
-      {label != null && <Text style={styles.label}>{label}</Text>}
-      <Pressable style={styles.trigger} onPress={openSheet} onPressIn={haptics.selection}>
-        <Text
-          style={[styles.triggerText, !selected && styles.triggerPlaceholder]}
-          numberOfLines={1}
-        >
-          {selected ? accountLeaf(selected) : placeholder}
-        </Text>
-        <Text style={styles.chevron}>▾</Text>
-      </Pressable>
-      {triggerSub ? (
-        <Text style={styles.triggerSub} numberOfLines={1}>
-          {selected!.path}
-        </Text>
-      ) : null}
+      {!controlled && (
+        <>
+          {label != null && <Text style={styles.label}>{label}</Text>}
+          <Pressable style={styles.trigger} onPress={() => setOpen(true)} onPressIn={haptics.selection}>
+            <Text
+              style={[styles.triggerText, !selected && styles.triggerPlaceholder]}
+              numberOfLines={1}
+            >
+              {selected ? accountLeaf(selected) : placeholder}
+            </Text>
+            <Text style={styles.chevron}>▾</Text>
+          </Pressable>
+          {triggerSub ? (
+            <Text style={styles.triggerSub} numberOfLines={1}>
+              {selected!.path}
+            </Text>
+          ) : null}
+        </>
+      )}
 
-      <BottomSheet visible={open} onClose={() => setOpen(false)} title={label ?? 'Select account'}>
+      <BottomSheet visible={sheetOpen} onClose={() => setOpen(false)} title={label ?? 'Select account'}>
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
