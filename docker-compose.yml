@@ -26,6 +26,7 @@ services:
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL}
       FRONTEND_URL: ${FRONTEND_URL}
+      TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
     ports:
       - "8887:8887"
     depends_on:
