@@ -13,7 +13,6 @@ import { useRouter } from 'expo-router'
 import { addServer, getServers, removeServer, setBaseUrl, setSession, signIn } from '@/lib/auth'
 import {
   composeServerUrl,
-  DEFAULT_PORT,
   parseServerUrl,
   type Scheme,
 } from '@/lib/server-url'
@@ -31,9 +30,9 @@ import { theme } from '@/lib/theme'
  */
 export default function LoginScreen() {
   const router = useRouter()
-  const [scheme, setScheme] = useState<Scheme>('http')
+  const [scheme, setScheme] = useState<Scheme>('https')
   const [host, setHost] = useState('')
-  const [port, setPort] = useState(DEFAULT_PORT)
+  const [port, setPort] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [servers, setServers] = useState<string[]>([])
@@ -56,7 +55,7 @@ export default function LoginScreen() {
     const parts = parseServerUrl(url)
     setScheme(parts.scheme)
     setHost(parts.host)
-    setPort(parts.port || DEFAULT_PORT)
+    setPort(parts.port)
     setSelectedServer(url)
     setError(null)
   }
