@@ -19,16 +19,16 @@ describe('parseServerUrl', () => {
     })
   })
 
-  it('defaults the scheme to http when absent', () => {
+  it('defaults the scheme to https when absent', () => {
     expect(parseServerUrl('myserver:8887')).toEqual({
-      scheme: 'http',
+      scheme: 'https',
       host: 'myserver',
       port: '8887',
     })
   })
 
   it('parses a bare host with no port', () => {
-    expect(parseServerUrl('myserver')).toEqual({ scheme: 'http', host: 'myserver', port: '' })
+    expect(parseServerUrl('myserver')).toEqual({ scheme: 'https', host: 'myserver', port: '' })
   })
 
   it('lowercases the scheme', () => {
@@ -48,7 +48,7 @@ describe('parseServerUrl', () => {
   })
 
   it('treats a non-numeric trailing segment as part of the host, not a port', () => {
-    expect(parseServerUrl('myserver:abc')).toEqual({ scheme: 'http', host: 'myserver:abc', port: '' })
+    expect(parseServerUrl('myserver:abc')).toEqual({ scheme: 'https', host: 'myserver:abc', port: '' })
   })
 
   it('trims surrounding whitespace', () => {
@@ -56,7 +56,7 @@ describe('parseServerUrl', () => {
   })
 
   it('handles an empty string', () => {
-    expect(parseServerUrl('')).toEqual({ scheme: 'http', host: '', port: '' })
+    expect(parseServerUrl('')).toEqual({ scheme: 'https', host: '', port: '' })
   })
 })
 
@@ -87,7 +87,7 @@ describe('normalizeServerUrl', () => {
   })
 
   it('canonicalises a bare host:port with default scheme', () => {
-    expect(normalizeServerUrl('myserver:8887')).toBe('http://myserver:8887')
+    expect(normalizeServerUrl('myserver:8887')).toBe('https://myserver:8887')
   })
 
   it('is empty for blank input', () => {
@@ -109,8 +109,8 @@ describe('pushServer', () => {
   })
 
   it('treats equivalent raw forms as the same server', () => {
-    // bare host:port normalises to the same http:// URL — no duplicate.
-    expect(pushServer(['http://a:8887'], 'a:8887')).toEqual(['http://a:8887'])
+    // bare host:port normalises to the same https:// URL — no duplicate.
+    expect(pushServer(['https://a:8887'], 'a:8887')).toEqual(['https://a:8887'])
   })
 
   it('caps the list length, dropping the oldest', () => {

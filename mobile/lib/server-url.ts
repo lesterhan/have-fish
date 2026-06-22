@@ -16,7 +16,7 @@ export interface ServerParts {
   port: string
 }
 
-/** The app's standard backend port — prefilled on a fresh login screen. */
+/** The app's standard backend port — shown as the port-field placeholder hint. */
 export const DEFAULT_PORT = '8887'
 
 /** Cap on the remembered-server list (mirrors the currency recents cap). */
@@ -26,14 +26,14 @@ export const SERVERS_CAP = 8
  * Best-effort parse of a possibly-partial server address into its parts.
  * Tolerant of bare hosts (`myserver`), host:port (`myserver:8887`), a full
  * URL (`https://myserver:8887`), and trailing slashes / paths. The scheme
- * defaults to `http` (the common case for a LAN / Tailscale home server);
- * the port is only filled when present — the UI supplies the default.
+ * defaults to `https` (prod servers sit behind TLS — a Tailscale `serve`
+ * endpoint or reverse proxy); the port is only filled when present.
  */
 export function parseServerUrl(raw: string): ServerParts {
   let rest = raw.trim()
 
-  // Scheme prefix (default http when absent).
-  let scheme: Scheme = 'http'
+  // Scheme prefix (default https when absent).
+  let scheme: Scheme = 'https'
   const schemeMatch = rest.match(/^(https?):\/\//i)
   if (schemeMatch) {
     scheme = schemeMatch[1].toLowerCase() as Scheme
