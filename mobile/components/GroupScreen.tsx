@@ -12,6 +12,7 @@ import { useFocusEffect } from 'expo-router'
 import { useGroups, type GroupData } from '@/lib/group-context'
 import type { ExpenseGroup } from '@/lib/api'
 import { theme } from '@/lib/theme'
+import { Button } from './Button'
 
 interface RenderArgs {
   group: ExpenseGroup
@@ -34,7 +35,7 @@ interface Props {
  * Tab screens only describe their own content via the render prop.
  */
 export function GroupScreen({ refreshOnFocus = false, contentStyle, children }: Props) {
-  const { group, data, loadingGroups, reloadData } = useGroups()
+  const { group, data, loadingGroups, error, reloadData, reloadGroups } = useGroups()
 
   useFocusEffect(
     useCallback(() => {
@@ -46,6 +47,19 @@ export function GroupScreen({ refreshOnFocus = false, contentStyle, children }: 
     return (
       <View style={styles.center}>
         <ActivityIndicator />
+      </View>
+    )
+  }
+
+  // Fetch failed (e.g. server unreachable — tailnet disconnected) and we have no
+  // group to fall back on. Offer a retry so reconnecting doesn't require a
+  // full app restart.
+  if (!group && error) {
+    return (
+      <View style={styles.center}>
+        <Text style={styles.empty}>Couldn't reach the server.</Text>
+        <Text style={styles.detail}>{error}</Text>
+        <Button title="Retry" onPress={reloadGroups} loading={loadingGroups} style={styles.retry} />
       </View>
     )
   }
@@ -76,4 +90,6 @@ const styles = StyleSheet.create({
     padding: theme.sp.lg,
   },
   empty: { color: theme.color.ink3, textAlign: 'center' },
+  detail: { color: theme.color.ink3, textAlign: 'center', fontSize: theme.text.sm, marginTop: theme.sp.xs },
+  retry: { marginTop: theme.sp.md },
 })

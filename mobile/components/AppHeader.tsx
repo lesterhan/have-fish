@@ -15,10 +15,13 @@ import { GroupsSheet } from './GroupsSheet'
  */
 export function AppHeader() {
   const router = useRouter()
-  const { group, groups } = useGroups()
+  const { group, groups, error } = useGroups()
   const [sheetOpen, setSheetOpen] = useState(false)
 
-  const title = group?.name ?? (groups.length === 0 ? 'No groups' : 'Loading…')
+  // When the fetch failed and we have no group, the list is empty only because
+  // the server was unreachable — say "Offline", not "No groups".
+  const title =
+    group?.name ?? (error ? 'Offline' : groups.length === 0 ? 'No groups' : 'Loading…')
 
   return (
     <View style={styles.header}>
