@@ -30,6 +30,14 @@ TASKS.md): the right-panel totals mis-handle the mechanical / mixed-currency pos
 The same classification that makes this view legible — *which legs are meaningful spend vs
 mechanical* — is what the summing logic needs to stop double-counting. Fix it once here.
 
+> **Scope split.** This epic *reads and sums* existing transactions correctly. The
+> separate problem — the importer *creates* malformed cross-currency-spend transactions
+> (no `equity:conversions` bridge, spend dumped into the target asset account, phantom
+> balances) — is spun out to its own high-priority epic,
+> [Cross-Currency Spend Import + Heal](cross-currency-spend-import.md). This epic's
+> classifier (story 1) must still tolerate already-imported malformed shapes and ideally
+> flag them; the import epic stops new bad data and heals old.
+
 ## Core idea — posting roles
 
 Every posting gets a derived **role**, classifying it within its transaction:
@@ -89,8 +97,9 @@ flat posting list.
 
 - Group display: lead with the **spend** leg(s) (account + amount, prominent). Collapse
   the mechanical legs (`transfer`/`conversion`/`fee`) into a secondary "how it moved"
-  section — show the cross-currency flow (`80 CAD → 50 EUR`) and the **effective rate**,
-  plus the fee, in plain language rather than signed raw postings.
+  section — show the cross-currency flow (`80 CAD → 50 EUR`) plus the fee, in plain
+  language rather than signed raw postings. **No effective-rate line in v1** (low value;
+  can layer on later if wanted).
 - Fish Pie `share` legs render as "split with <group>" rather than a raw
   `assets:receivable:*` posting.
 - Plain 2-posting transactions render simply (no over-design for the common case).
@@ -145,11 +154,22 @@ its edit. 4 collapses the duplication. If the heuristic in story 1 proves too fr
 real use, a stored `postings.role` column is the fallback — additive, no rework of the
 consumers.
 
-## Open questions to settle before story 1
+## Resolved decisions (settled 2026-06-23)
 
-- **Heuristic vs stored role** — start heuristic (recommended) or commit to the column now?
-- **Fee/conversion identification** — rely on `userSettings` / `csvParsers` configured fee
-  and conversion accounts, or also pattern-match account roots? Confirm every canonical
-  shape the classifier must handle.
-- **Edit scope in story 3** — v1 limits smart-edit to recategorize + description + date;
-  confirm that's enough before building, with the raw modal as the escape hatch for the rest.
+- **Heuristic, not a stored column.** No migration. Stored `postings.role` is the fallback
+  only if the heuristic proves fragile in real use — additive, no consumer rework.
+- **Classifier keys.** Role from configured fee/conversion accounts (`userSettings` /
+  `csvParsers`) **plus** account-root matching: `expenses:` → `spend`, `equity:` →
+  `conversion`, `assets:` ↔ `assets:`/`liabilities:` → `transfer`. `share` keys off the
+  hardcoded `assets:receivable:` prefix for now (it's hardcoded elsewhere too — revisit
+  when that's generalized, not in this epic).
+- **No effective-rate display in v1.** Show the flow + fee only. Add rate later if wanted.
+- **No home-currency `≈` hint required** on the spend line in v1 (optional polish).
+- **Smart-edit v1 scope** = recategorize spend account + description + date. Raw-posting
+  modal stays as the escape hatch for everything else and for shapes the heuristic can't
+  confidently narrate. Don't strand any transaction.
+- **Malformed imports.** Story 1's classifier must not crash on the broken
+  cross-currency-spend shape (expense account used as the FX bridge, spend in the target
+  asset account); where detectable, mark the transaction as malformed so the import epic's
+  heal step can find it. Creating-side fix + healing live in
+  [Cross-Currency Spend Import + Heal](cross-currency-spend-import.md).
