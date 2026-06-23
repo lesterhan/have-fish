@@ -28,6 +28,7 @@
 | [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
 | [Account Reorganization](epics/account-reorganization.md) | Backlog |
 | [Single-Transaction View](epics/single-transaction-view.md) | Backlog |
+| [Cross-Currency Spend Import + Heal](epics/cross-currency-spend-import.md) | In Progress |
 | [Import Rules](epics/archive/import-rules.md) | Done |
 | [Import Rules — Fish Pie Splits & Inline Capture](epics/import-rules-fish-pie.md) | Backlog |
 | [Spending Account Filter](epics/spending-account-filter.md) | Backlog |
