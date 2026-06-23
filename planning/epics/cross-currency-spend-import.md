@@ -121,6 +121,32 @@ Tests: detector matches the canonical bad shape and rejects a genuine convert (a
 already has `equity:conversions`); repair produces the correct 5-posting shape and the entry
 still balances; idempotent (repairing twice is a no-op); a healthy transaction is never touched.
 
+**Shipped (PR #107):** pure detector + 3-account repoint, `GET /malformed-fx-spend` (preview)
++ `POST /:id/heal-fx-spend`, and a repair banner/modal on the Transactions page.
+
+---
+
+### 3b. Surface repair on the account pages via the attention indicators
+
+Frontend + backend. The Transactions page is "all transactions" and too noisy; the user
+lives in the per-account asset/liability pages. Surface the repair need there, reusing the
+existing **action-required** indicators (account-page ⚠ chip + sidebar dot).
+
+- **Unified attention count** (decided): the malformed-spend transactions fold into the same
+  `action-required` count, attached to the **balance accounts they touch**. One indicator —
+  `GET /accounts/action-required-summary` and `/:id/action-required` union uncategorized +
+  malformed tx-ids; the per-account endpoint also returns `malformedTransactionIds` so the
+  row can offer a Repair action.
+- **Louder indicator** (decided): the resting (untoggled) `warning` `GradientButton` gets an
+  amber fill + a soft pulsing halo (respects `prefers-reduced-motion`) — previously it only
+  coloured when the filter was active, so it read as muted grey at rest.
+- **Per-row repair**: malformed rows on the account page show an inline "needs repair" strip
+  that opens the shared `RepairFxSpendModal` scoped to that account.
+
+Tests: summary/per-account endpoints attach malformed spends to the right balance accounts
+and clear after healing; `malformedTransactionIds` returned; existing uncategorized
+action-required behaviour unaffected.
+
 ---
 
 ## Resolved decisions

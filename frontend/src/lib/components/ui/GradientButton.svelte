@@ -100,6 +100,47 @@
     border-color: var(--color-accent-hi);
   }
 
+  /* Loud resting (untoggled) state — the attention button reads as an alert even before
+     the filter is engaged: amber fill instead of the neutral grey gradient. */
+  .btn.warning:not(.active) {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning) 85%, white),
+      var(--color-warning)
+    );
+    border-color: color-mix(in srgb, var(--color-warning) 70%, black);
+    color: var(--color-btn-gradient-hi);
+  }
+
+  .btn.warning:not(.active):hover:not(:disabled) {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning) 95%, white),
+      color-mix(in srgb, var(--color-warning) 88%, white)
+    );
+    border-color: var(--color-warning);
+  }
+
+  /* A soft pulsing halo draws the eye until the items are addressed. Motion only for users
+     who haven't requested reduced motion — the amber fill alone still carries the signal. */
+  @media (prefers-reduced-motion: no-preference) {
+    .btn.warning:not(.active) {
+      animation: warning-pulse 1.8s var(--ease) infinite;
+    }
+  }
+
+  @keyframes warning-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 55%, transparent);
+    }
+    70% {
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-warning) 0%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 0%, transparent);
+    }
+  }
+
   .btn.warning.active {
     background: linear-gradient(
       180deg,

@@ -3,6 +3,7 @@ import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
 import { eq, isNull, and, like, or, lte, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -139,7 +140,7 @@ app.get('/:id/balance', async (c) => {
 })
 
 // Raw row shapes returned by the action-required SQL queries.
-type ActionRequiredSummaryRow = { account_id: string; count: number }
+type ActionRequiredPairRow = { account_id: string; id: string }
 type ActionRequiredIdRow = { id: string }
 
 // Shared helper: loads defaultOffsetAccountId from user settings.
@@ -167,30 +168,45 @@ function actionRequiredCondition(offsetAccountId: string | null) {
 }
 
 // GET /api/accounts/action-required-summary
-// Returns { accountId, count }[] for all accounts that have at least one action-required
-// transaction. Accounts with nothing to fix are omitted. Used by the sidebar and the
-// account page badge (lazy — full ID list is only fetched on demand).
+// Returns { accountId, count }[] for all accounts that have at least one item needing
+// attention. "Attention" unions two signals into one count: uncategorized transactions
+// (a posting to the user's offset account) and malformed cross-currency spends that need
+// repair (attached to the balance accounts they touch). Accounts with nothing to fix are
+// omitted. Used by the sidebar dot and the account page badge.
 app.get('/action-required-summary', async (c) => {
   const userId = c.get('userId')
   const { offsetAccountId } = await getActionRequiredSettings(userId)
-  const condition = actionRequiredCondition(offsetAccountId)
-  if (!condition) return c.json([])
 
-  const result = await db.execute(sql`
-    SELECT anchor.account_id, COUNT(DISTINCT t.id)::int AS count
-    FROM transactions t
-    JOIN postings anchor ON anchor.transaction_id = t.id AND anchor.deleted_at IS NULL
-    WHERE t.user_id = ${userId}
-      AND t.deleted_at IS NULL
-      AND ${condition}
-    GROUP BY anchor.account_id
-  `)
+  // accountId -> set of distinct tx ids needing attention (union avoids double-counting a
+  // transaction that is both uncategorized and malformed on the same account).
+  const byAccount = new Map<string, Set<string>>()
+  const add = (accountId: string, txId: string) => {
+    const set = byAccount.get(accountId) ?? new Set<string>()
+    set.add(txId)
+    byAccount.set(accountId, set)
+  }
+
+  const condition = actionRequiredCondition(offsetAccountId)
+  if (condition) {
+    const rows = await db.execute(sql`
+      SELECT anchor.account_id, t.id
+      FROM transactions t
+      JOIN postings anchor ON anchor.transaction_id = t.id AND anchor.deleted_at IS NULL
+      WHERE t.user_id = ${userId}
+        AND t.deleted_at IS NULL
+        AND ${condition}
+    `)
+    for (const r of rows as unknown as ActionRequiredPairRow[]) add(r.account_id, r.id)
+  }
+
+  const ctx = await loadHealContext(userId)
+  const { byAccount: malformed } = await malformedFxSpendsByAccount(userId, ctx)
+  for (const [accountId, txIds] of malformed) {
+    for (const txId of txIds) add(accountId, txId)
+  }
 
   return c.json(
-    (result as unknown as ActionRequiredSummaryRow[]).map((r) => ({
-      accountId: r.account_id,
-      count: r.count,
-    })),
+    [...byAccount].map(([accountId, txIds]) => ({ accountId, count: txIds.size })),
   )
 })
 
@@ -208,22 +224,32 @@ app.get('/:id/action-required', async (c) => {
   if (!account) return c.json({ error: 'account not found' }, 404)
 
   const { offsetAccountId } = await getActionRequiredSettings(userId)
+
+  // Uncategorized transactions touching this account.
+  const ids = new Set<string>()
   const condition = actionRequiredCondition(offsetAccountId)
-  if (!condition) return c.json({ count: 0, transactionIds: [] })
+  if (condition) {
+    const result = await db.execute(sql`
+      SELECT DISTINCT t.id
+      FROM transactions t
+      JOIN postings anchor ON anchor.transaction_id = t.id
+        AND anchor.account_id = ${accountId}
+        AND anchor.deleted_at IS NULL
+      WHERE t.user_id = ${userId}
+        AND t.deleted_at IS NULL
+        AND ${condition}
+    `)
+    for (const r of result as unknown as ActionRequiredIdRow[]) ids.add(r.id)
+  }
 
-  const result = await db.execute(sql`
-    SELECT DISTINCT t.id
-    FROM transactions t
-    JOIN postings anchor ON anchor.transaction_id = t.id
-      AND anchor.account_id = ${accountId}
-      AND anchor.deleted_at IS NULL
-    WHERE t.user_id = ${userId}
-      AND t.deleted_at IS NULL
-      AND ${condition}
-  `)
+  // Malformed cross-currency spends attached to this account — also need repair.
+  const ctx = await loadHealContext(userId)
+  const { byAccount } = await malformedFxSpendsByAccount(userId, ctx)
+  const malformedTransactionIds = [...(byAccount.get(accountId) ?? new Set<string>())]
+  for (const id of malformedTransactionIds) ids.add(id)
 
-  const transactionIds = (result as unknown as ActionRequiredIdRow[]).map((r) => r.id)
-  return c.json({ count: transactionIds.length, transactionIds })
+  const transactionIds = [...ids]
+  return c.json({ count: transactionIds.length, transactionIds, malformedTransactionIds })
 })
 
 app.get('/:id', async (c) => {

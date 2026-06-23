@@ -164,6 +164,32 @@ describe('cross-currency spend healing', () => {
     expect((await healRes.json()).error).toMatch(/conversion account/i)
   })
 
+  it('surfaces malformed spends in the per-account attention indicators', async () => {
+    await setConversionAccount(cookie, accts.equity.id)
+    const tx = await seedMalformed(cookie, accts)
+
+    // Summary attaches the txn to the balance accounts it touches (USD + CZK savings).
+    const summaryRes = await app.request('/api/accounts/action-required-summary', { headers: { Cookie: cookie } })
+    const summary = await summaryRes.json()
+    const usdEntry = summary.find((e: { accountId: string }) => e.accountId === accts.usd.id)
+    const czkEntry = summary.find((e: { accountId: string }) => e.accountId === accts.czk.id)
+    expect(usdEntry?.count).toBe(1)
+    expect(czkEntry?.count).toBe(1)
+    // Not attached to the expense/equity accounts.
+    expect(summary.find((e: { accountId: string }) => e.accountId === accts.coffee.id)).toBeUndefined()
+
+    // Per-account endpoint flags which ids are malformed (so the row can offer Repair).
+    const perAcct = await app.request(`/api/accounts/${accts.usd.id}/action-required`, { headers: { Cookie: cookie } })
+    const body = await perAcct.json()
+    expect(body.transactionIds).toContain(tx.id)
+    expect(body.malformedTransactionIds).toEqual([tx.id])
+
+    // After healing, the account is clear again.
+    await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, { method: 'POST', headers: { Cookie: cookie } })
+    const after = await (await app.request('/api/accounts/action-required-summary', { headers: { Cookie: cookie } })).json()
+    expect(after.find((e: { accountId: string }) => e.accountId === accts.usd.id)).toBeUndefined()
+  })
+
   it("does not heal another user's transaction", async () => {
     await setConversionAccount(cookie, accts.equity.id)
     const tx = await seedMalformed(cookie, accts)

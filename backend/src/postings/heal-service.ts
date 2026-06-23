@@ -105,6 +105,33 @@ export async function findMalformedFxSpends(userId: string, ctx: HealContext): P
   return candidates
 }
 
+// Maps malformed cross-currency spends to the balance (asset/liability) accounts they touch,
+// so the per-account attention indicators can surface them on the pages the user actually
+// visits. Returns the per-account tx-id sets plus the flat set of all malformed tx ids.
+export async function malformedFxSpendsByAccount(
+  userId: string,
+  ctx: HealContext,
+): Promise<{ byAccount: Map<string, Set<string>>; allTxIds: Set<string> }> {
+  const candidates = await findMalformedFxSpends(userId, ctx)
+  const { assetsRootPath, liabilitiesRootPath } = ctx.settings
+  const isBalance = (path: string) =>
+    path === assetsRootPath || path.startsWith(`${assetsRootPath}:`) ||
+    path === liabilitiesRootPath || path.startsWith(`${liabilitiesRootPath}:`)
+
+  const byAccount = new Map<string, Set<string>>()
+  const allTxIds = new Set<string>()
+  for (const c of candidates) {
+    allTxIds.add(c.transaction.id)
+    for (const p of c.postings) {
+      if (!isBalance(p.accountPath)) continue
+      const set = byAccount.get(p.accountId) ?? new Set<string>()
+      set.add(c.transaction.id)
+      byAccount.set(p.accountId, set)
+    }
+  }
+  return { byAccount, allTxIds }
+}
+
 export type HealResult =
   | { ok: true; postings: HealPosting[] }
   | { ok: false; status: 404 | 400 | 409; error: string }
