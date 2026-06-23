@@ -26,12 +26,25 @@
   // Pending parent rename awaiting confirmation (affects more than one account).
   let pending = $state<{ from: string; to: string; affected: string[] } | null>(null)
 
+  // Collapsed category paths. This page is expenses-first: `expenses` sits on top and stays
+  // expanded; every other top-level category starts collapsed.
+  let collapsed = $state(new Set<string>())
+
   let tree = $derived(buildTree(accounts))
 
   onMount(async () => {
     accounts = await fetchAccounts()
+    // Collapse every top-level category except `expenses` by default.
+    collapsed = new Set(tree.filter((n) => n.segment !== 'expenses').map((n) => n.path))
     loading = false
   })
+
+  function toggle(path: string) {
+    const next = new Set(collapsed)
+    if (next.has(path)) next.delete(path)
+    else next.add(path)
+    collapsed = next
+  }
 
   // Receivable accounts (`assets:receivable:*`) are system-managed — re-spawned at import —
   // so they are excluded from rename.
@@ -65,6 +78,10 @@
       nodes.forEach((n) => sortRec(n.children))
     }
     sortRec(roots)
+    // Expenses-first: this page is primarily for reorganizing expense categories.
+    roots.sort((a, b) =>
+      a.segment === 'expenses' ? -1 : b.segment === 'expenses' ? 1 : 0,
+    )
     return roots
   }
 
@@ -176,10 +193,20 @@
 {#snippet treeRow(node: TreeNode, depth: number)}
   {@const receivable = isReceivable(node.path)}
   {@const editing = editingPath === node.path}
+  {@const hasChildren = node.children.length > 0}
+  {@const isCollapsed = collapsed.has(node.path)}
   <div class="row" class:editing>
     <div class="row-main" style="padding-left: calc(14px + {depth} * 18px)">
-      {#if node.children.length > 0}
-        <Icon name="accounts" size={12} />
+      {#if hasChildren}
+        <button
+          type="button"
+          class="disclosure"
+          onclick={() => toggle(node.path)}
+          aria-expanded={!isCollapsed}
+          aria-label={isCollapsed ? 'Expand' : 'Collapse'}
+        >
+          <Icon name={isCollapsed ? 'chevron-right-filled' : 'chevron-down-line'} size={12} />
+        </button>
       {:else}
         <span class="leaf-dot"></span>
       {/if}
@@ -219,9 +246,11 @@
     </div>
   </div>
 
-  {#each node.children as child (child.path)}
-    {@render treeRow(child, depth + 1)}
-  {/each}
+  {#if hasChildren && !isCollapsed}
+    {#each node.children as child (child.path)}
+      {@render treeRow(child, depth + 1)}
+    {/each}
+  {/if}
 {/snippet}
 
 <Modal title="Rename category" bind:open={() => pending !== null, (v) => { if (!v) pending = null }}>
@@ -316,6 +345,29 @@
     gap: var(--sp-sm);
     padding: 4px 14px 4px 0;
     min-height: 26px;
+  }
+
+  .disclosure {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    border: none;
+    background: none;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .disclosure:hover {
+    color: var(--color-text);
+  }
+
+  .disclosure:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
   }
 
   .leaf-dot {
