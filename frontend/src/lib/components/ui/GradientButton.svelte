@@ -9,6 +9,8 @@
     square?: boolean
     tooltip?: string
     variant?: "default" | "warning"
+    /** Loud resting state (amber fill + soft pulse) for an unaddressed attention indicator. */
+    attention?: boolean
     type?: "button" | "submit" | "reset"
     children: import("svelte").Snippet
   }
@@ -21,6 +23,7 @@
     square = false,
     tooltip,
     variant = "default",
+    attention = false,
     type = "button",
     children,
   }: Props = $props()
@@ -37,6 +40,7 @@
   class:square
   class:active
   class:warning={variant === "warning"}
+  class:attention={attention && !active}
 >
   {@render children()}
 </button>
@@ -100,9 +104,11 @@
     border-color: var(--color-accent-hi);
   }
 
-  /* Loud resting (untoggled) state — the attention button reads as an alert even before
-     the filter is engaged: amber fill instead of the neutral grey gradient. */
-  .btn.warning:not(.active) {
+  /* Loud resting state for an unaddressed attention indicator — amber fill instead of the
+     neutral grey gradient, so it reads as an alert before the filter is engaged. Scoped to
+     the `attention` flag so ordinary warning buttons (Delete, Decline, …) stay neutral at
+     rest. The class is only applied while not active. */
+  .btn.attention {
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--color-warning) 85%, white),
@@ -112,7 +118,7 @@
     color: var(--color-btn-gradient-hi);
   }
 
-  .btn.warning:not(.active):hover:not(:disabled) {
+  .btn.attention:hover:not(:disabled) {
     background: linear-gradient(
       180deg,
       color-mix(in srgb, var(--color-warning) 95%, white),
@@ -124,7 +130,7 @@
   /* A soft pulsing halo draws the eye until the items are addressed. Motion only for users
      who haven't requested reduced motion — the amber fill alone still carries the signal. */
   @media (prefers-reduced-motion: no-preference) {
-    .btn.warning:not(.active) {
+    .btn.attention {
       animation: warning-pulse 1.8s var(--ease) infinite;
     }
   }

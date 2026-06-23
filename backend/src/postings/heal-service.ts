@@ -1,6 +1,6 @@
 import { db } from '../db'
 import { postings, accounts, transactions, userSettings } from '../db/schema'
-import { eq, and, isNull, inArray } from 'drizzle-orm'
+import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
 import {
   detectMalformedFxSpend,
   planFxSpendRepair,
@@ -85,15 +85,31 @@ export type MalformedCandidate = {
   finding: MalformedFinding
 }
 
-// Scans all of the user's active transactions for the malformed cross-currency-spend shape.
+// Scans the user's active transactions for the malformed cross-currency-spend shape.
+// Pre-filters to transactions whose postings span more than one currency — the only ones
+// that can be a cross-currency spend — so the bulk of plain single-currency entries are
+// never path-joined. This runs on every attention-indicator load, so the filter matters.
 export async function findMalformedFxSpends(userId: string, ctx: HealContext): Promise<MalformedCandidate[]> {
+  const multiCurrencyRows = await db.execute(sql`
+    SELECT p.transaction_id
+    FROM postings p
+    JOIN transactions t ON t.id = p.transaction_id
+    WHERE t.user_id = ${userId}
+      AND t.deleted_at IS NULL
+      AND p.deleted_at IS NULL
+    GROUP BY p.transaction_id
+    HAVING COUNT(DISTINCT p.currency) > 1
+  `)
+  const txIds = (multiCurrencyRows as unknown as { transaction_id: string }[]).map((r) => r.transaction_id)
+  if (txIds.length === 0) return []
+
   const txRows = await db
     .select()
     .from(transactions)
-    .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt), inArray(transactions.id, txIds)))
 
   if (txRows.length === 0) return []
-  const byTx = await fetchPostingsWithPaths(userId, txRows.map((t) => t.id))
+  const byTx = await fetchPostingsWithPaths(userId, txIds)
 
   const candidates: MalformedCandidate[] = []
   for (const tx of txRows) {
@@ -154,7 +170,6 @@ export async function healFxSpend(userId: string, txId: string, ctx: HealContext
   }
 
   const repoints = planFxSpendRepair(finding, ctx.conversionAccountId)
-  const newAccountById = new Map(repoints.map((r) => [r.postingId, r.toAccountId]))
 
   // Defensive balance check on the post-repair amounts (amounts are untouched, but guard anyway).
   const balances: Record<string, number> = {}

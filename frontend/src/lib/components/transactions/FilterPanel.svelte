@@ -144,6 +144,7 @@
     {#if actionRequiredCount !== null && actionRequiredCount > 0}
       <GradientButton
         variant="warning"
+        attention
         active={actionRequiredActive}
         onclick={onActionRequiredToggle}
         tooltip="Actions required"
