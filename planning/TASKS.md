@@ -35,20 +35,15 @@ grouping, 2-match floor).
 
 ---
 
-## [P1] CSV import — support non-comma delimiters
+## ✅ [P1] CSV import — support non-comma delimiters — DONE (PR #111, commit `57ce889`)
 
-**Context:** Import assumes comma-separated. Some banks export semicolon-delimited CSVs
-(common in EU/locale-specific exports); those parse wrong or as one column.
-
-**Task:** Detect the delimiter on import and parse accordingly. Auto-detect from the
-header/first rows (`,` `;` `\t` `|`), with a manual override dropdown if detection is
-wrong. Show a parse preview so the user confirms columns split correctly before
-mapping.
-
-**Notes:**
-- Watch quoted fields containing the delimiter.
-- Tie into the existing parser config (`EditParserPanel`) — likely a new "delimiter"
-  setting there.
+Shipped: backend `detectDelimiter()` (quote-aware, picks among `,` `;` `\t` `|`) and
+`parseCsv` takes an explicit delimiter (auto-detect by default). Import preview retries
+the remaining delimiters on a no-match so a parser built with a manual override still
+matches. Frontend `lib/import/delimiter.ts` (detection + quote-aware line split); the
+Add Parser wizard auto-detects, shows an override dropdown, and a live preview of the
+split columns before mapping. No schema change — the column fingerprint carries the
+delimiter. Tests cover all four delimiters incl. quoted fields + import match.
 
 ---
 
@@ -61,8 +56,11 @@ close wipes the whole session — you start over. Anxiety-inducing on large file
 **Task:** Make import progress durable so a refresh/close can't lose categorization
 work. Two stages:
 
-- **P1 quick win:** `beforeunload` guard — warn before unload when there's
-  uncategorized in-progress work. Cheap first line of defense.
+- **✅ P1 quick win — DONE.** `beforeunload` guard on the import page: a `$effect`
+  registers a `beforeunload` listener whenever a preview is loaded (the in-progress
+  categorization stage), warning before a refresh / tab close. A successful import
+  leaves via client-side `goto`, which never fires `beforeunload`, so it only triggers
+  on a real unload mid-session.
 - **P2 full:** persist draft import state (localStorage / IndexedDB, or a backend
   draft) keyed to the file, and offer to resume on reload. Optionally incremental save —
   commit categorized rows as you go.
@@ -188,11 +186,15 @@ spending page right-side panel — instead of one-off modal markup.
 
 **Context:** Spending page is hard to navigate and has a correctness bug.
 
-**🐛 [P0] Amounts don't add up.** The right-side panel totals sometimes don't reconcile,
-caused by the multi-currency transfer/conversion transactions (see [Single-transaction
-view]). The summing logic likely double-counts or mis-handles the mechanical postings /
-mixed currencies. **Shared root cause with the tx-view epic — fix the summing logic
-once.** Add a test reproducing the bad total.
+**✅ [P0] Amounts don't add up — FIXED (PR #112, commits `2c445df` + `8d7e718`).**
+Root cause: `pageTotal` (and `SpendingTxnRow.mainPosting`) used `.find()`, grabbing the
+*first* expense posting — for a cross-currency spend that was the tiny USD fee
+(`expenses:banking:fee`, 0.05 USD), missing the real spend (360 CZK). Fixed `pageTotal`
+to filter/reduce over all expense postings (matching backend `spending-converted`);
+`mainPosting` now picks the largest-abs expense posting so the row shows the real spend;
+currency filter chips + page total scoped to expense postings only (so a USD→CZK spend
+no longer shows under the USD filter via its asset leg). Regression test added in
+`reports.test.ts`.
 
 **[P1] Nav not loud enough.** The important navigation (filters/period/account
 selectors) is visually too quiet relative to its importance — page is hard to move
