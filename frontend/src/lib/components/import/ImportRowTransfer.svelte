@@ -253,13 +253,6 @@
 </tr>
 
 <style>
-  .row-transfer td {
-    background: var(--color-window);
-  }
-  .row-transfer:hover td {
-    background: var(--color-accent-light);
-  }
-
   /* Amounts are the load-bearing column: right-align the legs so every row's numbers
      share a common edge with the regular rows, top to bottom. */
   .cell-transfer-amount {
