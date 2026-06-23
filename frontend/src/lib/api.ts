@@ -431,6 +431,49 @@ export async function patchPosting(
   return res.json()
 }
 
+// A posting as returned by the heal endpoints (joined to its account path).
+export type HealPosting = {
+  id: string
+  accountId: string
+  accountPath: string
+  amount: string
+  currency: string
+}
+
+export type MalformedFxSpend = {
+  transactionId: string
+  date: string
+  description: string | null
+  before: HealPosting[]
+  after: HealPosting[]
+  canHeal: boolean
+}
+
+// Lists transactions matching the malformed cross-currency-spend shape, with a
+// before/after preview of the one-click repair.
+export async function fetchMalformedFxSpends(): Promise<{
+  candidates: MalformedFxSpend[]
+  conversionAccountConfigured: boolean
+}> {
+  const res = await fetch(`${BASE}/api/transactions/malformed-fx-spend`, {
+    credentials: 'include',
+  })
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to load malformed transactions')
+  return res.json()
+}
+
+// Repairs a single malformed cross-currency-spend transaction in place.
+export async function healFxSpend(id: string): Promise<{ postings: HealPosting[] }> {
+  const res = await fetch(`${BASE}/api/transactions/${id}/heal-fx-spend`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to repair transaction')
+  return res.json()
+}
+
 export type SpendingSummary = {
   total: Record<string, string>
   categories: {
@@ -709,7 +752,7 @@ export async function fetchActionRequiredSummary(): Promise<
 
 export async function fetchActionRequired(
   accountId: string,
-): Promise<{ count: number; transactionIds: string[] }> {
+): Promise<{ count: number; transactionIds: string[]; malformedTransactionIds: string[] }> {
   const res = await fetch(
     `${BASE}/api/accounts/${accountId}/action-required`,
     { credentials: "include" },

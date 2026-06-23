@@ -9,6 +9,8 @@
     square?: boolean
     tooltip?: string
     variant?: "default" | "warning"
+    /** Loud resting state (amber fill + soft pulse) for an unaddressed attention indicator. */
+    attention?: boolean
     type?: "button" | "submit" | "reset"
     children: import("svelte").Snippet
   }
@@ -21,6 +23,7 @@
     square = false,
     tooltip,
     variant = "default",
+    attention = false,
     type = "button",
     children,
   }: Props = $props()
@@ -37,6 +40,7 @@
   class:square
   class:active
   class:warning={variant === "warning"}
+  class:attention={attention && !active}
 >
   {@render children()}
 </button>
@@ -98,6 +102,49 @@
       var(--color-accent)
     );
     border-color: var(--color-accent-hi);
+  }
+
+  /* Loud resting state for an unaddressed attention indicator — amber fill instead of the
+     neutral grey gradient, so it reads as an alert before the filter is engaged. Scoped to
+     the `attention` flag so ordinary warning buttons (Delete, Decline, …) stay neutral at
+     rest. The class is only applied while not active. */
+  .btn.attention {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning) 85%, white),
+      var(--color-warning)
+    );
+    border-color: color-mix(in srgb, var(--color-warning) 70%, black);
+    color: var(--color-btn-gradient-hi);
+  }
+
+  .btn.attention:hover:not(:disabled) {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning) 95%, white),
+      color-mix(in srgb, var(--color-warning) 88%, white)
+    );
+    border-color: var(--color-warning);
+  }
+
+  /* A soft pulsing halo draws the eye until the items are addressed. Motion only for users
+     who haven't requested reduced motion — the amber fill alone still carries the signal. */
+  @media (prefers-reduced-motion: no-preference) {
+    .btn.attention {
+      animation: warning-pulse 1.8s var(--ease) infinite;
+    }
+  }
+
+  @keyframes warning-pulse {
+    0% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 55%, transparent);
+    }
+    70% {
+      box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-warning) 0%, transparent);
+    }
+    100% {
+      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 0%, transparent);
+    }
   }
 
   .btn.warning.active {

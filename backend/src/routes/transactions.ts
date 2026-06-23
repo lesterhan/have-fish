@@ -5,8 +5,46 @@ import { eq, isNull, and, inArray, gte, lte, or, like, desc } from 'drizzle-orm'
 import { accounts } from '../db/schema'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
+import { loadHealContext, findMalformedFxSpends, healFxSpend } from '../postings/heal-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
+
+// GET /api/transactions/malformed-fx-spend
+// Lists transactions matching the malformed cross-currency-spend shape (expense account
+// reused as the FX bridge + a phantom balance holding), each with a before/after preview
+// of the one-click repair. canHeal is false when no conversion account is configured.
+//
+// Registered before any '/:id' route so the literal path isn't shadowed.
+app.get('/malformed-fx-spend', async (c) => {
+  const userId = c.get('userId')
+  const ctx = await loadHealContext(userId)
+  const candidates = await findMalformedFxSpends(userId, ctx)
+  const canHeal = ctx.conversionAccountId !== null
+
+  const result = candidates.map(({ transaction, postings: ps, finding }) => {
+    // "After" mirrors the repair: both bridge legs → conversion account, phantom → expense.
+    const after = ps.map((p) => {
+      if (!canHeal) return p
+      if (p.id === finding.sourceBridgePostingId || p.id === finding.targetBridgePostingId) {
+        return { ...p, accountId: ctx.conversionAccountId!, accountPath: ctx.conversionAccountPath ?? p.accountPath }
+      }
+      if (p.id === finding.phantomPostingId) {
+        return { ...p, accountId: finding.expenseAccountId, accountPath: finding.expenseAccountPath }
+      }
+      return p
+    })
+    return {
+      transactionId: transaction.id,
+      date: transaction.date,
+      description: transaction.description,
+      before: ps,
+      after,
+      canHeal,
+    }
+  })
+
+  return c.json({ candidates: result, conversionAccountConfigured: canHeal })
+})
 
 // GET /api/transactions
 // Returns all transactions for the user, each with its postings array embedded.
@@ -334,6 +372,20 @@ app.post('/:id/postings', async (c) => {
   })
 
   return c.json(result)
+})
+
+// POST /api/transactions/:id/heal-fx-spend
+// Repairs a malformed cross-currency-spend transaction in place: repoints the two FX-bridge
+// legs to the conversion account and the phantom balance leg to the expense account. Amounts
+// are untouched, so the entry stays balanced. Rejects transactions that aren't malformed
+// (409) and requests when no conversion account is configured (400).
+app.post('/:id/heal-fx-spend', async (c) => {
+  const userId = c.get('userId')
+  const id = c.req.param('id')
+  const ctx = await loadHealContext(userId)
+  const result = await healFxSpend(userId, id, ctx)
+  if (!result.ok) return c.json({ error: result.error }, result.status)
+  return c.json({ postings: result.postings })
 })
 
 // DELETE /api/transactions/:id

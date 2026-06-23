@@ -9,8 +9,11 @@
     fetchTransactions,
     fetchActionRequired,
     fetchFxRate,
+    fetchMalformedFxSpends,
     type Account,
+    type MalformedFxSpend,
   } from '$lib/api'
+  import RepairFxSpendModal from '$lib/components/transactions/RepairFxSpendModal.svelte'
   import QuickEntryPanel from '$lib/components/accounts/QuickEntryPanel.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
@@ -106,6 +109,35 @@
     fxRateMap = new Map([...fxRateMap, ...results])
   }
 
+  // Malformed cross-currency spends touching this account — drive the per-row Repair strip
+  // and the repair modal. Fetched once per account.
+  let malformedCandidates = $state<MalformedFxSpend[]>([])
+  let conversionAccountConfigured = $state(true)
+  let repairOpen = $state(false)
+  let malformedIds = $derived(new Set(malformedCandidates.map((c) => c.transactionId)))
+
+  async function loadMalformed() {
+    try {
+      const res = await fetchMalformedFxSpends()
+      conversionAccountConfigured = res.conversionAccountConfigured
+      // Keep only candidates that touch this account (by any posting).
+      malformedCandidates = res.candidates.filter((c) =>
+        c.before.some((p) => p.accountId === id),
+      )
+    } catch {
+      malformedCandidates = []
+    }
+  }
+
+  function handleHealed(transactionId: string) {
+    malformedCandidates = malformedCandidates.filter((c) => c.transactionId !== transactionId)
+    if (malformedCandidates.length === 0) repairOpen = false
+    // Pull the corrected postings into the visible list + refresh the attention indicators.
+    fetchTransactions({ accountId: id, from, to }).then((txs) => (transactions = txs))
+    actionRequiredStore.invalidate()
+    actionRequiredStore.load()
+  }
+
   // Reset filter state when navigating to a different account
   $effect(() => {
     void id
@@ -114,6 +146,7 @@
     convertFx = false
     fxRateMap = new Map()
     quickEntryOpen = false
+    loadMalformed()
   })
 
   $effect(() => {
@@ -218,6 +251,13 @@
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
 
+<RepairFxSpendModal
+  bind:open={repairOpen}
+  candidates={malformedCandidates}
+  {conversionAccountConfigured}
+  onhealed={handleHealed}
+/>
+
 <div class="page" class:two-col={quickEntryOpen}>
   <div class="left-col">
     {#if account}
@@ -315,6 +355,13 @@
         </p>
       {:else}
         {#each displayedTransactions as tx, i (tx.id)}
+          {#if malformedIds.has(tx.id)}
+            <button class="repair-strip" onclick={() => (repairOpen = true)}>
+              <span class="repair-strip-icon">⚠</span>
+              <span>Imported incorrectly — cross-currency spend needs repair.</span>
+              <span class="repair-strip-cta">Repair</span>
+            </button>
+          {/if}
           <AccountTransactionRow
             {tx}
             idx={i}
@@ -364,6 +411,33 @@
     flex-direction: row;
     height: 100%;
     overflow: hidden;
+  }
+
+  .repair-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    width: 100%;
+    text-align: left;
+    padding: var(--sp-xs) var(--sp-md);
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+    border: none;
+    border-left: 3px solid var(--color-warning);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: filter var(--duration-fast) var(--ease);
+  }
+
+  .repair-strip:hover {
+    filter: brightness(0.97);
+  }
+
+  .repair-strip-cta {
+    margin-left: auto;
+    font-weight: var(--weight-semibold);
+    text-decoration: underline;
   }
 
   .left-col {
