@@ -2,7 +2,12 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
-  import type { Account, ImportPreviewResult, PossibleDuplicate, ExpenseGroup } from '$lib/api'
+  import type {
+    Account,
+    ImportPreviewResult,
+    PossibleDuplicate,
+    ExpenseGroup,
+  } from '$lib/api'
   import ImportRowTransfer from './ImportRowTransfer.svelte'
   import ImportRowRegular from './ImportRowRegular.svelte'
   import { rowMissingAccounts } from './import-helpers'
@@ -69,7 +74,8 @@
       missingPaths.length > 0 ||
       (!preview.isMultiCurrency && !fromAccountId) ||
       rowStates.some(
-        (row, i) => !row.skipped && rowMissingAccounts(preview.transactions[i], row),
+        (row, i) =>
+          !row.skipped && rowMissingAccounts(preview.transactions[i], row),
       ),
   )
 </script>
@@ -102,7 +108,9 @@
 
     {#if preview.errors.length > 0}
       <div class="parse-errors">
-        <p>{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
+        <p>
+          {preview.errors.length} row(s) could not be parsed and will be skipped.
+        </p>
         <ul>
           {#each preview.errors as e}
             <li>Row {e.row}: {e.reason}</li>
@@ -117,7 +125,9 @@
         {#each missingPaths as path}
           <span class="missing-account">
             <code>{path}</code>
-            <GradientButton onclick={() => oncreatemissing(path)}>Create</GradientButton>
+            <GradientButton onclick={() => oncreatemissing(path)}
+              >Create</GradientButton
+            >
           </span>
         {/each}
         <GradientButton onclick={oncreateallmissing}>Create all</GradientButton>
@@ -125,7 +135,10 @@
     {/if}
 
     <div class="liability-bar">
-      <Toggle bind:checked={importAsLiabilities} label="Import as liabilities" />
+      <Toggle
+        bind:checked={importAsLiabilities}
+        label="Import as liabilities"
+      />
       <div class="bar-actions">
         <GradientButton onclick={oncancel}>Cancel</GradientButton>
         <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
@@ -356,12 +369,29 @@
 
   /* Date and Description are reference columns — give them only what they need so the
      load-bearing Amount and the high-interaction To-account columns get the room. */
-  .col-date        { width: 5rem; }
-  .col-description { width: 22rem; max-width: 22rem; }
-  .col-amount      { width: 8.5rem; text-align: right; }
-  .col-offset      { width: 100%; min-width: 18rem; }
-  .col-split       { width: 7rem; text-align: center; }
-  .col-skip        { width: 3rem; text-align: center; }
+  .col-date {
+    width: 5rem;
+  }
+  .col-description {
+    width: 30rem;
+    max-width: 30rem;
+  }
+  .col-amount {
+    width: 8.5rem;
+    text-align: right;
+  }
+  .col-offset {
+    width: 100%;
+    min-width: 12rem;
+  }
+  .col-split {
+    width: 7rem;
+    text-align: center;
+  }
+  .col-skip {
+    width: 3rem;
+    text-align: center;
+  }
 
   /* ── Shared row/cell styles — :global so they reach child-rendered <td> elements ── */
 
@@ -382,7 +412,7 @@
   /* Description is a reference cue, not the focus — clip overflow to keep column width
      in check (full text stays available via the cell's title attribute). */
   :global(.table-container .cell-description) {
-    max-width: 22rem;
+    max-width: 30rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
