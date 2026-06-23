@@ -153,7 +153,7 @@
       <table>
         <thead>
           <tr>
-            <th>Date</th>
+            <th class="col-date">Date</th>
             <th class="col-description">Description</th>
             <th class="col-amount">Amount</th>
             {#if !preview.isMultiCurrency}<th>Currency</th>{/if}
@@ -369,9 +369,12 @@
     z-index: 1;
   }
 
-  .col-description { width: 100%; }
-  .col-amount      { width: 7rem; }
-  .col-offset      { min-width: 18rem; }
+  /* Date and Description are reference columns — give them only what they need so the
+     load-bearing Amount and the high-interaction To-account columns get the room. */
+  .col-date        { width: 4.5rem; }
+  .col-description { width: 16rem; max-width: 16rem; }
+  .col-amount      { width: 8.5rem; text-align: right; }
+  .col-offset      { width: 100%; min-width: 22rem; }
   .col-split       { width: 7rem; text-align: center; }
   .col-skip        { width: 3rem; text-align: center; }
 
@@ -394,6 +397,16 @@
   :global(.table-container .cell-mono) {
     font-family: var(--font-mono);
     white-space: nowrap;
+  }
+
+  /* Description is a reference cue, not the focus — clip overflow to keep column width
+     in check (full text stays available via the cell's title attribute). */
+  :global(.table-container .cell-description) {
+    max-width: 16rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--color-text-muted);
   }
 
   :global(.table-container .cell-offset) {

@@ -6,7 +6,7 @@
   import { tooltip } from '$lib/tooltip'
   import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
   import type { RowState } from './ImportPreviewPanel.svelte'
-  import { groupName, categoryName, myShareRatio } from './import-helpers'
+  import { groupName, categoryName, myShareRatio, shortDate } from './import-helpers'
 
   interface Props {
     tx: RegularParsedTransaction
@@ -61,7 +61,7 @@
 
 <tr class:row-skipped={rowState.skipped}>
   <td class="cell-mono">
-    {new Date(tx.date).toLocaleDateString()}
+    {shortDate(tx.date)}
     {#if rowState.possibleDuplicate}
       <span
         class="indicator-icon"
@@ -74,7 +74,7 @@
       </span>
     {/if}
   </td>
-  <td>
+  <td class="cell-description" title={tx.description ?? ''}>
     {tx.description ?? '—'}
     {#if rowState.possibleDuplicate?.fishPieGroupName}
       <span class="fishpie-hint">
@@ -182,6 +182,8 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
+    /* Cap the lone account input so it doesn't span the full (now-greedy) column. */
+    max-width: 30rem;
   }
 
   .fishpie-hint {

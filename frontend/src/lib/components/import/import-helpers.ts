@@ -1,5 +1,15 @@
 import type { ExpenseGroup } from '$lib/api'
 
+// Compact numeric date (MM/DD/YY) for the dense import table — keeps the year so
+// imports that straddle a year boundary stay unambiguous, without eating column width.
+export function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, {
+    year: '2-digit',
+    month: '2-digit',
+    day: '2-digit',
+  })
+}
+
 export function groupName(groups: ExpenseGroup[], id: string | null): string {
   if (!id) return ''
   return groups.find((g) => g.id === id)?.name ?? ''
