@@ -33,6 +33,27 @@ export async function updateAccount(
   return res.json()
 }
 
+// Rewrites an account path prefix `from` → `to`, cascading to every descendant. A leaf
+// rename is `from`/`to` being full leaf paths; a parent/category rename rewrites the
+// shared prefix across all accounts under it. Throws with the server message on 409
+// (collision → that's a merge) or 400 (invalid / receivable).
+export async function renameAccount(
+  from: string,
+  to: string,
+): Promise<{ renamed: number; accounts: Account[] }> {
+  const res = await fetch(`${BASE}/api/accounts/rename`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ from, to }),
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? 'Failed to rename account')
+  }
+  return res.json()
+}
+
 export async function fetchAccounts(): Promise<Account[]> {
   const res = await fetch(`${BASE}/api/accounts`, { credentials: 'include' })
   return res.json()

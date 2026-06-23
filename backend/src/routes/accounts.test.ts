@@ -292,4 +292,139 @@ describe('accounts', () => {
     const allAccounts = await getRes.json() as Account[]
     expect(allAccounts.map(a => a.id)).not.toContain(created.id)
   })
+
+  describe('POST /api/accounts/rename', () => {
+    async function createAccount(path: string): Promise<Account> {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      return res.json() as Promise<Account>
+    }
+
+    async function rename(from: string, to: string, c = cookie) {
+      return app.request('/api/accounts/rename', {
+        method: 'POST',
+        headers: { Cookie: c, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ from, to }),
+      })
+    }
+
+    async function pathOf(id: string): Promise<string> {
+      const res = await app.request(`/api/accounts/${id}`, { headers: { Cookie: cookie } })
+      return (await res.json() as Account).path
+    }
+
+    it('renames a leaf path and keeps the same id', async () => {
+      const acct = await createAccount('expenses:food:cafe')
+      const res = await rename('expenses:food:cafe', 'expenses:food:coffeeshop')
+      expect(res.status).toBe(200)
+      const body = await res.json() as { renamed: number; accounts: Account[] }
+      expect(body.renamed).toBe(1)
+      expect(body.accounts[0].id).toBe(acct.id)
+      expect(await pathOf(acct.id)).toBe('expenses:food:coffeeshop')
+    })
+
+    it('leaves postings pointed at the renamed account (stable id)', async () => {
+      const acct = await createAccount('expenses:food:cafe')
+      await app.request('/api/transactions', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: '2024-01-01',
+          postings: [
+            { accountId: acct.id, amount: '-10.00', currency: 'CAD' },
+            { accountId: acct.id, amount: '10.00', currency: 'CAD' },
+          ],
+        }),
+      })
+      await rename('expenses:food:cafe', 'expenses:food:coffeeshop')
+      const counts = await app.request('/api/accounts/posting-counts', { headers: { Cookie: cookie } })
+      const row = (await counts.json() as { accountId: string; count: number }[]).find(r => r.accountId === acct.id)
+      expect(row?.count).toBe(2)
+    })
+
+    it('cascades a parent rename to every descendant', async () => {
+      const cafe = await createAccount('expenses:food:cafe')
+      const resto = await createAccount('expenses:food:resto')
+      const res = await rename('expenses:food', 'expenses:dining')
+      expect(res.status).toBe(200)
+      expect((await res.json() as { renamed: number }).renamed).toBe(2)
+      expect(await pathOf(cafe.id)).toBe('expenses:dining:cafe')
+      expect(await pathOf(resto.id)).toBe('expenses:dining:resto')
+    })
+
+    it('renames a virtual parent that has no account row of its own', async () => {
+      // No `expenses:food` row exists — only leaves below it.
+      const cafe = await createAccount('expenses:food:cafe')
+      const res = await rename('expenses:food', 'expenses:dining')
+      expect(res.status).toBe(200)
+      expect(await pathOf(cafe.id)).toBe('expenses:dining:cafe')
+    })
+
+    it('anchors the prefix so sibling accounts with a shared prefix are untouched', async () => {
+      const cafe = await createAccount('expenses:food:cafe')
+      const court = await createAccount('expenses:foodcourt:mall')
+      await rename('expenses:food', 'expenses:dining')
+      expect(await pathOf(cafe.id)).toBe('expenses:dining:cafe')
+      expect(await pathOf(court.id)).toBe('expenses:foodcourt:mall')
+    })
+
+    it('rejects a rename that would collide with an existing path (merge, not rename)', async () => {
+      const cafe = await createAccount('expenses:food:cafe')
+      await createAccount('expenses:food:coffeeshop')
+      const res = await rename('expenses:food:cafe', 'expenses:food:coffeeshop')
+      expect(res.status).toBe(409)
+      expect(await pathOf(cafe.id)).toBe('expenses:food:cafe')
+    })
+
+    it('rejects a cascade where any descendant would collide', async () => {
+      const cafe = await createAccount('expenses:food:cafe')
+      await createAccount('expenses:dining:cafe')
+      const res = await rename('expenses:food', 'expenses:dining')
+      expect(res.status).toBe(409)
+      expect(await pathOf(cafe.id)).toBe('expenses:food:cafe')
+    })
+
+    it('rejects renaming a receivable (system-managed) account', async () => {
+      const acct = await createAccount('assets:receivable:trip')
+      const res = await rename('assets:receivable:trip', 'assets:receivable:vacation')
+      expect(res.status).toBe(400)
+      expect(await pathOf(acct.id)).toBe('assets:receivable:trip')
+    })
+
+    it('rejects renaming into the receivable namespace', async () => {
+      await createAccount('expenses:food:cafe')
+      const res = await rename('expenses:food:cafe', 'assets:receivable:cafe')
+      expect(res.status).toBe(400)
+    })
+
+    it('rejects an invalid target path', async () => {
+      await createAccount('expenses:food:cafe')
+      expect((await rename('expenses:food:cafe', 'expenses::cafe')).status).toBe(400)
+      expect((await rename('expenses:food:cafe', ' expenses:cafe')).status).toBe(400)
+      expect((await rename('expenses:food:cafe', '')).status).toBe(400)
+    })
+
+    it('returns 404 when no account matches', async () => {
+      const res = await rename('expenses:nonexistent', 'expenses:whatever')
+      expect(res.status).toBe(404)
+    })
+
+    it('does not rename another user\'s accounts', async () => {
+      const other = await createTestUser('other@example.com')
+      const otherAcctRes = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: other, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'expenses:food:cafe' }),
+      })
+      const otherAcct = await otherAcctRes.json() as Account
+      // Current user has no such account → 404, and the other user's row is untouched.
+      const res = await rename('expenses:food:cafe', 'expenses:food:coffeeshop')
+      expect(res.status).toBe(404)
+      const check = await app.request(`/api/accounts/${otherAcct.id}`, { headers: { Cookie: other } })
+      expect((await check.json() as Account).path).toBe('expenses:food:cafe')
+    })
+  })
 })

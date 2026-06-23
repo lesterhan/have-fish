@@ -40,6 +40,43 @@ ahead of the heavier merge/split work.
 
 ---
 
+## Phase 1 — settled design (this slice)
+
+Decisions locked in discussion (2026-06-23). Stories 1 + 2 ship as **one PR** because the
+mechanism is identical: a path-**prefix** rewrite where a leaf rename is the degenerate case
+(exact match, no descendants) and a parent rename is the same rewrite cascading to descendants.
+
+**Why prefix, not id.** `createAccount` inserts only the **leaf** row. Intermediate segments
+(`expenses`, `expenses:food`) usually have **no account row** — they are virtual grouping nodes
+derived from leaf paths. A virtual node has no `accounts.id`, so rename cannot key on id. It keys
+on path prefix, which also covers real leaf rows.
+
+**Backend** — `POST /api/accounts/rename`, body `{ from: "expenses:food", to: "expenses:dining" }`:
+- Match `path = from OR path LIKE from || ':%'` (anchored so `expenses:foodcourt` is untouched),
+  all scoped to the session userId.
+- Rewrite the `from` prefix → `to` on every match, in one transaction. Postings unaffected
+  (stable id).
+- **Reject 409** if any rewritten path collides with an existing account → "that's a merge"
+  (story 3); surface the offending path.
+- **Reject** if `from` is or is under `assets:receivable:*` (system-managed, re-spawned at import).
+- Reject if no account matches `from`, or any match is cross-user.
+- Cosmetic `name` PATCH stays separate and unchanged.
+
+**Frontend** — new route `/accounts/manage`:
+- Build the tree from all account paths including virtual intermediates (reuse the sidebar's
+  segment-split approach).
+- Rename edits **one segment in place** — ancestors fixed, so no accidental reparent/move
+  (reparenting is story 5). The `to` sent is `parentPrefix + newSegment`.
+- A parent node with children warns "this renames N child accounts" with the list before applying.
+- Receivable subtree: rename disabled with a tooltip.
+- Reached via a link from the `/settings` account section.
+
+**Virtual + segment-only confirmed**: virtual intermediate nodes are renamable (prefix rewrite
+cascades to their leaves); editing is segment-only (no reparent this slice).
+
+Transparent to the rest: spending/budgets query live by path prefix and the rewrite is atomic,
+so they follow cleanly; hledger export is a snapshot with no rename-history expectation.
+
 ## Stories
 
 ### 1. Rename / re-path a leaf account
