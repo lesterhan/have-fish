@@ -28,7 +28,7 @@
 | [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
 | [Account Reorganization](epics/account-reorganization.md) | Backlog |
 | [Single-Transaction View](epics/single-transaction-view.md) | Backlog |
-| [Cross-Currency Spend Import + Heal](epics/cross-currency-spend-import.md) | In Progress |
+| [Cross-Currency Spend Import + Heal](epics/archive/cross-currency-spend-import.md) | Done |
 | [Import Rules](epics/archive/import-rules.md) | Done |
 | [Import Rules — Fish Pie Splits & Inline Capture](epics/import-rules-fish-pie.md) | Backlog |
 | [Spending Account Filter](epics/spending-account-filter.md) | Backlog |
@@ -45,7 +45,7 @@
 | [Transactions Panel Redesign](epics/archive/transactions-panel-redesign.md) | Done |
 | [Fish Pie: Account Integration](epics/archive/fish-pie-account-integration.md) | Done |
 | [Fish Pie: Settlement Confirmation](epics/archive/fish-pie-settlement-confirmation.md) | Done |
-| [Fish Pie: CSV Import Integration](epics/fish-pie-csv-import.md) | Testing |
+| [Fish Pie: CSV Import Integration](epics/archive/fish-pie-csv-import.md) | Done |
 | [Fish Pie: Expense Management](epics/fish-pie-expense-management.md) | Backlog |
 | [Fish Pie: Ledger Signs](epics/archive/fish-pie-ledger-signs.md) | Done |
 | [Fish Pie: Categories](epics/archive/fish-pie-categories.md) | Done |
