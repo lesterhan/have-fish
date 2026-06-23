@@ -6,7 +6,7 @@ import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
-import { buildRegularPostings, buildFishPiePostings, buildFishPieCrossCurrencyPostings, buildFishPieSameCurrencyPostings } from '../import/postings'
+import { buildRegularPostings, buildFishPiePostings, buildFishPieCrossCurrencyPostings, buildFishPieSameCurrencyPostings, buildCrossCurrencySpendPostings } from '../import/postings'
 import { createGroupExpenseInTx, fetchGroupWithMembers, resolvePayerImportContext } from '../fish-pie-expense-service'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 
@@ -285,7 +285,12 @@ app.post('/commit', async (c) => {
 
   // Per-row validation — requirements differ by row type
   for (const [rowIdx, t] of (parsed as Record<string, unknown>[]).entries()) {
-    if (t.isTransfer === true) {
+    if (t.isTransfer === 'cross-currency-spend') {
+      if (!t.sourceAccountId) return c.json({ error: 'cross-currency-spend rows must include sourceAccountId' }, 400)
+      if (!t.expenseAccountId) return c.json({ error: 'cross-currency-spend rows must include expenseAccountId' }, 400)
+      if (!t.conversionAccountId) return c.json({ error: 'cross-currency-spend rows must include conversionAccountId' }, 400)
+      if (t.feeAmount && !t.feeAccountId) return c.json({ error: 'cross-currency-spend rows with a fee must include feeAccountId' }, 400)
+    } else if (t.isTransfer === true) {
       if (!t.sourceAccountId) return c.json({ error: 'transfer rows must include sourceAccountId' }, 400)
       if (!t.targetAccountId) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
       if (!t.conversionAccountId) return c.json({ error: 'transfer rows must include conversionAccountId' }, 400)
@@ -327,6 +332,22 @@ app.post('/commit', async (c) => {
     feeAccountId: string
   }
 
+  type CrossCurrencySpendRow = {
+    isTransfer: 'cross-currency-spend'
+    date: string
+    description?: string
+    sourceAmount: string   // negative, gross incl. fee (leaving source)
+    sourceCurrency: string
+    targetAmount: string   // positive (the spend, in targetCurrency)
+    targetCurrency: string
+    feeAmount?: string     // positive
+    feeCurrency?: string
+    sourceAccountId: string
+    expenseAccountId: string   // the spend account
+    conversionAccountId: string
+    feeAccountId?: string
+  }
+
   type SameCurrencyTransferRow = {
     isTransfer: 'same-currency'
     date: string
@@ -342,13 +363,38 @@ app.post('/commit', async (c) => {
   let fishPieExpenses = 0
 
   await db.transaction(async (tx) => {
-    for (const [rowIndex, t] of (parsed as (RegularRow | TransferRow | SameCurrencyTransferRow)[]).entries()) {
+    for (const [rowIndex, t] of (parsed as (RegularRow | TransferRow | SameCurrencyTransferRow | CrossCurrencySpendRow)[]).entries()) {
       const [newTx] = await tx
         .insert(transactions)
         .values({ userId, date: new Date(t.date), description: t.description })
         .returning()
 
-      if (t.isTransfer === true) {
+      if (t.isTransfer === 'cross-currency-spend') {
+        // Cross-currency spend — a purchase in a currency the user doesn't hold, funded
+        // from another-currency account via on-the-fly conversion. equity:conversions
+        // bridges both sides; the spend lands in an expense account (never the bridge),
+        // and no phantom asset balance is created. See buildCrossCurrencySpendPostings.
+        const srcAmount = parseFloat(t.sourceAmount)  // negative
+        const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0
+        const conversionSrcAmount = (-(srcAmount + feeVal)).toFixed(2)
+
+        await tx.insert(postings).values(
+          buildCrossCurrencySpendPostings({
+            transactionId: newTx.id,
+            sourceAccountId: t.sourceAccountId,
+            sourceAmount: t.sourceAmount,
+            sourceCurrency: t.sourceCurrency,
+            conversionAccountId: t.conversionAccountId,
+            conversionSrcAmount,
+            targetAmount: t.targetAmount,
+            targetCurrency: t.targetCurrency,
+            expenseAccountId: t.expenseAccountId,
+            feeAmount: t.feeAmount,
+            feeCurrency: t.feeCurrency ?? t.sourceCurrency,
+            feeAccountId: t.feeAccountId,
+          }),
+        )
+      } else if (t.isTransfer === true) {
         // Cross-currency transfer — 4 or 5 postings (regular) or 5 or 6 (Fish Pie).
         //
         // Fish Pie variant: net target amount split between group clearing + payer expense.

@@ -348,6 +348,130 @@ describe('POST /api/import/commit', () => {
     expect(Math.abs(cadSum)).toBeLessThan(0.001)
     expect(Math.abs(gbpSum)).toBeLessThan(0.001)
   })
+
+  it('cross-currency spend: spend lands in expense account, bridged by equity, no phantom asset', async () => {
+    const sourceAcc     = await createAccount(cookie, 'assets:bank:savings:usd')
+    const conversionAcc = await createAccount(cookie, 'equity:conversions')
+    const feeAcc        = await createAccount(cookie, 'expenses:banking')
+    const coffeeAcc     = await createAccount(cookie, 'expenses:food:coffee')
+
+    const row = {
+      isTransfer: 'cross-currency-spend',
+      date: new Date('2026-05-31').toISOString(),
+      description: 'You Are My Cup Of',
+      sourceAmount: '-17.29',
+      sourceCurrency: 'USD',
+      targetAmount: '360.00',
+      targetCurrency: 'CZK',
+      feeAmount: '0.05',
+      feeCurrency: 'USD',
+      sourceAccountId: sourceAcc.id,
+      expenseAccountId: coffeeAcc.id,
+      conversionAccountId: conversionAcc.id,
+      feeAccountId: feeAcc.id,
+    }
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: '', defaultCurrency: 'USD', transactions: [row] }),
+    })
+
+    expect(res.status).toBe(201)
+    expect((await res.json()).created).toBe(1)
+
+    const txRes = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+    const txs = await txRes.json()
+    expect(txs).toBeArrayOfSize(1)
+    const t = txs[0]
+    expect(t.postings).toBeArrayOfSize(5)
+
+    // Both currencies balance to zero
+    const usdSum = t.postings.filter((p: { currency: string }) => p.currency === 'USD')
+      .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
+    const czkSum = t.postings.filter((p: { currency: string }) => p.currency === 'CZK')
+      .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
+    expect(Math.abs(usdSum)).toBeLessThan(0.001)
+    expect(Math.abs(czkSum)).toBeLessThan(0.001)
+
+    // The spend is a single +360 CZK leg on the coffee account — not double-booked in USD
+    const coffeeLegs = t.postings.filter((p: { accountId: string }) => p.accountId === coffeeAcc.id)
+    expect(coffeeLegs).toBeArrayOfSize(1)
+    expect(coffeeLegs[0]).toEqual(expect.objectContaining({ amount: '360.00', currency: 'CZK' }))
+
+    // equity:conversions bridges both sides (the bug used the expense account here)
+    expect(t.postings).toEqual(expect.arrayContaining([
+      expect.objectContaining({ accountId: conversionAcc.id, amount: '17.24', currency: 'USD' }),
+      expect.objectContaining({ accountId: conversionAcc.id, amount: '-360.00', currency: 'CZK' }),
+    ]))
+
+    // No phantom CZK asset balance — the source asset only has the USD outflow
+    const sourceLegs = t.postings.filter((p: { accountId: string }) => p.accountId === sourceAcc.id)
+    expect(sourceLegs).toBeArrayOfSize(1)
+    expect(sourceLegs[0]).toEqual(expect.objectContaining({ amount: '-17.29', currency: 'USD' }))
+  })
+
+  it('cross-currency spend without a fee: 4 postings, balanced', async () => {
+    const sourceAcc     = await createAccount(cookie, 'assets:bank:savings:usd')
+    const conversionAcc = await createAccount(cookie, 'equity:conversions')
+    const coffeeAcc     = await createAccount(cookie, 'expenses:food:coffee')
+
+    const row = {
+      isTransfer: 'cross-currency-spend',
+      date: new Date('2026-05-31').toISOString(),
+      description: 'No-fee spend',
+      sourceAmount: '-17.24',
+      sourceCurrency: 'USD',
+      targetAmount: '360.00',
+      targetCurrency: 'CZK',
+      sourceAccountId: sourceAcc.id,
+      expenseAccountId: coffeeAcc.id,
+      conversionAccountId: conversionAcc.id,
+    }
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId: '', defaultCurrency: 'USD', transactions: [row] }),
+    })
+
+    expect(res.status).toBe(201)
+    const txRes = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+    const t = (await txRes.json())[0]
+    expect(t.postings).toBeArrayOfSize(4)
+    const usdSum = t.postings.filter((p: { currency: string }) => p.currency === 'USD')
+      .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
+    const czkSum = t.postings.filter((p: { currency: string }) => p.currency === 'CZK')
+      .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
+    expect(Math.abs(usdSum)).toBeLessThan(0.001)
+    expect(Math.abs(czkSum)).toBeLessThan(0.001)
+  })
+
+  it('rejects a cross-currency spend with a fee but no feeAccountId', async () => {
+    const sourceAcc     = await createAccount(cookie, 'assets:bank:savings:usd')
+    const conversionAcc = await createAccount(cookie, 'equity:conversions')
+    const coffeeAcc     = await createAccount(cookie, 'expenses:food:coffee')
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: '', defaultCurrency: 'USD', transactions: [{
+          isTransfer: 'cross-currency-spend',
+          date: new Date('2026-05-31').toISOString(),
+          sourceAmount: '-17.29', sourceCurrency: 'USD',
+          targetAmount: '360.00', targetCurrency: 'CZK',
+          feeAmount: '0.05',
+          sourceAccountId: sourceAcc.id,
+          expenseAccountId: coffeeAcc.id,
+          conversionAccountId: conversionAcc.id,
+        }],
+      }),
+    })
+
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toContain('feeAccountId')
+  })
 })
 
 describe('POST /api/import/commit — group splits', () => {
