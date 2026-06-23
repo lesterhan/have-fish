@@ -413,6 +413,27 @@
     padding: 0;
   }
 
+  /* Labelled mini-field used across every To-account treatment — single input, conversion
+     leg, or Fish Pie pills. The fixed label gutter keeps content left-aligned row to row so
+     the column reads as one form. `.no-label` opts a row out (plain bank imports, where
+     there's nothing to align against) without changing its markup. */
+  :global(.table-container .field) {
+    display: grid;
+    grid-template-columns: 3rem 1fr;
+    align-items: center;
+    gap: var(--sp-xs);
+  }
+  :global(.table-container .field.no-label) {
+    display: contents;
+  }
+  :global(.table-container .field-label) {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-align: right;
+    user-select: none;
+  }
+
   :global(.table-container .cell-skip) {
     text-align: center;
     vertical-align: middle;

@@ -121,23 +121,26 @@
   <td class="cell-offset" bind:this={offsetCellEl}>
     <div class="transfer-accounts">
       {#if rowState.groupId}
-        <div class="fishpie-pills">
-          <span class="fishpie-pill-hero">
-            <Icon name="pie" size={11} />
-            {rowState.categoryId
-              ? categoryName(groups, rowState.groupId, rowState.categoryId)
-              : groupName(groups, rowState.groupId)}
-          </span>
-          {#if rowState.categoryId && groups.length > 1}
-            <span class="fishpie-pill-sub">
-              {groupName(groups, rowState.groupId)}
+        <div class="field">
+          <span class="field-label">split</span>
+          <div class="fishpie-pills">
+            <span class="fishpie-pill-hero">
+              <Icon name="pie" size={11} />
+              {rowState.categoryId
+                ? categoryName(groups, rowState.groupId, rowState.categoryId)
+                : groupName(groups, rowState.groupId)}
             </span>
-          {/if}
-          {#if shareHint}
-            <span class="fishpie-pill-share">
-              <Icon name="pie-chart" size={9} />{shareHint}
-            </span>
-          {/if}
+            {#if rowState.categoryId && groups.length > 1}
+              <span class="fishpie-pill-sub">
+                {groupName(groups, rowState.groupId)}
+              </span>
+            {/if}
+            {#if shareHint}
+              <span class="fishpie-pill-share">
+                <Icon name="pie-chart" size={9} />{shareHint}
+              </span>
+            {/if}
+          </div>
         </div>
       {:else if !splitSelectOpen}
         {#if tx.isTransfer === true}
@@ -339,22 +342,6 @@
     flex-direction: column;
     gap: 3px;
     padding: var(--sp-xs) var(--sp-sm);
-  }
-
-  /* Each conversion leg is a labelled mini-field: a fixed label gutter keeps every input's
-     left edge aligned, so the stack reads as a form instead of a pile of loose text. */
-  .field {
-    display: grid;
-    grid-template-columns: 3rem 1fr;
-    align-items: center;
-    gap: var(--sp-xs);
-  }
-  .field-label {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    color: var(--color-text-muted);
-    text-align: right;
-    user-select: none;
   }
 
   .field-pill {

@@ -95,40 +95,48 @@
   {#if !isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
   <td class="cell-offset" bind:this={offsetCellEl}>
     {#if rowState.groupId}
-      <div class="fishpie-pills">
-        <span class="fishpie-pill-hero">
-          <Icon name="pie" size={11} />
-          {rowState.categoryId
-            ? categoryName(groups, rowState.groupId, rowState.categoryId)
-            : groupName(groups, rowState.groupId)}
-        </span>
-        {#if rowState.categoryId && groups.length > 1}
-          <span class="fishpie-pill-sub">
-            {groupName(groups, rowState.groupId)}
+      <!-- Match the labelled-field gutter of the cross-currency rows so the column's left
+           edge stays consistent. Plain (non-multi-currency) imports opt out via no-label. -->
+      <div class="field" class:no-label={!isMultiCurrency}>
+        {#if isMultiCurrency}<span class="field-label">split</span>{/if}
+        <div class="fishpie-pills">
+          <span class="fishpie-pill-hero">
+            <Icon name="pie" size={11} />
+            {rowState.categoryId
+              ? categoryName(groups, rowState.groupId, rowState.categoryId)
+              : groupName(groups, rowState.groupId)}
           </span>
-        {/if}
-        {#if shareHint}
-          <span class="fishpie-pill-share">
-            <Icon name="pie-chart" size={9} />{shareHint}
-          </span>
-        {/if}
+          {#if rowState.categoryId && groups.length > 1}
+            <span class="fishpie-pill-sub">
+              {groupName(groups, rowState.groupId)}
+            </span>
+          {/if}
+          {#if shareHint}
+            <span class="fishpie-pill-share">
+              <Icon name="pie-chart" size={9} />{shareHint}
+            </span>
+          {/if}
+        </div>
       </div>
     {:else if !splitSelectOpen}
-      <div class="offset-wrap">
-        <AccountPathInput
-          {accounts}
-          bind:value={rowState.offsetAccountId}
-          placeholder="Select or create…"
-          oncreate={onaccountcreated}
-        />
-        {#if tx.suggestedOffsetAccountId}
-          <span
-            class="indicator-icon"
-            use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
-          >
-            <Icon name="computer" size={16} />
-          </span>
-        {/if}
+      <div class="field" class:no-label={!isMultiCurrency}>
+        {#if isMultiCurrency}<span class="field-label">to</span>{/if}
+        <div class="offset-wrap">
+          <AccountPathInput
+            {accounts}
+            bind:value={rowState.offsetAccountId}
+            placeholder="Select or create…"
+            oncreate={onaccountcreated}
+          />
+          {#if tx.suggestedOffsetAccountId}
+            <span
+              class="indicator-icon"
+              use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
+            >
+              <Icon name="computer" size={16} />
+            </span>
+          {/if}
+        </div>
       </div>
     {/if}
     {#if !rowState.groupId && splitSelectOpen}
@@ -176,6 +184,13 @@
   }
   .cell-amount.negative {
     color: var(--color-amount-negative);
+  }
+
+  /* Pad the labelled field to match the cross-currency rows' .transfer-accounts inset, so
+     the To-account column's gutter lines up across both row types. (no-label is
+     display:contents and ignores this — plain imports stay flush.) */
+  .field {
+    padding: var(--sp-xs) var(--sp-sm);
   }
 
   .offset-wrap {
