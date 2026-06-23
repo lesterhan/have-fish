@@ -26,7 +26,7 @@
 | [Add Import Parser](epics/archive/add-import-parser.md) | Done |
 | [Spending Page](epics/archive/spending-page.md) | Done |
 | [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
-| [Account Reorganization](epics/account-reorganization.md) | Backlog |
+| [Account Reorganization](epics/account-reorganization.md) | Phase 1 Done |
 | [Single-Transaction View](epics/single-transaction-view.md) | Backlog |
 | [Cross-Currency Spend Import + Heal](epics/archive/cross-currency-spend-import.md) | Done |
 | [Import Rules](epics/archive/import-rules.md) | Done |

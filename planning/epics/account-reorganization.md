@@ -79,7 +79,7 @@ so they follow cleanly; hledger export is a snapshot with no rename-history expe
 
 ## Stories
 
-### 1. Rename / re-path a leaf account
+### 1. Rename / re-path a leaf account ✅ Done (PR #114)
 
 Backend + Frontend. The simplest, highest-value slice.
 
@@ -100,7 +100,11 @@ cross-user rename rejected.
 
 ---
 
-### 2. Rename a parent segment (cascade)
+### 2. Rename a parent segment (cascade) ✅ Done (PR #114)
+
+Shipped together with story 1 — the prefix-rewrite mechanism handles leaf (degenerate) and
+parent cascade identically. The `/accounts/manage` tree is expenses-first with collapsible
+categories.
 
 Backend + Frontend. Extend rename to non-leaf nodes.
 
