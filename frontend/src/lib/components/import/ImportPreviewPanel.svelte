@@ -2,9 +2,15 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
-  import type { Account, ImportPreviewResult, PossibleDuplicate, ExpenseGroup } from '$lib/api'
+  import type {
+    Account,
+    ImportPreviewResult,
+    PossibleDuplicate,
+    ExpenseGroup,
+  } from '$lib/api'
   import ImportRowTransfer from './ImportRowTransfer.svelte'
   import ImportRowRegular from './ImportRowRegular.svelte'
+  import { rowMissingAccounts } from './import-helpers'
 
   export type RowState = {
     offsetAccountId: string
@@ -67,25 +73,10 @@
       rowStates.every((r) => r.skipped) ||
       missingPaths.length > 0 ||
       (!preview.isMultiCurrency && !fromAccountId) ||
-      rowStates.some((row, i) => {
-        if (row.skipped) return false
-        const tx = preview.transactions[i]
-        if (tx.isTransfer === true) {
-          // Shared spend (group set) → Fish Pie path derives the expense from the group.
-          if (row.groupId) return !row.conversionAccountId || !row.feeAccountId
-          if (row.kind === 'spend')
-            return (
-              !row.conversionAccountId ||
-              !row.expenseAccountId ||
-              (!!tx.feeAmount && !row.feeAccountId)
-            )
-          return !row.conversionAccountId || !row.feeAccountId
-        }
-        if (tx.isTransfer === 'same-currency')
-          return !row.feeAccountId || !row.offsetAccountId
-        // Fish Pie rows: backend derives the offset account (shared:<group>) automatically
-        return !row.groupId && !row.offsetAccountId
-      }),
+      rowStates.some(
+        (row, i) =>
+          !row.skipped && rowMissingAccounts(preview.transactions[i], row),
+      ),
   )
 </script>
 
@@ -117,7 +108,9 @@
 
     {#if preview.errors.length > 0}
       <div class="parse-errors">
-        <p>{preview.errors.length} row(s) could not be parsed and will be skipped.</p>
+        <p>
+          {preview.errors.length} row(s) could not be parsed and will be skipped.
+        </p>
         <ul>
           {#each preview.errors as e}
             <li>Row {e.row}: {e.reason}</li>
@@ -132,7 +125,9 @@
         {#each missingPaths as path}
           <span class="missing-account">
             <code>{path}</code>
-            <GradientButton onclick={() => oncreatemissing(path)}>Create</GradientButton>
+            <GradientButton onclick={() => oncreatemissing(path)}
+              >Create</GradientButton
+            >
           </span>
         {/each}
         <GradientButton onclick={oncreateallmissing}>Create all</GradientButton>
@@ -140,7 +135,10 @@
     {/if}
 
     <div class="liability-bar">
-      <Toggle bind:checked={importAsLiabilities} label="Import as liabilities" />
+      <Toggle
+        bind:checked={importAsLiabilities}
+        label="Import as liabilities"
+      />
       <div class="bar-actions">
         <GradientButton onclick={oncancel}>Cancel</GradientButton>
         <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
@@ -153,7 +151,7 @@
       <table>
         <thead>
           <tr>
-            <th>Date</th>
+            <th class="col-date">Date</th>
             <th class="col-description">Description</th>
             <th class="col-amount">Amount</th>
             {#if !preview.isMultiCurrency}<th>Currency</th>{/if}
@@ -369,11 +367,31 @@
     z-index: 1;
   }
 
-  .col-description { width: 100%; }
-  .col-amount      { width: 7rem; }
-  .col-offset      { min-width: 18rem; }
-  .col-split       { width: 7rem; text-align: center; }
-  .col-skip        { width: 3rem; text-align: center; }
+  /* Date and Description are reference columns — give them only what they need so the
+     load-bearing Amount and the high-interaction To-account columns get the room. */
+  .col-date {
+    width: 5rem;
+  }
+  .col-description {
+    width: 30rem;
+    max-width: 30rem;
+  }
+  .col-amount {
+    width: 8.5rem;
+    text-align: right;
+  }
+  .col-offset {
+    width: 100%;
+    min-width: 12rem;
+  }
+  .col-split {
+    width: 7rem;
+    text-align: center;
+  }
+  .col-skip {
+    width: 3rem;
+    text-align: center;
+  }
 
   /* ── Shared row/cell styles — :global so they reach child-rendered <td> elements ── */
 
@@ -391,13 +409,44 @@
     background: var(--color-accent-light);
   }
 
-  :global(.table-container .cell-mono) {
-    font-family: var(--font-mono);
+  /* Description is a reference cue, not the focus — clip overflow to keep column width
+     in check (full text stays available via the cell's title attribute). */
+  :global(.table-container .cell-description) {
+    max-width: 30rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
     white-space: nowrap;
+    color: var(--color-text-muted);
   }
 
   :global(.table-container .cell-offset) {
     padding: 0;
+  }
+
+  /* Labelled mini-field used across every To-account treatment — single input, conversion
+     leg, or Fish Pie pills. The fixed label gutter keeps content left-aligned row to row so
+     the column reads as one form. `.no-label` opts a row out (plain bank imports, where
+     there's nothing to align against) without changing its markup. */
+  :global(.table-container .field) {
+    display: grid;
+    grid-template-columns: 3rem 1fr;
+    align-items: center;
+    gap: var(--sp-xs);
+  }
+  :global(.table-container .field.no-label) {
+    display: contents;
+  }
+  :global(.table-container .field-label) {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--color-text-muted);
+    text-align: right;
+    user-select: none;
+  }
+
+  /* Fills the field's input column; the group dropdown measures this to align itself. */
+  :global(.table-container .split-anchor) {
+    min-width: 0;
   }
 
   :global(.table-container .cell-skip) {
@@ -428,61 +477,6 @@
     cursor: default;
     vertical-align: middle;
     margin-left: var(--sp-xs);
-  }
-
-  :global(.table-container .fishpie-pills) {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    flex-wrap: nowrap;
-    min-width: 0;
-  }
-
-  :global(.table-container .fishpie-pill-share) {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  :global(.table-container .fishpie-pill-hero) {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
-    background: var(--color-accent-light);
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent-chip-fg);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 1;
-    min-width: 0;
-  }
-
-  :global(.table-container .fishpie-pill-sub) {
-    display: inline-block;
-    padding: 2px 6px;
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 2;
-    min-width: 0;
   }
 
   /* ── Panel footer ── */

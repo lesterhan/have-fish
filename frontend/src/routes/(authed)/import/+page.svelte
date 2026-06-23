@@ -25,6 +25,7 @@
   import ParsersPanel from '$lib/components/import/ParsersPanel.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import type { RowState } from '$lib/components/import/ImportPreviewPanel.svelte'
+  import { accountIdForCurrency, rowMissingAccounts } from '$lib/components/import/import-helpers'
   import { toast } from '$lib/toast.svelte'
   import { goto } from '$app/navigation'
   import { confetti } from '$lib/confetti.svelte'
@@ -102,11 +103,8 @@
     inferredPaths.filter((path) => !accounts.some((a) => a.path === path)),
   )
 
-  function getInferredAccountId(currency: string): string {
-    if (!rootPath) return ''
-    const path = `${rootPath}:${currency.toLowerCase()}`
-    return accounts.find((a) => a.path === path)?.id ?? ''
-  }
+  const getInferredAccountId = (currency: string): string =>
+    accountIdForCurrency(accounts, rootPath, currency)
 
   // --- Account creation helpers ---
 
@@ -158,16 +156,11 @@
         fetched.isMultiCurrency && fetched.defaultAccountId
           ? defaultAccountPath || null
           : null
-      const getAccountIdForRow = (currency: string): string => {
-        if (!fetchedRootPath) return ''
-        const path = `${fetchedRootPath}:${currency.toLowerCase()}`
-        return accounts.find((a) => a.path === path)?.id ?? ''
-      }
       const checkRows = fetched.transactions.map((tx) => ({
         accountId:
           tx.isTransfer === false
             ? fetched.isMultiCurrency
-              ? getAccountIdForRow(tx.currency ?? defaultCurrency)
+              ? accountIdForCurrency(accounts, fetchedRootPath, tx.currency ?? defaultCurrency)
               : (fetched.defaultAccountId ?? '')
             : '',
         date: tx.date,
@@ -223,25 +216,9 @@
       error = 'Please create all required accounts before importing.'
       return
     }
-    const invalid = preview.transactions.some((tx, i) => {
-      const row = rowStates[i]
-      if (row.skipped) return false
-      if (tx.isTransfer === true) {
-        // Shared spend → Fish Pie cross-currency path derives the expense account from the
-        // group, so it only needs the bridge + fee (same as a convert).
-        if (row.groupId) return !row.conversionAccountId || !row.feeAccountId
-        if (row.kind === 'spend')
-          return (
-            !row.conversionAccountId ||
-            !row.expenseAccountId ||
-            (!!tx.feeAmount && !row.feeAccountId)
-          )
-        return !row.conversionAccountId || !row.feeAccountId
-      }
-      if (tx.isTransfer === 'same-currency')
-        return !row.feeAccountId || !row.offsetAccountId
-      return !row.offsetAccountId
-    })
+    const invalid = preview.transactions.some(
+      (tx, i) => !rowStates[i].skipped && rowMissingAccounts(tx, rowStates[i]),
+    )
     if (invalid) {
       error = 'All transactions must have accounts assigned.'
       return

@@ -2,11 +2,12 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import GroupSelect from './GroupSelect.svelte'
+  import FishPiePills from './FishPiePills.svelte'
+  import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
   import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
   import type { RowState } from './ImportPreviewPanel.svelte'
-  import { groupName, categoryName, myShareRatio } from './import-helpers'
 
   interface Props {
     tx: RegularParsedTransaction
@@ -41,16 +42,9 @@
   }: Props = $props()
 
   let offsetCellEl: HTMLElement | null = $state(null)
-
-  let shareHint = $derived.by(() => {
-    if (!rowState.groupId) return null
-    const group = groups.find((g) => g.id === rowState.groupId)
-    const ratio = myShareRatio(group, currentUserId, rowState.categoryId)
-    if (ratio === null) return null
-    const raw = Math.abs(parseFloat(tx.amount)) * ratio
-    if (isNaN(raw)) return null
-    return `${raw.toFixed(2)} ${tx.currency ?? defaultCurrency}`
-  })
+  // Anchors the group dropdown to the input column so it lines up with the field it
+  // replaces. In plain imports (no-label) this resolves to the full cell, as before.
+  let splitAnchorEl: HTMLElement | null = $state(null)
 
   function displayAmount(amount: string): string {
     if (!importAsLiabilities) return amount
@@ -60,21 +54,8 @@
 </script>
 
 <tr class:row-skipped={rowState.skipped}>
-  <td class="cell-mono">
-    {new Date(tx.date).toLocaleDateString()}
-    {#if rowState.possibleDuplicate}
-      <span
-        class="indicator-icon"
-        use:tooltip={{
-          label: `Possible duplicate: ${rowState.possibleDuplicate.date} ${rowState.possibleDuplicate.amount} ${rowState.possibleDuplicate.currency}`,
-          always: true,
-        }}
-      >
-        <Icon name="warning-filled" size={16} />
-      </span>
-    {/if}
-  </td>
-  <td>
+  <ImportDateCell date={tx.date} possibleDuplicate={rowState.possibleDuplicate} />
+  <td class="cell-description" title={tx.description ?? ''}>
     {tx.description ?? '—'}
     {#if rowState.possibleDuplicate?.fishPieGroupName}
       <span class="fishpie-hint">
@@ -95,49 +76,52 @@
   {#if !isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
   <td class="cell-offset" bind:this={offsetCellEl}>
     {#if rowState.groupId}
-      <div class="fishpie-pills">
-        <span class="fishpie-pill-hero">
-          <Icon name="pie" size={11} />
-          {rowState.categoryId
-            ? categoryName(groups, rowState.groupId, rowState.categoryId)
-            : groupName(groups, rowState.groupId)}
-        </span>
-        {#if rowState.categoryId && groups.length > 1}
-          <span class="fishpie-pill-sub">
-            {groupName(groups, rowState.groupId)}
-          </span>
-        {/if}
-        {#if shareHint}
-          <span class="fishpie-pill-share">
-            <Icon name="pie-chart" size={9} />{shareHint}
-          </span>
-        {/if}
+      <!-- Match the labelled-field gutter of the cross-currency rows so the column's left
+           edge stays consistent. Plain (non-multi-currency) imports opt out via no-label. -->
+      <div class="field" class:no-label={!isMultiCurrency}>
+        {#if isMultiCurrency}<span class="field-label">split</span>{/if}
+        <FishPiePills
+          {groups}
+          groupId={rowState.groupId}
+          categoryId={rowState.categoryId}
+          amount={tx.amount}
+          currency={tx.currency ?? defaultCurrency}
+          {currentUserId}
+        />
       </div>
     {:else if !splitSelectOpen}
-      <div class="offset-wrap">
-        <AccountPathInput
-          {accounts}
-          bind:value={rowState.offsetAccountId}
-          placeholder="Select or create…"
-          oncreate={onaccountcreated}
-        />
-        {#if tx.suggestedOffsetAccountId}
-          <span
-            class="indicator-icon"
-            use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
-          >
-            <Icon name="computer" size={16} />
-          </span>
-        {/if}
+      <div class="field" class:no-label={!isMultiCurrency}>
+        {#if isMultiCurrency}<span class="field-label">to</span>{/if}
+        <div class="offset-wrap">
+          <AccountPathInput
+            {accounts}
+            bind:value={rowState.offsetAccountId}
+            placeholder="Select or create…"
+            oncreate={onaccountcreated}
+          />
+          {#if tx.suggestedOffsetAccountId}
+            <span
+              class="indicator-icon"
+              use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
+            >
+              <Icon name="computer" size={16} />
+            </span>
+          {/if}
+        </div>
       </div>
     {/if}
     {#if !rowState.groupId && splitSelectOpen}
-      <GroupSelect
-        {groups}
-        anchorEl={offsetCellEl}
-        onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
-        onclose={onclosesplit}
-      />
+      <div class="field" class:no-label={!isMultiCurrency}>
+        {#if isMultiCurrency}<span class="field-label">split</span>{/if}
+        <div class="split-anchor" bind:this={splitAnchorEl}>
+          <GroupSelect
+            {groups}
+            anchorEl={splitAnchorEl}
+            onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
+            onclose={onclosesplit}
+          />
+        </div>
+      </div>
     {/if}
   </td>
   {#if showFishPie}
@@ -178,10 +162,19 @@
     color: var(--color-amount-negative);
   }
 
+  /* Pad the labelled field to match the cross-currency rows' .transfer-accounts inset, so
+     the To-account column's gutter lines up across both row types. (no-label is
+     display:contents and ignores this — plain imports stay flush.) */
+  .field {
+    padding: var(--sp-xs) var(--sp-sm);
+  }
+
   .offset-wrap {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
+    /* Cap the lone account input so it doesn't span the full (now-greedy) column. */
+    max-width: 30rem;
   }
 
   .fishpie-hint {

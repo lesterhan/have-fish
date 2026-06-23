@@ -1,4 +1,49 @@
-import type { ExpenseGroup } from '$lib/api'
+import type { Account, ExpenseGroup, ParsedTransaction } from '$lib/api'
+
+// The account-bearing slice of a RowState — the fields row-completeness depends on.
+// Typed structurally so this helper module doesn't depend on the panel's RowState.
+export type ImportRowAccounts = {
+  offsetAccountId: string
+  conversionAccountId: string
+  feeAccountId: string
+  expenseAccountId: string
+  groupId: string | null
+  kind: 'spend' | 'transfer'
+}
+
+// Single source of truth for "this row still needs an account assigned". Both the preview
+// panel (to disable Confirm) and the commit handler (to block submit) call this, so the two
+// gates can't drift apart.
+export function rowMissingAccounts(tx: ParsedTransaction, row: ImportRowAccounts): boolean {
+  if (tx.isTransfer === true) {
+    // Shared spend → the Fish Pie cross-currency path derives the expense from the group,
+    // so it only needs the bridge + fee (same as a convert).
+    if (row.groupId) return !row.conversionAccountId || !row.feeAccountId
+    if (row.kind === 'spend')
+      return (
+        !row.conversionAccountId ||
+        !row.expenseAccountId ||
+        (!!tx.feeAmount && !row.feeAccountId)
+      )
+    return !row.conversionAccountId || !row.feeAccountId
+  }
+  if (tx.isTransfer === 'same-currency')
+    return !row.feeAccountId || !row.offsetAccountId
+  // Regular row: a Fish Pie split derives its offset from the group; otherwise needs one.
+  return !row.groupId && !row.offsetAccountId
+}
+
+// Resolve a currency's sub-account ID under a multi-currency root (e.g. assets:wise + "usd"
+// → assets:wise:usd). Returns '' when the root or the sub-account doesn't exist.
+export function accountIdForCurrency(
+  accounts: Pick<Account, 'id' | 'path'>[],
+  rootPath: string | null,
+  currency: string,
+): string {
+  if (!rootPath) return ''
+  const path = `${rootPath}:${currency.toLowerCase()}`
+  return accounts.find((a) => a.path === path)?.id ?? ''
+}
 
 export function groupName(groups: ExpenseGroup[], id: string | null): string {
   if (!id) return ''
