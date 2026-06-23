@@ -60,16 +60,23 @@
   let filteredTxns = $derived(
     txnFilter === 'ALL'
       ? txns
-      : txns.filter((tx) => tx.postings.some((p) => p.currency === txnFilter)),
+      : txns.filter((tx) =>
+          tx.postings.some(
+            (p) =>
+              p.currency === txnFilter &&
+              accounts.find((a) => a.id === p.accountId)?.path.startsWith('expenses:'),
+          ),
+        ),
   )
 
   let pageTotal = $derived.by<number | null>(() => {
     if (!converting || fxFetching || Object.keys(fxRates).length === 0)
       return null
     return filteredTxns.reduce((sum, tx) => {
-      const expensePostings = tx.postings.filter((p) =>
-        accounts.find((a) => a.id === p.accountId)?.path.startsWith('expenses:'),
-      )
+      const expensePostings = tx.postings.filter((p) => {
+        const path = accounts.find((a) => a.id === p.accountId)?.path ?? ''
+        return path.startsWith('expenses:') && (txnFilter === 'ALL' || p.currency === txnFilter)
+      })
       const relevant = expensePostings.length > 0 ? expensePostings : tx.postings.slice(0, 1)
       return relevant.reduce(
         (txSum, p) => txSum + Math.abs(parseFloat(p.amount)) * (fxRates[p.currency] ?? 1),
