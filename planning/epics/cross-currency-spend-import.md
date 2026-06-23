@@ -123,18 +123,17 @@ still balances; idempotent (repairing twice is a no-op); a healthy transaction i
 
 ---
 
+## Resolved decisions
+
+- **Heal delivery = A (decided 2026-06-23).** Classifier-flagged one-click repair with a
+  before/after preview — human reviews each, the transform is a clean 3-account repoint,
+  leverages the single-txn classifier's malformed flag. The repair transform ships as a
+  pure tested service isolated from the UI, so a future batch mode (B) can reuse it if the
+  volume ever turns out large. Rejected B (batch, no review — risks misclassifying a genuine
+  convert-and-hold) and C (manual re-import — loses manual edits, most toil).
+
 ## Open questions to settle
 
-- **Heal delivery (the #4 discussion).** Three options:
-  - **A — Classifier-flagged one-click repair w/ preview (recommended).** Human reviews each,
-    transform is a clean 3-account repoint, leverages the single-txn classifier. Safest;
-    some user clicks.
-  - **B — Batch migration script.** Scan + rewrite all matches in one pass. Fast, no review;
-    risk of misclassifying a genuine convert-and-hold as a phantom.
-  - **C — Detect + manual re-import.** Flag them, user deletes & re-imports via the fixed
-    path. Least backend; most toil; loses any manual edits on those txns.
-  Recommend **A**, with the repair transform also exposed as a tested service so a future
-  batch mode (B) can reuse it if the volume turns out large.
 - **Wizard detection depth (story 2).** Full auto-detect from the Wise CSV's source-amount/
   fee columns, or start with explicit user marking and add auto-detect once we see real
   exports? Confirm which bank CSVs carry enough columns to infer the conversion.
