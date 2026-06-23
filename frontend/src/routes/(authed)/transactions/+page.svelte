@@ -3,8 +3,11 @@
     fetchTransactions,
     fetchAccounts,
     deleteTransaction,
+    fetchMalformedFxSpends,
     type Account,
+    type MalformedFxSpend,
   } from '$lib/api'
+  import RepairFxSpendModal from '$lib/components/transactions/RepairFxSpendModal.svelte'
   import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
@@ -45,6 +48,9 @@
   let defaultConversionAccountId = $state<string | null>(null)
   let loading = $state(true)
   let addModalOpen = $state(false)
+  let repairModalOpen = $state(false)
+  let malformed = $state<MalformedFxSpend[]>([])
+  let conversionAccountConfigured = $state(true)
   let selectMode = $state(false)
   let selectedIds = $state(new Set<string>())
   let deleting = $state(false)
@@ -122,7 +128,29 @@
     accounts = accts
     defaultOffsetAccountId = settings.defaultOffsetAccountId
     defaultConversionAccountId = settings.defaultConversionAccountId
+    loadMalformed()
   })
+
+  async function loadMalformed() {
+    try {
+      const res = await fetchMalformedFxSpends()
+      malformed = res.candidates
+      conversionAccountConfigured = res.conversionAccountConfigured
+    } catch {
+      // Non-critical surface — a load failure shouldn't break the page.
+      malformed = []
+    }
+  }
+
+  function handleHealed(transactionId: string) {
+    malformed = malformed.filter((c) => c.transactionId !== transactionId)
+    if (malformed.length === 0) repairModalOpen = false
+    // Pull the corrected postings into the visible list.
+    fetchTransactions({ from, to, accountPath: accountPath || undefined }).then(
+      (txs) => (transactions = txs),
+    )
+    refreshSidebar()
+  }
 </script>
 
 <AddTransactionModal
@@ -138,7 +166,25 @@
   onaccountcreated={(a) => (accounts = [...accounts, a])}
 />
 
+<RepairFxSpendModal
+  bind:open={repairModalOpen}
+  candidates={malformed}
+  {conversionAccountConfigured}
+  onhealed={handleHealed}
+/>
+
 <div class="page">
+  {#if malformed.length > 0}
+    <button class="repair-banner" onclick={() => (repairModalOpen = true)}>
+      <span class="repair-icon">⚠</span>
+      <span>
+        {malformed.length}
+        {malformed.length === 1 ? 'transaction needs' : 'transactions need'}
+        repair — a cross-currency import booked the spend incorrectly.
+      </span>
+      <span class="repair-cta">Review</span>
+    </button>
+  {/if}
   <div class="toolbar">
     <div class="filter-wrap">
       <FilterPanel
@@ -214,6 +260,37 @@
     flex-direction: column;
     height: 100%;
     overflow: hidden;
+  }
+
+  .repair-banner {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    width: 100%;
+    text-align: left;
+    padding: var(--sp-xs) var(--sp-md);
+    background: var(--color-warning-light);
+    color: var(--color-warning);
+    border: none;
+    border-bottom: 1px solid var(--color-warning);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    cursor: pointer;
+    transition: filter var(--duration-fast) var(--ease);
+  }
+
+  .repair-banner:hover {
+    filter: brightness(0.97);
+  }
+
+  .repair-icon {
+    font-size: var(--text-base);
+  }
+
+  .repair-cta {
+    margin-left: auto;
+    font-weight: var(--weight-semibold);
+    text-decoration: underline;
   }
 
   .toolbar {
