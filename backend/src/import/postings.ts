@@ -74,6 +74,61 @@ export function buildFishPieCrossCurrencyPostings(opts: {
   return specs
 }
 
+// Builds 4 postings (5 with fee) for a cross-currency SPEND import transaction —
+// a purchase made in a currency the user doesn't hold, where the funding account is in
+// another currency and the bank converted on the fly (e.g. a Wise card payment of
+// 360 CZK funded from a USD balance).
+//
+// Structurally this is the cross-currency transfer, but the target leg is the *spend*
+// (an expense account) rather than a target asset account. The equity:conversions account
+// bridges the two currencies on both sides — never the expense account itself, which is the
+// bug this path exists to prevent.
+//
+//   source(-gross) + conv(+net) + fee(+fee) = 0        (source currency) ✓
+//   conv(-target) + expense(+target)        = 0        (target currency) ✓
+//
+// conversionSrcAmount must be the positive net = −(sourceAmount + fee), matching the
+// transfer path. No phantom asset leg is ever produced.
+export function buildCrossCurrencySpendPostings(opts: {
+  transactionId: string
+  sourceAccountId: string
+  sourceAmount: string        // negative, gross incl. fee, e.g. "-17.29"
+  sourceCurrency: string
+  conversionAccountId: string
+  conversionSrcAmount: string // positive net, = −(sourceAmount + fee), e.g. "17.24"
+  targetAmount: string        // positive, e.g. "360.00"
+  targetCurrency: string
+  expenseAccountId: string    // the spend lands here, in targetCurrency
+  feeAmount?: string          // positive, e.g. "0.05"
+  feeCurrency?: string
+  feeAccountId?: string
+}): PostingSpec[] {
+  const {
+    transactionId, sourceAccountId, sourceAmount, sourceCurrency,
+    conversionAccountId, conversionSrcAmount, targetAmount, targetCurrency,
+    expenseAccountId, feeAmount, feeCurrency, feeAccountId,
+  } = opts
+  const tgt = parseFloat(targetAmount)
+
+  const specs: PostingSpec[] = [
+    { transactionId, accountId: sourceAccountId, amount: sourceAmount, currency: sourceCurrency },
+    { transactionId, accountId: conversionAccountId, amount: conversionSrcAmount, currency: sourceCurrency },
+    { transactionId, accountId: conversionAccountId, amount: (-tgt).toFixed(2), currency: targetCurrency },
+    { transactionId, accountId: expenseAccountId, amount: tgt.toFixed(2), currency: targetCurrency },
+  ]
+
+  if (feeAmount && feeAccountId) {
+    specs.splice(2, 0, {
+      transactionId,
+      accountId: feeAccountId,
+      amount: feeAmount,
+      currency: feeCurrency ?? sourceCurrency,
+    })
+  }
+
+  return specs
+}
+
 // Builds 4 postings for a Fish Pie same-currency-with-fee import transaction.
 //
 // The net amount is split between the group clearing account (others' share) and
