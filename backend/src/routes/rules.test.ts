@@ -23,6 +23,18 @@ async function seedTransaction(
   return tx
 }
 
+// Seeds a transaction with an arbitrary set of posting legs — used to model Fish Pie
+// and multi-currency conversions, which have more than two postings.
+async function seedMultiPostingTransaction(
+  userId: string,
+  description: string,
+  legs: { accountId: string; amount: string; currency: string }[],
+) {
+  const [tx] = await db.insert(transactions).values({ userId, date: new Date(), description }).returning()
+  await db.insert(postings).values(legs.map((l) => ({ transactionId: tx.id, ...l })))
+  return tx
+}
+
 describe('rules', () => {
   let cookie: string
   let userId: string
@@ -55,9 +67,98 @@ describe('rules', () => {
     const listRes = await app.request('/api/rules', { headers: { Cookie: cookie } })
     const rules = await listRes.json()
     expect(rules).toBeArrayOfSize(1)
-    expect(rules[0].pattern).toBe('LOBLAWS #042')
+    // Trailing store number stripped so the rule generalizes across LOBLAWS locations.
+    expect(rules[0].pattern).toBe('LOBLAWS')
     expect(rules[0].status).toBe('suggested')
     expect(rules[0].matchCount).toBe(3)
+  })
+
+  it('mines a rule from Fish Pie transactions (3+ postings, one expense leg)', async () => {
+    const wiseEur = await createAccount(userId, 'assets:wise:eur')
+    const groceries = await createAccount(userId, 'expenses:food:groceries')
+    const groupClearing = await createAccount(userId, 'assets:receivable:trip')
+
+    // Two Fish Pie expenses: source leg + group (others' share) leg + expense (payer share) leg.
+    for (let i = 0; i < 2; i++) {
+      await seedMultiPostingTransaction(userId, 'CARREFOUR', [
+        { accountId: wiseEur.id, amount: '-30.00', currency: 'EUR' },
+        { accountId: groupClearing.id, amount: '20.00', currency: 'EUR' },
+        { accountId: groceries.id, amount: '10.00', currency: 'EUR' },
+      ])
+    }
+
+    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    expect(mineRes.status).toBe(200)
+    expect((await mineRes.json()).created).toBe(1)
+
+    const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    expect(rules).toBeArrayOfSize(1)
+    expect(rules[0].pattern).toBe('CARREFOUR')
+    expect(rules[0].accountPath).toBe('expenses:food:groceries')
+    expect(rules[0].matchCount).toBe(2)
+  })
+
+  it('mines a rule from multi-currency conversion transactions (5 postings)', async () => {
+    const wiseCad = await createAccount(userId, 'assets:wise:cad')
+    const conversion = await createAccount(userId, 'equity:conversion')
+    const dining = await createAccount(userId, 'expenses:food:dining')
+
+    // Cross-currency expense: source + two conversion legs + expense leg.
+    for (let i = 0; i < 2; i++) {
+      await seedMultiPostingTransaction(userId, 'RESTAURANT TOKYO', [
+        { accountId: wiseCad.id, amount: '-15.00', currency: 'CAD' },
+        { accountId: conversion.id, amount: '15.00', currency: 'CAD' },
+        { accountId: conversion.id, amount: '-1500.00', currency: 'JPY' },
+        { accountId: dining.id, amount: '1500.00', currency: 'JPY' },
+      ])
+    }
+
+    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    expect((await mineRes.json()).created).toBe(1)
+
+    const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    expect(rules).toBeArrayOfSize(1)
+    expect(rules[0].accountPath).toBe('expenses:food:dining')
+    expect(rules[0].matchCount).toBe(2)
+  })
+
+  it('groups near-duplicate descriptions (different store numbers) into one rule', async () => {
+    const chequing = await createAccount(userId, 'assets:chequing')
+    const groceries = await createAccount(userId, 'expenses:food:groceries')
+
+    // Same merchant, different terminal numbers — should normalize to "LOBLAWS" and count 3.
+    await seedTransaction(userId, 'LOBLAWS #042', chequing.id, groceries.id)
+    await seedTransaction(userId, 'LOBLAWS #119', chequing.id, groceries.id)
+    await seedTransaction(userId, 'LOBLAWS #007', chequing.id, groceries.id)
+
+    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    expect((await mineRes.json()).created).toBe(1)
+
+    const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    expect(rules).toBeArrayOfSize(1)
+    expect(rules[0].pattern).toBe('LOBLAWS')
+    expect(rules[0].matchCount).toBe(3)
+  })
+
+  it('suggests on two matches (first-import floor)', async () => {
+    const chequing = await createAccount(userId, 'assets:chequing')
+    const transit = await createAccount(userId, 'expenses:transit')
+
+    await seedTransaction(userId, 'TTC FARE', chequing.id, transit.id)
+    await seedTransaction(userId, 'TTC FARE', chequing.id, transit.id)
+
+    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    expect((await mineRes.json()).created).toBe(1)
+  })
+
+  it('does not suggest from a single occurrence', async () => {
+    const chequing = await createAccount(userId, 'assets:chequing')
+    const groceries = await createAccount(userId, 'expenses:food:groceries')
+
+    await seedTransaction(userId, 'ONE OFF SHOP', chequing.id, groceries.id)
+
+    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    expect((await mineRes.json()).created).toBe(0)
   })
 
   it('denying a suggestion hides it without re-mining it later', async () => {
