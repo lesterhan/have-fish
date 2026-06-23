@@ -2,6 +2,8 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import GroupSelect from './GroupSelect.svelte'
+  import FishPiePills from './FishPiePills.svelte'
+  import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
   import type {
@@ -11,7 +13,6 @@
     ExpenseGroup,
   } from '$lib/api'
   import type { RowState } from './ImportPreviewPanel.svelte'
-  import { groupName, categoryName, myShareRatio, shortDate } from './import-helpers'
 
   interface Props {
     tx: TransferParsedTransaction | SameCurrencyTransferParsedTransaction
@@ -44,17 +45,10 @@
   // the whole cell, so it lines up with the field it replaces instead of jumping flush-left.
   let splitAnchorEl: HTMLElement | null = $state(null)
 
-  let shareHint = $derived.by(() => {
-    if (!rowState.groupId) return null
-    const group = groups.find((g) => g.id === rowState.groupId)
-    const ratio = myShareRatio(group, currentUserId, rowState.categoryId)
-    if (ratio === null) return null
-    const amountStr = tx.isTransfer === true ? tx.targetAmount : tx.amount
-    const currency = tx.isTransfer === true ? tx.targetCurrency : tx.currency
-    const raw = Math.abs(parseFloat(amountStr)) * ratio
-    if (isNaN(raw)) return null
-    return `${raw.toFixed(2)} ${currency}`
-  })
+  // The leg the Fish Pie split is measured against: the target (what was actually spent) for
+  // a cross-currency row, or the single amount for a same-currency transfer.
+  let splitAmount = $derived(tx.isTransfer === true ? tx.targetAmount : tx.amount)
+  let splitCurrency = $derived(tx.isTransfer === true ? tx.targetCurrency : tx.currency)
 
   let feeAccountPath = $derived(
     rowState.feeAccountId
@@ -88,20 +82,7 @@
 </script>
 
 <tr class="row-transfer" class:row-skipped={rowState.skipped}>
-  <td class="cell-mono">
-    {shortDate(tx.date)}
-    {#if rowState.possibleDuplicate}
-      <span
-        class="indicator-icon"
-        use:tooltip={{
-          label: `Possible duplicate: ${rowState.possibleDuplicate.date} ${rowState.possibleDuplicate.amount} ${rowState.possibleDuplicate.currency}`,
-          always: true,
-        }}
-      >
-        <Icon name="warning-filled" size={16} />
-      </span>
-    {/if}
-  </td>
+  <ImportDateCell date={tx.date} possibleDuplicate={rowState.possibleDuplicate} />
   <td class="cell-description" title={tx.description ?? ''}>{tx.description ?? '—'}</td>
 
   {#if tx.isTransfer === true}
@@ -126,24 +107,14 @@
       {#if rowState.groupId}
         <div class="field">
           <span class="field-label">split</span>
-          <div class="fishpie-pills">
-            <span class="fishpie-pill-hero">
-              <Icon name="pie" size={11} />
-              {rowState.categoryId
-                ? categoryName(groups, rowState.groupId, rowState.categoryId)
-                : groupName(groups, rowState.groupId)}
-            </span>
-            {#if rowState.categoryId && groups.length > 1}
-              <span class="fishpie-pill-sub">
-                {groupName(groups, rowState.groupId)}
-              </span>
-            {/if}
-            {#if shareHint}
-              <span class="fishpie-pill-share">
-                <Icon name="pie-chart" size={9} />{shareHint}
-              </span>
-            {/if}
-          </div>
+          <FishPiePills
+            {groups}
+            groupId={rowState.groupId}
+            categoryId={rowState.categoryId}
+            amount={splitAmount}
+            currency={splitCurrency}
+            {currentUserId}
+          />
         </div>
       {:else if !splitSelectOpen}
         {#if tx.isTransfer === true}

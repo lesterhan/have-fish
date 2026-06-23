@@ -5,6 +5,7 @@
   import type { Account, ImportPreviewResult, PossibleDuplicate, ExpenseGroup } from '$lib/api'
   import ImportRowTransfer from './ImportRowTransfer.svelte'
   import ImportRowRegular from './ImportRowRegular.svelte'
+  import { rowMissingAccounts } from './import-helpers'
 
   export type RowState = {
     offsetAccountId: string
@@ -67,25 +68,9 @@
       rowStates.every((r) => r.skipped) ||
       missingPaths.length > 0 ||
       (!preview.isMultiCurrency && !fromAccountId) ||
-      rowStates.some((row, i) => {
-        if (row.skipped) return false
-        const tx = preview.transactions[i]
-        if (tx.isTransfer === true) {
-          // Shared spend (group set) → Fish Pie path derives the expense from the group.
-          if (row.groupId) return !row.conversionAccountId || !row.feeAccountId
-          if (row.kind === 'spend')
-            return (
-              !row.conversionAccountId ||
-              !row.expenseAccountId ||
-              (!!tx.feeAmount && !row.feeAccountId)
-            )
-          return !row.conversionAccountId || !row.feeAccountId
-        }
-        if (tx.isTransfer === 'same-currency')
-          return !row.feeAccountId || !row.offsetAccountId
-        // Fish Pie rows: backend derives the offset account (shared:<group>) automatically
-        return !row.groupId && !row.offsetAccountId
-      }),
+      rowStates.some(
+        (row, i) => !row.skipped && rowMissingAccounts(preview.transactions[i], row),
+      ),
   )
 </script>
 
@@ -467,61 +452,6 @@
     cursor: default;
     vertical-align: middle;
     margin-left: var(--sp-xs);
-  }
-
-  :global(.table-container .fishpie-pills) {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    flex-wrap: nowrap;
-    min-width: 0;
-  }
-
-  :global(.table-container .fishpie-pill-share) {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    white-space: nowrap;
-    flex-shrink: 0;
-  }
-
-  :global(.table-container .fishpie-pill-hero) {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
-    background: var(--color-accent-light);
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent-chip-fg);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 1;
-    min-width: 0;
-  }
-
-  :global(.table-container .fishpie-pill-sub) {
-    display: inline-block;
-    padding: 2px 6px;
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    white-space: nowrap;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    flex-shrink: 2;
-    min-width: 0;
   }
 
   /* ── Panel footer ── */

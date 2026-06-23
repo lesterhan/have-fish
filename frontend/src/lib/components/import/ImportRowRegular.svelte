@@ -2,11 +2,12 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import GroupSelect from './GroupSelect.svelte'
+  import FishPiePills from './FishPiePills.svelte'
+  import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
   import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
   import type { RowState } from './ImportPreviewPanel.svelte'
-  import { groupName, categoryName, myShareRatio, shortDate } from './import-helpers'
 
   interface Props {
     tx: RegularParsedTransaction
@@ -45,16 +46,6 @@
   // replaces. In plain imports (no-label) this resolves to the full cell, as before.
   let splitAnchorEl: HTMLElement | null = $state(null)
 
-  let shareHint = $derived.by(() => {
-    if (!rowState.groupId) return null
-    const group = groups.find((g) => g.id === rowState.groupId)
-    const ratio = myShareRatio(group, currentUserId, rowState.categoryId)
-    if (ratio === null) return null
-    const raw = Math.abs(parseFloat(tx.amount)) * ratio
-    if (isNaN(raw)) return null
-    return `${raw.toFixed(2)} ${tx.currency ?? defaultCurrency}`
-  })
-
   function displayAmount(amount: string): string {
     if (!importAsLiabilities) return amount
     const n = parseFloat(amount)
@@ -63,20 +54,7 @@
 </script>
 
 <tr class:row-skipped={rowState.skipped}>
-  <td class="cell-mono">
-    {shortDate(tx.date)}
-    {#if rowState.possibleDuplicate}
-      <span
-        class="indicator-icon"
-        use:tooltip={{
-          label: `Possible duplicate: ${rowState.possibleDuplicate.date} ${rowState.possibleDuplicate.amount} ${rowState.possibleDuplicate.currency}`,
-          always: true,
-        }}
-      >
-        <Icon name="warning-filled" size={16} />
-      </span>
-    {/if}
-  </td>
+  <ImportDateCell date={tx.date} possibleDuplicate={rowState.possibleDuplicate} />
   <td class="cell-description" title={tx.description ?? ''}>
     {tx.description ?? '—'}
     {#if rowState.possibleDuplicate?.fishPieGroupName}
@@ -102,24 +80,14 @@
            edge stays consistent. Plain (non-multi-currency) imports opt out via no-label. -->
       <div class="field" class:no-label={!isMultiCurrency}>
         {#if isMultiCurrency}<span class="field-label">split</span>{/if}
-        <div class="fishpie-pills">
-          <span class="fishpie-pill-hero">
-            <Icon name="pie" size={11} />
-            {rowState.categoryId
-              ? categoryName(groups, rowState.groupId, rowState.categoryId)
-              : groupName(groups, rowState.groupId)}
-          </span>
-          {#if rowState.categoryId && groups.length > 1}
-            <span class="fishpie-pill-sub">
-              {groupName(groups, rowState.groupId)}
-            </span>
-          {/if}
-          {#if shareHint}
-            <span class="fishpie-pill-share">
-              <Icon name="pie-chart" size={9} />{shareHint}
-            </span>
-          {/if}
-        </div>
+        <FishPiePills
+          {groups}
+          groupId={rowState.groupId}
+          categoryId={rowState.categoryId}
+          amount={tx.amount}
+          currency={tx.currency ?? defaultCurrency}
+          {currentUserId}
+        />
       </div>
     {:else if !splitSelectOpen}
       <div class="field" class:no-label={!isMultiCurrency}>
