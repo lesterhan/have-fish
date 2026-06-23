@@ -58,6 +58,25 @@
       ? (accounts.find((a) => a.id === rowState.feeAccountId)?.path ?? null)
       : null
   )
+
+  let conversionAccountPath = $derived(
+    rowState.conversionAccountId
+      ? (accounts.find((a) => a.id === rowState.conversionAccountId)?.path ?? null)
+      : null
+  )
+
+  // Cross-currency rows are spend-by-default; convert-and-park is the flagged exception.
+  // A spend posts to an expense account and *can* be shared (Fish Pie). A convert is an
+  // internal move between the user's own currency accounts — nothing to split.
+  let isSpend = $derived(tx.isTransfer === true && rowState.kind === 'spend')
+  let isConvert = $derived(tx.isTransfer === true && rowState.kind === 'transfer')
+
+  function toggleKind() {
+    const next = rowState.kind === 'spend' ? 'transfer' : 'spend'
+    // Changing the kind invalidates any group split — a convert can't be shared at all, and
+    // the split would otherwise be stranded. Clear it on either flip.
+    rowState = { ...rowState, kind: next, groupId: null, categoryId: null }
+  }
 </script>
 
 <tr class="row-transfer" class:row-skipped={rowState.skipped}>
@@ -80,8 +99,13 @@
   {#if tx.isTransfer === true}
     <td class="cell-transfer-amount">
       <span class="transfer-from">{tx.sourceAmount} {tx.sourceCurrency}</span>
-      <span class="transfer-arrow">→</span>
-      <span class="transfer-to">{tx.targetAmount} {tx.targetCurrency}</span>
+      <span class="transfer-arrow">{isSpend ? '↘' : '→'}</span>
+      <span class="transfer-to" class:is-spend={isSpend}
+        >{tx.targetAmount} {tx.targetCurrency}</span
+      >
+      <span class="kind-tag" class:kind-spend={isSpend}>
+        {isSpend ? 'spend' : 'convert'}
+      </span>
       {#if tx.feeAmount}
         <span class="transfer-fee"
           >fee: {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}</span
@@ -118,12 +142,38 @@
         </div>
       {:else if !splitSelectOpen}
         {#if tx.isTransfer === true}
-          <AccountPathInput
-            {accounts}
-            bind:value={rowState.conversionAccountId}
-            placeholder="equity:conversion…"
-            oncreate={onaccountcreated}
-          />
+          {#if isSpend}
+            <AccountPathInput
+              {accounts}
+              bind:value={rowState.expenseAccountId}
+              placeholder="expenses:food…"
+              oncreate={onaccountcreated}
+            />
+            {#if conversionAccountPath}
+              <span class="fee-pill">
+                <Icon name="exchange" size={10} /><code>{conversionAccountPath}</code>
+                <button
+                  type="button"
+                  class="pill-remove"
+                  onclick={() => { rowState.conversionAccountId = '' }}>×</button
+                >
+              </span>
+            {:else}
+              <AccountPathInput
+                {accounts}
+                bind:value={rowState.conversionAccountId}
+                placeholder="equity:conversion…"
+                oncreate={onaccountcreated}
+              />
+            {/if}
+          {:else}
+            <AccountPathInput
+              {accounts}
+              bind:value={rowState.conversionAccountId}
+              placeholder="equity:conversion…"
+              oncreate={onaccountcreated}
+            />
+          {/if}
         {:else}
           <AccountPathInput
             {accounts}
@@ -154,12 +204,29 @@
           oncreate={onaccountcreated}
         />
       {/if}
+
+      {#if tx.isTransfer === true && !rowState.groupId && !splitSelectOpen}
+        <button
+          type="button"
+          class="kind-flip"
+          onclick={toggleKind}
+          use:tooltip={{
+            label: isSpend
+              ? 'Actually a conversion into an account you hold — not a spend'
+              : 'Actually a spend in a currency you don’t hold — not a conversion',
+            always: true,
+          }}
+        >
+          <Icon name="exchange" size={10} />
+          {isSpend ? 'Switch to conversion' : 'Switch to spend'}
+        </button>
+      {/if}
     </div>
   </td>
 
   {#if showFishPie}
     <td class="cell-split">
-      {#if !rowState.skipped}
+      {#if !rowState.skipped && !isConvert}
         {#if rowState.groupId}
           <GradientButton
             square
@@ -211,11 +278,57 @@
   .transfer-to {
     color: var(--color-amount-positive);
   }
+  .transfer-to.is-spend {
+    color: var(--color-amount-negative);
+  }
   .transfer-fee {
     display: block;
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     margin-top: 1px;
+  }
+
+  .kind-tag {
+    display: inline-block;
+    margin-left: var(--sp-xs);
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+  }
+  /* Spend gets a calm accent chip (not an alarm) — the expense colour on the target amount
+     already carries the "this is money spent" signal. */
+  .kind-tag.kind-spend {
+    color: var(--color-accent-chip-fg);
+    background: var(--color-accent-chip-bg);
+    border-color: var(--color-accent);
+  }
+
+  .kind-flip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    align-self: flex-start;
+    margin-top: 4px;
+    padding: 1px 5px;
+    background: none;
+    border: 1px solid var(--color-rule);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+  .kind-flip:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
 
   .transfer-accounts {

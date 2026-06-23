@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, groupCategories } from '../db/schema'
+import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, groupCategories, user } from '../db/schema'
 import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
@@ -62,12 +62,37 @@ app.post('/preview', async (c) => {
     .from(importRules)
     .where(and(eq(importRules.userId, userId), eq(importRules.status, 'active'), isNull(importRules.deletedAt)))
 
+  const matchRule = (description: string) =>
+    activeRules.find((r) => description.toLowerCase().includes(r.pattern.toLowerCase()))
+
+  // The user's own name — used to tell a convert-and-park (where the counterparty is the
+  // user themselves, e.g. a Wise CAD→EUR conversion) from a cross-currency spend (a card
+  // purchase, where the counterparty is a merchant). Conversions are the rare case; spends
+  // dominate, so cross-currency rows default to spend unless the name matches.
+  const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId))
+  const userName = (u?.name ?? '').trim().toLowerCase()
+
   const transactionsWithRules = result.transactions.map((t) => {
-    if (t.isTransfer !== false || !t.description) return t
-    const desc = t.description.toLowerCase()
-    const match = activeRules.find((r) => desc.includes(r.pattern.toLowerCase()))
-    if (!match) return t
-    return { ...t, suggestedOffsetAccountId: match.accountId }
+    if (t.isTransfer === false) {
+      if (!t.description) return t
+      const match = matchRule(t.description)
+      return match ? { ...t, suggestedOffsetAccountId: match.accountId } : t
+    }
+    if (t.isTransfer === true) {
+      // Cross-currency row: default to spend; flag as a convert-and-park only when the
+      // payee/description is the user themselves. For spends, pre-fill the expense account
+      // from the matching import rule so a recognized merchant needs no manual entry.
+      const desc = (t.description ?? '').trim().toLowerCase()
+      const isOwnTransfer = userName.length > 0 && desc.length > 0 && desc.includes(userName)
+      if (isOwnTransfer) return { ...t, suggestedKind: 'transfer' as const }
+      const match = t.description ? matchRule(t.description) : undefined
+      return {
+        ...t,
+        suggestedKind: 'spend' as const,
+        ...(match ? { suggestedExpenseAccountId: match.accountId } : {}),
+      }
+    }
+    return t
   })
 
   return c.json({
@@ -292,7 +317,10 @@ app.post('/commit', async (c) => {
       if (t.feeAmount && !t.feeAccountId) return c.json({ error: 'cross-currency-spend rows with a fee must include feeAccountId' }, 400)
     } else if (t.isTransfer === true) {
       if (!t.sourceAccountId) return c.json({ error: 'transfer rows must include sourceAccountId' }, 400)
-      if (!t.targetAccountId) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
+      // A Fish Pie split routes through buildFishPieCrossCurrencyPostings, which splits the
+      // target leg into the group + payer-expense accounts and never uses targetAccountId —
+      // so a shared cross-currency spend has no target asset to require.
+      if (!t.targetAccountId && !splitByRowIndex.has(rowIdx)) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
       if (!t.conversionAccountId) return c.json({ error: 'transfer rows must include conversionAccountId' }, 400)
       if (!t.feeAccountId) return c.json({ error: 'transfer rows must include feeAccountId' }, 400)
     } else if (t.isTransfer === 'same-currency') {

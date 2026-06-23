@@ -82,15 +82,19 @@
   let inferredPaths = $derived.by(() => {
     if (!preview?.isMultiCurrency || !rootPath) return []
     const paths = new Set<string>()
-    for (const tx of preview.transactions) {
+    preview.transactions.forEach((tx, i) => {
       if (tx.isTransfer === true) {
         paths.add(`${rootPath}:${tx.sourceCurrency.toLowerCase()}`)
-        paths.add(`${rootPath}:${tx.targetCurrency.toLowerCase()}`)
+        // A cross-currency spend has no target asset — only the funding (source) account
+        // is real, so don't require the user to create a target-currency sub-account.
+        if (rowStates[i]?.kind !== 'spend') {
+          paths.add(`${rootPath}:${tx.targetCurrency.toLowerCase()}`)
+        }
       } else {
         const currency = tx.currency ?? defaultCurrency
         paths.add(`${rootPath}:${currency.toLowerCase()}`)
       }
-    }
+    })
     return [...paths]
   })
 
@@ -186,6 +190,14 @@
         possibleDuplicate: perRowDuplicates[i] ?? null,
         groupId: null,
         categoryId: null,
+        // Cross-currency rows default to spend unless the preview flagged a convert-and-park.
+        kind: tx.isTransfer === true ? (tx.suggestedKind ?? 'spend') : 'spend',
+        // Spend rows pre-fill the expense account from the import rule, else fall back to the
+        // uncategorized account so the spend is still importable and surfaces for review.
+        expenseAccountId:
+          tx.isTransfer === true && tx.suggestedKind !== 'transfer'
+            ? (tx.suggestedExpenseAccountId ?? toAccountId)
+            : '',
       }))
       preview = fetched
     } catch (e) {
@@ -214,8 +226,18 @@
     const invalid = preview.transactions.some((tx, i) => {
       const row = rowStates[i]
       if (row.skipped) return false
-      if (tx.isTransfer === true)
+      if (tx.isTransfer === true) {
+        // Shared spend → Fish Pie cross-currency path derives the expense account from the
+        // group, so it only needs the bridge + fee (same as a convert).
+        if (row.groupId) return !row.conversionAccountId || !row.feeAccountId
+        if (row.kind === 'spend')
+          return (
+            !row.conversionAccountId ||
+            !row.expenseAccountId ||
+            (!!tx.feeAmount && !row.feeAccountId)
+          )
         return !row.conversionAccountId || !row.feeAccountId
+      }
       if (tx.isTransfer === 'same-currency')
         return !row.feeAccountId || !row.offsetAccountId
       return !row.offsetAccountId
@@ -231,6 +253,28 @@
         if (rowStates[i].skipped) return []
         const row = rowStates[i]
         if (tx.isTransfer === true) {
+          if (row.kind === 'spend' && !row.groupId) {
+            // Cross-currency spend — no target asset; the spend lands in the expense
+            // account, bridged through equity:conversions on both sides (story-1 shape).
+            // A *shared* spend (groupId set) falls through to the transfer-shaped row below,
+            // which the backend routes to the Fish Pie cross-currency path — that splits the
+            // target leg into group + payer-expense (no phantom asset either).
+            return {
+              isTransfer: 'cross-currency-spend' as const,
+              date: tx.date,
+              description: tx.description,
+              sourceAmount: tx.sourceAmount,
+              sourceCurrency: tx.sourceCurrency,
+              targetAmount: tx.targetAmount,
+              targetCurrency: tx.targetCurrency,
+              feeAmount: tx.feeAmount,
+              feeCurrency: tx.feeCurrency,
+              sourceAccountId: getInferredAccountId(tx.sourceCurrency),
+              expenseAccountId: row.expenseAccountId,
+              conversionAccountId: row.conversionAccountId,
+              feeAccountId: row.feeAccountId,
+            }
+          }
           return {
             ...tx,
             sourceAccountId: getInferredAccountId(tx.sourceCurrency),
