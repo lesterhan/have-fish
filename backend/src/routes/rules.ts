@@ -51,8 +51,34 @@ app.post('/', async (c) => {
   return c.json(created, 201)
 })
 
+// Strip trailing transaction-specific noise (store/terminal numbers, reference codes,
+// dates, times) so near-duplicate descriptions from the same merchant collapse to one
+// group. Import-time matching is case-insensitive substring (see import.ts), so a
+// shortened stem like "LOBLAWS" generalizes across every store location and reference.
+export function cleanDescription(raw: string): string {
+  let s = raw.trim().replace(/\s+/g, ' ')
+  let prev: string
+  // Peel trailing noise tokens repeatedly — a description can end in several stacked.
+  do {
+    prev = s
+    s = s
+      .replace(/\s*#\s*\d+$/i, '') // store/terminal number: "#042"
+      .replace(/\s+\d{4}-\d{2}-\d{2}$/, '') // ISO date: 2025-06-22
+      .replace(/\s+\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?$/, '') // date: 06/22 or 06-22-2025
+      .replace(/\s+\d{1,2}:\d{2}(:\d{2})?$/, '') // time: 14:30
+      .replace(/\s+[a-z]{0,3}\d{4,}$/i, '') // long ref/auth code, optionally letter-prefixed
+      .replace(/[\s*#-]+$/, '') // dangling separators
+      .trim()
+  } while (s !== prev)
+  return s
+}
+
 // POST /api/rules/mine
 // Analyzes transaction history and writes new 'suggested' rules.
+// Considers any transaction with exactly one expense posting (regular, Fish Pie, and
+// multi-currency conversions all qualify — they each have a single expense leg).
+// Descriptions are normalized (see cleanDescription) before grouping so near-duplicates
+// from the same merchant accumulate matches together.
 // Skips descriptions already covered by any existing non-deleted rule.
 // Returns { created: number }.
 app.post('/mine', async (c) => {
@@ -84,24 +110,31 @@ app.post('/mine', async (c) => {
     byTx.get(row.txId)!.postings.push({ accountId: row.accountId, accountPath: row.accountPath })
   }
 
-  // Count (description, expenseAccountId) pairs from 2-posting transactions
-  const pairCounts = new Map<string, { description: string; accountId: string; count: number }>()
+  // Count (normalized description, expenseAccountId) pairs. Any transaction with exactly
+  // one expense posting qualifies — this admits Fish Pie and multi-currency conversions
+  // (multiple postings, one expense leg), not just plain 2-posting transactions. A
+  // transaction with zero or several expense legs is ambiguous, so it is skipped.
+  const pairCounts = new Map<string, { pattern: string; accountId: string; count: number }>()
   for (const { description, postings: txPostings } of byTx.values()) {
-    if (!description || txPostings.length !== 2) continue
-    const expensePosting = txPostings.find((p) => p.accountPath.startsWith(`${expensesRoot}:`))
-    if (!expensePosting) continue
-    const key = `${description.toLowerCase()}|||${expensePosting.accountId}`
+    if (!description) continue
+    const expensePostings = txPostings.filter((p) => p.accountPath.startsWith(`${expensesRoot}:`))
+    if (expensePostings.length !== 1) continue
+    const expensePosting = expensePostings[0]
+    const cleaned = cleanDescription(description)
+    // Fall back to the raw description if cleaning leaves too little to match on.
+    const pattern = cleaned.length >= 3 ? cleaned : description.trim()
+    const key = `${pattern.toLowerCase()}|||${expensePosting.accountId}`
     const existing = pairCounts.get(key)
     if (existing) existing.count++
-    else pairCounts.set(key, { description, accountId: expensePosting.accountId, count: 1 })
+    else pairCounts.set(key, { pattern, accountId: expensePosting.accountId, count: 1 })
   }
 
-  // For each unique description, keep the pair with the highest count
-  const bestByDescription = new Map<string, { description: string; accountId: string; count: number }>()
+  // For each unique normalized pattern, keep the (pattern, account) pair with the highest count
+  const bestByPattern = new Map<string, { pattern: string; accountId: string; count: number }>()
   for (const pair of pairCounts.values()) {
-    const descKey = pair.description.toLowerCase()
-    const current = bestByDescription.get(descKey)
-    if (!current || pair.count > current.count) bestByDescription.set(descKey, pair)
+    const patternKey = pair.pattern.toLowerCase()
+    const current = bestByPattern.get(patternKey)
+    if (!current || pair.count > current.count) bestByPattern.set(patternKey, pair)
   }
 
   // Fetch existing non-deleted rules to skip already-covered descriptions
@@ -111,16 +144,18 @@ app.post('/mine', async (c) => {
     .where(and(eq(importRules.userId, userId), isNull(importRules.deletedAt)))
   const coveredPatterns = new Set(existingRules.map((r) => r.pattern.toLowerCase()))
 
-  // Insert suggestions for uncovered descriptions with more than 2 matches
-  const toInsert = [...bestByDescription.values()].filter(
-    (pair) => pair.count > 2 && !coveredPatterns.has(pair.description.toLowerCase()),
+  // Insert suggestions for uncovered patterns seen at least twice. A floor of 2 (rather
+  // than 3) lets a first-ever import surface rules; normalization above means a "2" is a
+  // genuine repeat of the same merchant, not two unrelated reference-laden descriptions.
+  const toInsert = [...bestByPattern.values()].filter(
+    (pair) => pair.count >= 2 && !coveredPatterns.has(pair.pattern.toLowerCase()),
   )
 
   if (toInsert.length > 0) {
     await db.insert(importRules).values(
       toInsert.map((pair) => ({
         userId,
-        pattern: pair.description,
+        pattern: pair.pattern,
         accountId: pair.accountId,
         status: 'suggested' as const,
         matchCount: pair.count,

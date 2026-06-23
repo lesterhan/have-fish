@@ -16,18 +16,22 @@ Items marked **⚠️ epic** should graduate to `planning/epics/` when picked up
 
 # Import
 
-## 🐛 [P0] Rules mining appears broken — investigate
+## ✅ [P0] Rules mining appears broken — FIXED
 
-**Context:** Rule mining (auto-suggesting categorization rules from past transactions)
-seems broken. Reported while using the app; root cause unknown.
+**Root cause (two compounding bugs in `rules.ts` mining):**
+1. Candidate filter required exactly 2 postings, excluding every Fish Pie (3–6
+   postings) and multi-currency conversion (4–5 postings) transaction. A new
+   multi-currency user's data was almost entirely excluded → no suggestions.
+2. Threshold required >2 (i.e. 3+) exact-duplicate descriptions. Bank descriptions
+   carry store numbers / refs / dates, so exact strings rarely repeat 3× on a first
+   import.
 
-**Task:** Investigate and fix. Relevant code:
-- `backend/src/routes/rules.ts` (+ `rules.test.ts`)
-- `frontend/src/routes/(authed)/import/rules/+page.svelte`
-- `backend/src/routes/import.test.ts`, `frontend/src/lib/api.ts`, `schema.ts` (rules)
-
-Reproduce first, capture the actual broken behavior (no suggestions? wrong
-suggestions? error?), then fix with a regression test.
+**Fix:** select transactions with exactly one expense posting (admits Fish Pie +
+multi-currency); normalize descriptions (`cleanDescription`, strips trailing store
+numbers / dates / ref codes) before grouping so near-duplicates accumulate and the
+stored stem generalizes via import-time substring matching; lower threshold to >=2.
+Regression tests added in `rules.test.ts` (Fish Pie, multi-currency, normalization
+grouping, 2-match floor).
 
 ---
 
