@@ -58,6 +58,27 @@
       ? (accounts.find((a) => a.id === rowState.feeAccountId)?.path ?? null)
       : null
   )
+
+  let conversionAccountPath = $derived(
+    rowState.conversionAccountId
+      ? (accounts.find((a) => a.id === rowState.conversionAccountId)?.path ?? null)
+      : null
+  )
+
+  // Cross-currency rows are spend-by-default; convert-and-park is the flagged exception.
+  // A spend has no target asset and no Fish Pie split — it posts to an expense account.
+  let isSpend = $derived(tx.isTransfer === true && rowState.kind === 'spend')
+
+  function toggleKind() {
+    const next = rowState.kind === 'spend' ? 'transfer' : 'spend'
+    rowState = {
+      ...rowState,
+      kind: next,
+      // A spend can't be a Fish Pie split — drop any group when flipping to spend.
+      groupId: next === 'spend' ? null : rowState.groupId,
+      categoryId: next === 'spend' ? null : rowState.categoryId,
+    }
+  }
 </script>
 
 <tr class="row-transfer" class:row-skipped={rowState.skipped}>
@@ -80,8 +101,13 @@
   {#if tx.isTransfer === true}
     <td class="cell-transfer-amount">
       <span class="transfer-from">{tx.sourceAmount} {tx.sourceCurrency}</span>
-      <span class="transfer-arrow">→</span>
-      <span class="transfer-to">{tx.targetAmount} {tx.targetCurrency}</span>
+      <span class="transfer-arrow">{isSpend ? '↘' : '→'}</span>
+      <span class="transfer-to" class:is-spend={isSpend}
+        >{tx.targetAmount} {tx.targetCurrency}</span
+      >
+      <span class="kind-tag" class:kind-spend={isSpend}>
+        {isSpend ? 'spend' : 'convert'}
+      </span>
       {#if tx.feeAmount}
         <span class="transfer-fee"
           >fee: {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}</span
@@ -118,12 +144,52 @@
         </div>
       {:else if !splitSelectOpen}
         {#if tx.isTransfer === true}
-          <AccountPathInput
-            {accounts}
-            bind:value={rowState.conversionAccountId}
-            placeholder="equity:conversion…"
-            oncreate={onaccountcreated}
-          />
+          <button
+            type="button"
+            class="kind-flip"
+            onclick={toggleKind}
+            use:tooltip={{
+              label: isSpend
+                ? 'This is actually a conversion into an account you hold'
+                : 'This is actually a spend in a currency you don’t hold',
+              always: true,
+            }}
+          >
+            <Icon name="exchange" size={11} />
+            {isSpend ? 'Mark as conversion' : 'Mark as spend'}
+          </button>
+          {#if isSpend}
+            <AccountPathInput
+              {accounts}
+              bind:value={rowState.expenseAccountId}
+              placeholder="expenses:food…"
+              oncreate={onaccountcreated}
+            />
+            {#if conversionAccountPath}
+              <span class="fee-pill">
+                <Icon name="exchange" size={10} /><code>{conversionAccountPath}</code>
+                <button
+                  type="button"
+                  class="pill-remove"
+                  onclick={() => { rowState.conversionAccountId = '' }}>×</button
+                >
+              </span>
+            {:else}
+              <AccountPathInput
+                {accounts}
+                bind:value={rowState.conversionAccountId}
+                placeholder="equity:conversion…"
+                oncreate={onaccountcreated}
+              />
+            {/if}
+          {:else}
+            <AccountPathInput
+              {accounts}
+              bind:value={rowState.conversionAccountId}
+              placeholder="equity:conversion…"
+              oncreate={onaccountcreated}
+            />
+          {/if}
         {:else}
           <AccountPathInput
             {accounts}
@@ -159,7 +225,7 @@
 
   {#if showFishPie}
     <td class="cell-split">
-      {#if !rowState.skipped}
+      {#if !rowState.skipped && !isSpend}
         {#if rowState.groupId}
           <GradientButton
             square
@@ -211,11 +277,55 @@
   .transfer-to {
     color: var(--color-amount-positive);
   }
+  .transfer-to.is-spend {
+    color: var(--color-amount-negative);
+  }
   .transfer-fee {
     display: block;
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     margin-top: 1px;
+  }
+
+  .kind-tag {
+    display: inline-block;
+    margin-left: var(--sp-xs);
+    padding: 0 4px;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+  }
+  .kind-tag.kind-spend {
+    color: var(--color-amount-negative);
+    background: var(--color-danger-light);
+    border-color: var(--color-amount-negative);
+  }
+
+  .kind-flip {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    align-self: flex-start;
+    margin-bottom: 2px;
+    padding: 1px 5px;
+    background: none;
+    border: 1px solid var(--color-rule);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    cursor: pointer;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+  .kind-flip:hover {
+    border-color: var(--color-accent);
+    color: var(--color-accent);
   }
 
   .transfer-accounts {

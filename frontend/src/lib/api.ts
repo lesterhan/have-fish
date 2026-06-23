@@ -116,6 +116,12 @@ export type TransferParsedTransaction = {
   feeAmount?: string
   feeCurrency?: string
   possibleDuplicate?: PossibleDuplicate
+  // Preview enrichment: how the wizard should treat this cross-currency row by default.
+  // 'spend' = a card purchase in a currency the user doesn't hold (the common case);
+  // 'transfer' = a convert-and-park (counterparty is the user). The user can flip it.
+  suggestedKind?: 'spend' | 'transfer'
+  // For a defaulted spend, the expense account inferred from the import rules.
+  suggestedExpenseAccountId?: string
 }
 
 export type SameCurrencyTransferParsedTransaction = {
@@ -153,10 +159,30 @@ export type SameCurrencyTransferCommitTransaction =
     feeAccountId: string
   }
 
+// A cross-currency spend (story 1 shape): a purchase in a currency the user doesn't hold,
+// funded from another-currency account via on-the-fly conversion. Bridged through
+// equity:conversions on both sides; the spend lands in the expense account.
+export type CrossCurrencySpendCommitTransaction = {
+  isTransfer: 'cross-currency-spend'
+  date: string
+  description?: string
+  sourceAmount: string // negative, gross incl. fee (leaving source)
+  sourceCurrency: string
+  targetAmount: string // positive (the spend, in targetCurrency)
+  targetCurrency: string
+  feeAmount?: string
+  feeCurrency?: string
+  sourceAccountId: string
+  expenseAccountId: string
+  conversionAccountId: string
+  feeAccountId?: string
+}
+
 export type CommitTransaction =
   | RegularCommitTransaction
   | TransferCommitTransaction
   | SameCurrencyTransferCommitTransaction
+  | CrossCurrencySpendCommitTransaction
 
 export type ImportPreviewResult = {
   parser: string

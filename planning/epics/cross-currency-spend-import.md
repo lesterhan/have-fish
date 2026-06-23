@@ -97,6 +97,13 @@ Frontend + backend parser. Give the import flow a way to *produce* a story-1 row
 Tests: wizard emits the cross-currency-spend row shape; parser maps a Wise card-payment row
 with a foreign settlement currency to the right fields.
 
+**Shipped.** Inverted the default (decided with usage data: spends ≫ conversions): every
+cross-currency row defaults to **spend** and lands in an expense account, pre-filled from the
+import rules. The rare convert-and-park is detected server-side by matching the row
+description against the user's own name and flagged `suggestedKind: 'transfer'`; the user can
+flip either way per-row in the wizard. Spend has no target asset (no phantom balance) and no
+Fish Pie split. Round-trips through the story-1 `cross-currency-spend` commit path.
+
 ---
 
 ### 3. Heal existing malformed cross-currency-spend transactions
@@ -160,9 +167,11 @@ action-required behaviour unaffected.
 
 ## Open questions to settle
 
-- **Wizard detection depth (story 2).** Full auto-detect from the Wise CSV's source-amount/
-  fee columns, or start with explicit user marking and add auto-detect once we see real
-  exports? Confirm which bank CSVs carry enough columns to infer the conversion.
+- **Wizard detection depth (story 2) — resolved.** Default every cross-currency row to spend
+  (the common case); detect the rare convert-and-park by matching the row description against
+  the user's own name (confirmed: Wise conversion rows carry the user's name as the payee).
+  Spend's expense account is pre-filled from the import rules; the user can flip per-row. No
+  new parser column needed.
 - **Genuine convert-and-hold ambiguity.** A real asset→asset conversion that legitimately
   parks money in `savings:czk` must never be flagged for heal. The detector's guard is the
   presence of an **expense** account on both currency sides — confirm that signature can't

@@ -15,6 +15,11 @@
     groupId: string | null
     // Meaningful only when groupId is set; null = uncategorized fish-pie split.
     categoryId: string | null
+    // Cross-currency rows only: 'spend' = purchase in a currency the user doesn't hold
+    // (target is an expense), 'transfer' = convert-and-park (target is an asset).
+    kind: 'spend' | 'transfer'
+    // The expense account for a cross-currency spend.
+    expenseAccountId: string
   }
 
   interface Props {
@@ -65,8 +70,15 @@
       rowStates.some((row, i) => {
         if (row.skipped) return false
         const tx = preview.transactions[i]
-        if (tx.isTransfer === true)
+        if (tx.isTransfer === true) {
+          if (row.kind === 'spend')
+            return (
+              !row.conversionAccountId ||
+              !row.expenseAccountId ||
+              (!!tx.feeAmount && !row.feeAccountId)
+            )
           return !row.conversionAccountId || !row.feeAccountId
+        }
         if (tx.isTransfer === 'same-currency')
           return !row.feeAccountId || !row.offsetAccountId
         // Fish Pie rows: backend derives the offset account (shared:<group>) automatically

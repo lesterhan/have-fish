@@ -124,6 +124,92 @@ describe('POST /api/import/preview', () => {
     })
     expect(res.status).toBe(422)
   })
+
+  // --- Cross-currency spend vs convert-and-park detection (story 2) ---
+  //
+  // A multi-currency parser with a merchant row and a convert-and-park row whose
+  // description is the user's own name ('Test User', from createTestUser).
+  const MULTI_PARSER = {
+    name: 'Multi Bank',
+    normalizedHeader: 'date|description|fee|sourceamount|sourcecurrency|targetamount|targetcurrency',
+    isMultiCurrency: true,
+    columnMapping: {
+      date: 'date',
+      amount: 'sourceamount',
+      description: 'description',
+      sourceAmount: 'sourceamount',
+      sourceCurrency: 'sourcecurrency',
+      targetAmount: 'targetamount',
+      targetCurrency: 'targetcurrency',
+      feeAmount: 'fee',
+    },
+  }
+  const MULTI_CSV = `Date,SourceAmount,SourceCurrency,TargetAmount,TargetCurrency,Fee,Description
+2026-04-01,17.29,USD,360.00,CZK,0.05,Prague Coffee House
+2026-04-02,600.00,CAD,408.00,EUR,1.20,Test User`
+
+  async function createMultiParser(c: string) {
+    return app.request('/api/parsers', {
+      method: 'POST',
+      headers: { Cookie: c, 'Content-Type': 'application/json' },
+      body: JSON.stringify(MULTI_PARSER),
+    })
+  }
+
+  function multiCsvForm() {
+    const form = new FormData()
+    form.append('file', new Blob([MULTI_CSV], { type: 'text/csv' }), 'export.csv')
+    form.append('defaultCurrency', 'CAD')
+    return form
+  }
+
+  it('flags a cross-currency row as spend by default and a name-match row as transfer', async () => {
+    await createMultiParser(cookie)
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: multiCsvForm(),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    const spendRow = body.transactions.find((t: { description: string }) => t.description === 'Prague Coffee House')
+    expect(spendRow.isTransfer).toBe(true)
+    expect(spendRow.suggestedKind).toBe('spend')
+
+    const convertRow = body.transactions.find((t: { description: string }) => t.description === 'Test User')
+    expect(convertRow.isTransfer).toBe(true)
+    expect(convertRow.suggestedKind).toBe('transfer')
+    // A convert-and-park has no expense suggestion.
+    expect(convertRow.suggestedExpenseAccountId).toBeFalsy()
+  })
+
+  it('pre-fills a spend row’s expense account from a matching import rule', async () => {
+    await createMultiParser(cookie)
+    const coffeeAcc = await createAccount(cookie, 'expenses:food:coffee')
+    const sessionRes = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+    const userId = (await sessionRes.json()).user.id
+    await db
+      .insert(importRules)
+      .values({ userId, pattern: 'Coffee', accountId: coffeeAcc.id, status: 'active' })
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: multiCsvForm(),
+    })
+    const body = await res.json()
+
+    const spendRow = body.transactions.find((t: { description: string }) => t.description === 'Prague Coffee House')
+    expect(spendRow.suggestedKind).toBe('spend')
+    expect(spendRow.suggestedExpenseAccountId).toBe(coffeeAcc.id)
+
+    // The name-match convert row must not pick up an expense suggestion even if a rule matches.
+    const convertRow = body.transactions.find((t: { description: string }) => t.description === 'Test User')
+    expect(convertRow.suggestedKind).toBe('transfer')
+    expect(convertRow.suggestedExpenseAccountId).toBeFalsy()
+  })
 })
 
 describe('POST /api/import/check-duplicates', () => {
