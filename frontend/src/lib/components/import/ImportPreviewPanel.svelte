@@ -71,6 +71,8 @@
         if (row.skipped) return false
         const tx = preview.transactions[i]
         if (tx.isTransfer === true) {
+          // Shared spend (group set) → Fish Pie path derives the expense from the group.
+          if (row.groupId) return !row.conversionAccountId || !row.feeAccountId
           if (row.kind === 'spend')
             return (
               !row.conversionAccountId ||

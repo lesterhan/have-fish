@@ -66,18 +66,16 @@
   )
 
   // Cross-currency rows are spend-by-default; convert-and-park is the flagged exception.
-  // A spend has no target asset and no Fish Pie split — it posts to an expense account.
+  // A spend posts to an expense account and *can* be shared (Fish Pie). A convert is an
+  // internal move between the user's own currency accounts — nothing to split.
   let isSpend = $derived(tx.isTransfer === true && rowState.kind === 'spend')
+  let isConvert = $derived(tx.isTransfer === true && rowState.kind === 'transfer')
 
   function toggleKind() {
     const next = rowState.kind === 'spend' ? 'transfer' : 'spend'
-    rowState = {
-      ...rowState,
-      kind: next,
-      // A spend can't be a Fish Pie split — drop any group when flipping to spend.
-      groupId: next === 'spend' ? null : rowState.groupId,
-      categoryId: next === 'spend' ? null : rowState.categoryId,
-    }
+    // Changing the kind invalidates any group split — a convert can't be shared at all, and
+    // the split would otherwise be stranded. Clear it on either flip.
+    rowState = { ...rowState, kind: next, groupId: null, categoryId: null }
   }
 </script>
 
@@ -144,20 +142,6 @@
         </div>
       {:else if !splitSelectOpen}
         {#if tx.isTransfer === true}
-          <button
-            type="button"
-            class="kind-flip"
-            onclick={toggleKind}
-            use:tooltip={{
-              label: isSpend
-                ? 'This is actually a conversion into an account you hold'
-                : 'This is actually a spend in a currency you don’t hold',
-              always: true,
-            }}
-          >
-            <Icon name="exchange" size={11} />
-            {isSpend ? 'Mark as conversion' : 'Mark as spend'}
-          </button>
           {#if isSpend}
             <AccountPathInput
               {accounts}
@@ -220,12 +204,29 @@
           oncreate={onaccountcreated}
         />
       {/if}
+
+      {#if tx.isTransfer === true && !rowState.groupId && !splitSelectOpen}
+        <button
+          type="button"
+          class="kind-flip"
+          onclick={toggleKind}
+          use:tooltip={{
+            label: isSpend
+              ? 'Actually a conversion into an account you hold — not a spend'
+              : 'Actually a spend in a currency you don’t hold — not a conversion',
+            always: true,
+          }}
+        >
+          <Icon name="exchange" size={10} />
+          {isSpend ? 'Switch to conversion' : 'Switch to spend'}
+        </button>
+      {/if}
     </div>
   </td>
 
   {#if showFishPie}
     <td class="cell-split">
-      {#if !rowState.skipped && !isSpend}
+      {#if !rowState.skipped && !isConvert}
         {#if rowState.groupId}
           <GradientButton
             square
@@ -300,10 +301,12 @@
     background: var(--color-window-raised);
     border: 1px solid var(--color-rule);
   }
+  /* Spend gets a calm accent chip (not an alarm) — the expense colour on the target amount
+     already carries the "this is money spent" signal. */
   .kind-tag.kind-spend {
-    color: var(--color-amount-negative);
-    background: var(--color-danger-light);
-    border-color: var(--color-amount-negative);
+    color: var(--color-accent-chip-fg);
+    background: var(--color-accent-chip-bg);
+    border-color: var(--color-accent);
   }
 
   .kind-flip {
@@ -311,7 +314,7 @@
     align-items: center;
     gap: 3px;
     align-self: flex-start;
-    margin-bottom: 2px;
+    margin-top: 4px;
     padding: 1px 5px;
     background: none;
     border: 1px solid var(--color-rule);

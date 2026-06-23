@@ -970,6 +970,70 @@ describe('POST /api/import/commit — group splits', () => {
     expect(eurPositiveSum).toBeCloseTo(10, 2)
   })
 
+  it('Fish Pie cross-currency SPEND: no target asset required, no phantom asset', async () => {
+    // A shared cross-currency spend (a purchase in a currency the user doesn't hold,
+    // split with a group). The wizard sends no targetAccountId — there is no target asset.
+    const usdAccountId = (await createAccount(cookieA, 'assets:wise:usd')).id
+    const convAccountId = (await createAccount(cookieA, 'equity:conversions')).id
+    const feeAccountId = (await createAccount(cookieA, 'expenses:banking')).id
+    const expenseAccId = (await createAccount(cookieA, 'expenses:food:coffee')).id
+
+    await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      method: 'PATCH',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultExpenseAccountId: expenseAccId }),
+    })
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: '',
+        defaultCurrency: 'USD',
+        transactions: [{
+          isTransfer: true,
+          date: new Date('2026-05-31').toISOString(),
+          description: 'Shared coffee',
+          sourceAmount: '-17.29',
+          sourceCurrency: 'USD',
+          targetAmount: '360.00',
+          targetCurrency: 'CZK',
+          feeAmount: '0.05',
+          feeCurrency: 'USD',
+          sourceAccountId: usdAccountId,
+          targetAccountId: '',  // no target asset — the spend lands in the expense + group
+          conversionAccountId: convAccountId,
+          feeAccountId: feeAccountId,
+        }],
+        groupSplits: [{ rowIndex: 0, groupId }],
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    expect((await res.json() as any).fishPieExpenses).toBe(1)
+
+    const userATxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
+    const importTx = userATxs.find((t) => !t.groupExpenseId)!
+    const txPostings = await db
+      .select()
+      .from(postings)
+      .where(and(eq(postings.transactionId, importTx.id), isNull(postings.deletedAt)))
+
+    // Both currencies balance to zero
+    const usdSum = txPostings.filter(p => p.currency === 'USD').reduce((s, p) => s + parseFloat(p.amount), 0)
+    const czkSum = txPostings.filter(p => p.currency === 'CZK').reduce((s, p) => s + parseFloat(p.amount), 0)
+    expect(Math.abs(usdSum)).toBeLessThan(0.01)
+    expect(Math.abs(czkSum)).toBeLessThan(0.01)
+
+    // No phantom asset: the only USD asset leg is the funding account, negative (money out).
+    const usdAssetPosting = txPostings.find(p => p.accountId === usdAccountId)
+    expect(parseFloat(usdAssetPosting!.amount)).toBeLessThan(0)
+    // The CZK spend is split across group clearing + payer expense, never an asset.
+    const czkPositive = txPostings.filter(p => p.currency === 'CZK' && parseFloat(p.amount) > 0)
+    expect(czkPositive).toHaveLength(2)
+    expect(czkPositive.reduce((s, p) => s + parseFloat(p.amount), 0)).toBeCloseTo(360, 2)
+  })
+
   it('Fish Pie same-currency: splits net amount, fee posting untouched', async () => {
     const externalBankId = (await createAccount(cookieA, 'assets:external-bank')).id
     const targetAccId = (await createAccount(cookieA, 'assets:chequing2')).id

@@ -317,7 +317,10 @@ app.post('/commit', async (c) => {
       if (t.feeAmount && !t.feeAccountId) return c.json({ error: 'cross-currency-spend rows with a fee must include feeAccountId' }, 400)
     } else if (t.isTransfer === true) {
       if (!t.sourceAccountId) return c.json({ error: 'transfer rows must include sourceAccountId' }, 400)
-      if (!t.targetAccountId) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
+      // A Fish Pie split routes through buildFishPieCrossCurrencyPostings, which splits the
+      // target leg into the group + payer-expense accounts and never uses targetAccountId —
+      // so a shared cross-currency spend has no target asset to require.
+      if (!t.targetAccountId && !splitByRowIndex.has(rowIdx)) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
       if (!t.conversionAccountId) return c.json({ error: 'transfer rows must include conversionAccountId' }, 400)
       if (!t.feeAccountId) return c.json({ error: 'transfer rows must include feeAccountId' }, 400)
     } else if (t.isTransfer === 'same-currency') {

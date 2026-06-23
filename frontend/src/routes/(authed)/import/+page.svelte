@@ -227,6 +227,9 @@
       const row = rowStates[i]
       if (row.skipped) return false
       if (tx.isTransfer === true) {
+        // Shared spend → Fish Pie cross-currency path derives the expense account from the
+        // group, so it only needs the bridge + fee (same as a convert).
+        if (row.groupId) return !row.conversionAccountId || !row.feeAccountId
         if (row.kind === 'spend')
           return (
             !row.conversionAccountId ||
@@ -250,9 +253,12 @@
         if (rowStates[i].skipped) return []
         const row = rowStates[i]
         if (tx.isTransfer === true) {
-          if (row.kind === 'spend') {
+          if (row.kind === 'spend' && !row.groupId) {
             // Cross-currency spend — no target asset; the spend lands in the expense
             // account, bridged through equity:conversions on both sides (story-1 shape).
+            // A *shared* spend (groupId set) falls through to the transfer-shaped row below,
+            // which the backend routes to the Fish Pie cross-currency path — that splits the
+            // target leg into group + payer-expense (no phantom asset either).
             return {
               isTransfer: 'cross-currency-spend' as const,
               date: tx.date,
