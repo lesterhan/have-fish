@@ -392,6 +392,9 @@
   <div class="settings-section section-accounts">
     <div class="section-bar">
       <span class="section-bar-title">Accounts · {accounts.length}</span>
+      <GradientButton onclick={() => goto('/accounts/manage')} tooltip="Rename accounts and categories">
+        Manage
+      </GradientButton>
     </div>
     <form
       class="add-row"

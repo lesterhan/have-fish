@@ -4,8 +4,22 @@ import { accounts, postings, transactions, userSettings } from '../db/schema'
 import { eq, isNull, and, like, or, lte, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
+import { CLEARING_PREFIX } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
+
+// True when `path` is the receivable namespace itself or sits under it.
+// Receivable accounts are system-managed (re-spawned at import), so reorg refuses them.
+function isReceivablePath(path: string): boolean {
+  return path === CLEARING_PREFIX || path.startsWith(`${CLEARING_PREFIX}:`)
+}
+
+// A valid account path is colon-segmented with no empty segments and no surrounding
+// whitespace — rejects '', ':x', 'x:', 'x::y'.
+function isValidPath(path: string): boolean {
+  if (path !== path.trim() || path.length === 0) return false
+  return path.split(':').every((seg) => seg.length > 0 && seg === seg.trim())
+}
 
 app.get('/', async (c) => {
   const userId = c.get('userId')
@@ -268,6 +282,66 @@ app.post('/', async (c) => {
   // userId from session overrides anything the client may have sent
   const [created] = await db.insert(accounts).values({ ...body, userId }).returning()
   return c.json(created, 201)
+})
+
+// POST /api/accounts/rename
+// Rewrites an account path prefix `from` → `to` across the node itself and every
+// descendant, in one transaction. A leaf rename is the degenerate case (exact match, no
+// descendants); a parent rename cascades. Matching is on the materialized path, not id,
+// so virtual grouping nodes (segments with no account row of their own) rename too.
+//
+// Postings are unaffected — they FK to the stable accounts.id.
+//
+// Rejects: receivable namespace (system-managed), an invalid target path, a target that
+// would collide with an existing account (that's a merge, not a rename), and no-match.
+app.post('/rename', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => ({}))
+  const from = typeof body.from === 'string' ? body.from : ''
+  const to = typeof body.to === 'string' ? body.to : ''
+
+  if (!from || !to) return c.json({ error: '`from` and `to` are required' }, 400)
+  if (from === to) return c.json({ error: '`from` and `to` are identical' }, 400)
+  if (!isValidPath(to)) return c.json({ error: 'invalid target path' }, 400)
+  if (isReceivablePath(from)) return c.json({ error: 'receivable accounts are system-managed and cannot be renamed' }, 400)
+  if (isReceivablePath(to)) return c.json({ error: 'cannot rename into the receivable namespace' }, 400)
+
+  // Load all of this user's active accounts; match/collision-check in JS to avoid LIKE
+  // wildcard hazards (`_`/`%` in a path) and keep anchoring exact. Per-user counts are small.
+  const all = await db
+    .select()
+    .from(accounts)
+    .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+
+  // Anchored prefix match: exactly `from`, or a descendant `from:...`. So renaming
+  // `expenses:food` leaves `expenses:foodcourt` untouched.
+  const matched = all.filter((a) => a.path === from || a.path.startsWith(`${from}:`))
+  if (matched.length === 0) return c.json({ error: 'no account matches the given path' }, 404)
+
+  const matchedIds = new Set(matched.map((a) => a.id))
+  const existingPaths = new Set(all.filter((a) => !matchedIds.has(a.id)).map((a) => a.path))
+
+  // Compute the rewrite and check each target against accounts outside the moved subtree.
+  const rewrites = matched.map((a) => ({ id: a.id, newPath: `${to}${a.path.slice(from.length)}` }))
+  const collision = rewrites.find((r) => existingPaths.has(r.newPath))
+  if (collision) {
+    return c.json({ error: `target path already exists: ${collision.newPath} (merge, not rename)` }, 409)
+  }
+
+  const updated = await db.transaction(async (tx) => {
+    const out = []
+    for (const r of rewrites) {
+      const [row] = await tx
+        .update(accounts)
+        .set({ path: r.newPath })
+        .where(and(eq(accounts.id, r.id), eq(accounts.userId, userId)))
+        .returning()
+      out.push(row)
+    }
+    return out
+  })
+
+  return c.json({ renamed: updated.length, accounts: updated })
 })
 
 app.patch('/:id', async (c) => {
