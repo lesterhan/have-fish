@@ -224,36 +224,22 @@ mode). Re-check buttons, pills, badges, selected states.
 
 ---
 
-## [P1] Extract tooltip icon into a shared component
+## ✅ [P1] Extract tooltip icon into a shared component — DONE
 
-**Context:** `EditParserPanel` has an inline `<button class="tooltip-icon">?</button>`
-pattern that also appears elsewhere in the app. It's a small circle with a `?` that
-shows a tooltip on hover via the `use:tooltip` action.
-
-**Task:** Pull this out into a reusable `TooltipIcon.svelte` component in
-`frontend/src/lib/components/ui/`. It should accept a `label` prop (the tooltip text)
-and render the styled button internally. Replace usages in `EditParserPanel` and
-anywhere else the pattern appears.
+Shipped: `frontend/src/lib/components/ui/TooltipIcon.svelte` (accepts a `label` prop,
+renders the styled `?` button + `use:tooltip` internally). Adopted across the app
+(EditParserPanel, the parser wizards, import page, settings); no inline
+`class="tooltip-icon"` pattern remains.
 
 ---
 
-## [P1] Currency input component
+## ✅ [P1] Currency input component — DONE
 
-**Context:** The "Default currency" field across the app is currently a plain
-`<TextInput>`. It should behave more like `AccountPathInput`.
-
-**Task:** Build a `CurrencyInput.svelte` component in `frontend/src/lib/components/ui/`
-with the following behaviour:
-
-- **Suggestions:** Autocompletes from a list of supported currencies as the user types.
-- **Display state (not focused):** Shows a `CurrencyPill` for the selected currency code
-  instead of plain text. Should still look editable (not like a read-only badge) —
-  probably pill inside a lightly-inset container, no full white input box.
-- **Edit state (focused):** Switches to a text field with a dropdown of matching
-  currencies, same interaction pattern as `AccountPathInput`.
-
-Replace all `<TextInput>` currency fields with this component once built (at minimum the
-import page and any settings fields).
+Shipped: `frontend/src/lib/components/ui/CurrencyInput.svelte` — autocomplete over
+supported currencies, `CurrencyPill` display state, text-field edit state mirroring
+`AccountPathInput`. Replaced every plain `<TextInput>` currency field (import, settings,
+reconcile, quick-entry, posting editor, add-transaction, Fish Pie settle, wizards); no
+`<TextInput>`-based currency field remains.
 
 ---
 
