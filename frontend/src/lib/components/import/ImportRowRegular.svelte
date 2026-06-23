@@ -41,6 +41,9 @@
   }: Props = $props()
 
   let offsetCellEl: HTMLElement | null = $state(null)
+  // Anchors the group dropdown to the input column so it lines up with the field it
+  // replaces. In plain imports (no-label) this resolves to the full cell, as before.
+  let splitAnchorEl: HTMLElement | null = $state(null)
 
   let shareHint = $derived.by(() => {
     if (!rowState.groupId) return null
@@ -140,12 +143,17 @@
       </div>
     {/if}
     {#if !rowState.groupId && splitSelectOpen}
-      <GroupSelect
-        {groups}
-        anchorEl={offsetCellEl}
-        onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
-        onclose={onclosesplit}
-      />
+      <div class="field" class:no-label={!isMultiCurrency}>
+        {#if isMultiCurrency}<span class="field-label">split</span>{/if}
+        <div class="split-anchor" bind:this={splitAnchorEl}>
+          <GroupSelect
+            {groups}
+            anchorEl={splitAnchorEl}
+            onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
+            onclose={onclosesplit}
+          />
+        </div>
+      </div>
     {/if}
   </td>
   {#if showFishPie}

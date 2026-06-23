@@ -40,6 +40,9 @@
   }: Props = $props()
 
   let offsetCellEl: HTMLElement | null = $state(null)
+  // Anchors the group dropdown to the input column (inside the label gutter) rather than
+  // the whole cell, so it lines up with the field it replaces instead of jumping flush-left.
+  let splitAnchorEl: HTMLElement | null = $state(null)
 
   let shareHint = $derived.by(() => {
     if (!rowState.groupId) return null
@@ -198,12 +201,17 @@
         {/if}
       {/if}
       {#if !rowState.groupId && splitSelectOpen}
-        <GroupSelect
-          {groups}
-          anchorEl={offsetCellEl}
-          onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
-          onclose={onclosesplit}
-        />
+        <div class="field">
+          <span class="field-label">split</span>
+          <div class="split-anchor" bind:this={splitAnchorEl}>
+            <GroupSelect
+              {groups}
+              anchorEl={splitAnchorEl}
+              onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
+              onclose={onclosesplit}
+            />
+          </div>
+        </div>
       {/if}
       {#if showFee && !splitSelectOpen}
         <div class="field">

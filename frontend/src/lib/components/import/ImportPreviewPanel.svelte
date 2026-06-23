@@ -434,6 +434,11 @@
     user-select: none;
   }
 
+  /* Fills the field's input column; the group dropdown measures this to align itself. */
+  :global(.table-container .split-anchor) {
+    min-width: 0;
+  }
+
   :global(.table-container .cell-skip) {
     text-align: center;
     vertical-align: middle;
