@@ -357,9 +357,9 @@
   /* Date and Description are reference columns — give them only what they need so the
      load-bearing Amount and the high-interaction To-account columns get the room. */
   .col-date        { width: 5rem; }
-  .col-description { width: 16rem; max-width: 16rem; }
+  .col-description { width: 22rem; max-width: 22rem; }
   .col-amount      { width: 8.5rem; text-align: right; }
-  .col-offset      { width: 100%; min-width: 22rem; }
+  .col-offset      { width: 100%; min-width: 18rem; }
   .col-split       { width: 7rem; text-align: center; }
   .col-skip        { width: 3rem; text-align: center; }
 
@@ -382,7 +382,7 @@
   /* Description is a reference cue, not the focus — clip overflow to keep column width
      in check (full text stays available via the cell's title attribute). */
   :global(.table-container .cell-description) {
-    max-width: 16rem;
+    max-width: 22rem;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
