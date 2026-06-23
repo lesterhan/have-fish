@@ -20,9 +20,19 @@
     return accounts.find((a) => a.id === accountId)?.path ?? ''
   }
 
-  let mainPosting = $derived(
-    tx.postings.find((p) => accountPath(p.accountId).startsWith('expenses:')) ?? tx.postings[0],
-  )
+  let mainPosting = $derived.by(() => {
+    const expensePostings = tx.postings.filter((p) =>
+      accountPath(p.accountId).startsWith('expenses:'),
+    )
+    if (expensePostings.length === 0) return tx.postings[0]
+    if (expensePostings.length === 1) return expensePostings[0]
+    // Multiple expense postings (e.g. fee + main spend in different currencies):
+    // show the one with the largest absolute amount — the actual spend (e.g. 360 CZK)
+    // nearly always dwarfs a banking fee (e.g. 0.05 USD).
+    return expensePostings.reduce((best, p) =>
+      Math.abs(parseFloat(p.amount)) > Math.abs(parseFloat(best.amount)) ? p : best,
+    )
+  })
 
   let fromPosting = $derived(
     tx.postings.find((p) => accountPath(p.accountId).startsWith('assets:')),

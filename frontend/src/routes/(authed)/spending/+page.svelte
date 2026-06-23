@@ -67,15 +67,13 @@
     if (!converting || fxFetching || Object.keys(fxRates).length === 0)
       return null
     return filteredTxns.reduce((sum, tx) => {
-      const main =
-        tx.postings.find((p) =>
-          accounts
-            .find((a) => a.id === p.accountId)
-            ?.path.startsWith('expenses:'),
-        ) ?? tx.postings[0]
-      if (!main) return sum
-      return (
-        sum + Math.abs(parseFloat(main.amount)) * (fxRates[main.currency] ?? 1)
+      const expensePostings = tx.postings.filter((p) =>
+        accounts.find((a) => a.id === p.accountId)?.path.startsWith('expenses:'),
+      )
+      const relevant = expensePostings.length > 0 ? expensePostings : tx.postings.slice(0, 1)
+      return relevant.reduce(
+        (txSum, p) => txSum + Math.abs(parseFloat(p.amount)) * (fxRates[p.currency] ?? 1),
+        sum,
       )
     }, 0)
   })

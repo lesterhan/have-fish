@@ -81,6 +81,43 @@ describe('reports', () => {
     expect(drill.categories.every(c => c.childCount === 0)).toBe(true)
   })
 
+  it('GET /api/reports/spending-summary includes all expense postings from a multi-currency cross-currency-spend transaction', async () => {
+    // Simulates a cross-currency spend: USD source, USD fee, CZK main spend.
+    // Both expense postings must appear in the total — historically the frontend
+    // only picked the first expense posting (the fee), missing the CZK spend.
+    const source   = await createAccount(cookie, 'assets:wise:usd')
+    const equity   = await createAccount(cookie, 'equity:conversions')
+    const feeAcct  = await createAccount(cookie, 'expenses:banking:fee')
+    const expense  = await createAccount(cookie, 'expenses:food:cafe')
+
+    // Balanced: USD leg: -17.29 + 17.24 + 0.05 = 0; CZK leg: -360.00 + 360.00 = 0
+    await createTransaction(cookie, '2025-01-15', 'Prague Coffee', [
+      { accountId: source,  amount: '-17.29', currency: 'USD' },
+      { accountId: equity,  amount: '17.24',  currency: 'USD' },
+      { accountId: feeAcct, amount: '0.05',   currency: 'USD' },
+      { accountId: equity,  amount: '-360.00', currency: 'CZK' },
+      { accountId: expense, amount: '360.00', currency: 'CZK' },
+    ])
+
+    type Category = { category: string; total: Record<string, string>; childCount: number }
+
+    const res = await app.request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
+      headers: { Cookie: cookie },
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json() as { total: Record<string, string>; categories: Category[] }
+
+    // Both expense postings (CZK spend + USD fee) must be reflected in the total
+    expect(body.total['CZK']).toBe('360.00')
+    expect(body.total['USD']).toBe('0.05')
+
+    const foodCat = body.categories.find((c) => c.category === 'expenses:food')
+    expect(foodCat?.total['CZK']).toBe('360.00')
+
+    const bankingCat = body.categories.find((c) => c.category === 'expenses:banking')
+    expect(bankingCat?.total['USD']).toBe('0.05')
+  })
+
   it('GET /api/reports/monthly-spend returns one entry per month with empty totals when there are no transactions', async () => {
     const res = await app.request('/api/reports/monthly-spend?months=3', {
       headers: { Cookie: cookie },
