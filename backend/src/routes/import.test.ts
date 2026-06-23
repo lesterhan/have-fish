@@ -79,6 +79,29 @@ describe('POST /api/import/preview', () => {
     expect(body.transactions[0].amount).toBe('-42.50')
   })
 
+  it('matches a parser against a semicolon-delimited CSV', async () => {
+    // Same columns as TEST_PARSER (fingerprint amount|date|description), but the
+    // bank exported with semicolons. The detector + fingerprint must still match.
+    await createParser(cookie)
+
+    const semicolonCsv = `Date;Amount;Description
+2026-02-01;-42.50;Coffee
+2026-02-02;100.00;Salary`
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(semicolonCsv),
+    })
+
+    expect(res.status).toBe(200)
+    const body = await res.json()
+    expect(body.parser).toBe('Test Bank')
+    expect(body.transactions).toBeArrayOfSize(2)
+    expect(body.transactions[0].description).toBe('Coffee')
+    expect(body.transactions[0].amount).toBe('-42.50')
+  })
+
   it('applies an active rule but not a denied one', async () => {
     await createParser(cookie)
     const coffeeShop = await createAccount(cookie, 'expenses:coffee')

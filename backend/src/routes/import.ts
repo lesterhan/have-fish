@@ -3,7 +3,7 @@ import type { AppVariables } from '../app'
 import { db } from '../db'
 import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, groupCategories, user } from '../db/schema'
 import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
-import { parseCsv, normalizeHeader } from '../import/csv-parser'
+import { parseCsv, normalizeHeader, detectDelimiter, SUPPORTED_DELIMITERS } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
 import { buildRegularPostings, buildFishPiePostings, buildFishPieCrossCurrencyPostings, buildFishPieSameCurrencyPostings, buildCrossCurrencySpendPostings } from '../import/postings'
@@ -32,18 +32,30 @@ app.post('/preview', async (c) => {
   if (!defaultCurrency || typeof defaultCurrency !== 'string') return c.json({ error: 'defaultCurrency is required' }, 400)
 
   const csv = await file.text()
-  const rows = parseCsv(csv)
-
-  if (rows.length === 0) return c.json({ error: 'CSV is empty or has no data rows' }, 422)
-
-  const fingerprint = normalizeHeader(Object.keys(rows[0]))
 
   const userParsers = await db
     .select()
     .from(csvParsers)
     .where(and(eq(csvParsers.userId, userId), isNull(csvParsers.deletedAt)))
 
-  const matched = userParsers.find((p) => p.normalizedHeader === fingerprint)
+  // Parse with the detected delimiter first; if no parser matches, retry the
+  // remaining supported delimiters before giving up. This makes a parser that
+  // was built with a manually-overridden delimiter still match, even when the
+  // auto-detector would have guessed a different one for the same file.
+  const detected = detectDelimiter(csv)
+  const candidates = [detected, ...SUPPORTED_DELIMITERS.filter((d) => d !== detected)]
+
+  let rows: Record<string, string>[] = []
+  let matched: (typeof userParsers)[number] | undefined
+  for (const delimiter of candidates) {
+    rows = parseCsv(csv, delimiter)
+    if (rows.length === 0) continue
+    const fingerprint = normalizeHeader(Object.keys(rows[0]))
+    matched = userParsers.find((p) => p.normalizedHeader === fingerprint)
+    if (matched) break
+  }
+
+  if (rows.length === 0) return c.json({ error: 'CSV is empty or has no data rows' }, 422)
 
   if (!matched) {
     return c.json(

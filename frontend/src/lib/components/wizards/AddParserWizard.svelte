@@ -5,6 +5,13 @@
   import AccountPathInput from '../accounts/AccountPathInput.svelte'
   import TooltipIcon from '../ui/TooltipIcon.svelte'
   import { createParser, type Account, type CsvParser } from '$lib/api'
+  import {
+    SUPPORTED_DELIMITERS,
+    DELIMITER_LABELS,
+    detectDelimiter,
+    splitCsvLine,
+    type Delimiter,
+  } from '$lib/import/delimiter'
 
   interface Props {
     open: boolean
@@ -51,6 +58,9 @@
   let mappingSignColumn = $state('')
   let mappingSignNegativeValue = $state('')
   let detectedHeader = $state('')
+  // Raw first line of the uploaded file, re-split whenever the delimiter changes.
+  let rawHeaderLine = $state('')
+  let delimiter = $state<Delimiter>(',')
 
   function normalizeColumn(col: string): string {
     return col
@@ -64,40 +74,53 @@
     return [...cols].sort().join('|')
   }
 
+  // Re-derive the column list from the stored header line using the current
+  // delimiter. Called on upload and whenever the user overrides the delimiter.
+  // Resets every column mapping, since the columns themselves have changed.
+  function reparseHeader() {
+    const parsed = splitCsvLine(rawHeaderLine, delimiter)
+      .map((c) => normalizeColumn(c.trim()))
+      .filter(Boolean)
+    columns = [...new Set(parsed)]
+    mappingDate = ''
+    mappingAmount = ''
+    mappingDescription = ''
+    mappingCurrency = ''
+    mappingSourceAmount = ''
+    mappingSourceCurrency = ''
+    mappingTargetAmount = ''
+    mappingTargetCurrency = ''
+    mappingFeeAmount = ''
+    mappingFeeCurrency = ''
+    mappingSignColumn = ''
+    mappingSignNegativeValue = ''
+  }
+
   function handleFileUpload(e: Event) {
     const file = (e.currentTarget as HTMLInputElement).files?.[0]
     if (!file) return
     const reader = new FileReader()
     reader.onload = (ev) => {
       const text = ev.target?.result as string
-      const firstLine =
-        text.split(/\r?\n/).find((l) => l.trim().length > 0) ?? ''
-      detectedHeader = firstLine
-      const parsed = firstLine
-        .split(',')
-        .map((c) => normalizeColumn(c.trim()))
-        .filter(Boolean)
-      columns = [...new Set(parsed)]
-      mappingDate = ''
-      mappingAmount = ''
-      mappingDescription = ''
-      mappingCurrency = ''
-      mappingSourceAmount = ''
-      mappingSourceCurrency = ''
-      mappingTargetAmount = ''
-      mappingTargetCurrency = ''
-      mappingFeeAmount = ''
-      mappingFeeCurrency = ''
-      mappingSignColumn = ''
-      mappingSignNegativeValue = ''
+      rawHeaderLine = text.split(/\r?\n/).find((l) => l.trim().length > 0) ?? ''
+      detectedHeader = rawHeaderLine
+      delimiter = detectDelimiter(text)
+      reparseHeader()
     }
     reader.readAsText(file)
+  }
+
+  function handleDelimiterChange(e: Event) {
+    delimiter = (e.currentTarget as HTMLSelectElement).value as Delimiter
+    reparseHeader()
   }
 
   function resetStep2() {
     parserName = ''
     columns = []
     detectedHeader = ''
+    rawHeaderLine = ''
+    delimiter = ','
     mappingDate = ''
     mappingAmount = ''
     mappingDescription = ''
@@ -255,6 +278,27 @@
         {#if detectedHeader}
           <span class="field-label">Detected header</span>
           <code class="detected-header">{detectedHeader}</code>
+
+          <span class="field-label toggle-label">
+            Delimiter
+            <TooltipIcon label="Auto-detected from the file. Override it if the columns below didn't split correctly (some banks export semicolon- or tab-separated CSVs)." />
+          </span>
+          <select aria-label="Delimiter" value={delimiter} onchange={handleDelimiterChange}>
+            {#each SUPPORTED_DELIMITERS as d}
+              <option value={d}>{DELIMITER_LABELS[d]}</option>
+            {/each}
+          </select>
+
+          <span class="field-label">Columns</span>
+          {#if columns.length > 0}
+            <div class="column-preview">
+              {#each columns as col}<span class="column-chip">{col}</span>{/each}
+            </div>
+          {:else}
+            <span class="column-preview-empty"
+              >No columns — try a different delimiter.</span
+            >
+          {/if}
         {/if}
 
         {#if columns.length > 0}
@@ -541,6 +585,28 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     word-break: break-all;
+  }
+
+  .column-preview {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-xs);
+  }
+
+  .column-chip {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-border);
+    box-shadow: var(--shadow-raised);
+    padding: 1px var(--sp-xs);
+  }
+
+  .column-preview-empty {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-amount-negative);
   }
 
   .required {
