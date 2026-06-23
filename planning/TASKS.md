@@ -35,20 +35,15 @@ grouping, 2-match floor).
 
 ---
 
-## [P1] CSV import — support non-comma delimiters
+## ✅ [P1] CSV import — support non-comma delimiters — DONE (PR #111, commit `57ce889`)
 
-**Context:** Import assumes comma-separated. Some banks export semicolon-delimited CSVs
-(common in EU/locale-specific exports); those parse wrong or as one column.
-
-**Task:** Detect the delimiter on import and parse accordingly. Auto-detect from the
-header/first rows (`,` `;` `\t` `|`), with a manual override dropdown if detection is
-wrong. Show a parse preview so the user confirms columns split correctly before
-mapping.
-
-**Notes:**
-- Watch quoted fields containing the delimiter.
-- Tie into the existing parser config (`EditParserPanel`) — likely a new "delimiter"
-  setting there.
+Shipped: backend `detectDelimiter()` (quote-aware, picks among `,` `;` `\t` `|`) and
+`parseCsv` takes an explicit delimiter (auto-detect by default). Import preview retries
+the remaining delimiters on a no-match so a parser built with a manual override still
+matches. Frontend `lib/import/delimiter.ts` (detection + quote-aware line split); the
+Add Parser wizard auto-detects, shows an override dropdown, and a live preview of the
+split columns before mapping. No schema change — the column fingerprint carries the
+delimiter. Tests cover all four delimiters incl. quoted fields + import match.
 
 ---
 
@@ -61,8 +56,11 @@ close wipes the whole session — you start over. Anxiety-inducing on large file
 **Task:** Make import progress durable so a refresh/close can't lose categorization
 work. Two stages:
 
-- **P1 quick win:** `beforeunload` guard — warn before unload when there's
-  uncategorized in-progress work. Cheap first line of defense.
+- **✅ P1 quick win — DONE.** `beforeunload` guard on the import page: a `$effect`
+  registers a `beforeunload` listener whenever a preview is loaded (the in-progress
+  categorization stage), warning before a refresh / tab close. A successful import
+  leaves via client-side `goto`, which never fires `beforeunload`, so it only triggers
+  on a real unload mid-session.
 - **P2 full:** persist draft import state (localStorage / IndexedDB, or a backend
   draft) keyed to the file, and offer to resume on reload. Optionally incremental save —
   commit categorized rows as you go.
@@ -188,11 +186,15 @@ spending page right-side panel — instead of one-off modal markup.
 
 **Context:** Spending page is hard to navigate and has a correctness bug.
 
-**🐛 [P0] Amounts don't add up.** The right-side panel totals sometimes don't reconcile,
-caused by the multi-currency transfer/conversion transactions (see [Single-transaction
-view]). The summing logic likely double-counts or mis-handles the mechanical postings /
-mixed currencies. **Shared root cause with the tx-view epic — fix the summing logic
-once.** Add a test reproducing the bad total.
+**✅ [P0] Amounts don't add up — FIXED (PR #112, commits `2c445df` + `8d7e718`).**
+Root cause: `pageTotal` (and `SpendingTxnRow.mainPosting`) used `.find()`, grabbing the
+*first* expense posting — for a cross-currency spend that was the tiny USD fee
+(`expenses:banking:fee`, 0.05 USD), missing the real spend (360 CZK). Fixed `pageTotal`
+to filter/reduce over all expense postings (matching backend `spending-converted`);
+`mainPosting` now picks the largest-abs expense posting so the row shows the real spend;
+currency filter chips + page total scoped to expense postings only (so a USD→CZK spend
+no longer shows under the USD filter via its asset leg). Regression test added in
+`reports.test.ts`.
 
 **[P1] Nav not loud enough.** The important navigation (filters/period/account
 selectors) is visually too quiet relative to its importance — page is hard to move
@@ -222,36 +224,22 @@ mode). Re-check buttons, pills, badges, selected states.
 
 ---
 
-## [P1] Extract tooltip icon into a shared component
+## ✅ [P1] Extract tooltip icon into a shared component — DONE
 
-**Context:** `EditParserPanel` has an inline `<button class="tooltip-icon">?</button>`
-pattern that also appears elsewhere in the app. It's a small circle with a `?` that
-shows a tooltip on hover via the `use:tooltip` action.
-
-**Task:** Pull this out into a reusable `TooltipIcon.svelte` component in
-`frontend/src/lib/components/ui/`. It should accept a `label` prop (the tooltip text)
-and render the styled button internally. Replace usages in `EditParserPanel` and
-anywhere else the pattern appears.
+Shipped: `frontend/src/lib/components/ui/TooltipIcon.svelte` (accepts a `label` prop,
+renders the styled `?` button + `use:tooltip` internally). Adopted across the app
+(EditParserPanel, the parser wizards, import page, settings); no inline
+`class="tooltip-icon"` pattern remains.
 
 ---
 
-## [P1] Currency input component
+## ✅ [P1] Currency input component — DONE
 
-**Context:** The "Default currency" field across the app is currently a plain
-`<TextInput>`. It should behave more like `AccountPathInput`.
-
-**Task:** Build a `CurrencyInput.svelte` component in `frontend/src/lib/components/ui/`
-with the following behaviour:
-
-- **Suggestions:** Autocompletes from a list of supported currencies as the user types.
-- **Display state (not focused):** Shows a `CurrencyPill` for the selected currency code
-  instead of plain text. Should still look editable (not like a read-only badge) —
-  probably pill inside a lightly-inset container, no full white input box.
-- **Edit state (focused):** Switches to a text field with a dropdown of matching
-  currencies, same interaction pattern as `AccountPathInput`.
-
-Replace all `<TextInput>` currency fields with this component once built (at minimum the
-import page and any settings fields).
+Shipped: `frontend/src/lib/components/ui/CurrencyInput.svelte` — autocomplete over
+supported currencies, `CurrencyPill` display state, text-field edit state mirroring
+`AccountPathInput`. Replaced every plain `<TextInput>` currency field (import, settings,
+reconcile, quick-entry, posting editor, add-transaction, Fish Pie settle, wizards); no
+`<TextInput>`-based currency field remains.
 
 ---
 

@@ -328,6 +328,21 @@
     rowStates = []
     importAsLiabilities = false
   }
+
+  // Once a preview is loaded the user is partway through categorizing rows, and all
+  // that work lives only in this page's in-memory state. Warn before a refresh / tab
+  // close so an accidental unload can't silently wipe the session. A successful import
+  // leaves via client-side `goto`, which never triggers beforeunload, so this only
+  // fires on a real browser unload during the preview stage.
+  $effect(() => {
+    if (!preview) return
+    const handler = (e: BeforeUnloadEvent) => {
+      e.preventDefault()
+      e.returnValue = ''
+    }
+    window.addEventListener('beforeunload', handler)
+    return () => window.removeEventListener('beforeunload', handler)
+  })
 </script>
 
 <div class="page">
