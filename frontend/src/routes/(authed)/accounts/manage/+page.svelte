@@ -1,12 +1,21 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
-  import { fetchAccounts, renameAccount, type Account } from '$lib/api'
+  import {
+    fetchAccounts,
+    fetchAccountPostingCounts,
+    fetchTransactions,
+    fetchUserSettings,
+    renameAccount,
+    type Account,
+    type Transaction,
+  } from '$lib/api'
   import { toast } from '$lib/toast.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
+  import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
   type TreeNode = {
@@ -19,12 +28,25 @@
   let accounts = $state<Account[]>([])
   let loading = $state(true)
 
+  // Per-leaf posting counts (same source as the settings account panel). A category's
+  // count is the sum of its descendant leaves — see countByPath.
+  let postingCountMap = $state<Map<string, number>>(new Map())
+  let baseCurrency = $state('CAD')
+
+  // Right panel: the account whose transactions are shown. Path-prefix match means
+  // selecting a category lists every transaction beneath it.
+  let selectedPath = $state<string | null>(null)
+  let selectedTxns = $state<Transaction[]>([])
+  let txnsLoading = $state(false)
+
   let editingPath = $state<string | null>(null)
   let editValue = $state('')
   let saving = $state(false)
 
   // Pending parent rename awaiting confirmation (affects more than one account).
-  let pending = $state<{ from: string; to: string; affected: string[] } | null>(null)
+  let pending = $state<{ from: string; to: string; affected: string[] } | null>(
+    null,
+  )
 
   // Collapsed category paths. This page is expenses-first: `expenses` sits on top and stays
   // expanded; every other top-level category starts collapsed.
@@ -32,12 +54,49 @@
 
   let tree = $derived(buildTree(accounts))
 
+  // Transaction count per tree path. Leaf = its own posting count; category (virtual)
+  // node = sum of every descendant leaf. Rebuilt whenever accounts or counts change.
+  let countByPath = $derived.by<Map<string, number>>(() => {
+    const map = new Map<string, number>()
+    const visit = (node: TreeNode): number => {
+      const own = node.accountId
+        ? (postingCountMap.get(node.accountId) ?? 0)
+        : 0
+      const total = node.children.reduce((sum, c) => sum + visit(c), own)
+      map.set(node.path, total)
+      return total
+    }
+    tree.forEach(visit)
+    return map
+  })
+
   onMount(async () => {
-    accounts = await fetchAccounts()
+    const [accts, counts, settings] = await Promise.all([
+      fetchAccounts(),
+      fetchAccountPostingCounts(),
+      fetchUserSettings(),
+    ])
+    accounts = accts
+    postingCountMap = new Map(counts.map((c) => [c.accountId, c.count]))
+    baseCurrency = settings.preferredCurrency ?? 'CAD'
     // Collapse every top-level category except `expenses` by default.
-    collapsed = new Set(tree.filter((n) => n.segment !== 'expenses').map((n) => n.path))
+    collapsed = new Set(
+      tree.filter((n) => n.segment !== 'expenses').map((n) => n.path),
+    )
     loading = false
   })
+
+  async function select(path: string) {
+    selectedPath = path
+    txnsLoading = true
+    try {
+      selectedTxns = await fetchTransactions({ accountPath: path })
+    } catch {
+      selectedTxns = []
+    } finally {
+      txnsLoading = false
+    }
+  }
 
   function toggle(path: string) {
     const next = new Set(collapsed)
@@ -123,7 +182,9 @@
     const affected = affectedPaths(node.path)
     const affectedSet = new Set(affected)
     const rewritten = affected.map((p) => `${to}${p.slice(node.path.length)}`)
-    const others = new Set(accounts.map((a) => a.path).filter((p) => !affectedSet.has(p)))
+    const others = new Set(
+      accounts.map((a) => a.path).filter((p) => !affectedSet.has(p)),
+    )
     const collision = rewritten.find((p) => others.has(p))
     if (collision) {
       toast.show(`"${collision}" already exists — merge isn't supported yet`)
@@ -142,6 +203,9 @@
     try {
       await renameAccount(from, to)
       accounts = await fetchAccounts()
+      // The selected path may have moved under the rename — clear rather than show stale rows.
+      selectedPath = null
+      selectedTxns = []
       toast.show(`Renamed to ${to}`)
       cancelEdit()
       pending = null
@@ -164,29 +228,75 @@
 </script>
 
 <div class="page">
-  <div class="section-bar">
-    <GradientButton onclick={() => goto('/settings')} tooltip="Back to Settings">
-      <Icon name="back" />
-      Back
-    </GradientButton>
-    <span class="section-bar-title">MANAGE ACCOUNTS</span>
+  <div class="left-col">
+    <div class="section-bar">
+      <GradientButton
+        onclick={() => goto('/settings')}
+        tooltip="Back to Settings"
+      >
+        <Icon name="back" />
+        Back
+      </GradientButton>
+      <span class="section-bar-title">MANAGE ACCOUNTS</span>
+    </div>
+
+    <p class="hint">
+      Click an account to see its transactions. Rename any account or category —
+      renaming a category renames every account beneath it. Postings stay
+      attached, only the name changes.
+    </p>
+
+    <div class="tree" use:scrollShadow>
+      {#if loading}
+        <p class="empty">Loading…</p>
+      {:else if tree.length === 0}
+        <p class="empty">No accounts yet.</p>
+      {:else}
+        {#each tree as node (node.path)}
+          {@render treeRow(node, 0)}
+        {/each}
+      {/if}
+    </div>
   </div>
 
-  <p class="hint">
-    Rename any account or category. Renaming a category renames every account beneath it.
-    Postings stay attached — only the name changes.
-  </p>
-
-  <div class="tree" use:scrollShadow>
-    {#if loading}
-      <p class="empty">Loading…</p>
-    {:else if tree.length === 0}
-      <p class="empty">No accounts yet.</p>
-    {:else}
-      {#each tree as node (node.path)}
-        {@render treeRow(node, 0)}
-      {/each}
-    {/if}
+  <div class="right-col">
+    <div class="txn-panel">
+      <div class="txn-header">
+        <span class="txn-header-title">Transactions</span>
+        {#if selectedPath}
+          <span class="txn-header-path">{selectedPath}</span>
+          <span class="txn-header-spacer"></span>
+          <span class="txn-header-count">{selectedTxns.length} entries</span>
+        {/if}
+      </div>
+      <div class="txn-col-header">
+        <span>DATE</span>
+        <span>PAYEE / ACCOUNT</span>
+        <span class="col-header-right">AMOUNT</span>
+      </div>
+      <div class="txn-body" use:scrollShadow>
+        {#if !selectedPath}
+          <p class="status">Select an account to view its transactions.</p>
+        {:else if txnsLoading && selectedTxns.length === 0}
+          <p class="status">Loading…</p>
+        {:else if selectedTxns.length === 0}
+          <p class="status">No transactions under this account.</p>
+        {:else}
+          <div class="txn-list">
+            {#each selectedTxns as tx, i (tx.id)}
+              <SpendingTxnRow
+                {tx}
+                idx={i}
+                converted={false}
+                fxRates={{}}
+                {baseCurrency}
+                {accounts}
+              />
+            {/each}
+          </div>
+        {/if}
+      </div>
+    </div>
   </div>
 </div>
 
@@ -195,7 +305,9 @@
   {@const editing = editingPath === node.path}
   {@const hasChildren = node.children.length > 0}
   {@const isCollapsed = collapsed.has(node.path)}
-  <div class="row" class:editing>
+  {@const count = countByPath.get(node.path) ?? 0}
+  {@const selected = selectedPath === node.path}
+  <div class="row" class:editing class:selected>
     <div class="row-main" style="padding-left: calc(14px + {depth} * 18px)">
       {#if hasChildren}
         <button
@@ -205,7 +317,10 @@
           aria-expanded={!isCollapsed}
           aria-label={isCollapsed ? 'Expand' : 'Collapse'}
         >
-          <Icon name={isCollapsed ? 'chevron-right-filled' : 'chevron-down-line'} size={12} />
+          <Icon
+            name={isCollapsed ? 'chevron-right-filled' : 'chevron-down-line'}
+            size={15}
+          />
         </button>
       {:else}
         <span class="leaf-dot"></span>
@@ -219,20 +334,42 @@
           onkeydown={(e: KeyboardEvent) => handleKeydown(e, node)}
           style="width: 14rem"
         />
-        <GradientButton square onclick={() => submitEdit(node)} disabled={saving} tooltip="Save">
+        <GradientButton
+          square
+          onclick={() => submitEdit(node)}
+          disabled={saving}
+          tooltip="Save"
+        >
           <Icon name="floppy" size={12} />
         </GradientButton>
-        <GradientButton square onclick={cancelEdit} disabled={saving} tooltip="Cancel">
+        <GradientButton
+          square
+          onclick={cancelEdit}
+          disabled={saving}
+          tooltip="Cancel"
+        >
           <Icon name="close" size={12} />
         </GradientButton>
       {:else}
-        <span class="segment">{node.segment}</span>
-        {#if node.accountId === null}
+        <button
+          type="button"
+          class="segment"
+          class:active={selected}
+          onclick={() => select(node.path)}
+        >
+          <span class="segment-name">{node.segment}</span>
+          {#if count > 0}
+            <span class="count">({count})</span>
+          {/if}
+        </button>
+        {#if node.accountId === null && depth > 0}
           <span class="virtual-tag">category</span>
         {/if}
         {#if receivable}
           <span class="virtual-tag">system</span>
-        {:else}
+        {:else if depth > 0}
+          <!-- Top-level roots (assets/liabilities/expenses/…) are special — renaming them is
+               handled elsewhere, so no rename action here. -->
           <GradientButton
             square
             onclick={() => startEdit(node)}
@@ -253,22 +390,36 @@
   {/if}
 {/snippet}
 
-<Modal title="Rename category" bind:open={() => pending !== null, (v) => { if (!v) pending = null }}>
+<Modal
+  title="Rename category"
+  bind:open={
+    () => pending !== null,
+    (v) => {
+      if (!v) pending = null
+    }
+  }
+>
   {#if pending}
     <div class="confirm">
       <p>
-        This renames <strong>{pending.affected.length}</strong> account{pending.affected.length === 1
+        This renames <strong>{pending.affected.length}</strong> account{pending
+          .affected.length === 1
           ? ''
           : 's'} under
         <code>{pending.from}</code> → <code>{pending.to}</code>:
       </p>
       <ul class="affected" use:scrollShadow>
         {#each pending.affected as p (p)}
-          <li><code>{p}</code> → <code>{pending.to}{p.slice(pending.from.length)}</code></li>
+          <li>
+            <code>{p}</code> →
+            <code>{pending.to}{p.slice(pending.from.length)}</code>
+          </li>
         {/each}
       </ul>
       <div class="confirm-actions">
-        <GradientButton onclick={() => (pending = null)} disabled={saving}>Cancel</GradientButton>
+        <GradientButton onclick={() => (pending = null)} disabled={saving}
+          >Cancel</GradientButton
+        >
         <GradientButton
           active
           onclick={() => pending && applyRename(pending.from, pending.to)}
@@ -283,10 +434,23 @@
 
 <style>
   .page {
-    display: flex;
-    flex-direction: column;
+    display: grid;
+    grid-template-columns: 1fr 360px;
     height: 100%;
     overflow: hidden;
+  }
+
+  @media (max-width: 600px) {
+    .page {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .left-col {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    border-right: 1px solid var(--color-rule);
   }
 
   .section-bar {
@@ -339,6 +503,10 @@
     background: var(--color-window-raised);
   }
 
+  .row.selected {
+    background: var(--color-accent-chip-bg);
+  }
+
   .row-main {
     display: flex;
     align-items: center;
@@ -381,13 +549,45 @@
 
   .segment {
     flex: 1;
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    min-width: 0;
+    padding: 2px 4px;
+    border: none;
+    background: none;
+    text-align: left;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text);
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .segment:hover {
+    color: var(--color-accent);
+  }
+
+  .segment.active {
+    color: var(--color-accent);
+    font-weight: var(--weight-semibold);
+  }
+
+  .segment:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+  }
+
+  .segment-name {
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .count {
+    flex-shrink: 0;
+    font-size: 10px;
+    color: var(--color-text-muted);
   }
 
   .virtual-tag {
@@ -445,5 +645,106 @@
     padding: var(--sp-lg) 14px;
     font-size: var(--text-sm);
     color: var(--color-text-muted);
+  }
+
+  /* Right panel — transactions for the selected account */
+  .right-col {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  @media (max-width: 600px) {
+    .right-col {
+      border-top: 1px solid var(--color-rule);
+    }
+  }
+
+  .txn-panel {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow: hidden;
+    background: var(--color-window-raised);
+  }
+
+  .txn-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    flex-shrink: 0;
+  }
+
+  .txn-header-title {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.4px;
+    text-transform: uppercase;
+    flex-shrink: 0;
+  }
+
+  .txn-header-path {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    opacity: 0.75;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .txn-header-spacer {
+    flex: 1;
+  }
+
+  .txn-header-count {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    opacity: 0.75;
+    flex-shrink: 0;
+  }
+
+  .txn-col-header {
+    display: grid;
+    grid-template-columns: 52px 1fr auto;
+    gap: 10px;
+    padding: 4px 14px;
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+    flex-shrink: 0;
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    text-transform: uppercase;
+  }
+
+  .col-header-right {
+    text-align: right;
+  }
+
+  .txn-body {
+    flex: 1;
+    overflow-y: auto;
+    min-height: 0;
+  }
+
+  .txn-list {
+    display: flex;
+    flex-direction: column;
+  }
+
+  .status {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    padding: var(--sp-md) 14px;
   }
 </style>

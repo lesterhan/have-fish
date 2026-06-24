@@ -106,6 +106,13 @@ Shipped together with story 1 — the prefix-rewrite mechanism handles leaf (deg
 parent cascade identically. The `/accounts/manage` tree is expenses-first with collapsible
 categories.
 
+**Decision-support polish (PR #115).** The manage tree is now a two-column surface: each
+account/category name is clickable and carries a `(N)` transaction count (leaf counts from
+the settings `posting-counts` source, category = sum of descendant leaves); selecting one
+loads its all-time transactions (path-prefix) into a right-hand panel reusing
+`SpendingTxnRow`. Top-level roots (`assets`/`liabilities`/`expenses`/…) hide their rename
+button and `category` tag — they're special and renamed elsewhere.
+
 Backend + Frontend. Extend rename to non-leaf nodes.
 
 - Renaming `expenses:food` → `expenses:dining` rewrites the prefix on the node **and every
