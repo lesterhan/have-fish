@@ -5,6 +5,7 @@ import { eq, isNull, and, like, or, lte, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { CLEARING_PREFIX } from '../fish-pie-accounts'
+import { resolveAccountType } from '../postings/account-type'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -79,10 +80,16 @@ app.get('/balances', async (c) => {
   const grouped = new Map<string, { id: string; path: string; name: string | null; type: AccountType; balances: { currency: string; amount: string }[] }>()
   for (const row of rows) {
     if (!grouped.has(row.id)) {
-      let type: AccountType
-      if (row.path.startsWith(`${assetsRoot}:`)) type = 'asset'
-      else if (row.path.startsWith(`${liabilitiesRoot}:`)) type = 'liability'
-      else type = 'equity'
+      // The query restricts to the assets/liabilities/equity roots, so the resolver returns
+      // one of those three; default to equity for any path the resolver can't place.
+      const resolved = resolveAccountType(row.path, {
+        assetsRootPath: assetsRoot,
+        liabilitiesRootPath: liabilitiesRoot,
+        equityRootPath: equityRoot,
+        expensesRootPath: 'expenses',
+        incomeRootPath: 'income',
+      })
+      const type: AccountType = resolved === 'asset' || resolved === 'liability' ? resolved : 'equity'
       grouped.set(row.id, { id: row.id, path: row.path, name: row.name, type, balances: [] })
     }
     if (row.currency !== null && row.balance !== null) {

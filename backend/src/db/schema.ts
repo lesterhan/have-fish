@@ -125,6 +125,10 @@ export const userSettings = pgTable('user_settings', {
   defaultLiabilitiesRootPath: text('default_liabilities_root_path').notNull().default('liabilities'),
   defaultExpensesRootPath: text('default_expenses_root_path').notNull().default('expenses'),
   defaultEquityRootPath: text('default_equity_root_path').notNull().default('equity'),
+  // Accounts under this root are the user's income/revenue. Distinct from equity so the
+  // account-type resolver can tell a paycheck (income) from a rate-balancing leg (equity) —
+  // before this, everything non-asset/non-liability collapsed to equity.
+  defaultIncomeRootPath: text('default_income_root_path').notNull().default('income'),
   // Offset account used when posting reconciliation adjustments (e.g. equity:adjustments).
   defaultAdjustmentsAccountId: uuid('default_adjustments_account_id').references(() => accounts.id),
   // The user's home currency — used to display converted amounts in the UI.

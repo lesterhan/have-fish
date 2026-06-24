@@ -1,0 +1,1 @@
+ALTER TABLE "user_settings" ADD COLUMN "default_income_root_path" text DEFAULT 'income' NOT NULL;

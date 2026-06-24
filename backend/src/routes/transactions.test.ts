@@ -18,6 +18,32 @@ describe('transactions', () => {
     expect(await res.json()).toEqual([])
   })
 
+  it('GET /api/transactions attaches accountPath and a derived role to each posting', async () => {
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [chequing, food] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+    ])
+    await app.request('/api/transactions', {
+      method: 'POST', headers,
+      body: JSON.stringify({ date: '2026-03-01', description: 'Lunch', postings: [
+        { accountId: chequing.id, amount: '-10.00', currency: 'CAD' },
+        { accountId: food.id, amount: '10.00', currency: 'CAD' },
+      ] }),
+    })
+
+    const res = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+    expect(res.status).toBe(200)
+    type P = { accountId: string; accountPath: string; role: string }
+    const body = await res.json() as { postings: P[] }[]
+    const ps = body[0].postings
+    const byAccount = Object.fromEntries(ps.map(p => [p.accountId, p]))
+    expect(byAccount[chequing.id].accountPath).toBe('assets:chequing')
+    expect(byAccount[chequing.id].role).toBe('transfer')
+    expect(byAccount[food.id].accountPath).toBe('expenses:food')
+    expect(byAccount[food.id].role).toBe('subject')
+  })
+
   describe('PATCH /api/transactions/:id', () => {
     let txId: string
     const headers = { Cookie: '', 'Content-Type': 'application/json' }
