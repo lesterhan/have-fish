@@ -625,11 +625,17 @@ export async function deletePosting(id: string) {
     throw new Error((await res.json()).error ?? 'Failed to delete posting')
 }
 
+// A posting's role within its transaction, derived by the backend classifier
+// (src/postings/roles.ts). Drives the narrated TransactionDetail view.
+export type PostingRole = 'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
+
 export type Posting = {
   id: string
   accountId: string
+  accountPath: string
   amount: string
   currency: string
+  role: PostingRole
 }
 
 export type Transaction = {
