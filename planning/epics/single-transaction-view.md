@@ -44,11 +44,17 @@ Every posting gets a derived **role**, classifying it within its transaction:
 
 | role | meaning | example |
 |------|---------|---------|
-| `spend` | meaningful expense/income leg | `expenses:food:cafe`, `income:salary` |
+| `subject` | the meaningful economic leg — expense **or** income | `expenses:food:cafe`, `income:salary` |
 | `transfer` | asset↔asset / asset↔liability move | `assets:wise:cad` ↔ `assets:wise:eur` |
 | `conversion` | FX rate-balancing | `equity:conversion` |
 | `fee` | bank/transfer fee | `expenses:banking:fee` |
 | `share` | Fish Pie clearing leg | `assets:receivable:<slug>` |
+
+> **Role naming (2026-06-24):** the meaningful leg is `subject`, **not** `spend` —
+> it covers income legs (a paycheck) too, not only expenses. Calling it `spend`
+> forced a confusing "income won't leak into the spending total" caveat; `subject`
+> says what it is. The *spending sum* still filters `subject` legs to expense-type
+> accounts, so income `subject` legs don't pollute spending totals.
 
 **Decision to make (story 1):** derive role at read time from the account root +
 transaction shape (heuristic, zero schema change, may misclassify unusual setups), **or**
@@ -70,6 +76,17 @@ and the **summing** (count only `spend` legs in the user's currency) follow from
 
 Backend. The load-bearing story — ships the bug fix.
 
+- **Prereq: shared account-type resolver.** Account types are currently inferred
+  inconsistently (`accounts.ts` does a 3-way asset/liability/else→equity guess that
+  buckets income **and** expense as `equity`; `reports.ts` only knows the expenses
+  root) and there is **no income root setting**. Add `defaultIncomeRootPath` to
+  `userSettings` and a single `resolveAccountType(account, settings)` resolver
+  returning the hledger type (Asset/Cash/Liability/Equity/Revenue/Expense/Conversion,
+  or our subset). Delete the two divergent inference sites and point them at it. The
+  role classifier consumes this resolver — it cannot work while `income:` reads as
+  `equity`. This is the "C" decision (2026-06-24): shared resolver now, a stored
+  `accounts.type` override column later as an additive prereq of the
+  [hledger export](hledger-export.md) epic — no consumer rework when it lands.
 - Add a `classifyPostings(transaction, postings, settings)` helper (backend
   `src/postings/roles.ts` or similar) returning each posting's role per the table above.
   Heuristic by account root, using the user's configured root paths and fee/conversion
@@ -158,6 +175,17 @@ consumers.
 
 - **Heuristic, not a stored column.** No migration. Stored `postings.role` is the fallback
   only if the heuristic proves fragile in real use — additive, no consumer rework.
+
+### Added 2026-06-24
+
+- **Account typing = "C" (shared resolver now, stored column later).** Story 1 adds one
+  `resolveAccountType()` resolver + a `defaultIncomeRootPath` setting and removes the
+  divergent inference in `accounts.ts` / `reports.ts`. A stored `accounts.type` override
+  column (for atypical-named roots like `储蓄:中国银行`, `花钱:房租`) is deferred to the
+  [hledger export](hledger-export.md) epic as an additive prereq — the resolver becomes
+  "stored value, else infer" with no caller changes.
+- **Role `spend` renamed `subject`** — covers income legs, not just expenses. See the
+  note under "Core idea — posting roles".
 - **Classifier keys.** Role from configured fee/conversion accounts (`userSettings` /
   `csvParsers`) **plus** account-root matching: `expenses:` → `spend`, `equity:` →
   `conversion`, `assets:` ↔ `assets:`/`liabilities:` → `transfer`. `share` keys off the
