@@ -38,6 +38,7 @@ app.get('/', async (c) => {
 //   defaultLiabilitiesRootPath — plain text path prefix, e.g. "liabilities"
 //   defaultExpensesRootPath    — plain text path prefix, e.g. "expenses"
 //   defaultEquityRootPath      — plain text path prefix, e.g. "equity"
+//   defaultIncomeRootPath      — plain text path prefix, e.g. "income"
 //   preferences                — arbitrary JSON object, shallow-merged into existing preferences
 app.patch('/', async (c) => {
   const userId = c.get('userId')
@@ -71,7 +72,7 @@ app.patch('/', async (c) => {
   }
 
   // Plain text fields
-  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath', 'defaultExpensesRootPath', 'defaultEquityRootPath'] as const) {
+  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath', 'defaultExpensesRootPath', 'defaultEquityRootPath', 'defaultIncomeRootPath'] as const) {
     if (!(field in body)) continue
     const value = body[field]
     if (typeof value !== 'string' || !value.trim()) {

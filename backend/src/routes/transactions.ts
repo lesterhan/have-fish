@@ -6,6 +6,8 @@ import { accounts } from '../db/schema'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
 import { loadHealContext, findMalformedFxSpends, healFxSpend } from '../postings/heal-service'
+import { loadClassifySettings } from '../postings/classify-service'
+import { classifyPostings, type PostingRole } from '../postings/roles'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -114,17 +116,34 @@ app.get('/', async (c) => {
 
   if (txRows.length === 0) return c.json([])
 
-  // Fetch all postings for the matched transactions in one query
+  // Fetch all postings for the matched transactions in one query, joined to their account
+  // path so each leg can be classified and rendered without a second lookup.
   const txIds = txRows.map((tx) => tx.id)
   const postingRows = await db
-    .select()
+    .select({
+      id: postings.id,
+      transactionId: postings.transactionId,
+      accountId: postings.accountId,
+      accountPath: accounts.path,
+      amount: postings.amount,
+      currency: postings.currency,
+      createdAt: postings.createdAt,
+      deletedAt: postings.deletedAt,
+    })
     .from(postings)
+    .innerJoin(accounts, eq(accounts.id, postings.accountId))
     .where(and(inArray(postings.transactionId, txIds), isNull(postings.deletedAt)))
     .orderBy(postings.createdAt)
 
-  // Group postings by transactionId and embed into each transaction
-  const postingsByTx = postingRows.reduce<Record<string, typeof postingRows>>((acc, p) => {
-    ; (acc[p.transactionId] ??= []).push(p)
+  // Derive each posting's role within its transaction (subject/transfer/conversion/fee/share)
+  // so the read payload narrates a complex multi-leg transaction instead of dumping raw legs.
+  const classifySettings = await loadClassifySettings(userId)
+  const roleById = classifyPostings(postingRows, classifySettings)
+
+  // Group postings by transactionId and embed into each transaction, with role attached
+  type EmbeddedPosting = (typeof postingRows)[number] & { role: PostingRole }
+  const postingsByTx = postingRows.reduce<Record<string, EmbeddedPosting[]>>((acc, p) => {
+    ; (acc[p.transactionId] ??= []).push({ ...p, role: roleById.get(p.id)! })
     return acc
   }, {})
 

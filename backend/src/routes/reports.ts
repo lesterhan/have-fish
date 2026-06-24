@@ -4,6 +4,7 @@ import { transactions, postings, accounts, userSettings, fxRates } from '../db/s
 import { eq, isNull, and, gte, lte, like } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
+import { loadClassifySettings } from '../postings/classify-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -12,6 +13,16 @@ async function getExpensesRoot(userId: string): Promise<string> {
   const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId))
   const root = settings?.defaultExpensesRootPath ?? 'expenses'
   return root.replace(/[%_\\]/g, '\\$&')
+}
+
+// Account ids excluded from spending totals: the explicitly-designated fee and conversion
+// legs. Everything else under the expenses root is a genuine spend (subject) leg — this is
+// the posting-role classifier's verdict reduced to a set lookup, valid because these queries
+// already constrain rows to the expenses root (→ expense type → subject unless fee/conversion).
+// Excluding them stops a cross-currency spend from being inflated by its mechanical legs.
+async function spendExcludedAccountIds(userId: string): Promise<Set<string>> {
+  const s = await loadClassifySettings(userId)
+  return new Set<string>([...s.feeAccountIds, ...s.conversionAccountIds])
 }
 
 // GET /api/reports/spending-summary?from=YYYY-MM-DD&to=YYYY-MM-DD[&prefix=expenses:food]
@@ -44,8 +55,9 @@ app.get('/spending-summary', async (c) => {
   // Escape LIKE special chars in prefix for safe use in the LIKE pattern
   const escapedPrefix = prefix ? prefix.replace(/[%_\\]/g, '\\$&') : null
 
-  const rows = await db
+  const allRows = await db
     .select({
+      accountId: postings.accountId,
       path: accounts.path,
       amount: postings.amount,
       currency: postings.currency,
@@ -65,6 +77,9 @@ app.get('/spending-summary', async (c) => {
       from ? gte(transactions.date, new Date(from)) : undefined,
       to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
     ))
+
+  const excluded = await spendExcludedAccountIds(userId)
+  const rows = allRows.filter((r) => !excluded.has(r.accountId))
 
   const totalByCurrency: Record<string, number> = {}
   const categoryMap: Record<string, Record<string, number>> = {}
@@ -133,8 +148,9 @@ app.get('/monthly-spend', async (c) => {
 
   const expensesRoot = await getExpensesRoot(userId)
 
-  const rows = await db
+  const allRows = await db
     .select({
+      accountId: postings.accountId,
       date: transactions.date,
       amount: postings.amount,
       currency: postings.currency,
@@ -151,6 +167,9 @@ app.get('/monthly-spend', async (c) => {
       gte(transactions.date, windowStart),
       lte(transactions.date, windowEnd),
     ))
+
+  const excluded = await spendExcludedAccountIds(userId)
+  const rows = allRows.filter((r) => !excluded.has(r.accountId))
 
   // Build a map of all months in the window initialised to empty totals
   const monthMap: Record<string, Record<string, number>> = {}
@@ -216,8 +235,9 @@ app.get('/weekly-spend', async (c) => {
 
   const expensesRoot = await getExpensesRoot(userId)
 
-  const rows = await db
+  const allRows = await db
     .select({
+      accountId: postings.accountId,
       date: transactions.date,
       amount: postings.amount,
       currency: postings.currency,
@@ -234,6 +254,9 @@ app.get('/weekly-spend', async (c) => {
       gte(transactions.date, windowStart),
       lte(transactions.date, windowEnd),
     ))
+
+  const excluded = await spendExcludedAccountIds(userId)
+  const rows = allRows.filter((r) => !excluded.has(r.accountId))
 
   // Pre-seed all weeks in the window
   const weekMap: Record<string, { weekStart: string; byCurrency: Record<string, number> }> = {}
@@ -282,8 +305,8 @@ app.get('/spending-fx-pairs', async (c) => {
 
   const expensesRoot = await getExpensesRoot(userId)
 
-  const rows = await db
-    .select({ date: transactions.date, currency: postings.currency })
+  const allRows = await db
+    .select({ accountId: postings.accountId, date: transactions.date, currency: postings.currency })
     .from(postings)
     .innerJoin(accounts, eq(postings.accountId, accounts.id))
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
@@ -296,6 +319,9 @@ app.get('/spending-fx-pairs', async (c) => {
       gte(transactions.date, new Date(from)),
       lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
     ))
+
+  const excluded = await spendExcludedAccountIds(userId)
+  const rows = allRows.filter((r) => !excluded.has(r.accountId))
 
   // Deduplicate to unique (date, currency) pairs, excluding the target currency
   const seen = new Set<string>()
@@ -347,8 +373,8 @@ app.get('/spending-converted', async (c) => {
 
   const expensesRoot = await getExpensesRoot(userId)
 
-  const rows = await db
-    .select({ date: transactions.date, amount: postings.amount, currency: postings.currency })
+  const allRows = await db
+    .select({ accountId: postings.accountId, date: transactions.date, amount: postings.amount, currency: postings.currency })
     .from(postings)
     .innerJoin(accounts, eq(postings.accountId, accounts.id))
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
@@ -361,6 +387,9 @@ app.get('/spending-converted', async (c) => {
       gte(transactions.date, new Date(from)),
       lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
     ))
+
+  const excluded = await spendExcludedAccountIds(userId)
+  const rows = allRows.filter((r) => !excluded.has(r.accountId))
 
   // Build a cache of rates needed: (date:fromCurrency) → rate string | null
   const rateCache = new Map<string, string | null>()
