@@ -44,6 +44,63 @@ describe('transactions', () => {
     expect(byAccount[food.id].role).toBe('subject')
   })
 
+  it('POST /api/transactions returns postings enriched with accountPath and role', async () => {
+    // The create response must match the GET payload shape so a freshly-created row can be
+    // narrated (TransactionDetail) without a refetch.
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [chequing, food] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+    ])
+    const res = await app.request('/api/transactions', {
+      method: 'POST', headers,
+      body: JSON.stringify({ date: '2026-03-01', description: 'Lunch', postings: [
+        { accountId: chequing.id, amount: '-10.00', currency: 'CAD' },
+        { accountId: food.id, amount: '10.00', currency: 'CAD' },
+      ] }),
+    })
+    expect(res.status).toBe(201)
+    type P = { accountId: string; accountPath: string; role: string }
+    const body = await res.json() as { postings: P[] }
+    const byAccount = Object.fromEntries(body.postings.map(p => [p.accountId, p]))
+    expect(byAccount[chequing.id].accountPath).toBe('assets:chequing')
+    expect(byAccount[chequing.id].role).toBe('transfer')
+    expect(byAccount[food.id].accountPath).toBe('expenses:food')
+    expect(byAccount[food.id].role).toBe('subject')
+  })
+
+  it('POST /api/transactions/bulk returns each transaction with enriched postings', async () => {
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [chequing, food] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+    ])
+    const res = await app.request('/api/transactions/bulk', {
+      method: 'POST', headers,
+      body: JSON.stringify({ transactions: [
+        { date: '2026-03-01', description: 'A', postings: [
+          { accountId: chequing.id, amount: '-10.00', currency: 'CAD' },
+          { accountId: food.id, amount: '10.00', currency: 'CAD' },
+        ] },
+        { date: '2026-03-02', description: 'B', postings: [
+          { accountId: chequing.id, amount: '-20.00', currency: 'CAD' },
+          { accountId: food.id, amount: '20.00', currency: 'CAD' },
+        ] },
+      ] }),
+    })
+    expect(res.status).toBe(201)
+    type P = { accountId: string; accountPath: string; role: string }
+    const body = await res.json() as { postings: P[] }[]
+    expect(body).toHaveLength(2)
+    // Roles must be attached per-transaction, not bled across the flattened batch.
+    for (const tx of body) {
+      const byAccount = Object.fromEntries(tx.postings.map(p => [p.accountId, p]))
+      expect(byAccount[chequing.id].role).toBe('transfer')
+      expect(byAccount[food.id].role).toBe('subject')
+      expect(byAccount[food.id].accountPath).toBe('expenses:food')
+    }
+  })
+
   describe('PATCH /api/transactions/:id', () => {
     let txId: string
     const headers = { Cookie: '', 'Content-Type': 'application/json' }
@@ -111,7 +168,13 @@ describe('transactions', () => {
         body: JSON.stringify({ postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: accB.id, amount: '6.00', currency: 'CAD' }, { accountId: accC.id, amount: '4.00', currency: 'CAD' }] }),
       })
       expect(res.status).toBe(200)
-      expect((await res.json()).postings).toHaveLength(3)
+      const body = await res.json()
+      expect(body.postings).toHaveLength(3)
+      // Replaced postings are enriched with accountPath + role like the GET payload.
+      const byAccount = Object.fromEntries(body.postings.map((p: { accountId: string }) => [p.accountId, p]))
+      expect(byAccount[accA.id].accountPath).toBe('assets:chequing')
+      expect(byAccount[accA.id].role).toBe('transfer')
+      expect(byAccount[accC.id].role).toBe('subject')
     })
 
     it('returns 400 when postings do not balance', async () => {

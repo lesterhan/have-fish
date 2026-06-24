@@ -11,6 +11,28 @@ import { classifyPostings, type PostingRole } from '../postings/roles'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
+// Augments raw posting rows (from an insert .returning()) with accountPath + derived
+// role so create/replace responses match the GET payload shape. This keeps a single
+// honest `Posting` type on the client and lets a freshly-created row be narrated
+// (TransactionDetail) without a refetch. Postings carry transactionId, so a flattened
+// list from several transactions can be enriched in one pass and regrouped by caller.
+async function enrichPostings<T extends { id: string; accountId: string }>(
+  userId: string,
+  rows: T[],
+): Promise<(T & { accountPath: string; role: PostingRole })[]> {
+  if (rows.length === 0) return []
+  const accountIds = [...new Set(rows.map((r) => r.accountId))]
+  const accountRows = await db
+    .select({ id: accounts.id, path: accounts.path })
+    .from(accounts)
+    .where(inArray(accounts.id, accountIds))
+  const pathById = new Map(accountRows.map((a) => [a.id, a.path]))
+  const withPath = rows.map((r) => ({ ...r, accountPath: pathById.get(r.accountId) ?? '' }))
+  const settings = await loadClassifySettings(userId)
+  const roleById = classifyPostings(withPath, settings)
+  return withPath.map((r) => ({ ...r, role: roleById.get(r.id)! }))
+}
+
 // GET /api/transactions/malformed-fx-spend
 // Lists transactions matching the malformed cross-currency-spend shape (expense account
 // reused as the FX bridge + a phantom balance holding), each with a before/after preview
@@ -228,7 +250,8 @@ app.post('/', async (c) => {
     return { ...newTx, postings: newPostings }
   })
 
-  return c.json(created, 201)
+  const enriched = await enrichPostings(userId, created.postings)
+  return c.json({ ...created, postings: enriched }, 201)
 })
 
 // POST /api/transactions/bulk
@@ -287,7 +310,15 @@ app.post('/bulk', async (c) => {
     return results
   })
 
-  return c.json(created, 201)
+  // Enrich every posting across all created transactions in one pass, then regroup.
+  const enriched = await enrichPostings(userId, created.flatMap((t) => t.postings))
+  const byTx = new Map<string, typeof enriched>()
+  for (const p of enriched) {
+    const list = byTx.get(p.transactionId)
+    if (list) list.push(p)
+    else byTx.set(p.transactionId, [p])
+  }
+  return c.json(created.map((t) => ({ ...t, postings: byTx.get(t.id) ?? [] })), 201)
 })
 
 // PATCH /api/transactions/:id
@@ -390,7 +421,8 @@ app.post('/:id/postings', async (c) => {
     return { ...tx, postings: newPostings }
   })
 
-  return c.json(result)
+  const enriched = await enrichPostings(userId, result.postings)
+  return c.json({ ...result, postings: enriched })
 })
 
 // POST /api/transactions/:id/heal-fx-spend
