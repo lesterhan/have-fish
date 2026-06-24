@@ -44,7 +44,9 @@
   let saving = $state(false)
 
   // Pending parent rename awaiting confirmation (affects more than one account).
-  let pending = $state<{ from: string; to: string; affected: string[] } | null>(null)
+  let pending = $state<{ from: string; to: string; affected: string[] } | null>(
+    null,
+  )
 
   // Collapsed category paths. This page is expenses-first: `expenses` sits on top and stays
   // expanded; every other top-level category starts collapsed.
@@ -57,7 +59,9 @@
   let countByPath = $derived.by<Map<string, number>>(() => {
     const map = new Map<string, number>()
     const visit = (node: TreeNode): number => {
-      const own = node.accountId ? (postingCountMap.get(node.accountId) ?? 0) : 0
+      const own = node.accountId
+        ? (postingCountMap.get(node.accountId) ?? 0)
+        : 0
       const total = node.children.reduce((sum, c) => sum + visit(c), own)
       map.set(node.path, total)
       return total
@@ -76,7 +80,9 @@
     postingCountMap = new Map(counts.map((c) => [c.accountId, c.count]))
     baseCurrency = settings.preferredCurrency ?? 'CAD'
     // Collapse every top-level category except `expenses` by default.
-    collapsed = new Set(tree.filter((n) => n.segment !== 'expenses').map((n) => n.path))
+    collapsed = new Set(
+      tree.filter((n) => n.segment !== 'expenses').map((n) => n.path),
+    )
     loading = false
   })
 
@@ -176,7 +182,9 @@
     const affected = affectedPaths(node.path)
     const affectedSet = new Set(affected)
     const rewritten = affected.map((p) => `${to}${p.slice(node.path.length)}`)
-    const others = new Set(accounts.map((a) => a.path).filter((p) => !affectedSet.has(p)))
+    const others = new Set(
+      accounts.map((a) => a.path).filter((p) => !affectedSet.has(p)),
+    )
     const collision = rewritten.find((p) => others.has(p))
     if (collision) {
       toast.show(`"${collision}" already exists — merge isn't supported yet`)
@@ -222,7 +230,10 @@
 <div class="page">
   <div class="left-col">
     <div class="section-bar">
-      <GradientButton onclick={() => goto('/settings')} tooltip="Back to Settings">
+      <GradientButton
+        onclick={() => goto('/settings')}
+        tooltip="Back to Settings"
+      >
         <Icon name="back" />
         Back
       </GradientButton>
@@ -230,8 +241,9 @@
     </div>
 
     <p class="hint">
-      Click an account to see its transactions. Rename any account or category — renaming a
-      category renames every account beneath it. Postings stay attached, only the name changes.
+      Click an account to see its transactions. Rename any account or category —
+      renaming a category renames every account beneath it. Postings stay
+      attached, only the name changes.
     </p>
 
     <div class="tree" use:scrollShadow>
@@ -305,7 +317,10 @@
           aria-expanded={!isCollapsed}
           aria-label={isCollapsed ? 'Expand' : 'Collapse'}
         >
-          <Icon name={isCollapsed ? 'chevron-right-filled' : 'chevron-down-line'} size={12} />
+          <Icon
+            name={isCollapsed ? 'chevron-right-filled' : 'chevron-down-line'}
+            size={15}
+          />
         </button>
       {:else}
         <span class="leaf-dot"></span>
@@ -319,25 +334,42 @@
           onkeydown={(e: KeyboardEvent) => handleKeydown(e, node)}
           style="width: 14rem"
         />
-        <GradientButton square onclick={() => submitEdit(node)} disabled={saving} tooltip="Save">
+        <GradientButton
+          square
+          onclick={() => submitEdit(node)}
+          disabled={saving}
+          tooltip="Save"
+        >
           <Icon name="floppy" size={12} />
         </GradientButton>
-        <GradientButton square onclick={cancelEdit} disabled={saving} tooltip="Cancel">
+        <GradientButton
+          square
+          onclick={cancelEdit}
+          disabled={saving}
+          tooltip="Cancel"
+        >
           <Icon name="close" size={12} />
         </GradientButton>
       {:else}
-        <button type="button" class="segment" class:active={selected} onclick={() => select(node.path)}>
+        <button
+          type="button"
+          class="segment"
+          class:active={selected}
+          onclick={() => select(node.path)}
+        >
           <span class="segment-name">{node.segment}</span>
           {#if count > 0}
             <span class="count">({count})</span>
           {/if}
         </button>
-        {#if node.accountId === null}
+        {#if node.accountId === null && depth > 0}
           <span class="virtual-tag">category</span>
         {/if}
         {#if receivable}
           <span class="virtual-tag">system</span>
-        {:else}
+        {:else if depth > 0}
+          <!-- Top-level roots (assets/liabilities/expenses/…) are special — renaming them is
+               handled elsewhere, so no rename action here. -->
           <GradientButton
             square
             onclick={() => startEdit(node)}
@@ -358,22 +390,36 @@
   {/if}
 {/snippet}
 
-<Modal title="Rename category" bind:open={() => pending !== null, (v) => { if (!v) pending = null }}>
+<Modal
+  title="Rename category"
+  bind:open={
+    () => pending !== null,
+    (v) => {
+      if (!v) pending = null
+    }
+  }
+>
   {#if pending}
     <div class="confirm">
       <p>
-        This renames <strong>{pending.affected.length}</strong> account{pending.affected.length === 1
+        This renames <strong>{pending.affected.length}</strong> account{pending
+          .affected.length === 1
           ? ''
           : 's'} under
         <code>{pending.from}</code> → <code>{pending.to}</code>:
       </p>
       <ul class="affected" use:scrollShadow>
         {#each pending.affected as p (p)}
-          <li><code>{p}</code> → <code>{pending.to}{p.slice(pending.from.length)}</code></li>
+          <li>
+            <code>{p}</code> →
+            <code>{pending.to}{p.slice(pending.from.length)}</code>
+          </li>
         {/each}
       </ul>
       <div class="confirm-actions">
-        <GradientButton onclick={() => (pending = null)} disabled={saving}>Cancel</GradientButton>
+        <GradientButton onclick={() => (pending = null)} disabled={saving}
+          >Cancel</GradientButton
+        >
         <GradientButton
           active
           onclick={() => pending && applyRename(pending.from, pending.to)}
