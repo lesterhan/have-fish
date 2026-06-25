@@ -21,17 +21,13 @@ function p(
   }
 }
 
-// The text of every emphasized segment, in order — what the render bolds.
+// The text of every emphasized segment, in order — what the render bolds. Only money figures
+// are emphasized now; labels + currency codes ride as plain text.
 const emph = (parts: BlurbParts): string[] =>
-  parts.filter((s) => s.kind === 'emph').map((s) => s.text)
-const accent = (parts: BlurbParts): string[] =>
-  parts.filter((s) => s.kind === 'accent').map((s) => s.text)
-// The plain (un-emphasized) text, joined — where the demoted currency codes live.
+  parts.filter((s) => s.kind === 'emph').map((s) => (s.kind === 'emph' ? s.text : ''))
+// The plain (un-emphasized) text, joined — where labels and the demoted currency codes live.
 const plain = (parts: BlurbParts): string =>
-  parts
-    .filter((s) => s.kind === 'text')
-    .map((s) => s.text)
-    .join('')
+  parts.map((s) => (s.kind === 'text' ? s.text : '')).join('')
 
 const blurb = (postings: Posting[]): BlurbParts => blurbFor(narrateTransaction(postings))
 
@@ -45,14 +41,11 @@ describe('simple spend blurb', () => {
     expect(blurbText(parts)).toBe('You spent 50.00 CAD on Food · Cafe from Chequing.')
   })
 
-  it('emphasizes the amount, category, and source — numbers from the tx', () => {
-    expect(emph(parts)).toEqual(['50.00', 'Food · Cafe', 'Chequing'])
-  })
-
-  it('demotes the currency code to plain text (not bold)', () => {
-    // The figure is emphasized; the all-caps code rides along as plain text.
-    expect(emph(parts)).not.toContain('50.00 CAD')
+  it('emphasizes only the figure — label + code ride as plain text', () => {
+    expect(emph(parts)).toEqual(['50.00'])
     expect(plain(parts)).toContain(' CAD')
+    expect(plain(parts)).toContain('Food · Cafe')
+    expect(plain(parts)).toContain('Chequing')
   })
 
   it('uses the friendly account name when set', () => {
@@ -79,18 +72,19 @@ describe('split blurb', () => {
     p('assets:receivable:roommates', '10.00', 'CAD', 'share'),
   ])
 
-  it('spells out fronted / share / owed', () => {
+  it('spells out fronted / share / owed across two lines', () => {
     expect(blurbText(parts)).toBe(
-      'You fronted 30.00 CAD for Food. Your share is 20.00 CAD; Roommates owes you 10.00 CAD.',
+      'You fronted 30.00 CAD for Food\nYour share is 20.00 CAD, Roommates owes you 10.00 CAD.',
     )
   })
 
-  it('puts the owes-you relationship in an accent span', () => {
-    expect(accent(parts)).toEqual(['Roommates owes you 10.00 CAD'])
+  it('breaks the two clauses onto separate lines', () => {
+    expect(parts.some((s) => s.kind === 'break')).toBe(true)
   })
 
-  it('emphasizes fronted total, category, and share — codes demoted', () => {
-    expect(emph(parts)).toEqual(['30.00', 'Food', '20.00'])
+  it('emphasizes the three figures only — owes-you is plain prose, codes demoted', () => {
+    expect(emph(parts)).toEqual(['30.00', '20.00', '10.00'])
+    expect(plain(parts)).toContain('Roommates owes you ')
   })
 })
 
@@ -108,8 +102,9 @@ describe('multi-currency blurb', () => {
     )
   })
 
-  it('emphasizes only the two figures; codes demoted, rate omitted', () => {
-    expect(emph(parts)).toEqual(['360.00', 'Food · Coffee', '17.24'])
+  it('emphasizes only the two figures; label + codes demoted, rate omitted', () => {
+    expect(emph(parts)).toEqual(['360.00', '17.24'])
+    expect(plain(parts)).toContain('Food · Coffee')
     expect(plain(parts)).toContain(' CZK')
     expect(plain(parts)).toContain(' USD')
     expect(blurbText(parts)).not.toContain('CZK/USD')
@@ -123,7 +118,7 @@ describe('inflow blurb', () => {
       p('income:salary', '-2000.00', 'CAD', 'subject'),
     ])
     expect(blurbText(parts)).toBe('2000.00 CAD came into Chequing for Salary.')
-    expect(emph(parts)).toEqual(['2000.00', 'Chequing', 'Salary'])
+    expect(emph(parts)).toEqual(['2000.00'])
   })
 
   it('refund magnitude is positive in the copy despite the negative subject', () => {

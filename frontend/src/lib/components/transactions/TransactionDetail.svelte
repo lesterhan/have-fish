@@ -13,6 +13,7 @@
   // story 6). No edit logic lives here yet.
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import Icon from '$lib/components/ui/Icon.svelte'
   import { narrateTransaction, accountLabel } from './narration'
   import { blurbFor } from './blurb'
   import {
@@ -50,7 +51,16 @@
     <div class="head-main">
       <span class="payee">{tx.description || '—'}</span>
       {#if tag}
-        <span class="tag">{tag.label}</span>
+        {#if tag.kind === 'fishpie'}
+          <!-- Two-chip Fish Pie identity, shared with the import preview (FishPiePills):
+               accent category chip + muted group chip. -->
+          <span class="fp-tag">
+            <span class="fp-hero"><Icon name="pie" size={11} />{tag.category}</span>
+            <span class="fp-sub">{tag.group}</span>
+          </span>
+        {:else}
+          <span class="tag">{tag.label}</span>
+        {/if}
       {/if}
     </div>
     <div class="head-side">
@@ -75,7 +85,7 @@
   {/if}
 
   <p class="blurb">
-    {#each blurb as seg}<span class="seg" class:emph={seg.kind === 'emph'} class:accent={seg.kind === 'accent'}>{seg.text}</span>{/each}
+    {#each blurb as seg}{#if seg.kind === 'break'}<br />{:else}<span class="seg" class:emph={seg.kind === 'emph'}>{seg.text}</span>{/if}{/each}
   </p>
 
   {#if n.source || n.branches.length > 0}
@@ -174,6 +184,40 @@
     white-space: nowrap;
   }
 
+  /* Two-chip Fish Pie identity — mirrors FishPiePills (import preview) so the
+     category-vs-group distinction reads the same everywhere. */
+  .fp-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    flex-shrink: 0;
+  }
+
+  .fp-hero {
+    display: inline-flex;
+    align-items: center;
+    gap: 3px;
+    padding: 2px 6px;
+    background: var(--color-accent-light);
+    border: 1px solid var(--color-accent);
+    color: var(--color-accent-chip-fg);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    white-space: nowrap;
+  }
+
+  .fp-sub {
+    display: inline-block;
+    padding: 2px 6px;
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    color: var(--color-text-muted);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    white-space: nowrap;
+  }
+
   .head-side {
     display: flex;
     align-items: center;
@@ -251,11 +295,6 @@
 
   .seg.emph {
     color: var(--color-text);
-    font-weight: 600;
-  }
-
-  .seg.accent {
-    color: var(--color-accent);
     font-weight: 600;
   }
 

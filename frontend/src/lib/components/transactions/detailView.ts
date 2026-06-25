@@ -8,19 +8,23 @@ import type { NarratedTransaction, Chip, Branch } from './narration'
 
 // --- header tag ---------------------------------------------------------------------------
 
-// The accent pill beside the payee: a Fish Pie split names its group; an inflow says whether
-// money came back (refund of an expense) or in (income). Direct/multi-currency spends get no
-// tag. Null = no pill.
+// The pill(s) beside the payee. A Fish Pie split gets the two-chip identity shared with the
+// import preview (category + group); an inflow gets a single label (Income / Refund).
+// Direct/multi-currency spends get no tag. Null = no pill.
+export type HeaderTag =
+  | { kind: 'fishpie'; category: string; group: string }
+  | { kind: 'simple'; label: string }
+
 export function headerTag(
   n: NarratedTransaction,
   groupName: string | null,
-): { label: string } | null {
+): HeaderTag | null {
   if (n.archetype === 'split') {
-    return { label: groupName ? `Split · ${groupName}` : 'Split' }
+    return { kind: 'fishpie', category: n.hero?.label ?? 'Split', group: groupName ?? 'Split' }
   }
   if (n.archetype === 'inflow') {
     const path = n.hero?.path ?? ''
-    return { label: path.startsWith('income') ? 'Income' : 'Refund' }
+    return { kind: 'simple', label: path.startsWith('income') ? 'Income' : 'Refund' }
   }
   return null
 }

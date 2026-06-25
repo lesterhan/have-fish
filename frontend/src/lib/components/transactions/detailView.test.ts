@@ -65,20 +65,28 @@ describe('headerTag', () => {
     expect(headerTag(narrate(multiCcySpend), null)).toBeNull()
   })
 
-  it('split names the group when present', () => {
-    expect(headerTag(narrate(splitSpend), 'Household')).toEqual({ label: 'Split · Household' })
+  it('split → two-chip Fish Pie identity (category + group)', () => {
+    expect(headerTag(narrate(splitSpend), 'Household')).toEqual({
+      kind: 'fishpie',
+      category: 'Food',
+      group: 'Household',
+    })
   })
 
-  it('split falls back to bare label with no group name', () => {
-    expect(headerTag(narrate(splitSpend), null)).toEqual({ label: 'Split' })
+  it('split falls back to Split for a missing group name', () => {
+    expect(headerTag(narrate(splitSpend), null)).toEqual({
+      kind: 'fishpie',
+      category: 'Food',
+      group: 'Split',
+    })
   })
 
   it('income inflow tags Income', () => {
-    expect(headerTag(narrate(income), null)).toEqual({ label: 'Income' })
+    expect(headerTag(narrate(income), null)).toEqual({ kind: 'simple', label: 'Income' })
   })
 
   it('expense-refund inflow tags Refund', () => {
-    expect(headerTag(narrate(refund), null)).toEqual({ label: 'Refund' })
+    expect(headerTag(narrate(refund), null)).toEqual({ kind: 'simple', label: 'Refund' })
   })
 })
 
