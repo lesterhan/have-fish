@@ -144,6 +144,55 @@ export function convertedNote(n: NarratedTransaction): string | null {
   return `${c.paid.amount} ${c.paid.currency} @ ${c.rate} ${c.rateUnit}`
 }
 
+// --- conversion expander ------------------------------------------------------------------
+
+// One amount row of the currency-conversion grid (PAID / CONVERTED / FX FEE). The RATE row is
+// rendered separately from `conversionHint` — it is a unit string, not an amount + pill.
+export type ConvRow = { label: string; amount: string; currency: string }
+
+// The PAID / CONVERTED / (FX FEE) rows of the conversion grid, in reading order. Null when the
+// transaction has no FX bridge (the expander is not rendered at all then).
+export function conversionRows(n: NarratedTransaction): ConvRow[] | null {
+  const c = n.conversion
+  if (!c) return null
+  const rows: ConvRow[] = [
+    { label: 'Paid', amount: c.paid.amount, currency: c.paid.currency },
+    { label: 'Converted', amount: c.converted.amount, currency: c.converted.currency },
+  ]
+  if (c.fee) rows.push({ label: 'FX fee', amount: c.fee.amount, currency: c.fee.currency })
+  return rows
+}
+
+// The rate as a unit string — the caret-row hint and the grid's RATE value.
+//   "20.88 CZK/USD"
+export function conversionHint(n: NarratedTransaction): string | null {
+  const c = n.conversion
+  if (!c) return null
+  return `${c.rate} ${c.rateUnit}`
+}
+
+// --- all-postings expander ----------------------------------------------------------------
+
+// One raw leg of the All-postings ledger: its path, role note, and signed amount. Every leg is
+// listed — including the equity:conversions bridges that never appear as branches.
+export type PostingRow = { path: string; role: string; amount: string; currency: string }
+
+// A stored amount with an explicit sign — "+50.00" / "-17.24". The ledger shows direction on
+// every leg (unlike the flow tree, where the chip carries it).
+export function signedAmount(amount: string): string {
+  const v = parseFloat(amount) || 0
+  return (v >= 0 ? '+' : '-') + Math.abs(v).toFixed(2)
+}
+
+export function postingRows(n: NarratedTransaction): PostingRow[] {
+  return n.allPostings.map((p) => ({
+    path: p.accountPath,
+    role: p.role,
+    amount: signedAmount(p.amount),
+    currency: p.currency,
+  }))
+}
+
 // --- date ---------------------------------------------------------------------------------
 
 // The transaction date as "Wed, Jun 24, 2026". Parsed at local midnight so the stored UTC

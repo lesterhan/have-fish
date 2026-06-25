@@ -7,6 +7,10 @@ import {
   branchAmount,
   orderedBranches,
   convertedNote,
+  conversionRows,
+  conversionHint,
+  signedAmount,
+  postingRows,
   formatTxDate,
 } from './detailView'
 import { narrateTransaction } from './narration'
@@ -229,6 +233,69 @@ describe('convertedNote', () => {
 
   it('null on a same-currency spend', () => {
     expect(convertedNote(narrate(directSpend))).toBeNull()
+  })
+})
+
+describe('conversionRows', () => {
+  it('null on a same-currency transaction (no expander)', () => {
+    expect(conversionRows(narrate(directSpend))).toBeNull()
+  })
+
+  it('PAID + CONVERTED with no fee leg', () => {
+    expect(conversionRows(narrate(multiCcySpend))).toEqual([
+      { label: 'Paid', amount: '17.24', currency: 'USD' },
+      { label: 'Converted', amount: '360.00', currency: 'CZK' },
+    ])
+  })
+
+  it('adds an FX fee row when a fee leg is present', () => {
+    const withFee = narrate([
+      p('expenses:food:cafe', '50.00', 'EUR', 'subject'),
+      p('expenses:banking:fee', '0.05', 'EUR', 'fee'),
+      p('assets:wise:cad', '-80.08', 'CAD', 'transfer'),
+      p('equity:conversions', '-50.05', 'EUR', 'conversion'),
+      p('equity:conversions', '80.08', 'CAD', 'conversion'),
+    ])
+    expect(conversionRows(withFee)).toEqual([
+      { label: 'Paid', amount: '80.08', currency: 'CAD' },
+      { label: 'Converted', amount: '50.05', currency: 'EUR' },
+      { label: 'FX fee', amount: '0.05', currency: 'EUR' },
+    ])
+  })
+})
+
+describe('conversionHint', () => {
+  it('reads as rate + unit', () => {
+    expect(conversionHint(narrate(multiCcySpend))).toBe('20.88 CZK/USD')
+  })
+
+  it('null without a conversion', () => {
+    expect(conversionHint(narrate(directSpend))).toBeNull()
+  })
+})
+
+describe('signedAmount', () => {
+  it('keeps direction with an explicit sign at 2dp', () => {
+    expect(signedAmount('-17.24')).toBe('-17.24')
+    expect(signedAmount('360.00')).toBe('+360.00')
+    expect(signedAmount('0')).toBe('+0.00')
+    expect(signedAmount('garbage')).toBe('+0.00')
+  })
+})
+
+describe('postingRows', () => {
+  it('lists every raw leg incl. equity bridges, signed, with role', () => {
+    const rows = postingRows(narrate(multiCcySpend))
+    expect(rows).toEqual([
+      { path: 'expenses:food:coffee', role: 'subject', amount: '+360.00', currency: 'CZK' },
+      { path: 'assets:usd', role: 'transfer', amount: '-17.24', currency: 'USD' },
+      { path: 'equity:conversions', role: 'conversion', amount: '-360.00', currency: 'CZK' },
+      { path: 'equity:conversions', role: 'conversion', amount: '+17.24', currency: 'USD' },
+    ])
+  })
+
+  it('preserves input order and leg count', () => {
+    expect(postingRows(narrate(directSpend))).toHaveLength(2)
   })
 })
 
