@@ -175,6 +175,15 @@ describe('branches + chips', () => {
     ])
   })
 
+  it('negative receivable share → `you-owe` (another member fronted, you owe the group)', () => {
+    // The receivable clearing account is reused both ways; a negative share leg means you owe.
+    const b = narrateTransaction([
+      p('expenses:food:restaurant', '287.95', 'CZK', 'subject'),
+      p('assets:receivable:quotidien', '-287.95', 'CZK', 'share'),
+    ]).branches
+    expect(b.find((x) => x.path === 'assets:receivable:quotidien')?.chip).toBe('you-owe')
+  })
+
   it('payable share → `you-owe`', () => {
     const b = narrateTransaction([
       p('assets:chequing', '100.00', 'CAD', 'transfer'),

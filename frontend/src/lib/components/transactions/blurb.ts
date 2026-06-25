@@ -72,6 +72,21 @@ function directBlurb(n: NarratedTransaction): BlurbParts {
 function splitBlurb(n: NarratedTransaction): BlurbParts {
   const share = branchByChip(n, 'your-share')
   const owed = branchByChip(n, 'owes-you')
+  const owe = branchByChip(n, 'you-owe')
+
+  // You owe the group: another member fronted the bill, so there is no source asset of
+  // yours — just your share of the spend, which you now owe to the clearing account.
+  if (owe && !owed) {
+    const category = share?.label ?? n.hero?.label ?? 'this'
+    return [
+      t(`You owe ${partyName(owe.path)} `),
+      ...moneyParts(owe.amount, owe.currency),
+      t(' for '),
+      t(category),
+      t('.'),
+    ]
+  }
+
   const fronted = n.source ?? n.hero
   const category = share?.label ?? n.hero?.label ?? 'this'
 

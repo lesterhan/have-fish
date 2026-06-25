@@ -121,8 +121,14 @@ export function accountLabel(p: { accountName: string | null; accountPath: strin
 const isPayable = (path: string): boolean =>
   path.startsWith('liabilities:payable') || path.includes(':payable:')
 
-// A share leg is a receivable unless it is explicitly a payable.
-const shareChip = (path: string): Chip => (isPayable(path) ? 'you-owe' : 'owes-you')
+// A share leg's direction. An explicit payable path always means you owe. Otherwise the
+// receivable clearing leg's SIGN carries the direction: the same clearing account is reused
+// both ways, so a positive leg means the group owes you (you fronted the bill) and a negative
+// one means you owe the group (another member fronted it).
+const shareChip = (path: string, amount: string): Chip => {
+  if (isPayable(path)) return 'you-owe'
+  return parseFloat(amount) < 0 ? 'you-owe' : 'owes-you'
+}
 
 // The chip for a non-source, non-conversion branch.
 //   fee                         → fx-fee
@@ -133,7 +139,7 @@ const shareChip = (path: string): Chip => (isPayable(path) ? 'you-owe' : 'owes-y
 //   transfer destination        → deposit (positive) / the-spend (negative, atypical)
 function chipFor(p: Posting, hasShare: boolean): Chip {
   if (p.role === 'fee') return 'fx-fee'
-  if (p.role === 'share') return shareChip(p.accountPath)
+  if (p.role === 'share') return shareChip(p.accountPath, p.amount)
   if (p.role === 'subject') {
     if (parseFloat(p.amount) < 0) return 'deposit'
     return hasShare ? 'your-share' : 'the-spend'

@@ -1,6 +1,9 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
+import { db } from '../db'
+import { transactions, expenseGroups, expenseGroupMembers, groupExpenses } from '../db/schema'
+import { eq } from 'drizzle-orm'
 
 describe('transactions', () => {
   let cookie: string
@@ -452,6 +455,95 @@ describe('transactions', () => {
       // Confirm nothing was persisted
       const txns = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json())
       expect(txns).toHaveLength(0)
+    })
+  })
+
+  describe('GET /api/transactions group expense linking', () => {
+    let userId: string
+    let groupId: string
+
+    beforeEach(async () => {
+      userId = (await app.request('/api/auth/get-session', { headers: { Cookie: cookie } }).then(r => r.json()) as any).user.id
+      const [group] = await db
+        .insert(expenseGroups)
+        .values({ name: 'Quotidien', createdBy: userId })
+        .returning()
+      groupId = group.id
+      await db.insert(expenseGroupMembers).values({ groupId, userId, shareWeight: 1 })
+    })
+
+    // A split expense logged from import (paid by me) links the OTHER way: the group expense
+    // points to the import transaction via groupExpenses.transactionId, while that transaction's
+    // own groupExpenseId stays null. The GET payload must still surface both.
+    it('resolves groupExpenseId + groupName via the reverse import link', async () => {
+      const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+      const [wise, food] = await Promise.all([
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:wise:czk' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food:groceries' }) }).then(r => r.json()),
+      ])
+      const created = await app.request('/api/transactions', {
+        method: 'POST', headers,
+        body: JSON.stringify({ date: '2026-06-23', description: 'Albert', postings: [
+          { accountId: wise.id, amount: '-717.80', currency: 'CZK' },
+          { accountId: food.id, amount: '717.80', currency: 'CZK' },
+        ] }),
+      }).then(r => r.json()) as any
+
+      const [expense] = await db
+        .insert(groupExpenses)
+        .values({ groupId, paidByUserId: userId, description: 'Albert', amount: '717.80', currency: 'CZK', date: '2026-06-23', transactionId: created.id })
+        .returning()
+
+      const data = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json()) as any[]
+      const tx = data.find((t) => t.id === created.id)
+      expect(tx.groupExpenseId).toBe(expense.id)
+      expect(tx.groupName).toBe('Quotidien')
+    })
+
+    // A member transaction created for a group expense links forward (transactions.groupExpenseId).
+    it('resolves groupName via the forward member-transaction link', async () => {
+      const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+      const [recv, food] = await Promise.all([
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:receivable:quotidien' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food:restaurant' }) }).then(r => r.json()),
+      ])
+      const [expense] = await db
+        .insert(groupExpenses)
+        .values({ groupId, paidByUserId: userId, description: 'Ugo Delivery', amount: '287.95', currency: 'CZK', date: '2026-06-22' })
+        .returning()
+      const created = await app.request('/api/transactions', {
+        method: 'POST', headers,
+        body: JSON.stringify({ date: '2026-06-22', description: 'Ugo Delivery', postings: [
+          { accountId: food.id, amount: '287.95', currency: 'CZK' },
+          { accountId: recv.id, amount: '-287.95', currency: 'CZK' },
+        ] }),
+      }).then(r => r.json()) as any
+      await db.update(transactions).set({ groupExpenseId: expense.id }).where(eq(transactions.id, created.id))
+
+      const data = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json()) as any[]
+      const tx = data.find((t) => t.id === created.id)
+      expect(tx.groupExpenseId).toBe(expense.id)
+      expect(tx.groupName).toBe('Quotidien')
+    })
+
+    it('leaves groupExpenseId + groupName null for an ordinary transaction', async () => {
+      const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+      const [chequing, food] = await Promise.all([
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+      ])
+      const created = await app.request('/api/transactions', {
+        method: 'POST', headers,
+        body: JSON.stringify({ date: '2026-06-20', description: 'Solo lunch', postings: [
+          { accountId: chequing.id, amount: '-12.00', currency: 'CAD' },
+          { accountId: food.id, amount: '12.00', currency: 'CAD' },
+        ] }),
+      }).then(r => r.json()) as any
+
+      const data = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json()) as any[]
+      const tx = data.find((t) => t.id === created.id)
+      expect(tx.groupExpenseId).toBeNull()
+      expect(tx.groupName).toBeNull()
     })
   })
 })
