@@ -97,6 +97,42 @@ Decisions made with the user (2026-06-25):
    `expenses:food` → "Food"). The **raw colon path is always shown as the secondary line**
    beneath the label (the app is ledger-forward; users expect to see paths).
 
+## Architecture — one transaction surface
+
+**Direction (set here, not fully built here):** this detail modal becomes the *single*
+surface for a transaction — view today, edit tomorrow. Right now the app has three
+disjoint modals for one object: `TransactionDetail` (read-only narration),
+`SummaryEditModal` (smart edit — hero category + description + date), and
+`LedgerEditModal` (raw-posting escape hatch). That split is the thing to retire. The
+end state is **one modal** that flips between a **view mode** (the flow narration this
+epic builds) and an **edit mode** that can:
+
+- inline-edit the **hero** expense category (today's `SummaryEditModal`),
+- edit the **raw postings** (today's `LedgerEditModal`, the power/escape path),
+- **add the transaction to a Fish Pie group** (a separate, upcoming epic).
+
+This epic ships **view mode only** but builds the seams so edit layers on without a
+rewrite. Concretely, the redesign must honor these constraints:
+
+- **Mode-ready contract.** `TransactionDetail` takes a `mode: 'view' | 'edit'` prop
+  (defaults `'view'`; `'edit'` is a no-op placeholder this epic) and an actions slot /
+  `onedit` handler. The component is structured so switching mode swaps the hero and
+  branch rows into editable controls **in place** — not a different component.
+- **Edit targets are first-class nodes.** The **hero** (category) and each **branch**
+  (account, amount) are discrete, individually addressable rows in the model + markup —
+  the natural future inline-edit targets — not a flattened blob.
+- **One entry point.** Rows everywhere open *this* modal; edit is reached *from within*
+  it, not via a separate modal opened from a row menu.
+- **Reuse, don't rebuild.** The existing edit logic (`summaryEdit.ts`, `PostingEditorRow`,
+  the balance-validating backend path) is sound — future edit mode wires those into this
+  modal, it does not reimplement them. Until then they stay as the escape hatch (story 6).
+- **No premature edit code.** Don't build half an editor now. Build the *boundary* (the
+  mode prop, the addressable nodes, the actions affordance) and leave edit mode empty but
+  wired to the existing modals.
+
+A short **"Future direction"** list under story 6 enumerates the deferred capabilities and
+the seam each depends on, so a later epic can pick them up without restructuring.
+
 ## Derivation (compute from postings — store nothing but UI toggles)
 
 - **source** = the asset/transfer leg that actually moved money. Outflow: the negative
@@ -181,6 +217,10 @@ the `owes you` accent span); numbers come from the transaction, not literals.
 Frontend. Rewrite `TransactionDetail.svelte` for the first three layers; lives as Modal
 body content (sharp corners, app accent, app fonts).
 
+- **Mode-ready contract** (per *Architecture*): the component takes `mode: 'view' | 'edit'`
+  (default `'view'`; `'edit'` renders identically to view for now — placeholder) and an
+  actions affordance. Hero and each branch are discrete, individually addressable rows so a
+  future edit mode swaps them into controls in place. No edit logic yet.
 - Header row: payee (serif) + date (mono, dim) + optional kind/group **tag** pill
   (`Split · <group>` / `Refund`), accent-styled.
 - Hero: friendly label + raw path secondary line; right-aligned amount w/ `CurrencyPill`.
@@ -215,12 +255,55 @@ model's assertion; toggles are independent.
 
 ---
 
+### 6. Single entry point + Edit affordance (the convergence seam)
+
+Frontend. Make this modal the *one* transaction surface and prove the edit seam — **without
+building inline edit**. Reuse the existing edit modals as-is.
+
+- The detail modal gets an **Edit** action (footer/header affordance). For now it opens the
+  existing `SummaryEditModal` (smart edit) — and from there the raw `LedgerEditModal`
+  escape hatch stays reachable. The detail modal is the entry; edit is reached *from
+  within* it.
+- Consolidate entry points: rows that today open an edit modal directly (transaction list /
+  account rows — `TransactionRow`, `AccountTransactionRow`) open **this** detail modal
+  instead, with Edit one click in. Spending/manage rows already open the detail (story 4 of
+  the prior epic) — they get the same Edit action.
+- After a successful edit, the detail modal re-renders the updated transaction (re-narrate
+  from the refreshed payload) so view + edit feel like one object, not a round-trip.
+- **No edit code is written here** beyond wiring the affordance and the post-edit refresh.
+  `summaryEdit.ts` / `PostingEditorRow` / the balance-validating backend are reused
+  untouched.
+
+Tests: the Edit action opens the smart-edit modal for a given transaction; after an edit
+the detail re-narrates with the new data; the raw escape hatch is still reachable; the
+consolidated rows open the detail modal (assert the handler/route, given no render harness).
+
+#### Future direction (out of scope — deferred to later epics)
+
+These are explicitly **not** in this epic; listed so the seams above stay honest and a
+later epic can pick them up without restructuring `TransactionDetail`:
+
+- **Inline hero category edit.** `mode='edit'` swaps the hero row's label into the account
+  picker from `SummaryEditModal`, editing in place instead of in a child modal. Seam: the
+  hero is an addressable node + the `mode` prop (stories 4, 6).
+- **Inline raw-posting edit.** Fold `PostingEditorRow` into the modal's edit mode (the "All
+  postings" expander becomes editable), retiring `LedgerEditModal`. Seam: branches/legs are
+  addressable rows; the all-postings ledger (story 5) is the host.
+- **Add to Fish Pie group.** An edit-mode action that attaches the transaction to a group
+  expense. Lives in its own upcoming epic; needs only an actions slot here (story 6).
+
+The end state: `SummaryEditModal` + `LedgerEditModal` are absorbed into this modal's edit
+mode and deleted. This epic stops short of that — it builds the surface and the seam.
+
+---
+
 ## Sequencing
 
 1 first (unblocks the label) and standalone. 2 is load-bearing — the whole render keys off
 the new model; land it with full tests before any pixels. 3 is small, isolated copy. 4 and
-5 build the view top-down; 4 is the main visual, 5 the progressive disclosure. Each story
-is its own PR against `main`.
+5 build the view top-down; 4 is the main visual, 5 the progressive disclosure. 6 closes
+the loop — makes the modal the single transaction surface and wires the edit seam (reusing
+the existing edit modals, no new edit logic). Each story is its own PR against `main`.
 
 ## Resolved decisions (2026-06-25)
 
@@ -232,3 +315,8 @@ is its own PR against `main`.
 - **Chrome/accent/fonts/semantics** from the app, not the prototype (see *Overrides*).
 - **Sharp corners** — override the handoff's 8px window radius.
 - **Blurb is templated + editable**, never hardcoded inline.
+- **One transaction surface.** This modal converges with the edit modals — view mode now,
+  edit mode (inline hero category, raw postings, add-to-Fish-Pie) later. This epic builds
+  the *seams* (mode-ready contract, addressable hero/branch nodes, single entry point,
+  Edit affordance reusing `SummaryEditModal`/`LedgerEditModal`) but **no new edit logic**.
+  `SummaryEditModal` + `LedgerEditModal` get absorbed and deleted in a later epic.
