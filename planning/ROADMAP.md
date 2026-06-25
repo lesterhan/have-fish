@@ -27,7 +27,8 @@
 | [Spending Page](epics/archive/spending-page.md) | Done |
 | [Illiquid Account Flags](epics/illiquid-account-flags.md) | Backlog |
 | [Account Reorganization](epics/account-reorganization.md) | Phase 1 Done |
-| [Single-Transaction View](epics/single-transaction-view.md) | Backlog |
+| [Single-Transaction View](epics/archive/single-transaction-view.md) | Done |
+| [Transaction Modal — Flow Narration](epics/txn-modal-flow-narration.md) | Backlog |
 | [hledger Journal Export](epics/hledger-export.md) | Skeleton |
 | [Cross-Currency Spend Import + Heal](epics/archive/cross-currency-spend-import.md) | Done |
 | [Import Rules](epics/archive/import-rules.md) | Done |

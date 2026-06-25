@@ -1,5 +1,12 @@
 # Epic: Single-transaction view — legible multi-posting display + smart edit
 
+> **Status: Done (2026-06-25).** All 4 stories shipped — story 1 (role classifier +
+> spending-sum fix, PR #117), story 2 (read-only narrated `TransactionDetail`, PR #118),
+> story 3 (summary/ledger smart edit, PR #120), story 4 (spending panel reuse, PR #121);
+> plus a security fix (PR #119). The narration *legibility* follow-up — a flow-tree
+> redesign of the detail modal — is its own epic,
+> [Transaction Modal — Flow Narration](txn-modal-flow-narration.md).
+
 Goal: Make a complex, multi-posting transaction **readable** and **safely editable**, and
 turn that into one shared component reused everywhere a transaction is shown. A
 cross-currency Wise spend (4–5 postings) should *narrate* what happened instead of dumping
