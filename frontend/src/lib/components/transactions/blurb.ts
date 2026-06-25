@@ -27,9 +27,16 @@ const t = (text: string): BlurbSegment => ({ kind: 'text', text })
 const em = (text: string): BlurbSegment => ({ kind: 'emph', text })
 const ac = (text: string): BlurbSegment => ({ kind: 'accent', text })
 
-// "50.00 CAD" — magnitude + code. Sign is conveyed by the surrounding wording, not here.
-const money = (amount: string, currency: string): string =>
-  `${Math.abs(parseFloat(amount) || 0).toFixed(2)} ${currency}`
+// A magnitude at 2dp — "50.00". Sign is conveyed by the surrounding wording, not here.
+const money = (amount: string): string => `${Math.abs(parseFloat(amount) || 0).toFixed(2)}`
+
+// An amount as two segments: the number emphasized (bold), the currency CODE demoted to
+// plain text. A bold all-caps code shouts on the page, so only the figure is emphasized.
+//   "50.00 CAD" → [ emph "50.00", text " CAD" ]
+const moneyParts = (amount: string, currency: string): BlurbParts => [
+  em(money(amount)),
+  t(` ${currency}`),
+]
 
 // The human party behind a clearing leg: the last path segment, title-cased.
 //   assets:receivable:roommates → "Roommates"
@@ -49,7 +56,7 @@ function directBlurb(n: NarratedTransaction): BlurbParts {
   if (!n.hero) return [t('A transfer with no spend category.')]
   const parts: BlurbParts = [
     t('You spent '),
-    em(money(n.hero.amount, n.hero.currency)),
+    ...moneyParts(n.hero.amount, n.hero.currency),
     t(' on '),
     em(n.hero.label),
   ]
@@ -62,36 +69,43 @@ function directBlurb(n: NarratedTransaction): BlurbParts {
 function splitBlurb(n: NarratedTransaction): BlurbParts {
   const share = branchByChip(n, 'your-share')
   const owed = branchByChip(n, 'owes-you')
-  const fronted = n.source
-    ? money(n.source.amount, n.source.currency)
-    : n.hero
-      ? money(n.hero.amount, n.hero.currency)
-      : '—'
+  const fronted = n.source ?? n.hero
   const category = share?.label ?? n.hero?.label ?? 'this'
-  const parts: BlurbParts = [t('You fronted '), em(fronted), t(' for '), em(category), t('.')]
-  if (share) parts.push(t(' Your share is '), em(money(share.amount, share.currency)), t(';'))
+  const parts: BlurbParts = [t('You fronted ')]
+  if (fronted) parts.push(...moneyParts(fronted.amount, fronted.currency))
+  else parts.push(em('—'))
+  parts.push(t(' for '), em(category), t('.'))
+  if (share) parts.push(t(' Your share is '), ...moneyParts(share.amount, share.currency), t(';'))
   if (owed) {
-    parts.push(t(' '), ac(`${partyName(owed.path)} owes you ${money(owed.amount, owed.currency)}`))
+    // The owes-you relationship is one accent-colored callout — kept whole, code and all.
+    parts.push(t(' '), ac(`${partyName(owed.path)} owes you ${money(owed.amount)} ${owed.currency}`))
   }
   parts.push(t('.'))
   return parts
 }
 
-// "You spent 360.00 CZK on Food · Coffee — 17.24 USD at 20.88 CZK/USD."
+// "You spent 360.00 CZK on Food · Coffee. 17.24 USD left your account."
+// Two sentences: the native price, then the gross that left the source asset. "Left your
+// account" is all-in (an FX fee, if any, is included) — so it stays accurate whether or not
+// a fee was charged. The rate + fee breakdown live in the Currency conversion expander.
 function multiCurrencyBlurb(n: NarratedTransaction): BlurbParts {
   if (!n.hero) return [t('A cross-currency transfer.')]
   const c = n.conversion
-  const native = c ? `${c.converted.amount} ${c.converted.currency}` : money(n.hero.amount, n.hero.currency)
-  const parts: BlurbParts = [t('You spent '), em(native), t(' on '), em(n.hero.label)]
-  if (c) parts.push(t(' — '), em(`${c.paid.amount} ${c.paid.currency}`), t(' at '), em(`${c.rate} ${c.rateUnit}`))
-  parts.push(t('.'))
+  const parts: BlurbParts = [
+    t('You spent '),
+    ...moneyParts(n.hero.amount, n.hero.currency),
+    t(' on '),
+    em(n.hero.label),
+    t('.'),
+  ]
+  if (c) parts.push(t(' '), ...moneyParts(c.paid.amount, c.paid.currency), t(' left your account.'))
   return parts
 }
 
 // "2000.00 CAD came into Chequing for Salary." (income / refund)
 function inflowBlurb(n: NarratedTransaction): BlurbParts {
   if (!n.hero) return [t('Money came in.')]
-  const parts: BlurbParts = [em(money(n.hero.amount, n.hero.currency)), t(' came into ')]
+  const parts: BlurbParts = [...moneyParts(n.hero.amount, n.hero.currency), t(' came into ')]
   parts.push(em(n.source ? accountLabel(n.source) : 'your account'))
   parts.push(t(' for '), em(n.hero.label), t('.'))
   return parts

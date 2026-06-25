@@ -26,6 +26,12 @@ const emph = (parts: BlurbParts): string[] =>
   parts.filter((s) => s.kind === 'emph').map((s) => s.text)
 const accent = (parts: BlurbParts): string[] =>
   parts.filter((s) => s.kind === 'accent').map((s) => s.text)
+// The plain (un-emphasized) text, joined — where the demoted currency codes live.
+const plain = (parts: BlurbParts): string =>
+  parts
+    .filter((s) => s.kind === 'text')
+    .map((s) => s.text)
+    .join('')
 
 const blurb = (postings: Posting[]): BlurbParts => blurbFor(narrateTransaction(postings))
 
@@ -40,7 +46,13 @@ describe('simple spend blurb', () => {
   })
 
   it('emphasizes the amount, category, and source — numbers from the tx', () => {
-    expect(emph(parts)).toEqual(['50.00 CAD', 'Food · Cafe', 'Chequing'])
+    expect(emph(parts)).toEqual(['50.00', 'Food · Cafe', 'Chequing'])
+  })
+
+  it('demotes the currency code to plain text (not bold)', () => {
+    // The figure is emphasized; the all-caps code rides along as plain text.
+    expect(emph(parts)).not.toContain('50.00 CAD')
+    expect(plain(parts)).toContain(' CAD')
   })
 
   it('uses the friendly account name when set', () => {
@@ -56,7 +68,7 @@ describe('simple spend blurb', () => {
       p('assets:chequing', '-12.34', 'CAD', 'transfer'),
       p('expenses:food:cafe', '12.34', 'CAD', 'subject'),
     ])
-    expect(emph(other)[0]).toBe('12.34 CAD')
+    expect(emph(other)[0]).toBe('12.34')
   })
 })
 
@@ -77,8 +89,8 @@ describe('split blurb', () => {
     expect(accent(parts)).toEqual(['Roommates owes you 10.00 CAD'])
   })
 
-  it('emphasizes fronted total, category, and share', () => {
-    expect(emph(parts)).toEqual(['30.00 CAD', 'Food', '20.00 CAD'])
+  it('emphasizes fronted total, category, and share — codes demoted', () => {
+    expect(emph(parts)).toEqual(['30.00', 'Food', '20.00'])
   })
 })
 
@@ -90,14 +102,17 @@ describe('multi-currency blurb', () => {
     p('equity:conversions', '17.24', 'USD', 'conversion'),
   ])
 
-  it('states native spend, paid amount, and rate', () => {
+  it('states native spend, then the gross that left the account — no rate, no dash', () => {
     expect(blurbText(parts)).toBe(
-      'You spent 360.00 CZK on Food · Coffee — 17.24 USD at 20.88 CZK/USD.',
+      'You spent 360.00 CZK on Food · Coffee. 17.24 USD left your account.',
     )
   })
 
-  it('emphasizes native, category, paid, and rate — all from the bridge legs', () => {
-    expect(emph(parts)).toEqual(['360.00 CZK', 'Food · Coffee', '17.24 USD', '20.88 CZK/USD'])
+  it('emphasizes only the two figures; codes demoted, rate omitted', () => {
+    expect(emph(parts)).toEqual(['360.00', 'Food · Coffee', '17.24'])
+    expect(plain(parts)).toContain(' CZK')
+    expect(plain(parts)).toContain(' USD')
+    expect(blurbText(parts)).not.toContain('CZK/USD')
   })
 })
 
@@ -108,7 +123,7 @@ describe('inflow blurb', () => {
       p('income:salary', '-2000.00', 'CAD', 'subject'),
     ])
     expect(blurbText(parts)).toBe('2000.00 CAD came into Chequing for Salary.')
-    expect(emph(parts)).toEqual(['2000.00 CAD', 'Chequing', 'Salary'])
+    expect(emph(parts)).toEqual(['2000.00', 'Chequing', 'Salary'])
   })
 
   it('refund magnitude is positive in the copy despite the negative subject', () => {
