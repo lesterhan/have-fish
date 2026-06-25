@@ -3,11 +3,13 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
   import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
+  import TransactionDetail from '$lib/components/transactions/TransactionDetail.svelte'
+  import Modal from '$lib/components/ui/Modal.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
+  import { hasSubjectInCurrency, txSubjectTotal } from '$lib/components/spending/spendingRow'
   import {
     fetchSpendingSummary,
     fetchTransactions,
-    fetchAccounts,
     fetchUserSettings,
     fetchSpendingFxPairs,
     fetchFxRate,
@@ -16,7 +18,6 @@
   } from '$lib/api'
   import type {
     SpendingSummary,
-    Account,
     Transaction,
     MonthlySpend,
   } from '$lib/api'
@@ -40,10 +41,11 @@
   let currencyEntries = $derived(Object.entries(summary?.total ?? {}))
 
   let preferredCurrency = $state('CAD')
-  let accounts = $state<Account[]>([])
   let txns = $state<Transaction[]>([])
   let txnsLoading = $state(false)
   let txnFilter = $state<string>('ALL')
+  // The transaction shown in the shared read-only detail modal (null = closed).
+  let selectedTx = $state<Transaction | null>(null)
 
   // --- FX conversion state ---
   let converting = $state(false)
@@ -57,32 +59,24 @@
     currencyEntries.some(([c]) => c !== preferredCurrency),
   )
 
+  // Role-based (shared classifier) — keep transactions with a subject leg in the filter
+  // currency, not any posting that merely happens to be `expenses:`-rooted.
   let filteredTxns = $derived(
     txnFilter === 'ALL'
       ? txns
-      : txns.filter((tx) =>
-          tx.postings.some(
-            (p) =>
-              p.currency === txnFilter &&
-              accounts.find((a) => a.id === p.accountId)?.path.startsWith('expenses:'),
-          ),
-        ),
+      : txns.filter((tx) => hasSubjectInCurrency(tx, txnFilter)),
   )
 
+  // Page total sums only subject legs (converted), matching the story-1 spending aggregate so
+  // a cross-currency spend counts once at its true amount rather than doubled by its
+  // mechanical conversion/transfer/fee legs.
   let pageTotal = $derived.by<number | null>(() => {
     if (!converting || fxFetching || Object.keys(fxRates).length === 0)
       return null
-    return filteredTxns.reduce((sum, tx) => {
-      const expensePostings = tx.postings.filter((p) => {
-        const path = accounts.find((a) => a.id === p.accountId)?.path ?? ''
-        return path.startsWith('expenses:') && (txnFilter === 'ALL' || p.currency === txnFilter)
-      })
-      const relevant = expensePostings.length > 0 ? expensePostings : tx.postings.slice(0, 1)
-      return relevant.reduce(
-        (txSum, p) => txSum + Math.abs(parseFloat(p.amount)) * (fxRates[p.currency] ?? 1),
-        sum,
-      )
-    }, 0)
+    return filteredTxns.reduce(
+      (sum, tx) => sum + txSubjectTotal(tx, fxRates, txnFilter),
+      0,
+    )
   })
 
   // --- Monthly trend data ---
@@ -294,9 +288,6 @@
   onMount(() => {
     fetchUserSettings().then((s) => {
       preferredCurrency = s.preferredCurrency ?? 'CAD'
-    })
-    fetchAccounts().then((a) => {
-      accounts = a
     })
     fetchMonthlySpend(7).then((d) => {
       monthlyData = d
@@ -520,7 +511,7 @@
                 converted={converting && !fxFetching}
                 {fxRates}
                 baseCurrency={preferredCurrency}
-                {accounts}
+                onselect={(t) => (selectedTx = t)}
               />
             {/each}
           </div>
@@ -545,6 +536,17 @@
     </div>
   </div>
 </div>
+
+<!-- Shared read-only narrated detail — the same component reused across the app. -->
+<Modal
+  title="Transaction"
+  open={selectedTx !== null}
+  onclose={() => (selectedTx = null)}
+>
+  {#if selectedTx}
+    <TransactionDetail tx={selectedTx} />
+  {/if}
+</Modal>
 
 <style>
   /* Month bar */
