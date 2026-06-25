@@ -633,6 +633,7 @@ export type Posting = {
   id: string
   accountId: string
   accountPath: string
+  accountName: string | null
   amount: string
   currency: string
   role: PostingRole

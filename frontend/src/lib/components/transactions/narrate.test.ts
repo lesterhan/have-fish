@@ -10,7 +10,7 @@ function p(
   role: PostingRole,
   id = accountPath + ':' + amount,
 ): Posting {
-  return { id, accountId: accountPath, accountPath, amount, currency, role }
+  return { id, accountId: accountPath, accountPath, accountName: null, amount, currency, role }
 }
 
 describe('narrateTransaction', () => {
