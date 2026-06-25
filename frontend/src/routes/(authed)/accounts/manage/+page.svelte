@@ -16,6 +16,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
   import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
+  import TransactionDetail from '$lib/components/transactions/TransactionDetail.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
   type TreeNode = {
@@ -38,6 +39,8 @@
   let selectedPath = $state<string | null>(null)
   let selectedTxns = $state<Transaction[]>([])
   let txnsLoading = $state(false)
+  // The transaction shown in the shared read-only detail modal (null = closed).
+  let selectedTx = $state<Transaction | null>(null)
 
   let editingPath = $state<string | null>(null)
   let editValue = $state('')
@@ -290,7 +293,7 @@
                 converted={false}
                 fxRates={{}}
                 {baseCurrency}
-                {accounts}
+                onselect={(t) => (selectedTx = t)}
               />
             {/each}
           </div>
@@ -429,6 +432,17 @@
         </GradientButton>
       </div>
     </div>
+  {/if}
+</Modal>
+
+<!-- Shared read-only narrated detail — same component as the spending panel. -->
+<Modal
+  title="Transaction"
+  open={selectedTx !== null}
+  onclose={() => (selectedTx = null)}
+>
+  {#if selectedTx}
+    <TransactionDetail tx={selectedTx} />
   {/if}
 </Modal>
 

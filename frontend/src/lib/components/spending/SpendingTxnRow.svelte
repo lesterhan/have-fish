@@ -1,6 +1,7 @@
 <script lang="ts">
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
-  import type { Transaction, Account } from '$lib/api'
+  import { headlineSubject, rowSource, stripRoot } from './spendingRow'
+  import type { Transaction } from '$lib/api'
 
   interface Props {
     tx: Transaction
@@ -8,43 +9,21 @@
     converted: boolean
     fxRates: Record<string, number>
     baseCurrency: string
-    accounts: Account[]
+    onselect: (tx: Transaction) => void
   }
 
-  let { tx, idx, converted, fxRates, baseCurrency, accounts }: Props = $props()
+  let { tx, idx, converted, fxRates, baseCurrency, onselect }: Props = $props()
 
   const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
   const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
-  function accountPath(accountId: string): string {
-    return accounts.find((a) => a.id === accountId)?.path ?? ''
-  }
+  // Headline = the meaningful subject leg (role-based, shared classifier). Falls back to the
+  // first posting only for a degenerate shape with no subject (shouldn't reach the spend list).
+  let mainPosting = $derived(headlineSubject(tx) ?? tx.postings[0])
+  let sourcePosting = $derived(rowSource(tx))
 
-  let mainPosting = $derived.by(() => {
-    const expensePostings = tx.postings.filter((p) =>
-      accountPath(p.accountId).startsWith('expenses:'),
-    )
-    if (expensePostings.length === 0) return tx.postings[0]
-    if (expensePostings.length === 1) return expensePostings[0]
-    // Multiple expense postings (e.g. fee + main spend in different currencies):
-    // show the one with the largest absolute amount — the actual spend (e.g. 360 CZK)
-    // nearly always dwarfs a banking fee (e.g. 0.05 USD).
-    return expensePostings.reduce((best, p) =>
-      Math.abs(parseFloat(p.amount)) > Math.abs(parseFloat(best.amount)) ? p : best,
-    )
-  })
-
-  let fromPosting = $derived(
-    tx.postings.find((p) => accountPath(p.accountId).startsWith('assets:')),
-  )
-
-  let expensePath = $derived(
-    mainPosting ? accountPath(mainPosting.accountId).split(':').slice(1).join(':') : '',
-  )
-
-  let fromPath = $derived(
-    fromPosting ? accountPath(fromPosting.accountId).split(':').slice(1).join(':') : '',
-  )
+  let expensePath = $derived(mainPosting ? stripRoot(mainPosting.accountPath) : '')
+  let fromPath = $derived(sourcePosting ? stripRoot(sourcePosting.accountPath) : '')
 
   let d = $derived(new Date(tx.date.substring(0, 10) + 'T00:00:00'))
   let dayOfWeek = $derived(DAYS[d.getDay()])
@@ -68,12 +47,12 @@
   }
 </script>
 
-<div class="row" class:odd={idx % 2 !== 0}>
-  <div class="col-date">
+<button class="row" class:odd={idx % 2 !== 0} onclick={() => onselect(tx)} title="View transaction">
+  <span class="col-date">
     <span class="day">{dayOfWeek}</span>
     <span class="date">{dateLabel}</span>
-  </div>
-  <div class="col-payee">
+  </span>
+  <span class="col-payee">
     <span class="payee">{tx.description ?? '—'}</span>
     {#if fromPath || expensePath}
       <span class="account-path">
@@ -82,17 +61,17 @@
         {expensePath}
       </span>
     {/if}
-  </div>
-  <div class="col-amount">
-    <div class="amount-line">
+  </span>
+  <span class="col-amount">
+    <span class="amount-line">
       <CurrencyPill code={postingCurrency} size="xs" />
       <span class="amount-value">{fmtAmount(amount)}</span>
-    </div>
+    </span>
     {#if converted && postingCurrency !== baseCurrency}
       <span class="converted-line">= {cadEquiv} {baseCurrency}</span>
     {/if}
-  </div>
-</div>
+  </span>
+</button>
 
 <style>
   .row {
@@ -100,13 +79,28 @@
     grid-template-columns: 52px 1fr auto;
     gap: 10px;
     padding: 7px 14px;
+    border: none;
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window-raised);
     align-items: start;
+    width: 100%;
+    text-align: left;
+    cursor: pointer;
+    font: inherit;
+    transition: background var(--duration-fast) var(--ease);
   }
 
   .row.odd {
     background: var(--color-window);
+  }
+
+  .row:hover {
+    background: var(--color-accent-light);
+  }
+
+  .row:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -2px;
   }
 
   .col-date {
