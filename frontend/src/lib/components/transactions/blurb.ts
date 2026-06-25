@@ -45,7 +45,7 @@ const branchByChip = (n: NarratedTransaction, chip: Branch['chip']): Branch | un
   n.branches.find((b) => b.chip === chip)
 
 // "You spent 50.00 CAD on Food · Cafe from Chequing."
-function simpleBlurb(n: NarratedTransaction): BlurbParts {
+function directBlurb(n: NarratedTransaction): BlurbParts {
   if (!n.hero) return [t('A transfer with no spend category.')]
   const parts: BlurbParts = [
     t('You spent '),
@@ -99,7 +99,7 @@ function inflowBlurb(n: NarratedTransaction): BlurbParts {
 
 // The one map. Edit wording/emphasis per archetype here.
 export const blurbTemplates: Record<Archetype, (n: NarratedTransaction) => BlurbParts> = {
-  simple: simpleBlurb,
+  direct: directBlurb,
   split: splitBlurb,
   multiCurrency: multiCurrencyBlurb,
   inflow: inflowBlurb,

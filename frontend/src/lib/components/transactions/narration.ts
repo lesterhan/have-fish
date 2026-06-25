@@ -23,11 +23,12 @@ import type { Posting } from '$lib/api'
 // The chip that labels a branch with its *meaning* instead of ledger jargon.
 export type Chip = 'the-spend' | 'your-share' | 'owes-you' | 'you-owe' | 'fx-fee' | 'deposit'
 
-// simple   → 1 asset out → 1 expense in (or a same-currency multi-category split).
+// direct   → 1 asset out → 1 expense in (or a same-currency multi-category split): a plain
+//            single-hop payment, nothing mechanical between the asset and the category.
 // split    → has a Fish Pie share leg (someone owes / is owed).
 // multiCurrency → an FX conversion bridge is present.
 // inflow   → income or refund: the subject is stored negative, money lands in an asset.
-export type Archetype = 'simple' | 'split' | 'multiCurrency' | 'inflow'
+export type Archetype = 'direct' | 'split' | 'multiCurrency' | 'inflow'
 
 // The headline — what the money was for. Amount is kept signed as stored; `inflow` tells the
 // render to show it green with a leading `+`.
@@ -205,7 +206,7 @@ function deriveArchetype(
   if (conversion) return 'multiCurrency'
   if (hasShare) return 'split'
   if (inflow) return 'inflow'
-  return 'simple'
+  return 'direct'
 }
 
 // Branches = every non-source, non-conversion leg, chipped with its meaning. The equity bridges

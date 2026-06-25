@@ -70,7 +70,7 @@ const refund = (): Posting[] => [
 
 describe('archetype detection', () => {
   it('simple spend', () => {
-    expect(narrateTransaction(simpleSpend()).archetype).toBe('simple')
+    expect(narrateTransaction(simpleSpend()).archetype).toBe('direct')
   })
   it('split (has a share leg)', () => {
     expect(narrateTransaction(splitSpend()).archetype).toBe('split')
@@ -82,13 +82,13 @@ describe('archetype detection', () => {
     expect(narrateTransaction(income()).archetype).toBe('inflow')
     expect(narrateTransaction(refund()).archetype).toBe('inflow')
   })
-  it('same-currency multi-category split is still simple', () => {
+  it('same-currency multi-category split is still direct', () => {
     const n = narrateTransaction([
       p('assets:chequing', '-75.00', 'CAD', 'transfer'),
       p('expenses:food:groceries', '50.00', 'CAD', 'subject'),
       p('expenses:home:supplies', '25.00', 'CAD', 'subject'),
     ])
-    expect(n.archetype).toBe('simple')
+    expect(n.archetype).toBe('direct')
   })
 })
 
@@ -272,7 +272,7 @@ describe('allPostings', () => {
 describe('robustness', () => {
   it('empty postings → safe empty narration, no throw', () => {
     const n = narrateTransaction([])
-    expect(n.archetype).toBe('simple')
+    expect(n.archetype).toBe('direct')
     expect(n.hero).toBeNull()
     expect(n.source).toBeNull()
     expect(n.branches).toHaveLength(0)
