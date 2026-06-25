@@ -1,127 +1,134 @@
 <script lang="ts">
-  // Read-only narrated view of a transaction. Renders by posting *role*, not as a flat
-  // list of legs: leads with the meaningful spend/income, collapses the mechanical
-  // conversion/transfer/fee legs into a plain-language "how it moved" section, and shows
-  // Fish Pie clearing legs as "split with <group>". The shared detail component reused
-  // across the app (transactions list, spending panel — story 4).
+  // Read-only narrated view of a transaction — the single transaction surface (view mode).
+  // Renders three layers over the narration model (narration.ts): a HERO (what the money was
+  // for), a plain-language BLURB (blurb.ts), and a HOW IT MOVED flow tree (the real source
+  // asset as a dot, branching into role-chipped destinations). Progressive-disclosure
+  // expanders (currency conversion, all postings) land in story 5; the Edit seam in story 6.
+  //
+  // Mode-ready contract (Flow Narration epic, Architecture): `mode` is 'view' | 'edit'
+  // (default 'view'; 'edit' renders identically for now — a placeholder seam). The hero and
+  // each branch are discrete, individually addressable rows (data-node / data-posting-id) so a
+  // future edit mode swaps them into controls in place rather than via a child modal. `onedit`
+  // is the actions affordance — when a parent passes it, an Edit control appears (wired in
+  // story 6). No edit logic lives here yet.
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
-  import { narrateTransaction } from './narrate'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import { narrateTransaction, accountLabel } from './narration'
+  import { blurbFor } from './blurb'
+  import {
+    headerTag,
+    chipLabel,
+    chipTone,
+    heroDisplay,
+    branchAmount,
+    convertedNote,
+    formatTxDate,
+  } from './detailView'
   import type { Transaction } from '$lib/api'
 
   interface Props {
     tx: Transaction
+    mode?: 'view' | 'edit'
+    onedit?: () => void
   }
 
-  let { tx }: Props = $props()
+  let { tx, mode = 'view', onedit }: Props = $props()
 
   let n = $derived(narrateTransaction(tx.postings))
-
-  // Absolute, 2dp — the narration conveys direction by account name, not by sign.
-  function amt(amount: string): string {
-    return Math.abs(parseFloat(amount)).toFixed(2)
-  }
-
-  let dateLabel = $derived.by(() => {
-    const d = new Date(tx.date.substring(0, 10) + 'T00:00:00')
-    return d.toLocaleDateString('en', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })
-  })
-
-  // Whether there is anything mechanical to explain under "how it moved".
-  let hasMovement = $derived(
-    n.movement.source !== null || n.movement.flow !== null || n.movement.fees.length > 0,
-  )
+  let hero = $derived(heroDisplay(n))
+  let blurb = $derived(blurbFor(n))
+  let tag = $derived(headerTag(n, tx.groupName))
+  let note = $derived(convertedNote(n))
+  let dateLabel = $derived(formatTxDate(tx.date))
+  let sourceLabel = $derived(n.source ? accountLabel(n.source) : null)
 </script>
 
-<div class="detail">
+<div class="detail" data-mode={mode}>
   <header class="head">
-    <span class="desc">{tx.description || '—'}</span>
-    <span class="date">{dateLabel}</span>
+    <div class="head-main">
+      <span class="payee">{tx.description || '—'}</span>
+      {#if tag}
+        <span class="tag">{tag.label}</span>
+      {/if}
+    </div>
+    <div class="head-side">
+      <span class="date">{dateLabel}</span>
+      {#if onedit}
+        <GradientButton onclick={onedit}>Edit</GradientButton>
+      {/if}
+    </div>
   </header>
 
-  {#if n.simple}
-    <!-- Common case: one compact line, source → subject. -->
-    {@const s = n.subjects[0]}
-    <div class="simple-line">
-      {#if n.movement.source}
-        <span class="from">{n.movement.source.accountPath}</span>
-        <span class="arrow" aria-hidden="true">➜</span>
-      {/if}
-      <span class="to">{s.accountPath}</span>
-      <span class="money">
-        <CurrencyPill code={s.currency} size="xs" />
-        <span class="amount">{amt(s.amount)}</span>
-      </span>
+  {#if hero}
+    <div class="hero" class:inflow={hero.positive} data-node="hero">
+      <div class="hero-id">
+        <span class="hero-label">{hero.label}</span>
+        <span class="hero-path">{hero.path}</span>
+      </div>
+      <div class="hero-amount">
+        <span class="num">{hero.sign}{hero.amount}</span>
+        <CurrencyPill code={hero.currency} size="sm" />
+      </div>
     </div>
-  {:else}
-    <!-- Narrated: lead with the meaningful legs. -->
-    {#if n.subjects.length > 0}
-      <ul class="subjects">
-        {#each n.subjects as s (s.id)}
-          <li class="subject">
-            <span class="subject-account">{s.accountPath}</span>
-            <span class="money">
-              <CurrencyPill code={s.currency} size="xs" />
-              <span class="amount">{amt(s.amount)}</span>
-            </span>
-          </li>
+  {/if}
+
+  <p class="blurb">
+    {#each blurb as seg}<span class="seg" class:emph={seg.kind === 'emph'} class:accent={seg.kind === 'accent'}>{seg.text}</span>{/each}
+  </p>
+
+  {#if n.source || n.branches.length > 0}
+    <section class="moved">
+      <span class="moved-label">How it moved</span>
+
+      <div class="tree">
+        {#if sourceLabel}
+          <div class="row source">
+            <span class="spine" aria-hidden="true"><span class="dot"></span></span>
+            <div class="body">
+              <span class="branch-label">{sourceLabel}</span>
+              <span class="branch-path">{n.source?.accountPath}</span>
+            </div>
+            <div class="amount"></div>
+          </div>
+        {/if}
+
+        {#each n.branches as b, i (b.posting.id)}
+          <div
+            class="row branch tone-{chipTone(b.chip)}"
+            class:last={i === n.branches.length - 1}
+            data-node="branch"
+            data-posting-id={b.posting.id}
+          >
+            <span class="spine" aria-hidden="true"><span class="elbow"></span></span>
+            <div class="body">
+              <span class="chip">{chipLabel(b.chip)}</span>
+              <span class="branch-label">{b.label}</span>
+              <span class="branch-path">{b.path}</span>
+              {#if note && b.chip === 'the-spend'}
+                <span class="note">{note}</span>
+              {/if}
+            </div>
+            <div class="amount">
+              <span class="num">{branchAmount(b.amount)}</span>
+              <CurrencyPill code={b.currency} size="xs" />
+            </div>
+          </div>
         {/each}
-      </ul>
-    {/if}
-
-    {#each n.shares as sh (sh.id)}
-      <div class="share">
-        split with {tx.groupName ?? 'group'}
-        <span class="share-amount">
-          <CurrencyPill code={sh.currency} size="xs" />
-          <span class="amount">{amt(sh.amount)}</span>
-        </span>
       </div>
-    {/each}
-
-    {#if hasMovement}
-      <div class="movement">
-        <span class="movement-label">how it moved</span>
-        <div class="movement-body">
-          {#if n.movement.source}
-            <span class="from">{n.movement.source.accountPath}</span>
-          {/if}
-          {#if n.movement.flow}
-            <span class="flow">
-              <CurrencyPill code={n.movement.flow.from.currency} size="xs" />
-              <span class="amount">{n.movement.flow.from.amount}</span>
-              <span class="arrow" aria-hidden="true">→</span>
-              <CurrencyPill code={n.movement.flow.to.currency} size="xs" />
-              <span class="amount">{n.movement.flow.to.amount}</span>
-            </span>
-          {/if}
-          {#each n.movement.fees as fee (fee.id)}
-            <span class="fee">
-              fee
-              <CurrencyPill code={fee.currency} size="xs" />
-              <span class="amount">{amt(fee.amount)}</span>
-            </span>
-          {/each}
-        </div>
-      </div>
-    {/if}
+    </section>
   {/if}
 </div>
 
 <style>
-  /* Aqua-style gloss card (not the XP bevel) — flat panel on a soft drop shadow with a
-     glossy top highlight and hairline border. See --card-* tokens / Card.svelte. */
   .detail {
     display: flex;
     flex-direction: column;
     gap: var(--sp-md);
-    padding: var(--sp-lg);
-    min-width: min(22rem, 80vw);
-    background: linear-gradient(180deg, var(--color-window-inset), var(--color-window));
-    border: 1px solid var(--card-border-color);
-    border-radius: var(--card-radius);
-    box-shadow: var(--card-shadow);
+    min-width: min(24rem, 82vw);
+    max-width: min(32rem, 90vw);
   }
 
+  /* --- header ------------------------------------------------------------------------ */
   .head {
     display: flex;
     align-items: baseline;
@@ -131,137 +138,288 @@
     padding-bottom: var(--sp-sm);
   }
 
-  .desc {
+  .head-main {
+    display: flex;
+    align-items: baseline;
+    gap: var(--sp-sm);
+    min-width: 0;
+  }
+
+  .payee {
     font-family: var(--font-serif);
-    font-size: var(--text-base);
+    font-size: var(--text-lg);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  .tag {
+    flex-shrink: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: 600;
+    padding: 1px 6px;
+    color: var(--color-accent);
+    background: var(--color-accent-light);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
+    border-radius: var(--radius-lg);
+    white-space: nowrap;
+  }
+
+  .head-side {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    flex-shrink: 0;
   }
 
   .date {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-    flex-shrink: 0;
+    white-space: nowrap;
   }
 
-  /* --- Simple 2-leg line --- */
-  .simple-line {
+  /* --- hero -------------------------------------------------------------------------- */
+  .hero {
     display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: var(--sp-md);
   }
 
-  .simple-line .to {
-    color: var(--color-text);
-    font-weight: 700;
-  }
-
-  /* --- Subjects (lead) --- */
-  .subjects {
-    list-style: none;
-    margin: 0;
-    padding: 0;
+  .hero-id {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-sm);
+    gap: 1px;
+    min-width: 0;
   }
 
-  .subject {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-sm);
-  }
-
-  .subject-account {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    font-weight: 700;
+  .hero-label {
+    font-family: var(--font-sans);
+    font-size: var(--text-lg);
+    font-weight: 600;
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
-  /* --- Share (Fish Pie) --- */
-  .share {
+  .hero-path {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .hero-amount {
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: var(--sp-sm);
+    gap: var(--sp-xs);
+    flex-shrink: 0;
+  }
+
+  .hero-amount .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-xl);
+    color: var(--color-text);
+  }
+
+  .hero.inflow .num {
+    color: var(--color-amount-positive);
+  }
+
+  /* --- blurb ------------------------------------------------------------------------- */
+  .blurb {
+    margin: 0;
     font-family: var(--font-sans);
     font-size: var(--text-sm);
+    line-height: 1.5;
     color: var(--color-text-muted);
   }
 
-  .share-amount {
-    display: flex;
-    align-items: center;
-    gap: 3px;
+  .seg.emph {
+    color: var(--color-text);
+    font-weight: 600;
   }
 
-  /* --- Movement (mechanical legs) --- */
-  .movement {
+  .seg.accent {
+    color: var(--color-accent);
+    font-weight: 600;
+  }
+
+  /* --- how it moved (flow tree) ------------------------------------------------------ */
+  .moved {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-xs);
+    gap: var(--sp-sm);
     padding-top: var(--sp-sm);
     border-top: 1px dotted var(--color-rule);
   }
 
-  .movement-label {
+  .moved-label {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.06em;
     color: var(--color-text-muted);
   }
 
-  .movement-body {
-    display: flex;
-    flex-wrap: wrap;
+  .tree {
+    display: grid;
+    grid-template-columns: 18px 1fr auto;
+  }
+
+  .row {
+    display: grid;
+    grid-template-columns: subgrid;
+    grid-column: 1 / -1;
     align-items: center;
-    gap: var(--sp-sm);
+    column-gap: var(--sp-sm);
+    min-height: 2.1rem;
+  }
+
+  /* The spine: a full-height vertical rule each row paints in its left cell, with the dot
+     (source) or elbow (branch) sitting on it. The last branch trims the rule below its tick. */
+  .spine {
+    position: relative;
+    align-self: stretch;
+    width: 18px;
+  }
+
+  .spine::before {
+    content: '';
+    position: absolute;
+    left: 8px;
+    top: 0;
+    bottom: 0;
+    width: 1px;
+    background: var(--color-rule);
+  }
+
+  .source .spine::before {
+    top: 50%;
+  }
+
+  .branch.last .spine::before {
+    bottom: 50%;
+  }
+
+  .dot {
+    position: absolute;
+    left: 4px;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 9px;
+    height: 9px;
+    background: var(--color-accent);
+    border: 1px solid color-mix(in srgb, var(--color-accent) 60%, #000);
+    border-radius: 50%;
+  }
+
+  .elbow {
+    position: absolute;
+    left: 8px;
+    top: 50%;
+    width: 8px;
+    height: 1px;
+    background: var(--color-rule);
+  }
+
+  .body {
+    display: flex;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--sp-xs);
+    min-width: 0;
+    padding: var(--sp-xs) 0;
+  }
+
+  .chip {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    padding: 1px 5px;
+    color: var(--color-text-muted);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    white-space: nowrap;
+  }
+
+  .tone-accent .chip {
+    color: var(--color-accent);
+    background: var(--color-accent-light);
+    border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
+  }
+
+  .tone-positive .chip {
+    color: var(--color-amount-positive);
+    background: color-mix(in srgb, var(--color-amount-positive) 12%, var(--color-window));
+    border-color: color-mix(in srgb, var(--color-amount-positive) 35%, transparent);
+  }
+
+  .tone-amber .chip {
+    color: var(--color-warning);
+    background: var(--color-warning-light);
+    border-color: color-mix(in srgb, var(--color-warning) 35%, transparent);
+  }
+
+  .branch-label {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .source .branch-label {
+    color: var(--color-text-muted);
+  }
+
+  .branch-path {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
 
-  .from {
-    color: var(--color-text-muted);
-  }
-
-  .flow,
-  .fee {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-  }
-
-  .arrow {
-    color: var(--color-text-muted);
-    flex-shrink: 0;
-  }
-
-  .money {
-    display: flex;
-    align-items: center;
-    gap: 3px;
-    flex-shrink: 0;
+  .note {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-accent);
   }
 
   .amount {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    flex-shrink: 0;
+    justify-self: end;
+  }
+
+  .amount .num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
+    font-size: var(--text-sm);
     color: var(--color-text);
   }
 
-  .movement-body .amount {
-    color: var(--color-text-muted);
+  .tone-positive .amount .num {
+    color: var(--color-amount-positive);
+  }
+
+  .tone-accent .amount .num {
+    color: var(--color-accent);
+  }
+
+  .tone-amber .amount .num {
+    color: var(--color-warning);
   }
 </style>
