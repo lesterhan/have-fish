@@ -3,12 +3,12 @@
   import Button from '$lib/components/ui/Button.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
-  import TransactionEditModal from '$lib/components/transactions/TransactionEditModal.svelte'
-  import SmartEditModal from '$lib/components/transactions/SmartEditModal.svelte'
+  import LedgerEditModal from '$lib/components/transactions/LedgerEditModal.svelte'
+  import SummaryEditModal from '$lib/components/transactions/SummaryEditModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { patchTransaction, patchPosting, type Account, type Transaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
-  import { canSmartEdit } from './smartEdit'
+  import { canSummaryEdit } from './summaryEdit'
   import {
     focusOnMount,
     parseDateParts,
@@ -46,9 +46,9 @@
   }: Props = $props()
 
   let modalOpen = $state(false)
-  // Smart edit is the default surface; raw mode is the escape hatch (and the only option
+  // Summary edit is the default surface; ledger mode is the escape hatch (and the only option
   // for shapes the classifier can't narrate into a subject leg).
-  let rawMode = $state(false)
+  let ledgerMode = $state(false)
 
   // Local copies of mutable fields — updated after a successful save.
   let localDate = $state(untrack(() => tx.date))
@@ -63,7 +63,7 @@
       })),
     ),
   )
-  // After a smart save the posting ids change (atomic replace), so keep the enriched result
+  // After a summary save the posting ids change (atomic replace), so keep the enriched result
   // to drive the role / account-path lookup for the live transaction without a refetch.
   let savedTx = $state<Transaction | null>(null)
 
@@ -71,9 +71,9 @@
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
   )
 
-  // The full, role-enriched transaction the smart editor consumes. Derived from local state
+  // The full, role-enriched transaction the summary editor consumes. Derived from local state
   // so inline edits and saves are reflected; role + account path come from the last known
-  // enriched copy (original load, or the most recent smart save) keyed by posting id.
+  // enriched copy (original load, or the most recent summary save) keyed by posting id.
   let liveTx = $derived.by((): Transaction => {
     const base = savedTx ?? tx
     const byId = new Map(base.postings.map((o) => [o.id, o]))
@@ -95,7 +95,7 @@
     }
   })
 
-  let smartEditable = $derived(canSmartEdit(liveTx.postings))
+  let summaryEditable = $derived(canSummaryEdit(liveTx.postings))
 
   // --- Description editing ---
   let descEditing = $state(false)
@@ -468,7 +468,7 @@
         variant="ghost"
         square
         onclick={() => {
-          rawMode = !smartEditable
+          ledgerMode = !summaryEditable
           modalOpen = true
         }}
       >
@@ -478,15 +478,15 @@
   {/if}
 </div>
 
-{#if modalOpen && !rawMode}
-  <SmartEditModal
+{#if modalOpen && !ledgerMode}
+  <SummaryEditModal
     tx={liveTx}
     {accounts}
     bind:open={modalOpen}
     onclose={() => (modalOpen = false)}
     {onaccountcreated}
     {ondeleted}
-    oneditraw={() => (rawMode = true)}
+    oneditledger={() => (ledgerMode = true)}
     onsaved={(updated) => {
       savedTx = updated
       localDate = updated.date
@@ -500,7 +500,7 @@
     }}
   />
 {:else}
-  <TransactionEditModal
+  <LedgerEditModal
     tx={{
       ...tx,
       date: localDate,

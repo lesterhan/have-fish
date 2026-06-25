@@ -1,6 +1,6 @@
-// Smart-edit logic — the safe-recategorize path for a multi-posting transaction.
+// Summary-edit logic — the safe-recategorize path for a multi-posting transaction.
 //
-// Smart edit exposes only the *meaningful* fields (the subject leg's account, the
+// Summary edit exposes only the *meaningful* fields (the subject leg's account, the
 // description, the date) and leaves every mechanical leg (transfer/conversion/fee) and
 // Fish Pie share leg read-only. Recategorizing a subject only repoints that posting's
 // account; amounts never change, so the entry stays balanced per currency. The backend
@@ -8,7 +8,7 @@
 // still rejected server-side.
 //
 // Pure (no Svelte) so it is unit-tested against the canonical shapes. The component
-// (SmartEditModal.svelte) is thin presentation over these helpers + narrateTransaction.
+// (SummaryEditModal.svelte) is thin presentation over these helpers + narrateTransaction.
 
 import type { Posting } from '$lib/api'
 import { narrateTransaction } from './narrate'
@@ -20,15 +20,15 @@ export type SubjectDraft = {
   accountId: string
 }
 
-// Smart edit is only offered when the transaction narrates into at least one subject leg
+// Summary edit is only offered when the transaction narrates into at least one subject leg
 // to recategorize. Shapes with no subject — pure transfers, opening-balance equity
 // entries, or anything the classifier can't narrate into a meaningful leg — fall back to
-// the raw posting editor so no transaction is ever stranded.
-export function canSmartEdit(postings: Posting[]): boolean {
+// the ledger posting editor so no transaction is ever stranded.
+export function canSummaryEdit(postings: Posting[]): boolean {
   return narrateTransaction(postings).subjects.length > 0
 }
 
-// The legs a user may recategorize in smart mode — the subject (meaningful spend/income)
+// The legs a user may recategorize in summary mode — the subject (meaningful spend/income)
 // legs, in narration order.
 export function recategorizableLegs(postings: Posting[]): Posting[] {
   return narrateTransaction(postings).subjects

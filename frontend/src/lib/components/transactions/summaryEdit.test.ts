@@ -1,11 +1,11 @@
 import { describe, it, expect } from 'bun:test'
 import {
-  canSmartEdit,
+  canSummaryEdit,
   recategorizableLegs,
   initialSubjectDrafts,
   hasAccountChange,
   buildRecategorizePayload,
-} from './smartEdit'
+} from './summaryEdit'
 import type { Posting, PostingRole } from '$lib/api'
 
 // Build a posting; id derived from accountPath so fixtures stay terse. accountId == path
@@ -31,11 +31,11 @@ function wiseSpend(): Posting[] {
   ]
 }
 
-describe('canSmartEdit', () => {
+describe('canSummaryEdit', () => {
   it('true when there is a subject leg to recategorize', () => {
-    expect(canSmartEdit(wiseSpend())).toBe(true)
+    expect(canSummaryEdit(wiseSpend())).toBe(true)
     expect(
-      canSmartEdit([
+      canSummaryEdit([
         p('assets:chequing', '-50.00', 'CAD', 'transfer'),
         p('expenses:food:cafe', '50.00', 'CAD', 'subject'),
       ]),
@@ -44,12 +44,12 @@ describe('canSmartEdit', () => {
 
   it('false for a subject-less shape (pure transfer / opening balance)', () => {
     expect(
-      canSmartEdit([
+      canSummaryEdit([
         p('assets:savings', '1000.00', 'CAD', 'transfer'),
         p('equity:opening-balances', '-1000.00', 'CAD', 'conversion'),
       ]),
     ).toBe(false)
-    expect(canSmartEdit([])).toBe(false)
+    expect(canSummaryEdit([])).toBe(false)
   })
 })
 

@@ -5,20 +5,20 @@
 </script>
 
 <script lang="ts">
-  // Smart edit — the default edit surface for a multi-posting transaction. Exposes only the
+  // Summary edit — the default edit surface for a multi-posting transaction. Exposes only the
   // *meaningful* fields: the subject leg's account (recategorize), the description, and the
   // date. The mechanical legs (transfer/conversion/fee) and Fish Pie share legs are shown
   // read-only as "how it moved" — they can't be hand-edited here, so the entry can't be
   // unbalanced. Recategorizing repoints a subject leg's account only; amounts never change,
-  // and the backend re-validates balance on save (replacePostings). "Edit raw postings"
-  // drops to the full TransactionEditModal for power edits and shapes this view can't narrate.
+  // and the backend re-validates balance on save (replacePostings). "Edit ledger postings"
+  // drops to the full LedgerEditModal for power edits and shapes this view can't narrate.
   import Modal from '$lib/components/ui/Modal.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { narrateTransaction } from './narrate'
-  import { initialSubjectDrafts, hasAccountChange, buildRecategorizePayload, type SubjectDraft } from './smartEdit'
+  import { initialSubjectDrafts, hasAccountChange, buildRecategorizePayload, type SubjectDraft } from './summaryEdit'
   import {
     patchTransaction,
     replacePostings,
@@ -38,11 +38,11 @@
     onsaved?: (updated: Transaction) => void
     ondeleted?: () => void
     onremovedFromGroup?: () => void
-    // Drop to the raw posting editor (escape hatch).
-    oneditraw: () => void
+    // Drop to the ledger posting editor (escape hatch).
+    oneditledger: () => void
   }
 
-  let { tx, accounts, open = $bindable(), onclose, onaccountcreated, onsaved, ondeleted, onremovedFromGroup, oneditraw }: Props = $props()
+  let { tx, accounts, open = $bindable(), onclose, onaccountcreated, onsaved, ondeleted, onremovedFromGroup, oneditledger }: Props = $props()
 
   // --- Snapshot + local editing state (reset when the modal opens) ---
   let origDate = $state('')
@@ -339,7 +339,7 @@
       </div>
     {/if}
 
-    <button class="raw-link" onclick={oneditraw}>Edit raw postings…</button>
+    <button class="ledger-link" onclick={oneditledger}>Edit ledger postings…</button>
 
     {#if tx.groupExpenseId}
       <div class="group-link-row">
@@ -578,8 +578,8 @@
     color: var(--color-text-muted);
   }
 
-  /* ---- Raw escape hatch ---- */
-  .raw-link {
+  /* ---- Ledger escape hatch ---- */
+  .ledger-link {
     align-self: flex-start;
     font-family: var(--font-sans);
     font-size: var(--text-xs);
@@ -592,11 +592,11 @@
     transition: color var(--duration-fast) var(--ease);
   }
 
-  .raw-link:hover {
+  .ledger-link:hover {
     color: var(--color-accent-mid);
   }
 
-  .raw-link:focus-visible {
+  .ledger-link:focus-visible {
     outline: 1px dotted var(--color-text);
     outline-offset: 2px;
   }
