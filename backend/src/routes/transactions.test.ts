@@ -101,6 +101,67 @@ describe('transactions', () => {
     }
   })
 
+  it('POST /api/transactions rejects a posting referencing another user\'s account', async () => {
+    // Account ownership guard: a user must not be able to create a posting against — or leak
+    // the path of — an account they don't own.
+    const otherCookie = await createTestUser('other@example.com')
+    const otherHeaders = { Cookie: otherCookie, 'Content-Type': 'application/json' }
+    const foreign = await app
+      .request('/api/accounts', { method: 'POST', headers: otherHeaders, body: JSON.stringify({ path: 'assets:secret' }) })
+      .then(r => r.json())
+
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const mine = await app
+      .request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) })
+      .then(r => r.json())
+
+    const res = await app.request('/api/transactions', {
+      method: 'POST', headers,
+      body: JSON.stringify({ date: '2026-03-01', description: 'x', postings: [
+        { accountId: foreign.id, amount: '-10.00', currency: 'CAD' },
+        { accountId: mine.id, amount: '10.00', currency: 'CAD' },
+      ] }),
+    })
+    expect(res.status).toBe(404)
+    expect((await res.json()).error).toBe('One or more accounts not found')
+
+    // Nothing was created.
+    const list = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json())
+    expect(list).toHaveLength(0)
+  })
+
+  it('POST /api/transactions/bulk rejects a foreign account in any transaction', async () => {
+    const otherCookie = await createTestUser('other@example.com')
+    const otherHeaders = { Cookie: otherCookie, 'Content-Type': 'application/json' }
+    const foreign = await app
+      .request('/api/accounts', { method: 'POST', headers: otherHeaders, body: JSON.stringify({ path: 'assets:secret' }) })
+      .then(r => r.json())
+
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [chequing, food] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+    ])
+
+    const res = await app.request('/api/transactions/bulk', {
+      method: 'POST', headers,
+      body: JSON.stringify({ transactions: [
+        { date: '2026-03-01', description: 'ok', postings: [
+          { accountId: chequing.id, amount: '-10.00', currency: 'CAD' },
+          { accountId: food.id, amount: '10.00', currency: 'CAD' },
+        ] },
+        { date: '2026-03-02', description: 'bad', postings: [
+          { accountId: foreign.id, amount: '-20.00', currency: 'CAD' },
+          { accountId: food.id, amount: '20.00', currency: 'CAD' },
+        ] },
+      ] }),
+    })
+    expect(res.status).toBe(404)
+    // Atomic: the valid transaction in the same batch must not have been created either.
+    const list = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json())
+    expect(list).toHaveLength(0)
+  })
+
   describe('PATCH /api/transactions/:id', () => {
     let txId: string
     const headers = { Cookie: '', 'Content-Type': 'application/json' }
