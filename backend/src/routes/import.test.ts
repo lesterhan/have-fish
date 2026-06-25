@@ -775,7 +775,12 @@ describe('POST /api/import/commit — group splits', () => {
     expect(res.status).toBe(201)
 
     const allTxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
-    const importTx = allTxs.find((t) => !t.groupExpenseId)
+    // The import tx is now forward-linked like member txs; identify it by its origin marker.
+    const [importExpense] = await db
+      .select({ transactionId: groupExpenses.transactionId })
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    const importTx = allTxs.find((t) => t.id === importExpense.transactionId)
     expect(importTx).toBeTruthy()
 
     // The offset posting must go to assets:receivable:housing, not to the user-supplied offsetAccountId
@@ -854,7 +859,12 @@ describe('POST /api/import/commit — group splits', () => {
     })
 
     const allTxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
-    const importTx = allTxs.find((t) => !t.groupExpenseId)!
+    // The import tx is now forward-linked like member txs; identify it by its origin marker.
+    const [importExpense] = await db
+      .select({ transactionId: groupExpenses.transactionId })
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    const importTx = allTxs.find((t) => t.id === importExpense.transactionId)!
     const txPostings = await db
       .select()
       .from(postings)
@@ -897,9 +907,10 @@ describe('POST /api/import/commit — group splits', () => {
       .select()
       .from(transactions)
       .where(and(eq(transactions.userId, userAId), isNull(transactions.deletedAt)))
-    // A has exactly 1 tx: the import tx (no groupExpenseId)
+    // A has exactly 1 tx: the import tx. No *separate* payer member tx is created — but the
+    // import tx itself is forward-linked (single, total belongs-to link), same as B's.
     expect(userATxs).toHaveLength(1)
-    expect(userATxs[0].groupExpenseId).toBeNull()
+    expect(userATxs[0].groupExpenseId).toBeTruthy()
 
     const userBTxs = await db
       .select()
@@ -908,6 +919,8 @@ describe('POST /api/import/commit — group splits', () => {
     // B has exactly 1 tx: their member tx (has groupExpenseId)
     expect(userBTxs).toHaveLength(1)
     expect(userBTxs[0].groupExpenseId).toBeTruthy()
+    // Both point at the same expense.
+    expect(userATxs[0].groupExpenseId).toBe(userBTxs[0].groupExpenseId)
   })
 
   it('Fish Pie cross-currency: splits net target amount, fee posting untouched', async () => {
@@ -963,7 +976,12 @@ describe('POST /api/import/commit — group splits', () => {
 
     // Import tx: 6 postings (with fee)
     const userATxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
-    const importTx = userATxs.find((t) => !t.groupExpenseId)!
+    // The import tx is now forward-linked like member txs; identify it by its origin marker.
+    const [importExpense] = await db
+      .select({ transactionId: groupExpenses.transactionId })
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    const importTx = userATxs.find((t) => t.id === importExpense.transactionId)!
     const txPostings = await db
       .select()
       .from(postings)
@@ -1036,7 +1054,12 @@ describe('POST /api/import/commit — group splits', () => {
     expect((await res.json() as any).fishPieExpenses).toBe(1)
 
     const userATxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
-    const importTx = userATxs.find((t) => !t.groupExpenseId)!
+    // The import tx is now forward-linked like member txs; identify it by its origin marker.
+    const [importExpense] = await db
+      .select({ transactionId: groupExpenses.transactionId })
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    const importTx = userATxs.find((t) => t.id === importExpense.transactionId)!
     const txPostings = await db
       .select()
       .from(postings)
@@ -1105,7 +1128,12 @@ describe('POST /api/import/commit — group splits', () => {
 
     // Import tx: 4 postings
     const userATxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
-    const importTx = userATxs.find((t) => !t.groupExpenseId)!
+    // The import tx is now forward-linked like member txs; identify it by its origin marker.
+    const [importExpense] = await db
+      .select({ transactionId: groupExpenses.transactionId })
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    const importTx = userATxs.find((t) => t.id === importExpense.transactionId)!
     const txPostings = await db
       .select()
       .from(postings)

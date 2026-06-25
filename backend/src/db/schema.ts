@@ -73,8 +73,10 @@ export const transactions = pgTable('transactions', {
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   date: timestamp('date').notNull(),
   description: text('description'),
-  // Set when this transaction was auto-created by Fish Pie expense splitting.
-  // Used by the edit modal to surface "Remove from group" and by DELETE to cascade.
+  // The group expense this transaction belongs to. The single, total forward link: set on
+  // every transaction in an expense — the auto-created member txs AND the payer's origin
+  // import tx (see groupExpenses.transactionId) — so "which expense?" is one lookup.
+  // Used by the read payload, the edit modal's "Remove from group", and DELETE to cascade.
   // No DB FK intentional: groupExpenses already has a FK to transactions (transactionId),
   // so adding a back-reference here would create a circular FK constraint.
   groupExpenseId: uuid('group_expense_id'),
@@ -262,7 +264,11 @@ export const groupExpenses = pgTable('group_expenses', {
   amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
   currency: text('currency').notNull(),
   date: text('date').notNull(), // YYYY-MM-DD
-  // The transaction created for the payer's share auto-posting. Null on pre-integration expenses.
+  // Marks the origin import transaction for an expense logged from a CSV import (paid by the
+  // importer): the externally-owned bank line this expense was spawned from. Its purpose is
+  // lifecycle, not lookup — it flags the one tx that must be preserved (postings patched in
+  // place) rather than regenerated on edit. The belongs-to link is transactions.groupExpenseId.
+  // Null for manually-created expenses and pre-integration ones.
   transactionId: uuid('transaction_id').references(() => transactions.id, { onDelete: 'set null' }),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),

@@ -187,45 +187,31 @@ app.get('/', async (c) => {
     return acc
   }, {})
 
-  // Resolve the group expense a transaction belongs to. Two link directions exist:
-  //   - member transactions point forward via transactions.groupExpenseId
-  //   - the payer's import-linked transaction is pointed *to* by groupExpenses.transactionId
-  //     (its own groupExpenseId stays null). Without resolving this reverse link, a split
-  //     expense the user logged from import would surface with no groupExpenseId/groupName.
-  const forwardExpenseIds = txRows
+  // Resolve the group a transaction belongs to via the single forward link
+  // (transactions.groupExpenseId). This is total: member transactions and the payer's origin
+  // import transaction are all stamped with it, so one lookup answers every row. (The reverse
+  // pointer groupExpenses.transactionId still exists, but only marks the origin import line for
+  // the edit/delete lifecycle — it is not a read path.)
+  const groupExpenseIds = txRows
     .map((tx) => tx.groupExpenseId)
     .filter((id): id is string => id !== null)
   const groupNameByExpenseId: Record<string, string> = {}
-  if (forwardExpenseIds.length > 0) {
+  if (groupExpenseIds.length > 0) {
     const rows = await db
       .select({ expenseId: groupExpenses.id, groupName: expenseGroups.name })
       .from(groupExpenses)
       .innerJoin(expenseGroups, eq(groupExpenses.groupId, expenseGroups.id))
-      .where(inArray(groupExpenses.id, forwardExpenseIds))
+      .where(inArray(groupExpenses.id, groupExpenseIds))
     for (const row of rows) {
       groupNameByExpenseId[row.expenseId] = row.groupName
     }
   }
 
-  // Reverse link: active group expenses whose import transaction is in this result set.
-  const reverseByTxId: Record<string, { expenseId: string; groupName: string }> = {}
-  const reverseRows = await db
-    .select({ txId: groupExpenses.transactionId, expenseId: groupExpenses.id, groupName: expenseGroups.name })
-    .from(groupExpenses)
-    .innerJoin(expenseGroups, eq(groupExpenses.groupId, expenseGroups.id))
-    .where(and(inArray(groupExpenses.transactionId, txIds), isNull(groupExpenses.deletedAt)))
-  for (const row of reverseRows) {
-    if (row.txId) reverseByTxId[row.txId] = { expenseId: row.expenseId, groupName: row.groupName }
-  }
-
-  const result = txRows.map((tx) => {
-    const reverse = reverseByTxId[tx.id]
-    const groupExpenseId = tx.groupExpenseId ?? reverse?.expenseId ?? null
-    const groupName = tx.groupExpenseId
-      ? (groupNameByExpenseId[tx.groupExpenseId] ?? null)
-      : (reverse?.groupName ?? null)
-    return { ...tx, groupExpenseId, postings: postingsByTx[tx.id] ?? [], groupName }
-  })
+  const result = txRows.map((tx) => ({
+    ...tx,
+    postings: postingsByTx[tx.id] ?? [],
+    groupName: tx.groupExpenseId ? (groupNameByExpenseId[tx.groupExpenseId] ?? null) : null,
+  }))
   return c.json(result)
 })
 

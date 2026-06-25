@@ -472,10 +472,10 @@ describe('transactions', () => {
       await db.insert(expenseGroupMembers).values({ groupId, userId, shareWeight: 1 })
     })
 
-    // A split expense logged from import (paid by me) links the OTHER way: the group expense
-    // points to the import transaction via groupExpenses.transactionId, while that transaction's
-    // own groupExpenseId stays null. The GET payload must still surface both.
-    it('resolves groupExpenseId + groupName via the reverse import link', async () => {
+    // A split expense logged from import (paid by me): the expense marks its origin import tx
+    // via groupExpenses.transactionId, but the belongs-to relationship is the forward link —
+    // the import tx carries groupExpenseId like any member tx, so one lookup surfaces both.
+    it('resolves groupExpenseId + groupName for the origin import transaction (forward link)', async () => {
       const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
       const [wise, food] = await Promise.all([
         app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:wise:czk' }) }).then(r => r.json()),
@@ -489,10 +489,13 @@ describe('transactions', () => {
         ] }),
       }).then(r => r.json()) as any
 
+      // Mirror what createGroupExpenseInTx writes for an import-linked expense: the back-pointer
+      // (origin marker) AND the total forward link on the same transaction.
       const [expense] = await db
         .insert(groupExpenses)
         .values({ groupId, paidByUserId: userId, description: 'Albert', amount: '717.80', currency: 'CZK', date: '2026-06-23', transactionId: created.id })
         .returning()
+      await db.update(transactions).set({ groupExpenseId: expense.id }).where(eq(transactions.id, created.id))
 
       const data = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json()) as any[]
       const tx = data.find((t) => t.id === created.id)

@@ -474,6 +474,16 @@ describe('fish-pie delete import-linked expense', () => {
     expect(expense.transactionId).toBeTruthy()
     const importTxId = expense.transactionId!
 
+    // The origin import tx is forward-linked too (single, total belongs-to link), so GET
+    // surfaces its group without following the back-pointer.
+    const [importTxRow] = await db.select().from(transactions).where(eq(transactions.id, importTxId))
+    expect(importTxRow.groupExpenseId).toBe(expense.id)
+    const listRes = await app.request('/api/transactions', { headers: { Cookie: cookieA } })
+    const listed = await listRes.json() as any[]
+    const importInList = listed.find((t) => t.id === importTxId)
+    expect(importInList.groupExpenseId).toBe(expense.id)
+    expect(importInList.groupName).toBe('Food')
+
     // Delete the group expense
     const res = await app.request(`/api/fish-pie/group-expenses/${expense.id}`, {
       method: 'DELETE',

@@ -280,6 +280,17 @@ export async function createGroupExpenseInTx(
     splits.map((s) => ({ expenseId: expense.id, userId: s.userId, amount: s.amount })),
   )
 
+  // Forward link is total: stamp the origin import transaction with group_expense_id too,
+  // so every transaction in this expense — member txs and the import tx alike — resolves its
+  // group the same way. linkedTransactionId is still recorded on the expense as the "origin
+  // import line" marker (preserve it, don't regenerate it on edit), not as the read path.
+  if (linkedTransactionId) {
+    await tx
+      .update(transactions)
+      .set({ groupExpenseId: expense.id })
+      .where(eq(transactions.id, linkedTransactionId))
+  }
+
   await createMemberTransactionsInTx(tx, {
     expenseId: expense.id,
     group,
