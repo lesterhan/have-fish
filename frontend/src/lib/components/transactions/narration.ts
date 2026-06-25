@@ -140,77 +140,78 @@ function chipFor(p: Posting, hasShare: boolean): Chip {
   return parseFloat(p.amount) >= 0 ? 'deposit' : 'the-spend'
 }
 
-// --- the model --------------------------------------------------------------------------
+// --- derivations (one pure helper per field — the model is their assembly) --------------
 
-export function narrateTransaction(postings: Posting[]): NarratedTransaction {
-  const subjects = postings.filter((p) => p.role === 'subject')
-  const transfers = postings.filter((p) => p.role === 'transfer')
-  const convLegs = postings.filter((p) => p.role === 'conversion')
-  const hasShare = postings.some((p) => p.role === 'share')
-
-  // Hero = the largest-abs subject leg. Inflow when stored negative (income/refund).
-  const heroPosting =
-    subjects.length > 0
-      ? subjects.reduce((best, p) =>
-          Math.abs(parseFloat(p.amount)) > Math.abs(parseFloat(best.amount)) ? p : best,
-        )
-      : null
-  const inflow = heroPosting ? parseFloat(heroPosting.amount) < 0 : false
-  const hero: Hero = heroPosting
-    ? {
-        posting: heroPosting,
-        label: accountLabel(heroPosting),
-        path: heroPosting.accountPath,
-        amount: heroPosting.amount,
-        currency: heroPosting.currency,
-        inflow,
-      }
-    : null
-
-  // Source = the asset that moved. Outflow → most-negative transfer; inflow → most-positive
-  // (the account the money landed in). Null when there is no transfer leg.
-  let source: Posting | null = null
-  if (transfers.length > 0) {
-    const sorted = [...transfers].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))
-    source = inflow ? sorted[sorted.length - 1] : sorted[0]
+// Hero = the largest-abs subject leg, kept signed. Inflow when stored negative (income/refund).
+function deriveHero(subjects: Posting[]): Hero {
+  if (subjects.length === 0) return null
+  const posting = subjects.reduce((best, p) =>
+    Math.abs(parseFloat(p.amount)) > Math.abs(parseFloat(best.amount)) ? p : best,
+  )
+  return {
+    posting,
+    label: accountLabel(posting),
+    path: posting.accountPath,
+    amount: posting.amount,
+    currency: posting.currency,
+    inflow: parseFloat(posting.amount) < 0,
   }
+}
 
-  // Conversion = a genuine FX bridge: ≥2 equity:conversions legs across ≥2 currencies, with
-  // one bridge matching the subject (native) currency and one matching the source currency.
-  let conversion: Conversion | null = null
-  const convCurrencies = new Set(convLegs.map((c) => c.currency))
-  if (convLegs.length >= 2 && convCurrencies.size >= 2 && hero && source) {
-    const nativeCcy = hero.currency
-    const sourceCcy = source.currency
-    const nativeBridge = convLegs.find((c) => c.currency === nativeCcy)
-    const sourceBridge = convLegs.find((c) => c.currency === sourceCcy)
-    if (nativeBridge && sourceBridge && nativeCcy !== sourceCcy) {
-      const paidAbs = Math.abs(parseFloat(source.amount))
-      const nativeAbs = Math.abs(parseFloat(nativeBridge.amount))
-      const sourceAbs = Math.abs(parseFloat(sourceBridge.amount))
-      const rateNum = sourceAbs > 0 ? nativeAbs / sourceAbs : 0
-      const feeLeg = postings.find((p) => p.role === 'fee')
-      conversion = {
-        paid: { amount: paidAbs.toFixed(2), currency: sourceCcy },
-        converted: { amount: nativeAbs.toFixed(2), currency: nativeCcy },
-        fee: feeLeg ? { amount: abs2(feeLeg.amount), currency: feeLeg.currency } : null,
-        // ≥1 rates read naturally at 2dp ("20.88"); sub-1 rates need more to stay meaningful.
-        rate: rateNum >= 1 ? rateNum.toFixed(2) : rateNum.toFixed(4),
-        rateUnit: `${nativeCcy}/${sourceCcy}`,
-      }
-    }
+// Source = the asset that moved. Outflow → the most-negative transfer (money left it); inflow
+// → the most-positive (money landed in it). Null when there is no transfer leg.
+function deriveSource(transfers: Posting[], inflow: boolean): Posting | null {
+  if (transfers.length === 0) return null
+  const sorted = [...transfers].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))
+  return inflow ? sorted[sorted.length - 1] : sorted[0]
+}
+
+// Conversion = a genuine FX bridge: ≥2 equity:conversions legs across ≥2 currencies, with one
+// bridge matching the subject (native) currency and one matching the source currency. The rate
+// is native-per-source, read off the two bridge amounts. Null on a same-currency transaction.
+function deriveConversion(
+  postings: Posting[],
+  convLegs: Posting[],
+  hero: Hero,
+  source: Posting | null,
+): Conversion | null {
+  if (convLegs.length < 2 || !hero || !source) return null
+  const nativeCcy = hero.currency
+  const sourceCcy = source.currency
+  if (nativeCcy === sourceCcy) return null
+  const nativeBridge = convLegs.find((c) => c.currency === nativeCcy)
+  const sourceBridge = convLegs.find((c) => c.currency === sourceCcy)
+  if (!nativeBridge || !sourceBridge) return null
+
+  const nativeAbs = Math.abs(parseFloat(nativeBridge.amount))
+  const sourceAbs = Math.abs(parseFloat(sourceBridge.amount))
+  const rateNum = sourceAbs > 0 ? nativeAbs / sourceAbs : 0
+  const feeLeg = postings.find((p) => p.role === 'fee')
+  return {
+    paid: { amount: abs2(source.amount), currency: sourceCcy },
+    converted: { amount: nativeAbs.toFixed(2), currency: nativeCcy },
+    fee: feeLeg ? { amount: abs2(feeLeg.amount), currency: feeLeg.currency } : null,
+    // ≥1 rates read naturally at 2dp ("20.88"); sub-1 rates need more to stay meaningful.
+    rate: rateNum >= 1 ? rateNum.toFixed(2) : rateNum.toFixed(4),
+    rateUnit: `${nativeCcy}/${sourceCcy}`,
   }
+}
 
-  // Archetype drives the header tag + blurb selection (story 3).
-  let archetype: Archetype
-  if (conversion) archetype = 'multiCurrency'
-  else if (hasShare) archetype = 'split'
-  else if (inflow) archetype = 'inflow'
-  else archetype = 'simple'
+function deriveArchetype(
+  conversion: Conversion | null,
+  hasShare: boolean,
+  inflow: boolean,
+): Archetype {
+  if (conversion) return 'multiCurrency'
+  if (hasShare) return 'split'
+  if (inflow) return 'inflow'
+  return 'simple'
+}
 
-  // Branches = every non-source, non-conversion leg, chipped. The equity bridges are never
-  // branches; they live only in the conversion math + the All-postings expander.
-  const branches: Branch[] = postings
+// Branches = every non-source, non-conversion leg, chipped with its meaning. The equity bridges
+// are never branches; they live only in the conversion math + the All-postings expander.
+function deriveBranches(postings: Posting[], source: Posting | null, hasShare: boolean): Branch[] {
+  return postings
     .filter((p) => p !== source && p.role !== 'conversion')
     .map((p) => ({
       posting: p,
@@ -220,20 +221,36 @@ export function narrateTransaction(postings: Posting[]): NarratedTransaction {
       amount: p.amount,
       currency: p.currency,
     }))
+}
 
-  // Balances = per-currency sum across every leg; should be zero within rounding.
+// Balances = per-currency sum across every leg; should be zero within rounding.
+function deriveBalances(postings: Posting[]): Balances {
   const byCcy = new Map<string, number>()
   for (const p of postings) byCcy.set(p.currency, (byCcy.get(p.currency) ?? 0) + cents(p.amount))
   const byCurrency = [...byCcy].map(([currency, c]) => ({ currency, sum: fromCents(c) }))
   const ok = byCurrency.every((b) => Math.abs(parseFloat(b.sum)) < 0.005)
+  return { ok, byCurrency }
+}
+
+// --- the model (reads as the six derivations above, assembled) --------------------------
+
+export function narrateTransaction(postings: Posting[]): NarratedTransaction {
+  const transfers = postings.filter((p) => p.role === 'transfer')
+  const convLegs = postings.filter((p) => p.role === 'conversion')
+  const hasShare = postings.some((p) => p.role === 'share')
+
+  const hero = deriveHero(postings.filter((p) => p.role === 'subject'))
+  const inflow = hero?.inflow ?? false
+  const source = deriveSource(transfers, inflow)
+  const conversion = deriveConversion(postings, convLegs, hero, source)
 
   return {
-    archetype,
+    archetype: deriveArchetype(conversion, hasShare, inflow),
     hero,
     source,
-    branches,
+    branches: deriveBranches(postings, source, hasShare),
     conversion,
     allPostings: postings,
-    balances: { ok, byCurrency },
+    balances: deriveBalances(postings),
   }
 }
