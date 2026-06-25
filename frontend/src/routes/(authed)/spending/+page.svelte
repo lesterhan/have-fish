@@ -6,7 +6,10 @@
   import TransactionDetail from '$lib/components/transactions/TransactionDetail.svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
-  import { hasSubjectInCurrency, txSubjectTotal } from '$lib/components/spending/spendingRow'
+  import {
+    hasSubjectInCurrency,
+    txSubjectTotal,
+  } from '$lib/components/spending/spendingRow'
   import {
     fetchSpendingSummary,
     fetchTransactions,
@@ -16,20 +19,15 @@
     fetchSpendingConverted,
     fetchMonthlySpend,
   } from '$lib/api'
-  import type {
-    SpendingSummary,
-    Transaction,
-    MonthlySpend,
-  } from '$lib/api'
+  import type { SpendingSummary, Transaction, MonthlySpend } from '$lib/api'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
   // --- Month state ---
   const now = new Date()
-  const prev = new Date(now.getFullYear(), now.getMonth() - 1, 1)
-  let year = $state(prev.getFullYear())
-  let month = $state(prev.getMonth() + 1)
+  let year = $state(now.getFullYear())
+  let month = $state(now.getMonth() + 1)
 
   let summary = $state<SpendingSummary | null>(null)
   let loading = $state(false)
