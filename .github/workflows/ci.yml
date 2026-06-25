@@ -5,7 +5,7 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  backend:
     runs-on: ubuntu-latest
 
     services:
@@ -50,3 +50,25 @@ jobs:
       - name: Run tests
         working-directory: backend
         run: bun test
+
+  frontend:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install
+
+      - name: Run tests
+        working-directory: frontend
+        run: bun test
+
+      - name: Type check
+        working-directory: frontend
+        run: bun run check
