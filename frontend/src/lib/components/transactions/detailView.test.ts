@@ -5,6 +5,7 @@ import {
   chipTone,
   heroDisplay,
   branchAmount,
+  orderedBranches,
   convertedNote,
   formatTxDate,
 } from './detailView'
@@ -121,6 +122,27 @@ describe('heroDisplay', () => {
     })
   })
 
+  it('split: hero shows the full fronted bill, not just your share', () => {
+    // share 150 fronted from a -500 source; the other 350 is owed by the group.
+    const h = heroDisplay(narrate(splitSpend))
+    expect(h?.label).toBe('Food')
+    expect(h?.amount).toBe('30.00')
+  })
+
+  it('split: full bill falls back to share + owed when source is a different currency', () => {
+    // No conversion legs (still archetype 'split'), but the source asset is in another
+    // currency — sum the hero (your share, 20) + the owed branch (10) in the hero ccy = 30.
+    const h = heroDisplay(
+      narrate([
+        p('assets:usd', '-22.00', 'USD', 'transfer'),
+        p('expenses:food', '20.00', 'CAD', 'subject'),
+        p('assets:receivable:roommates', '10.00', 'CAD', 'share'),
+      ]),
+    )
+    expect(h?.amount).toBe('30.00')
+    expect(h?.currency).toBe('CAD')
+  })
+
   it('inflow: leading + and positive flag despite negative stored amount', () => {
     const h = heroDisplay(narrate(income))
     expect(h?.amount).toBe('2000.00')
@@ -146,6 +168,41 @@ describe('heroDisplay', () => {
       ]),
     )
     expect(h).toBeNull()
+  })
+})
+
+describe('orderedBranches', () => {
+  it('split: your share before owes-you (meaning order, not posting order)', () => {
+    // Fixture posts the receivable (share) before nothing reorders it at the model level;
+    // the render orders your-share ahead of the owes-you relationship.
+    const n = narrate(splitSpend)
+    const chips = orderedBranches(n.branches).map((b) => b.chip)
+    expect(chips).toEqual(['your-share', 'owes-you'])
+  })
+
+  it('multi-currency: the spend before the FX fee', () => {
+    const n = narrate([
+      p('expenses:food:cafe', '50.00', 'EUR', 'subject'),
+      p('expenses:banking:fee', '0.05', 'EUR', 'fee'),
+      p('assets:wise:cad', '-80.08', 'CAD', 'transfer'),
+      p('equity:conversions', '-50.05', 'EUR', 'conversion'),
+      p('equity:conversions', '80.08', 'CAD', 'conversion'),
+    ])
+    const chips = orderedBranches(n.branches).map((b) => b.chip)
+    expect(chips).toEqual(['the-spend', 'fx-fee'])
+  })
+
+  it('is stable for branches of equal rank', () => {
+    const n = narrate([
+      p('assets:chequing', '-75.00', 'CAD', 'transfer'),
+      p('expenses:food:groceries', '50.00', 'CAD', 'subject'),
+      p('expenses:home:supplies', '25.00', 'CAD', 'subject'),
+    ])
+    // Both 'the-spend' (rank 0) — input order preserved.
+    expect(orderedBranches(n.branches).map((b) => b.path)).toEqual([
+      'expenses:food:groceries',
+      'expenses:home:supplies',
+    ])
   })
 })
 

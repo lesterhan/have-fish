@@ -4,7 +4,7 @@
 // string — lives here as a pure function the unit tests can pin. The .svelte file stays a
 // dumb walk over the narration model (narration.ts) and these helpers.
 
-import type { NarratedTransaction, Chip } from './narration'
+import type { NarratedTransaction, Chip, Branch } from './narration'
 
 // --- header tag ---------------------------------------------------------------------------
 
@@ -73,11 +73,53 @@ export function heroDisplay(n: NarratedTransaction): HeroDisplay | null {
   return {
     label: n.hero.label,
     path: n.hero.path,
-    amount: Math.abs(parseFloat(n.hero.amount) || 0).toFixed(2),
+    amount: heroAmount(n),
     currency: n.hero.currency,
     sign: n.hero.inflow ? '+' : '',
     positive: n.hero.inflow,
   }
+}
+
+// The headline magnitude. For most archetypes it is the hero leg itself; for a split the
+// hero shows the *full bill you fronted* (your share + what others owe), not just your slice
+// — so the big number matches what left the account. That total is the source outflow when
+// it is same-currency as the hero (the cleanest reading, and correct for a multi-category
+// split); otherwise fall back to hero + the relational (owes-you / you-owe) branches.
+function heroAmount(n: NarratedTransaction): string {
+  const heroAbs = Math.abs(parseFloat(n.hero!.amount) || 0)
+  if (n.archetype !== 'split') return heroAbs.toFixed(2)
+
+  if (n.source && n.source.currency === n.hero!.currency) {
+    return Math.abs(parseFloat(n.source.amount) || 0).toFixed(2)
+  }
+  const relational = n.branches
+    .filter(
+      (b) =>
+        (b.chip === 'owes-you' || b.chip === 'you-owe') && b.currency === n.hero!.currency,
+    )
+    .reduce((sum, b) => sum + Math.abs(parseFloat(b.amount) || 0), 0)
+  return (heroAbs + relational).toFixed(2)
+}
+
+// --- branch ordering ----------------------------------------------------------------------
+
+// The flow tree reads top-to-bottom in meaning order, not raw posting order: what the money
+// bought first (the spend / your share / a deposit), then the relationship it created (who
+// owes whom), then the mechanical FX fee last. Stable — ties keep input order.
+const CHIP_RANK: Record<Chip, number> = {
+  'the-spend': 0,
+  'your-share': 0,
+  deposit: 0,
+  'owes-you': 1,
+  'you-owe': 1,
+  'fx-fee': 2,
+}
+
+export function orderedBranches(branches: Branch[]): Branch[] {
+  return branches
+    .map((b, i) => ({ b, i }))
+    .sort((x, y) => CHIP_RANK[x.b.chip] - CHIP_RANK[y.b.chip] || x.i - y.i)
+    .map(({ b }) => b)
 }
 
 // --- branch amount ------------------------------------------------------------------------

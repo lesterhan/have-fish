@@ -21,6 +21,7 @@
     chipTone,
     heroDisplay,
     branchAmount,
+    orderedBranches,
     convertedNote,
     formatTxDate,
   } from './detailView'
@@ -41,6 +42,7 @@
   let note = $derived(convertedNote(n))
   let dateLabel = $derived(formatTxDate(tx.date))
   let sourceLabel = $derived(n.source ? accountLabel(n.source) : null)
+  let branches = $derived(orderedBranches(n.branches))
 </script>
 
 <div class="detail" data-mode={mode}>
@@ -81,32 +83,37 @@
       <span class="moved-label">How it moved</span>
 
       <div class="tree">
-        {#if sourceLabel}
+        {#if sourceLabel && n.source}
           <div class="row source">
             <span class="spine" aria-hidden="true"><span class="dot"></span></span>
             <div class="body">
-              <span class="branch-label">{sourceLabel}</span>
-              <span class="branch-path">{n.source?.accountPath}</span>
+              <span class="line"><span class="branch-label">{sourceLabel}</span></span>
+              <span class="branch-path">{n.source.accountPath}</span>
             </div>
-            <div class="amount"></div>
+            <div class="amount">
+              <span class="num">{branchAmount(n.source.amount)}</span>
+              <CurrencyPill code={n.source.currency} size="xs" />
+            </div>
           </div>
         {/if}
 
-        {#each n.branches as b, i (b.posting.id)}
+        {#each branches as b, i (b.posting.id)}
           <div
             class="row branch tone-{chipTone(b.chip)}"
-            class:last={i === n.branches.length - 1}
+            class:last={i === branches.length - 1}
             data-node="branch"
             data-posting-id={b.posting.id}
           >
             <span class="spine" aria-hidden="true"><span class="elbow"></span></span>
             <div class="body">
-              <span class="chip">{chipLabel(b.chip)}</span>
-              <span class="branch-label">{b.label}</span>
+              <span class="line">
+                <span class="chip">{chipLabel(b.chip)}</span>
+                <span class="branch-label">{b.label}</span>
+                {#if note && b.chip === 'the-spend'}
+                  <span class="note">{note}</span>
+                {/if}
+              </span>
               <span class="branch-path">{b.path}</span>
-              {#if note && b.chip === 'the-spend'}
-                <span class="note">{note}</span>
-              {/if}
             </div>
             <div class="amount">
               <span class="num">{branchAmount(b.amount)}</span>
@@ -332,11 +339,18 @@
 
   .body {
     display: flex;
-    align-items: baseline;
+    flex-direction: column;
+    gap: 1px;
+    min-width: 0;
+    padding: var(--sp-xs) 0;
+  }
+
+  .line {
+    display: flex;
+    align-items: center;
     flex-wrap: wrap;
     gap: var(--sp-xs);
     min-width: 0;
-    padding: var(--sp-xs) 0;
   }
 
   .chip {
