@@ -25,12 +25,25 @@ async function enrichPostings<T extends { id: string; accountId: string }>(
   const accountRows = await db
     .select({ id: accounts.id, path: accounts.path })
     .from(accounts)
-    .where(inArray(accounts.id, accountIds))
+    .where(and(inArray(accounts.id, accountIds), eq(accounts.userId, userId)))
   const pathById = new Map(accountRows.map((a) => [a.id, a.path]))
   const withPath = rows.map((r) => ({ ...r, accountPath: pathById.get(r.accountId) ?? '' }))
   const settings = await loadClassifySettings(userId)
   const roleById = classifyPostings(withPath, settings)
   return withPath.map((r) => ({ ...r, role: roleById.get(r.id)! }))
+}
+
+// True when every id is an active account owned by userId. Guards the create/replace
+// paths so a transaction can't reference (or leak the path of) another user's account.
+// Empty input is vacuously true; posting-count validation rejects empties separately.
+async function accountsOwnedBy(userId: string, accountIds: string[]): Promise<boolean> {
+  const unique = [...new Set(accountIds)]
+  if (unique.length === 0) return true
+  const owned = await db
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(inArray(accounts.id, unique), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+  return owned.length === unique.length
 }
 
 // GET /api/transactions/malformed-fx-spend
@@ -231,6 +244,12 @@ app.post('/', async (c) => {
     }
   }
 
+  // Verify every referenced account belongs to this user before inserting.
+  const inputAccountIds = postingInputs.map((p: { accountId: string }) => p.accountId)
+  if (!(await accountsOwnedBy(userId, inputAccountIds))) {
+    return c.json({ error: 'One or more accounts not found' }, 404)
+  }
+
   const created = await db.transaction(async (tx) => {
     const [newTx] = await tx
       .insert(transactions)
@@ -287,6 +306,14 @@ app.post('/bulk', async (c) => {
         return c.json({ error: `Transaction at index ${i}: postings do not balance for currency ${currency}` }, 400)
       }
     }
+  }
+
+  // Verify every referenced account (across all transactions) belongs to this user.
+  const allAccountIds = txInputs.flatMap((t: { postings: { accountId: string }[] }) =>
+    t.postings.map((p) => p.accountId),
+  )
+  if (!(await accountsOwnedBy(userId, allAccountIds))) {
+    return c.json({ error: 'One or more accounts not found' }, 404)
   }
 
   const created = await db.transaction(async (tx) => {
@@ -397,12 +424,8 @@ app.post('/:id/postings', async (c) => {
   if (!tx) return c.json({ error: 'Transaction not found' }, 404)
 
   // Verify all accounts exist and belong to this user
-  const inputAccountIds = [...new Set(postingInputs.map((p: { accountId: string }) => p.accountId))]
-  const validAccounts = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(and(inArray(accounts.id, inputAccountIds), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (validAccounts.length !== inputAccountIds.length) {
+  const inputAccountIds = postingInputs.map((p: { accountId: string }) => p.accountId)
+  if (!(await accountsOwnedBy(userId, inputAccountIds))) {
     return c.json({ error: 'One or more accounts not found' }, 404)
   }
 
