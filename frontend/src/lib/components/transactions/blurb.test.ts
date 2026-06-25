@@ -96,9 +96,9 @@ describe('multi-currency blurb', () => {
     p('equity:conversions', '17.24', 'USD', 'conversion'),
   ])
 
-  it('states native spend, then the gross that left the account — no rate, no dash', () => {
+  it('states native spend, then the gross it was converted from — no rate, no dash', () => {
     expect(blurbText(parts)).toBe(
-      'You spent 360.00 CZK on Food · Coffee. 17.24 USD left your account.',
+      'You spent 360.00 CZK on Food · Coffee.\n Which was converted from 17.24 USD.',
     )
   })
 

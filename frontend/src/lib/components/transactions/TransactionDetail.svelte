@@ -24,6 +24,9 @@
     branchAmount,
     orderedBranches,
     convertedNote,
+    conversionRows,
+    conversionHint,
+    postingRows,
     formatTxDate,
   } from './detailView'
   import type { Transaction } from '$lib/api'
@@ -44,6 +47,14 @@
   let dateLabel = $derived(formatTxDate(tx.date))
   let sourceLabel = $derived(n.source ? accountLabel(n.source) : null)
   let branches = $derived(orderedBranches(n.branches))
+
+  // Progressive disclosure — both collapsed by default, independent. Conversion only exists on
+  // an FX transaction; All postings is always available (the raw-ledger escape hatch).
+  let convRows = $derived(conversionRows(n))
+  let convHint = $derived(conversionHint(n))
+  let legs = $derived(postingRows(n))
+  let convOpen = $state(false)
+  let postingsOpen = $state(false)
 </script>
 
 <div class="detail" data-mode={mode}>
@@ -134,6 +145,72 @@
       </div>
     </section>
   {/if}
+
+  {#if convRows}
+    <section class="expander">
+      <button
+        type="button"
+        class="caret-row"
+        aria-expanded={convOpen}
+        onclick={() => (convOpen = !convOpen)}
+      >
+        <span class="caret" class:open={convOpen} aria-hidden="true">
+          <Icon name="chevron-right-filled" size={10} />
+        </span>
+        <span class="caret-label">Currency conversion</span>
+        <span class="caret-hint">{convHint}</span>
+      </button>
+      {#if convOpen}
+        <div class="conv-grid">
+          {#each convRows as r (r.label)}
+            <span class="conv-key">{r.label}</span>
+            <span class="conv-val">
+              <span class="num">{r.amount}</span>
+              <CurrencyPill code={r.currency} size="xs" />
+            </span>
+          {/each}
+          <span class="conv-key">Rate</span>
+          <span class="conv-val"><span class="rate">{convHint}</span></span>
+        </div>
+      {/if}
+    </section>
+  {/if}
+
+  <section class="expander">
+    <button
+      type="button"
+      class="caret-row"
+      aria-expanded={postingsOpen}
+      onclick={() => (postingsOpen = !postingsOpen)}
+    >
+      <span class="caret" class:open={postingsOpen} aria-hidden="true">
+        <Icon name="chevron-right-filled" size={10} />
+      </span>
+      <span class="caret-label">All postings</span>
+      <span class="caret-hint">{legs.length} leg{legs.length === 1 ? '' : 's'}</span>
+    </button>
+    {#if postingsOpen}
+      <div class="ledger">
+        {#each legs as leg, i (leg.path + ':' + i)}
+          <div class="leg">
+            <span class="leg-path">{leg.path}</span>
+            <span class="leg-role">{leg.role}</span>
+            <span class="leg-amount">
+              <span class="num" class:neg={leg.amount.startsWith('-')}>{leg.amount}</span>
+              <CurrencyPill code={leg.currency} size="xs" />
+            </span>
+          </div>
+        {/each}
+        <div class="ledger-foot" class:ok={n.balances.ok}>
+          {#if n.balances.ok}
+            <Icon name="check" size={11} />balances
+          {:else}
+            <Icon name="warning" size={11} />does not balance
+          {/if}
+        </div>
+      </div>
+    {/if}
+  </section>
 </div>
 
 <style>
@@ -474,5 +551,161 @@
 
   .tone-amber .amount .num {
     color: var(--color-warning);
+  }
+
+  /* --- progressive-disclosure expanders ---------------------------------------------- */
+  .expander {
+    border-top: 1px dotted var(--color-rule);
+    padding-top: var(--sp-sm);
+  }
+
+  .caret-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    width: 100%;
+    padding: var(--sp-xs) 0;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--color-text);
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .caret-row:hover {
+    color: var(--color-accent);
+  }
+
+  .caret-row:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: 2px;
+  }
+
+  .caret {
+    display: inline-flex;
+    color: var(--color-text-muted);
+    transition: transform var(--duration-fast) var(--ease);
+  }
+
+  .caret.open {
+    transform: rotate(90deg);
+  }
+
+  .caret-label {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--color-text-muted);
+  }
+
+  .caret-hint {
+    margin-left: auto;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  /* conversion grid */
+  .conv-grid {
+    display: grid;
+    grid-template-columns: auto 1fr;
+    align-items: center;
+    gap: var(--sp-xs) var(--sp-md);
+    padding: var(--sp-sm) 0 var(--sp-xs) calc(10px + var(--sp-sm));
+  }
+
+  .conv-key {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .conv-val {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: var(--sp-xs);
+  }
+
+  .conv-val .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-sm);
+    color: var(--color-text);
+  }
+
+  .rate {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+  }
+
+  /* all-postings ledger */
+  .ledger {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    padding: var(--sp-sm) 0 0 calc(10px + var(--sp-sm));
+  }
+
+  .leg {
+    display: grid;
+    grid-template-columns: 1fr auto auto;
+    align-items: center;
+    column-gap: var(--sp-sm);
+  }
+
+  .leg-path {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .leg-role {
+    font-family: var(--font-sans);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-text-muted);
+  }
+
+  .leg-amount {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    justify-self: end;
+  }
+
+  .leg-amount .num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
+    font-size: var(--text-xs);
+    color: var(--color-text);
+  }
+
+  .leg-amount .num.neg {
+    color: var(--color-amount-negative);
+  }
+
+  .ledger-foot {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    margin-top: var(--sp-xs);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--color-warning);
+  }
+
+  .ledger-foot.ok {
+    color: var(--color-amount-positive);
   }
 </style>
