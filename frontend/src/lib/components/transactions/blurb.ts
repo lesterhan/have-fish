@@ -92,10 +92,8 @@ function splitBlurb(n: NarratedTransaction): BlurbParts {
   return parts
 }
 
-// "You spent 360.00 CZK on Food · Coffee. 17.24 USD left your account."
-// Two sentences: the native price, then the gross that left the source asset. "Left your
-// account" is all-in (an FX fee, if any, is included) — so it stays accurate whether or not
-// a fee was charged. The rate + fee breakdown live in the Currency conversion expander.
+// "You spent 360.00 CZK on Food · Coffee. Which was converted from 17.24 USD."
+// Two sentences: the native price, then the gross that left the source asset.
 function multiCurrencyBlurb(n: NarratedTransaction): BlurbParts {
   if (!n.hero) return [t('A cross-currency transfer.')]
   const c = n.conversion
@@ -106,7 +104,8 @@ function multiCurrencyBlurb(n: NarratedTransaction): BlurbParts {
     t(n.hero.label),
     t('.'),
   ]
-  if (c) parts.push(t(' '), ...moneyParts(c.paid.amount, c.paid.currency), t(' left your account.'))
+  if (c) parts.push(br)
+  if (c) parts.push(t(' Which was converted from '), ...moneyParts(c.paid.amount, c.paid.currency), t('.'))
   return parts
 }
 
