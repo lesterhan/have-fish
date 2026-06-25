@@ -3,11 +3,13 @@
   import Button from '$lib/components/ui/Button.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import TransactionEditModal from '$lib/components/transactions/TransactionEditModal.svelte'
+  import SmartEditModal from '$lib/components/transactions/SmartEditModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import { patchTransaction, patchPosting, type Account } from '$lib/api'
+  import { patchTransaction, patchPosting, type Account, type Transaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
+  import { canSmartEdit } from './smartEdit'
   import {
     focusOnMount,
     parseDateParts,
@@ -15,7 +17,7 @@
     classifyTransfer,
     fmt,
     handleEditableKeydown,
-    type Transaction,
+    type Posting,
   } from './transactionUtils'
 
   interface Props {
@@ -47,14 +49,55 @@
   }: Props = $props()
 
   let modalOpen = $state(false)
+  // Smart edit is the default surface; raw mode is the escape hatch (and the only option
+  // for shapes the classifier can't narrate into a subject leg).
+  let rawMode = $state(false)
 
   let localDate = $state(untrack(() => tx.date))
   let localDescription = $state(untrack(() => tx.description ?? ''))
-  let localPostings = $state(untrack(() => [...tx.postings]))
+  let localPostings = $state<Posting[]>(
+    untrack(() =>
+      tx.postings.map((p) => ({
+        id: p.id,
+        accountId: p.accountId,
+        amount: p.amount,
+        currency: p.currency,
+      })),
+    ),
+  )
+  // After a smart save the posting ids change (atomic replace), so keep the enriched result
+  // to drive the role / account-path lookup for the live transaction without a refetch.
+  let savedTx = $state<Transaction | null>(null)
 
   let accountPaths = $derived(
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
   )
+
+  // The full, role-enriched transaction the smart editor consumes. Derived from local state
+  // so inline edits and saves are reflected; role + account path come from the last known
+  // enriched copy (original load, or the most recent smart save) keyed by posting id.
+  let liveTx = $derived.by((): Transaction => {
+    const base = savedTx ?? tx
+    const byId = new Map(base.postings.map((o) => [o.id, o]))
+    return {
+      ...tx,
+      date: localDate,
+      description: localDescription || null,
+      postings: localPostings.map((lp) => {
+        const orig = byId.get(lp.id)
+        return {
+          id: lp.id,
+          accountId: lp.accountId,
+          amount: lp.amount,
+          currency: lp.currency,
+          accountPath: accountPaths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
+          role: orig?.role ?? 'subject',
+        }
+      }),
+    }
+  })
+
+  let smartEditable = $derived(canSmartEdit(liveTx.postings))
 
   // --- Description editing ---
   let descEditing = $state(false)
@@ -437,32 +480,58 @@
       tooltip="Edit transaction"
       variant="ghost"
       square
-      onclick={() => (modalOpen = true)}
+      onclick={() => {
+        rawMode = !smartEditable
+        modalOpen = true
+      }}
     >
       <Icon name="edit-txn" />
     </Button>
   </div>
 </div>
 
-<TransactionEditModal
-  tx={{
-    ...tx,
-    date: localDate,
-    description: localDescription || null,
-    postings: localPostings,
-  }}
-  {accounts}
-  {defaultOffsetAccountId}
-  bind:open={modalOpen}
-  onclose={() => (modalOpen = false)}
-  {onaccountcreated}
-  {ondeleted}
-  onsaved={(updates) => {
-    localDate = updates.date
-    localDescription = updates.description ?? ''
-    localPostings = updates.postings
-  }}
-/>
+{#if modalOpen && !rawMode}
+  <SmartEditModal
+    tx={liveTx}
+    {accounts}
+    bind:open={modalOpen}
+    onclose={() => (modalOpen = false)}
+    {onaccountcreated}
+    {ondeleted}
+    oneditraw={() => (rawMode = true)}
+    onsaved={(updated) => {
+      savedTx = updated
+      localDate = updated.date
+      localDescription = updated.description ?? ''
+      localPostings = updated.postings.map((p) => ({
+        id: p.id,
+        accountId: p.accountId,
+        amount: p.amount,
+        currency: p.currency,
+      }))
+    }}
+  />
+{:else}
+  <TransactionEditModal
+    tx={{
+      ...tx,
+      date: localDate,
+      description: localDescription || null,
+      postings: localPostings,
+    }}
+    {accounts}
+    {defaultOffsetAccountId}
+    bind:open={modalOpen}
+    onclose={() => (modalOpen = false)}
+    {onaccountcreated}
+    {ondeleted}
+    onsaved={(updates) => {
+      localDate = updates.date
+      localDescription = updates.description ?? ''
+      localPostings = updates.postings
+    }}
+  />
+{/if}
 
 <style>
   .row {
