@@ -61,7 +61,7 @@
     }
   })
 
-  // Per-currency balance — same logic as TransactionEditModal.
+  // Per-currency balance — same logic as LedgerEditModal.
   // Skip unparseable amounts while the user is still typing.
   let balances = $derived.by(() => {
     const map = new Map<string, number>()
@@ -204,7 +204,7 @@
       />
     </div>
 
-    <!-- Posting rows — same grid as TransactionEditModal (account | amount | currency) -->
+    <!-- Posting rows — same grid as LedgerEditModal (account | amount | currency) -->
     <div class="postings">
       {#each postings as posting, i}
         <div class="posting-row">
@@ -242,7 +242,7 @@
 
     <hr class="divider" />
 
-    <!-- Balance indicator — same as TransactionEditModal -->
+    <!-- Balance indicator — same as LedgerEditModal -->
     <div class="balance-row">
       <span class="balance-label">Balance</span>
       {#if balanced}
@@ -299,7 +299,7 @@
 </Modal>
 
 <style>
-  /* Matches TransactionEditModal's .modal-body exactly */
+  /* Matches LedgerEditModal's .modal-body exactly */
   .modal-body {
     display: flex;
     flex-direction: column;
@@ -319,7 +319,7 @@
     color: var(--color-text-muted);
   }
 
-  /* ---- Postings list — identical grid to TransactionEditModal ---- */
+  /* ---- Postings list — identical grid to LedgerEditModal ---- */
   .postings {
     display: flex;
     flex-direction: column;
@@ -339,7 +339,7 @@
   }
 
 
-  /* ---- Delete + add posting buttons — same as TransactionEditModal ---- */
+  /* ---- Delete + add posting buttons — same as LedgerEditModal ---- */
   .delete-btn {
     font-family: var(--font-sans);
     font-size: var(--text-sm);
@@ -390,7 +390,7 @@
     outline-offset: 2px;
   }
 
-  /* ---- Divider + balance — copied verbatim from TransactionEditModal ---- */
+  /* ---- Divider + balance — copied verbatim from LedgerEditModal ---- */
   .divider {
     border: none;
     border-top: 1px solid var(--color-divider);

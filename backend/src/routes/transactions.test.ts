@@ -238,6 +238,24 @@ describe('transactions', () => {
       expect(byAccount[accC.id].role).toBe('subject')
     })
 
+    it('recategorizes the subject leg (same amounts) without unbalancing', async () => {
+      // Smart edit repoints only the expense leg's account (food → transport). Amounts are
+      // unchanged, so the entry still balances; the backend re-validates regardless.
+      const res = await app.request(`/api/transactions/${txId}/postings`, {
+        method: 'POST', headers,
+        body: JSON.stringify({ postings: [{ accountId: accA.id, amount: '-10.00', currency: 'CAD' }, { accountId: accC.id, amount: '10.00', currency: 'CAD' }] }),
+      })
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.postings).toHaveLength(2)
+      const accountIds = body.postings.map((p: { accountId: string }) => p.accountId).sort()
+      // The food leg is gone, transport is in; the bank leg is untouched.
+      expect(accountIds).toEqual([accA.id, accC.id].sort())
+      const subject = body.postings.find((p: { role: string }) => p.role === 'subject')
+      expect(subject.accountId).toBe(accC.id)
+      expect(subject.amount).toBe('10.00')
+    })
+
     it('returns 400 when postings do not balance', async () => {
       const res = await app.request(`/api/transactions/${txId}/postings`, {
         method: 'POST', headers,
