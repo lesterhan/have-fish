@@ -54,6 +54,11 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
 
+    # PUBLIC_VERSION is normally injected by the Docker/CI image build from the git SHA;
+    # svelte-check needs it present or `$env/static/public` won't export it.
+    env:
+      PUBLIC_VERSION: ${{ github.sha }}
+
     steps:
       - uses: actions/checkout@v4
 
