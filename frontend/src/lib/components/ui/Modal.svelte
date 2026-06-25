@@ -139,7 +139,12 @@
         onpointerup={handleTitlebarPointerUp}
       >
         <span id="modal-title" class="titlebar-text">{title}</span>
-        <ChromeButton variant="close" onclick={close} aria-label="Close" class="close-btn">✕</ChromeButton>
+        <ChromeButton
+          variant="close"
+          onclick={close}
+          aria-label="Close"
+          class="close-btn">✕</ChromeButton
+        >
       </div>
 
       <!-- Content area -->
@@ -160,6 +165,7 @@
 
   .window {
     position: absolute;
+    border-radius: var(--radius-lg);
     top: 50%;
     left: 50%;
     /* default centering — drag adds to this via inline transform */
@@ -192,7 +198,6 @@
     color: var(--color-titlebar-fg);
     flex: 1;
   }
-
 
   .body {
     padding: var(--sp-md);
