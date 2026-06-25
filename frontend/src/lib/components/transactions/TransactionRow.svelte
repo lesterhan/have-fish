@@ -89,6 +89,7 @@
           amount: lp.amount,
           currency: lp.currency,
           accountPath: accountPaths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
+          accountName: orig?.accountName ?? null,
           role: orig?.role ?? 'subject',
         }
       }),

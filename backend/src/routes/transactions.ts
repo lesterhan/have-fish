@@ -19,15 +19,19 @@ const app = new Hono<{ Variables: AppVariables }>()
 async function enrichPostings<T extends { id: string; accountId: string }>(
   userId: string,
   rows: T[],
-): Promise<(T & { accountPath: string; role: PostingRole })[]> {
+): Promise<(T & { accountPath: string; accountName: string | null; role: PostingRole })[]> {
   if (rows.length === 0) return []
   const accountIds = [...new Set(rows.map((r) => r.accountId))]
   const accountRows = await db
-    .select({ id: accounts.id, path: accounts.path })
+    .select({ id: accounts.id, path: accounts.path, name: accounts.name })
     .from(accounts)
     .where(and(inArray(accounts.id, accountIds), eq(accounts.userId, userId)))
-  const pathById = new Map(accountRows.map((a) => [a.id, a.path]))
-  const withPath = rows.map((r) => ({ ...r, accountPath: pathById.get(r.accountId) ?? '' }))
+  const byId = new Map(accountRows.map((a) => [a.id, a]))
+  const withPath = rows.map((r) => ({
+    ...r,
+    accountPath: byId.get(r.accountId)?.path ?? '',
+    accountName: byId.get(r.accountId)?.name ?? null,
+  }))
   const settings = await loadClassifySettings(userId)
   const roleById = classifyPostings(withPath, settings)
   return withPath.map((r) => ({ ...r, role: roleById.get(r.id)! }))
@@ -160,6 +164,7 @@ app.get('/', async (c) => {
       transactionId: postings.transactionId,
       accountId: postings.accountId,
       accountPath: accounts.path,
+      accountName: accounts.name,
       amount: postings.amount,
       currency: postings.currency,
       createdAt: postings.createdAt,

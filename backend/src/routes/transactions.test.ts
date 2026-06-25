@@ -44,6 +44,56 @@ describe('transactions', () => {
     expect(byAccount[food.id].role).toBe('subject')
   })
 
+  it('GET /api/transactions exposes each posting accountName (null when unset, the name when set)', async () => {
+    // The friendly label resolver (story 2) needs accounts.name on the read payload; it is
+    // null until the user names the account, then carries the name they set.
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [chequing, food] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+    ])
+    // Name only one of the two accounts.
+    await app.request(`/api/accounts/${food.id}`, { method: 'PATCH', headers, body: JSON.stringify({ name: 'Eating Out' }) })
+    await app.request('/api/transactions', {
+      method: 'POST', headers,
+      body: JSON.stringify({ date: '2026-03-01', description: 'Lunch', postings: [
+        { accountId: chequing.id, amount: '-10.00', currency: 'CAD' },
+        { accountId: food.id, amount: '10.00', currency: 'CAD' },
+      ] }),
+    })
+
+    const res = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+    type P = { accountId: string; accountName: string | null }
+    const body = await res.json() as { postings: P[] }[]
+    const byAccount = Object.fromEntries(body[0].postings.map(p => [p.accountId, p]))
+    expect(byAccount[food.id].accountName).toBe('Eating Out')
+    expect(byAccount[chequing.id].accountName).toBeNull()
+  })
+
+  it('POST /api/transactions returns postings enriched with accountName', async () => {
+    // The create response must match the GET payload shape — accountName included — so a
+    // freshly-created row narrates without a refetch.
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [chequing, food] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+    ])
+    await app.request(`/api/accounts/${food.id}`, { method: 'PATCH', headers, body: JSON.stringify({ name: 'Eating Out' }) })
+    const res = await app.request('/api/transactions', {
+      method: 'POST', headers,
+      body: JSON.stringify({ date: '2026-03-01', description: 'Lunch', postings: [
+        { accountId: chequing.id, amount: '-10.00', currency: 'CAD' },
+        { accountId: food.id, amount: '10.00', currency: 'CAD' },
+      ] }),
+    })
+    expect(res.status).toBe(201)
+    type P = { accountId: string; accountName: string | null }
+    const body = await res.json() as { postings: P[] }
+    const byAccount = Object.fromEntries(body.postings.map(p => [p.accountId, p]))
+    expect(byAccount[food.id].accountName).toBe('Eating Out')
+    expect(byAccount[chequing.id].accountName).toBeNull()
+  })
+
   it('POST /api/transactions returns postings enriched with accountPath and role', async () => {
     // The create response must match the GET payload shape so a freshly-created row can be
     // narrated (TransactionDetail) without a refetch.
