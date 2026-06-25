@@ -108,22 +108,27 @@
 </div>
 
 <style>
+  /* Aqua-style gloss card (not the XP bevel) — flat panel on a soft drop shadow with a
+     glossy top highlight and hairline border. See --card-* tokens / Card.svelte. */
   .detail {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-sm);
-    padding: var(--sp-md);
-    background: var(--color-window-raised);
-    box-shadow: var(--shadow-raised);
+    gap: var(--sp-md);
+    padding: var(--sp-lg);
+    min-width: min(22rem, 80vw);
+    background: linear-gradient(180deg, var(--color-window-inset), var(--color-window));
+    border: 1px solid var(--card-border-color);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
   }
 
   .head {
     display: flex;
     align-items: baseline;
     justify-content: space-between;
-    gap: var(--sp-sm);
+    gap: var(--sp-md);
     border-bottom: 1px solid var(--color-rule);
-    padding-bottom: var(--sp-xs);
+    padding-bottom: var(--sp-sm);
   }
 
   .desc {
@@ -163,7 +168,7 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: var(--sp-xs);
+    gap: var(--sp-sm);
   }
 
   .subject {
@@ -204,8 +209,8 @@
   .movement {
     display: flex;
     flex-direction: column;
-    gap: 3px;
-    padding-top: var(--sp-xs);
+    gap: var(--sp-xs);
+    padding-top: var(--sp-sm);
     border-top: 1px dotted var(--color-rule);
   }
 
