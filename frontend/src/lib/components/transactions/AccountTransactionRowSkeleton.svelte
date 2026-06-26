@@ -16,15 +16,12 @@
   <div class="amount">
     <Shimmer width="4.5rem" height="0.875rem" />
   </div>
-  <div class="actions">
-    <Shimmer width="1.5rem" height="1.5rem" />
-  </div>
 </div>
 
 <style>
   .row {
     display: grid;
-    grid-template-columns: var(--tx-cols) auto;
+    grid-template-columns: var(--tx-cols);
     align-items: center;
     gap: var(--sp-xs);
     padding: 0 var(--sp-sm);
@@ -41,18 +38,13 @@
     justify-content: flex-end;
   }
 
-  .actions {
-    display: flex;
-    justify-content: flex-end;
-  }
-
   @media (max-width: 520px) {
     .row {
-      grid-template-columns: auto 1fr auto auto;
+      grid-template-columns: auto 1fr auto;
       grid-template-rows: auto auto;
       grid-template-areas:
-        'date . amount actions'
-        'desc desc desc desc';
+        'date . amount'
+        'desc desc desc';
       min-height: unset;
       padding: var(--sp-xs) var(--sp-sm);
     }
@@ -70,9 +62,6 @@
     }
     .amount {
       grid-area: amount;
-    }
-    .actions {
-      grid-area: actions;
     }
   }
 </style>
