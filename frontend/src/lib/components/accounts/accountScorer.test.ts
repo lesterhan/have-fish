@@ -2,8 +2,8 @@
 import { describe, it, expect } from 'bun:test'
 import { rank, scoreOne, type ScorableAccount } from './accountScorer'
 
-// The handoff's plausible personal-finance ledger. `freq` drives the gentle
-// tie-break, so the verified rankings below reproduce the prototype's output.
+// A plausible personal-finance ledger. `freq` drives the gentle tie-break,
+// so the expected rankings below are deterministic.
 const ACCOUNTS: ScorableAccount[] = [
   { path: 'assets:bank:chequing', freq: 142 },
   { path: 'assets:bank:savings', freq: 38 },
@@ -55,7 +55,7 @@ const ACCOUNTS: ScorableAccount[] = [
 
 const paths = (q: string) => rank(q, ACCOUNTS).map((r) => r.path)
 
-describe('rank — verified rankings (the design contract)', () => {
+describe('rank — expected rankings', () => {
   it('expenses:hou → housing before any home (no scatter pollution)', () => {
     const top = paths('expenses:hou')
     expect(top.slice(0, 3)).toEqual([

@@ -1,7 +1,7 @@
 // ════════════════════════════════════════════════════════════
 //  SEGMENT-AWARE FUZZY SCORER
 //
-//  Ported from the design handoff (pg/scorer.js). The fix for the
+//  Ranks account paths against a query. The fix for the
 //  "hou pollutes with home:furniture" problem: flat substring matching
 //  treats a path as one string, so `hou`'s characters scatter-match
 //  `home`. We instead score a subsequence alignment with structure-aware
@@ -17,19 +17,18 @@
 //  "hou" → home:furniture:  h·o match the start of "home", but "u" is
 //           stranded over in "furniture" → large gap penalty sinks it.
 //
-//  Weights and behaviour are a faithful port — change them only with a
-//  matching update to the verified-rankings tests.
+//  Change the weights only with a matching update to accountScorer.test.ts.
 // ════════════════════════════════════════════════════════════
 
 const SEP = ':'
 
-// Scoring weights. Each is documented in the handoff README's weights table.
+// Scoring weights, tuned so structure beats scatter and frequency only breaks ties.
 const W = {
   base: 12, // each matched char
   segStart: 22, // matched char begins a segment (first char after a ':')
   pathStart: 16, // matched char is the very first char of the path
   consecutive: 14, // matched char directly follows the previous match
-  gap: -2.4, // per skipped char between two matches
+  gap: -2.4, // per skipped char between two matched chars
   leadGap: -0.4, // per char before the first match (mild)
   leaf: 16, // any match lands in the final segment
   fullSeg: 10, // an entire segment got covered start..end

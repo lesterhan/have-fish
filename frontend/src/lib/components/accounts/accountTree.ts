@@ -1,16 +1,15 @@
 // ════════════════════════════════════════════════════════════
 //  ACCOUNT TREE
 //
-//  Ported from the design handoff (pg/accounts.js — tree helpers only;
-//  the mock ACCOUNTS array is not ported). Builds a nested tree from the
-//  flat account list so the breadcrumb-drill column can list a level's
-//  siblings. Subtree frequency bubbles up (a parent's weight = sum of its
-//  descendants') so columns can sort by aggregate usage.
+//  Builds a nested tree from the flat account list so the breadcrumb-drill
+//  column can list a level's siblings. Subtree frequency bubbles up (a
+//  parent's weight = sum of its descendants') so columns can sort by
+//  aggregate usage.
 //
-//  Frequency is currently always 0 (see the epic — freq wiring is a
-//  follow-up), so the sort degrades to alphabetical by path. Keep the
-//  freq-desc-then-path-asc ordering so it lights up cleanly once real
-//  posting counts are supplied.
+//  Frequency is optional and currently always 0 — nothing supplies real
+//  posting counts yet — so the sort degrades to alphabetical by path. The
+//  freq-desc-then-path-asc ordering stays in place so it lights up cleanly
+//  once usage counts are wired in.
 // ════════════════════════════════════════════════════════════
 
 const SEP = ':'
