@@ -3,14 +3,14 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
   import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
-  import TransactionDetail from '$lib/components/transactions/TransactionDetail.svelte'
-  import Modal from '$lib/components/ui/Modal.svelte'
+  import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import {
     hasSubjectInCurrency,
     txSubjectTotal,
   } from '$lib/components/spending/spendingRow'
   import {
+    fetchAccounts,
     fetchSpendingSummary,
     fetchTransactions,
     fetchUserSettings,
@@ -19,7 +19,12 @@
     fetchSpendingConverted,
     fetchMonthlySpend,
   } from '$lib/api'
-  import type { SpendingSummary, Transaction, MonthlySpend } from '$lib/api'
+  import type {
+    Account,
+    SpendingSummary,
+    Transaction,
+    MonthlySpend,
+  } from '$lib/api'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
@@ -42,8 +47,11 @@
   let txns = $state<Transaction[]>([])
   let txnsLoading = $state(false)
   let txnFilter = $state<string>('ALL')
-  // The transaction shown in the shared read-only detail modal (null = closed).
+  // The transaction shown in the shared detail modal (null = closed).
   let selectedTx = $state<Transaction | null>(null)
+  // Accounts power the in-place edit surface in the detail modal.
+  let accounts = $state<Account[]>([])
+  let defaultOffsetAccountId = $state<string | null>(null)
 
   // --- FX conversion state ---
   let converting = $state(false)
@@ -286,12 +294,22 @@
   onMount(() => {
     fetchUserSettings().then((s) => {
       preferredCurrency = s.preferredCurrency ?? 'CAD'
+      defaultOffsetAccountId = s.defaultOffsetAccountId
+    })
+    fetchAccounts().then((a) => {
+      accounts = a
     })
     fetchMonthlySpend(7).then((d) => {
       monthlyData = d
     })
     load().then(loadTxns)
   })
+
+  // A recategorize or delete from the detail changes spending totals — refresh both panels.
+  function onTxChanged() {
+    load()
+    loadTxns()
+  }
 </script>
 
 <div class="page">
@@ -535,16 +553,21 @@
   </div>
 </div>
 
-<!-- Shared read-only narrated detail — the same component reused across the app. -->
-<Modal
-  title="Transaction"
+<!-- Shared narrated detail with in-place edit — the same surface reused across the app. -->
+<TransactionDetailModal
+  tx={selectedTx}
   open={selectedTx !== null}
   onclose={() => (selectedTx = null)}
->
-  {#if selectedTx}
-    <TransactionDetail tx={selectedTx} />
-  {/if}
-</Modal>
+  {accounts}
+  {defaultOffsetAccountId}
+  onaccountcreated={(a) => (accounts = [...accounts, a])}
+  onsaved={(updated) => {
+    selectedTx = updated
+    onTxChanged()
+  }}
+  ondeleted={onTxChanged}
+  onremovedFromGroup={onTxChanged}
+/>
 
 <style>
   /* Month bar */
