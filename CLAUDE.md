@@ -124,14 +124,14 @@ The two coexist: use Aqua-style gradients for pill/inline buttons (`GradientButt
 
 ### Visual rules
 
-- **No rounded corners** — `--radius-sm` and `--radius-md` are both `0`. Sharp corners only. Use `--radius-lg` (2px) or `--radius-xl` (4px) very sparingly — only on Aqua-style gradient buttons.
+- **Radius scale** — `--radius-sm` (3px) badges/pills, `--radius-md` (6px) buttons/controls, `--radius-lg` (8px) cards/inner panels, `--radius-xl` (12px) modal windows, `--radius-pill` (999px) pill-shaped chips.
 - **Bevel standard controls** — raised surfaces use `--shadow-raised`, pressed/inset surfaces use `--shadow-sunken`. Core XP visual language for `Button`, form fields, tracks.
 - **Gradient buttons use border-color hover** — `GradientButton` and tab-style controls use a gradient background. Hover = accent border color, no bevel. Active = `--shadow-sunken`.
 - **Lucida Grande at small sizes** — the system font is `Lucida Grande, Segoe UI`. Text is small (13–14px base). Period-accurate for both Mac and XP eras.
 - **No font smoothing** — `base.css` sets `-webkit-font-smoothing: none` for crisp pixel rendering.
 - **The desktop is Graphite** — `--color-desktop: #b8bcc2`. The entire page background.
 - **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`. Content areas are `--color-window-raised: #eceef2`.
-- **Title bars use the Graphite gradient** — `linear-gradient(180deg, #d8dde4, #a8aeb8, #8a909a)`.
+- **Title bars use the Graphite + Aqua gloss gradient** — multi-stop gloss overlay on Graphite hue; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border and top highlight. Title text uses `--font-serif`. Modal windows use `--shadow-modal` (real drop shadow, not XP bevel).
 
 ### Interaction rules (the modern layer)
 

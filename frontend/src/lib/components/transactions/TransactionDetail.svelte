@@ -525,9 +525,9 @@
   .detail {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-md);
-    min-width: min(24rem, 82vw);
-    max-width: min(32rem, 90vw);
+    gap: var(--sp-lg);
+    min-width: min(28rem, 82vw);
+    max-width: min(36rem, 90vw);
   }
 
   /* --- header ------------------------------------------------------------------------ */
@@ -537,7 +537,7 @@
     justify-content: space-between;
     gap: var(--sp-md);
     border-bottom: 1px solid var(--color-rule);
-    padding-bottom: var(--sp-sm);
+    padding-bottom: var(--sp-md);
   }
 
   .head-main {
@@ -688,7 +688,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-sm);
-    padding-top: var(--sp-sm);
+    padding-top: var(--sp-md);
     border-top: 1px dotted var(--color-rule);
   }
 
@@ -728,8 +728,8 @@
     left: 8px;
     top: 0;
     bottom: 0;
-    width: 1px;
-    background: var(--color-rule);
+    width: 2px;
+    background: var(--color-border);
   }
 
   .source .spine::before {
@@ -757,8 +757,8 @@
     left: 8px;
     top: 50%;
     width: 8px;
-    height: 1px;
-    background: var(--color-rule);
+    height: 2px;
+    background: var(--color-border);
   }
 
   .body {
@@ -785,8 +785,8 @@
     letter-spacing: 0.04em;
     padding: 1px 5px;
     color: var(--color-text-muted);
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
+    background: color-mix(in srgb, var(--color-text-muted) 14%, var(--color-window));
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     white-space: nowrap;
   }
@@ -872,7 +872,7 @@
   /* --- progressive-disclosure expanders ---------------------------------------------- */
   .expander {
     border-top: 1px dotted var(--color-rule);
-    padding-top: var(--sp-sm);
+    padding-top: var(--sp-md);
   }
 
   .caret-row {

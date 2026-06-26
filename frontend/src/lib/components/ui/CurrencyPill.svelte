@@ -64,7 +64,7 @@
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
     border: 1px solid color-mix(in srgb, var(--color-accent-chip-fg) 30%, transparent);
-    border-radius: 2px;
+    border-radius: var(--radius-sm);
     white-space: nowrap;
     flex-shrink: 0;
   }

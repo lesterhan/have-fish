@@ -55,7 +55,7 @@
     padding: 0 10px;
     background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
     border: 1px solid var(--color-rule);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-md);
     font-family: var(--font-sans);
     font-size: 11px;
     font-weight: 600;

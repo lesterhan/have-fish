@@ -19,7 +19,7 @@
     background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
     color: var(--color-text);
     border: 1px solid var(--color-rule);
-    border-radius: var(--radius-xl);
+    border-radius: var(--radius-md);
     font-size: var(--text-xs);
     font-family: var(--font-sans);
     display: flex;
