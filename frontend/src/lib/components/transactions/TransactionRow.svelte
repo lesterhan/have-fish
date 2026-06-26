@@ -3,12 +3,15 @@
   import Button from '$lib/components/ui/Button.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
-  import LedgerEditModal from '$lib/components/transactions/LedgerEditModal.svelte'
-  import SummaryEditModal from '$lib/components/transactions/SummaryEditModal.svelte'
+  import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import { patchTransaction, patchPosting, type Account, type Transaction } from '$lib/api'
+  import {
+    patchTransaction,
+    patchPosting,
+    type Account,
+    type Transaction,
+  } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
-  import { canSummaryEdit } from './summaryEdit'
   import {
     focusOnMount,
     parseDateParts,
@@ -45,10 +48,9 @@
     ondeleted,
   }: Props = $props()
 
+  // The detail modal hosts both the narrated view and in-place edit; it offers the raw ledger
+  // escape itself, so the row only needs to open it.
   let modalOpen = $state(false)
-  // Summary edit is the default surface; ledger mode is the escape hatch (and the only option
-  // for shapes the classifier can't narrate into a subject leg).
-  let ledgerMode = $state(false)
 
   // Local copies of mutable fields — updated after a successful save.
   let localDate = $state(untrack(() => tx.date))
@@ -88,15 +90,14 @@
           accountId: lp.accountId,
           amount: lp.amount,
           currency: lp.currency,
-          accountPath: accountPaths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
+          accountPath:
+            accountPaths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
           accountName: orig?.accountName ?? null,
           role: orig?.role ?? 'subject',
         }
       }),
     }
   })
-
-  let summaryEditable = $derived(canSummaryEdit(liveTx.postings))
 
   // --- Description editing ---
   let descEditing = $state(false)
@@ -188,15 +189,27 @@
     return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot
   })
 
-  let transfer = $derived(classifyTransfer(localPostings, defaultConversionAccountId))
+  let transfer = $derived(
+    classifyTransfer(localPostings, defaultConversionAccountId),
+  )
   let { from, to, rest } = $derived(summarize(localPostings))
 
   // When viewing a specific account page, identify which side of the transaction
   // is the current account so we can suppress it and show only the other side.
-  let currentIsFrom = $derived(currentAccountId !== null && from.accountId === currentAccountId)
-  let currentIsTo = $derived(currentAccountId !== null && to.accountId === currentAccountId)
-  let currentIsSource = $derived(currentAccountId !== null && transfer.source?.accountId === currentAccountId)
-  let currentIsTarget = $derived(currentAccountId !== null && transfer.target?.accountId === currentAccountId)
+  let currentIsFrom = $derived(
+    currentAccountId !== null && from.accountId === currentAccountId,
+  )
+  let currentIsTo = $derived(
+    currentAccountId !== null && to.accountId === currentAccountId,
+  )
+  let currentIsSource = $derived(
+    currentAccountId !== null &&
+      transfer.source?.accountId === currentAccountId,
+  )
+  let currentIsTarget = $derived(
+    currentAccountId !== null &&
+      transfer.target?.accountId === currentAccountId,
+  )
 
   // When viewing a specific account, determine if money is flowing in or out.
   let flowDirection = $derived.by((): 'in' | 'out' | null => {
@@ -214,10 +227,17 @@
   class:selectable
   class:selected
   onclick={selectable ? () => ontoggleselect?.(tx.id) : undefined}
-  role={selectable ? "checkbox" : undefined}
+  role={selectable ? 'checkbox' : undefined}
   aria-checked={selectable ? selected : undefined}
   tabindex={selectable ? 0 : undefined}
-  onkeydown={selectable ? (e) => { if (e.key === ' ' || e.key === 'Enter') { e.preventDefault(); ontoggleselect?.(tx.id) } } : undefined}
+  onkeydown={selectable
+    ? (e) => {
+        if (e.key === ' ' || e.key === 'Enter') {
+          e.preventDefault()
+          ontoggleselect?.(tx.id)
+        }
+      }
+    : undefined}
 >
   {#if selectable}
     <div class="select-col" aria-hidden="true">
@@ -247,7 +267,10 @@
     {:else if !selectable}
       <button
         class="description editable"
-        onclick={(e) => { e.stopPropagation(); startDescEdit() }}
+        onclick={(e) => {
+          e.stopPropagation()
+          startDescEdit()
+        }}
         onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
         title="Click to edit"
       >
@@ -276,13 +299,15 @@
         {:else if currentIsTarget}
           <!-- On the target account page: show only where money came from -->
           <span class="account account-from account-from-transfer">
-            {accountPaths[transfer.source.accountId] ?? transfer.source.accountId}
+            {accountPaths[transfer.source.accountId] ??
+              transfer.source.accountId}
           </span>
           <span class="arrow" aria-hidden="true">←</span>
         {:else}
           <!-- Full display (transactions page or current account not in source/target) -->
           <span class="account account-from account-from-transfer">
-            {accountPaths[transfer.source.accountId] ?? transfer.source.accountId}
+            {accountPaths[transfer.source.accountId] ??
+              transfer.source.accountId}
           </span>
           <span class="arrow" aria-hidden="true">➜</span>
           <span class="account account-to">
@@ -309,7 +334,10 @@
           <!-- On the "from" account page: show only where money went -->
           <span class="arrow" aria-hidden="true">→</span>
           {#if editingPostingId === to.id}
-            <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+            <div
+              class="account-edit-wrapper"
+              onfocusout={handlePostingFocusout}
+            >
               <AccountPathInput
                 {accounts}
                 bind:value={editAccountId}
@@ -320,7 +348,8 @@
           {:else}
             <span
               class="account account-to editable"
-              class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+              class:account-uncategorized={to.accountId ===
+                defaultOffsetAccountId}
               role="button"
               tabindex="0"
               onclick={() => startPostingEdit(to.id, to.accountId)}
@@ -336,7 +365,10 @@
         {:else if currentIsTo}
           <!-- On the "to" account page: show only where money came from -->
           {#if editingPostingId === from.id}
-            <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+            <div
+              class="account-edit-wrapper"
+              onfocusout={handlePostingFocusout}
+            >
               <AccountPathInput
                 {accounts}
                 bind:value={editAccountId}
@@ -347,7 +379,8 @@
           {:else}
             <span
               class="account account-from editable"
-              class:account-uncategorized={from.accountId === defaultOffsetAccountId}
+              class:account-uncategorized={from.accountId ===
+                defaultOffsetAccountId}
               role="button"
               tabindex="0"
               onclick={() => startPostingEdit(from.id, from.accountId)}
@@ -364,7 +397,10 @@
         {:else}
           <!-- Full display (transactions page or current account not in from/to) -->
           {#if editingPostingId === from.id}
-            <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+            <div
+              class="account-edit-wrapper"
+              onfocusout={handlePostingFocusout}
+            >
               <AccountPathInput
                 {accounts}
                 bind:value={editAccountId}
@@ -375,7 +411,8 @@
           {:else}
             <span
               class="account account-from editable"
-              class:account-uncategorized={from.accountId === defaultOffsetAccountId}
+              class:account-uncategorized={from.accountId ===
+                defaultOffsetAccountId}
               role="button"
               tabindex="0"
               onclick={() => startPostingEdit(from.id, from.accountId)}
@@ -392,7 +429,10 @@
           <span class="arrow" aria-hidden="true">➜</span>
 
           {#if editingPostingId === to.id}
-            <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
+            <div
+              class="account-edit-wrapper"
+              onfocusout={handlePostingFocusout}
+            >
               <AccountPathInput
                 {accounts}
                 bind:value={editAccountId}
@@ -403,7 +443,8 @@
           {:else}
             <span
               class="account account-to editable"
-              class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+              class:account-uncategorized={to.accountId ===
+                defaultOffsetAccountId}
               role="button"
               tabindex="0"
               onclick={() => startPostingEdit(to.id, to.accountId)}
@@ -422,7 +463,9 @@
       {#if rest.length > 0}
         <div class="transfer-fees">
           {#each rest as posting}
-            <span class="fee-label">fee {fmt(posting.amount)} {posting.currency}</span>
+            <span class="fee-label"
+              >fee {fmt(posting.amount)} {posting.currency}</span
+            >
           {/each}
         </div>
       {/if}
@@ -450,15 +493,9 @@
         {flowDirection}
       />
     {:else}
-      <MoneyDisplay
-        amount={fmt(from.amount)}
-        currency={from.currency}
-      />
+      <MoneyDisplay amount={fmt(from.amount)} currency={from.currency} />
       <span class="cross-arrow" aria-hidden="true">→</span>
-      <MoneyDisplay
-        amount={fmt(to.amount)}
-        currency={to.currency}
-      />
+      <MoneyDisplay amount={fmt(to.amount)} currency={to.currency} />
     {/if}
   </div>
 
@@ -468,10 +505,7 @@
         tooltip="Edit transaction"
         variant="ghost"
         square
-        onclick={() => {
-          ledgerMode = !summaryEditable
-          modalOpen = true
-        }}
+        onclick={() => (modalOpen = true)}
       >
         <Icon name="edit-txn" />
       </Button>
@@ -479,48 +513,26 @@
   {/if}
 </div>
 
-{#if modalOpen && !ledgerMode}
-  <SummaryEditModal
-    tx={liveTx}
-    {accounts}
-    bind:open={modalOpen}
-    onclose={() => (modalOpen = false)}
-    {onaccountcreated}
-    {ondeleted}
-    oneditledger={() => (ledgerMode = true)}
-    onsaved={(updated) => {
-      savedTx = updated
-      localDate = updated.date
-      localDescription = updated.description ?? ''
-      localPostings = updated.postings.map((p) => ({
-        id: p.id,
-        accountId: p.accountId,
-        amount: p.amount,
-        currency: p.currency,
-      }))
-    }}
-  />
-{:else}
-  <LedgerEditModal
-    tx={{
-      ...tx,
-      date: localDate,
-      description: localDescription || null,
-      postings: localPostings,
-    }}
-    {accounts}
-    {defaultOffsetAccountId}
-    bind:open={modalOpen}
-    onclose={() => (modalOpen = false)}
-    {onaccountcreated}
-    {ondeleted}
-    onsaved={(updates) => {
-      localDate = updates.date
-      localDescription = updates.description ?? ''
-      localPostings = updates.postings
-    }}
-  />
-{/if}
+<TransactionDetailModal
+  tx={modalOpen ? liveTx : null}
+  open={modalOpen}
+  onclose={() => (modalOpen = false)}
+  {accounts}
+  {defaultOffsetAccountId}
+  {onaccountcreated}
+  {ondeleted}
+  onsaved={(updated) => {
+    savedTx = updated
+    localDate = updated.date
+    localDescription = updated.description ?? ''
+    localPostings = updated.postings.map((p) => ({
+      id: p.id,
+      accountId: p.accountId,
+      amount: p.amount,
+      currency: p.currency,
+    }))
+  }}
+/>
 
 <style>
   .row {
@@ -578,12 +590,16 @@
   }
 
   .checkbox.checked {
-    background: linear-gradient(180deg, var(--color-accent-mid), var(--color-accent));
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-mid),
+      var(--color-accent)
+    );
     border-color: var(--color-accent);
   }
 
   .checkbox.checked::after {
-    content: "";
+    content: '';
     position: absolute;
     inset: 3px;
     border-radius: 50%;
@@ -804,7 +820,10 @@
         'sel body body body';
     }
 
-    .select-col { grid-area: sel; align-self: center; }
+    .select-col {
+      grid-area: sel;
+      align-self: center;
+    }
 
     .date {
       grid-area: date;
@@ -813,15 +832,24 @@
       gap: var(--sp-xs);
     }
 
-    .date-main { font-size: var(--text-sm); }
-    .date-meta { font-size: var(--text-xs); }
+    .date-main {
+      font-size: var(--text-sm);
+    }
+    .date-meta {
+      font-size: var(--text-xs);
+    }
 
     .body {
       grid-area: body;
     }
 
-    .money-col { grid-area: money; justify-self: end; }
-    .actions { grid-area: actions; }
+    .money-col {
+      grid-area: money;
+      justify-self: end;
+    }
+    .actions {
+      grid-area: actions;
+    }
 
     /* Make stacked MoneyDisplay render inline on mobile */
     .money-col :global(.money) {
@@ -834,7 +862,9 @@
       font-size: var(--text-sm);
     }
 
-    .summary-line { flex-wrap: wrap; }
+    .summary-line {
+      flex-wrap: wrap;
+    }
 
     .account-edit-wrapper {
       flex: 1 1 100%;

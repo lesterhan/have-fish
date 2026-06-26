@@ -2,14 +2,17 @@
   import { untrack } from 'svelte'
   import Button from '$lib/components/ui/Button.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
-  import LedgerEditModal from '$lib/components/transactions/LedgerEditModal.svelte'
-  import SummaryEditModal from '$lib/components/transactions/SummaryEditModal.svelte'
+  import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import { patchTransaction, patchPosting, type Account, type Transaction } from '$lib/api'
+  import {
+    patchTransaction,
+    patchPosting,
+    type Account,
+    type Transaction,
+  } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
-  import { canSummaryEdit } from './summaryEdit'
   import {
     focusOnMount,
     parseDateParts,
@@ -48,10 +51,9 @@
     ondeleted,
   }: Props = $props()
 
+  // The detail modal hosts both the narrated view and in-place edit; it offers the raw ledger
+  // escape itself, so the row only needs to open it.
   let modalOpen = $state(false)
-  // Summary edit is the default surface; ledger mode is the escape hatch (and the only option
-  // for shapes the classifier can't narrate into a subject leg).
-  let ledgerMode = $state(false)
 
   let localDate = $state(untrack(() => tx.date))
   let localDescription = $state(untrack(() => tx.description ?? ''))
@@ -90,15 +92,14 @@
           accountId: lp.accountId,
           amount: lp.amount,
           currency: lp.currency,
-          accountPath: accountPaths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
+          accountPath:
+            accountPaths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
           accountName: orig?.accountName ?? null,
           role: orig?.role ?? 'subject',
         }
       }),
     }
   })
-
-  let summaryEditable = $derived(canSummaryEdit(liveTx.postings))
 
   // --- Description editing ---
   let descEditing = $state(false)
@@ -481,58 +482,33 @@
       tooltip="Edit transaction"
       variant="ghost"
       square
-      onclick={() => {
-        ledgerMode = !summaryEditable
-        modalOpen = true
-      }}
+      onclick={() => (modalOpen = true)}
     >
       <Icon name="edit-txn" />
     </Button>
   </div>
 </div>
 
-{#if modalOpen && !ledgerMode}
-  <SummaryEditModal
-    tx={liveTx}
-    {accounts}
-    bind:open={modalOpen}
-    onclose={() => (modalOpen = false)}
-    {onaccountcreated}
-    {ondeleted}
-    oneditledger={() => (ledgerMode = true)}
-    onsaved={(updated) => {
-      savedTx = updated
-      localDate = updated.date
-      localDescription = updated.description ?? ''
-      localPostings = updated.postings.map((p) => ({
-        id: p.id,
-        accountId: p.accountId,
-        amount: p.amount,
-        currency: p.currency,
-      }))
-    }}
-  />
-{:else}
-  <LedgerEditModal
-    tx={{
-      ...tx,
-      date: localDate,
-      description: localDescription || null,
-      postings: localPostings,
-    }}
-    {accounts}
-    {defaultOffsetAccountId}
-    bind:open={modalOpen}
-    onclose={() => (modalOpen = false)}
-    {onaccountcreated}
-    {ondeleted}
-    onsaved={(updates) => {
-      localDate = updates.date
-      localDescription = updates.description ?? ''
-      localPostings = updates.postings
-    }}
-  />
-{/if}
+<TransactionDetailModal
+  tx={modalOpen ? liveTx : null}
+  open={modalOpen}
+  onclose={() => (modalOpen = false)}
+  {accounts}
+  {defaultOffsetAccountId}
+  {onaccountcreated}
+  {ondeleted}
+  onsaved={(updated) => {
+    savedTx = updated
+    localDate = updated.date
+    localDescription = updated.description ?? ''
+    localPostings = updated.postings.map((p) => ({
+      id: p.id,
+      accountId: p.accountId,
+      amount: p.amount,
+      currency: p.currency,
+    }))
+  }}
+/>
 
 <style>
   .row {

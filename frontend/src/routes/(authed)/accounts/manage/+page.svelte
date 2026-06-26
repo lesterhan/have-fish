@@ -16,7 +16,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
   import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
-  import TransactionDetail from '$lib/components/transactions/TransactionDetail.svelte'
+  import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
   type TreeNode = {
@@ -33,6 +33,7 @@
   // count is the sum of its descendant leaves — see countByPath.
   let postingCountMap = $state<Map<string, number>>(new Map())
   let baseCurrency = $state('CAD')
+  let defaultOffsetAccountId = $state<string | null>(null)
 
   // Right panel: the account whose transactions are shown. Path-prefix match means
   // selecting a category lists every transaction beneath it.
@@ -82,6 +83,7 @@
     accounts = accts
     postingCountMap = new Map(counts.map((c) => [c.accountId, c.count]))
     baseCurrency = settings.preferredCurrency ?? 'CAD'
+    defaultOffsetAccountId = settings.defaultOffsetAccountId
     // Collapse every top-level category except `expenses` by default.
     collapsed = new Set(
       tree.filter((n) => n.segment !== 'expenses').map((n) => n.path),
@@ -99,6 +101,14 @@
     } finally {
       txnsLoading = false
     }
+  }
+
+  // An edit/delete from the detail can move a posting across accounts — refresh the open
+  // account's transactions and the per-leaf counts so the tree totals stay accurate.
+  async function onTxChanged() {
+    if (selectedPath) await select(selectedPath)
+    const counts = await fetchAccountPostingCounts()
+    postingCountMap = new Map(counts.map((c) => [c.accountId, c.count]))
   }
 
   function toggle(path: string) {
@@ -435,16 +445,21 @@
   {/if}
 </Modal>
 
-<!-- Shared read-only narrated detail — same component as the spending panel. -->
-<Modal
-  title="Transaction"
+<!-- Shared narrated detail with in-place edit — same surface as the spending panel. -->
+<TransactionDetailModal
+  tx={selectedTx}
   open={selectedTx !== null}
   onclose={() => (selectedTx = null)}
->
-  {#if selectedTx}
-    <TransactionDetail tx={selectedTx} />
-  {/if}
-</Modal>
+  {accounts}
+  {defaultOffsetAccountId}
+  onaccountcreated={(a) => (accounts = [...accounts, a])}
+  onsaved={(updated) => {
+    selectedTx = updated
+    onTxChanged()
+  }}
+  ondeleted={onTxChanged}
+  onremovedFromGroup={onTxChanged}
+/>
 
 <style>
   .page {
