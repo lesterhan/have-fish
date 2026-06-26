@@ -8,8 +8,8 @@
 // and malformed shapes (see narration.test.ts). The render (story 4/5) is dumb over this.
 //
 // NOTE: this supersedes the legacy `narrate.ts`, whose flatter shape (`subjects` / `movement`)
-// is still consumed by the spending rows + the soon-to-be-retired SummaryEditModal. Those
-// migrate (or get deleted) in later stories; until then both models coexist by design.
+// is still consumed by the spending rows (spendingRow.ts) and the recategorize gate
+// (summaryEdit.ts → detailEdit). Those migrate later; until then both models coexist by design.
 //
 // Roles come from the backend classifier (src/postings/roles.ts), exposed on the GET payload:
 //   subject    → the meaningful economic leg (the spend / the paycheck / a refund). The hero.
