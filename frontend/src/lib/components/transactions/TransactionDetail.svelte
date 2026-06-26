@@ -1,19 +1,23 @@
 <script lang="ts">
-  // Read-only narrated view of a transaction — the single transaction surface (view mode).
+  // The single transaction surface — narrated view with in-place edit (Flow Narration story 6).
   // Renders three layers over the narration model (narration.ts): a HERO (what the money was
   // for), a plain-language BLURB (blurb.ts), and a HOW IT MOVED flow tree (the real source
-  // asset as a dot, branching into role-chipped destinations). Progressive-disclosure
-  // expanders (currency conversion, all postings) land in story 5; the Edit seam in story 6.
+  // asset as a dot, branching into role-chipped destinations), plus progressive-disclosure
+  // expanders (currency conversion, all postings).
   //
-  // Mode-ready contract (Flow Narration epic, Architecture): `mode` is 'view' | 'edit'
-  // (default 'view'; 'edit' renders identically for now — a placeholder seam). The hero and
-  // each branch are discrete, individually addressable rows (data-node / data-posting-id) so a
-  // future edit mode swaps them into controls in place rather than via a child modal. `onedit`
-  // is the actions affordance — when a parent passes it, an Edit control appears (wired in
-  // story 6). No edit logic lives here yet.
+  // Edit mode (story 6a) swaps rows into controls *in place* — no child modal. Pass `accounts`
+  // to enable it: the Edit button enters edit mode, the hero + any extra subject branch become
+  // account pickers (recategorize), the header date/description become inputs, and a footer
+  // exposes Save / Cancel / Delete / Remove-from-group. Mechanical legs stay read-only, so
+  // amounts never change here. The save logic is the pure, tested detailEdit/summaryEdit path
+  // (replacePostings + patchTransaction); the backend re-validates balance regardless. A
+  // subject-less shape (nothing to recategorize) offers only the `oneditledger` raw escape,
+  // which the host (story 6b wrapper) fulfils by mounting LedgerEditModal.
+  import { untrack } from 'svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { narrateTransaction, accountLabel } from './narration'
   import { blurbFor } from './blurb'
   import {
@@ -29,15 +33,48 @@
     postingRows,
     formatTxDate,
   } from './detailView'
-  import type { Transaction } from '$lib/api'
+  import {
+    canSummaryEdit,
+    editableSubjectIds,
+    initialEditDraft,
+    setSubjectAccount,
+    isDirty,
+    buildSavePlan,
+    type EditDraft,
+  } from './detailEdit'
+  import {
+    replacePostings,
+    patchTransaction,
+    deleteTransaction,
+    removeGroupExpense,
+    type Account,
+    type Transaction,
+  } from '$lib/api'
 
   interface Props {
     tx: Transaction
-    mode?: 'view' | 'edit'
-    onedit?: () => void
+    // When `accounts` is provided, an Edit affordance appears and recategorize/header edits
+    // happen in place. Omit it for a pure read-only surface (view-only hosts).
+    accounts?: Account[]
+    // The saved transaction with freshly classified (enriched) postings + applied header.
+    onsaved?: (updated: Transaction) => void
+    ondeleted?: () => void
+    onaccountcreated?: (account: Account) => void
+    onremovedFromGroup?: () => void
+    // The raw-ledger escape hatch — the host (story 6b wrapper) mounts LedgerEditModal. Without
+    // it, a subject-less shape (nothing to recategorize) simply offers no edit.
+    oneditledger?: () => void
   }
 
-  let { tx, mode = 'view', onedit }: Props = $props()
+  let {
+    tx,
+    accounts,
+    onsaved,
+    ondeleted,
+    onaccountcreated,
+    onremovedFromGroup,
+    oneditledger,
+  }: Props = $props()
 
   let n = $derived(narrateTransaction(tx.postings))
   let hero = $derived(heroDisplay(n))
@@ -55,29 +92,166 @@
   let legs = $derived(postingRows(n))
   let convOpen = $state(false)
   let postingsOpen = $state(false)
+
+  // --- in-place edit (story 6a) ----------------------------------------------------------
+  // The editable surface mirrors the retired SummaryEditModal: subject leg account(s),
+  // description, date. Mechanical legs stay read-only, so amounts never change here. The save
+  // path (detailEdit → summaryEdit → replacePostings/patchTransaction) is reused untouched and
+  // the backend re-validates balance regardless.
+  let editing = $state(false)
+  // Seeded from the initial tx; re-seeded each time edit mode is entered (enterEdit).
+  let draft = $state<EditDraft>(untrack(() => initialEditDraft(tx)))
+  let saving = $state(false)
+  let deleting = $state(false)
+  let removingFromGroup = $state(false)
+  let saveError = $state('')
+  let showDiscardConfirm = $state(false)
+  let showDeleteConfirm = $state(false)
+  let showRemoveGroupConfirm = $state(false)
+
+  // Edit is offered only when a parent hands us `accounts`. Inline recategorize needs a subject
+  // leg; subject-less shapes (pure transfer / opening balance) fall through to the ledger
+  // escape, so the Edit button hides entirely when neither path is available.
+  let canEdit = $derived(accounts != null)
+  let inlineEditable = $derived(canEdit && canSummaryEdit(tx.postings))
+  let showEditButton = $derived(
+    canEdit && (inlineEditable || oneditledger != null),
+  )
+  let editableIds = $derived(editableSubjectIds(tx.postings))
+  // The subject leg also surfaces as a "the spend" branch; edit it once on the hero row, so a
+  // branch is editable only when it is a *different* subject leg (a multi-category split).
+  let heroEditable = $derived(
+    editing && n.hero != null && editableIds.has(n.hero.posting.id),
+  )
+  let dirty = $derived(isDirty(tx, draft))
+
+  function draftAccountId(postingId: string): string {
+    return (
+      draft.subjects.find((d) => d.postingId === postingId)?.accountId ?? ''
+    )
+  }
+  function repoint(postingId: string, accountId: string) {
+    draft.subjects = setSubjectAccount(draft.subjects, postingId, accountId)
+  }
+  function isBranchEditable(postingId: string): boolean {
+    return (
+      editing && editableIds.has(postingId) && postingId !== n.hero?.posting.id
+    )
+  }
+
+  function enterEdit() {
+    if (!inlineEditable) {
+      oneditledger?.()
+      return
+    }
+    draft = initialEditDraft(tx)
+    saveError = ''
+    showDiscardConfirm = false
+    showDeleteConfirm = false
+    showRemoveGroupConfirm = false
+    editing = true
+  }
+  function exitEdit() {
+    editing = false
+    showDiscardConfirm = false
+  }
+  function requestCancel() {
+    if (dirty) showDiscardConfirm = true
+    else exitEdit()
+  }
+
+  async function handleSave() {
+    saving = true
+    saveError = ''
+    try {
+      const plan = buildSavePlan(tx, draft)
+      // Repoint accounts first (balance re-validated server-side), then patch the header.
+      let updated: Transaction = tx
+      if (plan.recategorize)
+        updated = await replacePostings(tx.id, plan.recategorize)
+      if (plan.patch) await patchTransaction(tx.id, plan.patch)
+      onsaved?.({
+        ...updated,
+        date: draft.date,
+        description: draft.description.trim() || null,
+      })
+      editing = false
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : 'Save failed'
+    } finally {
+      saving = false
+    }
+  }
+
+  async function handleDelete() {
+    deleting = true
+    try {
+      await deleteTransaction(tx.id)
+      ondeleted?.()
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : 'Delete failed'
+      showDeleteConfirm = false
+    } finally {
+      deleting = false
+    }
+  }
+
+  async function handleRemoveFromGroup() {
+    if (!tx.groupExpenseId) return
+    removingFromGroup = true
+    try {
+      await removeGroupExpense(tx.groupExpenseId)
+      onremovedFromGroup?.()
+    } catch (e) {
+      saveError = e instanceof Error ? e.message : 'Remove failed'
+      showRemoveGroupConfirm = false
+    } finally {
+      removingFromGroup = false
+    }
+  }
 </script>
 
-<div class="detail" data-mode={mode}>
+<div class="detail" data-mode={editing ? 'edit' : 'view'}>
   <header class="head">
     <div class="head-main">
-      <span class="payee">{tx.description || '—'}</span>
-      {#if tag}
-        {#if tag.kind === 'fishpie'}
-          <!-- Two-chip Fish Pie identity, shared with the import preview (FishPiePills):
-               accent category chip + muted group chip. -->
-          <span class="fp-tag">
-            <span class="fp-hero"><Icon name="pie" size={11} />{tag.category}</span>
-            <span class="fp-sub">{tag.group}</span>
-          </span>
-        {:else}
-          <span class="tag">{tag.label}</span>
+      {#if editing}
+        <input
+          class="payee-input"
+          aria-label="Description"
+          placeholder="Description"
+          bind:value={draft.description}
+        />
+      {:else}
+        <span class="payee">{tx.description || '—'}</span>
+        {#if tag}
+          {#if tag.kind === 'fishpie'}
+            <!-- Two-chip Fish Pie identity, shared with the import preview (FishPiePills):
+                 accent category chip + muted group chip. -->
+            <span class="fp-tag">
+              <span class="fp-hero"
+                ><Icon name="pie" size={11} />{tag.category}</span
+              >
+              <span class="fp-sub">{tag.group}</span>
+            </span>
+          {:else}
+            <span class="tag">{tag.label}</span>
+          {/if}
         {/if}
       {/if}
     </div>
     <div class="head-side">
-      <span class="date">{dateLabel}</span>
-      {#if onedit}
-        <GradientButton onclick={onedit}>Edit</GradientButton>
+      {#if editing}
+        <input
+          type="date"
+          class="date-input"
+          aria-label="Date"
+          bind:value={draft.date}
+        />
+      {:else}
+        <span class="date">{dateLabel}</span>
+        {#if showEditButton}
+          <GradientButton onclick={enterEdit}>Edit</GradientButton>
+        {/if}
       {/if}
     </div>
   </header>
@@ -85,8 +259,20 @@
   {#if hero}
     <div class="hero" class:inflow={hero.positive} data-node="hero">
       <div class="hero-id">
-        <span class="hero-label">{hero.label}</span>
-        <span class="hero-path">{hero.path}</span>
+        {#if heroEditable && n.hero}
+          {@const heroId = n.hero.posting.id}
+          <div class="edit-account">
+            <AccountPathInput
+              accounts={accounts ?? []}
+              value={draftAccountId(heroId)}
+              oncommit={(id) => repoint(heroId, id)}
+              oncreate={onaccountcreated}
+            />
+          </div>
+        {:else}
+          <span class="hero-label">{hero.label}</span>
+          <span class="hero-path">{hero.path}</span>
+        {/if}
       </div>
       <div class="hero-amount">
         <span class="num">{hero.sign}{hero.amount}</span>
@@ -96,7 +282,10 @@
   {/if}
 
   <p class="blurb">
-    {#each blurb as seg}{#if seg.kind === 'break'}<br />{:else}<span class="seg" class:emph={seg.kind === 'emph'}>{seg.text}</span>{/if}{/each}
+    {#each blurb as seg}{#if seg.kind === 'break'}<br />{:else}<span
+          class="seg"
+          class:emph={seg.kind === 'emph'}>{seg.text}</span
+        >{/if}{/each}
   </p>
 
   {#if n.source || n.branches.length > 0}
@@ -106,9 +295,13 @@
       <div class="tree">
         {#if sourceLabel && n.source}
           <div class="row source">
-            <span class="spine" aria-hidden="true"><span class="dot"></span></span>
+            <span class="spine" aria-hidden="true"
+              ><span class="dot"></span></span
+            >
             <div class="body">
-              <span class="line"><span class="branch-label">{sourceLabel}</span></span>
+              <span class="line"
+                ><span class="branch-label">{sourceLabel}</span></span
+              >
               <span class="branch-path">{n.source.accountPath}</span>
             </div>
             <div class="amount">
@@ -125,16 +318,32 @@
             data-node="branch"
             data-posting-id={b.posting.id}
           >
-            <span class="spine" aria-hidden="true"><span class="elbow"></span></span>
+            <span class="spine" aria-hidden="true"
+              ><span class="elbow"></span></span
+            >
             <div class="body">
-              <span class="line">
-                <span class="chip">{chipLabel(b.chip)}</span>
-                <span class="branch-label">{b.label}</span>
-                {#if note && b.chip === 'the-spend'}
-                  <span class="note">{note}</span>
-                {/if}
-              </span>
-              <span class="branch-path">{b.path}</span>
+              {#if isBranchEditable(b.posting.id)}
+                <span class="line">
+                  <span class="chip">{chipLabel(b.chip)}</span>
+                  <span class="edit-account">
+                    <AccountPathInput
+                      accounts={accounts ?? []}
+                      value={draftAccountId(b.posting.id)}
+                      oncommit={(id) => repoint(b.posting.id, id)}
+                      oncreate={onaccountcreated}
+                    />
+                  </span>
+                </span>
+              {:else}
+                <span class="line">
+                  <span class="chip">{chipLabel(b.chip)}</span>
+                  <span class="branch-label">{b.label}</span>
+                  {#if note && b.chip === 'the-spend'}
+                    <span class="note">{note}</span>
+                  {/if}
+                </span>
+                <span class="branch-path">{b.path}</span>
+              {/if}
             </div>
             <div class="amount">
               <span class="num">{branchAmount(b.amount)}</span>
@@ -187,7 +396,9 @@
         <Icon name="chevron-right-filled" size={10} />
       </span>
       <span class="caret-label">All postings</span>
-      <span class="caret-hint">{legs.length} leg{legs.length === 1 ? '' : 's'}</span>
+      <span class="caret-hint"
+        >{legs.length} leg{legs.length === 1 ? '' : 's'}</span
+      >
     </button>
     {#if postingsOpen}
       <div class="ledger">
@@ -196,7 +407,9 @@
             <span class="leg-path">{leg.path}</span>
             <span class="leg-role">{leg.role}</span>
             <span class="leg-amount">
-              <span class="num" class:neg={leg.amount.startsWith('-')}>{leg.amount}</span>
+              <span class="num" class:neg={leg.amount.startsWith('-')}
+                >{leg.amount}</span
+              >
               <CurrencyPill code={leg.currency} size="xs" />
             </span>
           </div>
@@ -211,6 +424,101 @@
       </div>
     {/if}
   </section>
+
+  {#if editing}
+    <div class="edit-foot">
+      {#if oneditledger}
+        <button type="button" class="ledger-link" onclick={oneditledger}>
+          Edit raw postings…
+        </button>
+      {/if}
+
+      {#if tx.groupExpenseId}
+        <div class="group-row">
+          <span class="group-label"
+            >Shared to <strong>{tx.groupName ?? 'Fish Pie'}</strong></span
+          >
+          {#if showRemoveGroupConfirm}
+            <span class="confirm-warn">Remove for all members?</span>
+            <GradientButton
+              variant="warning"
+              active
+              disabled={removingFromGroup}
+              onclick={handleRemoveFromGroup}
+            >
+              {removingFromGroup ? 'Removing…' : 'Confirm remove'}
+            </GradientButton>
+            <GradientButton
+              disabled={removingFromGroup}
+              onclick={() => (showRemoveGroupConfirm = false)}
+            >
+              Cancel
+            </GradientButton>
+          {:else}
+            <GradientButton
+              variant="warning"
+              onclick={() => (showRemoveGroupConfirm = true)}
+            >
+              Remove from group
+            </GradientButton>
+          {/if}
+        </div>
+      {/if}
+
+      {#if showDiscardConfirm}
+        <div class="confirm-row">
+          <span class="confirm-text">Discard changes?</span>
+          <GradientButton onclick={() => (showDiscardConfirm = false)}
+            >Keep editing</GradientButton
+          >
+          <GradientButton variant="warning" active onclick={exitEdit}
+            >Discard</GradientButton
+          >
+        </div>
+      {:else if showDeleteConfirm}
+        <div class="confirm-row">
+          <span class="confirm-text">Delete this transaction?</span>
+          <GradientButton onclick={() => (showDeleteConfirm = false)}
+            >Cancel</GradientButton
+          >
+          <GradientButton
+            variant="warning"
+            active
+            disabled={deleting}
+            onclick={handleDelete}
+          >
+            {deleting ? 'Deleting…' : 'Delete'}
+          </GradientButton>
+        </div>
+      {:else}
+        {#if saveError}
+          <p class="save-error" role="alert">{saveError}</p>
+        {/if}
+        <div class="footer">
+          <GradientButton
+            variant="warning"
+            active
+            disabled={saving}
+            onclick={() => (showDeleteConfirm = true)}
+          >
+            Delete
+          </GradientButton>
+          <div class="footer-actions">
+            <GradientButton disabled={saving} onclick={requestCancel}
+              >Cancel</GradientButton
+            >
+            <GradientButton
+              active
+              disabled={!dirty || saving}
+              onclick={handleSave}
+            >
+              <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
+            </GradientButton>
+          </div>
+        </div>
+      {/if}
+    </div>
+  {/if}
 </div>
 
 <style>
@@ -491,8 +799,16 @@
 
   .tone-positive .chip {
     color: var(--color-amount-positive);
-    background: color-mix(in srgb, var(--color-amount-positive) 12%, var(--color-window));
-    border-color: color-mix(in srgb, var(--color-amount-positive) 35%, transparent);
+    background: color-mix(
+      in srgb,
+      var(--color-amount-positive) 12%,
+      var(--color-window)
+    );
+    border-color: color-mix(
+      in srgb,
+      var(--color-amount-positive) 35%,
+      transparent
+    );
   }
 
   .tone-amber .chip {
@@ -707,5 +1023,144 @@
 
   .ledger-foot.ok {
     color: var(--color-amount-positive);
+  }
+
+  /* --- edit mode -------------------------------------------------------------------- */
+  /* Header inputs reuse the inset-field look so the layout doesn't jump between view and
+     edit — same baseline, same chrome, just controls in place of static text. */
+  .payee-input {
+    flex: 1;
+    min-width: 0;
+    font-family: var(--font-serif);
+    font-size: var(--text-lg);
+    color: var(--color-text);
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 3px var(--sp-xs);
+    height: 28px;
+    outline: none;
+    box-sizing: border-box;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .date-input {
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    padding: 3px var(--sp-xs);
+    height: 26px;
+    outline: none;
+    flex-shrink: 0;
+    box-sizing: border-box;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .payee-input:focus,
+  .date-input:focus {
+    border-color: var(--color-accent-mid);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-light);
+  }
+
+  /* The account picker fills its row in both contexts: full width under the hero (column),
+     growing beside the chip in a branch line (row). */
+  .edit-account {
+    display: block;
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 9rem;
+  }
+
+  .edit-foot {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+    padding-top: var(--sp-sm);
+    border-top: 1px solid var(--color-rule);
+  }
+
+  .ledger-link {
+    align-self: flex-start;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    background: transparent;
+    border: none;
+    cursor: pointer;
+    padding: 0;
+    outline: none;
+    transition: color var(--duration-fast) var(--ease);
+  }
+
+  .ledger-link:hover {
+    color: var(--color-accent-mid);
+  }
+
+  .ledger-link:focus-visible {
+    outline: 1px dotted var(--color-text);
+    outline-offset: 2px;
+  }
+
+  .group-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    font-size: var(--text-xs);
+  }
+
+  .group-label {
+    flex: 1;
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .confirm-warn {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+  }
+
+  .confirm-row {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+  }
+
+  .confirm-text {
+    flex: 1;
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-text-muted);
+  }
+
+  .save-error {
+    margin: 0;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-danger);
+  }
+
+  .footer {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+
+  .footer-actions {
+    display: flex;
+    gap: var(--sp-sm);
   }
 </style>

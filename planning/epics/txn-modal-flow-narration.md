@@ -255,45 +255,72 @@ model's assertion; toggles are independent.
 
 ---
 
-### 6. Single entry point + Edit affordance (the convergence seam)
+### 6. Single transaction surface + in-place edit (the convergence)
 
-Frontend. Make this modal the *one* transaction surface and prove the edit seam — **without
-building inline edit**. Reuse the existing edit modals as-is.
+Frontend. Make this modal the *one* transaction surface, and make **edit happen in place**
+inside `TransactionDetail` — same layout, same chrome, rows swap to controls. The original
+plan (Edit jumps to `SummaryEditModal`) was rejected in design (2026-06-26): jumping to a
+differently-styled modal breaks the "one object" feel. We pull the deferred *inline hero
+category edit* future-direction forward and absorb `SummaryEditModal` now.
 
-- The detail modal gets an **Edit** action (footer/header affordance). For now it opens the
-  existing `SummaryEditModal` (smart edit) — and from there the raw `LedgerEditModal`
-  escape hatch stays reachable. The detail modal is the entry; edit is reached *from
-  within* it.
-- Consolidate entry points: rows that today open an edit modal directly (transaction list /
-  account rows — `TransactionRow`, `AccountTransactionRow`) open **this** detail modal
-  instead, with Edit one click in. Spending/manage rows already open the detail (story 4 of
-  the prior epic) — they get the same Edit action.
-- After a successful edit, the detail modal re-renders the updated transaction (re-narrate
-  from the refreshed payload) so view + edit feel like one object, not a round-trip.
-- **No edit code is written here** beyond wiring the affordance and the post-edit refresh.
-  `summaryEdit.ts` / `PostingEditorRow` / the balance-validating backend are reused
-  untouched.
+**Editable surface (small by design).** Exactly what summary edit exposed, nothing more:
+- **subject leg account(s)** — recategorize (repoint to a different account). *Amounts never
+  change* — keeps the entry balanced, zero new validation. Amount changes drop to the ledger.
+- **description**, **date** — header fields.
+- actions: **Save** (dirty-gated), **Cancel**, **Delete** (confirm), **Remove from group**
+  (when `groupExpenseId`).
+- every mechanical leg (source/transfer/conversion/fee/share) stays **read-only**, rendered
+  as "how it moved" exactly as in view mode.
 
-Tests: the Edit action opens the smart-edit modal for a given transaction; after an edit
-the detail re-narrates with the new data; the raw escape hatch is still reachable; the
-consolidated rows open the detail modal (assert the handler/route, given no render harness).
+**Reuse, not rewrite.** The save logic is the pure, already-tested `summaryEdit.ts`
+(`buildRecategorizePayload` → `replacePostings`, then `patchTransaction` for date/desc). It
+operates on raw postings, model-agnostic — reused untouched. Backend balance re-validation
+unchanged. This story is a *port into a nicer surface*, not new edit logic.
+
+**`LedgerEditModal` survives** as the raw escape hatch this epic — un-narratable shapes
+(pure transfers, opening-balance, no subject leg) have nothing to recategorize, so a small
+"Edit raw postings" link in edit mode still drops to it. Folding raw-posting edit inline
+(retiring Ledger too) is a later, bigger lift.
+
+Split into three PRs:
+
+- **6a — In-place edit mode in `TransactionDetail`.** Internal `mode='view'|'edit'` toggle.
+  Edit flips to edit mode (no child modal): hero + any subject-role branch label → account
+  picker (`AccountPathInput`), header desc/date → inline inputs, edit-mode footer (Save /
+  Cancel / Delete / Remove from group), plus the "Edit raw postings" ledger escape link. New
+  props: `accounts`, `onsaved`, `ondeleted`, `onaccountcreated`, `onremovedFromGroup`. Reuses
+  `summaryEdit.ts` + the validating backend untouched.
+  - Tests: editable-surface derivation (which legs are recategorizable from the new narration
+    model = role `subject`); `buildRecategorizePayload` produces a balanced payload on each
+    archetype; dirty detection (account repoint / date / desc); save calls
+    `replacePostings` + `patchTransaction` correctly; delete + remove-from-group paths;
+    un-narratable shape exposes the ledger escape, not the inline editor.
+
+- **6b — Single entry point.** New `TransactionDetailModal` wrapper = `<Modal>` +
+  `TransactionDetail` (view+edit) + the `LedgerEditModal` escape hatch + post-edit
+  re-narrate. Swap all four hosts to it: spending + manage (today bare view-only modal) and
+  the heavy rows `TransactionRow` / `AccountTransactionRow` (today edit button jumps straight
+  to `SummaryEditModal`) — their edit button now opens the detail, Edit one click in. Heavy
+  rows keep their inline desc/date/account row quick-edits; `onsaved` bubbles up to sync the
+  row display as today.
+  - Tests: wrapper opens in view, Edit enters inline edit, save re-narrates with new data;
+    the consolidated rows open the detail (assert handler, no render harness).
+
+- **6c — Delete `SummaryEditModal`.** Once nothing references it. `canSummaryEdit` /
+  `recategorizableLegs` from `summaryEdit.ts` stay (now consumed by `TransactionDetail`).
 
 #### Future direction (out of scope — deferred to later epics)
 
-These are explicitly **not** in this epic; listed so the seams above stay honest and a
-later epic can pick them up without restructuring `TransactionDetail`:
+Still **not** in this epic, seams kept honest for a later pickup:
 
-- **Inline hero category edit.** `mode='edit'` swaps the hero row's label into the account
-  picker from `SummaryEditModal`, editing in place instead of in a child modal. Seam: the
-  hero is an addressable node + the `mode` prop (stories 4, 6).
-- **Inline raw-posting edit.** Fold `PostingEditorRow` into the modal's edit mode (the "All
-  postings" expander becomes editable), retiring `LedgerEditModal`. Seam: branches/legs are
-  addressable rows; the all-postings ledger (story 5) is the host.
-- **Add to Fish Pie group.** An edit-mode action that attaches the transaction to a group
-  expense. Lives in its own upcoming epic; needs only an actions slot here (story 6).
+- **Inline raw-posting edit.** Fold `PostingEditorRow` into the "All postings" expander,
+  retiring `LedgerEditModal`. Seam: legs are addressable rows; the all-postings ledger
+  (story 5) is the host.
+- **Add to Fish Pie group.** An edit-mode action attaching the transaction to a group
+  expense. Its own upcoming epic; needs only an actions slot (added in 6a).
 
-The end state: `SummaryEditModal` + `LedgerEditModal` are absorbed into this modal's edit
-mode and deleted. This epic stops short of that — it builds the surface and the seam.
+The end state: both `SummaryEditModal` and `LedgerEditModal` absorbed and deleted. This epic
+absorbs `SummaryEditModal` (6c) and stops short of the raw-posting fold (Ledger survives).
 
 ---
 
@@ -302,8 +329,10 @@ mode and deleted. This epic stops short of that — it builds the surface and th
 1 first (unblocks the label) and standalone. 2 is load-bearing — the whole render keys off
 the new model; land it with full tests before any pixels. 3 is small, isolated copy. 4 and
 5 build the view top-down; 4 is the main visual, 5 the progressive disclosure. 6 closes
-the loop — makes the modal the single transaction surface and wires the edit seam (reusing
-the existing edit modals, no new edit logic). Each story is its own PR against `main`.
+the loop — the single transaction surface with **in-place** edit (6a inline edit mode, 6b
+single entry point, 6c delete `SummaryEditModal`), reusing the validated save path
+(`summaryEdit.ts` + backend), no new edit logic. Each story/sub-story is its own PR against
+`main`.
 
 ## Resolved decisions (2026-06-25)
 
