@@ -1,26 +1,14 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
-  import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import {
-    patchTransaction,
-    patchPosting,
-    type Account,
-    type Transaction,
-  } from '$lib/api'
+  import { type Account, type Transaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import {
-    focusOnMount,
     parseDateParts,
     summarize,
     classifyTransfer,
     fmt,
-    handleEditableKeydown,
-    type Posting,
   } from './transactionUtils'
 
   interface Props {
@@ -33,8 +21,7 @@
     convertFx?: boolean
     preferredCurrency?: string
     fxRateMap?: Map<string, string | null>
-    onaccountcreated?: (account: Account) => void
-    ondeleted?: () => void
+    onselect?: (tx: Transaction) => void
   }
 
   let {
@@ -47,140 +34,23 @@
     convertFx = false,
     preferredCurrency = 'CAD',
     fxRateMap = new Map(),
-    onaccountcreated,
-    ondeleted,
+    onselect,
   }: Props = $props()
 
-  // The detail modal hosts both the narrated view and in-place edit; it offers the raw ledger
-  // escape itself, so the row only needs to open it.
-  let modalOpen = $state(false)
-
-  let localDate = $state(untrack(() => tx.date))
-  let localDescription = $state(untrack(() => tx.description ?? ''))
-  let localPostings = $state<Posting[]>(
-    untrack(() =>
-      tx.postings.map((p) => ({
-        id: p.id,
-        accountId: p.accountId,
-        amount: p.amount,
-        currency: p.currency,
-      })),
-    ),
-  )
-  // After a summary save the posting ids change (atomic replace), so keep the enriched result
-  // to drive the role / account-path lookup for the live transaction without a refetch.
-  let savedTx = $state<Transaction | null>(null)
-
+  // Row is read-only display now; editing lives in the page-level TransactionDetailModal,
+  // opened by clicking the row (onselect). Display derives straight from the `tx` prop.
   let accountPaths = $derived(
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
   )
 
-  // The full, role-enriched transaction the summary editor consumes. Derived from local state
-  // so inline edits and saves are reflected; role + account path come from the last known
-  // enriched copy (original load, or the most recent summary save) keyed by posting id.
-  let liveTx = $derived.by((): Transaction => {
-    const base = savedTx ?? tx
-    const byId = new Map(base.postings.map((o) => [o.id, o]))
-    return {
-      ...tx,
-      date: localDate,
-      description: localDescription || null,
-      postings: localPostings.map((lp) => {
-        const orig = byId.get(lp.id)
-        return {
-          id: lp.id,
-          accountId: lp.accountId,
-          amount: lp.amount,
-          currency: lp.currency,
-          accountPath:
-            accountPaths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
-          accountName: orig?.accountName ?? null,
-          role: orig?.role ?? 'subject',
-        }
-      }),
-    }
-  })
-
-  // --- Description editing ---
-  let descEditing = $state(false)
-  let descValue = $state('')
-  let descError = $state('')
-
-  function startDescEdit() {
-    editingPostingId = null
-    descValue = localDescription
-    descEditing = true
-    descError = ''
-  }
-
-  async function commitDescEdit() {
-    descEditing = false
-    const next = descValue.trim()
-    if (next === localDescription) return
-    try {
-      await patchTransaction(tx.id, { description: next || null })
-      localDescription = next
-    } catch (e) {
-      descError = e instanceof Error ? e.message : 'Save failed'
-    }
-  }
-
-  function cancelDescEdit() {
-    descEditing = false
-    descError = ''
-  }
-
-  function handleDescKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      commitDescEdit()
-    }
-    if (e.key === 'Escape') cancelDescEdit()
-  }
-
-  // --- Posting account editing ---
-  let editingPostingId = $state<string | null>(null)
-  let editAccountId = $state('')
-  let postingError = $state('')
-
-  function startPostingEdit(postingId: string, accountId: string) {
-    descEditing = false
-    editingPostingId = postingId
-    editAccountId = accountId
-    postingError = ''
-  }
-
-  async function handlePostingCommit(accountId: string) {
-    const id = editingPostingId
-    if (!id) return
-    editingPostingId = null
-    try {
-      await patchPosting(id, { accountId })
-      localPostings = localPostings.map((p) =>
-        p.id === id ? { ...p, accountId } : p,
-      )
-    } catch (e) {
-      postingError = e instanceof Error ? e.message : 'Save failed'
-    }
-  }
-
-  function handlePostingFocusout(e: FocusEvent) {
-    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
-      const id = editingPostingId
-      setTimeout(() => {
-        if (editingPostingId === id) editingPostingId = null
-      }, 200)
-    }
-  }
-
-  let dateParts = $derived(parseDateParts(localDate))
+  let dateParts = $derived(parseDateParts(tx.date))
 
   // --- Transaction classification ---
   let isCrossCurrency = $derived(
-    new Set(localPostings.map((p) => p.currency)).size > 1,
+    new Set(tx.postings.map((p) => p.currency)).size > 1,
   )
 
-  let { from, to, rest } = $derived(summarize(localPostings))
+  let { from, to, rest } = $derived(summarize(tx.postings))
 
   let isTransfer = $derived.by(() => {
     const settings = settingsStore.value
@@ -191,7 +61,7 @@
   })
 
   let transfer = $derived(
-    classifyTransfer(localPostings, defaultConversionAccountId),
+    classifyTransfer(tx.postings, defaultConversionAccountId),
   )
 
   // Which side of the transaction is the current account?
@@ -207,21 +77,21 @@
   // Flow direction only applies to transfers — regular expenses get no directional styling.
   let flowDirection = $derived.by((): 'in' | 'out' | null => {
     if (!isTransfer) return null
-    const posting = localPostings.find((p) => p.accountId === currentAccountId)
+    const posting = tx.postings.find((p) => p.accountId === currentAccountId)
     if (!posting) return null
     return parseFloat(posting.amount) > 0 ? 'in' : 'out'
   })
 
   // Amount values for the current account's perspective.
   let currentPosting = $derived(
-    localPostings.find((p) => p.accountId === currentAccountId),
+    tx.postings.find((p) => p.accountId === currentAccountId),
   )
 
   // FX conversion — only for simple (non-cross-currency) postings in a foreign currency.
   let fxConverted = $derived.by(() => {
     if (!convertFx || isCrossCurrency || !currentPosting) return null
     if (currentPosting.currency === preferredCurrency) return null
-    const date = localDate.substring(0, 10)
+    const date = tx.date.substring(0, 10)
     const key = `${date}::${currentPosting.currency}`
     if (!fxRateMap.has(key)) return { status: 'loading' as const }
     const rate = fxRateMap.get(key) ?? null
@@ -238,7 +108,20 @@
   })
 </script>
 
-<div class="row" class:transfer={isTransfer} class:odd={idx % 2 !== 0}>
+<div
+  class="row"
+  class:transfer={isTransfer}
+  class:odd={idx % 2 !== 0}
+  role="button"
+  tabindex="0"
+  onclick={() => onselect?.(tx)}
+  onkeydown={(e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault()
+      onselect?.(tx)
+    }
+  }}
+>
   <!-- Date -->
   <div class="date">
     <span class="date-meta">{dateParts.year} {dateParts.dow}</span>
@@ -247,29 +130,8 @@
 
   <!-- Description -->
   <div class="desc-cell">
-    {#if descEditing}
-      <div class="desc-sizer" data-value={descValue}>
-        <input
-          class="edit-input"
-          bind:value={descValue}
-          onblur={commitDescEdit}
-          onkeydown={handleDescKeydown}
-          aria-label="Description"
-          use:focusOnMount
-        />
-      </div>
-    {:else}
-      <span
-        class="description editable"
-        role="button"
-        tabindex="0"
-        onclick={startDescEdit}
-        onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
-        title="Click to edit">{localDescription || '—'}</span
-      >
-    {/if}
+    <span class="description">{tx.description || '—'}</span>
     {#if isTransfer}<span class="transfer-tag">⇄</span>{/if}
-    {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
   </div>
 
   <!-- Account (counterpart only — current account is suppressed) -->
@@ -308,30 +170,11 @@
       >
         ➜</span
       >
-      {#if editingPostingId === to.id}
-        <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
-          <AccountPathInput
-            {accounts}
-            bind:value={editAccountId}
-            oncommit={handlePostingCommit}
-            oncreate={onaccountcreated}
-          />
-        </div>
-      {:else}
-        <span
-          class="account editable"
-          class:account-uncategorized={to.accountId === defaultOffsetAccountId}
-          role="button"
-          tabindex="0"
-          onclick={() => startPostingEdit(to.id, to.accountId)}
-          onkeydown={(e) =>
-            handleEditableKeydown(e, () =>
-              startPostingEdit(to.id, to.accountId),
-            )}
-          title="Click to edit"
-          >{accountPaths[to.accountId] ?? to.accountId}</span
-        >
-      {/if}
+      <span
+        class="account"
+        class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+        >{accountPaths[to.accountId] ?? to.accountId}</span
+      >
     {:else if currentIsTo}
       <span
         class="dir-arrow"
@@ -340,31 +183,11 @@
       >
         ↩</span
       >
-      {#if editingPostingId === from.id}
-        <div class="account-edit-wrapper" onfocusout={handlePostingFocusout}>
-          <AccountPathInput
-            {accounts}
-            bind:value={editAccountId}
-            oncommit={handlePostingCommit}
-            oncreate={onaccountcreated}
-          />
-        </div>
-      {:else}
-        <span
-          class="account editable"
-          class:account-uncategorized={from.accountId ===
-            defaultOffsetAccountId}
-          role="button"
-          tabindex="0"
-          onclick={() => startPostingEdit(from.id, from.accountId)}
-          onkeydown={(e) =>
-            handleEditableKeydown(e, () =>
-              startPostingEdit(from.id, from.accountId),
-            )}
-          title="Click to edit"
-          >{accountPaths[from.accountId] ?? from.accountId}</span
-        >
-      {/if}
+      <span
+        class="account"
+        class:account-uncategorized={from.accountId === defaultOffsetAccountId}
+        >{accountPaths[from.accountId] ?? from.accountId}</span
+      >
     {:else}
       <!-- Fallback: current account not found in from/to (edge case) -->
       <span class="account"
@@ -386,8 +209,6 @@
           {fee.currency}{/each}
       </span>
     {/if}
-    {#if postingError}<span class="edit-error" role="alert">{postingError}</span
-      >{/if}
   </div>
 
   <!-- Amount -->
@@ -476,49 +297,19 @@
     {/if}
   </div>
 
-  <!-- Actions -->
-  <div class="actions">
-    <Button
-      tooltip="Edit transaction"
-      variant="ghost"
-      square
-      onclick={() => (modalOpen = true)}
-    >
-      <Icon name="edit-txn" />
-    </Button>
-  </div>
 </div>
-
-<TransactionDetailModal
-  tx={modalOpen ? liveTx : null}
-  open={modalOpen}
-  onclose={() => (modalOpen = false)}
-  {accounts}
-  {defaultOffsetAccountId}
-  {onaccountcreated}
-  {ondeleted}
-  onsaved={(updated) => {
-    savedTx = updated
-    localDate = updated.date
-    localDescription = updated.description ?? ''
-    localPostings = updated.postings.map((p) => ({
-      id: p.id,
-      accountId: p.accountId,
-      amount: p.amount,
-      currency: p.currency,
-    }))
-  }}
-/>
 
 <style>
   .row {
     display: grid;
-    grid-template-columns: var(--tx-cols) auto;
+    grid-template-columns: var(--tx-cols);
     align-items: center;
     gap: var(--sp-xs);
     padding: 7px 14px;
     background: var(--color-window-raised);
     border-bottom: 1px solid var(--color-rule);
+    cursor: pointer;
+    text-align: left;
     transition: background var(--duration-fast) var(--ease);
   }
 
@@ -528,6 +319,11 @@
 
   .row:hover {
     background: var(--color-accent-light);
+  }
+
+  .row:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -2px;
   }
 
   .row:last-child {
@@ -584,29 +380,6 @@
     flex-shrink: 0;
   }
 
-  .desc-sizer {
-    display: inline-grid;
-    align-self: center;
-    font-family: var(--font-serif);
-    font-size: 13px;
-    min-width: 0;
-    flex: 1;
-  }
-
-  .desc-sizer::after {
-    content: attr(data-value) ' ';
-    grid-area: 1 / 1;
-    visibility: hidden;
-    white-space: pre;
-    min-width: 8ch;
-  }
-
-  .desc-sizer .edit-input {
-    grid-area: 1 / 1;
-    width: 100%;
-    min-width: 0;
-  }
-
   /* --- Account column --- */
   .account-cell {
     display: flex;
@@ -645,12 +418,6 @@
 
   .account-uncategorized {
     color: var(--color-warning);
-  }
-
-  .account-edit-wrapper {
-    flex: 1;
-    min-width: 0;
-    max-width: 260px;
   }
 
   .fees {
@@ -695,42 +462,6 @@
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
-  }
-
-  /* --- Shared input style --- */
-  .edit-input {
-    font-family: var(--font-serif);
-    font-size: 13px;
-    color: var(--color-text);
-    background: transparent;
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
-    outline: none;
-  }
-
-  .edit-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
-  }
-
-  .editable {
-    cursor: text;
-    outline: 1px dashed transparent;
-    outline-offset: 1px;
-    transition: outline-color var(--duration-fast) var(--ease);
-  }
-
-  .editable:hover {
-    outline-color: var(--color-text-muted);
-  }
-
-  .edit-error {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    color: var(--color-danger);
-    flex-shrink: 0;
   }
 
   /* --- FX converted amount --- */
@@ -799,22 +530,15 @@
     gap: 4px;
   }
 
-  /* --- Actions --- */
-  .actions {
-    display: flex;
-    align-items: center;
-    justify-content: flex-end;
-  }
-
-  /* Mobile: stack desc and account below the date/amount/actions row */
+  /* Mobile: stack desc and account below the date/amount row */
   @media (max-width: 520px) {
     .row {
-      grid-template-columns: auto 1fr auto auto;
+      grid-template-columns: auto 1fr auto;
       grid-template-rows: auto auto auto;
       grid-template-areas:
-        'date   .       amount  actions'
-        'desc   desc    desc    desc'
-        'acct   acct    acct    acct';
+        'date   .       amount'
+        'desc   desc    desc'
+        'acct   acct    acct';
       min-height: unset;
       padding: var(--sp-xs) var(--sp-sm) 0;
       border-bottom: 2px solid var(--color-bevel-dark);
@@ -843,9 +567,6 @@
     }
     .amount-cell {
       grid-area: amount;
-    }
-    .actions {
-      grid-area: actions;
     }
   }
 </style>

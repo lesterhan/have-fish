@@ -12,8 +12,10 @@
     fetchMalformedFxSpends,
     type Account,
     type MalformedFxSpend,
+    type Transaction,
   } from '$lib/api'
   import RepairFxSpendModal from '$lib/components/transactions/RepairFxSpendModal.svelte'
+  import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import QuickEntryPanel from '$lib/components/accounts/QuickEntryPanel.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
@@ -60,6 +62,19 @@
   let settingsOpen = $state(false)
   let reconcileOpen = $state(false)
   let quickEntryOpen = $state(false)
+  // The single transaction-detail surface: a row click selects a tx, opening the modal where
+  // viewing, in-place edit, and deletion all happen.
+  let selectedTx = $state<Transaction | null>(null)
+
+  function applyEdit(updated: Transaction) {
+    transactions = transactions.map((t) => (t.id === updated.id ? updated : t))
+    selectedTx = updated
+  }
+
+  function applyDelete(deletedId: string) {
+    transactions = transactions.filter((t) => t.id !== deletedId)
+    selectedTx = null
+  }
 
   // Action-required filter state
   let actionRequiredIds = $state<string[] | null>(null)
@@ -258,6 +273,17 @@
   onhealed={handleHealed}
 />
 
+<TransactionDetailModal
+  tx={selectedTx}
+  open={selectedTx !== null}
+  onclose={() => (selectedTx = null)}
+  {accounts}
+  {defaultOffsetAccountId}
+  onaccountcreated={(a) => (accounts = [...accounts, a])}
+  onsaved={applyEdit}
+  ondeleted={() => selectedTx && applyDelete(selectedTx.id)}
+/>
+
 <div class="page" class:two-col={quickEntryOpen}>
   <div class="left-col">
     {#if account}
@@ -337,7 +363,6 @@
       <span>DESCRIPTION</span>
       <span class="col-account">ACCOUNT</span>
       <span class="col-amount">AMOUNT</span>
-      <span></span>
     </div>
 
     <div class="tx-body" use:scrollShadow>
@@ -372,11 +397,7 @@
             {convertFx}
             {preferredCurrency}
             {fxRateMap}
-            onaccountcreated={(a) => (accounts = [...accounts, a])}
-            ondeleted={() =>
-              (transactions = transactions.filter(
-                (t: { id: string }) => t.id !== tx.id,
-              ))}
+            onselect={(t) => (selectedTx = t)}
           />
         {/each}
       {/if}
@@ -510,7 +531,7 @@
   .tx-col-header {
     --tx-cols: 5.5rem 1fr 1.5fr 8rem;
     display: grid;
-    grid-template-columns: var(--tx-cols) auto;
+    grid-template-columns: var(--tx-cols);
     align-items: center;
     gap: var(--sp-xs);
     padding: 4px 14px;

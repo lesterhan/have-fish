@@ -17,16 +17,12 @@
     <Shimmer width="4rem" height="0.75rem" />
     <Shimmer width="2.5rem" height="0.625rem" />
   </div>
-
-  <div class="actions">
-    <Shimmer width="1.5rem" height="1.5rem" />
-  </div>
 </div>
 
 <style>
   .row {
     display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: auto 1fr auto;
     align-items: start;
     gap: var(--sp-xs);
     padding: var(--sp-xs) var(--sp-sm);
@@ -35,17 +31,16 @@
 
   @media (max-width: 520px) {
     .row {
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto 1fr;
       grid-template-rows: auto auto;
       grid-template-areas:
-        'date money actions'
-        'body body body';
+        'date money'
+        'body body';
     }
 
     .date { grid-area: date; }
     .body { grid-area: body; border-left: none; padding-left: 0; border-top: 1px solid var(--color-divider); padding-top: var(--sp-xs); margin-top: 0; }
     .money { grid-area: money; justify-self: end; }
-    .actions { grid-area: actions; }
   }
 
   .row:last-child {
@@ -74,11 +69,5 @@
     align-items: flex-end;
     margin-top: var(--sp-xs);
     gap: 3px;
-  }
-
-  .actions {
-    display: flex;
-    margin-top: var(--sp-xs);
-    align-items: center;
   }
 </style>

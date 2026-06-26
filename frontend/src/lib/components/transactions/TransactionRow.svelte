@@ -1,25 +1,12 @@
 <script lang="ts">
-  import { untrack } from 'svelte'
-  import Button from '$lib/components/ui/Button.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
-  import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
-  import Icon from '$lib/components/ui/Icon.svelte'
-  import {
-    patchTransaction,
-    patchPosting,
-    type Account,
-    type Transaction,
-  } from '$lib/api'
+  import { type Account, type Transaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import {
-    focusOnMount,
     parseDateParts,
     summarize,
     classifyTransfer,
     fmt,
-    handleEditableKeydown,
-    type Posting,
   } from './transactionUtils'
 
   interface Props {
@@ -31,8 +18,7 @@
     selectable?: boolean
     selected?: boolean
     ontoggleselect?: (id: string) => void
-    onaccountcreated?: (account: Account) => void
-    ondeleted?: () => void
+    onselect?: (tx: Transaction) => void
   }
 
   let {
@@ -44,141 +30,21 @@
     selectable = false,
     selected = false,
     ontoggleselect,
-    onaccountcreated,
-    ondeleted,
+    onselect,
   }: Props = $props()
 
-  // The detail modal hosts both the narrated view and in-place edit; it offers the raw ledger
-  // escape itself, so the row only needs to open it.
-  let modalOpen = $state(false)
-
-  // Local copies of mutable fields — updated after a successful save.
-  let localDate = $state(untrack(() => tx.date))
-  let localDescription = $state(untrack(() => tx.description ?? ''))
-  let localPostings = $state<Posting[]>(
-    untrack(() =>
-      tx.postings.map((p) => ({
-        id: p.id,
-        accountId: p.accountId,
-        amount: p.amount,
-        currency: p.currency,
-      })),
-    ),
-  )
-  // After a summary save the posting ids change (atomic replace), so keep the enriched result
-  // to drive the role / account-path lookup for the live transaction without a refetch.
-  let savedTx = $state<Transaction | null>(null)
-
+  // Row is read-only display now; editing lives in the page-level TransactionDetailModal,
+  // opened by clicking the row (onselect). Display derives straight from the `tx` prop, so a
+  // save reflects when the host swaps in the updated transaction.
   let accountPaths = $derived(
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
   )
 
-  // The full, role-enriched transaction the summary editor consumes. Derived from local state
-  // so inline edits and saves are reflected; role + account path come from the last known
-  // enriched copy (original load, or the most recent summary save) keyed by posting id.
-  let liveTx = $derived.by((): Transaction => {
-    const base = savedTx ?? tx
-    const byId = new Map(base.postings.map((o) => [o.id, o]))
-    return {
-      ...tx,
-      date: localDate,
-      description: localDescription || null,
-      postings: localPostings.map((lp) => {
-        const orig = byId.get(lp.id)
-        return {
-          id: lp.id,
-          accountId: lp.accountId,
-          amount: lp.amount,
-          currency: lp.currency,
-          accountPath:
-            accountPaths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
-          accountName: orig?.accountName ?? null,
-          role: orig?.role ?? 'subject',
-        }
-      }),
-    }
-  })
-
-  // --- Description editing ---
-  let descEditing = $state(false)
-  let descValue = $state('')
-  let descError = $state('')
-
-  function startDescEdit() {
-    editingPostingId = null
-    descValue = localDescription
-    descEditing = true
-    descError = ''
-  }
-
-  async function commitDescEdit() {
-    descEditing = false
-    const next = descValue.trim()
-    if (next === localDescription) return
-    try {
-      await patchTransaction(tx.id, { description: next || null })
-      localDescription = next
-    } catch (e) {
-      descError = e instanceof Error ? e.message : 'Save failed'
-    }
-  }
-
-  function cancelDescEdit() {
-    descEditing = false
-    descError = ''
-  }
-
-  function handleDescKeydown(e: KeyboardEvent) {
-    if (e.key === 'Enter') {
-      e.preventDefault()
-      commitDescEdit()
-    }
-    if (e.key === 'Escape') cancelDescEdit()
-  }
-
-  // --- Posting account editing ---
-  let editingPostingId = $state<string | null>(null)
-  let editAccountId = $state('')
-  let postingError = $state('')
-
-  function startPostingEdit(postingId: string, accountId: string) {
-    if (selectable) return
-    descEditing = false
-    editingPostingId = postingId
-    editAccountId = accountId
-    postingError = ''
-  }
-
-  async function handlePostingCommit(accountId: string) {
-    const id = editingPostingId
-    if (!id) return
-    editingPostingId = null
-    try {
-      await patchPosting(id, { accountId })
-      localPostings = localPostings.map((p) =>
-        p.id === id ? { ...p, accountId } : p,
-      )
-    } catch (e) {
-      postingError = e instanceof Error ? e.message : 'Save failed'
-    }
-  }
-
-  // Close posting edit when focus leaves the AccountPathInput wrapper.
-  // The 200ms delay lets AccountPathInput's own 150ms blur handler run first.
-  function handlePostingFocusout(e: FocusEvent) {
-    if (!(e.currentTarget as HTMLElement).contains(e.relatedTarget as Node)) {
-      const id = editingPostingId
-      setTimeout(() => {
-        if (editingPostingId === id) editingPostingId = null
-      }, 200)
-    }
-  }
-
-  let dateParts = $derived(parseDateParts(localDate))
+  let dateParts = $derived(parseDateParts(tx.date))
 
   // A cross-currency transfer has postings in more than one currency.
   let isCrossCurrency = $derived(
-    new Set(localPostings.map((p) => p.currency)).size > 1,
+    new Set(tx.postings.map((p) => p.currency)).size > 1,
   )
 
   let isTransfer = $derived.by(() => {
@@ -190,9 +56,9 @@
   })
 
   let transfer = $derived(
-    classifyTransfer(localPostings, defaultConversionAccountId),
+    classifyTransfer(tx.postings, defaultConversionAccountId),
   )
-  let { from, to, rest } = $derived(summarize(localPostings))
+  let { from, to, rest } = $derived(summarize(tx.postings))
 
   // When viewing a specific account page, identify which side of the transaction
   // is the current account so we can suppress it and show only the other side.
@@ -214,30 +80,31 @@
   // When viewing a specific account, determine if money is flowing in or out.
   let flowDirection = $derived.by((): 'in' | 'out' | null => {
     if (!currentAccountId || !isTransfer) return null
-    const posting = localPostings.find((p) => p.accountId === currentAccountId)
+    const posting = tx.postings.find((p) => p.accountId === currentAccountId)
     if (!posting) return null
     return parseFloat(posting.amount) > 0 ? 'in' : 'out'
   })
 </script>
 
+<!-- Role is always interactive (checkbox in select mode, button otherwise); static analysis
+     can't prove it, so the tabindex warning is suppressed. -->
 <!-- svelte-ignore a11y_no_noninteractive_tabindex -->
 <div
   class="row"
   class:transfer={isTransfer}
   class:selectable
   class:selected
-  onclick={selectable ? () => ontoggleselect?.(tx.id) : undefined}
-  role={selectable ? 'checkbox' : undefined}
+  onclick={selectable ? () => ontoggleselect?.(tx.id) : () => onselect?.(tx)}
+  role={selectable ? 'checkbox' : 'button'}
   aria-checked={selectable ? selected : undefined}
-  tabindex={selectable ? 0 : undefined}
-  onkeydown={selectable
-    ? (e) => {
-        if (e.key === ' ' || e.key === 'Enter') {
-          e.preventDefault()
-          ontoggleselect?.(tx.id)
-        }
-      }
-    : undefined}
+  tabindex="0"
+  onkeydown={(e) => {
+    if (e.key === ' ' || e.key === 'Enter') {
+      e.preventDefault()
+      if (selectable) ontoggleselect?.(tx.id)
+      else onselect?.(tx)
+    }
+  }}
 >
   {#if selectable}
     <div class="select-col" aria-hidden="true">
@@ -252,34 +119,7 @@
 
   <div class="body">
     <!-- Description -->
-    {#if descEditing && !selectable}
-      <!-- Auto-sizes to text width via the CSS grid sizer trick -->
-      <div class="desc-sizer" data-value={descValue}>
-        <input
-          class="edit-input"
-          bind:value={descValue}
-          onblur={commitDescEdit}
-          onkeydown={handleDescKeydown}
-          aria-label="Description"
-          use:focusOnMount
-        />
-      </div>
-    {:else if !selectable}
-      <button
-        class="description editable"
-        onclick={(e) => {
-          e.stopPropagation()
-          startDescEdit()
-        }}
-        onkeydown={(e) => handleEditableKeydown(e, startDescEdit)}
-        title="Click to edit"
-      >
-        {localDescription || '—'}
-      </button>
-    {:else}
-      <span class="description">{localDescription || '—'}</span>
-    {/if}
-    {#if descError}<span class="edit-error" role="alert">{descError}</span>{/if}
+    <span class="description">{tx.description || '—'}</span>
 
     {#if isTransfer}
       <span class="transfer-tag">⇄ transfer</span>
@@ -333,130 +173,40 @@
         {#if currentIsFrom}
           <!-- On the "from" account page: show only where money went -->
           <span class="arrow" aria-hidden="true">→</span>
-          {#if editingPostingId === to.id}
-            <div
-              class="account-edit-wrapper"
-              onfocusout={handlePostingFocusout}
-            >
-              <AccountPathInput
-                {accounts}
-                bind:value={editAccountId}
-                oncommit={handlePostingCommit}
-                oncreate={onaccountcreated}
-              />
-            </div>
-          {:else}
-            <span
-              class="account account-to editable"
-              class:account-uncategorized={to.accountId ===
-                defaultOffsetAccountId}
-              role="button"
-              tabindex="0"
-              onclick={() => startPostingEdit(to.id, to.accountId)}
-              onkeydown={(e) =>
-                handleEditableKeydown(e, () =>
-                  startPostingEdit(to.id, to.accountId),
-                )}
-              title="Click to edit"
-            >
-              {accountPaths[to.accountId] ?? to.accountId}
-            </span>
-          {/if}
+          <span
+            class="account account-to"
+            class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+          >
+            {accountPaths[to.accountId] ?? to.accountId}
+          </span>
         {:else if currentIsTo}
           <!-- On the "to" account page: show only where money came from -->
-          {#if editingPostingId === from.id}
-            <div
-              class="account-edit-wrapper"
-              onfocusout={handlePostingFocusout}
-            >
-              <AccountPathInput
-                {accounts}
-                bind:value={editAccountId}
-                oncommit={handlePostingCommit}
-                oncreate={onaccountcreated}
-              />
-            </div>
-          {:else}
-            <span
-              class="account account-from editable"
-              class:account-uncategorized={from.accountId ===
-                defaultOffsetAccountId}
-              role="button"
-              tabindex="0"
-              onclick={() => startPostingEdit(from.id, from.accountId)}
-              onkeydown={(e) =>
-                handleEditableKeydown(e, () =>
-                  startPostingEdit(from.id, from.accountId),
-                )}
-              title="Click to edit"
-            >
-              {accountPaths[from.accountId] ?? from.accountId}
-            </span>
-          {/if}
+          <span
+            class="account account-from"
+            class:account-uncategorized={from.accountId ===
+              defaultOffsetAccountId}
+          >
+            {accountPaths[from.accountId] ?? from.accountId}
+          </span>
           <span class="arrow" aria-hidden="true">←</span>
         {:else}
           <!-- Full display (transactions page or current account not in from/to) -->
-          {#if editingPostingId === from.id}
-            <div
-              class="account-edit-wrapper"
-              onfocusout={handlePostingFocusout}
-            >
-              <AccountPathInput
-                {accounts}
-                bind:value={editAccountId}
-                oncommit={handlePostingCommit}
-                oncreate={onaccountcreated}
-              />
-            </div>
-          {:else}
-            <span
-              class="account account-from editable"
-              class:account-uncategorized={from.accountId ===
-                defaultOffsetAccountId}
-              role="button"
-              tabindex="0"
-              onclick={() => startPostingEdit(from.id, from.accountId)}
-              onkeydown={(e) =>
-                handleEditableKeydown(e, () =>
-                  startPostingEdit(from.id, from.accountId),
-                )}
-              title="Click to edit"
-            >
-              {accountPaths[from.accountId] ?? from.accountId}
-            </span>
-          {/if}
+          <span
+            class="account account-from"
+            class:account-uncategorized={from.accountId ===
+              defaultOffsetAccountId}
+          >
+            {accountPaths[from.accountId] ?? from.accountId}
+          </span>
 
           <span class="arrow" aria-hidden="true">➜</span>
 
-          {#if editingPostingId === to.id}
-            <div
-              class="account-edit-wrapper"
-              onfocusout={handlePostingFocusout}
-            >
-              <AccountPathInput
-                {accounts}
-                bind:value={editAccountId}
-                oncommit={handlePostingCommit}
-                oncreate={onaccountcreated}
-              />
-            </div>
-          {:else}
-            <span
-              class="account account-to editable"
-              class:account-uncategorized={to.accountId ===
-                defaultOffsetAccountId}
-              role="button"
-              tabindex="0"
-              onclick={() => startPostingEdit(to.id, to.accountId)}
-              onkeydown={(e) =>
-                handleEditableKeydown(e, () =>
-                  startPostingEdit(to.id, to.accountId),
-                )}
-              title="Click to edit"
-            >
-              {accountPaths[to.accountId] ?? to.accountId}
-            </span>
-          {/if}
+          <span
+            class="account account-to"
+            class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+          >
+            {accountPaths[to.accountId] ?? to.accountId}
+          </span>
         {/if}
       </div>
 
@@ -471,8 +221,6 @@
       {/if}
     {/if}
 
-    {#if postingError}<span class="edit-error" role="alert">{postingError}</span
-      >{/if}
   </div>
 
   <div class="money-col">
@@ -499,51 +247,20 @@
     {/if}
   </div>
 
-  {#if !selectable}
-    <div class="actions">
-      <Button
-        tooltip="Edit transaction"
-        variant="ghost"
-        square
-        onclick={() => (modalOpen = true)}
-      >
-        <Icon name="edit-txn" />
-      </Button>
-    </div>
-  {/if}
 </div>
-
-<TransactionDetailModal
-  tx={modalOpen ? liveTx : null}
-  open={modalOpen}
-  onclose={() => (modalOpen = false)}
-  {accounts}
-  {defaultOffsetAccountId}
-  {onaccountcreated}
-  {ondeleted}
-  onsaved={(updated) => {
-    savedTx = updated
-    localDate = updated.date
-    localDescription = updated.description ?? ''
-    localPostings = updated.postings.map((p) => ({
-      id: p.id,
-      accountId: p.accountId,
-      amount: p.amount,
-      currency: p.currency,
-    }))
-  }}
-/>
 
 <style>
   .row {
     display: grid;
-    grid-template-columns: auto 1fr auto auto;
+    grid-template-columns: auto 1fr auto;
     grid-template-rows: auto;
     align-items: start;
     gap: var(--sp-xs);
     padding: 7px 14px;
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window-raised);
+    cursor: pointer;
+    text-align: left;
     transition: background var(--duration-fast) var(--ease);
   }
 
@@ -555,14 +272,13 @@
     background: var(--color-accent-light);
   }
 
-  .row.selectable {
-    grid-template-columns: auto auto 1fr auto;
-    cursor: pointer;
-  }
-
-  .row.selectable:focus {
+  .row:focus-visible {
     outline: 2px solid var(--color-accent-mid);
     outline-offset: -2px;
+  }
+
+  .row.selectable {
+    grid-template-columns: auto auto 1fr;
   }
 
   .row.selected {
@@ -663,34 +379,6 @@
     text-overflow: ellipsis;
   }
 
-  button.description {
-    background: none;
-    border: none;
-    padding: 0;
-    text-align: left;
-  }
-
-  .desc-sizer {
-    display: inline-grid;
-    align-self: flex-start;
-    font-family: var(--font-serif);
-    font-size: 13px;
-  }
-
-  .desc-sizer::after {
-    content: attr(data-value) ' ';
-    grid-area: 1 / 1;
-    visibility: hidden;
-    white-space: pre;
-    min-width: 8ch;
-  }
-
-  .desc-sizer .edit-input {
-    grid-area: 1 / 1;
-    width: 100%;
-    min-width: 0;
-  }
-
   .summary-line {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -755,69 +443,23 @@
     color: var(--color-text-muted);
   }
 
-  .editable {
-    cursor: text;
-    outline: 1px dashed transparent;
-    outline-offset: 1px;
-    transition: outline-color var(--duration-fast) var(--ease);
-  }
-
-  .editable:hover {
-    outline-color: var(--color-text-muted);
-  }
-
-  .edit-input {
-    font-family: inherit;
-    font-size: inherit;
-    color: var(--color-text);
-    background: var(--color-window-inset);
-    border: none;
-    box-shadow: var(--shadow-sunken);
-    padding: 1px var(--sp-xs);
-    height: 20px;
-    outline: none;
-  }
-
-  .edit-input:focus {
-    outline: 1px solid var(--color-accent-mid);
-    outline-offset: -1px;
-  }
-
-  .account-edit-wrapper {
-    flex: 1;
-    min-width: 0;
-    max-width: 260px;
-  }
-
-  .edit-error {
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    color: var(--color-danger);
-  }
-
-  .actions {
-    display: flex;
-    align-items: center;
-    align-self: center;
-  }
-
   @media (max-width: 520px) {
     .row {
-      grid-template-columns: auto 1fr auto;
+      grid-template-columns: auto 1fr;
       grid-template-rows: auto auto;
       grid-template-areas:
-        'date money actions'
-        'body body body';
+        'date money'
+        'body body';
       border-bottom: 2px solid var(--color-bevel-dark);
       padding: var(--sp-xs) var(--sp-sm);
       gap: var(--sp-xs);
     }
 
     .row.selectable {
-      grid-template-columns: auto auto 1fr auto;
+      grid-template-columns: auto auto 1fr;
       grid-template-areas:
-        'sel date money .'
-        'sel body body body';
+        'sel date money'
+        'sel body body';
     }
 
     .select-col {
@@ -847,9 +489,6 @@
       grid-area: money;
       justify-self: end;
     }
-    .actions {
-      grid-area: actions;
-    }
 
     /* Make stacked MoneyDisplay render inline on mobile */
     .money-col :global(.money) {
@@ -864,11 +503,6 @@
 
     .summary-line {
       flex-wrap: wrap;
-    }
-
-    .account-edit-wrapper {
-      flex: 1 1 100%;
-      max-width: none;
     }
   }
 </style>

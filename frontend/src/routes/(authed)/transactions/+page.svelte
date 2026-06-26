@@ -6,8 +6,10 @@
     fetchMalformedFxSpends,
     type Account,
     type MalformedFxSpend,
+    type Transaction,
   } from '$lib/api'
   import RepairFxSpendModal from '$lib/components/transactions/RepairFxSpendModal.svelte'
+  import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
@@ -54,6 +56,21 @@
   let selectMode = $state(false)
   let selectedIds = $state(new Set<string>())
   let deleting = $state(false)
+  // The single transaction-detail surface: a row click selects a tx, opening the modal where
+  // viewing, in-place edit, and deletion all happen.
+  let selectedTx = $state<Transaction | null>(null)
+
+  // Reflect an in-place edit back into the list without a refetch.
+  function applyEdit(updated: Transaction) {
+    transactions = transactions.map((t) => (t.id === updated.id ? updated : t))
+    selectedTx = updated
+  }
+
+  function applyDelete(id: string) {
+    transactions = transactions.filter((t) => t.id !== id)
+    selectedTx = null
+    refreshSidebar()
+  }
 
   function toggleSelectMode() {
     selectMode = !selectMode
@@ -173,6 +190,17 @@
   onhealed={handleHealed}
 />
 
+<TransactionDetailModal
+  tx={selectedTx}
+  open={selectedTx !== null}
+  onclose={() => (selectedTx = null)}
+  {accounts}
+  {defaultOffsetAccountId}
+  onaccountcreated={(a) => (accounts = [...accounts, a])}
+  onsaved={applyEdit}
+  ondeleted={() => selectedTx && applyDelete(selectedTx.id)}
+/>
+
 <div class="page">
   {#if malformed.length > 0}
     <button class="repair-banner" onclick={() => (repairModalOpen = true)}>
@@ -243,11 +271,7 @@
           selectable={selectMode}
           selected={selectedIds.has(tx.id)}
           ontoggleselect={toggleSelect}
-          onaccountcreated={(a) => (accounts = [...accounts, a])}
-          ondeleted={() =>
-            (transactions = transactions.filter(
-              (t: { id: string }) => t.id !== tx.id,
-            ))}
+          onselect={(t) => (selectedTx = t)}
         />
       {/each}
     {/if}
