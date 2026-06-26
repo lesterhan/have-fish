@@ -728,8 +728,8 @@
     left: 8px;
     top: 0;
     bottom: 0;
-    width: 1px;
-    background: var(--color-rule);
+    width: 2px;
+    background: var(--color-border);
   }
 
   .source .spine::before {
@@ -757,8 +757,8 @@
     left: 8px;
     top: 50%;
     width: 8px;
-    height: 1px;
-    background: var(--color-rule);
+    height: 2px;
+    background: var(--color-border);
   }
 
   .body {
