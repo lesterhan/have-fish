@@ -785,8 +785,8 @@
     letter-spacing: 0.04em;
     padding: 1px 5px;
     color: var(--color-text-muted);
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
+    background: color-mix(in srgb, var(--color-text-muted) 14%, var(--color-window));
+    border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     white-space: nowrap;
   }
