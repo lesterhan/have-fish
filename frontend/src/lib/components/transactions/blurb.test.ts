@@ -88,6 +88,29 @@ describe('split blurb', () => {
   })
 })
 
+describe('split blurb — you owe (another member fronted)', () => {
+  // Logged-by-another-member share: no source asset, your share equals what you owe, and the
+  // clearing leg is negative. Must read as "you owe", not "the group owes you".
+  const parts = blurb([
+    p('expenses:food:restaurant', '287.95', 'CZK', 'subject'),
+    p('assets:receivable:quotidien', '-287.95', 'CZK', 'share'),
+  ])
+
+  it('reads as money you owe the group, not money owed to you', () => {
+    expect(blurbText(parts)).toBe('You owe Quotidien 287.95 CZK for Food · Restaurant.')
+  })
+
+  it('does not claim you fronted it', () => {
+    expect(blurbText(parts)).not.toContain('fronted')
+    expect(blurbText(parts)).not.toContain('owes you')
+  })
+
+  it('emphasizes only the owed figure; code demoted', () => {
+    expect(emph(parts)).toEqual(['287.95'])
+    expect(plain(parts)).toContain(' CZK')
+  })
+})
+
 describe('multi-currency blurb', () => {
   const parts = blurb([
     p('expenses:food:coffee', '360.00', 'CZK', 'subject'),

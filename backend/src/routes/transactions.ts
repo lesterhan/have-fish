@@ -187,11 +187,15 @@ app.get('/', async (c) => {
     return acc
   }, {})
 
-  // Resolve group names for transactions linked to a group expense
+  // Resolve the group a transaction belongs to via the single forward link
+  // (transactions.groupExpenseId). This is total: member transactions and the payer's origin
+  // import transaction are all stamped with it, so one lookup answers every row. (The reverse
+  // pointer groupExpenses.transactionId still exists, but only marks the origin import line for
+  // the edit/delete lifecycle — it is not a read path.)
   const groupExpenseIds = txRows
     .map((tx) => tx.groupExpenseId)
     .filter((id): id is string => id !== null)
-  let groupNameByExpenseId: Record<string, string> = {}
+  const groupNameByExpenseId: Record<string, string> = {}
   if (groupExpenseIds.length > 0) {
     const rows = await db
       .select({ expenseId: groupExpenses.id, groupName: expenseGroups.name })

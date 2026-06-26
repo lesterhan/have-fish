@@ -155,6 +155,19 @@ describe('heroDisplay', () => {
     expect(h?.currency).toBe('CAD')
   })
 
+  it('split: you owe — headline is your share, the you-owe leg is not added on top', () => {
+    // Another member fronted the bill: no source asset, just your share (287.95) and the
+    // negative clearing leg you now owe. The headline must NOT double-count to 575.90.
+    const h = heroDisplay(
+      narrate([
+        p('expenses:food:restaurant', '287.95', 'CZK', 'subject'),
+        p('assets:receivable:quotidien', '-287.95', 'CZK', 'share'),
+      ]),
+    )
+    expect(h?.amount).toBe('287.95')
+    expect(h?.currency).toBe('CZK')
+  })
+
   it('inflow: leading + and positive flag despite negative stored amount', () => {
     const h = heroDisplay(narrate(income))
     expect(h?.amount).toBe('2000.00')

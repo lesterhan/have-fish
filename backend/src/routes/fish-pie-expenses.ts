@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { groupExpenses, groupExpenseSplits, groupCategories, expenseGroupMembers, expenseGroups, transactions, postings, accounts, user } from '../db/schema'
-import { eq, isNull, and, inArray, getTableColumns } from 'drizzle-orm'
+import { eq, ne, isNull, and, inArray, getTableColumns } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { computeSplits, createGroupExpenseInTx, createMemberTransactionsInTx, resolveCategoryContext, resolveExpenseAccountId, applyCategoryWeights } from '../fish-pie-expense-service'
 import { isClearingAccountPath } from '../fish-pie-accounts'
@@ -304,11 +304,18 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
         }))
       : applyCategoryWeights(members, catCtx)
 
-    // Soft-delete existing member transactions + their postings (NOT the import tx)
+    // Soft-delete existing member transactions + their postings, but NOT the origin import
+    // tx. It is now forward-linked (group_expense_id) like the member txs, so it must be
+    // excluded explicitly — its bank source + FX legs are externally owned and can't be
+    // regenerated; its split postings are patched in place further below instead.
     const memberTxRows = await tx
       .select({ id: transactions.id })
       .from(transactions)
-      .where(and(eq(transactions.groupExpenseId, expenseId), isNull(transactions.deletedAt)))
+      .where(and(
+        eq(transactions.groupExpenseId, expenseId),
+        isNull(transactions.deletedAt),
+        expense.transactionId ? ne(transactions.id, expense.transactionId) : undefined,
+      ))
     const memberTxIds = memberTxRows.map((t) => t.id)
     if (memberTxIds.length > 0) {
       await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, memberTxIds))
@@ -447,11 +454,10 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
       .from(transactions)
       .where(eq(transactions.groupExpenseId, expenseId))
 
-    // Also include the import transaction if this expense was created via CSV import.
-    // That transaction links in the opposite direction (groupExpenses.transactionId) so
-    // the groupExpenseId query above misses it.
-    const txIds = linkedTxs.map((t) => t.id)
-    if (expense.transactionId) txIds.push(expense.transactionId)
+    // The origin import tx is now forward-linked too, so the query above already includes it.
+    // Keep the explicit id as a defensive belt-and-suspenders (dedup'd) so deletion still
+    // cascades to it even for any row predating the forward-link backfill.
+    const txIds = [...new Set([...linkedTxs.map((t) => t.id), ...(expense.transactionId ? [expense.transactionId] : [])])]
 
     if (txIds.length > 0) {
       await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))

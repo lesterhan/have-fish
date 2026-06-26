@@ -84,11 +84,13 @@ export function heroDisplay(n: NarratedTransaction): HeroDisplay | null {
   }
 }
 
-// The headline magnitude. For most archetypes it is the hero leg itself; for a split the
-// hero shows the *full bill you fronted* (your share + what others owe), not just your slice
-// — so the big number matches what left the account. That total is the source outflow when
-// it is same-currency as the hero (the cleanest reading, and correct for a multi-category
-// split); otherwise fall back to hero + the relational (owes-you / you-owe) branches.
+// The headline magnitude. For most archetypes it is the hero leg itself; for a split where
+// you fronted the bill the hero shows the *full bill* (your share + what others owe), not just
+// your slice — so the big number matches what left the account. That total is the source
+// outflow when it is same-currency as the hero (the cleanest reading, and correct for a
+// multi-category split); otherwise fall back to hero + the owes-you branches. When you instead
+// OWE the group (another member fronted it) there is no source and nothing to add: the
+// headline is simply your share, so a you-owe branch is never folded into the total.
 function heroAmount(n: NarratedTransaction): string {
   const heroAbs = Math.abs(parseFloat(n.hero!.amount) || 0)
   if (n.archetype !== 'split') return heroAbs.toFixed(2)
@@ -97,10 +99,7 @@ function heroAmount(n: NarratedTransaction): string {
     return Math.abs(parseFloat(n.source.amount) || 0).toFixed(2)
   }
   const relational = n.branches
-    .filter(
-      (b) =>
-        (b.chip === 'owes-you' || b.chip === 'you-owe') && b.currency === n.hero!.currency,
-    )
+    .filter((b) => b.chip === 'owes-you' && b.currency === n.hero!.currency)
     .reduce((sum, b) => sum + Math.abs(parseFloat(b.amount) || 0), 0)
   return (heroAbs + relational).toFixed(2)
 }
