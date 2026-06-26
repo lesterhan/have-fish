@@ -541,7 +541,7 @@
         'acct   acct    acct';
       min-height: unset;
       padding: var(--sp-xs) var(--sp-sm) 0;
-      border-bottom: 2px solid var(--color-bevel-dark);
+      border-bottom: 2px solid var(--color-border);
     }
 
     .date {

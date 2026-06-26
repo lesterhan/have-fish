@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Panel from '$lib/components/ui/Panel.svelte'
+  import Card from '$lib/components/ui/Card.svelte'
   import {
     fetchSpendingSummary,
     fetchWeeklySpend,
@@ -159,7 +159,7 @@
     const palette = isDark ? WIN_COLOURS_DARK : WIN_COLOURS_LIGHT
 
     const textColour = cssVar('--color-text')
-    const gridColour = cssVar('--color-bevel-dark')
+    const gridColour = cssVar('--color-rule')
 
     const labels = historyData.map((m) => formatWeekLabel(m.weekStart))
     const currencies = historyCurrencies()
@@ -359,8 +359,9 @@
 </script>
 
 <div class="dashboard-grid">
-  <Panel title="THIS MONTH">
-    <div class="panel-content">
+  <Card>
+    <div class="section-header">THIS MONTH</div>
+    <div class="section-body">
       <!-- Month navigation -->
       <div class="month-nav">
         <GradientButton onclick={() => navigate(-1)} aria-label="Previous month">◀</GradientButton>
@@ -413,10 +414,11 @@
         {/each}
       {/if}
     </div>
-  </Panel>
+  </Card>
 
-  <Panel title="CASH POSITION">
-    <div class="panel-content">
+  <Card>
+    <div class="section-header">CASH POSITION</div>
+    <div class="section-body">
       {#if cashCurrencies.length === 0}
         <p class="empty">No asset balances found.</p>
       {:else}
@@ -487,11 +489,12 @@
         </button>
       {/if}
     </div>
-  </Panel>
+  </Card>
 </div>
 
-<Panel title="SPENDING HISTORY">
-  <div class="panel-content">
+<Card class="history-card">
+  <div class="section-header">SPENDING HISTORY</div>
+  <div class="section-body">
     <div class="history-controls">
       {#each WINDOW_OPTIONS as opt}
         <button
@@ -508,7 +511,7 @@
       <canvas bind:this={chartCanvas}></canvas>
     </div>
   </div>
-</Panel>
+</Card>
 
 <style>
   .dashboard-grid {
@@ -518,7 +521,22 @@
     margin-bottom: var(--sp-xl);
   }
 
-  .panel-content {
+  :global(.history-card) {
+    margin-bottom: var(--sp-xl);
+  }
+
+  .section-header {
+    padding: 3px var(--sp-sm);
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px) 0 0;
+  }
+
+  .section-body {
     padding: var(--sp-md);
     min-height: 80px;
   }
@@ -532,14 +550,18 @@
 
   .window-btn {
     background: var(--color-window);
-    border: none;
-    box-shadow: var(--shadow-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-control);
     padding: 1px var(--sp-sm);
     font-size: var(--text-xs);
     font-family: var(--font-sans);
     color: var(--color-text);
     cursor: pointer;
-    transition: box-shadow var(--duration-fast) var(--ease);
+    transition:
+      box-shadow var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
   }
 
   .window-btn:hover {
@@ -547,8 +569,9 @@
   }
 
   .window-btn.active {
-    box-shadow: var(--shadow-sunken);
+    box-shadow: var(--shadow-inset);
     background: var(--color-accent-light);
+    border-color: var(--color-accent);
     color: var(--color-accent);
     font-weight: var(--weight-semibold);
   }
@@ -639,8 +662,10 @@
 
   .bar-track {
     height: 8px;
-    background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-inset);
   }
 
   .bar-fill {
@@ -712,7 +737,9 @@
     position: relative;
     display: flex;
     height: 10px;
-    box-shadow: var(--shadow-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-inset);
     margin-bottom: 4px;
     overflow: visible;
   }
@@ -741,7 +768,7 @@
     height: 16px;
     background: var(--color-text);
     transform: translateX(-50%);
-    box-shadow: 1px 0 0 var(--color-bevel-light);
+    box-shadow: 1px 0 0 rgba(255, 255, 255, 0.5);
   }
 
   .cash-meta {

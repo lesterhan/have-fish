@@ -1,7 +1,6 @@
 <script lang="ts">
   import { signUp } from '$lib/auth'
   import { goto } from '$app/navigation'
-  import Button from '$lib/components/ui/Button.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'

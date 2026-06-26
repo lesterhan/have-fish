@@ -277,8 +277,9 @@
     font-family: var(--font-sans);
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window-inset);
-    box-shadow: var(--shadow-sunken);
-    border: none;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-inset);
     color: var(--color-text);
     width: 100%;
     box-sizing: border-box;

@@ -476,7 +476,7 @@
     width: 200px;
     flex-shrink: 0;
     background: var(--color-sidebar);
-    box-shadow: inset -1px 0 0 var(--color-bevel-dark);
+    border-right: 1px solid var(--color-sidebar-border);
     display: flex;
     flex-direction: column;
     transition: width var(--duration-normal) var(--ease);
@@ -565,13 +565,13 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.8),
       inset 0 -1px 0 rgba(0, 0, 0, 0.08),
       0 1px 2px rgba(0, 0, 0, 0.15);
-    outline-color: var(--color-bevel-mid);
+    outline-color: var(--color-border);
   }
 
   .nav-link:active:not(.active) {
     background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
-    outline-color: var(--color-bevel-dark);
+    box-shadow: var(--shadow-inset);
+    outline-color: var(--color-border);
   }
 
   .nav-link.active {
@@ -804,13 +804,13 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.8),
       inset 0 -1px 0 rgba(0, 0, 0, 0.08),
       0 1px 2px rgba(0, 0, 0, 0.15);
-    outline-color: var(--color-bevel-mid);
+    outline-color: var(--color-border);
   }
 
   .footer-btn:active {
     background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
-    outline-color: var(--color-bevel-dark);
+    box-shadow: var(--shadow-inset);
+    outline-color: var(--color-border);
   }
 
   .footer-settings .nav-label {
@@ -841,14 +841,14 @@
       inset 0 1px 0 rgba(255, 255, 255, 0.8),
       inset 0 -1px 0 rgba(0, 0, 0, 0.08),
       0 1px 2px rgba(0, 0, 0, 0.15);
-    outline-color: var(--color-bevel-mid);
+    outline-color: var(--color-border);
   }
 
   .sidebar.collapsed .nav-link:active:not(.active),
   .sidebar.collapsed .footer-btn:active {
     background: var(--color-accent);
     color: var(--color-accent-fg);
-    box-shadow: var(--shadow-sunken);
+    box-shadow: var(--shadow-inset);
     outline-color: var(--color-accent);
   }
 

@@ -1,3 +1,7 @@
+<!--
+  @deprecated Use Card + a .section-header div instead (see dashboard/+page.svelte).
+  Remaining usage: SpendingSummaryPanel.svelte
+-->
 <script lang="ts">
   import type { Snippet } from 'svelte'
 

@@ -81,7 +81,7 @@
   }
 
   .btn:active:not(:disabled) {
-    box-shadow: var(--shadow-sunken);
+    box-shadow: var(--shadow-inset);
   }
 
   .btn.active {

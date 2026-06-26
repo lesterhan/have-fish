@@ -39,7 +39,7 @@
   }
 
   .chrome-btn:active {
-    box-shadow: var(--shadow-sunken);
+    box-shadow: var(--shadow-inset);
   }
 
   .chrome-btn.close:hover {

@@ -380,9 +380,10 @@
   .date-input {
     height: 28px;
     padding: 0 6px;
-    background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
-    border: none;
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-inset);
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     color: var(--color-text);

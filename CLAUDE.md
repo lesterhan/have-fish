@@ -112,31 +112,28 @@ FRONTEND_URL=http://localhost:8888
 
 ### Aesthetic
 
-The UI is a **hybrid of 2000s Mac OS X and Windows XP era visual language**, layered with contemporary interaction patterns (smooth transitions, proper focus states, accessible focus rings).
+The UI draws from **2000s Mac OS X Graphite** — cool silver-grey shell, Lucida Grande as the system font, Aqua-style gradient buttons and controls, soft drop shadows, dark section bars, Graphite desktop.
 
 The goal is to feel like a real desktop application, not a website. It should say "you are using a computer program."
 
-**Primary reference: Mac OS X Graphite** — cool silver-grey shell, Lucida Grande as the system font, Aqua-style gradient buttons with subtle border-color hover rather than bevel. Dark section bars, Graphite desktop.
-
-**Secondary reference: Windows XP** — the 3D bevel system (`--shadow-raised` / `--shadow-sunken`) for standard buttons and inset fields. Sharp corners. Crisp pixel rendering.
-
-The two coexist: use Aqua-style gradients for pill/inline buttons (`GradientButton`), use XP-style bevels for dialog buttons (`Button`).
+The XP-era 3D bevel system has been removed. All controls now use Aqua-style shadows.
 
 ### Visual rules
 
-- **Radius scale** — `--radius-sm` (3px) badges/pills, `--radius-md` (6px) buttons/controls, `--radius-lg` (8px) cards/inner panels, `--radius-xl` (12px) modal windows, `--radius-pill` (999px) pill-shaped chips.
-- **Bevel standard controls** — raised surfaces use `--shadow-raised`, pressed/inset surfaces use `--shadow-sunken`. Core XP visual language for `Button`, form fields, tracks.
-- **Gradient buttons use border-color hover** — `GradientButton` and tab-style controls use a gradient background. Hover = accent border color, no bevel. Active = `--shadow-sunken`.
+- **Radius scale** — `--radius-sm` (3px) badges/chips, `--radius-md` (6px) buttons/controls, `--radius-lg` (8px) cards/inner panels, `--radius-xl` (12px) modal windows, `--radius-pill` (999px) pill-shaped chips.
+- **Aqua control shadows** — raised controls use `--shadow-control` (soft drop + top gloss highlight). Pressed/inset surfaces use `--shadow-inset` (recessed trough). Card surfaces use `--card-shadow` / `--card-shadow-hover`. Floating panels/dropdowns use `--shadow-window`.
+- **All buttons are `GradientButton`** — gradient background with border. Hover = accent border color. Active = `--shadow-inset`. `ChromeButton` is for window-chrome widgets only (modal close button, titlebar controls). `Button` is deleted.
+- **Cards are the surface primitive** — use `Card` for any grouped panel. Add a `.section-header` div inside for titled sections (uses `--color-section-bar-*` tokens). `Panel` is deprecated.
 - **Lucida Grande at small sizes** — the system font is `Lucida Grande, Segoe UI`. Text is small (13–14px base). Period-accurate for both Mac and XP eras.
 - **No font smoothing** — `base.css` sets `-webkit-font-smoothing: none` for crisp pixel rendering.
 - **The desktop is Graphite** — `--color-desktop: #b8bcc2`. The entire page background.
-- **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`. Content areas are `--color-window-raised: #eceef2`.
-- **Title bars use the Graphite + Aqua gloss gradient** — multi-stop gloss overlay on Graphite hue; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border and top highlight. Title text uses `--font-serif`. Modal windows use `--shadow-modal` (real drop shadow, not XP bevel).
+- **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`. Content areas are `--color-window-raised: #eceef2`. Inset fields (inputs, list boxes) are `--color-window-inset: #ffffff`.
+- **Title bars use the Graphite + Aqua gloss gradient** — multi-stop gloss overlay on Graphite hue; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border and top highlight. Title text uses `--font-serif`. Modal windows use `--shadow-modal` (real drop shadow).
 
 ### Interaction rules (the modern layer)
 
-- All state changes (hover, active, focus) use CSS transitions: `var(--duration-fast) var(--ease)` (100ms ease-in-out)
-- Button press = `--shadow-sunken` replacing `--shadow-raised`, not an instant jump
+- All state changes (hover, active, focus) use CSS transitions: `var(--duration-fast) var(--ease)` (80ms ease-in-out)
+- Button press = `--shadow-inset` + `translate: 1px 1px`, not an instant jump
 - Focus rings must be visible and intentional — use `outline: 2px solid var(--color-accent-mid)`
 - Interactive elements always have a hover state; nothing is ambiguous about clickability
 
@@ -165,7 +162,7 @@ The two coexist: use Aqua-style gradients for pill/inline buttons (`GradientButt
     padding: var(--sp-sm) var(--sp-md);
     color: var(--color-text);
     background: var(--color-window);
-    box-shadow: var(--shadow-raised);
+    box-shadow: var(--shadow-control);
     font-size: var(--text-sm);
     transition: box-shadow var(--duration-fast) var(--ease);
   }

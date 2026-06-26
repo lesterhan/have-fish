@@ -599,7 +599,8 @@
     color: var(--color-text);
     background: var(--color-window-raised);
     border: 1px solid var(--color-border);
-    box-shadow: var(--shadow-raised);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-control);
     padding: 1px var(--sp-xs);
   }
 
@@ -636,7 +637,7 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     padding-bottom: var(--sp-xs);
-    border-bottom: 1px solid var(--color-bevel-mid);
+    border-bottom: 1px solid var(--color-border);
     margin-bottom: var(--sp-xs);
   }
 
@@ -677,7 +678,7 @@
     justify-content: space-between;
     align-items: center;
     padding-top: var(--sp-md);
-    border-top: 1px solid var(--color-bevel-mid);
+    border-top: 1px solid var(--color-border);
     margin-top: var(--sp-md);
   }
 

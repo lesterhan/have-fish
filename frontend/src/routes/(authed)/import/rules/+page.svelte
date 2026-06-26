@@ -15,7 +15,6 @@
   } from '$lib/api'
   import { toast } from '$lib/toast.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -211,8 +210,7 @@
                 >
                   Save
                 </GradientButton>
-                <Button
-                  variant="ghost"
+                <GradientButton
                   square
                   onclick={() => {
                     showAddForm = false
@@ -221,7 +219,7 @@
                   }}
                 >
                   <Icon name="close" size={12} />
-                </Button>
+                </GradientButton>
               </div>
             </td>
           </tr>
@@ -254,9 +252,9 @@
                   <GradientButton onclick={handleSaveEdit} active
                     >Save</GradientButton
                   >
-                  <Button variant="ghost" square onclick={cancelEdit}>
+                  <GradientButton square onclick={cancelEdit}>
                     <Icon name="close" size={12} />
-                  </Button>
+                  </GradientButton>
                 </div>
               </td>
             </tr>
@@ -266,22 +264,20 @@
               <td class="cell-mono">{rule.accountPath}</td>
               <td class="cell-actions">
                 <div class="action-row">
-                  <Button
-                    variant="ghost"
+                  <GradientButton
                     square
                     onclick={() => startEdit(rule)}
                     tooltip="Edit"
                   >
                     <Icon name="edit-txn" size={12} />
-                  </Button>
-                  <Button
-                    variant="ghost"
+                  </GradientButton>
+                  <GradientButton
                     square
                     onclick={() => handleDelete(rule.id)}
                     tooltip="Delete"
                   >
                     <Icon name="trash" size={12} />
-                  </Button>
+                  </GradientButton>
                 </div>
               </td>
             </tr>
@@ -345,8 +341,8 @@
                 <GradientButton onclick={() => handleApprove(rule.id)} active
                   >Approve</GradientButton
                 >
-                <Button variant="ghost" onclick={() => handleDeny(rule.id)}
-                  >Deny</Button
+                <GradientButton onclick={() => handleDeny(rule.id)}
+                  >Deny</GradientButton
                 >
               </div>
             </div>

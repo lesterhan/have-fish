@@ -654,7 +654,9 @@
     max-height: 12rem;
     overflow-y: auto;
     background: var(--color-window-inset);
-    box-shadow: var(--shadow-sunken);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    box-shadow: var(--shadow-inset);
     display: flex;
     flex-direction: column;
     gap: 2px;
