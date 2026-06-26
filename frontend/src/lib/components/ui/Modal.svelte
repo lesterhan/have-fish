@@ -213,7 +213,7 @@
   }
 
   .body {
-    padding: var(--sp-md);
+    padding: var(--sp-lg) var(--sp-xl);
     background: var(--color-window-raised);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
