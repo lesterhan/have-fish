@@ -150,8 +150,10 @@
   }
 
   .card {
-    background: var(--color-window);
-    box-shadow: var(--shadow-sunken);
+    background: var(--card-bg);
+    border: 1px solid var(--card-border-color);
+    border-radius: var(--card-radius);
+    box-shadow: var(--card-shadow);
     padding: var(--sp-sm);
   }
 

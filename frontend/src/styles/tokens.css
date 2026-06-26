@@ -75,15 +75,6 @@
   /* --- Button gradient highlight --- */
   --color-btn-gradient-hi: #ffffff; /* top of gradient buttons — white in light, Polar Night 2 in dark */
 
-  /* --- The bevel system ---
-   * These four values recreate the classic raised/sunken 3D chrome.
-   * light = top-left edge (lit), shadow = bottom-right edge (dark)
-   */
-  --color-bevel-light: #ffffff;
-  --color-bevel-mid: #dfdfdf;
-  --color-bevel-dark: #808080;
-  --color-bevel-shadow: #404040;
-
   /* --- Text --- */
   --color-text: #1a1f28;
   --color-text-muted: #5a6068;
@@ -129,27 +120,18 @@
   --color-transfer-in: #006e8a; /* teal — money arriving */
   --color-transfer-out: #4a5fa8; /* slate blue — money leaving */
 
-  /* --- Bevel box-shadows (composable shorthands) ---
-   * raised: lit top-left, dark bottom-right — the standard button look
-   * sunken: inverted — pressed button or inset field
-   */
-  --shadow-raised:
-    inset 1px 1px 0 var(--color-bevel-light),
-    inset 2px 2px 0 var(--color-bevel-mid),
-    inset -1px -1px 0 var(--color-bevel-shadow),
-    inset -2px -2px 0 var(--color-bevel-dark);
-
-  --shadow-sunken:
-    inset 1px 1px 0 var(--color-bevel-shadow),
-    inset 2px 2px 0 var(--color-bevel-dark),
-    inset -1px -1px 0 var(--color-bevel-mid),
-    inset -2px -2px 0 var(--color-bevel-light);
-
-  --shadow-window:
-    2px 2px 0 var(--color-bevel-shadow), -1px -1px 0 var(--color-bevel-light);
-
-  /* Modal window — real drop shadow (replaces XP bevel for modal chrome) */
+  /* Modal window — real drop shadow */
   --shadow-modal: 0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15);
+
+  /* Small floating panel / dropdown chrome */
+  --shadow-window: 0 4px 12px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.10);
+
+  /* --- Control shadows (Aqua-style) ---
+   * control: raised surface for standard buttons and chips
+   * inset:   recessed trough for tracks, inset lists, and the pressed state
+   */
+  --shadow-control: 0 1px 2px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.65);
+  --shadow-inset: inset 0 1px 3px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(0,0,0,0.07);
 
   /* --- Card surface (Aqua-style grouped panel) ---
    * The Aqua alternative to the XP bevel: a flat panel that floats on a soft
@@ -182,8 +164,8 @@
 /* =============================================================================
    Dark theme — Nord palette
    Applied when <html data-theme="dark"> is set.
-   Only color tokens are overridden; spacing, type, radius, and shadows
-   are inherited from :root unchanged (bevel shadows auto-update via vars).
+   Only color tokens are overridden; spacing, type, radius, and most shadows
+   are inherited from :root unchanged.
    Nord reference: Polar Night #2e3440 #3b4252 #434c5e #4c566a
                    Snow Storm  #d8dee9 #e5e9f0 #eceff4
                    Frost       #8fbcbb #88c0d0 #81a1c1 #5e81ac
@@ -230,11 +212,10 @@
   /* --- Button gradient highlight --- */
   --color-btn-gradient-hi: #3b4252; /* Nord Polar Night 2 — replaces white for dark gradient buttons */
 
-  /* --- Bevel system (Nord-adapted Polar Night edges) --- */
-  --color-bevel-light: #4c566a;
-  --color-bevel-mid: #3b4252;
-  --color-bevel-dark: #1a1f2a;
-  --color-bevel-shadow: #0e1218;
+  /* --- Control shadows (dark: heavier opacity, barely-there gloss) --- */
+  --shadow-control: 0 1px 3px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
+  --shadow-inset: inset 0 1px 3px rgba(0,0,0,0.40), inset 0 0 0 1px rgba(0,0,0,0.20);
+  --shadow-window: 0 4px 14px rgba(0,0,0,0.50), 0 1px 4px rgba(0,0,0,0.30);
 
   /* --- Text --- */
   --color-text: #d8dee9;          /* Nord Snow Storm 1 */

@@ -450,7 +450,7 @@
       grid-template-areas:
         'date money'
         'body body';
-      border-bottom: 2px solid var(--color-bevel-dark);
+      border-bottom: 2px solid var(--color-border);
       padding: var(--sp-xs) var(--sp-sm);
       gap: var(--sp-xs);
     }

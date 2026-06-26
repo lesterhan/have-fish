@@ -411,14 +411,16 @@
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window);
     color: var(--color-text);
-    border: none;
-    box-shadow: var(--shadow-raised);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-control);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     cursor: pointer;
     transition:
       box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease);
   }
 
   .dialog-btn:hover {
@@ -426,7 +428,7 @@
   }
 
   .dialog-btn:active {
-    box-shadow: var(--shadow-sunken);
+    box-shadow: var(--shadow-inset);
   }
 
   /* --- Status bar --- */
@@ -437,8 +439,8 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     background: var(--color-window);
-    border-top: 1px solid var(--color-bevel-dark);
-    box-shadow: inset 0 1px 0 var(--color-bevel-light);
+    border-top: 1px solid var(--color-border);
+    box-shadow: var(--shadow-titlebar-inset);
   }
 
   .statusbar-ready {

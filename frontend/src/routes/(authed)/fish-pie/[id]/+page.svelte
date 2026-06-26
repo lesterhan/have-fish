@@ -33,7 +33,6 @@
   } from '$lib/api'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import Button from '$lib/components/ui/Button.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -300,10 +299,10 @@
       {#if confirmDelete}
         <div class="confirm-bar">
           <span class="confirm-text">Delete <strong>{group.name}</strong>?</span>
-          <Button variant="danger" onclick={handleDeleteGroup} disabled={deleting}>
+          <GradientButton variant="warning" onclick={handleDeleteGroup} disabled={deleting}>
             {deleting ? 'Deleting…' : 'Delete'}
-          </Button>
-          <Button onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</Button>
+          </GradientButton>
+          <GradientButton onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</GradientButton>
         </div>
       {/if}
       <div class="left-body">
