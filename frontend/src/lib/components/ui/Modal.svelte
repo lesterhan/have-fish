@@ -138,6 +138,7 @@
         onpointermove={handleTitlebarPointerMove}
         onpointerup={handleTitlebarPointerUp}
       >
+        <span class="titlebar-dot" aria-hidden="true"></span>
         <span id="modal-title" class="titlebar-text">{title}</span>
         <ChromeButton
           variant="close"
@@ -165,23 +166,26 @@
 
   .window {
     position: absolute;
-    border-radius: var(--radius-lg);
+    border-radius: var(--radius-xl);
     top: 50%;
     left: 50%;
     /* default centering — drag adds to this via inline transform */
     background: var(--color-window);
-    box-shadow: var(--shadow-window);
+    box-shadow: var(--shadow-modal);
     min-width: 300px;
     display: flex;
     flex-direction: column;
+    overflow: hidden;
   }
 
   .titlebar {
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 3px var(--sp-xs);
+    padding: 7px var(--sp-sm);
     background: var(--color-titlebar-bg);
+    border-bottom: 1px solid var(--color-titlebar-border);
+    box-shadow: var(--shadow-titlebar-inset);
     gap: var(--sp-xs);
     user-select: none;
     cursor: grab;
@@ -191,8 +195,17 @@
     cursor: grabbing;
   }
 
+  .titlebar-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: linear-gradient(180deg, var(--color-accent-hi), var(--color-accent));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+    flex-shrink: 0;
+  }
+
   .titlebar-text {
-    font-family: var(--font-sans);
+    font-family: var(--font-serif);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     color: var(--color-titlebar-fg);

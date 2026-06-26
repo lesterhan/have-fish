@@ -45,9 +45,13 @@
   --color-sidebar: #e2e5ea;
   --color-sidebar-border: #8a909a;
 
-  /* --- Title bar (Graphite gradient) --- */
-  --color-titlebar-bg: linear-gradient(180deg, #d8dde4 0%, #a8aeb8 50%, #8a909a 100%);
+  /* --- Title bar (Graphite + Aqua gloss) --- */
+  --color-titlebar-bg:
+    linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.08) 47%, rgba(0,0,0,0.02) 53%, rgba(0,0,0,0.08)),
+    linear-gradient(180deg, #d8dde4, #9aa0aa);
   --color-titlebar-fg: #1a1f28;
+  --color-titlebar-border: #b0b5be;
+  --shadow-titlebar-inset: inset 0 1px 0 rgba(255,255,255,0.75);
 
   /* --- Section bar (dark panel headers — Breakdown, Transactions) --- */
   --color-section-bar-bg: linear-gradient(180deg, #5a6068, #2a3038);
@@ -144,6 +148,9 @@
   --shadow-window:
     2px 2px 0 var(--color-bevel-shadow), -1px -1px 0 var(--color-bevel-light);
 
+  /* Modal window — real drop shadow (replaces XP bevel for modal chrome) */
+  --shadow-modal: 0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15);
+
   /* --- Card surface (Aqua-style grouped panel) ---
    * The Aqua alternative to the XP bevel: a flat panel that floats on a soft
    * drop shadow with a faint glossy top highlight, hairline border, and a
@@ -160,10 +167,11 @@
   --card-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
   /* --- Shape --- */
-  --radius-sm: 0; /* retro: sharp corners everywhere */
-  --radius-md: 0;
-  --radius-lg: 2px; /* very slight rounding only where it feels right */
-  --radius-xl: 4px;
+  --radius-sm: 3px;    /* small elements: currency pills, role badges */
+  --radius-md: 6px;    /* controls: buttons */
+  --radius-lg: 8px;    /* cards, inner panels */
+  --radius-xl: 12px;   /* modal window */
+  --radius-pill: 999px; /* pill-shaped chips */
 
   /* --- Transitions (the modern UX layer) --- */
   --duration-fast: 80ms;
@@ -192,9 +200,13 @@
   --color-sidebar: #262c38;
   --color-sidebar-border: #373e4d;
 
-  /* --- Title bar (Nord Polar Night gradient) --- */
-  --color-titlebar-bg: linear-gradient(180deg, #3b4252 0%, #2e3440 100%);
+  /* --- Title bar (Nord + Aqua gloss) --- */
+  --color-titlebar-bg:
+    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 47%, rgba(0,0,0,0.05) 53%, rgba(0,0,0,0.20)),
+    linear-gradient(180deg, #434c5e, #2e3440);
   --color-titlebar-fg: #eceff4;
+  --color-titlebar-border: #1e2230;
+  --shadow-titlebar-inset: inset 0 1px 0 rgba(255,255,255,0.10);
 
   /* --- Section bar --- */
   --color-section-bar-bg: linear-gradient(180deg, #373e4d, #1a1f2a);
@@ -270,4 +282,7 @@
   /* --- Card surface (dark: stronger lift, barely-there gloss) --- */
   --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
   --card-shadow-hover: 0 2px 7px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+
+  /* Modal window shadow (dark: deeper) */
+  --shadow-modal: 0 24px 70px rgba(0,0,0,0.55), 0 4px 18px rgba(0,0,0,0.45);
 }
