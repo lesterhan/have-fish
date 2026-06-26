@@ -7,8 +7,9 @@
 // re-validates balance on save regardless (replacePostings), so a malformed payload is
 // still rejected server-side.
 //
-// Pure (no Svelte) so it is unit-tested against the canonical shapes. The component
-// (SummaryEditModal.svelte) is thin presentation over these helpers + narrateTransaction.
+// Pure (no Svelte) so it is unit-tested against the canonical shapes. Consumed via detailEdit.ts
+// by TransactionDetail's in-place edit mode (canSummaryEdit gates the affordance; the rest build
+// the recategorize payload).
 
 import type { Posting } from '$lib/api'
 import { narrateTransaction } from './narrate'
