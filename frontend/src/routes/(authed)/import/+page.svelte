@@ -630,6 +630,12 @@
     flex: 1;
   }
 
+  /* Size the picker to its content (path/placeholder) instead of filling the row. */
+  .import-account :global(.picker) {
+    width: fit-content;
+    max-width: 100%;
+  }
+
   .import-label {
     display: flex;
     align-items: center;
