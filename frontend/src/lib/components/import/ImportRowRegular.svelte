@@ -130,15 +130,16 @@
         {#if rowState.groupId}
           <GradientButton
             square
+            size="lg"
             aria-label="Remove Fish Pie split"
             onclick={() => {
               rowState = { ...rowState, groupId: null, categoryId: null }
               onclosesplit()
             }}
-          >×</GradientButton>
+          ><Icon name="close" size={16} /></GradientButton>
         {:else}
-          <GradientButton square aria-label="Split with group" onclick={onsplitopen}>
-            <Icon name="pie" size={12} />
+          <GradientButton square size="lg" aria-label="Split with group" onclick={onsplitopen}>
+            <Icon name="pie" size={16} />
           </GradientButton>
         {/if}
       {/if}

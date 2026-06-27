@@ -1,5 +1,6 @@
 <script lang="ts">
   import Modal from '../ui/Modal.svelte'
+  import Chip from '../ui/Chip.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
   import Toggle from '../ui/Toggle.svelte'
   import AccountPicker from '../accounts/AccountPicker.svelte'
@@ -292,7 +293,7 @@
           <span class="field-label">Columns</span>
           {#if columns.length > 0}
             <div class="column-preview">
-              {#each columns as col}<span class="column-chip">{col}</span>{/each}
+              {#each columns as col}<Chip tone="muted">{col}</Chip>{/each}
             </div>
           {:else}
             <span class="column-preview-empty"
@@ -591,17 +592,6 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-xs);
-  }
-
-  .column-chip {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text);
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    box-shadow: var(--shadow-control);
-    padding: 1px var(--sp-xs);
   }
 
   .column-preview-empty {

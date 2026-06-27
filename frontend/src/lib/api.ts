@@ -262,6 +262,34 @@ export async function importCommit(body: {
   return res.json()
 }
 
+/**
+ * Download all data as an hledger-compatible `.journal` file. Optional `from`/`to`
+ * (YYYY-MM-DD) bound the exported transactions; omit for everything. Streams the
+ * response to a Blob and triggers a browser download. Backend route: GET /api/export/journal.
+ */
+export async function exportJournal(opts: { from?: string; to?: string } = {}): Promise<void> {
+  const params = new URLSearchParams()
+  if (opts.from) params.set('from', opts.from)
+  if (opts.to) params.set('to', opts.to)
+  const qs = params.toString()
+  const res = await fetch(`${BASE}/api/export/journal${qs ? `?${qs}` : ''}`, {
+    credentials: 'include',
+  })
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? 'Failed to export journal.')
+  }
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `have-fish-${new Date().toISOString().slice(0, 10)}.journal`
+  document.body.appendChild(a)
+  a.click()
+  a.remove()
+  URL.revokeObjectURL(url)
+}
+
 export type ColumnMapping = {
   date: string
   amount: string
