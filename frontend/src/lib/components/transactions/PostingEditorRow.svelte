@@ -5,7 +5,7 @@
 </script>
 
 <script lang="ts">
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import type { Account } from '$lib/api'
 
@@ -123,7 +123,7 @@
   <div class="posting-account-cell">
     {#if editingAccount && !posting.markedForDelete}
       <div class="account-edit-wrapper" onfocusout={handleAccountFocusout}>
-        <AccountPathInput
+        <AccountPicker
           {accounts}
           bind:value={editAccountId}
           oncommit={commitAccountEdit}
