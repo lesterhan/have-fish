@@ -1,4 +1,7 @@
 :root {
+  /* Native controls (date picker indicator, scrollbars, etc.) follow the theme. */
+  color-scheme: light;
+
   /* --- Spacing scale ---
    * 4px base unit. Use for margin, padding, gap — never raw px.
    */
@@ -172,6 +175,8 @@
                    Aurora      red #bf616a  green #a3be8c  yellow #ebcb8b
    ============================================================================= */
 [data-theme='dark'] {
+  color-scheme: dark;
+
   /* --- The desktop --- */
   --color-desktop: #1a1f2a;
 

@@ -69,8 +69,11 @@
   $effect(() => {
     const path = committedPath
     if (!open && !searching) {
-      segs = path ? path.split(SEP) : []
-      level = Math.max(0, segs.length - 1)
+      // Use a local for the length read — reading `segs` back here after
+      // writing it would make this effect depend on state it sets, looping.
+      const next = path ? path.split(SEP) : []
+      segs = next
+      level = Math.max(0, next.length - 1)
     }
   })
 
