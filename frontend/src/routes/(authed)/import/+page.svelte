@@ -361,13 +361,12 @@
   {#if !preview}
     <div class="transfer-window">
       <div class="section-bar">
-        <div class="tabs" role="tablist">
+        <div class="tabs">
           <button
             type="button"
-            role="tab"
             class="tab"
             class:active={activeTab === 'import'}
-            aria-selected={activeTab === 'import'}
+            aria-pressed={activeTab === 'import'}
             onclick={() => (activeTab = 'import')}
           >
             <Icon name="import" size={13} />
@@ -375,10 +374,9 @@
           </button>
           <button
             type="button"
-            role="tab"
             class="tab"
             class:active={activeTab === 'export'}
-            aria-selected={activeTab === 'export'}
+            aria-pressed={activeTab === 'export'}
             onclick={() => (activeTab = 'export')}
           >
             <Icon name="export" size={13} />

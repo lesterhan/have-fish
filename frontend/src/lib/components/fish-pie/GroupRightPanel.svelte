@@ -779,7 +779,6 @@
     text-overflow: ellipsis;
   }
 
-
   .expense-meta {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
