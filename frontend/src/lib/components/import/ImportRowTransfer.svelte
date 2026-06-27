@@ -224,19 +224,21 @@
         {#if rowState.groupId}
           <GradientButton
             square
+            size="lg"
             aria-label="Remove group split"
             onclick={() => {
               rowState = { ...rowState, groupId: null, categoryId: null }
               onclosesplit()
-            }}>×</GradientButton
+            }}><Icon name="close" size={16} /></GradientButton
           >
         {:else}
           <GradientButton
             square
+            size="lg"
             aria-label="Split with group"
             onclick={onsplitopen}
           >
-            <Icon name="pie" size={12} />
+            <Icon name="pie" size={16} />
           </GradientButton>
         {/if}
       {/if}
