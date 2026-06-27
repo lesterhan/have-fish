@@ -8,7 +8,6 @@
   import Modal from '$lib/components/ui/Modal.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import PostingEditorRow from '$lib/components/transactions/PostingEditorRow.svelte'
   import { toISODate } from '$lib/date'
   import {
