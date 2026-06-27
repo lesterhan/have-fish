@@ -5,7 +5,11 @@
     value?: string
   }
 
-  let { value = $bindable(''), class: className = '', ...restProps }: Props = $props()
+  let {
+    value = $bindable(''),
+    class: className = '',
+    ...restProps
+  }: Props = $props()
 </script>
 
 <input class="text-input {className}" bind:value {...restProps} />
@@ -17,6 +21,7 @@
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     padding: 3px var(--sp-xs);
     height: 24px;
@@ -29,7 +34,9 @@
 
   .text-input:focus {
     border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-light);
   }
 
   .text-input:disabled {

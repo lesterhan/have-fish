@@ -18,6 +18,7 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
+  import TextInput from '$lib/components/ui/TextInput.svelte'
   import { narrateTransaction, accountLabel } from './narration'
   import { blurbFor } from './blurb'
   import {
@@ -215,11 +216,11 @@
   <header class="head">
     <div class="head-main">
       {#if editing}
-        <input
-          class="payee-input"
+        <TextInput
           aria-label="Description"
           placeholder="Description"
           bind:value={draft.description}
+          style="flex: 1; min-width: 0; font-family: var(--font-serif); font-size: var(--text-lg); height: 28px;"
         />
       {:else}
         <span class="payee">{tx.description || '—'}</span>
@@ -241,11 +242,11 @@
     </div>
     <div class="head-side">
       {#if editing}
-        <input
+        <TextInput
           type="date"
-          class="date-input"
           aria-label="Date"
           bind:value={draft.date}
+          style="height: 26px; flex-shrink: 0; color: var(--color-text-muted);"
         />
       {:else}
         <span class="date">{dateLabel}</span>
@@ -1026,50 +1027,6 @@
   }
 
   /* --- edit mode -------------------------------------------------------------------- */
-  /* Header inputs reuse the inset-field look so the layout doesn't jump between view and
-     edit — same baseline, same chrome, just controls in place of static text. */
-  .payee-input {
-    flex: 1;
-    min-width: 0;
-    font-family: var(--font-serif);
-    font-size: var(--text-lg);
-    color: var(--color-text);
-    background: var(--color-window-inset);
-    border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 3px var(--sp-xs);
-    height: 28px;
-    outline: none;
-    box-sizing: border-box;
-    transition:
-      border-color var(--duration-fast) var(--ease),
-      box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .date-input {
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    background: var(--color-window-inset);
-    border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 3px var(--sp-xs);
-    height: 26px;
-    outline: none;
-    flex-shrink: 0;
-    box-sizing: border-box;
-    transition:
-      border-color var(--duration-fast) var(--ease),
-      box-shadow var(--duration-fast) var(--ease);
-  }
-
-  .payee-input:focus,
-  .date-input:focus {
-    border-color: var(--color-accent-mid);
-    box-shadow:
-      inset 0 1px 2px rgba(0, 0, 0, 0.08),
-      0 0 0 2px var(--color-accent-light);
-  }
 
   /* The account picker fills its row in both contexts: full width under the hero (column),
      growing beside the chip in a branch line (row). */
