@@ -1,11 +1,10 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import GroupSelect from './GroupSelect.svelte'
   import FishPiePills from './FishPiePills.svelte'
   import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import { tooltip } from '$lib/tooltip'
   import type {
     Account,
     TransferParsedTransaction,
@@ -121,7 +120,7 @@
           {#if isSpend}
             <div class="field">
               <span class="field-label">expense</span>
-              <AccountPathInput
+              <AccountPicker
                 {accounts}
                 bind:value={rowState.expenseAccountId}
                 placeholder="expenses:food…"
@@ -140,7 +139,7 @@
                   >
                 </span>
               {:else}
-                <AccountPathInput
+                <AccountPicker
                   {accounts}
                   bind:value={rowState.conversionAccountId}
                   placeholder="equity:conversion…"
@@ -151,7 +150,7 @@
           {:else}
             <div class="field">
               <span class="field-label">via</span>
-              <AccountPathInput
+              <AccountPicker
                 {accounts}
                 bind:value={rowState.conversionAccountId}
                 placeholder="equity:conversion…"
@@ -162,7 +161,7 @@
         {:else}
           <div class="field">
             <span class="field-label">source</span>
-            <AccountPathInput
+            <AccountPicker
               {accounts}
               bind:value={rowState.offsetAccountId}
               placeholder="Source account…"
@@ -193,7 +192,7 @@
               <button type="button" class="pill-remove" onclick={() => { rowState.feeAccountId = '' }}>×</button>
             </span>
           {:else}
-            <AccountPathInput
+            <AccountPicker
               {accounts}
               bind:value={rowState.feeAccountId}
               placeholder="expenses:fees…"
@@ -204,20 +203,17 @@
       {/if}
 
       {#if tx.isTransfer === true && !rowState.groupId && !splitSelectOpen}
-        <button
-          type="button"
-          class="kind-flip"
-          onclick={toggleKind}
-          use:tooltip={{
-            label: isSpend
+        <div class="kind-flip-wrap">
+          <GradientButton
+            onclick={toggleKind}
+            tooltip={isSpend
               ? 'Actually a conversion into an account you hold — not a spend'
-              : 'Actually a spend in a currency you don’t hold — not a conversion',
-            always: true,
-          }}
-        >
-          <Icon name="exchange" size={10} />
-          {isSpend ? 'Switch to conversion' : 'Switch to spend'}
-        </button>
+              : 'Actually a spend in a currency you don’t hold — not a conversion'}
+          >
+            <Icon name="exchange" size={10} />
+            {isSpend ? 'Switch to conversion' : 'Switch to spend'}
+          </GradientButton>
+        </div>
       {/if}
     </div>
   </td>
@@ -285,28 +281,11 @@
     margin-top: 1px;
   }
 
-  .kind-flip {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
+  .kind-flip-wrap {
     align-self: flex-start;
     /* Align the flip under the input column, past the label gutter. */
     margin-left: calc(3rem + var(--sp-xs));
     margin-top: 2px;
-    padding: 1px 5px;
-    background: none;
-    border: 1px solid var(--color-rule);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    cursor: pointer;
-    transition:
-      border-color var(--duration-fast) var(--ease),
-      color var(--duration-fast) var(--ease);
-  }
-  .kind-flip:hover {
-    border-color: var(--color-accent);
-    color: var(--color-accent);
   }
 
   .transfer-accounts {
