@@ -17,7 +17,7 @@
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import { narrateTransaction, accountLabel } from './narration'
   import { blurbFor } from './blurb'
   import {
@@ -262,7 +262,7 @@
         {#if heroEditable && n.hero}
           {@const heroId = n.hero.posting.id}
           <div class="edit-account">
-            <AccountPathInput
+            <AccountPicker
               accounts={accounts ?? []}
               value={draftAccountId(heroId)}
               oncommit={(id) => repoint(heroId, id)}
@@ -326,7 +326,7 @@
                 <span class="line">
                   <span class="chip">{chipLabel(b.chip)}</span>
                   <span class="edit-account">
-                    <AccountPathInput
+                    <AccountPicker
                       accounts={accounts ?? []}
                       value={draftAccountId(b.posting.id)}
                       oncommit={(id) => repoint(b.posting.id, id)}
