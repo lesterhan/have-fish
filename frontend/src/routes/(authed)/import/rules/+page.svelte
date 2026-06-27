@@ -16,7 +16,7 @@
   import { toast } from '$lib/toast.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import TableShell from '$lib/components/ui/TableShell.svelte'
 
@@ -192,7 +192,7 @@
               />
             </td>
             <td class="cell-form">
-              <AccountPathInput
+              <AccountPicker
                 {accounts}
                 bind:value={newAccountId}
                 placeholder="Select account…"
@@ -239,7 +239,7 @@
                 />
               </td>
               <td class="cell-form">
-                <AccountPathInput
+                <AccountPicker
                   {accounts}
                   bind:value={editAccountId}
                   oncreate={(a) => {
