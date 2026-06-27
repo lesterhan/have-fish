@@ -1,6 +1,6 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
   import type {
     Account,
@@ -97,7 +97,7 @@
           Import account
           {#if !fromAccountId}<span class="required">*</span>{/if}
         </label>
-        <AccountPathInput
+        <AccountPicker
           {accounts}
           bind:value={fromAccountId}
           placeholder="Select or create an account…"
