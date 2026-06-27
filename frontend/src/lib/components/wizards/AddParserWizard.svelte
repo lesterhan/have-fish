@@ -2,7 +2,7 @@
   import Modal from '../ui/Modal.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
   import Toggle from '../ui/Toggle.svelte'
-  import AccountPathInput from '../accounts/AccountPathInput.svelte'
+  import AccountPicker from '../accounts/AccountPicker.svelte'
   import TooltipIcon from '../ui/TooltipIcon.svelte'
   import { createParser, type Account, type CsvParser } from '$lib/api'
   import {
@@ -248,7 +248,7 @@
     {#if step === STEP.ACCOUNT_PICK}
       <div class="form-grid">
         <label for="account-pick">Account</label>
-        <AccountPathInput
+        <AccountPicker
           {accounts}
           bind:value={selectedAccountPath}
           placeholder="Select an account…"

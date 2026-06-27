@@ -4,7 +4,7 @@
   import Toggle from '../ui/Toggle.svelte'
   import TextInput from '../ui/TextInput.svelte'
   import Select from '../ui/Select.svelte'
-  import AccountPathInput from '../accounts/AccountPathInput.svelte'
+  import AccountPicker from '../accounts/AccountPicker.svelte'
   import {
     updateParser,
     type CsvParser,
@@ -130,7 +130,7 @@
           />
 
           <label for="ep-account">Default account</label>
-          <AccountPathInput
+          <AccountPicker
             {accounts}
             bind:value={defaultAccountId}
             placeholder="Select or create…"
@@ -148,7 +148,7 @@
 
           {#if isMultiCurrency}
             <label for="ep-fee-account">Fee account</label>
-            <AccountPathInput
+            <AccountPicker
               {accounts}
               bind:value={defaultFeeAccountId}
               placeholder="expenses:fees…"

@@ -16,7 +16,7 @@
   import { settingsStore } from '$lib/settings.svelte'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
   import EditParserPanel from '$lib/components/import/EditParserPanel.svelte'
@@ -421,7 +421,7 @@
                   label="Transactions with no matching import rule are posted to this account."
                 />
               </span>
-              <AccountPathInput
+              <AccountPicker
                 {accounts}
                 bind:value={toAccountId}
                 placeholder="Select or create an account…"
@@ -628,6 +628,12 @@
 
   .import-account {
     flex: 1;
+  }
+
+  /* Size the picker to its content (path/placeholder) instead of filling the row. */
+  .import-account :global(.picker) {
+    width: fit-content;
+    max-width: 100%;
   }
 
   .import-label {
