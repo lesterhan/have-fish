@@ -11,6 +11,8 @@
     variant?: "default" | "warning"
     /** Loud resting state (amber fill + soft pulse) for an unaddressed attention indicator. */
     attention?: boolean
+    /** Control height/typography. "lg" is for primary CTAs; "md" is the default control size. */
+    size?: "sm" | "md" | "lg"
     type?: "button" | "submit" | "reset"
     children: import("svelte").Snippet
   }
@@ -24,6 +26,7 @@
     tooltip,
     variant = "default",
     attention = false,
+    size = "md",
     type = "button",
     children,
   }: Props = $props()
@@ -37,6 +40,8 @@
   aria-pressed={active ? true : undefined}
   use:tooltipAction={{ label: tooltip ?? "", always: true }}
   class="btn"
+  class:sm={size === "sm"}
+  class:lg={size === "lg"}
   class:square
   class:active
   class:warning={variant === "warning"}
@@ -70,9 +75,30 @@
       box-shadow var(--duration-fast) var(--ease);
   }
 
+  .btn.sm {
+    height: 20px;
+    padding: 0 8px;
+    font-size: 10px;
+  }
+
+  .btn.lg {
+    height: 32px;
+    padding: 0 16px;
+    font-size: 13px;
+    border-radius: var(--radius-md);
+  }
+
   .btn.square {
     width: 24px;
     padding: 0;
+  }
+
+  .btn.lg.square {
+    width: 32px;
+  }
+
+  .btn.sm.square {
+    width: 20px;
   }
 
   .btn:hover:not(:disabled):not(.active) {

@@ -15,6 +15,7 @@
   // which the host (story 6b wrapper) fulfils by mounting LedgerEditModal.
   import { untrack } from 'svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
+  import FishPieTag from '$lib/components/ui/FishPieTag.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
@@ -226,14 +227,8 @@
         <span class="payee">{tx.description || '—'}</span>
         {#if tag}
           {#if tag.kind === 'fishpie'}
-            <!-- Two-chip Fish Pie identity, shared with the import preview (FishPiePills):
-                 accent category chip + muted group chip. -->
-            <span class="fp-tag">
-              <span class="fp-hero"
-                ><Icon name="pie" size={11} />{tag.category}</span
-              >
-              <span class="fp-sub">{tag.group}</span>
-            </span>
+            <!-- Two-chip Fish Pie identity, shared with the import preview via FishPieTag. -->
+            <FishPieTag category={tag.category} group={tag.group} style="flex-shrink: 0" />
           {:else}
             <span class="tag">{tag.label}</span>
           {/if}
@@ -567,40 +562,6 @@
     background: var(--color-accent-light);
     border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
     border-radius: var(--radius-lg);
-    white-space: nowrap;
-  }
-
-  /* Two-chip Fish Pie identity — mirrors FishPiePills (import preview) so the
-     category-vs-group distinction reads the same everywhere. */
-  .fp-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    flex-shrink: 0;
-  }
-
-  .fp-hero {
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
-    background: var(--color-accent-light);
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent-chip-fg);
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    white-space: nowrap;
-  }
-
-  .fp-sub {
-    display: inline-block;
-    padding: 2px 6px;
-    background: var(--color-window-raised);
-    border: 1px solid var(--color-rule);
-    color: var(--color-text-muted);
-    font-family: var(--font-mono);
-    font-size: 10px;
     white-space: nowrap;
   }
 

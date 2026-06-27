@@ -5,6 +5,7 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import CurrencyPill from '../ui/CurrencyPill.svelte'
+  import Chip from '$lib/components/ui/Chip.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { initials } from './utils'
 
@@ -277,7 +278,9 @@
                     <div class="expense-desc-line">
                       <span class="expense-desc">{expense.description}</span>
                       {#if expense.categoryName}
-                        <span class="category-pill">{expense.categoryName}</span>
+                        <Chip tone="accent" size="xs" style="flex-shrink: 0"
+                          >{expense.categoryName}</Chip
+                        >
                       {/if}
                     </div>
                     <span class="expense-meta">{expense.date} · {expense.payerName}</span>
@@ -776,19 +779,6 @@
     text-overflow: ellipsis;
   }
 
-  .category-pill {
-    flex-shrink: 0;
-    padding: 1px 6px;
-    background: var(--color-accent-light);
-    border: 1px solid var(--color-accent);
-    border-radius: var(--radius-xl);
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.3px;
-    color: var(--color-accent-chip-fg);
-    white-space: nowrap;
-  }
 
   .expense-meta {
     font-family: var(--font-mono);
