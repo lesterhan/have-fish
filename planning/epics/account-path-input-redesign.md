@@ -102,3 +102,48 @@ D's reason for existing).
 
 5. **Deprecate + delete `AccountPathInput`.** Confirm zero imports remain, remove the old
    component and its dead helpers, final regression pass.
+
+## Migration progress
+
+Stories 1 & 2 (scorer/tree + `AccountPicker`) shipped. Stories 3–4 are being executed
+**one call site (or small cluster) per PR**, validating look + interaction at each before
+moving on. Checklist of every `AccountPathInput` consumer:
+
+### Done
+
+- [x] `transactions/TransactionDetail.svelte` — PR #140
+- [x] `transactions/PostingEditorRow.svelte` (consumed by `LedgerEditModal`; dead import also
+      removed from `LedgerEditModal`) — PR #141
+- [x] `wizards/AddParserWizard.svelte` (`searchOnly`) — PR #142
+- [x] `import/EditParserPanel.svelte` (default + fee account) — PR #142
+- [x] `routes/(authed)/import/+page.svelte` (uncategorized account; also sized picker to
+      content) — PR #142
+- [x] `import/ImportRowTransfer.svelte` (expense / conversion×2 / source / fee; also swapped the
+      hand-rolled kind-flip toggle to `GradientButton`) — PR #143
+- [x] `import/ImportRowRegular.svelte` (offset account) — PR #143
+- [x] `routes/(authed)/import/rules/+page.svelte` (add-rule + edit-rule rows) — PR #144
+- [x] `import/ImportPreviewPanel.svelte` (import/from account) — PR #145 *(open)*
+
+Import cluster is fully migrated as of #145 — `import/` no longer references the old control.
+
+### Remaining
+
+fish-pie cluster:
+- [ ] `fish-pie/CategoryManager.svelte`
+- [ ] `fish-pie/GroupExpenseForm.svelte`
+- [ ] `fish-pie/GroupRightPanel.svelte`
+- [ ] `fish-pie/GroupSettleBatchModal.svelte`
+- [ ] `routes/(authed)/fish-pie/[id]/settings/+page.svelte`
+
+Other:
+- [ ] `accounts/QuickEntryPanel.svelte`
+- [ ] `transactions/FilterPanel.svelte` (`searchOnly` mode)
+- [ ] `routes/(authed)/settings/+page.svelte`
+- [ ] `transactions/AddTransactionModal.svelte` — **on hold**: user may deprecate this flow;
+      skip unless it survives the rethink.
+
+### Final
+
+- [ ] Delete `AccountPathInput.svelte` once zero imports remain.
+- [ ] Deferred polish sweep (do with the deletion story): uncleared blur timeout,
+      scroll-reposition while open, surface `createAccount` errors, `aria-activedescendant`.
