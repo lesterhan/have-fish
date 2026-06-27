@@ -1,6 +1,6 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import GroupSelect from './GroupSelect.svelte'
   import FishPiePills from './FishPiePills.svelte'
   import ImportDateCell from './ImportDateCell.svelte'
@@ -121,7 +121,7 @@
           {#if isSpend}
             <div class="field">
               <span class="field-label">expense</span>
-              <AccountPathInput
+              <AccountPicker
                 {accounts}
                 bind:value={rowState.expenseAccountId}
                 placeholder="expenses:food…"
@@ -140,7 +140,7 @@
                   >
                 </span>
               {:else}
-                <AccountPathInput
+                <AccountPicker
                   {accounts}
                   bind:value={rowState.conversionAccountId}
                   placeholder="equity:conversion…"
@@ -151,7 +151,7 @@
           {:else}
             <div class="field">
               <span class="field-label">via</span>
-              <AccountPathInput
+              <AccountPicker
                 {accounts}
                 bind:value={rowState.conversionAccountId}
                 placeholder="equity:conversion…"
@@ -162,7 +162,7 @@
         {:else}
           <div class="field">
             <span class="field-label">source</span>
-            <AccountPathInput
+            <AccountPicker
               {accounts}
               bind:value={rowState.offsetAccountId}
               placeholder="Source account…"
@@ -193,7 +193,7 @@
               <button type="button" class="pill-remove" onclick={() => { rowState.feeAccountId = '' }}>×</button>
             </span>
           {:else}
-            <AccountPathInput
+            <AccountPicker
               {accounts}
               bind:value={rowState.feeAccountId}
               placeholder="expenses:fees…"

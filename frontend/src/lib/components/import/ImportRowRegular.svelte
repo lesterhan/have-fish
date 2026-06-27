@@ -1,6 +1,6 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import GroupSelect from './GroupSelect.svelte'
   import FishPiePills from './FishPiePills.svelte'
   import ImportDateCell from './ImportDateCell.svelte'
@@ -93,7 +93,7 @@
       <div class="field" class:no-label={!isMultiCurrency}>
         {#if isMultiCurrency}<span class="field-label">to</span>{/if}
         <div class="offset-wrap">
-          <AccountPathInput
+          <AccountPicker
             {accounts}
             bind:value={rowState.offsetAccountId}
             placeholder="Select or create…"
