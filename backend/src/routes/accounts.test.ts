@@ -427,4 +427,57 @@ describe('accounts', () => {
       expect((await check.json() as Account).path).toBe('expenses:food:cafe')
     })
   })
+
+  describe('GET /api/accounts resolvedType', () => {
+    type AccountWithType = Account & { resolvedType: string | null }
+
+    async function create(body: Record<string, unknown>) {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      return (await res.json() as Account).id
+    }
+
+    async function get(id: string) {
+      const res = await app.request('/api/accounts', { headers: { Cookie: cookie } })
+      const all = await res.json() as AccountWithType[]
+      return all.find((a) => a.id === id)!
+    }
+
+    it('infers resolvedType from the path root when no override is stored', async () => {
+      const id = await create({ path: 'assets:chequing' })
+      const acct = await get(id)
+      expect(acct.type).toBeNull()
+      expect(acct.resolvedType).toBe('asset')
+    })
+
+    it('lets a stored type override inference', async () => {
+      const id = await create({ path: 'expenses:weird', type: 'asset' })
+      const acct = await get(id)
+      expect(acct.type).toBe('asset')
+      expect(acct.resolvedType).toBe('asset')
+    })
+
+    it('resolves an atypically-named root via its stored override', async () => {
+      const id = await create({ path: '储蓄:中国银行', type: 'asset' })
+      const acct = await get(id)
+      expect(acct.resolvedType).toBe('asset')
+    })
+
+    it('returns null resolvedType for an atypical root with no override', async () => {
+      const id = await create({ path: '花钱:房租' })
+      const acct = await get(id)
+      expect(acct.type).toBeNull()
+      expect(acct.resolvedType).toBeNull()
+    })
+
+    it('surfaces an override-only type (cash/conversion) that inference cannot produce', async () => {
+      const cashId = await create({ path: 'assets:wise:cad', type: 'cash' })
+      const convId = await create({ path: 'equity:conversion', type: 'conversion' })
+      expect((await get(cashId)).resolvedType).toBe('cash')
+      expect((await get(convId)).resolvedType).toBe('conversion')
+    })
+  })
 })

@@ -62,6 +62,10 @@ export const accounts = pgTable('accounts', {
   path: text('path').notNull(),
   name: text('name'),  // optional human-friendly display name; falls back to path when null
   defaultCurrency: text('default_currency'),  // ISO 4217 code; pre-selects currency in quick entry
+  // hledger account type override: one of asset|liability|equity|income|expense, or null.
+  // Null = infer from the path root (see resolveAccountType). Stored value wins when present —
+  // the unlock for atypically-named roots that path inference can't classify.
+  type: text('type'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
 })

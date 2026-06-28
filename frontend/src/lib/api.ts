@@ -2,11 +2,22 @@
 // Empty base means same-origin, which works in both dev and production.
 const BASE = ''
 
+// The five types path inference can produce.
+export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
+// The full hledger set a stored override may hold (adds Cash + Conversion, which are
+// override-only — inference never produces them).
+export type StoredAccountType = AccountType | 'cash' | 'conversion'
+
 export type Account = {
   id: string
   path: string
   name?: string | null
   defaultCurrency?: string | null
+  // Stored hledger type override; null = infer from the path root.
+  type?: StoredAccountType | null
+  // Effective type (stored override else path inference). Surfaced by GET /api/accounts;
+  // null when an atypical root has no override. Absent on the single-account GET (raw row).
+  resolvedType?: StoredAccountType | null
   createdAt?: string
   deletedAt?: string | null
 }
