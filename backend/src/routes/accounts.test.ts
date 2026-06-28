@@ -480,4 +480,92 @@ describe('accounts', () => {
       expect((await get(convId)).resolvedType).toBe('conversion')
     })
   })
+
+  describe('account type override (PATCH + GET /:id)', () => {
+    async function create(body: Record<string, unknown>) {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      return (await res.json() as Account).id
+    }
+
+    async function patch(id: string, body: Record<string, unknown>) {
+      return app.request(`/api/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    type AccountDetail = Account & {
+      type: string | null
+      resolvedType: string | null
+      inferredType: string | null
+    }
+    async function getOne(id: string) {
+      const res = await app.request(`/api/accounts/${id}`, { headers: { Cookie: cookie } })
+      return await res.json() as AccountDetail
+    }
+
+    it('GET /:id surfaces resolvedType and the pure inferredType', async () => {
+      // override flips an account whose path infers to expense
+      const id = await create({ path: 'expenses:weird', type: 'asset' })
+      const acct = await getOne(id)
+      expect(acct.type).toBe('asset')
+      expect(acct.resolvedType).toBe('asset')   // stored override wins
+      expect(acct.inferredType).toBe('expense') // what it would be without the override
+    })
+
+    it('GET /:id inferredType is null for an atypical root', async () => {
+      const id = await create({ path: '储蓄:中国银行' })
+      const acct = await getOne(id)
+      expect(acct.resolvedType).toBeNull()
+      expect(acct.inferredType).toBeNull()
+    })
+
+    it('PATCH sets a valid override type', async () => {
+      const id = await create({ path: '储蓄:中国银行' })
+      const res = await patch(id, { type: 'asset' })
+      expect(res.status).toBe(200)
+      expect((await getOne(id)).resolvedType).toBe('asset')
+    })
+
+    it('PATCH accepts the override-only Cash and Conversion types', async () => {
+      const id = await create({ path: 'equity:conversion' })
+      expect((await patch(id, { type: 'conversion' })).status).toBe(200)
+      expect((await getOne(id)).type).toBe('conversion')
+    })
+
+    it('PATCH with type:null clears the override back to inference', async () => {
+      const id = await create({ path: 'assets:chequing', type: 'liability' })
+      expect((await getOne(id)).resolvedType).toBe('liability')
+      const res = await patch(id, { type: null })
+      expect(res.status).toBe(200)
+      const acct = await getOne(id)
+      expect(acct.type).toBeNull()
+      expect(acct.resolvedType).toBe('asset') // falls back to inference
+    })
+
+    it('PATCH rejects an invalid type with 400', async () => {
+      const id = await create({ path: 'assets:chequing' })
+      const res = await patch(id, { type: 'bogus' })
+      expect(res.status).toBe(400)
+      // unchanged — still inferred
+      expect((await getOne(id)).type).toBeNull()
+    })
+
+    it('PATCH does not touch another user\'s account', async () => {
+      const other = await createTestUser('other2@example.com')
+      const otherRes = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: other, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      })
+      const otherId = (await otherRes.json() as Account).id
+      const res = await patch(otherId, { type: 'liability' })
+      expect(res.status).toBe(404)
+    })
+  })
 })
