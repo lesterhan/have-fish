@@ -29,7 +29,7 @@
 | [Account Reorganization](epics/account-reorganization.md) | Phase 1 Done |
 | [Single-Transaction View](epics/archive/single-transaction-view.md) | Done |
 | [Transaction Modal — Flow Narration](epics/archive/txn-modal-flow-narration.md) | Done |
-| [hledger Journal Export](epics/hledger-export.md) | Skeleton |
+| [hledger Journal Export](epics/hledger-export.md) | Scoped |
 | [Cross-Currency Spend Import + Heal](epics/archive/cross-currency-spend-import.md) | Done |
 | [Import Rules](epics/archive/import-rules.md) | Done |
 | [Import Rules — Fish Pie Splits & Inline Capture](epics/import-rules-fish-pie.md) | Backlog |
