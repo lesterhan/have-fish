@@ -5,9 +5,31 @@ import { eq, isNull, and, like, or, lte, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { CLEARING_PREFIX } from '../fish-pie-accounts'
-import { resolveAccountType } from '../postings/account-type'
+import { resolveAccountType, resolveStoredOrInferredType, DEFAULT_ROOTS, type AccountTypeRoots } from '../postings/account-type'
 
 const app = new Hono<{ Variables: AppVariables }>()
+
+// Loads this user's configured account-type root paths, falling back to schema defaults when
+// no settings row exists. Shared by endpoints that resolve account types.
+async function loadAccountTypeRoots(userId: string): Promise<AccountTypeRoots> {
+  const [s] = await db
+    .select({
+      assetsRootPath: userSettings.defaultAssetsRootPath,
+      liabilitiesRootPath: userSettings.defaultLiabilitiesRootPath,
+      equityRootPath: userSettings.defaultEquityRootPath,
+      expensesRootPath: userSettings.defaultExpensesRootPath,
+      incomeRootPath: userSettings.defaultIncomeRootPath,
+    })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+  return {
+    assetsRootPath: s?.assetsRootPath ?? DEFAULT_ROOTS.assetsRootPath,
+    liabilitiesRootPath: s?.liabilitiesRootPath ?? DEFAULT_ROOTS.liabilitiesRootPath,
+    equityRootPath: s?.equityRootPath ?? DEFAULT_ROOTS.equityRootPath,
+    expensesRootPath: s?.expensesRootPath ?? DEFAULT_ROOTS.expensesRootPath,
+    incomeRootPath: s?.incomeRootPath ?? DEFAULT_ROOTS.incomeRootPath,
+  }
+}
 
 // True when `path` is the receivable namespace itself or sits under it.
 // Receivable accounts are system-managed (re-spawned at import), so reorg refuses them.
@@ -28,7 +50,11 @@ app.get('/', async (c) => {
     .select()
     .from(accounts)
     .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  return c.json(all)
+  // Surface the effective type (stored override else path inference) so the UI and the
+  // journal serializer share one resolved answer. `type` stays the raw stored override.
+  const roots = await loadAccountTypeRoots(userId)
+  const withType = all.map((a) => ({ ...a, resolvedType: resolveStoredOrInferredType(a, roots) }))
+  return c.json(withType)
 })
 
 // GET /api/accounts/balances

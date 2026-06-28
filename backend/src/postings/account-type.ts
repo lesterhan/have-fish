@@ -17,6 +17,14 @@
 // identified as a conversion *leg* by the role classifier, not by a distinct type.
 export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
 
+// The five valid stored-type values, for validating a stored override or API input.
+export const ACCOUNT_TYPES: readonly AccountType[] = ['asset', 'liability', 'equity', 'income', 'expense']
+
+// Type guard for an unknown value (e.g. a stored column or request body field).
+export function isAccountType(value: unknown): value is AccountType {
+  return typeof value === 'string' && (ACCOUNT_TYPES as readonly string[]).includes(value)
+}
+
 // The per-user root paths the resolver matches against. Mirrors the userSettings columns.
 export type AccountTypeRoots = {
   assetsRootPath: string
@@ -58,4 +66,16 @@ export function resolveAccountType(path: string, roots: AccountTypeRoots): Accou
     if (!best || c.root.length > best.root.length) best = c
   }
   return best?.type ?? null
+}
+
+// Stored-wins-else-infer: the effective type of an account. A valid stored `type` override
+// wins; otherwise fall back to path inference. This is the resolver every consumer (UI, role
+// classifier, journal export) should call so they all agree on one answer. An invalid stored
+// value (shouldn't happen — validated on write) is ignored in favour of inference.
+export function resolveStoredOrInferredType(
+  account: { path: string; type: string | null },
+  roots: AccountTypeRoots,
+): AccountType | null {
+  if (isAccountType(account.type)) return account.type
+  return resolveAccountType(account.path, roots)
 }

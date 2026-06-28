@@ -2,11 +2,18 @@
 // Empty base means same-origin, which works in both dev and production.
 const BASE = ''
 
+export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
+
 export type Account = {
   id: string
   path: string
   name?: string | null
   defaultCurrency?: string | null
+  // Stored hledger type override; null = infer from the path root.
+  type?: AccountType | null
+  // Effective type (stored override else path inference). Surfaced by GET /api/accounts;
+  // null when an atypical root has no override. Absent on the single-account GET (raw row).
+  resolvedType?: AccountType | null
   createdAt?: string
   deletedAt?: string | null
 }
