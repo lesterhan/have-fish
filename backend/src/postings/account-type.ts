@@ -12,17 +12,42 @@
 // Inference cannot classify atypically-named roots (e.g. `储蓄:中国银行` or `花钱:房租`);
 // those resolve to null here and will be unlocked by the future manual-assignment column.
 
-// Our subset of hledger's account types. We don't yet distinguish Cash (a subset of Asset)
-// or Conversion (a subset of Equity) — equity:conversion resolves to `equity` and is
-// identified as a conversion *leg* by the role classifier, not by a distinct type.
+// The five types path INFERENCE can produce. These are the coarse buckets the role
+// classifier and balances views reason in. (`income` is hledger's documented alias for
+// Revenue.)
 export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
 
-// The five valid stored-type values, for validating a stored override or API input.
+// The full hledger account-type set a manual STORED override may hold. Superset of the
+// inferred five, adding Cash (a subtype of Asset) and Conversion (a subtype of Equity) —
+// inference can never produce these, so they are override-only. The journal serializer maps
+// each to its hledger code (cash→C, conversion→V, income→R, …); the classifier collapses the
+// two extras back to their parent bucket via `toClassifierType`.
+export type StoredAccountType = AccountType | 'cash' | 'conversion'
+
+// The five inferable types — for validating an inferred value.
 export const ACCOUNT_TYPES: readonly AccountType[] = ['asset', 'liability', 'equity', 'income', 'expense']
 
-// Type guard for an unknown value (e.g. a stored column or request body field).
+// The seven valid stored-override values — for validating the stored column or API input.
+export const STORED_ACCOUNT_TYPES: readonly StoredAccountType[] = [
+  'asset', 'cash', 'liability', 'equity', 'income', 'expense', 'conversion',
+]
+
+// Type guard for one of the five inferable types.
 export function isAccountType(value: unknown): value is AccountType {
   return typeof value === 'string' && (ACCOUNT_TYPES as readonly string[]).includes(value)
+}
+
+// Type guard for a stored override value (the full seven-type set).
+export function isStoredAccountType(value: unknown): value is StoredAccountType {
+  return typeof value === 'string' && (STORED_ACCOUNT_TYPES as readonly string[]).includes(value)
+}
+
+// Collapses a stored override to the coarse bucket the role classifier and balances views use:
+// Cash is an Asset, Conversion is Equity, everything else maps to itself.
+export function toClassifierType(type: StoredAccountType): AccountType {
+  if (type === 'cash') return 'asset'
+  if (type === 'conversion') return 'equity'
+  return type
 }
 
 // The per-user root paths the resolver matches against. Mirrors the userSettings columns.
@@ -68,14 +93,16 @@ export function resolveAccountType(path: string, roots: AccountTypeRoots): Accou
   return best?.type ?? null
 }
 
-// Stored-wins-else-infer: the effective type of an account. A valid stored `type` override
-// wins; otherwise fall back to path inference. This is the resolver every consumer (UI, role
-// classifier, journal export) should call so they all agree on one answer. An invalid stored
-// value (shouldn't happen — validated on write) is ignored in favour of inference.
+// Stored-wins-else-infer: the effective hledger type of an account. A valid stored `type`
+// override wins (and may be one of the seven, including Cash/Conversion); otherwise fall back
+// to path inference (which only ever yields the coarse five). This is the resolver every
+// consumer (UI, journal export) should call so they all agree on one answer. An invalid stored
+// value (shouldn't happen — validated on write) is ignored in favour of inference. Consumers
+// that need the coarse classifier bucket run the result through `toClassifierType`.
 export function resolveStoredOrInferredType(
   account: { path: string; type: string | null },
   roots: AccountTypeRoots,
-): AccountType | null {
-  if (isAccountType(account.type)) return account.type
+): StoredAccountType | null {
+  if (isStoredAccountType(account.type)) return account.type
   return resolveAccountType(account.path, roots)
 }

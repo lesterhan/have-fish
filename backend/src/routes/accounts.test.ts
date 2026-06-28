@@ -472,5 +472,12 @@ describe('accounts', () => {
       expect(acct.type).toBeNull()
       expect(acct.resolvedType).toBeNull()
     })
+
+    it('surfaces an override-only type (cash/conversion) that inference cannot produce', async () => {
+      const cashId = await create({ path: 'assets:wise:cad', type: 'cash' })
+      const convId = await create({ path: 'equity:conversion', type: 'conversion' })
+      expect((await get(cashId)).resolvedType).toBe('cash')
+      expect((await get(convId)).resolvedType).toBe('conversion')
+    })
   })
 })
