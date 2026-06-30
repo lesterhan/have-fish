@@ -42,6 +42,19 @@ export function isStoredAccountType(value: unknown): value is StoredAccountType 
   return typeof value === 'string' && (STORED_ACCOUNT_TYPES as readonly string[]).includes(value)
 }
 
+// Maps each stored type to its single-letter hledger account-type code, used by the journal
+// serializer to emit `account <path>  ; type:<CODE>` directives. Codes per hledger docs:
+// A=Asset, C=Cash, L=Liability, E=Equity, R=Revenue(income), X=Expense, V=Conversion.
+export const HLEDGER_TYPE_CODE: Record<StoredAccountType, string> = {
+  asset: 'A',
+  cash: 'C',
+  liability: 'L',
+  equity: 'E',
+  income: 'R',
+  expense: 'X',
+  conversion: 'V',
+}
+
 // Collapses a stored override to the coarse bucket the role classifier and balances views use:
 // Cash is an Asset, Conversion is Equity, everything else maps to itself.
 export function toClassifierType(type: StoredAccountType): AccountType {
