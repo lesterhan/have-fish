@@ -15,9 +15,12 @@ export type Account = {
   defaultCurrency?: string | null
   // Stored hledger type override; null = infer from the path root.
   type?: StoredAccountType | null
-  // Effective type (stored override else path inference). Surfaced by GET /api/accounts;
-  // null when an atypical root has no override. Absent on the single-account GET (raw row).
+  // Effective type (stored override else path inference). Surfaced by GET /api/accounts
+  // and GET /api/accounts/:id; null when an atypical root has no override.
   resolvedType?: StoredAccountType | null
+  // Pure path-inferred type, ignoring any override. Surfaced only by GET /api/accounts/:id —
+  // lets the settings UI show "Auto (inferred: X)". Null for atypical roots.
+  inferredType?: AccountType | null
   createdAt?: string
   deletedAt?: string | null
 }
@@ -32,7 +35,7 @@ export async function fetchAccount(id: string): Promise<Account> {
 
 export async function updateAccount(
   id: string,
-  updates: { name?: string | null; defaultCurrency?: string | null },
+  updates: { name?: string | null; defaultCurrency?: string | null; type?: StoredAccountType | null },
 ): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     method: 'PATCH',

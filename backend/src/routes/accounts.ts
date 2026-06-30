@@ -5,7 +5,7 @@ import { eq, isNull, and, like, or, lte, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { CLEARING_PREFIX } from '../fish-pie-accounts'
-import { resolveAccountType, resolveStoredOrInferredType, DEFAULT_ROOTS, type AccountTypeRoots } from '../postings/account-type'
+import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, DEFAULT_ROOTS, type AccountTypeRoots } from '../postings/account-type'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -306,8 +306,20 @@ app.get('/:id', async (c) => {
     .from(accounts)
     .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
   if (!found) return c.json({ error: 'Not found' }, 404)
-  return c.json(found)
+  const roots = await loadAccountTypeRoots(userId)
+  return c.json(withResolvedTypes(found, roots))
 })
+
+// Enriches an account row with both the effective type (stored override else inference) and
+// the pure inferred type, so the settings UI can show "Auto (inferred: X)" alongside an
+// explicit override. Used by the single-account GET and PATCH so both return the same shape.
+function withResolvedTypes<T extends { path: string; type: string | null }>(account: T, roots: AccountTypeRoots) {
+  return {
+    ...account,
+    resolvedType: resolveStoredOrInferredType(account, roots),
+    inferredType: resolveAccountType(account.path, roots),
+  }
+}
 
 app.post('/', async (c) => {
   const userId = c.get('userId')
@@ -385,6 +397,14 @@ app.patch('/:id', async (c) => {
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]
   }
+  // `type` is the hledger type override. null clears it (back to inference); any other value
+  // must be one of the seven valid types. Reject anything else rather than storing garbage.
+  if ('type' in body) {
+    if (body.type !== null && !isStoredAccountType(body.type)) {
+      return c.json({ error: 'invalid account type' }, 400)
+    }
+    updates.type = body.type
+  }
   if (Object.keys(updates).length === 0) return c.json({ error: 'No valid fields to update' }, 400)
   const [updated] = await db
     .update(accounts)
@@ -392,7 +412,8 @@ app.patch('/:id', async (c) => {
     .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
     .returning()
   if (!updated) return c.json({ error: 'Not found' }, 404)
-  return c.json(updated)
+  const roots = await loadAccountTypeRoots(userId)
+  return c.json(withResolvedTypes(updated, roots))
 })
 
 app.delete('/:id', async (c) => {
