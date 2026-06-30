@@ -307,6 +307,6 @@
 
   .option.active {
     background: var(--color-accent);
-    color: #ffffff;
+    color: var(--color-accent-fg);
   }
 </style>
