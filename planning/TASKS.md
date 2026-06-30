@@ -207,20 +207,28 @@ swap the right-panel into that shared component instead of one-off markup.
 
 # UI polish
 
-## [P1] Theming — fix dark-mode accent/white-text contrast
+## ✅ [P1] Theming — fix dark-mode accent/white-text contrast — DONE
 
-**Context:** In dark mode some accent colors render white text on too-light a
-background (or vice versa), failing contrast. Hard to read.
+**Root cause:** dark-mode `--color-accent` / `--color-accent-hi` are deliberately bright
+pastels (Nord), and the accent system already ships the correct paired text token
+`--color-accent-fg` (flipped to near-black in dark by `accent.ts`). But a cluster of
+components ignored it — hardcoding `color: #ffffff`, or using the wrong static token
+`--color-accent-text` (near-white in *both* themes) — so selected/active surfaces showed
+white-on-pastel. Measured WCAG: every accent failed (1.50–2.49, below the 3.0 floor).
 
-**Task:** Audit accent tokens in `frontend/src/styles/tokens.css` (and dark-mode
-overrides) against WCAG contrast for any place white/light text sits on an accent fill.
-Identify failing pairs, fix the token values (or pick a darker accent variant in dark
-mode). Re-check buttons, pills, badges, selected states.
+**Fix:** retired `--color-accent-text` entirely (it was a near-duplicate of
+`--color-accent-fg` that only the latter kept theme-correct) and pointed every
+text-on-accent surface at `--color-accent-fg`: the four autocomplete dropdowns
+(`CurrencyInput`, `AccountPathInput`, `GroupSelect`, `DateRangeSelector` active rows),
+the `AccountPicker` selected-row treatment, `Checkbox` checkmark, `TransactionRow` radio
+dot, and the spending Σ badge. After: every accent passes AA (7.69–14.04). Light mode
+unchanged (`--color-accent-fg` is `#ffffff` there — identical to the old hardcode).
+`AccentPicker`'s swatch check left as-is: it always renders the *light* swatch variants
+regardless of theme and is shadow-protected, so it's not the dark-mode token bug.
 
-**Notes:**
-- Sweep all `--color-accent-*` uses with light text.
-- Don't break light mode while fixing dark — verify both.
-- Keep the Graphite/Aqua aesthetic; adjust within it.
+**Note (out of scope, pre-existing):** light-mode **ochre** active-fill is white on
+`#b89028` ≈ 2.98 — a hair under AA-large, unchanged by this work. Flag for a future
+light-mode pass if it bothers in practice.
 
 ---
 

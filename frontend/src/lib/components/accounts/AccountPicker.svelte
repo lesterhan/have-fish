@@ -670,7 +670,7 @@
   }
   .row.on {
     background: var(--color-accent);
-    color: var(--color-accent-text);
+    color: var(--color-accent-fg);
   }
   .row.empty {
     color: var(--color-text-disabled);
@@ -701,7 +701,7 @@
   .row.on .leaf,
   .row.on .sep,
   .row.on .hl {
-    color: var(--color-accent-text);
+    color: var(--color-accent-fg);
   }
 
   .chev {
@@ -714,7 +714,7 @@
   }
   .row.on .chev,
   .row.on .chev.dot {
-    color: var(--color-accent-text);
+    color: var(--color-accent-fg);
   }
 
   .best {
@@ -729,8 +729,8 @@
     padding: 0 3px;
   }
   .row.on .best {
-    color: var(--color-accent-text);
-    border-color: var(--color-accent-text);
+    color: var(--color-accent-fg);
+    border-color: var(--color-accent-fg);
     background: transparent;
   }
 
@@ -745,14 +745,14 @@
   }
   .row.create.on {
     background: var(--color-accent);
-    color: var(--color-accent-text);
+    color: var(--color-accent-fg);
   }
   .row.create .ci {
     color: var(--color-accent);
     font-weight: 700;
   }
   .row.create.on .ci {
-    color: var(--color-accent-text);
+    color: var(--color-accent-fg);
   }
   .row.create code {
     font-family: var(--font-mono);

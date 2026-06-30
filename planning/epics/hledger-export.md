@@ -49,28 +49,43 @@ a dumb verbatim emitter; no separate cost-notation story.
 
 ## Type mapping
 
-Our 5 resolver types → hledger type codes:
+The stored override accepts **all seven** hledger types (decided 2026-06-28 — superset of the
+five path inference can produce). Cash and Conversion are override-only: inference never yields
+them. Serializer maps each to its hledger code:
 
-| our type    | hledger code | hledger name |
-|-------------|--------------|--------------|
-| `asset`     | `A`          | Asset        |
-| `liability` | `L`          | Liability    |
-| `equity`    | `E`          | Equity       |
-| `income`    | `R`          | Revenue      |
-| `expense`   | `X`          | Expense      |
+| stored type  | hledger code | hledger name | source           |
+|--------------|--------------|--------------|------------------|
+| `asset`      | `A`          | Asset        | inferred / stored |
+| `cash`       | `C`          | Cash         | stored only      |
+| `liability`  | `L`          | Liability    | inferred / stored |
+| `equity`     | `E`          | Equity       | inferred / stored |
+| `income`     | `R`          | Revenue      | inferred / stored |
+| `expense`    | `X`          | Expense      | inferred / stored |
+| `conversion` | `V`          | Conversion   | stored only      |
 
-We do **not** emit hledger's `C` (Cash) or `V` (Conversion) subtypes in v1 — the resolver
-doesn't distinguish them and hledger reports correctly without them. `equity:conversion`
-exports as plain `E`; `--infer-costs` still works (it keys on the account name, not the type).
+(`income` is hledger's documented alias for Revenue, so the inferred value is already a valid
+hledger type.) Consumers that reason in coarse buckets — balances view, role classifier — run
+the resolved type through `toClassifierType`, which collapses `cash → asset` and
+`conversion → equity`; everything else passes through. So marking an account `conversion`
+changes only the export's precision, not its internal asset/liability/equity behaviour.
+
+**Conversion volume note:** the user has heavy cross-currency / conversion activity, so the
+`type:V` path is exercised a lot. Tag `equity:conversion` (and any other conversion accounts)
+as `conversion` so `hledger --infer-costs`/`--infer-equity` auto-detects the conversion pairs
+and reports correct cost basis. This is the part of the export to test hardest in story 5's CI
+verify harness — conversion-heavy fixtures are the highest-risk round-trip case.
 
 ## Stories
 
 ### 1. `accounts.type` column + stored-wins-else-infer resolver
 
-- Add nullable `accounts.type` (text, holds `asset|liability|equity|income|expense`).
-- Wrap the existing path resolver: a `resolveAccountType` caller path that returns the
-  **stored value when present, else the inferred value**. Same additive pattern as
-  `postings.role` — no caller rework; existing inference callers keep working.
+- Add nullable `accounts.type` (text, holds one of the seven:
+  `asset|cash|liability|equity|income|expense|conversion`). Cash + Conversion are
+  override-only — inference never produces them.
+- Wrap the existing path resolver: `resolveStoredOrInferredType` returns the **stored value
+  when present (one of seven), else the inferred value** (one of five). `toClassifierType`
+  collapses Cash→asset / Conversion→equity for coarse-bucket consumers. Same additive pattern
+  as `postings.role` — no caller rework; existing inference callers keep working.
 - Backfill is implicit: stored column stays null, inference continues to answer. No data
   migration needed beyond the column add.
 - Read API (`GET /api/accounts`) surfaces the resolved type so the UI and serializer share
@@ -83,10 +98,11 @@ exports as plain `E`; `--infer-costs` still works (it keys on the account name, 
 - Let the user set/clear an account's `type`. This is the unlock for atypically-named roots
   (`储蓄:中国银行` → Asset, `花钱:房租` → Expense) that path inference returns null for and
   would otherwise export with no `type:` directive.
-- Surface: account settings / single-account view — a type select defaulting to the inferred
-  value, with an explicit "override" affordance so the user sees inferred vs. stored.
-- `PATCH /api/accounts/:id` accepts `type` (one of the five, or null to clear). Tests for
-  set, clear, and invalid value rejection.
+- Surface: account settings / single-account view — a type select over all seven hledger
+  types, defaulting to the inferred value, with an explicit "override" affordance so the user
+  sees inferred vs. stored. Cash + Conversion appear only here (inference can't reach them).
+- `PATCH /api/accounts/:id` accepts `type` (one of the seven, or null to clear), validated via
+  `isStoredAccountType`. Tests for set, clear, and invalid value rejection.
 
 ### 3. Journal serializer
 
@@ -127,7 +143,6 @@ exports as plain `E`; `--infer-costs` still works (it keys on the account name, 
   correctness; assertions are redundant integrity belt-and-suspenders. Revisit later.
 - **Round-trip import** (parse `.journal` → transactions) — the escape hatch is
   one-directional. Separate future epic.
-- **Cash / Conversion hledger subtypes** — see type-mapping note.
 
 ## Sequencing
 
