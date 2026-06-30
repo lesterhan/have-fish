@@ -268,10 +268,10 @@
 
   .group-option.active {
     background: var(--color-accent);
-    color: #ffffff;
+    color: var(--color-accent-fg);
   }
 
   .group-option.active .recent-icon {
-    color: #ffffff;
+    color: var(--color-accent-fg);
   }
 </style>

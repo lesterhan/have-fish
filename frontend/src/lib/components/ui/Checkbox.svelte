@@ -76,7 +76,7 @@
     display: flex;
     align-items: center;
     justify-content: center;
-    color: #ffffff;
+    color: var(--color-accent-fg);
     transition:
       background var(--duration-fast) var(--ease),
       border-color var(--duration-fast) var(--ease);

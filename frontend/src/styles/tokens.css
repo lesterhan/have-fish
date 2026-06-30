@@ -94,8 +94,7 @@
   /* legacy aliases — components updated in story 4 */
   --color-accent-mid: #5aa8e8;
   --color-accent-light: #dde6f2;
-  --color-accent-text: #ffffff;
-  --color-accent-fg: #ffffff;   /* foreground ON an accent-filled surface — flips in dark mode */
+  --color-accent-fg: #ffffff;   /* the ONLY text-on-accent token — flipped to dark in dark mode by accent.ts */
   --color-dropdown-active: #2a78c0;
 
   /* --- Borders --- */
@@ -237,7 +236,6 @@
   --color-titlebar-accent: linear-gradient(180deg, #88c0d0, #4a8a9a);
   --color-accent-mid: #88c0d0;
   --color-accent-light: #2a3a44;
-  --color-accent-text: #eceff4;
   --color-dropdown-active: #4a8a9a;
 
   /* --- Borders --- */

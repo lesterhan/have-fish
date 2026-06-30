@@ -678,7 +678,7 @@
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.6px;
-    color: #ffffff;
+    color: var(--color-accent-fg);
     background: var(--color-accent);
     padding: 2px 5px;
     line-height: 1;

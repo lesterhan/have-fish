@@ -319,7 +319,7 @@
     position: absolute;
     inset: 3px;
     border-radius: 50%;
-    background: var(--color-accent-text);
+    background: var(--color-accent-fg);
     opacity: 0.85;
   }
 
