@@ -1,7 +1,20 @@
 # Productionize have-fish
 
-Research and planning for taking have-fish from a self-hosted personal tool to a small
-public service. The priority ordering, agreed at kickoff (2026-07-04):
+Research and planning for taking have-fish from a self-hosted personal tool to a public
+product. Two directions are being explored in parallel:
+
+- **Track A — cloud-hosted SaaS** (docs `01`–`08` in this directory): we operate the
+  service, users' data lives in our database, revenue via subscriptions.
+- **Track B — local-first executable** ([`local-first/`](local-first/README.md)): a
+  self-contained binary users download; all data stays on their machine; multi-user
+  features (Fish Pie) redesigned around an E2E-encrypted sync relay; revenue via paid
+  sync. Added 2026-07-04.
+
+The tracks share one `PROGRESS.md` and much of the compliance/billing research (Track
+B's relay is a miniature Track A). A decision memo choosing between them (or a hybrid)
+is queued as the capstone once both are fleshed out.
+
+The priority ordering, agreed at kickoff (2026-07-04):
 
 1. **Security and reliability infrastructure first** — users' financial data must be safe
    before anything else.
@@ -36,6 +49,7 @@ when we're ready to execute.
 | 06 | [infrastructure-reliability.md](06-infrastructure-reliability.md) | Hosting, backups, DR, TLS, scaling | Outline |
 | 07 | [observability-operations.md](07-observability-operations.md) | Logging, monitoring, alerting, incident response | Outline |
 | 08 | [launch-readiness.md](08-launch-readiness.md) | Legal, ToS/privacy policy, support, cost model | Outline |
+| L* | [local-first/](local-first/README.md) | **Track B** — self-contained executable, local data | See its index |
 
 ## Non-negotiable product constraints (from CLAUDE.md vision)
 

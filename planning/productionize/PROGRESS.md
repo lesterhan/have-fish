@@ -17,6 +17,20 @@ Keep entries short — details belong in the numbered documents.
 | 07 observability-operations | Outline only | Write full doc: logging redaction rules, metrics, alerting, incident response runbook |
 | 08 launch-readiness | Outline only | Write full doc: ToS/privacy policy sourcing, support channel, cost model, abuse handling |
 
+### Track B — local-first (`local-first/`)
+
+| Doc | Status | Next action |
+|-----|--------|-------------|
+| L01 architecture-packaging | Draft | Run the P1 kill-or-commit spike (compiled binary + embedded assets + SQLite/PGlite) |
+| L02 data-layer | Draft | Bake-off SQLite vs PGlite in the P1 spike; then decide (recommendation: SQLite) |
+| L03 fish-pie-sync | Draft | Paper design spike: event-log schema + settlement state machine; answer LQ1/LQ3 |
+| L04 fx-offline | Draft | Small; ready to become an epic whenever |
+| L05 distribution-updates | Outline only | Write full doc: signing pipeline details, update mechanism, website |
+| L06 monetization-licensing | Outline only | Write full doc after L03 spike (paid-sync is the leading model) |
+| L07 security-local | Outline only | Write full doc: localhost/DNS-rebinding defenses are the priority section |
+| L08 mobile-local | Outline only | Blocked on LQ3 (relay personal sync) — write after L03 spike |
+| — Track decision memo | Not started | Capstone: A vs B vs both, after L05/L06 exist |
+
 ## Session log
 
 ### 2026-07-04 — Session 1 (kickoff)
@@ -39,6 +53,24 @@ Keep entries short — details belong in the numbered documents.
 - Better Auth has an official **Stripe plugin** that models subscriptions on the auth
   layer — natural fit for entitlements (doc 05).
 
+### 2026-07-04 — Session 1b (same day): Track B added
+
+**Done:**
+- Owner requested a parallel exploration: self-contained executable, all data local.
+- Created `local-first/` with its own README + L01–L08. Drafts: L01 (form factor —
+  recommend Bun compiled binary + browser now, Tauri wrap later), L02 (embedded DB —
+  recommend SQLite over PGlite, schema translation costed), L03 (Fish Pie redesign —
+  recommend v1 single-user, then E2E-encrypted sync relay à la Actual Budget; this
+  is also the leading revenue model), L04 (offline FX — seed data + manual rates).
+  Outlines: L05 (distribution/signing — real costs researched: ~US$320+/yr),
+  L06 (monetization — free app + paid sync leads), L07 (security — localhost/DNS
+  rebinding is the new headline risk), L08 (mobile — blocked on LQ3).
+
+**Key insight:** Track B eliminates most of Track A's heaviest liabilities (tenant
+isolation, ledger-breach exposure, backup custody) and replaces them with three new
+ones: update supply chain, localhost attack surface, and the Fish Pie sync redesign —
+which is the single biggest work item in either track (~2–3 months alone).
+
 ## Open questions for the owner
 
 - **Q1 (doc 03):** Target market/jurisdictions? Canada-only launch vs. accepting EU
@@ -53,6 +85,20 @@ Keep entries short — details belong in the numbered documents.
   managed provider (Fly.io/Hetzner/DigitalOcean + managed Postgres)? Affects every doc.
 - **Q5 (doc 08, when written):** Business entity — launch as sole proprietor or
   incorporate first? Liability shielding matters when holding others' financial data.
+
+### Track B open questions
+
+- **LQ1 (L03):** Is multi-currency settlement math order-independent under the
+  event-log/CRDT design? Needs the paper spike; existing fish-pie tests are the
+  conformance corpus.
+- **LQ2 (L02):** Optional passphrase encryption of the local SQLite file — v1 says
+  rely on OS disk encryption; revisit with `better-sqlite3-multiple-ciphers`.
+- **LQ3 (L03/L08):** Does the sync relay also do *personal* multi-device sync (not
+  just Fish Pie groups)? Leaning yes — it's the strongest paid-tier pitch and the
+  unlock for true local mobile.
+- **LQ4 (capstone):** Track A vs Track B vs both from one codebase? Both = permanent
+  dual-dialect/dual-auth tax (L02/L01); decide after L05/L06 are written and Track A
+  Q1/Q3/Q4 are answered.
 
 ## Conventions for future sessions
 
