@@ -62,6 +62,8 @@
 | [Companion Payment Row](epics/companion-payment-row.md) | Backlog |
 | [Companion Theming (Light/Dark + Accents)](epics/companion-theming.md) | Backlog |
 | [Fish Pie: Cross-Currency Settlement](epics/archive/fish-pie-cross-currency-settlement.md) | Done |
+| [Fish Pie: Books (trips & one-off pots)](epics/fish-pie-books.md) | Scoped |
+| [Import Coverage — catch-up board](epics/import-coverage.md) | Scoped |
 
 ## Fish Pie sequence
 
@@ -83,6 +85,10 @@ Pick up the first non-Done item:
 5. **Import Rules v2** (no epic yet, see exploration F16) — then the fish-pie
    auto-split rule action.
 6. **Fish Pie attention/notifications** (no epic yet, see exploration F17).
-7. **Settlement FX consolidation** (no epic yet) — settle all currencies as one
-   amount using stored FX rates.
-8. **hledger export** — after 1–2 stabilize ledger semantics.
+7. ~~**Settlement FX consolidation**~~ — **Done** as
+   [Cross-Currency Settlement](epics/archive/fish-pie-cross-currency-settlement.md):
+   batch settle-up across currencies in one cash transaction.
+8. **[Books](epics/fish-pie-books.md)** — second axis inside a group (Everyday vs a
+   trip) so one-off spending stops polluting the everyday list, while balances and
+   settlement stay group-wide. Independent of 3/5/6; can be picked up any time.
+9. **hledger export** — after 1–2 stabilize ledger semantics.
