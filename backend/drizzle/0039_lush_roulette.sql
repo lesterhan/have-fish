@@ -1,0 +1,2 @@
+ALTER TABLE "import_rules" ADD CONSTRAINT "import_rules_one_target" CHECK (("import_rules"."account_id" IS NOT NULL AND "import_rules"."group_id" IS NULL AND "import_rules"."category_id" IS NULL)
+        OR ("import_rules"."account_id" IS NULL AND "import_rules"."group_id" IS NOT NULL));

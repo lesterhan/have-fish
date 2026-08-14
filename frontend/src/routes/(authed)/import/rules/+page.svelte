@@ -55,10 +55,21 @@
     loading = false
   })
 
+  // A rule targets either an expense account or a Fish Pie group. This screen only
+  // creates and edits the account kind; a group rule shows its target read-only until
+  // the split editor lands.
+  function ruleTarget(rule: ImportRule): string {
+    if (rule.accountPath) return rule.accountPath
+    if (rule.groupName) {
+      return rule.categoryName ? `${rule.groupName} · ${rule.categoryName}` : rule.groupName
+    }
+    return ''
+  }
+
   function startEdit(rule: ImportRule) {
     editingId = rule.id
     editPattern = rule.pattern
-    editAccountId = rule.accountId
+    editAccountId = rule.accountId ?? ''
     showAddForm = false
   }
 
@@ -261,7 +272,7 @@
           {:else}
             <tr>
               <td class="cell-pattern">{rule.pattern}</td>
-              <td class="cell-mono">{rule.accountPath}</td>
+              <td class="cell-mono">{ruleTarget(rule)}</td>
               <td class="cell-actions">
                 <div class="action-row">
                   <GradientButton

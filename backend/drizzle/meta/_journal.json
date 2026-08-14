@@ -267,6 +267,20 @@
       "when": 1782631902407,
       "tag": "0037_adorable_loa",
       "breakpoints": true
+    },
+    {
+      "idx": 38,
+      "version": "7",
+      "when": 1786691664570,
+      "tag": "0038_special_blindfold",
+      "breakpoints": true
+    },
+    {
+      "idx": 39,
+      "version": "7",
+      "when": 1786692715892,
+      "tag": "0039_lush_roulette",
+      "breakpoints": true
     }
   ]
 }

@@ -782,24 +782,37 @@ export async function fetchFxRateAsOf(
   return res.json()
 }
 
+// A rule points at exactly one target: an expense account, or a Fish Pie group with an
+// optional category. The fields for the other kind are null, so `accountId === null`
+// distinguishes the two. The backend enforces that exactly one is set.
 export type ImportRule = {
   id: string
   pattern: string
-  accountId: string
-  accountPath: string
+  accountId: string | null
+  accountPath: string | null
   accountName: string | null
+  groupId: string | null
+  groupName: string | null
+  categoryId: string | null
+  categoryName: string | null
   status: 'active' | 'suggested' | 'denied'
   matchCount: number
   createdAt: string
   updatedAt: string
 }
 
+// Exactly one target per call. Sending a target on update replaces the existing one
+// wholesale — patching an account rule with a groupId clears its account, and vice versa.
+export type RuleTarget =
+  | { accountId: string }
+  | { groupId: string; categoryId?: string | null }
+
 export async function fetchRules(): Promise<ImportRule[]> {
   const res = await fetch(`${BASE}/api/rules`, { credentials: 'include' })
   return res.json()
 }
 
-export async function createRule(body: { pattern: string; accountId: string }): Promise<ImportRule> {
+export async function createRule(body: { pattern: string } & RuleTarget): Promise<ImportRule> {
   const res = await fetch(`${BASE}/api/rules`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -810,7 +823,10 @@ export async function createRule(body: { pattern: string; accountId: string }): 
   return res.json()
 }
 
-export async function updateRule(id: string, body: { pattern?: string; accountId?: string }): Promise<ImportRule> {
+export async function updateRule(
+  id: string,
+  body: { pattern?: string } & Partial<RuleTarget>,
+): Promise<ImportRule> {
   const res = await fetch(`${BASE}/api/rules/${id}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json' },
