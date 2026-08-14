@@ -5,6 +5,7 @@
   import FishPiePills from './FishPiePills.svelte'
   import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import { tooltip } from '$lib/tooltip'
   import type {
     Account,
     TransferParsedTransaction,
@@ -43,6 +44,13 @@
   // Anchors the group dropdown to the input column (inside the label gutter) rather than
   // the whole cell, so it lines up with the field it replaces instead of jumping flush-left.
   let splitAnchorEl: HTMLElement | null = $state(null)
+
+  // The split still matches what the rule suggested. Re-pointing the row at a different
+  // group is the user's own choice, so the indicator drops off rather than crediting a
+  // rule for it.
+  let splitFromRule = $derived(
+    !!tx.suggestedGroupId && rowState.groupId === tx.suggestedGroupId,
+  )
 
   // The leg the Fish Pie split is measured against: the target (what was actually spent) for
   // a cross-currency row, or the single amount for a same-currency transfer.
@@ -106,14 +114,24 @@
       {#if rowState.groupId}
         <div class="field">
           <span class="field-label">split</span>
-          <FishPiePills
-            {groups}
-            groupId={rowState.groupId}
-            categoryId={rowState.categoryId}
-            amount={splitAmount}
-            currency={splitCurrency}
-            {currentUserId}
-          />
+          <div class="pills-wrap">
+            <FishPiePills
+              {groups}
+              groupId={rowState.groupId}
+              categoryId={rowState.categoryId}
+              amount={splitAmount}
+              currency={splitCurrency}
+              {currentUserId}
+            />
+            {#if splitFromRule}
+              <span
+                class="indicator-icon"
+                use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
+              >
+                <Icon name="computer" size={16} />
+              </span>
+            {/if}
+          </div>
         </div>
       {:else if !splitSelectOpen}
         {#if tx.isTransfer === true}
@@ -281,6 +299,13 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     margin-top: 1px;
+  }
+
+  /* Keeps the rule indicator on the pills' baseline instead of pushing it to a new line. */
+  .pills-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
   }
 
   .kind-flip-wrap {

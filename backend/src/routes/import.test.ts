@@ -203,6 +203,109 @@ describe('POST /api/import/preview', () => {
     expect(body.transactions[0].merchantKey).toBeUndefined()
   })
 
+  // --- Split-target rules on preview ---
+
+  async function createGroupWithCategory(c: string, groupName: string, categoryName?: string) {
+    const groupRes = await app.request('/api/fish-pie/groups', {
+      method: 'POST',
+      headers: { Cookie: c, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: groupName }),
+    })
+    const group = await groupRes.json()
+    if (!categoryName) return { groupId: group.id as string, categoryId: null }
+
+    const catRes = await app.request(`/api/fish-pie/groups/${group.id}/categories`, {
+      method: 'POST',
+      headers: { Cookie: c, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: categoryName }),
+    })
+    return { groupId: group.id as string, categoryId: (await catRes.json()).id as string }
+  }
+
+  function createRule(c: string, body: Record<string, unknown>) {
+    return app.request('/api/rules', {
+      method: 'POST',
+      headers: { Cookie: c, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('suggests a group and category from a matching split rule', async () => {
+    await createParser(cookie)
+    const { groupId, categoryId } = await createGroupWithCategory(cookie, 'Household', 'Groceries')
+    await createRule(cookie, { pattern: 'Coffee', groupId, categoryId })
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    const body = await res.json()
+
+    const row = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    expect(row.suggestedGroupId).toBe(groupId)
+    expect(row.suggestedCategoryId).toBe(categoryId)
+    expect(row.matchedRulePattern).toBe('Coffee')
+    // A split rule stores no expense account — the leg derives from the category at commit.
+    expect(row.suggestedOffsetAccountId).toBeUndefined()
+  })
+
+  it('suggests a group with a null category for an uncategorized split rule', async () => {
+    await createParser(cookie)
+    const { groupId } = await createGroupWithCategory(cookie, 'Household')
+    await createRule(cookie, { pattern: 'Coffee', groupId })
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    const body = await res.json()
+
+    const row = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    expect(row.suggestedGroupId).toBe(groupId)
+    expect(row.suggestedCategoryId).toBeNull()
+  })
+
+  it('lets the first matching rule win regardless of target kind', async () => {
+    await createParser(cookie)
+    const coffeeShop = await createAccount(cookie, 'expenses:coffee')
+    const { groupId } = await createGroupWithCategory(cookie, 'Household')
+
+    // Two rules both matching "Coffee"; whichever was created first is the one applied.
+    await createRule(cookie, { pattern: 'Coffee', groupId })
+    await createRule(cookie, { pattern: 'Cof', accountId: coffeeShop.id })
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    const body = await res.json()
+
+    const row = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    expect(row.suggestedGroupId).toBe(groupId)
+    expect(row.suggestedOffsetAccountId).toBeUndefined()
+  })
+
+  it('does not apply a split rule that is only suggested', async () => {
+    await createParser(cookie)
+    const { groupId } = await createGroupWithCategory(cookie, 'Household')
+    const created = await (await createRule(cookie, { pattern: 'Coffee', groupId })).json()
+    await db.update(importRules).set({ status: 'suggested' }).where(eq(importRules.id, created.id))
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(TEST_CSV),
+    })
+    const body = await res.json()
+
+    const row = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    expect(row.suggestedGroupId).toBeUndefined()
+    expect(row.matchedRulePattern).toBeUndefined()
+  })
+
   it('does not use a parser belonging to another user', async () => {
     const otherCookie = await createTestUser('other@example.com')
     await createParser(otherCookie)
@@ -326,6 +429,25 @@ describe('POST /api/import/preview', () => {
     const convertRow = body.transactions.find((t: { description: string }) => t.description === 'Test User')
     expect(convertRow.merchantKey).toBe('Test User')
     expect(convertRow.matchedRulePattern).toBeUndefined()
+  })
+
+  it('suggests a split on a cross-currency spend row', async () => {
+    await createMultiParser(cookie)
+    const { groupId, categoryId } = await createGroupWithCategory(cookie, 'Trip', 'Food')
+    await createRule(cookie, { pattern: 'Prague', groupId, categoryId })
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: multiCsvForm(),
+    })
+    const body = await res.json()
+
+    const spendRow = body.transactions.find((t: { description: string }) => t.description === 'Prague Coffee House')
+    expect(spendRow.suggestedKind).toBe('spend')
+    expect(spendRow.suggestedGroupId).toBe(groupId)
+    expect(spendRow.suggestedCategoryId).toBe(categoryId)
+    expect(spendRow.suggestedExpenseAccountId).toBeUndefined()
   })
 })
 
@@ -765,6 +887,61 @@ describe('POST /api/import/commit — group splits', () => {
     expect(splits).toHaveLength(2)
     const total = splits.reduce((s, r) => s + parseFloat(r.amount), 0)
     expect(total).toBeCloseTo(1200, 1)
+  })
+
+  // Ties story 3's contract to commit: what preview suggests for a split rule is exactly
+  // what the frontend sends back as a groupSplit, with no translation in between.
+  it('commits a row pre-split by an import rule as a group expense', async () => {
+    await app.request('/api/parsers', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify(TEST_PARSER),
+    })
+    const catRes = await app.request(`/api/fish-pie/groups/${groupId}/categories`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Coffee runs' }),
+    })
+    const categoryId = ((await catRes.json()) as any).id
+    await app.request('/api/rules', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pattern: 'Coffee', groupId, categoryId }),
+    })
+
+    const previewRes = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookieA },
+      body: csvForm(TEST_CSV),
+    })
+    const preview = (await previewRes.json()) as any
+    const coffeeIdx = preview.transactions.findIndex((t: any) => t.description === 'Coffee')
+    const suggested = preview.transactions[coffeeIdx]
+    expect(suggested.suggestedGroupId).toBe(groupId)
+
+    const res = await app.request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: sourceId,
+        defaultCurrency: 'CAD',
+        transactions: [regularRow('Coffee', suggested.amount)],
+        groupSplits: [
+          { rowIndex: 0, groupId: suggested.suggestedGroupId, categoryId: suggested.suggestedCategoryId },
+        ],
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    expect(((await res.json()) as any).fishPieExpenses).toBe(1)
+
+    const expenses = await db
+      .select()
+      .from(groupExpenses)
+      .where(and(eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
+    expect(expenses).toHaveLength(1)
+    expect(expenses[0].amount).toBe('42.50')
+    expect(expenses[0].categoryId).toBe(categoryId)
   })
 
   it('row without split creates transaction only', async () => {

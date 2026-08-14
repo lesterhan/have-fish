@@ -177,27 +177,36 @@
       // Populate rowStates BEFORE assigning preview — the template renders
       // ImportPreviewPanel as soon as preview is truthy, so rowStates must
       // already have one entry per transaction to avoid undefined[i] errors.
-      rowStates = fetched.transactions.map((tx, i) => ({
-        offsetAccountId:
-          tx.isTransfer === false && tx.suggestedOffsetAccountId
-            ? tx.suggestedOffsetAccountId
-            : toAccountId,
-        conversionAccountId:
-          settingsStore.value?.defaultConversionAccountId ?? '',
-        feeAccountId: fetched.defaultFeeAccountId ?? '',
-        skipped: perRowDuplicates[i] != null,
-        possibleDuplicate: perRowDuplicates[i] ?? null,
-        groupId: null,
-        categoryId: null,
-        // Cross-currency rows default to spend unless the preview flagged a convert-and-park.
-        kind: tx.isTransfer === true ? (tx.suggestedKind ?? 'spend') : 'spend',
-        // Spend rows pre-fill the expense account from the import rule, else fall back to the
-        // uncategorized account so the spend is still importable and surfaces for review.
-        expenseAccountId:
-          tx.isTransfer === true && tx.suggestedKind !== 'transfer'
-            ? (tx.suggestedExpenseAccountId ?? toAccountId)
-            : '',
-      }))
+      rowStates = fetched.transactions.map((tx, i) => {
+        // A matching split rule pre-splits the row instead of pre-filling an account.
+        // A convert-and-park is excluded: it moves money between the user's own accounts,
+        // so there is no expense to share.
+        const isSplitSuggestion =
+          !!tx.suggestedGroupId && !(tx.isTransfer === true && tx.suggestedKind === 'transfer')
+
+        return {
+          offsetAccountId:
+            tx.isTransfer === false && tx.suggestedOffsetAccountId
+              ? tx.suggestedOffsetAccountId
+              : toAccountId,
+          conversionAccountId:
+            settingsStore.value?.defaultConversionAccountId ?? '',
+          feeAccountId: fetched.defaultFeeAccountId ?? '',
+          skipped: perRowDuplicates[i] != null,
+          possibleDuplicate: perRowDuplicates[i] ?? null,
+          groupId: isSplitSuggestion ? (tx.suggestedGroupId ?? null) : null,
+          categoryId: isSplitSuggestion ? (tx.suggestedCategoryId ?? null) : null,
+          // Cross-currency rows default to spend unless the preview flagged a convert-and-park.
+          kind: tx.isTransfer === true ? (tx.suggestedKind ?? 'spend') : 'spend',
+          // Spend rows pre-fill the expense account from the import rule, else fall back to the
+          // uncategorized account so the spend is still importable and surfaces for review.
+          // A split row leaves it empty — its expense leg derives from the category at commit.
+          expenseAccountId:
+            tx.isTransfer === true && tx.suggestedKind !== 'transfer' && !isSplitSuggestion
+              ? (tx.suggestedExpenseAccountId ?? toAccountId)
+              : '',
+        }
+      })
       preview = fetched
     } catch (e) {
       error =

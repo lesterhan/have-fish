@@ -136,9 +136,17 @@ export type PossibleDuplicate = {
 // row has no description, or when the description normalizes to nothing.
 // matchedRulePattern names the active import rule that produced this row's suggestion,
 // so an auto-applied assignment can be attributed rather than appearing unexplained.
+//
+// A matching rule targets either an account or a Fish Pie split, never both. The account
+// suggestion is per-row-kind (suggestedOffsetAccountId / suggestedExpenseAccountId); the
+// split suggestion below is shared, since both kinds commit through the same builders.
+// suggestedCategoryId is null on an uncategorized split rule, so its presence is not a
+// reliable test — check suggestedGroupId.
 type MerchantFields = {
   merchantKey?: string
   matchedRulePattern?: string
+  suggestedGroupId?: string
+  suggestedCategoryId?: string | null
 }
 
 export type RegularParsedTransaction = MerchantFields & {
