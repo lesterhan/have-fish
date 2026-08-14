@@ -32,7 +32,8 @@
 | [hledger Journal Export](epics/hledger-export.md) | Scoped |
 | [Cross-Currency Spend Import + Heal](epics/archive/cross-currency-spend-import.md) | Done |
 | [Import Rules](epics/archive/import-rules.md) | Done |
-| [Import Rules — Fish Pie Splits & Inline Capture](epics/import-rules-fish-pie.md) | Backlog |
+| [Import Rules — Fish Pie Splits & Inline Capture](epics/import-rules-fish-pie.md) | Folded into Import Flow Redesign |
+| [Import Flow — Multi-Step Redesign](epics/import-flow-redesign.md) | Scoped |
 | [Spending Account Filter](epics/spending-account-filter.md) | Backlog |
 | [FX Rates & Preferred Currency](epics/archive/fx-rates.md) | Done |
 | [Action Required](epics/archive/action-required.md) | Done |
