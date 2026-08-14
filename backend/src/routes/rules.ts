@@ -1,6 +1,15 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { importRules, accounts, transactions, postings, userSettings } from '../db/schema'
+import {
+  importRules,
+  accounts,
+  transactions,
+  postings,
+  userSettings,
+  expenseGroups,
+  expenseGroupMembers,
+  groupCategories,
+} from '../db/schema'
 import { eq, isNull, and } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { cleanDescription, merchantKey } from '../import/merchant'
@@ -10,27 +19,103 @@ export { cleanDescription }
 
 const app = new Hono<{ Variables: AppVariables }>()
 
+// Resolves the target of a create/patch body into the columns to write.
+//
+// A rule targets exactly one of an expense account or a Fish Pie split; the two are
+// mutually exclusive, so setting one clears the other. Returns an error message instead
+// of throwing so callers can turn it into the right status code.
+type TargetColumns = { accountId: string | null; groupId: string | null; categoryId: string | null }
+async function resolveTarget(
+  userId: string,
+  body: Record<string, unknown>,
+): Promise<{ columns: TargetColumns } | { error: string; status: 400 | 403 | 404 }> {
+  const hasAccount = body.accountId != null
+  const hasGroup = body.groupId != null
+
+  if (hasAccount && hasGroup) {
+    return { error: 'a rule targets either accountId or groupId, not both', status: 400 }
+  }
+  if (!hasAccount && !hasGroup) {
+    return { error: 'a rule requires either accountId or groupId', status: 400 }
+  }
+
+  if (hasAccount) {
+    if (typeof body.accountId !== 'string') return { error: 'accountId must be a UUID string', status: 400 }
+    if (body.categoryId != null) {
+      return { error: 'categoryId is only valid with groupId', status: 400 }
+    }
+    const [owned] = await db
+      .select({ id: accounts.id })
+      .from(accounts)
+      .where(and(eq(accounts.id, body.accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    if (!owned) return { error: 'account not found', status: 404 }
+    return { columns: { accountId: body.accountId, groupId: null, categoryId: null } }
+  }
+
+  if (typeof body.groupId !== 'string') return { error: 'groupId must be a UUID string', status: 400 }
+
+  // The rule may only target a group the user is actually in — otherwise an import
+  // could post into a stranger's shared ledger.
+  const [membership] = await db
+    .select({ id: expenseGroupMembers.id })
+    .from(expenseGroupMembers)
+    .innerJoin(expenseGroups, eq(expenseGroups.id, expenseGroupMembers.groupId))
+    .where(
+      and(
+        eq(expenseGroupMembers.groupId, body.groupId),
+        eq(expenseGroupMembers.userId, userId),
+        isNull(expenseGroups.deletedAt),
+      ),
+    )
+  if (!membership) return { error: 'not a member of that group', status: 403 }
+
+  if (body.categoryId == null) {
+    return { columns: { accountId: null, groupId: body.groupId, categoryId: null } }
+  }
+  if (typeof body.categoryId !== 'string') return { error: 'categoryId must be a UUID string', status: 400 }
+
+  // A category is only meaningful inside its own group, and an archived one would
+  // produce expenses the user can no longer categorize by hand.
+  const [category] = await db
+    .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
+    .from(groupCategories)
+    .where(and(eq(groupCategories.id, body.categoryId), eq(groupCategories.groupId, body.groupId)))
+  if (!category) return { error: 'category not found in that group', status: 404 }
+  if (category.archivedAt) return { error: 'category is archived', status: 400 }
+
+  return { columns: { accountId: null, groupId: body.groupId, categoryId: body.categoryId } }
+}
+
+// Shared select shape for rule listings. Left joins throughout: a rule has exactly one
+// target, so the columns for the other kind are always null.
+const ruleColumns = {
+  id: importRules.id,
+  pattern: importRules.pattern,
+  accountId: importRules.accountId,
+  accountPath: accounts.path,
+  accountName: accounts.name,
+  groupId: importRules.groupId,
+  groupName: expenseGroups.name,
+  categoryId: importRules.categoryId,
+  categoryName: groupCategories.name,
+  status: importRules.status,
+  matchCount: importRules.matchCount,
+  createdAt: importRules.createdAt,
+  updatedAt: importRules.updatedAt,
+}
+
 // GET /api/rules
-// Returns all non-deleted rules (active + suggested) for the current user.
-// Joins accounts to include accountPath for display.
+// Returns all non-deleted rules (active + suggested + denied) for the current user,
+// with the display fields for whichever target kind each rule uses.
 app.get('/', async (c) => {
   const userId = c.get('userId')
 
-  // TODO: join accounts to include accountPath and accountName
   const rules = await db
-    .select({
-      id: importRules.id,
-      pattern: importRules.pattern,
-      accountId: importRules.accountId,
-      accountPath: accounts.path,
-      accountName: accounts.name,
-      status: importRules.status,
-      matchCount: importRules.matchCount,
-      createdAt: importRules.createdAt,
-      updatedAt: importRules.updatedAt,
-    })
+    .select(ruleColumns)
     .from(importRules)
-    .innerJoin(accounts, eq(importRules.accountId, accounts.id))
+    .leftJoin(accounts, eq(importRules.accountId, accounts.id))
+    .leftJoin(expenseGroups, eq(importRules.groupId, expenseGroups.id))
+    .leftJoin(groupCategories, eq(importRules.categoryId, groupCategories.id))
     .where(and(eq(importRules.userId, userId), isNull(importRules.deletedAt)))
 
   return c.json(rules)
@@ -38,18 +123,22 @@ app.get('/', async (c) => {
 
 // POST /api/rules
 // Creates a rule manually. status defaults to 'active'.
-// Body: { pattern: string, accountId: string }
+// Body: { pattern: string } plus exactly one target:
+//   { accountId } — post to an expense account
+//   { groupId, categoryId? } — split into a Fish Pie group
 app.post('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
-  const { pattern, accountId } = body
+  const { pattern } = body
 
   if (!pattern || typeof pattern !== 'string') return c.json({ error: 'pattern is required' }, 400)
-  if (!accountId || typeof accountId !== 'string') return c.json({ error: 'accountId is required' }, 400)
+
+  const target = await resolveTarget(userId, body)
+  if ('error' in target) return c.json({ error: target.error }, target.status)
 
   const [created] = await db
     .insert(importRules)
-    .values({ userId, pattern, accountId, status: 'active' })
+    .values({ userId, pattern, ...target.columns, status: 'active' })
     .returning()
 
   return c.json(created, 201)
@@ -150,7 +239,11 @@ app.post('/mine', async (c) => {
 })
 
 // PATCH /api/rules/:id
-// Updates pattern and/or accountId. At least one field required.
+// Updates the pattern and/or the target. At least one field required.
+//
+// The target is replaced wholesale, never merged: sending accountId on a split rule
+// clears groupId and categoryId, and vice versa. Merging would let a partial patch
+// leave a rule with both targets set, which is the one state the model forbids.
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
@@ -161,9 +254,10 @@ app.patch('/:id', async (c) => {
     patch.pattern = body.pattern
   }
 
-  if ('accountId' in body) {
-    if (!body.accountId || typeof body.accountId !== 'string') return c.json({ error: 'accountId must be a UUID string' }, 400)
-    patch.accountId = body.accountId
+  if ('accountId' in body || 'groupId' in body || 'categoryId' in body) {
+    const target = await resolveTarget(userId, body)
+    if ('error' in target) return c.json({ error: target.error }, target.status)
+    Object.assign(patch, target.columns)
   }
 
   if (Object.keys(patch).length === 0) return c.json({ error: 'at least one field is required' }, 400)

@@ -165,11 +165,22 @@ export const fxRates = pgTable('fx_rates', {
 // 'denied' = a suggestion the user hid. Denied rules keep their row (not soft-deleted) so their
 // pattern stays in mining's skip-set and is never re-suggested. Approving a suggestion flips it to
 // 'active'; denying flips it to 'denied'; reviving flips 'denied' back to 'suggested'.
+// An import rule points a description pattern at exactly one target: either an expense
+// account (accountId) or a Fish Pie split (groupId, with an optional categoryId).
+// Exactly one of accountId / groupId is set — enforced in routes/rules.ts, since the
+// invariant spans two nullable columns.
+//
+// A split rule deliberately stores no expense account: the payer's expense leg is derived
+// from the category at posting-build time, the same way a manual split does it. Storing it
+// here would be a second source of truth that silently goes stale when the category's
+// account mapping changes.
 export const importRules = pgTable('import_rules', {
   id: uuid('id').primaryKey().defaultRandom(),
   userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
   pattern: text('pattern').notNull(),
-  accountId: uuid('account_id').notNull().references(() => accounts.id),
+  accountId: uuid('account_id').references(() => accounts.id),
+  groupId: uuid('group_id').references(() => expenseGroups.id, { onDelete: 'cascade' }),
+  categoryId: uuid('category_id').references(() => groupCategories.id, { onDelete: 'set null' }),
   status: text('status').notNull().default('active'),
   matchCount: integer('match_count').notNull().default(0),
   createdAt: timestamp('created_at').notNull().defaultNow(),

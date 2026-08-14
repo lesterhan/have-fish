@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, groupCategories, user } from '../db/schema'
-import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
+import { eq, isNull, isNotNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader, detectDelimiter, SUPPORTED_DELIMITERS } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
@@ -72,10 +72,22 @@ app.post('/preview', async (c) => {
   // whose pattern is a case-insensitive substring of the description. The matching
   // pattern is returned alongside the suggestion so the UI can name the rule that
   // fired rather than showing an unattributable pre-filled account.
+  //
+  // Split-target rules (groupId set, accountId null) are excluded — the preview applies
+  // account-target rules only, so an active split rule is inert here rather than
+  // suggesting a null account.
   const activeRules = await db
     .select({ pattern: importRules.pattern, accountId: importRules.accountId })
     .from(importRules)
-    .where(and(eq(importRules.userId, userId), eq(importRules.status, 'active'), isNull(importRules.deletedAt)))
+    .where(
+      and(
+        eq(importRules.userId, userId),
+        eq(importRules.status, 'active'),
+        isNull(importRules.deletedAt),
+        isNotNull(importRules.accountId),
+      ),
+    )
+    .then((rows) => rows as { pattern: string; accountId: string }[])
 
   const matchRule = (description: string) =>
     activeRules.find((r) => description.toLowerCase().includes(r.pattern.toLowerCase()))
