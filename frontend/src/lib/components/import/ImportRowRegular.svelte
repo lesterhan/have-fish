@@ -46,6 +46,13 @@
   // replaces. In plain imports (no-label) this resolves to the full cell, as before.
   let splitAnchorEl: HTMLElement | null = $state(null)
 
+  // The split still matches what the rule suggested. Re-pointing the row at a different
+  // group is the user's own choice, so the indicator drops off rather than crediting a
+  // rule for it.
+  let splitFromRule = $derived(
+    !!tx.suggestedGroupId && rowState.groupId === tx.suggestedGroupId,
+  )
+
   function displayAmount(amount: string): string {
     if (!importAsLiabilities) return amount
     const n = parseFloat(amount)
@@ -80,14 +87,24 @@
            edge stays consistent. Plain (non-multi-currency) imports opt out via no-label. -->
       <div class="field" class:no-label={!isMultiCurrency}>
         {#if isMultiCurrency}<span class="field-label">split</span>{/if}
-        <FishPiePills
-          {groups}
-          groupId={rowState.groupId}
-          categoryId={rowState.categoryId}
-          amount={tx.amount}
-          currency={tx.currency ?? defaultCurrency}
-          {currentUserId}
-        />
+        <div class="pills-wrap">
+          <FishPiePills
+            {groups}
+            groupId={rowState.groupId}
+            categoryId={rowState.categoryId}
+            amount={tx.amount}
+            currency={tx.currency ?? defaultCurrency}
+            {currentUserId}
+          />
+          {#if splitFromRule}
+            <span
+              class="indicator-icon"
+              use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
+            >
+              <Icon name="computer" size={16} />
+            </span>
+          {/if}
+        </div>
       </div>
     {:else if !splitSelectOpen}
       <div class="field" class:no-label={!isMultiCurrency}>
@@ -176,6 +193,14 @@
     gap: var(--sp-xs);
     /* Cap the lone account input so it doesn't span the full (now-greedy) column. */
     max-width: 30rem;
+  }
+
+  /* Same row treatment as .offset-wrap, uncapped — pills size to their content and
+     already wrap on their own. */
+  .pills-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
   }
 
   .fishpie-hint {

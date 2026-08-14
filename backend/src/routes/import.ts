@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, groupCategories, user } from '../db/schema'
-import { eq, isNull, isNotNull, and, gte, lte, or, inArray } from 'drizzle-orm'
+import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
 import { parseCsv, normalizeHeader, detectDelimiter, SUPPORTED_DELIMITERS } from '../import/csv-parser'
 import { buildParser } from '../import/dynamic-parser'
 import type { ParsedTransaction, ColumnMapping } from '../import/types'
@@ -73,24 +73,34 @@ app.post('/preview', async (c) => {
   // pattern is returned alongside the suggestion so the UI can name the rule that
   // fired rather than showing an unattributable pre-filled account.
   //
-  // Split-target rules (groupId set, accountId null) are excluded — the preview applies
-  // account-target rules only, so an active split rule is inert here rather than
-  // suggesting a null account.
+  // A rule carries one of two targets. An account rule suggests an offset/expense
+  // account; a split rule suggests a Fish Pie group and optional category, which the
+  // row renders pre-split. First match wins either way, so the two kinds compete on
+  // equal footing rather than one being preferred.
   const activeRules = await db
-    .select({ pattern: importRules.pattern, accountId: importRules.accountId })
+    .select({
+      pattern: importRules.pattern,
+      accountId: importRules.accountId,
+      groupId: importRules.groupId,
+      categoryId: importRules.categoryId,
+    })
     .from(importRules)
-    .where(
-      and(
-        eq(importRules.userId, userId),
-        eq(importRules.status, 'active'),
-        isNull(importRules.deletedAt),
-        isNotNull(importRules.accountId),
-      ),
-    )
-    .then((rows) => rows as { pattern: string; accountId: string }[])
+    .where(and(eq(importRules.userId, userId), eq(importRules.status, 'active'), isNull(importRules.deletedAt)))
 
   const matchRule = (description: string) =>
     activeRules.find((r) => description.toLowerCase().includes(r.pattern.toLowerCase()))
+
+  // Turns a matched rule into the suggestion fields for a row. `accountField` differs by
+  // row kind — a regular row pre-fills its offset account, a cross-currency spend its
+  // expense account — but a split rule suggests the same group/category either way,
+  // since both commit through the Fish Pie posting builders.
+  type MatchedRule = NonNullable<ReturnType<typeof matchRule>>
+  const suggestionFor = (match: MatchedRule, accountField: 'suggestedOffsetAccountId' | 'suggestedExpenseAccountId') => ({
+    ...(match.accountId
+      ? { [accountField]: match.accountId }
+      : { suggestedGroupId: match.groupId, suggestedCategoryId: match.categoryId }),
+    matchedRulePattern: match.pattern,
+  })
 
   // The user's own name — used to tell a convert-and-park (where the counterparty is the
   // user themselves, e.g. a Wise CAD→EUR conversion) from a cross-currency spend (a card
@@ -110,14 +120,12 @@ app.post('/preview', async (c) => {
     if (t.isTransfer === false) {
       if (!t.description) return base
       const match = matchRule(t.description)
-      return match
-        ? { ...base, suggestedOffsetAccountId: match.accountId, matchedRulePattern: match.pattern }
-        : base
+      return match ? { ...base, ...suggestionFor(match, 'suggestedOffsetAccountId') } : base
     }
     if (t.isTransfer === true) {
       // Cross-currency row: default to spend; flag as a convert-and-park only when the
-      // payee/description is the user themselves. For spends, pre-fill the expense account
-      // from the matching import rule so a recognized merchant needs no manual entry.
+      // payee/description is the user themselves. For spends, pre-fill the target from the
+      // matching import rule so a recognized merchant needs no manual entry.
       const desc = (t.description ?? '').trim().toLowerCase()
       const isOwnTransfer = userName.length > 0 && desc.length > 0 && desc.includes(userName)
       if (isOwnTransfer) return { ...base, suggestedKind: 'transfer' as const }
@@ -125,9 +133,7 @@ app.post('/preview', async (c) => {
       return {
         ...base,
         suggestedKind: 'spend' as const,
-        ...(match
-          ? { suggestedExpenseAccountId: match.accountId, matchedRulePattern: match.pattern }
-          : {}),
+        ...(match ? suggestionFor(match, 'suggestedExpenseAccountId') : {}),
       }
     }
     return base

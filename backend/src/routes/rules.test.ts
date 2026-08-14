@@ -515,9 +515,7 @@ describe('rules — split targets', () => {
     })
   })
 
-  it('an active split rule does not suggest an account on import preview', async () => {
-    // Story 3 teaches preview to apply split rules. Until then an active one must be
-    // inert rather than pre-filling a null account.
+  it('an active split rule suggests a group, never an account, on import preview', async () => {
     await postRule(cookie, { pattern: 'Coffee', groupId })
 
     await app.request('/api/parsers', {
@@ -537,7 +535,9 @@ describe('rules — split targets', () => {
     const res = await app.request('/api/import/preview', { method: 'POST', headers: { Cookie: cookie }, body: form })
     expect(res.status).toBe(200)
     const body = await res.json()
+    expect(body.transactions[0].suggestedGroupId).toBe(groupId)
+    expect(body.transactions[0].matchedRulePattern).toBe('Coffee')
+    // A split rule stores no account, so there is none to suggest.
     expect(body.transactions[0].suggestedOffsetAccountId).toBeUndefined()
-    expect(body.transactions[0].matchedRulePattern).toBeUndefined()
   })
 })
