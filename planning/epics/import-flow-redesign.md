@@ -207,7 +207,7 @@ Pure refactor plus chrome. No change to how rows are edited.
 
 - Extract the page's `$state` into a serializable `ImportSession` store; add `source` to `RowState`.
 - `localStorage` persistence keyed by file hash; restore on mount with a "resume this import?" prompt naming the file and its saved step. Drop sessions older than 30 days. Clear on successful commit.
-- Stepper in the section bar; earlier steps clickable. Replace the `beforeunload` guard, which is now redundant.
+- Stepper in the section bar; earlier steps clickable. **Renders only the steps that exist** — at this story that is File → Review → Confirm; stories 5 and 6 add their own segments as they land. Replace the `beforeunload` guard, which is now redundant.
 - Move **Import as liabilities** to the File step as a derived chip with tooltip, override behind a disclosure.
 - `handleCancel` becomes an explicit "discard this import?" confirmation — today it silently nulls `rowStates`.
 - Review renders today's existing table unchanged — this story is the shell only.
@@ -267,7 +267,16 @@ Tests: manifest totals match the row states they summarize; the incomplete list 
 
 ## Sequencing
 
-1 → 2 → 3 establishes the data and is invisible to the user. 4 is the shell and the natural PR boundary — everything after it depends on the store. 5 lands next because it rewrites the commit path and everything downstream should be built against the map, not the convention. 6, 7, 8 are the remaining steps in order. 9 closes the loop on rule management.
+**1 → 2 → 3 → 4 → 5 → 7 → 6 → 8 → 9.** Every arrow is a deployable point — this is a two-user app, so stories ship to prod as they land rather than behind a long-lived branch.
+
+1 → 2 → 3 establishes the data and is invisible to the user. 4 is the shell and the natural PR boundary — everything after it depends on the store. 5 lands next because it rewrites the commit path and everything downstream should be built against the map, not the convention. 9 closes the loop on rule management.
+
+Two constraints on that order come from shipping incrementally:
+
+- **7 before 6.** Sort writes `source: 'cluster'` to rows it bulk-assigns; the surface for auditing that is Review's **Auto** filter. Shipping Sort first would land bulk assignment with no way to see what it did, which is the "no invisible mistakes" constraint violated by the epic's own feature. Review is independently useful on today's rows, so it loses nothing by going first.
+- **The stepper renders only the steps that exist.** Story 4 must not draw five segments while Accounts and Sort are unbuilt — that ships a progress indicator advertising steps that aren't there. Each later story adds its own segment.
+
+**Migration rollback.** Story 2's `importRules.accountId` NOT NULL drop is one-way in practice: once a split rule exists, restoring the constraint fails. Code can be reverted freely; the migration should not be.
 
 ## Stretch / out of scope
 

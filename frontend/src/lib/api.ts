@@ -130,7 +130,18 @@ export type PossibleDuplicate = {
   fishPieGroupName?: string
 } | null
 
-export type RegularParsedTransaction = {
+// Preview enrichment shared by every row kind that carries a description.
+// merchantKey is the normalized merchant stem — "LOBLAWS #042 06-22" and "LOBLAWS #117"
+// share one key — used to cluster repeat merchants in the Sort step. Absent when the
+// row has no description, or when the description normalizes to nothing.
+// matchedRulePattern names the active import rule that produced this row's suggestion,
+// so an auto-applied assignment can be attributed rather than appearing unexplained.
+type MerchantFields = {
+  merchantKey?: string
+  matchedRulePattern?: string
+}
+
+export type RegularParsedTransaction = MerchantFields & {
   isTransfer: false
   date: string
   amount: string
@@ -140,7 +151,7 @@ export type RegularParsedTransaction = {
   suggestedOffsetAccountId?: string
 }
 
-export type TransferParsedTransaction = {
+export type TransferParsedTransaction = MerchantFields & {
   isTransfer: true
   date: string
   description?: string
@@ -159,7 +170,7 @@ export type TransferParsedTransaction = {
   suggestedExpenseAccountId?: string
 }
 
-export type SameCurrencyTransferParsedTransaction = {
+export type SameCurrencyTransferParsedTransaction = MerchantFields & {
   isTransfer: 'same-currency'
   date: string
   description?: string

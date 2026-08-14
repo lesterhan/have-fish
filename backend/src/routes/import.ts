@@ -9,6 +9,7 @@ import type { ParsedTransaction, ColumnMapping } from '../import/types'
 import { buildRegularPostings, buildFishPiePostings, buildFishPieCrossCurrencyPostings, buildFishPieSameCurrencyPostings, buildCrossCurrencySpendPostings } from '../import/postings'
 import { createGroupExpenseInTx, fetchGroupWithMembers, resolvePayerImportContext } from '../fish-pie-expense-service'
 import { ensureSharedAccount } from '../fish-pie-accounts'
+import { merchantKey } from '../import/merchant'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -68,7 +69,9 @@ app.post('/preview', async (c) => {
   const result = parse(rows)
 
   // Apply active rules: for each regular (non-transfer) row, find the first rule
-  // whose pattern is a case-insensitive substring of the description.
+  // whose pattern is a case-insensitive substring of the description. The matching
+  // pattern is returned alongside the suggestion so the UI can name the rule that
+  // fired rather than showing an unattributable pre-filled account.
   const activeRules = await db
     .select({ pattern: importRules.pattern, accountId: importRules.accountId })
     .from(importRules)
@@ -85,10 +88,19 @@ app.post('/preview', async (c) => {
   const userName = (u?.name ?? '').trim().toLowerCase()
 
   const transactionsWithRules = result.transactions.map((t) => {
+    // Merchant stem — the key the preview UI clusters repeat merchants by. Stamped on
+    // every row carrying a description, whatever its kind and whether or not a rule
+    // matched, so grouping does not depend on rules existing yet. Omitted when the
+    // description normalizes to nothing, since an empty key would group unrelated rows.
+    const stem = t.description ? merchantKey(t.description) : ''
+    const base = stem ? { ...t, merchantKey: stem } : t
+
     if (t.isTransfer === false) {
-      if (!t.description) return t
+      if (!t.description) return base
       const match = matchRule(t.description)
-      return match ? { ...t, suggestedOffsetAccountId: match.accountId } : t
+      return match
+        ? { ...base, suggestedOffsetAccountId: match.accountId, matchedRulePattern: match.pattern }
+        : base
     }
     if (t.isTransfer === true) {
       // Cross-currency row: default to spend; flag as a convert-and-park only when the
@@ -96,15 +108,17 @@ app.post('/preview', async (c) => {
       // from the matching import rule so a recognized merchant needs no manual entry.
       const desc = (t.description ?? '').trim().toLowerCase()
       const isOwnTransfer = userName.length > 0 && desc.length > 0 && desc.includes(userName)
-      if (isOwnTransfer) return { ...t, suggestedKind: 'transfer' as const }
+      if (isOwnTransfer) return { ...base, suggestedKind: 'transfer' as const }
       const match = t.description ? matchRule(t.description) : undefined
       return {
-        ...t,
+        ...base,
         suggestedKind: 'spend' as const,
-        ...(match ? { suggestedExpenseAccountId: match.accountId } : {}),
+        ...(match
+          ? { suggestedExpenseAccountId: match.accountId, matchedRulePattern: match.pattern }
+          : {}),
       }
     }
-    return t
+    return base
   })
 
   return c.json({
