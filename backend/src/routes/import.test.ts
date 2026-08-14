@@ -136,6 +136,73 @@ describe('POST /api/import/preview', () => {
     expect(coffeeRowAfter.suggestedOffsetAccountId).toBeFalsy()
   })
 
+  // --- Merchant stem and rule attribution on preview ---
+  //
+  // Three descriptions that normalize to one stem, plus an unrelated fourth.
+  const MERCHANT_CSV = `Date,Amount,Description
+2026-03-01,-40.00,LOBLAWS #042 03-01
+2026-03-05,-12.75,LOBLAWS #117
+2026-03-09,-88.10,LOBLAWS  #003 2026-03-09
+2026-03-10,-9.00,BILLA`
+
+  it('stamps one shared merchantKey on near-duplicate descriptions from the same merchant', async () => {
+    await createParser(cookie)
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(MERCHANT_CSV),
+    })
+    expect(res.status).toBe(200)
+    const body = await res.json()
+
+    const keys = body.transactions.map((t: { merchantKey?: string }) => t.merchantKey)
+    expect(keys).toEqual(['LOBLAWS', 'LOBLAWS', 'LOBLAWS', 'BILLA'])
+  })
+
+  it('names the rule behind a suggestion and leaves unmatched rows unattributed', async () => {
+    await createParser(cookie)
+    const groceries = await createAccount(cookie, 'expenses:groceries')
+    const sessionRes = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+    const userId = (await sessionRes.json()).user.id
+    await db
+      .insert(importRules)
+      .values({ userId, pattern: 'LOBLAWS', accountId: groceries.id, status: 'active' })
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(MERCHANT_CSV),
+    })
+    const body = await res.json()
+
+    type Row = { description: string; merchantKey?: string; matchedRulePattern?: string; suggestedOffsetAccountId?: string }
+    const matched = body.transactions.filter((t: Row) => t.matchedRulePattern)
+    expect(matched).toBeArrayOfSize(3)
+    for (const row of matched as Row[]) {
+      expect(row.matchedRulePattern).toBe('LOBLAWS')
+      expect(row.suggestedOffsetAccountId).toBe(groceries.id)
+    }
+
+    const billa = body.transactions.find((t: Row) => t.description === 'BILLA')
+    expect(billa.merchantKey).toBe('BILLA')
+    expect(billa.matchedRulePattern).toBeUndefined()
+    expect(billa.suggestedOffsetAccountId).toBeUndefined()
+  })
+
+  it('omits merchantKey on a row with no description', async () => {
+    await createParser(cookie)
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: csvForm(`Date,Amount,Description\n2026-03-01,-40.00,`),
+    })
+    const body = await res.json()
+    expect(body.transactions).toBeArrayOfSize(1)
+    expect(body.transactions[0].merchantKey).toBeUndefined()
+  })
+
   it('does not use a parser belonging to another user', async () => {
     const otherCookie = await createTestUser('other@example.com')
     await createParser(otherCookie)
@@ -232,6 +299,33 @@ describe('POST /api/import/preview', () => {
     const convertRow = body.transactions.find((t: { description: string }) => t.description === 'Test User')
     expect(convertRow.suggestedKind).toBe('transfer')
     expect(convertRow.suggestedExpenseAccountId).toBeFalsy()
+  })
+
+  it('stamps merchantKey on cross-currency rows and attributes the spend suggestion', async () => {
+    await createMultiParser(cookie)
+    const coffeeAcc = await createAccount(cookie, 'expenses:food:coffee')
+    const sessionRes = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+    const userId = (await sessionRes.json()).user.id
+    await db
+      .insert(importRules)
+      .values({ userId, pattern: 'Coffee', accountId: coffeeAcc.id, status: 'active' })
+
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: multiCsvForm(),
+    })
+    const body = await res.json()
+
+    const spendRow = body.transactions.find((t: { description: string }) => t.description === 'Prague Coffee House')
+    expect(spendRow.merchantKey).toBe('Prague Coffee House')
+    expect(spendRow.matchedRulePattern).toBe('Coffee')
+
+    // A convert-and-park still gets a stem — it is a row like any other for grouping —
+    // but no rule fired for it, so nothing to attribute.
+    const convertRow = body.transactions.find((t: { description: string }) => t.description === 'Test User')
+    expect(convertRow.merchantKey).toBe('Test User')
+    expect(convertRow.matchedRulePattern).toBeUndefined()
   })
 })
 

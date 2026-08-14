@@ -3,6 +3,10 @@ import { db } from '../db'
 import { importRules, accounts, transactions, postings, userSettings } from '../db/schema'
 import { eq, isNull, and } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { cleanDescription, merchantKey } from '../import/merchant'
+
+// Re-exported for callers that imported it from here before it moved to import/merchant.ts.
+export { cleanDescription }
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -51,28 +55,6 @@ app.post('/', async (c) => {
   return c.json(created, 201)
 })
 
-// Strip trailing transaction-specific noise (store/terminal numbers, reference codes,
-// dates, times) so near-duplicate descriptions from the same merchant collapse to one
-// group. Import-time matching is case-insensitive substring (see import.ts), so a
-// shortened stem like "LOBLAWS" generalizes across every store location and reference.
-export function cleanDescription(raw: string): string {
-  let s = raw.trim().replace(/\s+/g, ' ')
-  let prev: string
-  // Peel trailing noise tokens repeatedly — a description can end in several stacked.
-  do {
-    prev = s
-    s = s
-      .replace(/\s*#\s*\d+$/i, '') // store/terminal number: "#042"
-      .replace(/\s+\d{4}-\d{2}-\d{2}$/, '') // ISO date: 2025-06-22
-      .replace(/\s+\d{1,2}[/-]\d{1,2}([/-]\d{2,4})?$/, '') // date: 06/22 or 06-22-2025
-      .replace(/\s+\d{1,2}:\d{2}(:\d{2})?$/, '') // time: 14:30
-      .replace(/\s+[a-z]{0,3}\d{4,}$/i, '') // long ref/auth code, optionally letter-prefixed
-      .replace(/[\s*#-]+$/, '') // dangling separators
-      .trim()
-  } while (s !== prev)
-  return s
-}
-
 // POST /api/rules/mine
 // Analyzes transaction history and writes new 'suggested' rules.
 // Considers any transaction with exactly one expense posting (regular, Fish Pie, and
@@ -120,9 +102,10 @@ app.post('/mine', async (c) => {
     const expensePostings = txPostings.filter((p) => p.accountPath.startsWith(`${expensesRoot}:`))
     if (expensePostings.length !== 1) continue
     const expensePosting = expensePostings[0]
-    const cleaned = cleanDescription(description)
-    // Fall back to the raw description if cleaning leaves too little to match on.
-    const pattern = cleaned.length >= 3 ? cleaned : description.trim()
+    // Same normalization the import preview stamps as merchantKey, so a mined pattern
+    // and the preview cluster it covers are the same string.
+    const pattern = merchantKey(description)
+    if (!pattern) continue
     const key = `${pattern.toLowerCase()}|||${expensePosting.accountId}`
     const existing = pairCounts.get(key)
     if (existing) existing.count++
