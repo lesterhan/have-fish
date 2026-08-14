@@ -3,6 +3,7 @@ import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
 import { accounts, transactions, postings, importRules } from '../db/schema'
+import { eq } from 'drizzle-orm'
 
 async function createAccount(userId: string, path: string) {
   const [acct] = await db.insert(accounts).values({ userId, path }).returning()
@@ -451,6 +452,67 @@ describe('rules — split targets', () => {
     const updated = await res.json()
     expect(updated.pattern).toBe('BILLA MARKT')
     expect(updated.groupId).toBe(groupId)
+  })
+
+  // The route validates the one-target invariant and is what produces a readable 400.
+  // These pin the database-level backstop, which is what catches a write that never
+  // reaches the route — /api/rules/mine inserts directly, and so will later stories.
+  describe('one-target CHECK constraint', () => {
+    // Postgres names the violated constraint in the error, which is what we assert on —
+    // a NOT NULL or FK failure would not mention it.
+    async function expectOneTargetViolation(write: () => Promise<unknown>) {
+      let message = ''
+      try {
+        await write()
+      } catch (e) {
+        message = (e as Error).message
+      }
+      expect(message).toContain('import_rules_one_target')
+    }
+
+    it('rejects a direct insert with both targets set', async () => {
+      const acct = await createAccount(userId, 'expenses:food:groceries')
+      await expectOneTargetViolation(() =>
+        db.insert(importRules).values({ userId, pattern: 'BILLA', accountId: acct.id, groupId }),
+      )
+    })
+
+    it('rejects a direct insert with no target set', async () => {
+      await expectOneTargetViolation(() =>
+        db.insert(importRules).values({ userId, pattern: 'BILLA' }),
+      )
+    })
+
+    it('rejects a direct insert with a category but no group', async () => {
+      const category = await createCategory(cookie, groupId, 'Groceries')
+      await expectOneTargetViolation(() =>
+        db.insert(importRules).values({ userId, pattern: 'BILLA', categoryId: category.id }),
+      )
+    })
+
+    it('rejects an update that would leave a rule with both targets', async () => {
+      const acct = await createAccount(userId, 'expenses:food:groceries')
+      const [rule] = await db
+        .insert(importRules)
+        .values({ userId, pattern: 'BILLA', accountId: acct.id })
+        .returning()
+
+      await expectOneTargetViolation(() =>
+        db.update(importRules).set({ groupId }).where(eq(importRules.id, rule.id)),
+      )
+    })
+
+    it('accepts both legitimate target shapes', async () => {
+      const acct = await createAccount(userId, 'expenses:food:groceries')
+      const category = await createCategory(cookie, groupId, 'Groceries')
+
+      await db.insert(importRules).values({ userId, pattern: 'LOBLAWS', accountId: acct.id })
+      await db.insert(importRules).values({ userId, pattern: 'BILLA', groupId })
+      await db.insert(importRules).values({ userId, pattern: 'HOFER', groupId, categoryId: category.id })
+
+      const rules = await listRules(cookie)
+      expect(rules).toBeArrayOfSize(3)
+    })
   })
 
   it('an active split rule does not suggest an account on import preview', async () => {

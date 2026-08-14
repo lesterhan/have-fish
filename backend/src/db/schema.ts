@@ -1,4 +1,5 @@
-import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer, unique, index } from 'drizzle-orm/pg-core'
+import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer, unique, index, check } from 'drizzle-orm/pg-core'
+import { sql } from 'drizzle-orm'
 
 // --- Better Auth tables ---
 // These are required by Better Auth and must not be renamed or removed.
@@ -167,8 +168,6 @@ export const fxRates = pgTable('fx_rates', {
 // 'active'; denying flips it to 'denied'; reviving flips 'denied' back to 'suggested'.
 // An import rule points a description pattern at exactly one target: either an expense
 // account (accountId) or a Fish Pie split (groupId, with an optional categoryId).
-// Exactly one of accountId / groupId is set — enforced in routes/rules.ts, since the
-// invariant spans two nullable columns.
 //
 // A split rule deliberately stores no expense account: the payer's expense leg is derived
 // from the category at posting-build time, the same way a manual split does it. Storing it
@@ -186,7 +185,17 @@ export const importRules = pgTable('import_rules', {
   createdAt: timestamp('created_at').notNull().defaultNow(),
   updatedAt: timestamp('updated_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
-})
+}, (t) => [
+  // Exactly one target, and a category only alongside a group. routes/rules.ts validates
+  // this too and is what produces a readable 400 — this is the backstop for writes that
+  // never reach the route: /api/rules/mine inserts directly, later stories add their own
+  // rule-writing paths, and Drizzle Studio bypasses the app entirely.
+  check(
+    'import_rules_one_target',
+    sql`(${t.accountId} IS NOT NULL AND ${t.groupId} IS NULL AND ${t.categoryId} IS NULL)
+        OR (${t.accountId} IS NULL AND ${t.groupId} IS NOT NULL)`,
+  ),
+])
 
 // --- Fish Pie (shared expense) tables ---
 
