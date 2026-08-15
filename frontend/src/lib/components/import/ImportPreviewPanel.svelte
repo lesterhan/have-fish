@@ -1,32 +1,11 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
-  import Toggle from '$lib/components/ui/Toggle.svelte'
-  import type {
-    Account,
-    ImportPreviewResult,
-    PossibleDuplicate,
-    ExpenseGroup,
-  } from '$lib/api'
+  import type { Account, ImportPreviewResult, ExpenseGroup } from '$lib/api'
   import ImportRowTransfer from './ImportRowTransfer.svelte'
   import ImportRowRegular from './ImportRowRegular.svelte'
   import { rowMissingAccounts } from './import-helpers'
-
-  export type RowState = {
-    offsetAccountId: string
-    conversionAccountId: string
-    feeAccountId: string
-    skipped: boolean
-    possibleDuplicate?: PossibleDuplicate
-    groupId: string | null
-    // Meaningful only when groupId is set; null = uncategorized fish-pie split.
-    categoryId: string | null
-    // Cross-currency rows only: 'spend' = purchase in a currency the user doesn't hold
-    // (target is an expense), 'transfer' = convert-and-park (target is an asset).
-    kind: 'spend' | 'transfer'
-    // The expense account for a cross-currency spend.
-    expenseAccountId: string
-  }
+  import type { RowState } from './row-state'
 
   interface Props {
     preview: ImportPreviewResult
@@ -54,7 +33,7 @@
     groups,
     currentUserId,
     fromAccountId = $bindable(),
-    importAsLiabilities = $bindable(),
+    importAsLiabilities,
     defaultCurrency,
     loading,
     error,
@@ -135,10 +114,11 @@
     {/if}
 
     <div class="liability-bar">
-      <Toggle
-        bind:checked={importAsLiabilities}
-        label="Import as liabilities"
-      />
+      <!-- Derived from the import account, set on the File step. Shown here as a
+           reminder that amounts are negated, not as a control. -->
+      <span class="liability-chip" class:hidden={!importAsLiabilities}>
+        Imported as liabilities
+      </span>
       <div class="bar-actions">
         <GradientButton onclick={oncancel}>Cancel</GradientButton>
         <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
@@ -330,6 +310,25 @@
     padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
+  }
+
+  .liability-chip {
+    display: inline-flex;
+    align-items: center;
+    padding: 2px var(--sp-sm);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-chip-bg);
+    color: var(--color-accent-chip-fg);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  /* Held in the layout so the action buttons keep their position when the chip is off. */
+  .liability-chip.hidden {
+    visibility: hidden;
   }
 
   .bar-actions {

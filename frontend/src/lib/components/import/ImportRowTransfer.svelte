@@ -12,7 +12,7 @@
     SameCurrencyTransferParsedTransaction,
     ExpenseGroup,
   } from '$lib/api'
-  import type { RowState } from './ImportPreviewPanel.svelte'
+  import type { RowState } from './row-state'
 
   interface Props {
     tx: TransferParsedTransaction | SameCurrencyTransferParsedTransaction
