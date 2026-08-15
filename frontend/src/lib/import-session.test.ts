@@ -40,6 +40,7 @@ function makeSession(overrides: Partial<ImportSession> = {}): ImportSession {
     step: 'review',
     defaultCurrency: 'CAD',
     fromAccountId: 'acct-1',
+    currencyAccounts: {},
     importAsLiabilities: null,
     preview: {
       parser: 'Wise',
@@ -78,6 +79,15 @@ describe('session round-trip', () => {
     const [restored] = loadSessions(NOW, storage)
 
     expect(restored).toEqual(session)
+  })
+
+  it('preserves a hand-pointed currency mapping', () => {
+    // RMB pointed at the CNY account — the case path derivation cannot express.
+    const storage = fakeStorage()
+    saveSession(makeSession({ currencyAccounts: { CAD: 'a-cad', RMB: 'a-cny' } }), NOW, storage)
+
+    const [restored] = loadSessions(NOW, storage)
+    expect(restored.currencyAccounts).toEqual({ CAD: 'a-cad', RMB: 'a-cny' })
   })
 
   it('preserves row decisions through serialization', () => {
@@ -181,6 +191,17 @@ describe('pruning', () => {
 
   it('drops an entry with an unrecognized step', () => {
     expect(pruneSessions([{ ...makeSession(), step: 'sort' }], NOW)).toHaveLength(0)
+  })
+
+  it('accepts the accounts step', () => {
+    expect(pruneSessions([makeSession({ step: 'accounts' })], NOW)).toHaveLength(1)
+  })
+
+  it('drops an entry with no currency map', () => {
+    // A session written before the Accounts step existed; the version guard catches it
+    // first, but the shape check must not let one through on its own.
+    const { currencyAccounts, ...withoutMap } = makeSession()
+    expect(pruneSessions([withoutMap], NOW)).toHaveLength(0)
   })
 
   it('returns newest first and caps the stored count', () => {

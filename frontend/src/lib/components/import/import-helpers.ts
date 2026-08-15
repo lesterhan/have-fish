@@ -35,6 +35,10 @@ export function rowMissingAccounts(tx: ParsedTransaction, row: ImportRowAccounts
 
 // Resolve a currency's sub-account ID under a multi-currency root (e.g. assets:wise + "usd"
 // → assets:wise:usd). Returns '' when the root or the sub-account doesn't exist.
+//
+// This is now only a *seeding* helper for the Accounts step's suggestion. The mapping the
+// import actually commits against is ImportSession.currencyAccounts, which the user owns —
+// nothing downstream may re-derive an account from a path.
 export function accountIdForCurrency(
   accounts: Pick<Account, 'id' | 'path'>[],
   rootPath: string | null,
@@ -43,6 +47,57 @@ export function accountIdForCurrency(
   if (!rootPath) return ''
   const path = `${rootPath}:${currency.toLowerCase()}`
   return accounts.find((a) => a.path === path)?.id ?? ''
+}
+
+// Every currency this import needs an account for, in first-seen order.
+//
+// Read from the preview's own suggestedKind rather than from live row state, so the set is
+// fixed once the file is parsed. If it tracked row edits, flipping one row to
+// convert-and-park would grow the required set and re-gate a step the user had already
+// finished. A row flipped after the fact is caught at commit instead.
+export function currenciesInPreview(
+  transactions: ParsedTransaction[],
+  defaultCurrency: string,
+): string[] {
+  const seen = new Set<string>()
+  const add = (c: string | undefined) => {
+    if (c) seen.add(c.toUpperCase())
+  }
+  for (const tx of transactions) {
+    if (tx.isTransfer === true) {
+      add(tx.sourceCurrency)
+      // A cross-currency spend has no target asset — the money never lands in a
+      // target-currency account, so don't demand one.
+      if (tx.suggestedKind !== 'spend') add(tx.targetCurrency)
+    } else if (tx.isTransfer === 'same-currency') {
+      add(tx.currency)
+    } else {
+      add(tx.currency ?? defaultCurrency)
+    }
+  }
+  return [...seen]
+}
+
+// Pre-fills the Accounts step from the path convention, leaving a currency unmapped when
+// no such account exists. The suggestion is a starting point, not a commitment — the user
+// may point any currency anywhere.
+export function seedCurrencyAccounts(
+  currencies: string[],
+  accounts: Pick<Account, 'id' | 'path'>[],
+  rootPath: string | null,
+  existing: Record<string, string> = {},
+): Record<string, string> {
+  const seeded: Record<string, string> = {}
+  for (const currency of currencies) {
+    seeded[currency] = existing[currency] || accountIdForCurrency(accounts, rootPath, currency)
+  }
+  return seeded
+}
+
+// The suggested path for a currency that has no account yet — what the Accounts step
+// offers to create.
+export function suggestedPathForCurrency(rootPath: string | null, currency: string): string {
+  return rootPath ? `${rootPath}:${currency.toLowerCase()}` : ''
 }
 
 export function groupName(groups: ExpenseGroup[], id: string | null): string {

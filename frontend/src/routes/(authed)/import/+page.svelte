@@ -28,6 +28,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import type { RowState } from '$lib/components/import/row-state'
   import ImportStepper from '$lib/components/import/ImportStepper.svelte'
+  import ImportAccountsStep from '$lib/components/import/ImportAccountsStep.svelte'
   import {
     hashCsv,
     saveSession,
@@ -38,7 +39,11 @@
     type ImportSession,
     type ImportStep,
   } from '$lib/import-session'
-  import { accountIdForCurrency, rowMissingAccounts } from '$lib/components/import/import-helpers'
+  import {
+    currenciesInPreview,
+    seedCurrencyAccounts,
+    rowMissingAccounts,
+  } from '$lib/components/import/import-helpers'
   import { toast } from '$lib/toast.svelte'
   import { goto } from '$app/navigation'
   import { confetti } from '$lib/confetti.svelte'
@@ -80,13 +85,17 @@
   let step = $state<ImportStep>('file')
   let fileHash = $state('')
   let fileName = $state('')
+  // Currency code → account id, for multi-currency imports. Single-currency imports post
+  // every row to one account, which stays in fromAccountId.
+  let currencyAccounts = $state<Record<string, string>>({})
   // A saved import found on mount, offered for resume until accepted or dismissed.
   let resumable = $state<ImportSession | null>(null)
 
-  // Only the steps that exist today. Later stories in this epic insert Accounts, Sort and
-  // Confirm; until then the stepper must not advertise them.
+  // Only the steps that exist today. Later stories in this epic insert Sort and Confirm;
+  // until then the stepper must not advertise them.
   const STEPS: { id: ImportStep; label: string }[] = [
     { id: 'file', label: 'File' },
+    { id: 'accounts', label: 'Accounts' },
     { id: 'review', label: 'Review' },
   ]
 
@@ -143,6 +152,7 @@
       step,
       defaultCurrency,
       fromAccountId,
+      currencyAccounts: $state.snapshot(currencyAccounts),
       importAsLiabilities: liabilitiesOverride,
       preview: $state.snapshot(preview) as typeof preview,
       rowStates: $state.snapshot(rowStates) as RowState[],
@@ -170,6 +180,7 @@
     fileName = saved.fileName
     defaultCurrency = saved.defaultCurrency
     fromAccountId = saved.fromAccountId
+    currencyAccounts = saved.currencyAccounts
     liabilitiesOverride = saved.importAsLiabilities
     step = saved.step
     resumable = null
@@ -180,7 +191,11 @@
     resumable = null
   }
 
-  // --- Multi-currency derived values ---
+  // --- Currency → account mapping ---
+  //
+  // The mapping is state the user owns, not a path convention re-derived at each use.
+  // `rootPath` and the seeding helpers only produce the *suggestion*; once the Accounts
+  // step has run, nothing downstream may rebuild an account from a currency code.
 
   let rootPath = $derived.by(() => {
     if (!preview?.isMultiCurrency || !preview.defaultAccountId) return null
@@ -189,31 +204,36 @@
     )
   })
 
-  let inferredPaths = $derived.by(() => {
-    if (!preview?.isMultiCurrency || !rootPath) return []
-    const paths = new Set<string>()
-    preview.transactions.forEach((tx, i) => {
-      if (tx.isTransfer === true) {
-        paths.add(`${rootPath}:${tx.sourceCurrency.toLowerCase()}`)
-        // A cross-currency spend has no target asset — only the funding (source) account
-        // is real, so don't require the user to create a target-currency sub-account.
-        if (rowStates[i]?.kind !== 'spend') {
-          paths.add(`${rootPath}:${tx.targetCurrency.toLowerCase()}`)
-        }
-      } else {
-        const currency = tx.currency ?? defaultCurrency
-        paths.add(`${rootPath}:${currency.toLowerCase()}`)
-      }
-    })
-    return [...paths]
-  })
-
-  let missingPaths = $derived(
-    inferredPaths.filter((path) => !accounts.some((a) => a.path === path)),
+  let importCurrencies = $derived(
+    preview?.isMultiCurrency
+      ? currenciesInPreview(preview.transactions, defaultCurrency)
+      : [],
   )
 
-  const getInferredAccountId = (currency: string): string =>
-    accountIdForCurrency(accounts, rootPath, currency)
+  // The account this import posts a given currency to. Empty string when unmapped, which
+  // the Accounts step gates on and Confirm re-checks for rows flipped after the fact.
+  const accountForCurrency = (currency: string): string =>
+    currencyAccounts[currency.toUpperCase()] ?? ''
+
+  // Currencies the rows actually need right now, unlike importCurrencies which is fixed at
+  // parse time. Flipping a spend to convert-and-park introduces a target currency the
+  // Accounts step never asked about, so commit re-checks against live row state.
+  let unmappedCommitCurrencies = $derived.by(() => {
+    if (!preview?.isMultiCurrency) return []
+    const needed = new Set<string>()
+    preview.transactions.forEach((tx, i) => {
+      if (rowStates[i]?.skipped) return
+      if (tx.isTransfer === true) {
+        needed.add(tx.sourceCurrency.toUpperCase())
+        if (rowStates[i]?.kind !== 'spend') needed.add(tx.targetCurrency.toUpperCase())
+      } else if (tx.isTransfer === 'same-currency') {
+        needed.add(tx.currency.toUpperCase())
+      } else {
+        needed.add((tx.currency ?? defaultCurrency).toUpperCase())
+      }
+    })
+    return [...needed].filter((c) => !currencyAccounts[c])
+  })
 
   // --- Account creation helpers ---
 
@@ -221,18 +241,23 @@
     accounts = [...accounts, account]
   }
 
-  async function handleCreateMissingAccount(path: string) {
-    const created = await createAccount({ path })
-    accounts = [...accounts, created]
-  }
-
-  async function handleCreateAllMissing() {
-    for (const path of missingPaths) {
-      await handleCreateMissingAccount(path)
-    }
-  }
-
   // --- Preview ---
+
+  // Whether the Accounts step has anything to ask. Reads currencyAccounts, which
+  // handleSubmit has already seeded by the time this is called.
+  function accountsStepNeeded(fetched: NonNullable<typeof preview>): boolean {
+    if (!fetched.isMultiCurrency) return !fromAccountId
+    return currenciesInPreview(fetched.transactions, defaultCurrency).some(
+      (c) => !currencyAccounts[c],
+    )
+  }
+
+  // Leaving the File step, forward. Used both on first parse and when the user walks back
+  // to File and continues, so the step is skipped by the same rule either way.
+  function advanceFromFile() {
+    if (!preview) return
+    step = accountsStepNeeded(preview) ? 'accounts' : 'review'
+  }
 
   async function handleSubmit() {
     if (!file || !defaultCurrency) {
@@ -253,23 +278,32 @@
       // A fresh parse starts from the derived value; the override is the user's, per file.
       liabilitiesOverride = null
 
-      // Resolve per-row account IDs and check for duplicates. For single-currency
-      // imports every row maps to defaultAccountId; for multi-currency each row
-      // maps to a currency sub-account (e.g. assets:wise:usd). Transfer rows
-      // pass an empty accountId and are skipped by the backend.
+      // Seed the currency → account map from the path convention. Currencies with no
+      // matching account are left empty for the Accounts step to resolve.
       //
-      // Compute rootPath from `fetched` directly — we can't use the `rootPath`
-      // $derived here because `preview` hasn't been assigned yet at this point.
-      // Reuse defaultAccountPath computed above rather than scanning accounts twice.
+      // Compute rootPath from `fetched` directly — we can't use the `rootPath` $derived
+      // here because `preview` hasn't been assigned yet at this point. Reuse
+      // defaultAccountPath computed above rather than scanning accounts twice.
       const fetchedRootPath =
         fetched.isMultiCurrency && fetched.defaultAccountId
           ? defaultAccountPath || null
           : null
+      currencyAccounts = fetched.isMultiCurrency
+        ? seedCurrencyAccounts(
+            currenciesInPreview(fetched.transactions, defaultCurrency),
+            accounts,
+            fetchedRootPath,
+          )
+        : {}
+
+      // Check for duplicates against the account each row will actually post to — the
+      // same map commit reads, so the pre-check and the commit can't disagree. Transfer
+      // rows pass an empty accountId and are skipped by the backend.
       const checkRows = fetched.transactions.map((tx) => ({
         accountId:
           tx.isTransfer === false
             ? fetched.isMultiCurrency
-              ? accountIdForCurrency(accounts, fetchedRootPath, tx.currency ?? defaultCurrency)
+              ? (currencyAccounts[(tx.currency ?? defaultCurrency).toUpperCase()] ?? '')
               : (fetched.defaultAccountId ?? '')
             : '',
         date: tx.date,
@@ -318,7 +352,9 @@
       // Re-parsing a file already in progress replaces its saved session rather than
       // leaving a second copy behind.
       resumable = null
-      step = 'review'
+      // The Accounts step is setup, not a decision — skip it when every currency already
+      // resolved on seed, which is the common repeat-import case.
+      step = accountsStepNeeded(fetched) ? 'accounts' : 'review'
     } catch (e) {
       error =
         e instanceof Error
@@ -338,8 +374,11 @@
       error = 'From account is required.'
       return
     }
-    if (missingPaths.length > 0) {
-      error = 'Please create all required accounts before importing.'
+    // The Accounts step covers every currency the preview expected. This catches the tail:
+    // a row flipped to convert-and-park after that step introduces a target currency the
+    // step never asked about. Name the currencies rather than saying "some account".
+    if (unmappedCommitCurrencies.length > 0) {
+      error = `No account mapped for ${unmappedCommitCurrencies.join(', ')}. Go back to Accounts to map ${unmappedCommitCurrencies.length === 1 ? 'it' : 'them'}.`
       return
     }
     const invalid = preview.transactions.some(
@@ -372,7 +411,7 @@
               targetCurrency: tx.targetCurrency,
               feeAmount: tx.feeAmount,
               feeCurrency: tx.feeCurrency,
-              sourceAccountId: getInferredAccountId(tx.sourceCurrency),
+              sourceAccountId: accountForCurrency(tx.sourceCurrency),
               expenseAccountId: row.expenseAccountId,
               conversionAccountId: row.conversionAccountId,
               feeAccountId: row.feeAccountId,
@@ -380,8 +419,8 @@
           }
           return {
             ...tx,
-            sourceAccountId: getInferredAccountId(tx.sourceCurrency),
-            targetAccountId: getInferredAccountId(tx.targetCurrency),
+            sourceAccountId: accountForCurrency(tx.sourceCurrency),
+            targetAccountId: accountForCurrency(tx.targetCurrency),
             conversionAccountId: row.conversionAccountId,
             feeAccountId: row.feeAccountId,
           }
@@ -389,7 +428,7 @@
           return {
             ...tx,
             targetAccountId: preview!.isMultiCurrency
-              ? getInferredAccountId(tx.currency)
+              ? accountForCurrency(tx.currency)
               : fromAccountId,
             sourceAccountId: row.offsetAccountId,
             feeAccountId: row.feeAccountId,
@@ -404,7 +443,7 @@
             offsetAccountId: row.offsetAccountId,
             ...(preview!.isMultiCurrency
               ? {
-                  sourceAccountId: getInferredAccountId(
+                  sourceAccountId: accountForCurrency(
                     tx.currency ?? defaultCurrency,
                   ),
                 }
@@ -560,11 +599,23 @@
 
           <div class="summary-actions">
             <GradientButton onclick={handleCancel}>Discard import</GradientButton>
-            <GradientButton size="lg" active onclick={() => (step = 'review')}>
-              Continue to review
+            <GradientButton size="lg" active onclick={advanceFromFile}>
+              Continue
             </GradientButton>
           </div>
         </div>
+      {:else if step === 'accounts'}
+        <ImportAccountsStep
+          currencies={importCurrencies}
+          bind:currencyAccounts
+          bind:fromAccountId
+          isMultiCurrency={preview.isMultiCurrency}
+          {accounts}
+          {rootPath}
+          onaccountcreated={handleAccountCreated}
+          oncontinue={() => (step = 'review')}
+          onback={() => (step = 'file')}
+        />
       {/if}
     </div>
 
@@ -575,15 +626,12 @@
         {accounts}
         {groups}
         {currentUserId}
-        bind:fromAccountId
         {importAsLiabilities}
         {defaultCurrency}
         {loading}
         {error}
-        {missingPaths}
+        unmappedCurrencies={unmappedCommitCurrencies}
         onaccountcreated={handleAccountCreated}
-        oncreatemissing={handleCreateMissingAccount}
-        oncreateallmissing={handleCreateAllMissing}
         onconfirm={handleConfirm}
         oncancel={handleCancel}
       />

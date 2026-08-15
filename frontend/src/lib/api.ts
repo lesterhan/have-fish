@@ -73,7 +73,10 @@ export async function fetchAccounts(): Promise<Account[]> {
   return res.json()
 }
 
-export async function createAccount(body: { path: string }) {
+// defaultCurrency (ISO 4217) pre-selects the currency in quick entry. The import flow's
+// Accounts step is the one place that knows it for certain — the suggested path was
+// derived from the currency — so it sets it rather than leaving the column null.
+export async function createAccount(body: { path: string; defaultCurrency?: string }) {
   const res = await fetch(`${BASE}/api/accounts`, {
     method: 'POST',
     credentials: 'include',

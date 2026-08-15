@@ -1,6 +1,5 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import type { Account, ImportPreviewResult, ExpenseGroup } from '$lib/api'
   import ImportRowTransfer from './ImportRowTransfer.svelte'
   import ImportRowRegular from './ImportRowRegular.svelte'
@@ -13,15 +12,14 @@
     accounts: Account[]
     groups: ExpenseGroup[]
     currentUserId: string
-    fromAccountId: string
     importAsLiabilities: boolean
     defaultCurrency: string
     loading: boolean
     error: string
-    missingPaths: string[]
+    // Currencies that still have no account. Non-empty only when a row was flipped to
+    // convert-and-park after the Accounts step ran.
+    unmappedCurrencies: string[]
     onaccountcreated: (account: Account) => void
-    oncreatemissing: (path: string) => void
-    oncreateallmissing: () => void
     onconfirm: () => void
     oncancel: () => void
   }
@@ -32,15 +30,12 @@
     accounts,
     groups,
     currentUserId,
-    fromAccountId = $bindable(),
     importAsLiabilities,
     defaultCurrency,
     loading,
     error,
-    missingPaths,
+    unmappedCurrencies,
     onaccountcreated,
-    oncreatemissing,
-    oncreateallmissing,
     onconfirm,
     oncancel,
   }: Props = $props()
@@ -50,8 +45,7 @@
   let confirmDisabled = $derived(
     loading ||
       rowStates.every((r) => r.skipped) ||
-      missingPaths.length > 0 ||
-      (!preview.isMultiCurrency && !fromAccountId) ||
+      unmappedCurrencies.length > 0 ||
       rowStates.some(
         (row, i) =>
           !row.skipped && rowMissingAccounts(preview.transactions[i], row),
@@ -70,21 +64,6 @@
     </span>
   </div>
   <div class="preview-body">
-    {#if !preview.isMultiCurrency}
-      <div class="account-row">
-        <label class="field-label" for="from-account">
-          Import account
-          {#if !fromAccountId}<span class="required">*</span>{/if}
-        </label>
-        <AccountPicker
-          {accounts}
-          bind:value={fromAccountId}
-          placeholder="Select or create an account…"
-          oncreate={onaccountcreated}
-        />
-      </div>
-    {/if}
-
     {#if preview.errors.length > 0}
       <div class="parse-errors">
         <p>
@@ -98,18 +77,12 @@
       </div>
     {/if}
 
-    {#if missingPaths.length > 0}
-      <div class="missing-accounts-banner">
-        <span class="missing-label">Accounts needed:</span>
-        {#each missingPaths as path}
-          <span class="missing-account">
-            <code>{path}</code>
-            <GradientButton onclick={() => oncreatemissing(path)}
-              >Create</GradientButton
-            >
-          </span>
-        {/each}
-        <GradientButton onclick={oncreateallmissing}>Create all</GradientButton>
+    {#if unmappedCurrencies.length > 0}
+      <div class="unmapped-notice">
+        Flipping a row to convert-and-park needs an account for
+        {#each unmappedCurrencies as c, i}<code>{c}</code>{#if i < unmappedCurrencies.length - 1}, {/if}{/each}.
+        Go back to the Accounts step to map
+        {unmappedCurrencies.length === 1 ? 'it' : 'them'}.
       </div>
     {/if}
 
@@ -229,28 +202,9 @@
     flex-direction: column;
   }
 
-  .account-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-window);
-    font-size: var(--text-sm);
-  }
 
-  .account-row :global(.wrapper) {
-    flex: 1;
-  }
 
-  .field-label {
-    font-size: var(--text-xs);
-    white-space: nowrap;
-  }
 
-  .required {
-    color: var(--color-amount-negative);
-  }
 
   .parse-errors {
     font-size: var(--text-sm);
@@ -271,37 +225,9 @@
     padding-left: var(--sp-md);
   }
 
-  .missing-accounts-banner {
-    display: flex;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: var(--sp-xs);
-    padding: var(--sp-xs) var(--sp-sm);
-    background: var(--color-warning-light);
-    border-left: 3px solid var(--color-warning);
-    border-bottom: 1px solid var(--color-rule);
-    font-size: var(--text-sm);
-  }
 
-  .missing-label {
-    font-weight: var(--weight-semibold);
-    margin-right: var(--sp-xs);
-    color: var(--color-warning);
-  }
 
-  .missing-account {
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    background: var(--color-window);
-    border: 1px solid var(--color-border);
-    padding: 0 var(--sp-xs);
-  }
 
-  .missing-account code {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-  }
 
   .liability-bar {
     display: flex;
@@ -310,6 +236,20 @@
     padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
+  }
+
+  /* Narrow late gate: the Accounts step covers everything the preview expected, so this
+     only appears when a row was flipped to convert-and-park afterwards. */
+  .unmapped-notice {
+    padding: var(--sp-sm) var(--sp-md);
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window-raised);
+    color: var(--color-amount-negative);
+    font-size: var(--text-sm);
+  }
+
+  .unmapped-notice code {
+    font-family: var(--font-mono);
   }
 
   .liability-chip {

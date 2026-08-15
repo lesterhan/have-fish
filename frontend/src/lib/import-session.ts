@@ -8,7 +8,9 @@ import type { RowState } from '$lib/components/import/row-state'
 // later — which is what would let an import survive a device switch — is a transport
 // change rather than a rewrite. That move is deliberately out of scope here.
 
-export type ImportStep = 'file' | 'review'
+export type ImportStep = 'file' | 'accounts' | 'review'
+
+const STEP_IDS: ImportStep[] = ['file', 'accounts', 'review']
 
 export type ImportSession = {
   version: number
@@ -16,7 +18,15 @@ export type ImportSession = {
   fileName: string
   step: ImportStep
   defaultCurrency: string
+  // The account a single-currency import posts to. Multi-currency imports use
+  // currencyAccounts instead — a single-currency parser posts every row to one account
+  // regardless of the row's currency, so keying that by currency would be a lie.
   fromAccountId: string
+  // Currency code → account id, for multi-currency imports. The single source of truth
+  // for "where does this currency's money live". Replaces re-deriving the account from a
+  // `<root>:<currency>` naming convention, which made it impossible to point a currency
+  // at an account that doesn't follow the pattern.
+  currencyAccounts: Record<string, string>
   // null = follow the account path (the derived default); a boolean is an explicit override.
   importAsLiabilities: boolean | null
   preview: ImportPreviewResult
@@ -28,10 +38,11 @@ export const STORAGE_KEY = 'havefish:import-sessions'
 
 // Bumped whenever the stored shape changes. A session written by an older version is
 // dropped rather than migrated: sessions are short-lived working state, so migration code
-// would outlive every session it could ever apply to. Later steps in this epic add fields
-// (currency→account map, cluster states), and each bump discards in-flight imports from
-// the previous deploy — an acceptable trade for not carrying migrations.
-export const SESSION_VERSION = 1
+// would outlive every session it could ever apply to. Each bump discards in-flight imports
+// from the previous deploy — an acceptable trade for not carrying migrations.
+//
+// 2 — added currencyAccounts and the 'accounts' step.
+export const SESSION_VERSION = 2
 
 export const MAX_AGE_DAYS = 30
 
@@ -55,10 +66,12 @@ function isValidSession(value: unknown): value is ImportSession {
     s.version === SESSION_VERSION &&
     typeof s.fileHash === 'string' &&
     typeof s.fileName === 'string' &&
-    (s.step === 'file' || s.step === 'review') &&
+    STEP_IDS.includes(s.step as ImportStep) &&
     typeof s.savedAt === 'string' &&
     !Number.isNaN(Date.parse(s.savedAt)) &&
     Array.isArray(s.rowStates) &&
+    typeof s.currencyAccounts === 'object' &&
+    s.currencyAccounts !== null &&
     typeof s.preview === 'object' &&
     s.preview !== null
   )
