@@ -1,73 +1,133 @@
-/// <reference types="bun" />
 import { describe, it, expect } from 'bun:test'
-import { groupName, categoryName, myShareRatio } from './import-helpers'
-import type { ExpenseGroup, GroupCategory, GroupMember } from '$lib/api'
+import {
+  currenciesInPreview,
+  seedCurrencyAccounts,
+  suggestedPathForCurrency,
+  accountIdForCurrency,
+} from './import-helpers'
+import type { ParsedTransaction } from '$lib/api'
 
-const member = (userId: string, shareWeight: number, defaultExpenseAccountId: string | null): GroupMember =>
-  ({ userId, shareWeight, defaultExpenseAccountId }) as GroupMember
+const ACCOUNTS = [
+  { id: 'a-cad', path: 'assets:wise:cad' },
+  { id: 'a-eur', path: 'assets:wise:eur' },
+  { id: 'a-cny', path: 'assets:wise:cny' },
+  { id: 'a-other', path: 'assets:chequing' },
+]
 
-const category = (
-  id: string,
-  name: string,
-  opts: { archived?: boolean; mapping?: string; weights?: { userId: string; weight: number }[] } = {},
-): GroupCategory =>
-  ({
-    id,
-    name,
-    archivedAt: opts.archived ? '2026-01-01' : null,
-    myMapping: opts.mapping ? { accountId: opts.mapping } : null,
-    weights: opts.weights ?? [],
-  }) as GroupCategory
+function regular(currency?: string): ParsedTransaction {
+  return { isTransfer: false, date: '2026-06-01', amount: '-10.00', currency }
+}
 
-const group = (id: string, members: GroupMember[], categories: GroupCategory[]): ExpenseGroup =>
-  ({ id, name: id, members, categories }) as ExpenseGroup
+function transfer(
+  sourceCurrency: string,
+  targetCurrency: string,
+  suggestedKind?: 'spend' | 'transfer',
+): ParsedTransaction {
+  return {
+    isTransfer: true,
+    date: '2026-06-01',
+    sourceAmount: '-100.00',
+    sourceCurrency,
+    targetAmount: '65.00',
+    targetCurrency,
+    suggestedKind,
+  }
+}
 
-const g = group(
-  'g1',
-  [member('u1', 70, 'a-default'), member('u2', 30, null)],
-  [
-    category('c-food', 'Food', { mapping: 'a-food', weights: [{ userId: 'u1', weight: 60 }, { userId: 'u2', weight: 40 }] }),
-    category('c-bare', 'Bare'),
-  ],
-)
-const groups = [g]
+describe('currenciesInPreview', () => {
+  it('falls back to the default currency for rows that carry none', () => {
+    expect(currenciesInPreview([regular(), regular()], 'CAD')).toEqual(['CAD'])
+  })
 
-describe('groupName', () => {
-  it('returns the group name or empty for null', () => {
-    expect(groupName(groups, 'g1')).toBe('g1')
-    expect(groupName(groups, null)).toBe('')
-    expect(groupName(groups, 'nope')).toBe('')
+  it('collects each distinct currency once, in first-seen order', () => {
+    const txs = [regular('CAD'), regular('EUR'), regular('CAD')]
+    expect(currenciesInPreview(txs, 'CAD')).toEqual(['CAD', 'EUR'])
+  })
+
+  it('normalizes case so cad and CAD are one currency', () => {
+    expect(currenciesInPreview([regular('cad'), regular('CAD')], 'CAD')).toEqual(['CAD'])
+  })
+
+  it('requires both sides of a convert-and-park', () => {
+    expect(currenciesInPreview([transfer('CAD', 'EUR', 'transfer')], 'CAD')).toEqual(['CAD', 'EUR'])
+  })
+
+  it('requires only the funding side of a cross-currency spend', () => {
+    // The money never lands in a CZK account — it goes straight to an expense.
+    expect(currenciesInPreview([transfer('USD', 'CZK', 'spend')], 'CAD')).toEqual(['USD'])
+  })
+
+  it('includes a same-currency transfer’s currency', () => {
+    const tx: ParsedTransaction = {
+      isTransfer: 'same-currency',
+      date: '2026-06-01',
+      amount: '199.69',
+      feeAmount: '0.62',
+      currency: 'GBP',
+    }
+    expect(currenciesInPreview([tx], 'CAD')).toEqual(['GBP'])
+  })
+
+  it('ignores row-level edits by reading only the preview’s own suggestion', () => {
+    // Same two rows, differing only in what the preview suggested. The required set must
+    // follow the preview, so flipping a row later cannot re-gate a finished step.
+    const asSpend = currenciesInPreview([transfer('USD', 'CZK', 'spend')], 'CAD')
+    const asTransfer = currenciesInPreview([transfer('USD', 'CZK', 'transfer')], 'CAD')
+    expect(asSpend).toEqual(['USD'])
+    expect(asTransfer).toEqual(['USD', 'CZK'])
+  })
+
+  it('returns nothing for an empty preview', () => {
+    expect(currenciesInPreview([], 'CAD')).toEqual([])
   })
 })
 
-describe('categoryName', () => {
-  it('resolves a category name within a group', () => {
-    expect(categoryName(groups, 'g1', 'c-food')).toBe('Food')
+describe('seedCurrencyAccounts', () => {
+  it('pre-fills currencies whose conventional account exists', () => {
+    const seeded = seedCurrencyAccounts(['CAD', 'EUR'], ACCOUNTS, 'assets:wise')
+    expect(seeded).toEqual({ CAD: 'a-cad', EUR: 'a-eur' })
   })
 
-  it('returns empty when either id is missing or unknown', () => {
-    expect(categoryName(groups, 'g1', null)).toBe('')
-    expect(categoryName(groups, null, 'c-food')).toBe('')
-    expect(categoryName(groups, 'g1', 'nope')).toBe('')
+  it('leaves a currency unmapped when no conventional account exists', () => {
+    const seeded = seedCurrencyAccounts(['CAD', 'RMB'], ACCOUNTS, 'assets:wise')
+    expect(seeded.CAD).toBe('a-cad')
+    expect(seeded.RMB).toBe('')
+  })
+
+  it('keeps an existing mapping rather than re-deriving over it', () => {
+    // The user pointed RMB at their CNY account; re-seeding must not undo that.
+    const seeded = seedCurrencyAccounts(['RMB'], ACCOUNTS, 'assets:wise', { RMB: 'a-cny' })
+    expect(seeded.RMB).toBe('a-cny')
+  })
+
+  it('drops currencies no longer present in the import', () => {
+    const seeded = seedCurrencyAccounts(['CAD'], ACCOUNTS, 'assets:wise', { EUR: 'a-eur' })
+    expect(Object.keys(seeded)).toEqual(['CAD'])
+  })
+
+  it('leaves everything unmapped when there is no root path', () => {
+    const seeded = seedCurrencyAccounts(['CAD', 'EUR'], ACCOUNTS, null)
+    expect(seeded).toEqual({ CAD: '', EUR: '' })
   })
 })
 
-describe('myShareRatio', () => {
-  it("uses the category's complete weight vector", () => {
-    expect(myShareRatio(g, 'u1', 'c-food')).toBeCloseTo(0.6, 5)
-    expect(myShareRatio(g, 'u2', 'c-food')).toBeCloseTo(0.4, 5)
+describe('suggestedPathForCurrency', () => {
+  it('lowercases the currency under the root', () => {
+    expect(suggestedPathForCurrency('assets:wise', 'EUR')).toBe('assets:wise:eur')
   })
 
-  it('falls back to member shareWeights when the category has no weights', () => {
-    expect(myShareRatio(g, 'u1', 'c-bare')).toBeCloseTo(0.7, 5)
+  it('returns an empty string without a root', () => {
+    expect(suggestedPathForCurrency(null, 'EUR')).toBe('')
+  })
+})
+
+describe('accountIdForCurrency', () => {
+  it('resolves the conventional sub-account', () => {
+    expect(accountIdForCurrency(ACCOUNTS, 'assets:wise', 'EUR')).toBe('a-eur')
   })
 
-  it('falls back to member shareWeights when no category given', () => {
-    expect(myShareRatio(g, 'u1', null)).toBeCloseTo(0.7, 5)
-  })
-
-  it('returns null for an unknown member or missing group', () => {
-    expect(myShareRatio(g, 'nobody', null)).toBeNull()
-    expect(myShareRatio(undefined, 'u1', null)).toBeNull()
+  it('returns empty for an unknown currency or missing root', () => {
+    expect(accountIdForCurrency(ACCOUNTS, 'assets:wise', 'JPY')).toBe('')
+    expect(accountIdForCurrency(ACCOUNTS, null, 'EUR')).toBe('')
   })
 })

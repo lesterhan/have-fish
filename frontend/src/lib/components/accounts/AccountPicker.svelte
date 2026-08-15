@@ -16,6 +16,8 @@
     oncreate?: (account: Account) => void
     /** Fires after any selection (existing path/id or a freshly created account). */
     oncommit?: (value: string) => void
+    /** ISO 4217 code stamped on accounts created here, for callers that know it. */
+    createCurrency?: string
   }
 
   let {
@@ -26,6 +28,7 @@
     allowCreate = true,
     oncreate,
     oncommit,
+    createCurrency,
   }: Props = $props()
 
   const listboxId = `account-picker-${Math.random().toString(36).slice(2, 7)}`
@@ -221,7 +224,10 @@
       if (creating) return
       creating = true
       try {
-        const acc = await createAccount({ path: row.path })
+        const acc = await createAccount({
+          path: row.path,
+          ...(createCurrency ? { defaultCurrency: createCurrency } : {}),
+        })
         oncreate?.(acc)
         value = acc.id
         segs = acc.path.split(SEP)
