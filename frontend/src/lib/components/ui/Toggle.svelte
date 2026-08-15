@@ -3,13 +3,22 @@
     checked?: boolean
     label?: string
     disabled?: boolean
+    // For callers whose stored value isn't the toggle's own boolean — e.g. a tri-state
+    // override that records "same as derived" as null.
+    onchange?: (checked: boolean) => void
   }
 
-  let { checked = $bindable(false), label, disabled = false }: Props = $props()
+  let { checked = $bindable(false), label, disabled = false, onchange }: Props = $props()
 </script>
 
 <label class="toggle-wrap" class:disabled>
-  <input type="checkbox" class="toggle-input" bind:checked {disabled} />
+  <input
+    type="checkbox"
+    class="toggle-input"
+    bind:checked
+    {disabled}
+    onchange={(e) => onchange?.((e.currentTarget as HTMLInputElement).checked)}
+  />
   <span class="track" class:on={checked}>
     <span class="thumb"></span>
   </span>

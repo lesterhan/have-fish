@@ -19,12 +19,25 @@
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
+  import Toggle from '$lib/components/ui/Toggle.svelte'
+  import Modal from '$lib/components/ui/Modal.svelte'
   import EditParserPanel from '$lib/components/import/EditParserPanel.svelte'
   import AddParserWizard from '$lib/components/wizards/AddParserWizard.svelte'
   import ImportPreviewPanel from '$lib/components/import/ImportPreviewPanel.svelte'
   import ParsersPanel from '$lib/components/import/ParsersPanel.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import type { RowState } from '$lib/components/import/ImportPreviewPanel.svelte'
+  import type { RowState } from '$lib/components/import/row-state'
+  import ImportStepper from '$lib/components/import/ImportStepper.svelte'
+  import {
+    hashCsv,
+    saveSession,
+    clearSession,
+    latestSession,
+    describeAge,
+    SESSION_VERSION,
+    type ImportSession,
+    type ImportStep,
+  } from '$lib/import-session'
   import { accountIdForCurrency, rowMissingAccounts } from '$lib/components/import/import-helpers'
   import { toast } from '$lib/toast.svelte'
   import { goto } from '$app/navigation'
@@ -52,13 +65,30 @@
   let noParserFound = $state(false)
 
   let preview = $state<Awaited<ReturnType<typeof importPreview>> | null>(null)
-  let importAsLiabilities = $state(false)
+
+  // null = follow the account path; a boolean is the user's explicit override.
+  let liabilitiesOverride = $state<boolean | null>(null)
 
   let editingParser = $state<CsvParser | null>(null)
   let showAddParser = $state(false)
 
   let rowStates = $state<RowState[]>([])
   let groups = $state<ExpenseGroup[]>([])
+
+  // --- Session ---
+
+  let step = $state<ImportStep>('file')
+  let fileHash = $state('')
+  let fileName = $state('')
+  // A saved import found on mount, offered for resume until accepted or dismissed.
+  let resumable = $state<ImportSession | null>(null)
+
+  // Only the steps that exist today. Later stories in this epic insert Accounts, Sort and
+  // Confirm; until then the stepper must not advertise them.
+  const STEPS: { id: ImportStep; label: string }[] = [
+    { id: 'file', label: 'File' },
+    { id: 'review', label: 'Review' },
+  ]
 
   const session = useSession()
   const currentUserId = $derived($session.data?.user.id ?? '')
@@ -75,7 +105,80 @@
     parsersLoading = false
     toAccountId = settings.defaultOffsetAccountId ?? ''
     groups = groupsData
+    resumable = latestSession()
   })
+
+  // --- Import as liabilities ---
+  //
+  // Derived from the parser's default account rather than toggled. The CSV of a credit
+  // card states a charge as a positive number; posting it to a liability account means
+  // storing it negated. That follows from the account, so it is shown as a fact with an
+  // override available, not as a switch — flipping it mid-review silently re-signs every
+  // amount in the table.
+  let derivedLiabilities = $derived.by(() => {
+    if (!preview) return false
+    const root = settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
+    const path = accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
+    return path.startsWith(`${root}:`)
+  })
+  let importAsLiabilities = $derived(liabilitiesOverride ?? derivedLiabilities)
+
+  // The span the CSV covers, for the File step's summary.
+  let dateRange = $derived.by(() => {
+    const dates = (preview?.transactions ?? []).map((tx) => tx.date).filter(Boolean).sort()
+    if (dates.length === 0) return ''
+    const first = dates[0].slice(0, 10)
+    const last = dates[dates.length - 1].slice(0, 10)
+    return first === last ? first : `${first} → ${last}`
+  })
+
+  // --- Session persistence ---
+
+  function currentSession(): ImportSession | null {
+    if (!preview || !fileHash) return null
+    return {
+      version: SESSION_VERSION,
+      fileHash,
+      fileName,
+      step,
+      defaultCurrency,
+      fromAccountId,
+      importAsLiabilities: liabilitiesOverride,
+      preview: $state.snapshot(preview) as typeof preview,
+      rowStates: $state.snapshot(rowStates) as RowState[],
+      savedAt: new Date().toISOString(),
+    }
+  }
+
+  // Persist on every change to the decisions worth keeping. Debounced because editing an
+  // account picker fires this per keystroke and a 200-row preview is not a small write.
+  let saveTimer: ReturnType<typeof setTimeout> | null = null
+  $effect(() => {
+    const snapshot = currentSession()
+    if (!snapshot) return
+    if (saveTimer) clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => saveSession(snapshot), 400)
+    return () => {
+      if (saveTimer) clearTimeout(saveTimer)
+    }
+  })
+
+  function resumeSession(saved: ImportSession) {
+    preview = saved.preview
+    rowStates = saved.rowStates
+    fileHash = saved.fileHash
+    fileName = saved.fileName
+    defaultCurrency = saved.defaultCurrency
+    fromAccountId = saved.fromAccountId
+    liabilitiesOverride = saved.importAsLiabilities
+    step = saved.step
+    resumable = null
+  }
+
+  function discardResumable() {
+    if (resumable) clearSession(resumable.fileHash)
+    resumable = null
+  }
 
   // --- Multi-currency derived values ---
 
@@ -140,15 +243,15 @@
     noParserFound = false
     loading = true
     try {
+      const csvText = await file.text()
       const fetched = await importPreview(file, defaultCurrency)
       if (!fetched.isMultiCurrency) {
         fromAccountId = fetched.defaultAccountId ?? ''
       }
-      const liabilitiesRoot =
-        settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
       const defaultAccountPath =
         accounts.find((a) => a.id === fetched.defaultAccountId)?.path ?? ''
-      importAsLiabilities = defaultAccountPath.startsWith(`${liabilitiesRoot}:`)
+      // A fresh parse starts from the derived value; the override is the user's, per file.
+      liabilitiesOverride = null
 
       // Resolve per-row account IDs and check for duplicates. For single-currency
       // imports every row maps to defaultAccountId; for multi-currency each row
@@ -205,9 +308,17 @@
             tx.isTransfer === true && tx.suggestedKind !== 'transfer' && !isSplitSuggestion
               ? (tx.suggestedExpenseAccountId ?? toAccountId)
               : '',
+          // A rule filled this row in; anything else is still sitting at its default.
+          source: tx.matchedRulePattern ? ('rule' as const) : ('none' as const),
         }
       })
       preview = fetched
+      fileHash = await hashCsv(csvText)
+      fileName = file.name
+      // Re-parsing a file already in progress replaces its saved session rather than
+      // leaving a second copy behind.
+      resumable = null
+      step = 'review'
     } catch (e) {
       error =
         e instanceof Error
@@ -329,6 +440,8 @@
       toast.show(`${result.created} transaction(s) imported${fishPieMsg}`)
       refreshSidebar()
       confetti.trigger()
+      // The rows are in the ledger now — the saved session would only offer to redo them.
+      resetSession()
       goto('/transactions')
     } catch {
       error = 'Import failed. Please try again.'
@@ -337,11 +450,33 @@
     }
   }
 
-  function handleCancel() {
+  // Drops the in-progress import, in memory and in storage. Callers are responsible for
+  // confirming first where the work would be lost rather than committed.
+  function resetSession() {
+    if (fileHash) clearSession(fileHash)
+    if (saveTimer) clearTimeout(saveTimer)
     preview = null
     fromAccountId = ''
     rowStates = []
-    importAsLiabilities = false
+    liabilitiesOverride = null
+    fileHash = ''
+    fileName = ''
+    file = null
+    step = 'file'
+  }
+
+  // Discarding throws away every row decision made so far and there is no undo, so it
+  // asks first — this used to wipe the session on a single unguarded click.
+  let showDiscardConfirm = $state(false)
+
+  function handleCancel() {
+    showDiscardConfirm = true
+  }
+
+  function confirmDiscard() {
+    showDiscardConfirm = false
+    resetSession()
+    error = ''
   }
 
   function clearFile() {
@@ -349,25 +484,127 @@
     error = ''
     noParserFound = false
   }
-
-  // Once a preview is loaded the user is partway through categorizing rows, and all
-  // that work lives only in this page's in-memory state. Warn before a refresh / tab
-  // close so an accidental unload can't silently wipe the session. A successful import
-  // leaves via client-side `goto`, which never triggers beforeunload, so this only
-  // fires on a real browser unload during the preview stage.
-  $effect(() => {
-    if (!preview) return
-    const handler = (e: BeforeUnloadEvent) => {
-      e.preventDefault()
-      e.returnValue = ''
-    }
-    window.addEventListener('beforeunload', handler)
-    return () => window.removeEventListener('beforeunload', handler)
-  })
 </script>
 
 <div class="page">
-  {#if !preview}
+  {#if preview}
+    <div class="transfer-window">
+      <div class="section-bar">
+        <ImportStepper {step} steps={STEPS} onnavigate={(s) => (step = s)} />
+      </div>
+
+      {#if step === 'file'}
+        <div class="file-summary">
+          <div class="summary-head">
+            <span class="file-chip">
+              <Icon name="import" size={13} />
+              <span class="file-name">{fileName}</span>
+            </span>
+            {#if importAsLiabilities}
+              <span class="liability-chip">
+                Imported as liabilities
+                <TooltipIcon
+                  label="This account is a debt, so a charge on the statement increases what you owe. Amounts are stored negated to match."
+                />
+              </span>
+            {/if}
+          </div>
+
+          <dl class="summary-facts">
+            <div class="fact">
+              <dt>Parser</dt>
+              <dd>{preview.parser}</dd>
+            </div>
+            <div class="fact">
+              <dt>Rows</dt>
+              <dd>{preview.transactions.length}</dd>
+            </div>
+            {#if dateRange}
+              <div class="fact">
+                <dt>Dates</dt>
+                <dd>{dateRange}</dd>
+              </div>
+            {/if}
+            <div class="fact">
+              <dt>Currency</dt>
+              <dd>{defaultCurrency}</dd>
+            </div>
+            {#if preview.errors.length > 0}
+              <div class="fact">
+                <dt>Unparsed</dt>
+                <dd class="fact-warn">{preview.errors.length}</dd>
+              </div>
+            {/if}
+          </dl>
+
+          <details class="defaults">
+            <summary class="defaults-summary">
+              <Icon name="arrow-right" size={10} />
+              <span class="defaults-label">Override</span>
+              <span class="defaults-values">
+                {liabilitiesOverride === null ? 'following the account' : 'set by hand'}
+              </span>
+            </summary>
+            <div class="override-body">
+              <Toggle
+                checked={importAsLiabilities}
+                label="Import as liabilities"
+                onchange={(v) => (liabilitiesOverride = v === derivedLiabilities ? null : v)}
+              />
+              <p class="override-hint">
+                Follows the import account's path by default. Change it only when the
+                statement's signs don't match the account.
+              </p>
+            </div>
+          </details>
+
+          <div class="summary-actions">
+            <GradientButton onclick={handleCancel}>Discard import</GradientButton>
+            <GradientButton size="lg" active onclick={() => (step = 'review')}>
+              Continue to review
+            </GradientButton>
+          </div>
+        </div>
+      {/if}
+    </div>
+
+    {#if step === 'review'}
+      <ImportPreviewPanel
+        {preview}
+        bind:rowStates
+        {accounts}
+        {groups}
+        {currentUserId}
+        bind:fromAccountId
+        {importAsLiabilities}
+        {defaultCurrency}
+        {loading}
+        {error}
+        {missingPaths}
+        onaccountcreated={handleAccountCreated}
+        oncreatemissing={handleCreateMissingAccount}
+        oncreateallmissing={handleCreateAllMissing}
+        onconfirm={handleConfirm}
+        oncancel={handleCancel}
+      />
+    {/if}
+  {:else}
+    {#if resumable}
+      <div class="resume-strip">
+        <Icon name="restore-window" size={14} />
+        <span class="resume-text">
+          Resume <strong>{resumable.fileName}</strong>?
+          <span class="resume-meta">
+            {resumable.rowStates.length} rows · saved {describeAge(resumable.savedAt)}
+          </span>
+        </span>
+        <div class="resume-actions">
+          <GradientButton onclick={discardResumable}>Discard</GradientButton>
+          <GradientButton active onclick={() => resumeSession(resumable!)}>Resume</GradientButton>
+        </div>
+      </div>
+    {/if}
+
     <div class="transfer-window">
       <div class="section-bar">
         <div class="tabs">
@@ -584,25 +821,6 @@
         {/if}
       </div>
     {/if}
-  {:else}
-    <ImportPreviewPanel
-      {preview}
-      bind:rowStates
-      {accounts}
-      {groups}
-      {currentUserId}
-      bind:fromAccountId
-      bind:importAsLiabilities
-      {defaultCurrency}
-      {loading}
-      {error}
-      {missingPaths}
-      onaccountcreated={handleAccountCreated}
-      oncreatemissing={handleCreateMissingAccount}
-      oncreateallmissing={handleCreateAllMissing}
-      onconfirm={handleConfirm}
-      oncancel={handleCancel}
-    />
   {/if}
 </div>
 
@@ -613,6 +831,22 @@
     parsers = [...parsers, p]
   }}
 />
+
+<Modal title="Discard import" bind:open={showDiscardConfirm}>
+  <div class="discard-modal">
+    <p>
+      {#if fileName}<strong>{fileName}</strong> —{/if}
+      {rowStates.length} row{rowStates.length === 1 ? '' : 's'} and every account
+      assignment made so far will be discarded. This cannot be undone.
+    </p>
+    <div class="discard-actions">
+      <GradientButton onclick={() => (showDiscardConfirm = false)}>Keep working</GradientButton>
+      <GradientButton variant="warning" active onclick={confirmDiscard}>
+        Discard import
+      </GradientButton>
+    </div>
+  </div>
+</Modal>
 
 <style>
   .page {
@@ -634,6 +868,142 @@
     background: var(--color-section-bar-bg);
     border-top: 1px solid var(--color-section-bar-border-top);
     border-bottom: 1px solid var(--color-section-bar-border-bottom);
+  }
+
+  /* ── Resume strip (a saved import found on mount) ── */
+
+  .resume-strip {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--color-accent-chip-bg);
+    color: var(--color-accent-chip-fg);
+    border-bottom: 1px solid var(--color-rule);
+    font-size: var(--text-sm);
+  }
+
+  .resume-text {
+    flex: 1;
+  }
+
+  .resume-meta {
+    margin-left: var(--sp-xs);
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    opacity: 0.8;
+  }
+
+  .resume-actions {
+    display: flex;
+    gap: var(--sp-sm);
+  }
+
+  /* ── File step summary (shown once a CSV has been parsed) ── */
+
+  .file-summary {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    padding: var(--sp-md);
+  }
+
+  .summary-head {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    flex-wrap: wrap;
+  }
+
+  .liability-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px var(--sp-sm);
+    border-radius: var(--radius-pill);
+    background: var(--color-accent-chip-bg);
+    color: var(--color-accent-chip-fg);
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+  }
+
+  .summary-facts {
+    display: flex;
+    flex-wrap: wrap;
+    gap: var(--sp-lg);
+    margin: 0;
+    padding: var(--sp-sm) var(--sp-md);
+    border-radius: var(--radius-lg);
+    background: var(--color-window-raised);
+    box-shadow: var(--shadow-inset);
+  }
+
+  .fact {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .fact dt {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .fact dd {
+    margin: 0;
+    font-size: var(--text-sm);
+  }
+
+  .fact-warn {
+    color: var(--color-amount-negative);
+  }
+
+  .override-body {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-xs);
+    padding: var(--sp-sm) 0 0 var(--sp-md);
+  }
+
+  .override-hint {
+    margin: 0;
+    max-width: 42rem;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .summary-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-sm);
+  }
+
+  /* ── Discard confirmation ── */
+
+  .discard-modal {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-md);
+    padding: var(--sp-md);
+    max-width: 30rem;
+  }
+
+  .discard-modal p {
+    margin: 0;
+    font-size: var(--text-sm);
+  }
+
+  .discard-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: var(--sp-sm);
   }
 
   /* ── Tabs ── */

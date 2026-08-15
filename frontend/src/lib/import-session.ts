@@ -1,0 +1,163 @@
+import type { ImportPreviewResult } from '$lib/api'
+import type { RowState } from '$lib/components/import/row-state'
+
+// An in-progress import, persisted so multi-step navigation (and an accidental refresh)
+// doesn't lose a half-categorized CSV.
+//
+// Shaped as plain serializable JSON so moving this to a backend `import_sessions` table
+// later — which is what would let an import survive a device switch — is a transport
+// change rather than a rewrite. That move is deliberately out of scope here.
+
+export type ImportStep = 'file' | 'review'
+
+export type ImportSession = {
+  version: number
+  fileHash: string // sha-256 of the CSV text
+  fileName: string
+  step: ImportStep
+  defaultCurrency: string
+  fromAccountId: string
+  // null = follow the account path (the derived default); a boolean is an explicit override.
+  importAsLiabilities: boolean | null
+  preview: ImportPreviewResult
+  rowStates: RowState[]
+  savedAt: string // ISO
+}
+
+export const STORAGE_KEY = 'havefish:import-sessions'
+
+// Bumped whenever the stored shape changes. A session written by an older version is
+// dropped rather than migrated: sessions are short-lived working state, so migration code
+// would outlive every session it could ever apply to. Later steps in this epic add fields
+// (currency→account map, cluster states), and each bump discards in-flight imports from
+// the previous deploy — an acceptable trade for not carrying migrations.
+export const SESSION_VERSION = 1
+
+export const MAX_AGE_DAYS = 30
+
+// Bounds what a stack of large previews can take from the ~5MB localStorage budget.
+export const MAX_SESSIONS = 5
+
+const DAY_MS = 24 * 60 * 60 * 1000
+
+// sha-256 of the CSV text. Identifies the file by content, so re-dropping the same export
+// finds its session even if it was renamed, and an edited file correctly starts fresh.
+export async function hashCsv(text: string): Promise<string> {
+  const bytes = new TextEncoder().encode(text)
+  const digest = await crypto.subtle.digest('SHA-256', bytes)
+  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+}
+
+function isValidSession(value: unknown): value is ImportSession {
+  if (typeof value !== 'object' || value === null) return false
+  const s = value as Partial<ImportSession>
+  return (
+    s.version === SESSION_VERSION &&
+    typeof s.fileHash === 'string' &&
+    typeof s.fileName === 'string' &&
+    (s.step === 'file' || s.step === 'review') &&
+    typeof s.savedAt === 'string' &&
+    !Number.isNaN(Date.parse(s.savedAt)) &&
+    Array.isArray(s.rowStates) &&
+    typeof s.preview === 'object' &&
+    s.preview !== null
+  )
+}
+
+export function isFresh(session: ImportSession, now: number): boolean {
+  const age = now - Date.parse(session.savedAt)
+  return age >= 0 && age <= MAX_AGE_DAYS * DAY_MS
+}
+
+// Drops malformed, wrong-version and expired entries, then keeps only the newest
+// MAX_SESSIONS. Returned newest-first.
+export function pruneSessions(value: unknown, now: number): ImportSession[] {
+  if (!Array.isArray(value)) return []
+  return value
+    .filter((s): s is ImportSession => isValidSession(s) && isFresh(s, now))
+    .sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt))
+    .slice(0, MAX_SESSIONS)
+}
+
+// A minimal slice of the Storage API, so these functions are testable without a DOM and
+// can't throw on a server render where localStorage doesn't exist.
+export type SessionStorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+
+function defaultStorage(): SessionStorageLike | null {
+  try {
+    return globalThis.localStorage ?? null
+  } catch {
+    // Access itself throws when storage is disabled (Safari private browsing).
+    return null
+  }
+}
+
+export function loadSessions(
+  now: number = Date.now(),
+  storage: SessionStorageLike | null = defaultStorage(),
+): ImportSession[] {
+  if (!storage) return []
+  try {
+    const raw = storage.getItem(STORAGE_KEY)
+    if (!raw) return []
+    return pruneSessions(JSON.parse(raw), now)
+  } catch {
+    // Corrupt JSON — treat as no saved sessions rather than breaking the page.
+    return []
+  }
+}
+
+export function saveSession(
+  session: ImportSession,
+  now: number = Date.now(),
+  storage: SessionStorageLike | null = defaultStorage(),
+): void {
+  if (!storage) return
+  const others = loadSessions(now, storage).filter((s) => s.fileHash !== session.fileHash)
+  const next = pruneSessions([session, ...others], now)
+  try {
+    storage.setItem(STORAGE_KEY, JSON.stringify(next))
+  } catch {
+    // Over quota: keep only this session rather than losing the one in progress.
+    try {
+      storage.setItem(STORAGE_KEY, JSON.stringify([session]))
+    } catch {
+      // Storage is unusable — the import still works, it just won't survive a refresh.
+    }
+  }
+}
+
+export function clearSession(
+  fileHash: string,
+  now: number = Date.now(),
+  storage: SessionStorageLike | null = defaultStorage(),
+): void {
+  if (!storage) return
+  const remaining = loadSessions(now, storage).filter((s) => s.fileHash !== fileHash)
+  try {
+    if (remaining.length === 0) storage.removeItem(STORAGE_KEY)
+    else storage.setItem(STORAGE_KEY, JSON.stringify(remaining))
+  } catch {
+    // Nothing useful to do; a stale entry expires on its own within MAX_AGE_DAYS.
+  }
+}
+
+// The session to offer on mount: the most recently saved one still in progress.
+export function latestSession(
+  now: number = Date.now(),
+  storage: SessionStorageLike | null = defaultStorage(),
+): ImportSession | null {
+  return loadSessions(now, storage)[0] ?? null
+}
+
+// Human-readable age for the resume prompt ("saved 2 hours ago").
+export function describeAge(savedAt: string, now: number = Date.now()): string {
+  const ms = now - Date.parse(savedAt)
+  if (!Number.isFinite(ms) || ms < 60_000) return 'just now'
+  const minutes = Math.floor(ms / 60_000)
+  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  const hours = Math.floor(minutes / 60)
+  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
+  const days = Math.floor(hours / 24)
+  return `${days} day${days === 1 ? '' : 's'} ago`
+}

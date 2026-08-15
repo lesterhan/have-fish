@@ -7,7 +7,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
   import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
-  import type { RowState } from './ImportPreviewPanel.svelte'
+  import type { RowState } from './row-state'
 
   interface Props {
     tx: RegularParsedTransaction
