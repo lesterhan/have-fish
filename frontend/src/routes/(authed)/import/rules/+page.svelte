@@ -10,18 +10,22 @@
     denyRule,
     reviveRule,
     mineRules,
+    fetchGroups,
     type ImportRule,
     type Account,
+    type ExpenseGroup,
+    type RuleTarget,
   } from '$lib/api'
   import { toast } from '$lib/toast.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
-  import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import TableShell from '$lib/components/ui/TableShell.svelte'
+  import RuleTargetEditor from '$lib/components/import/RuleTargetEditor.svelte'
 
   let rules = $state<ImportRule[]>([])
   let accounts = $state<Account[]>([])
+  let groups = $state<ExpenseGroup[]>([])
   let loading = $state(true)
   let mining = $state(false)
   let minedOnce = $state(false)
@@ -29,10 +33,25 @@
   let showAddForm = $state(false)
   let newPattern = $state('')
   let newAccountId = $state('')
+  let newGroupId = $state<string | null>(null)
+  let newCategoryId = $state<string | null>(null)
 
   let editingId = $state<string | null>(null)
   let editPattern = $state('')
   let editAccountId = $state('')
+  let editGroupId = $state<string | null>(null)
+  let editCategoryId = $state<string | null>(null)
+
+  // A rule targets exactly one of an account or a group, so the form is only complete once
+  // one of them is chosen. The backend enforces the same invariant.
+  function targetOf(accountId: string, groupId: string | null, categoryId: string | null): RuleTarget | null {
+    if (groupId) return { groupId, categoryId }
+    if (accountId) return { accountId }
+    return null
+  }
+
+  let newTarget = $derived(targetOf(newAccountId, newGroupId, newCategoryId))
+  let editTarget = $derived(targetOf(editAccountId, editGroupId, editCategoryId))
 
   let panelTab = $state<'suggestions' | 'denied'>('suggestions')
 
@@ -49,15 +68,18 @@
   )
 
   onMount(async () => {
-    const [r, a] = await Promise.all([fetchRules(), fetchAccounts()])
+    const [r, a, g] = await Promise.all([fetchRules(), fetchAccounts(), fetchGroups()])
     rules = r
     accounts = a
+    groups = g
     loading = false
   })
 
-  // A rule targets either an expense account or a Fish Pie group. This screen only
-  // creates and edits the account kind; a group rule shows its target read-only until
-  // the split editor lands.
+  function handleAccountCreated(account: Account) {
+    accounts = [...accounts, account]
+  }
+
+  // A rule targets either an expense account or a Fish Pie split.
   function ruleTarget(rule: ImportRule): string {
     if (rule.accountPath) return rule.accountPath
     if (rule.groupName) {
@@ -70,6 +92,8 @@
     editingId = rule.id
     editPattern = rule.pattern
     editAccountId = rule.accountId ?? ''
+    editGroupId = rule.groupId
+    editCategoryId = rule.categoryId
     showAddForm = false
   }
 
@@ -77,32 +101,36 @@
     editingId = null
     editPattern = ''
     editAccountId = ''
+    editGroupId = null
+    editCategoryId = null
+  }
+
+  function resetAddForm() {
+    showAddForm = false
+    newPattern = ''
+    newAccountId = ''
+    newGroupId = null
+    newCategoryId = null
   }
 
   async function handleAdd() {
-    if (!newPattern.trim() || !newAccountId) return
+    if (!newPattern.trim() || !newTarget) return
     try {
-      const created = await createRule({
-        pattern: newPattern.trim(),
-        accountId: newAccountId,
-      })
-      rules = [...rules, created]
-      newPattern = ''
-      newAccountId = ''
-      showAddForm = false
+      await createRule({ pattern: newPattern.trim(), ...newTarget })
+      // Re-fetch rather than appending the POST response: the display fields (accountPath,
+      // groupName, categoryName) come from joins the create endpoint doesn't return.
+      rules = await fetchRules()
+      resetAddForm()
     } catch (e) {
       toast.show((e as Error).message)
     }
   }
 
   async function handleSaveEdit() {
-    if (!editingId || !editPattern.trim() || !editAccountId) return
+    if (!editingId || !editPattern.trim() || !editTarget) return
     try {
-      const updated = await updateRule(editingId, {
-        pattern: editPattern.trim(),
-        accountId: editAccountId,
-      })
-      rules = rules.map((r) => (r.id === updated.id ? { ...updated } : r))
+      await updateRule(editingId, { pattern: editPattern.trim(), ...editTarget })
+      rules = await fetchRules()
       cancelEdit()
     } catch (e) {
       toast.show((e as Error).message)
@@ -177,7 +205,7 @@
       <TableShell
         columns={[
           { label: 'Pattern' },
-          { label: 'Account' },
+          { label: 'Target' },
           { label: '', class: 'col-actions' },
         ]}
         {loading}
@@ -194,41 +222,30 @@
                 style="width: 100%; box-sizing: border-box"
                 onkeydown={(e) => {
                   if (e.key === 'Enter') handleAdd()
-                  if (e.key === 'Escape') {
-                    showAddForm = false
-                    newPattern = ''
-                    newAccountId = ''
-                  }
+                  if (e.key === 'Escape') resetAddForm()
                 }}
               />
             </td>
             <td class="cell-form">
-              <AccountPicker
+              <RuleTargetEditor
                 {accounts}
-                bind:value={newAccountId}
-                placeholder="Select account…"
-                oncreate={(a) => {
-                  accounts = [...accounts, a]
-                }}
+                {groups}
+                bind:accountId={newAccountId}
+                bind:groupId={newGroupId}
+                bind:categoryId={newCategoryId}
+                onaccountcreated={handleAccountCreated}
               />
             </td>
             <td class="cell-actions">
               <div class="action-row">
                 <GradientButton
                   onclick={handleAdd}
-                  disabled={!newPattern.trim() || !newAccountId}
+                  disabled={!newPattern.trim() || !newTarget}
                   active
                 >
                   Save
                 </GradientButton>
-                <GradientButton
-                  square
-                  onclick={() => {
-                    showAddForm = false
-                    newPattern = ''
-                    newAccountId = ''
-                  }}
-                >
+                <GradientButton square onclick={resetAddForm}>
                   <Icon name="close" size={12} />
                 </GradientButton>
               </div>
@@ -250,17 +267,18 @@
                 />
               </td>
               <td class="cell-form">
-                <AccountPicker
+                <RuleTargetEditor
                   {accounts}
-                  bind:value={editAccountId}
-                  oncreate={(a) => {
-                    accounts = [...accounts, a]
-                  }}
+                  {groups}
+                  bind:accountId={editAccountId}
+                  bind:groupId={editGroupId}
+                  bind:categoryId={editCategoryId}
+                  onaccountcreated={handleAccountCreated}
                 />
               </td>
               <td class="cell-actions">
                 <div class="action-row">
-                  <GradientButton onclick={handleSaveEdit} active
+                  <GradientButton onclick={handleSaveEdit} disabled={!editTarget} active
                     >Save</GradientButton
                   >
                   <GradientButton square onclick={cancelEdit}>
@@ -272,7 +290,16 @@
           {:else}
             <tr>
               <td class="cell-pattern">{rule.pattern}</td>
-              <td class="cell-mono">{ruleTarget(rule)}</td>
+              <td class="cell-mono">
+                {#if rule.groupId}
+                  <span class="split-target">
+                    <Icon name="pie" size={11} />
+                    {ruleTarget(rule)}
+                  </span>
+                {:else}
+                  {ruleTarget(rule)}
+                {/if}
+              </td>
               <td class="cell-actions">
                 <div class="action-row">
                   <GradientButton
@@ -469,6 +496,13 @@
     font-family: var(--font-mono);
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
+  }
+
+  .split-target {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--color-accent-chip-fg);
   }
 
   .cell-mono {
