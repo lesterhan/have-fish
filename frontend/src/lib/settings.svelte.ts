@@ -11,6 +11,14 @@ export const settingsStore = {
     return store.value
   },
 
+  /**
+   * Seed the cache from settings a server `load` already fetched, so the first `load()`
+   * call on the client resolves without a round trip. No-op once the store is populated.
+   */
+  prime(settings: UserSettings): void {
+    if (!store.value) store.value = settings
+  },
+
   /** Fetch settings once; subsequent calls return the cached result. */
   load(): Promise<UserSettings> {
     if (store.value) return Promise.resolve(store.value)

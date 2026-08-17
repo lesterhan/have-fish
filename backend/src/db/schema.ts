@@ -87,7 +87,16 @@ export const transactions = pgTable('transactions', {
   groupExpenseId: uuid('group_expense_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
   deletedAt: timestamp('deleted_at'),
-})
+}, (t) => [
+  // Every read of this table is "one user's active transactions, in a date window, newest
+  // first" — the list page, the reports, the journal export, the malformed-FX scan. Without
+  // this the planner seq-scans the whole table and sorts; with it the filter and the ORDER BY
+  // are one backwards index scan.
+  index('transactions_user_id_date_idx').on(t.userId, t.date),
+  // The list payload resolves each transaction's group name through this column, and the
+  // group-expense lifecycle looks transactions up by it.
+  index('transactions_group_expense_id_idx').on(t.groupExpenseId),
+])
 
 // A user-defined CSV parser configuration.
 // Stores the column fingerprint of a bank's CSV export and a mapping from

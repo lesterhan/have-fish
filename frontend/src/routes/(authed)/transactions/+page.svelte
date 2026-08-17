@@ -1,54 +1,65 @@
 <script lang="ts">
   import {
     fetchTransactions,
-    fetchAccounts,
     deleteTransaction,
     fetchMalformedFxSpends,
     type Account,
     type MalformedFxSpend,
     type Transaction,
   } from '$lib/api'
+  import type { PageData } from './$types'
   import RepairFxSpendModal from '$lib/components/transactions/RepairFxSpendModal.svelte'
   import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import { toISODate } from '$lib/date'
-  import { page } from '$app/state'
+  import { page, navigating } from '$app/state'
+  import { browser } from '$app/environment'
   import { goto } from '$app/navigation'
-  import { onMount } from 'svelte'
+  import { onMount, untrack } from 'svelte'
   import FilterPanel from '$lib/components/transactions/FilterPanel.svelte'
   import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
   import TransactionRowSkeleton from '$lib/components/transactions/TransactionRowSkeleton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
-  // Default range: last 90 days → today, computed once at module load.
-  function defaultRange() {
-    const today = new Date()
-    const from = new Date(today)
-    from.setDate(today.getDate() - 90)
-    return {
-      from: toISODate(from),
-      to: toISODate(today),
-    }
-  }
-  const defaults = defaultRange()
+  let { data }: { data: PageData } = $props()
 
-  // Read from URL search params, fall back to defaults if absent.
-  let from = $derived(page.url.searchParams.get('from') ?? defaults.from)
-  let to = $derived(page.url.searchParams.get('to') ?? defaults.to)
+  // Seed the shared settings store with what the server load already fetched, during component
+  // init rather than in onMount: effects flush child-first, so by onMount the layout has
+  // already fired its own /api/user-settings request. Doing it here beats that to the punch.
+  // Browser-only — this store's state is module-level, and on the server that module is shared
+  // across every request.
+  if (browser) settingsStore.prime(untrack(() => data.settings))
+
+  // The server load resolved the effective range (URL params, else the 90-day default in the
+  // viewer's timezone) and fetched against it, so these mirror what the payload actually is.
+  let from = $derived(data.from)
+  let to = $derived(data.to)
   let sortDir = $derived(
     (page.url.searchParams.get('dir') ?? 'desc') as 'asc' | 'desc',
   )
   let accountPath = $derived(page.url.searchParams.get('accountPath') ?? '')
 
-  let transactions = $state<Awaited<ReturnType<typeof fetchTransactions>>>([])
-  let accounts = $state<Account[]>([])
-  let defaultOffsetAccountId = $state<string | null>(null)
-  let defaultConversionAccountId = $state<string | null>(null)
-  let loading = $state(true)
+  // Local copies of the loaded data: creating, editing and deleting update the list in place
+  // without a refetch, so these can't be plain $derived. The $effect re-seeds them whenever a
+  // navigation (a filter change) delivers a fresh server load.
+  let transactions = $state<Transaction[]>(untrack(() => data.transactions))
+  let accounts = $state<Account[]>(untrack(() => data.accounts))
+  $effect(() => {
+    transactions = data.transactions
+  })
+  $effect(() => {
+    accounts = data.accounts
+  })
+
+  let defaultOffsetAccountId = $derived(data.settings.defaultOffsetAccountId)
+  let defaultConversionAccountId = $derived(data.settings.defaultConversionAccountId)
+  // Filter changes navigate, so the skeleton tracks the navigation rather than a fetch flag.
+  let loading = $derived(
+    navigating.to !== null && navigating.to.route.id === page.route.id,
+  )
   let addModalOpen = $state(false)
   let repairModalOpen = $state(false)
   let malformed = $state<MalformedFxSpend[]>([])
@@ -98,17 +109,6 @@
     }
   }
 
-  // Re-fetch transactions whenever from/to/accountPath change.
-  $effect(() => {
-    loading = true
-    fetchTransactions({ from, to, accountPath: accountPath || undefined }).then(
-      (txs) => {
-        transactions = txs
-        loading = false
-      },
-    )
-  })
-
   let sortedTransactions = $derived(
     [...transactions].sort((a, b) => {
       const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0
@@ -136,17 +136,9 @@
     goto(`?${new URLSearchParams(base)}`)
   }
 
-  // Accounts and settings don't depend on the date range — fetch once.
-  onMount(async () => {
-    const [accts, settings] = await Promise.all([
-      fetchAccounts(),
-      settingsStore.load(),
-    ])
-    accounts = accts
-    defaultOffsetAccountId = settings.defaultOffsetAccountId
-    defaultConversionAccountId = settings.defaultConversionAccountId
-    loadMalformed()
-  })
+  // The repair scan is the one fetch left on the client — it's advisory, and walking the
+  // user's whole multi-currency history has no business delaying the rows.
+  onMount(loadMalformed)
 
   async function loadMalformed() {
     try {
@@ -220,6 +212,7 @@
         {to}
         {sortDir}
         {accountPath}
+        {accounts}
         onApply={handleApply}
         onSortChange={handleSortChange}
         onAccountPathChange={handleAccountPathChange}

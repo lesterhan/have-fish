@@ -410,6 +410,111 @@ describe('transactions', () => {
     })
   })
 
+  describe('GET /api/transactions account filtering', () => {
+    const headers = () => ({ Cookie: cookie, 'Content-Type': 'application/json' })
+    const posting = (accountId: string, amount: string) => ({ accountId, amount, currency: 'CAD' })
+    let chequing: { id: string }, savings: { id: string }
+    let food: { id: string }, restaurant: { id: string }, rent: { id: string }
+
+    // Two balance accounts and a three-account expense tree:
+    //   expenses:food, expenses:food:restaurant, expenses:rent
+    // Lunch  (2026-04-01) → chequing + food:restaurant
+    // Market (2026-04-02) → savings  + food
+    // Rent   (2026-04-03) → chequing + rent
+    beforeEach(async () => {
+      const h = headers()
+      const mk = (path: string) =>
+        app.request('/api/accounts', { method: 'POST', headers: h, body: JSON.stringify({ path }) }).then(r => r.json())
+      ;[chequing, savings, food, restaurant, rent] = await Promise.all([
+        mk('assets:chequing'), mk('assets:savings'),
+        mk('expenses:food'), mk('expenses:food:restaurant'), mk('expenses:rent'),
+      ])
+      const tx = (date: string, description: string, a: string, b: string) =>
+        app.request('/api/transactions', {
+          method: 'POST', headers: h,
+          body: JSON.stringify({ date, description, postings: [posting(a, '-10.00'), posting(b, '10.00')] }),
+        })
+      await tx('2026-04-01', 'Lunch', chequing.id, restaurant.id)
+      await tx('2026-04-02', 'Market', savings.id, food.id)
+      await tx('2026-04-03', 'Rent', chequing.id, rent.id)
+    })
+
+    const descriptions = async (qs: string) => {
+      const res = await app.request(`/api/transactions?${qs}`, { headers: { Cookie: cookie } })
+      expect(res.status).toBe(200)
+      return ((await res.json()) as { description: string }[]).map(t => t.description).sort()
+    }
+
+    it('?accountId returns only transactions with a posting to that exact account', async () => {
+      expect(await descriptions(`accountId=${chequing.id}`)).toEqual(['Lunch', 'Rent'])
+      expect(await descriptions(`accountId=${savings.id}`)).toEqual(['Market'])
+    })
+
+    it('?accountId does not match on a descendant account', async () => {
+      // food and food:restaurant are distinct accounts — the id filter is exact.
+      expect(await descriptions(`accountId=${food.id}`)).toEqual(['Market'])
+    })
+
+    it('?accountPath matches the account and all of its descendants', async () => {
+      expect(await descriptions('accountPath=expenses:food')).toEqual(['Lunch', 'Market'])
+      expect(await descriptions('accountPath=expenses:food:restaurant')).toEqual(['Lunch'])
+      expect(await descriptions('accountPath=expenses')).toEqual(['Lunch', 'Market', 'Rent'])
+    })
+
+    it('combines an account filter with the date range', async () => {
+      expect(await descriptions(`accountId=${chequing.id}&from=2026-04-02`)).toEqual(['Rent'])
+      expect(await descriptions('accountPath=expenses&to=2026-04-01')).toEqual(['Lunch'])
+    })
+
+    it('returns an empty array for an account with no postings', async () => {
+      const empty = await app
+        .request('/api/accounts', { method: 'POST', headers: headers(), body: JSON.stringify({ path: 'assets:mattress' }) })
+        .then(r => r.json())
+      expect(await descriptions(`accountId=${empty.id}`)).toEqual([])
+      expect(await descriptions('accountPath=assets:mattress')).toEqual([])
+    })
+
+    it('returns an empty array for an unknown accountPath', async () => {
+      expect(await descriptions('accountPath=expenses:nope')).toEqual([])
+    })
+
+    it('treats LIKE metacharacters in accountPath as literals', async () => {
+      // '_' and '%' must not act as wildcards — 'expenses:foo_' would otherwise
+      // match 'expenses:food' and broaden the filter.
+      expect(await descriptions('accountPath=expenses:foo_')).toEqual([])
+      expect(await descriptions('accountPath=expenses:%')).toEqual([])
+      expect(await descriptions('accountPath=%')).toEqual([])
+    })
+
+    it('does not match another user\'s account', async () => {
+      const otherCookie = await createTestUser('other@example.com')
+      const otherHeaders = { Cookie: otherCookie, 'Content-Type': 'application/json' }
+      const otherAcc = await app
+        .request('/api/accounts', { method: 'POST', headers: otherHeaders, body: JSON.stringify({ path: 'assets:chequing' }) })
+        .then(r => r.json())
+      const otherFood = await app
+        .request('/api/accounts', { method: 'POST', headers: otherHeaders, body: JSON.stringify({ path: 'expenses:food' }) })
+        .then(r => r.json())
+      await app.request('/api/transactions', {
+        method: 'POST', headers: otherHeaders,
+        body: JSON.stringify({ date: '2026-04-01', description: 'Their lunch', postings: [posting(otherAcc.id, '-99.00'), posting(otherFood.id, '99.00')] }),
+      })
+
+      // Filtering by the other user's account id returns nothing — the scan is scoped to
+      // our own transactions, so their matching posting is invisible.
+      expect(await descriptions(`accountId=${otherAcc.id}`)).toEqual([])
+      // A shared path resolves to our account only, never theirs.
+      expect(await descriptions('accountPath=expenses:food')).toEqual(['Lunch', 'Market'])
+    })
+
+    it('ignores postings on a soft-deleted account when filtering by path', async () => {
+      await app.request(`/api/accounts/${rent.id}`, { method: 'DELETE', headers: headers() })
+      expect(await descriptions('accountPath=expenses:rent')).toEqual([])
+      // The rest of the tree is unaffected.
+      expect(await descriptions('accountPath=expenses')).toEqual(['Lunch', 'Market'])
+    })
+  })
+
   describe('POST /api/transactions/bulk', () => {
     const headers = { Cookie: '', 'Content-Type': 'application/json' }
     let accA: { id: string }, accB: { id: string }

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { transactions, postings, groupExpenses, expenseGroups } from '../db/schema'
-import { eq, isNull, and, inArray, gte, lte, or, like, desc } from 'drizzle-orm'
+import { eq, isNull, and, inArray, gte, lte, desc, sql } from 'drizzle-orm'
 import { accounts } from '../db/schema'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
@@ -87,6 +87,40 @@ app.get('/malformed-fx-spend', async (c) => {
   return c.json({ candidates: result, conversionAccountConfigured: canHeal })
 })
 
+// Correlated EXISTS predicate: "this transaction has a live posting to an account the
+// filter selects". Both account filters run as one subquery on the transactions scan
+// instead of pulling every posting row to the app and intersecting in JS — that older
+// shape was O(transactions × postings) and fetched the account's entire posting history
+// regardless of the requested date window.
+//
+// `accountId` matches that account exactly; `accountPath` matches it and every descendant
+// ("expenses:food" also selects "expenses:food:restaurant"). The path variant joins
+// accounts so ownership is enforced inside the subquery, and LIKE metacharacters in the
+// caller's path are escaped so input can't broaden the match.
+function accountFilter(userId: string, accountId?: string, accountPath?: string) {
+  if (accountId) {
+    return sql`EXISTS (
+      SELECT 1 FROM postings p
+      WHERE p.transaction_id = ${transactions.id}
+        AND p.account_id = ${accountId}
+        AND p.deleted_at IS NULL
+    )`
+  }
+  if (accountPath) {
+    const escaped = accountPath.replace(/[%_\\]/g, '\\$&')
+    return sql`EXISTS (
+      SELECT 1 FROM postings p
+      JOIN accounts a ON a.id = p.account_id
+      WHERE p.transaction_id = ${transactions.id}
+        AND p.deleted_at IS NULL
+        AND a.user_id = ${userId}
+        AND a.deleted_at IS NULL
+        AND (a.path = ${accountPath} OR a.path LIKE ${`${escaped}:%`} ESCAPE '\\')
+    )`
+  }
+  return undefined
+}
+
 // GET /api/transactions
 // Returns all transactions for the user, each with its postings array embedded.
 // Filter by account: ?accountId=... (exact account UUID match)
@@ -104,54 +138,25 @@ app.get('/', async (c) => {
   if (from && !dateRe.test(from)) return c.json({ error: 'Invalid from date, expected YYYY-MM-DD' }, 400)
   if (to && !dateRe.test(to)) return c.json({ error: 'Invalid to date, expected YYYY-MM-DD' }, 400)
 
-  let txRows = await db
-    .select()
+  // Only the columns the client actually reads. `createdAt`/`deletedAt` were dead weight in
+  // every row of a payload that crosses the open internet on each page load.
+  const txRows = await db
+    .select({
+      id: transactions.id,
+      userId: transactions.userId,
+      date: transactions.date,
+      description: transactions.description,
+      groupExpenseId: transactions.groupExpenseId,
+    })
     .from(transactions)
     .where(and(
       eq(transactions.userId, userId),
       isNull(transactions.deletedAt),
       from ? gte(transactions.date, new Date(from)) : undefined,
       to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
+      accountFilter(userId, accountId, accountPath),
     ))
     .orderBy(desc(transactions.date))
-
-  if (accountId) {
-    // Filter to transactions that have at least one posting for this account
-    const postingRows = await db
-      .select({ transactionId: postings.transactionId })
-      .from(postings)
-      .where(eq(postings.accountId, accountId))
-    const txIds = [...new Set(postingRows.map((p) => p.transactionId))]
-    if (txIds.length === 0) return c.json([])
-    txRows = txRows.filter((tx) => txIds.includes(tx.id))
-  }
-
-  if (accountPath) {
-    // Match the account itself and all children (e.g. "expenses:food" matches
-    // "expenses:food" and "expenses:food:restaurant").
-    // Escape LIKE special chars so user input can't broaden the match.
-    const escaped = accountPath.replace(/[%_\\]/g, '\\$&')
-    const matchingAccounts = await db
-      .select({ id: accounts.id })
-      .from(accounts)
-      .where(and(
-        eq(accounts.userId, userId),
-        isNull(accounts.deletedAt),
-        or(
-          eq(accounts.path, accountPath),
-          like(accounts.path, `${escaped}:%`),
-        ),
-      ))
-    const accountIds = matchingAccounts.map((a) => a.id)
-    if (accountIds.length === 0) return c.json([])
-    const postingRows = await db
-      .select({ transactionId: postings.transactionId })
-      .from(postings)
-      .where(and(inArray(postings.accountId, accountIds), isNull(postings.deletedAt)))
-    const txIds = [...new Set(postingRows.map((p) => p.transactionId))]
-    if (txIds.length === 0) return c.json([])
-    txRows = txRows.filter((tx) => txIds.includes(tx.id))
-  }
 
   if (txRows.length === 0) return c.json([])
 
@@ -167,8 +172,6 @@ app.get('/', async (c) => {
       accountName: accounts.name,
       amount: postings.amount,
       currency: postings.currency,
-      createdAt: postings.createdAt,
-      deletedAt: postings.deletedAt,
     })
     .from(postings)
     .innerJoin(accounts, eq(accounts.id, postings.accountId))

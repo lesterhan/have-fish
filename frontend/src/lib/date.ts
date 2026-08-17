@@ -13,6 +13,41 @@ export function toISODate(date: Date): string {
 }
 
 /**
+ * The name of the cookie the browser uses to tell the server its UTC offset in minutes,
+ * east of UTC being positive (i.e. `-new Date().getTimezoneOffset()`).
+ */
+export const TZ_OFFSET_COOKIE = 'tzoffset'
+
+/**
+ * Reads a `tzoffset` cookie value into minutes, or 0 (UTC) when it is missing or junk.
+ * Bounded to ±16h, the real-world range of UTC offsets.
+ */
+export function parseTzOffset(raw: string | null | undefined): number {
+  const minutes = Number(raw)
+  if (!Number.isFinite(minutes) || Math.abs(minutes) > 16 * 60) return 0
+  return Math.trunc(minutes)
+}
+
+/**
+ * The default transaction window: `days` back through today, as YYYY-MM-DD strings.
+ *
+ * Takes the viewer's UTC offset explicitly rather than reading the clock's timezone, so a
+ * server `load` and the browser derive the identical range. Dates here are local calendar
+ * dates (see toISODate) — computing them in UTC on the server would make "today" lag the
+ * user's own date by up to a day, hiding entries they just filed. The server passes the
+ * offset from the `tzoffset` cookie; the browser passes its own.
+ */
+export function defaultTransactionRange(
+  offsetMinutes: number,
+  days = 90,
+): { from: string; to: string } {
+  const local = new Date(Date.now() + offsetMinutes * 60_000)
+  const to = local.toISOString().slice(0, 10)
+  local.setUTCDate(local.getUTCDate() - days)
+  return { from: local.toISOString().slice(0, 10), to }
+}
+
+/**
  * Parses a free-text date range string into { from, to } ISO date strings.
  * Returns null if the input cannot be parsed.
  *

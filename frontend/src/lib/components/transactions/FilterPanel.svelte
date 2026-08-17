@@ -6,13 +6,17 @@
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { fetchAccounts } from '$lib/api'
   import { toISODate } from '$lib/date'
-  import { onMount } from 'svelte'
 
   interface Props {
     from: string
     to: string
     sortDir: 'asc' | 'desc'
     accountPath?: string
+    /**
+     * Accounts for the path autocomplete. Pass them when the parent already has them —
+     * every caller does — so the panel doesn't duplicate that request on page load.
+     */
+    accounts?: { id: string; path: string }[]
     actionRequiredCount?: number | null
     actionRequiredActive?: boolean
     onApply: (from: string, to: string) => void
@@ -26,6 +30,7 @@
     to,
     sortDir,
     accountPath = '',
+    accounts: providedAccounts,
     actionRequiredCount = null,
     actionRequiredActive = false,
     onApply,
@@ -42,9 +47,17 @@
     draft = accountPath
   })
 
-  let accounts = $state<{ id: string; path: string }[]>([])
-  onMount(async () => {
-    accounts = await fetchAccounts()
+  // Only needed to autocomplete the account-path box, which is hidden until the user opens
+  // search. Fetched on that first open rather than on mount, and skipped entirely when the
+  // parent supplied the list.
+  let fetchedAccounts = $state<{ id: string; path: string }[]>([])
+  let accountsRequested = false
+  let accounts = $derived(providedAccounts ?? fetchedAccounts)
+
+  $effect(() => {
+    if (!searchExpanded || providedAccounts || accountsRequested) return
+    accountsRequested = true
+    fetchAccounts().then((a) => (fetchedAccounts = a))
   })
 
   function focusFirst(node: HTMLElement) {

@@ -1,6 +1,11 @@
 /// <reference types="bun" />
 import { describe, it, expect } from 'bun:test'
-import { toISODate, parseCustomDateRange } from './date'
+import {
+  toISODate,
+  parseCustomDateRange,
+  defaultTransactionRange,
+  parseTzOffset,
+} from './date'
 
 // Sanity check: toISODate formats a known date correctly.
 describe('toISODate', () => {
@@ -131,5 +136,77 @@ describe('parseCustomDateRange', () => {
     expect(
       parseCustomDateRange(`${toISODate(fromDate)} to ${toISODate(toDate)}`),
     ).toEqual({ from: toISODate(fromDate), to: toISODate(toDate) })
+  })
+})
+
+describe('parseTzOffset', () => {
+  it('reads a numeric offset', () => {
+    expect(parseTzOffset('480')).toBe(480)
+    expect(parseTzOffset('-300')).toBe(-300)
+    expect(parseTzOffset('0')).toBe(0)
+  })
+
+  it('falls back to UTC for a missing or unparseable value', () => {
+    expect(parseTzOffset(undefined)).toBe(0)
+    expect(parseTzOffset(null)).toBe(0)
+    expect(parseTzOffset('')).toBe(0)
+    expect(parseTzOffset('not-a-number')).toBe(0)
+  })
+
+  it('rejects offsets outside the real-world range', () => {
+    expect(parseTzOffset('99999')).toBe(0)
+    expect(parseTzOffset('-99999')).toBe(0)
+  })
+})
+
+describe('defaultTransactionRange', () => {
+  // 2026-08-17T18:30Z — evening in UTC, already the 18th in Shanghai (UTC+8).
+  const evening = Date.parse('2026-08-17T18:30:00Z')
+  const withNow = <T>(ms: number, fn: () => T): T => {
+    const realNow = Date.now
+    Date.now = () => ms
+    try {
+      return fn()
+    } finally {
+      Date.now = realNow
+    }
+  }
+
+  it('ends on the viewer\'s local date, not the UTC date', () => {
+    // The whole point of threading the offset through: from UTC+8 the user's "today" is
+    // already the 18th, and a UTC-computed window would hide anything they filed today.
+    expect(withNow(evening, () => defaultTransactionRange(480)).to).toBe('2026-08-18')
+    expect(withNow(evening, () => defaultTransactionRange(0)).to).toBe('2026-08-17')
+    // Behind UTC (New York, UTC-4) it is still the 17th.
+    expect(withNow(evening, () => defaultTransactionRange(-240)).to).toBe('2026-08-17')
+  })
+
+  it('spans 90 days back from that local date by default', () => {
+    expect(withNow(evening, () => defaultTransactionRange(480))).toEqual({
+      from: '2026-05-20',
+      to: '2026-08-18',
+    })
+  })
+
+  it('honours a custom window length', () => {
+    expect(withNow(evening, () => defaultTransactionRange(0, 30))).toEqual({
+      from: '2026-07-18',
+      to: '2026-08-17',
+    })
+  })
+
+  it('crosses month and year boundaries correctly', () => {
+    const january = Date.parse('2026-01-05T12:00:00Z')
+    expect(withNow(january, () => defaultTransactionRange(0, 90))).toEqual({
+      from: '2025-10-07',
+      to: '2026-01-05',
+    })
+  })
+
+  it('agrees with the browser when handed the browser\'s own offset', () => {
+    // What the client passes: -getTimezoneOffset(). The result must be today's local
+    // calendar date, i.e. exactly what toISODate would produce.
+    const range = defaultTransactionRange(-new Date().getTimezoneOffset())
+    expect(range.to).toBe(toISODate(new Date()))
   })
 })

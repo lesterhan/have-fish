@@ -17,10 +17,20 @@
   import type { AccentKey } from '$lib/accent'
   import AccentPicker from '$lib/components/AccentPicker.svelte'
   import { theme } from '$lib/theme.svelte'
+  import { TZ_OFFSET_COOKIE } from '$lib/date'
+  import type { Snippet } from 'svelte'
+  import type { LayoutData } from './$types'
 
-  let { children } = $props()
+  let { children, data }: { children: Snippet; data: LayoutData } = $props()
 
-  const session = useSession()
+  const clientSession = useSession()
+  // Use the session the server already resolved for this request, and hand authority to the
+  // Better Auth client the moment its own call settles — that's what reflects a sign-out
+  // without a reload. Waiting on the client alone cost a round trip before any sidebar fetch
+  // could even start.
+  let session = $derived(
+    $clientSession.isPending ? data.session : $clientSession.data,
+  )
 
   let maximized = $state(true)
   let showQuitDialog = $state(false)
@@ -48,12 +58,20 @@
   let sidebarAccounts = $state<AccountBalance[]>([])
   let sidebarSettings = $derived(settingsStore.value ?? settingsDefault)
 
-  // $effect re-runs when $session.data changes, so the fetch fires as soon as
-  // Better Auth resolves the session — not at mount time when it may still be null.
-  // The fetched flag prevents re-fetching if the session object is refreshed.
+  // Tell the server this browser's UTC offset so a server `load` can resolve "today" as the
+  // user's local calendar date rather than UTC — an 8-hour blind spot from China otherwise.
+  // Set before the sidebar fetches so it's in place for the next navigation.
+  $effect(() => {
+    const offset = -new Date().getTimezoneOffset()
+    document.cookie = `${TZ_OFFSET_COOKIE}=${offset};path=/;max-age=31536000;samesite=lax`
+  })
+
+  // $effect re-runs when the session resolves, so the fetch fires as soon as it is known —
+  // not at mount time when it may still be null. With the session server-rendered this is
+  // usually the first hydration pass. The fetched flag prevents re-fetching on refresh.
   let sidebarFetched = false
   $effect(() => {
-    if ($session.data && !sidebarFetched) {
+    if (session && !sidebarFetched) {
       sidebarFetched = true
       Promise.all([
         fetchAccountBalances(),
@@ -72,11 +90,15 @@
     applyAccent(currentAccent, theme.dark)
   })
 
-  // Re-fetch sidebar balances whenever a page signals a mutation.
+  // Re-fetch sidebar balances whenever a page signals a mutation. `sidebarFetched` is already
+  // true by the time this first runs (the effect above sets it synchronously), so it can't be
+  // the guard against the initial duplicate fetch — track the counter's own value instead and
+  // skip the run that only establishes the subscription.
+  let lastRefreshCount = sidebarRefresh.count
   $effect(() => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-expressions
-    sidebarRefresh.count // subscribe
-    if (!sidebarFetched) return
+    const count = sidebarRefresh.count // subscribe
+    if (count === lastRefreshCount) return
+    lastRefreshCount = count
     fetchAccountBalances().then((accts) => {
       sidebarAccounts = accts
     })
@@ -94,14 +116,10 @@
   }
 </script>
 
-<svelte:head>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-</svelte:head>
-
 <div class="desktop" class:maximized>
   <div class="window">
     <div class="titlebar">
-      {#if $session.data}
+      {#if session}
         <div class="titlebar-pill-wrap">
           <button
             class="titlebar-pill"
@@ -122,7 +140,7 @@
       {/if}
       <span class="titlebar-title">have-fish</span>
       <div class="titlebar-controls">
-        {#if $session.data}
+        {#if session}
           <!-- Mobile hamburger — lives in titlebar, hidden on desktop -->
           <ChromeButton
             class="hamburger"
@@ -153,11 +171,11 @@
     </div>
 
     <div class="window-body">
-      {#if $session.data}
+      {#if session}
         <Sidebar
           accounts={sidebarAccounts}
           settings={sidebarSettings}
-          email={$session.data.user.email}
+          email={session.user.email}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={closeMobileSidebar}
         />

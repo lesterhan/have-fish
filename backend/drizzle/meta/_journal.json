@@ -281,6 +281,13 @@
       "when": 1786692715892,
       "tag": "0039_lush_roulette",
       "breakpoints": true
+    },
+    {
+      "idx": 40,
+      "version": "7",
+      "when": 1786957163067,
+      "tag": "0040_wild_captain_marvel",
+      "breakpoints": true
     }
   ]
 }

@@ -297,6 +297,7 @@
         {from}
         {to}
         {sortDir}
+        {accounts}
         {actionRequiredCount}
         {actionRequiredActive}
         onApply={(f, t) => navigate({ from: f, to: t })}
