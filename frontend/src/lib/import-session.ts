@@ -9,9 +9,9 @@ import type { ClusterState } from '$lib/components/import/clustering'
 // later — which is what would let an import survive a device switch — is a transport
 // change rather than a rewrite. That move is deliberately out of scope here.
 
-export type ImportStep = 'file' | 'accounts' | 'sort' | 'review'
+export type ImportStep = 'file' | 'accounts' | 'sort' | 'review' | 'confirm'
 
-const STEP_IDS: ImportStep[] = ['file', 'accounts', 'sort', 'review']
+const STEP_IDS: ImportStep[] = ['file', 'accounts', 'sort', 'review', 'confirm']
 
 export type ImportSession = {
   version: number
@@ -35,6 +35,11 @@ export type ImportSession = {
   // The Sort step's per-cluster decisions, keyed by merchant stem. Kept so walking back to
   // Sort shows the targets already chosen rather than an empty form.
   clusterStates: ClusterState[]
+  // What this import has already written outside the ledger, for the Confirm manifest.
+  // Recorded rather than counted at the end because rules and accounts are created as the
+  // user goes, not deferred to commit.
+  rulesCreated: string[]
+  accountsCreated: string[]
   savedAt: string // ISO
 }
 
@@ -47,7 +52,8 @@ export const STORAGE_KEY = 'havefish:import-sessions'
 //
 // 2 — added currencyAccounts and the 'accounts' step.
 // 3 — added clusterStates and the 'sort' step.
-export const SESSION_VERSION = 3
+// 4 — added rulesCreated / accountsCreated and the 'confirm' step.
+export const SESSION_VERSION = 4
 
 export const MAX_AGE_DAYS = 30
 
@@ -76,6 +82,8 @@ function isValidSession(value: unknown): value is ImportSession {
     !Number.isNaN(Date.parse(s.savedAt)) &&
     Array.isArray(s.rowStates) &&
     Array.isArray(s.clusterStates) &&
+    Array.isArray(s.rulesCreated) &&
+    Array.isArray(s.accountsCreated) &&
     typeof s.currencyAccounts === 'object' &&
     s.currencyAccounts !== null &&
     typeof s.preview === 'object' &&

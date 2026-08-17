@@ -112,19 +112,19 @@
         })
   }
 
+  // Advancing to Confirm is not gated on completeness: the manifest there names every
+  // unfinished row and links back to it, which is more useful than a disabled button here.
+  // Only an import with nothing left to write is blocked.
   // Column count, for the day-header row's colspan.
   let columnCount = $derived(
     5 + (preview.isMultiCurrency ? 0 : 1) + (groups.length > 0 ? 1 : 0),
   )
 
-  let confirmDisabled = $derived(
-    loading ||
-      rowStates.every((r) => r.skipped) ||
-      unmappedCurrencies.length > 0 ||
-      rowStates.some(
-        (row, i) =>
-          !row.skipped && rowMissingAccounts(preview.transactions[i], row),
-      ),
+  let confirmDisabled = $derived(loading || rowStates.every((r) => r.skipped))
+
+  let unfinished = $derived(
+    rowStates.filter((row, i) => !row.skipped && rowMissingAccounts(preview.transactions[i], row))
+      .length,
   )
 </script>
 
@@ -167,9 +167,12 @@
         Imported as liabilities
       </span>
       <div class="bar-actions">
+        {#if unfinished > 0}
+          <span class="unfinished-hint">{unfinished} still need an account</span>
+        {/if}
         <GradientButton onclick={oncancel}>Cancel</GradientButton>
         <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
-          {loading ? 'Importing…' : 'Confirm import'}
+          Continue to confirm
         </GradientButton>
       </div>
     </div>
@@ -278,7 +281,7 @@
     <div class="action-buttons">
       <GradientButton onclick={oncancel}>Cancel</GradientButton>
       <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
-        {loading ? 'Importing…' : 'Confirm import'}
+        Continue to confirm
       </GradientButton>
     </div>
   </div>
@@ -498,7 +501,13 @@
 
   .bar-actions {
     display: flex;
+    align-items: center;
     gap: var(--sp-sm);
+  }
+
+  .unfinished-hint {
+    font-size: var(--text-xs);
+    color: var(--color-amount-negative);
   }
 
   /* ── Table structure ── */
