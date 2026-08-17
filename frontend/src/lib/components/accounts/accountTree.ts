@@ -49,7 +49,7 @@ function sortNodes(nodes: TreeNode[]): TreeNode[] {
 }
 
 /** Build a nested tree from a flat account list. */
-export function buildTree(accounts: TreeAccount[]): AccountTree {
+export function buildTree(accounts: readonly TreeAccount[]): AccountTree {
   const root = newNode('', '')
 
   for (const { path, freq = 0 } of accounts) {
