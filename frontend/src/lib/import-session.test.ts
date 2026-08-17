@@ -42,6 +42,8 @@ function makeSession(overrides: Partial<ImportSession> = {}): ImportSession {
     fromAccountId: 'acct-1',
     currencyAccounts: {},
     clusterStates: [],
+    rulesCreated: [],
+    accountsCreated: [],
     importAsLiabilities: null,
     preview: {
       parser: 'Wise',
@@ -191,12 +193,18 @@ describe('pruning', () => {
   })
 
   it('drops an entry with an unrecognized step', () => {
-    expect(pruneSessions([{ ...makeSession(), step: 'confirm' }], NOW)).toHaveLength(0)
+    expect(pruneSessions([{ ...makeSession(), step: 'nonsense' }], NOW)).toHaveLength(0)
   })
 
-  it('accepts the accounts and sort steps', () => {
-    expect(pruneSessions([makeSession({ step: 'accounts' })], NOW)).toHaveLength(1)
-    expect(pruneSessions([makeSession({ step: 'sort' })], NOW)).toHaveLength(1)
+  it('accepts every step in the flow', () => {
+    for (const step of ['file', 'accounts', 'sort', 'review', 'confirm'] as const) {
+      expect(pruneSessions([makeSession({ step })], NOW)).toHaveLength(1)
+    }
+  })
+
+  it('drops an entry missing the created-artifact lists', () => {
+    const { rulesCreated, ...withoutRules } = makeSession()
+    expect(pruneSessions([withoutRules], NOW)).toHaveLength(0)
   })
 
   it('drops an entry with no cluster states', () => {

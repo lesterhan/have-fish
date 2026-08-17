@@ -30,6 +30,8 @@
   import ImportStepper from '$lib/components/import/ImportStepper.svelte'
   import ImportAccountsStep from '$lib/components/import/ImportAccountsStep.svelte'
   import ImportSortStep from '$lib/components/import/ImportSortStep.svelte'
+  import ImportConfirmStep from '$lib/components/import/ImportConfirmStep.svelte'
+  import { buildManifest } from '$lib/components/import/manifest'
   import {
     hashCsv,
     saveSession,
@@ -101,6 +103,10 @@
   let currencyAccounts = $state<Record<string, string>>({})
   let clusterStates = $state<ClusterState[]>([])
   let applyingClusters = $state(false)
+  // Rules and accounts this import has already written, for the Confirm manifest. Both are
+  // created as the user goes rather than deferred to commit, so they are recorded here.
+  let rulesCreated = $state<string[]>([])
+  let accountsCreated = $state<string[]>([])
   // A saved import found on mount, offered for resume until accepted or dismissed.
   let resumable = $state<ImportSession | null>(null)
 
@@ -111,6 +117,7 @@
     { id: 'accounts', label: 'Accounts' },
     { id: 'sort', label: 'Sort' },
     { id: 'review', label: 'Review' },
+    { id: 'confirm', label: 'Confirm' },
   ]
 
   const session = useSession()
@@ -168,6 +175,8 @@
       fromAccountId,
       currencyAccounts: $state.snapshot(currencyAccounts),
       clusterStates: $state.snapshot(clusterStates) as ClusterState[],
+      rulesCreated: $state.snapshot(rulesCreated) as string[],
+      accountsCreated: $state.snapshot(accountsCreated) as string[],
       importAsLiabilities: liabilitiesOverride,
       preview: $state.snapshot(preview) as typeof preview,
       rowStates: $state.snapshot(rowStates) as RowState[],
@@ -197,6 +206,8 @@
     fromAccountId = saved.fromAccountId
     currencyAccounts = saved.currencyAccounts
     clusterStates = saved.clusterStates
+    rulesCreated = saved.rulesCreated
+    accountsCreated = saved.accountsCreated
     liabilitiesOverride = saved.importAsLiabilities
     step = saved.step
     resumable = null
@@ -255,6 +266,7 @@
 
   function handleAccountCreated(account: Account) {
     accounts = [...accounts, account]
+    if (!accountsCreated.includes(account.path)) accountsCreated = [...accountsCreated, account.path]
   }
 
   // --- Preview ---
@@ -388,6 +400,8 @@
       // leaving a second copy behind.
       resumable = null
       clusterStates = []
+      rulesCreated = []
+      accountsCreated = []
       // Both middle steps are skipped when they have nothing to ask: Accounts when every
       // currency already resolved on seed, Sort when no merchant repeats.
       if (accountsStepNeeded(fetched)) {
@@ -434,7 +448,7 @@
     applyingClusters = true
     try {
       let written = 0
-      let rulesCreated = 0
+      let created = 0
 
       for (const cluster of clusters) {
         const state = clusterStates.find((c) => c.key === cluster.key)
@@ -457,7 +471,8 @@
                 ? { groupId: target.groupId, categoryId: target.categoryId }
                 : { accountId: target.accountId }),
             })
-            rulesCreated++
+            created++
+            if (!rulesCreated.includes(cluster.key)) rulesCreated = [...rulesCreated, cluster.key]
           } catch (e) {
             toast.show(
               `Applied ${cluster.key}, but the rule could not be saved: ${e instanceof Error ? e.message : 'unknown error'}`,
@@ -466,7 +481,7 @@
         }
       }
 
-      const ruleMsg = rulesCreated > 0 ? `, ${rulesCreated} rule${rulesCreated === 1 ? '' : 's'} saved` : ''
+      const ruleMsg = created > 0 ? `, ${created} rule${created === 1 ? '' : 's'} saved` : ''
       toast.show(`${written} row${written === 1 ? '' : 's'} assigned${ruleMsg}`)
       step = 'review'
     } finally {
@@ -500,6 +515,7 @@
 
     try {
       await createRule({ pattern: tx.merchantKey, ...target })
+      if (!rulesCreated.includes(tx.merchantKey)) rulesCreated = [...rulesCreated, tx.merchantKey]
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not save the rule.')
       return
@@ -519,6 +535,34 @@
         ? `Rule saved for “${tx.merchantKey}” — applied to ${applied} more row${applied === 1 ? '' : 's'}`
         : `Rule saved for “${tx.merchantKey}”`,
     )
+  }
+
+  // --- Confirm ---
+
+  let manifest = $derived(
+    preview
+      ? buildManifest(preview.transactions, rowStates, preview.errors.length, {
+          accounts,
+          groups,
+          currencyAccounts,
+          fromAccountId,
+          isMultiCurrency: preview.isMultiCurrency,
+          defaultCurrency,
+          uncategorizedAccountId: toAccountId,
+          rulesCreated,
+          accountsCreated,
+        })
+      : null,
+  )
+
+  // Jump from the Confirm manifest back to a specific row in Review.
+  function jumpToRow(index: number) {
+    step = 'review'
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-row-index="${index}"]`)
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      el?.querySelector<HTMLElement>('button, input')?.focus()
+    })
   }
 
   // --- Commit ---
@@ -634,9 +678,12 @@
       toast.show(`${result.created} transaction(s) imported${fishPieMsg}`)
       refreshSidebar()
       confetti.trigger()
-      // The rows are in the ledger now — the saved session would only offer to redo them.
+      // Land on what was just imported. Uses the committed range, not the CSV's — a leading
+      // week of skipped duplicates would otherwise open on rows the user did not import.
+      const range = manifest?.dateRange
+      // Read before resetSession clears the state the range came from.
       resetSession()
-      goto('/transactions')
+      goto(range ? `/transactions?from=${range.from}&to=${range.to}` : '/transactions')
     } catch {
       error = 'Import failed. Please try again.'
     } finally {
@@ -658,6 +705,8 @@
     file = null
     currencyAccounts = {}
     clusterStates = []
+    rulesCreated = []
+    accountsCreated = []
     step = 'file'
   }
 
@@ -806,8 +855,22 @@
         onaccountcreated={handleAccountCreated}
         onrowedited={handleRowEdited}
         onsaverule={handleSaveRule}
-        onconfirm={handleConfirm}
+        onconfirm={() => (step = 'confirm')}
         oncancel={handleCancel}
+      />
+    {:else if step === 'confirm' && manifest}
+      <ImportConfirmStep
+        {manifest}
+        transactions={preview.transactions}
+        parseErrors={preview.errors}
+        parserName={preview.parser}
+        {importAsLiabilities}
+        {loading}
+        {error}
+        onjumpto={jumpToRow}
+        onreviewskipped={() => (step = 'review')}
+        onconfirm={handleConfirm}
+        onback={() => (step = 'review')}
       />
     {/if}
   {:else}
