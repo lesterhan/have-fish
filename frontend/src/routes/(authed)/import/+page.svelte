@@ -7,7 +7,7 @@
     importPreview,
     importCommit,
     checkDuplicates,
-    createAccount,
+    createRule,
     type Account,
     type CsvParser,
     type CommitTransaction,
@@ -44,6 +44,7 @@
     seedCurrencyAccounts,
     rowMissingAccounts,
   } from '$lib/components/import/import-helpers'
+  import { rowsMatchingPattern } from '$lib/components/import/review-status'
   import { toast } from '$lib/toast.svelte'
   import { goto } from '$app/navigation'
   import { confetti } from '$lib/confetti.svelte'
@@ -366,6 +367,55 @@
     }
   }
 
+  // --- Review edits ---
+
+  // Any direct edit makes the row the user's, which is what moves it out of the
+  // Needs-review filter and marks it Done. A cluster assign in the Sort step deliberately
+  // will not overwrite these.
+  function handleRowEdited(index: number) {
+    const row = rowStates[index]
+    if (!row || row.source === 'user') return
+    rowStates[index] = { ...row, source: 'user' }
+  }
+
+  // Turns one decided row into a saved rule, then applies it to the rows it would have
+  // pre-filled. Only rows still sitting at their default are back-filled — a row the user
+  // decided on, or one another rule already claimed, is not up for grabs.
+  async function handleSaveRule(index: number) {
+    const tx = preview?.transactions[index]
+    const row = rowStates[index]
+    if (!tx?.merchantKey || !row) return
+
+    const target = row.groupId
+      ? { groupId: row.groupId, categoryId: row.categoryId }
+      : { accountId: tx.isTransfer === true ? row.expenseAccountId : row.offsetAccountId }
+    if (!row.groupId && !target.accountId) return
+
+    try {
+      await createRule({ pattern: tx.merchantKey, ...target })
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not save the rule.')
+      return
+    }
+
+    const matches = rowsMatchingPattern(preview!.transactions, rowStates, tx.merchantKey)
+    for (const i of matches) {
+      const other = rowStates[i]
+      rowStates[i] = row.groupId
+        ? { ...other, groupId: row.groupId, categoryId: row.categoryId, source: 'cluster' }
+        : preview!.transactions[i].isTransfer === true
+          ? { ...other, expenseAccountId: target.accountId!, source: 'cluster' }
+          : { ...other, offsetAccountId: target.accountId!, source: 'cluster' }
+    }
+
+    const applied = matches.length
+    toast.show(
+      applied > 0
+        ? `Rule saved for “${tx.merchantKey}” — applied to ${applied} more row${applied === 1 ? '' : 's'}`
+        : `Rule saved for “${tx.merchantKey}”`,
+    )
+  }
+
   // --- Commit ---
 
   async function handleConfirm() {
@@ -632,6 +682,8 @@
         {error}
         unmappedCurrencies={unmappedCommitCurrencies}
         onaccountcreated={handleAccountCreated}
+        onrowedited={handleRowEdited}
+        onsaverule={handleSaveRule}
         onconfirm={handleConfirm}
         oncancel={handleCancel}
       />

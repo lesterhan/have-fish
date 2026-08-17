@@ -13,6 +13,7 @@
     ExpenseGroup,
   } from '$lib/api'
   import type { RowState } from './row-state'
+  import type { RowStatus } from './review-status'
 
   interface Props {
     tx: TransferParsedTransaction | SameCurrencyTransferParsedTransaction
@@ -22,9 +23,14 @@
     currentUserId: string
     splitSelectOpen: boolean
     showFishPie: boolean
+    status: RowStatus
+    index: number
+    canSaveRule: boolean
     onsplitopen: () => void
     onclosesplit: () => void
     onaccountcreated: (account: Account) => void
+    onedited: () => void
+    onsaverule: () => void
   }
 
   let {
@@ -35,10 +41,26 @@
     currentUserId,
     splitSelectOpen,
     showFishPie,
+    status,
+    index,
+    canSaveRule,
     onsplitopen,
     onclosesplit,
     onaccountcreated,
+    onedited,
+    onsaverule,
   }: Props = $props()
+
+  // A resolved spend shows its expense account as text until touched, matching the
+  // regular rows and keeping the picker off the page until it is actually wanted.
+  let editingExpense = $state(false)
+  let showExpensePicker = $derived(
+    editingExpense || status === 'needs-review' || !rowState.expenseAccountId,
+  )
+
+  function accountPath(id: string): string {
+    return accounts.find((a) => a.id === id)?.path ?? ''
+  }
 
   let offsetCellEl: HTMLElement | null = $state(null)
   // Anchors the group dropdown to the input column (inside the label gutter) rather than
@@ -85,10 +107,11 @@
     // Changing the kind invalidates any group split — a convert can't be shared at all, and
     // the split would otherwise be stranded. Clear it on either flip.
     rowState = { ...rowState, kind: next, groupId: null, categoryId: null }
+    onedited()
   }
 </script>
 
-<tr class="row-transfer" class:row-skipped={rowState.skipped}>
+<tr class="row-transfer" class:row-skipped={rowState.skipped} data-row-index={index} data-status={status}>
   <ImportDateCell date={tx.date} possibleDuplicate={rowState.possibleDuplicate} />
   <td class="cell-description" title={tx.description ?? ''}>{tx.description ?? '—'}</td>
 
@@ -126,10 +149,20 @@
             {#if splitFromRule}
               <span
                 class="indicator-icon"
-                use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
+                use:tooltip={{ label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`, always: true }}
               >
                 <Icon name="computer" size={16} />
               </span>
+            {/if}
+            {#if canSaveRule && status === 'done' && !rowState.skipped}
+              <GradientButton
+                square
+                aria-label="Save as import rule"
+                tooltip={`Always split “${tx.merchantKey}” this way`}
+                onclick={onsaverule}
+              >
+                <Icon name="floppy" size={12} />
+              </GradientButton>
             {/if}
           </div>
         </div>
@@ -138,12 +171,44 @@
           {#if isSpend}
             <div class="field">
               <span class="field-label">expense</span>
-              <AccountPicker
-                {accounts}
-                bind:value={rowState.expenseAccountId}
-                placeholder="expenses:food…"
-                oncreate={onaccountcreated}
-              />
+              <div class="expense-wrap">
+                {#if showExpensePicker}
+                  <AccountPicker
+                    {accounts}
+                    bind:value={rowState.expenseAccountId}
+                    placeholder="expenses:food…"
+                    oncreate={onaccountcreated}
+                    oncommit={onedited}
+                  />
+                {:else}
+                  <button
+                    type="button"
+                    class="account-label"
+                    onclick={() => (editingExpense = true)}
+                    onfocus={() => (editingExpense = true)}
+                  >
+                    {accountPath(rowState.expenseAccountId)}
+                  </button>
+                {/if}
+                {#if tx.suggestedExpenseAccountId && status === 'auto'}
+                  <span
+                    class="indicator-icon"
+                    use:tooltip={{ label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`, always: true }}
+                  >
+                    <Icon name="computer" size={16} />
+                  </span>
+                {/if}
+                {#if canSaveRule && status === 'done' && !rowState.skipped}
+                  <GradientButton
+                    square
+                    aria-label="Save as import rule"
+                    tooltip={`Always send “${tx.merchantKey}” here`}
+                    onclick={onsaverule}
+                  >
+                    <Icon name="floppy" size={12} />
+                  </GradientButton>
+                {/if}
+              </div>
             </div>
             <div class="field">
               <span class="field-label">via</span>
@@ -162,6 +227,7 @@
                   bind:value={rowState.conversionAccountId}
                   placeholder="equity:conversion…"
                   oncreate={onaccountcreated}
+                  oncommit={onedited}
                 />
               {/if}
             </div>
@@ -173,6 +239,7 @@
                 bind:value={rowState.conversionAccountId}
                 placeholder="equity:conversion…"
                 oncreate={onaccountcreated}
+                oncommit={onedited}
               />
             </div>
           {/if}
@@ -184,6 +251,7 @@
               bind:value={rowState.offsetAccountId}
               placeholder="Source account…"
               oncreate={onaccountcreated}
+              oncommit={onedited}
             />
           </div>
         {/if}
@@ -195,7 +263,10 @@
             <GroupSelect
               {groups}
               anchorEl={splitAnchorEl}
-              onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
+              onselect={(id, catId) => {
+                rowState = { ...rowState, groupId: id, categoryId: catId }
+                onedited()
+              }}
               onclose={onclosesplit}
             />
           </div>
@@ -246,6 +317,7 @@
             aria-label="Remove group split"
             onclick={() => {
               rowState = { ...rowState, groupId: null, categoryId: null }
+              onedited()
               onclosesplit()
             }}><Icon name="close" size={16} /></GradientButton
           >
@@ -264,7 +336,7 @@
   {/if}
 
   <td class="cell-skip">
-    <input type="checkbox" bind:checked={rowState.skipped} />
+    <input type="checkbox" bind:checked={rowState.skipped} onchange={onedited} />
   </td>
 </tr>
 
@@ -302,6 +374,39 @@
   }
 
   /* Keeps the rule indicator on the pills' baseline instead of pushing it to a new line. */
+  .expense-wrap {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    flex: 1;
+  }
+
+  .account-label {
+    flex: 1;
+    padding: 3px var(--sp-xs);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    text-align: left;
+    cursor: text;
+    transition:
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease);
+  }
+
+  .account-label:hover {
+    border-color: var(--color-border);
+    background: var(--color-window-inset);
+  }
+
+  .account-label:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -1px;
+  }
+
   .pills-wrap {
     display: flex;
     align-items: center;

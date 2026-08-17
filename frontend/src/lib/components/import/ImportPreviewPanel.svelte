@@ -5,6 +5,16 @@
   import ImportRowRegular from './ImportRowRegular.svelte'
   import { rowMissingAccounts } from './import-helpers'
   import type { RowState } from './row-state'
+  import {
+    REVIEW_FILTERS,
+    rowStatus,
+    statusCounts,
+    matchesFilter,
+    reviewedCount,
+    nextUnreviewedIndex,
+    dayBoundaries,
+    type ReviewFilter,
+  } from './review-status'
 
   interface Props {
     preview: ImportPreviewResult
@@ -20,6 +30,9 @@
     // convert-and-park after the Accounts step ran.
     unmappedCurrencies: string[]
     onaccountcreated: (account: Account) => void
+    // Records that this row's assignment is now the user's, not a rule's or a cluster's.
+    onrowedited: (index: number) => void
+    onsaverule: (index: number) => void
     onconfirm: () => void
     oncancel: () => void
   }
@@ -36,11 +49,73 @@
     error,
     unmappedCurrencies,
     onaccountcreated,
+    onrowedited,
+    onsaverule,
     onconfirm,
     oncancel,
   }: Props = $props()
 
   let splitSelectOpenIndex = $state<number | null>(null)
+
+  // --- Review filtering ---
+  //
+  // The table is never reordered — filtering removes rows from it instead. Importing a
+  // month-old statement means reconstructing the day to decide whether a row was coffee or
+  // groceries, and regrouping by anything but date destroys that context.
+
+  let filter = $state<ReviewFilter>('needs-review')
+  let counts = $derived(statusCounts(rowStates))
+  let reviewed = $derived(reviewedCount(rowStates))
+
+  let visibleIndices = $derived(
+    preview.transactions
+      .map((_, i) => i)
+      .filter((i) => rowStates[i] && matchesFilter(rowStatus(rowStates[i]), filter)),
+  )
+
+  let dayStarts = $derived(dayBoundaries(preview.transactions, visibleIndices))
+
+  // The row `n` last jumped to, so repeated presses walk forward instead of sticking.
+  let cursor = $state(-1)
+
+  function jumpToNextUnreviewed() {
+    const next = nextUnreviewedIndex(rowStates, cursor)
+    if (next < 0) return
+    cursor = next
+    // Showing a needs-review row inside a filter that excludes it would scroll to nothing.
+    if (!matchesFilter('needs-review', filter)) filter = 'needs-review'
+    requestAnimationFrame(() => {
+      const el = document.querySelector(`[data-row-index="${next}"]`)
+      el?.scrollIntoView({ block: 'center', behavior: 'smooth' })
+      el?.querySelector<HTMLElement>('button, input')?.focus()
+    })
+  }
+
+  function handleKey(e: KeyboardEvent) {
+    if (e.key !== 'n' || e.metaKey || e.ctrlKey || e.altKey) return
+    const target = e.target as HTMLElement | null
+    // Don't hijack the letter while the user is typing into a picker.
+    if (target?.closest('input, textarea, select, [contenteditable]')) return
+    e.preventDefault()
+    jumpToNextUnreviewed()
+  }
+
+  function dayLabel(date: string): string {
+    const d = new Date(date)
+    return Number.isNaN(d.getTime())
+      ? date
+      : d.toLocaleDateString(undefined, {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+          year: 'numeric',
+        })
+  }
+
+  // Column count, for the day-header row's colspan.
+  let columnCount = $derived(
+    5 + (preview.isMultiCurrency ? 0 : 1) + (groups.length > 0 ? 1 : 0),
+  )
 
   let confirmDisabled = $derived(
     loading ||
@@ -53,14 +128,13 @@
   )
 </script>
 
+<svelte:window onkeydown={handleKey} />
+
 <div class="preview-window">
   <div class="section-bar">
-    <span class="section-bar-title">PREVIEW — {preview.parser}</span>
+    <span class="section-bar-title">REVIEW — {preview.parser}</span>
     <span class="preview-counts">
-      {rowStates.filter((r) => !r.skipped).length} ready
-      {#if rowStates.filter((r) => r.skipped).length > 0}
-        · {rowStates.filter((r) => r.skipped).length} skipped
-      {/if}
+      {reviewed} of {counts.all} reviewed
     </span>
   </div>
   <div class="preview-body">
@@ -100,6 +174,27 @@
       </div>
     </div>
 
+    <div class="filter-bar">
+      <div class="filters" role="group" aria-label="Filter rows">
+        {#each REVIEW_FILTERS as f (f.id)}
+          <button
+            type="button"
+            class="chip"
+            class:active={filter === f.id}
+            aria-pressed={filter === f.id}
+            disabled={counts[f.id] === 0 && filter !== f.id}
+            onclick={() => (filter = f.id)}
+          >
+            {f.label}
+            <span class="chip-count">{counts[f.id]}</span>
+          </button>
+        {/each}
+      </div>
+      <span class="jump-hint">
+        Press <kbd>n</kbd> for the next unreviewed row
+      </span>
+    </div>
+
     <div class="table-container">
       <table>
         <thead>
@@ -114,7 +209,22 @@
           </tr>
         </thead>
         <tbody>
-          {#each preview.transactions as tx, i}
+          {#if visibleIndices.length === 0}
+            <tr>
+              <td class="empty-filter" colspan={columnCount}>
+                Nothing here — every row is accounted for under this filter.
+              </td>
+            </tr>
+          {/if}
+          {#each visibleIndices as i (i)}
+            {@const tx = preview.transactions[i]}
+            {#if dayStarts.has(i)}
+              <tr class="day-header">
+                <th class="day-cell" colspan={columnCount} scope="colgroup">
+                  {dayLabel(tx.date)}
+                </th>
+              </tr>
+            {/if}
             {#if tx.isTransfer === false}
               <ImportRowRegular
                 {tx}
@@ -130,6 +240,11 @@
                 onsplitopen={() => (splitSelectOpenIndex = i)}
                 onclosesplit={() => (splitSelectOpenIndex = null)}
                 {onaccountcreated}
+                status={rowStatus(rowStates[i])}
+                index={i}
+                canSaveRule={!!tx.merchantKey}
+                onedited={() => onrowedited(i)}
+                onsaverule={() => onsaverule(i)}
               />
             {:else}
               <ImportRowTransfer
@@ -143,6 +258,11 @@
                 onsplitopen={() => (splitSelectOpenIndex = i)}
                 onclosesplit={() => (splitSelectOpenIndex = null)}
                 {onaccountcreated}
+                status={rowStatus(rowStates[i])}
+                index={i}
+                canSaveRule={!!tx.merchantKey}
+                onedited={() => onrowedited(i)}
+                onsaverule={() => onsaverule(i)}
               />
             {/if}
           {/each}
@@ -250,6 +370,111 @@
 
   .unmapped-notice code {
     font-family: var(--font-mono);
+  }
+
+  /* ── Filter bar ── */
+
+  .filter-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-md);
+    padding: var(--sp-xs) var(--sp-sm);
+    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+  }
+
+  .filters {
+    display: flex;
+    gap: var(--sp-xs);
+    flex-wrap: wrap;
+  }
+
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 3px 10px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-pill);
+    background: var(--color-window-raised);
+    box-shadow: var(--shadow-control);
+    color: var(--color-text);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition:
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .chip:hover:not(:disabled) {
+    border-color: var(--color-accent);
+  }
+
+  .chip:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: 1px;
+  }
+
+  .chip.active {
+    background: var(--color-accent);
+    border-color: var(--color-accent);
+    box-shadow: var(--shadow-inset);
+    color: var(--color-accent-fg);
+  }
+
+  /* An empty bucket stays visible so its count reads as zero rather than vanishing. */
+  .chip:disabled {
+    opacity: 0.45;
+    cursor: default;
+  }
+
+  .chip-count {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    opacity: 0.8;
+  }
+
+  .jump-hint {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    white-space: nowrap;
+  }
+
+  .jump-hint kbd {
+    padding: 1px 5px;
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    background: var(--color-window-raised);
+    box-shadow: var(--shadow-control);
+    font-family: var(--font-mono);
+    font-size: 10px;
+  }
+
+  /* ── Day headers ── */
+
+  .day-header .day-cell {
+    position: sticky;
+    top: 0;
+    z-index: 2;
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window-raised);
+    border-bottom: 1px solid var(--color-rule);
+    text-align: left;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+    text-transform: uppercase;
+    color: var(--color-text-muted);
+  }
+
+  .empty-filter {
+    padding: var(--sp-lg) var(--sp-md);
+    text-align: center;
+    color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .liability-chip {
