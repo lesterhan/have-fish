@@ -1,5 +1,6 @@
 import type { ImportPreviewResult } from '$lib/api'
 import type { RowState } from '$lib/components/import/row-state'
+import type { ClusterState } from '$lib/components/import/clustering'
 
 // An in-progress import, persisted so multi-step navigation (and an accidental refresh)
 // doesn't lose a half-categorized CSV.
@@ -8,9 +9,9 @@ import type { RowState } from '$lib/components/import/row-state'
 // later — which is what would let an import survive a device switch — is a transport
 // change rather than a rewrite. That move is deliberately out of scope here.
 
-export type ImportStep = 'file' | 'accounts' | 'review'
+export type ImportStep = 'file' | 'accounts' | 'sort' | 'review'
 
-const STEP_IDS: ImportStep[] = ['file', 'accounts', 'review']
+const STEP_IDS: ImportStep[] = ['file', 'accounts', 'sort', 'review']
 
 export type ImportSession = {
   version: number
@@ -31,6 +32,9 @@ export type ImportSession = {
   importAsLiabilities: boolean | null
   preview: ImportPreviewResult
   rowStates: RowState[]
+  // The Sort step's per-cluster decisions, keyed by merchant stem. Kept so walking back to
+  // Sort shows the targets already chosen rather than an empty form.
+  clusterStates: ClusterState[]
   savedAt: string // ISO
 }
 
@@ -42,7 +46,8 @@ export const STORAGE_KEY = 'havefish:import-sessions'
 // from the previous deploy — an acceptable trade for not carrying migrations.
 //
 // 2 — added currencyAccounts and the 'accounts' step.
-export const SESSION_VERSION = 2
+// 3 — added clusterStates and the 'sort' step.
+export const SESSION_VERSION = 3
 
 export const MAX_AGE_DAYS = 30
 
@@ -70,6 +75,7 @@ function isValidSession(value: unknown): value is ImportSession {
     typeof s.savedAt === 'string' &&
     !Number.isNaN(Date.parse(s.savedAt)) &&
     Array.isArray(s.rowStates) &&
+    Array.isArray(s.clusterStates) &&
     typeof s.currencyAccounts === 'object' &&
     s.currencyAccounts !== null &&
     typeof s.preview === 'object' &&
