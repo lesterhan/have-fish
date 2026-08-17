@@ -6,6 +6,11 @@ Goal: When importing a monthly CSV statement, automatically fill in blank descri
 
 The Quick Entry flow lets you enter transactions fast, often leaving descriptions blank. When the monthly statement arrives and you import it, the duplicate detection already skips rows that match existing transactions (same account, date ±1 day, amount ±0.01). This epic extends that behavior: if the matched existing transaction has a blank description, the import will patch it with the CSV description instead of silently skipping.
 
+**The merchant stems this epic wants already exist.** `POST /api/import/preview` returns
+`merchantKey` on every row (added by [`import-flow-redesign.md`](archive/import-flow-redesign.md)
+story 1, from the shared `backend/src/import/merchant.ts`), so grouping near-duplicate
+descriptions needs no new normalization here.
+
 The preview table already shows a "dup" badge for matched rows. This epic adds a "patch" state — visually distinct — so you can see at a glance which rows will update an existing description vs. which are fully skipped.
 
 ---
