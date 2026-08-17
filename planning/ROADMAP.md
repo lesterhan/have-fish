@@ -32,8 +32,8 @@
 | [hledger Journal Export](epics/hledger-export.md) | Scoped |
 | [Cross-Currency Spend Import + Heal](epics/archive/cross-currency-spend-import.md) | Done |
 | [Import Rules](epics/archive/import-rules.md) | Done |
-| [Import Rules — Fish Pie Splits & Inline Capture](epics/import-rules-fish-pie.md) | Folded into Import Flow Redesign |
-| [Import Flow — Multi-Step Redesign](epics/import-flow-redesign.md) | Scoped |
+| [Import Rules — Fish Pie Splits & Inline Capture](epics/archive/import-rules-fish-pie.md) | Done (stories 1–4 shipped inside Import Flow Redesign) |
+| [Import Flow — Multi-Step Redesign](epics/archive/import-flow-redesign.md) | Done |
 | [Spending Account Filter](epics/spending-account-filter.md) | Backlog |
 | [FX Rates & Preferred Currency](epics/archive/fx-rates.md) | Done |
 | [Action Required](epics/archive/action-required.md) | Done |
@@ -81,8 +81,11 @@ Pick up the first non-Done item:
 4. ~~**[Mobile Revival → MVP](epics/archive/mobile-revival.md)**~~ — **Done.** SDK 56
    bump, API resync, account picker, category-aware entry, view-only balances. Mobile
    settlement/design/offline deferred (stories 6–8).
-5. **Import Rules v2** (no epic yet, see exploration F16) — then the fish-pie
-   auto-split rule action.
+5. ~~**Import Rules v2** (exploration F16) — then the fish-pie auto-split rule
+   action.~~ — **Done** via
+   [Import Flow Redesign](epics/archive/import-flow-redesign.md). Rules can target a
+   Fish Pie group + category, preview applies them, and the Sort step creates them in
+   bulk. Mining split rules *from history* is the one piece not built (Stretch there).
 6. **Fish Pie attention/notifications** (no epic yet, see exploration F17).
 7. **Settlement FX consolidation** (no epic yet) — settle all currencies as one
    amount using stored FX rates.

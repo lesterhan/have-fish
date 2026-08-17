@@ -1,5 +1,14 @@
 # Epic: Import Rules — Fish Pie splits & inline rule capture
 
+**Absorbed and shipped 2026-08.** Stories 1–4 were folded into
+[`import-flow-redesign.md`](import-flow-redesign.md) and delivered there: the split-target
+schema (#156), split rules applied on preview (#157), inline rule capture as Review's
+"save as rule" and Sort's `remember` (#160, #161), and the split-rule editor in Manage
+Rules (#163).
+
+Story 5 — mining split rules from history — was **not** built, and is recorded under
+Stretch in the redesign epic.
+
 Goal: Make import rules understand Fish Pie splits, and let the user create/refine rules **inline during import** — so a recurring shared merchant (e.g. groceries at BILLA, always split with a partner's group) is auto-split on every future import with zero clicks, and the user builds a direct mental link between "this line on my bank statement" and "this is how it lands in the app."
 
 ## Background

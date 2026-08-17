@@ -1,5 +1,19 @@
 # Epic: Import Flow — Multi-Step Redesign
 
+**Shipped 2026-08.** All nine stories delivered, one PR each (#155–#163), every one
+deployed on its own. The flow is now **File → Accounts → Sort → Review → Confirm**.
+
+Two things landed differently from the plan as written, both noted in place below:
+
+- **Review shipped before Sort.** Sort writes `source: 'cluster'` to rows it bulk-assigns
+  and Review's Auto filter is where that gets audited, so shipping Sort first would have
+  landed bulk assignment with no way to see what it did.
+- **The stepper renders only the steps that exist**, gaining a segment per story rather
+  than advertising five from the start.
+
+Deferred, still live ideas: currency aliasing ("post as") and mining split rules from
+history — both under Stretch at the end.
+
 Goal: Turn the import preview from one long scrolling table into a five-step flow — **File → Accounts → Sort → Review → Confirm** — so that a month of daily transactions is handled as a handful of merchant decisions plus a short chronological pass, instead of 200 identical ones.
 
 ## Background
@@ -37,7 +51,7 @@ This deletes `inferredPaths` / `missingPaths` and removes convention-based looku
 
 This epic folds in [`import-rules-fish-pie.md`](import-rules-fish-pie.md) (stories 1–4). The Sort step is materially better when a rule can mean "always split BILLA into the household group", so the split-rule schema is a prerequisite rather than a follow-up. That epic's story 5 (mine split rules from history) stays out of scope and is listed under Stretch below.
 
-Recommend archiving `import-rules-fish-pie.md` and pointing ROADMAP at this epic once story 3 here lands.
+Both epics were archived and ROADMAP pointed here on completion.
 
 ---
 
