@@ -8,6 +8,7 @@
   import { tooltip } from '$lib/tooltip'
   import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
   import type { RowState } from './row-state'
+  import type { RowStatus } from './review-status'
 
   interface Props {
     tx: RegularParsedTransaction
@@ -20,9 +21,15 @@
     defaultCurrency: string
     splitSelectOpen: boolean
     showFishPie: boolean
+    status: RowStatus
+    index: number
+    // A row with no merchant stem has nothing to build a rule pattern from.
+    canSaveRule: boolean
     onsplitopen: () => void
     onclosesplit: () => void
     onaccountcreated: (account: Account) => void
+    onedited: () => void
+    onsaverule: () => void
   }
 
   let {
@@ -36,10 +43,25 @@
     defaultCurrency,
     splitSelectOpen,
     showFishPie,
+    status,
+    index,
+    canSaveRule,
     onsplitopen,
     onclosesplit,
     onaccountcreated,
+    onedited,
+    onsaverule,
   }: Props = $props()
+
+  // A resolved row renders as a compact label until touched. This calms a 200-row list and
+  // — more importantly — avoids mounting hundreds of AccountPicker instances, each of which
+  // carries its own search index and listbox.
+  let editing = $state(false)
+  let showPicker = $derived(editing || status === 'needs-review' || !rowState.offsetAccountId)
+
+  function accountPath(id: string): string {
+    return accounts.find((a) => a.id === id)?.path ?? ''
+  }
 
   let offsetCellEl: HTMLElement | null = $state(null)
   // Anchors the group dropdown to the input column so it lines up with the field it
@@ -60,7 +82,7 @@
   }
 </script>
 
-<tr class:row-skipped={rowState.skipped}>
+<tr class:row-skipped={rowState.skipped} data-row-index={index} data-status={status}>
   <ImportDateCell date={tx.date} possibleDuplicate={rowState.possibleDuplicate} />
   <td class="cell-description" title={tx.description ?? ''}>
     {tx.description ?? '—'}
@@ -99,10 +121,20 @@
           {#if splitFromRule}
             <span
               class="indicator-icon"
-              use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
+              use:tooltip={{ label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`, always: true }}
             >
               <Icon name="computer" size={16} />
             </span>
+          {/if}
+          {#if canSaveRule && status === 'done' && !rowState.skipped}
+            <GradientButton
+              square
+              aria-label="Save as import rule"
+              tooltip={`Always split “${tx.merchantKey}” this way`}
+              onclick={onsaverule}
+            >
+              <Icon name="floppy" size={12} />
+            </GradientButton>
           {/if}
         </div>
       </div>
@@ -110,19 +142,41 @@
       <div class="field" class:no-label={!isMultiCurrency}>
         {#if isMultiCurrency}<span class="field-label">to</span>{/if}
         <div class="offset-wrap">
-          <AccountPicker
-            {accounts}
-            bind:value={rowState.offsetAccountId}
-            placeholder="Select or create…"
-            oncreate={onaccountcreated}
-          />
-          {#if tx.suggestedOffsetAccountId}
+          {#if showPicker}
+            <AccountPicker
+              {accounts}
+              bind:value={rowState.offsetAccountId}
+              placeholder="Select or create…"
+              oncreate={onaccountcreated}
+              oncommit={onedited}
+            />
+          {:else}
+            <button
+              type="button"
+              class="account-label"
+              onclick={() => (editing = true)}
+              onfocus={() => (editing = true)}
+            >
+              {accountPath(rowState.offsetAccountId)}
+            </button>
+          {/if}
+          {#if tx.suggestedOffsetAccountId && status === 'auto'}
             <span
               class="indicator-icon"
-              use:tooltip={{ label: 'Pre-filled by import rule', always: true }}
+              use:tooltip={{ label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`, always: true }}
             >
               <Icon name="computer" size={16} />
             </span>
+          {/if}
+          {#if canSaveRule && status === 'done' && !rowState.skipped}
+            <GradientButton
+              square
+              aria-label="Save as import rule"
+              tooltip={`Always send “${tx.merchantKey}” here`}
+              onclick={onsaverule}
+            >
+              <Icon name="floppy" size={12} />
+            </GradientButton>
           {/if}
         </div>
       </div>
@@ -134,7 +188,10 @@
           <GroupSelect
             {groups}
             anchorEl={splitAnchorEl}
-            onselect={(id, catId) => { rowState = { ...rowState, groupId: id, categoryId: catId } }}
+            onselect={(id, catId) => {
+              rowState = { ...rowState, groupId: id, categoryId: catId }
+              onedited()
+            }}
             onclose={onclosesplit}
           />
         </div>
@@ -152,6 +209,7 @@
             onclick={() => {
               rowState = { ...rowState, groupId: null, categoryId: null }
               onclosesplit()
+              onedited()
             }}
           ><Icon name="close" size={16} /></GradientButton>
         {:else}
@@ -163,7 +221,7 @@
     </td>
   {/if}
   <td class="cell-skip">
-    <input type="checkbox" bind:checked={rowState.skipped} />
+    <input type="checkbox" bind:checked={rowState.skipped} onchange={onedited} />
   </td>
 </tr>
 
@@ -185,6 +243,33 @@
      display:contents and ignores this — plain imports stay flush.) */
   .field {
     padding: var(--sp-xs) var(--sp-sm);
+  }
+
+  /* Resolved rows show their account as text; the picker mounts on demand. */
+  .account-label {
+    flex: 1;
+    padding: 3px var(--sp-xs);
+    border: 1px solid transparent;
+    border-radius: var(--radius-md);
+    background: transparent;
+    color: var(--color-text);
+    font-family: var(--font-mono);
+    font-size: var(--text-sm);
+    text-align: left;
+    cursor: text;
+    transition:
+      background var(--duration-fast) var(--ease),
+      border-color var(--duration-fast) var(--ease);
+  }
+
+  .account-label:hover {
+    border-color: var(--color-border);
+    background: var(--color-window-inset);
+  }
+
+  .account-label:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -1px;
   }
 
   .offset-wrap {
