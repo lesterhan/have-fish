@@ -41,6 +41,7 @@ function makeSession(overrides: Partial<ImportSession> = {}): ImportSession {
     defaultCurrency: 'CAD',
     fromAccountId: 'acct-1',
     currencyAccounts: {},
+    clusterStates: [],
     importAsLiabilities: null,
     preview: {
       parser: 'Wise',
@@ -190,11 +191,17 @@ describe('pruning', () => {
   })
 
   it('drops an entry with an unrecognized step', () => {
-    expect(pruneSessions([{ ...makeSession(), step: 'sort' }], NOW)).toHaveLength(0)
+    expect(pruneSessions([{ ...makeSession(), step: 'confirm' }], NOW)).toHaveLength(0)
   })
 
-  it('accepts the accounts step', () => {
+  it('accepts the accounts and sort steps', () => {
     expect(pruneSessions([makeSession({ step: 'accounts' })], NOW)).toHaveLength(1)
+    expect(pruneSessions([makeSession({ step: 'sort' })], NOW)).toHaveLength(1)
+  })
+
+  it('drops an entry with no cluster states', () => {
+    const { clusterStates, ...withoutClusters } = makeSession()
+    expect(pruneSessions([withoutClusters], NOW)).toHaveLength(0)
   })
 
   it('drops an entry with no currency map', () => {

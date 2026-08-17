@@ -29,6 +29,7 @@
   import type { RowState } from '$lib/components/import/row-state'
   import ImportStepper from '$lib/components/import/ImportStepper.svelte'
   import ImportAccountsStep from '$lib/components/import/ImportAccountsStep.svelte'
+  import ImportSortStep from '$lib/components/import/ImportSortStep.svelte'
   import {
     hashCsv,
     saveSession,
@@ -45,6 +46,15 @@
     rowMissingAccounts,
   } from '$lib/components/import/import-helpers'
   import { rowsMatchingPattern } from '$lib/components/import/review-status'
+  import {
+    buildClusters,
+    initialClusterState,
+    clusterTarget,
+    membersToWrite,
+    applyTarget,
+    type ClusterState,
+    type RowTarget,
+  } from '$lib/components/import/clustering'
   import { toast } from '$lib/toast.svelte'
   import { goto } from '$app/navigation'
   import { confetti } from '$lib/confetti.svelte'
@@ -89,6 +99,8 @@
   // Currency code → account id, for multi-currency imports. Single-currency imports post
   // every row to one account, which stays in fromAccountId.
   let currencyAccounts = $state<Record<string, string>>({})
+  let clusterStates = $state<ClusterState[]>([])
+  let applyingClusters = $state(false)
   // A saved import found on mount, offered for resume until accepted or dismissed.
   let resumable = $state<ImportSession | null>(null)
 
@@ -97,6 +109,7 @@
   const STEPS: { id: ImportStep; label: string }[] = [
     { id: 'file', label: 'File' },
     { id: 'accounts', label: 'Accounts' },
+    { id: 'sort', label: 'Sort' },
     { id: 'review', label: 'Review' },
   ]
 
@@ -154,6 +167,7 @@
       defaultCurrency,
       fromAccountId,
       currencyAccounts: $state.snapshot(currencyAccounts),
+      clusterStates: $state.snapshot(clusterStates) as ClusterState[],
       importAsLiabilities: liabilitiesOverride,
       preview: $state.snapshot(preview) as typeof preview,
       rowStates: $state.snapshot(rowStates) as RowState[],
@@ -182,6 +196,7 @@
     defaultCurrency = saved.defaultCurrency
     fromAccountId = saved.fromAccountId
     currencyAccounts = saved.currencyAccounts
+    clusterStates = saved.clusterStates
     liabilitiesOverride = saved.importAsLiabilities
     step = saved.step
     resumable = null
@@ -254,10 +269,29 @@
   }
 
   // Leaving the File step, forward. Used both on first parse and when the user walks back
-  // to File and continues, so the step is skipped by the same rule either way.
+  // to File and continues, so steps are skipped by the same rule either way.
   function advanceFromFile() {
     if (!preview) return
-    step = accountsStepNeeded(preview) ? 'accounts' : 'review'
+    if (accountsStepNeeded(preview)) {
+      step = 'accounts'
+      return
+    }
+    advanceFromAccounts()
+  }
+
+  // Walking back to Sort through the stepper must find its form populated, not empty.
+  function navigateToStep(next: ImportStep) {
+    if (next === 'sort' && clusterStates.length === 0) seedClusterStates()
+    step = next
+  }
+
+  function advanceFromAccounts() {
+    if (sortStepNeeded()) {
+      seedClusterStates()
+      step = 'sort'
+      return
+    }
+    step = 'review'
   }
 
   async function handleSubmit() {
@@ -353,9 +387,17 @@
       // Re-parsing a file already in progress replaces its saved session rather than
       // leaving a second copy behind.
       resumable = null
-      // The Accounts step is setup, not a decision — skip it when every currency already
-      // resolved on seed, which is the common repeat-import case.
-      step = accountsStepNeeded(fetched) ? 'accounts' : 'review'
+      clusterStates = []
+      // Both middle steps are skipped when they have nothing to ask: Accounts when every
+      // currency already resolved on seed, Sort when no merchant repeats.
+      if (accountsStepNeeded(fetched)) {
+        step = 'accounts'
+      } else if (buildClusters(fetched.transactions, defaultCurrency).length > 0) {
+        clusterStates = buildClusters(fetched.transactions, defaultCurrency).map(initialClusterState)
+        step = 'sort'
+      } else {
+        step = 'review'
+      }
     } catch (e) {
       error =
         e instanceof Error
@@ -364,6 +406,71 @@
       noParserFound = error.toLowerCase().includes('no saved parser')
     } finally {
       loading = false
+    }
+  }
+
+  // --- Sort ---
+
+  // Clusters come from the preview's merchant stems, so the set is fixed once the file is
+  // parsed. Row edits change what a cluster would *write*, never which clusters exist.
+  let clusters = $derived(
+    preview ? buildClusters(preview.transactions, defaultCurrency) : [],
+  )
+
+  // Nothing to sort when no merchant repeats — the step is skipped rather than shown empty.
+  function sortStepNeeded(): boolean {
+    return clusters.length > 0
+  }
+
+  // Seed one state per cluster, keeping any decisions already made for a stem that survived
+  // a re-parse.
+  function seedClusterStates() {
+    const previous = new Map(clusterStates.map((c) => [c.key, c]))
+    clusterStates = clusters.map((c) => previous.get(c.key) ?? initialClusterState(c))
+  }
+
+  async function handleApplyClusters(override: boolean) {
+    if (!preview) return
+    applyingClusters = true
+    try {
+      let written = 0
+      let rulesCreated = 0
+
+      for (const cluster of clusters) {
+        const state = clusterStates.find((c) => c.key === cluster.key)
+        if (!state) continue
+        const target = clusterTarget(state)
+        if (!target) continue
+
+        for (const i of membersToWrite(cluster, state, rowStates, override)) {
+          rowStates[i] = applyTarget(preview.transactions[i], rowStates[i], target, 'cluster')
+          written++
+        }
+
+        // Remember writes an active rule from the stem and target, so the next import of
+        // this file's merchants needs no Sort pass at all.
+        if (state.remember) {
+          try {
+            await createRule({
+              pattern: cluster.key,
+              ...(target.kind === 'split'
+                ? { groupId: target.groupId, categoryId: target.categoryId }
+                : { accountId: target.accountId }),
+            })
+            rulesCreated++
+          } catch (e) {
+            toast.show(
+              `Applied ${cluster.key}, but the rule could not be saved: ${e instanceof Error ? e.message : 'unknown error'}`,
+            )
+          }
+        }
+      }
+
+      const ruleMsg = rulesCreated > 0 ? `, ${rulesCreated} rule${rulesCreated === 1 ? '' : 's'} saved` : ''
+      toast.show(`${written} row${written === 1 ? '' : 's'} assigned${ruleMsg}`)
+      step = 'review'
+    } finally {
+      applyingClusters = false
     }
   }
 
@@ -398,14 +505,12 @@
       return
     }
 
+    const rowTarget: RowTarget = row.groupId
+      ? { kind: 'split', groupId: row.groupId, categoryId: row.categoryId }
+      : { kind: 'account', accountId: target.accountId! }
     const matches = rowsMatchingPattern(preview!.transactions, rowStates, tx.merchantKey)
     for (const i of matches) {
-      const other = rowStates[i]
-      rowStates[i] = row.groupId
-        ? { ...other, groupId: row.groupId, categoryId: row.categoryId, source: 'cluster' }
-        : preview!.transactions[i].isTransfer === true
-          ? { ...other, expenseAccountId: target.accountId!, source: 'cluster' }
-          : { ...other, offsetAccountId: target.accountId!, source: 'cluster' }
+      rowStates[i] = applyTarget(preview!.transactions[i], rowStates[i], rowTarget, 'cluster')
     }
 
     const applied = matches.length
@@ -551,6 +656,8 @@
     fileHash = ''
     fileName = ''
     file = null
+    currencyAccounts = {}
+    clusterStates = []
     step = 'file'
   }
 
@@ -579,7 +686,7 @@
   {#if preview}
     <div class="transfer-window">
       <div class="section-bar">
-        <ImportStepper {step} steps={STEPS} onnavigate={(s) => (step = s)} />
+        <ImportStepper {step} steps={STEPS} onnavigate={navigateToStep} />
       </div>
 
       {#if step === 'file'}
@@ -663,8 +770,23 @@
           {accounts}
           {rootPath}
           onaccountcreated={handleAccountCreated}
-          oncontinue={() => (step = 'review')}
+          oncontinue={advanceFromAccounts}
           onback={() => (step = 'file')}
+        />
+      {:else if step === 'sort'}
+        <ImportSortStep
+          {clusters}
+          bind:clusterStates
+          transactions={preview.transactions}
+          {rowStates}
+          {accounts}
+          {groups}
+          {defaultCurrency}
+          applying={applyingClusters}
+          onaccountcreated={handleAccountCreated}
+          onapply={handleApplyClusters}
+          onskip={() => (step = 'review')}
+          onback={() => (step = accountsStepNeeded(preview!) ? 'accounts' : 'file')}
         />
       {/if}
     </div>
