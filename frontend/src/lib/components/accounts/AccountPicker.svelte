@@ -2,7 +2,8 @@
   import { tick } from 'svelte'
   import { createAccount, type Account } from '$lib/api'
   import { rank } from './accountScorer'
-  import { buildTree, type TreeNode } from './accountTree'
+  import { type TreeNode } from './accountTree'
+  import { accountIndex } from './accountIndex'
 
   interface Props {
     accounts: Account[]
@@ -35,15 +36,16 @@
   const SEP = ':'
 
   // --- Derived data from the account list ------------------------------------
-  const tree = $derived(buildTree(accounts))
-  const pathToAccount = $derived(
-    new Map(accounts.map((a) => [a.path, a] as const)),
-  )
+  // Shared across every picker mounted over the same array — the import review
+  // table mounts one per row, and building this per instance is O(rows × accounts).
+  const index = $derived(accountIndex(accounts))
+  const tree = $derived(index.tree)
+  const pathToAccount = $derived(index.byPath)
 
   // The committed path is the single source of truth at rest:
   // ID mode resolves the selected account's path; searchOnly uses value directly.
   const committedPath = $derived(
-    searchOnly ? value : (accounts.find((a) => a.id === value)?.path ?? ''),
+    searchOnly ? value : (index.byId.get(value)?.path ?? ''),
   )
 
   // --- Interaction state -----------------------------------------------------
