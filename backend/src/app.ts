@@ -19,6 +19,7 @@ import fishPieInvitesRoute from './routes/fish-pie-invites'
 import fishPieExpensesRoute from './routes/fish-pie-expenses'
 import fishPieBalancesRoute from './routes/fish-pie-balances'
 import fishPieSettlementsRoute from './routes/fish-pie-settlements'
+import coverageRoute, { accountCoverageRoute } from './routes/coverage'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -51,6 +52,9 @@ app.use('/api/*', async (c, next) => {
 // Better Auth handles all /api/auth/** routes (sign-in, sign-up, sign-out, session, etc.)
 app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
 
+// Registered before accountsRoute so /api/accounts/:id/coverage resolves here rather than
+// falling into the account detail handler.
+app.route('/api/accounts', accountCoverageRoute)
 app.route('/api/accounts', accountsRoute)
 app.route('/api/transactions', transactionsRoute)
 app.route('/api/postings', postingsRoute)
@@ -68,3 +72,4 @@ app.route('/api/fish-pie', fishPieInvitesRoute)
 app.route('/api/fish-pie', fishPieExpensesRoute)
 app.route('/api/fish-pie', fishPieBalancesRoute)
 app.route('/api/fish-pie', fishPieSettlementsRoute)
+app.route('/api/coverage', coverageRoute)
