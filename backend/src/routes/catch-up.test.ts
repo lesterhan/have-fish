@@ -356,6 +356,65 @@ describe('catch-up', () => {
     })
   })
 
+  describe('history span', () => {
+    it('reports the first and last transaction dates', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await seedTxn(userId, chequing.id, daysAgo(40), groceries.id)
+      await seedTxn(userId, chequing.id, daysAgo(12), groceries.id)
+      await seedTxn(userId, chequing.id, daysAgo(25), groceries.id)
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(find(body, chequing.id)).toMatchObject({
+        firstTxnDate: daysAgo(40),
+        lastTxnDate: daysAgo(12),
+      })
+    })
+
+    it('is null for an account with no transactions', async () => {
+      const empty = await createAccount(userId, 'assets:untouched')
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(find(body, empty.id)).toMatchObject({ firstTxnDate: null, lastTxnDate: null })
+    })
+
+    // Unbounded by the rate window on purpose — bootstrap proposes the whole existing ledger,
+    // which routinely predates any window an estimate would care about.
+    it('reaches back past the rate window', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await seedTxn(userId, chequing.id, daysAgo(1200), groceries.id)
+      await seedTxn(userId, chequing.id, daysAgo(3), groceries.id)
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(find(body, chequing.id).firstTxnDate).toBe(daysAgo(1200))
+    })
+
+    it('ignores soft-deleted transactions', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      const old = await seedTxn(userId, chequing.id, daysAgo(400), groceries.id)
+      await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
+      await db.update(transactions).set({ deletedAt: new Date() }).where(eq(transactions.id, old.id))
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(find(body, chequing.id).firstTxnDate).toBe(daysAgo(10))
+    })
+
+    it('does not borrow another account\'s history', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      const visa = await createAccount(userId, 'liabilities:visa')
+      await seedTxn(userId, visa.id, daysAgo(90), groceries.id)
+      await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(find(body, chequing.id).firstTxnDate).toBe(daysAgo(10))
+      expect(find(body, visa.id).firstTxnDate).toBe(daysAgo(90))
+    })
+  })
+
   describe('summary', () => {
     it('counts states and reports progress', async () => {
       const current = await createAccount(userId, 'assets:current')

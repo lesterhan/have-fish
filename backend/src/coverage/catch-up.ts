@@ -38,6 +38,11 @@ export type CatchUpAccount = {
   // mid-trip. Evidence the account is live, never evidence the range is complete.
   txnDatesInGap: string[]
   dormant: boolean
+  // The span of ledger history that already exists for this account. Null on an account with
+  // no transactions at all. Bootstrap proposes exactly this range as the starting line: the
+  // user has been using the app, so what is already entered is presumed real.
+  firstTxnDate: string | null
+  lastTxnDate: string | null
   config: CoverageConfig
 }
 
@@ -47,8 +52,12 @@ export type CatchUpAccountInput = {
   name: string | null
   config: CoverageConfig
   intervals: CoverageInterval[]
-  // Transaction counts by date for this account, as { 'YYYY-MM-DD': count }.
+  // Transaction counts by date for this account, as { 'YYYY-MM-DD': count }. Bounded by the
+  // query's lookback window, so it cannot be used to find the account's oldest transaction.
   txnCountsByDate: Record<string, number>
+  // The full history span, queried without a lookback bound.
+  firstTxnDate: string | null
+  lastTxnDate: string | null
 }
 
 // Trailing window the transactions/day rate is measured over. Long enough to smooth out a
@@ -93,7 +102,7 @@ function sumWithin(counts: Record<string, number>, intervals: CoverageInterval[]
 }
 
 export function assembleAccount(input: CatchUpAccountInput, today: string): CatchUpAccount {
-  const { accountId, path, name, config, intervals, txnCountsByDate } = input
+  const { accountId, path, name, config, intervals, txnCountsByDate, firstTxnDate, lastTxnDate } = input
 
   const merged = mergeCoverage(intervals)
   const accountHorizon = horizon(config, today)
@@ -154,6 +163,8 @@ export function assembleAccount(input: CatchUpAccountInput, today: string): Catc
     expectedTxns,
     txnDatesInGap,
     dormant,
+    firstTxnDate,
+    lastTxnDate,
     config,
   }
 }

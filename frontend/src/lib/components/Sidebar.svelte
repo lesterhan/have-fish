@@ -166,6 +166,15 @@
         <span class="nav-label">Fish Pie</span>
       </a>
       <a
+        href="/catch-up"
+        class="nav-link"
+        class:active={currentPath.startsWith('/catch-up')}
+        use:tooltip={'Catch Up'}
+      >
+        <Icon name="calendar" size={16} />
+        <span class="nav-label">Catch Up</span>
+      </a>
+      <a
         href="/import"
         class="nav-link"
         class:active={currentPath.startsWith('/import')}

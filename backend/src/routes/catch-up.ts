@@ -146,6 +146,26 @@ app.get('/', async (c) => {
     ))
     .groupBy(postings.accountId, sql`${transactions.date}::date`)
 
+  // The full history span, deliberately unbounded by the lookback above: bootstrap proposes
+  // an account's whole existing ledger as its starting line, and that history routinely
+  // predates any window a rate estimate would care about.
+  const spanRows = await db
+    .select({
+      accountId: postings.accountId,
+      first: sql<string>`to_char(MIN(${transactions.date})::date, 'YYYY-MM-DD')`,
+      last: sql<string>`to_char(MAX(${transactions.date})::date, 'YYYY-MM-DD')`,
+    })
+    .from(postings)
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(and(
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      isNull(postings.deletedAt),
+    ))
+    .groupBy(postings.accountId)
+
+  const spanByAccount = new Map(spanRows.map((r) => [r.accountId, { first: r.first, last: r.last }]))
+
   const countsByAccount = new Map<string, Record<string, number>>()
   for (const row of txnRows) {
     const counts = countsByAccount.get(row.accountId) ?? {}
@@ -161,6 +181,8 @@ app.get('/', async (c) => {
       config: configs.get(account.id)!,
       intervals: intervalsByAccount.get(account.id) ?? [],
       txnCountsByDate: countsByAccount.get(account.id) ?? {},
+      firstTxnDate: spanByAccount.get(account.id)?.first ?? null,
+      lastTxnDate: spanByAccount.get(account.id)?.last ?? null,
     }
     return assembleAccount(input, today)
   })
