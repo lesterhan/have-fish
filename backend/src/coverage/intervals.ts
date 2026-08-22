@@ -20,6 +20,12 @@ export function addDays(date: string, days: number): string {
   return d.toISOString().substring(0, 10)
 }
 
+// Whole days from `from` to `to`, signed. Both parse as UTC midnight, so the division is
+// exact — no DST hour to round away.
+export function daysBetween(from: string, to: string): number {
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
+}
+
 // Coalesces overlapping and adjacent intervals into the smallest set of disjoint spans,
 // sorted ascending by start date.
 //
