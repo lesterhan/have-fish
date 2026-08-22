@@ -1,9 +1,21 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { accountCoverage, accounts } from '../db/schema'
-import { and, desc, eq, isNull } from 'drizzle-orm'
+import { accountCoverage, accounts, userSettings } from '../db/schema'
+import { and, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { mergeCoverage } from '../coverage/intervals'
+import {
+  effectiveConfig,
+  horizon,
+  inferCycleFromIntervals,
+  isCycleDay,
+  isReleaseLag,
+  mergeConfig,
+  nextHorizon,
+  readCatchUpOverrides,
+  readIntervals,
+  type CoverageConfigOverride,
+} from '../coverage/horizon'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -66,7 +78,26 @@ async function readCoverage(userId: string, accountId: string) {
   // mergeCoverage returns ascending; the UI reads most-recent-first, same as every other listing.
   const intervals = mergeCoverage(rows).reverse()
 
-  return { accountId, intervals, assertions: rows }
+  // The horizon travels with the coverage because the strip needs both to render: covered days
+  // and uncovered days are only distinguishable from not-yet-obtainable ones once you know
+  // where the account's data actually stops being available.
+  const config = await effectiveConfig(userId, accountId)
+  const today = todayUtc()
+
+  return {
+    accountId,
+    intervals,
+    assertions: rows,
+    config,
+    horizon: horizon(config, today),
+    nextHorizon: nextHorizon(config, today),
+  }
+}
+
+// UTC so the horizon doesn't shift under a traveller crossing timezones — the same convention
+// the rest of the app stores dates with.
+function todayUtc(): string {
+  return new Date().toISOString().substring(0, 10)
 }
 
 // POST /api/coverage
@@ -132,6 +163,118 @@ app.delete('/:id', async (c) => {
 
   return c.body(null, 204)
 })
+
+// PATCH /api/coverage/config/:accountId
+// Pins part of an account's catch-up config by hand, overriding what inference guessed.
+//
+// Body keys are all optional: { exportMode, cycleDay, releaseLag, tracked }. Passing null for
+// a key *removes* that override and hands the field back to inference — which is why "this
+// account has no statement cycle" is expressed as exportMode: 'range' rather than
+// cycleDay: null.
+//
+// Stored under preferences.catchUp[accountId] rather than in a column on accounts, following
+// the same precedent as the other display preferences. Only the overrides live there; the
+// effective config is always inference with these laid on top.
+// 200: { accountId, override, config, horizon, nextHorizon }
+// 400: an invalid field value, or a cycle account with no cycle day to compute closes from
+// 404: account not found or not owned by the caller
+app.patch('/config/:accountId', async (c) => {
+  const userId = c.get('userId')
+  const accountId = c.req.param('accountId')
+
+  if (!isUuid(accountId)) return c.json({ error: 'account not found' }, 404)
+
+  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+
+  // Distinguishes "clear this override" (explicit null) from "leave it alone" (key absent).
+  const cleared = new Set<keyof CoverageConfigOverride>()
+  const patch: CoverageConfigOverride = {}
+
+  if ('exportMode' in body) {
+    if (body.exportMode === null) cleared.add('exportMode')
+    else if (body.exportMode === 'range' || body.exportMode === 'cycle') patch.exportMode = body.exportMode
+    else return c.json({ error: "exportMode must be 'range', 'cycle', or null" }, 400)
+  }
+  if ('cycleDay' in body) {
+    if (body.cycleDay === null) cleared.add('cycleDay')
+    else if (isCycleDay(body.cycleDay)) patch.cycleDay = body.cycleDay
+    else return c.json({ error: 'cycleDay must be a whole number from 1 to 31, or null' }, 400)
+  }
+  if ('releaseLag' in body) {
+    if (body.releaseLag === null) cleared.add('releaseLag')
+    else if (isReleaseLag(body.releaseLag)) patch.releaseLag = body.releaseLag
+    else return c.json({ error: 'releaseLag must be a whole number from 0 to 31, or null' }, 400)
+  }
+  if ('tracked' in body) {
+    if (body.tracked === null) cleared.add('tracked')
+    else if (typeof body.tracked === 'boolean') patch.tracked = body.tracked
+    else return c.json({ error: 'tracked must be a boolean or null' }, 400)
+  }
+
+  if (cleared.size === 0 && Object.keys(patch).length === 0) {
+    return c.json({ error: 'no valid fields to update' }, 400)
+  }
+
+  if (!(await ownsAccount(userId, accountId))) {
+    return c.json({ error: 'account not found' }, 404)
+  }
+
+  const [overrides, intervals] = await Promise.all([
+    readCatchUpOverrides(userId),
+    readIntervals(userId, accountId),
+  ])
+
+  const override: CoverageConfigOverride = { ...(overrides[accountId] ?? {}), ...patch }
+  for (const key of cleared) delete override[key]
+
+  const config = mergeConfig(inferCycleFromIntervals(intervals), override)
+
+  // Refuse the one combination that cannot be computed. horizon() falls back to today rather
+  // than inventing a boundary, but silently ignoring what the user asked for would leave them
+  // staring at a 'cycle' account behaving exactly like a 'range' one.
+  if (config.exportMode === 'cycle' && config.cycleDay == null) {
+    return c.json({ error: 'a cycle account needs a cycleDay' }, 400)
+  }
+
+  await writeOverride(userId, accountId, override)
+
+  const today = todayUtc()
+  return c.json({
+    accountId,
+    override,
+    config,
+    horizon: horizon(config, today),
+    nextHorizon: nextHorizon(config, today),
+  })
+})
+
+// Writes one account's overrides into preferences.catchUp without disturbing anything else in
+// the blob. Nested jsonb_set rather than the `||` shallow merge the settings route uses:
+// `||` at the top level would replace the whole catchUp object and wipe every other account's
+// config, and at the catchUp level it could not remove a cleared key.
+async function writeOverride(userId: string, accountId: string, override: CoverageConfigOverride) {
+  const existing = sql`COALESCE(${userSettings.preferences}, '{}'::jsonb)`
+
+  const next = Object.keys(override).length === 0
+    // Nothing pinned any more — drop the key entirely so the blob doesn't accumulate empty
+    // objects for every account the user has ever poked at.
+    ? sql`${existing} #- ARRAY['catchUp', ${accountId}]::text[]`
+    : sql`jsonb_set(
+        jsonb_set(${existing}, '{catchUp}'::text[], COALESCE(${existing}->'catchUp', '{}'::jsonb), true),
+        ARRAY['catchUp', ${accountId}]::text[],
+        ${JSON.stringify(override)}::jsonb,
+        true
+      )`
+
+  await db
+    .insert(userSettings)
+    .values({ userId, preferences: { catchUp: { [accountId]: override } } })
+    .onConflictDoUpdate({
+      target: userSettings.userId,
+      set: { preferences: next, updatedAt: new Date() },
+    })
+}
 
 export default app
 

@@ -246,7 +246,7 @@ describe('coverage', () => {
       const res = await getCoverage(cookie, acct.id)
 
       expect(res.status).toBe(200)
-      expect(await res.json()).toEqual({ accountId: acct.id, intervals: [], assertions: [] })
+      expect(await res.json()).toMatchObject({ accountId: acct.id, intervals: [], assertions: [] })
     })
 
     it('returns merged spans newest first', async () => {
