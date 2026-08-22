@@ -1401,3 +1401,143 @@ export async function confirmSettlementBatch(
   return res.json()
 }
 
+
+// --- Catch-Up Coach ---
+
+// How an account's data comes out of the institution: 'range' exports any date range on
+// demand, 'cycle' only produces a statement when its billing period closes.
+export type CoverageExportMode = 'range' | 'cycle'
+
+export type CoverageConfig = {
+  exportMode: CoverageExportMode
+  cycleDay: number | null
+  releaseLag: number
+  tracked: boolean
+}
+
+// 'unset' means no coverage has ever been asserted — not evidence of neglect, only of a
+// feature never used. It drives the bootstrap step rather than the queue.
+export type CatchUpState = 'current' | 'behind' | 'unset'
+
+export type CatchUpAccount = {
+  accountId: string
+  path: string
+  name: string | null
+  state: CatchUpState
+  // The most recent date whose data is actually obtainable. For a statement account this sits
+  // behind today, and the span past it is "not yet available" rather than work.
+  horizon: string
+  horizonReason: 'today' | 'statement'
+  nextHorizonDate: string | null
+  coveredThrough: string | null
+  gap: { from: string; through: string; days: number } | null
+  expectedTxns: number | null
+  txnDatesInGap: string[]
+  dormant: boolean
+  firstTxnDate: string | null
+  lastTxnDate: string | null
+  config: CoverageConfig
+}
+
+export type CatchUpSummary = {
+  current: number
+  behind: number
+  unset: number
+  tracked: number
+  dormant: number
+  accountsToCatchUp: number
+  progress: { current: number; tracked: number }
+}
+
+export type CatchUpPayload = {
+  today: string
+  accounts: CatchUpAccount[]
+  summary: CatchUpSummary
+}
+
+export async function fetchCatchUp(): Promise<CatchUpPayload> {
+  const res = await fetch(`${BASE}/api/catch-up`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to load catch-up status')
+  return res.json()
+}
+
+// How a coverage assertion came to be made. Provenance only — all four count equally.
+export type CoverageSource = 'import' | 'reconcile' | 'manual' | 'empty'
+
+export type CoverageAssertion = {
+  id: string
+  fromDate: string
+  throughDate: string
+  source: CoverageSource
+  note: string | null
+  createdAt: string
+}
+
+export type AccountCoverage = {
+  accountId: string
+  // Merged spans, newest first — what "covered through D" is read off.
+  intervals: { fromDate: string; throughDate: string }[]
+  // The raw rows behind them. A merged span has no id, so undo works from these.
+  assertions: CoverageAssertion[]
+  config: CoverageConfig
+  horizon: string
+  nextHorizon: string | null
+}
+
+export async function fetchAccountCoverage(accountId: string): Promise<AccountCoverage> {
+  const res = await fetch(`${BASE}/api/accounts/${accountId}/coverage`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to load coverage')
+  return res.json()
+}
+
+export async function createCoverage(body: {
+  accountId: string
+  fromDate: string
+  throughDate: string
+  source: CoverageSource
+  note?: string
+}): Promise<CoverageAssertion> {
+  const res = await fetch(`${BASE}/api/coverage`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to record coverage')
+  }
+  return res.json()
+}
+
+export async function deleteCoverage(id: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/coverage/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to withdraw coverage')
+}
+
+// Pins part of an account's config by hand. Passing null for a field clears the override and
+// hands that field back to inference.
+export async function updateCoverageConfig(
+  accountId: string,
+  patch: Partial<{
+    exportMode: CoverageExportMode | null
+    cycleDay: number | null
+    releaseLag: number | null
+    tracked: boolean | null
+  }>,
+): Promise<{ accountId: string; override: Partial<CoverageConfig>; config: CoverageConfig; horizon: string; nextHorizon: string | null }> {
+  const res = await fetch(`${BASE}/api/coverage/config/${accountId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(patch),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to update coverage config')
+  }
+  return res.json()
+}
