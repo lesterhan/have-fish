@@ -20,6 +20,7 @@ import fishPieExpensesRoute from './routes/fish-pie-expenses'
 import fishPieBalancesRoute from './routes/fish-pie-balances'
 import fishPieSettlementsRoute from './routes/fish-pie-settlements'
 import coverageRoute, { accountCoverageRoute } from './routes/coverage'
+import catchUpRoute from './routes/catch-up'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -73,3 +74,4 @@ app.route('/api/fish-pie', fishPieExpensesRoute)
 app.route('/api/fish-pie', fishPieBalancesRoute)
 app.route('/api/fish-pie', fishPieSettlementsRoute)
 app.route('/api/coverage', coverageRoute)
+app.route('/api/catch-up', catchUpRoute)

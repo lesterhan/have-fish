@@ -9,7 +9,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { accountCoverage, userSettings } from '../db/schema'
-import { addDays, type CoverageInterval } from './intervals'
+import { addDays, daysBetween, type CoverageInterval } from './intervals'
 
 // How data comes out of the institution.
 //   'range'  — any date range, any time (Wise, most chequing accounts). Horizon is today.
@@ -167,12 +167,6 @@ export function inferCycleFromIntervals(intervals: CoverageInterval[]): Coverage
   }
 
   return null
-}
-
-// Whole days from `from` to `to`. Both are UTC midnight, so the division is exact.
-function daysBetween(from: string, to: string): number {
-  const ms = Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)
-  return Math.round(ms / 86_400_000)
 }
 
 // --- config resolution --------------------------------------------------------------------
