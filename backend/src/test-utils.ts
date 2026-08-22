@@ -1,5 +1,5 @@
 import { db } from './db'
-import { user, accounts, transactions, postings, csvParsers, userSettings, fxRates, importRules, expenseGroupMembers, expenseGroups, expenseGroupInvites, groupExpenses, groupExpenseSplits, groupSettlements } from './db/schema'
+import { user, accounts, transactions, postings, csvParsers, userSettings, fxRates, importRules, accountCoverage, expenseGroupMembers, expenseGroups, expenseGroupInvites, groupExpenses, groupExpenseSplits, groupSettlements } from './db/schema'
 import { app } from './app'
 
 // Wipe all rows in dependency order (postings → transactions → userSettings → csvParsers → accounts → users)
@@ -10,6 +10,8 @@ export async function clearDatabase() {
   await db.delete(importRules)
   await db.delete(userSettings)
   await db.delete(csvParsers)
+  // accountCoverage has FKs to both user and accounts
+  await db.delete(accountCoverage)
   // Fish Pie tables deleted before accounts — expenseGroupMembers has a FK to accounts
   await db.delete(groupExpenseSplits)
   await db.delete(groupExpenses)

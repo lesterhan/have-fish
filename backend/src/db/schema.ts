@@ -1,4 +1,4 @@
-import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer, unique, index, check } from 'drizzle-orm/pg-core'
+import { pgTable, numeric, text, timestamp, uuid, boolean, jsonb, integer, date, unique, index, check } from 'drizzle-orm/pg-core'
 import { sql } from 'drizzle-orm'
 
 // --- Better Auth tables ---
@@ -359,4 +359,45 @@ export const postings = pgTable('postings', {
 }, (t) => [
   index('postings_transaction_id_idx').on(t.transactionId),
   index('postings_account_id_idx').on(t.accountId),
+])
+
+// An assertion that one account's ledger is complete for an inclusive date range.
+//
+// The fact the rest of the app could never express: "this account is done through date D."
+// Last-transaction-date cannot say it — a quiet account and a neglected one look identical,
+// and neither ever reads *finished*. Coverage is therefore asserted, never inferred.
+//
+// Intervals rather than a single high-water date, because imports arrive out of order:
+// August often gets done before July does. A watermark would either lie about July or refuse
+// to advance past it; intervals say "you have Jan-Feb and Aug, Mar-Jul is missing" instead.
+//
+// Append-only with soft delete, so every assertion keeps its provenance and can be undone.
+// Rows may overlap or nest freely — writers never reconcile against what is already stored;
+// readers coalesce via mergeCoverage(). See coverage/intervals.ts.
+export const accountCoverage = pgTable('account_coverage', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id').notNull().references(() => user.id, { onDelete: 'cascade' }),
+  accountId: uuid('account_id').notNull().references(() => accounts.id),
+  // Both bounds inclusive. A single covered day is fromDate === throughDate.
+  fromDate: date('from_date').notNull(),
+  throughDate: date('through_date').notNull(),
+  // How the assertion was made: 'import' (a statement was ingested), 'reconcile' (the balance
+  // matched the bank), 'manual' (the user vouched for the range), 'empty' (the user confirmed
+  // nothing happened). Provenance only — all four carry equal weight when merging.
+  source: text('source').notNull(),
+  note: text('note'),  // optional context, e.g. the statement filename
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
+}, (t) => [
+  // Every read is "this user's coverage for this account, in date order".
+  index('account_coverage_user_account_from_idx').on(t.userId, t.accountId, t.fromDate),
+  // routes/coverage.ts validates both of these and is what produces a readable 400. These are
+  // the backstop for writes that never reach the route: later stories have import and reconcile
+  // insert directly, and Drizzle Studio bypasses the app entirely. An inverted range would
+  // silently corrupt every merge downstream, so it must not be storable at all.
+  check('account_coverage_range_ordered', sql`${t.fromDate} <= ${t.throughDate}`),
+  check(
+    'account_coverage_source_valid',
+    sql`${t.source} IN ('import', 'reconcile', 'manual', 'empty')`,
+  ),
 ])
