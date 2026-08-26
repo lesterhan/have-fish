@@ -1482,10 +1482,17 @@ export type AccountCoverage = {
   config: CoverageConfig
   horizon: string
   nextHorizon: string | null
+  // The span the coverage strip draws, and the days inside it that already have transactions.
+  window: { from: string; to: string; days: number }
+  txnDates: string[]
 }
 
-export async function fetchAccountCoverage(accountId: string): Promise<AccountCoverage> {
-  const res = await fetch(`${BASE}/api/accounts/${accountId}/coverage`, { credentials: 'include' })
+export async function fetchAccountCoverage(
+  accountId: string,
+  days?: number,
+): Promise<AccountCoverage> {
+  const query = days ? `?days=${days}` : ''
+  const res = await fetch(`${BASE}/api/accounts/${accountId}/coverage${query}`, { credentials: 'include' })
   if (!res.ok) throw new Error('Failed to load coverage')
   return res.json()
 }

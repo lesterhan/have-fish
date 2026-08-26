@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import { db } from '../db'
-import { accountCoverage, accounts, userSettings } from '../db/schema'
-import { and, desc, eq, isNull, sql } from 'drizzle-orm'
+import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
+import { and, between, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
-import { mergeCoverage } from '../coverage/intervals'
+import { addDays, mergeCoverage } from '../coverage/intervals'
 import {
   effectiveConfig,
   horizon,
@@ -50,12 +50,20 @@ async function ownsAccount(userId: string, accountId: string): Promise<boolean> 
   return owned != null
 }
 
+// The default span the coverage strip draws. Roughly a quarter — long enough to show a
+// statement rhythm, short enough that a day cell stays wide enough to hover.
+const DEFAULT_WINDOW_DAYS = 90
+
+// Two years. Past this the strip is unreadable at any cell width, and the transaction scan
+// stops being cheap.
+const MAX_WINDOW_DAYS = 730
+
 // Reads one account's live assertions, newest first, alongside the coalesced spans.
 //
 // Both shapes are returned because they answer different questions: the merged spans are what
 // "covered through D" is read off, while the raw rows are the only thing carrying the ids that
 // DELETE needs — a merged span has no id to undo.
-async function readCoverage(userId: string, accountId: string) {
+async function readCoverage(userId: string, accountId: string, windowDays: number) {
   const rows = await db
     .select({
       id: accountCoverage.id,
@@ -83,6 +91,26 @@ async function readCoverage(userId: string, accountId: string) {
   // where the account's data actually stops being available.
   const config = await effectiveConfig(userId, accountId)
   const today = todayUtc()
+  const windowFrom = addDays(today, -(windowDays - 1))
+
+  // Distinct dates only — the strip draws one tick per day, not per transaction. Scoped to the
+  // window so an account with a decade of history doesn't ship a decade of dates to draw 90
+  // cells with.
+  const txnDateRows = await db
+    .selectDistinct({ date: sql<string>`to_char(${transactions.date}::date, 'YYYY-MM-DD')` })
+    .from(postings)
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(and(
+      eq(postings.accountId, accountId),
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      isNull(postings.deletedAt),
+      between(
+        sql`${transactions.date}::date`,
+        sql`${windowFrom}::date`,
+        sql`${today}::date`,
+      ),
+    ))
 
   return {
     accountId,
@@ -91,7 +119,19 @@ async function readCoverage(userId: string, accountId: string) {
     config,
     horizon: horizon(config, today),
     nextHorizon: nextHorizon(config, today),
+    // The window the strip draws, and the days inside it that already have transactions.
+    window: { from: windowFrom, to: today, days: windowDays },
+    txnDates: txnDateRows.map((r) => r.date).sort(),
   }
+}
+
+// Clamps ?days= to something drawable. A bad value falls back to the default rather than
+// erroring — the strip is a read-only view, and refusing to render it over a query string
+// typo helps nobody.
+function windowDaysFrom(raw: string | undefined): number {
+  const parsed = Number(raw)
+  if (!Number.isInteger(parsed) || parsed < 1) return DEFAULT_WINDOW_DAYS
+  return Math.min(parsed, MAX_WINDOW_DAYS)
 }
 
 // UTC so the horizon doesn't shift under a traveller crossing timezones — the same convention
@@ -282,9 +322,10 @@ export default app
 // Kept in this file rather than accounts.ts to keep everything coverage-shaped together.
 export const accountCoverageRoute = new Hono<{ Variables: AppVariables }>()
 
-// GET /api/accounts/:id/coverage
-// 200: { accountId, intervals, assertions } — merged spans and the raw rows behind them,
-//      both newest first
+// GET /api/accounts/:id/coverage?days=90
+// 200: { accountId, intervals, assertions, config, horizon, nextHorizon, window, txnDates }
+//      — merged spans and the raw rows behind them, both newest first, plus everything the
+//      coverage strip needs to draw a day cell in the right state
 // 404: account not found or not owned by the caller
 accountCoverageRoute.get('/:id/coverage', async (c) => {
   const userId = c.get('userId')
@@ -295,5 +336,5 @@ accountCoverageRoute.get('/:id/coverage', async (c) => {
     return c.json({ error: 'account not found' }, 404)
   }
 
-  return c.json(await readCoverage(userId, accountId))
+  return c.json(await readCoverage(userId, accountId, windowDaysFrom(c.req.query('days'))))
 })
