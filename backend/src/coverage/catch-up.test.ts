@@ -15,6 +15,8 @@ function input(overrides: Partial<CatchUpAccountInput> = {}): CatchUpAccountInpu
     config: RANGE,
     intervals: [],
     txnCountsByDate: {},
+    firstTxnDate: null,
+    lastTxnDate: null,
     ...overrides,
   }
 }
