@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { accountCoverage, accounts } from '../db/schema'
+import { accountCoverage, accounts, postings, transactions } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
 async function createAccount(userId: string, path: string) {
@@ -30,6 +30,24 @@ async function postCoverage(
 
 async function getCoverage(cookie: string, accountId: string) {
   return app.request(`/api/accounts/${accountId}/coverage`, { headers: { Cookie: cookie } })
+}
+
+function daysAgo(n: number): string {
+  const d = new Date()
+  d.setUTCDate(d.getUTCDate() - n)
+  return d.toISOString().substring(0, 10)
+}
+
+async function seedTxn(userId: string, accountId: string, date: string, offsetAccountId: string) {
+  const [tx] = await db
+    .insert(transactions)
+    .values({ userId, date: new Date(`${date}T12:00:00Z`), description: 'test' })
+    .returning()
+  await db.insert(postings).values([
+    { transactionId: tx.id, accountId, amount: '-10.00', currency: 'CAD' },
+    { transactionId: tx.id, accountId: offsetAccountId, amount: '10.00', currency: 'CAD' },
+  ])
+  return tx
 }
 
 describe('coverage', () => {
@@ -330,6 +348,112 @@ describe('coverage', () => {
       const res = await app.request(`/api/accounts/${acct.id}/coverage`)
 
       expect(res.status).toBe(401)
+    })
+
+    describe('the strip window', () => {
+      it('defaults to the last 90 days ending today', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+
+        const { window } = await (await getCoverage(cookie, acct.id)).json()
+
+        expect(window).toEqual({ from: daysAgo(89), to: daysAgo(0), days: 90 })
+      })
+
+      it('honours an explicit day count', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+
+        const res = await app.request(`/api/accounts/${acct.id}/coverage?days=30`, { headers: { Cookie: cookie } })
+
+        expect((await res.json()).window).toEqual({ from: daysAgo(29), to: daysAgo(0), days: 30 })
+      })
+
+      it('clamps an oversized window rather than drawing an unreadable strip', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+
+        const res = await app.request(`/api/accounts/${acct.id}/coverage?days=99999`, { headers: { Cookie: cookie } })
+
+        expect((await res.json()).window.days).toBe(730)
+      })
+
+      // A read-only view should render over a query-string typo, not 400.
+      it('falls back to the default on a nonsense day count', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+
+        for (const days of ['banana', '0', '-5', '12.5', '']) {
+          const res = await app.request(`/api/accounts/${acct.id}/coverage?days=${days}`, { headers: { Cookie: cookie } })
+          expect((await res.json()).window.days).toBe(90)
+        }
+      })
+    })
+
+    describe('transaction dates', () => {
+      it('reports the days inside the window that have transactions', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+        const groceries = await createAccount(userId, 'expenses:groceries')
+        await seedTxn(userId, acct.id, daysAgo(40), groceries.id)
+        await seedTxn(userId, acct.id, daysAgo(10), groceries.id)
+
+        const { txnDates } = await (await getCoverage(cookie, acct.id)).json()
+
+        expect(txnDates).toEqual([daysAgo(40), daysAgo(10)])
+      })
+
+      // One tick per day — the strip draws days, not transactions.
+      it('collapses several transactions on one day to a single date', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+        const groceries = await createAccount(userId, 'expenses:groceries')
+        await seedTxn(userId, acct.id, daysAgo(5), groceries.id)
+        await seedTxn(userId, acct.id, daysAgo(5), groceries.id)
+        await seedTxn(userId, acct.id, daysAgo(5), groceries.id)
+
+        const { txnDates } = await (await getCoverage(cookie, acct.id)).json()
+
+        expect(txnDates).toEqual([daysAgo(5)])
+      })
+
+      it('excludes transactions outside the window', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+        const groceries = await createAccount(userId, 'expenses:groceries')
+        await seedTxn(userId, acct.id, daysAgo(200), groceries.id)
+        await seedTxn(userId, acct.id, daysAgo(3), groceries.id)
+
+        const { txnDates } = await (await getCoverage(cookie, acct.id)).json()
+
+        expect(txnDates).toEqual([daysAgo(3)])
+      })
+
+      it('includes the transactions on the window edges', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+        const groceries = await createAccount(userId, 'expenses:groceries')
+        await seedTxn(userId, acct.id, daysAgo(89), groceries.id)
+        await seedTxn(userId, acct.id, daysAgo(0), groceries.id)
+
+        const { txnDates } = await (await getCoverage(cookie, acct.id)).json()
+
+        expect(txnDates).toEqual([daysAgo(89), daysAgo(0)])
+      })
+
+      it('ignores another account\'s transactions', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+        const other = await createAccount(userId, 'liabilities:visa')
+        const groceries = await createAccount(userId, 'expenses:groceries')
+        await seedTxn(userId, other.id, daysAgo(10), groceries.id)
+
+        const { txnDates } = await (await getCoverage(cookie, acct.id)).json()
+
+        expect(txnDates).toEqual([])
+      })
+
+      it('ignores soft-deleted transactions', async () => {
+        const acct = await createAccount(userId, 'assets:chequing')
+        const groceries = await createAccount(userId, 'expenses:groceries')
+        const tx = await seedTxn(userId, acct.id, daysAgo(10), groceries.id)
+        await db.update(transactions).set({ deletedAt: new Date() }).where(eq(transactions.id, tx.id))
+
+        const { txnDates } = await (await getCoverage(cookie, acct.id)).json()
+
+        expect(txnDates).toEqual([])
+      })
     })
   })
 

@@ -5,12 +5,14 @@
   import {
     fetchAccount,
     fetchAccountBalances,
+    fetchAccountCoverage,
     fetchAccounts,
     fetchTransactions,
     fetchActionRequired,
     fetchFxRate,
     fetchMalformedFxSpends,
     type Account,
+    type AccountCoverage,
     type MalformedFxSpend,
     type Transaction,
   } from '$lib/api'
@@ -30,6 +32,8 @@
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
+  import Card from '$lib/components/ui/Card.svelte'
+  import CoverageStrip from '$lib/components/catch-up/CoverageStrip.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
 
   let id = $derived(page.params.id!)
@@ -164,6 +168,36 @@
     loadMalformed()
   })
 
+  let coverage = $state<AccountCoverage | null>(null)
+
+  // Only the accounts the coach tracks have a coverage story to tell. An expense account is
+  // derived from postings rather than imported, so a strip over it would be meaningless.
+  let tracksCoverage = $derived(
+    account?.resolvedType === 'asset' ||
+      account?.resolvedType === 'cash' ||
+      account?.resolvedType === 'liability',
+  )
+
+  $effect(() => {
+    if (!tracksCoverage) {
+      coverage = null
+      return
+    }
+    let cancelled = false
+    // Failure here leaves the strip hidden rather than breaking the page — coverage is
+    // context, not the reason the user opened this account.
+    fetchAccountCoverage(id)
+      .then((c) => {
+        if (!cancelled) coverage = c
+      })
+      .catch(() => {
+        if (!cancelled) coverage = null
+      })
+    return () => {
+      cancelled = true
+    }
+  })
+
   $effect(() => {
     let cancelled = false
     loading = true
@@ -290,6 +324,32 @@
       <AccountHeading {account} balances={accountBalances} />
     {:else}
       <div class="header-placeholder"></div>
+    {/if}
+
+    {#if coverage}
+      <Card class="coverage-card">
+        <div class="coverage-head">
+          <span class="coverage-title">COVERAGE · LAST {coverage.window.days} DAYS</span>
+          <span class="coverage-status">
+            {#if coverage.intervals.length === 0}
+              Nothing recorded yet
+            {:else if coverage.intervals[0].throughDate >= coverage.horizon}
+              Current{#if coverage.nextHorizon} · next statement {coverage.nextHorizon}{/if}
+            {:else}
+              Covered through {coverage.intervals[0].throughDate}
+            {/if}
+          </span>
+        </div>
+        <div class="coverage-body">
+          <CoverageStrip
+            from={coverage.window.from}
+            to={coverage.window.to}
+            intervals={coverage.intervals}
+            horizon={coverage.horizon}
+            txnDates={coverage.txnDates}
+          />
+        </div>
+      </Card>
     {/if}
 
     <div class="toolbar">
@@ -590,5 +650,38 @@
     .toolbar {
       flex-wrap: wrap;
     }
+  }
+
+  :global(.coverage-card) {
+    margin-bottom: var(--sp-sm);
+  }
+
+  .coverage-head {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: var(--sp-sm);
+    flex-wrap: wrap;
+    padding: 3px var(--sp-sm);
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
+    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px) 0 0;
+  }
+
+  .coverage-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+  }
+
+  .coverage-status {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    opacity: 0.85;
+  }
+
+  .coverage-body {
+    padding: var(--sp-sm) var(--sp-md) var(--sp-md);
   }
 </style>
