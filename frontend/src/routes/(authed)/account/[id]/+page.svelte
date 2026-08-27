@@ -34,6 +34,7 @@
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import CoverageStrip from '$lib/components/catch-up/CoverageStrip.svelte'
   import { statusLine } from '$lib/components/catch-up/statusLine'
+  import { attentionChip } from '$lib/components/transactions/attentionChip'
   import { scrollShadow } from '$lib/scrollShadow'
 
   let id = $derived(page.params.id!)
@@ -86,6 +87,7 @@
   let actionRequiredIds = $state<string[] | null>(null)
   let actionRequiredActive = $state(false)
   let actionRequiredCount = $derived(actionRequiredStore.getCount(id))
+  let chip = $derived(attentionChip(actionRequiredCount))
 
   // FX convert toggle
   let convertFx = $state(false)
@@ -352,6 +354,18 @@
             <Icon name="chevron-down-line" size={9} />
           </span>
         </button>
+
+        {#if chip.show}
+          <button
+            class="attention-chip"
+            class:on={actionRequiredActive}
+            aria-pressed={actionRequiredActive}
+            onclick={toggleActionRequired}
+          >
+            <Icon name="warning" size={11} />
+            {chip.label}
+          </button>
+        {/if}
       </div>
 
       {#if coverageOpen}
@@ -375,11 +389,9 @@
         {from}
         {to}
         {sortDir}
-        {actionRequiredCount}
-        {actionRequiredActive}
+        defaultRange={defaults}
         onApply={(f, t) => navigate({ from: f, to: t })}
         onSortChange={(dir) => navigate({ dir })}
-        onActionRequiredToggle={toggleActionRequired}
       />
       <div class="toolbar-sep"></div>
       <div class="ops">
@@ -696,13 +708,13 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-right: auto;
   }
 
   .status-toggle {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    margin-left: auto;
     padding: 2px 6px;
     border: none;
     border-radius: var(--radius-sm);
@@ -732,6 +744,57 @@
 
   .status-chevron.open {
     transform: rotate(180deg);
+  }
+
+  /* The page's one amber region. No resting pulse: an infinite halo is a lot on a page you
+     sit and read, and the amber fill carries the signal on its own. */
+  .attention-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    height: 20px;
+    padding: 0 var(--sp-sm);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 70%, black);
+    border-radius: var(--radius-pill);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning) 85%, white),
+      var(--color-warning)
+    );
+    box-shadow: var(--shadow-control);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: color-mix(in srgb, var(--color-warning) 30%, black);
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition:
+      background var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .attention-chip:hover {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning) 95%, white),
+      color-mix(in srgb, var(--color-warning) 88%, white)
+    );
+  }
+
+  /* Engaged = the list is filtered down to those transactions. */
+  .attention-chip.on {
+    box-shadow: var(--shadow-inset);
+    background: linear-gradient(
+      180deg,
+      var(--color-warning),
+      color-mix(in srgb, var(--color-warning) 80%, black)
+    );
+  }
+
+  .attention-chip:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: 1px;
   }
 
   .coverage-expanded {
