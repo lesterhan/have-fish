@@ -451,12 +451,6 @@
       />
     {/if}
 
-    <div class="section-bar">
-      <span class="section-bar-title">
-        Transactions · {displayedTransactions.length} entries
-      </span>
-    </div>
-
     <div class="tx-col-header">
       <span>DATE</span>
       <span>DESCRIPTION</span>
@@ -617,42 +611,25 @@
     text-overflow: ellipsis;
   }
 
-  /* Section bar */
-  .section-bar {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-md);
-    padding: 6px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    flex-shrink: 0;
-  }
-
-  .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-  }
-
-  /* Column header */
+  /* Column header, carrying the dark-bar weight now that the separate
+     "Transactions · N entries" bar is gone — the count moved into the toolbar, next to
+     the filter that produces it, and two bands became one. */
   .tx-col-header {
     --tx-cols: 5.5rem 1fr 1.5fr 8rem;
     display: grid;
     grid-template-columns: var(--tx-cols);
     align-items: center;
     gap: var(--sp-xs);
-    padding: 4px 14px;
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-window);
+    padding: 6px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
     font-family: var(--font-mono);
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.8px;
-    color: var(--color-text-muted);
     text-transform: uppercase;
     user-select: none;
   }
@@ -699,6 +676,12 @@
 
     .toolbar {
       flex-wrap: wrap;
+    }
+
+    /* A flex:1 spacer between two wrapped groups would push the second group onto its
+       own line and leave a gap; let the groups sit together and wrap on their own. */
+    .toolbar-spacer {
+      display: none;
     }
   }
 
