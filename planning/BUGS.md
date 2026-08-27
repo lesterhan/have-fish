@@ -266,7 +266,9 @@ stored `type` column: the endpoint was written when inference was the only sourc
 branch now does (added 2026-08-27 for the Mobile Cash Ledger epic, story 1 — see
 `typeFilterCondition` in `backend/src/routes/accounts.ts`). The mechanism is already there and
 tested; the unfiltered path was deliberately left alone in that story to avoid changing what
-the web dashboard shows as a side effect of a mobile feature.
+the web dashboard shows as a side effect of a mobile feature. Consumers already read the
+stored-wins `resolvedType` (via `isClassifiedAs`), so no client change is needed — widening
+the query is the whole fix.
 
 **Note:** this is a *widening* fix — accounts that are currently invisible would start appearing
 in web balances views and in totals. That is the correct behaviour, but it will visibly change

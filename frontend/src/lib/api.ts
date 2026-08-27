@@ -8,6 +8,25 @@ export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense
 // override-only — inference never produces them).
 export type StoredAccountType = AccountType | 'cash' | 'conversion'
 
+// Collapses a stored type to the coarse bucket views reason in: Cash is an Asset,
+// Conversion is Equity, everything else maps to itself. Mirrors `toClassifierType` in
+// `backend/src/postings/account-type.ts` — keep the two in step.
+export function toClassifierType(type: StoredAccountType): AccountType {
+  if (type === 'cash') return 'asset'
+  if (type === 'conversion') return 'equity'
+  return type
+}
+
+// True when an account's effective type falls in the given coarse bucket. Null (an
+// atypical root with no override) matches nothing — an unclassifiable account must not
+// be silently counted as an asset.
+export function isClassifiedAs(
+  account: { resolvedType?: StoredAccountType | null },
+  bucket: AccountType,
+): boolean {
+  return account.resolvedType != null && toClassifierType(account.resolvedType) === bucket
+}
+
 export type Account = {
   id: string
   path: string
@@ -471,7 +490,11 @@ export type AccountBalance = {
   id: string
   path: string
   name?: string | null
-  type: 'asset' | 'liability' | 'equity'
+  // Same meaning as on `Account`: the raw stored override, and the effective
+  // stored-wins-else-inferred answer. For the coarse asset/liability/equity bucket,
+  // run `resolvedType` through `toClassifierType`.
+  type?: StoredAccountType | null
+  resolvedType?: StoredAccountType | null
   balances: { currency: string; amount: string }[]
 }
 

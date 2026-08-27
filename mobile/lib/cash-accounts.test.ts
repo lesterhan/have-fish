@@ -20,7 +20,7 @@ function bal(
     id: opts.id ?? path,
     path,
     name: opts.name ?? null,
-    type: opts.type ?? 'asset',
+    type: opts.type ?? null,
     resolvedType: opts.resolvedType ?? 'asset',
     defaultCurrency: opts.defaultCurrency ?? null,
     balances: opts.balances ?? [],

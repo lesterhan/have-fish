@@ -122,13 +122,12 @@ export type Account = {
 }
 
 // One account with its per-currency balances, from GET /api/accounts/balances.
-// Note `type` here is that endpoint's coarse three-way bucket (cash collapses to
-// asset), NOT the raw override — `resolvedType` carries the full answer.
+// `type` and `resolvedType` mean the same as on {@link Account}.
 export type AccountBalance = {
   id: string
   path: string
   name?: string | null
-  type: 'asset' | 'liability' | 'equity'
+  type?: StoredAccountType | null
   resolvedType?: StoredAccountType | null
   defaultCurrency?: string | null
   balances: { currency: string; amount: string }[]

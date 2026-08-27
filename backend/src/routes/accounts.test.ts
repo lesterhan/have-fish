@@ -139,9 +139,12 @@ describe('accounts', () => {
       await createAccount('liabilities:visa')
 
       const res = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
-      const body = await res.json() as { path: string; resolvedType: string | null }[]
+      const body = await res.json() as { path: string; type: string | null; resolvedType: string | null }[]
 
-      expect(body.find(b => b.path === 'assets:chequing')!.resolvedType).toBe('asset')
+      const chequing = body.find(b => b.path === 'assets:chequing')!
+      expect(chequing.resolvedType).toBe('asset')
+      // Untagged, so the raw override is null and the type came from path inference.
+      expect(chequing.type).toBeNull()
       expect(body.find(b => b.path === 'liabilities:visa')!.resolvedType).toBe('liability')
     })
 
@@ -153,11 +156,10 @@ describe('accounts', () => {
       const body = await res.json() as { path: string; type: string | null; resolvedType: string | null }[]
 
       const wallet = body.find(b => b.path === 'assets:cash:cad')!
-      // `resolvedType` is stored-wins; inference alone would have said 'asset'.
+      // `resolvedType` is stored-wins; inference alone would have said 'asset'. Both fields
+      // mean the same thing they do on GET /api/accounts.
       expect(wallet.resolvedType).toBe('cash')
-      // `type` stays this endpoint's coarse three-way bucket (web consumers group by it),
-      // so Cash collapses back to asset. Unlike GET /api/accounts, it is not the override.
-      expect(wallet.type).toBe('asset')
+      expect(wallet.type).toBe('cash')
     })
 
     describe('?types= filter', () => {

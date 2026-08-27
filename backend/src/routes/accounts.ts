@@ -5,7 +5,7 @@ import { eq, isNull, and, like, or, not, inArray, lte, sql, type SQL } from 'dri
 import type { AppVariables } from '../app'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { CLEARING_PREFIX } from '../fish-pie-accounts'
-import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, toClassifierType, STORED_ACCOUNT_TYPES, DEFAULT_ROOTS, type AccountTypeRoots, type StoredAccountType } from '../postings/account-type'
+import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, STORED_ACCOUNT_TYPES, DEFAULT_ROOTS, type AccountTypeRoots, type StoredAccountType } from '../postings/account-type'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -106,11 +106,12 @@ function typeFilterCondition(types: Set<StoredAccountType>, roots: AccountTypeRo
 // Balance = SUM of all posting amounts for that account, grouped by currency.
 // Accounts with no postings are included with an empty balances array.
 //
-// NOTE on `type` vs `resolvedType`: unlike GET /api/accounts — where `type` is the raw
-// stored override — `type` here is the coarse asset/liability/equity bucket this endpoint
-// has always reported, and web consumers group by it. Cash collapses into asset and
-// Conversion into equity. `resolvedType` carries the full stored-wins answer (including
-// `cash`), which is what a caller filtering for wallets wants.
+// `type` and `resolvedType` mean exactly what they mean on GET /api/accounts: the raw stored
+// override, and the effective stored-wins-else-inferred answer. This endpoint used to report
+// a third thing under `type` — a coarse asset/liability/equity bucket — which made the same
+// field name mean two different things depending on which route you called. Callers that want
+// that bucket derive it with `toClassifierType(resolvedType)`, the same function the role
+// classifier uses, so there is one implementation of the collapse rather than two.
 app.get('/balances', async (c) => {
   const userId = c.get('userId')
 
@@ -165,12 +166,11 @@ app.get('/balances', async (c) => {
     .groupBy(accounts.id, accounts.path, accounts.name, accounts.type, postings.currency)
 
   // Collapse the flat rows into one entry per account with a balances array
-  type CoarseType = 'asset' | 'liability' | 'equity'
   type Row = {
     id: string
     path: string
     name: string | null
-    type: CoarseType
+    type: StoredAccountType | null
     resolvedType: StoredAccountType | null
     balances: { currency: string; amount: string }[]
   }
@@ -184,12 +184,14 @@ app.get('/balances', async (c) => {
         excluded.add(row.id)
         continue
       }
-      // `type` stays the coarse three-way bucket this endpoint has always reported, so
-      // existing consumers keep working: Cash collapses to asset, Conversion to equity, and
-      // anything the resolver can't place defaults to equity.
-      const coarse = resolvedType === null ? null : toClassifierType(resolvedType)
-      const type: CoarseType = coarse === 'asset' || coarse === 'liability' ? coarse : 'equity'
-      grouped.set(row.id, { id: row.id, path: row.path, name: row.name, type, resolvedType, balances: [] })
+      grouped.set(row.id, {
+        id: row.id,
+        path: row.path,
+        name: row.name,
+        type: isStoredAccountType(row.storedType) ? row.storedType : null,
+        resolvedType,
+        balances: [],
+      })
     }
     if (row.currency !== null && row.balance !== null) {
       grouped.get(row.id)!.balances.push({ currency: row.currency, amount: row.balance })

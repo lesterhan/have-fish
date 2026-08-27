@@ -136,10 +136,12 @@ Backend + mobile API layer. No UI.
   branch at all. The JS resolver pass is still the authoritative verdict; the SQL is allowed
   to be over-inclusive but never under-inclusive (hence the fallback for an unusable stored
   value).
-- **`type` on this endpoint is NOT the raw override**, unlike `GET /api/accounts`. It stays
-  the coarse asset/liability/equity bucket the web layout and dashboard group by, so Cash
-  collapses to asset there. Read `resolvedType` for the real answer. Mobile's
-  `AccountBalance` type carries the same warning.
+- **`type` now means the same thing on every account endpoint** — the raw stored override —
+  with `resolvedType` as the effective stored-wins answer. `/balances` previously reported a
+  third thing under `type` (a coarse asset/liability/equity bucket), so the same field name
+  meant different things depending on the route. That bucket is now derived client-side with
+  `toClassifierType`, mirrored into `frontend/src/lib/api.ts` alongside the existing
+  `StoredAccountType` mirror, and reached through `isClassifiedAs(account, bucket)`.
 - The unfiltered branch is untouched — the web dashboard sees exactly what it saw before.
   The related web-side gap is logged as **BUG-007**.
 - `mobile/lib/cash-accounts.ts` also ships `walletViews` (the Wallets tab view model),
