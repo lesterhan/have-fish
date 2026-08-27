@@ -316,6 +316,81 @@ async function writeOverride(userId: string, accountId: string, override: Covera
     })
 }
 
+// POST /api/coverage/reconcile
+// Records that a reconcile proved this account complete through a date.
+//
+// Reconciling to D means the ledger agrees with the bank at D by construction — either the
+// balances already matched, or the adjustment posting made them match. That is the strongest
+// evidence of completeness the app can ever have, and until now it was computed and thrown
+// away.
+//
+// The start is derived rather than asked for: coverage continues from wherever it left off,
+// so the user is never made to answer a question the data already answers.
+// Body: { accountId, throughDate }
+// 200: { created: true, interval } — or { created: false, reason } when D adds nothing
+// 400: malformed date
+// 404: account not found or not owned by the caller
+app.post('/reconcile', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+
+  const { accountId, throughDate } = body
+  if (!isUuid(accountId)) return c.json({ error: 'accountId must be a UUID string' }, 400)
+  if (!isIsoDate(throughDate)) return c.json({ error: 'throughDate must be a YYYY-MM-DD date' }, 400)
+
+  if (!(await ownsAccount(userId, accountId))) {
+    return c.json({ error: 'account not found' }, 404)
+  }
+
+  const merged = mergeCoverage(await readIntervals(userId, accountId))
+  const coveredThrough = merged.at(-1)?.throughDate ?? null
+
+  // Already covered past the reconcile date. The reconcile is still real evidence, but it
+  // asserts nothing the log does not already hold, and writing a backwards or zero-length
+  // interval to record that would only add noise.
+  if (coveredThrough !== null && coveredThrough >= throughDate) {
+    return c.json({ created: false, reason: 'already covered', coveredThrough })
+  }
+
+  const fromDate = coveredThrough !== null
+    ? addDays(coveredThrough, 1)
+    // No coverage at all: start at the account's first transaction, since everything before it
+    // is vacuously complete. With no transactions either, the reconcile speaks only for D.
+    : ((await firstTransactionDate(userId, accountId)) ?? throughDate)
+
+  const [created] = await db
+    .insert(accountCoverage)
+    .values({
+      userId,
+      accountId,
+      // Guard rather than assume: a first transaction dated after the reconcile date would
+      // otherwise produce an inverted range the check constraint rejects.
+      fromDate: fromDate > throughDate ? throughDate : fromDate,
+      throughDate,
+      source: 'reconcile',
+      note: null,
+    })
+    .returning()
+
+  return c.json({ created: true, interval: created })
+})
+
+async function firstTransactionDate(userId: string, accountId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ first: sql<string | null>`to_char(MIN(${transactions.date})::date, 'YYYY-MM-DD')` })
+    .from(postings)
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(and(
+      eq(postings.accountId, accountId),
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      isNull(postings.deletedAt),
+    ))
+
+  return row?.first ?? null
+}
+
 export default app
 
 // Mounted separately at /api/accounts so coverage reads hang off the account they describe.

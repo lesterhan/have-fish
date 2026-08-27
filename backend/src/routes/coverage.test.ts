@@ -457,6 +457,169 @@ describe('coverage', () => {
     })
   })
 
+  describe('POST /api/coverage/reconcile', () => {
+    async function reconcile(cookieValue: string, body: Record<string, unknown>) {
+      return app.request('/api/coverage/reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
+        body: JSON.stringify(body),
+      })
+    }
+
+    // A balanced reconcile posts no adjustment, but it is still proof the ledger matched.
+    // That evidence is exactly what this records.
+    it('continues coverage from where it left off', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-06-30', source: 'import' })
+
+      const res = await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+
+      expect(res.status).toBe(200)
+      const body = await res.json()
+      expect(body.created).toBe(true)
+      expect(body.interval).toMatchObject({
+        fromDate: '2025-07-01',
+        throughDate: '2025-07-31',
+        source: 'reconcile',
+      })
+    })
+
+    it('leaves no seam between the old span and the new one', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-06-30', source: 'import' })
+      await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+
+      const { intervals } = await (await getCoverage(cookie, acct.id)).json()
+
+      expect(intervals).toEqual([{ fromDate: '2025-05-01', throughDate: '2025-07-31' }])
+    })
+
+    // Everything before an account's first transaction is vacuously complete.
+    it('starts at the first transaction when there is no coverage yet', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      await seedTxn(userId, acct.id, '2025-03-14', groceries.id)
+      await seedTxn(userId, acct.id, '2025-06-02', groceries.id)
+
+      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+
+      expect(body.interval).toMatchObject({ fromDate: '2025-03-14', throughDate: '2025-07-31' })
+    })
+
+    it('speaks only for the reconcile date when the account has no history at all', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+
+      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+
+      expect(body.interval).toMatchObject({ fromDate: '2025-07-31', throughDate: '2025-07-31' })
+    })
+
+    // A first transaction dated after the reconcile date would otherwise produce an inverted
+    // range that the check constraint rejects.
+    it('clamps rather than inverting when the history starts after the date', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      await seedTxn(userId, acct.id, '2025-09-01', groceries.id)
+
+      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+
+      expect(body.interval).toMatchObject({ fromDate: '2025-07-31', throughDate: '2025-07-31' })
+    })
+
+    it('walks over an older hole rather than trying to fill it', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-01-01', throughDate: '2025-01-31', source: 'import' })
+      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-06-30', source: 'import' })
+
+      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+
+      expect(body.interval).toMatchObject({ fromDate: '2025-07-01' })
+
+      const { intervals } = await (await getCoverage(cookie, acct.id)).json()
+      expect(intervals).toEqual([
+        { fromDate: '2025-05-01', throughDate: '2025-07-31' },
+        { fromDate: '2025-01-01', throughDate: '2025-01-31' },
+      ])
+    })
+
+    it('writes nothing when coverage already reaches past the date', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-08-31', source: 'import' })
+
+      const res = await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+
+      expect(res.status).toBe(200)
+      expect(await res.json()).toMatchObject({ created: false, coveredThrough: '2025-08-31' })
+
+      const { assertions } = await (await getCoverage(cookie, acct.id)).json()
+      expect(assertions).toHaveLength(1)
+    })
+
+    it('writes nothing when coverage already reaches exactly the date', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-07-31', source: 'import' })
+
+      expect((await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()).created)
+        .toBe(false)
+    })
+
+    it('ignores another account\'s transactions when picking the start', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      const other = await createAccount(userId, 'liabilities:visa')
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      await seedTxn(userId, other.id, '2025-01-05', groceries.id)
+      await seedTxn(userId, acct.id, '2025-06-02', groceries.id)
+
+      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+
+      expect(body.interval.fromDate).toBe('2025-06-02')
+    })
+
+    it('ignores soft-deleted transactions when picking the start', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      const old = await seedTxn(userId, acct.id, '2025-01-05', groceries.id)
+      await seedTxn(userId, acct.id, '2025-06-02', groceries.id)
+      await db.update(transactions).set({ deletedAt: new Date() }).where(eq(transactions.id, old.id))
+
+      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+
+      expect(body.interval.fromDate).toBe('2025-06-02')
+    })
+
+    it('refuses to reconcile another user\'s account', async () => {
+      const otherCookie = await createTestUser('other@example.com')
+      const theirUserId = await (async () => {
+        const r = await app.request('/api/auth/get-session', { headers: { Cookie: otherCookie } })
+        return (await r.json()).user.id as string
+      })()
+      const theirAccount = await createAccount(theirUserId, 'assets:theirs')
+
+      const res = await reconcile(cookie, { accountId: theirAccount.id, throughDate: '2025-07-31' })
+
+      expect(res.status).toBe(404)
+      const rows = await db.select().from(accountCoverage).where(eq(accountCoverage.accountId, theirAccount.id))
+      expect(rows).toHaveLength(0)
+    })
+
+    it('rejects a malformed date', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+
+      expect((await reconcile(cookie, { accountId: acct.id, throughDate: '31/07/2025' })).status).toBe(400)
+      expect((await reconcile(cookie, { accountId: acct.id })).status).toBe(400)
+    })
+
+    it('requires authentication', async () => {
+      const res = await app.request('/api/coverage/reconcile', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ accountId: '00000000-0000-4000-8000-000000000000', throughDate: '2025-07-31' }),
+      })
+
+      expect(res.status).toBe(401)
+    })
+  })
+
   describe('DELETE /api/coverage/:id', () => {
     it('soft deletes an assertion and drops it from the merged result', async () => {
       const acct = await createAccount(userId, 'assets:chequing')

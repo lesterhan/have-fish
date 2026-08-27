@@ -1556,3 +1556,26 @@ export async function updateCoverageConfig(
   }
   return res.json()
 }
+
+// Records that a reconcile proved an account complete through a date. The interval's start is
+// derived server-side from where coverage already reaches, so the caller never has to ask the
+// user a question the data already answers.
+export async function recordReconcileCoverage(
+  accountId: string,
+  throughDate: string,
+): Promise<
+  | { created: true; interval: CoverageAssertion }
+  | { created: false; reason: string; coveredThrough: string }
+> {
+  const res = await fetch(`${BASE}/api/coverage/reconcile`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId, throughDate }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to record coverage')
+  }
+  return res.json()
+}
