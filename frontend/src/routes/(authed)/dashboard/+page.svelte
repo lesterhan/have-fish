@@ -5,6 +5,7 @@
     fetchSpendingSummary,
     fetchWeeklySpend,
     fetchAccountBalances,
+    isClassifiedAs,
     fetchMonthlySpend,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
@@ -257,7 +258,7 @@
 
     // Sum asset balances per currency
     const totals: Record<string, number> = {}
-    for (const acct of balances.filter((a) => a.type === 'asset')) {
+    for (const acct of balances.filter((a) => isClassifiedAs(a, 'asset'))) {
       for (const { currency, amount } of acct.balances) {
         totals[currency] = (totals[currency] ?? 0) + parseFloat(amount)
       }

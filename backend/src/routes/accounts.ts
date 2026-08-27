@@ -1,11 +1,11 @@
 import { Hono } from 'hono'
 import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
-import { eq, isNull, and, like, or, lte, sql } from 'drizzle-orm'
+import { eq, isNull, and, like, or, not, inArray, lte, sql, type SQL } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { CLEARING_PREFIX } from '../fish-pie-accounts'
-import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, DEFAULT_ROOTS, type AccountTypeRoots } from '../postings/account-type'
+import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, STORED_ACCOUNT_TYPES, DEFAULT_ROOTS, type AccountTypeRoots, type StoredAccountType } from '../postings/account-type'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -57,27 +57,88 @@ app.get('/', async (c) => {
   return c.json(withType)
 })
 
-// GET /api/accounts/balances
+// SQL narrowing for `GET /balances?types=`. The authoritative verdict is still
+// `resolveStoredOrInferredType` in the JS pass below; this only keeps the query from
+// aggregating postings for the whole ledger (the LEFT JOIN + GROUP BY is the expensive
+// part, and the Wallets tab hits it on every load). It is therefore allowed to be
+// over-inclusive — the JS pass filters again — but must never be under-inclusive.
+//
+// An account matches a requested type either because it carries that STORED override, or
+// because it carries no usable override and its PATH infers to it. `cash` and `conversion`
+// are override-only, so they contribute no path branch at all — which is what makes
+// `?types=cash` a cheap indexed lookup rather than a full scan.
+function typeFilterCondition(types: Set<StoredAccountType>, roots: AccountTypeRoots) {
+  const branches: SQL[] = [inArray(accounts.type, [...types])]
+
+  // Roots whose inferred type was requested. Only the five inferable types have one.
+  const inferableRoots: Partial<Record<StoredAccountType, string>> = {
+    asset: roots.assetsRootPath,
+    liability: roots.liabilitiesRootPath,
+    equity: roots.equityRootPath,
+    expense: roots.expensesRootPath,
+    income: roots.incomeRootPath,
+  }
+  const wantedRoots = [...types].map((t) => inferableRoots[t]).filter((r): r is string => !!r)
+
+  if (wantedRoots.length > 0) {
+    // Inference applies only when the stored column holds nothing usable. A value outside
+    // the valid set (shouldn't happen — validated on write) also falls back to inference,
+    // so treat it like null here rather than letting the account drop out of the query.
+    const noUsableOverride = or(
+      isNull(accounts.type),
+      not(inArray(accounts.type, [...STORED_ACCOUNT_TYPES])),
+    )
+    const underWantedRoot = wantedRoots.flatMap((root) => [
+      eq(accounts.path, root),
+      like(accounts.path, `${root}:%`),
+    ])
+    branches.push(and(noUsableOverride, or(...underWantedRoot))!)
+  }
+
+  return or(...branches)
+}
+
+// GET /api/accounts/balances[?types=cash,asset]
 // Returns all asset, liability, and equity accounts with their per-currency balances and type.
 // "Asset accounts"     = paths starting with defaultAssetsRootPath
 // "Liability accounts" = paths starting with defaultLiabilitiesRootPath
 // "Equity accounts"    = paths starting with defaultEquityRootPath
 // Balance = SUM of all posting amounts for that account, grouped by currency.
 // Accounts with no postings are included with an empty balances array.
+//
+// `type` and `resolvedType` mean exactly what they mean on GET /api/accounts: the raw stored
+// override, and the effective stored-wins-else-inferred answer. This endpoint used to report
+// a third thing under `type` — a coarse asset/liability/equity bucket — which made the same
+// field name mean two different things depending on which route you called. Callers that want
+// that bucket derive it with `toClassifierType(resolvedType)`, the same function the role
+// classifier uses, so there is one implementation of the collapse rather than two.
 app.get('/balances', async (c) => {
   const userId = c.get('userId')
 
-  const [settings] = await db
-    .select({
-      defaultAssetsRootPath: userSettings.defaultAssetsRootPath,
-      defaultLiabilitiesRootPath: userSettings.defaultLiabilitiesRootPath,
-      defaultEquityRootPath: userSettings.defaultEquityRootPath,
-    })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
-  const assetsRoot = settings?.defaultAssetsRootPath ?? 'assets'
-  const liabilitiesRoot = settings?.defaultLiabilitiesRootPath ?? 'liabilities'
-  const equityRoot = settings?.defaultEquityRootPath ?? 'equity'
+  // Optional `?types=` filter. When absent, the endpoint keeps its original behaviour:
+  // select by PATH ROOT (assets/liabilities/equity) and report the coarse three-way `type`.
+  // When present, select by RESOLVED type instead (stored override wins over inference), so
+  // a wallet tagged Cash under an atypically-named root — the very case the override exists
+  // for — is found. The web dashboard and balances page pass no filter and are unaffected.
+  const typesParam = c.req.query('types')
+  let typeFilter: Set<StoredAccountType> | null = null
+  if (typesParam !== undefined) {
+    const requested = typesParam.split(',').map((t) => t.trim())
+    // An empty parameter is a caller mistake, not "everything" — a typo'd filter must not
+    // silently widen to the whole ledger.
+    if (requested.length === 0 || requested.some((t) => t === '')) {
+      return c.json({ error: 'types must not be empty' }, 400)
+    }
+    for (const t of requested) {
+      if (!isStoredAccountType(t)) return c.json({ error: `invalid account type: ${t}` }, 400)
+    }
+    typeFilter = new Set(requested as StoredAccountType[])
+  }
+
+  const roots = await loadAccountTypeRoots(userId)
+  const assetsRoot = roots.assetsRootPath
+  const liabilitiesRoot = roots.liabilitiesRootPath
+  const equityRoot = roots.equityRootPath
 
   // LEFT JOIN so accounts with no postings still appear (with null currency/balance)
   const rows = await db
@@ -85,6 +146,7 @@ app.get('/balances', async (c) => {
       id: accounts.id,
       path: accounts.path,
       name: accounts.name,
+      storedType: accounts.type,
       currency: postings.currency,
       balance: sql<string>`SUM(${postings.amount})`,
     })
@@ -93,30 +155,43 @@ app.get('/balances', async (c) => {
     .where(and(
       eq(accounts.userId, userId),
       isNull(accounts.deletedAt),
-      or(
-        like(accounts.path, `${assetsRoot}:%`),
-        like(accounts.path, `${liabilitiesRoot}:%`),
-        like(accounts.path, `${equityRoot}:%`),
-      ),
+      typeFilter
+        ? typeFilterCondition(typeFilter, roots)
+        : or(
+            like(accounts.path, `${assetsRoot}:%`),
+            like(accounts.path, `${liabilitiesRoot}:%`),
+            like(accounts.path, `${equityRoot}:%`),
+          ),
     ))
-    .groupBy(accounts.id, accounts.path, accounts.name, postings.currency)
+    .groupBy(accounts.id, accounts.path, accounts.name, accounts.type, postings.currency)
 
   // Collapse the flat rows into one entry per account with a balances array
-  type AccountType = 'asset' | 'liability' | 'equity'
-  const grouped = new Map<string, { id: string; path: string; name: string | null; type: AccountType; balances: { currency: string; amount: string }[] }>()
+  type Row = {
+    id: string
+    path: string
+    name: string | null
+    type: StoredAccountType | null
+    resolvedType: StoredAccountType | null
+    balances: { currency: string; amount: string }[]
+  }
+  const grouped = new Map<string, Row>()
+  const excluded = new Set<string>()
   for (const row of rows) {
+    if (excluded.has(row.id)) continue
     if (!grouped.has(row.id)) {
-      // The query restricts to the assets/liabilities/equity roots, so the resolver returns
-      // one of those three; default to equity for any path the resolver can't place.
-      const resolved = resolveAccountType(row.path, {
-        assetsRootPath: assetsRoot,
-        liabilitiesRootPath: liabilitiesRoot,
-        equityRootPath: equityRoot,
-        expensesRootPath: 'expenses',
-        incomeRootPath: 'income',
+      const resolvedType = resolveStoredOrInferredType({ path: row.path, type: row.storedType }, roots)
+      if (typeFilter && (resolvedType === null || !typeFilter.has(resolvedType))) {
+        excluded.add(row.id)
+        continue
+      }
+      grouped.set(row.id, {
+        id: row.id,
+        path: row.path,
+        name: row.name,
+        type: isStoredAccountType(row.storedType) ? row.storedType : null,
+        resolvedType,
+        balances: [],
       })
-      const type: AccountType = resolved === 'asset' || resolved === 'liability' ? resolved : 'equity'
-      grouped.set(row.id, { id: row.id, path: row.path, name: row.name, type, balances: [] })
     }
     if (row.currency !== null && row.balance !== null) {
       grouped.get(row.id)!.balances.push({ currency: row.currency, amount: row.balance })
