@@ -1,7 +1,6 @@
-// Relative, not $lib: `bun test` resolves SvelteKit's aliases only when
-// .svelte-kit/tsconfig.json happens to exist, so a *value* import through $lib passes
-// locally after a `check` and fails in CI. Type-only $lib imports are fine — TypeScript
-// erases them before bun ever looks.
+// Relative, not $lib. See lib-imports.test.ts: bun resolves aliases from tsconfig.json
+// and cannot follow `extends` into the gitignored .svelte-kit/, so a *value* import
+// through $lib fails on a clean checkout. Type-only $lib imports are fine.
 import { MONTH_NAMES } from '../../date'
 
 /**
