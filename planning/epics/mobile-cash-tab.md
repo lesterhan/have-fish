@@ -219,6 +219,11 @@ Moving money *into* a wallet — the ATM stop and the exchange counter.
 - `GET /api/transactions?accountId=<wallet>` feed for the active wallet, newest first,
   grouped by day, each row showing the counter-account(s) and signed amount.
 - A split transaction renders as one row that names its legs (not N rows).
+- **Fish Pie transactions appear here too** and must read as such. Funding a group expense
+  from a wallet is supported today (see "Cash and Fish Pie" below), so the feed will
+  contain 3-posting group transactions whose legs are wallet `−total`, receivable
+  `+others' share`, expense `+your share`. Render these with a group badge and
+  "you paid 180.00 · your share 90.00" framing — never as an anonymous three-leg list.
 - Running wallet balance so the feed can be reconciled against the actual notes in pocket.
 - Refresh on focus and after any Spend / top-up, matching the pie tabs' `reloadData` habit.
 
@@ -228,6 +233,42 @@ Moving money *into* a wallet — the ATM stop and the exchange counter.
   but adopting a wallet that already exists in the ledger still means a trip to the web app.
 - Reuse the split-row component for the web import preview, closing
   `planning/epics/split-transactions.md` story 1 with shared logic.
+
+## Cash and Fish Pie — funding a group expense from a wallet
+
+Checked 2026-08-27. **No blockers; this works today and needs no backend change.**
+
+- `POST /api/fish-pie/groups/:id/expenses` validates the payment account by **ownership
+  only** — belongs to the payer, not deleted (`fish-pie-expenses.ts:136`). No account-type
+  restriction exists anywhere on that path.
+- `fish-pie-expense-service.ts:171-183` writes the payment account as a plain `−total` leg,
+  so a wallet behaves identically to a chequing account. A cash-funded group dinner is the
+  usual 3-posting shape: `assets:cash:cny −180 / assets:receivable:<slug> +90 /
+  expenses:food +90`.
+- Role classification is correct: `classifyPosting` resolves `assets:cash:cny` → `asset` →
+  role `transfer` (the funding leg, not the subject). Note the mechanism — `roles.ts:50`
+  calls `resolveAccountType`, which is inference-only and never consults the stored
+  override. It lands on the right answer because the per-currency convention keeps wallets
+  under the assets root, and an atypically-pathed cash account would hit the `default:`
+  branch and also return `transfer`. Right either way, but by luck rather than design; a
+  consistency gap worth closing when `roles.ts` is next touched, not here.
+- The wallet balance stays honest without adjustment: the notes really did leave your
+  pocket, and the amount owed back sits in the receivable account.
+
+Two things this imposes on the design:
+
+1. **The Spend tab must not read as "all cash spending goes here."** A cash-funded group
+   expense belongs on the Fish Pie Add tab with the wallet selected as payment account.
+   Entering it in both places double-counts it. The mode split keeps the two ledgers
+   distinct, which is the point — but the copy must not imply that spending cash obliges
+   you to use Cash mode.
+2. **Story 6 renders group transactions with group framing** (see above).
+
+One pre-existing wrinkle, worth knowing rather than fixing here: creating a group expense
+stamps that payment account as the member's `defaultPaymentAccountId`
+(`fish-pie-expenses.ts:154`), so one cash-funded dinner makes cash the pre-selected payer
+account for the *next* group expense. Cash payments are sporadic, so this will be noticed
+more once wallets exist. Not caused by this epic; log it separately if it grates.
 
 ## Decisions
 
@@ -240,15 +281,18 @@ Moving money *into* a wallet — the ATM stop and the exchange counter.
   a create-a-wallet wizard (Story 3) instead of a dead empty state. Extra scope, taken
   deliberately: it removes the web dependency that the strict-tag rule would otherwise
   impose on a brand-new user.
+- **2026-08-27 — the expense-split editor is cash-only for this epic.** It ships on the
+  Spend tab (Story 4). The Fish Pie Add tab does not get it: a group expense carries one
+  Fish Pie `categoryId` (which drives per-category split weights), not an expense account,
+  so splitting there means either N expense postings under one category or N categories per
+  expense — the latter reshapes the weight-resolution model. Revisit separately once the
+  editor has earned its keep. See the note at the end of this file.
 - **2026-08-27 — strict `resolvedType === 'cash'`.** No path heuristics. Story 3's wizard
   is what makes this affordable.
 
 ## Open questions
 
-1. **Does the expense-split editor belong on the Fish Pie Add tab too?** Group expenses
-   currently take a single category, so a split Costco run entered as a group expense
-   can't be broken down. Same editor, different submit path (`createExpense` vs
-   `createTransaction`). Worth it, or scope creep? See the discussion note below.
+None outstanding — the epic is ready to start at Story 1.
 
 ## Note — what "the split editor" means
 
@@ -268,11 +312,9 @@ The backend has always accepted N postings; nothing in the app produces them.
 
 For **cash** (Story 4) this is settled — it ships there.
 
-The open question is only whether the **Fish Pie Add tab** gets the same editor. A group
-expense currently carries exactly one `categoryId`, which is a Fish Pie concept (it drives
-per-category split weights), not a ledger expense account. So putting the editor there is
-not a drop-in: it would mean either N expense postings under one category, or N categories
-per expense, and the second reshapes the Fish Pie data model and its weight resolution.
-That is a much larger change than the cash case and probably its own epic. Recommendation:
-**cash only for this epic**, and revisit the Fish Pie side separately once the editor has
-earned its keep on the Spend tab.
+The **Fish Pie Add tab does not get it** (decided 2026-08-27). A group expense carries
+exactly one `categoryId`, which is a Fish Pie concept driving per-category split weights,
+not a ledger expense account. Putting the editor there is not a drop-in: it means either N
+expense postings under one category, or N categories per expense, and the second reshapes
+the Fish Pie data model and its weight resolution. Much larger than the cash case, and
+likely its own epic. Nothing in the cash design forecloses it.
