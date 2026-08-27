@@ -63,8 +63,9 @@
 | [Companion Payment Row](epics/companion-payment-row.md) | Backlog |
 | [Companion Theming (Light/Dark + Accents)](epics/companion-theming.md) | Backlog |
 | [Fish Pie: Cross-Currency Settlement](epics/archive/fish-pie-cross-currency-settlement.md) | Done |
-| [Catch-Up Coach](epics/catch-up-coach.md) | Scoped |
+| [Catch-Up Coach](epics/archive/catch-up-coach.md) | Done |
 | [Mobile Cash Ledger](epics/mobile-cash-tab.md) | Scoping |
+| [Account Page Redesign](epics/account-page-redesign.md) | Scoped |
 
 ## Fish Pie sequence
 
