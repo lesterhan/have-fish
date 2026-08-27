@@ -4,10 +4,10 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "dev": "vite dev",
-    "build": "svelte-kit sync && vite build",
+    "dev": "sh -c 'export PUBLIC_VERSION=${PUBLIC_VERSION:-dev}; vite dev'",
+    "build": "sh -c 'export PUBLIC_VERSION=${PUBLIC_VERSION:-dev}; svelte-kit sync && vite build'",
     "preview": "vite preview",
-    "check": "svelte-kit sync && svelte-check --tsconfig ./tsconfig.json",
+    "check": "sh -c 'export PUBLIC_VERSION=${PUBLIC_VERSION:-dev}; svelte-kit sync && svelte-check --tsconfig ./tsconfig.json'",
     "format": "prettier --write .",
     "test": "bun test"
   },

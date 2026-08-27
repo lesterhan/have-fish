@@ -54,8 +54,9 @@ jobs:
   frontend:
     runs-on: ubuntu-latest
 
-    # PUBLIC_VERSION is normally injected by the Docker/CI image build from the git SHA;
-    # svelte-check needs it present or `$env/static/public` won't export it.
+    # The frontend scripts default PUBLIC_VERSION to "dev", so nothing here requires it.
+    # Setting the real SHA keeps this job stamping the same value the image build does,
+    # and means a build step added here would produce a correctly stamped bundle.
     env:
       PUBLIC_VERSION: ${{ github.sha }}
 
