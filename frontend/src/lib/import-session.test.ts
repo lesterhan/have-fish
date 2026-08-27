@@ -2,6 +2,8 @@ import { describe, it, expect } from 'bun:test'
 import {
   STORAGE_KEY,
   SESSION_VERSION,
+  parseCatchUpHandoff,
+  defaultCoverageRange,
   MAX_AGE_DAYS,
   MAX_SESSIONS,
   pruneSessions,
@@ -45,6 +47,8 @@ function makeSession(overrides: Partial<ImportSession> = {}): ImportSession {
     rulesCreated: [],
     accountsCreated: [],
     importAsLiabilities: null,
+    catchUp: null,
+    coverageRange: null,
     preview: {
       parser: 'Wise',
       defaultAccountId: 'acct-1',
@@ -306,5 +310,59 @@ describe('describeAge', () => {
     expect(describeAge(new Date(NOW - 60_000).toISOString(), NOW)).toBe('1 minute ago')
     expect(describeAge(new Date(NOW - 3 * 60 * 60_000).toISOString(), NOW)).toBe('3 hours ago')
     expect(describeAge(new Date(NOW - 2 * DAY).toISOString(), NOW)).toBe('2 days ago')
+  })
+})
+
+describe('parseCatchUpHandoff', () => {
+  const params = (q: string) => new URLSearchParams(q)
+
+  it('reads a complete handoff', () => {
+    expect(parseCatchUpHandoff(params('account=acct-1&from=2026-07-01&to=2026-07-31&return=catch-up')))
+      .toEqual({ accountId: 'acct-1', from: '2026-07-01', to: '2026-07-31' })
+  })
+
+  // A half-populated handoff would write coverage for a range nobody asked for.
+  it('refuses an incomplete handoff', () => {
+    expect(parseCatchUpHandoff(params('account=acct-1&from=2026-07-01'))).toBeNull()
+    expect(parseCatchUpHandoff(params('from=2026-07-01&to=2026-07-31'))).toBeNull()
+    expect(parseCatchUpHandoff(params(''))).toBeNull()
+  })
+
+  it('refuses malformed dates', () => {
+    expect(parseCatchUpHandoff(params('account=a&from=01/07/2026&to=2026-07-31'))).toBeNull()
+    expect(parseCatchUpHandoff(params('account=a&from=2026-02-30&to=2026-07-31'))).toBeNull()
+  })
+
+  it('refuses an inverted range', () => {
+    expect(parseCatchUpHandoff(params('account=a&from=2026-07-31&to=2026-07-01'))).toBeNull()
+  })
+
+  it('accepts a single-day range', () => {
+    expect(parseCatchUpHandoff(params('account=a&from=2026-07-05&to=2026-07-05')))
+      .toMatchObject({ from: '2026-07-05', to: '2026-07-05' })
+  })
+})
+
+describe('defaultCoverageRange', () => {
+  const handoff = { accountId: 'a', from: '2026-07-01', to: '2026-07-31' }
+  const fileRange = { from: '2026-07-03', to: '2026-07-29' }
+
+  // The whole point of the control: a statement covering Jul 1-31 whose first transaction is
+  // Jul 3 still covers Jul 1 and 2. Defaulting to the row dates would leave a two-day hole the
+  // coach then asks about forever.
+  it('prefers what the coach asked for over the file\'s own dates', () => {
+    expect(defaultCoverageRange(handoff, fileRange)).toEqual({ from: '2026-07-01', to: '2026-07-31' })
+  })
+
+  it('falls back to the file dates for an ordinary import', () => {
+    expect(defaultCoverageRange(null, fileRange)).toEqual(fileRange)
+  })
+
+  it('is null when there is nothing to go on', () => {
+    expect(defaultCoverageRange(null, null)).toBeNull()
+  })
+
+  it('still uses the handoff when the file has no dated rows', () => {
+    expect(defaultCoverageRange(handoff, null)).toEqual({ from: '2026-07-01', to: '2026-07-31' })
   })
 })

@@ -16,6 +16,16 @@
     onreviewskipped: () => void
     onconfirm: () => void
     onback: () => void
+    // What this file will be recorded as covering. Null when the file has no dated rows and
+    // no coach handoff supplied a range — nothing is written in that case.
+    coverageRange: { from: string; to: string } | null
+    // How many source accounts the coverage lands on. A multi-currency export covers every
+    // sub-account it feeds.
+    coverageAccountCount: number
+    // Whether the range came from the Catch-Up Coach, which is worth saying — the default is
+    // the range the coach asked for, not the file's own row dates.
+    fromCoach: boolean
+    oncoveragechange: (range: { from: string; to: string } | null) => void
   }
 
   let {
@@ -30,7 +40,20 @@
     onreviewskipped,
     onconfirm,
     onback,
+    coverageRange,
+    coverageAccountCount,
+    fromCoach,
+    oncoveragechange,
   }: Props = $props()
+
+  let coverageValid = $derived(
+    coverageRange === null || coverageRange.from <= coverageRange.to,
+  )
+
+  function setCoverage(field: 'from' | 'to', value: string) {
+    if (!coverageRange) return
+    oncoveragechange({ ...coverageRange, [field]: value })
+  }
 
   // Parse errors used to render as an uncapped list above the review table — a malformed
   // CSV put hundreds of items in front of every import. Collapsed here, and capped.
@@ -38,7 +61,9 @@
   let showAllErrors = $state(false)
   let visibleErrors = $derived(showAllErrors ? parseErrors : parseErrors.slice(0, ERROR_PREVIEW))
 
-  let canCommit = $derived(!loading && manifest.committedCount > 0 && manifest.incomplete.length === 0)
+  let canCommit = $derived(
+    !loading && manifest.committedCount > 0 && manifest.incomplete.length === 0 && coverageValid,
+  )
 
   function money(total: number | null, currency: string | null): string {
     if (total === null) return 'mixed currencies'
@@ -149,6 +174,46 @@
           </li>
         {/each}
       </ul>
+    </div>
+  {/if}
+
+  {#if coverageRange}
+    <div class="covers">
+      <div class="covers-head">
+        <span class="covers-title">This file covers</span>
+        <div class="covers-dates">
+          <input
+            type="date"
+            value={coverageRange.from}
+            oninput={(e) => setCoverage('from', e.currentTarget.value)}
+            aria-label="Covered from"
+          />
+          <span class="covers-sep">→</span>
+          <input
+            type="date"
+            value={coverageRange.to}
+            oninput={(e) => setCoverage('to', e.currentTarget.value)}
+            aria-label="Covered through"
+          />
+        </div>
+      </div>
+      <p class="covers-note" class:invalid={!coverageValid}>
+        {#if !coverageValid}
+          The start date has to come before the end date.
+        {:else if fromCoach}
+          The range the coach asked for. A statement can cover days with no transactions on
+          them, so this is usually wider than the dates in the file — leave it as the
+          statement period rather than the first and last row.
+        {:else}
+          Taken from the dates in the file. Widen it if the statement period starts before its
+          first transaction.
+        {/if}
+      </p>
+      {#if coverageAccountCount > 1}
+        <p class="covers-note">
+          Recorded against all {coverageAccountCount} accounts this file posts to.
+        </p>
+      {/if}
     </div>
   {/if}
 
@@ -379,5 +444,73 @@
 
   .spacer {
     flex: 1;
+  }
+
+  /* The one thing on this step that writes something other than transactions — set apart so
+     it does not read as another manifest line. */
+  .covers {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: var(--sp-md);
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule-soft);
+    border-radius: var(--radius-lg);
+  }
+
+  .covers-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: var(--sp-sm);
+    flex-wrap: wrap;
+  }
+
+  .covers-title {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: var(--weight-semibold);
+    color: var(--color-text);
+  }
+
+  .covers-dates {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .covers-sep {
+    color: var(--color-text-muted);
+    font-size: var(--text-xs);
+  }
+
+  .covers input[type='date'] {
+    height: 24px;
+    padding: 0 6px;
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-inset);
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    color: var(--color-text);
+  }
+
+  .covers input[type='date']:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -1px;
+  }
+
+  .covers-note {
+    margin: 0;
+    max-width: 66ch;
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: 1.45;
+  }
+
+  .covers-note.invalid {
+    color: var(--color-warning);
   }
 </style>

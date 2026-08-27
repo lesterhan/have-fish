@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { page } from '$app/state'
   import {
     fetchAccounts,
     fetchParsers,
@@ -12,6 +13,7 @@
     type CsvParser,
     type CommitTransaction,
     type ExpenseGroup,
+    createCoverage,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { useSession } from '$lib/auth'
@@ -41,6 +43,10 @@
     SESSION_VERSION,
     type ImportSession,
     type ImportStep,
+    parseCatchUpHandoff,
+    defaultCoverageRange,
+    type CatchUpHandoff,
+    type DateRange,
   } from '$lib/import-session'
   import {
     currenciesInPreview,
@@ -110,6 +116,15 @@
   // A saved import found on mount, offered for resume until accepted or dismissed.
   let resumable = $state<ImportSession | null>(null)
 
+  // --- Catch-Up Coach handoff ---
+  //
+  // Set when the coach sent the user here for a specific account and date range. Drives the
+  // "this file covers" default, the return path, and the mismatch notice.
+  let catchUp = $state<CatchUpHandoff | null>(null)
+  let returnToCatchUp = $state(false)
+  // What the user says this file covers. Null until Confirm seeds it.
+  let coverageRange = $state<DateRange | null>(null)
+
   // Only the steps that exist today. Later stories in this epic insert Sort and Confirm;
   // until then the stepper must not advertise them.
   const STEPS: { id: ImportStep; label: string }[] = [
@@ -136,6 +151,11 @@
     toAccountId = settings.defaultOffsetAccountId ?? ''
     groups = groupsData
     resumable = latestSession()
+
+    // Read once on mount rather than reactively: the handoff describes how this import
+    // started, and a later navigation that drops the query string must not un-start it.
+    catchUp = parseCatchUpHandoff(page.url.searchParams)
+    returnToCatchUp = page.url.searchParams.get('return') === 'catch-up'
   })
 
   // --- Import as liabilities ---
@@ -162,6 +182,35 @@
     return first === last ? first : `${first} → ${last}`
   })
 
+  // The source accounts this import actually posts to — where coverage lands. A multi-currency
+  // export covers every sub-account it feeds, not just the parser's default.
+  let coverageAccountIds = $derived.by(() => {
+    if (preview?.isMultiCurrency) {
+      return [...new Set(Object.values(currencyAccounts).filter(Boolean))]
+    }
+    return fromAccountId ? [fromAccountId] : []
+  })
+
+  // Whether the file landed on the account the coach asked about. A mismatch is worth saying
+  // out loud rather than silently overriding the parser: posting a chequing CSV into a credit
+  // card because the coach happened to ask about the card would be far worse than a notice.
+  let handoffMismatch = $derived(
+    catchUp !== null &&
+      coverageAccountIds.length > 0 &&
+      !coverageAccountIds.includes(catchUp.accountId),
+  )
+
+  let handoffAccountPath = $derived(
+    catchUp ? (accounts.find((a) => a.id === catchUp!.accountId)?.path ?? 'that account') : '',
+  )
+
+  // Seeded when Confirm is first reached, then left alone so an edit survives walking back
+  // to Review and forward again.
+  $effect(() => {
+    if (step !== 'confirm' || coverageRange !== null) return
+    coverageRange = defaultCoverageRange(catchUp, manifest?.dateRange ?? null)
+  })
+
   // --- Session persistence ---
 
   function currentSession(): ImportSession | null {
@@ -178,6 +227,8 @@
       rulesCreated: $state.snapshot(rulesCreated) as string[],
       accountsCreated: $state.snapshot(accountsCreated) as string[],
       importAsLiabilities: liabilitiesOverride,
+      catchUp: $state.snapshot(catchUp) as CatchUpHandoff | null,
+      coverageRange: $state.snapshot(coverageRange) as DateRange | null,
       preview: $state.snapshot(preview) as typeof preview,
       rowStates: $state.snapshot(rowStates) as RowState[],
       savedAt: new Date().toISOString(),
@@ -209,6 +260,9 @@
     rulesCreated = saved.rulesCreated
     accountsCreated = saved.accountsCreated
     liabilitiesOverride = saved.importAsLiabilities
+    catchUp = saved.catchUp
+    returnToCatchUp = saved.catchUp !== null
+    coverageRange = saved.coverageRange
     step = saved.step
     resumable = null
   }
@@ -678,12 +732,38 @@
       toast.show(`${result.created} transaction(s) imported${fishPieMsg}`)
       refreshSidebar()
       confetti.trigger()
+
+      // Record what this file covered. The ledger write already succeeded, so a failure here
+      // must not read as a failed import — the transactions are in, and the worst case is the
+      // coach asking about a range that is now actually complete.
+      const covered = coverageRange
+      if (covered) {
+        await Promise.all(
+          coverageAccountIds.map((accountId) =>
+            createCoverage({
+              accountId,
+              fromDate: covered.from,
+              throughDate: covered.to,
+              source: 'import',
+              note: fileName || undefined,
+            }),
+          ),
+        ).catch(() => {
+          toast.show('Imported, but the covered range could not be recorded')
+        })
+      }
+
       // Land on what was just imported. Uses the committed range, not the CSV's — a leading
       // week of skipped duplicates would otherwise open on rows the user did not import.
       const range = manifest?.dateRange
-      // Read before resetSession clears the state the range came from.
+      // Read before resetSession clears the state these came from.
+      const backToCoach = returnToCatchUp
       resetSession()
-      goto(range ? `/transactions?from=${range.from}&to=${range.to}` : '/transactions')
+      if (backToCoach) {
+        goto('/catch-up')
+      } else {
+        goto(range ? `/transactions?from=${range.from}&to=${range.to}` : '/transactions')
+      }
     } catch {
       error = 'Import failed. Please try again.'
     } finally {
@@ -707,6 +787,8 @@
     clusterStates = []
     rulesCreated = []
     accountsCreated = []
+    catchUp = null
+    coverageRange = null
     step = 'file'
   }
 
@@ -732,6 +814,23 @@
 </script>
 
 <div class="page">
+  <!-- Rendered above both branches: the point of this strip is to say why the user is here
+       *before* they pick a file, not once one is already parsed. -->
+  {#if catchUp}
+    <div class="coach-strip" class:mismatch={handoffMismatch}>
+      <Icon name={handoffMismatch ? 'warning' : 'calendar'} size={14} />
+      <span>
+        {#if handoffMismatch}
+          The coach asked about <strong>{handoffAccountPath}</strong>, but this file posts
+          somewhere else. Importing is fine — it just won't close that gap.
+        {:else}
+          Catching up <strong>{handoffAccountPath}</strong> from
+          <strong>{catchUp.from}</strong> to <strong>{catchUp.to}</strong>.
+        {/if}
+      </span>
+    </div>
+  {/if}
+
   {#if preview}
     <div class="transfer-window">
       <div class="section-bar">
@@ -871,6 +970,10 @@
         onreviewskipped={() => (step = 'review')}
         onconfirm={handleConfirm}
         onback={() => (step = 'review')}
+        {coverageRange}
+        coverageAccountCount={coverageAccountIds.length}
+        fromCoach={catchUp !== null}
+        oncoveragechange={(range) => (coverageRange = range)}
       />
     {/if}
   {:else}
@@ -1634,5 +1737,29 @@
   .bottom-cols {
     display: flex;
     flex-direction: column;
+  }
+
+  /* Says why this import exists when the coach sent the user here, so the range on the
+     Confirm step later is not a surprise. */
+  .coach-strip {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: var(--sp-sm);
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule-soft);
+    border-radius: var(--radius-lg);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+  }
+
+  .coach-strip strong {
+    color: var(--color-text);
+    font-weight: var(--weight-semibold);
+  }
+
+  .coach-strip.mismatch {
+    color: var(--color-text);
   }
 </style>
