@@ -32,9 +32,9 @@ The feature exists end to end, so "find the cash accounts" needs no new data mod
 - Web UI: the Type dropdown in `AccountSettings.svelte` (Auto / Asset / **Cash** /
   Liability / Equity / Income / Expense).
 
-**Decision: strict `resolvedType === 'cash'`.** No path heuristics, no fallback. An
-untagged ledger shows an empty state pointing at the web app. Tagging from mobile is out
-of scope for this epic.
+**Decision: strict `resolvedType === 'cash'`.** No path heuristics, no fallback. A ledger
+with nothing tagged gets the create-a-wallet wizard (Story 3), which tags what it creates —
+so the strict rule never leaves the user stranded on a screen that can't help them.
 
 ### What the split foundation actually gives us
 
@@ -143,14 +143,41 @@ Mobile shell only. Cash screens are placeholders at the end of this story.
 - **Acceptance:** the four existing Fish Pie tabs behave exactly as before; switching to
   Cash mode changes header, tab set, and accent; the last mode is restored on relaunch.
 
-### 3. Wallets tab
+### 3. Wallets tab + first-wallet wizard
 
-- Cash accounts with per-currency balances, one card per wallet, currencies stacked.
+- Cash accounts with per-currency balances, one card per wallet, newest activity first.
 - Tap selects the **active wallet**; persisted (`LAST_WALLET_KEY`), and it drives the Spend
   and History tabs and the Cash header.
-- Empty state when no account is tagged Cash: explains the Type → Cash setting in the web
-  app. This is the strict-tag rule's cost and it must read as guidance, not an error.
 - Pull-to-refresh; offline tolerated (last-loaded balances stay on screen).
+
+**No cash accounts yet → the wizard runs instead of an empty state** (decided 2026-08-27).
+Cash mode is never hidden; the tab explains itself and gets the user to a usable wallet
+without leaving the phone:
+
+1. A short intro card — what a cash wallet is here, and that one is made per currency.
+2. A currency picker, reusing `CurrencySheet` (recents + full list) so it matches the rest
+   of the app.
+3. Path preview: the prefix `assets:cash:` is fixed and shown read-only, the leaf is the
+   chosen currency lowercased → `assets:cash:cny`. An optional display name defaults to
+   something like "Cash (CNY)". A user who wants a different path uses the web app; this
+   flow is deliberately narrow.
+4. Create: `POST /api/accounts` with `path` + `defaultCurrency`, then `PATCH
+   /api/accounts/:id` with `type: 'cash'` so the account satisfies the strict tag rule the
+   whole mode filters on. **The tag is not optional** — an account created here that failed
+   to tag would be invisible to the very screen that made it, so the two calls are treated
+   as one operation: on a failed PATCH, surface the error and offer retry rather than
+   leaving an untagged orphan (a follow-up `PATCH` on an existing account is idempotent, so
+   retry is safe).
+5. Land on the new wallet, selected and ready to spend against.
+
+The same flow is reachable as "Add a wallet" from the populated Wallets tab — a traveller
+crossing a border needs a second wallet, not a first one, and it is the same three taps.
+
+- Guard: a currency that already has a wallet is disabled in the picker with its existing
+  wallet named, so the flow can't mint `assets:cash:cny` twice.
+- Pure logic in `mobile/lib/cash-wallet-create.ts` (RN-free, bun-tested): path assembly
+  from a currency code, default display name, duplicate-currency detection, validation of
+  the resulting path against the same rules the backend enforces.
 
 ### 4. Spend — cash entry with expense splits
 
@@ -197,18 +224,55 @@ Moving money *into* a wallet — the ATM stop and the exchange counter.
 
 ### Stretch
 
-- Tag an account as Cash from mobile (`PATCH /api/accounts/:id`) so a wallet can be created
-  and designated on the road — removes the web dependency in Story 3's empty state.
+- Retag an *existing* account as Cash from mobile — Story 3 creates and tags new wallets,
+  but adopting a wallet that already exists in the ledger still means a trip to the web app.
 - Reuse the split-row component for the web import preview, closing
   `planning/epics/split-transactions.md` story 1 with shared logic.
 
+## Decisions
+
+- **2026-08-27 — one Cash account per currency** (`assets:cash:cad`, `assets:cash:cny`).
+  Cleanest, keeps each balance unambiguous, and follows the per-currency pattern the ledger
+  already uses for Wise. Accepted cost: it mints a lot of leaf accounts over time. Tracked
+  as a future cleanup in `planning/TASKS.md` → Accounts → "Account proliferation" — not a
+  blocker for this epic.
+- **2026-08-27 — Cash mode is never hidden.** With no cash accounts, the Wallets tab runs
+  a create-a-wallet wizard (Story 3) instead of a dead empty state. Extra scope, taken
+  deliberately: it removes the web dependency that the strict-tag rule would otherwise
+  impose on a brand-new user.
+- **2026-08-27 — strict `resolvedType === 'cash'`.** No path heuristics. Story 3's wizard
+  is what makes this affordable.
+
 ## Open questions
 
-1. **Does the split editor belong on the Fish Pie Add tab too?** Group expenses currently
-   take a single category. Same UI, different submit path — worth it, or scope creep?
-2. **Multi-currency wallets:** one Cash account per currency (`assets:cash:cny`), or one
-   wallet holding several currencies? Story 3 renders either, but Spend needs to know
-   which currency it is spending; per-currency accounts is the simpler answer and matches
-   the Wise pattern already in the ledger.
-3. **Should Cash mode be hidden entirely** until at least one account is tagged Cash, to
-   keep the shell simple for users who do not carry cash?
+1. **Does the expense-split editor belong on the Fish Pie Add tab too?** Group expenses
+   currently take a single category, so a split Costco run entered as a group expense
+   can't be broken down. Same editor, different submit path (`createExpense` vs
+   `createTransaction`). Worth it, or scope creep? See the discussion note below.
+
+## Note — what "the split editor" means
+
+The component in question: under the amount hero, instead of one expense-account picker,
+a small list of rows, each `(expense account, amount)`, with a running **unallocated**
+figure. Enter 180 in the hero, assign 90 to `expenses:food` and 60 to
+`expenses:household`, and the row area reads "30.00 left" until the last row is filled;
+Add stays disabled until the remainder is exactly zero. Adding a row starts it at the
+current remainder, so the common two-way split is: tap add, pick account, type the first
+amount, tap add, pick account — the second amount is already right.
+
+It exists because one physical purchase is often several ledger categories: the Costco run
+in `planning/epics/split-transactions.md` is $180 spanning food, household, and
+electronics. Today the only way to record that is three separate transactions (which
+misrepresents one payment as three) or one lumped category (which loses the breakdown).
+The backend has always accepted N postings; nothing in the app produces them.
+
+For **cash** (Story 4) this is settled — it ships there.
+
+The open question is only whether the **Fish Pie Add tab** gets the same editor. A group
+expense currently carries exactly one `categoryId`, which is a Fish Pie concept (it drives
+per-category split weights), not a ledger expense account. So putting the editor there is
+not a drop-in: it would mean either N expense postings under one category, or N categories
+per expense, and the second reshapes the Fish Pie data model and its weight resolution.
+That is a much larger change than the cash case and probably its own epic. Recommendation:
+**cash only for this epic**, and revisit the Fish Pie side separately once the editor has
+earned its keep on the Spend tab.
