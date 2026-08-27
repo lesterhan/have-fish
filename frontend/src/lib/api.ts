@@ -1436,6 +1436,14 @@ export type CatchUpAccount = {
   dormant: boolean
   firstTxnDate: string | null
   lastTxnDate: string | null
+  // Everything CoverageStrip needs, so the hub draws every strip from one request.
+  strip: {
+    from: string
+    to: string
+    days: number
+    intervals: { fromDate: string; throughDate: string }[]
+    txnDates: string[]
+  }
   config: CoverageConfig
 }
 

@@ -313,6 +313,40 @@ describe('assembleAccount', () => {
   })
 })
 
+describe('the strip payload', () => {
+  it('clips coverage to the drawable window', () => {
+    const result = assembleAccount(
+      input({ intervals: [iv('2020-01-01', '2025-07-01')] }),
+      '2025-07-14',
+    )
+
+    expect(result.strip).toMatchObject({ from: '2025-04-16', to: '2025-07-14', days: 90 })
+    expect(result.strip.intervals).toEqual([{ fromDate: '2025-04-16', throughDate: '2025-07-01' }])
+  })
+
+  it('drops coverage entirely outside the window', () => {
+    const result = assembleAccount(
+      input({ intervals: [iv('2019-01-01', '2019-12-31')] }),
+      '2025-07-14',
+    )
+
+    expect(result.strip.intervals).toEqual([])
+  })
+
+  it('reports transaction dates across the window, not just the gap', () => {
+    const result = assembleAccount(
+      input({
+        intervals: [iv('2025-05-01', '2025-06-30')],
+        txnCountsByDate: { '2025-01-02': 1, '2025-05-20': 2, '2025-07-08': 1 },
+      }),
+      '2025-07-14',
+    )
+
+    expect(result.strip.txnDates).toEqual(['2025-05-20', '2025-07-08'])
+    expect(result.txnDatesInGap).toEqual(['2025-07-08'])
+  })
+})
+
 describe('sortAccounts', () => {
   // Assembled once for a realistic base shape, then overridden per case — the sort only reads
   // state, dormant, gap.days and path.

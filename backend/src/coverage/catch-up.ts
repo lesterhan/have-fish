@@ -43,6 +43,15 @@ export type CatchUpAccount = {
   // user has been using the app, so what is already entered is presumed real.
   firstTxnDate: string | null
   lastTxnDate: string | null
+  // Everything CoverageStrip needs to draw this account, so the hub renders every strip from
+  // the one request rather than firing a coverage fetch per account.
+  strip: {
+    from: string
+    to: string
+    days: number
+    intervals: CoverageInterval[]
+    txnDates: string[]
+  }
   config: CoverageConfig
 }
 
@@ -71,6 +80,10 @@ const MIN_COVERED_DAYS_FOR_RATE = 14
 // Dormancy needs more evidence than the rate does: a month of confirmed-empty history before
 // an account is sorted to the bottom of the queue.
 const MIN_COVERED_DAYS_FOR_DORMANCY = 30
+
+// The span each hub strip draws. Matches the account page's default so the same account looks
+// the same in both places.
+const STRIP_WINDOW_DAYS = 90
 
 // Total days across a set of disjoint intervals, inclusive at both ends.
 function totalDays(intervals: CoverageInterval[]): number {
@@ -129,6 +142,7 @@ export function assembleAccount(input: CatchUpAccountInput, today: string): Catc
   }
 
   const txnDatesInGap = gap ? datesIn(txnCountsByDate, gap.from, gap.through) : []
+  const stripFrom = addDays(today, -(STRIP_WINDOW_DAYS - 1))
 
   // Rate is measured over covered days only. Uncovered days have no transactions precisely
   // because they have not been imported yet — dividing by them would read every neglected
@@ -165,6 +179,15 @@ export function assembleAccount(input: CatchUpAccountInput, today: string): Catc
     dormant,
     firstTxnDate,
     lastTxnDate,
+    strip: {
+      from: stripFrom,
+      to: today,
+      days: STRIP_WINDOW_DAYS,
+      // Clipped to the window: the strip cannot draw a span it has no cells for, and shipping
+      // an account's whole coverage history to render 90 cells is waste.
+      intervals: clipToWindow(merged, stripFrom, today),
+      txnDates: datesIn(txnCountsByDate, stripFrom, today),
+    },
     config,
   }
 }
