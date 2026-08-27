@@ -108,7 +108,7 @@ keeps its current job for the pie tabs only.
 
 ## Stories
 
-### 1. Cash account plumbing
+### 1. Cash account plumbing ✅ Done
 
 Backend + mobile API layer. No UI.
 
@@ -127,6 +127,26 @@ Backend + mobile API layer. No UI.
 - Tests: backend route tests for the `types` filter (tagged-cash-outside-assets-root
   included; unfiltered response byte-identical to today); bun tests for `cash-accounts.ts`.
 - Log the `/balances` inference bug in `planning/BUGS.md` as a separate web-side follow-up.
+
+**Shipped.** Notes for the stories that build on this:
+
+- `?types=` selects by resolved type (stored-wins) and narrows in SQL via
+  `typeFilterCondition`, so `?types=cash` stays an indexed lookup instead of aggregating
+  postings across the whole ledger — `cash` is override-only, so it contributes no path
+  branch at all. The JS resolver pass is still the authoritative verdict; the SQL is allowed
+  to be over-inclusive but never under-inclusive (hence the fallback for an unusable stored
+  value).
+- **`type` on this endpoint is NOT the raw override**, unlike `GET /api/accounts`. It stays
+  the coarse asset/liability/equity bucket the web layout and dashboard group by, so Cash
+  collapses to asset there. Read `resolvedType` for the real answer. Mobile's
+  `AccountBalance` type carries the same warning.
+- The unfiltered branch is untouched — the web dashboard sees exactly what it saw before.
+  The related web-side gap is logged as **BUG-007**.
+- `mobile/lib/cash-accounts.ts` also ships `walletViews` (the Wallets tab view model),
+  `resolveActiveWalletId` (mirrors `resolveActiveGroupId`), and `takenCurrencies` (the
+  duplicate-currency guard Story 3's wizard needs) — Stories 3 and 4 can build straight on
+  them. A wallet with more than one currency is rendered rather than hidden, so a ledger
+  that disagrees with the one-per-currency rule never loses money on screen.
 
 ### 2. Shell restructure — two modes
 

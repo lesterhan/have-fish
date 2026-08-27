@@ -90,15 +90,69 @@ export async function flushOfflineQueue(): Promise<{ flushed: number; failed: nu
 // Types (mirrored from frontend/src/lib/api.ts — keep in sync with the backend)
 // ---------------------------------------------------------------------------
 
-// A ledger account. Mobile only reads the list (to pick a payment/expense
-// account); account CRUD stays web-only.
+// The seven hledger account types a stored override may hold. `cash` and
+// `conversion` are override-only — path inference never produces them, so a
+// wallet is by definition an account somebody deliberately tagged.
+// Mirrors `backend/src/postings/account-type.ts`.
+export type StoredAccountType =
+  | 'asset'
+  | 'cash'
+  | 'liability'
+  | 'equity'
+  | 'income'
+  | 'expense'
+  | 'conversion'
+
+// A ledger account. Mobile reads the list to pick a payment/expense account and
+// to find cash wallets; account CRUD is web-only apart from the Companion's
+// inline create (and the cash-wallet flow that builds on it).
 export type Account = {
   id: string
   path: string
   name?: string | null
   defaultCurrency?: string | null
+  // The raw stored type override — null means "infer from the path".
+  type?: StoredAccountType | null
+  // The backend's effective answer: stored override else path inference. This is
+  // the field to test against; `type` alone would miss nothing today but would
+  // disagree with the journal export the moment inference matters.
+  resolvedType?: StoredAccountType | null
   createdAt?: string
   deletedAt?: string | null
+}
+
+// One account with its per-currency balances, from GET /api/accounts/balances.
+// Note `type` here is that endpoint's coarse three-way bucket (cash collapses to
+// asset), NOT the raw override — `resolvedType` carries the full answer.
+export type AccountBalance = {
+  id: string
+  path: string
+  name?: string | null
+  type: 'asset' | 'liability' | 'equity'
+  resolvedType?: StoredAccountType | null
+  defaultCurrency?: string | null
+  balances: { currency: string; amount: string }[]
+}
+
+// One leg of a ledger transaction. Negative drains the account, positive fills
+// it: a cash purchase is the wallet negative and each expense account positive.
+export type PostingInput = {
+  accountId: string
+  amount: string
+  currency: string
+}
+
+export type Transaction = {
+  id: string
+  date: string
+  description?: string | null
+  postings: {
+    id: string
+    accountId: string
+    accountPath?: string
+    amount: string
+    currency: string
+  }[]
 }
 
 export type GroupMember = {
@@ -261,6 +315,73 @@ export async function createAccount(data: {
     body: JSON.stringify(data),
   })
   if (!res.ok) throw new Error('Failed to create account')
+  return res.json()
+}
+
+/**
+ * Per-currency balances for the caller's accounts, optionally narrowed to a set
+ * of resolved hledger types. `fetchCashBalances` is the wallet case; the filter
+ * selects by resolved type rather than path root, so a wallet tagged Cash under
+ * an atypically-named root is still found.
+ */
+export async function fetchAccountBalances(types?: StoredAccountType[]): Promise<AccountBalance[]> {
+  const query = types?.length ? `?types=${types.join(',')}` : ''
+  const res = await apiFetch(`/api/accounts/balances${query}`)
+  if (!res.ok) throw new Error('Failed to fetch balances')
+  return res.json()
+}
+
+/** The user's cash wallets with their balances. */
+export function fetchCashBalances(): Promise<AccountBalance[]> {
+  return fetchAccountBalances(['cash'])
+}
+
+/** Set (or clear, with null) an account's stored hledger type override. */
+export async function updateAccountType(
+  id: string,
+  type: StoredAccountType | null,
+): Promise<Account> {
+  const res = await apiFetch(`/api/accounts/${id}`, {
+    method: 'PATCH',
+    body: JSON.stringify({ type }),
+  })
+  if (!res.ok) throw new Error('Failed to update account type')
+  return res.json()
+}
+
+/**
+ * Create a personal-ledger transaction from N balanced postings — the cash
+ * ledger's write path, separate from Fish Pie's `createExpense`.
+ *
+ * Queues offline and throws {@link ExpenseQueuedError} exactly like
+ * `createExpense`, so the Spend screen can show the same soft "queued" outcome.
+ * The postings must already balance to zero per currency; the backend rejects
+ * anything else, and `cash-entry.ts` is where callers assemble them.
+ */
+export async function createTransaction(body: {
+  date: string
+  description?: string
+  postings: PostingInput[]
+}): Promise<Transaction> {
+  const path = '/api/transactions'
+  let res: Response
+  try {
+    res = await apiFetch(path, { method: 'POST', body: JSON.stringify(body) })
+  } catch {
+    await enqueueOffline(path, 'POST', body)
+    throw new ExpenseQueuedError()
+  }
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to create transaction')
+  }
+  return res.json()
+}
+
+/** Transactions touching one account, newest first — the cash history feed. */
+export async function fetchTransactions(params: { accountId: string }): Promise<Transaction[]> {
+  const res = await apiFetch(`/api/transactions?accountId=${encodeURIComponent(params.accountId)}`)
+  if (!res.ok) throw new Error('Failed to fetch transactions')
   return res.json()
 }
 
