@@ -6,8 +6,11 @@ import {
   donePanelCopy,
   emptyActionLabel,
   enteredInGapNote,
+  focusPosition,
   gapSummary,
   groupAccounts,
+  importHref,
+  resolveFocus,
   progressLabel,
   progressPercent,
 } from './hub'
@@ -229,5 +232,65 @@ describe('donePanelCopy', () => {
     ]))
 
     expect(copy.note).toContain('2 quiet accounts are still uncovered')
+  })
+})
+
+describe('resolveFocus', () => {
+  const queue = [
+    account({ accountId: 'a' }),
+    account({ accountId: 'b' }),
+    account({ accountId: 'c' }),
+  ]
+
+  it('starts at the top with nothing remembered', () => {
+    expect(resolveFocus(queue, null)).toBe(0)
+  })
+
+  it('resumes on the remembered account', () => {
+    expect(resolveFocus(queue, 'b')).toBe(1)
+  })
+
+  // A finished import removes that account from the queue, so by-id resume falls through
+  // rather than pointing at whatever slid into its index.
+  it('falls back to the top when the remembered account is gone', () => {
+    expect(resolveFocus(queue, 'finished')).toBe(0)
+  })
+
+  it('reports no focus for an empty queue', () => {
+    expect(resolveFocus([], 'b')).toBe(-1)
+    expect(resolveFocus([], null)).toBe(-1)
+  })
+})
+
+describe('focusPosition', () => {
+  it('is one-based', () => {
+    expect(focusPosition(0, 5)).toBe('1 of 5')
+    expect(focusPosition(4, 5)).toBe('5 of 5')
+  })
+})
+
+describe('importHref', () => {
+  // The range ends at the horizon, not today — asking a bank for days it has not published
+  // is asking for a file that cannot exist.
+  it('carries the account, its gap and the return path', () => {
+    const href = importHref(account({
+      accountId: 'acct-9',
+      gap: { from: '2025-07-01', through: '2025-07-25', days: 25 },
+    }))
+    const params = new URLSearchParams(href.split('?')[1])
+
+    expect(href.startsWith('/import?')).toBe(true)
+    expect(params.get('account')).toBe('acct-9')
+    expect(params.get('from')).toBe('2025-07-01')
+    expect(params.get('to')).toBe('2025-07-25')
+    expect(params.get('return')).toBe('catch-up')
+  })
+
+  it('omits the range when there is no gap', () => {
+    const params = new URLSearchParams(importHref(account({ gap: null })).split('?')[1])
+
+    expect(params.get('from')).toBeNull()
+    expect(params.get('to')).toBeNull()
+    expect(params.get('account')).toBe('acct-1')
   })
 })

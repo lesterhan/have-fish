@@ -121,3 +121,35 @@ export function donePanelCopy(groups: HubGroups): { headline: string; note: stri
       : `${parked} quiet accounts are still uncovered, waiting below whenever you want them.`,
   }
 }
+
+// --- focus mode ---
+
+// Where the focus queue should land, given who is left and who was being worked on.
+//
+// Resuming by account id rather than by index is what makes returning from an import land in
+// the right place: a successful import removes that account from the queue entirely, so an
+// index would silently point at whatever slid into the slot. By id, a finished account falls
+// through to the next one and an unfinished one is still there waiting.
+export function resolveFocus(queue: CatchUpAccount[], rememberedId: string | null): number {
+  if (queue.length === 0) return -1
+  if (!rememberedId) return 0
+  const index = queue.findIndex((a) => a.accountId === rememberedId)
+  return index === -1 ? 0 : index
+}
+
+// "2 of 5" — position in the queue, one-based for humans.
+export function focusPosition(index: number, total: number): string {
+  return `${index + 1} of ${total}`
+}
+
+// The import handoff URL. The range is the account's open gap, which ends at the horizon
+// rather than at today — asking a bank for days it has not published yet is asking for a file
+// that cannot exist.
+export function importHref(account: CatchUpAccount): string {
+  const params = new URLSearchParams({ account: account.accountId, return: 'catch-up' })
+  if (account.gap) {
+    params.set('from', account.gap.from)
+    params.set('to', account.gap.through)
+  }
+  return `/import?${params.toString()}`
+}

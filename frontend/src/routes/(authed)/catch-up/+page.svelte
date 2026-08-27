@@ -8,7 +8,15 @@
   import CatchUpAccountCard from '$lib/components/catch-up/CatchUpAccountCard.svelte'
   import CoverageStrip from '$lib/components/catch-up/CoverageStrip.svelte'
   import { proposeStartingLines, type StartingLineProposal } from '$lib/components/catch-up/bootstrap'
-  import { currentSummary, displayName, donePanelCopy, groupAccounts } from '$lib/components/catch-up/hub'
+  import {
+    currentSummary,
+    displayName,
+    donePanelCopy,
+    focusPosition,
+    groupAccounts,
+    importHref,
+    resolveFocus,
+  } from '$lib/components/catch-up/hub'
   import {
     createCoverage,
     fetchCatchUp,
@@ -22,6 +30,40 @@
   let error = $state<string | null>(null)
   let dormantOpen = $state(false)
 
+  // --- Focus mode ---
+  //
+  // One account at a time instead of the whole queue. Both flags live in sessionStorage so a
+  // round trip through the import flow comes back to the same place; the remembered account is
+  // an id rather than a position, so an account finished while away falls through to the next
+  // rather than the queue silently shifting under the cursor.
+  const FOCUS_KEY = 'havefish:catch-up-focus'
+  const FOCUS_ACCOUNT_KEY = 'havefish:catch-up-focus-account'
+
+  let focusMode = $state(false)
+  let focusedAccountId = $state<string | null>(null)
+
+  function readFocusState() {
+    try {
+      focusMode = sessionStorage.getItem(FOCUS_KEY) === '1'
+      focusedAccountId = sessionStorage.getItem(FOCUS_ACCOUNT_KEY)
+    } catch {
+      // Private browsing and blocked site data both throw here. Focus mode is a convenience,
+      // so losing it is fine; failing the page over it is not.
+    }
+  }
+
+  function writeFocusState() {
+    try {
+      if (focusMode) sessionStorage.setItem(FOCUS_KEY, '1')
+      else sessionStorage.removeItem(FOCUS_KEY)
+
+      if (focusedAccountId) sessionStorage.setItem(FOCUS_ACCOUNT_KEY, focusedAccountId)
+      else sessionStorage.removeItem(FOCUS_ACCOUNT_KEY)
+    } catch {
+      // See above.
+    }
+  }
+
   // Bootstrap owns the page while any account has never been asserted. Showing the queue
   // alongside it would mean showing accounts as maximally behind before the user has had the
   // chance to say where they actually stand.
@@ -29,6 +71,29 @@
   let needsBootstrap = $derived(proposals.length > 0)
 
   let groups = $derived(groupAccounts(payload?.accounts ?? []))
+  let focusIndex = $derived(resolveFocus(groups.behind, focusedAccountId))
+  let focused = $derived(focusIndex === -1 ? null : groups.behind[focusIndex])
+
+  function enterFocus() {
+    focusMode = true
+    focusedAccountId = groups.behind[0]?.accountId ?? null
+    writeFocusState()
+  }
+
+  function exitFocus() {
+    focusMode = false
+    focusedAccountId = null
+    writeFocusState()
+  }
+
+  // Moves past an account without asserting anything about it. Wraps to the top rather than
+  // dead-ending, so skipping the last one returns to the ones still waiting.
+  function skipFocused() {
+    if (groups.behind.length === 0) return
+    const next = groups.behind[(focusIndex + 1) % groups.behind.length]
+    focusedAccountId = next.accountId
+    writeFocusState()
+  }
   let allCurrent = $derived(
     payload !== null && payload.summary.tracked > 0 && groups.behind.length === 0,
   )
@@ -90,13 +155,18 @@
     await load()
   }
 
-  // Story 7 turns this into a handoff carrying the account and date range. Until then it is
-  // an ordinary link to the import flow.
-  function startImport(_account: CatchUpAccount) {
-    goto('/import')
+  // Remember where we were before leaving, so returning from the import lands back here rather
+  // than at the top of the queue.
+  function startImport(account: CatchUpAccount) {
+    focusedAccountId = account.accountId
+    writeFocusState()
+    goto(importHref(account))
   }
 
-  onMount(load)
+  onMount(() => {
+    readFocusState()
+    load()
+  })
 </script>
 
 <svelte:head><title>Catch Up · have-fish</title></svelte:head>
@@ -140,7 +210,35 @@
           <p class="status">{done.note}</p>
         </div>
       </Card>
+    {:else if focusMode && focused}
+      <!-- One account at a time. The rest of the queue is still there, just not in the way. -->
+      <div class="focus-bar">
+        <span class="focus-pos">{focusPosition(focusIndex, groups.behind.length)}</span>
+        <span class="spacer"></span>
+        {#if groups.behind.length > 1}
+          <GradientButton size="sm" onclick={skipFocused}>Skip for now</GradientButton>
+        {/if}
+        <GradientButton size="sm" onclick={exitFocus}>Show all</GradientButton>
+      </div>
+
+      <CatchUpAccountCard
+        account={focused}
+        onmarkEmpty={markEmpty}
+        onmarkThrough={markThrough}
+        onuntrack={untrack}
+        onimport={startImport}
+      />
     {:else}
+      {#if groups.behind.length > 1}
+        <div class="focus-bar">
+          <span class="focus-pos">
+            {groups.behind.length} accounts waiting
+          </span>
+          <span class="spacer"></span>
+          <GradientButton size="sm" onclick={enterFocus}>Start catching up</GradientButton>
+        </div>
+      {/if}
+
       <div class="queue">
         {#each groups.behind as account (account.accountId)}
           <CatchUpAccountCard
@@ -154,7 +252,7 @@
       </div>
     {/if}
 
-    {#if groups.current.length > 0 && !allCurrent}
+    {#if groups.current.length > 0 && !allCurrent && !focusMode}
       <Card>
         <div class="section-header">CURRENT</div>
         <div class="quiet-list">
@@ -168,7 +266,7 @@
       </Card>
     {/if}
 
-    {#if groups.dormant.length > 0}
+    {#if groups.dormant.length > 0 && !(focusMode && focused)}
       <div class="dormant">
         <button
           class="dormant-toggle"
@@ -361,5 +459,23 @@
     flex-wrap: wrap;
     gap: var(--sp-xs);
     margin-top: var(--sp-sm);
+  }
+
+  .focus-bar {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: 0 2px;
+  }
+
+  .focus-pos {
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .spacer {
+    flex: 1;
   }
 </style>
