@@ -65,7 +65,7 @@
 | [Fish Pie: Cross-Currency Settlement](epics/archive/fish-pie-cross-currency-settlement.md) | Done |
 | [Catch-Up Coach](epics/archive/catch-up-coach.md) | Done |
 | [Mobile Cash Ledger](epics/mobile-cash-tab.md) | Scoping |
-| [Account Page Redesign](epics/account-page-redesign.md) | Scoped |
+| [Account Page Redesign](epics/archive/account-page-redesign.md) | Done |
 
 ## Fish Pie sequence
 
