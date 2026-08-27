@@ -94,6 +94,38 @@ source transaction so it isn't double-counted.
 
 # Accounts
 
+## [P2 → P3 ⚠️ epic] Account proliferation — managing many leaf accounts
+
+**Context:** Several established patterns mint one account per currency:
+`assets:wise:cad` / `assets:wise:gbp` from Currency Transfers, and — decided
+2026-08-27 for the [Mobile Cash Ledger](epics/mobile-cash-tab.md) — one Cash wallet
+per currency (`assets:cash:cad`, `assets:cash:cny`, …). Per-currency accounts are the
+right call: they keep each balance unambiguous, match hledger's model, and follow the
+pattern already in the ledger. The cost is volume — a traveller holding six currencies
+across two institutions plus cash is carrying a lot of leaves.
+
+This is not urgent and nothing is broken. It is a "this will get uncomfortable"
+marker, so the pain is tracked rather than rediscovered.
+
+**Task (when it starts to hurt):** make many-account ledgers pleasant to manage.
+Candidate directions, none decided:
+
+- **Group by parent in account lists** — collapse `assets:cash:*` into one expandable
+  row showing the combined position, rather than N flat siblings. Applies to the
+  accounts page, balances, and the Companion's Wallets tab.
+- **Currency-aware account display** — treat `<parent>` + currency as the unit in the
+  UI, since the leaf segment usually *is* the currency code. One "Cash" card with a
+  currency row per balance, one account underneath.
+- **Bulk operations** — archive/hide a whole subtree, rename a parent and cascade
+  (`rename` already moves subtrees; surface it better).
+- **Hide zero-balance leaves by default** — a currency you no longer hold shouldn't
+  cost a row forever.
+
+Overlaps with [Account Reorganization](epics/account-reorganization.md) (phase 2+) and
+with the `AccountPathInput` rework below; check both before designing.
+
+---
+
 ## [P2] Rework `AccountPathInput` UX (web)
 
 **Context:** `AccountPathInput` is fine for a keyboard-heavy power user, but the design
