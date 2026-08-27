@@ -10,6 +10,7 @@
     classifyTransfer,
     fmt,
   } from './transactionUtils'
+  import { amountTone } from './amountTone'
 
   interface Props {
     tx: Transaction
@@ -86,6 +87,24 @@
   let currentPosting = $derived(
     tx.postings.find((p) => p.accountId === currentAccountId),
   )
+
+  // Amount colour is by exception on this page — see amountTone. The decision needs the
+  // counterpart's type, not the row's isTransfer flag: on an asset or liability page the
+  // destination of every money-in row is the account you are looking at, so isTransfer
+  // reports refunds as transfers and the tint would never fire.
+  let counterpartType = $derived.by(() => {
+    const other = tx.postings.find((p) => p.accountId !== currentAccountId)
+    if (!other) return null
+    return accounts.find((a) => a.id === other.accountId)?.resolvedType ?? null
+  })
+
+  let tone = $derived(amountTone(currentPosting?.amount ?? '0', counterpartType))
+
+  // MoneyDisplay's flow classes paint --color-transfer-* directly, which would outrank the
+  // cell's tone and turn every refund teal. Only a genuine transfer gets a flow direction
+  // on the figure; the row's own arrows still use `flowDirection`, so the counterpart
+  // column is untouched.
+  let amountFlow = $derived(tone === 'transfer' ? flowDirection : null)
 
   // FX conversion — only for simple (non-cross-currency) postings in a foreign currency.
   let fxConverted = $derived.by(() => {
@@ -212,7 +231,7 @@
   </div>
 
   <!-- Amount -->
-  <div class="amount-cell">
+  <div class="amount-cell tone-{tone}">
     {#if isCrossCurrency}
       <div class="transfer-amounts">
         <MoneyDisplay
@@ -224,8 +243,9 @@
           currency={currentIsSource
             ? transfer.source.currency
             : (transfer.target?.currency ?? '')}
-          {flowDirection}
+          flowDirection={amountFlow}
           inline
+          emphasis
         />
         <div class="transfer-exchange">
           <span class="cross-sep">{currentIsSource ? '→' : '←'}</span>
@@ -246,8 +266,8 @@
       {#if fxConverted?.status === 'ok'}
         <div
           class="fx-stack"
-          class:flow-in={flowDirection === 'in'}
-          class:flow-out={flowDirection === 'out'}
+          class:flow-in={amountFlow === 'in'}
+          class:flow-out={amountFlow === 'out'}
         >
           <div class="fx-primary">
             <CurrencyPill code={preferredCurrency} size="xs" />
@@ -290,8 +310,9 @@
         <MoneyDisplay
           amount={fmt(currentPosting.amount)}
           currency={currentPosting.currency}
-          {flowDirection}
+          flowDirection={amountFlow}
           inline
+          emphasis
         />
       {/if}
     {/if}
@@ -365,13 +386,20 @@
     font-family: var(--font-serif);
     font-size: 13px;
     font-weight: 400;
-    color: var(--color-accent);
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 2px;
+    color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: text-decoration-color var(--duration-fast) var(--ease);
+  }
+
+  /* Clickability arrives on hover rather than sitting on every row at rest. */
+  .row:hover .description,
+  .row:focus-visible .description {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: var(--color-accent);
+    text-underline-offset: 2px;
   }
 
   .transfer-tag {
@@ -437,6 +465,14 @@
     gap: var(--sp-xs);
     justify-content: flex-end;
     flex-shrink: 0;
+    color: var(--color-text);
+  }
+
+  /* Colour by exception: only money coming back is tinted. Expenses are the default on
+     this page, and defaults do not need a colour. `.tone-transfer` and `.tone-neutral`
+     deliberately set nothing — transfers are coloured by MoneyDisplay's flow classes. */
+  .amount-cell.tone-positive {
+    color: var(--color-amount-positive);
   }
 
   .transfer-amounts {
@@ -484,7 +520,7 @@
     font-size: 13px;
     font-weight: 700;
     font-variant-numeric: tabular-nums;
-    color: var(--color-text);
+    color: inherit;
   }
 
   .fx-stack.flow-in .fx-main-amount {
