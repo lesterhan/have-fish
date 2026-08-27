@@ -5,7 +5,6 @@
   import DateRangeSelector from '$lib/components/transactions/DateRangeSelector.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { fetchAccounts } from '$lib/api'
-  import { toISODate } from '$lib/date'
   import { onMount } from 'svelte'
 
   interface Props {
@@ -13,12 +12,13 @@
     to: string
     sortDir: 'asc' | 'desc'
     accountPath?: string
-    actionRequiredCount?: number | null
-    actionRequiredActive?: boolean
+    /** The range the clear affordance restores to. Omitted = no clear affordance. */
+    defaultRange?: { from: string; to: string }
+    /** Borderless icon buttons at rest — see GradientButton's `quiet`. */
+    quiet?: boolean
     onApply: (from: string, to: string) => void
     onSortChange: (dir: 'asc' | 'desc') => void
     onAccountPathChange?: (path: string) => void
-    onActionRequiredToggle?: () => void
   }
 
   let {
@@ -26,12 +26,11 @@
     to,
     sortDir,
     accountPath = '',
-    actionRequiredCount = null,
-    actionRequiredActive = false,
+    defaultRange,
+    quiet = false,
     onApply,
     onSortChange,
     onAccountPathChange,
-    onActionRequiredToggle,
   }: Props = $props()
 
   // searchExpanded covers both: entering new path AND editing existing pill
@@ -76,12 +75,6 @@
     draft = accountPath
   }
 
-  function handleReset() {
-    const today = new Date()
-    const f = new Date(today)
-    f.setMonth(today.getMonth() - 3)
-    onApply(toISODate(f), toISODate(today))
-  }
 </script>
 
 <div class="bar">
@@ -127,6 +120,7 @@
           onclick={toggleSearch}
           square
           tooltip="Filter by account path"
+          {quiet}
         >
           <Icon name="search" />
         </GradientButton>
@@ -137,40 +131,19 @@
       onclick={() => onSortChange(sortDir === 'desc' ? 'asc' : 'desc')}
       tooltip="Sort by date"
       square
+      {quiet}
     >
       <Icon name="calendar-{sortDir === 'desc' ? 'desc' : 'asc'}" />
     </GradientButton>
 
-    {#if actionRequiredCount !== null && actionRequiredCount > 0}
-      <GradientButton
-        variant="warning"
-        attention
-        active={actionRequiredActive}
-        onclick={onActionRequiredToggle}
-        tooltip="Actions required"
-      >
-        <Icon name="warning" />
-        ({actionRequiredCount})
-      </GradientButton>
-    {:else if actionRequiredCount === 0}
-      <GradientButton disabled square tooltip="No actions required">
-        <Icon name="check" />
-      </GradientButton>
-    {/if}
   </div>
 
   <div class="date-controls">
     <DateRangeSelector
       value={{ from, to }}
+      {defaultRange}
       onchange={(r) => onApply(r.from, r.to)}
     />
-    <GradientButton
-      square
-      tooltip="Reset to last 3 months"
-      onclick={handleReset}
-    >
-      <Icon name="reset" />
-    </GradientButton>
   </div>
 </div>
 

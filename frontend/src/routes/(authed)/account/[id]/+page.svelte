@@ -31,9 +31,12 @@
   import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import MoreMenu from '$lib/components/ui/MoreMenu.svelte'
+  import { rangeSummary } from '$lib/components/transactions/rangeSummary'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import CoverageStrip from '$lib/components/catch-up/CoverageStrip.svelte'
   import { statusLine } from '$lib/components/catch-up/statusLine'
+  import { attentionChip } from '$lib/components/transactions/attentionChip'
   import { scrollShadow } from '$lib/scrollShadow'
 
   let id = $derived(page.params.id!)
@@ -86,6 +89,7 @@
   let actionRequiredIds = $state<string[] | null>(null)
   let actionRequiredActive = $state(false)
   let actionRequiredCount = $derived(actionRequiredStore.getCount(id))
+  let chip = $derived(attentionChip(actionRequiredCount))
 
   // FX convert toggle
   let convertFx = $state(false)
@@ -352,6 +356,18 @@
             <Icon name="chevron-down-line" size={9} />
           </span>
         </button>
+
+        {#if chip.show}
+          <button
+            class="attention-chip"
+            class:on={actionRequiredActive}
+            aria-pressed={actionRequiredActive}
+            onclick={toggleActionRequired}
+          >
+            <Icon name="warning" size={11} />
+            {chip.label}
+          </button>
+        {/if}
       </div>
 
       {#if coverageOpen}
@@ -371,39 +387,33 @@
     {/if}
 
     <div class="toolbar">
-      <FilterPanel
-        {from}
-        {to}
-        {sortDir}
-        {actionRequiredCount}
-        {actionRequiredActive}
-        onApply={(f, t) => navigate({ from: f, to: t })}
-        onSortChange={(dir) => navigate({ dir })}
-        onActionRequiredToggle={toggleActionRequired}
-      />
-      <div class="toolbar-sep"></div>
-      <div class="ops">
+      <!-- Left: what you are LOOKING AT. Right: what you can DO. Two groups that mean
+           different things can carry priority; one undifferentiated row cannot. -->
+      <div class="tool-group">
+        <FilterPanel
+          {from}
+          {to}
+          {sortDir}
+          defaultRange={defaults}
+          quiet
+          onApply={(f, t) => navigate({ from: f, to: t })}
+          onSortChange={(dir) => navigate({ dir })}
+        />
+        <span class="range-summary">
+          {rangeSummary(from, to, displayedTransactions.length)}
+        </span>
         <GradientButton
-          square
-          onclick={() => (addModalOpen = true)}
-          tooltip="New transaction"
+          active={convertFx}
+          onclick={() => (convertFx = !convertFx)}
+          tooltip="Convert to {preferredCurrency}"
         >
-          <Icon name="plus" />
+          <CurrencyPill code={preferredCurrency} size="xs" />
         </GradientButton>
-        <GradientButton
-          square
-          onclick={() => (reconcileOpen = true)}
-          tooltip="Reconcile account"
-        >
-          <Icon name="reconcile" />
-        </GradientButton>
-        <GradientButton
-          square
-          onclick={() => (settingsOpen = !settingsOpen)}
-          tooltip="Account settings"
-        >
-          <Icon name="account-settings" />
-        </GradientButton>
+      </div>
+
+      <span class="toolbar-spacer"></span>
+
+      <div class="tool-group">
         <GradientButton
           active={quickEntryOpen}
           onclick={() => (quickEntryOpen = !quickEntryOpen)}
@@ -412,12 +422,23 @@
           Quick Entry
         </GradientButton>
         <GradientButton
-          active={convertFx}
-          onclick={() => (convertFx = !convertFx)}
-          tooltip="Convert to {preferredCurrency}"
+          variant="primary"
+          onclick={() => (addModalOpen = true)}
+          tooltip="New transaction"
         >
-          <CurrencyPill code={preferredCurrency} size="xs" />
+          <Icon name="plus" size={11} />
+          New
         </GradientButton>
+        <MoreMenu
+          items={[
+            { label: 'Reconcile', icon: 'reconcile', onselect: () => (reconcileOpen = true) },
+            {
+              label: 'Account settings',
+              icon: 'account-settings',
+              onselect: () => (settingsOpen = !settingsOpen),
+            },
+          ]}
+        />
       </div>
     </div>
 
@@ -429,12 +450,6 @@
         ontogglehidden={toggleHidden}
       />
     {/if}
-
-    <div class="section-bar">
-      <span class="section-bar-title">
-        Transactions · {displayedTransactions.length} entries
-      </span>
-    </div>
 
     <div class="tx-col-header">
       <span>DATE</span>
@@ -562,65 +577,59 @@
     background: var(--color-window);
   }
 
-  /* Toolbar: FilterPanel (bare) + divider + ops buttons */
+  /* Toolbar: "looking at" on the left, "can do" on the right. */
   .toolbar {
     display: flex;
-    align-items: stretch;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
   }
 
-  .toolbar-sep {
-    width: 1px;
-    background: var(--color-rule);
-    margin: 6px 0;
-    flex-shrink: 0;
-  }
-
-  .ops {
+  .tool-group {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: var(--sp-xs) var(--sp-sm);
+    min-width: 0;
   }
 
-  /* Section bar */
-  .section-bar {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-md);
-    padding: 6px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    flex-shrink: 0;
+  .toolbar-spacer {
+    flex: 1;
+    min-width: var(--sp-md);
   }
 
-  .section-bar-title {
+  /* Which days are on screen, spelled out — the date field shows a preset name. */
+  .range-summary {
     font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    letter-spacing: 0.3px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  /* Column header */
+  /* Column header, carrying the dark-bar weight now that the separate
+     "Transactions · N entries" bar is gone — the count moved into the toolbar, next to
+     the filter that produces it, and two bands became one. */
   .tx-col-header {
     --tx-cols: 5.5rem 1fr 1.5fr 8rem;
     display: grid;
     grid-template-columns: var(--tx-cols);
     align-items: center;
     gap: var(--sp-xs);
-    padding: 4px 14px;
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-window);
+    padding: 6px 14px;
+    background: var(--color-section-bar-bg);
+    color: var(--color-section-bar-fg);
+    border-top: 1px solid var(--color-section-bar-border-top);
+    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
     font-family: var(--font-mono);
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.8px;
-    color: var(--color-text-muted);
     text-transform: uppercase;
     user-select: none;
   }
@@ -668,6 +677,12 @@
     .toolbar {
       flex-wrap: wrap;
     }
+
+    /* A flex:1 spacer between two wrapped groups would push the second group onto its
+       own line and leave a gap; let the groups sit together and wrap on their own. */
+    .toolbar-spacer {
+      display: none;
+    }
   }
 
   /* Coverage as a flat full-bleed band, like every other region on the page. The old
@@ -696,13 +711,13 @@
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    margin-right: auto;
   }
 
   .status-toggle {
     display: inline-flex;
     align-items: center;
     gap: 4px;
-    margin-left: auto;
     padding: 2px 6px;
     border: none;
     border-radius: var(--radius-sm);
@@ -732,6 +747,57 @@
 
   .status-chevron.open {
     transform: rotate(180deg);
+  }
+
+  /* The page's one amber region. No resting pulse: an infinite halo is a lot on a page you
+     sit and read, and the amber fill carries the signal on its own. */
+  .attention-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    height: 20px;
+    padding: 0 var(--sp-sm);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 70%, black);
+    border-radius: var(--radius-pill);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning) 85%, white),
+      var(--color-warning)
+    );
+    box-shadow: var(--shadow-control);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    color: color-mix(in srgb, var(--color-warning) 30%, black);
+    white-space: nowrap;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition:
+      background var(--duration-fast) var(--ease),
+      box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .attention-chip:hover {
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-warning) 95%, white),
+      color-mix(in srgb, var(--color-warning) 88%, white)
+    );
+  }
+
+  /* Engaged = the list is filtered down to those transactions. */
+  .attention-chip.on {
+    box-shadow: var(--shadow-inset);
+    background: linear-gradient(
+      180deg,
+      var(--color-warning),
+      color-mix(in srgb, var(--color-warning) 80%, black)
+    );
+  }
+
+  .attention-chip:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: 1px;
   }
 
   .coverage-expanded {
