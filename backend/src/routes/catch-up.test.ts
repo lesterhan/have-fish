@@ -356,6 +356,73 @@ describe('catch-up', () => {
     })
   })
 
+  describe('strip data', () => {
+    it('carries a 90-day window ending today', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(find(body, chequing.id).strip).toMatchObject({
+        from: daysAgo(89), to: today(), days: 90,
+      })
+    })
+
+    it('clips coverage to the window it can actually draw', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await cover(cookie, chequing.id, daysAgo(400), daysAgo(10))
+
+      const { strip } = find((await getCatchUp(cookie)).body, chequing.id)
+
+      expect(strip.intervals).toEqual([{ fromDate: daysAgo(89), throughDate: daysAgo(10) }])
+    })
+
+    it('merges adjacent coverage before clipping', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await cover(cookie, chequing.id, daysAgo(60), daysAgo(31))
+      await cover(cookie, chequing.id, daysAgo(30), daysAgo(10))
+
+      const { strip } = find((await getCatchUp(cookie)).body, chequing.id)
+
+      expect(strip.intervals).toEqual([{ fromDate: daysAgo(60), throughDate: daysAgo(10) }])
+    })
+
+    it('keeps a hole between disjoint spans', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await cover(cookie, chequing.id, daysAgo(80), daysAgo(60))
+      await cover(cookie, chequing.id, daysAgo(30), daysAgo(10))
+
+      const { strip } = find((await getCatchUp(cookie)).body, chequing.id)
+
+      expect(strip.intervals).toEqual([
+        { fromDate: daysAgo(80), throughDate: daysAgo(60) },
+        { fromDate: daysAgo(30), throughDate: daysAgo(10) },
+      ])
+    })
+
+    // The strip marks every day with transactions, not only the ones inside the open gap.
+    it('reports transaction dates across the whole window', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await cover(cookie, chequing.id, daysAgo(60), daysAgo(20))
+      await seedTxn(userId, chequing.id, daysAgo(40), groceries.id)  // covered
+      await seedTxn(userId, chequing.id, daysAgo(5), groceries.id)   // in the gap
+      await seedTxn(userId, chequing.id, daysAgo(200), groceries.id) // outside the window
+
+      const account = find((await getCatchUp(cookie)).body, chequing.id)
+
+      expect(account.strip.txnDates).toEqual([daysAgo(40), daysAgo(5)])
+      expect(account.txnDatesInGap).toEqual([daysAgo(5)])
+    })
+
+    it('is empty but present for an account with no coverage', async () => {
+      const fresh = await createAccount(userId, 'assets:fresh')
+
+      const { strip } = find((await getCatchUp(cookie)).body, fresh.id)
+
+      expect(strip.intervals).toEqual([])
+      expect(strip.txnDates).toEqual([])
+    })
+  })
+
   describe('history span', () => {
     it('reports the first and last transaction dates', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')

@@ -40,7 +40,22 @@ export type ImportSession = {
   // user goes, not deferred to commit.
   rulesCreated: string[]
   accountsCreated: string[]
+  // Set when the import was launched from the Catch-Up Coach, carrying what the coach asked
+  // for. Kept in the session rather than read from the URL each time so a refresh mid-import
+  // doesn't lose the handoff and silently turn a coached import into an ordinary one.
+  catchUp: CatchUpHandoff | null
+  // What the user says the file covers, once they have confirmed or edited it. Null until
+  // Confirm is reached, at which point it defaults per defaultCoverageRange().
+  coverageRange: DateRange | null
   savedAt: string // ISO
+}
+
+export type DateRange = { from: string; to: string }
+
+export type CatchUpHandoff = {
+  accountId: string
+  from: string
+  to: string
 }
 
 export const STORAGE_KEY = 'havefish:import-sessions'
@@ -53,7 +68,8 @@ export const STORAGE_KEY = 'havefish:import-sessions'
 // 2 — added currencyAccounts and the 'accounts' step.
 // 3 — added clusterStates and the 'sort' step.
 // 4 — added rulesCreated / accountsCreated and the 'confirm' step.
-export const SESSION_VERSION = 4
+// 5 — added catchUp and coverageRange.
+export const SESSION_VERSION = 5
 
 export const MAX_AGE_DAYS = 30
 
@@ -187,4 +203,37 @@ export function describeAge(savedAt: string, now: number = Date.now()): string {
   if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
   const days = Math.floor(hours / 24)
   return `${days} day${days === 1 ? '' : 's'} ago`
+}
+
+// Reads a coach handoff off the import URL. Returns null unless every part is present and
+// well-formed — a half-populated handoff would write coverage for a range nobody asked for.
+export function parseCatchUpHandoff(params: URLSearchParams): CatchUpHandoff | null {
+  const accountId = params.get('account')
+  const from = params.get('from')
+  const to = params.get('to')
+
+  if (!accountId || !isIsoDate(from) || !isIsoDate(to)) return null
+  if (from! > to!) return null
+
+  return { accountId, from: from!, to: to! }
+}
+
+export function isIsoDate(value: string | null): boolean {
+  if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+  const parsed = new Date(`${value}T00:00:00Z`)
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().substring(0, 10) === value
+}
+
+// What the Confirm step's "this file covers" control starts at.
+//
+// The coach's requested range wins over the file's own row dates, and the difference is the
+// whole point: a statement covering Jul 1-31 whose first transaction is Jul 3 still covers
+// Jul 1 and 2. Defaulting to the row dates would leave a two-day hole the coach then asks
+// about forever, and the user would have no idea why.
+export function defaultCoverageRange(
+  handoff: CatchUpHandoff | null,
+  fileRange: DateRange | null,
+): DateRange | null {
+  if (handoff) return { from: handoff.from, to: handoff.to }
+  return fileRange
 }

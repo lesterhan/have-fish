@@ -18,6 +18,7 @@ function account(over: Partial<CatchUpAccount> = {}): CatchUpAccount {
     dormant: false,
     firstTxnDate: null,
     lastTxnDate: null,
+    strip: { from: '2025-04-16', to: '2025-07-14', days: 90, intervals: [], txnDates: [] },
     config: { exportMode: 'range', cycleDay: null, releaseLag: 0, tracked: true },
     ...over,
   }
