@@ -8,6 +8,7 @@ import { addDays, type CoverageInterval } from '../coverage/intervals'
 import {
   inferCycleFromIntervals,
   mergeConfig,
+  snoozedUntilFrom,
   type CoverageConfigOverride,
 } from '../coverage/horizon'
 import {
@@ -189,7 +190,14 @@ app.get('/', async (c) => {
 
   const ordered = sortAccounts(assembled)
 
-  return c.json({ today, accounts: ordered, summary: summarize(ordered) })
+  return c.json({
+    today,
+    accounts: ordered,
+    summary: summarize(ordered),
+    // Read off the preferences blob already in hand, so the dashboard tile needs neither a
+    // second request nor a second read of the same row.
+    snoozedUntil: snoozedUntilFrom(preferences),
+  })
 })
 
 export default app

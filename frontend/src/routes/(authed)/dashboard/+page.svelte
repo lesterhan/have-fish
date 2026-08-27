@@ -24,6 +24,7 @@
   import { theme } from '$lib/theme.svelte'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import CatchUpTile from '$lib/components/catch-up/CatchUpTile.svelte'
 
   Chart.register(
     BarController,
@@ -357,6 +358,8 @@
       .sort((a, b) => b.amount - a.amount)
   }
 </script>
+
+<CatchUpTile />
 
 <div class="dashboard-grid">
   <Card>
