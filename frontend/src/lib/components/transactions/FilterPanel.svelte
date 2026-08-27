@@ -14,6 +14,8 @@
     accountPath?: string
     /** The range the clear affordance restores to. Omitted = no clear affordance. */
     defaultRange?: { from: string; to: string }
+    /** Borderless icon buttons at rest — see GradientButton's `quiet`. */
+    quiet?: boolean
     onApply: (from: string, to: string) => void
     onSortChange: (dir: 'asc' | 'desc') => void
     onAccountPathChange?: (path: string) => void
@@ -25,6 +27,7 @@
     sortDir,
     accountPath = '',
     defaultRange,
+    quiet = false,
     onApply,
     onSortChange,
     onAccountPathChange,
@@ -117,6 +120,7 @@
           onclick={toggleSearch}
           square
           tooltip="Filter by account path"
+          {quiet}
         >
           <Icon name="search" />
         </GradientButton>
@@ -127,6 +131,7 @@
       onclick={() => onSortChange(sortDir === 'desc' ? 'asc' : 'desc')}
       tooltip="Sort by date"
       square
+      {quiet}
     >
       <Icon name="calendar-{sortDir === 'desc' ? 'desc' : 'asc'}" />
     </GradientButton>

@@ -31,6 +31,8 @@
   import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import MoreMenu from '$lib/components/ui/MoreMenu.svelte'
+  import { rangeSummary } from '$lib/components/transactions/rangeSummary'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import CoverageStrip from '$lib/components/catch-up/CoverageStrip.svelte'
   import { statusLine } from '$lib/components/catch-up/statusLine'
@@ -385,37 +387,33 @@
     {/if}
 
     <div class="toolbar">
-      <FilterPanel
-        {from}
-        {to}
-        {sortDir}
-        defaultRange={defaults}
-        onApply={(f, t) => navigate({ from: f, to: t })}
-        onSortChange={(dir) => navigate({ dir })}
-      />
-      <div class="toolbar-sep"></div>
-      <div class="ops">
+      <!-- Left: what you are LOOKING AT. Right: what you can DO. Two groups that mean
+           different things can carry priority; one undifferentiated row cannot. -->
+      <div class="tool-group">
+        <FilterPanel
+          {from}
+          {to}
+          {sortDir}
+          defaultRange={defaults}
+          quiet
+          onApply={(f, t) => navigate({ from: f, to: t })}
+          onSortChange={(dir) => navigate({ dir })}
+        />
+        <span class="range-summary">
+          {rangeSummary(from, to, displayedTransactions.length)}
+        </span>
         <GradientButton
-          square
-          onclick={() => (addModalOpen = true)}
-          tooltip="New transaction"
+          active={convertFx}
+          onclick={() => (convertFx = !convertFx)}
+          tooltip="Convert to {preferredCurrency}"
         >
-          <Icon name="plus" />
+          <CurrencyPill code={preferredCurrency} size="xs" />
         </GradientButton>
-        <GradientButton
-          square
-          onclick={() => (reconcileOpen = true)}
-          tooltip="Reconcile account"
-        >
-          <Icon name="reconcile" />
-        </GradientButton>
-        <GradientButton
-          square
-          onclick={() => (settingsOpen = !settingsOpen)}
-          tooltip="Account settings"
-        >
-          <Icon name="account-settings" />
-        </GradientButton>
+      </div>
+
+      <span class="toolbar-spacer"></span>
+
+      <div class="tool-group">
         <GradientButton
           active={quickEntryOpen}
           onclick={() => (quickEntryOpen = !quickEntryOpen)}
@@ -424,12 +422,23 @@
           Quick Entry
         </GradientButton>
         <GradientButton
-          active={convertFx}
-          onclick={() => (convertFx = !convertFx)}
-          tooltip="Convert to {preferredCurrency}"
+          variant="primary"
+          onclick={() => (addModalOpen = true)}
+          tooltip="New transaction"
         >
-          <CurrencyPill code={preferredCurrency} size="xs" />
+          <Icon name="plus" size={11} />
+          New
         </GradientButton>
+        <MoreMenu
+          items={[
+            { label: 'Reconcile', icon: 'reconcile', onselect: () => (reconcileOpen = true) },
+            {
+              label: 'Account settings',
+              icon: 'account-settings',
+              onselect: () => (settingsOpen = !settingsOpen),
+            },
+          ]}
+        />
       </div>
     </div>
 
@@ -574,27 +583,38 @@
     background: var(--color-window);
   }
 
-  /* Toolbar: FilterPanel (bare) + divider + ops buttons */
+  /* Toolbar: "looking at" on the left, "can do" on the right. */
   .toolbar {
     display: flex;
-    align-items: stretch;
+    align-items: center;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
   }
 
-  .toolbar-sep {
-    width: 1px;
-    background: var(--color-rule);
-    margin: 6px 0;
-    flex-shrink: 0;
-  }
-
-  .ops {
+  .tool-group {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: var(--sp-xs) var(--sp-sm);
+    min-width: 0;
+  }
+
+  .toolbar-spacer {
+    flex: 1;
+    min-width: var(--sp-md);
+  }
+
+  /* Which days are on screen, spelled out — the date field shows a preset name. */
+  .range-summary {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.3px;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   /* Section bar */

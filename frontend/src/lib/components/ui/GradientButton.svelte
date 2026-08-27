@@ -8,9 +8,18 @@
     active?: boolean
     square?: boolean
     tooltip?: string
-    variant?: "default" | "warning"
+    /**
+     * "primary" is the single command a surface leads with. It shares the accent fill
+     * with `active`, but `active` means toggled-on and sets aria-pressed, which is wrong
+     * for a command button — hence a separate variant rather than reusing the state.
+     */
+    variant?: "default" | "warning" | "primary"
     /** Loud resting state (amber fill + soft pulse) for an unaddressed attention indicator. */
     attention?: boolean
+    /** Borderless and flat at rest; border and gradient arrive on hover. For icon
+      * buttons in a dense toolbar, where a row of identical raised chips is what makes
+      * the toolbar unreadable. */
+    quiet?: boolean
     /** Control height/typography. "lg" is for primary CTAs; "md" is the default control size. */
     size?: "sm" | "md" | "lg"
     type?: "button" | "submit" | "reset"
@@ -26,6 +35,7 @@
     tooltip,
     variant = "default",
     attention = false,
+    quiet = false,
     size = "md",
     type = "button",
     children,
@@ -45,6 +55,8 @@
   class:square
   class:active
   class:warning={variant === "warning"}
+  class:primary={variant === "primary" && !active}
+  class:quiet={quiet && !active}
   class:attention={attention && !active}
 >
   {@render children()}
@@ -101,7 +113,41 @@
     width: 20px;
   }
 
-  .btn:hover:not(:disabled):not(.active) {
+  /* Flat until pointed at. The chrome is what says "this is a control"; at rest, in a
+     toolbar of eight, eight sets of chrome say nothing. */
+  .btn.quiet {
+    background: none;
+    border-color: transparent;
+    box-shadow: none;
+    color: var(--color-text-muted);
+  }
+
+  .btn.quiet:hover:not(:disabled) {
+    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
+    border-color: var(--color-accent);
+    color: var(--color-text);
+  }
+
+  .btn.primary {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent),
+      color-mix(in srgb, var(--color-accent) 78%, black)
+    );
+    border-color: var(--color-accent);
+    color: var(--color-accent-fg);
+  }
+
+  .btn.primary:hover:not(:disabled) {
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-hi),
+      var(--color-accent)
+    );
+    border-color: var(--color-accent-hi);
+  }
+
+  .btn:hover:not(:disabled):not(.active):not(.quiet):not(.primary) {
     background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
     border-color: var(--color-accent);
   }
