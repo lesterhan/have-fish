@@ -181,6 +181,64 @@ app.post('/', async (c) => {
   return c.json(created, 201)
 })
 
+// POST /api/coverage/snooze
+// Silences the dashboard tile for a while. Body: { days } (1-90, default 7).
+//
+// Snoozing is a display preference and writes no coverage: an account that is behind stays
+// behind, it just stops being mentioned on the way past. That separation is the point — a
+// snooze that quietly marked things complete would be the worst possible way to lose data.
+// 200: { snoozedUntil }
+// 400: an out-of-range day count
+app.post('/snooze', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => ({})) as Record<string, unknown>
+
+  const days = body.days === undefined ? 7 : body.days
+  if (typeof days !== 'number' || !Number.isInteger(days) || days < 1 || days > 90) {
+    return c.json({ error: 'days must be a whole number from 1 to 90' }, 400)
+  }
+
+  const snoozedUntil = addDays(todayUtc(), days)
+  await writeCatchUpSetting(userId, 'snoozedUntil', snoozedUntil)
+
+  return c.json({ snoozedUntil })
+})
+
+// DELETE /api/coverage/snooze
+// Ends a snooze early.
+// 200: { snoozedUntil: null }
+app.delete('/snooze', async (c) => {
+  await writeCatchUpSetting(c.get('userId'), 'snoozedUntil', null)
+  return c.json({ snoozedUntil: null })
+})
+
+// Writes one non-account key under preferences.catchUp. Same nested jsonb_set as the per-
+// account config for the same reason: the shallow `||` merge the settings route uses would
+// replace the whole catchUp object and take every account's config with it.
+async function writeCatchUpSetting(userId: string, key: string, value: string | null) {
+  const existing = sql`COALESCE(${userSettings.preferences}, '{}'::jsonb)`
+
+  const next = value === null
+    ? sql`${existing} #- ARRAY['catchUp', ${key}]::text[]`
+    : sql`jsonb_set(
+        jsonb_set(${existing}, '{catchUp}'::text[], COALESCE(${existing}->'catchUp', '{}'::jsonb), true),
+        ARRAY['catchUp', ${key}]::text[],
+        ${JSON.stringify(value)}::jsonb,
+        true
+      )`
+
+  await db
+    .insert(userSettings)
+    .values({ userId, preferences: value === null ? {} : { catchUp: { [key]: value } } })
+    .onConflictDoUpdate({
+      target: userSettings.userId,
+      set: { preferences: next, updatedAt: new Date() },
+    })
+}
+
+// Registered before the /:id routes below: Hono matches same-method routes in registration
+// order, so a later DELETE /snooze would never be reached — /:id would capture "snooze" as
+// an id and quietly answer 204.
 // DELETE /api/coverage/:id
 // Withdraws an assertion. Soft delete per house convention, so the claim that was once made
 // stays on the record even after the user takes it back.
