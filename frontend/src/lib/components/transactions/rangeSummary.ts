@@ -1,4 +1,8 @@
-import { MONTH_NAMES } from '$lib/date'
+// Relative, not $lib: `bun test` resolves SvelteKit's aliases only when
+// .svelte-kit/tsconfig.json happens to exist, so a *value* import through $lib passes
+// locally after a `check` and fails in CI. Type-only $lib imports are fine — TypeScript
+// erases them before bun ever looks.
+import { MONTH_NAMES } from '../../date'
 
 /**
  * The muted line beside the date field: what you are actually looking at.
