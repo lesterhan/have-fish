@@ -2,7 +2,7 @@
   import Modal from '../ui/Modal.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
   import CurrencyInput from '../ui/CurrencyInput.svelte'
-  import { fetchAccountBalanceAtDate, createTransaction } from '$lib/api'
+  import { fetchAccountBalanceAtDate, createTransaction, recordReconcileCoverage } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { toISODate } from '$lib/date'
 
@@ -44,6 +44,22 @@
   let submitting = $state(false)
   let submitError = $state('')
   let posted = $state(false)
+  // Whether the coverage write landed, so the modal can say the ledger is now marked complete
+  // rather than leaving the user to guess.
+  let coverageRecorded = $state(false)
+
+  // Reconciling to D means the ledger agrees with the bank at D by construction: either the
+  // balances already matched, or the adjustment posting just made them match. Both are proof,
+  // so both record coverage — and a failure to record must not read as a failed reconcile,
+  // since the ledger work itself already succeeded.
+  async function recordCoverage() {
+    try {
+      const result = await recordReconcileCoverage(accountId, statementDate)
+      coverageRecorded = result.created
+    } catch {
+      coverageRecorded = false
+    }
+  }
 
   // Ensure settings are loaded when the modal opens so adjustmentsAccountId is available.
   $effect(() => {
@@ -76,6 +92,9 @@
         currency: currency.trim().toUpperCase(),
         difference: diff,
       }
+      // A balanced account posts no adjustment, so this is the only moment its completeness
+      // could ever be recorded.
+      if (parseFloat(diff) === 0) await recordCoverage()
     } catch (e) {
       checkError = e instanceof Error ? e.message : 'Failed to fetch balance.'
     } finally {
@@ -110,6 +129,7 @@
         ],
       })
       posted = true
+      await recordCoverage()
       onSuccess?.()
     } catch (e) {
       submitError =
@@ -129,6 +149,7 @@
       checkError = ''
       submitError = ''
       posted = false
+      coverageRecorded = false
     }, 200)
   }
 
@@ -209,9 +230,18 @@
 
         {#if isBalanced}
           <p class="balanced">Ledger is balanced.</p>
+          {#if coverageRecorded}
+            <p class="coverage">Marks this account complete through {statementDate}.</p>
+          {/if}
         {:else if posted}
           <p class="balanced">Adjustment posted.</p>
+          {#if coverageRecorded}
+            <p class="coverage">Marks this account complete through {statementDate}.</p>
+          {/if}
         {:else}
+          <p class="coverage">
+            Posting the adjustment also marks this account complete through {statementDate}.
+          </p>
           {#if !settingsStore.value?.defaultAdjustmentsAccountId}
             <p class="warn">
               No adjustments account configured — set one in Settings before
@@ -372,5 +402,14 @@
     padding-top: var(--sp-md);
     border-top: 1px solid var(--color-divider);
     margin-top: var(--sp-md);
+  }
+
+  /* The reconcile's second effect. Stated plainly because it writes something the user did
+     not explicitly ask for, and a silent assertion about completeness is exactly the kind of
+     thing that later looks like a bug. */
+  .coverage {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    margin-top: var(--sp-xs);
   }
 </style>

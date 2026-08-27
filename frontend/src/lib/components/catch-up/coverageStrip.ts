@@ -56,7 +56,7 @@ function startOfNextMonth(date: string): string {
     : `${year}-${String(month + 1).padStart(2, '0')}-01`
 }
 
-function daysApart(from: string, to: string): number {
+export function daysApart(from: string, to: string): number {
   return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
 }
 

@@ -7,9 +7,17 @@
     currency: string
     flowDirection?: 'in' | 'out' | null
     inline?: boolean
+    /** Bold the figure — for the one amount a row is actually about. */
+    emphasis?: boolean
   }
 
-  let { amount, currency, flowDirection = null, inline = false }: Props = $props()
+  let {
+    amount,
+    currency,
+    flowDirection = null,
+    inline = false,
+    emphasis = false,
+  }: Props = $props()
 </script>
 
 {#if inline}
@@ -20,7 +28,7 @@
   >
     {#if flowDirection === 'in'}<Icon name="arrow-right" size={11} />{/if}
     <CurrencyPill code={currency} size="xs" />
-    <span class="amount">{amount}</span>
+    <span class="amount" class:emphasis>{amount}</span>
     {#if flowDirection === 'out'}<Icon name="arrow-right" size={11} />{/if}
   </div>
 {:else}
@@ -32,7 +40,7 @@
       class:flow-out={flowDirection === 'out'}
     >
       {#if flowDirection === 'in'}<Icon name="arrow-right" size={13} />{/if}
-      <span class="amount">{amount}</span>
+      <span class="amount" class:emphasis>{amount}</span>
       {#if flowDirection === 'out'}<Icon name="arrow-right" size={13} />{/if}
     </div>
   </div>
@@ -82,6 +90,11 @@
     font-family: var(--font-mono);
     font-size: var(--text-base);
     color: inherit;
+  }
+
+  .amount.emphasis {
+    font-weight: var(--weight-semibold);
+    font-variant-numeric: tabular-nums;
   }
 
   /* Inline mode is used in compact single-line rows — match body text size */

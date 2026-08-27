@@ -181,6 +181,64 @@ app.post('/', async (c) => {
   return c.json(created, 201)
 })
 
+// POST /api/coverage/snooze
+// Silences the dashboard tile for a while. Body: { days } (1-90, default 7).
+//
+// Snoozing is a display preference and writes no coverage: an account that is behind stays
+// behind, it just stops being mentioned on the way past. That separation is the point — a
+// snooze that quietly marked things complete would be the worst possible way to lose data.
+// 200: { snoozedUntil }
+// 400: an out-of-range day count
+app.post('/snooze', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => ({})) as Record<string, unknown>
+
+  const days = body.days === undefined ? 7 : body.days
+  if (typeof days !== 'number' || !Number.isInteger(days) || days < 1 || days > 90) {
+    return c.json({ error: 'days must be a whole number from 1 to 90' }, 400)
+  }
+
+  const snoozedUntil = addDays(todayUtc(), days)
+  await writeCatchUpSetting(userId, 'snoozedUntil', snoozedUntil)
+
+  return c.json({ snoozedUntil })
+})
+
+// DELETE /api/coverage/snooze
+// Ends a snooze early.
+// 200: { snoozedUntil: null }
+app.delete('/snooze', async (c) => {
+  await writeCatchUpSetting(c.get('userId'), 'snoozedUntil', null)
+  return c.json({ snoozedUntil: null })
+})
+
+// Writes one non-account key under preferences.catchUp. Same nested jsonb_set as the per-
+// account config for the same reason: the shallow `||` merge the settings route uses would
+// replace the whole catchUp object and take every account's config with it.
+async function writeCatchUpSetting(userId: string, key: string, value: string | null) {
+  const existing = sql`COALESCE(${userSettings.preferences}, '{}'::jsonb)`
+
+  const next = value === null
+    ? sql`${existing} #- ARRAY['catchUp', ${key}]::text[]`
+    : sql`jsonb_set(
+        jsonb_set(${existing}, '{catchUp}'::text[], COALESCE(${existing}->'catchUp', '{}'::jsonb), true),
+        ARRAY['catchUp', ${key}]::text[],
+        ${JSON.stringify(value)}::jsonb,
+        true
+      )`
+
+  await db
+    .insert(userSettings)
+    .values({ userId, preferences: value === null ? {} : { catchUp: { [key]: value } } })
+    .onConflictDoUpdate({
+      target: userSettings.userId,
+      set: { preferences: next, updatedAt: new Date() },
+    })
+}
+
+// Registered before the /:id routes below: Hono matches same-method routes in registration
+// order, so a later DELETE /snooze would never be reached — /:id would capture "snooze" as
+// an id and quietly answer 204.
 // DELETE /api/coverage/:id
 // Withdraws an assertion. Soft delete per house convention, so the claim that was once made
 // stays on the record even after the user takes it back.
@@ -314,6 +372,81 @@ async function writeOverride(userId: string, accountId: string, override: Covera
       target: userSettings.userId,
       set: { preferences: next, updatedAt: new Date() },
     })
+}
+
+// POST /api/coverage/reconcile
+// Records that a reconcile proved this account complete through a date.
+//
+// Reconciling to D means the ledger agrees with the bank at D by construction — either the
+// balances already matched, or the adjustment posting made them match. That is the strongest
+// evidence of completeness the app can ever have, and until now it was computed and thrown
+// away.
+//
+// The start is derived rather than asked for: coverage continues from wherever it left off,
+// so the user is never made to answer a question the data already answers.
+// Body: { accountId, throughDate }
+// 200: { created: true, interval } — or { created: false, reason } when D adds nothing
+// 400: malformed date
+// 404: account not found or not owned by the caller
+app.post('/reconcile', async (c) => {
+  const userId = c.get('userId')
+  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+
+  const { accountId, throughDate } = body
+  if (!isUuid(accountId)) return c.json({ error: 'accountId must be a UUID string' }, 400)
+  if (!isIsoDate(throughDate)) return c.json({ error: 'throughDate must be a YYYY-MM-DD date' }, 400)
+
+  if (!(await ownsAccount(userId, accountId))) {
+    return c.json({ error: 'account not found' }, 404)
+  }
+
+  const merged = mergeCoverage(await readIntervals(userId, accountId))
+  const coveredThrough = merged.at(-1)?.throughDate ?? null
+
+  // Already covered past the reconcile date. The reconcile is still real evidence, but it
+  // asserts nothing the log does not already hold, and writing a backwards or zero-length
+  // interval to record that would only add noise.
+  if (coveredThrough !== null && coveredThrough >= throughDate) {
+    return c.json({ created: false, reason: 'already covered', coveredThrough })
+  }
+
+  const fromDate = coveredThrough !== null
+    ? addDays(coveredThrough, 1)
+    // No coverage at all: start at the account's first transaction, since everything before it
+    // is vacuously complete. With no transactions either, the reconcile speaks only for D.
+    : ((await firstTransactionDate(userId, accountId)) ?? throughDate)
+
+  const [created] = await db
+    .insert(accountCoverage)
+    .values({
+      userId,
+      accountId,
+      // Guard rather than assume: a first transaction dated after the reconcile date would
+      // otherwise produce an inverted range the check constraint rejects.
+      fromDate: fromDate > throughDate ? throughDate : fromDate,
+      throughDate,
+      source: 'reconcile',
+      note: null,
+    })
+    .returning()
+
+  return c.json({ created: true, interval: created })
+})
+
+async function firstTransactionDate(userId: string, accountId: string): Promise<string | null> {
+  const [row] = await db
+    .select({ first: sql<string | null>`to_char(MIN(${transactions.date})::date, 'YYYY-MM-DD')` })
+    .from(postings)
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(and(
+      eq(postings.accountId, accountId),
+      eq(transactions.userId, userId),
+      isNull(transactions.deletedAt),
+      isNull(postings.deletedAt),
+    ))
+
+  return row?.first ?? null
 }
 
 export default app

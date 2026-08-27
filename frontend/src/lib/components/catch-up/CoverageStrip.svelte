@@ -9,20 +9,33 @@
     txnDates: string[]
     // Hidden when the strip is one of many on the hub, where a shared legend does the job.
     showLegend?: boolean
+    // Inline variant for the account page's status line: a 10px band with no month ruler
+    // and no legend, sized to sit beside a sentence rather than to be read on its own.
+    compact?: boolean
   }
 
-  let { from, to, intervals, horizon, txnDates, showLegend = true }: Props = $props()
+  let {
+    from,
+    to,
+    intervals,
+    horizon,
+    txnDates,
+    showLegend = true,
+    compact = false,
+  }: Props = $props()
 
   let days = $derived(buildStrip({ from, to, intervals, horizon, txnDates }))
   let counts = $derived(summarizeStrip(days))
 </script>
 
-<div class="strip-wrap">
-  <div class="ruler" aria-hidden="true">
-    {#each days as day (day.date)}
-      <span class="tick-label">{day.monthLabel ?? ''}</span>
-    {/each}
-  </div>
+<div class="strip-wrap" class:compact>
+  {#if !compact}
+    <div class="ruler" aria-hidden="true">
+      {#each days as day (day.date)}
+        <span class="tick-label">{day.monthLabel ?? ''}</span>
+      {/each}
+    </div>
+  {/if}
 
   <div class="strip" role="img" aria-label={ariaSummary(counts, from, to)}>
     {#each days as day (day.date)}
@@ -34,7 +47,7 @@
     {/each}
   </div>
 
-  {#if showLegend}
+  {#if showLegend && !compact}
     <div class="legend">
       <span class="legend-item"><span class="swatch day--covered"></span>Covered</span>
       <span class="legend-item"><span class="swatch day--uncovered"></span>Not covered</span>
@@ -93,6 +106,15 @@
     height: 22px;
     position: relative;
     transition: filter var(--duration-fast) var(--ease);
+  }
+
+  .compact .day {
+    height: 10px;
+  }
+
+  /* At 10px the dot would sit on the band's edge — nudge it into the middle instead. */
+  .compact .has-txn::after {
+    bottom: 2px;
   }
 
   .day:hover {

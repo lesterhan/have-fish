@@ -232,10 +232,30 @@ export async function readCatchUpOverrides(
   if (typeof catchUp !== 'object' || catchUp === null || Array.isArray(catchUp)) return {}
 
   const overrides: Record<string, CoverageConfigOverride> = {}
-  for (const [accountId, raw] of Object.entries(catchUp as Record<string, unknown>)) {
-    overrides[accountId] = sanitizeOverride(raw)
+  for (const [key, raw] of Object.entries(catchUp as Record<string, unknown>)) {
+    if (RESERVED_CATCH_UP_KEYS.has(key)) continue
+    overrides[key] = sanitizeOverride(raw)
   }
   return overrides
+}
+
+// Keys under `catchUp` that are settings rather than per-account config. The blob is otherwise
+// keyed by account id, so anything else living there has to be skipped explicitly or it comes
+// back as a phantom account whose overrides are always empty.
+const RESERVED_CATCH_UP_KEYS = new Set(['snoozedUntil'])
+
+// When the dashboard tile is silenced until, as 'YYYY-MM-DD', or null. Pure so callers that
+// already hold the preferences blob don't pay for a second read of the same row.
+//
+// Snoozing is a display preference and touches no coverage state — an account that is behind
+// stays behind, it just stops being mentioned on the way past.
+export function snoozedUntilFrom(preferences: unknown): string | null {
+  if (typeof preferences !== 'object' || preferences === null) return null
+  const catchUp = (preferences as Record<string, unknown>).catchUp
+  if (typeof catchUp !== 'object' || catchUp === null || Array.isArray(catchUp)) return null
+
+  const value = (catchUp as Record<string, unknown>).snoozedUntil
+  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null
 }
 
 // The live coverage assertions for one account, oldest first.

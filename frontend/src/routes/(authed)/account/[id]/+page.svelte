@@ -32,8 +32,8 @@
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
-  import Card from '$lib/components/ui/Card.svelte'
   import CoverageStrip from '$lib/components/catch-up/CoverageStrip.svelte'
+  import { statusLine } from '$lib/components/catch-up/statusLine'
   import { scrollShadow } from '$lib/scrollShadow'
 
   let id = $derived(page.params.id!)
@@ -66,6 +66,8 @@
   let settingsOpen = $state(false)
   let reconcileOpen = $state(false)
   let quickEntryOpen = $state(false)
+  // The 90-day picture is one click away; the sentence is what sits on the page.
+  let coverageOpen = $state(false)
   // The single transaction-detail surface: a row click selects a tx, opening the modal where
   // viewing, in-place edit, and deletion all happen.
   let selectedTx = $state<Transaction | null>(null)
@@ -327,20 +329,36 @@
     {/if}
 
     {#if coverage}
-      <Card class="coverage-card">
-        <div class="coverage-head">
-          <span class="coverage-title">COVERAGE · LAST {coverage.window.days} DAYS</span>
-          <span class="coverage-status">
-            {#if coverage.intervals.length === 0}
-              Nothing recorded yet
-            {:else if coverage.intervals[0].throughDate >= coverage.horizon}
-              Current{#if coverage.nextHorizon} · next statement {coverage.nextHorizon}{/if}
-            {:else}
-              Covered through {coverage.intervals[0].throughDate}
-            {/if}
-          </span>
+      {@const status = statusLine(coverage)}
+      <div class="status-line">
+        <div class="status-strip">
+          <CoverageStrip
+            from={coverage.window.from}
+            to={coverage.window.to}
+            intervals={coverage.intervals}
+            horizon={coverage.horizon}
+            txnDates={coverage.txnDates}
+            compact
+          />
         </div>
-        <div class="coverage-body">
+        <span class="status-text">{status.text}</span>
+        <button
+          class="status-toggle"
+          aria-expanded={coverageOpen}
+          onclick={() => (coverageOpen = !coverageOpen)}
+        >
+          Coverage
+          <span class="status-chevron" class:open={coverageOpen}>
+            <Icon name="chevron-down-line" size={9} />
+          </span>
+        </button>
+      </div>
+
+      {#if coverageOpen}
+        <div class="coverage-expanded">
+          <div class="coverage-expanded-title">
+            COVERAGE · LAST {coverage.window.days} DAYS
+          </div>
           <CoverageStrip
             from={coverage.window.from}
             to={coverage.window.to}
@@ -349,7 +367,7 @@
             txnDates={coverage.txnDates}
           />
         </div>
-      </Card>
+      {/if}
     {/if}
 
     <div class="toolbar">
@@ -652,36 +670,98 @@
     }
   }
 
-  :global(.coverage-card) {
-    margin-bottom: var(--sp-sm);
-  }
-
-  .coverage-head {
+  /* Coverage as a flat full-bleed band, like every other region on the page. The old
+     Card gave it a floating object's corners and shadow while stretching edge to edge,
+     and brought a second dark section bar that competed with the Transactions bar. */
+  .status-line {
     display: flex;
-    align-items: baseline;
-    justify-content: space-between;
-    gap: var(--sp-sm);
-    flex-wrap: wrap;
-    padding: 3px var(--sp-sm);
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px) 0 0;
+    align-items: center;
+    gap: var(--sp-md);
+    padding: 0 var(--sp-lg);
+    height: 32px;
+    background: var(--color-window-raised);
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
   }
 
-  .coverage-title {
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+  .status-strip {
+    width: 240px;
+    flex-shrink: 0;
   }
 
-  .coverage-status {
+  .status-text {
     font-family: var(--font-sans);
     font-size: var(--text-xs);
-    opacity: 0.85;
+    color: var(--color-text);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
-  .coverage-body {
-    padding: var(--sp-sm) var(--sp-md) var(--sp-md);
+  .status-toggle {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    margin-left: auto;
+    padding: 2px 6px;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    cursor: pointer;
+    flex-shrink: 0;
+    transition: color var(--duration-fast) var(--ease);
   }
+
+  .status-toggle:hover {
+    color: var(--color-text);
+  }
+
+  .status-toggle:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -2px;
+  }
+
+  .status-chevron {
+    display: inline-flex;
+    transform-origin: center center;
+    transition: transform var(--duration-fast) var(--ease);
+  }
+
+  .status-chevron.open {
+    transform: rotate(180deg);
+  }
+
+  .coverage-expanded {
+    padding: var(--sp-sm) var(--sp-lg) var(--sp-md);
+    background: var(--color-window-raised);
+    border-bottom: 1px solid var(--color-rule);
+    flex-shrink: 0;
+  }
+
+  .coverage-expanded-title {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    font-weight: 700;
+    letter-spacing: 0.8px;
+    color: var(--color-text-muted);
+    margin-bottom: var(--sp-xs);
+  }
+
+  @media (max-width: 520px) {
+    .status-line {
+      height: auto;
+      flex-wrap: wrap;
+      gap: var(--sp-xs);
+      padding: var(--sp-xs) var(--sp-md);
+    }
+
+    .status-strip {
+      width: 100%;
+      order: 3;
+    }
+  }
+
 </style>

@@ -1484,6 +1484,9 @@ export type CatchUpPayload = {
   today: string
   accounts: CatchUpAccount[]
   summary: CatchUpSummary
+  // When the dashboard tile is silenced until, or null. A display preference only — snoozing
+  // changes no coverage state.
+  snoozedUntil: string | null
 }
 
 export async function fetchCatchUp(): Promise<CatchUpPayload> {
@@ -1578,4 +1581,47 @@ export async function updateCoverageConfig(
     throw new Error((err as any).error ?? 'Failed to update coverage config')
   }
   return res.json()
+}
+
+// Records that a reconcile proved an account complete through a date. The interval's start is
+// derived server-side from where coverage already reaches, so the caller never has to ask the
+// user a question the data already answers.
+export async function recordReconcileCoverage(
+  accountId: string,
+  throughDate: string,
+): Promise<
+  | { created: true; interval: CoverageAssertion }
+  | { created: false; reason: string; coveredThrough: string }
+> {
+  const res = await fetch(`${BASE}/api/coverage/reconcile`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ accountId, throughDate }),
+  })
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({}))
+    throw new Error((err as any).error ?? 'Failed to record coverage')
+  }
+  return res.json()
+}
+
+// Silences the dashboard tile for a while. Writes no coverage.
+export async function snoozeCatchUp(days = 7): Promise<{ snoozedUntil: string }> {
+  const res = await fetch(`${BASE}/api/coverage/snooze`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ days }),
+  })
+  if (!res.ok) throw new Error('Failed to snooze')
+  return res.json()
+}
+
+export async function unsnoozeCatchUp(): Promise<void> {
+  const res = await fetch(`${BASE}/api/coverage/snooze`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw new Error('Failed to un-snooze')
 }
