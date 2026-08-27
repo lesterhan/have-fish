@@ -1,7 +1,9 @@
 import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
-import type { accounts as accountsTable } from '../db/schema.ts'
+import { db } from '../db'
+import { eq } from 'drizzle-orm'
+import { accounts as accountsTable } from '../db/schema.ts'
 
 type Account = typeof accountsTable.$inferSelect
 
@@ -53,6 +55,16 @@ describe('accounts', () => {
         body: JSON.stringify({ path }),
       })
       return (await res.json() as Account).id
+    }
+
+    // Helper: set (or clear, with null) an account's stored hledger type override
+    async function setType(id: string, type: string | null) {
+      const res = await app.request(`/api/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      })
+      if (res.status !== 200) throw new Error(`setType failed: ${res.status}`)
     }
 
     // Helper: create a transaction with the given postings
@@ -120,6 +132,179 @@ describe('accounts', () => {
         { currency: 'CAD', amount: '500.00' },
         { currency: 'GBP', amount: '200.00' },
       ]))
+    })
+
+    it('reports each account\'s resolved type', async () => {
+      await createAccount('assets:chequing')
+      await createAccount('liabilities:visa')
+
+      const res = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
+      const body = await res.json() as { path: string; type: string | null; resolvedType: string | null }[]
+
+      const chequing = body.find(b => b.path === 'assets:chequing')!
+      expect(chequing.resolvedType).toBe('asset')
+      // Untagged, so the raw override is null and the type came from path inference.
+      expect(chequing.type).toBeNull()
+      expect(body.find(b => b.path === 'liabilities:visa')!.resolvedType).toBe('liability')
+    })
+
+    it('reports the stored override as the resolved type, not the inferred one', async () => {
+      const walletId = await createAccount('assets:cash:cad')
+      await setType(walletId, 'cash')
+
+      const res = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
+      const body = await res.json() as { path: string; type: string | null; resolvedType: string | null }[]
+
+      const wallet = body.find(b => b.path === 'assets:cash:cad')!
+      // `resolvedType` is stored-wins; inference alone would have said 'asset'. Both fields
+      // mean the same thing they do on GET /api/accounts.
+      expect(wallet.resolvedType).toBe('cash')
+      expect(wallet.type).toBe('cash')
+    })
+
+    describe('?types= filter', () => {
+      it('returns only accounts whose resolved type matches', async () => {
+        const walletId = await createAccount('assets:cash:cad')
+        await setType(walletId, 'cash')
+        await createAccount('assets:chequing')
+        await createAccount('liabilities:visa')
+
+        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        expect(res.status).toBe(200)
+        const body = await res.json() as { path: string }[]
+
+        expect(body.map(b => b.path)).toEqual(['assets:cash:cad'])
+      })
+
+      it('includes a tagged account whose path sits outside every configured root', async () => {
+        // The whole point of the stored override: an atypically-named root that path
+        // inference cannot classify. The unfiltered endpoint selects by path root, so
+        // this account is invisible there — the filter must find it by stored type.
+        const walletId = await createAccount('储蓄:现金')
+        await setType(walletId, 'cash')
+
+        const unfiltered = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
+        expect((await unfiltered.json() as { path: string }[]).map(b => b.path)).not.toContain('储蓄:现金')
+
+        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        const body = await res.json() as { path: string; resolvedType: string }[]
+        expect(body.map(b => b.path)).toEqual(['储蓄:现金'])
+        expect(body[0].resolvedType).toBe('cash')
+      })
+
+      it('excludes an account whose path looks like cash but carries no override', async () => {
+        // Strict tag rule: inference never yields 'cash', so an untagged
+        // `assets:cash:*` account is an ordinary asset and must not match.
+        await createAccount('assets:cash:cad')
+
+        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        expect(await res.json()).toEqual([])
+      })
+
+      it('excludes an account whose cash override was cleared', async () => {
+        const walletId = await createAccount('assets:cash:cad')
+        await setType(walletId, 'cash')
+        await setType(walletId, null)
+
+        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        expect(await res.json()).toEqual([])
+      })
+
+      it('sums balances for a filtered account', async () => {
+        const walletId = await createAccount('assets:cash:cad')
+        await setType(walletId, 'cash')
+        const expenseId = await createAccount('expenses:food')
+
+        await createTransaction([
+          { accountId: walletId, amount: '300.00', currency: 'CAD' },
+          { accountId: expenseId, amount: '-300.00', currency: 'CAD' },
+        ])
+        await createTransaction([
+          { accountId: walletId, amount: '-40.00', currency: 'CAD' },
+          { accountId: expenseId, amount: '40.00', currency: 'CAD' },
+        ])
+
+        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        const body = await res.json() as { path: string; balances: { currency: string; amount: string }[] }[]
+        expect(body[0].balances).toEqual([{ currency: 'CAD', amount: '260.00' }])
+      })
+
+      it('returns a tagged account with no postings as empty balances', async () => {
+        const walletId = await createAccount('assets:cash:jpy')
+        await setType(walletId, 'cash')
+
+        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        const body = await res.json() as { path: string; balances: unknown[] }[]
+        expect(body).toHaveLength(1)
+        expect(body[0].balances).toEqual([])
+      })
+
+      it('accepts several comma-separated types', async () => {
+        const walletId = await createAccount('assets:cash:cad')
+        await setType(walletId, 'cash')
+        await createAccount('assets:chequing')
+        await createAccount('expenses:food')
+
+        const res = await app.request('/api/accounts/balances?types=cash,asset', { headers: { Cookie: cookie } })
+        const body = await res.json() as { path: string }[]
+
+        expect(body.map(b => b.path).sort()).toEqual(['assets:cash:cad', 'assets:chequing'])
+      })
+
+      it('rejects an unknown type', async () => {
+        const res = await app.request('/api/accounts/balances?types=wallet', { headers: { Cookie: cookie } })
+        expect(res.status).toBe(400)
+        expect(await res.json()).toEqual({ error: 'invalid account type: wallet' })
+      })
+
+      it('rejects an empty types parameter rather than returning everything', async () => {
+        const res = await app.request('/api/accounts/balances?types=', { headers: { Cookie: cookie } })
+        expect(res.status).toBe(400)
+      })
+
+      it('matches an untagged account by path inference', async () => {
+        await createAccount('assets:chequing')
+        await createAccount('expenses:food')
+
+        const res = await app.request('/api/accounts/balances?types=expense', { headers: { Cookie: cookie } })
+        const body = await res.json() as { path: string; resolvedType: string }[]
+
+        expect(body.map(b => b.path)).toContain('expenses:food')
+        expect(body.map(b => b.path)).not.toContain('assets:chequing')
+      })
+
+      it('matches an account sitting at a root itself, not just under it', async () => {
+        await createAccount('assets')
+
+        const res = await app.request('/api/accounts/balances?types=asset', { headers: { Cookie: cookie } })
+        expect((await res.json() as { path: string }[]).map(b => b.path)).toContain('assets')
+      })
+
+      it('falls back to inference for an account whose stored type is not a valid one', async () => {
+        // Can't happen through the API (PATCH validates), but the resolver treats an
+        // unusable stored value as "infer", and the SQL narrowing must not drop the row
+        // before the resolver ever sees it.
+        const id = await createAccount('assets:chequing')
+        await db.update(accountsTable).set({ type: 'not-a-type' }).where(eq(accountsTable.id, id))
+
+        const res = await app.request('/api/accounts/balances?types=asset', { headers: { Cookie: cookie } })
+        const body = await res.json() as { path: string; resolvedType: string }[]
+
+        const chequing = body.find(b => b.path === 'assets:chequing')
+        expect(chequing).toBeDefined()
+        expect(chequing!.resolvedType).toBe('asset')
+      })
+
+      it('never returns another user\'s cash accounts', async () => {
+        const walletId = await createAccount('assets:cash:cad')
+        await setType(walletId, 'cash')
+
+        const otherCookie = await createTestUser('other@example.com')
+        const res = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: otherCookie },
+        })
+        expect(await res.json()).toEqual([])
+      })
     })
   })
 

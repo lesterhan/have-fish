@@ -237,3 +237,40 @@ expenses:food      -50.00 CAD   (reads as expense decreasing — makes no sense)
 **Options under consideration:**
 - **Parser-level "negate amounts" flag** — explicit toggle on the parser, user sets it when the account is a liability. Flexible, works for edge cases where a liability CSV uses negative amounts.
 - **Auto-negate based on account type** — at import time, check if the target account path starts with `defaultLiabilitiesRootPath` and negate automatically. No extra config needed.
+
+---
+
+## Accounts
+
+### BUG-007 — Balances views miss accounts whose type is a stored override outside the path roots
+
+**Steps to reproduce:**
+1. Create an account under an atypically-named root, e.g. `储蓄:现金` (or any path not under
+   `assets:` / `liabilities:` / `equity:`)
+2. On the account page, set **Type** to Cash (or Asset / Liability / Equity)
+3. Open the dashboard, the sidebar, or any web view fed by `fetchAccountBalances()`
+
+**Expected:** The account appears with its balance, classified by the type you stored. Setting
+the type override is the documented unlock for roots that path inference can't classify
+(`backend/src/postings/account-type.ts`), so the balances views should honour it.
+
+**Actual:** The account is absent everywhere balances are shown. Its money is invisible on the
+dashboard and its balance is excluded from any total.
+
+**Root cause:** `GET /api/accounts/balances` selects rows by PATH ROOT —
+`like(path, '<assetsRoot>:%')` and friends — before any type resolution happens. An account
+outside those roots is never selected, so no later resolution can rescue it. This predates the
+stored `type` column: the endpoint was written when inference was the only source of truth.
+
+**Fix direction:** Make the unfiltered branch select by resolved type the way the `?types=`
+branch now does (added 2026-08-27 for the Mobile Cash Ledger epic, story 1 — see
+`typeFilterCondition` in `backend/src/routes/accounts.ts`). The mechanism is already there and
+tested; the unfiltered path was deliberately left alone in that story to avoid changing what
+the web dashboard shows as a side effect of a mobile feature. Consumers already read the
+stored-wins `resolvedType` (via `isClassifiedAs`), so no client change is needed — widening
+the query is the whole fix.
+
+**Note:** this is a *widening* fix — accounts that are currently invisible would start appearing
+in web balances views and in totals. That is the correct behaviour, but it will visibly change
+dashboard figures for anyone using atypical roots, so it wants its own change rather than
+riding along with unrelated work.
