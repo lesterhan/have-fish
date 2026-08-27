@@ -146,6 +146,16 @@ const color = {
   accentGlossTop: '#c8793c', // accent gloss gradient top stop
   accentGlossBorder: '#a1551a', // accent gloss border
 
+  /* Cash-mode accent (denim) — the Cash ledger's counterpart to the rust accent.
+   * Chosen far from rust in hue so the accent alone says which ledger you are in,
+   * and away from green/red so the mode cue never reads as an amount's sign. */
+  cashAccent: '#3d6289',
+  cashAccentSoft: '#e2e9f1', // selected chip / segment fill
+  cashAccentLine: '#aec3d9', // selected border
+  cashAccentInk: '#35577a', // text on cashAccentSoft fills
+  cashAccentGlossTop: '#4f7aa4', // accent gloss gradient top stop
+  cashAccentGlossBorder: '#33547a', // accent gloss border
+
   /* Status */
   green: '#3f7d5a',
   greenBg: 'rgba(63,125,90,0.12)',

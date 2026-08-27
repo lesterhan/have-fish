@@ -150,7 +150,7 @@ Backend + mobile API layer. No UI.
   them. A wallet with more than one currency is rendered rather than hidden, so a ledger
   that disagrees with the one-per-currency rule never loses money on screen.
 
-### 2. Shell restructure — two modes
+### 2. Shell restructure — two modes ✅ Done
 
 Mobile shell only. Cash screens are placeholders at the end of this story.
 
@@ -164,6 +164,25 @@ Mobile shell only. Cash screens are placeholders at the end of this story.
   restore, invalid stored value, default).
 - **Acceptance:** the four existing Fish Pie tabs behave exactly as before; switching to
   Cash mode changes header, tab set, and accent; the last mode is restored on relaunch.
+
+**Shipped.** Notes for the stories that build on this:
+
+- The `href: null` approach worked — one `Tabs` navigator holds all seven screens and the
+  inactive mode's tabs are hidden. No nested navigators, no duplicated Account route, and
+  each mode's screens stay mounted across a switch. The fallback plan (a root `Stack` over
+  two tab navigators) was not needed.
+- Switching **navigates** as well as toggling: the switch hides the tab you were standing
+  on, so `ModeSwitch` follows `setMode` with `router.replace(homeRouteFor(next))`. A new
+  Cash tab added later must keep `homeRouteFor` pointing at a visible entry tab.
+- The Cash accent is denim (`cashAccent` and friends in `theme.ts`), deliberately far from
+  rust in hue *and* away from green/red so the mode cue never reads as an amount's sign.
+  `accentFor(mode)` is the only way screens should reach it; `useShellMode()` returns it
+  pre-resolved as `accent`.
+- The Cash header has no group switcher and no gear — group settings is a Fish Pie concept,
+  and either control on screen would suggest the wallet belongs to a group. Story 3 fills
+  the Cash title block with the wallet name and balance.
+- `components/CashPlaceholder.tsx` and the three placeholder screens are scaffolding; each
+  story deletes the one it replaces, and the component goes with the last of them.
 
 ### 3. Wallets tab + first-wallet wizard
 
