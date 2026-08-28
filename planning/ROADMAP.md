@@ -66,7 +66,7 @@
 | [Catch-Up Coach](epics/archive/catch-up-coach.md) | Done |
 | [Mobile Cash Ledger](epics/mobile-cash-tab.md) | Scoping |
 | [Account Page Redesign](epics/archive/account-page-redesign.md) | Done |
-| [Account Settings Modal](epics/account-settings-modal.md) | Scoped |
+| [Account Settings Modal](epics/archive/account-settings-modal.md) | Done |
 
 ## Fish Pie sequence
 

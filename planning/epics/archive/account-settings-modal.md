@@ -217,6 +217,6 @@ scrolling to reach a setting costs more than clicking to reach it.
   modal where everything else commits the moment you touch it — it would need its own
   confirmation and visual separation. Worth its own epic.
 - **Starting balances.** Creates a transaction; see the admission rule above. Already has
-  [its own epic](starting-balances.md).
+  [its own epic](../starting-balances.md).
 - **Account path renaming.** Lives in `/accounts/manage` with cascade semantics this modal
   should not duplicate.
