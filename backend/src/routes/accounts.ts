@@ -410,16 +410,63 @@ function readCurrency(value: unknown): CurrencyRead {
   return { ok: false }
 }
 
+// POST /api/accounts
+// Creates one account. Body: { path, name?, defaultCurrency?, type? }.
+//
+// The four fields are named rather than spread. Spreading the request body into the insert
+// made every column on the table client-settable: an `id` of the caller's choosing, a
+// `createdAt` backdated to anywhere, or a `deletedAt` that produced an account born invisible.
+// `userId` was overridden and so was never reachable, but that was one field's luck rather
+// than a rule.
+//
+// 400: no path, a malformed one, the system-managed receivable namespace, or a type or
+// currency this route would refuse on update.
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
+  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+
+  const path = body.path
+  if (typeof path !== 'string' || !isValidPath(path)) {
+    return c.json({ error: 'invalid account path' }, 400)
+  }
+  // Receivable accounts are re-spawned at import, so the rename route refuses to move an
+  // account into that namespace. Creating one there directly is the same hole by another door.
+  if (isReceivablePath(path)) {
+    return c.json({ error: 'receivable accounts are system-managed and cannot be created by hand' }, 400)
+  }
+
+  const values: {
+    userId: string
+    path: string
+    name?: string | null
+    defaultCurrency?: string | null
+    type?: StoredAccountType | null
+  } = { userId, path }
+
+  if ('name' in body) {
+    if (body.name !== null && typeof body.name !== 'string') {
+      return c.json({ error: 'name must be a string or null' }, 400)
+    }
+    values.name = body.name
+  }
+
   if ('defaultCurrency' in body) {
     const currency = readCurrency(body.defaultCurrency)
     if (!currency.ok) return c.json({ error: 'invalid currency' }, 400)
-    body.defaultCurrency = currency.value
+    values.defaultCurrency = currency.value
   }
-  // userId from session overrides anything the client may have sent
-  const [created] = await db.insert(accounts).values({ ...body, userId }).returning()
+
+  // Same rule as the update path: null means infer from the path, anything else must be one
+  // of the seven hledger types.
+  if ('type' in body) {
+    if (body.type !== null && !isStoredAccountType(body.type)) {
+      return c.json({ error: 'invalid account type' }, 400)
+    }
+    values.type = body.type as StoredAccountType | null
+  }
+
+  const [created] = await db.insert(accounts).values(values).returning()
   return c.json(created, 201)
 })
 
