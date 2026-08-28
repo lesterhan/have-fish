@@ -5,7 +5,6 @@ import { and, between, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { addDays, mergeCoverage } from '../coverage/intervals'
 import {
-  effectiveConfig,
   horizon,
   inferCycleFromIntervals,
   isCycleDay,
@@ -14,6 +13,7 @@ import {
   nextHorizon,
   readCatchUpOverrides,
   readIntervals,
+  resolveConfig,
   type CoverageConfigOverride,
 } from '../coverage/horizon'
 
@@ -89,7 +89,7 @@ async function readCoverage(userId: string, accountId: string, windowDays: numbe
   // The horizon travels with the coverage because the strip needs both to render: covered days
   // and uncovered days are only distinguishable from not-yet-obtainable ones once you know
   // where the account's data actually stops being available.
-  const config = await effectiveConfig(userId, accountId)
+  const { config, override, inferred } = await resolveConfig(userId, accountId)
   const today = todayUtc()
   const windowFrom = addDays(today, -(windowDays - 1))
 
@@ -117,6 +117,11 @@ async function readCoverage(userId: string, accountId: string, windowDays: numbe
     intervals,
     assertions: rows,
     config,
+    // The raw pins behind `config`, and what inference alone would have said. `config` is
+    // post-merge and so cannot answer either question: which fields the user pinned, or what
+    // "back to automatic" would restore them to.
+    override,
+    inferred,
     horizon: horizon(config, today),
     nextHorizon: nextHorizon(config, today),
     // The window the strip draws, and the days inside it that already have transactions.

@@ -2,10 +2,22 @@
   import { onDestroy, untrack } from 'svelte'
   import {
     updateAccount,
+    updateCoverageConfig,
     type Account,
+    type AccountCoverage,
     type AccountType,
     type StoredAccountType,
   } from '$lib/api'
+  import {
+    AUTOMATIC,
+    cycleDayLabel,
+    exportModeLabel,
+    ordinal,
+    planCycleCommit,
+    releaseLagLabel,
+    toDayChoice,
+    type ModeChoice,
+  } from '../catch-up/cycleConfig'
   import { SUPPORTED_CURRENCIES, currencyFlag } from '$lib/currency'
   import Modal from '../ui/Modal.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
@@ -22,9 +34,17 @@
     hidden: boolean
     /** The user-level currency an account with no pin of its own falls back to. */
     preferredCurrency: string
+    /**
+     * The account's catch-up state, or null for a type the coach does not track — an expense
+     * account is derived from postings, so it has no statement cycle to model. Null hides the
+     * whole section rather than showing rows that could never mean anything.
+     */
+    coverage: AccountCoverage | null
     onupdated: (account: Account) => void
     /** Flips sidebar visibility. Must reject if the write fails, or the row cannot report it. */
     ontogglehidden: () => Promise<void>
+    /** Re-reads coverage after a config write — the horizon moves, so the strip must too. */
+    oncoveragechanged: () => Promise<void> | void
   }
 
   let {
@@ -32,8 +52,10 @@
     account,
     hidden,
     preferredCurrency,
+    coverage,
     onupdated,
     ontogglehidden,
+    oncoveragechanged,
   }: Props = $props()
 
   // --- display name ---------------------------------------------------------------
@@ -168,6 +190,106 @@
     if (outcome.status === 'saved') onupdated(outcome.value)
   }
 
+  // --- catch-up cycle --------------------------------------------------------------
+  // The first editing UI this model has ever had: PATCH /api/coverage/config accepts four
+  // fields and, until now, the only caller in the app sent `{ tracked: false }`. A
+  // mis-inferred statement cycle could be ranked lower by the coach but never corrected.
+  //
+  // Every control is a select over an enumerable set, so "automatic" is an option rather
+  // than a blank — which is what keeps a real 0-day release lag distinct from no override
+  // at all, and makes the 1–31 bounds structural instead of validated.
+
+  const CYCLE_DAYS = Array.from({ length: 31 }, (_, i) => i + 1)
+  const RELEASE_LAGS = Array.from({ length: 32 }, (_, i) => i)
+
+  let trackedValue = $state(untrack(() => coverage?.config.tracked ?? true))
+  let modeValue = $state<ModeChoice>(
+    untrack(() => coverage?.override.exportMode ?? AUTOMATIC),
+  )
+  // Strings, because that is all a `<select>` ever yields; `toDayChoice` is the one place
+  // they turn back into numbers.
+  let dayValue = $state(untrack(() => selectValue(coverage?.override.cycleDay)))
+  let lagValue = $state(
+    untrack(() => selectValue(coverage?.override.releaseLag)),
+  )
+
+  function selectValue(pinned: number | null | undefined): string {
+    return pinned == null ? AUTOMATIC : String(pinned)
+  }
+
+  let trackedState = $state<SaveState>({ status: 'idle' })
+  let cycleState = $state<SaveState>({ status: 'idle' })
+  let lagState = $state<SaveState>({ status: 'idle' })
+
+  const trackedSaver = new SaveTracker({
+    fallbackMessage: 'Could not save tracking',
+    onchange: (s) => (trackedState = s),
+  })
+  const cycleSaver = new SaveTracker({
+    fallbackMessage: 'Could not save the statement cycle',
+    onchange: (s) => (cycleState = s),
+  })
+  const lagSaver = new SaveTracker({
+    fallbackMessage: 'Could not save the release lag',
+    onchange: (s) => (lagState = s),
+  })
+
+  $effect(() => {
+    trackedValue = coverage?.config.tracked ?? true
+    modeValue = coverage?.override.exportMode ?? AUTOMATIC
+    dayValue = selectValue(coverage?.override.cycleDay)
+    lagValue = selectValue(coverage?.override.releaseLag)
+  })
+
+  let inference = $derived({
+    mode: coverage?.inferred?.exportMode ?? null,
+    day: coverage?.inferred?.cycleDay ?? null,
+  })
+
+  // Keyed off the select rather than the saved config, so choosing "statement cycle" reveals
+  // the day field immediately — the commit is waiting on that day, so hiding it until the
+  // save lands would hide the only thing that can unblock it.
+  let showsCycleFields = $derived(
+    modeValue === 'cycle' ||
+      (modeValue === AUTOMATIC && inference.mode === 'cycle'),
+  )
+
+  let cyclePlan = $derived(
+    planCycleCommit({ mode: modeValue, day: toDayChoice(dayValue) }, inference),
+  )
+
+  async function saveCycle() {
+    if (!coverage) return
+    const plan = cyclePlan
+    // Not an error, so it does not go in the save state: the day row is already on screen
+    // carrying `plan.reason` as a note, and the commit goes out when it is answered.
+    if (plan.status === 'incomplete') return
+    const outcome = await cycleSaver.run(() =>
+      updateCoverageConfig(coverage.accountId, plan.patch),
+    )
+    if (outcome.status === 'saved') await oncoveragechanged()
+  }
+
+  async function saveLag() {
+    if (!coverage) return
+    const choice = toDayChoice(lagValue)
+    const releaseLag = choice === AUTOMATIC ? null : choice
+    const outcome = await lagSaver.run(() =>
+      updateCoverageConfig(coverage.accountId, { releaseLag }),
+    )
+    if (outcome.status === 'saved') await oncoveragechanged()
+  }
+
+  async function saveTracked() {
+    if (!coverage) return
+    const outcome = await trackedSaver.run(() =>
+      updateCoverageConfig(coverage.accountId, { tracked: trackedValue }),
+    )
+    if (outcome.status === 'saved') await oncoveragechanged()
+    // The server still holds the old value, so put the switch back rather than leaving a lie.
+    else if (outcome.status === 'error') trackedValue = !trackedValue
+  }
+
   // --- lifecycle ------------------------------------------------------------------
 
   $effect(() => {
@@ -179,6 +301,9 @@
       typeSaver.reset()
       currencySaver.reset()
       visibilitySaver.reset()
+      trackedSaver.reset()
+      cycleSaver.reset()
+      lagSaver.reset()
     })
   })
 
@@ -203,6 +328,9 @@
     typeSaver.cancel()
     currencySaver.cancel()
     visibilitySaver.cancel()
+    trackedSaver.cancel()
+    cycleSaver.cancel()
+    lagSaver.cancel()
   })
 </script>
 
@@ -298,6 +426,99 @@
       </SettingRow>
     </section>
 
+    {#if coverage}
+      <section class="group">
+        <h3 class="group-title">Catch-up</h3>
+
+        <SettingRow
+          label="Track this account"
+          hint="Whether the coach asks you to keep this account up to date."
+          state={trackedState}
+          onretry={saveTracked}
+        >
+          {#snippet children(labelId)}
+            <Toggle
+              bind:checked={trackedValue}
+              onchange={saveTracked}
+              aria-labelledby={labelId}
+            />
+          {/snippet}
+        </SettingRow>
+
+        {#if trackedValue}
+          <SettingRow
+            label="Statements"
+            hint="A card only produces data when its cycle closes; most other accounts export any range."
+            controlId="setting-export-mode"
+            state={cycleState}
+            onretry={saveCycle}
+          >
+            <Select
+              id="setting-export-mode"
+              bind:value={modeValue}
+              onchange={saveCycle}
+            >
+              <option value={AUTOMATIC}
+                >{exportModeLabel(inference.mode)}</option
+              >
+              <option value="range">Any date range</option>
+              <option value="cycle">Statement cycle</option>
+            </Select>
+          </SettingRow>
+
+          {#if showsCycleFields}
+            <SettingRow
+              label="Cycle closes on"
+              hint="Clamped to the last day of shorter months."
+              controlId="setting-cycle-day"
+              state={cycleState}
+              note={cyclePlan.status === 'incomplete'
+                ? cyclePlan.reason
+                : undefined}
+              onretry={saveCycle}
+            >
+              <Select
+                id="setting-cycle-day"
+                bind:value={dayValue}
+                onchange={saveCycle}
+              >
+                <option value={AUTOMATIC}>{cycleDayLabel(inference.day)}</option
+                >
+                {#each CYCLE_DAYS as day}
+                  <option value={String(day)}>{ordinal(day)}</option>
+                {/each}
+              </Select>
+            </SettingRow>
+
+            <SettingRow
+              label="Available after"
+              hint="Days between the cycle closing and the statement being downloadable."
+              controlId="setting-release-lag"
+              state={lagState}
+              onretry={saveLag}
+            >
+              <Select
+                id="setting-release-lag"
+                bind:value={lagValue}
+                onchange={saveLag}
+              >
+                <option value={AUTOMATIC}
+                  >{releaseLagLabel(coverage.inferred?.releaseLag)}</option
+                >
+                {#each RELEASE_LAGS as days}
+                  <option value={String(days)}>
+                    {days === 0
+                      ? 'Same day'
+                      : `${days} ${days === 1 ? 'day' : 'days'}`}
+                  </option>
+                {/each}
+              </Select>
+            </SettingRow>
+          {/if}
+        {/if}
+      </section>
+    {/if}
+
     <div class="footer">
       {#if nameDirty}
         <!-- Named at the point of action: this is the click that throws the edit away.
@@ -316,7 +537,7 @@
   .settings {
     /* Wide enough that a server error message sits beside its control rather than
        ellipsizing on the first word; shrinks on a narrow screen. */
-    width: min(36rem, calc(100vw - 5rem));
+    width: min(41rem, calc(100vw - 5rem));
   }
 
   .account-path {

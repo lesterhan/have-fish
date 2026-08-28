@@ -155,17 +155,36 @@ code are validated against this set" — this route was the exception.
 
 The first editing UI for the cycle model, calling `updateCoverageConfig`.
 
-- **Tracked** — a toggle. Untracking here should read the same as the hub's "stop tracking".
-- **Export mode** — `range` or `cycle`.
-- **Cycle day** (1–31) and **release lag** (days) — rendered **only** when mode is `cycle`.
+- **Tracked** — a toggle. Untracking here reads the same as the hub's "stop tracking".
+- **Statements** — `range` or `cycle`.
+- **Cycle day** (1–31) and **release lag** (days) — rendered **only** when the effective mode
+  is `cycle`.
 - Each field can be cleared back to inference: the endpoint takes `null` per field to drop an
-  override, so the UI needs an explicit way to say "back to automatic" rather than treating a
-  blank as zero.
-- Show what inference would pick when a field is on automatic, the way the type row already
-  shows `Auto (inferred: …)`.
+  override, so every control is a **select with an explicit "Automatic" option** rather than a
+  number box. That makes "automatic" a choice instead of a blank — which is what keeps a real
+  `0` release lag distinct from no override — and makes the 1–31 bounds structural rather than
+  validated.
+- Each automatic option names what it resolves to, the way the type row shows
+  `Auto (inferred: …)`.
 
-Tests: the value ↔ override mapping is the part worth pinning — clearing to `null`,
-distinguishing "automatic" from a real `0` release lag, and clamping `cycleDay` to 1–31.
+Two things the endpoint forced that were not obvious when this was scoped:
+
+**The GET had to start returning `override` and `inferred`.** It returned only the merged
+`config`, which cannot say whether a value was pinned or inferred — and "hand this back to
+automatic" is unofferable without knowing. `inferred` is needed too: once a pin is in place,
+inference's own answer is lost from `config`, so the automatic option could not name what it
+would restore.
+
+**`exportMode` and `cycleDay` are not independent.** The route refuses a cycle account with no
+cycle day, on purpose — it would otherwise behave exactly like a range one while claiming not
+to. So choosing "statement cycle" on an account with no inferred day cannot fire its own PATCH:
+the day row is revealed and the two commit together once it is answered. That is not an error
+state — it is an unfinished choice, and it says so in a neutral note rather than borrowing the
+error's red and its Retry button.
+
+Tests: `planCycleCommit` pins the mode/day interlock in every direction, and `toDayChoice` pins
+the trap the AUTOMATIC sentinel exists for — `Number('0')` is falsy, so any truthiness check at
+the select boundary would silently clear the override instead of pinning same-day release.
 
 ## Out of scope
 
