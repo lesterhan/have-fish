@@ -150,12 +150,19 @@
   })
 
   /**
-   * Closing by any route — Escape, the close button, the backdrop — drops an uncommitted
-   * name, so reopening shows what the server actually holds rather than an edit from
-   * some earlier visit that nothing on screen would explain.
+   * Closing by any route — Escape, the title bar's ✕, the backdrop, the footer button —
+   * drops an uncommitted name, so reopening shows what the server actually holds rather
+   * than an edit from some earlier visit that nothing on screen would explain.
    */
   function handleClose() {
     nameValue = account.name ?? ''
+  }
+
+  // Modal only fires `onclose` for the routes it owns, so the footer button has to do
+  // both halves itself. `handleClose` is idempotent, so an overlap would be harmless.
+  function closeModal() {
+    open = false
+    handleClose()
   }
 
   onDestroy(() => {
@@ -234,6 +241,18 @@
         {/snippet}
       </SettingRow>
     </section>
+
+    <div class="footer">
+      {#if nameDirty}
+        <!-- Named at the point of action: this is the click that throws the edit away.
+             Scoped to the name, because the other two rows are already on the server —
+             a blanket "Discard" would promise to undo a type change it cannot touch. -->
+        <span class="unsaved">Closing discards the unsaved name.</span>
+      {/if}
+      <GradientButton variant="primary" size="lg" onclick={closeModal}>
+        Close
+      </GradientButton>
+    </div>
   </div>
 </Modal>
 
@@ -256,6 +275,22 @@
 
   .group + .group {
     margin-top: var(--sp-md);
+  }
+
+  .footer {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    justify-content: flex-end;
+    margin-top: var(--sp-lg);
+    padding-top: var(--sp-sm);
+    border-top: 1px solid var(--color-divider);
+  }
+
+  .unsaved {
+    margin-right: auto;
+    font-size: 11px;
+    color: var(--color-text-muted);
   }
 
   .group-title {
