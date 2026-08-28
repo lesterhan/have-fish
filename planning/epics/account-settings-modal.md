@@ -44,20 +44,28 @@ behind an explicit Save button; it is not tolerable once every control saves on 
 
 ## Design decisions
 
-**Immediate save, and no Cancel.** Every control commits on change; the name field commits on
-blur and on Enter. The modal's only action is Close. This is the modern settings convention
-(macOS System Settings works this way), and it avoids a three-endpoint transaction — the
-settings here span `accounts`, `user-settings`, and `coverage/config`, so a transactional
-modal would have to commit across all three and handle "name saved, visibility failed".
+**Immediate save, and no Cancel.** Every control commits on change. The modal's only action
+is Close. This is the modern settings convention (macOS System Settings works this way), and
+it avoids a three-endpoint transaction — the settings here span `accounts`, `user-settings`,
+and `coverage/config`, so a transactional modal would have to commit across all three and
+handle "name saved, visibility failed".
 
 The cost is that immediate saves need acknowledgement, or they feel broken. Every row gets a
 save-state affordance, which is also where the missing error handling lands.
 
-**Escape closes the modal; the field-level revert goes away.** Today Escape in the name field
-reverts it. In a modal, Escape means close, and two meanings for one key is worse than losing
-the revert — which immediate save makes redundant anyway, since there is nothing uncommitted
-to revert to. **Closing by any route — Escape, the close button, the backdrop — must flush a
-pending name edit first**, or a rename typed and then dismissed is silently lost.
+**Free text commits explicitly.** "On change" is well defined for a select or a toggle, which
+fire an event the moment the user decides. Typing fires nothing that means "I meant that".
+Blur is the obvious proxy and a poor one: it fires on tab-away and on switching windows, and
+it does not fire on Escape. So the name field commits on Enter, or on a **Save that appears
+only once the value differs from the server** — it is not standing chrome, and its presence is
+what tells you something is uncommitted.
+
+**Escape closes the modal, and closing discards an uncommitted name.** Today Escape in the
+name field reverts it. In a modal, Escape means close, and two meanings for one key is worse
+than losing the revert. With an explicit commit the two collapse into one behaviour: closing
+by any route — Escape, the close button, the backdrop — drops the pending edit and reopening
+shows what the server holds. That is honest rather than lossy, because an uncommitted edit is
+one the user was being shown an unclicked Save for.
 
 **Sections, not tabs — for now.** Three sections of two to four rows each. Tabs for three
 short sections is more chrome than content: you would click a tab to reveal two rows.
@@ -111,11 +119,11 @@ until the next save, and a second save landing while the first is still in fligh
 `frontend/src/lib/components/accounts/AccountSettingsModal.svelte`, wrapping the existing
 `Modal`. Sections **Identity** (display name, type) and **Display** (sidebar visibility).
 
-- Name saves on blur and on Enter; type on change; visibility on toggle. Every one of them
-  goes through `SettingRow`, so all three finally behave the same way.
+- Name saves on Enter or its Save affordance; type on change; visibility on toggle. Every one
+  of them goes through `SettingRow`, so all three report the same way.
 - **Add the missing `catch`** on both account PATCHes and route failures into the row's error
   state.
-- Closing flushes a pending name edit before the modal unmounts.
+- Closing discards a pending name edit; reopening resyncs from the server.
 - Delete `AccountSettings.svelte`, the `settingsOpen` state on the account page, and the
   inline panel's slot in the layout. The More menu item opens the modal instead.
 - Check it at 520px: `Modal` is `min-width: 300px`, so the section rows need to stack rather

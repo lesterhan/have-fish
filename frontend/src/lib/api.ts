@@ -483,6 +483,12 @@ export async function updateUserSettings(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  // Unchecked, a failure here parsed the error body as settings and wrote it into the
+  // store — so a control backed by this endpoint could only ever report success.
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? 'Failed to save settings')
+  }
   return res.json()
 }
 
