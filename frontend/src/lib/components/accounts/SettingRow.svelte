@@ -78,7 +78,7 @@
     display: grid;
     /* The control column is content-sized so it cannot be squeezed by a long error
        message; the status takes whatever is left. */
-    grid-template-columns: minmax(7rem, 11rem) auto minmax(0, 1fr);
+    grid-template-columns: minmax(9rem, 13rem) auto minmax(0, 1fr);
     align-items: center;
     gap: var(--sp-sm);
     min-height: 34px;

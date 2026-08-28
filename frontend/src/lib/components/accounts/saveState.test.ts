@@ -222,6 +222,39 @@ describe('SaveTracker', () => {
     })
   })
 
+  describe('reset', () => {
+    it('clears a standing error so a reopened surface does not show a stale one', async () => {
+      const { tracker, statuses } = harness()
+
+      await tracker.run(async () => {
+        throw new Error('Server said no')
+      })
+      tracker.reset()
+
+      expect(tracker.state).toEqual({ status: 'idle' })
+      expect(statuses()).toEqual(['saving', 'error', 'idle'])
+    })
+
+    it('drops a pending linger and silences an in-flight save', async () => {
+      const { tracker, clock } = harness()
+      const inflight = deferred<string>()
+
+      const run = tracker.run(() => inflight.promise)
+      tracker.reset()
+      inflight.resolve('too late')
+
+      expect(await run).toEqual({ status: 'superseded' })
+      expect(tracker.state).toEqual({ status: 'idle' })
+      expect(clock.pendingCount).toBe(0)
+    })
+
+    it('says nothing when it was already idle', () => {
+      const { tracker, seen } = harness()
+      tracker.reset()
+      expect(seen).toEqual([])
+    })
+  })
+
   it('stops reporting once cancelled, and drops its pending timer', async () => {
     const { tracker, clock, statuses } = harness()
     const inflight = deferred<string>()

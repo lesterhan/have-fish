@@ -90,7 +90,11 @@
     currentAccent = key
     applyAccent(key, theme.dark)
     pickerOpen = false
-    settingsStore.update({ preferences: { accentColor: key } })
+    // Fire-and-forget: the accent is already applied locally, and this call can now
+    // reject rather than silently corrupting the store.
+    settingsStore
+      .update({ preferences: { accentColor: key } })
+      .catch(() => toast.show('Accent saved for this session only.'))
   }
 </script>
 

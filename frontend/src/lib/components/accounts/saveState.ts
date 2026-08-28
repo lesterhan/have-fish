@@ -126,6 +126,18 @@ export class SaveTracker {
     this.#clearPendingLinger()
   }
 
+  /**
+   * Cancel, and go back to idle.
+   *
+   * For a surface that is dismissed and reopened rather than unmounted: a settings modal
+   * reopened later resyncs its controls from the server, so a standing error from the last
+   * visit would sit beside a value that is now correct — which is a lie, not history.
+   */
+  reset(): void {
+    this.cancel()
+    if (this.#state.status !== 'idle') this.#set({ status: 'idle' })
+  }
+
   #clearPendingLinger(): void {
     if (this.#timer === null) return
     this.#clearTimer(this.#timer)

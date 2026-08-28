@@ -28,7 +28,7 @@
   import AccountTransactionRow from '$lib/components/transactions/AccountTransactionRow.svelte'
   import AccountTransactionRowSkeleton from '$lib/components/transactions/AccountTransactionRowSkeleton.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import AccountSettings from '$lib/components/accounts/AccountSettings.svelte'
+  import AccountSettingsModal from '$lib/components/accounts/AccountSettingsModal.svelte'
   import ReconcileModal from '$lib/components/accounts/ReconcileModal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import MoreMenu from '$lib/components/ui/MoreMenu.svelte'
@@ -282,6 +282,14 @@
 </script>
 
 {#if account}
+  <AccountSettingsModal
+    bind:open={settingsOpen}
+    {account}
+    hidden={isHidden}
+    onupdated={(a) => (account = a)}
+    ontogglehidden={toggleHidden}
+  />
+
   <ReconcileModal
     accountId={account.id}
     accountPath={account.path}
@@ -435,21 +443,12 @@
             {
               label: 'Account settings',
               icon: 'account-settings',
-              onselect: () => (settingsOpen = !settingsOpen),
+              onselect: () => (settingsOpen = true),
             },
           ]}
         />
       </div>
     </div>
-
-    {#if settingsOpen && account}
-      <AccountSettings
-        {account}
-        hidden={isHidden}
-        onupdated={(a) => (account = a)}
-        ontogglehidden={toggleHidden}
-      />
-    {/if}
 
     <div class="tx-col-header">
       <span>DATE</span>
