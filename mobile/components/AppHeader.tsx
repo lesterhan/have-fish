@@ -4,6 +4,8 @@ import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useGroups } from '@/lib/group-context'
 import { useShellMode } from '@/lib/shell-mode-context'
+import { useWallets } from '@/lib/wallet-context'
+import { formatAmount } from '@/lib/cash-accounts'
 import { groupSubtitle } from '@/lib/group-store'
 import { theme } from '@/lib/theme'
 import { GlossSurface } from './GlossSurface'
@@ -17,10 +19,11 @@ import { ModeSwitch } from './ModeSwitch'
  * Fish Pie: the active group name in Source Serif with a ▾ that opens the Groups
  * sheet, a "{n} members · {ccy}" sub-line, and a gear routing to group settings.
  *
- * Cash: the personal ledger's own title. No group switcher and no gear — group
- * settings is a Fish Pie concept, and leaving either on screen would suggest the
- * cash wallet belongs to a group. (The wallet name and balance land here in
- * story 3, once wallets exist to name.)
+ * Cash: the active wallet's name and its balance. No group switcher and no gear
+ * — group settings is a Fish Pie concept, and leaving either on screen would
+ * suggest the cash wallet belongs to a group. The wallet is switched on the
+ * Wallets tab, not here: unlike groups, a wallet is picked rarely and the tab
+ * that lists them all is one tap away.
  *
  * Both faces carry the {@link ModeSwitch}, so the current ledger is legible from
  * every screen in the app.
@@ -64,12 +67,22 @@ function PieTitle() {
 }
 
 function CashTitle() {
+  const { activeWallet, wallets, error } = useWallets()
+
+  // No wallet is the normal first-run state, not a failure — the Wallets tab
+  // turns it into the create flow. Say "Cash" rather than anything alarming.
+  const title = activeWallet?.label ?? (error && wallets.length === 0 ? 'Offline' : 'Cash')
+  const sub =
+    activeWallet != null
+      ? `${formatAmount(activeWallet.amount)}${activeWallet.currency ? ` ${activeWallet.currency}` : ''}`
+      : 'No wallet yet'
+
   return (
     <View style={styles.left}>
       <Text style={styles.title} numberOfLines={1}>
-        Cash
+        {title}
       </Text>
-      <Text style={styles.sub}>Your own wallets</Text>
+      <Text style={styles.sub}>{sub}</Text>
     </View>
   )
 }

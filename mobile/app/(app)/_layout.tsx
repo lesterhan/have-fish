@@ -4,6 +4,7 @@ import { Tabs } from 'expo-router'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
 import { GroupProvider } from '@/lib/group-context'
 import { ShellModeProvider, useShellMode } from '@/lib/shell-mode-context'
+import { WalletProvider } from '@/lib/wallet-context'
 import { tabHref } from '@/lib/shell-mode'
 import { AppHeader } from '@/components/AppHeader'
 import { theme } from '@/lib/theme'
@@ -30,12 +31,14 @@ export default function AppLayout() {
   return (
     <ShellModeProvider>
       <GroupProvider>
-        <SafeAreaView edges={['top']} style={styles.safe}>
-          <AppHeader />
-          <View style={styles.body}>
-            <ShellTabs />
-          </View>
-        </SafeAreaView>
+        <WalletProvider>
+          <SafeAreaView edges={['top']} style={styles.safe}>
+            <AppHeader />
+            <View style={styles.body}>
+              <ShellTabs />
+            </View>
+          </SafeAreaView>
+        </WalletProvider>
       </GroupProvider>
     </ShellModeProvider>
   )

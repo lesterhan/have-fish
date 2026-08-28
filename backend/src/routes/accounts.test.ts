@@ -295,6 +295,64 @@ describe('accounts', () => {
         expect(chequing!.resolvedType).toBe('asset')
       })
 
+      it('supports the mobile create-a-wallet flow end to end', async () => {
+        // The two calls the Companion's wallet wizard makes, in order. They are
+        // one operation from the user's point of view: an account created but
+        // not tagged is an ordinary asset, invisible to the Cash mode that just
+        // made it, so this pins the whole sequence rather than each half.
+        const createRes = await app.request('/api/accounts', {
+          method: 'POST',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            path: 'assets:cash:cny',
+            name: 'Cash (CNY)',
+            defaultCurrency: 'CNY',
+          }),
+        })
+        expect(createRes.status).toBe(201)
+        const created = await createRes.json() as Account
+
+        // Before the tag, the wallet is not a wallet.
+        const before = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        expect(await before.json()).toEqual([])
+
+        await setType(created.id, 'cash')
+
+        const after = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        const body = await after.json() as {
+          id: string
+          path: string
+          name: string | null
+          resolvedType: string
+          defaultCurrency: string | null
+          balances: unknown[]
+        }[]
+
+        expect(body).toHaveLength(1)
+        expect(body[0]).toMatchObject({
+          id: created.id,
+          path: 'assets:cash:cny',
+          name: 'Cash (CNY)',
+          resolvedType: 'cash',
+          // The Companion reads the wallet's currency from here rather than
+          // guessing from the path leaf, which only works by convention.
+          defaultCurrency: 'CNY',
+        })
+        // A brand-new wallet has no postings and must still be listed, at zero.
+        expect(body[0].balances).toEqual([])
+      })
+
+      it('tolerates re-tagging an already-tagged wallet', async () => {
+        // The wizard retries at the tag when the first attempt failed after the
+        // account was created; that retry must be safe to repeat.
+        const walletId = await createAccount('assets:cash:cad')
+        await setType(walletId, 'cash')
+        await setType(walletId, 'cash')
+
+        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        expect((await res.json() as unknown[]).length).toBe(1)
+      })
+
       it('never returns another user\'s cash accounts', async () => {
         const walletId = await createAccount('assets:cash:cad')
         await setType(walletId, 'cash')

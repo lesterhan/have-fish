@@ -184,7 +184,7 @@ Mobile shell only. Cash screens are placeholders at the end of this story.
 - `components/CashPlaceholder.tsx` and the three placeholder screens are scaffolding; each
   story deletes the one it replaces, and the component goes with the last of them.
 
-### 3. Wallets tab + first-wallet wizard
+### 3. Wallets tab + first-wallet wizard ✅ Done
 
 - Cash accounts with per-currency balances, one card per wallet, newest activity first.
 - Tap selects the **active wallet**; persisted (`LAST_WALLET_KEY`), and it drives the Spend
@@ -219,6 +219,29 @@ crossing a border needs a second wallet, not a first one, and it is the same thr
 - Pure logic in `mobile/lib/cash-wallet-create.ts` (RN-free, bun-tested): path assembly
   from a currency code, default display name, duplicate-currency detection, validation of
   the resulting path against the same rules the backend enforces.
+
+**Shipped.** Notes for the stories that build on this:
+
+- `WalletProvider` (`lib/wallet-context.tsx`) is the Cash mode's counterpart to
+  `GroupProvider`: wallet list with balances, the active wallet, `reload()`, and
+  `createWallet()`. Spend (story 4) and Cash history (story 6) read from it rather than
+  fetching their own balances.
+- **`GET /api/accounts/balances` now returns `defaultCurrency`.** It did not, which story 1
+  never noticed because `walletCurrency()` silently fell back to the path leaf — right for
+  `assets:cash:cny` by convention, wrong for any wallet pathed or renamed differently, and
+  enough to let `takenCurrencies()` miss a wallet and mint a duplicate. Caught by the
+  end-to-end wizard test in `accounts.test.ts`, which pins the exact two-call sequence the
+  wizard performs.
+- The create + tag pair reports *which* step failed (`walletCreateFailure`). A failure after
+  the create leaves a real, untagged account behind, so the retry resumes at the tag —
+  retrying the create would mint a duplicate. Re-tagging is idempotent, and there is a
+  backend test for that.
+- `components/CurrencyGrid.tsx` was extracted from `CurrencySheet` so the wizard and the Add
+  screen share one grid; it takes `disabledCodes` (taken currencies show dimmed rather than
+  missing) and a `tint` so each mode's accent paints the selection. `CurrencySheet`'s props
+  are unchanged.
+- The Cash header now shows the active wallet's name and balance. Switching wallets lives on
+  the Wallets tab, not in the header — unlike groups, a wallet is picked rarely.
 
 ### 4. Spend — cash entry with expense splits
 

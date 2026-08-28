@@ -22,6 +22,9 @@ import type { Account, AccountBalance } from './api'
 /** Real Unicode minus sign (U+2212), matching `balances-view.ts` and the design. */
 export const MINUS = '−'
 
+/** AsyncStorage key for the last-selected wallet — mirrors `LAST_GROUP_KEY`. */
+export const LAST_WALLET_KEY = 'havefish_last_wallet'
+
 /**
  * True when the account is a cash wallet. Strictly the resolved hledger type —
  * `resolvedType` is the backend's stored-wins-else-infer answer, so this is one
