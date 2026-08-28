@@ -6,6 +6,7 @@ import type { AppVariables } from '../app'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { CLEARING_PREFIX } from '../fish-pie-accounts'
 import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, STORED_ACCOUNT_TYPES, DEFAULT_ROOTS, type AccountTypeRoots, type StoredAccountType } from '../postings/account-type'
+import { isValidCurrency } from '../currencies'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -396,9 +397,27 @@ function withResolvedTypes<T extends { path: string; type: string | null }>(acco
   }
 }
 
+// `default_currency` is a plain text column, so an unvalidated write is stored verbatim and
+// every later FX lookup quietly fails on a code that does not exist. null is meaningful — it
+// clears the pin and hands the account back to the user's preferred currency.
+type CurrencyRead = { ok: true; value: string | null } | { ok: false }
+
+function readCurrency(value: unknown): CurrencyRead {
+  if (value === null) return { ok: true, value: null }
+  if (typeof value === 'string' && isValidCurrency(value)) {
+    return { ok: true, value: value.toUpperCase() }
+  }
+  return { ok: false }
+}
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
+  if ('defaultCurrency' in body) {
+    const currency = readCurrency(body.defaultCurrency)
+    if (!currency.ok) return c.json({ error: 'invalid currency' }, 400)
+    body.defaultCurrency = currency.value
+  }
   // userId from session overrides anything the client may have sent
   const [created] = await db.insert(accounts).values({ ...body, userId }).returning()
   return c.json(created, 201)
@@ -467,10 +486,15 @@ app.post('/rename', async (c) => {
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json()
-  const allowed = ['name', 'defaultCurrency'] as const
+  const allowed = ['name'] as const
   const updates: Partial<typeof body> = {}
   for (const key of allowed) {
     if (key in body) updates[key] = body[key]
+  }
+  if ('defaultCurrency' in body) {
+    const currency = readCurrency(body.defaultCurrency)
+    if (!currency.ok) return c.json({ error: 'invalid currency' }, 400)
+    updates.defaultCurrency = currency.value
   }
   // `type` is the hledger type override. null clears it (back to inference); any other value
   // must be one of the seven valid types. Reject anything else rather than storing garbage.

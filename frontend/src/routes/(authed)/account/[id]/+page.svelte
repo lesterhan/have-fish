@@ -286,6 +286,7 @@
     bind:open={settingsOpen}
     {account}
     hidden={isHidden}
+    {preferredCurrency}
     onupdated={(a) => (account = a)}
     ontogglehidden={toggleHidden}
   />

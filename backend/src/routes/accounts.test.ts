@@ -456,6 +456,83 @@ describe('accounts', () => {
     expect(fetched.defaultCurrency).toBe('USD')
   })
 
+  describe('PATCH /api/accounts/:id defaultCurrency', () => {
+    async function make(): Promise<Account> {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'assets:chequing', defaultCurrency: 'USD' }),
+      })
+      return await res.json() as Account
+    }
+
+    function patch(id: string, body: unknown) {
+      return app.request(`/api/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    it('clears the currency back to the user default when sent null', async () => {
+      const account = await make()
+
+      const res = await patch(account.id, { defaultCurrency: null })
+
+      expect(res.status).toBe(200)
+      expect((await res.json() as Account).defaultCurrency).toBeNull()
+    })
+
+    it('rejects a code outside the supported set rather than storing it', async () => {
+      const account = await make()
+
+      const res = await patch(account.id, { defaultCurrency: 'BANANA' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'invalid currency' })
+
+      // The stored value is untouched — a rejected write must not be a partial one.
+      const after = await app.request(`/api/accounts/${account.id}`, { headers: { Cookie: cookie } })
+      expect((await after.json() as Account).defaultCurrency).toBe('USD')
+    })
+
+    it('rejects a non-string just as firmly', async () => {
+      const account = await make()
+
+      expect((await patch(account.id, { defaultCurrency: 42 })).status).toBe(400)
+      expect((await patch(account.id, { defaultCurrency: {} })).status).toBe(400)
+    })
+
+    it('normalises case, so "usd" is stored as USD', async () => {
+      const account = await make()
+
+      const res = await patch(account.id, { defaultCurrency: 'eur' })
+
+      expect(res.status).toBe(200)
+      expect((await res.json() as Account).defaultCurrency).toBe('EUR')
+    })
+
+    it('is checked at creation too, not only on update', async () => {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'assets:savings', defaultCurrency: 'BANANA' }),
+      })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'invalid currency' })
+    })
+
+    it('does not reject the other fields when currency is absent', async () => {
+      const account = await make()
+
+      const res = await patch(account.id, { name: 'Chequing' })
+
+      expect(res.status).toBe(200)
+      expect((await res.json() as Account).name).toBe('Chequing')
+    })
+  })
+
   it('DELETE /api/accounts/:id soft-deletes an account', async () => {
     const createRes = await app.request('/api/accounts', {
       method: 'POST',

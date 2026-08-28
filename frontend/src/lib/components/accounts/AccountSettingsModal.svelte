@@ -6,6 +6,7 @@
     type AccountType,
     type StoredAccountType,
   } from '$lib/api'
+  import { SUPPORTED_CURRENCIES, currencyFlag } from '$lib/currency'
   import Modal from '../ui/Modal.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
   import TextInput from '../ui/TextInput.svelte'
@@ -19,6 +20,8 @@
     account: Account
     /** Whether the account is hidden from the sidebar — lives in user settings, not the account. */
     hidden: boolean
+    /** The user-level currency an account with no pin of its own falls back to. */
+    preferredCurrency: string
     onupdated: (account: Account) => void
     /** Flips sidebar visibility. Must reject if the write fails, or the row cannot report it. */
     ontogglehidden: () => Promise<void>
@@ -28,6 +31,7 @@
     open = $bindable(),
     account,
     hidden,
+    preferredCurrency,
     onupdated,
     ontogglehidden,
   }: Props = $props()
@@ -136,6 +140,34 @@
     if (outcome.status === 'error') showInSidebar = !hidden
   }
 
+  // --- default currency -----------------------------------------------------------
+  // Until now this was reachable only from Quick Entry's currency dropdown, or at account
+  // creation — so an account you never opened Quick Entry on had no way to change it.
+  //
+  // '' is null: no pin, fall back to the user's preferred currency. Same shape as the type
+  // row's "Auto", and the reason this is a select rather than the Quick Entry combobox —
+  // a free-text currency box cannot express "unset" without treating a blank as an error.
+
+  let currencyValue = $state(untrack(() => account.defaultCurrency ?? ''))
+  let currencyState = $state<SaveState>({ status: 'idle' })
+
+  const currencySaver = new SaveTracker({
+    fallbackMessage: 'Could not save the currency',
+    onchange: (s) => (currencyState = s),
+  })
+
+  $effect(() => {
+    currencyValue = account.defaultCurrency ?? ''
+  })
+
+  async function saveCurrency() {
+    const next = currencyValue === '' ? null : currencyValue
+    const outcome = await currencySaver.run(() =>
+      updateAccount(account.id, { defaultCurrency: next }),
+    )
+    if (outcome.status === 'saved') onupdated(outcome.value)
+  }
+
   // --- lifecycle ------------------------------------------------------------------
 
   $effect(() => {
@@ -145,6 +177,7 @@
     untrack(() => {
       nameSaver.reset()
       typeSaver.reset()
+      currencySaver.reset()
       visibilitySaver.reset()
     })
   })
@@ -168,6 +201,7 @@
   onDestroy(() => {
     nameSaver.cancel()
     typeSaver.cancel()
+    currencySaver.cancel()
     visibilitySaver.cancel()
   })
 </script>
@@ -221,8 +255,30 @@
       </SettingRow>
     </section>
 
+    <!-- "Preferences", not "Display": both rows are choices about how the app treats this
+         account rather than facts about it, and a currency that pre-selects on entry is not
+         a display concern. -->
     <section class="group">
-      <h3 class="group-title">Display</h3>
+      <h3 class="group-title">Preferences</h3>
+
+      <SettingRow
+        label="Default currency"
+        hint="Pre-selects the currency when you add a transaction here."
+        controlId="setting-account-currency"
+        state={currencyState}
+        onretry={saveCurrency}
+      >
+        <Select
+          id="setting-account-currency"
+          bind:value={currencyValue}
+          onchange={saveCurrency}
+        >
+          <option value="">Default ({preferredCurrency})</option>
+          {#each SUPPORTED_CURRENCIES as code}
+            <option value={code}>{currencyFlag(code)} {code}</option>
+          {/each}
+        </Select>
+      </SettingRow>
 
       <SettingRow
         label="Show in sidebar"
