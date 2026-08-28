@@ -67,8 +67,10 @@ by any route — Escape, the close button, the backdrop — drops the pending ed
 shows what the server holds. That is honest rather than lossy, because an uncommitted edit is
 one the user was being shown an unclicked Save for.
 
-**Sections, not tabs — for now.** Three sections of two to four rows each. Tabs for three
-short sections is more chrome than content: you would click a tab to reveal two rows.
+**Sections first, then tabs.** Three sections of two to four rows started as a single stacked
+column, on the grounds that tabs for three short sections is more chrome than content. Story 4
+settled it: with the catch-up rows in place the modal ran past a 720px viewport, so the trigger
+below fired and the sections became a tab strip.
 
 **Guarding against the balloon.** This modal is meant to absorb settings over time, so it
 needs a rule rather than good intentions. A setting belongs here only if all three hold:
@@ -90,7 +92,9 @@ Two structural rules keep it honest:
 - **A stated trigger for restructuring.** When a fourth section is added, or the content
   exceeds one viewport at 720px height, the sections become a tab strip (period-accurate for
   the Aqua shell — System Preferences and Finder's Get Info both work this way). That is a
-  small change to the shell and none to the rows, which is why it is safe to defer.
+  small change to the shell and none to the rows, which is why it was safe to defer.
+  **Fired after story 4** — see story 5. The trigger now reads: a fifth tab, or any one panel
+  outgrowing the fixed panel height.
 
 **Three endpoints, three independent saves.** Nothing batches. Each row owns its request and
 its own error state, so one failure cannot take another setting down with it.
@@ -186,6 +190,26 @@ Tests: `planCycleCommit` pins the mode/day interlock in every direction, and `to
 the trap the AUTOMATIC sentinel exists for — `Number('0')` is falsy, so any truthiness check at
 the select boundary would silently clear the override instead of pinning same-day release.
 
+### 5. Sections become tabs
+
+The trigger fired: with the catch-up rows in, the modal ran past a 720px viewport, and
+scrolling to reach a setting costs more than clicking to reach it.
+
+- `frontend/src/lib/components/ui/TabStrip.svelte` — Aqua folder tabs, the same shape the
+  spending page already uses, so the app has one tab language rather than two. It adds what the
+  ad-hoc one lacks: a roving tabindex, arrow/Home/End navigation with focus following the
+  selection, and full `aria-controls`/`aria-labelledby` wiring.
+- **Tabs hide panels, so an error can now be one click out of sight.** Each tab carries a
+  marker when any row behind it is in error — the one thing the stacked layout gave for free.
+- **The panel is a fixed height**, sized to the tallest. The window is centre-anchored, so a
+  shorter panel would not merely shrink the box, it would slide the tab strip up under the
+  pointer that just clicked it. Some empty space under a two-row tab is the price of a window
+  that holds still.
+- The catch-up tab is **absent**, not disabled, for an account the coach does not track; if the
+  account's type changes out of the coach's reach while the tab is open, it falls back.
+- Reopening starts at the first tab, for the same reason it resyncs every control: resuming
+  mid-way would resume into state that no longer necessarily holds.
+
 ## Out of scope
 
 - **Deleting or archiving an account.** Destructive, rare, and it raises a question this epic
@@ -194,7 +218,5 @@ the select boundary would silently clear the override instead of pinning same-da
   confirmation and visual separation. Worth its own epic.
 - **Starting balances.** Creates a transaction; see the admission rule above. Already has
   [its own epic](starting-balances.md).
-- **The tab restructure.** Deferred until the trigger above fires, so the shell is not built
-  for a size it may never reach.
 - **Account path renaming.** Lives in `/accounts/manage` with cascade semantics this modal
   should not duplicate.
