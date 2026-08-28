@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { transactions, expenseGroups, expenseGroupMembers, groupExpenses } from '../db/schema'
+import { accounts, transactions, expenseGroups, expenseGroupMembers, groupExpenses } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
 describe('transactions', () => {
@@ -506,8 +506,11 @@ describe('transactions', () => {
     // A member transaction created for a group expense links forward (transactions.groupExpenseId).
     it('resolves groupName via the forward member-transaction link', async () => {
       const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
-      const [recv, food] = await Promise.all([
-        app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:receivable:quotidien' }) }).then(r => r.json()),
+      // The receivable account is seeded directly, the way fish-pie-accounts spawns it. The
+      // create route refuses that namespace by hand — it is system-managed, same reason the
+      // rename route refuses to move an account into it.
+      const [[recv], food] = await Promise.all([
+        db.insert(accounts).values({ userId, path: 'assets:receivable:quotidien' }).returning(),
         app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food:restaurant' }) }).then(r => r.json()),
       ])
       const [expense] = await db

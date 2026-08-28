@@ -456,6 +456,118 @@ describe('accounts', () => {
     expect(fetched.defaultCurrency).toBe('USD')
   })
 
+  describe('POST /api/accounts accepts only what it means to', () => {
+    function create(body: unknown) {
+      return app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    it('creates an account from the four fields it does accept', async () => {
+      const res = await create({
+        path: 'assets:chequing',
+        name: 'Chequing',
+        defaultCurrency: 'USD',
+        type: 'cash',
+      })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toMatchObject({
+        path: 'assets:chequing',
+        name: 'Chequing',
+        defaultCurrency: 'USD',
+        type: 'cash',
+      })
+    })
+
+    // The route used to spread the whole request body into the insert, so any column the
+    // client named was a column the client could set.
+    it('ignores an id the client tried to choose', async () => {
+      const chosen = '00000000-0000-4000-8000-000000000001'
+
+      const res = await create({ path: 'assets:chequing', id: chosen })
+
+      expect(res.status).toBe(201)
+      expect((await res.json() as Account).id).not.toBe(chosen)
+    })
+
+    it('ignores a deletedAt, which would have created an invisible account', async () => {
+      const res = await create({
+        path: 'assets:chequing',
+        deletedAt: new Date('2020-01-01').toISOString(),
+      })
+      expect(res.status).toBe(201)
+
+      // Born deleted, it would never have appeared in a listing again.
+      const list = await app.request('/api/accounts', { headers: { Cookie: cookie } })
+      expect((await list.json() as Account[]).map((a) => a.path)).toContain('assets:chequing')
+    })
+
+    it('ignores a backdated createdAt', async () => {
+      const before = Date.now()
+
+      const res = await create({
+        path: 'assets:chequing',
+        createdAt: new Date('1999-01-01').toISOString(),
+      })
+
+      const created = await res.json() as Account
+      expect(new Date(created.createdAt!).getTime()).toBeGreaterThanOrEqual(before - 1000)
+    })
+
+    it('still ignores a userId, as it always did', async () => {
+      const otherCookie = await createTestUser('other@example.com')
+      const otherId = await app
+        .request('/api/auth/get-session', { headers: { Cookie: otherCookie } })
+        .then(async (r) => (await r.json()).user.id as string)
+
+      await create({ path: 'assets:chequing', userId: otherId })
+
+      // Their listing is not empty — sign-up seeds default accounts — so the assertion is
+      // that the account landed on the caller, not on the id they named.
+      const theirs = await app.request('/api/accounts', { headers: { Cookie: otherCookie } })
+      expect((await theirs.json() as Account[]).map((a) => a.path)).not.toContain('assets:chequing')
+    })
+
+    it('rejects a missing or malformed path instead of failing at the column', async () => {
+      expect((await create({})).status).toBe(400)
+      expect((await create({ path: '' })).status).toBe(400)
+      expect((await create({ path: 'assets::chequing' })).status).toBe(400)
+      expect((await create({ path: ' assets:chequing' })).status).toBe(400)
+      expect((await create({ path: 42 })).status).toBe(400)
+    })
+
+    it('rejects an account type it would refuse on update', async () => {
+      const res = await create({ path: 'assets:chequing', type: 'wallet' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'invalid account type' })
+    })
+
+    it('accepts a null type, which means infer from the path', async () => {
+      const res = await create({ path: 'assets:chequing', type: null })
+
+      expect(res.status).toBe(201)
+      expect((await res.json() as Account).type).toBeNull()
+    })
+
+    // The rename route refuses to move an account into the receivable namespace because
+    // those are system-managed and re-spawned at import. Creating one there directly was
+    // the same hole by another door.
+    it('refuses to create inside the receivable namespace', async () => {
+      const res = await create({ path: 'assets:receivable:someone' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toMatchObject({ error: expect.stringContaining('receivable') })
+    })
+
+    it('rejects a non-string name rather than storing it', async () => {
+      expect((await create({ path: 'assets:chequing', name: 42 })).status).toBe(400)
+    })
+  })
+
   describe('PATCH /api/accounts/:id defaultCurrency', () => {
     async function make(): Promise<Account> {
       const res = await app.request('/api/accounts', {
@@ -573,6 +685,14 @@ describe('accounts', () => {
       })
     }
 
+    async function seedReceivable(path: string) {
+      const userId = await app
+        .request('/api/auth/get-session', { headers: { Cookie: cookie } })
+        .then(async (r) => (await r.json()).user.id as string)
+      const [acct] = await db.insert(accountsTable).values({ userId, path }).returning()
+      return acct!
+    }
+
     async function pathOf(id: string): Promise<string> {
       const res = await app.request(`/api/accounts/${id}`, { headers: { Cookie: cookie } })
       return (await res.json() as Account).path
@@ -650,7 +770,9 @@ describe('accounts', () => {
     })
 
     it('rejects renaming a receivable (system-managed) account', async () => {
-      const acct = await createAccount('assets:receivable:trip')
+      // Seeded the way the system seeds them — fish-pie-accounts inserts directly, and the
+      // create route now refuses this namespace, which is the point of the rename guard too.
+      const acct = await seedReceivable('assets:receivable:trip')
       const res = await rename('assets:receivable:trip', 'assets:receivable:vacation')
       expect(res.status).toBe(400)
       expect(await pathOf(acct.id)).toBe('assets:receivable:trip')
