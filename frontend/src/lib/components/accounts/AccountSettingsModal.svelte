@@ -6,13 +6,13 @@
     type AccountType,
     type StoredAccountType,
   } from '$lib/api'
-  import { toast } from '$lib/toast.svelte'
   import Modal from '../ui/Modal.svelte'
+  import GradientButton from '../ui/GradientButton.svelte'
   import TextInput from '../ui/TextInput.svelte'
   import Select from '../ui/Select.svelte'
   import Toggle from '../ui/Toggle.svelte'
   import SettingRow from './SettingRow.svelte'
-  import { SaveTracker, type SaveOutcome, type SaveState } from './saveState'
+  import { SaveTracker, type SaveState } from './saveState'
 
   interface Props {
     open: boolean
@@ -33,14 +33,18 @@
   }: Props = $props()
 
   // --- display name ---------------------------------------------------------------
-  // Commits on blur and on Enter. There is no Escape-to-revert any more: in a modal
-  // Escape means close, and two meanings for one key is worse than losing a revert that
-  // immediate save makes redundant.
+  // The one free-text control here, and the only one with no natural commit event. A
+  // select fires `change` when you pick and a toggle fires when you flip; typing fires
+  // nothing that means "I meant that". Blur was the obvious proxy and a poor one — it
+  // fires on tab-away and on switching windows, and it does not fire on Escape, so
+  // dismissing the modal had to chase the edit down separately.
+  //
+  // So this one commits explicitly: Enter, or the Save that appears once the field
+  // differs from the server. Closing discards, which is honest rather than lossy —
+  // an uncommitted edit is one the user was being shown an unclicked Save for.
 
   let nameValue = $state(untrack(() => account.name ?? ''))
   let nameState = $state<SaveState>({ status: 'idle' })
-  /** The value currently in flight, so blur-then-close does not PATCH the same name twice. */
-  let inFlightName: string | null = null
 
   const nameSaver = new SaveTracker({
     fallbackMessage: 'Could not save the name',
@@ -51,21 +55,20 @@
     nameValue = account.name ?? ''
   })
 
-  async function saveName(): Promise<SaveOutcome<Account> | null> {
-    const next = nameValue.trim()
-    if (next === (account.name ?? '') || next === inFlightName) return null
+  let nameDirty = $derived(nameValue.trim() !== (account.name ?? ''))
+  let nameSaving = $derived(nameState.status === 'saving')
 
-    inFlightName = next
+  async function saveName() {
+    if (!nameDirty || nameSaving) return
+    const next = nameValue.trim()
     const outcome = await nameSaver.run(() =>
       updateAccount(account.id, { name: next || null }),
     )
-    inFlightName = null
     if (outcome.status === 'saved') onupdated(outcome.value)
-    return outcome
   }
 
   function handleNameKeydown(e: KeyboardEvent) {
-    // Escape is left alone so it reaches the modal and closes it.
+    // Escape is left alone so it reaches the modal, which closes and discards.
     if (e.key === 'Enter') saveName()
   }
 
@@ -140,26 +143,19 @@
     // Reopening resyncs every control from the server, so a standing error from the last
     // visit would sit beside a value that is now correct.
     untrack(() => {
-      // The name keeps its error when the edit is still unsaved — that is not stale
-      // history, it is the reason the box does not match the server.
-      if (nameValue.trim() === (account.name ?? '')) nameSaver.reset()
+      nameSaver.reset()
       typeSaver.reset()
       visibilitySaver.reset()
     })
   })
 
   /**
-   * Closing by any route — Escape, the close button, the backdrop — commits a name the
-   * user typed but never blurred, so a rename typed and then dismissed is not lost.
-   *
-   * The row is gone by the time the request lands, so a failure has nowhere to be shown
-   * but the status bar.
+   * Closing by any route — Escape, the close button, the backdrop — drops an uncommitted
+   * name, so reopening shows what the server actually holds rather than an edit from
+   * some earlier visit that nothing on screen would explain.
    */
-  async function handleClose() {
-    const outcome = await saveName()
-    if (outcome?.status === 'error') {
-      toast.show(`Name not saved: ${outcome.message}`)
-    }
+  function handleClose() {
+    nameValue = account.name ?? ''
   }
 
   onDestroy(() => {
@@ -176,21 +172,26 @@
     <section class="group">
       <h3 class="group-title">Identity</h3>
 
+      <!-- No `onretry`: the Save button is still on screen after a failure, so a second
+           retry affordance beside it would be one button too many. -->
       <SettingRow
         label="Display name"
         hint="Shown instead of the path. Blank falls back to the path."
         controlId="setting-account-name"
         state={nameState}
-        onretry={saveName}
       >
         <TextInput
           id="setting-account-name"
           bind:value={nameValue}
           placeholder={account.path}
-          onblur={saveName}
           onkeydown={handleNameKeydown}
           style="width: 15rem; max-width: 100%"
         />
+        {#if nameDirty}
+          <GradientButton size="sm" onclick={saveName} disabled={nameSaving}>
+            Save
+          </GradientButton>
+        {/if}
       </SettingRow>
 
       <SettingRow
