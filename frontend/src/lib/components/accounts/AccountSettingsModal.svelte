@@ -24,6 +24,7 @@
   import TextInput from '../ui/TextInput.svelte'
   import Select from '../ui/Select.svelte'
   import Toggle from '../ui/Toggle.svelte'
+  import TabStrip, { type TabItem } from '../ui/TabStrip.svelte'
   import SettingRow from './SettingRow.svelte'
   import { SaveTracker, type SaveState } from './saveState'
 
@@ -290,6 +291,54 @@
     else if (outcome.status === 'error') trackedValue = !trackedValue
   }
 
+  // --- tabs -------------------------------------------------------------------------
+  // Three sections of two to four rows each outgrew a single stacked column: the whole modal
+  // ran past a 720px viewport, which is the point at which scrolling to reach a setting costs
+  // more than a click to reach it.
+  //
+  // The catch-up tab is absent, not disabled, for an account the coach does not track — there
+  // is nothing behind it to enable.
+
+  type TabId = 'identity' | 'preferences' | 'catch-up'
+
+  let activeTab = $state<TabId>('identity')
+
+  // Tabs hide their panels, so an error that a stacked layout showed for free can now sit one
+  // click out of sight. Each tab carries a marker for its own rows' failures.
+  let tabs = $derived<TabItem[]>(
+    [
+      {
+        id: 'identity',
+        label: 'Identity',
+        alert: nameState.status === 'error' || typeState.status === 'error',
+      },
+      {
+        id: 'preferences',
+        label: 'Preferences',
+        alert:
+          currencyState.status === 'error' ||
+          visibilityState.status === 'error',
+      },
+      ...(coverage
+        ? [
+            {
+              id: 'catch-up',
+              label: 'Catch-up',
+              alert:
+                trackedState.status === 'error' ||
+                cycleState.status === 'error' ||
+                lagState.status === 'error',
+            },
+          ]
+        : []),
+    ].filter(Boolean) as TabItem[],
+  )
+
+  $effect(() => {
+    // An account whose type changed out of the coach's reach loses the tab under its feet.
+    if (!coverage && activeTab === 'catch-up') activeTab = 'identity'
+  })
+
   // --- lifecycle ------------------------------------------------------------------
 
   $effect(() => {
@@ -297,6 +346,10 @@
     // Reopening resyncs every control from the server, so a standing error from the last
     // visit would sit beside a value that is now correct.
     untrack(() => {
+      // Reopening starts at the front rather than wherever the last visit ended — the modal
+      // resyncs everything from the server, so resuming mid-way would be resuming into state
+      // that no longer necessarily holds.
+      activeTab = 'identity'
       nameSaver.reset()
       typeSaver.reset()
       currencySaver.reset()
@@ -338,98 +391,101 @@
   <div class="settings">
     <p class="account-path" title={account.path}>{account.path}</p>
 
-    <section class="group">
-      <h3 class="group-title">Identity</h3>
+    <TabStrip
+      {tabs}
+      bind:active={activeTab}
+      label="Account settings sections"
+      panelIdPrefix="account-settings"
+    />
 
-      <!-- No `onretry`: the Save button is still on screen after a failure, so a second
+    <div
+      class="panel"
+      role="tabpanel"
+      id={`account-settings-panel-${activeTab}`}
+      aria-labelledby={`account-settings-tab-${activeTab}`}
+    >
+      {#if activeTab === 'identity'}
+        <!-- No `onretry`: the Save button is still on screen after a failure, so a second
            retry affordance beside it would be one button too many. -->
-      <SettingRow
-        label="Display name"
-        hint="Shown instead of the path. Blank falls back to the path."
-        controlId="setting-account-name"
-        state={nameState}
-      >
-        <TextInput
-          id="setting-account-name"
-          bind:value={nameValue}
-          placeholder={account.path}
-          onkeydown={handleNameKeydown}
-          style="width: 15rem; max-width: 100%"
-        />
-        {#if nameDirty}
-          <GradientButton size="sm" onclick={saveName} disabled={nameSaving}>
-            Save
-          </GradientButton>
-        {/if}
-      </SettingRow>
-
-      <SettingRow
-        label="Type"
-        hint="Used on hledger export. Auto infers it from the path."
-        controlId="setting-account-type"
-        state={typeState}
-        onretry={saveType}
-      >
-        <Select
-          id="setting-account-type"
-          bind:value={typeValue}
-          onchange={saveType}
+        <SettingRow
+          label="Display name"
+          hint="Shown instead of the path. Blank falls back to the path."
+          controlId="setting-account-name"
+          state={nameState}
         >
-          <option value="">Auto (inferred: {inferredLabel})</option>
-          {#each TYPE_OPTIONS as t}
-            <option value={t}>{TYPE_LABELS[t]}</option>
-          {/each}
-        </Select>
-      </SettingRow>
-    </section>
-
-    <!-- "Preferences", not "Display": both rows are choices about how the app treats this
-         account rather than facts about it, and a currency that pre-selects on entry is not
-         a display concern. -->
-    <section class="group">
-      <h3 class="group-title">Preferences</h3>
-
-      <SettingRow
-        label="Default currency"
-        hint="Pre-selects the currency when you add a transaction here."
-        controlId="setting-account-currency"
-        state={currencyState}
-        onretry={saveCurrency}
-      >
-        <Select
-          id="setting-account-currency"
-          bind:value={currencyValue}
-          onchange={saveCurrency}
-        >
-          <option value="">Default ({preferredCurrency})</option>
-          {#each SUPPORTED_CURRENCIES as code}
-            <option value={code}>{currencyFlag(code)} {code}</option>
-          {/each}
-        </Select>
-      </SettingRow>
-
-      <SettingRow
-        label="Show in sidebar"
-        hint="Hidden accounts stay reachable from Accounts."
-        state={visibilityState}
-        onretry={saveVisibility}
-      >
-        {#snippet children(labelId)}
-          <!-- Toggle wraps its own label element, so it is associated by id rather than
-               by the row's `<label for>`. -->
-          <Toggle
-            bind:checked={showInSidebar}
-            onchange={saveVisibility}
-            aria-labelledby={labelId}
+          <TextInput
+            id="setting-account-name"
+            bind:value={nameValue}
+            placeholder={account.path}
+            onkeydown={handleNameKeydown}
+            style="width: 15rem; max-width: 100%"
           />
-        {/snippet}
-      </SettingRow>
-    </section>
+          {#if nameDirty}
+            <GradientButton size="sm" onclick={saveName} disabled={nameSaving}>
+              Save
+            </GradientButton>
+          {/if}
+        </SettingRow>
 
-    {#if coverage}
-      <section class="group">
-        <h3 class="group-title">Catch-up</h3>
+        <SettingRow
+          label="Type"
+          hint="Used on hledger export. Auto infers it from the path."
+          controlId="setting-account-type"
+          state={typeState}
+          onretry={saveType}
+        >
+          <Select
+            id="setting-account-type"
+            bind:value={typeValue}
+            onchange={saveType}
+          >
+            <option value="">Auto (inferred: {inferredLabel})</option>
+            {#each TYPE_OPTIONS as t}
+              <option value={t}>{TYPE_LABELS[t]}</option>
+            {/each}
+          </Select>
+        </SettingRow>
+      {:else if activeTab === 'preferences'}
+        <!-- "Preferences", not "Display": both rows are choices about how the app treats
+             this account rather than facts about it, and a currency that pre-selects on
+             entry is not a display concern. -->
 
+        <SettingRow
+          label="Default currency"
+          hint="Pre-selects the currency when you add a transaction here."
+          controlId="setting-account-currency"
+          state={currencyState}
+          onretry={saveCurrency}
+        >
+          <Select
+            id="setting-account-currency"
+            bind:value={currencyValue}
+            onchange={saveCurrency}
+          >
+            <option value="">Default ({preferredCurrency})</option>
+            {#each SUPPORTED_CURRENCIES as code}
+              <option value={code}>{currencyFlag(code)} {code}</option>
+            {/each}
+          </Select>
+        </SettingRow>
+
+        <SettingRow
+          label="Show in sidebar"
+          hint="Hidden accounts stay reachable from Accounts."
+          state={visibilityState}
+          onretry={saveVisibility}
+        >
+          {#snippet children(labelId)}
+            <!-- Toggle wraps its own label element, so it is associated by id rather than
+               by the row's `<label for>`. -->
+            <Toggle
+              bind:checked={showInSidebar}
+              onchange={saveVisibility}
+              aria-labelledby={labelId}
+            />
+          {/snippet}
+        </SettingRow>
+      {:else if activeTab === 'catch-up' && coverage}
         <SettingRow
           label="Track this account"
           hint="Whether the coach asks you to keep this account up to date."
@@ -516,8 +572,8 @@
             </SettingRow>
           {/if}
         {/if}
-      </section>
-    {/if}
+      {/if}
+    </div>
 
     <div class="footer">
       {#if nameDirty}
@@ -550,8 +606,14 @@
     white-space: nowrap;
   }
 
-  .group + .group {
-    margin-top: var(--sp-md);
+  .panel {
+    /* Held at the tallest panel's height. The window is centre-anchored, so a shorter panel
+       would not just shrink the box — it would slide the tab strip up under the pointer that
+       just clicked it. Catch-up showing all four rows is the tallest, and it varies within
+       itself too, since the cycle rows come and go. Some empty space under a two-row tab is
+       the price of a window that holds still. */
+    min-height: 17rem;
+    padding-top: var(--sp-sm);
   }
 
   .footer {
@@ -567,18 +629,6 @@
   .unsaved {
     margin-right: auto;
     font-size: 11px;
-    color: var(--color-text-muted);
-  }
-
-  .group-title {
-    margin: 0 0 var(--sp-xs);
-    padding-bottom: 3px;
-    border-bottom: 1px solid var(--color-rule-soft);
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: var(--weight-semibold);
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
     color: var(--color-text-muted);
   }
 </style>
