@@ -16,6 +16,12 @@
      */
     controlId?: string
     state?: SaveState
+    /**
+     * A neutral line where the save status goes, shown only while idle. For "this choice is
+     * not finished yet" — which is not an error, and must not borrow the error's red, warning
+     * icon and Retry button to say so.
+     */
+    note?: string
     /** Rendered as a Retry affordance beside an error. Omitted, the error is read-only. */
     onretry?: () => void
     /** The control. Receives the label element's id for `aria-labelledby`. */
@@ -27,6 +33,7 @@
     hint,
     controlId,
     state = { status: 'idle' },
+    note,
     onretry,
     children,
   }: Props = $props()
@@ -55,7 +62,11 @@
     not resize as it settles, and a column of rows does not ripple when one of them saves.
   -->
   <div class="status-cell" role="status" aria-live="polite">
-    {#if state.status === 'saving'}
+    {#if state.status === 'idle' && note}
+      <span class="status muted" title={note}>
+        <span class="message">{note}</span>
+      </span>
+    {:else if state.status === 'saving'}
       <span class="status muted">Saving…</span>
     {:else if state.status === 'saved'}
       <span class="status muted">
@@ -76,9 +87,10 @@
 <style>
   .row {
     display: grid;
-    /* The control column is content-sized so it cannot be squeezed by a long error
-       message; the status takes whatever is left. */
-    grid-template-columns: minmax(9rem, 13rem) auto minmax(0, 1fr);
+    /* The control column is content-sized so a long message cannot squeeze it, but the
+       status keeps a readable floor rather than collapsing to an ellipsis behind a wide
+       select — a truncated error is worse than a slightly narrowed control. */
+    grid-template-columns: minmax(9rem, 13rem) auto minmax(8rem, 1fr);
     align-items: center;
     gap: var(--sp-sm);
     min-height: 34px;
@@ -163,7 +175,7 @@
   /* Narrow: the label takes its own line and the control keeps the status beside it. */
   @media (max-width: 520px) {
     .row {
-      grid-template-columns: auto minmax(0, 1fr);
+      grid-template-columns: auto minmax(6rem, 1fr);
       row-gap: 2px;
     }
 

@@ -272,13 +272,32 @@ export async function readIntervals(userId: string, accountId: string): Promise<
     )
 }
 
-// The config actually in force for one account: inference over its coverage history, with any
-// user override laid on top.
-export async function effectiveConfig(userId: string, accountId: string): Promise<CoverageConfig> {
+// The config actually in force for one account, and the raw pins behind it.
+//
+// Both are needed by anything that lets the user edit the config: the merged config cannot say
+// whether a value was inferred or pinned by hand, and "hand this field back to automatic" is
+// only offerable when you know which it was. A field absent from `override` is inferred, and
+// its inferred value is the one already sitting in `config`.
+export async function resolveConfig(
+  userId: string,
+  accountId: string,
+): Promise<{
+  config: CoverageConfig
+  override: CoverageConfigOverride
+  inferred: CoverageConfigOverride | null
+}> {
   const [intervals, overrides] = await Promise.all([
     readIntervals(userId, accountId),
     readCatchUpOverrides(userId),
   ])
 
-  return mergeConfig(inferCycleFromIntervals(intervals), overrides[accountId] ?? {})
+  const override = overrides[accountId] ?? {}
+  const inferred = inferCycleFromIntervals(intervals)
+  return { config: mergeConfig(inferred, override), override, inferred }
+}
+
+// The config actually in force for one account: inference over its coverage history, with any
+// user override laid on top.
+export async function effectiveConfig(userId: string, accountId: string): Promise<CoverageConfig> {
+  return (await resolveConfig(userId, accountId)).config
 }

@@ -184,14 +184,28 @@
       account?.resolvedType === 'liability',
   )
 
+  // Also called by the settings modal after a catch-up config write: the horizon moves, so
+  // the strip and the status line are stale until this runs again.
+  async function refreshCoverage() {
+    if (!tracksCoverage) {
+      coverage = null
+      return
+    }
+    // Failure here leaves the strip hidden rather than breaking the page — coverage is
+    // context, not the reason the user opened this account.
+    try {
+      coverage = await fetchAccountCoverage(id)
+    } catch {
+      coverage = null
+    }
+  }
+
   $effect(() => {
     if (!tracksCoverage) {
       coverage = null
       return
     }
     let cancelled = false
-    // Failure here leaves the strip hidden rather than breaking the page — coverage is
-    // context, not the reason the user opened this account.
     fetchAccountCoverage(id)
       .then((c) => {
         if (!cancelled) coverage = c
@@ -287,8 +301,10 @@
     {account}
     hidden={isHidden}
     {preferredCurrency}
+    {coverage}
     onupdated={(a) => (account = a)}
     ontogglehidden={toggleHidden}
+    oncoveragechanged={refreshCoverage}
   />
 
   <ReconcileModal

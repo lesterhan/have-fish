@@ -1520,6 +1520,11 @@ export type AccountCoverage = {
   // The raw rows behind them. A merged span has no id, so undo works from these.
   assertions: CoverageAssertion[]
   config: CoverageConfig
+  // The raw pins behind `config`, and what inference alone concluded. `config` is post-merge
+  // and so answers neither question an editor needs: which fields the user pinned, and what
+  // "back to automatic" would restore them to.
+  override: Partial<CoverageConfig>
+  inferred: Partial<CoverageConfig> | null
   horizon: string
   nextHorizon: string | null
   // The span the coverage strip draws, and the days inside it that already have transactions.
