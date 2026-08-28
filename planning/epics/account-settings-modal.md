@@ -133,12 +133,23 @@ Tests: covered by story 1's helper plus a smoke test that the modal renders each
 
 ### 3. Default currency joins the modal
 
-Add `defaultCurrency` to the **Display** section, writing the same
-`PATCH /api/accounts/:id { defaultCurrency }` that `QuickEntryPanel` already writes.
+Add `defaultCurrency` to the second section — renamed **Preferences**, because both rows in it
+are choices about how the app treats the account rather than facts about it, and a currency
+that pre-selects on entry is not a display concern.
 
-Quick Entry keeps its own selector — it is the right control in that flow, and changing it
-mid-entry should still stick. Both write the same field, so the modal simply stops being the
-only place that cannot reach it.
+It writes the same `PATCH /api/accounts/:id { defaultCurrency }` that `QuickEntryPanel`
+already writes. Quick Entry keeps its own selector — it is the right control in that flow, and
+changing it mid-entry should still stick.
+
+A select rather than Quick Entry's combobox, because this is the one place that has to express
+**unset**: `null` means "no pin, fall back to the user's preferred currency", and a free-text
+currency box cannot say that without treating a blank as an error. Same shape as the type row's
+"Auto".
+
+The route needs a fix on the way past: `defaultCurrency` was passed through unvalidated on both
+the create and update paths, so any string was stored verbatim in a plain text column and every
+later FX lookup would fail on it. `currencies.ts` claims "all writes that include a currency
+code are validated against this set" — this route was the exception.
 
 ### 4. The catch-up section
 
