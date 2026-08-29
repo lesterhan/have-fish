@@ -4,6 +4,8 @@
   import { rank } from './accountScorer'
   import { type TreeNode } from './accountTree'
   import { accountIndex } from './accountIndex'
+  // Shared with the Ctrl+K palette — both render a scored path the same way.
+  import { glyphs } from './accountHighlight'
 
   interface Props {
     accounts: Account[]
@@ -129,20 +131,6 @@
     // Keep the active row in range; the top *real* match is the default.
     if (sActive >= searchResults.length) sActive = 0
   })
-
-  // --- Highlight rendering ---------------------------------------------------
-  type Glyph = { ch: string; sep: boolean; leaf: boolean; hl: boolean }
-  function glyphs(path: string, pos: number[]): Glyph[] {
-    const set = new Set(pos)
-    const lastSep = path.lastIndexOf(SEP)
-    const out: Glyph[] = []
-    for (let i = 0; i < path.length; i++) {
-      const ch = path[i]
-      if (ch === SEP) out.push({ ch, sep: true, leaf: false, hl: false })
-      else out.push({ ch, sep: false, leaf: i > lastSep, hl: set.has(i) })
-    }
-    return out
-  }
 
   // --- Positioning -----------------------------------------------------------
   function positionMenu() {

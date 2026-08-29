@@ -13,6 +13,7 @@
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import AddAccountWizard from '$lib/components/wizards/AddAccountWizard.svelte'
   import {
     fetchAccountBalances,
     fetchAccountPostingCounts,
@@ -23,6 +24,7 @@
   import type { AccountBalance, UserSettings } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { toast } from '$lib/toast.svelte'
+  import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
   import { SUPPORTED_CURRENCIES } from '$lib/currency'
   import { toISODate } from '$lib/date'
   import { rank } from '$lib/components/accounts/accountScorer'
@@ -399,6 +401,30 @@
     void goto(`/import?account=${encodeURIComponent(only.account.id)}`)
   }
 
+  // ── Creating an account ───────────────────────────────────
+  // The wizard used to hang off the sidebar's per-group "+", which went with the groups. It
+  // does more than insert a row — it sets up the CSV parser and the starting balance — so it
+  // needed a home rather than a deletion, and accounts live here now. The select follows the
+  // bulk bar's "Set currency…" idiom: the placeholder is the label, choosing is the action.
+  let wizardOpen = $state(false)
+  let wizardType = $state<'asset' | 'liability' | 'equity'>('asset')
+  let newAccountKind = $state('')
+
+  function startWizard(kind: string) {
+    if (kind !== 'asset' && kind !== 'liability' && kind !== 'equity') return
+    wizardType = kind
+    wizardOpen = true
+    newAccountKind = ''
+  }
+
+  async function reloadAccounts() {
+    accounts = await fetchAccountBalances({ includeUnfiled: true })
+    lastActivityById = new Map(
+      (await fetchAccountPostingCounts()).map((c) => [c.accountId, c.lastActivity]),
+    )
+    refreshSidebar()
+  }
+
   // ── Collapse ──────────────────────────────────────────────
   let collapsed = $state<Record<string, boolean>>({})
 
@@ -431,6 +457,12 @@
 
 <svelte:head><title>Accounts · have-fish</title></svelte:head>
 <svelte:window onkeydown={onKeydown} />
+
+<AddAccountWizard
+  type={wizardType}
+  bind:open={wizardOpen}
+  onSuccess={reloadAccounts}
+/>
 
 <div class="page">
   <header class="page-head">
@@ -523,6 +555,20 @@
             onclick={toggleConvert}
           />
         {/if}
+
+        <label class="control">
+          <span class="sr-only">Create an account</span>
+          <Select
+            bind:value={newAccountKind}
+            aria-label="Create an account"
+            onchange={() => startWizard(newAccountKind)}
+          >
+            <option value="">New account…</option>
+            <option value="asset">Asset</option>
+            <option value="liability">Liability</option>
+            <option value="equity">Equity</option>
+          </Select>
+        </label>
 
         <span class="count">
           {visibleRows.length}

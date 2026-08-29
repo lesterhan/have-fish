@@ -1,24 +1,33 @@
 <script lang="ts">
   import { afterNavigate } from '$app/navigation'
   import { page } from '$app/state'
-  import type { AccountBalance, UserSettings } from '$lib/api'
-  import { formatCompact } from '$lib/currency'
-  import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { theme } from '$lib/theme.svelte'
   import { tooltip } from '$lib/tooltip'
   import { settingsStore } from '$lib/settings.svelte'
-  import {
-    accountDisplayName,
-    isUnderRoot,
-  } from '$lib/components/accounts/accountPaths'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
+  import { rootsFrom } from '$lib/components/accounts/accountPaths'
+  import AccountJumpPalette from '$lib/components/accounts/AccountJumpPalette.svelte'
+  import {
+    pinnedRows,
+    recentRows,
+    type SidebarAccount,
+  } from '$lib/components/accounts/sidebarAccounts'
   import Icon from './ui/Icon.svelte'
-  import AddAccountWizard from './wizards/AddAccountWizard.svelte'
-  import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
 
+  /**
+   * A launcher, not an index.
+   *
+   * This used to render every balance-bearing account grouped by type, each row carrying a
+   * stack of currency pills — 21 accounts became 19 lines and 19 pills, and finding the one
+   * you wanted meant reading all of them. Accounts live on /accounts now. What is left here
+   * is the handful you chose (Pinned), the handful you have been using (Recent), and Ctrl+K
+   * for everything else.
+   */
   interface Props {
-    accounts: AccountBalance[]
-    settings: UserSettings
+    /** Every account, for the jump palette. Balances are no longer needed or fetched. */
+    accounts: SidebarAccount[]
+    /** Account id → YYYY-MM-DD of its latest transaction. Drives Recent. */
+    lastActivityById: ReadonlyMap<string, string | null>
     email?: string
     mobileOpen?: boolean
     onMobileClose?: () => void
@@ -26,7 +35,7 @@
 
   let {
     accounts,
-    settings,
+    lastActivityById,
     email,
     mobileOpen = false,
     onMobileClose,
@@ -35,32 +44,14 @@
   afterNavigate(() => onMobileClose?.())
 
   let currentPath = $derived(page.url.pathname)
-
   let expanded = $state(true)
-  let assetsOpen = $state(true)
-  let liabilitiesOpen = $state(true)
-  let equityOpen = $state(true)
-  let hiddenOpen = $state(false)
+  let paletteOpen = $state(false)
 
-  let wizardOpen = $state(false)
-  let wizardType = $state<'asset' | 'liability' | 'equity'>('asset')
+  let roots = $derived(rootsFrom(settingsStore.value))
 
-  function openWizard(type: 'asset' | 'liability' | 'equity', e: Event) {
-    e.stopPropagation()
-    wizardType = type
-    wizardOpen = true
-  }
-
-  function handleAddKeydown(
-    type: 'asset' | 'liability' | 'equity',
-    e: KeyboardEvent,
-  ) {
-    if (e.key === 'Enter' || e.key === ' ') {
-      e.preventDefault()
-      openWizard(type, e)
-    }
-  }
-
+  let pinnedIds = $derived(
+    settingsStore.value?.preferences.pinnedAccountIds ?? [],
+  )
   let hiddenIds = $derived(
     new Set(settingsStore.value?.preferences.hiddenAccountIds ?? []),
   )
@@ -73,62 +64,14 @@
     ),
   )
 
-  let assets = $derived(
-    sortByDisplayName(
-      accounts.filter(
-        (a) =>
-          !hiddenIds.has(a.id) &&
-          isUnderRoot(a.path, settings.defaultAssetsRootPath),
-      ),
-      settings.defaultAssetsRootPath,
-    ),
+  let pinned = $derived(pinnedRows(accounts, pinnedIds, roots))
+  let recent = $derived(
+    recentRows(accounts, lastActivityById, roots, {
+      pinnedIds: new Set(pinnedIds),
+      hiddenIds,
+    }),
   )
-  let liabilities = $derived(
-    sortByDisplayName(
-      accounts.filter(
-        (a) =>
-          !hiddenIds.has(a.id) &&
-          isUnderRoot(a.path, settings.defaultLiabilitiesRootPath),
-      ),
-      settings.defaultLiabilitiesRootPath,
-    ),
-  )
-  let equity = $derived(
-    sortByDisplayName(
-      accounts.filter(
-        (a) =>
-          !hiddenIds.has(a.id) &&
-          isUnderRoot(a.path, settings.defaultEquityRootPath),
-      ),
-      settings.defaultEquityRootPath,
-    ),
-  )
-  let hiddenAccounts = $derived(
-    sortByDisplayName(
-      accounts.filter((a) => hiddenIds.has(a.id)),
-      '',
-    ),
-  )
-
-  function displayName(acct: AccountBalance, root: string): string {
-    return accountDisplayName(acct, root)
-  }
-
-  function sortByDisplayName(
-    accts: AccountBalance[],
-    root: string,
-  ): AccountBalance[] {
-    return [...accts].sort((a, b) =>
-      displayName(a, root).localeCompare(displayName(b, root)),
-    )
-  }
 </script>
-
-<AddAccountWizard
-  type={wizardType}
-  bind:open={wizardOpen}
-  onSuccess={refreshSidebar}
-/>
 
 <aside
   class="sidebar"
@@ -210,218 +153,63 @@
     </div>
 
     {#if expanded || mobileOpen}
-      <!-- Account groups -->
-      <div class="groups">
-        <section class="group">
-          <button
-            class="group-header"
-            onclick={() => (assetsOpen = !assetsOpen)}
-          >
-            <img
-              src="/icons/chevron-right-filled.svg"
-              alt=""
-              aria-hidden="true"
-              width="12"
-              height="12"
-              class="group-chevron"
-              class:open={assetsOpen}
-            />
-            Assets
-            <span
-              class="group-add"
-              onclick={(e) => openWizard('asset', e)}
-              onkeydown={(e) => handleAddKeydown('asset', e)}
-              aria-label="Add asset account"
-              role="button"
-              tabindex="0">+</span
-            >
-          </button>
-          {#if assetsOpen}
+      <div class="lists">
+        <button class="jump" type="button" onclick={() => (paletteOpen = true)}>
+          <Icon name="search" size={13} />
+          <span class="jump-label">Jump to account</span>
+          <span class="jump-key">Ctrl K</span>
+        </button>
+
+        {#if pinned.length > 0}
+          <section class="list">
+            <h2 class="list-header">Pinned</h2>
             <ul class="account-list">
-              {#each assets as acct}
+              {#each pinned as row (row.id)}
                 <li>
                   <a
-                    href="/account/{acct.id}"
+                    href="/account/{row.id}"
                     class="account-row"
-                    class:active={currentPath === `/account/${acct.id}`}
+                    class:active={currentPath === `/account/${row.id}`}
+                    title={row.path}
                   >
-                    <span class="account-name"
-                      >{displayName(acct, settings.defaultAssetsRootPath)}</span
-                    >
-                    {#if actionRequiredIds.has(acct.id)}<span
-                        class="action-dot"
-                        aria-label="Action required"
-                      ></span>{/if}
-                    <span class="account-balances">
-                      {#if acct.balances.length === 0}
-                        <span class="account-balance muted">—</span>
-                      {:else}
-                        {#each acct.balances as b}
-                          <span class="account-balance">
-                            <CurrencyPill code={b.currency} size="xs" />
-                            {formatCompact(b.amount)}
-                          </span>
-                        {/each}
-                      {/if}
-                    </span>
+                    <span class="account-name">{row.label}</span>
+                    {#if actionRequiredIds.has(row.id)}
+                      <span class="action-dot" title="Needs attention"></span>
+                    {/if}
                   </a>
                 </li>
               {/each}
             </ul>
-          {/if}
-        </section>
-
-        <section class="group">
-          <button
-            class="group-header"
-            onclick={() => (liabilitiesOpen = !liabilitiesOpen)}
-          >
-            <img
-              src="/icons/chevron-right-filled.svg"
-              alt=""
-              aria-hidden="true"
-              width="12"
-              height="12"
-              class="group-chevron"
-              class:open={liabilitiesOpen}
-            />
-            Liabilities
-            <span
-              class="group-add"
-              onclick={(e) => openWizard('liability', e)}
-              onkeydown={(e) => handleAddKeydown('liability', e)}
-              aria-label="Add liability account"
-              role="button"
-              tabindex="0">+</span
-            >
-          </button>
-          {#if liabilitiesOpen}
-            <ul class="account-list">
-              {#each liabilities as acct}
-                <li>
-                  <a
-                    href="/account/{acct.id}"
-                    class="account-row"
-                    class:active={currentPath === `/account/${acct.id}`}
-                  >
-                    <span class="account-name"
-                      >{displayName(acct, settings.defaultLiabilitiesRootPath)}</span
-                    >
-                    {#if actionRequiredIds.has(acct.id)}<span
-                        class="action-dot"
-                        aria-label="Action required"
-                      ></span>{/if}
-                    <span class="account-balances">
-                      {#if acct.balances.length === 0}
-                        <span class="account-balance muted">—</span>
-                      {:else}
-                        {#each acct.balances as b}
-                          <span class="account-balance">
-                            <CurrencyPill code={b.currency} size="xs" />
-                            {formatCompact(b.amount)}
-                          </span>
-                        {/each}
-                      {/if}
-                    </span>
-                  </a>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </section>
-
-        <section class="group">
-          <button
-            class="group-header"
-            onclick={() => (equityOpen = !equityOpen)}
-          >
-            <img
-              src="/icons/chevron-right-filled.svg"
-              alt=""
-              aria-hidden="true"
-              width="12"
-              height="12"
-              class="group-chevron"
-              class:open={equityOpen}
-            />
-            Equity
-            <span
-              class="group-add"
-              onclick={(e) => openWizard('equity', e)}
-              onkeydown={(e) => handleAddKeydown('equity', e)}
-              aria-label="Add equity account"
-              role="button"
-              tabindex="0">+</span
-            >
-          </button>
-          {#if equityOpen}
-            <ul class="account-list">
-              {#each equity as acct}
-                <li>
-                  <a
-                    href="/account/{acct.id}"
-                    class="account-row"
-                    class:active={currentPath === `/account/${acct.id}`}
-                  >
-                    <span class="account-name"
-                      >{displayName(acct, settings.defaultEquityRootPath)}</span
-                    >
-                    {#if actionRequiredIds.has(acct.id)}<span
-                        class="action-dot"
-                        aria-label="Action required"
-                      ></span>{/if}
-                    <span class="account-balances">
-                      {#if acct.balances.length === 0}
-                        <span class="account-balance muted">—</span>
-                      {:else}
-                        {#each acct.balances as b}
-                          <span class="account-balance">
-                            <CurrencyPill code={b.currency} size="xs" />
-                            {formatCompact(b.amount)}
-                          </span>
-                        {/each}
-                      {/if}
-                    </span>
-                  </a>
-                </li>
-              {/each}
-            </ul>
-          {/if}
-        </section>
-
-        {#if hiddenAccounts.length > 0}
-          <section class="group group-hidden">
-            <button
-              class="group-header"
-              onclick={() => (hiddenOpen = !hiddenOpen)}
-            >
-              <img
-                src="/icons/chevron-right-filled.svg"
-                alt=""
-                aria-hidden="true"
-                width="12"
-                height="12"
-                class="group-chevron"
-                class:open={hiddenOpen}
-              />
-              Hidden
-            </button>
-            {#if hiddenOpen}
-              <ul class="account-list">
-                {#each hiddenAccounts as acct}
-                  <li>
-                    <a
-                      href="/account/{acct.id}"
-                      class="account-row account-row-hidden"
-                      class:active={currentPath === `/account/${acct.id}`}
-                    >
-                      <span class="account-name">{acct.name ?? acct.path}</span>
-                    </a>
-                  </li>
-                {/each}
-              </ul>
-            {/if}
           </section>
+        {/if}
+
+        {#if recent.length > 0}
+          <section class="list">
+            <h2 class="list-header">Recent</h2>
+            <ul class="account-list">
+              {#each recent as row (row.id)}
+                <li>
+                  <a
+                    href="/account/{row.id}"
+                    class="account-row"
+                    class:active={currentPath === `/account/${row.id}`}
+                    title={row.path}
+                  >
+                    <span class="account-name">{row.label}</span>
+                    {#if actionRequiredIds.has(row.id)}
+                      <span class="action-dot" title="Needs attention"></span>
+                    {/if}
+                  </a>
+                </li>
+              {/each}
+            </ul>
+          </section>
+        {/if}
+
+        {#if pinned.length === 0 && recent.length === 0}
+          <p class="lists-empty">
+            Pin accounts on the <a href="/accounts">Accounts</a> page to keep them here.
+          </p>
         {/if}
       </div>
     {/if}
@@ -474,6 +262,8 @@
     </div>
   </div>
 </aside>
+
+<AccountJumpPalette {accounts} initial={[...pinned, ...recent]} bind:open={paletteOpen} />
 
 <style>
   /* --- Sidebar shell --- */
@@ -607,19 +397,66 @@
     }
   }
 
-  /* --- Account groups --- */
+  /* --- Pinned + Recent --- */
 
-  .groups {
+  .lists {
     flex: 1;
     overflow-y: auto;
-    padding: 0 0 var(--sp-xs);
+    padding: var(--sp-sm) 0 var(--sp-xs);
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
   }
 
-  .group-header {
+  .jump {
     display: flex;
     align-items: center;
-    gap: 4px;
-    width: 100%;
+    gap: var(--sp-xs);
+    margin: 0 var(--sp-sm);
+    padding: 4px var(--sp-xs);
+    background: var(--color-window-inset);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-md);
+    box-shadow: var(--shadow-inset);
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    cursor: pointer;
+    transition:
+      border-color var(--duration-fast) var(--ease),
+      color var(--duration-fast) var(--ease);
+  }
+
+  .jump:hover {
+    border-color: var(--color-accent-mid);
+    color: var(--color-text);
+  }
+
+  .jump:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: 1px;
+  }
+
+  .jump-label {
+    flex: 1;
+    text-align: left;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .jump-key {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 1px 3px;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    background: var(--color-window);
+    white-space: nowrap;
+  }
+
+  .list-header {
+    margin: 0;
     padding: 3px var(--sp-sm);
     font-size: var(--text-xs);
     font-weight: var(--weight-semibold);
@@ -630,57 +467,6 @@
     background: var(--color-section-bar-bg);
     border-top: 1px solid var(--color-section-bar-border-top);
     border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    text-align: left;
-    cursor: pointer;
-    transition: opacity var(--duration-fast) var(--ease);
-  }
-
-  .group-header:hover {
-    opacity: 0.85;
-  }
-
-  .group-chevron {
-    flex-shrink: 0;
-    transform-origin: center center;
-    transition: transform var(--duration-fast) var(--ease);
-    filter: invert(1);
-  }
-
-  .group-add {
-    margin-left: auto;
-    width: 16px;
-    height: 16px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 2px;
-    font-size: 14px;
-    font-weight: 400;
-    line-height: 1;
-    color: var(--color-section-bar-fg);
-    opacity: 0;
-    transition:
-      opacity var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease);
-  }
-
-  .group-header:hover .group-add {
-    opacity: 0.7;
-  }
-
-  .group-add:hover {
-    opacity: 1 !important;
-    background: rgba(255, 255, 255, 0.2);
-  }
-
-  .group-chevron.open {
-    transform: rotate(90deg);
-  }
-
-  @media (max-width: 600px) {
-    .group-header {
-      padding: var(--sp-sm) var(--sp-md) var(--sp-xs);
-    }
   }
 
   .account-list {
@@ -691,10 +477,10 @@
 
   .account-row {
     display: flex;
-    align-items: flex-start;
+    align-items: center;
     justify-content: space-between;
     gap: var(--sp-xs);
-    padding: 2px var(--sp-sm);
+    padding: 3px var(--sp-sm);
     font-size: var(--text-xs);
     color: var(--color-text);
     text-decoration: none;
@@ -714,7 +500,6 @@
   @media (max-width: 600px) {
     .account-row {
       min-height: 44px;
-      align-items: center;
       padding: var(--sp-xs) var(--sp-md);
       font-size: var(--text-sm);
     }
@@ -727,35 +512,18 @@
     white-space: nowrap;
     flex: 1;
     min-width: 0;
-    padding-top: 2px;
   }
 
-  @media (max-width: 600px) {
-    .account-name {
-      padding-top: 0;
-    }
-  }
-
-  .account-balances {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-end;
-    flex-shrink: 0;
-  }
-
-  .account-balance {
-    font-family: var(--font-mono);
+  .lists-empty {
+    margin: 0;
+    padding: 0 var(--sp-sm);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
+    line-height: 1.5;
   }
 
-  .group-hidden .group-header {
-    opacity: 0.6;
-  }
-
-  .account-row-hidden .account-name {
-    color: var(--color-text-disabled);
-    font-style: italic;
+  .lists-empty a {
+    color: var(--color-accent-mid);
   }
 
   .action-dot {
@@ -764,7 +532,6 @@
     height: 6px;
     border-radius: 50%;
     background: var(--color-warning);
-    margin-top: 4px;
   }
 
   /* --- Footer --- */
