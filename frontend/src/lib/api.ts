@@ -113,7 +113,11 @@ export async function deleteAccount(id: string) {
   })
 }
 
-export async function fetchAccountPostingCounts(): Promise<{ accountId: string; count: number }[]> {
+// One row per non-deleted account, including never-used ones (count 0, lastActivity null).
+// lastActivity is the YYYY-MM-DD date of the account's most recent transaction.
+export type AccountPostingCount = { accountId: string; count: number; lastActivity: string | null }
+
+export async function fetchAccountPostingCounts(): Promise<AccountPostingCount[]> {
   const res = await fetch(`${BASE}/api/accounts/posting-counts`, { credentials: 'include' })
   return res.json()
 }

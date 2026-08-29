@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { eq } from 'drizzle-orm'
-import { accounts as accountsTable } from '../db/schema.ts'
+import { and, eq } from 'drizzle-orm'
+import { accounts as accountsTable, postings as postingsTable, transactions as transactionsTable } from '../db/schema.ts'
 
 type Account = typeof accountsTable.$inferSelect
 
@@ -950,6 +950,152 @@ describe('accounts', () => {
       const otherId = (await otherRes.json() as Account).id
       const res = await patch(otherId, { type: 'liability' })
       expect(res.status).toBe(404)
+    })
+  })
+
+  describe('GET /api/accounts/posting-counts', () => {
+    type CountRow = { accountId: string; count: number; lastActivity: string | null }
+
+    async function createAccount(path: string, useCookie = cookie) {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      return (await res.json() as Account).id
+    }
+
+    // Creates a balanced two-posting transaction on the given date and returns its id.
+    async function createTransaction(
+      date: string,
+      postingInputs: { accountId: string; amount: string; currency?: string }[],
+      useCookie = cookie,
+    ) {
+      const res = await app.request('/api/transactions', {
+        method: 'POST',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          postings: postingInputs.map(p => ({ currency: 'CAD', ...p })),
+        }),
+      })
+      if (res.status !== 201) throw new Error(`createTransaction failed: ${res.status}`)
+      return (await res.json() as { id: string }).id
+    }
+
+    async function fetchCounts(useCookie = cookie) {
+      const res = await app.request('/api/accounts/posting-counts', { headers: { Cookie: useCookie } })
+      expect(res.status).toBe(200)
+      return await res.json() as CountRow[]
+    }
+
+    async function rowFor(accountId: string, useCookie = cookie) {
+      return (await fetchCounts(useCookie)).find(r => r.accountId === accountId)
+    }
+
+    it('returns the posting count and the most recent transaction date together', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction('2024-01-15', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      await createTransaction('2024-03-02', [
+        { accountId: chequing, amount: '-25.00' },
+        { accountId: food, amount: '25.00' },
+      ])
+
+      expect(await rowFor(chequing)).toEqual({
+        accountId: chequing,
+        count: 2,
+        lastActivity: '2024-03-02',
+      })
+    })
+
+    it('takes the maximum date, not the most recently created transaction', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction('2024-06-01', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      // Backdated entry, created second — must not become the last activity.
+      await createTransaction('2023-01-01', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      expect((await rowFor(chequing))?.lastActivity).toBe('2024-06-01')
+    })
+
+    it('reports count 0 and lastActivity null for an account with no postings', async () => {
+      const empty = await createAccount('assets:unused')
+      expect(await rowFor(empty)).toEqual({ accountId: empty, count: 0, lastActivity: null })
+    })
+
+    it('excludes soft-deleted postings from both the count and the date', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction('2024-01-15', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      const recent = await createTransaction('2024-09-30', [
+        { accountId: chequing, amount: '-25.00' },
+        { accountId: food, amount: '25.00' },
+      ])
+      await db.update(postingsTable)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(postingsTable.transactionId, recent), eq(postingsTable.accountId, chequing)))
+
+      // The chequing leg of the September transaction is gone; the food leg is not.
+      expect(await rowFor(chequing)).toEqual({ accountId: chequing, count: 1, lastActivity: '2024-01-15' })
+      expect((await rowFor(food))?.count).toBe(2)
+    })
+
+    it('excludes postings whose transaction is soft-deleted', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction('2024-01-15', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      const recent = await createTransaction('2024-09-30', [
+        { accountId: chequing, amount: '-25.00' },
+        { accountId: food, amount: '25.00' },
+      ])
+      await db.update(transactionsTable)
+        .set({ deletedAt: new Date() })
+        .where(eq(transactionsTable.id, recent))
+
+      expect(await rowFor(chequing)).toEqual({ accountId: chequing, count: 1, lastActivity: '2024-01-15' })
+    })
+
+    it('omits soft-deleted accounts entirely', async () => {
+      const closed = await createAccount('assets:closed')
+      await db.update(accountsTable).set({ deletedAt: new Date() }).where(eq(accountsTable.id, closed))
+      expect(await rowFor(closed)).toBeUndefined()
+    })
+
+    it('never counts another user\'s postings', async () => {
+      const other = await createTestUser('counts-other@example.com')
+      const mine = await createAccount('assets:chequing')
+      const theirs = await createAccount('assets:chequing', other)
+      const theirFood = await createAccount('expenses:food', other)
+      await createTransaction('2024-05-05', [
+        { accountId: theirs, amount: '-10.00' },
+        { accountId: theirFood, amount: '10.00' },
+      ], other)
+
+      // My listing sees neither their account nor their activity.
+      const mineRows = await fetchCounts()
+      expect(mineRows.find(r => r.accountId === theirs)).toBeUndefined()
+      expect(mineRows.find(r => r.accountId === mine)).toEqual({
+        accountId: mine, count: 0, lastActivity: null,
+      })
+      // Theirs is intact from their side.
+      expect(await rowFor(theirs, other)).toEqual({
+        accountId: theirs, count: 1, lastActivity: '2024-05-05',
+      })
     })
   })
 })
