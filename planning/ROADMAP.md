@@ -67,7 +67,7 @@
 | [Mobile Cash Ledger](epics/mobile-cash-tab.md) | Scoping |
 | [Account Page Redesign](epics/archive/account-page-redesign.md) | Done |
 | [Account Settings Modal](epics/archive/account-settings-modal.md) | Done |
-| [Accounts Page — Consolidation and Curation](epics/accounts-page.md) | Scoped |
+| [Accounts Page — Consolidation and Curation](epics/archive/accounts-page.md) | Done |
 
 ## Fish Pie sequence
 
