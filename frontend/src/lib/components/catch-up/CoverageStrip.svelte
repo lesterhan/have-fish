@@ -122,9 +122,19 @@
   }
 
   /* Asserted complete — a solid fill sitting in the trough, so a run of covered days reads as
-     one continuous stretch of "done". */
+     one continuous stretch of "done".
+
+     The fill has its own tokens rather than borrowing the button gradient's. Those are picked
+     to sit on a button, not in this trough: in the dark palette they ran from #3b4252 down to
+     #20242d against a #232731 trough, so most of every covered cell was darker than the hole
+     it was supposed to contrast with and the band read as one flat colour. tokens.test.ts
+     holds the replacements to 3:1 against the trough, in both themes. */
   .day--covered {
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule));
+    background: linear-gradient(
+      180deg,
+      var(--color-coverage-covered-hi),
+      var(--color-coverage-covered-lo)
+    );
   }
 
   /* Unknown. Transparent, so the container's trough shows through: an uncovered stretch is
@@ -138,15 +148,17 @@
   .day--beyond-horizon {
     background: repeating-linear-gradient(
       -45deg,
-      transparent 0 2px,
-      var(--color-rule-soft) 2px 4px
+      transparent 0 3px,
+      var(--color-coverage-hatch) 3px 4px
     );
   }
 
-  /* The tick sits on the accent over both the fill and the trough; over the fill it needs a
-     ring to stay legible against the surrounding grey. */
+  /* Over the trough the accent is the mark; over the covered fill it has too little contrast
+     to hold on its own, so it steps up to the lighter accent. This used to be a 1px ring in
+     the inset colour, which worked while the fill was near-white and turned the dot into a
+     hollow circle the moment the fill got dark enough to see. */
   .day--covered.has-txn::after {
-    box-shadow: 0 0 0 1px var(--color-window-inset);
+    background: var(--color-accent-hi);
   }
 
   /* A day that already has transactions. On an uncovered cell this is the phone-entered split
