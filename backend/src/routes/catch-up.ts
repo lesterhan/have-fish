@@ -4,6 +4,7 @@ import { accountCoverage, accounts, postings, transactions, userSettings } from 
 import { and, eq, gte, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { resolveStoredOrInferredType, toClassifierType, DEFAULT_ROOTS } from '../postings/account-type'
+import { isClearingAccountPath } from '../fish-pie-accounts'
 import { addDays, type CoverageInterval } from '../coverage/intervals'
 import {
   inferCycleFromIntervals,
@@ -36,8 +37,9 @@ function idSet(value: unknown): Set<string> {
 // The whole coach payload: one entry per tracked account plus a summary.
 //
 // Tracked means every non-deleted asset and liability account, minus any the user has hidden,
-// flagged illiquid, or dismissed with `tracked: false`. Expense and income accounts are
-// derived from postings rather than imported, so there is nothing to catch up on.
+// flagged illiquid, or dismissed with `tracked: false`. Expense and income accounts, and Fish
+// Pie clearing accounts, are derived from postings rather than imported, so there is nothing
+// to catch up on.
 // 200: { today, accounts, summary }
 app.get('/', async (c) => {
   const userId = c.get('userId')
@@ -83,6 +85,10 @@ app.get('/', async (c) => {
 
   const candidates = allAccounts.filter((a) => {
     if (hidden.has(a.id) || illiquid.has(a.id)) return false
+    // Fish Pie clearing accounts are asset-typed but system-managed — their postings are
+    // generated from group expenses and settlements, never imported from a statement, so
+    // they can no more fall behind than an expense account can.
+    if (isClearingAccountPath(a.path)) return false
     const resolved = resolveStoredOrInferredType(a, roots)
     if (!resolved) return false
     const type = toClassifierType(resolved)
