@@ -110,18 +110,6 @@ describe('catch-up', () => {
       expect(body.accounts.map((a: any) => a.accountId)).toEqual([chequing.id])
     })
 
-    // The legacy `group:<slug>` scheme predates the receivable namespace. An untyped one is
-    // already skipped for having no classifiable root, so the case worth pinning is one a user
-    // has pinned with a stored type override — the exclusion is about what the account is, not
-    // about how it happens to be typed.
-    it('excludes legacy group: clearing accounts even with a stored type', async () => {
-      await createAccount(userId, 'group:roommates', { type: 'asset' })
-
-      const { body } = await getCatchUp(cookie)
-
-      expect(body.accounts).toHaveLength(0)
-    })
-
     // Matching is anchored on the colon. An ordinary account that merely starts with the same
     // letters is a real account the coach still owes an answer for.
     it('tracks an account whose path only looks like the receivable namespace', async () => {

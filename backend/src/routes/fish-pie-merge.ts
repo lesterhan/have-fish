@@ -138,14 +138,10 @@ app.post('/merge', async (c) => {
     await tx.update(groupSettlements).set({ groupId: created.id }).where(inArray(groupSettlements.groupId, groupIds))
 
     // 6. Collapse old per-source-group clearing accounts into each member's single new
-    //    clearing account, then soft-delete the old accounts. Matches both the legacy
-    //    `group:<slug>` and the current `assets:receivable:<slug>` paths so data created
-    //    either side of the scheme flip is captured.
-    const oldClearingPaths: string[] = []
-    for (const gid of groupIds) {
-      const srcSlug = slugify(sourceGroupById.get(gid)!.name)
-      oldClearingPaths.push(`group:${srcSlug}`, `${CLEARING_PREFIX}:${srcSlug}`)
-    }
+    //    clearing account, then soft-delete the old accounts.
+    const oldClearingPaths = groupIds.map(
+      (gid) => `${CLEARING_PREFIX}:${slugify(sourceGroupById.get(gid)!.name)}`,
+    )
     const newClearingIds = new Set(newClearingByUser.values())
     const oldClearingAccounts = await tx
       .select({ id: accounts.id, userId: accounts.userId })
