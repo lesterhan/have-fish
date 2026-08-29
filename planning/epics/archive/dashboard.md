@@ -1,5 +1,17 @@
 # Epic: Dashboard
 
+> **Removed 2026-08-29.** Shipped, then unused: after living with the app for a while the
+> page was not answering a question worth opening it for. The route, the runway track, the
+> weekly-spend chart and the catch-up tile are all deleted — the route with no redirect left
+> behind — along with the endpoints and the
+> `chart.js` dependency that only it needed. Kept as a record of what was built and why —
+> the design principles below still read true, and the two things the page was actually for
+> found other homes: spending trends on the Spending page, what needs catching up in the
+> Accounts page's attention chip.
+>
+> Consequence accepted: **net worth is displayed nowhere.** The Accounts page's four position
+> buckets sum to it; nothing states the total.
+
 A financial health dashboard inspired by tech ops dashboards — signal over noise, anomalies at a glance, and just enough forward-looking info to inform spending decisions without inducing anxiety.
 
 ## Design principles

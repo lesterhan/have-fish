@@ -133,12 +133,12 @@ are modelled exactly like every other account: a balance you type in. That makes
 weight in the UI — a number that only moves when you remember to update it — when the useful
 question is *how are these doing*: cost basis against market value, gains and losses.
 
-Decided 2026-08-29 while scoping [Accounts Page](epics/accounts-page.md):
+Decided 2026-08-29 while scoping [Accounts Page](epics/archive/accounts-page.md):
 
 - The [Illiquid Account Flags](illiquid-account-flags.md) epic's `illiquidAccountIds` was
   **not** built into the accounts page. Its only justification was excluding locked assets
-  from cash-position and runway maths, and runway is deprioritized with the dashboard
-  mothballed — so the flag has no consumer. A boolean "exclude from cash" is also probably the
+  from cash-position and runway maths, and the dashboard those lived on has since been
+  deleted (2026-08-29) — so the flag has no consumer. A boolean "exclude from cash" is also probably the
   wrong shape for what is actually wanted here, and would more likely be in the way than a
   head start.
 - The accounts page instead derives its **Investments** bucket from the `equity:` root, which

@@ -19,7 +19,7 @@
 | [Import CSV for Liability Accounts](epics/archive/import-csv-liability-accounts.md) | Done |
 | [Support Transfer Direction](epics/archive/support-transfer-direction.md) | Done |
 | [Resolve Duplicate Transactions](epics/archive/resolve-duplicate-transactions.md) | Done |
-| [Dashboard](epics/archive/dashboard.md) | Done |
+| [Dashboard](epics/archive/dashboard.md) | Removed 2026-08-29 |
 | [User Sign-up](epics/archive/user-signup.md) | Done |
 | [Sidebar Redesign](epics/archive/sidebar-redesign.md) | Done |
 | [Single Account View](epics/archive/single-account-view.md) | Done |
@@ -67,7 +67,7 @@
 | [Mobile Cash Ledger](epics/mobile-cash-tab.md) | Scoping |
 | [Account Page Redesign](epics/archive/account-page-redesign.md) | Done |
 | [Account Settings Modal](epics/archive/account-settings-modal.md) | Done |
-| [Accounts Page — Consolidation and Curation](epics/accounts-page.md) | Scoped |
+| [Accounts Page — Consolidation and Curation](epics/archive/accounts-page.md) | Done |
 
 ## Fish Pie sequence
 
