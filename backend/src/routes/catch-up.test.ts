@@ -97,6 +97,41 @@ describe('catch-up', () => {
       expect(body.accounts).toHaveLength(0)
     })
 
+    // Fish Pie clearing accounts live under `assets:receivable` and are system-managed: every
+    // posting in one is generated from a group expense or settlement, so there is no statement
+    // to import and no way to fall behind. Same reasoning as expense and income above.
+    it('excludes Fish Pie clearing (receivable) accounts', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await createAccount(userId, 'assets:receivable:roommates')
+      await createAccount(userId, 'assets:receivable')
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(body.accounts.map((a: any) => a.accountId)).toEqual([chequing.id])
+    })
+
+    // The legacy `group:<slug>` scheme predates the receivable namespace. An untyped one is
+    // already skipped for having no classifiable root, so the case worth pinning is one a user
+    // has pinned with a stored type override — the exclusion is about what the account is, not
+    // about how it happens to be typed.
+    it('excludes legacy group: clearing accounts even with a stored type', async () => {
+      await createAccount(userId, 'group:roommates', { type: 'asset' })
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(body.accounts).toHaveLength(0)
+    })
+
+    // Matching is anchored on the colon. An ordinary account that merely starts with the same
+    // letters is a real account the coach still owes an answer for.
+    it('tracks an account whose path only looks like the receivable namespace', async () => {
+      const ledger = await createAccount(userId, 'assets:receivables-ledger')
+
+      const { body } = await getCatchUp(cookie)
+
+      expect(body.accounts.map((a: any) => a.accountId)).toEqual([ledger.id])
+    })
+
     it('excludes soft-deleted accounts', async () => {
       const closed = await createAccount(userId, 'assets:closed')
       await db.update(accounts).set({ deletedAt: new Date() }).where(eq(accounts.id, closed.id))

@@ -27,11 +27,17 @@ export function clearingAccountPath(name: string): string {
   return `${CLEARING_PREFIX}:${slugify(name)}`
 }
 
-// True for both the current (`assets:receivable:…`) and legacy (`group:…`) clearing
-// account paths. Used where postings are matched by path during the transition window
-// (e.g. the import-linked PATCH rebuild) so pre-migration data still resolves.
+// True for the receivable namespace itself, anything under it, and the legacy (`group:…`)
+// scheme. Used where postings are matched by path during the transition window (e.g. the
+// import-linked PATCH rebuild) so pre-migration data still resolves, and to keep clearing
+// accounts out of surfaces that only make sense for accounts a human imports into.
+// Anchored on the colon, so `assets:receivables-ledger` is an ordinary account.
 export function isClearingAccountPath(path: string): boolean {
-  return path.startsWith(`${CLEARING_PREFIX}:`) || path.startsWith(LEGACY_CLEARING_PREFIX)
+  return (
+    path === CLEARING_PREFIX ||
+    path.startsWith(`${CLEARING_PREFIX}:`) ||
+    path.startsWith(LEGACY_CLEARING_PREFIX)
+  )
 }
 
 // Find or create the clearing (receivable) account for a user in a group.
