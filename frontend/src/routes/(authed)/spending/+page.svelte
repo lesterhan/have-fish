@@ -27,7 +27,9 @@
   } from '$lib/api'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import ConvertToggle from '$lib/components/ui/ConvertToggle.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
+  import { formatMoneyAbs } from '$lib/money'
 
   // --- Month state ---
   const now = new Date()
@@ -127,14 +129,6 @@
 
   function formatDelta(pct: number): string {
     return `${pct > 0 ? '↑' : '↓'} ${Math.round(Math.abs(pct))}%`
-  }
-
-  function formatAmount(amount: string): string {
-    const n = Math.abs(parseFloat(amount))
-    return n.toLocaleString('en-CA', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
   }
 
   async function startConversion() {
@@ -328,17 +322,14 @@
       </div>
       <span class="month-label">{MONTH_NAMES[month - 1]} {year}</span>
       {#if summary && needsConversion}
-        <GradientButton
-          active={converting}
-          disabled={fxFetching}
-          aria-label={converting
-            ? 'Show raw totals'
-            : `Convert to ${preferredCurrency}`}
+        <ConvertToggle
+          converted={converting}
+          busy={fxFetching}
+          currency={preferredCurrency}
+          offLabel="Show raw totals"
+          compact
           onclick={handleConvertToggle}
-          tooltip={`Convert to ${preferredCurrency}`}
-        >
-          <CurrencyPill code={preferredCurrency} size="xs" />
-        </GradientButton>
+        />
       {/if}
     </div>
 
@@ -350,7 +341,7 @@
           {#each currencyEntries as [c, amount]}
             <div class="card-row">
               <CurrencyPill code={c} size="xs" />
-              <span class="card-amount">{formatAmount(amount)}</span>
+              <span class="card-amount">{formatMoneyAbs(amount)}</span>
             </div>
           {/each}
           {#if needsConversion && converting}
@@ -366,7 +357,7 @@
                 <span class="card-sigma-badge">Σ</span>
                 <span class="card-sigma-amount"
                   ><CurrencyPill code={preferredCurrency} size="xs" />
-                  {formatAmount(convertedTotal)}</span
+                  {formatMoneyAbs(convertedTotal)}</span
                 >
               {:else if conversionUnavailable}
                 <span class="card-sigma-warn">Some rates unavailable</span>

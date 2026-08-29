@@ -7,6 +7,10 @@
   import { theme } from '$lib/theme.svelte'
   import { tooltip } from '$lib/tooltip'
   import { settingsStore } from '$lib/settings.svelte'
+  import {
+    accountDisplayName,
+    isUnderRoot,
+  } from '$lib/components/accounts/accountPaths'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from './ui/Icon.svelte'
   import AddAccountWizard from './wizards/AddAccountWizard.svelte'
@@ -74,7 +78,7 @@
       accounts.filter(
         (a) =>
           !hiddenIds.has(a.id) &&
-          a.path.startsWith(`${settings.defaultAssetsRootPath}:`),
+          isUnderRoot(a.path, settings.defaultAssetsRootPath),
       ),
       settings.defaultAssetsRootPath,
     ),
@@ -84,7 +88,7 @@
       accounts.filter(
         (a) =>
           !hiddenIds.has(a.id) &&
-          a.path.startsWith(`${settings.defaultLiabilitiesRootPath}:`),
+          isUnderRoot(a.path, settings.defaultLiabilitiesRootPath),
       ),
       settings.defaultLiabilitiesRootPath,
     ),
@@ -94,7 +98,7 @@
       accounts.filter(
         (a) =>
           !hiddenIds.has(a.id) &&
-          a.path.startsWith(`${settings.defaultEquityRootPath}:`),
+          isUnderRoot(a.path, settings.defaultEquityRootPath),
       ),
       settings.defaultEquityRootPath,
     ),
@@ -106,12 +110,8 @@
     ),
   )
 
-  function shortName(path: string, root: string): string {
-    return path.startsWith(`${root}:`) ? path.slice(root.length + 1) : path
-  }
-
   function displayName(acct: AccountBalance, root: string): string {
-    return acct.name ?? shortName(acct.path, root)
+    return accountDisplayName(acct, root)
   }
 
   function sortByDisplayName(
@@ -138,6 +138,15 @@
   <div class="sidebar-inner">
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
+      <a
+        href="/accounts"
+        class="nav-link"
+        class:active={currentPath.startsWith('/accounts')}
+        use:tooltip={'Accounts'}
+      >
+        <Icon name="accounts" size={16} />
+        <span class="nav-label">Accounts</span>
+      </a>
       <a
         href="/spending"
         class="nav-link"
@@ -237,11 +246,7 @@
                     class:active={currentPath === `/account/${acct.id}`}
                   >
                     <span class="account-name"
-                      >{acct.name ??
-                        shortName(
-                          acct.path,
-                          settings.defaultAssetsRootPath,
-                        )}</span
+                      >{displayName(acct, settings.defaultAssetsRootPath)}</span
                     >
                     {#if actionRequiredIds.has(acct.id)}<span
                         class="action-dot"
@@ -300,11 +305,7 @@
                     class:active={currentPath === `/account/${acct.id}`}
                   >
                     <span class="account-name"
-                      >{acct.name ??
-                        shortName(
-                          acct.path,
-                          settings.defaultLiabilitiesRootPath,
-                        )}</span
+                      >{displayName(acct, settings.defaultLiabilitiesRootPath)}</span
                     >
                     {#if actionRequiredIds.has(acct.id)}<span
                         class="action-dot"
@@ -363,11 +364,7 @@
                     class:active={currentPath === `/account/${acct.id}`}
                   >
                     <span class="account-name"
-                      >{acct.name ??
-                        shortName(
-                          acct.path,
-                          settings.defaultEquityRootPath,
-                        )}</span
+                      >{displayName(acct, settings.defaultEquityRootPath)}</span
                     >
                     {#if actionRequiredIds.has(acct.id)}<span
                         class="action-dot"

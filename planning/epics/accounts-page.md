@@ -61,6 +61,23 @@ literally every path, unfiltered. The tabs filter by configured root, so anythin
 lands in an **Unfiled** bucket rather than vanishing. This is not optional — losing a row is
 worse than the clutter we started with.
 
+**The page does not convert until asked.** Every figure at rest is the preferred-currency
+balance and nothing else: exact, complete on its own terms, and true without a single rate
+lookup. A figure that omits money says so — `+ 2 currencies held` — without pretending to
+price it, and the Cash card is labelled **Available** rather than Cash, because "Cash" invites
+the question "so where is my USD?" that an unconverted figure is not answering.
+
+One **Convert to CAD** control fetches rates for the currencies actually on the page and folds
+them in: the position row totals everything, an `≈ CAD` column appears in the table, and the
+notes switch from what is missing to how much the rates covered. Settled in discussion over
+converting on load: this page is mostly navigation, and hitting the FX endpoint on every visit
+to it buys a number nobody asked for. If no rate resolves at all the page stays unconverted
+rather than switching into a column of dashes; a partial failure converts and says what it
+missed, per figure.
+
+Because the note has to survive a trip through four countries, it never lists currencies —
+`CAD only`, `2 of 3 currencies`, `+ 2 currencies held`. The full list lives in the tooltip.
+
 **Currency is operational, not ambient.** The need is to spend and convert between accounts
 while travelling, and afterwards to see what is left over so it can be consolidated or left
 alone. That is a deliberate question asked occasionally, not a number worth carrying at the
@@ -132,12 +149,11 @@ User-level, not per-account, so it does not move:
 - Controls: search (reuse `accountScorer`), Group (Institution / Type / **Currency** / Flat),
   Show (Active / All / Hidden). The Currency option is the answer to "what am I still holding
   after the trip" — it is the only currency-overview surface the page ships.
-- **Position row** above the table: Cash / Investments / Owed / Owing, each derived from the
-  configured roots as described in the design decisions. No net-worth total.
+- **Position row** above the table: Available / Investments / Owed / Owing, each derived from
+  the configured roots as described in the design decisions. No net-worth total.
 - **Unfiled**: any account outside every configured root gets its own group at the bottom.
-- Balances come from the existing `GET /api/accounts/balances`; conversion uses the existing
-  fx-rates route and `preferredCurrency`. A balance whose rate is missing shows native only
-  and is excluded from the group total, which says so rather than quietly under-reporting.
+- Balances come from the existing `GET /api/accounts/balances`.
+- **Conversion is a request, not a default** — see below.
 
 ### 3. Curation — pins, hide, bulk, role guards
 

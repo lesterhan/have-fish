@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatCentsAbs } from '$lib/money'
   import { tooltip } from '$lib/tooltip'
 
   interface Props {
@@ -41,10 +42,7 @@
   }
 
   function fmtAmount(n: number): string {
-    return Math.abs(n).toLocaleString('en-CA', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
+    return formatCentsAbs(Math.round(n * 100))
   }
 </script>
 

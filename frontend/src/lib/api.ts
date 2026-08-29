@@ -452,6 +452,9 @@ export type UserSettings = {
   defaultLiabilitiesRootPath: string
   defaultExpensesRootPath: string
   defaultEquityRootPath: string
+  // Not editable in Settings yet, but returned by the API and needed by the Accounts page:
+  // without it, income accounts would fall into the Unfiled bucket.
+  defaultIncomeRootPath: string
   defaultAdjustmentsAccountId: string | null
   preferredCurrency: string
   preferences: UserPreferences
@@ -508,8 +511,16 @@ export type AccountBalance = {
   balances: { currency: string; amount: string }[]
 }
 
-export async function fetchAccountBalances(): Promise<AccountBalance[]> {
-  const res = await fetch(`${BASE}/api/accounts/balances`, {
+/**
+ * `includeUnfiled` widens the selection past the three balance-bearing roots to accounts that
+ * belong to no configured root at all. The Accounts page asks for them so a mis-pathed
+ * account lands in its Unfiled group instead of appearing nowhere; the sidebar does not.
+ */
+export async function fetchAccountBalances(
+  opts: { includeUnfiled?: boolean } = {},
+): Promise<AccountBalance[]> {
+  const qs = opts.includeUnfiled ? '?include=unfiled' : ''
+  const res = await fetch(`${BASE}/api/accounts/balances${qs}`, {
     credentials: 'include',
   })
   return res.json()

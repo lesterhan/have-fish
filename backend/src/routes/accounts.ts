@@ -62,6 +62,12 @@ app.get('/', async (c) => {
 // because it carries no usable override and its PATH infers to it. `cash` and `conversion`
 // are override-only, so they contribute no path branch at all — which is what makes
 // `?types=cash` a cheap indexed lookup rather than a full scan.
+// "At or under this root". The exact-path branch is not decoration: an account created at the
+// bare root (`assets`) is legal, and a `LIKE 'assets:%'` alone would leave it invisible.
+function underRootCondition(root: string): SQL {
+  return or(eq(accounts.path, root), like(accounts.path, `${root}:%`))!
+}
+
 function typeFilterCondition(types: Set<StoredAccountType>, roots: AccountTypeRoots) {
   const branches: SQL[] = [inArray(accounts.type, [...types])]
 
@@ -93,7 +99,26 @@ function typeFilterCondition(types: Set<StoredAccountType>, roots: AccountTypeRo
   return or(...branches)
 }
 
-// GET /api/accounts/balances[?types=cash,asset]
+// The default selection for GET /balances: the three balance-bearing roots, optionally plus
+// everything that belongs to no configured root at all. Expenses and income are excluded
+// either way — they are categories, and the Categories tab owns them.
+function balanceBearingCondition(roots: AccountTypeRoots, includeUnfiled: boolean): SQL {
+  const balanceBearing = or(
+    underRootCondition(roots.assetsRootPath),
+    underRootCondition(roots.liabilitiesRootPath),
+    underRootCondition(roots.equityRootPath),
+  )!
+  if (!includeUnfiled) return balanceBearing
+
+  const anyRoot = or(
+    balanceBearing,
+    underRootCondition(roots.expensesRootPath),
+    underRootCondition(roots.incomeRootPath),
+  )!
+  return or(balanceBearing, not(anyRoot))!
+}
+
+// GET /api/accounts/balances[?types=cash,asset][?include=unfiled]
 // Returns all asset, liability, and equity accounts with their per-currency balances and type.
 // "Asset accounts"     = paths starting with defaultAssetsRootPath
 // "Liability accounts" = paths starting with defaultLiabilitiesRootPath
@@ -116,6 +141,21 @@ app.get('/balances', async (c) => {
   // a wallet tagged Cash under an atypically-named root — the very case the override exists
   // for — is found. The web dashboard and balances page pass no filter and are unaffected.
   const typesParam = c.req.query('types')
+  // `?include=unfiled` adds the accounts that sit outside *every* configured root. They are
+  // balance-bearing accounts with a mis-typed or unconventional path, and without this they
+  // appear on no surface at all — the Accounts page groups them under "Unfiled" so a stray
+  // path is visibly stray rather than silently missing.
+  const includeParam = c.req.query('include')
+  if (includeParam !== undefined && includeParam !== 'unfiled') {
+    return c.json({ error: `invalid include: ${includeParam}` }, 400)
+  }
+  const includeUnfiled = includeParam === 'unfiled'
+  // The two are different selection modes — `types` picks by resolved type, `include` widens
+  // the root-based default — so combining them would be ambiguous rather than additive.
+  if (includeUnfiled && typesParam !== undefined) {
+    return c.json({ error: 'include=unfiled cannot be combined with types' }, 400)
+  }
+
   let typeFilter: Set<StoredAccountType> | null = null
   if (typesParam !== undefined) {
     const requested = typesParam.split(',').map((t) => t.trim())
@@ -131,9 +171,6 @@ app.get('/balances', async (c) => {
   }
 
   const roots = await loadAccountTypeRoots(userId)
-  const assetsRoot = roots.assetsRootPath
-  const liabilitiesRoot = roots.liabilitiesRootPath
-  const equityRoot = roots.equityRootPath
 
   // LEFT JOIN so accounts with no postings still appear (with null currency/balance)
   const rows = await db
@@ -152,11 +189,7 @@ app.get('/balances', async (c) => {
       isNull(accounts.deletedAt),
       typeFilter
         ? typeFilterCondition(typeFilter, roots)
-        : or(
-            like(accounts.path, `${assetsRoot}:%`),
-            like(accounts.path, `${liabilitiesRoot}:%`),
-            like(accounts.path, `${equityRoot}:%`),
-          ),
+        : balanceBearingCondition(roots, includeUnfiled),
     ))
     .groupBy(accounts.id, accounts.path, accounts.name, accounts.type, postings.currency)
 
