@@ -1,5 +1,17 @@
 # Epic: Accounts Page — consolidation and curation
 
+> **Done 2026-08-29.** All seven stories shipped. Accounts were listed in three places that
+> never agreed on which ones; there is one page now, with two tabs. The sidebar dropped from
+> 882 lines to 385 and is a launcher — Pinned, Recent, Ctrl+K — rather than an index.
+> `/accounts/manage` redirects to the Categories tab and the Settings accounts panel is gone.
+>
+> Two things went further than the plan. `DELETE /api/accounts/:id` used to soft-delete
+> unconditionally, so story 5 put the client's guard into the endpoint: an account with
+> entries, one a default role points at, or one Fish Pie manages is now refused with a reason.
+> And the two tabs had drifted into different typography while nobody was looking, so the
+> shared chrome became components — `SectionCard`, `AccountFlags`, `ConfirmDialog`,
+> `ControlBar`, `SearchField` — rather than a convention.
+
 **Design canvas:** [Quieter Sidebar](https://claude.ai/code/artifact/b210a4c1-e2e5-4ed6-bd9f-56e669ee1400)
 — page 1 is the built design, page 2 keeps the sidebar direction sketches.
 
@@ -267,6 +279,10 @@ links to the filtered transactions.
 lives — but the four position buckets sum to it, and stating it adds a headline nobody asked
 for. *Consequence to accept:* after this epic, net worth is not displayed anywhere. *Revive
 if:* the dashboard comes back, or the buckets prove to need a total.
+
+> **Updated 2026-08-29:** the dashboard was not mothballed, it was deleted — so half that
+> trigger can no longer fire. The consequence is now permanent unless this page states the
+> total itself, which makes "the buckets prove to need a total" the only way back.
 
 ### Illiquid flags and the equity rethink — **decided: build neither now**
 

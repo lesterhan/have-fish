@@ -133,7 +133,7 @@ are modelled exactly like every other account: a balance you type in. That makes
 weight in the UI — a number that only moves when you remember to update it — when the useful
 question is *how are these doing*: cost basis against market value, gains and losses.
 
-Decided 2026-08-29 while scoping [Accounts Page](epics/accounts-page.md):
+Decided 2026-08-29 while scoping [Accounts Page](epics/archive/accounts-page.md):
 
 - The [Illiquid Account Flags](illiquid-account-flags.md) epic's `illiquidAccountIds` was
   **not** built into the accounts page. Its only justification was excluding locked assets
