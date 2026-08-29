@@ -220,6 +220,20 @@ describe('coverage config', () => {
       })
     })
 
+    // Nothing writes this any more — it silenced the dashboard tile, and the dashboard is
+    // gone — but stored blobs still carry it. It has to stay skipped, or an old snooze comes
+    // back as an account id whose config is always empty.
+    it('skips a legacy snoozedUntil left in the blob', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+      await db.update(userSettings).set({
+        preferences: {
+          catchUp: { snoozedUntil: '2026-01-15', [acct.id]: { tracked: false } },
+        },
+      }).where(eq(userSettings.userId, userId))
+
+      expect(await readCatchUpOverrides(userId)).toEqual({ [acct.id]: { tracked: false } })
+    })
+
     it('ignores a catchUp key that is not an object', async () => {
       await db.update(userSettings).set({ preferences: { catchUp: 'nonsense' } }).where(eq(userSettings.userId, userId))
 

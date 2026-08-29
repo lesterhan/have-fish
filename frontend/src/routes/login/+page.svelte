@@ -16,7 +16,9 @@
     if (result.error) {
       error = result.error.message ?? 'Sign in failed'
     } else {
-      goto('/spending')
+      // `/` decides where signing in lands you — one place that knows the home page, rather
+      // than this one drifting from the root redirect the way it just did.
+      goto('/')
     }
   }
 </script>

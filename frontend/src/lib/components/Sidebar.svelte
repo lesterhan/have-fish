@@ -144,12 +144,6 @@
         <Icon name="transactions" size={16} />
         <span class="nav-label">Transactions</span>
       </a>
-      <!--
-        <a href="/dashboard" class="nav-link nav-link-wip" use:tooltip={'Dashboard [WIP]'}>
-          <Icon name="dashboard" size={16} />
-          <span class="nav-label">Dashboard [WIP]</span>
-        </a>
-        -->
     </div>
 
     {#if expanded || mobileOpen}

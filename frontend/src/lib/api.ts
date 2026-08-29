@@ -17,16 +17,6 @@ export function toClassifierType(type: StoredAccountType): AccountType {
   return type
 }
 
-// True when an account's effective type falls in the given coarse bucket. Null (an
-// atypical root with no override) matches nothing — an unclassifiable account must not
-// be silently counted as an asset.
-export function isClassifiedAs(
-  account: { resolvedType?: StoredAccountType | null },
-  bucket: AccountType,
-): boolean {
-  return account.resolvedType != null && toClassifierType(account.resolvedType) === bucket
-}
-
 export type Account = {
   id: string
   path: string
@@ -443,7 +433,6 @@ export async function deleteParser(id: string): Promise<void> {
 }
 
 export type UserPreferences = {
-  dashboardHiddenCurrencies?: string[]
   hiddenAccountIds?: string[]
   /** Accounts pinned to the sidebar, in the order they were pinned. */
   pinnedAccountIds?: string[]
@@ -674,19 +663,6 @@ export async function fetchMonthlySpend(
     `${BASE}/api/reports/monthly-spend?months=${months}`,
     { credentials: 'include' },
   )
-  return res.json()
-}
-
-export type WeeklySpend = {
-  week: string
-  weekStart: string
-  total: Record<string, string>
-}
-
-export async function fetchWeeklySpend(weeks: number): Promise<WeeklySpend[]> {
-  const res = await fetch(`${BASE}/api/reports/weekly-spend?weeks=${weeks}`, {
-    credentials: 'include',
-  })
   return res.json()
 }
 
@@ -1519,9 +1495,6 @@ export type CatchUpPayload = {
   today: string
   accounts: CatchUpAccount[]
   summary: CatchUpSummary
-  // When the dashboard tile is silenced until, or null. A display preference only — snoozing
-  // changes no coverage state.
-  snoozedUntil: string | null
 }
 
 export async function fetchCatchUp(): Promise<CatchUpPayload> {
@@ -1644,24 +1617,4 @@ export async function recordReconcileCoverage(
     throw new Error((err as any).error ?? 'Failed to record coverage')
   }
   return res.json()
-}
-
-// Silences the dashboard tile for a while. Writes no coverage.
-export async function snoozeCatchUp(days = 7): Promise<{ snoozedUntil: string }> {
-  const res = await fetch(`${BASE}/api/coverage/snooze`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ days }),
-  })
-  if (!res.ok) throw new Error('Failed to snooze')
-  return res.json()
-}
-
-export async function unsnoozeCatchUp(): Promise<void> {
-  const res = await fetch(`${BASE}/api/coverage/snooze`, {
-    method: 'DELETE',
-    credentials: 'include',
-  })
-  if (!res.ok) throw new Error('Failed to un-snooze')
 }
