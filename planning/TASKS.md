@@ -126,6 +126,36 @@ with the `AccountPathInput` rework below; check both before designing.
 
 ---
 
+## [P3 ⚠️ epic] Rethink equity accounts — gains and losses
+
+**Context:** `equity:*` holds the investment accounts (TFSA, FHSA, Direct Index, CAGE). They
+are modelled exactly like every other account: a balance you type in. That makes them dead
+weight in the UI — a number that only moves when you remember to update it — when the useful
+question is *how are these doing*: cost basis against market value, gains and losses.
+
+Decided 2026-08-29 while scoping [Accounts Page](epics/accounts-page.md):
+
+- The [Illiquid Account Flags](illiquid-account-flags.md) epic's `illiquidAccountIds` was
+  **not** built into the accounts page. Its only justification was excluding locked assets
+  from cash-position and runway maths, and runway is deprioritized with the dashboard
+  mothballed — so the flag has no consumer. A boolean "exclude from cash" is also probably the
+  wrong shape for what is actually wanted here, and would more likely be in the way than a
+  head start.
+- The accounts page instead derives its **Investments** bucket from the `equity:` root, which
+  distinguishes locked-up from spendable money with no new state.
+
+**Task (when picked up):** design the investment-account model — cost basis, market value,
+unrealized gain/loss, and how a manual-entry ledger with no bank connection keeps market
+values current without becoming a chore. The Accounts page is the natural host, and its
+Investments bucket is the thing that grows those columns. **This work should decide the fate
+of `illiquidAccountIds`** — fold it in, replace it, or close that epic — rather than
+inheriting it unexamined.
+
+Check [Illiquid Account Flags](illiquid-account-flags.md) and the Accounts Page epic's
+Deferred section before designing.
+
+---
+
 ## [P2] Rework `AccountPathInput` UX (web)
 
 **Context:** `AccountPathInput` is fine for a keyboard-heavy power user, but the design
