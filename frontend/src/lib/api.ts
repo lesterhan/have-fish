@@ -95,22 +95,34 @@ export async function fetchAccounts(): Promise<Account[]> {
 // defaultCurrency (ISO 4217) pre-selects the currency in quick entry. The import flow's
 // Accounts step is the one place that knows it for certain — the suggested path was
 // derived from the currency — so it sets it rather than leaving the column null.
-export async function createAccount(body: { path: string; defaultCurrency?: string }) {
+export async function createAccount(body: { path: string; defaultCurrency?: string }): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  // A rejected create used to be returned as `{ error }` and used as an account, which meant
+  // the caller silently committed an undefined id. Throw so the surface can say what happened.
+  if (!res.ok) {
+    const problem = await res.json().catch(() => ({}))
+    throw new Error(problem.error ?? 'Failed to create account')
+  }
   return res.json()
 }
 
+// Refused (409) when the account still has entries, fills a default role, or is one Fish Pie
+// manages — see the DELETE handler. The message is written for display.
 export async function deleteAccount(id: string) {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     method: 'DELETE',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
   })
+  if (!res.ok) {
+    const problem = await res.json().catch(() => ({}))
+    throw new Error(problem.error ?? 'Failed to delete account')
+  }
 }
 
 // One row per non-deleted account, including never-used ones (count 0, lastActivity null).

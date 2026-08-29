@@ -1183,4 +1183,139 @@ describe('accounts', () => {
       })
     })
   })
+  describe('DELETE /api/accounts/:id', () => {
+    async function createAccount(path: string, useCookie = cookie) {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      return (await res.json() as Account).id
+    }
+
+    async function createTransaction(
+      postingInputs: { accountId: string; amount: string }[],
+      useCookie = cookie,
+    ) {
+      const res = await app.request('/api/transactions', {
+        method: 'POST',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: '2024-03-03',
+          postings: postingInputs.map(p => ({ currency: 'CAD', ...p })),
+        }),
+      })
+      if (res.status !== 201) throw new Error(`createTransaction failed: ${res.status}`)
+      return (await res.json() as { id: string }).id
+    }
+
+    async function del(id: string, useCookie = cookie) {
+      return app.request(`/api/accounts/${id}`, {
+        method: 'DELETE',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+      })
+    }
+
+    async function pathsFor(useCookie = cookie) {
+      const res = await app.request('/api/accounts', { headers: { Cookie: useCookie } })
+      return (await res.json() as Account[]).map(a => a.path)
+    }
+
+    it('deletes an account nothing depends on', async () => {
+      const id = await createAccount('expenses:hobbies')
+
+      expect((await del(id)).status).toBe(204)
+      expect(await pathsFor()).not.toContain('expenses:hobbies')
+    })
+
+    it('refuses an account that still has entries, and says how many', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction([
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+
+      const res = await del(food)
+      expect(res.status).toBe(409)
+      expect((await res.json() as { error: string }).error).toContain('1 entry')
+      // Still there — a refused delete must not half-apply.
+      expect(await pathsFor()).toContain('expenses:food')
+    })
+
+    it('allows the delete once the entries are gone', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      const txId = await createTransaction([
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+
+      expect((await del(food)).status).toBe(409)
+
+      // A soft-deleted transaction is already gone, so it no longer holds the account.
+      const delTx = await app.request(`/api/transactions/${txId}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
+      expect(delTx.status).toBeLessThan(300)
+
+      expect((await del(food)).status).toBe(204)
+    })
+
+    it('refuses an account a default role points at, naming the role', async () => {
+      const offset = await createAccount('equity:opening')
+      const patch = await app.request('/api/user-settings', {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultOffsetAccountId: offset }),
+      })
+      expect(patch.status).toBe(200)
+
+      const res = await del(offset)
+      expect(res.status).toBe(409)
+      expect((await res.json() as { error: string }).error).toContain('offset')
+
+      // Re-pointing the setting releases it.
+      await app.request('/api/user-settings', {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultOffsetAccountId: null }),
+      })
+      expect((await del(offset)).status).toBe(204)
+    })
+
+    it('refuses a receivable account, which Fish Pie re-spawns anyway', async () => {
+      // Inserted directly: POST refuses the receivable namespace by design, so the only way
+      // one exists is Fish Pie spawning it.
+      const mine = await createAccount('assets:chequing')
+      const [owner] = await db
+        .select({ userId: accountsTable.userId })
+        .from(accountsTable)
+        .where(eq(accountsTable.id, mine))
+      const [row] = await db
+        .insert(accountsTable)
+        .values({ userId: owner!.userId, path: 'assets:receivable:alice' })
+        .returning()
+
+      const res = await del(row!.id)
+      expect(res.status).toBe(409)
+      expect((await res.json() as { error: string }).error).toContain('system-managed')
+    })
+
+    it('404s on another user\'s account rather than reporting success', async () => {
+      const other = await createTestUser('other-delete@example.com')
+      const theirs = await createAccount('assets:theirs', other)
+
+      expect((await del(theirs)).status).toBe(404)
+      // Untouched from their side.
+      expect(await pathsFor(other)).toContain('assets:theirs')
+    })
+
+    it('404s on an account that is already deleted', async () => {
+      const id = await createAccount('expenses:gone')
+      expect((await del(id)).status).toBe(204)
+      expect((await del(id)).status).toBe(404)
+    })
+  })
 })

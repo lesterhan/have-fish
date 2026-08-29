@@ -14,6 +14,7 @@
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import AddAccountWizard from '$lib/components/wizards/AddAccountWizard.svelte'
+  import CategoriesTab from '$lib/components/accounts/CategoriesTab.svelte'
   import {
     fetchAccountBalances,
     fetchAccountPostingCounts,
@@ -847,14 +848,7 @@
       role="tabpanel"
       aria-labelledby="accounts-tab-categories"
     >
-      <Card class="group-card">
-        <div class="placeholder">
-          <p>Categories move here next.</p>
-          <p class="sub">
-            Until then they live in <a href="/accounts/manage">Manage accounts</a>.
-          </p>
-        </div>
-      </Card>
+      <CategoriesTab {settings} />
     </div>
   {/if}
 </div>
@@ -1236,14 +1230,5 @@
     flex-direction: column;
     gap: var(--sp-sm);
     padding: var(--sp-sm);
-  }
-
-  .placeholder {
-    padding: var(--sp-lg);
-    font-size: var(--text-sm);
-  }
-
-  .placeholder .sub {
-    margin-top: var(--sp-xs);
   }
 </style>

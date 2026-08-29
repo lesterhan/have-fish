@@ -1,6 +1,7 @@
 <script lang="ts">
   import { untrack } from 'svelte'
   import { createAccount } from '$lib/api'
+  import { toast } from '$lib/toast.svelte'
 
   interface Account {
     id: string
@@ -211,6 +212,9 @@
         inputText = newAccount.path
         oncreate?.(newAccount)
         oncommit?.(value)
+      } catch (e) {
+        // A refused create used to leave `value` undefined and the box looking committed.
+        toast.show(e instanceof Error ? e.message : 'Could not create that account')
       } finally {
         creating = false
         open = false
