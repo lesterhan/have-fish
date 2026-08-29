@@ -390,6 +390,8 @@ export interface Converted {
   cents: number
   /** Currencies that had no rate, so are missing from `cents`. Sorted, deduplicated. */
   missing: string[]
+  /** Currencies actually folded into `cents`. Sorted, deduplicated. */
+  included: string[]
 }
 
 /**
@@ -404,6 +406,7 @@ export function convertBalances(
 ): Converted {
   let cents = 0
   const missing = new Set<string>()
+  const included = new Set<string>()
 
   for (const b of balances) {
     const amount = toCents(b.amount)
@@ -413,6 +416,7 @@ export function convertBalances(
     }
     if (b.currency === preferred) {
       cents += amount
+      included.add(b.currency)
       continue
     }
     const rate = rates.get(b.currency)
@@ -421,9 +425,38 @@ export function convertBalances(
       continue
     }
     cents += Math.round(amount * rate)
+    included.add(b.currency)
   }
 
-  return { cents, missing: [...missing].sort() }
+  return {
+    cents,
+    missing: [...missing].sort(),
+    included: [...included].sort(),
+  }
+}
+
+/**
+ * A short phrase for what a total does and does not cover, or null when it covers everything.
+ *
+ * Naming the excluded currencies grows without bound — a trip through four countries makes it
+ * longer than the figure it annotates — so the note describes the *coverage* instead. The
+ * usual case by far is that no rate resolved at all and the total is the preferred currency
+ * alone, which is exactly what "CAD only" says.
+ *
+ * The two other cases are what stop that phrase from lying: a total with nothing in it at all
+ * (a group holding only CZK, with no CZK rate) is not "CAD only", and neither is one where
+ * some foreign rates did resolve and others did not.
+ */
+export function coverageNote(
+  converted: Converted,
+  preferred: string,
+): string | null {
+  const { missing, included } = converted
+  if (missing.length === 0) return null
+  if (included.length === 0) return 'no rate available'
+  if (included.length === 1 && included[0] === preferred) return `${preferred} only`
+  const total = new Set([...included, ...missing]).size
+  return `${included.length} of ${total} currencies`
 }
 
 /** Every currency appearing in these rows except the preferred one — what needs a rate. */

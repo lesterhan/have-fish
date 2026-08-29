@@ -4,6 +4,7 @@ import {
   buildRows,
   convertBalances,
   convertRows,
+  coverageNote,
   currenciesNeedingRates,
   daysBetween,
   formatCents,
@@ -352,13 +353,13 @@ describe('convertBalances', () => {
   it('passes the preferred currency through untouched', () => {
     expect(
       convertBalances([{ currency: 'CAD', amount: '100.00' }], rates, 'CAD'),
-    ).toEqual({ cents: 10000, missing: [] })
+    ).toEqual({ cents: 10000, missing: [], included: ['CAD'] })
   })
 
   it('applies the rate for a foreign currency', () => {
     expect(
       convertBalances([{ currency: 'USD', amount: '100.00' }], rates, 'CAD'),
-    ).toEqual({ cents: 14000, missing: [] })
+    ).toEqual({ cents: 14000, missing: [], included: ['USD'] })
   })
 
   it('excludes a balance with no rate and names its currency', () => {
@@ -371,7 +372,7 @@ describe('convertBalances', () => {
       'CAD',
     )
     // The CZK leg is left out entirely rather than counted as zero or at par.
-    expect(out).toEqual({ cents: 10000, missing: ['CZK'] })
+    expect(out).toEqual({ cents: 10000, missing: ['CZK'], included: ['CAD'] })
   })
 
   it('names each missing currency once, sorted', () => {
@@ -398,7 +399,11 @@ describe('convertBalances', () => {
   })
 
   it('sums an empty set to zero with nothing missing', () => {
-    expect(convertBalances([], rates, 'CAD')).toEqual({ cents: 0, missing: [] })
+    expect(convertBalances([], rates, 'CAD')).toEqual({
+      cents: 0,
+      missing: [],
+      included: [],
+    })
   })
 })
 
@@ -489,8 +494,8 @@ describe('positionTotals', () => {
 
   it('leaves every bucket at zero when there is nothing to sum', () => {
     const totals = positionTotals([], ROOTS, rates, 'CAD')
-    expect(totals.cash).toEqual({ cents: 0, missing: [] })
-    expect(totals.owing).toEqual({ cents: 0, missing: [] })
+    expect(totals.cash).toEqual({ cents: 0, missing: [], included: [] })
+    expect(totals.owing).toEqual({ cents: 0, missing: [], included: [] })
   })
 })
 
@@ -530,6 +535,94 @@ describe('groupCurrency', () => {
     expect(convertRows(groups[0]!.rows, new Map(), code)).toEqual({
       cents: 12550,
       missing: [],
+      included: ['CZK'],
     })
+  })
+})
+
+describe('coverageNote', () => {
+  const rates = new Map([['USD', 1.4]])
+
+  function note(balances: Money[], r = rates, preferred = 'CAD') {
+    return coverageNote(convertBalances(balances, r, preferred), preferred)
+  }
+
+  it('says nothing when every balance made it into the total', () => {
+    expect(
+      note([
+        { currency: 'CAD', amount: '1.00' },
+        { currency: 'USD', amount: '1.00' },
+      ]),
+    ).toBeNull()
+  })
+
+  it('says "CAD only" when nothing but the preferred currency converted', () => {
+    // The usual case: the rate source is unreachable, so no foreign leg resolves.
+    expect(
+      note(
+        [
+          { currency: 'CAD', amount: '1.00' },
+          { currency: 'CZK', amount: '1.00' },
+          { currency: 'USD', amount: '1.00' },
+        ],
+        new Map(),
+      ),
+    ).toBe('CAD only')
+  })
+
+  it('does not grow with the number of excluded currencies', () => {
+    // A trip through four countries must not produce a note longer than the figure.
+    expect(
+      note(
+        [
+          { currency: 'CAD', amount: '1.00' },
+          { currency: 'CZK', amount: '1.00' },
+          { currency: 'EUR', amount: '1.00' },
+          { currency: 'HUF', amount: '1.00' },
+          { currency: 'PLN', amount: '1.00' },
+        ],
+        new Map(),
+      ),
+    ).toBe('CAD only')
+  })
+
+  it('never claims "CAD only" for a total holding no CAD at all', () => {
+    expect(note([{ currency: 'CZK', amount: '1.00' }], new Map())).toBe(
+      'no rate available',
+    )
+  })
+
+  it('never claims "CAD only" when some foreign rates did resolve', () => {
+    expect(
+      note([
+        { currency: 'CAD', amount: '1.00' },
+        { currency: 'USD', amount: '1.00' },
+        { currency: 'CZK', amount: '1.00' },
+      ]),
+    ).toBe('2 of 3 currencies')
+  })
+
+  it('counts a currency once when it is both summed and unusable', () => {
+    // One good CAD row and one unparseable CAD row put CAD in both sets.
+    expect(
+      note([
+        { currency: 'CAD', amount: '1.00' },
+        { currency: 'CAD', amount: '' },
+        { currency: 'USD', amount: '1.00' },
+      ]),
+    ).toBe('2 of 2 currencies')
+  })
+
+  it('follows the preferred currency rather than hard-coding CAD', () => {
+    expect(
+      note(
+        [
+          { currency: 'EUR', amount: '1.00' },
+          { currency: 'CZK', amount: '1.00' },
+        ],
+        new Map(),
+        'EUR',
+      ),
+    ).toBe('EUR only')
   })
 })

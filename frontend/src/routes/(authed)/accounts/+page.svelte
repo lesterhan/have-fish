@@ -24,6 +24,7 @@
     STALE_AFTER_DAYS,
     buildRows,
     convertRows,
+    coverageNote,
     currenciesNeedingRates,
     formatCents,
     groupCurrency,
@@ -269,9 +270,13 @@
                 {formatCents(card.magnitude ? Math.abs(bucket.cents) : bucket.cents)}
                 <span class="position-currency">{preferred}</span>
               </span>
-              {#if bucket.missing.length > 0}
-                <span class="position-note" title="No exchange rate available">
-                  excludes {bucket.missing.join(', ')}
+              {@const note = coverageNote(bucket, preferred)}
+              {#if note}
+                <span
+                  class="position-note"
+                  title="Balances in {bucket.missing.join(', ')} are not included — no exchange rate available"
+                >
+                  {note}
                 </span>
               {/if}
             {/if}
@@ -331,6 +336,7 @@
       {:else}
         {#each groups as group (group.key)}
           {@const total = groupTotal(group)}
+          {@const groupNote = coverageNote(total, total.unit)}
           <Card class="group-card">
             <button
               type="button"
@@ -353,9 +359,12 @@
                 {total.approx ? '≈ ' : ''}{formatCents(total.cents)}
                 <span class="unit">{total.unit}</span>
               </span>
-              {#if total.missing.length > 0}
-                <span class="group-note" title="No exchange rate available">
-                  excludes {total.missing.join(', ')}
+              {#if groupNote}
+                <span
+                  class="group-note"
+                  title="Balances in {total.missing.join(', ')} are not included — no exchange rate available"
+                >
+                  {groupNote}
                 </span>
               {/if}
             </button>
