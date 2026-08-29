@@ -3,10 +3,12 @@
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import Card from '$lib/components/ui/Card.svelte'
+  import Checkbox from '$lib/components/ui/Checkbox.svelte'
   import Chip from '$lib/components/ui/Chip.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import ConvertToggle from '$lib/components/ui/ConvertToggle.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Select from '$lib/components/ui/Select.svelte'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
@@ -16,9 +18,12 @@
     fetchAccountPostingCounts,
     fetchFxRateAsOf,
     toClassifierType,
+    updateAccount,
   } from '$lib/api'
   import type { AccountBalance, UserSettings } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { toast } from '$lib/toast.svelte'
+  import { SUPPORTED_CURRENCIES } from '$lib/currency'
   import { toISODate } from '$lib/date'
   import { rank } from '$lib/components/accounts/accountScorer'
   import {
@@ -34,6 +39,14 @@
     rootsFrom,
     type PositionBucket,
   } from '$lib/components/accounts/accountPaths'
+  import {
+    ROLE_DESCRIPTION,
+    ROLE_LABEL,
+    protectionFor,
+    protectionMessage,
+    rolesOf,
+    type Protection,
+  } from '$lib/components/accounts/accountRoles'
   import {
     STALE_AFTER_DAYS,
     buildRows,
@@ -229,6 +242,163 @@
     ),
   )
 
+  // ── Curation ──────────────────────────────────────────────
+  // Pins and hides live in the free-form `preferences` JSONB, the same way hiddenAccountIds
+  // already does, so neither needs a migration.
+  let pinnedIds = $derived(
+    new Set(settings?.preferences.pinnedAccountIds ?? []),
+  )
+
+  /** Writes a preferences patch and keeps the local copy in step with the store. */
+  async function savePreferences(patch: {
+    pinnedAccountIds?: string[]
+    hiddenAccountIds?: string[]
+  }) {
+    const current = settingsStore.value
+    if (!current) return
+    try {
+      await settingsStore.update({
+        preferences: { ...current.preferences, ...patch },
+      })
+      settings = settingsStore.value
+    } catch {
+      toast.show('Could not save that — nothing changed.')
+    }
+  }
+
+  function withId(list: readonly string[], id: string, present: boolean): string[] {
+    const without = list.filter((x) => x !== id)
+    return present ? [...without, id] : without
+  }
+
+  async function setPinned(ids: readonly string[], pinned: boolean) {
+    let next = settings?.preferences.pinnedAccountIds ?? []
+    for (const id of ids) next = withId(next, id, pinned)
+    await savePreferences({ pinnedAccountIds: next })
+  }
+
+  async function setHidden(ids: readonly string[], hidden: boolean) {
+    let next = settings?.preferences.hiddenAccountIds ?? []
+    for (const id of ids) next = withId(next, id, hidden)
+    await savePreferences({ hiddenAccountIds: next })
+    // The Active view filters hidden accounts out, so the row the user just acted on
+    // disappears. Say where it went rather than leaving them to wonder what they deleted.
+    if (hidden && show === 'active') {
+      toast.show(`Hidden — switch Show to All or Hidden to see ${ids.length === 1 ? 'it' : 'them'}.`)
+    }
+  }
+
+  /** Null when the account is free to hide; a reason when something depends on it. */
+  function protection(row: Row): Protection | null {
+    return protectionFor(row.account, settings, roots)
+  }
+
+  // ── Selection ─────────────────────────────────────────────
+  // Pinning six Wise accounts one at a time is six round trips, so the pinned sidebar only
+  // survives if curating is cheap. Selection is by id rather than by row, so it holds while
+  // you regroup or search.
+  let selectedIds = $state<Set<string>>(new Set())
+
+  // Rows that left the view take their selection with them — acting on a row you can no
+  // longer see is exactly the surprise a bulk bar must not spring.
+  let selection = $derived(
+    visibleRows.filter((r) => selectedIds.has(r.account.id)),
+  )
+
+  function toggleSelected(id: string, on: boolean) {
+    const next = new Set(selectedIds)
+    if (on) next.add(id)
+    else next.delete(id)
+    selectedIds = next
+  }
+
+  function toggleGroup(group: Group, on: boolean) {
+    const next = new Set(selectedIds)
+    for (const row of group.rows) {
+      if (on) next.add(row.account.id)
+      else next.delete(row.account.id)
+    }
+    selectedIds = next
+  }
+
+  function groupState(group: Group): { all: boolean; some: boolean } {
+    const n = group.rows.filter((r) => selectedIds.has(r.account.id)).length
+    return { all: n > 0 && n === group.rows.length, some: n > 0 }
+  }
+
+  function clearSelection() {
+    selectedIds = new Set()
+  }
+
+  function onKeydown(e: KeyboardEvent) {
+    if (e.key === 'Escape' && selectedIds.size > 0) {
+      e.preventDefault()
+      clearSelection()
+    }
+  }
+
+  // ── Bulk actions ──────────────────────────────────────────
+  let bulkCurrency = $state('')
+  let bulkBusy = $state(false)
+
+  /** The selected rows nothing depends on — the ones a destructive bulk action may touch. */
+  let hidable = $derived(selection.filter((r) => protection(r) === null))
+
+  async function bulkPin(pinned: boolean) {
+    bulkBusy = true
+    try {
+      await setPinned(selection.map((r) => r.account.id), pinned)
+    } finally {
+      bulkBusy = false
+    }
+  }
+
+  async function bulkHide() {
+    const skipped = selection.length - hidable.length
+    if (hidable.length === 0) {
+      toast.show('Nothing to hide — every account selected is in use.')
+      return
+    }
+    bulkBusy = true
+    try {
+      await setHidden(hidable.map((r) => r.account.id), true)
+      if (skipped > 0) {
+        toast.show(
+          `Hid ${hidable.length}; kept ${skipped} that ${skipped === 1 ? 'is' : 'are'} in use.`,
+        )
+      }
+    } finally {
+      bulkBusy = false
+    }
+  }
+
+  async function bulkSetCurrency() {
+    if (!bulkCurrency) return
+    bulkBusy = true
+    const targets = selection.map((r) => r.account)
+    try {
+      await Promise.all(
+        targets.map((a) => updateAccount(a.id, { defaultCurrency: bulkCurrency })),
+      )
+      toast.show(
+        `Default currency set to ${bulkCurrency} on ${targets.length} account${targets.length === 1 ? '' : 's'}.`,
+      )
+      bulkCurrency = ''
+    } catch {
+      toast.show('Could not set the currency on every account.')
+    } finally {
+      bulkBusy = false
+    }
+  }
+
+  // Import targets exactly one account — a CSV belongs to one statement — so this hands off
+  // rather than looping. The import page reads `?account=` as a pre-target.
+  function importSelected() {
+    const only = selection[0]
+    if (!only) return
+    void goto(`/import?account=${encodeURIComponent(only.account.id)}`)
+  }
+
   // ── Collapse ──────────────────────────────────────────────
   let collapsed = $state<Record<string, boolean>>({})
 
@@ -260,6 +430,7 @@
 </script>
 
 <svelte:head><title>Accounts · have-fish</title></svelte:head>
+<svelte:window onkeydown={onKeydown} />
 
 <div class="page">
   <header class="page-head">
@@ -363,6 +534,66 @@
         <p class="message error">{convertError}</p>
       {/if}
 
+      <!-- The bulk bar exists so curating is one gesture rather than six: pinning the Wise
+           accounts one at a time is what would kill the pinned sidebar before it started. -->
+      {#if selection.length > 0}
+        <Card class="bulk-bar">
+          <span class="bulk-count">
+            {selection.length} selected
+          </span>
+          <GradientButton disabled={bulkBusy} onclick={() => bulkPin(true)}>
+            Pin all
+          </GradientButton>
+          <GradientButton disabled={bulkBusy} onclick={() => bulkPin(false)}>
+            Unpin all
+          </GradientButton>
+          <GradientButton
+            disabled={bulkBusy || hidable.length === 0}
+            tooltip={hidable.length === 0
+              ? 'Every account selected is in use'
+              : hidable.length < selection.length
+                ? `${selection.length - hidable.length} in use and will be kept`
+                : undefined}
+            onclick={bulkHide}
+          >
+            Hide all
+          </GradientButton>
+
+          <label class="bulk-currency">
+            <span class="sr-only">Default currency for the selected accounts</span>
+            <Select
+              bind:value={bulkCurrency}
+              disabled={bulkBusy}
+              aria-label="Default currency for the selected accounts"
+            >
+              <option value="">Set currency…</option>
+              {#each SUPPORTED_CURRENCIES as code (code)}
+                <option value={code}>{code}</option>
+              {/each}
+            </Select>
+          </label>
+          {#if bulkCurrency}
+            <GradientButton disabled={bulkBusy} onclick={bulkSetCurrency}>
+              Apply {bulkCurrency}
+            </GradientButton>
+          {/if}
+
+          <GradientButton
+            disabled={bulkBusy || selection.length !== 1}
+            tooltip={selection.length === 1
+              ? 'Open Import targeting this account'
+              : 'Import takes one account — a statement belongs to one'}
+            onclick={importSelected}
+          >
+            Import
+          </GradientButton>
+
+          <button class="bulk-clear" type="button" onclick={clearSelection}>
+            Clear <span class="key">Esc</span>
+          </button>
+        </Card>
+      {/if}
+
       {#if error}
         <p class="message error">{error}</p>
       {:else if loading}
@@ -382,12 +613,23 @@
           {@const total = groupTotal(group)}
           {@const groupNote = conversionNote(total, total.unit, converted)}
           <Card class="group-card">
-            <button
-              type="button"
-              class="group-header"
-              aria-expanded={!collapsed[group.key]}
-              onclick={() => toggle(group.key)}
-            >
+            {@const state = groupState(group)}
+            <div class="group-header">
+              <!-- Outside the collapse button: nesting a checkbox inside a button is invalid,
+                   and selecting a group should not also fold it away. -->
+              <Checkbox
+                checked={state.all}
+                ariaLabel={`Select every account in ${group.label}`}
+                size={14}
+                onchange={(on) => toggleGroup(group, on)}
+              />
+              <button
+                type="button"
+                class="group-toggle"
+                class:some={state.some && !state.all}
+                aria-expanded={!collapsed[group.key]}
+                onclick={() => toggle(group.key)}
+              >
               <img
                 src="/icons/chevron-right-filled.svg"
                 alt=""
@@ -413,13 +655,15 @@
                   {groupNote}
                 </span>
               {/if}
-            </button>
+              </button>
+            </div>
 
             {#if !collapsed[group.key]}
               <div class="table-wrap">
                 <table>
                   <thead>
                     <tr>
+                      <th class="pick"><span class="sr-only">Select</span></th>
                       <th>Account</th>
                       <th>Type</th>
                       <th class="num">Balance</th>
@@ -428,12 +672,24 @@
                       {/if}
                       <th>Last activity</th>
                       <th>Flags</th>
+                      <th class="actions"><span class="sr-only">Actions</span></th>
                     </tr>
                   </thead>
                   <tbody>
                     {#each group.rows as row (row.account.id)}
                       {@const rowConverted = rowTotal(row)}
-                      <tr>
+                      {@const guard = protection(row)}
+                      {@const pinned = pinnedIds.has(row.account.id)}
+                      {@const hidden = hiddenIds.has(row.account.id)}
+                      <tr class:selected={selectedIds.has(row.account.id)}>
+                        <td class="pick">
+                          <Checkbox
+                            checked={selectedIds.has(row.account.id)}
+                            ariaLabel={`Select ${row.displayName}`}
+                            size={14}
+                            onchange={(on) => toggleSelected(row.account.id, on)}
+                          />
+                        </td>
                         <td>
                           <a class="account-link" href="/account/{row.account.id}">
                             {row.displayName}
@@ -478,9 +734,55 @@
                           {/if}
                         </td>
                         <td>
-                          {#if hiddenIds.has(row.account.id)}
-                            <Chip size="xs" icon="lock">hidden</Chip>
+                          <div class="flags">
+                          {#each rolesOf(row.account.id, settings) as role (role)}
+                            <span title={ROLE_DESCRIPTION[role]}>
+                              <Chip size="xs" tone="accent">{ROLE_LABEL[role]}</Chip>
+                            </span>
+                          {/each}
+                          {#if guard?.kind === 'system'}
+                            <span title={protectionMessage(guard)}>
+                              <Chip size="xs" icon="lock">managed</Chip>
+                            </span>
                           {/if}
+                          {#if pinned}
+                            <Chip size="xs" icon="pin">pinned</Chip>
+                          {/if}
+                          {#if hidden}
+                            <Chip size="xs" icon="eye-off">hidden</Chip>
+                          {/if}
+                          </div>
+                        </td>
+                        <td class="actions">
+                          <GradientButton
+                            quiet
+                            square
+                            active={pinned}
+                            aria-label={pinned
+                              ? `Unpin ${row.displayName}`
+                              : `Pin ${row.displayName}`}
+                            tooltip={pinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                            onclick={() => setPinned([row.account.id], !pinned)}
+                          >
+                            <Icon name="pin" size={13} />
+                          </GradientButton>
+                          <GradientButton
+                            quiet
+                            square
+                            active={hidden}
+                            disabled={guard !== null && !hidden}
+                            aria-label={hidden
+                              ? `Unhide ${row.displayName}`
+                              : `Hide ${row.displayName}`}
+                            tooltip={guard !== null && !hidden
+                              ? protectionMessage(guard)
+                              : hidden
+                                ? 'Unhide'
+                                : 'Hide'}
+                            onclick={() => setHidden([row.account.id], !hidden)}
+                          >
+                            <Icon name={hidden ? 'eye' : 'eye-off'} size={13} />
+                          </GradientButton>
                         </td>
                       </tr>
                     {/each}
@@ -634,6 +936,57 @@
     font-family: var(--font-mono);
   }
 
+  /* --- Bulk bar --- */
+  :global(.card.bulk-bar) {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    flex-wrap: wrap;
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--color-accent-light);
+    border-color: var(--color-accent-mid);
+  }
+
+  .bulk-count {
+    font-family: var(--font-mono);
+    font-size: var(--text-xs);
+    font-weight: var(--weight-semibold);
+    white-space: nowrap;
+  }
+
+  .bulk-currency {
+    display: flex;
+    align-items: center;
+  }
+
+  .bulk-clear {
+    margin-left: auto;
+    display: inline-flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    background: none;
+    border: none;
+    padding: 0;
+    color: var(--color-text-muted);
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    cursor: pointer;
+  }
+
+  .bulk-clear:hover {
+    color: var(--color-text);
+    text-decoration: underline;
+  }
+
+  .key {
+    font-family: var(--font-mono);
+    font-size: 9px;
+    padding: 1px 4px;
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-sm);
+    background: var(--color-window);
+  }
+
   /* --- Groups --- */
   :global(.card.group-card) {
     overflow: hidden;
@@ -643,26 +996,36 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    width: 100%;
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-section-bar-bg, var(--color-window));
     color: var(--color-section-bar-fg, var(--color-text));
-    border: none;
     border-bottom: 1px solid var(--color-rule);
+  }
+
+  .group-toggle {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-sm);
+    flex: 1;
+    min-width: 0;
+    padding: 0;
+    background: none;
+    border: none;
+    color: inherit;
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     text-align: left;
     cursor: pointer;
-    transition: background var(--duration-fast) var(--ease);
+    transition: filter var(--duration-fast) var(--ease);
   }
 
-  .group-header:hover {
+  .group-toggle:hover {
     filter: brightness(1.25);
   }
 
-  .group-header:focus-visible {
+  .group-toggle:focus-visible {
     outline: 2px solid var(--color-accent-mid);
-    outline-offset: -2px;
+    outline-offset: 2px;
   }
 
   .chevron {
@@ -766,6 +1129,49 @@
 
   .muted {
     color: var(--color-text-muted);
+  }
+
+  /* --- Selection + actions --- */
+  th.pick,
+  td.pick {
+    width: 1%;
+    padding-right: 0;
+  }
+
+  th.actions,
+  td.actions {
+    width: 1%;
+    white-space: nowrap;
+    text-align: right;
+  }
+
+  td.actions {
+    display: table-cell;
+  }
+
+  /* A wrapper, not the cell itself: `display: flex` on a <td> drops it out of the table
+     layout, so the column stops aligning and empty cells render as stray boxes. */
+  .flags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 3px;
+  }
+
+  tbody tr.selected td {
+    background: var(--color-accent-light);
+  }
+
+  /* Visible to screen readers only — column headers that carry no visible label. */
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
   }
 
   /* --- Messages --- */

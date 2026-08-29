@@ -40,7 +40,7 @@
 
 <style>
   /* Aqua-style checkbox: glossy raised square, accent-gradient fill + white tick when
-     checked. Sharp-ish corners (2px) per the design system. */
+     checked. Sharp corners per the design system's --radius-sm. */
   .cb-wrap {
     display: inline-flex;
     align-items: center;
@@ -67,7 +67,9 @@
     width: var(--cb-size);
     height: var(--cb-size);
     flex-shrink: 0;
-    border-radius: var(--radius-lg);
+    /* --radius-sm, not --radius-lg: at these sizes an 8px radius is a circle, and a round
+       checkbox reads as a radio button — "pick one" where the control means "pick any". */
+    border-radius: var(--radius-sm);
     border: 1px solid var(--color-rule);
     background: linear-gradient(180deg, #ffffff, #dfe2e7);
     box-shadow:
