@@ -83,16 +83,27 @@
     preferredCurrency = settings.preferredCurrency ?? 'CAD'
   })
 
+  // Both of these move to the Accounts page's Categories tab; this panel goes away in the
+  // last story of the epic. They report failures now that the API helpers throw, so the
+  // interim state is not a form that silently does nothing.
   async function handleCreateAccount() {
     if (!newAccountPath.trim()) return
-    const created = await createAccount({ path: newAccountPath.trim() })
-    accounts = [...accounts, created]
-    newAccountPath = ''
+    try {
+      const created = await createAccount({ path: newAccountPath.trim() })
+      accounts = [...accounts, created]
+      newAccountPath = ''
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not create that account')
+    }
   }
 
   async function handleDeleteAccount(id: string) {
-    await deleteAccount(id)
-    accounts = accounts.filter((a: { id: string }) => a.id !== id)
+    try {
+      await deleteAccount(id)
+      accounts = accounts.filter((a: { id: string }) => a.id !== id)
+    } catch (e) {
+      toast.show(e instanceof Error ? e.message : 'Could not delete that account')
+    }
   }
 
   const defaultLabels: Record<string, string> = {

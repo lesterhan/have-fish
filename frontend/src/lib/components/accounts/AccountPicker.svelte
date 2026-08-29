@@ -1,6 +1,7 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import { createAccount, type Account } from '$lib/api'
+  import { toast } from '$lib/toast.svelte'
   import { rank } from './accountScorer'
   import { type TreeNode } from './accountTree'
   import { accountIndex } from './accountIndex'
@@ -222,6 +223,9 @@
         value = acc.id
         segs = acc.path.split(SEP)
         oncommit?.(value)
+      } catch (e) {
+        // A refused create used to leave `value` undefined and the box looking committed.
+        toast.show(e instanceof Error ? e.message : 'Could not create that account')
       } finally {
         creating = false
       }

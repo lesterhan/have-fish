@@ -600,12 +600,70 @@ app.patch('/:id', async (c) => {
   return c.json(withResolvedTypes(updated, roots))
 })
 
+// DELETE /api/accounts/:id
+//
+// Soft-deletes an account, but only one nothing depends on. The route used to delete
+// unconditionally, which made three quiet ways to lose data: an account with postings
+// vanishes from every list while its entries keep pointing at it; a default offset /
+// conversion / adjustments account leaves the pointer dangling and breaks the next import;
+// and a receivable account is re-spawned by Fish Pie anyway. The UI guards all three, but a
+// guard that only exists in the client is a guard the next client forgets.
+//
+// The subtree is deliberately *not* guarded: paths are materialized, so a parent row with
+// live children simply reverts to a virtual grouping node in the tree. Nothing is lost.
 app.delete('/:id', async (c) => {
   const userId = c.get('userId')
+  const id = c.req.param('id')
+
+  const [account] = await db
+    .select({ path: accounts.path })
+    .from(accounts)
+    .where(and(eq(accounts.id, id), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+  if (!account) return c.json({ error: 'account not found' }, 404)
+
+  if (isClearingAccountPath(account.path)) {
+    return c.json({ error: 'receivable accounts are system-managed and cannot be deleted' }, 409)
+  }
+
+  // Postings on a soft-deleted transaction do not count — the entry is already gone, so the
+  // account is free. Same rule the posting-counts listing uses, so the count the UI shows
+  // and the count this refuses on are the same number.
+  const [{ entries } = { entries: 0 }] = await db
+    .select({ entries: sql<number>`COUNT(${transactions.id})::int` })
+    .from(postings)
+    .innerJoin(transactions, and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)))
+    .where(and(eq(postings.accountId, id), isNull(postings.deletedAt)))
+  if (entries > 0) {
+    return c.json(
+      { error: `this account has ${entries} ${entries === 1 ? 'entry' : 'entries'} — move or delete them first` },
+      409,
+    )
+  }
+
+  const [roles] = await db
+    .select({
+      offset: userSettings.defaultOffsetAccountId,
+      conversion: userSettings.defaultConversionAccountId,
+      adjustments: userSettings.defaultAdjustmentsAccountId,
+    })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+  const held = [
+    roles?.offset === id ? 'offset' : null,
+    roles?.conversion === id ? 'conversion' : null,
+    roles?.adjustments === id ? 'adjustments' : null,
+  ].filter((r): r is string => r !== null)
+  if (held.length > 0) {
+    return c.json(
+      { error: `this is your default ${held.join(' and ')} account — point that setting elsewhere first` },
+      409,
+    )
+  }
+
   await db
     .update(accounts)
     .set({ deletedAt: new Date() })
-    .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .where(and(eq(accounts.id, id), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
   return c.body(null, 204)
 })
 

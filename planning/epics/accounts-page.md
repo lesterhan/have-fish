@@ -196,7 +196,10 @@ User-level, not per-account, so it does not move:
 - **Quick-add by raw path**, replacing the Settings form: type a full path, parents are
   created implicitly as they are today.
 - **Guarded delete**: `DELETE /api/accounts/:id` already exists; offer it only on rows with
-  zero postings, and surface the count of those rows as a filter chip.
+  zero postings, and surface the count of those rows as a filter chip. The guard also went
+  into the endpoint, which used to delete unconditionally: an account with entries, one a
+  default role points at, or one Fish Pie manages is now refused with a reason. A guard that
+  lives only in the client is a guard the next client forgets.
 - **Flat view**, preserving the one thing the Settings list did that a tree does not.
 
 ### 6. Row expansion + attention
