@@ -203,19 +203,30 @@ app.get('/balances', async (c) => {
 })
 
 // GET /api/accounts/posting-counts
-// Returns { accountId, count }[] for all accounts belonging to this user.
-// Counts only non-deleted postings.
+// Returns { accountId, count, lastActivity }[] — one row for every non-deleted account
+// belonging to this user, including accounts that have never been posted to (count 0,
+// lastActivity null). Counts only live postings on live transactions.
+//
+// lastActivity is the date of the most recent transaction touching the account, formatted
+// YYYY-MM-DD to match GET /api/catch-up. It is a plain date, not a timestamp: callers render
+// staleness in days, and a timestamp would only invite timezone drift.
 app.get('/posting-counts', async (c) => {
   const userId = c.get('userId')
+  // Left joins, so an account with no activity still gets a row. Both deletedAt filters sit in
+  // the ON clauses rather than the WHERE — in the WHERE they would drop the unmatched rows and
+  // collapse this back to an inner join. COUNT over transactions.id (not *) then counts only
+  // the rows that actually joined, so a posting on a soft-deleted transaction is excluded.
   const rows = await db
     .select({
-      accountId: postings.accountId,
-      count: sql<number>`COUNT(*)::int`,
+      accountId: accounts.id,
+      count: sql<number>`COUNT(${transactions.id})::int`,
+      lastActivity: sql<string | null>`to_char(MAX(${transactions.date})::date, 'YYYY-MM-DD')`,
     })
-    .from(postings)
-    .innerJoin(accounts, eq(accounts.id, postings.accountId))
-    .where(and(eq(accounts.userId, userId), isNull(postings.deletedAt), isNull(accounts.deletedAt)))
-    .groupBy(postings.accountId)
+    .from(accounts)
+    .leftJoin(postings, and(eq(postings.accountId, accounts.id), isNull(postings.deletedAt)))
+    .leftJoin(transactions, and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)))
+    .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .groupBy(accounts.id)
   return c.json(rows)
 })
 
