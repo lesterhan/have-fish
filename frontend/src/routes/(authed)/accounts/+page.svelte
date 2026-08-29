@@ -16,6 +16,7 @@
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import AddAccountWizard from '$lib/components/wizards/AddAccountWizard.svelte'
+  import AccountDrawer from '$lib/components/accounts/AccountDrawer.svelte'
   import AccountFlags from '$lib/components/accounts/AccountFlags.svelte'
   import CategoriesTab from '$lib/components/accounts/CategoriesTab.svelte'
   import SectionCard from '$lib/components/accounts/SectionCard.svelte'
@@ -27,6 +28,8 @@
     updateAccount,
   } from '$lib/api'
   import type { AccountBalance, UserSettings } from '$lib/api'
+  import { actionRequiredStore } from '$lib/actionRequired.svelte'
+  import { attentionChip } from '$lib/components/transactions/attentionChip'
   import { settingsStore } from '$lib/settings.svelte'
   import { toast } from '$lib/toast.svelte'
   import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
@@ -43,6 +46,7 @@
   } from '$lib/money'
   import {
     ACCOUNT_SURFACES,
+    rootFor,
     rootsFrom,
     type PositionBucket,
   } from '$lib/components/accounts/accountPaths'
@@ -127,6 +131,12 @@
         counts.map((c) => [c.accountId, c.lastActivity]),
       )
       settings = loaded
+      // The layout loads the attention summary once at start-up and caches it. This page is
+      // now where that signal is read, and the fix for it happens elsewhere — the account
+      // page, the transactions list — so a cached count would keep pointing at work already
+      // done. One small request per visit is the cost of the number being true.
+      actionRequiredStore.invalidate()
+      void actionRequiredStore.load()
     } catch {
       error = 'Could not load accounts.'
     } finally {
@@ -204,6 +214,30 @@
     }
   }
 
+  // ── Attention ─────────────────────────────────────────────
+  // The summary the layout already loads. Until this story it reached exactly one surface —
+  // a 6px dot in the sidebar — and the sidebar stopped listing accounts in story 4, so this
+  // page is now the only place an unfinished entry is visible outside the account itself.
+  function attentionFor(id: string): number | null {
+    return actionRequiredStore.getCount(id)
+  }
+
+  let needAttention = $derived(
+    allRows.filter((r) => (attentionFor(r.account.id) ?? 0) > 0),
+  )
+
+  let attentionTotal = $derived(
+    needAttention.reduce((sum, r) => sum + (attentionFor(r.account.id) ?? 0), 0),
+  )
+
+  let attentionOnly = $state(false)
+
+  // A chip that filters to nothing is a trap, so it clears itself the moment the last
+  // account it was scoping gets cleaned up.
+  $effect(() => {
+    if (attentionOnly && needAttention.length === 0) attentionOnly = false
+  })
+
   // ── Controls ──────────────────────────────────────────────
   let query = $state('')
   let grouping = $state<Grouping>('institution')
@@ -212,7 +246,8 @@
   let shownRows = $derived(
     allRows.filter((r) => {
       const hidden = hiddenIds.has(r.account.id)
-      return show === 'all' ? true : show === 'hidden' ? hidden : !hidden
+      const visible = show === 'all' ? true : show === 'hidden' ? hidden : !hidden
+      return visible && (!attentionOnly || (attentionFor(r.account.id) ?? 0) > 0)
     }),
   )
 
@@ -427,6 +462,15 @@
     refreshSidebar()
   }
 
+  // ── Row expansion ─────────────────────────────────────────
+  // One at a time: the drawer fetches an account's transactions when it opens, and a table
+  // that can hold six of those open is a table that fires six requests on a stray click.
+  let openRowId = $state<string | null>(null)
+
+  function toggleRow(id: string) {
+    openRowId = openRowId === id ? null : id
+  }
+
   // ── Collapse ──────────────────────────────────────────────
   let collapsed = $state<Record<string, boolean>>({})
 
@@ -540,6 +584,20 @@
             <option value="hidden">Hidden</option>
           </Select>
         </label>
+
+        {#if needAttention.length > 0}
+          {@const chip = attentionChip(attentionTotal)}
+          <GradientButton
+            active={attentionOnly}
+            attention={!attentionOnly}
+            tooltip={attentionOnly
+              ? 'Show every account again'
+              : `Scope the table to the ${needAttention.length === 1 ? 'account' : 'accounts'} with something unfinished`}
+            onclick={() => (attentionOnly = !attentionOnly)}
+          >
+            {chip.label}
+          </GradientButton>
+        {/if}
 
         {#if foreignCurrencies.length > 0}
           <ConvertToggle
@@ -696,7 +754,8 @@
                   {@const guard = protection(row)}
                   {@const pinned = pinnedIds.has(row.account.id)}
                   {@const hidden = hiddenIds.has(row.account.id)}
-                  <tr class:selected={selectedIds.has(row.account.id)}>
+                  {@const open = openRowId === row.account.id}
+                  <tr class:selected={selectedIds.has(row.account.id)} class:open>
                     <td class="pick">
                       <Checkbox
                         checked={selectedIds.has(row.account.id)}
@@ -756,6 +815,14 @@
                         {settings}
                         protection={guard}
                       >
+                        {#snippet lead()}
+                          {@const needs = attentionFor(row.account.id) ?? 0}
+                          {#if needs > 0}
+                            <span title={attentionChip(needs).label}>
+                              <Chip size="xs" icon="warning">{needs}</Chip>
+                            </span>
+                          {/if}
+                        {/snippet}
                         {#if pinned}
                           <Chip size="xs" icon="pin">pinned</Chip>
                         {/if}
@@ -765,6 +832,21 @@
                       </AccountFlags>
                     </td>
                     <td class="actions">
+                      <GradientButton
+                        quiet
+                        square
+                        aria-label={open
+                          ? `Hide recent entries for ${row.displayName}`
+                          : `Show recent entries for ${row.displayName}`}
+                        aria-expanded={open}
+                        tooltip={open ? 'Close' : 'Recent entries and what is unfinished'}
+                        onclick={() => toggleRow(row.account.id)}
+                      >
+                        <Icon
+                          name={open ? 'chevron-up-filled' : 'chevron-down-line'}
+                          size={13}
+                        />
+                      </GradientButton>
                       <GradientButton
                         quiet
                         square
@@ -798,6 +880,22 @@
                       </GradientButton>
                     </td>
                   </tr>
+                  {#if open}
+                    <!-- A second row rather than a nested table: a <td> cannot contain a
+                         row, and colspan is what keeps the drawer inside the grid. -->
+                    <tr class="drawer-row">
+                      <td colspan={converted ? 8 : 7}>
+                        <AccountDrawer
+                          match={{ kind: 'account', accountId: row.account.id }}
+                          path={row.account.path}
+                          accountId={row.account.id}
+                          root={rootFor(row.surface, roots)}
+                          attention={attentionFor(row.account.id)}
+                          canImport
+                        />
+                      </td>
+                    </tr>
+                  {/if}
                 {/each}
               </tbody>
             </table>
@@ -979,6 +1077,16 @@
 
   .stale {
     color: var(--color-amount-negative);
+  }
+
+  /* --- Row expansion --- *
+     The drawer supplies its own padding and left rule, so the cell gets out of the way. */
+  tbody tr.drawer-row td {
+    padding: 0;
+  }
+
+  tbody tr.open td {
+    background: var(--color-window-raised);
   }
 
   /* --- Selection --- *

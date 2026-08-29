@@ -1,9 +1,11 @@
 <script lang="ts">
-  import { tooltip as tooltipAction } from "$lib/tooltip"
+  import { tooltip as tooltipAction } from '$lib/tooltip'
 
   interface Props {
     onclick?: () => void
-    "aria-label"?: string
+    'aria-label'?: string
+    /** For a disclosure button, so the state is announced and not only drawn. */
+    'aria-expanded'?: boolean
     disabled?: boolean
     active?: boolean
     square?: boolean
@@ -13,31 +15,32 @@
      * with `active`, but `active` means toggled-on and sets aria-pressed, which is wrong
      * for a command button — hence a separate variant rather than reusing the state.
      */
-    variant?: "default" | "warning" | "primary"
+    variant?: 'default' | 'warning' | 'primary'
     /** Loud resting state (amber fill + soft pulse) for an unaddressed attention indicator. */
     attention?: boolean
     /** Borderless and flat at rest; border and gradient arrive on hover. For icon
-      * buttons in a dense toolbar, where a row of identical raised chips is what makes
-      * the toolbar unreadable. */
+     * buttons in a dense toolbar, where a row of identical raised chips is what makes
+     * the toolbar unreadable. */
     quiet?: boolean
     /** Control height/typography. "lg" is for primary CTAs; "md" is the default control size. */
-    size?: "sm" | "md" | "lg"
-    type?: "button" | "submit" | "reset"
-    children: import("svelte").Snippet
+    size?: 'sm' | 'md' | 'lg'
+    type?: 'button' | 'submit' | 'reset'
+    children: import('svelte').Snippet
   }
 
   let {
     onclick,
-    "aria-label": ariaLabel,
+    'aria-label': ariaLabel,
+    'aria-expanded': ariaExpanded,
     disabled = false,
     active = false,
     square = false,
     tooltip,
-    variant = "default",
+    variant = 'default',
     attention = false,
     quiet = false,
-    size = "md",
-    type = "button",
+    size = 'md',
+    type = 'button',
     children,
   }: Props = $props()
 </script>
@@ -47,15 +50,16 @@
   {disabled}
   {onclick}
   aria-label={ariaLabel}
+  aria-expanded={ariaExpanded}
   aria-pressed={active ? true : undefined}
-  use:tooltipAction={{ label: tooltip ?? "", always: true }}
+  use:tooltipAction={{ label: tooltip ?? '', always: true }}
   class="btn"
-  class:sm={size === "sm"}
-  class:lg={size === "lg"}
+  class:sm={size === 'sm'}
+  class:lg={size === 'lg'}
   class:square
   class:active
-  class:warning={variant === "warning"}
-  class:primary={variant === "primary" && !active}
+  class:warning={variant === 'warning'}
+  class:primary={variant === 'primary' && !active}
   class:quiet={quiet && !active}
   class:attention={attention && !active}
 >
@@ -70,7 +74,11 @@
     gap: 5px;
     height: 24px;
     padding: 0 10px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);
     font-family: var(--font-sans);
@@ -123,7 +131,11 @@
   }
 
   .btn.quiet:hover:not(:disabled) {
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-accent-chip-bg)
+    );
     border-color: var(--color-accent);
     color: var(--color-text);
   }
@@ -148,7 +160,11 @@
   }
 
   .btn:hover:not(:disabled):not(.active):not(.quiet):not(.primary) {
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-accent-chip-bg)
+    );
     border-color: var(--color-accent);
   }
 
@@ -209,13 +225,16 @@
 
   @keyframes warning-pulse {
     0% {
-      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 55%, transparent);
+      box-shadow: 0 0 0 0
+        color-mix(in srgb, var(--color-warning) 55%, transparent);
     }
     70% {
-      box-shadow: 0 0 0 6px color-mix(in srgb, var(--color-warning) 0%, transparent);
+      box-shadow: 0 0 0 6px
+        color-mix(in srgb, var(--color-warning) 0%, transparent);
     }
     100% {
-      box-shadow: 0 0 0 0 color-mix(in srgb, var(--color-warning) 0%, transparent);
+      box-shadow: 0 0 0 0
+        color-mix(in srgb, var(--color-warning) 0%, transparent);
     }
   }
 

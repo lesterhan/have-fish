@@ -9,6 +9,7 @@
   import Select from '$lib/components/ui/Select.svelte'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import AccountDrawer from './AccountDrawer.svelte'
   import AccountFlags from './AccountFlags.svelte'
   import SectionCard from './SectionCard.svelte'
   import {
@@ -22,8 +23,10 @@
   } from '$lib/api'
   import { toast } from '$lib/toast.svelte'
   import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
+  import { actionRequiredStore } from '$lib/actionRequired.svelte'
+  import { attentionChip } from '$lib/components/transactions/attentionChip'
   import { rank } from '$lib/components/accounts/accountScorer'
-  import { rootsFrom } from '$lib/components/accounts/accountPaths'
+  import { rootFor, rootsFrom } from '$lib/components/accounts/accountPaths'
   import {
     protectionFor,
     protectionMessage,
@@ -140,6 +143,21 @@
     // point of the chip is to walk you to what you might want to clear out.
     if (emptyOnly) nodes = filterNodes(nodes, (n) => isDeletable(n))
     return nodes
+  }
+
+  // ── Row expansion ─────────────────────────────────────────
+  // Distinct from the tree's collapse state, and deliberately so: the chevron in the first
+  // column opens a branch, this opens what is *inside* a row. One at a time, because the
+  // drawer fetches when it opens.
+  let openPath = $state<string | null>(null)
+
+  function toggleRow(path: string) {
+    openPath = openPath === path ? null : path
+  }
+
+  /** Unfinished entries on this row's own account. Virtual segments hold none. */
+  function attentionFor(accountId: string | null): number | null {
+    return accountId ? actionRequiredStore.getCount(accountId) : null
   }
 
   // ── Collapse ──────────────────────────────────────────────
@@ -431,7 +449,9 @@
               {@const blocker = guard(node)}
               {@const empty = isDeletable(node)}
               {@const deletable = empty && blocker === null}
-              <tr class:editing>
+              {@const needs = attentionFor(node.accountId) ?? 0}
+              {@const open = openPath === node.path}
+              <tr class:editing class:open>
                 <td>
                   <div class="cell" style="padding-left: calc({depth} * 16px)">
                     {#if hasChildren}
@@ -508,6 +528,11 @@
                     protection={blocker}
                   >
                     {#snippet lead()}
+                      {#if needs > 0}
+                        <span title={attentionChip(needs).label}>
+                          <Chip size="xs" icon="warning">{needs}</Chip>
+                        </span>
+                      {/if}
                       {#if node.accountId === null}
                         <span
                           title="No account was filed at this path — it exists because something beneath it does"
@@ -522,6 +547,23 @@
                   </AccountFlags>
                 </td>
                 <td class="actions">
+                  <GradientButton
+                    quiet
+                    square
+                    aria-label={open
+                      ? `Hide recent entries for ${node.path}`
+                      : `Show recent entries for ${node.path}`}
+                    aria-expanded={open}
+                    tooltip={open
+                      ? 'Close'
+                      : 'Recent entries and what is unfinished'}
+                    onclick={() => toggleRow(node.path)}
+                  >
+                    <Icon
+                      name={open ? 'chevron-up-filled' : 'chevron-down-line'}
+                      size={13}
+                    />
+                  </GradientButton>
                   <GradientButton
                     quiet
                     square
@@ -555,6 +597,22 @@
                   </GradientButton>
                 </td>
               </tr>
+              {#if open}
+                <!-- A category row stands for its whole subtree, so the drawer matches on
+                     the path rather than the id — which is also the only thing a virtual
+                     segment has to match on. -->
+                <tr class="drawer-row">
+                  <td colspan="5">
+                    <AccountDrawer
+                      match={{ kind: 'subtree', path: node.path }}
+                      path={node.path}
+                      accountId={node.accountId}
+                      root={rootFor(section.key, roots)}
+                      attention={attentionFor(node.accountId)}
+                    />
+                  </td>
+                </tr>
+              {/if}
             {/each}
           </tbody>
         </table>
@@ -660,6 +718,16 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+  }
+
+  /* --- Row expansion --- *
+     The drawer brings its own padding and left rule, so the cell gets out of the way. */
+  tr.drawer-row td {
+    padding: 0;
+  }
+
+  tr.open td {
+    background: var(--color-window-raised);
   }
 
   /* --- Messages --- *
