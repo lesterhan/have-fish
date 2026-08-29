@@ -123,7 +123,7 @@ The XP-era 3D bevel system has been removed. All controls now use Aqua-style sha
 - **Radius scale** — `--radius-sm` (3px) badges/chips, `--radius-md` (6px) buttons/controls, `--radius-lg` (8px) cards/inner panels, `--radius-xl` (12px) modal windows, `--radius-pill` (999px) pill-shaped chips.
 - **Aqua control shadows** — raised controls use `--shadow-control` (soft drop + top gloss highlight). Pressed/inset surfaces use `--shadow-inset` (recessed trough). Card surfaces use `--card-shadow` / `--card-shadow-hover`. Floating panels/dropdowns use `--shadow-window`.
 - **All buttons are `GradientButton`** — gradient background with border. Hover = accent border color. Active = `--shadow-inset`. `ChromeButton` is for window-chrome widgets only (modal close button, titlebar controls). `Button` is deleted.
-- **Cards are the surface primitive** — use `Card` for any grouped panel. Add a `.section-header` div inside for titled sections (uses `--color-section-bar-*` tokens). `Panel` is deprecated.
+- **Cards are the surface primitive** — use `Card` for any grouped panel. Add a `.section-header` div inside for titled sections (uses `--color-section-bar-*` tokens). `Panel` is deleted.
 - **Lucida Grande at small sizes** — the system font is `Lucida Grande, Segoe UI`. Text is small (13–14px base). Period-accurate for both Mac and XP eras.
 - **No font smoothing** — `base.css` sets `-webkit-font-smoothing: none` for crisp pixel rendering.
 - **The desktop is Graphite** — `--color-desktop: #b8bcc2`. The entire page background.
