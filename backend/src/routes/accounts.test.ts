@@ -162,6 +162,91 @@ describe('accounts', () => {
       expect(wallet.type).toBe('cash')
     })
 
+    describe('?include=unfiled', () => {
+      async function balances(qs = '') {
+        const res = await app.request(`/api/accounts/balances${qs}`, {
+          headers: { Cookie: cookie },
+        })
+        return { status: res.status, body: await res.json() }
+      }
+
+      async function paths(qs = '') {
+        const { body } = await balances(qs)
+        return (body as { path: string }[]).map((a) => a.path).sort()
+      }
+
+      it('omits an account outside every configured root by default', async () => {
+        await createAccount('assets:chequing')
+        await createAccount('\u50a8\u84c4:\u4e2d\u56fd\u94f6\u884c')
+        expect(await paths()).toContain('assets:chequing')
+        expect(await paths()).not.toContain('\u50a8\u84c4:\u4e2d\u56fd\u94f6\u884c')
+      })
+
+      it('includes it, with its balance, when asked', async () => {
+        const stray = await createAccount('\u50a8\u84c4:\u4e2d\u56fd\u94f6\u884c')
+        const food = await createAccount('expenses:food')
+        await createTransaction([
+          { accountId: stray, amount: '-900.00', currency: 'CNY' },
+          { accountId: food, amount: '900.00', currency: 'CNY' },
+        ])
+
+        const { body } = await balances('?include=unfiled')
+        const row = (body as { id: string; balances: unknown[] }[]).find(
+          (a) => a.id === stray,
+        )
+        // The balance is the point: showing the row without its money would be its own lie.
+        expect(row?.balances).toEqual([{ currency: 'CNY', amount: '-900.00' }])
+      })
+
+      it('still excludes expense and income accounts, which belong to Categories', async () => {
+        await createAccount('expenses:food')
+        await createAccount('income:salary')
+        const all = await paths('?include=unfiled')
+        expect(all).not.toContain('expenses:food')
+        expect(all).not.toContain('income:salary')
+      })
+
+      it('treats a path outside the *configured* roots as unfiled, not the default ones', async () => {
+        await app.request('/api/user-settings', {
+          method: 'PATCH',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ defaultAssetsRootPath: 'activos' }),
+        })
+        await createAccount('activos:banco')
+        await createAccount('assets:chequing')
+
+        const all = await paths('?include=unfiled')
+        expect(all).toContain('activos:banco')
+        // `assets` is no longer a root, so the old account is unfiled — and still visible.
+        expect(all).toContain('assets:chequing')
+      })
+
+      it('includes an account sitting at the bare root path', async () => {
+        await createAccount('assets')
+        expect(await paths('?include=unfiled')).toContain('assets')
+        // ...and so does the default selection, which used to drop it.
+        expect(await paths()).toContain('assets')
+      })
+
+      it('rejects an unknown include value rather than ignoring it', async () => {
+        expect((await balances('?include=everything')).status).toBe(400)
+      })
+
+      it('rejects combining include with types, which select different ways', async () => {
+        expect((await balances('?include=unfiled&types=asset')).status).toBe(400)
+      })
+
+      it('never returns another user\'s unfiled account', async () => {
+        const other = await createTestUser('unfiled-other@example.com')
+        await app.request('/api/accounts', {
+          method: 'POST',
+          headers: { Cookie: other, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: 'theirs:secret' }),
+        })
+        expect(await paths('?include=unfiled')).not.toContain('theirs:secret')
+      })
+    })
+
     describe('?types= filter', () => {
       it('returns only accounts whose resolved type matches', async () => {
         const walletId = await createAccount('assets:cash:cad')

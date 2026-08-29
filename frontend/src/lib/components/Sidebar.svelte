@@ -139,6 +139,15 @@
     <!-- Top nav — always rendered so icons show in collapsed state -->
     <div class="top-nav">
       <a
+        href="/accounts"
+        class="nav-link"
+        class:active={currentPath.startsWith('/accounts')}
+        use:tooltip={'Accounts'}
+      >
+        <Icon name="accounts" size={16} />
+        <span class="nav-label">Accounts</span>
+      </a>
+      <a
         href="/spending"
         class="nav-link"
         class:active={currentPath.startsWith('/spending')}
