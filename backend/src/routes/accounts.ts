@@ -4,7 +4,7 @@ import { accounts, postings, transactions, userSettings } from '../db/schema'
 import { eq, isNull, and, like, or, not, inArray, lte, sql, type SQL } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
-import { CLEARING_PREFIX } from '../fish-pie-accounts'
+import { isClearingAccountPath } from '../fish-pie-accounts'
 import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, STORED_ACCOUNT_TYPES, DEFAULT_ROOTS, type AccountTypeRoots, type StoredAccountType } from '../postings/account-type'
 import { isValidCurrency } from '../currencies'
 
@@ -30,12 +30,6 @@ async function loadAccountTypeRoots(userId: string): Promise<AccountTypeRoots> {
     expensesRootPath: s?.expensesRootPath ?? DEFAULT_ROOTS.expensesRootPath,
     incomeRootPath: s?.incomeRootPath ?? DEFAULT_ROOTS.incomeRootPath,
   }
-}
-
-// True when `path` is the receivable namespace itself or sits under it.
-// Receivable accounts are system-managed (re-spawned at import), so reorg refuses them.
-function isReceivablePath(path: string): boolean {
-  return path === CLEARING_PREFIX || path.startsWith(`${CLEARING_PREFIX}:`)
 }
 
 // A valid account path is colon-segmented with no empty segments and no surrounding
@@ -476,7 +470,7 @@ app.post('/', async (c) => {
   }
   // Receivable accounts are re-spawned at import, so the rename route refuses to move an
   // account into that namespace. Creating one there directly is the same hole by another door.
-  if (isReceivablePath(path)) {
+  if (isClearingAccountPath(path)) {
     return c.json({ error: 'receivable accounts are system-managed and cannot be created by hand' }, 400)
   }
 
@@ -533,8 +527,8 @@ app.post('/rename', async (c) => {
   if (!from || !to) return c.json({ error: '`from` and `to` are required' }, 400)
   if (from === to) return c.json({ error: '`from` and `to` are identical' }, 400)
   if (!isValidPath(to)) return c.json({ error: 'invalid target path' }, 400)
-  if (isReceivablePath(from)) return c.json({ error: 'receivable accounts are system-managed and cannot be renamed' }, 400)
-  if (isReceivablePath(to)) return c.json({ error: 'cannot rename into the receivable namespace' }, 400)
+  if (isClearingAccountPath(from)) return c.json({ error: 'receivable accounts are system-managed and cannot be renamed' }, 400)
+  if (isClearingAccountPath(to)) return c.json({ error: 'cannot rename into the receivable namespace' }, 400)
 
   // Load all of this user's active accounts; match/collision-check in JS to avoid LIKE
   // wildcard hazards (`_`/`%` in a path) and keep anchoring exact. Per-user counts are small.

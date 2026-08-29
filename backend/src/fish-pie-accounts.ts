@@ -18,20 +18,19 @@ export function slugify(name: string): string {
 
 // Clearing-account path scheme. A member's per-group clearing account nets what the
 // group owes them (positive) against what they owe the group (negative) — a single
-// receivable account per group. Switched from the legacy `group:<slug>` scheme
-// (decided 2026-06-11, categories epic); the merge endpoint re-points old postings.
+// receivable account per group.
 export const CLEARING_PREFIX = 'assets:receivable'
-const LEGACY_CLEARING_PREFIX = 'group:'
 
 export function clearingAccountPath(name: string): string {
   return `${CLEARING_PREFIX}:${slugify(name)}`
 }
 
-// True for both the current (`assets:receivable:…`) and legacy (`group:…`) clearing
-// account paths. Used where postings are matched by path during the transition window
-// (e.g. the import-linked PATCH rebuild) so pre-migration data still resolves.
+// True for the receivable namespace itself and anything under it. Clearing accounts are
+// system-managed, so this gates both path-matching over postings (the import-linked PATCH
+// rebuild) and the surfaces that only make sense for accounts a human imports into.
+// Anchored on the colon, so `assets:receivables-ledger` is an ordinary account.
 export function isClearingAccountPath(path: string): boolean {
-  return path.startsWith(`${CLEARING_PREFIX}:`) || path.startsWith(LEGACY_CLEARING_PREFIX)
+  return path === CLEARING_PREFIX || path.startsWith(`${CLEARING_PREFIX}:`)
 }
 
 // Find or create the clearing (receivable) account for a user in a group.
