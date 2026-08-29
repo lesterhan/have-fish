@@ -1,5 +1,6 @@
 import { describe, it, expect } from 'bun:test'
 import {
+  NO_RATES,
   bucketOf,
   buildRows,
   convertBalances,
@@ -10,6 +11,7 @@ import {
   formatCents,
   groupCurrency,
   groupRows,
+  heldElsewhereNote,
   institutionOf,
   isUnderRoot,
   localToday,
@@ -624,5 +626,81 @@ describe('coverageNote', () => {
         'EUR',
       ),
     ).toBe('EUR only')
+  })
+})
+
+describe('heldElsewhereNote', () => {
+  function note(balances: Money[], preferred = 'CAD') {
+    // NO_RATES is the page's resting state: nothing is converted until someone asks.
+    return heldElsewhereNote(
+      convertBalances(balances, NO_RATES, preferred),
+      preferred,
+    )
+  }
+
+  it('says nothing when the preferred currency is all there is', () => {
+    expect(note([{ currency: 'CAD', amount: '40300.00' }])).toBeNull()
+  })
+
+  it('says nothing for an account with no balances at all', () => {
+    expect(note([])).toBeNull()
+  })
+
+  it('counts the other currencies held without pricing them', () => {
+    expect(
+      note([
+        { currency: 'CAD', amount: '40300.00' },
+        { currency: 'USD', amount: '900.00' },
+        { currency: 'CZK', amount: '120.00' },
+      ]),
+    ).toBe('+ 2 currencies held')
+  })
+
+  it('says currency, singular, for one', () => {
+    expect(
+      note([
+        { currency: 'CAD', amount: '1.00' },
+        { currency: 'USD', amount: '1.00' },
+      ]),
+    ).toBe('+ 1 currency held')
+  })
+
+  it('counts a currency once however many accounts hold it', () => {
+    expect(
+      note([
+        { currency: 'USD', amount: '1.00' },
+        { currency: 'USD', amount: '2.00' },
+        { currency: 'USD', amount: '3.00' },
+      ]),
+    ).toBe('+ 1 currency held')
+  })
+
+  it('does not report the preferred currency as foreign when an amount is unreadable', () => {
+    expect(note([{ currency: 'CAD', amount: '' }])).toBeNull()
+  })
+
+  it('follows the preferred currency rather than hard-coding CAD', () => {
+    expect(
+      note(
+        [
+          { currency: 'EUR', amount: '1.00' },
+          { currency: 'CAD', amount: '1.00' },
+        ],
+        'EUR',
+      ),
+    ).toBe('+ 1 currency held')
+  })
+
+  it('leaves the unconverted total exact — it is a sum, not an estimate', () => {
+    const total = convertBalances(
+      [
+        { currency: 'CAD', amount: '40300.00' },
+        { currency: 'USD', amount: '900.00' },
+      ],
+      NO_RATES,
+      'CAD',
+    )
+    expect(total.cents).toBe(4030000)
+    expect(total.included).toEqual(['CAD'])
   })
 })

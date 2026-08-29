@@ -436,28 +436,61 @@ export function convertBalances(
 }
 
 /**
- * A short phrase for what a total does and does not cover, or null when it covers everything.
+ * Currencies a total leaves out that are not the preferred one.
+ *
+ * With no rates at all — the page's resting state — this is exactly "the other currencies you
+ * hold here". The preferred-currency filter matters only for the pathological case of an
+ * unreadable amount in the preferred currency, which should not be reported as a foreign one.
+ */
+export function otherCurrencies(total: Converted, preferred: string): string[] {
+  return total.missing.filter((c) => c !== preferred)
+}
+
+/**
+ * What sits outside an unconverted figure, or null when nothing does.
+ *
+ * The page does not convert until asked, so the resting figure is the preferred-currency
+ * balance and nothing else: complete, exact, and true without a single rate lookup. This note
+ * is what stops that from reading as the whole story — it says other money exists without
+ * pretending to price it.
+ */
+export function heldElsewhereNote(
+  total: Converted,
+  preferred: string,
+): string | null {
+  const others = otherCurrencies(total, preferred)
+  if (others.length === 0) return null
+  return `+ ${others.length} ${others.length === 1 ? 'currency' : 'currencies'} held`
+}
+
+/**
+ * A short phrase for what a *converted* total does and does not cover, or null when it covers
+ * everything. Only meaningful once the user has asked for conversion; before that,
+ * `heldElsewhereNote` is the honest description.
  *
  * Naming the excluded currencies grows without bound — a trip through four countries makes it
  * longer than the figure it annotates — so the note describes the *coverage* instead. The
- * usual case by far is that no rate resolved at all and the total is the preferred currency
- * alone, which is exactly what "CAD only" says.
+ * usual failure is that no rate resolved at all and the total is the preferred currency alone,
+ * which is exactly what "CAD only" says.
  *
  * The two other cases are what stop that phrase from lying: a total with nothing in it at all
  * (a group holding only CZK, with no CZK rate) is not "CAD only", and neither is one where
  * some foreign rates did resolve and others did not.
  */
 export function coverageNote(
-  converted: Converted,
+  total: Converted,
   preferred: string,
 ): string | null {
-  const { missing, included } = converted
+  const { missing, included } = total
   if (missing.length === 0) return null
   if (included.length === 0) return 'no rate available'
   if (included.length === 1 && included[0] === preferred) return `${preferred} only`
-  const total = new Set([...included, ...missing]).size
-  return `${included.length} of ${total} currencies`
+  const distinct = new Set([...included, ...missing]).size
+  return `${included.length} of ${distinct} currencies`
 }
+
+/** No rates at all — the state the page opens in, before anyone asks to convert. */
+export const NO_RATES: Rates = new Map()
 
 /** Every currency appearing in these rows except the preferred one — what needs a rate. */
 export function currenciesNeedingRates(

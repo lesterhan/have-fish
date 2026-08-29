@@ -6,6 +6,7 @@
   import Chip from '$lib/components/ui/Chip.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Select from '$lib/components/ui/Select.svelte'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
@@ -23,15 +24,18 @@
     ACCOUNT_SURFACES,
     STALE_AFTER_DAYS,
     buildRows,
+    NO_RATES,
     convertRows,
     coverageNote,
     currenciesNeedingRates,
     formatCents,
+    heldElsewhereNote,
     groupCurrency,
     groupRows,
     localToday,
     positionTotals,
     toCents,
+    type Converted,
     type Grouping,
     type Group,
     type PositionBucket,
@@ -48,10 +52,13 @@
     { id: 'categories', label: 'Categories' },
   ]
 
-  // Owing reads as a magnitude under its own label rather than a signed figure: a card that
-  // owes 3,759 is not an error, and a minus sign there is an alarm that never stops going off.
+  // "Available", not "Cash": unconverted, the figure is the preferred-currency balance and
+  // nothing else, and "Cash" invites the question "so where is my USD?" that the card is not
+  // answering. Owing reads as a magnitude under its own label rather than a signed figure —
+  // a card that owes 3,759 is not an error, and a minus sign there is an alarm that never
+  // stops going off.
   const POSITION_CARDS: { key: PositionBucket; label: string; magnitude?: boolean }[] = [
-    { key: 'cash', label: 'Cash' },
+    { key: 'cash', label: 'Available' },
     { key: 'investments', label: 'Investments' },
     { key: 'owed', label: 'Owed to you' },
     { key: 'owing', label: 'You owe', magnitude: true },
@@ -129,37 +136,59 @@
     ),
   )
 
-  // Rates are fetched for whatever currencies are actually on the page, once they load.
-  // A currency whose rate never arrives stays out of `rates` and surfaces as an excluded
-  // balance rather than a wrong total.
-  // Deliberately not reactive: it records which currencies have already been asked about, so
-  // one that has no published rate is not re-fetched on every dependency change.
-  const attempted = new Set<string>()
+  // ── Conversion, on request only ───────────────────────────
+  // The page opens unconverted. Every figure is then the preferred-currency balance alone:
+  // exact, complete on its own terms, and true without a single rate lookup. Converting is a
+  // deliberate act — "what is all of this worth in CAD" is a question asked occasionally, not
+  // a reason to hit the FX endpoint on every visit to a page that is mostly about navigation.
+  let converted = $state(false)
+  let converting = $state(false)
+  let convertError = $state<string | null>(null)
 
-  $effect(() => {
-    const wanted = currenciesNeedingRates(allRows, preferred).filter(
-      (c) => !attempted.has(c),
-    )
+  let foreignCurrencies = $derived(currenciesNeedingRates(allRows, preferred))
+
+  // The rates every figure on the page reads. Empty until asked, which is what makes the
+  // resting state the preferred currency alone rather than a partial sum.
+  let activeRates = $derived(converted ? rates : NO_RATES)
+
+  // Only the currencies still without a rate are fetched, so a second click is a retry for
+  // what failed rather than a re-request of what already succeeded.
+  async function loadRates() {
+    const wanted = foreignCurrencies.filter((c) => !rates.has(c))
     if (wanted.length === 0) return
-    for (const c of wanted) attempted.add(c)
-    void Promise.all(
+    const pairs = await Promise.all(
       wanted.map(async (from) => {
         const r = await fetchFxRateAsOf(from, preferred).catch(() => null)
         const rate = r ? Number(r.rate) : NaN
         return [from, Number.isFinite(rate) ? rate : null] as const
       }),
-    ).then((pairs) => {
-      const next = new Map(rates)
-      let changed = false
-      for (const [from, rate] of pairs) {
-        if (rate !== null) {
-          next.set(from, rate)
-          changed = true
-        }
+    )
+    const next = new Map(rates)
+    for (const [from, rate] of pairs) if (rate !== null) next.set(from, rate)
+    rates = next
+  }
+
+  async function toggleConvert() {
+    convertError = null
+    if (converted) {
+      converted = false
+      return
+    }
+    converting = true
+    try {
+      await loadRates()
+      // Not a single rate resolved, so there is nothing to convert *to*: stay in the native
+      // view rather than switching into a column of dashes and calling that a conversion.
+      // A partial failure does convert, and says what it missed per figure.
+      if (rates.size === 0) {
+        convertError = `No exchange rates available right now — still showing ${preferred} balances.`
+        return
       }
-      if (changed) rates = next
-    })
-  })
+      converted = true
+    } finally {
+      converting = false
+    }
+  }
 
   // ── Controls ──────────────────────────────────────────────
   let query = $state('')
@@ -198,7 +227,7 @@
     positionTotals(
       allRows.filter((r) => !hiddenIds.has(r.account.id)),
       roots,
-      rates,
+      activeRates,
       preferred,
     ),
   )
@@ -218,17 +247,23 @@
   }
 
   function rowTotal(row: Row) {
-    return convertRows([row], rates, preferred)
+    return convertRows([row], activeRates, preferred)
   }
 
   // A currency group totals natively — every row in it is already in that one currency, so
   // the sum is exact and needs no rate. Everything else converts to the preferred currency.
+  // Which note a figure carries depends on the mode, and they say different things: before
+  // conversion, what is *not* in the figure; after, how much of it the rates covered.
+  function noteFor(total: Converted, unit: string): string | null {
+    return converted ? coverageNote(total, unit) : heldElsewhereNote(total, unit)
+  }
+
   function groupTotal(group: Group) {
     const native = groupCurrency(group)
     return {
       unit: native ?? preferred,
-      approx: native === null,
-      ...convertRows(group.rows, rates, native ?? preferred),
+      approx: native === null && converted,
+      ...convertRows(group.rows, activeRates, native ?? preferred),
     }
   }
 </script>
@@ -270,11 +305,13 @@
                 {formatCents(card.magnitude ? Math.abs(bucket.cents) : bucket.cents)}
                 <span class="position-currency">{preferred}</span>
               </span>
-              {@const note = coverageNote(bucket, preferred)}
+              {@const note = noteFor(bucket, preferred)}
               {#if note}
                 <span
                   class="position-note"
-                  title="Balances in {bucket.missing.join(', ')} are not included — no exchange rate available"
+                  title={converted
+                    ? `Balances in ${bucket.missing.join(', ')} are not included — no exchange rate available`
+                    : `Also holds ${bucket.missing.join(', ')} — convert to fold them in`}
                 >
                   {note}
                 </span>
@@ -313,11 +350,34 @@
           </Select>
         </label>
 
+        {#if foreignCurrencies.length > 0}
+          <GradientButton
+            onclick={toggleConvert}
+            disabled={converting}
+            active={converted}
+            tooltip={converted
+              ? `Back to ${preferred} balances only`
+              : `Fetch rates and total everything in ${preferred}`}
+          >
+            {#if converting}
+              Converting…
+            {:else if converted}
+              Show {preferred} only
+            {:else}
+              Convert to {preferred}
+            {/if}
+          </GradientButton>
+        {/if}
+
         <span class="count">
           {visibleRows.length}
           {visibleRows.length === 1 ? 'account' : 'accounts'}
         </span>
       </div>
+
+      {#if convertError}
+        <p class="message error">{convertError}</p>
+      {/if}
 
       {#if error}
         <p class="message error">{error}</p>
@@ -336,7 +396,7 @@
       {:else}
         {#each groups as group (group.key)}
           {@const total = groupTotal(group)}
-          {@const groupNote = coverageNote(total, total.unit)}
+          {@const groupNote = noteFor(total, total.unit)}
           <Card class="group-card">
             <button
               type="button"
@@ -362,7 +422,9 @@
               {#if groupNote}
                 <span
                   class="group-note"
-                  title="Balances in {total.missing.join(', ')} are not included — no exchange rate available"
+                  title={converted
+                    ? `Balances in ${total.missing.join(', ')} are not included — no exchange rate available`
+                    : `Also holds ${total.missing.join(', ')} — convert to fold them in`}
                 >
                   {groupNote}
                 </span>
@@ -377,14 +439,16 @@
                       <th>Account</th>
                       <th>Type</th>
                       <th class="num">Balance</th>
-                      <th class="num">≈ {preferred}</th>
+                      {#if converted}
+                        <th class="num">≈ {preferred}</th>
+                      {/if}
                       <th>Last activity</th>
                       <th>Flags</th>
                     </tr>
                   </thead>
                   <tbody>
                     {#each group.rows as row (row.account.id)}
-                      {@const converted = rowTotal(row)}
+                      {@const rowConverted = rowTotal(row)}
                       <tr>
                         <td>
                           <a class="account-link" href="/account/{row.account.id}">
@@ -408,15 +472,17 @@
                             {/each}
                           {/if}
                         </td>
-                        <td class="num">
-                          {#if converted.missing.length > 0}
-                            <span class="muted" title="No exchange rate available">—</span>
-                          {:else if row.balances.length === 0}
-                            <span class="muted">—</span>
-                          {:else}
-                            {formatCents(converted.cents)}
-                          {/if}
-                        </td>
+                        {#if converted}
+                          <td class="num">
+                            {#if rowConverted.missing.length > 0}
+                              <span class="muted" title="No exchange rate available">—</span>
+                            {:else if row.balances.length === 0}
+                              <span class="muted">—</span>
+                            {:else}
+                              {formatCents(rowConverted.cents)}
+                            {/if}
+                          </td>
+                        {/if}
                         <td>
                           {#if row.lastActivity}
                             {row.lastActivity}
