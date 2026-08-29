@@ -233,20 +233,10 @@ export async function readCatchUpOverrides(
 
   const overrides: Record<string, CoverageConfigOverride> = {}
   for (const [key, raw] of Object.entries(catchUp as Record<string, unknown>)) {
-    if (RESERVED_CATCH_UP_KEYS.has(key)) continue
     overrides[key] = sanitizeOverride(raw)
   }
   return overrides
 }
-
-// Keys under `catchUp` that are settings rather than per-account config. The blob is otherwise
-// keyed by account id, so anything else living there has to be skipped explicitly or it comes
-// back as a phantom account whose overrides are always empty.
-//
-// `snoozedUntil` silenced the dashboard tile and nothing writes it any more, but stored blobs
-// still carry it, so it stays reserved. Dropping it from this set would turn every existing
-// user's old snooze into a phantom account.
-const RESERVED_CATCH_UP_KEYS = new Set(['snoozedUntil'])
 
 // The live coverage assertions for one account, oldest first.
 export async function readIntervals(userId: string, accountId: string): Promise<CoverageInterval[]> {
