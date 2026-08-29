@@ -16,6 +16,7 @@
     createCoverage,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { isUnderRoot } from '$lib/components/accounts/accountPaths'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
@@ -169,7 +170,7 @@
     if (!preview) return false
     const root = settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
     const path = accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
-    return path.startsWith(`${root}:`)
+    return isUnderRoot(path, root)
   })
   let importAsLiabilities = $derived(liabilitiesOverride ?? derivedLiabilities)
 

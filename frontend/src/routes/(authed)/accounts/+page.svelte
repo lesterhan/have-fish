@@ -19,28 +19,31 @@
   } from '$lib/api'
   import type { AccountBalance, UserSettings } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { toISODate } from '$lib/date'
   import { rank } from '$lib/components/accounts/accountScorer'
   import {
+    NO_RATES,
+    conversionNote,
+    formatCents,
+    formatCentsAbs,
+    toCents,
+    type Rates,
+  } from '$lib/money'
+  import {
     ACCOUNT_SURFACES,
+    rootsFrom,
+    type PositionBucket,
+  } from '$lib/components/accounts/accountPaths'
+  import {
     STALE_AFTER_DAYS,
     buildRows,
-    NO_RATES,
     convertRows,
-    coverageNote,
     currenciesNeedingRates,
-    formatCents,
-    heldElsewhereNote,
     groupCurrency,
     groupRows,
-    localToday,
     positionTotals,
-    toCents,
-    type Converted,
     type Grouping,
     type Group,
-    type PositionBucket,
-    type Rates,
-    type Roots,
     type Row,
   } from '$lib/components/accounts/accountsOverview'
 
@@ -93,7 +96,7 @@
   let loading = $state(true)
   let error = $state<string | null>(null)
 
-  const today = localToday()
+  const today = toISODate(new Date())
 
   onMount(async () => {
     try {
@@ -116,13 +119,7 @@
 
   let preferred = $derived(settings?.preferredCurrency ?? 'CAD')
 
-  let roots = $derived<Roots>({
-    assets: settings?.defaultAssetsRootPath ?? 'assets',
-    liabilities: settings?.defaultLiabilitiesRootPath ?? 'liabilities',
-    equity: settings?.defaultEquityRootPath ?? 'equity',
-    expenses: settings?.defaultExpensesRootPath ?? 'expenses',
-    income: settings?.defaultIncomeRootPath ?? 'income',
-  })
+  let roots = $derived(rootsFrom(settings))
 
   let hiddenIds = $derived(
     new Set(settings?.preferences.hiddenAccountIds ?? []),
@@ -252,12 +249,6 @@
 
   // A currency group totals natively — every row in it is already in that one currency, so
   // the sum is exact and needs no rate. Everything else converts to the preferred currency.
-  // Which note a figure carries depends on the mode, and they say different things: before
-  // conversion, what is *not* in the figure; after, how much of it the rates covered.
-  function noteFor(total: Converted, unit: string): string | null {
-    return converted ? coverageNote(total, unit) : heldElsewhereNote(total, unit)
-  }
-
   function groupTotal(group: Group) {
     const native = groupCurrency(group)
     return {
@@ -302,10 +293,12 @@
                 class="position-value"
                 class:negative={!card.magnitude && bucket.cents < 0}
               >
-                {formatCents(card.magnitude ? Math.abs(bucket.cents) : bucket.cents)}
+                {card.magnitude
+                  ? formatCentsAbs(bucket.cents)
+                  : formatCents(bucket.cents)}
                 <span class="position-currency">{preferred}</span>
               </span>
-              {@const note = noteFor(bucket, preferred)}
+              {@const note = conversionNote(bucket, preferred, converted)}
               {#if note}
                 <span
                   class="position-note"
@@ -396,7 +389,7 @@
       {:else}
         {#each groups as group (group.key)}
           {@const total = groupTotal(group)}
-          {@const groupNote = noteFor(total, total.unit)}
+          {@const groupNote = conversionNote(total, total.unit, converted)}
           <Card class="group-card">
             <button
               type="button"

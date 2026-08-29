@@ -1,112 +1,37 @@
 // ════════════════════════════════════════════════════════════
 //  ACCOUNTS OVERVIEW
 //
-//  The pure logic behind the Accounts page: which surface a path belongs to,
-//  which position bucket it feeds, how rows group, and how native balances roll
-//  up into the preferred currency.
+//  The Accounts page's own model: turning the balances payload into rows,
+//  arranging those rows into groups, and rolling them up into the position row.
 //
-//  Kept out of the component so the arithmetic and the taxonomy rules are
-//  testable without mounting anything — the same split as accountScorer and
-//  balanceLabel.
+//  What a path *means* lives in accountPaths.ts and how money adds up lives in
+//  $lib/money.ts — both are used by other surfaces. What is left here is only
+//  the shape this page renders.
 // ════════════════════════════════════════════════════════════
 
 // Relative, not `$lib`: this module is unit-tested directly, and a value import through the
 // alias has no .svelte-kit to resolve against in CI. See lib-imports.test.ts.
 import { toClassifierType, type StoredAccountType } from '../../api'
-
-const SEP = ':'
-
-// ── Roots and surfaces ──────────────────────────────────────
-
-/** The five configured root paths, as the page needs them. */
-export interface Roots {
-  assets: string
-  liabilities: string
-  equity: string
-  expenses: string
-  income: string
-}
-
-/**
- * Which part of the app owns an account.
- *
- * `unfiled` is the safety net: an account outside *every* configured root. The Settings
- * list used to be the surface that showed literally every path, so without this bucket
- * a mis-pathed account would simply vanish from the app — worse than the clutter the
- * page exists to fix.
- */
-export type Surface =
-  | 'assets'
-  | 'liabilities'
-  | 'equity'
-  | 'expenses'
-  | 'income'
-  | 'unfiled'
-
-/** Surfaces the Accounts tab renders. Everything else belongs to Categories (story 5). */
-export const ACCOUNT_SURFACES: readonly Surface[] = [
-  'assets',
-  'liabilities',
-  'equity',
-  'unfiled',
-]
-
-/**
- * True when `path` is at or under `root`. The exact match matters: an account created
- * at the bare root path (`assets`) is legal, and dropping it would lose a row.
- * A configured root of `''` matches nothing rather than everything.
- */
-export function isUnderRoot(path: string, root: string): boolean {
-  if (!root) return false
-  return path === root || path.startsWith(root + SEP)
-}
-
-export function surfaceOf(path: string, roots: Roots): Surface {
-  if (isUnderRoot(path, roots.assets)) return 'assets'
-  if (isUnderRoot(path, roots.liabilities)) return 'liabilities'
-  if (isUnderRoot(path, roots.equity)) return 'equity'
-  if (isUnderRoot(path, roots.expenses)) return 'expenses'
-  if (isUnderRoot(path, roots.income)) return 'income'
-  return 'unfiled'
-}
-
-// ── Position buckets ────────────────────────────────────────
-
-/**
- * The four-way split of net position shown above the table.
- *
- * Every one of these is readable from the path already, which is the whole reason the
- * page needs no `illiquid` flag: `equity:*` is money locked up, `assets:receivable:*` is
- * money owed to you, `liabilities:*` is money you owe, and the rest of `assets:*` is what
- * you can actually spend.
- */
-export type PositionBucket = 'cash' | 'investments' | 'owed' | 'owing'
-
-/** The receivable subtree under the assets root — Fish Pie's system-managed accounts. */
-export const RECEIVABLE_SEGMENT = 'receivable'
-
-/** Null for anything unfiled or non-balance-bearing: it feeds no bucket. */
-export function bucketOf(path: string, roots: Roots): PositionBucket | null {
-  switch (surfaceOf(path, roots)) {
-    case 'assets':
-      return isUnderRoot(path, `${roots.assets}${SEP}${RECEIVABLE_SEGMENT}`)
-        ? 'owed'
-        : 'cash'
-    case 'liabilities':
-      return 'owing'
-    case 'equity':
-      return 'investments'
-    default:
-      return null
-  }
-}
+import {
+  convertBalances,
+  type Converted,
+  type Money,
+  type Rates,
+} from '../../money'
+import {
+  SURFACE_LABEL,
+  UNFILED_LABEL,
+  bucketOf,
+  accountDisplayName,
+  institutionOf,
+  rootFor,
+  surfaceOf,
+  type PositionBucket,
+  type Roots,
+  type Surface,
+} from './accountPaths'
 
 // ── Rows ────────────────────────────────────────────────────
-
-export interface Money {
-  currency: string
-  amount: string
-}
 
 /** The shape the page needs from `GET /api/accounts/balances`. */
 export interface OverviewAccount {
@@ -151,34 +76,6 @@ export function daysBetween(from: string | null, to: string): number | null {
   return Math.floor((b - a) / 86_400_000)
 }
 
-/** Today as YYYY-MM-DD in the viewer's own timezone — "stale 3d" should match their calendar. */
-export function localToday(now = new Date()): string {
-  const pad = (n: number) => String(n).padStart(2, '0')
-  return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
-}
-
-function rootFor(surface: Surface, roots: Roots): string {
-  switch (surface) {
-    case 'assets':
-      return roots.assets
-    case 'liabilities':
-      return roots.liabilities
-    case 'equity':
-      return roots.equity
-    case 'expenses':
-      return roots.expenses
-    case 'income':
-      return roots.income
-    default:
-      return ''
-  }
-}
-
-/** `assets:wise:cad` under root `assets` → `wise:cad`. Unfiled paths keep their full path. */
-export function shortPath(path: string, root: string): string {
-  return root && path.startsWith(root + SEP) ? path.slice(root.length + 1) : path
-}
-
 export function buildRows(
   accounts: readonly OverviewAccount[],
   roots: Roots,
@@ -191,8 +88,7 @@ export function buildRows(
     return {
       account,
       surface,
-      displayName:
-        account.name ?? shortPath(account.path, rootFor(surface, roots)),
+      displayName: accountDisplayName(account, rootFor(surface, roots)),
       balances: account.balances,
       lastActivity,
       idleDays: daysBetween(lastActivity, today),
@@ -210,18 +106,6 @@ export interface Group {
   rows: Row[]
 }
 
-/** Label for the bucket that catches accounts outside every configured root. */
-export const UNFILED_LABEL = 'Unfiled'
-
-const SURFACE_LABEL: Record<Surface, string> = {
-  assets: 'Assets',
-  liabilities: 'Liabilities',
-  equity: 'Equity',
-  expenses: 'Expenses',
-  income: 'Income',
-  unfiled: UNFILED_LABEL,
-}
-
 const TYPE_LABEL: Record<string, string> = {
   asset: 'Assets',
   liability: 'Liabilities',
@@ -230,23 +114,11 @@ const TYPE_LABEL: Record<string, string> = {
   expense: 'Expenses',
 }
 
+/** Group with no currency at all — an account that has never been posted to. */
+export const NO_BALANCE_LABEL = 'No balance'
+
 function titleCase(segment: string): string {
   return segment.charAt(0).toUpperCase() + segment.slice(1)
-}
-
-/**
- * The institution an account belongs to: path segment 2, e.g. `liabilities:wealthsimple:visa`
- * → Wealthsimple. Derived rather than modelled — it is a convention that happens to hold for
- * this data, and the Type / Currency / Flat options are the escape hatch when it does not.
- *
- * Only a path with something *below* segment 2 has one. `assets:chequing` is a standalone
- * account, not an institution holding one account — grouping it under "Chequing" would turn
- * a page of accounts into a page of one-row groups, which is the clutter this page exists to
- * remove. Those fall back to their surface ("Assets") instead.
- */
-export function institutionOf(path: string): string | null {
-  const segs = path.split(SEP)
-  return segs.length >= 3 ? segs[1]! : null
 }
 
 /** Currencies an account holds, in the order the balances arrive, deduplicated. */
@@ -254,23 +126,6 @@ function currenciesOf(row: Row): string[] {
   const seen = new Set<string>()
   for (const b of row.account.balances) seen.add(b.currency)
   return [...seen]
-}
-
-/** Group with no currency at all — an account that has never been posted to. */
-export const NO_BALANCE_LABEL = 'No balance'
-
-/**
- * The single currency every row in a group is denominated in, or null when there is no such
- * currency (any grouping but Currency, the No-balance group, and Unfiled — which catches
- * stray paths regardless of what they hold).
- *
- * This is what lets a currency group state an exact native total instead of a conversion:
- * asking "what am I still holding in CZK" should not depend on a CZK→CAD rate existing.
- */
-export function groupCurrency(group: Group): string | null {
-  if (!group.key.startsWith('currency:')) return null
-  const code = group.key.slice('currency:'.length)
-  return code || null
 }
 
 /**
@@ -360,137 +215,20 @@ export function groupRows(rows: readonly Row[], grouping: Grouping): Group[] {
   return sortGroups([...map.values()])
 }
 
-// ── Money ───────────────────────────────────────────────────
-
 /**
- * Amounts are numeric(12,2) strings; cents keep the arithmetic exact.
+ * The single currency every row in a group is denominated in, or null when there is no such
+ * currency (any grouping but Currency, the No-balance group, and Unfiled — which catches
+ * stray paths regardless of what they hold).
  *
- * The blank check is not redundant: `Number('')` is 0, so an empty amount would otherwise
- * be summed as a real zero instead of being reported as unusable.
+ * This is what lets a currency group state an exact native total instead of a conversion:
+ * asking "what am I still holding in CZK" should not depend on a CZK→CAD rate existing.
  */
-export function toCents(amount: string): number | null {
-  if (amount.trim() === '') return null
-  const n = Number(amount)
-  return Number.isFinite(n) ? Math.round(n * 100) : null
+export function groupCurrency(group: Group): string | null {
+  if (!group.key.startsWith('currency:')) return null
+  return group.key.slice('currency:'.length) || null
 }
 
-export function formatCents(cents: number): string {
-  const sign = cents < 0 ? '−' : ''
-  const abs = Math.abs(cents)
-  const whole = Math.floor(abs / 100)
-  const frac = String(abs % 100).padStart(2, '0')
-  return `${sign}${new Intl.NumberFormat('en-CA').format(whole)}.${frac}`
-}
-
-/** Currency → rate into the preferred currency. The preferred currency itself is implicit. */
-export type Rates = ReadonlyMap<string, number>
-
-export interface Converted {
-  /** Total in the preferred currency, in cents, over the balances that could be converted. */
-  cents: number
-  /** Currencies that had no rate, so are missing from `cents`. Sorted, deduplicated. */
-  missing: string[]
-  /** Currencies actually folded into `cents`. Sorted, deduplicated. */
-  included: string[]
-}
-
-/**
- * Convert and sum. A balance whose rate is unavailable is left out of the total and named
- * in `missing` — the caller says so rather than quietly under-reporting, which is the one
- * failure mode that would make every number on the page untrustworthy.
- */
-export function convertBalances(
-  balances: readonly Money[],
-  rates: Rates,
-  preferred: string,
-): Converted {
-  let cents = 0
-  const missing = new Set<string>()
-  const included = new Set<string>()
-
-  for (const b of balances) {
-    const amount = toCents(b.amount)
-    if (amount === null) {
-      missing.add(b.currency)
-      continue
-    }
-    if (b.currency === preferred) {
-      cents += amount
-      included.add(b.currency)
-      continue
-    }
-    const rate = rates.get(b.currency)
-    if (rate === undefined) {
-      missing.add(b.currency)
-      continue
-    }
-    cents += Math.round(amount * rate)
-    included.add(b.currency)
-  }
-
-  return {
-    cents,
-    missing: [...missing].sort(),
-    included: [...included].sort(),
-  }
-}
-
-/**
- * Currencies a total leaves out that are not the preferred one.
- *
- * With no rates at all — the page's resting state — this is exactly "the other currencies you
- * hold here". The preferred-currency filter matters only for the pathological case of an
- * unreadable amount in the preferred currency, which should not be reported as a foreign one.
- */
-export function otherCurrencies(total: Converted, preferred: string): string[] {
-  return total.missing.filter((c) => c !== preferred)
-}
-
-/**
- * What sits outside an unconverted figure, or null when nothing does.
- *
- * The page does not convert until asked, so the resting figure is the preferred-currency
- * balance and nothing else: complete, exact, and true without a single rate lookup. This note
- * is what stops that from reading as the whole story — it says other money exists without
- * pretending to price it.
- */
-export function heldElsewhereNote(
-  total: Converted,
-  preferred: string,
-): string | null {
-  const others = otherCurrencies(total, preferred)
-  if (others.length === 0) return null
-  return `+ ${others.length} ${others.length === 1 ? 'currency' : 'currencies'} held`
-}
-
-/**
- * A short phrase for what a *converted* total does and does not cover, or null when it covers
- * everything. Only meaningful once the user has asked for conversion; before that,
- * `heldElsewhereNote` is the honest description.
- *
- * Naming the excluded currencies grows without bound — a trip through four countries makes it
- * longer than the figure it annotates — so the note describes the *coverage* instead. The
- * usual failure is that no rate resolved at all and the total is the preferred currency alone,
- * which is exactly what "CAD only" says.
- *
- * The two other cases are what stop that phrase from lying: a total with nothing in it at all
- * (a group holding only CZK, with no CZK rate) is not "CAD only", and neither is one where
- * some foreign rates did resolve and others did not.
- */
-export function coverageNote(
-  total: Converted,
-  preferred: string,
-): string | null {
-  const { missing, included } = total
-  if (missing.length === 0) return null
-  if (included.length === 0) return 'no rate available'
-  if (included.length === 1 && included[0] === preferred) return `${preferred} only`
-  const distinct = new Set([...included, ...missing]).size
-  return `${included.length} of ${distinct} currencies`
-}
-
-/** No rates at all — the state the page opens in, before anyone asks to convert. */
-export const NO_RATES: Rates = new Map()
+// ── Roll-ups ────────────────────────────────────────────────
 
 /** Every currency appearing in these rows except the preferred one — what needs a rate. */
 export function currenciesNeedingRates(
@@ -506,6 +244,10 @@ export function currenciesNeedingRates(
   return [...seen].sort()
 }
 
+/**
+ * Sum the balances these rows *display* — which is not the same as the balances their accounts
+ * hold, since currency grouping narrows a row to one currency.
+ */
 export function convertRows(
   rows: readonly Row[],
   rates: Rates,

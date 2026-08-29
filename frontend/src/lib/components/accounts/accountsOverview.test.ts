@@ -1,28 +1,16 @@
 import { describe, it, expect } from 'bun:test'
 import {
-  NO_RATES,
-  bucketOf,
   buildRows,
-  convertBalances,
   convertRows,
-  coverageNote,
   currenciesNeedingRates,
   daysBetween,
-  formatCents,
   groupCurrency,
   groupRows,
-  heldElsewhereNote,
-  institutionOf,
-  isUnderRoot,
-  localToday,
   positionTotals,
-  shortPath,
-  surfaceOf,
-  toCents,
-  type Money,
   type OverviewAccount,
-  type Roots,
 } from './accountsOverview'
+import type { Roots } from './accountPaths'
+import type { Money } from '../../money'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -44,66 +32,6 @@ function rowsFor(accounts: OverviewAccount[], today = '2026-08-29') {
   return buildRows(accounts, ROOTS, new Map(), today)
 }
 
-describe('isUnderRoot', () => {
-  it('matches the root itself and anything below it', () => {
-    expect(isUnderRoot('assets', 'assets')).toBe(true)
-    expect(isUnderRoot('assets:wise:cad', 'assets')).toBe(true)
-  })
-
-  it('anchors on the separator so a shared prefix is not a match', () => {
-    expect(isUnderRoot('assetsold:chequing', 'assets')).toBe(false)
-    expect(isUnderRoot('assetsold', 'assets')).toBe(false)
-  })
-
-  it('treats an empty root as matching nothing rather than everything', () => {
-    expect(isUnderRoot('assets:chequing', '')).toBe(false)
-  })
-})
-
-describe('surfaceOf', () => {
-  it('files each configured root', () => {
-    expect(surfaceOf('assets:wise:cad', ROOTS)).toBe('assets')
-    expect(surfaceOf('liabilities:visa', ROOTS)).toBe('liabilities')
-    expect(surfaceOf('equity:tfsa', ROOTS)).toBe('equity')
-    expect(surfaceOf('expenses:food', ROOTS)).toBe('expenses')
-    expect(surfaceOf('income:salary', ROOTS)).toBe('income')
-  })
-
-  it('files anything outside every root as unfiled', () => {
-    expect(surfaceOf('储蓄:中国银行', ROOTS)).toBe('unfiled')
-    expect(surfaceOf('asset:typo', ROOTS)).toBe('unfiled')
-  })
-
-  it('follows renamed roots', () => {
-    const custom: Roots = { ...ROOTS, assets: 'activos' }
-    expect(surfaceOf('activos:banco', custom)).toBe('assets')
-    // The old root is now just another unfiled path — which is the point of the bucket.
-    expect(surfaceOf('assets:chequing', custom)).toBe('unfiled')
-  })
-})
-
-describe('bucketOf', () => {
-  it('splits assets into cash and owed by the receivable subtree', () => {
-    expect(bucketOf('assets:wise:cad', ROOTS)).toBe('cash')
-    expect(bucketOf('assets:receivable:alice', ROOTS)).toBe('owed')
-  })
-
-  it('maps liabilities to owing and equity to investments', () => {
-    expect(bucketOf('liabilities:visa', ROOTS)).toBe('owing')
-    expect(bucketOf('equity:tfsa', ROOTS)).toBe('investments')
-  })
-
-  it('gives unfiled, expense and income accounts no bucket', () => {
-    expect(bucketOf('储蓄:中国银行', ROOTS)).toBeNull()
-    expect(bucketOf('expenses:food', ROOTS)).toBeNull()
-    expect(bucketOf('income:salary', ROOTS)).toBeNull()
-  })
-
-  it('does not mistake a receivable-prefixed sibling for a receivable', () => {
-    expect(bucketOf('assets:receivables:old', ROOTS)).toBe('cash')
-  })
-})
-
 describe('daysBetween', () => {
   it('counts whole days', () => {
     expect(daysBetween('2026-08-01', '2026-08-29')).toBe(28)
@@ -124,39 +52,21 @@ describe('daysBetween', () => {
   })
 })
 
-describe('localToday', () => {
-  it('formats the viewer\'s own calendar day, zero-padded', () => {
-    expect(localToday(new Date(2026, 0, 5))).toBe('2026-01-05')
-    expect(localToday(new Date(2026, 11, 31))).toBe('2026-12-31')
-  })
-})
-
-describe('shortPath', () => {
-  it('strips the root prefix', () => {
-    expect(shortPath('assets:wise:cad', 'assets')).toBe('wise:cad')
-  })
-
-  it('leaves a path that is not under the root alone', () => {
-    expect(shortPath('储蓄:中国银行', 'assets')).toBe('储蓄:中国银行')
-    expect(shortPath('assets', 'assets')).toBe('assets')
-  })
-})
-
 describe('buildRows', () => {
-  it('prefers the account name over the shortened path', () => {
-    const [row] = rowsFor([acct('assets:wise:cad', [], { name: 'Wise CAD' })])
-    expect(row!.displayName).toBe('Wise CAD')
-  })
-
-  it('falls back to the path with its root stripped', () => {
-    const [row] = rowsFor([acct('assets:wise:cad')])
-    expect(row!.displayName).toBe('wise:cad')
-  })
-
-  it('keeps an unfiled path whole, since it has no root to strip', () => {
-    const [row] = rowsFor([acct('储蓄:中国银行')])
-    expect(row!.displayName).toBe('储蓄:中国银行')
-    expect(row!.surface).toBe('unfiled')
+  // Naming itself belongs to accountPaths and is tested there. What matters here is that each
+  // row is handed *its own* surface's root, so a liability is not shortened against `assets`.
+  it('strips each row against the root of its own surface', () => {
+    const rows = rowsFor([
+      acct('assets:wise:cad'),
+      acct('liabilities:amex'),
+      acct('储蓄:中国银行'),
+    ])
+    expect(rows.map((r) => r.displayName)).toEqual([
+      'wise:cad',
+      'amex',
+      '储蓄:中国银行',
+    ])
+    expect(rows[2]!.surface).toBe('unfiled')
   })
 
   it('carries last activity and derives idle days from it', () => {
@@ -170,19 +80,6 @@ describe('buildRows', () => {
     expect(rows[0]!.idleDays).toBe(28)
     expect(rows[1]!.lastActivity).toBeNull()
     expect(rows[1]!.idleDays).toBeNull()
-  })
-})
-
-describe('institutionOf', () => {
-  it('reads path segment 2 when something sits below it', () => {
-    expect(institutionOf('liabilities:wealthsimple:visa')).toBe('wealthsimple')
-    expect(institutionOf('assets:wise:cad')).toBe('wise')
-  })
-
-  it('has none for a standalone account, which is not an institution of one', () => {
-    // Otherwise a page of accounts becomes a page of one-row groups.
-    expect(institutionOf('assets:chequing')).toBeNull()
-    expect(institutionOf('assets')).toBeNull()
   })
 })
 
@@ -319,92 +216,43 @@ describe('groupRows', () => {
   })
 })
 
-describe('toCents / formatCents', () => {
-  it('round-trips a numeric(12,2) string', () => {
-    expect(toCents('1234.56')).toBe(123456)
-    expect(toCents('-1234.56')).toBe(-123456)
-    expect(formatCents(123456)).toBe('1,234.56')
-  })
-
-  it('renders a negative with a true minus sign, not a hyphen', () => {
-    expect(formatCents(-500)).toBe('−5.00')
-  })
-
-  it('pads the cents', () => {
-    expect(formatCents(105)).toBe('1.05')
-    expect(formatCents(100)).toBe('1.00')
-  })
-
-  it('is null for an unparseable amount rather than NaN', () => {
-    expect(toCents('')).toBeNull()
-    expect(toCents('n/a')).toBeNull()
-  })
-
-  it('does not drift on amounts that float arithmetic gets wrong', () => {
-    // 0.1 + 0.2 in floats is 0.30000000000000004; in cents it is exact.
-    expect(toCents('0.10')! + toCents('0.20')!).toBe(30)
-  })
-})
-
-describe('convertBalances', () => {
-  const rates = new Map([
-    ['USD', 1.4],
-    ['EUR', 1.5],
-  ])
-
-  it('passes the preferred currency through untouched', () => {
-    expect(
-      convertBalances([{ currency: 'CAD', amount: '100.00' }], rates, 'CAD'),
-    ).toEqual({ cents: 10000, missing: [], included: ['CAD'] })
-  })
-
-  it('applies the rate for a foreign currency', () => {
-    expect(
-      convertBalances([{ currency: 'USD', amount: '100.00' }], rates, 'CAD'),
-    ).toEqual({ cents: 14000, missing: [], included: ['USD'] })
-  })
-
-  it('excludes a balance with no rate and names its currency', () => {
-    const out = convertBalances(
-      [
-        { currency: 'CAD', amount: '100.00' },
-        { currency: 'CZK', amount: '999.00' },
-      ],
-      rates,
-      'CAD',
+describe('groupCurrency', () => {
+  it('names the single currency of a currency group', () => {
+    const groups = groupRows(
+      rowsFor([acct('assets:cz', [{ currency: 'CZK', amount: '1.00' }])]),
+      'currency',
     )
-    // The CZK leg is left out entirely rather than counted as zero or at par.
-    expect(out).toEqual({ cents: 10000, missing: ['CZK'], included: ['CAD'] })
+    expect(groupCurrency(groups[0]!)).toBe('CZK')
   })
 
-  it('names each missing currency once, sorted', () => {
-    const out = convertBalances(
-      [
-        { currency: 'CZK', amount: '1.00' },
-        { currency: 'CZK', amount: '2.00' },
-        { currency: 'AUD', amount: '3.00' },
-      ],
-      rates,
-      'CAD',
+  it('is null for a group that is not a single currency', () => {
+    const institution = groupRows(rowsFor([acct('assets:wise:cad')]), 'institution')
+    expect(groupCurrency(institution[0]!)).toBeNull()
+
+    // No-balance and Unfiled both hold rows of mixed or absent currency.
+    const noBalance = groupRows(rowsFor([acct('assets:unused')]), 'currency')
+    expect(groupCurrency(noBalance[0]!)).toBeNull()
+
+    const unfiled = groupRows(
+      rowsFor([acct('储蓄:中国银行', [{ currency: 'CNY', amount: '1.00' }])]),
+      'currency',
     )
-    expect(out.missing).toEqual(['AUD', 'CZK'])
+    expect(groupCurrency(unfiled[0]!)).toBeNull()
   })
 
-  it('treats an unparseable amount as missing rather than summing NaN', () => {
-    const out = convertBalances(
-      [{ currency: 'CAD', amount: 'oops' }],
-      rates,
-      'CAD',
+  it('totals a currency group exactly, with no rate available at all', () => {
+    const groups = groupRows(
+      rowsFor([
+        acct('assets:cz', [{ currency: 'CZK', amount: '120.00' }]),
+        acct('assets:cz2', [{ currency: 'CZK', amount: '5.50' }]),
+      ]),
+      'currency',
     )
-    expect(out.cents).toBe(0)
-    expect(out.missing).toEqual(['CAD'])
-  })
-
-  it('sums an empty set to zero with nothing missing', () => {
-    expect(convertBalances([], rates, 'CAD')).toEqual({
-      cents: 0,
+    const code = groupCurrency(groups[0]!)!
+    expect(convertRows(groups[0]!.rows, new Map(), code)).toEqual({
+      cents: 12550,
       missing: [],
-      included: [],
+      included: ['CZK'],
     })
   })
 })
@@ -498,209 +346,5 @@ describe('positionTotals', () => {
     const totals = positionTotals([], ROOTS, rates, 'CAD')
     expect(totals.cash).toEqual({ cents: 0, missing: [], included: [] })
     expect(totals.owing).toEqual({ cents: 0, missing: [], included: [] })
-  })
-})
-
-describe('groupCurrency', () => {
-  it('names the single currency of a currency group', () => {
-    const groups = groupRows(
-      rowsFor([acct('assets:cz', [{ currency: 'CZK', amount: '1.00' }])]),
-      'currency',
-    )
-    expect(groupCurrency(groups[0]!)).toBe('CZK')
-  })
-
-  it('is null for a group that is not a single currency', () => {
-    const institution = groupRows(rowsFor([acct('assets:wise:cad')]), 'institution')
-    expect(groupCurrency(institution[0]!)).toBeNull()
-
-    // No-balance and Unfiled both hold rows of mixed or absent currency.
-    const noBalance = groupRows(rowsFor([acct('assets:unused')]), 'currency')
-    expect(groupCurrency(noBalance[0]!)).toBeNull()
-
-    const unfiled = groupRows(
-      rowsFor([acct('储蓄:中国银行', [{ currency: 'CNY', amount: '1.00' }])]),
-      'currency',
-    )
-    expect(groupCurrency(unfiled[0]!)).toBeNull()
-  })
-
-  it('totals a currency group exactly, with no rate available at all', () => {
-    const groups = groupRows(
-      rowsFor([
-        acct('assets:cz', [{ currency: 'CZK', amount: '120.00' }]),
-        acct('assets:cz2', [{ currency: 'CZK', amount: '5.50' }]),
-      ]),
-      'currency',
-    )
-    const code = groupCurrency(groups[0]!)!
-    expect(convertRows(groups[0]!.rows, new Map(), code)).toEqual({
-      cents: 12550,
-      missing: [],
-      included: ['CZK'],
-    })
-  })
-})
-
-describe('coverageNote', () => {
-  const rates = new Map([['USD', 1.4]])
-
-  function note(balances: Money[], r = rates, preferred = 'CAD') {
-    return coverageNote(convertBalances(balances, r, preferred), preferred)
-  }
-
-  it('says nothing when every balance made it into the total', () => {
-    expect(
-      note([
-        { currency: 'CAD', amount: '1.00' },
-        { currency: 'USD', amount: '1.00' },
-      ]),
-    ).toBeNull()
-  })
-
-  it('says "CAD only" when nothing but the preferred currency converted', () => {
-    // The usual case: the rate source is unreachable, so no foreign leg resolves.
-    expect(
-      note(
-        [
-          { currency: 'CAD', amount: '1.00' },
-          { currency: 'CZK', amount: '1.00' },
-          { currency: 'USD', amount: '1.00' },
-        ],
-        new Map(),
-      ),
-    ).toBe('CAD only')
-  })
-
-  it('does not grow with the number of excluded currencies', () => {
-    // A trip through four countries must not produce a note longer than the figure.
-    expect(
-      note(
-        [
-          { currency: 'CAD', amount: '1.00' },
-          { currency: 'CZK', amount: '1.00' },
-          { currency: 'EUR', amount: '1.00' },
-          { currency: 'HUF', amount: '1.00' },
-          { currency: 'PLN', amount: '1.00' },
-        ],
-        new Map(),
-      ),
-    ).toBe('CAD only')
-  })
-
-  it('never claims "CAD only" for a total holding no CAD at all', () => {
-    expect(note([{ currency: 'CZK', amount: '1.00' }], new Map())).toBe(
-      'no rate available',
-    )
-  })
-
-  it('never claims "CAD only" when some foreign rates did resolve', () => {
-    expect(
-      note([
-        { currency: 'CAD', amount: '1.00' },
-        { currency: 'USD', amount: '1.00' },
-        { currency: 'CZK', amount: '1.00' },
-      ]),
-    ).toBe('2 of 3 currencies')
-  })
-
-  it('counts a currency once when it is both summed and unusable', () => {
-    // One good CAD row and one unparseable CAD row put CAD in both sets.
-    expect(
-      note([
-        { currency: 'CAD', amount: '1.00' },
-        { currency: 'CAD', amount: '' },
-        { currency: 'USD', amount: '1.00' },
-      ]),
-    ).toBe('2 of 2 currencies')
-  })
-
-  it('follows the preferred currency rather than hard-coding CAD', () => {
-    expect(
-      note(
-        [
-          { currency: 'EUR', amount: '1.00' },
-          { currency: 'CZK', amount: '1.00' },
-        ],
-        new Map(),
-        'EUR',
-      ),
-    ).toBe('EUR only')
-  })
-})
-
-describe('heldElsewhereNote', () => {
-  function note(balances: Money[], preferred = 'CAD') {
-    // NO_RATES is the page's resting state: nothing is converted until someone asks.
-    return heldElsewhereNote(
-      convertBalances(balances, NO_RATES, preferred),
-      preferred,
-    )
-  }
-
-  it('says nothing when the preferred currency is all there is', () => {
-    expect(note([{ currency: 'CAD', amount: '40300.00' }])).toBeNull()
-  })
-
-  it('says nothing for an account with no balances at all', () => {
-    expect(note([])).toBeNull()
-  })
-
-  it('counts the other currencies held without pricing them', () => {
-    expect(
-      note([
-        { currency: 'CAD', amount: '40300.00' },
-        { currency: 'USD', amount: '900.00' },
-        { currency: 'CZK', amount: '120.00' },
-      ]),
-    ).toBe('+ 2 currencies held')
-  })
-
-  it('says currency, singular, for one', () => {
-    expect(
-      note([
-        { currency: 'CAD', amount: '1.00' },
-        { currency: 'USD', amount: '1.00' },
-      ]),
-    ).toBe('+ 1 currency held')
-  })
-
-  it('counts a currency once however many accounts hold it', () => {
-    expect(
-      note([
-        { currency: 'USD', amount: '1.00' },
-        { currency: 'USD', amount: '2.00' },
-        { currency: 'USD', amount: '3.00' },
-      ]),
-    ).toBe('+ 1 currency held')
-  })
-
-  it('does not report the preferred currency as foreign when an amount is unreadable', () => {
-    expect(note([{ currency: 'CAD', amount: '' }])).toBeNull()
-  })
-
-  it('follows the preferred currency rather than hard-coding CAD', () => {
-    expect(
-      note(
-        [
-          { currency: 'EUR', amount: '1.00' },
-          { currency: 'CAD', amount: '1.00' },
-        ],
-        'EUR',
-      ),
-    ).toBe('+ 1 currency held')
-  })
-
-  it('leaves the unconverted total exact — it is a sum, not an estimate', () => {
-    const total = convertBalances(
-      [
-        { currency: 'CAD', amount: '40300.00' },
-        { currency: 'USD', amount: '900.00' },
-      ],
-      NO_RATES,
-      'CAD',
-    )
-    expect(total.cents).toBe(4030000)
-    expect(total.included).toEqual(['CAD'])
   })
 })
