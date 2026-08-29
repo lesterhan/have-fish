@@ -433,6 +433,8 @@ export async function deleteParser(id: string): Promise<void> {
 export type UserPreferences = {
   dashboardHiddenCurrencies?: string[]
   hiddenAccountIds?: string[]
+  /** Accounts pinned to the sidebar, in the order they were pinned. */
+  pinnedAccountIds?: string[]
   accentColor?: import('$lib/accent').AccentKey
   recentCurrencies?: string[]
   recentGroups?: string[]
