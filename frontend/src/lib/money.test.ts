@@ -5,6 +5,7 @@ import {
   convertBalances,
   formatCents,
   formatCentsAbs,
+  formatMoneyAbs,
   otherCurrencies,
   toCents,
   type Money,
@@ -287,5 +288,17 @@ describe('conversionNote — converted', () => {
         'EUR',
       ),
     ).toBe('EUR only')
+  })
+})
+
+describe('formatMoneyAbs', () => {
+  it('drops the sign and groups, since expenses are stored negative', () => {
+    expect(formatMoneyAbs('-11204.50')).toBe('11,204.50')
+    expect(formatMoneyAbs('11204.50')).toBe('11,204.50')
+  })
+
+  it('passes an unusable amount through rather than rendering NaN', () => {
+    expect(formatMoneyAbs('n/a')).toBe('n/a')
+    expect(formatMoneyAbs('')).toBe('')
   })
 })

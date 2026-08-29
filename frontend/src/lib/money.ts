@@ -42,6 +42,17 @@ export function formatCentsAbs(cents: number): string {
   return formatCents(Math.abs(cents))
 }
 
+/**
+ * An amount string, unsigned and grouped — the common case for spending figures, where the
+ * data stores expenses negative but the label already says they are spending.
+ *
+ * An unusable amount is passed through untouched rather than rendered as "NaN".
+ */
+export function formatMoneyAbs(amount: string): string {
+  const cents = toCents(amount)
+  return cents === null ? amount : formatCentsAbs(cents)
+}
+
 // ── Conversion ──────────────────────────────────────────────
 
 /** Currency → rate into the preferred currency. The preferred currency itself is implicit. */

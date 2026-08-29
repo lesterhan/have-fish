@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { formatCentsAbs } from '$lib/money'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { headlineSubject, rowSource, stripRoot } from './spendingRow'
   import type { Transaction } from '$lib/api'
@@ -32,18 +33,10 @@
   let amount = $derived(mainPosting ? Math.abs(parseFloat(mainPosting.amount)) : 0)
   let postingCurrency = $derived(mainPosting?.currency ?? baseCurrency)
 
-  let cadEquiv = $derived(
-    (amount * (fxRates[postingCurrency] ?? 1)).toLocaleString('en-CA', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    }),
-  )
+  let cadEquiv = $derived(fmtAmount(amount * (fxRates[postingCurrency] ?? 1)))
 
   function fmtAmount(n: number): string {
-    return n.toLocaleString('en-CA', {
-      minimumFractionDigits: 2,
-      maximumFractionDigits: 2,
-    })
+    return formatCentsAbs(Math.round(n * 100))
   }
 </script>
 

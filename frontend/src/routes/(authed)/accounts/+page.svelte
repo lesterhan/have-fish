@@ -6,7 +6,7 @@
   import Chip from '$lib/components/ui/Chip.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import ConvertToggle from '$lib/components/ui/ConvertToggle.svelte'
   import Select from '$lib/components/ui/Select.svelte'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
@@ -344,22 +344,13 @@
         </label>
 
         {#if foreignCurrencies.length > 0}
-          <GradientButton
+          <ConvertToggle
+            {converted}
+            busy={converting}
+            currency={preferred}
+            offLabel={`Show ${preferred} only`}
             onclick={toggleConvert}
-            disabled={converting}
-            active={converted}
-            tooltip={converted
-              ? `Back to ${preferred} balances only`
-              : `Fetch rates and total everything in ${preferred}`}
-          >
-            {#if converting}
-              Converting…
-            {:else if converted}
-              Show {preferred} only
-            {:else}
-              Convert to {preferred}
-            {/if}
-          </GradientButton>
+          />
         {/if}
 
         <span class="count">
