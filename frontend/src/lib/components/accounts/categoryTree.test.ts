@@ -8,9 +8,11 @@ import {
   filterNodes,
   findCollision,
   flattenNodes,
+  foldAll,
   isDeletable,
   parentPrefix,
   pathError,
+  realRows,
   renameTarget,
   segmentError,
   type CategoryAccount,
@@ -64,7 +66,11 @@ describe('buildCategoryTree', () => {
   it('creates virtual nodes for segments nothing was filed at', () => {
     const tree = buildCategoryTree(accts('expenses:food:groceries'), NONE)
 
-    expect(render(tree)).toEqual(['expenses(0)', '  food(0)', '    groceries(0)'])
+    expect(render(tree)).toEqual([
+      'expenses(0)',
+      '  food(0)',
+      '    groceries(0)',
+    ])
     expect(find(tree, 'expenses').accountId).toBeNull()
     expect(find(tree, 'expenses:food:groceries').accountId).toBe(
       'id:expenses:food:groceries',
@@ -164,8 +170,14 @@ describe('categorySections', () => {
 
   it('keeps expenses, income and unfiled, and leaves the Accounts tab alone', () => {
     const sections = categorySections(accounts, NONE, ROOTS)
-    expect(sections.map((s) => s.key)).toEqual(['expenses', 'income', 'unfiled'])
-    expect(sections.flatMap((s) => render(s.nodes))).not.toContain('chequing(0)')
+    expect(sections.map((s) => s.key)).toEqual([
+      'expenses',
+      'income',
+      'unfiled',
+    ])
+    expect(sections.flatMap((s) => render(s.nodes))).not.toContain(
+      'chequing(0)',
+    )
   })
 
   it('unwraps the configured root so the section lists its categories directly', () => {
@@ -225,7 +237,11 @@ describe('filterNodes', () => {
 
   it('keeps a match together with the ancestors that give it context', () => {
     const kept = filterNodes(tree, (n) => n.segment === 'groceries')
-    expect(render(kept)).toEqual(['expenses(40)', '  food(40)', '    groceries(40)'])
+    expect(render(kept)).toEqual([
+      'expenses(40)',
+      '  food(40)',
+      '    groceries(40)',
+    ])
   })
 
   it('keeps everything beneath a matched branch', () => {
@@ -297,7 +313,11 @@ describe('flattenNodes', () => {
 
   it('stops at a collapsed branch but still emits the branch itself', () => {
     const rows = flattenNodes(tree, (path) => path === 'expenses:food')
-    expect(rows.map((r) => r.node.segment)).toEqual(['expenses', 'food', 'rent'])
+    expect(rows.map((r) => r.node.segment)).toEqual([
+      'expenses',
+      'food',
+      'rent',
+    ])
     expect(rows.find((r) => r.node.segment === 'food')).toMatchObject({
       hasChildren: true,
       collapsed: true,
@@ -306,8 +326,66 @@ describe('flattenNodes', () => {
 
   it('never marks a leaf collapsed, however the predicate answers', () => {
     const rows = flattenNodes(tree, () => true)
-    expect(rows.find((r) => r.node.segment === 'expenses')!.collapsed).toBe(true)
+    expect(rows.find((r) => r.node.segment === 'expenses')!.collapsed).toBe(
+      true,
+    )
     expect(rows).toHaveLength(1)
+  })
+})
+
+describe('realRows', () => {
+  const tree = buildCategoryTree(
+    accts('expenses:rent', 'expenses:food:groceries', 'expenses:food:dining'),
+    NONE,
+  )
+
+  it('lists the real rows by path, flattened', () => {
+    expect(realRows(tree).map((n) => n.path)).toEqual([
+      'expenses:food:dining',
+      'expenses:food:groceries',
+      'expenses:rent',
+    ])
+  })
+
+  it('leaves out virtual segments, which are not rows you can act on', () => {
+    expect(realRows(tree).map((n) => n.path)).not.toContain('expenses:food')
+  })
+
+  it('is empty for a forest of nothing but virtual segments', () => {
+    // Only reachable by filtering a tree down to ancestors, but the flat view still asks.
+    const virtual = filterNodes(tree, (n) => n.path === 'nothing')
+    expect(realRows(virtual)).toEqual([])
+  })
+})
+
+describe('foldAll', () => {
+  const branches = ['expenses', 'expenses:food']
+
+  it('folds everything while anything is still open', () => {
+    expect([...foldAll(new Set(['expenses']), branches)].sort()).toEqual([
+      'expenses',
+      'expenses:food',
+    ])
+  })
+
+  it('unfolds everything once it is all folded', () => {
+    expect([...foldAll(new Set(branches), branches)]).toEqual([])
+  })
+
+  it('leaves branches it was not given alone', () => {
+    // Folding one section must not disturb the section above it.
+    const other = new Set(['income:salary'])
+    expect([...foldAll(other, branches)].sort()).toEqual([
+      'expenses',
+      'expenses:food',
+      'income:salary',
+    ])
+  })
+
+  it('does not mutate the set it was given', () => {
+    const before = new Set(['expenses'])
+    foldAll(before, branches)
+    expect([...before]).toEqual(['expenses'])
   })
 })
 
@@ -348,9 +426,9 @@ describe('rename arithmetic', () => {
   })
 
   it('affectedPaths covers a virtual node, which has descendants but no row', () => {
-    expect(affectedPaths(['expenses:food:groceries'], 'expenses:food')).toEqual([
-      'expenses:food:groceries',
-    ])
+    expect(affectedPaths(['expenses:food:groceries'], 'expenses:food')).toEqual(
+      ['expenses:food:groceries'],
+    )
   })
 
   it('findCollision names the path already sitting at the target', () => {
@@ -371,7 +449,9 @@ describe('rename arithmetic', () => {
   })
 
   it('segmentError rejects a colon, which would re-parent rather than rename', () => {
-    expect(segmentError('food:drink', 'food')).toBe('A name cannot contain a colon')
+    expect(segmentError('food:drink', 'food')).toBe(
+      'A name cannot contain a colon',
+    )
     expect(segmentError('  ', 'food')).toBe('A name cannot be empty')
     expect(segmentError('dining', 'food')).toBeNull()
   })
@@ -393,7 +473,9 @@ describe('pathError', () => {
   })
 
   it('rejects a path you already have', () => {
-    expect(pathError('expenses:food', existing)).toBe('That account already exists')
+    expect(pathError('expenses:food', existing)).toBe(
+      'That account already exists',
+    )
   })
 
   it('accepts a new well-formed path, trimmed', () => {

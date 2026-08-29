@@ -4,6 +4,8 @@
   import { page } from '$app/state'
   import Card from '$lib/components/ui/Card.svelte'
   import Checkbox from '$lib/components/ui/Checkbox.svelte'
+  import ControlBar from '$lib/components/ui/ControlBar.svelte'
+  import SearchField from '$lib/components/ui/SearchField.svelte'
   import Chip from '$lib/components/ui/Chip.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -14,7 +16,9 @@
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import AddAccountWizard from '$lib/components/wizards/AddAccountWizard.svelte'
+  import AccountFlags from '$lib/components/accounts/AccountFlags.svelte'
   import CategoriesTab from '$lib/components/accounts/CategoriesTab.svelte'
+  import SectionCard from '$lib/components/accounts/SectionCard.svelte'
   import {
     fetchAccountBalances,
     fetchAccountPostingCounts,
@@ -43,11 +47,8 @@
     type PositionBucket,
   } from '$lib/components/accounts/accountPaths'
   import {
-    ROLE_DESCRIPTION,
-    ROLE_LABEL,
     protectionFor,
     protectionMessage,
-    rolesOf,
     type Protection,
   } from '$lib/components/accounts/accountRoles'
   import {
@@ -518,15 +519,8 @@
         {/each}
       </div>
 
-      <div class="toolbar">
-        <label class="search">
-          <Icon name="search" size={12} />
-          <TextInput
-            bind:value={query}
-            placeholder="Search accounts"
-            aria-label="Search accounts"
-          />
-        </label>
+      <ControlBar>
+        <SearchField bind:value={query} placeholder="Search accounts" />
 
         <label class="control">
           <span>Group</span>
@@ -571,11 +565,11 @@
           </Select>
         </label>
 
-        <span class="count">
+        <span class="count trailing">
           {visibleRows.length}
           {visibleRows.length === 1 ? 'account' : 'accounts'}
         </span>
-      </div>
+      </ControlBar>
 
       {#if convertError}
         <p class="message error">{convertError}</p>
@@ -607,7 +601,9 @@
           </GradientButton>
 
           <label class="bulk-currency">
-            <span class="sr-only">Default currency for the selected accounts</span>
+            <span class="sr-only"
+              >Default currency for the selected accounts</span
+            >
             <Select
               bind:value={bulkCurrency}
               disabled={bulkBusy}
@@ -658,186 +654,154 @@
       {:else}
         {#each groups as group (group.key)}
           {@const total = groupTotal(group)}
-          {@const groupNote = conversionNote(total, total.unit, converted)}
-          <Card class="group-card">
-            {@const state = groupState(group)}
-            <div class="group-header">
-              <!-- Outside the collapse button: nesting a checkbox inside a button is invalid,
-                   and selecting a group should not also fold it away. -->
+          {@const state = groupState(group)}
+          <SectionCard
+            label={group.label}
+            count={group.rows.length}
+            total={`${total.approx ? '≈ ' : ''}${formatCents(total.cents)}`}
+            unit={total.unit}
+            note={conversionNote(total, total.unit, converted) ?? undefined}
+            noteTitle={converted
+              ? `Balances in ${total.missing.join(', ')} are not included — no exchange rate available`
+              : `Also holds ${total.missing.join(', ')} — convert to fold them in`}
+            collapsed={collapsed[group.key] ?? false}
+            ontoggle={() => toggle(group.key)}
+          >
+            {#snippet lead()}
               <Checkbox
                 checked={state.all}
                 ariaLabel={`Select every account in ${group.label}`}
                 size={14}
                 onchange={(on) => toggleGroup(group, on)}
               />
-              <button
-                type="button"
-                class="group-toggle"
-                class:some={state.some && !state.all}
-                aria-expanded={!collapsed[group.key]}
-                onclick={() => toggle(group.key)}
-              >
-              <img
-                src="/icons/chevron-right-filled.svg"
-                alt=""
-                aria-hidden="true"
-                width="12"
-                height="12"
-                class="chevron"
-                class:open={!collapsed[group.key]}
-              />
-              <span class="group-label">{group.label}</span>
-              <span class="group-count">{group.rows.length}</span>
-              <span class="group-total">
-                {total.approx ? '≈ ' : ''}{formatCents(total.cents)}
-                <span class="unit">{total.unit}</span>
-              </span>
-              {#if groupNote}
-                <span
-                  class="group-note"
-                  title={converted
-                    ? `Balances in ${total.missing.join(', ')} are not included — no exchange rate available`
-                    : `Also holds ${total.missing.join(', ')} — convert to fold them in`}
-                >
-                  {groupNote}
-                </span>
-              {/if}
-              </button>
-            </div>
-
-            {#if !collapsed[group.key]}
-              <div class="table-wrap">
-                <table>
-                  <thead>
-                    <tr>
-                      <th class="pick"><span class="sr-only">Select</span></th>
-                      <th>Account</th>
-                      <th>Type</th>
-                      <th class="num">Balance</th>
-                      {#if converted}
-                        <th class="num">≈ {preferred}</th>
+            {/snippet}
+            <table>
+              <thead>
+                <tr>
+                  <th class="pick"><span class="sr-only">Select</span></th>
+                  <th>Account</th>
+                  <th>Type</th>
+                  <th class="num">Balance</th>
+                  {#if converted}
+                    <th class="num">≈ {preferred}</th>
+                  {/if}
+                  <th>Last activity</th>
+                  <th>Flags</th>
+                  <th class="actions"><span class="sr-only">Actions</span></th>
+                </tr>
+              </thead>
+              <tbody>
+                {#each group.rows as row (row.account.id)}
+                  {@const rowConverted = rowTotal(row)}
+                  {@const guard = protection(row)}
+                  {@const pinned = pinnedIds.has(row.account.id)}
+                  {@const hidden = hiddenIds.has(row.account.id)}
+                  <tr class:selected={selectedIds.has(row.account.id)}>
+                    <td class="pick">
+                      <Checkbox
+                        checked={selectedIds.has(row.account.id)}
+                        ariaLabel={`Select ${row.displayName}`}
+                        size={14}
+                        onchange={(on) => toggleSelected(row.account.id, on)}
+                      />
+                    </td>
+                    <td>
+                      <a class="account-link" href="/account/{row.account.id}">
+                        {row.displayName}
+                      </a>
+                      {#if row.account.name}
+                        <span class="sub">{row.account.path}</span>
                       {/if}
-                      <th>Last activity</th>
-                      <th>Flags</th>
-                      <th class="actions"><span class="sr-only">Actions</span></th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {#each group.rows as row (row.account.id)}
-                      {@const rowConverted = rowTotal(row)}
-                      {@const guard = protection(row)}
-                      {@const pinned = pinnedIds.has(row.account.id)}
-                      {@const hidden = hiddenIds.has(row.account.id)}
-                      <tr class:selected={selectedIds.has(row.account.id)}>
-                        <td class="pick">
-                          <Checkbox
-                            checked={selectedIds.has(row.account.id)}
-                            ariaLabel={`Select ${row.displayName}`}
-                            size={14}
-                            onchange={(on) => toggleSelected(row.account.id, on)}
-                          />
-                        </td>
-                        <td>
-                          <a class="account-link" href="/account/{row.account.id}">
-                            {row.displayName}
-                          </a>
-                          {#if row.account.name}
-                            <span class="sub">{row.account.path}</span>
-                          {/if}
-                        </td>
-                        <td><Chip size="xs">{typeLabel(row)}</Chip></td>
-                        <td class="num">
-                          {#if row.balances.length === 0}
-                            <span class="muted">—</span>
-                          {:else}
-                            {#each row.balances as b (b.currency)}
-                              {@const cents = toCents(b.amount)}
-                              <span class="native">
-                                <CurrencyPill code={b.currency} size="xs" />
-                                {cents === null ? b.amount : formatCents(cents)}
-                              </span>
-                            {/each}
-                          {/if}
-                        </td>
-                        {#if converted}
-                          <td class="num">
-                            {#if rowConverted.missing.length > 0}
-                              <span class="muted" title="No exchange rate available">—</span>
-                            {:else if row.balances.length === 0}
-                              <span class="muted">—</span>
-                            {:else}
-                              {formatCents(rowConverted.cents)}
-                            {/if}
-                          </td>
+                    </td>
+                    <td><Chip size="xs">{typeLabel(row)}</Chip></td>
+                    <td class="num">
+                      {#if row.balances.length === 0}
+                        <span class="muted">—</span>
+                      {:else}
+                        {#each row.balances as b (b.currency)}
+                          {@const cents = toCents(b.amount)}
+                          <span class="native">
+                            <CurrencyPill code={b.currency} size="xs" />
+                            {cents === null ? b.amount : formatCents(cents)}
+                          </span>
+                        {/each}
+                      {/if}
+                    </td>
+                    {#if converted}
+                      <td class="num">
+                        {#if rowConverted.missing.length > 0}
+                          <span class="muted" title="No exchange rate available"
+                            >—</span
+                          >
+                        {:else if row.balances.length === 0}
+                          <span class="muted">—</span>
+                        {:else}
+                          {formatCents(rowConverted.cents)}
                         {/if}
-                        <td>
-                          {#if row.lastActivity}
-                            {row.lastActivity}
-                            {#if row.idleDays !== null && row.idleDays > STALE_AFTER_DAYS}
-                              <span class="sub stale">stale {row.idleDays}d</span>
-                            {/if}
-                          {:else}
-                            <span class="muted">never</span>
-                          {/if}
-                        </td>
-                        <td>
-                          <div class="flags">
-                          {#each rolesOf(row.account.id, settings) as role (role)}
-                            <span title={ROLE_DESCRIPTION[role]}>
-                              <Chip size="xs" tone="accent">{ROLE_LABEL[role]}</Chip>
-                            </span>
-                          {/each}
-                          {#if guard?.kind === 'system'}
-                            <span title={protectionMessage(guard)}>
-                              <Chip size="xs" icon="lock">managed</Chip>
-                            </span>
-                          {/if}
-                          {#if pinned}
-                            <Chip size="xs" icon="pin">pinned</Chip>
-                          {/if}
-                          {#if hidden}
-                            <Chip size="xs" icon="eye-off">hidden</Chip>
-                          {/if}
-                          </div>
-                        </td>
-                        <td class="actions">
-                          <GradientButton
-                            quiet
-                            square
-                            active={pinned}
-                            aria-label={pinned
-                              ? `Unpin ${row.displayName}`
-                              : `Pin ${row.displayName}`}
-                            tooltip={pinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
-                            onclick={() => setPinned([row.account.id], !pinned)}
-                          >
-                            <Icon name="pin" size={13} />
-                          </GradientButton>
-                          <GradientButton
-                            quiet
-                            square
-                            active={hidden}
-                            disabled={guard !== null && !hidden}
-                            aria-label={hidden
-                              ? `Unhide ${row.displayName}`
-                              : `Hide ${row.displayName}`}
-                            tooltip={guard !== null && !hidden
-                              ? protectionMessage(guard)
-                              : hidden
-                                ? 'Unhide'
-                                : 'Hide'}
-                            onclick={() => setHidden([row.account.id], !hidden)}
-                          >
-                            <Icon name={hidden ? 'eye' : 'eye-off'} size={13} />
-                          </GradientButton>
-                        </td>
-                      </tr>
-                    {/each}
-                  </tbody>
-                </table>
-              </div>
-            {/if}
-          </Card>
+                      </td>
+                    {/if}
+                    <td>
+                      {#if row.lastActivity}
+                        {row.lastActivity}
+                        {#if row.idleDays !== null && row.idleDays > STALE_AFTER_DAYS}
+                          <span class="sub stale">stale {row.idleDays}d</span>
+                        {/if}
+                      {:else}
+                        <span class="muted">never</span>
+                      {/if}
+                    </td>
+                    <td>
+                      <AccountFlags
+                        accountId={row.account.id}
+                        {settings}
+                        protection={guard}
+                      >
+                        {#if pinned}
+                          <Chip size="xs" icon="pin">pinned</Chip>
+                        {/if}
+                        {#if hidden}
+                          <Chip size="xs" icon="eye-off">hidden</Chip>
+                        {/if}
+                      </AccountFlags>
+                    </td>
+                    <td class="actions">
+                      <GradientButton
+                        quiet
+                        square
+                        active={pinned}
+                        aria-label={pinned
+                          ? `Unpin ${row.displayName}`
+                          : `Pin ${row.displayName}`}
+                        tooltip={pinned
+                          ? 'Unpin from sidebar'
+                          : 'Pin to sidebar'}
+                        onclick={() => setPinned([row.account.id], !pinned)}
+                      >
+                        <Icon name="pin" size={13} />
+                      </GradientButton>
+                      <GradientButton
+                        quiet
+                        square
+                        active={hidden}
+                        disabled={guard !== null && !hidden}
+                        aria-label={hidden
+                          ? `Unhide ${row.displayName}`
+                          : `Hide ${row.displayName}`}
+                        tooltip={guard !== null && !hidden
+                          ? protectionMessage(guard)
+                          : hidden
+                            ? 'Unhide'
+                            : 'Hide'}
+                        onclick={() => setHidden([row.account.id], !hidden)}
+                      >
+                        <Icon name={hidden ? 'eye' : 'eye-off'} size={13} />
+                      </GradientButton>
+                    </td>
+                  </tr>
+                {/each}
+              </tbody>
+            </table>
+          </SectionCard>
         {/each}
       {/if}
     </div>
@@ -926,51 +890,14 @@
     font-weight: var(--weight-normal);
   }
 
-  .unit {
-    font-size: var(--text-xs);
-    color: inherit;
-    opacity: 0.65;
-    font-weight: var(--weight-normal);
-  }
-
   .position-note {
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     font-style: italic;
   }
 
-  .group-note {
-    font-size: var(--text-xs);
-    color: inherit;
-    opacity: 0.75;
-    font-style: italic;
-  }
-
   /* --- Toolbar --- */
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-md);
-    flex-wrap: wrap;
-  }
-
-  .search {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    color: var(--color-text-muted);
-  }
-
-  .control {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-  }
-
   .count {
-    margin-left: auto;
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
@@ -1027,119 +954,6 @@
     background: var(--color-window);
   }
 
-  /* --- Groups --- */
-  :global(.card.group-card) {
-    overflow: hidden;
-  }
-
-  .group-header {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    padding: var(--sp-xs) var(--sp-sm);
-    background: var(--color-section-bar-bg, var(--color-window));
-    color: var(--color-section-bar-fg, var(--color-text));
-    border-bottom: 1px solid var(--color-rule);
-  }
-
-  .group-toggle {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    flex: 1;
-    min-width: 0;
-    padding: 0;
-    background: none;
-    border: none;
-    color: inherit;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    text-align: left;
-    cursor: pointer;
-    transition: filter var(--duration-fast) var(--ease);
-  }
-
-  .group-toggle:hover {
-    filter: brightness(1.25);
-  }
-
-  .group-toggle:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
-    outline-offset: 2px;
-  }
-
-  .chevron {
-    transition: transform var(--duration-fast) var(--ease);
-  }
-
-  .chevron.open {
-    transform: rotate(90deg);
-  }
-
-  .group-label {
-    font-weight: var(--weight-semibold);
-  }
-
-  /* The section bar is dark in both themes, so anything secondary on it dims by opacity
-     rather than by --color-text-muted, which is a dark grey and disappears against it. */
-  .group-count {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: inherit;
-    opacity: 0.65;
-  }
-
-  .group-total {
-    margin-left: auto;
-    font-family: var(--font-mono);
-    font-size: var(--text-sm);
-    white-space: nowrap;
-  }
-
-  /* --- Table --- */
-  .table-wrap {
-    overflow-x: auto;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-sm);
-  }
-
-  th {
-    padding: var(--sp-xs) var(--sp-sm);
-    text-align: left;
-    font-weight: var(--weight-semibold);
-    color: var(--color-text-muted);
-    font-size: var(--text-xs);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-    white-space: nowrap;
-    border-bottom: 1px solid var(--color-rule);
-  }
-
-  td {
-    padding: var(--sp-xs) var(--sp-sm);
-    border-bottom: 1px solid var(--color-rule-soft);
-    vertical-align: top;
-  }
-
-  tbody tr:last-child td {
-    border-bottom: none;
-  }
-
-  tbody tr:hover td {
-    background: var(--color-accent-light);
-  }
-
-  th.num,
-  td.num {
-    text-align: right;
-    font-family: var(--font-mono);
-    white-space: nowrap;
-  }
-
   .native {
     display: flex;
     align-items: center;
@@ -1167,51 +981,17 @@
     color: var(--color-amount-negative);
   }
 
-  .muted {
-    color: var(--color-text-muted);
-  }
-
-  /* --- Selection + actions --- */
+  /* --- Selection --- *
+     The rest of the table's column semantics (`.num`, `.actions`, `.muted`) come from
+     SectionCard, which is what keeps the two tabs looking like one page. */
   th.pick,
   td.pick {
     width: 1%;
     padding-right: 0;
   }
 
-  th.actions,
-  td.actions {
-    width: 1%;
-    white-space: nowrap;
-    text-align: right;
-  }
-
-  td.actions {
-    display: table-cell;
-  }
-
-  /* A wrapper, not the cell itself: `display: flex` on a <td> drops it out of the table
-     layout, so the column stops aligning and empty cells render as stray boxes. */
-  .flags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 3px;
-  }
-
   tbody tr.selected td {
     background: var(--color-accent-light);
-  }
-
-  /* Visible to screen readers only — column headers that carry no visible label. */
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 
   /* --- Messages --- */

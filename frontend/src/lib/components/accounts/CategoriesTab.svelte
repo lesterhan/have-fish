@@ -1,13 +1,16 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import Card from '$lib/components/ui/Card.svelte'
   import Chip from '$lib/components/ui/Chip.svelte'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
+  import ControlBar from '$lib/components/ui/ControlBar.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import Modal from '$lib/components/ui/Modal.svelte'
+  import SearchField from '$lib/components/ui/SearchField.svelte'
   import Select from '$lib/components/ui/Select.svelte'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
+  import AccountFlags from './AccountFlags.svelte'
+  import SectionCard from './SectionCard.svelte'
   import {
     createAccount,
     deleteAccount,
@@ -22,11 +25,8 @@
   import { rank } from '$lib/components/accounts/accountScorer'
   import { rootsFrom } from '$lib/components/accounts/accountPaths'
   import {
-    ROLE_DESCRIPTION,
-    ROLE_LABEL,
     protectionFor,
     protectionMessage,
-    rolesOf,
     type Protection,
   } from '$lib/components/accounts/accountRoles'
   import {
@@ -37,9 +37,11 @@
     filterNodes,
     findCollision,
     flattenNodes,
+    foldAll,
     isDeletable,
     nodePaths,
     pathError,
+    realRows,
     renameTarget,
     segmentError,
     type CategoryNode,
@@ -116,7 +118,9 @@
    * Search matches over every node path including the virtual ones, so `food` finds the
    * branch even when no account was filed at `expenses:food` itself.
    */
-  function matcher(nodes: CategoryNode[]): ((node: CategoryNode) => boolean) | null {
+  function matcher(
+    nodes: CategoryNode[],
+  ): ((node: CategoryNode) => boolean) | null {
     const q = query.trim()
     if (!q) return null
     const matched = new Set(
@@ -138,20 +142,6 @@
     return nodes
   }
 
-  // Flat view: the one thing the Settings list did that a tree does not — every real row,
-  // full path, one line each, nothing to open.
-  function flatRows(section: CategorySection): CategoryNode[] {
-    const out: CategoryNode[] = []
-    const walk = (list: readonly CategoryNode[]) => {
-      for (const node of list) {
-        if (node.accountId !== null) out.push(node)
-        walk(node.children)
-      }
-    }
-    walk(visibleNodes(section))
-    return out.sort((a, b) => a.path.localeCompare(b.path))
-  }
-
   // ── Collapse ──────────────────────────────────────────────
   let collapsed = $state<Set<string>>(new Set())
   let sectionCollapsed = $state<Record<string, boolean>>({})
@@ -168,8 +158,10 @@
   let searching = $derived(query.trim().length > 0 || emptyOnly)
 
   function rowsFor(section: CategorySection) {
+    // Flat view: the one thing the Settings list did that a tree does not — every real row,
+    // full path, one line each, nothing to open.
     if (view === 'flat') {
-      return flatRows(section).map((node) => ({
+      return realRows(visibleNodes(section)).map((node) => ({
         node,
         depth: 0,
         hasChildren: false,
@@ -182,14 +174,7 @@
   }
 
   function collapseAll(section: CategorySection) {
-    const branches = branchPaths(section.nodes)
-    const anyOpen = branches.some((p) => !collapsed.has(p))
-    const next = new Set(collapsed)
-    for (const p of branches) {
-      if (anyOpen) next.add(p)
-      else next.delete(p)
-    }
-    collapsed = next
+    collapsed = foldAll(collapsed, branchPaths(section.nodes))
   }
 
   // ── Rename ────────────────────────────────────────────────
@@ -198,7 +183,9 @@
   let busy = $state(false)
 
   /** A parent rename awaiting confirmation — it rewrites more than the row you clicked. */
-  let pending = $state<{ from: string; to: string; affected: string[] } | null>(null)
+  let pending = $state<{ from: string; to: string; affected: string[] } | null>(
+    null,
+  )
 
   function startEdit(node: CategoryNode) {
     editingPath = node.path
@@ -278,7 +265,9 @@
       toast.show(`Deleted ${node.path}`)
       deleting = null
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not delete that category')
+      toast.show(
+        e instanceof Error ? e.message : 'Could not delete that category',
+      )
     } finally {
       busy = false
     }
@@ -291,7 +280,9 @@
   let adding = $state(false)
 
   let addProblem = $derived(pathError(newPath, allAccountPaths))
-  let canAdd = $derived(newPath.trim().length > 0 && addProblem === null && !adding)
+  let canAdd = $derived(
+    newPath.trim().length > 0 && addProblem === null && !adding,
+  )
 
   async function add() {
     if (!canAdd) return
@@ -320,7 +311,11 @@
    */
   function guard(node: CategoryNode): Protection | null {
     if (node.accountId === null) return null
-    return protectionFor({ id: node.accountId, path: node.path }, settings, roots)
+    return protectionFor(
+      { id: node.accountId, path: node.path },
+      settings,
+      roots,
+    )
   }
 
   function label(node: CategoryNode): string {
@@ -328,15 +323,8 @@
   }
 </script>
 
-<div class="toolbar">
-  <label class="search">
-    <Icon name="search" size={12} />
-    <TextInput
-      bind:value={query}
-      placeholder="Search categories"
-      aria-label="Search categories"
-    />
-  </label>
+<ControlBar>
+  <SearchField bind:value={query} placeholder="Search categories" />
 
   <label class="control">
     <span>View</span>
@@ -359,7 +347,7 @@
   {/if}
 
   <form
-    class="quick-add"
+    class="quick-add trailing"
     onsubmit={(e) => {
       e.preventDefault()
       void add()
@@ -377,7 +365,7 @@
       {adding ? 'Adding…' : 'Add'}
     </GradientButton>
   </form>
-</div>
+</ControlBar>
 
 {#if addProblem}
   <p class="message error">{addProblem}</p>
@@ -396,31 +384,16 @@
 {:else}
   {#each sections as section (section.key)}
     {@const rows = rowsFor(section)}
-    <Card class="group-card">
-      <div class="group-header">
-        <button
-          type="button"
-          class="group-toggle"
-          aria-expanded={!sectionCollapsed[section.key]}
-          onclick={() =>
-            (sectionCollapsed[section.key] = !sectionCollapsed[section.key])}
-        >
-          <img
-            src="/icons/chevron-right-filled.svg"
-            alt=""
-            aria-hidden="true"
-            width="12"
-            height="12"
-            class="chevron"
-            class:open={!sectionCollapsed[section.key]}
-          />
-          <span class="group-label">{section.label}</span>
-          <span class="group-count">{rows.length}</span>
-          <span class="group-total">
-            {section.entries}
-            <span class="unit">{section.entries === 1 ? 'entry' : 'entries'}</span>
-          </span>
-        </button>
+    <SectionCard
+      label={section.label}
+      count={rows.length}
+      total={String(section.entries)}
+      unit={section.entries === 1 ? 'entry' : 'entries'}
+      collapsed={sectionCollapsed[section.key] ?? false}
+      ontoggle={() =>
+        (sectionCollapsed[section.key] = !sectionCollapsed[section.key])}
+    >
+      {#snippet trailing()}
         {#if view === 'tree'}
           <GradientButton
             quiet
@@ -433,390 +406,213 @@
             Fold all
           </GradientButton>
         {/if}
-      </div>
+      {/snippet}
 
-      {#if !sectionCollapsed[section.key]}
-        {#if rows.length === 0}
-          <p class="message">
-            {emptyOnly
-              ? 'Nothing empty here.'
-              : `Nothing matches “${query.trim()}”.`}
-          </p>
-        {:else}
-          <div class="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Category</th>
-                  <th class="num">Entries</th>
-                  <th>Last used</th>
-                  <th>Flags</th>
-                  <th class="actions"><span class="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each rows as { node, depth, hasChildren, collapsed: folded } (node.path)}
-                  {@const editing = editingPath === node.path}
-                  {@const blocker = guard(node)}
-                  {@const empty = isDeletable(node)}
-                  {@const deletable = empty && blocker === null}
-                  <tr class:editing>
-                    <td>
-                      <div
-                        class="cell"
-                        style="padding-left: calc({depth} * 16px)"
+      {#if rows.length === 0}
+        <p class="message">
+          {emptyOnly
+            ? 'Nothing empty here.'
+            : `Nothing matches “${query.trim()}”.`}
+        </p>
+      {:else}
+        <table>
+          <thead>
+            <tr>
+              <th>Category</th>
+              <th class="num">Entries</th>
+              <th>Last used</th>
+              <th>Flags</th>
+              <th class="actions"><span class="sr-only">Actions</span></th>
+            </tr>
+          </thead>
+          <tbody>
+            {#each rows as { node, depth, hasChildren, collapsed: folded } (node.path)}
+              {@const editing = editingPath === node.path}
+              {@const blocker = guard(node)}
+              {@const empty = isDeletable(node)}
+              {@const deletable = empty && blocker === null}
+              <tr class:editing>
+                <td>
+                  <div class="cell" style="padding-left: calc({depth} * 16px)">
+                    {#if hasChildren}
+                      <button
+                        type="button"
+                        class="disclosure"
+                        aria-expanded={!folded}
+                        aria-label={folded
+                          ? `Expand ${node.path}`
+                          : `Collapse ${node.path}`}
+                        onclick={() => toggleBranch(node.path)}
                       >
-                        {#if hasChildren}
-                          <button
-                            type="button"
-                            class="disclosure"
-                            aria-expanded={!folded}
-                            aria-label={folded
-                              ? `Expand ${node.path}`
-                              : `Collapse ${node.path}`}
-                            onclick={() => toggleBranch(node.path)}
-                          >
-                            <Icon
-                              name={folded
-                                ? 'chevron-right-filled'
-                                : 'chevron-down-line'}
-                              size={13}
-                            />
-                          </button>
-                        {:else}
-                          <span class="leaf-dot"></span>
-                        {/if}
+                        <Icon
+                          name={folded
+                            ? 'chevron-right-filled'
+                            : 'chevron-down-line'}
+                          size={13}
+                        />
+                      </button>
+                    {:else}
+                      <span class="leaf-dot"></span>
+                    {/if}
 
-                        {#if editing}
-                          <TextInput
-                            bind:value={editValue}
-                            spellcheck={false}
-                            disabled={busy}
-                            aria-label={`Rename ${node.path}`}
-                            onkeydown={(e: KeyboardEvent) => onEditKeydown(e, node)}
-                            style="width: 12rem"
-                          />
-                          <GradientButton
-                            square
-                            disabled={busy}
-                            aria-label="Save name"
-                            tooltip="Save"
-                            onclick={() => submitEdit(node)}
-                          >
-                            <Icon name="floppy" size={12} />
-                          </GradientButton>
-                          <GradientButton
-                            square
-                            disabled={busy}
-                            aria-label="Cancel rename"
-                            tooltip="Cancel"
-                            onclick={cancelEdit}
-                          >
-                            <Icon name="close" size={12} />
-                          </GradientButton>
-                        {:else}
-                          <span class="segment">{label(node)}</span>
-                        {/if}
-                      </div>
-                    </td>
-                    <td class="num">
-                      {#if node.entries === 0}
-                        <span class="muted">—</span>
-                      {:else}
-                        {node.entries}
-                      {/if}
-                    </td>
-                    <td>
-                      {#if node.lastUsed}
-                        {node.lastUsed}
-                      {:else}
-                        <span class="muted">never</span>
-                      {/if}
-                    </td>
-                    <td>
-                      <div class="flags">
-                        {#if node.accountId === null}
-                          <span
-                            title="No account was filed at this path — it exists because something beneath it does"
-                          >
-                            <Chip size="xs">category</Chip>
-                          </span>
-                        {/if}
-                        {#if node.accountId}
-                          {#each rolesOf(node.accountId, settings) as role (role)}
-                            <span title={ROLE_DESCRIPTION[role]}>
-                              <Chip size="xs" tone="accent">{ROLE_LABEL[role]}</Chip>
-                            </span>
-                          {/each}
-                        {/if}
-                        {#if blocker?.kind === 'system'}
-                          <span title={protectionMessage(blocker)}>
-                            <Chip size="xs" icon="lock">managed</Chip>
-                          </span>
-                        {/if}
-                        {#if empty}
-                          <Chip size="xs">empty</Chip>
-                        {/if}
-                      </div>
-                    </td>
-                    <td class="actions">
-                      <GradientButton
-                        quiet
-                        square
-                        disabled={blocker?.kind === 'system' || editingPath !== null}
+                    {#if editing}
+                      <TextInput
+                        bind:value={editValue}
+                        spellcheck={false}
+                        disabled={busy}
                         aria-label={`Rename ${node.path}`}
-                        tooltip={blocker?.kind === 'system'
-                          ? protectionMessage(blocker)
-                          : hasChildren
-                            ? 'Rename — this renames everything beneath it too'
-                            : 'Rename'}
-                        onclick={() => startEdit(node)}
+                        onkeydown={(e: KeyboardEvent) => onEditKeydown(e, node)}
+                        style="width: 12rem"
+                      />
+                      <GradientButton
+                        square
+                        disabled={busy}
+                        aria-label="Save name"
+                        tooltip="Save"
+                        onclick={() => submitEdit(node)}
                       >
-                        <Icon name="edit-txn" size={13} />
+                        <Icon name="floppy" size={12} />
                       </GradientButton>
                       <GradientButton
-                        quiet
                         square
-                        disabled={!deletable}
-                        aria-label={`Delete ${node.path}`}
-                        tooltip={blocker
-                          ? protectionMessage(blocker)
-                          : node.accountId === null
-                            ? 'Nothing was filed here, so there is nothing to delete'
-                            : deletable
-                              ? 'Delete this category'
-                              : 'Only a category with no entries and nothing beneath it can be deleted'}
-                        onclick={() => (deleting = node)}
+                        disabled={busy}
+                        aria-label="Cancel rename"
+                        tooltip="Cancel"
+                        onclick={cancelEdit}
                       >
-                        <Icon name="trash" size={13} />
+                        <Icon name="close" size={12} />
                       </GradientButton>
-                    </td>
-                  </tr>
-                {/each}
-              </tbody>
-            </table>
-          </div>
-        {/if}
+                    {:else}
+                      <span class="segment">{label(node)}</span>
+                    {/if}
+                  </div>
+                </td>
+                <td class="num">
+                  {#if node.entries === 0}
+                    <span class="muted">—</span>
+                  {:else}
+                    {node.entries}
+                  {/if}
+                </td>
+                <td>
+                  {#if node.lastUsed}
+                    {node.lastUsed}
+                  {:else}
+                    <span class="muted">never</span>
+                  {/if}
+                </td>
+                <td>
+                  <AccountFlags
+                    accountId={node.accountId}
+                    {settings}
+                    protection={blocker}
+                  >
+                    {#snippet lead()}
+                      {#if node.accountId === null}
+                        <span
+                          title="No account was filed at this path — it exists because something beneath it does"
+                        >
+                          <Chip size="xs">category</Chip>
+                        </span>
+                      {/if}
+                    {/snippet}
+                    {#if empty}
+                      <Chip size="xs">empty</Chip>
+                    {/if}
+                  </AccountFlags>
+                </td>
+                <td class="actions">
+                  <GradientButton
+                    quiet
+                    square
+                    disabled={blocker?.kind === 'system' ||
+                      editingPath !== null}
+                    aria-label={`Rename ${node.path}`}
+                    tooltip={blocker?.kind === 'system'
+                      ? protectionMessage(blocker)
+                      : hasChildren
+                        ? 'Rename — this renames everything beneath it too'
+                        : 'Rename'}
+                    onclick={() => startEdit(node)}
+                  >
+                    <Icon name="edit-txn" size={13} />
+                  </GradientButton>
+                  <GradientButton
+                    quiet
+                    square
+                    disabled={!deletable}
+                    aria-label={`Delete ${node.path}`}
+                    tooltip={blocker
+                      ? protectionMessage(blocker)
+                      : node.accountId === null
+                        ? 'Nothing was filed here, so there is nothing to delete'
+                        : deletable
+                          ? 'Delete this category'
+                          : 'Only a category with no entries and nothing beneath it can be deleted'}
+                    onclick={() => (deleting = node)}
+                  >
+                    <Icon name="trash" size={13} />
+                  </GradientButton>
+                </td>
+              </tr>
+            {/each}
+          </tbody>
+        </table>
       {/if}
-    </Card>
+    </SectionCard>
   {/each}
 {/if}
 
-<Modal
-  title="Rename category"
-  bind:open={
-    () => pending !== null, (v) => { if (!v) pending = null }
-  }
->
-  {#if pending}
-    <div class="confirm">
-      <p>
-        This renames <strong>{pending.affected.length}</strong>
-        account{pending.affected.length === 1 ? '' : 's'} under
-        <code>{pending.from}</code> → <code>{pending.to}</code>. Entries stay
-        attached — only the name changes.
-      </p>
-      <ul class="affected">
-        {#each pending.affected as p (p)}
-          <li>
-            <code>{p}</code> →
-            <code>{pending.to}{p.slice(pending.from.length)}</code>
-          </li>
-        {/each}
-      </ul>
-      <div class="confirm-actions">
-        <GradientButton disabled={busy} onclick={() => (pending = null)}>
-          Cancel
-        </GradientButton>
-        <GradientButton
-          variant="primary"
-          disabled={busy}
-          onclick={() => pending && applyRename(pending.from, pending.to)}
-        >
-          {busy ? 'Renaming…' : 'Rename all'}
-        </GradientButton>
-      </div>
-    </div>
-  {/if}
-</Modal>
+{#if pending}
+  <ConfirmDialog
+    title="Rename category"
+    open={true}
+    confirmLabel="Rename all"
+    busyLabel="Renaming…"
+    {busy}
+    onconfirm={() => pending && applyRename(pending.from, pending.to)}
+    oncancel={() => (pending = null)}
+  >
+    <p>
+      This renames <strong>{pending.affected.length}</strong>
+      account{pending.affected.length === 1 ? '' : 's'} under
+      <code>{pending.from}</code> → <code>{pending.to}</code>. Entries stay
+      attached — only the name changes.
+    </p>
+    <ul class="affected">
+      {#each pending.affected as p (p)}
+        <li>
+          <code>{p}</code> →
+          <code>{pending.to}{p.slice(pending.from.length)}</code>
+        </li>
+      {/each}
+    </ul>
+  </ConfirmDialog>
+{/if}
 
-<Modal
-  title="Delete category"
-  bind:open={
-    () => deleting !== null, (v) => { if (!v) deleting = null }
-  }
->
-  {#if deleting}
-    <div class="confirm">
-      <p>
-        Delete <code>{deleting.path}</code>? It has no entries and nothing filed
-        beneath it.
-      </p>
-      <div class="confirm-actions">
-        <GradientButton disabled={busy} onclick={() => (deleting = null)}>
-          Cancel
-        </GradientButton>
-        <GradientButton
-          variant="warning"
-          disabled={busy}
-          onclick={confirmDelete}
-        >
-          {busy ? 'Deleting…' : 'Delete'}
-        </GradientButton>
-      </div>
-    </div>
-  {/if}
-</Modal>
+{#if deleting}
+  <ConfirmDialog
+    title="Delete category"
+    open={true}
+    confirmLabel="Delete"
+    busyLabel="Deleting…"
+    variant="warning"
+    {busy}
+    onconfirm={confirmDelete}
+    oncancel={() => (deleting = null)}
+  >
+    <p>
+      Delete <code>{deleting.path}</code>? It has no entries and nothing filed
+      beneath it.
+    </p>
+  </ConfirmDialog>
+{/if}
 
 <style>
-  /* --- Toolbar --- */
-  .toolbar {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    flex-wrap: wrap;
-  }
-
-  .search {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    color: var(--color-text-muted);
-  }
-
-  .control {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
   .quick-add {
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    margin-left: auto;
-  }
-
-  /* --- Section card --- */
-  .group-header {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    padding: 4px var(--sp-sm);
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-  }
-
-  .group-toggle {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    min-width: 0;
-    padding: 2px 0;
-    border: none;
-    background: none;
-    color: inherit;
-    text-align: left;
-    cursor: pointer;
-  }
-
-  .group-toggle:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
-  }
-
-  .chevron {
-    flex-shrink: 0;
-    transition: rotate var(--duration-fast) var(--ease);
-    filter: invert(1);
-  }
-
-  .chevron.open {
-    rotate: 90deg;
-  }
-
-  .group-label {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
-    letter-spacing: 0.4px;
-    text-transform: uppercase;
-  }
-
-  .group-count {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    opacity: 0.7;
-  }
-
-  .group-total {
-    margin-left: auto;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-  }
-
-  .unit {
-    opacity: 0.7;
-    font-size: 10px;
-  }
-
-  /* --- Table --- */
-  .table-wrap {
-    overflow-x: auto;
-  }
-
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: var(--text-xs);
-  }
-
-  th {
-    text-align: left;
-    padding: 4px var(--sp-sm);
-    font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: var(--weight-semibold);
-    letter-spacing: 0.8px;
-    text-transform: uppercase;
-    color: var(--color-text-muted);
-    border-bottom: 1px solid var(--color-rule);
-    white-space: nowrap;
-  }
-
-  td {
-    padding: 3px var(--sp-sm);
-    border-bottom: 1px solid var(--color-rule);
-    vertical-align: middle;
-  }
-
-  tbody tr:last-child td {
-    border-bottom: none;
-  }
-
-  tbody tr:hover {
-    background: var(--color-window-raised);
-  }
-
-  tr.editing {
-    background: var(--color-window-raised);
-  }
-
-  th.num,
-  td.num {
-    text-align: right;
-    font-family: var(--font-mono);
-    white-space: nowrap;
-  }
-
-  th.actions,
-  td.actions {
-    text-align: right;
-    white-space: nowrap;
   }
 
   .cell {
@@ -866,50 +662,25 @@
     white-space: nowrap;
   }
 
-  .flags {
-    display: flex;
-    align-items: center;
-    gap: 4px;
-    flex-wrap: wrap;
-  }
-
-  .muted {
-    color: var(--color-text-muted);
-  }
-
-  /* --- Messages and dialogs --- */
+  /* --- Messages --- *
+     Kept in step with the Accounts tab by hand: two rules is under the weight of another
+     shared component, and they are the last thing the two tabs still say twice. */
   .message {
     margin: 0;
-    padding: var(--sp-md) var(--sp-sm);
-    font-size: var(--text-sm);
+    padding: var(--sp-lg);
     color: var(--color-text-muted);
+    font-size: var(--text-sm);
   }
 
   .message.error {
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
   }
 
   .loading-block {
     display: flex;
     flex-direction: column;
-    gap: var(--sp-xs);
-  }
-
-  .confirm {
-    display: flex;
-    flex-direction: column;
-    gap: var(--sp-md);
-    max-width: 32rem;
-  }
-
-  .confirm p {
-    margin: 0;
-    font-size: var(--text-sm);
-  }
-
-  .confirm code {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    gap: var(--sp-sm);
+    padding: var(--sp-sm);
   }
 
   .affected {
@@ -929,23 +700,5 @@
 
   .affected li {
     font-size: var(--text-xs);
-  }
-
-  .confirm-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--sp-sm);
-  }
-
-  .sr-only {
-    position: absolute;
-    width: 1px;
-    height: 1px;
-    padding: 0;
-    margin: -1px;
-    overflow: hidden;
-    clip: rect(0, 0, 0, 0);
-    white-space: nowrap;
-    border: 0;
   }
 </style>

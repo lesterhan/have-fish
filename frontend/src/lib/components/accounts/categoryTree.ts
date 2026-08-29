@@ -61,7 +61,9 @@ export interface CategoryNode {
  */
 export function isDeletable(node: CategoryNode): boolean {
   return (
-    node.accountId !== null && node.ownEntries === 0 && node.children.length === 0
+    node.accountId !== null &&
+    node.ownEntries === 0 &&
+    node.children.length === 0
   )
 }
 
@@ -148,7 +150,11 @@ export interface CategorySection {
  * `unfiled` is the safety net the epic makes non-negotiable: an account outside every
  * configured root has to land somewhere, or the tabs between them lose a row.
  */
-export const CATEGORY_SURFACES: readonly Surface[] = ['expenses', 'income', 'unfiled']
+export const CATEGORY_SURFACES: readonly Surface[] = [
+  'expenses',
+  'income',
+  'unfiled',
+]
 
 /**
  * Split the tree into the tab's sections.
@@ -171,7 +177,9 @@ export function categorySections(
     const root = key === 'unfiled' ? '' : roots[key]
     const only = forest.length === 1 ? forest[0]! : null
     const nodes =
-      only && only.path === root && only.accountId === null ? only.children : forest
+      only && only.path === root && only.accountId === null
+        ? only.children
+        : forest
     sections.push({
       key,
       label: SURFACE_LABEL[key],
@@ -271,6 +279,42 @@ export function nodePaths(nodes: readonly CategoryNode[]): string[] {
   }
   walk(nodes)
   return out
+}
+
+/**
+ * Every real account row in the forest, sorted by path — the Flat view.
+ *
+ * Virtual segments are left out: the flat list is the one the Settings panel used to show,
+ * and that list was rows you could act on, not the shape of the tree.
+ */
+export function realRows(nodes: readonly CategoryNode[]): CategoryNode[] {
+  const out: CategoryNode[] = []
+  const walk = (list: readonly CategoryNode[]) => {
+    for (const node of list) {
+      if (node.accountId !== null) out.push(node)
+      walk(node.children)
+    }
+  }
+  walk(nodes)
+  return out.sort((a, b) => a.path.localeCompare(b.path))
+}
+
+/**
+ * One button for fold-all and unfold-all: anything still open means fold, otherwise unfold.
+ *
+ * Only the named branches change, so folding one section leaves the others as you left them.
+ */
+export function foldAll(
+  collapsed: ReadonlySet<string>,
+  branches: readonly string[],
+): Set<string> {
+  const anyOpen = branches.some((p) => !collapsed.has(p))
+  const next = new Set(collapsed)
+  for (const p of branches) {
+    if (anyOpen) next.add(p)
+    else next.delete(p)
+  }
+  return next
 }
 
 /** Every path in the forest that has children — what "collapse all" needs to name. */
