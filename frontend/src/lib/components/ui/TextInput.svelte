@@ -27,6 +27,7 @@
     height: 24px;
     box-sizing: border-box;
     outline: none;
+    appearance: none;
     transition:
       border-color var(--duration-fast) var(--ease),
       box-shadow var(--duration-fast) var(--ease);

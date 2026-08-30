@@ -14,7 +14,6 @@
   import Select from '$lib/components/ui/Select.svelte'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
-  import TextInput from '$lib/components/ui/TextInput.svelte'
   import AddAccountWizard from '$lib/components/wizards/AddAccountWizard.svelte'
   import AccountDrawer from '$lib/components/accounts/AccountDrawer.svelte'
   import AccountFlags from '$lib/components/accounts/AccountFlags.svelte'
@@ -81,7 +80,11 @@
   // answering. Owing reads as a magnitude under its own label rather than a signed figure —
   // a card that owes 3,759 is not an error, and a minus sign there is an alarm that never
   // stops going off.
-  const POSITION_CARDS: { key: PositionBucket; label: string; magnitude?: boolean }[] = [
+  const POSITION_CARDS: {
+    key: PositionBucket
+    label: string
+    magnitude?: boolean
+  }[] = [
     { key: 'cash', label: 'Available' },
     { key: 'investments', label: 'Investments' },
     { key: 'owed', label: 'Owed to you' },
@@ -227,7 +230,10 @@
   )
 
   let attentionTotal = $derived(
-    needAttention.reduce((sum, r) => sum + (attentionFor(r.account.id) ?? 0), 0),
+    needAttention.reduce(
+      (sum, r) => sum + (attentionFor(r.account.id) ?? 0),
+      0,
+    ),
   )
 
   let attentionOnly = $state(false)
@@ -246,8 +252,11 @@
   let shownRows = $derived(
     allRows.filter((r) => {
       const hidden = hiddenIds.has(r.account.id)
-      const visible = show === 'all' ? true : show === 'hidden' ? hidden : !hidden
-      return visible && (!attentionOnly || (attentionFor(r.account.id) ?? 0) > 0)
+      const visible =
+        show === 'all' ? true : show === 'hidden' ? hidden : !hidden
+      return (
+        visible && (!attentionOnly || (attentionFor(r.account.id) ?? 0) > 0)
+      )
     }),
   )
 
@@ -265,7 +274,9 @@
   })
 
   let visibleRows = $derived(
-    matchedIds ? shownRows.filter((r) => matchedIds.has(r.account.id)) : shownRows,
+    matchedIds
+      ? shownRows.filter((r) => matchedIds.has(r.account.id))
+      : shownRows,
   )
 
   let groups = $derived(groupRows(visibleRows, grouping))
@@ -305,7 +316,11 @@
     }
   }
 
-  function withId(list: readonly string[], id: string, present: boolean): string[] {
+  function withId(
+    list: readonly string[],
+    id: string,
+    present: boolean,
+  ): string[] {
     const without = list.filter((x) => x !== id)
     return present ? [...without, id] : without
   }
@@ -323,7 +338,9 @@
     // The Active view filters hidden accounts out, so the row the user just acted on
     // disappears. Say where it went rather than leaving them to wonder what they deleted.
     if (hidden && show === 'active') {
-      toast.show(`Hidden — switch Show to All or Hidden to see ${ids.length === 1 ? 'it' : 'them'}.`)
+      toast.show(
+        `Hidden — switch Show to All or Hidden to see ${ids.length === 1 ? 'it' : 'them'}.`,
+      )
     }
   }
 
@@ -386,7 +403,10 @@
   async function bulkPin(pinned: boolean) {
     bulkBusy = true
     try {
-      await setPinned(selection.map((r) => r.account.id), pinned)
+      await setPinned(
+        selection.map((r) => r.account.id),
+        pinned,
+      )
     } finally {
       bulkBusy = false
     }
@@ -400,7 +420,10 @@
     }
     bulkBusy = true
     try {
-      await setHidden(hidable.map((r) => r.account.id), true)
+      await setHidden(
+        hidable.map((r) => r.account.id),
+        true,
+      )
       if (skipped > 0) {
         toast.show(
           `Hid ${hidable.length}; kept ${skipped} that ${skipped === 1 ? 'is' : 'are'} in use.`,
@@ -417,7 +440,9 @@
     const targets = selection.map((r) => r.account)
     try {
       await Promise.all(
-        targets.map((a) => updateAccount(a.id, { defaultCurrency: bulkCurrency })),
+        targets.map((a) =>
+          updateAccount(a.id, { defaultCurrency: bulkCurrency }),
+        ),
       )
       toast.show(
         `Default currency set to ${bulkCurrency} on ${targets.length} account${targets.length === 1 ? '' : 's'}.`,
@@ -457,7 +482,10 @@
   async function reloadAccounts() {
     accounts = await fetchAccountBalances({ includeUnfiled: true })
     lastActivityById = new Map(
-      (await fetchAccountPostingCounts()).map((c) => [c.accountId, c.lastActivity]),
+      (await fetchAccountPostingCounts()).map((c) => [
+        c.accountId,
+        c.lastActivity,
+      ]),
     )
     refreshSidebar()
   }
@@ -755,7 +783,10 @@
                   {@const pinned = pinnedIds.has(row.account.id)}
                   {@const hidden = hiddenIds.has(row.account.id)}
                   {@const open = openRowId === row.account.id}
-                  <tr class:selected={selectedIds.has(row.account.id)} class:open>
+                  <tr
+                    class:selected={selectedIds.has(row.account.id)}
+                    class:open
+                  >
                     <td class="pick">
                       <Checkbox
                         checked={selectedIds.has(row.account.id)}
@@ -839,11 +870,15 @@
                           ? `Hide recent entries for ${row.displayName}`
                           : `Show recent entries for ${row.displayName}`}
                         aria-expanded={open}
-                        tooltip={open ? 'Close' : 'Recent entries and what is unfinished'}
+                        tooltip={open
+                          ? 'Close'
+                          : 'Recent entries and what is unfinished'}
                         onclick={() => toggleRow(row.account.id)}
                       >
                         <Icon
-                          name={open ? 'chevron-up-filled' : 'chevron-down-line'}
+                          name={open
+                            ? 'chevron-up-filled'
+                            : 'chevron-down-line'}
                           size={13}
                         />
                       </GradientButton>

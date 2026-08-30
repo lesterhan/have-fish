@@ -359,8 +359,8 @@
   }
 
   .form-grid :global(.text-input),
-  .form-grid :global(.select-input),
-  .multi-grid :global(.select-input) {
+  .form-grid :global(.select-shell),
+  .multi-grid :global(.select-shell) {
     font-size: var(--text-xs);
     width: 100%;
   }
