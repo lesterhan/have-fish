@@ -14,18 +14,24 @@
     tabs: TabItem[]
     /** The active tab's id. */
     active: string
+    /**
+     * Called with the id the user picked. The strip is controlled — it never writes
+     * `active` itself, so whatever the host derives that from (a `$state`, the URL) stays
+     * the one source of truth and cannot end up arguing with a copy held in here.
+     */
+    onselect: (id: string) => void
     /** Names the tablist for screen readers, e.g. "Account settings sections". */
     label: string
     /** Prefix for the generated panel ids, so `aria-controls` points somewhere real. */
     panelIdPrefix: string
   }
 
-  let { tabs, active = $bindable(), label, panelIdPrefix }: Props = $props()
+  let { tabs, active, onselect, label, panelIdPrefix }: Props = $props()
 
   let stripEl = $state<HTMLDivElement | undefined>(undefined)
 
   function focusTab(id: string) {
-    active = id
+    onselect(id)
     // The roving tabindex means only the active tab is reachable, so focus has to follow
     // the selection or the keyboard user is left on an element that just left the tab order.
     stripEl?.querySelector<HTMLButtonElement>(`[data-tab="${id}"]`)?.focus()
@@ -74,7 +80,7 @@
       aria-selected={tab.id === active}
       aria-controls={`${panelIdPrefix}-panel-${tab.id}`}
       tabindex={tab.id === active ? 0 : -1}
-      onclick={() => (active = tab.id)}
+      onclick={() => onselect(tab.id)}
     >
       {tab.label}
       {#if tab.alert}
