@@ -243,7 +243,7 @@ crossing a border needs a second wallet, not a first one, and it is the same thr
 - The Cash header now shows the active wallet's name and balance. Switching wallets lives on
   the Wallets tab, not in the header — unlike groups, a wallet is picked rarely.
 
-### 4. Spend — cash entry with expense splits
+### 4. Spend — cash entry with expense splits ✅ Done
 
 The core screen. Reuses `AmountHero`, `Numpad`, `CurrencySheet`, `DateSheet`,
 `AccountSelect`, `GlossButton`.
@@ -261,6 +261,28 @@ The core screen. Reuses `AmountHero`, `Numpad`, `CurrencySheet`, `DateSheet`,
   validation, posting assembly, balance-to-zero assertion, submit-enabled predicate.
 - **Acceptance:** a three-way split lands as one four-posting transaction, visible on the
   web transaction detail with the correct flow narration.
+
+**Shipped.** Notes for the stories that build on this:
+
+- **All money arithmetic is in integer cents** (`toCents`/`fromCents`). Amounts are
+  `numeric(12,2)` strings and summing them as floats drifts — `8.87 * 100` is `886.9999…`,
+  so truncating bills a cent less than the user typed, and a split that looks exact on
+  screen can fail the backend's balance check. Story 5's builders should use the same
+  helpers rather than parsing to floats.
+- A **single row carries the hero total implicitly** (`syncSingleRow`) and shows no amount
+  of its own, so an unsplit purchase costs no extra taps and shows no arithmetic. Adding a
+  second row pins the first one's amount before seeding the new row with the remainder —
+  otherwise both would claim the whole total.
+- One numpad drives whichever amount is focused: the hero by default, a split row once
+  tapped. With a split open the screen says which, since the same keys mean different
+  things.
+- `submitBlocker` returns the *first* thing standing in the way, ordered the way the screen
+  is filled in, so the hint names the next thing to do rather than the last thing wrong.
+- Currency is the wallet's, never a choice — money leaving a CNY wallet is CNY. The
+  currency pill is therefore display-only here, unlike the Fish Pie Add screen.
+- Backend contract tests in `transactions.test.ts` pin the exact posting shape the Spend tab
+  sends (four postings, wallet credited, expenses debited) and that an unbalanced split is
+  still rejected server-side.
 
 ### 5. Top-ups and withdrawals
 
