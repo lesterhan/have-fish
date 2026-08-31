@@ -8,6 +8,7 @@ import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { GlossButton } from './GlossButton'
 import { GlossSurface } from './GlossSurface'
+import { TopUpSheet } from './TopUpSheet'
 import { WalletCreateSheet } from './WalletCreateSheet'
 
 /**
@@ -21,6 +22,7 @@ import { WalletCreateSheet } from './WalletCreateSheet'
 export function WalletsPanel() {
   const { wallets, activeWalletId, setActiveWallet, loading, error, reload } = useWallets()
   const [createOpen, setCreateOpen] = useState(false)
+  const [topUpId, setTopUpId] = useState<string | null>(null)
 
   if (loading && wallets.length === 0) {
     return (
@@ -31,6 +33,7 @@ export function WalletsPanel() {
   }
 
   const empty = wallets.length === 0
+  const topUpWallet = wallets.find((w) => w.id === topUpId) ?? null
 
   return (
     <>
@@ -56,6 +59,10 @@ export function WalletsPanel() {
                   haptics.selection()
                   setActiveWallet(wallet.id)
                 }}
+                onTopUp={() => {
+                  haptics.selection()
+                  setTopUpId(wallet.id)
+                }}
               />
             ))}
             <GlossButton
@@ -70,6 +77,14 @@ export function WalletsPanel() {
       </ScrollView>
 
       <WalletCreateSheet visible={createOpen} onClose={() => setCreateOpen(false)} first={empty} />
+
+      {topUpWallet != null && (
+        <TopUpSheet
+          visible
+          wallet={topUpWallet}
+          onClose={() => setTopUpId(null)}
+        />
+      )}
     </>
   )
 }
@@ -78,10 +93,12 @@ function WalletCard({
   wallet,
   active,
   onPress,
+  onTopUp,
 }: {
   wallet: WalletView
   active: boolean
   onPress: () => void
+  onTopUp: () => void
 }) {
   const { accent } = useShellMode()
   const negative = parseFloat(wallet.amount) < 0
@@ -117,6 +134,14 @@ function WalletCard({
             also {formatAmount(b.amount)} {b.currency}
           </Text>
         ))}
+
+        <GlossButton
+          label="Top up"
+          variant="neutral"
+          height={36}
+          onPress={onTopUp}
+          style={styles.topUp}
+        />
       </GlossSurface>
     </Pressable>
   )
@@ -175,6 +200,7 @@ const styles = StyleSheet.create({
     color: theme.color.ink2,
     marginTop: 2,
   },
+  topUp: { marginTop: theme.sp.xs, alignSelf: 'flex-start', paddingHorizontal: theme.sp.md },
   add: { marginTop: theme.sp.xs },
   empty: { padding: theme.sp.lg, gap: theme.sp.xs, alignItems: 'center' },
   emptyTitle: {

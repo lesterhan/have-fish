@@ -141,16 +141,23 @@ export type PostingInput = {
   currency: string
 }
 
+/** A posting's job inside its transaction, derived server-side. */
+export type PostingRole = 'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
+
 export type Transaction = {
   id: string
   date: string
   description?: string | null
+  /** Set when the transaction belongs to a Fish Pie expense — the group's name. */
+  groupName?: string | null
   postings: {
     id: string
     accountId: string
-    accountPath?: string
+    accountPath: string
+    accountName?: string | null
     amount: string
     currency: string
+    role: PostingRole
   }[]
 }
 

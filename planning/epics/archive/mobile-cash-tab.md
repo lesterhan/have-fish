@@ -4,7 +4,7 @@ Goal: Give the Companion a second, clearly-separated mode for working a **cash w
 log cash spend (splittable across expense accounts), see what's in each wallet across
 currencies, record top-ups/withdrawals, and scan cash history. Personal ledger, not Fish Pie.
 
-Status: **Scoping** — design agreed 2026-08-27, stories not started.
+Status: **Done** — all six stories shipped 2026-08-27. Stretch items remain open.
 
 ## Why now
 
@@ -284,7 +284,7 @@ The core screen. Reuses `AmountHero`, `Numpad`, `CurrencySheet`, `DateSheet`,
   sends (four postings, wallet credited, expenses debited) and that an unbalanced split is
   still rejected server-side.
 
-### 5. Top-ups and withdrawals
+### 5. Top-ups and withdrawals ✅ Done
 
 Moving money *into* a wallet — the ATM stop and the exchange counter.
 
@@ -297,10 +297,27 @@ Moving money *into* a wallet — the ATM stop and the exchange counter.
   cross-currency path is disabled with a pointer to the web setting rather than inventing
   an account.
 - Effective rate shown before submit so a bad counter rate is obvious.
-- Pure builder + tests in `mobile/lib/cash-entry.ts` — both posting shapes, fee handling,
+- Pure builder + tests in `mobile/lib/cash-topup.ts` — both posting shapes, fee handling,
   per-currency balance assertions.
 
-### 6. Cash history
+**Shipped.** Reached from a "Top up" action on each wallet card.
+
+- Same-currency asks only what *left* the account: what arrives is what left, less any fee,
+  so `impliedReceived` derives it. Asking twice would only invite a contradiction.
+- Cross-currency asks both sides, because only the counter knows the rate, and bridges
+  through `defaultConversionAccountId` — the Currency Transfers 5-posting shape. With no
+  conversion account configured the flow blocks and says so; there is no honest way to
+  write the transaction without one, and inventing an account would post something the user
+  never agreed to.
+- The rate shown is **all-in, fee included** — a counter quoting 5.0 while skimming a fee is
+  really giving you less, and the all-in figure is the one to check against the board.
+- A fee amount with no account to book it against is refused rather than dropped: dropping
+  it would silently unbalance the transaction.
+- Backend contract tests pin the 5-posting bridge and confirm a cross-currency movement
+  *without* the bridge is rejected — which is exactly why the flow blocks rather than
+  optimistically posting.
+
+### 6. Cash history ✅ Done
 
 - `GET /api/transactions?accountId=<wallet>` feed for the active wallet, newest first,
   grouped by day, each row showing the counter-account(s) and signed amount.
@@ -312,6 +329,21 @@ Moving money *into* a wallet — the ATM stop and the exchange counter.
   "you paid 180.00 · your share 90.00" framing — never as an anonymous three-leg list.
 - Running wallet balance so the feed can be reconciled against the actual notes in pocket.
 - Refresh on focus and after any Spend / top-up, matching the pie tabs' `reloadData` habit.
+
+**Shipped.**
+
+- The running balance is derived by **unwinding from the wallet's live balance**, not by
+  accumulating from zero, so the figures agree with the Wallets tab even when the feed is
+  partial.
+- `counterpartiesOf` drops conversion legs (pure plumbing that says nothing about what
+  happened) and Fish Pie share legs (the group's name carries that meaning better than the
+  receivable account's path does).
+- A cash-funded group expense shows the group badge and "your share", per the **Cash and
+  Fish Pie** section: the wallet really is down the full amount, but only the share was
+  consumed, and both numbers matter.
+- `dayHeading` assembles its own weekday/month strings rather than calling
+  `toLocaleDateString`, whose punctuation varies with the device's ICU data — a heading that
+  shifts between builds is a needless inconsistency.
 
 ### Stretch
 

@@ -1,16 +1,10 @@
-import { CashPlaceholder } from '@/components/CashPlaceholder'
+import { CashHistoryPanel } from '@/components/CashHistoryPanel'
 
 /**
- * Cash history tab — the feed of transactions touching the active wallet, with a
- * running balance to reconcile against the notes in your pocket. Built in story
- * 6; story 2 only stakes out the route.
+ * Cash history tab — every transaction touching the active wallet, with a
+ * running balance to reconcile against the notes in your pocket. Wallet state
+ * comes from WalletProvider in the shell layout.
  */
 export default function CashHistoryScreen() {
-  return (
-    <CashPlaceholder
-      title="Cash history"
-      detail="Every transaction touching this wallet, with a running balance to check against what is in your pocket."
-      story="Story 6"
-    />
-  )
+  return <CashHistoryPanel />
 }
