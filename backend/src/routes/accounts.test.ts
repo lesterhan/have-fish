@@ -2,8 +2,8 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { eq } from 'drizzle-orm'
-import { accounts as accountsTable } from '../db/schema.ts'
+import { and, eq } from 'drizzle-orm'
+import { accounts as accountsTable, postings as postingsTable, transactions as transactionsTable } from '../db/schema.ts'
 
 type Account = typeof accountsTable.$inferSelect
 
@@ -160,6 +160,91 @@ describe('accounts', () => {
       // mean the same thing they do on GET /api/accounts.
       expect(wallet.resolvedType).toBe('cash')
       expect(wallet.type).toBe('cash')
+    })
+
+    describe('?include=unfiled', () => {
+      async function balances(qs = '') {
+        const res = await app.request(`/api/accounts/balances${qs}`, {
+          headers: { Cookie: cookie },
+        })
+        return { status: res.status, body: await res.json() }
+      }
+
+      async function paths(qs = '') {
+        const { body } = await balances(qs)
+        return (body as { path: string }[]).map((a) => a.path).sort()
+      }
+
+      it('omits an account outside every configured root by default', async () => {
+        await createAccount('assets:chequing')
+        await createAccount('\u50a8\u84c4:\u4e2d\u56fd\u94f6\u884c')
+        expect(await paths()).toContain('assets:chequing')
+        expect(await paths()).not.toContain('\u50a8\u84c4:\u4e2d\u56fd\u94f6\u884c')
+      })
+
+      it('includes it, with its balance, when asked', async () => {
+        const stray = await createAccount('\u50a8\u84c4:\u4e2d\u56fd\u94f6\u884c')
+        const food = await createAccount('expenses:food')
+        await createTransaction([
+          { accountId: stray, amount: '-900.00', currency: 'CNY' },
+          { accountId: food, amount: '900.00', currency: 'CNY' },
+        ])
+
+        const { body } = await balances('?include=unfiled')
+        const row = (body as { id: string; balances: unknown[] }[]).find(
+          (a) => a.id === stray,
+        )
+        // The balance is the point: showing the row without its money would be its own lie.
+        expect(row?.balances).toEqual([{ currency: 'CNY', amount: '-900.00' }])
+      })
+
+      it('still excludes expense and income accounts, which belong to Categories', async () => {
+        await createAccount('expenses:food')
+        await createAccount('income:salary')
+        const all = await paths('?include=unfiled')
+        expect(all).not.toContain('expenses:food')
+        expect(all).not.toContain('income:salary')
+      })
+
+      it('treats a path outside the *configured* roots as unfiled, not the default ones', async () => {
+        await app.request('/api/user-settings', {
+          method: 'PATCH',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ defaultAssetsRootPath: 'activos' }),
+        })
+        await createAccount('activos:banco')
+        await createAccount('assets:chequing')
+
+        const all = await paths('?include=unfiled')
+        expect(all).toContain('activos:banco')
+        // `assets` is no longer a root, so the old account is unfiled — and still visible.
+        expect(all).toContain('assets:chequing')
+      })
+
+      it('includes an account sitting at the bare root path', async () => {
+        await createAccount('assets')
+        expect(await paths('?include=unfiled')).toContain('assets')
+        // ...and so does the default selection, which used to drop it.
+        expect(await paths()).toContain('assets')
+      })
+
+      it('rejects an unknown include value rather than ignoring it', async () => {
+        expect((await balances('?include=everything')).status).toBe(400)
+      })
+
+      it('rejects combining include with types, which select different ways', async () => {
+        expect((await balances('?include=unfiled&types=asset')).status).toBe(400)
+      })
+
+      it('never returns another user\'s unfiled account', async () => {
+        const other = await createTestUser('unfiled-other@example.com')
+        await app.request('/api/accounts', {
+          method: 'POST',
+          headers: { Cookie: other, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: 'theirs:secret' }),
+        })
+        expect(await paths('?include=unfiled')).not.toContain('theirs:secret')
+      })
     })
 
     describe('?types= filter', () => {
@@ -514,6 +599,195 @@ describe('accounts', () => {
     expect(fetched.defaultCurrency).toBe('USD')
   })
 
+  describe('POST /api/accounts accepts only what it means to', () => {
+    function create(body: unknown) {
+      return app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    it('creates an account from the four fields it does accept', async () => {
+      const res = await create({
+        path: 'assets:chequing',
+        name: 'Chequing',
+        defaultCurrency: 'USD',
+        type: 'cash',
+      })
+
+      expect(res.status).toBe(201)
+      expect(await res.json()).toMatchObject({
+        path: 'assets:chequing',
+        name: 'Chequing',
+        defaultCurrency: 'USD',
+        type: 'cash',
+      })
+    })
+
+    // The route used to spread the whole request body into the insert, so any column the
+    // client named was a column the client could set.
+    it('ignores an id the client tried to choose', async () => {
+      const chosen = '00000000-0000-4000-8000-000000000001'
+
+      const res = await create({ path: 'assets:chequing', id: chosen })
+
+      expect(res.status).toBe(201)
+      expect((await res.json() as Account).id).not.toBe(chosen)
+    })
+
+    it('ignores a deletedAt, which would have created an invisible account', async () => {
+      const res = await create({
+        path: 'assets:chequing',
+        deletedAt: new Date('2020-01-01').toISOString(),
+      })
+      expect(res.status).toBe(201)
+
+      // Born deleted, it would never have appeared in a listing again.
+      const list = await app.request('/api/accounts', { headers: { Cookie: cookie } })
+      expect((await list.json() as Account[]).map((a) => a.path)).toContain('assets:chequing')
+    })
+
+    it('ignores a backdated createdAt', async () => {
+      const before = Date.now()
+
+      const res = await create({
+        path: 'assets:chequing',
+        createdAt: new Date('1999-01-01').toISOString(),
+      })
+
+      const created = await res.json() as Account
+      expect(new Date(created.createdAt!).getTime()).toBeGreaterThanOrEqual(before - 1000)
+    })
+
+    it('still ignores a userId, as it always did', async () => {
+      const otherCookie = await createTestUser('other@example.com')
+      const otherId = await app
+        .request('/api/auth/get-session', { headers: { Cookie: otherCookie } })
+        .then(async (r) => (await r.json()).user.id as string)
+
+      await create({ path: 'assets:chequing', userId: otherId })
+
+      // Their listing is not empty — sign-up seeds default accounts — so the assertion is
+      // that the account landed on the caller, not on the id they named.
+      const theirs = await app.request('/api/accounts', { headers: { Cookie: otherCookie } })
+      expect((await theirs.json() as Account[]).map((a) => a.path)).not.toContain('assets:chequing')
+    })
+
+    it('rejects a missing or malformed path instead of failing at the column', async () => {
+      expect((await create({})).status).toBe(400)
+      expect((await create({ path: '' })).status).toBe(400)
+      expect((await create({ path: 'assets::chequing' })).status).toBe(400)
+      expect((await create({ path: ' assets:chequing' })).status).toBe(400)
+      expect((await create({ path: 42 })).status).toBe(400)
+    })
+
+    it('rejects an account type it would refuse on update', async () => {
+      const res = await create({ path: 'assets:chequing', type: 'wallet' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'invalid account type' })
+    })
+
+    it('accepts a null type, which means infer from the path', async () => {
+      const res = await create({ path: 'assets:chequing', type: null })
+
+      expect(res.status).toBe(201)
+      expect((await res.json() as Account).type).toBeNull()
+    })
+
+    // The rename route refuses to move an account into the receivable namespace because
+    // those are system-managed and re-spawned at import. Creating one there directly was
+    // the same hole by another door.
+    it('refuses to create inside the receivable namespace', async () => {
+      const res = await create({ path: 'assets:receivable:someone' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toMatchObject({ error: expect.stringContaining('receivable') })
+    })
+
+    it('rejects a non-string name rather than storing it', async () => {
+      expect((await create({ path: 'assets:chequing', name: 42 })).status).toBe(400)
+    })
+  })
+
+  describe('PATCH /api/accounts/:id defaultCurrency', () => {
+    async function make(): Promise<Account> {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'assets:chequing', defaultCurrency: 'USD' }),
+      })
+      return await res.json() as Account
+    }
+
+    function patch(id: string, body: unknown) {
+      return app.request(`/api/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    }
+
+    it('clears the currency back to the user default when sent null', async () => {
+      const account = await make()
+
+      const res = await patch(account.id, { defaultCurrency: null })
+
+      expect(res.status).toBe(200)
+      expect((await res.json() as Account).defaultCurrency).toBeNull()
+    })
+
+    it('rejects a code outside the supported set rather than storing it', async () => {
+      const account = await make()
+
+      const res = await patch(account.id, { defaultCurrency: 'BANANA' })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'invalid currency' })
+
+      // The stored value is untouched — a rejected write must not be a partial one.
+      const after = await app.request(`/api/accounts/${account.id}`, { headers: { Cookie: cookie } })
+      expect((await after.json() as Account).defaultCurrency).toBe('USD')
+    })
+
+    it('rejects a non-string just as firmly', async () => {
+      const account = await make()
+
+      expect((await patch(account.id, { defaultCurrency: 42 })).status).toBe(400)
+      expect((await patch(account.id, { defaultCurrency: {} })).status).toBe(400)
+    })
+
+    it('normalises case, so "usd" is stored as USD', async () => {
+      const account = await make()
+
+      const res = await patch(account.id, { defaultCurrency: 'eur' })
+
+      expect(res.status).toBe(200)
+      expect((await res.json() as Account).defaultCurrency).toBe('EUR')
+    })
+
+    it('is checked at creation too, not only on update', async () => {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: 'assets:savings', defaultCurrency: 'BANANA' }),
+      })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'invalid currency' })
+    })
+
+    it('does not reject the other fields when currency is absent', async () => {
+      const account = await make()
+
+      const res = await patch(account.id, { name: 'Chequing' })
+
+      expect(res.status).toBe(200)
+      expect((await res.json() as Account).name).toBe('Chequing')
+    })
+  })
+
   it('DELETE /api/accounts/:id soft-deletes an account', async () => {
     const createRes = await app.request('/api/accounts', {
       method: 'POST',
@@ -552,6 +826,14 @@ describe('accounts', () => {
         headers: { Cookie: c, 'Content-Type': 'application/json' },
         body: JSON.stringify({ from, to }),
       })
+    }
+
+    async function seedReceivable(path: string) {
+      const userId = await app
+        .request('/api/auth/get-session', { headers: { Cookie: cookie } })
+        .then(async (r) => (await r.json()).user.id as string)
+      const [acct] = await db.insert(accountsTable).values({ userId, path }).returning()
+      return acct!
     }
 
     async function pathOf(id: string): Promise<string> {
@@ -631,7 +913,9 @@ describe('accounts', () => {
     })
 
     it('rejects renaming a receivable (system-managed) account', async () => {
-      const acct = await createAccount('assets:receivable:trip')
+      // Seeded the way the system seeds them — fish-pie-accounts inserts directly, and the
+      // create route now refuses this namespace, which is the point of the rename guard too.
+      const acct = await seedReceivable('assets:receivable:trip')
       const res = await rename('assets:receivable:trip', 'assets:receivable:vacation')
       expect(res.status).toBe(400)
       expect(await pathOf(acct.id)).toBe('assets:receivable:trip')
@@ -809,6 +1093,287 @@ describe('accounts', () => {
       const otherId = (await otherRes.json() as Account).id
       const res = await patch(otherId, { type: 'liability' })
       expect(res.status).toBe(404)
+    })
+  })
+
+  describe('GET /api/accounts/posting-counts', () => {
+    type CountRow = { accountId: string; count: number; lastActivity: string | null }
+
+    async function createAccount(path: string, useCookie = cookie) {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      return (await res.json() as Account).id
+    }
+
+    // Creates a balanced two-posting transaction on the given date and returns its id.
+    async function createTransaction(
+      date: string,
+      postingInputs: { accountId: string; amount: string; currency?: string }[],
+      useCookie = cookie,
+    ) {
+      const res = await app.request('/api/transactions', {
+        method: 'POST',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date,
+          postings: postingInputs.map(p => ({ currency: 'CAD', ...p })),
+        }),
+      })
+      if (res.status !== 201) throw new Error(`createTransaction failed: ${res.status}`)
+      return (await res.json() as { id: string }).id
+    }
+
+    async function fetchCounts(useCookie = cookie) {
+      const res = await app.request('/api/accounts/posting-counts', { headers: { Cookie: useCookie } })
+      expect(res.status).toBe(200)
+      return await res.json() as CountRow[]
+    }
+
+    async function rowFor(accountId: string, useCookie = cookie) {
+      return (await fetchCounts(useCookie)).find(r => r.accountId === accountId)
+    }
+
+    it('returns the posting count and the most recent transaction date together', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction('2024-01-15', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      await createTransaction('2024-03-02', [
+        { accountId: chequing, amount: '-25.00' },
+        { accountId: food, amount: '25.00' },
+      ])
+
+      expect(await rowFor(chequing)).toEqual({
+        accountId: chequing,
+        count: 2,
+        lastActivity: '2024-03-02',
+      })
+    })
+
+    it('takes the maximum date, not the most recently created transaction', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction('2024-06-01', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      // Backdated entry, created second — must not become the last activity.
+      await createTransaction('2023-01-01', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      expect((await rowFor(chequing))?.lastActivity).toBe('2024-06-01')
+    })
+
+    it('reports count 0 and lastActivity null for an account with no postings', async () => {
+      const empty = await createAccount('assets:unused')
+      expect(await rowFor(empty)).toEqual({ accountId: empty, count: 0, lastActivity: null })
+    })
+
+    it('excludes soft-deleted postings from both the count and the date', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction('2024-01-15', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      const recent = await createTransaction('2024-09-30', [
+        { accountId: chequing, amount: '-25.00' },
+        { accountId: food, amount: '25.00' },
+      ])
+      await db.update(postingsTable)
+        .set({ deletedAt: new Date() })
+        .where(and(eq(postingsTable.transactionId, recent), eq(postingsTable.accountId, chequing)))
+
+      // The chequing leg of the September transaction is gone; the food leg is not.
+      expect(await rowFor(chequing)).toEqual({ accountId: chequing, count: 1, lastActivity: '2024-01-15' })
+      expect((await rowFor(food))?.count).toBe(2)
+    })
+
+    it('excludes postings whose transaction is soft-deleted', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction('2024-01-15', [
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+      const recent = await createTransaction('2024-09-30', [
+        { accountId: chequing, amount: '-25.00' },
+        { accountId: food, amount: '25.00' },
+      ])
+      await db.update(transactionsTable)
+        .set({ deletedAt: new Date() })
+        .where(eq(transactionsTable.id, recent))
+
+      expect(await rowFor(chequing)).toEqual({ accountId: chequing, count: 1, lastActivity: '2024-01-15' })
+    })
+
+    it('omits soft-deleted accounts entirely', async () => {
+      const closed = await createAccount('assets:closed')
+      await db.update(accountsTable).set({ deletedAt: new Date() }).where(eq(accountsTable.id, closed))
+      expect(await rowFor(closed)).toBeUndefined()
+    })
+
+    it('never counts another user\'s postings', async () => {
+      const other = await createTestUser('counts-other@example.com')
+      const mine = await createAccount('assets:chequing')
+      const theirs = await createAccount('assets:chequing', other)
+      const theirFood = await createAccount('expenses:food', other)
+      await createTransaction('2024-05-05', [
+        { accountId: theirs, amount: '-10.00' },
+        { accountId: theirFood, amount: '10.00' },
+      ], other)
+
+      // My listing sees neither their account nor their activity.
+      const mineRows = await fetchCounts()
+      expect(mineRows.find(r => r.accountId === theirs)).toBeUndefined()
+      expect(mineRows.find(r => r.accountId === mine)).toEqual({
+        accountId: mine, count: 0, lastActivity: null,
+      })
+      // Theirs is intact from their side.
+      expect(await rowFor(theirs, other)).toEqual({
+        accountId: theirs, count: 1, lastActivity: '2024-05-05',
+      })
+    })
+  })
+  describe('DELETE /api/accounts/:id', () => {
+    async function createAccount(path: string, useCookie = cookie) {
+      const res = await app.request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      return (await res.json() as Account).id
+    }
+
+    async function createTransaction(
+      postingInputs: { accountId: string; amount: string }[],
+      useCookie = cookie,
+    ) {
+      const res = await app.request('/api/transactions', {
+        method: 'POST',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          date: '2024-03-03',
+          postings: postingInputs.map(p => ({ currency: 'CAD', ...p })),
+        }),
+      })
+      if (res.status !== 201) throw new Error(`createTransaction failed: ${res.status}`)
+      return (await res.json() as { id: string }).id
+    }
+
+    async function del(id: string, useCookie = cookie) {
+      return app.request(`/api/accounts/${id}`, {
+        method: 'DELETE',
+        headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
+      })
+    }
+
+    async function pathsFor(useCookie = cookie) {
+      const res = await app.request('/api/accounts', { headers: { Cookie: useCookie } })
+      return (await res.json() as Account[]).map(a => a.path)
+    }
+
+    it('deletes an account nothing depends on', async () => {
+      const id = await createAccount('expenses:hobbies')
+
+      expect((await del(id)).status).toBe(204)
+      expect(await pathsFor()).not.toContain('expenses:hobbies')
+    })
+
+    it('refuses an account that still has entries, and says how many', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      await createTransaction([
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+
+      const res = await del(food)
+      expect(res.status).toBe(409)
+      expect((await res.json() as { error: string }).error).toContain('1 entry')
+      // Still there — a refused delete must not half-apply.
+      expect(await pathsFor()).toContain('expenses:food')
+    })
+
+    it('allows the delete once the entries are gone', async () => {
+      const chequing = await createAccount('assets:chequing')
+      const food = await createAccount('expenses:food')
+      const txId = await createTransaction([
+        { accountId: chequing, amount: '-10.00' },
+        { accountId: food, amount: '10.00' },
+      ])
+
+      expect((await del(food)).status).toBe(409)
+
+      // A soft-deleted transaction is already gone, so it no longer holds the account.
+      const delTx = await app.request(`/api/transactions/${txId}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
+      expect(delTx.status).toBeLessThan(300)
+
+      expect((await del(food)).status).toBe(204)
+    })
+
+    it('refuses an account a default role points at, naming the role', async () => {
+      const offset = await createAccount('equity:opening')
+      const patch = await app.request('/api/user-settings', {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultOffsetAccountId: offset }),
+      })
+      expect(patch.status).toBe(200)
+
+      const res = await del(offset)
+      expect(res.status).toBe(409)
+      expect((await res.json() as { error: string }).error).toContain('offset')
+
+      // Re-pointing the setting releases it.
+      await app.request('/api/user-settings', {
+        method: 'PATCH',
+        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ defaultOffsetAccountId: null }),
+      })
+      expect((await del(offset)).status).toBe(204)
+    })
+
+    it('refuses a receivable account, which Fish Pie re-spawns anyway', async () => {
+      // Inserted directly: POST refuses the receivable namespace by design, so the only way
+      // one exists is Fish Pie spawning it.
+      const mine = await createAccount('assets:chequing')
+      const [owner] = await db
+        .select({ userId: accountsTable.userId })
+        .from(accountsTable)
+        .where(eq(accountsTable.id, mine))
+      const [row] = await db
+        .insert(accountsTable)
+        .values({ userId: owner!.userId, path: 'assets:receivable:alice' })
+        .returning()
+
+      const res = await del(row!.id)
+      expect(res.status).toBe(409)
+      expect((await res.json() as { error: string }).error).toContain('system-managed')
+    })
+
+    it('404s on another user\'s account rather than reporting success', async () => {
+      const other = await createTestUser('other-delete@example.com')
+      const theirs = await createAccount('assets:theirs', other)
+
+      expect((await del(theirs)).status).toBe(404)
+      // Untouched from their side.
+      expect(await pathsFor(other)).toContain('assets:theirs')
+    })
+
+    it('404s on an account that is already deleted', async () => {
+      const id = await createAccount('expenses:gone')
+      expect((await del(id)).status).toBe(204)
+      expect((await del(id)).status).toBe(404)
     })
   })
 })

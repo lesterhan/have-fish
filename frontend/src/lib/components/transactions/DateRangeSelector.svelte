@@ -17,10 +17,29 @@
 
   interface Props {
     value: DateRange
+    /**
+     * The page's own default range. When given, a clear affordance appears inside the
+     * field whenever the current range differs from it — an control that only exists
+     * when there is something to clear, replacing a permanently-present reset button.
+     */
+    defaultRange?: DateRange
     onchange: (range: DateRange) => void
   }
 
-  let { value, onchange }: Props = $props()
+  let { value, defaultRange, onchange }: Props = $props()
+
+  let canClear = $derived(
+    defaultRange !== undefined &&
+      (value.from !== defaultRange.from || value.to !== defaultRange.to),
+  )
+
+  function clear() {
+    if (!defaultRange) return
+    isOpen = false
+    error = ''
+    inputText = rangeToText(defaultRange)
+    onchange(defaultRange)
+  }
 
   function resolvePreset(preset: Preset, today = new Date()): DateRange {
     const from = new Date(today)
@@ -117,14 +136,25 @@
 </script>
 
 <div class="wrapper" bind:this={wrapperEl}>
-  <input
-    class="range-input"
-    type="text"
-    bind:value={inputText}
-    bind:this={inputEl}
-    onfocus={open}
-    onkeydown={handleKeydown}
-  />
+  <div class="field" class:clearable={canClear}>
+    <input
+      class="range-input"
+      type="text"
+      bind:value={inputText}
+      bind:this={inputEl}
+      onfocus={open}
+      onkeydown={handleKeydown}
+    />
+    {#if canClear}
+      <button
+        class="clear"
+        type="button"
+        aria-label="Clear date filter"
+        onmousedown={(e) => e.preventDefault()}
+        onclick={clear}>×</button
+      >
+    {/if}
+  </div>
 
   {#if isOpen}
     <div class="dropdown" role="listbox">
@@ -157,6 +187,12 @@
     gap: calc(var(--sp-xs) / 2);
   }
 
+  .field {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+  }
+
   .range-input {
     font-family: var(--font-mono);
     font-size: 11px;
@@ -172,6 +208,43 @@
     transition:
       border-color var(--duration-fast) var(--ease),
       box-shadow var(--duration-fast) var(--ease);
+  }
+
+  /* Room for the × so a long range string never slides under it. */
+  .clearable .range-input {
+    padding-right: 18px;
+  }
+
+  .clear {
+    position: absolute;
+    right: 3px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 14px;
+    height: 14px;
+    padding: 0;
+    border: none;
+    border-radius: var(--radius-sm);
+    background: none;
+    font-family: var(--font-sans);
+    font-size: 13px;
+    line-height: 1;
+    color: var(--color-text-muted);
+    cursor: pointer;
+    transition:
+      color var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
+  }
+
+  .clear:hover {
+    color: var(--color-text);
+    background: var(--color-accent-light);
+  }
+
+  .clear:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    outline-offset: -1px;
   }
 
   .range-input:focus {

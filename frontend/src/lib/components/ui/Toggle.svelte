@@ -3,12 +3,20 @@
     checked?: boolean
     label?: string
     disabled?: boolean
+    /** For callers whose visible label lives outside the toggle — e.g. a settings row. */
+    'aria-labelledby'?: string
     // For callers whose stored value isn't the toggle's own boolean — e.g. a tri-state
     // override that records "same as derived" as null.
     onchange?: (checked: boolean) => void
   }
 
-  let { checked = $bindable(false), label, disabled = false, onchange }: Props = $props()
+  let {
+    checked = $bindable(false),
+    label,
+    disabled = false,
+    'aria-labelledby': ariaLabelledby,
+    onchange,
+  }: Props = $props()
 </script>
 
 <label class="toggle-wrap" class:disabled>
@@ -17,6 +25,7 @@
     class="toggle-input"
     bind:checked
     {disabled}
+    aria-labelledby={ariaLabelledby}
     onchange={(e) => onchange?.((e.currentTarget as HTMLInputElement).checked)}
   />
   <span class="track" class:on={checked}>

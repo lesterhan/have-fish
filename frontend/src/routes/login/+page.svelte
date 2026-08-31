@@ -1,5 +1,6 @@
 <script lang="ts">
   import { signIn } from '$lib/auth'
+  import { HOME } from '$lib/routes'
   import { goto } from '$app/navigation'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
@@ -16,7 +17,9 @@
     if (result.error) {
       error = result.error.message ?? 'Sign in failed'
     } else {
-      goto('/spending')
+      // Straight there rather than via `/`, which would only redirect here anyway. The
+      // shared constant is what keeps this in step with the root load.
+      goto(HOME)
     }
   }
 </script>

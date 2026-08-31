@@ -1,11 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import {
-    fetchAccounts,
-    createAccount,
-    deleteAccount,
-    fetchAccountPostingCounts,
-  } from '$lib/api'
+  import { fetchAccounts } from '$lib/api'
   import type { Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -20,7 +15,6 @@
   import { confetti } from '$lib/confetti.svelte'
   import { toast } from '$lib/toast.svelte'
   import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
-  import { scrollShadow } from '$lib/scrollShadow'
 
   const session = useSession()
 
@@ -65,35 +59,21 @@
   let conversionAccountId = $state('')
   let adjustmentsAccountId = $state('')
   let preferredCurrency = $state('CAD')
+  // Still fetched, but only to feed the three account pickers below — the flat list of every
+  // path this page used to render alongside them is the Accounts page's job now.
   let accounts = $state<Account[]>([])
-  let newAccountPath = $state('')
-  let postingCountMap = $state<Map<string, number>>(new Map())
 
   onMount(async () => {
-    const [accts, settings, counts] = await Promise.all([
+    const [accts, settings] = await Promise.all([
       fetchAccounts(),
       settingsStore.load(),
-      fetchAccountPostingCounts(),
     ])
     accounts = accts
-    postingCountMap = new Map(counts.map((c) => [c.accountId, c.count]))
     offsetAccountId = settings.defaultOffsetAccountId ?? ''
     conversionAccountId = settings.defaultConversionAccountId ?? ''
     adjustmentsAccountId = settings.defaultAdjustmentsAccountId ?? ''
     preferredCurrency = settings.preferredCurrency ?? 'CAD'
   })
-
-  async function handleCreateAccount() {
-    if (!newAccountPath.trim()) return
-    const created = await createAccount({ path: newAccountPath.trim() })
-    accounts = [...accounts, created]
-    newAccountPath = ''
-  }
-
-  async function handleDeleteAccount(id: string) {
-    await deleteAccount(id)
-    accounts = accounts.filter((a: { id: string }) => a.id !== id)
-  }
 
   const defaultLabels: Record<string, string> = {
     defaultOffsetAccountId: 'Uncategorized account',
@@ -138,10 +118,6 @@
     await authClient.deleteUser()
     goto('/login')
   }
-
-  let sortedAccounts = $derived(
-    [...accounts].sort((a, b) => a.path.localeCompare(b.path)),
-  )
 </script>
 
 <div class="page">
@@ -198,6 +174,14 @@
   <div class="settings-section section-defaults">
     <div class="section-bar">
       <span class="section-bar-title">Account Defaults</span>
+      <!-- These three are pointers *at* accounts, so they stay here; the accounts themselves
+           moved. The link is where the old "Manage" button was, for the muscle memory. -->
+      <GradientButton
+        onclick={() => goto('/accounts')}
+        tooltip="Add, rename, pin and hide accounts and categories"
+      >
+        Accounts
+      </GradientButton>
     </div>
     <div class="section-body">
       <div class="setting-row">
@@ -387,55 +371,6 @@
       </div>
     </div>
   </div>
-
-  <!-- Accounts (right column) -->
-  <div class="settings-section section-accounts">
-    <div class="section-bar">
-      <span class="section-bar-title">Accounts · {accounts.length}</span>
-      <GradientButton onclick={() => goto('/accounts/manage')} tooltip="Rename accounts and categories">
-        Manage
-      </GradientButton>
-    </div>
-    <form
-      class="add-row"
-      onsubmit={(e) => {
-        e.preventDefault()
-        handleCreateAccount()
-      }}
-    >
-      <TextInput
-        bind:value={newAccountPath}
-        placeholder="assets:cash"
-        spellcheck={false}
-        style="flex: 1; min-width: 0; width: auto"
-      />
-      <GradientButton type="submit" active disabled={!newAccountPath.trim()}
-        >Add</GradientButton
-      >
-    </form>
-    <div class="accounts-list" use:scrollShadow>
-      {#each sortedAccounts as account (account.id)}
-        <div class="list-row">
-          <span class="account-path">{account.path}</span>
-          {#if postingCountMap.has(account.id)}
-            {@const n = postingCountMap.get(account.id)!}
-            <span class="posting-count">({n > 99 ? '99+' : n})</span>
-          {/if}
-          <GradientButton
-            square
-            variant="warning"
-            onclick={() => handleDeleteAccount(account.id)}
-            tooltip="Delete account"
-          >
-            <Icon name="trash" size={12} />
-          </GradientButton>
-        </div>
-      {/each}
-      {#if accounts.length === 0}
-        <p class="accounts-empty">No accounts yet.</p>
-      {/if}
-    </div>
-  </div>
 </div>
 
 <Modal title="Delete account" bind:open={showDeleteConfirm}>
@@ -456,62 +391,28 @@
 </Modal>
 
 <style>
-  /* --- Two-column grid layout --- */
+  /* --- Layout --- *
+     One column since the accounts panel left. It was the only thing that needed its own
+     scroll region, so the page stacks and lets the app shell scroll it like every other. */
   .page {
-    display: grid;
-    grid-template-columns: 1fr 320px;
-    grid-template-rows: auto auto auto 1fr;
-    grid-template-areas:
-      'user     accts'
-      'defaults accts'
-      'roots    accts'
-      'danger   accts';
-    background: var(--color-window);
-    height: 100%;
-    overflow: hidden;
-  }
-
-  .section-user {
-    grid-area: user;
-    border-bottom: 1px solid var(--color-rule);
-  }
-  .section-defaults {
-    grid-area: defaults;
-    border-bottom: 1px solid var(--color-rule);
-  }
-  .section-roots {
-    grid-area: roots;
-    border-bottom: 1px solid var(--color-rule);
-  }
-  .section-danger {
-    grid-area: danger;
-  }
-  .section-accounts {
-    grid-area: accts;
-    border-left: 1px solid var(--color-rule);
     display: flex;
     flex-direction: column;
-    min-height: 0;
+    background: var(--color-window);
+    min-height: 100%;
+  }
+
+  .settings-section {
+    border-bottom: 1px solid var(--color-rule);
+  }
+
+  .section-danger {
+    border-bottom: none;
+    margin-top: auto;
   }
 
   @media (max-width: 640px) {
     .page {
-      grid-template-columns: 1fr;
-      grid-template-rows: auto;
-      grid-template-areas:
-        'user'
-        'defaults'
-        'roots'
-        'accts'
-        'danger';
       margin: calc(-1 * var(--sp-md));
-      height: auto;
-      overflow: visible;
-    }
-
-    .section-accounts {
-      border-left: none;
-      border-bottom: 1px solid var(--color-rule);
     }
   }
 
@@ -580,9 +481,12 @@
     flex-direction: column;
   }
 
-  /* --- Setting rows --- */
+  /* --- Setting rows --- *
+     Capped: with the accounts column gone these run the width of the window, and a field
+     900px wide for a twenty-character path is not more usable than one at 46rem. */
   .setting-row {
     display: grid;
+    max-width: 46rem;
     grid-template-columns: 10rem 1fr;
     align-items: center;
     gap: var(--sp-sm);
@@ -606,70 +510,10 @@
     white-space: nowrap;
   }
 
-  /* --- Accounts column --- */
-  .add-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    padding: 7px 14px;
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-window-raised);
-    flex-shrink: 0;
-  }
-
-  .accounts-list {
-    flex: 1;
-    overflow-y: auto;
-    min-height: 0;
-  }
-
-  .list-row {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    padding: 4px 14px;
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-window-inset);
-    transition: background var(--duration-fast) var(--ease);
-  }
-
-  .list-row:last-child {
-    border-bottom: none;
-  }
-
-  .list-row:hover {
-    background: var(--color-accent-light);
-  }
-
-  .account-path {
-    flex: 1;
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text);
-    min-width: 0;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
-  }
-
-  .posting-count {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    color: var(--color-text-muted);
-    flex-shrink: 0;
-  }
-
-  .accounts-empty {
-    padding: var(--sp-md) 14px;
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-style: italic;
-    color: var(--color-text-muted);
-    margin: 0;
-  }
-
   /* --- Danger row --- */
+  /* The one row that keeps the full width — its button belongs at the far edge. */
   .danger-row {
+    max-width: none;
     grid-template-columns: 1fr auto;
   }
 

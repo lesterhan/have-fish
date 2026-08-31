@@ -54,6 +54,102 @@ describe('coverage config', () => {
     userId = await userIdFor(cookie)
   })
 
+  // The GET returns the merged config, which cannot say whether a value was inferred or
+  // pinned by hand — and "hand it back to automatic" is the whole point of clearing a field.
+  // The raw override travels alongside so a UI can tell the two apart.
+  describe('GET /api/accounts/:id/coverage exposes the raw override', () => {
+    async function getCoverage(accountId: string) {
+      const res = await app.request(`/api/accounts/${accountId}/coverage`, {
+        headers: { Cookie: cookie },
+      })
+      return await res.json() as { config: Record<string, unknown>; override: Record<string, unknown> }
+    }
+
+    it('is empty when nothing has been pinned', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+
+      expect((await getCoverage(acct.id)).override).toEqual({})
+    })
+
+    it('carries only the pinned fields, not the whole merged config', async () => {
+      const acct = await createAccount(userId, 'liabilities:visa')
+      await patchConfig(cookie, acct.id, { exportMode: 'cycle', cycleDay: 25 })
+
+      const { config, override } = await getCoverage(acct.id)
+
+      expect(override).toEqual({ exportMode: 'cycle', cycleDay: 25 })
+      // releaseLag and tracked are still defaults, so they must not appear as pins.
+      expect(config).toMatchObject({ exportMode: 'cycle', cycleDay: 25, releaseLag: 0, tracked: true })
+    })
+
+    it('distinguishes an inferred value from a pinned one of the same number', async () => {
+      const inferred = await createAccount(userId, 'liabilities:inferred')
+      const pinned = await createAccount(userId, 'liabilities:pinned')
+      await seedMonthlyStatements(cookie, inferred.id)
+      await patchConfig(cookie, pinned.id, { exportMode: 'cycle', cycleDay: 25 })
+
+      const a = await getCoverage(inferred.id)
+      const b = await getCoverage(pinned.id)
+
+      // Same effective cycle day, opposite provenance — indistinguishable without `override`.
+      expect(a.config.cycleDay).toBe(25)
+      expect(b.config.cycleDay).toBe(25)
+      expect(a.override).toEqual({})
+      expect(b.override).toEqual({ exportMode: 'cycle', cycleDay: 25 })
+    })
+
+    it('carries what inference would say, even while a pin is overriding it', async () => {
+      const acct = await createAccount(userId, 'liabilities:visa')
+      await seedMonthlyStatements(cookie, acct.id)
+      await patchConfig(cookie, acct.id, { cycleDay: 3 })
+
+      const res = await app.request(`/api/accounts/${acct.id}/coverage`, {
+        headers: { Cookie: cookie },
+      })
+      const body = await res.json() as {
+        config: Record<string, unknown>
+        inferred: Record<string, unknown> | null
+      }
+
+      // Without this, an editor offering "back to automatic" cannot say what automatic means:
+      // `config` is post-merge and now reads 3, and inference's own answer is lost.
+      expect(body.config.cycleDay).toBe(3)
+      expect(body.inferred).toMatchObject({ exportMode: 'cycle', cycleDay: 25 })
+    })
+
+    it('is null when there is not enough history to infer anything', async () => {
+      const acct = await createAccount(userId, 'assets:chequing')
+
+      const res = await app.request(`/api/accounts/${acct.id}/coverage`, {
+        headers: { Cookie: cookie },
+      })
+      expect((await res.json()).inferred).toBeNull()
+    })
+
+    it('drops a field from the override once it is cleared back to automatic', async () => {
+      const acct = await createAccount(userId, 'liabilities:visa')
+      await patchConfig(cookie, acct.id, { exportMode: 'cycle', cycleDay: 25, releaseLag: 3 })
+
+      await patchConfig(cookie, acct.id, { releaseLag: null })
+
+      expect((await getCoverage(acct.id)).override).toEqual({ exportMode: 'cycle', cycleDay: 25 })
+    })
+
+    it("does not leak another user's override", async () => {
+      const acct = await createAccount(userId, 'liabilities:visa')
+      await patchConfig(cookie, acct.id, { exportMode: 'cycle', cycleDay: 25 })
+
+      const otherCookie = await createTestUser('other@example.com')
+      const otherUserId = await userIdFor(otherCookie)
+      const otherAcct = await createAccount(otherUserId, 'liabilities:visa')
+
+      const res = await app.request(`/api/accounts/${otherAcct.id}/coverage`, {
+        headers: { Cookie: otherCookie },
+      })
+      expect((await res.json()).override).toEqual({})
+    })
+  })
+
   describe('effectiveConfig', () => {
     it('is the default for an account with no history and no override', async () => {
       const acct = await createAccount(userId, 'assets:chequing')

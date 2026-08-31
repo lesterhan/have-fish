@@ -1,9 +1,12 @@
 <script lang="ts">
   import { tick } from 'svelte'
   import { createAccount, type Account } from '$lib/api'
+  import { toast } from '$lib/toast.svelte'
   import { rank } from './accountScorer'
   import { type TreeNode } from './accountTree'
   import { accountIndex } from './accountIndex'
+  // Shared with the Ctrl+K palette — both render a scored path the same way.
+  import { glyphs } from './accountHighlight'
 
   interface Props {
     accounts: Account[]
@@ -130,20 +133,6 @@
     if (sActive >= searchResults.length) sActive = 0
   })
 
-  // --- Highlight rendering ---------------------------------------------------
-  type Glyph = { ch: string; sep: boolean; leaf: boolean; hl: boolean }
-  function glyphs(path: string, pos: number[]): Glyph[] {
-    const set = new Set(pos)
-    const lastSep = path.lastIndexOf(SEP)
-    const out: Glyph[] = []
-    for (let i = 0; i < path.length; i++) {
-      const ch = path[i]
-      if (ch === SEP) out.push({ ch, sep: true, leaf: false, hl: false })
-      else out.push({ ch, sep: false, leaf: i > lastSep, hl: set.has(i) })
-    }
-    return out
-  }
-
   // --- Positioning -----------------------------------------------------------
   function positionMenu() {
     if (!rootEl) return
@@ -234,6 +223,9 @@
         value = acc.id
         segs = acc.path.split(SEP)
         oncommit?.(value)
+      } catch (e) {
+        // A refused create used to leave `value` undefined and the box looking committed.
+        toast.show(e instanceof Error ? e.message : 'Could not create that account')
       } finally {
         creating = false
       }

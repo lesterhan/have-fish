@@ -66,14 +66,15 @@
   --color-rule: #c8ccd2;
   --color-rule-soft: #e2e5ea;
 
-  /* --- Heading banner (updated to Graphite tones) --- */
-  --color-banner-from: #2a3038;
-  --color-banner-to: #5a6068;
+  /* --- Coverage strip ---
+     An uncovered day is transparent, so the trough that shows through is
+     --color-window-inset. These are defined against it: every mark in the strip clears 3:1
+     so the band reports a shape rather than a smudge. Do not swap them for the button
+     gradient tokens — that is the bug tokens.test.ts exists to catch. */
+  --color-coverage-covered-hi: #8d929c; /* 3.1:1 on white */
+  --color-coverage-covered-lo: #767c86; /* 4.2:1 on white */
+  --color-coverage-hatch: #767c86;      /* beyond the horizon — ink for the diagonal rule */
 
-  /* --- Panel title bar (legacy; used by Panel.svelte until epic redesign) --- */
-  --color-panel-header-from: #5a6068;
-  --color-panel-header-to: #8a909a;
-  --color-panel-header-text: #f0f2f4;
 
   /* --- Button gradient highlight --- */
   --color-btn-gradient-hi: #ffffff; /* top of gradient buttons — white in light, Polar Night 2 in dark */
@@ -204,14 +205,11 @@
   --color-rule: #20242d;
   --color-rule-soft: #272c38;
 
-  /* --- Heading banner --- */
-  --color-banner-from: #1a1f2a;
-  --color-banner-to: #373e4d;
+  /* --- Coverage strip (see the light block for the contract) --- */
+  --color-coverage-covered-hi: #7c8aa5; /* 4.3:1 on the inset trough */
+  --color-coverage-covered-lo: #6a7791; /* 3.3:1 on the inset trough */
+  --color-coverage-hatch: #6a7791;
 
-  /* --- Panel title bar (legacy) --- */
-  --color-panel-header-from: #373e4d;
-  --color-panel-header-to: #434c5e;
-  --color-panel-header-text: #eceff4;
 
   /* --- Button gradient highlight --- */
   --color-btn-gradient-hi: #3b4252; /* Nord Polar Night 2 — replaces white for dark gradient buttons */

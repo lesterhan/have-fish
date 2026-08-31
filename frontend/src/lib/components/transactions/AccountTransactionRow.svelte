@@ -2,6 +2,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import { type Account, type Transaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { isUnderRoot } from '$lib/components/accounts/accountPaths'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import {
@@ -58,7 +59,7 @@
     if (!settings) return false
     const expRoot = settings.defaultExpensesRootPath
     const toPath = accountPaths[to.accountId] ?? ''
-    return !toPath.startsWith(`${expRoot}:`) && toPath !== expRoot
+    return !isUnderRoot(toPath, expRoot)
   })
 
   let transfer = $derived(

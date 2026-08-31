@@ -17,16 +17,6 @@ export function toClassifierType(type: StoredAccountType): AccountType {
   return type
 }
 
-// True when an account's effective type falls in the given coarse bucket. Null (an
-// atypical root with no override) matches nothing — an unclassifiable account must not
-// be silently counted as an asset.
-export function isClassifiedAs(
-  account: { resolvedType?: StoredAccountType | null },
-  bucket: AccountType,
-): boolean {
-  return account.resolvedType != null && toClassifierType(account.resolvedType) === bucket
-}
-
 export type Account = {
   id: string
   path: string
@@ -95,25 +85,41 @@ export async function fetchAccounts(): Promise<Account[]> {
 // defaultCurrency (ISO 4217) pre-selects the currency in quick entry. The import flow's
 // Accounts step is the one place that knows it for certain — the suggested path was
 // derived from the currency — so it sets it rather than leaving the column null.
-export async function createAccount(body: { path: string; defaultCurrency?: string }) {
+export async function createAccount(body: { path: string; defaultCurrency?: string }): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  // A rejected create used to be returned as `{ error }` and used as an account, which meant
+  // the caller silently committed an undefined id. Throw so the surface can say what happened.
+  if (!res.ok) {
+    const problem = await res.json().catch(() => ({}))
+    throw new Error(problem.error ?? 'Failed to create account')
+  }
   return res.json()
 }
 
+// Refused (409) when the account still has entries, fills a default role, or is one Fish Pie
+// manages — see the DELETE handler. The message is written for display.
 export async function deleteAccount(id: string) {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     method: 'DELETE',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
   })
+  if (!res.ok) {
+    const problem = await res.json().catch(() => ({}))
+    throw new Error(problem.error ?? 'Failed to delete account')
+  }
 }
 
-export async function fetchAccountPostingCounts(): Promise<{ accountId: string; count: number }[]> {
+// One row per non-deleted account, including never-used ones (count 0, lastActivity null).
+// lastActivity is the YYYY-MM-DD date of the account's most recent transaction.
+export type AccountPostingCount = { accountId: string; count: number; lastActivity: string | null }
+
+export async function fetchAccountPostingCounts(): Promise<AccountPostingCount[]> {
   const res = await fetch(`${BASE}/api/accounts/posting-counts`, { credentials: 'include' })
   return res.json()
 }
@@ -427,8 +433,9 @@ export async function deleteParser(id: string): Promise<void> {
 }
 
 export type UserPreferences = {
-  dashboardHiddenCurrencies?: string[]
   hiddenAccountIds?: string[]
+  /** Accounts pinned to the sidebar, in the order they were pinned. */
+  pinnedAccountIds?: string[]
   accentColor?: import('$lib/accent').AccentKey
   recentCurrencies?: string[]
   recentGroups?: string[]
@@ -448,6 +455,9 @@ export type UserSettings = {
   defaultLiabilitiesRootPath: string
   defaultExpensesRootPath: string
   defaultEquityRootPath: string
+  // Not editable in Settings yet, but returned by the API and needed by the Accounts page:
+  // without it, income accounts would fall into the Unfiled bucket.
+  defaultIncomeRootPath: string
   defaultAdjustmentsAccountId: string | null
   preferredCurrency: string
   preferences: UserPreferences
@@ -483,6 +493,12 @@ export async function updateUserSettings(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  // Unchecked, a failure here parsed the error body as settings and wrote it into the
+  // store — so a control backed by this endpoint could only ever report success.
+  if (!res.ok) {
+    const body = await res.json().catch(() => ({}))
+    throw new Error(body.error ?? 'Failed to save settings')
+  }
   return res.json()
 }
 
@@ -498,8 +514,16 @@ export type AccountBalance = {
   balances: { currency: string; amount: string }[]
 }
 
-export async function fetchAccountBalances(): Promise<AccountBalance[]> {
-  const res = await fetch(`${BASE}/api/accounts/balances`, {
+/**
+ * `includeUnfiled` widens the selection past the three balance-bearing roots to accounts that
+ * belong to no configured root at all. The Accounts page asks for them so a mis-pathed
+ * account lands in its Unfiled group instead of appearing nowhere; the sidebar does not.
+ */
+export async function fetchAccountBalances(
+  opts: { includeUnfiled?: boolean } = {},
+): Promise<AccountBalance[]> {
+  const qs = opts.includeUnfiled ? '?include=unfiled' : ''
+  const res = await fetch(`${BASE}/api/accounts/balances${qs}`, {
     credentials: 'include',
   })
   return res.json()
@@ -639,19 +663,6 @@ export async function fetchMonthlySpend(
     `${BASE}/api/reports/monthly-spend?months=${months}`,
     { credentials: 'include' },
   )
-  return res.json()
-}
-
-export type WeeklySpend = {
-  week: string
-  weekStart: string
-  total: Record<string, string>
-}
-
-export async function fetchWeeklySpend(weeks: number): Promise<WeeklySpend[]> {
-  const res = await fetch(`${BASE}/api/reports/weekly-spend?weeks=${weeks}`, {
-    credentials: 'include',
-  })
   return res.json()
 }
 
@@ -1484,9 +1495,6 @@ export type CatchUpPayload = {
   today: string
   accounts: CatchUpAccount[]
   summary: CatchUpSummary
-  // When the dashboard tile is silenced until, or null. A display preference only — snoozing
-  // changes no coverage state.
-  snoozedUntil: string | null
 }
 
 export async function fetchCatchUp(): Promise<CatchUpPayload> {
@@ -1514,6 +1522,11 @@ export type AccountCoverage = {
   // The raw rows behind them. A merged span has no id, so undo works from these.
   assertions: CoverageAssertion[]
   config: CoverageConfig
+  // The raw pins behind `config`, and what inference alone concluded. `config` is post-merge
+  // and so answers neither question an editor needs: which fields the user pinned, and what
+  // "back to automatic" would restore them to.
+  override: Partial<CoverageConfig>
+  inferred: Partial<CoverageConfig> | null
   horizon: string
   nextHorizon: string | null
   // The span the coverage strip draws, and the days inside it that already have transactions.
@@ -1604,24 +1617,4 @@ export async function recordReconcileCoverage(
     throw new Error((err as any).error ?? 'Failed to record coverage')
   }
   return res.json()
-}
-
-// Silences the dashboard tile for a while. Writes no coverage.
-export async function snoozeCatchUp(days = 7): Promise<{ snoozedUntil: string }> {
-  const res = await fetch(`${BASE}/api/coverage/snooze`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ days }),
-  })
-  if (!res.ok) throw new Error('Failed to snooze')
-  return res.json()
-}
-
-export async function unsnoozeCatchUp(): Promise<void> {
-  const res = await fetch(`${BASE}/api/coverage/snooze`, {
-    method: 'DELETE',
-    credentials: 'include',
-  })
-  if (!res.ok) throw new Error('Failed to un-snooze')
 }

@@ -5,8 +5,8 @@
   import Sidebar from '$lib/components/Sidebar.svelte'
   import { useSession } from '$lib/auth'
   import { toast } from '$lib/toast.svelte'
-  import { fetchAccountBalances } from '$lib/api'
-  import type { AccountBalance, UserSettings } from '$lib/api'
+  import { fetchAccounts, fetchAccountPostingCounts } from '$lib/api'
+  import type { Account } from '$lib/api'
   import sidebarRefresh from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
@@ -28,25 +28,11 @@
   let pickerOpen = $state(false)
   let currentAccent = $state<AccentKey>('aqua')
 
-  const settingsDefault: UserSettings = {
-    id: '',
-    userId: '',
-    defaultOffsetAccountId: null,
-    defaultConversionAccountId: null,
-    defaultAdjustmentsAccountId: null,
-    defaultAssetsRootPath: 'assets',
-    defaultLiabilitiesRootPath: 'liabilities',
-    defaultExpensesRootPath: 'expenses',
-    defaultEquityRootPath: 'equity',
-    preferredCurrency: 'CAD',
-    preferences: {},
-    createdAt: '',
-    updatedAt: '',
-  }
-
-  // Sidebar data — defaults let the sidebar render immediately; populated after fetch
-  let sidebarAccounts = $state<AccountBalance[]>([])
-  let sidebarSettings = $derived(settingsStore.value ?? settingsDefault)
+  // Sidebar data — the sidebar renders immediately and fills in after the fetch. Balances are
+  // no longer among them: the sidebar stopped listing accounts, so it stopped needing what
+  // they hold. Last activity is what Recent ranks on.
+  let sidebarAccounts = $state<Account[]>([])
+  let lastActivityById = $state<Map<string, string | null>>(new Map())
 
   // $effect re-runs when $session.data changes, so the fetch fires as soon as
   // Better Auth resolves the session — not at mount time when it may still be null.
@@ -56,11 +42,13 @@
     if ($session.data && !sidebarFetched) {
       sidebarFetched = true
       Promise.all([
-        fetchAccountBalances(),
+        fetchAccounts(),
+        fetchAccountPostingCounts(),
         settingsStore.load(),
         actionRequiredStore.load(),
-      ]).then(([accts, settings]) => {
+      ]).then(([accts, counts, settings]) => {
         sidebarAccounts = accts
+        lastActivityById = new Map(counts.map((c) => [c.accountId, c.lastActivity]))
         currentAccent = settings.preferences.accentColor ?? 'aqua'
         applyAccent(currentAccent, theme.dark)
       })
@@ -72,14 +60,18 @@
     applyAccent(currentAccent, theme.dark)
   })
 
-  // Re-fetch sidebar balances whenever a page signals a mutation.
+  // Re-read the sidebar's lists whenever a page signals a mutation. Not balances any more —
+  // what can go stale here is the account list itself and, for Recent, last activity.
   $effect(() => {
     // eslint-disable-next-line @typescript-eslint/no-unused-expressions
     sidebarRefresh.count // subscribe
     if (!sidebarFetched) return
-    fetchAccountBalances().then((accts) => {
-      sidebarAccounts = accts
-    })
+    Promise.all([fetchAccounts(), fetchAccountPostingCounts()]).then(
+      ([accts, counts]) => {
+        sidebarAccounts = accts
+        lastActivityById = new Map(counts.map((c) => [c.accountId, c.lastActivity]))
+      },
+    )
   })
 
   function closeMobileSidebar() {
@@ -90,7 +82,11 @@
     currentAccent = key
     applyAccent(key, theme.dark)
     pickerOpen = false
-    settingsStore.update({ preferences: { accentColor: key } })
+    // Fire-and-forget: the accent is already applied locally, and this call can now
+    // reject rather than silently corrupting the store.
+    settingsStore
+      .update({ preferences: { accentColor: key } })
+      .catch(() => toast.show('Accent saved for this session only.'))
   }
 </script>
 
@@ -156,7 +152,7 @@
       {#if $session.data}
         <Sidebar
           accounts={sidebarAccounts}
-          settings={sidebarSettings}
+          {lastActivityById}
           email={$session.data.user.email}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={closeMobileSidebar}

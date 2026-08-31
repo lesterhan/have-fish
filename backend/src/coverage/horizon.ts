@@ -233,29 +233,9 @@ export async function readCatchUpOverrides(
 
   const overrides: Record<string, CoverageConfigOverride> = {}
   for (const [key, raw] of Object.entries(catchUp as Record<string, unknown>)) {
-    if (RESERVED_CATCH_UP_KEYS.has(key)) continue
     overrides[key] = sanitizeOverride(raw)
   }
   return overrides
-}
-
-// Keys under `catchUp` that are settings rather than per-account config. The blob is otherwise
-// keyed by account id, so anything else living there has to be skipped explicitly or it comes
-// back as a phantom account whose overrides are always empty.
-const RESERVED_CATCH_UP_KEYS = new Set(['snoozedUntil'])
-
-// When the dashboard tile is silenced until, as 'YYYY-MM-DD', or null. Pure so callers that
-// already hold the preferences blob don't pay for a second read of the same row.
-//
-// Snoozing is a display preference and touches no coverage state — an account that is behind
-// stays behind, it just stops being mentioned on the way past.
-export function snoozedUntilFrom(preferences: unknown): string | null {
-  if (typeof preferences !== 'object' || preferences === null) return null
-  const catchUp = (preferences as Record<string, unknown>).catchUp
-  if (typeof catchUp !== 'object' || catchUp === null || Array.isArray(catchUp)) return null
-
-  const value = (catchUp as Record<string, unknown>).snoozedUntil
-  return typeof value === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null
 }
 
 // The live coverage assertions for one account, oldest first.
@@ -272,13 +252,32 @@ export async function readIntervals(userId: string, accountId: string): Promise<
     )
 }
 
-// The config actually in force for one account: inference over its coverage history, with any
-// user override laid on top.
-export async function effectiveConfig(userId: string, accountId: string): Promise<CoverageConfig> {
+// The config actually in force for one account, and the raw pins behind it.
+//
+// Both are needed by anything that lets the user edit the config: the merged config cannot say
+// whether a value was inferred or pinned by hand, and "hand this field back to automatic" is
+// only offerable when you know which it was. A field absent from `override` is inferred, and
+// its inferred value is the one already sitting in `config`.
+export async function resolveConfig(
+  userId: string,
+  accountId: string,
+): Promise<{
+  config: CoverageConfig
+  override: CoverageConfigOverride
+  inferred: CoverageConfigOverride | null
+}> {
   const [intervals, overrides] = await Promise.all([
     readIntervals(userId, accountId),
     readCatchUpOverrides(userId),
   ])
 
-  return mergeConfig(inferCycleFromIntervals(intervals), overrides[accountId] ?? {})
+  const override = overrides[accountId] ?? {}
+  const inferred = inferCycleFromIntervals(intervals)
+  return { config: mergeConfig(inferred, override), override, inferred }
+}
+
+// The config actually in force for one account: inference over its coverage history, with any
+// user override laid on top.
+export async function effectiveConfig(userId: string, accountId: string): Promise<CoverageConfig> {
+  return (await resolveConfig(userId, accountId)).config
 }

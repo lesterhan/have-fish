@@ -248,14 +248,16 @@ expenses:food      -50.00 CAD   (reads as expense decreasing — makes no sense)
 1. Create an account under an atypically-named root, e.g. `储蓄:现金` (or any path not under
    `assets:` / `liabilities:` / `equity:`)
 2. On the account page, set **Type** to Cash (or Asset / Liability / Equity)
-3. Open the dashboard, the sidebar, or any web view fed by `fetchAccountBalances()`
+3. Open the Accounts page or any web view fed by `fetchAccountBalances()`
 
 **Expected:** The account appears with its balance, classified by the type you stored. Setting
 the type override is the documented unlock for roots that path inference can't classify
 (`backend/src/postings/account-type.ts`), so the balances views should honour it.
 
-**Actual:** The account is absent everywhere balances are shown. Its money is invisible on the
-dashboard and its balance is excluded from any total.
+**Actual:** The account is classified only by its path, never by the type you stored. Since
+the Accounts page added `?include=unfiled` (2026-08-29) such an account is at least visible —
+it lands in the Unfiled bucket — but it is still filed by path rather than by its override, so
+it feeds no position bucket and no group total.
 
 **Root cause:** `GET /api/accounts/balances` selects rows by PATH ROOT —
 `like(path, '<assetsRoot>:%')` and friends — before any type resolution happens. An account
@@ -266,11 +268,11 @@ stored `type` column: the endpoint was written when inference was the only sourc
 branch now does (added 2026-08-27 for the Mobile Cash Ledger epic, story 1 — see
 `typeFilterCondition` in `backend/src/routes/accounts.ts`). The mechanism is already there and
 tested; the unfiltered path was deliberately left alone in that story to avoid changing what
-the web dashboard shows as a side effect of a mobile feature. Consumers already read the
+the web views show as a side effect of a mobile feature. Consumers already read the
 stored-wins `resolvedType` (via `isClassifiedAs`), so no client change is needed — widening
 the query is the whole fix.
 
-**Note:** this is a *widening* fix — accounts that are currently invisible would start appearing
-in web balances views and in totals. That is the correct behaviour, but it will visibly change
-dashboard figures for anyone using atypical roots, so it wants its own change rather than
-riding along with unrelated work.
+**Note:** this is a *reclassifying* fix — accounts that currently sit in Unfiled would move
+into their real type group and start counting toward a position bucket. That is the correct
+behaviour, but it visibly changes the Accounts page's figures for anyone using atypical roots,
+so it wants its own change rather than riding along with unrelated work.

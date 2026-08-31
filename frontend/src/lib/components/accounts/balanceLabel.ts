@@ -1,4 +1,6 @@
 import type { StoredAccountType } from '$lib/api'
+// Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
+import { formatCents, formatCentsAbs, toCents } from '../../money'
 
 /**
  * The label and rendered figure for an account balance.
@@ -21,39 +23,32 @@ export type BalanceLabel = {
   signInLabel: boolean
 }
 
-function format(amount: number): string {
-  return new Intl.NumberFormat('en-CA', {
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount)
-}
-
 export function balanceLabel(
   resolvedType: StoredAccountType | null | undefined,
   amount: string,
   currency: string,
 ): BalanceLabel {
-  const n = parseFloat(amount)
+  const cents = toCents(amount)
   const cur = currency.toUpperCase()
 
   // An unparseable amount is passed through untouched rather than rendered as NaN.
-  if (!Number.isFinite(n)) {
+  if (cents === null) {
     return { label: `BALANCE · ${cur}`, display: amount, signInLabel: false }
   }
 
-  if (resolvedType === 'liability' && n !== 0) {
+  if (resolvedType === 'liability' && cents !== 0) {
     // A liability in credit is the overpaid card — "OWING −412.08" would be nonsense.
-    const label = n < 0 ? 'OWING' : 'IN CREDIT'
+    const label = cents < 0 ? 'OWING' : 'IN CREDIT'
     return {
       label: `${label} · ${cur}`,
-      display: format(Math.abs(n)),
+      display: formatCentsAbs(cents),
       signInLabel: true,
     }
   }
 
   return {
     label: `BALANCE · ${cur}`,
-    display: `${n < 0 ? '−' : ''}${format(Math.abs(n))}`,
+    display: formatCents(cents),
     signInLabel: false,
   }
 }

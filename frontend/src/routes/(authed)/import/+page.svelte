@@ -16,6 +16,7 @@
     createCoverage,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { isUnderRoot } from '$lib/components/accounts/accountPaths'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
@@ -81,6 +82,8 @@
   // Not required upfront — multi-currency imports may have no regular rows.
   let toAccountId = $state('')
   let fromAccountId = $state('')
+  // The account the Accounts page asked us to target, if any. Read once on mount.
+  let preTargetAccountId = ''
   let defaultCurrency = $state('CAD')
   let file = $state<File | null>(null)
   let dragOver = $state(false)
@@ -156,6 +159,12 @@
     // started, and a later navigation that drops the query string must not un-start it.
     catchUp = parseCatchUpHandoff(page.url.searchParams)
     returnToCatchUp = page.url.searchParams.get('return') === 'catch-up'
+
+    // A bare `?account=` is the Accounts page handing off a target — no date range, unlike
+    // the catch-up handoff above. It only seeds the choice; the parser's own default still
+    // wins once a file is parsed, and the user can change it either way.
+    preTargetAccountId = page.url.searchParams.get('account') ?? ''
+    if (preTargetAccountId) fromAccountId = preTargetAccountId
   })
 
   // --- Import as liabilities ---
@@ -169,7 +178,7 @@
     if (!preview) return false
     const root = settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
     const path = accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
-    return path.startsWith(`${root}:`)
+    return isUnderRoot(path, root)
   })
   let importAsLiabilities = $derived(liabilitiesOverride ?? derivedLiabilities)
 
@@ -372,7 +381,10 @@
       const csvText = await file.text()
       const fetched = await importPreview(file, defaultCurrency)
       if (!fetched.isMultiCurrency) {
-        fromAccountId = fetched.defaultAccountId ?? ''
+        // The parser's remembered account wins; the hand-off is the fallback, so arriving
+        // from the Accounts page with a CSV whose parser knows no default still lands on
+        // the account you came from rather than on nothing.
+        fromAccountId = fetched.defaultAccountId ?? preTargetAccountId
       }
       const defaultAccountPath =
         accounts.find((a) => a.id === fetched.defaultAccountId)?.path ?? ''
