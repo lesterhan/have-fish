@@ -4,7 +4,7 @@ Goal: Give the Companion a second, clearly-separated mode for working a **cash w
 log cash spend (splittable across expense accounts), see what's in each wallet across
 currencies, record top-ups/withdrawals, and scan cash history. Personal ledger, not Fish Pie.
 
-Status: **Scoping** — design agreed 2026-08-27, stories not started.
+Status: **Done** — all six stories shipped 2026-08-27. Stretch items remain open.
 
 ## Why now
 
@@ -150,7 +150,7 @@ Backend + mobile API layer. No UI.
   them. A wallet with more than one currency is rendered rather than hidden, so a ledger
   that disagrees with the one-per-currency rule never loses money on screen.
 
-### 2. Shell restructure — two modes
+### 2. Shell restructure — two modes ✅ Done
 
 Mobile shell only. Cash screens are placeholders at the end of this story.
 
@@ -165,7 +165,26 @@ Mobile shell only. Cash screens are placeholders at the end of this story.
 - **Acceptance:** the four existing Fish Pie tabs behave exactly as before; switching to
   Cash mode changes header, tab set, and accent; the last mode is restored on relaunch.
 
-### 3. Wallets tab + first-wallet wizard
+**Shipped.** Notes for the stories that build on this:
+
+- The `href: null` approach worked — one `Tabs` navigator holds all seven screens and the
+  inactive mode's tabs are hidden. No nested navigators, no duplicated Account route, and
+  each mode's screens stay mounted across a switch. The fallback plan (a root `Stack` over
+  two tab navigators) was not needed.
+- Switching **navigates** as well as toggling: the switch hides the tab you were standing
+  on, so `ModeSwitch` follows `setMode` with `router.replace(homeRouteFor(next))`. A new
+  Cash tab added later must keep `homeRouteFor` pointing at a visible entry tab.
+- The Cash accent is denim (`cashAccent` and friends in `theme.ts`), deliberately far from
+  rust in hue *and* away from green/red so the mode cue never reads as an amount's sign.
+  `accentFor(mode)` is the only way screens should reach it; `useShellMode()` returns it
+  pre-resolved as `accent`.
+- The Cash header has no group switcher and no gear — group settings is a Fish Pie concept,
+  and either control on screen would suggest the wallet belongs to a group. Story 3 fills
+  the Cash title block with the wallet name and balance.
+- `components/CashPlaceholder.tsx` and the three placeholder screens are scaffolding; each
+  story deletes the one it replaces, and the component goes with the last of them.
+
+### 3. Wallets tab + first-wallet wizard ✅ Done
 
 - Cash accounts with per-currency balances, one card per wallet, newest activity first.
 - Tap selects the **active wallet**; persisted (`LAST_WALLET_KEY`), and it drives the Spend
@@ -201,7 +220,30 @@ crossing a border needs a second wallet, not a first one, and it is the same thr
   from a currency code, default display name, duplicate-currency detection, validation of
   the resulting path against the same rules the backend enforces.
 
-### 4. Spend — cash entry with expense splits
+**Shipped.** Notes for the stories that build on this:
+
+- `WalletProvider` (`lib/wallet-context.tsx`) is the Cash mode's counterpart to
+  `GroupProvider`: wallet list with balances, the active wallet, `reload()`, and
+  `createWallet()`. Spend (story 4) and Cash history (story 6) read from it rather than
+  fetching their own balances.
+- **`GET /api/accounts/balances` now returns `defaultCurrency`.** It did not, which story 1
+  never noticed because `walletCurrency()` silently fell back to the path leaf — right for
+  `assets:cash:cny` by convention, wrong for any wallet pathed or renamed differently, and
+  enough to let `takenCurrencies()` miss a wallet and mint a duplicate. Caught by the
+  end-to-end wizard test in `accounts.test.ts`, which pins the exact two-call sequence the
+  wizard performs.
+- The create + tag pair reports *which* step failed (`walletCreateFailure`). A failure after
+  the create leaves a real, untagged account behind, so the retry resumes at the tag —
+  retrying the create would mint a duplicate. Re-tagging is idempotent, and there is a
+  backend test for that.
+- `components/CurrencyGrid.tsx` was extracted from `CurrencySheet` so the wizard and the Add
+  screen share one grid; it takes `disabledCodes` (taken currencies show dimmed rather than
+  missing) and a `tint` so each mode's accent paints the selection. `CurrencySheet`'s props
+  are unchanged.
+- The Cash header now shows the active wallet's name and balance. Switching wallets lives on
+  the Wallets tab, not in the header — unlike groups, a wallet is picked rarely.
+
+### 4. Spend — cash entry with expense splits ✅ Done
 
 The core screen. Reuses `AmountHero`, `Numpad`, `CurrencySheet`, `DateSheet`,
 `AccountSelect`, `GlossButton`.
@@ -220,7 +262,29 @@ The core screen. Reuses `AmountHero`, `Numpad`, `CurrencySheet`, `DateSheet`,
 - **Acceptance:** a three-way split lands as one four-posting transaction, visible on the
   web transaction detail with the correct flow narration.
 
-### 5. Top-ups and withdrawals
+**Shipped.** Notes for the stories that build on this:
+
+- **All money arithmetic is in integer cents** (`toCents`/`fromCents`). Amounts are
+  `numeric(12,2)` strings and summing them as floats drifts — `8.87 * 100` is `886.9999…`,
+  so truncating bills a cent less than the user typed, and a split that looks exact on
+  screen can fail the backend's balance check. Story 5's builders should use the same
+  helpers rather than parsing to floats.
+- A **single row carries the hero total implicitly** (`syncSingleRow`) and shows no amount
+  of its own, so an unsplit purchase costs no extra taps and shows no arithmetic. Adding a
+  second row pins the first one's amount before seeding the new row with the remainder —
+  otherwise both would claim the whole total.
+- One numpad drives whichever amount is focused: the hero by default, a split row once
+  tapped. With a split open the screen says which, since the same keys mean different
+  things.
+- `submitBlocker` returns the *first* thing standing in the way, ordered the way the screen
+  is filled in, so the hint names the next thing to do rather than the last thing wrong.
+- Currency is the wallet's, never a choice — money leaving a CNY wallet is CNY. The
+  currency pill is therefore display-only here, unlike the Fish Pie Add screen.
+- Backend contract tests in `transactions.test.ts` pin the exact posting shape the Spend tab
+  sends (four postings, wallet credited, expenses debited) and that an unbalanced split is
+  still rejected server-side.
+
+### 5. Top-ups and withdrawals ✅ Done
 
 Moving money *into* a wallet — the ATM stop and the exchange counter.
 
@@ -233,10 +297,27 @@ Moving money *into* a wallet — the ATM stop and the exchange counter.
   cross-currency path is disabled with a pointer to the web setting rather than inventing
   an account.
 - Effective rate shown before submit so a bad counter rate is obvious.
-- Pure builder + tests in `mobile/lib/cash-entry.ts` — both posting shapes, fee handling,
+- Pure builder + tests in `mobile/lib/cash-topup.ts` — both posting shapes, fee handling,
   per-currency balance assertions.
 
-### 6. Cash history
+**Shipped.** Reached from a "Top up" action on each wallet card.
+
+- Same-currency asks only what *left* the account: what arrives is what left, less any fee,
+  so `impliedReceived` derives it. Asking twice would only invite a contradiction.
+- Cross-currency asks both sides, because only the counter knows the rate, and bridges
+  through `defaultConversionAccountId` — the Currency Transfers 5-posting shape. With no
+  conversion account configured the flow blocks and says so; there is no honest way to
+  write the transaction without one, and inventing an account would post something the user
+  never agreed to.
+- The rate shown is **all-in, fee included** — a counter quoting 5.0 while skimming a fee is
+  really giving you less, and the all-in figure is the one to check against the board.
+- A fee amount with no account to book it against is refused rather than dropped: dropping
+  it would silently unbalance the transaction.
+- Backend contract tests pin the 5-posting bridge and confirm a cross-currency movement
+  *without* the bridge is rejected — which is exactly why the flow blocks rather than
+  optimistically posting.
+
+### 6. Cash history ✅ Done
 
 - `GET /api/transactions?accountId=<wallet>` feed for the active wallet, newest first,
   grouped by day, each row showing the counter-account(s) and signed amount.
@@ -248,6 +329,21 @@ Moving money *into* a wallet — the ATM stop and the exchange counter.
   "you paid 180.00 · your share 90.00" framing — never as an anonymous three-leg list.
 - Running wallet balance so the feed can be reconciled against the actual notes in pocket.
 - Refresh on focus and after any Spend / top-up, matching the pie tabs' `reloadData` habit.
+
+**Shipped.**
+
+- The running balance is derived by **unwinding from the wallet's live balance**, not by
+  accumulating from zero, so the figures agree with the Wallets tab even when the feed is
+  partial.
+- `counterpartiesOf` drops conversion legs (pure plumbing that says nothing about what
+  happened) and Fish Pie share legs (the group's name carries that meaning better than the
+  receivable account's path does).
+- A cash-funded group expense shows the group badge and "your share", per the **Cash and
+  Fish Pie** section: the wallet really is down the full amount, but only the share was
+  consumed, and both numbers matter.
+- `dayHeading` assembles its own weekday/month strings rather than calling
+  `toLocaleDateString`, whose punctuation varies with the device's ICU data — a heading that
+  shifts between builds is a needless inconsistency.
 
 ### Stretch
 

@@ -21,6 +21,143 @@ describe('transactions', () => {
     expect(await res.json()).toEqual([])
   })
 
+  it('accepts a split cash purchase from the Companion Spend tab', async () => {
+    // The exact shape `buildCashPostings` produces: the wallet credited for the
+    // whole purchase, one debit per expense account. This is the first thing in
+    // the app to send more than two postings, so it pins the contract rather
+    // than trusting that N-posting support still behaves.
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [wallet, food, household, electronics] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:cash:cad', defaultCurrency: 'CAD' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:household' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:electronics' }) }).then(r => r.json()),
+    ]) as { id: string }[]
+
+    const res = await app.request('/api/transactions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        date: '2026-08-27',
+        description: 'Costco run',
+        postings: [
+          { accountId: wallet.id, amount: '-180.00', currency: 'CAD' },
+          { accountId: food.id, amount: '90.00', currency: 'CAD' },
+          { accountId: household.id, amount: '60.00', currency: 'CAD' },
+          { accountId: electronics.id, amount: '30.00', currency: 'CAD' },
+        ],
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    const created = await res.json() as { postings: { accountId: string; amount: string }[] }
+    expect(created.postings).toHaveLength(4)
+
+    // One payment, three categories — and the wallet is down the full amount.
+    const balanceRes = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+    const balances = await balanceRes.json() as { id: string; balances: { currency: string; amount: string }[] }[]
+    expect(balances).toEqual([])  // untagged: not a wallet yet
+
+    await app.request(`/api/accounts/${wallet.id}`, {
+      method: 'PATCH', headers, body: JSON.stringify({ type: 'cash' }),
+    })
+    const tagged = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+    const walletRow = (await tagged.json() as { balances: { currency: string; amount: string }[] }[])[0]
+    expect(walletRow.balances).toEqual([{ currency: 'CAD', amount: '-180.00' }])
+  })
+
+  it('accepts a cross-currency wallet top-up bridged through the conversion account', async () => {
+    // The 5-posting shape `buildTopUpPostings` produces for an exchange counter.
+    // Two currencies cannot balance against each other, so each has to net to
+    // zero on its own — that is exactly what the bridge is for.
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [chequing, wallet, conversion, fees] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing', defaultCurrency: 'CAD' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:cash:cny', defaultCurrency: 'CNY' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'equity:conversion' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:fees:atm' }) }).then(r => r.json()),
+    ]) as { id: string }[]
+
+    const res = await app.request('/api/transactions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        date: '2026-08-27',
+        description: 'Exchange to CNY',
+        postings: [
+          { accountId: chequing.id, amount: '-200.00', currency: 'CAD' },
+          { accountId: fees.id, amount: '3.00', currency: 'CAD' },
+          { accountId: conversion.id, amount: '197.00', currency: 'CAD' },
+          { accountId: conversion.id, amount: '-1000.00', currency: 'CNY' },
+          { accountId: wallet.id, amount: '1000.00', currency: 'CNY' },
+        ],
+      }),
+    })
+
+    expect(res.status).toBe(201)
+    const created = await res.json() as { postings: { amount: string; currency: string }[] }
+    expect(created.postings).toHaveLength(5)
+
+    await app.request(`/api/accounts/${wallet.id}`, {
+      method: 'PATCH', headers, body: JSON.stringify({ type: 'cash' }),
+    })
+    const balances = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+      .then(r => r.json()) as { balances: { currency: string; amount: string }[] }[]
+    expect(balances[0].balances).toEqual([{ currency: 'CNY', amount: '1000.00' }])
+  })
+
+  it('rejects a cross-currency movement that skips the conversion bridge', async () => {
+    // Without the bridge the two currencies each stand alone and unbalanced.
+    // This is why the top-up flow refuses to save when no conversion account is
+    // configured, rather than posting something the server would reject anyway.
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [chequing, wallet] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:chequing' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:cash:cny' }) }).then(r => r.json()),
+    ]) as { id: string }[]
+
+    const res = await app.request('/api/transactions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        date: '2026-08-27',
+        postings: [
+          { accountId: chequing.id, amount: '-200.00', currency: 'CAD' },
+          { accountId: wallet.id, amount: '1000.00', currency: 'CNY' },
+        ],
+      }),
+    })
+
+    expect(res.status).toBe(400)
+    expect((await res.json() as { error: string }).error).toMatch(/do not balance/)
+  })
+
+  it('rejects a split whose legs do not add up to the total', async () => {
+    // The invariant `buildCashPostings` enforces client-side. If this ever
+    // stopped being enforced server-side, a one-cent rounding slip would write
+    // an unbalanced transaction into the ledger.
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [wallet, food] = await Promise.all([
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'assets:cash:cad' }) }).then(r => r.json()),
+      app.request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path: 'expenses:food' }) }).then(r => r.json()),
+    ]) as { id: string }[]
+
+    const res = await app.request('/api/transactions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        date: '2026-08-27',
+        postings: [
+          { accountId: wallet.id, amount: '-100.00', currency: 'CAD' },
+          { accountId: food.id, amount: '99.99', currency: 'CAD' },
+        ],
+      }),
+    })
+
+    expect(res.status).toBe(400)
+    expect((await res.json() as { error: string }).error).toMatch(/do not balance/)
+  })
+
   it('GET /api/transactions attaches accountPath and a derived role to each posting', async () => {
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, food] = await Promise.all([

@@ -3,18 +3,44 @@ import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
 import { Ionicons } from '@expo/vector-icons'
 import { useGroups } from '@/lib/group-context'
+import { useShellMode } from '@/lib/shell-mode-context'
+import { useWallets } from '@/lib/wallet-context'
+import { formatAmount } from '@/lib/cash-accounts'
 import { groupSubtitle } from '@/lib/group-store'
 import { theme } from '@/lib/theme'
 import { GlossSurface } from './GlossSurface'
 import { GroupsSheet } from './GroupsSheet'
+import { ModeSwitch } from './ModeSwitch'
 
 /**
- * Persistent shell header (handoff "Header"): the active group name in Source
- * Serif with a ▾ that opens the Groups sheet, a "{n} members · {ccy}" sub-line,
- * and a gear button (gloss) routing to Settings.
+ * Persistent shell header. One bar, two faces — which one shows is the shell
+ * mode's job (see `lib/shell-mode.ts`).
+ *
+ * Fish Pie: the active group name in Source Serif with a ▾ that opens the Groups
+ * sheet, a "{n} members · {ccy}" sub-line, and a gear routing to group settings.
+ *
+ * Cash: the active wallet's name and its balance. No group switcher and no gear
+ * — group settings is a Fish Pie concept, and leaving either on screen would
+ * suggest the cash wallet belongs to a group. The wallet is switched on the
+ * Wallets tab, not here: unlike groups, a wallet is picked rarely and the tab
+ * that lists them all is one tap away.
+ *
+ * Both faces carry the {@link ModeSwitch}, so the current ledger is legible from
+ * every screen in the app.
  */
 export function AppHeader() {
-  const router = useRouter()
+  const { mode } = useShellMode()
+
+  return (
+    <View style={styles.header}>
+      {mode === 'pie' ? <PieTitle /> : <CashTitle />}
+      <ModeSwitch />
+      {mode === 'pie' && <GearButton />}
+    </View>
+  )
+}
+
+function PieTitle() {
   const { group, groups, error } = useGroups()
   const [sheetOpen, setSheetOpen] = useState(false)
 
@@ -24,7 +50,7 @@ export function AppHeader() {
     group?.name ?? (error ? 'Offline' : groups.length === 0 ? 'No groups' : 'Loading…')
 
   return (
-    <View style={styles.header}>
+    <>
       <Pressable style={styles.left} onPress={() => setSheetOpen(true)} hitSlop={6}>
         <View style={styles.titleRow}>
           <Text style={styles.title} numberOfLines={1}>
@@ -35,14 +61,45 @@ export function AppHeader() {
         {group != null && <Text style={styles.sub}>{groupSubtitle(group)}</Text>}
       </Pressable>
 
-      <Pressable onPress={() => router.push('/(app)/settings')} hitSlop={6}>
-        <GlossSurface radius={theme.radius.md} style={styles.gear}>
-          <Ionicons name="settings-outline" size={20} color={theme.color.ink2} />
-        </GlossSurface>
-      </Pressable>
-
       <GroupsSheet visible={sheetOpen} onClose={() => setSheetOpen(false)} />
+    </>
+  )
+}
+
+function CashTitle() {
+  const { activeWallet, wallets, error } = useWallets()
+
+  // No wallet is the normal first-run state, not a failure — the Wallets tab
+  // turns it into the create flow. Say "Cash" rather than anything alarming.
+  const title = activeWallet?.label ?? (error && wallets.length === 0 ? 'Offline' : 'Cash')
+  const sub =
+    activeWallet != null
+      ? `${formatAmount(activeWallet.amount)}${activeWallet.currency ? ` ${activeWallet.currency}` : ''}`
+      : 'No wallet yet'
+
+  return (
+    <View style={styles.left}>
+      <Text style={styles.title} numberOfLines={1}>
+        {title}
+      </Text>
+      <Text style={styles.sub}>{sub}</Text>
     </View>
+  )
+}
+
+function GearButton() {
+  const router = useRouter()
+  return (
+    <Pressable
+      onPress={() => router.push('/(app)/settings')}
+      hitSlop={6}
+      accessibilityRole="button"
+      accessibilityLabel="Group settings"
+    >
+      <GlossSurface radius={theme.radius.md} style={styles.gear}>
+        <Ionicons name="settings-outline" size={20} color={theme.color.ink2} />
+      </GlossSurface>
+    </Pressable>
   )
 }
 
@@ -57,7 +114,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.sp.md,
     paddingTop: theme.sp.sm,
     paddingBottom: theme.sp[11],
-    gap: theme.sp.sm,
+    gap: theme.sp.xs,
   },
   left: { flex: 1 },
   titleRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.xs },

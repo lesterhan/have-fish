@@ -179,6 +179,7 @@ app.get('/balances', async (c) => {
       path: accounts.path,
       name: accounts.name,
       storedType: accounts.type,
+      defaultCurrency: accounts.defaultCurrency,
       currency: postings.currency,
       balance: sql<string>`SUM(${postings.amount})`,
     })
@@ -191,7 +192,14 @@ app.get('/balances', async (c) => {
         ? typeFilterCondition(typeFilter, roots)
         : balanceBearingCondition(roots, includeUnfiled),
     ))
-    .groupBy(accounts.id, accounts.path, accounts.name, accounts.type, postings.currency)
+    .groupBy(
+      accounts.id,
+      accounts.path,
+      accounts.name,
+      accounts.type,
+      accounts.defaultCurrency,
+      postings.currency,
+    )
 
   // Collapse the flat rows into one entry per account with a balances array
   type Row = {
@@ -200,6 +208,9 @@ app.get('/balances', async (c) => {
     name: string | null
     type: StoredAccountType | null
     resolvedType: StoredAccountType | null
+    /** The account's own currency. A cash wallet holds exactly one, and the
+     *  Companion reads this rather than guessing from the path leaf. */
+    defaultCurrency: string | null
     balances: { currency: string; amount: string }[]
   }
   const grouped = new Map<string, Row>()
@@ -218,6 +229,7 @@ app.get('/balances', async (c) => {
         name: row.name,
         type: isStoredAccountType(row.storedType) ? row.storedType : null,
         resolvedType,
+        defaultCurrency: row.defaultCurrency,
         balances: [],
       })
     }

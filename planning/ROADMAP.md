@@ -64,7 +64,7 @@
 | [Companion Theming (Light/Dark + Accents)](epics/companion-theming.md) | Backlog |
 | [Fish Pie: Cross-Currency Settlement](epics/archive/fish-pie-cross-currency-settlement.md) | Done |
 | [Catch-Up Coach](epics/archive/catch-up-coach.md) | Done |
-| [Mobile Cash Ledger](epics/mobile-cash-tab.md) | Scoping |
+| [Mobile Cash Ledger](epics/archive/mobile-cash-tab.md) | Done |
 | [Account Page Redesign](epics/archive/account-page-redesign.md) | Done |
 | [Account Settings Modal](epics/archive/account-settings-modal.md) | Done |
 | [Accounts Page — Consolidation and Curation](epics/archive/accounts-page.md) | Done |
