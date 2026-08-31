@@ -96,21 +96,18 @@
     return TABS.some((x) => x.id === t) ? t! : 'accounts'
   }
 
-  let activeTab = $state(tabFromUrl(page.url))
+  // The URL is the only place the active tab lives. A click writes the URL and the panel
+  // follows it, so there is no second copy to fall out of step — an earlier version mirrored
+  // the tab into `$state` and kept the two in sync with a pair of effects, where the
+  // URL-follower re-ran on every click and put the old tab back before the click could be
+  // recorded. Deriving it means that cannot be written.
+  const activeTab = $derived(tabFromUrl(page.url))
 
-  // Two guarded effects rather than one: the first follows browser back/forward, the second
-  // records a click. Each is a no-op unless the two disagree, so they settle immediately.
-  $effect(() => {
-    const fromUrl = tabFromUrl(page.url)
-    if (fromUrl !== activeTab) activeTab = fromUrl
-  })
-
-  $effect(() => {
-    if (tabFromUrl(page.url) === activeTab) return
+  function selectTab(tab: string) {
     const url = new URL(page.url)
-    url.searchParams.set('tab', activeTab)
+    url.searchParams.set('tab', tab)
     void goto(url, { replaceState: true, noScroll: true, keepFocus: true })
-  })
+  }
 
   // ── Data ──────────────────────────────────────────────────
   let accounts = $state<AccountBalance[]>([])
@@ -543,7 +540,8 @@
     <h1>Accounts</h1>
     <TabStrip
       tabs={TABS}
-      bind:active={activeTab}
+      active={activeTab}
+      onselect={selectTab}
       label="Accounts page sections"
       panelIdPrefix="accounts"
     />

@@ -393,7 +393,8 @@
 
     <TabStrip
       {tabs}
-      bind:active={activeTab}
+      active={activeTab}
+      onselect={(id) => (activeTab = id as TabId)}
       label="Account settings sections"
       panelIdPrefix="account-settings"
     />
