@@ -375,6 +375,7 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
         onSelect={selectAccount}
         onCreate={(account) => setAccounts((prev) => [...prev, account])}
         label="Payment account"
+        trigger="external"
         open={accountSheetOpen}
         onOpenChange={setAccountSheetOpen}
       />

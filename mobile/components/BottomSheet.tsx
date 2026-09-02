@@ -1,5 +1,15 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Animated, Easing, Modal, Pressable, StyleSheet, Text, View } from 'react-native'
+import {
+  Animated,
+  Easing,
+  Keyboard,
+  Modal,
+  Platform,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import { useSafeAreaInsets } from 'react-native-safe-area-context'
 import { theme } from '@/lib/theme'
 
@@ -12,6 +22,8 @@ interface Props {
 
 const AnimatedPressable = Animated.createAnimatedComponent(Pressable)
 const DURATION = 220
+/** Leaves the scrim readable above the tallest sheet. */
+const MAX_HEIGHT = '92%'
 
 /**
  * Bottom-sheet primitive (handoff "Bottom sheet"): a panel that slides up from
@@ -20,6 +32,12 @@ const DURATION = 220
  *
  * `surface` panel, top radius 18, 1px top border, a grab handle, optional title
  * + close. Reused by the Groups sheet (this epic) and Currency / Date (Epic 2).
+ *
+ * The panel lifts itself clear of the keyboard. Android's `adjustResize` resizes
+ * the *app* window, and a Modal is its own window, so a sheet with a text field
+ * would otherwise sit under the keyboard with its submit button unreachable.
+ * Content taller than {@link MAX_HEIGHT} scrolls instead of growing past the top
+ * of the screen — sheets with a long body give their scroller `flexShrink: 1`.
  */
 export function BottomSheet({ visible, onClose, title, children }: Props) {
   const insets = useSafeAreaInsets()
@@ -27,6 +45,7 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
   const [panelHeight, setPanelHeight] = useState(600)
   // Keep the Modal mounted through the exit animation.
   const [mounted, setMounted] = useState(visible)
+  const [keyboardHeight, setKeyboardHeight] = useState(0)
 
   useEffect(() => {
     if (visible) {
@@ -50,6 +69,26 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible])
 
+  // iOS reports the keyboard before it animates, Android only once it is up;
+  // either way the height is what the panel has to clear.
+  useEffect(() => {
+    if (!mounted) return
+    const shown = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow',
+      (e) => setKeyboardHeight(e.endCoordinates.height),
+    )
+    const hidden = Keyboard.addListener(
+      Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide',
+      () => setKeyboardHeight(0),
+    )
+    return () => {
+      shown.remove()
+      hidden.remove()
+      // Don't reopen with the last sheet's keyboard padding still applied.
+      setKeyboardHeight(0)
+    }
+  }, [mounted])
+
   if (!mounted) return null
 
   const translateY = anim.interpolate({
@@ -65,7 +104,12 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
           onLayout={(e) => setPanelHeight(e.nativeEvent.layout.height)}
           style={[
             styles.panel,
-            { paddingBottom: insets.bottom + theme.sp.md, transform: [{ translateY }] },
+            {
+              // The keyboard covers the gesture bar it would otherwise clear, so
+              // the two insets don't add up — take whichever is taller.
+              paddingBottom: Math.max(insets.bottom, keyboardHeight) + theme.sp.md,
+              transform: [{ translateY }],
+            },
           ]}
         >
           <View style={styles.handle} />
@@ -88,6 +132,7 @@ const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
   scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.color.scrim },
   panel: {
+    maxHeight: MAX_HEIGHT,
     backgroundColor: theme.color.surface,
     borderTopLeftRadius: theme.radius.sheet,
     borderTopRightRadius: theme.radius.sheet,

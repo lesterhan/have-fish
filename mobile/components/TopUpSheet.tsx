@@ -6,7 +6,6 @@ import {
   fetchUserSettings,
   type Account,
 } from '@/lib/api'
-import { accountLeaf } from '@/lib/account-search'
 import { walletCurrency, type WalletView } from '@/lib/cash-accounts'
 import {
   buildTopUpPostings,
@@ -55,8 +54,6 @@ export function TopUpSheet({ visible, onClose, wallet }: Props) {
   const [accounts, setAccounts] = useState<Account[]>([])
   const [conversionAccountId, setConversionAccountId] = useState<string | null>(null)
   const [sourceId, setSourceId] = useState<string | null>(null)
-  const [sourceOpen, setSourceOpen] = useState(false)
-  const [feeOpen, setFeeOpen] = useState(false)
   const [feeAccountId, setFeeAccountId] = useState<string | null>(null)
   const [sourceAmount, setSourceAmount] = useState('')
   const [receivedAmount, setReceivedAmount] = useState('')
@@ -132,14 +129,18 @@ export function TopUpSheet({ visible, onClose, wallet }: Props) {
 
   return (
     <BottomSheet visible={visible} onClose={onClose} title={`Top up ${wallet.label}`}>
-      <ScrollView contentContainerStyle={styles.body} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        style={styles.scroll}
+        contentContainerStyle={styles.body}
+        showsVerticalScrollIndicator={false}
+        keyboardShouldPersistTaps="handled"
+      >
         <View>
           <Label>From</Label>
           <AccountSelect
             accounts={accounts}
             selectedId={sourceId ?? ''}
-            open={sourceOpen}
-            onOpenChange={setSourceOpen}
+            sheetTitle="Money came from"
             placeholder="Pick an account"
             onSelect={setSourceId}
             onCreate={(account) => setAccounts((current) => [...current, account])}
@@ -177,8 +178,7 @@ export function TopUpSheet({ visible, onClose, wallet }: Props) {
             <AccountSelect
               accounts={accounts}
               selectedId={feeAccountId ?? ''}
-              open={feeOpen}
-              onOpenChange={setFeeOpen}
+              sheetTitle="Where to book the fee"
               placeholder="Where to book the fee"
               onSelect={setFeeAccountId}
               onCreate={(account) => setAccounts((current) => [...current, account])}
@@ -255,6 +255,9 @@ function AmountField({
 }
 
 const styles = StyleSheet.create({
+  // Shrinkable so the panel's max height turns overflow into scrolling rather
+  // than pushing the top of the sheet off screen.
+  scroll: { flexShrink: 1 },
   body: { gap: theme.sp.sm, paddingBottom: theme.sp.xs },
   field: {
     flexDirection: 'row',

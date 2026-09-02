@@ -301,6 +301,7 @@ export function CashSpend() {
       <AccountSelect
         accounts={accounts}
         selectedId={rows.find((r) => r.id === pickingRowId)?.accountId ?? ''}
+        trigger="external"
         open={pickingRowId != null}
         onOpenChange={(open) => !open && setPickingRowId(null)}
         label="Category"
