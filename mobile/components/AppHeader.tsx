@@ -21,10 +21,10 @@ import { ModeSwitch } from './ModeSwitch'
  *
  * Cash: the active wallet's name and its balance. No group switcher and no gear
  * — group settings is a Fish Pie concept, and leaving either on screen would
- * suggest the cash wallet belongs to a group. The gear's space is still
- * reserved, so the mode switch sits in the same place in both modes. The wallet
- * is switched on the Wallets tab, not here: unlike groups, a wallet is picked
- * rarely and the tab that lists them all is one tap away.
+ * suggest the cash wallet belongs to a group. The mode switch is anchored to the
+ * right edge, so losing the gear costs it no position. The wallet is switched on
+ * the Wallets tab, not here: unlike groups, a wallet is picked rarely and the
+ * tab that lists them all is one tap away.
  *
  * Both faces carry the {@link ModeSwitch}, so the current ledger is legible from
  * every screen in the app.
@@ -35,11 +35,11 @@ export function AppHeader() {
   return (
     <View style={styles.header}>
       {mode === 'pie' ? <PieTitle /> : <CashTitle />}
+      {/* The gear sits inside the row, the switch against the right edge. Cash
+          drops the gear and the switch doesn't move: the title takes the slack,
+          so neither mode needs a control it has no use for. */}
+      {mode === 'pie' && <GearButton />}
       <ModeSwitch />
-      {/* Cash has no gear, but the slot stays: dropping it would slide the mode
-          switch sideways on every toggle, and a control that moves is a control
-          you have to re-find. */}
-      {mode === 'pie' ? <GearButton /> : <View style={styles.gearSlot} />}
     </View>
   )
 }
@@ -133,5 +133,4 @@ const styles = StyleSheet.create({
   caret: { fontSize: 13, color: theme.color.ink2 },
   sub: { fontFamily: theme.font.mono, fontSize: 10.5, color: theme.color.ink3, marginTop: 2 },
   gear: { width: 36, height: 36, alignItems: 'center', justifyContent: 'center' },
-  gearSlot: { width: 36, height: 36 },
 })
