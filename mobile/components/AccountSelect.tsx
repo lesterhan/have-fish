@@ -33,12 +33,20 @@ interface Props {
   onCreate?: (account: Account) => void
   /** Shown on the trigger when nothing is selected. */
   placeholder?: string
-  /** Shown above the trigger and as the sheet title. */
+  /** Shown above the trigger and, unless `sheetTitle` overrides it, as the sheet title. */
   label?: string
+  /** Sheet title when it should differ from the caption above the trigger. */
+  sheetTitle?: string
   /**
-   * When provided, the sheet's open state is *controlled* by the parent and the
-   * built-in trigger is not rendered — the parent supplies its own trigger (e.g.
-   * the PaymentRow account chip). Omit both for the default self-triggering mode.
+   * Who opens the sheet. `builtin` (the default) renders the tap target above.
+   * `external` renders no trigger at all, because the parent supplies its own
+   * (the PaymentRow account chip, a split row) — pass it deliberately, since a
+   * picker with neither trigger is invisible.
+   */
+  trigger?: 'builtin' | 'external'
+  /**
+   * Optional external control of the sheet's open state. Required with
+   * `trigger="external"`, since nothing else can open it.
    */
   open?: boolean
   onOpenChange?: (open: boolean) => void
@@ -62,6 +70,8 @@ export function AccountSelect({
   onCreate,
   placeholder = 'Select account',
   label,
+  sheetTitle,
+  trigger = 'builtin',
   open,
   onOpenChange,
 }: Props) {
@@ -133,7 +143,7 @@ export function AccountSelect({
 
   return (
     <View>
-      {!controlled && (
+      {trigger === 'builtin' && (
         <>
           {label != null && <Text style={styles.label}>{label}</Text>}
           <Pressable style={styles.trigger} onPress={() => setOpen(true)} onPressIn={haptics.selection}>
@@ -153,7 +163,11 @@ export function AccountSelect({
         </>
       )}
 
-      <BottomSheet visible={sheetOpen} onClose={() => setOpen(false)} title={label ?? 'Select account'}>
+      <BottomSheet
+        visible={sheetOpen}
+        onClose={() => setOpen(false)}
+        title={sheetTitle ?? label ?? 'Select account'}
+      >
         <ScrollView
           horizontal
           showsHorizontalScrollIndicator={false}
