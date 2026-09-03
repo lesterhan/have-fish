@@ -432,19 +432,20 @@ epics kill them.
 
 ### The case is not honest yet
 - **The minimize button does nothing.** No handler at all in `+layout.svelte`. Delete it or
-  give it a job.
+  give it a job. → `planning/epics/honest-chrome.md`
 - **Close asks "Are you sure you want to quit?" and then calls `window.close()`**, which
   browsers ignore for tabs the script didn't open. The most prominent control in the app is
-  a dead end. Sign out / lock is the honest meaning.
+  a dead end. Sign out / lock is the honest meaning. → `planning/epics/honest-chrome.md`
 - **The status bar says "Ready" forever.** Under the inbox model it should carry the
-  outstanding count — the case doing real work.
+  outstanding count — the case doing real work. → `planning/epics/honest-chrome.md`
 
 ### The case is not period yet
 - **The tooltip is Windows XP.** `--color-tooltip-bg: #ffffe1` with a 1px black border is
   classic Win32, sitting inside a Mac OS X Graphite shell. Should be an Aqua tooltip.
+  → `planning/epics/honest-chrome.md`
 - **`-webkit-font-smoothing: none`** is an XP-era holdover fighting its own reference —
   Aqua was the era that introduced heavy anti-aliasing. It's why the type reads "Windows"
-  even though everything around it reads "Mac".
+  even though everything around it reads "Mac". → `planning/epics/honest-chrome.md`
 
 ### The work is not modern enough
 - **Modal nesting.** `TransactionDetailModal` is a `Modal` that renders `LedgerEditModal`,
@@ -453,9 +454,14 @@ epics kill them.
 - **The sidebar leads with nouns, not the loop.** Accounts first, Catch Up fifth. Under the
   inbox model the order is wrong.
 - **No undo anywhere.** P4 prefers undo over confirm, but `toast` has no action affordance —
-  it's a string and a timer. Undo needs to exist before "prefer undo" is a real rule.
+  it's a string and a timer, and none of the eleven soft-delete endpoints has a restore
+  path. Undo needs to exist before "prefer undo" is a real rule.
+  → `planning/epics/undo.md`
 - **The toast timer is wrong.** `toast.show()` takes a `duration` argument and ignores it,
-  hard-coding 3200ms. Small, but it's the notification surface.
+  hard-coding 3200ms. Small, but it's the notification surface. → `planning/epics/undo.md`
+- **17 of 46 `toast.show()` call sites carry failures.** §4 says errors appear next to the
+  thing that failed and persist; these evaporate in 3.2s in a bar nobody is watching.
+  → `planning/epics/undo.md`
 
 ### Standing debt
 - **`prefers-reduced-motion`** honoured in 2 places out of ~30 that animate.
