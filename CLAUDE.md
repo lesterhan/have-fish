@@ -110,47 +110,19 @@ FRONTEND_URL=http://localhost:8888
 
 ## Design System
 
-**`DESIGN.md` is the design constitution** — UX principles, interaction laws, the rules for
-reusing vs. replacing components, and the process for evolving the UI. Read it before any
-epic that touches the UI. This section is the visual reference it points back to: the
-aesthetic and the token vocabulary. If the two ever disagree, `DESIGN.md` decides intent and
-this section decides implementation.
+**`DESIGN.md` is the single source of truth for design** — the aesthetic, the token
+vocabulary, UX principles, interaction laws, the rules for reusing vs. replacing
+components, and the process for evolving the UI. Read it before any epic that touches
+the UI.
 
-### Aesthetic
+Implementation reminders that belong with the build instructions:
 
-The UI draws from **2000s Mac OS X Graphite** — cool silver-grey shell, Lucida Grande as the system font, Aqua-style gradient buttons and controls, soft drop shadows, dark section bars, Graphite desktop.
-
-The goal is to feel like a real desktop application, not a website. It should say "you are using a computer program."
-
-The XP-era 3D bevel system has been removed. All controls now use Aqua-style shadows.
-
-### Visual rules
-
-- **Radius scale** — `--radius-sm` (3px) badges/chips, `--radius-md` (6px) buttons/controls, `--radius-lg` (8px) cards/inner panels, `--radius-xl` (12px) modal windows, `--radius-pill` (999px) pill-shaped chips.
-- **Aqua control shadows** — raised controls use `--shadow-control` (soft drop + top gloss highlight). Pressed/inset surfaces use `--shadow-inset` (recessed trough). Card surfaces use `--card-shadow` / `--card-shadow-hover`. Floating panels/dropdowns use `--shadow-window`.
-- **All buttons are `GradientButton`** — gradient background with border. Hover = accent border color. Active = `--shadow-inset`. `ChromeButton` is for window-chrome widgets only (modal close button, titlebar controls). `Button` is deleted.
-- **Cards are the surface primitive** — use `Card` for any grouped panel. Add a `.section-header` div inside for titled sections (uses `--color-section-bar-*` tokens). `Panel` is deleted.
-- **Lucida Grande at small sizes** — the system font is `Lucida Grande, Segoe UI`. Text is small (13–14px base). Period-accurate for both Mac and XP eras.
-- **No font smoothing** — `base.css` sets `-webkit-font-smoothing: none` for crisp pixel rendering.
-- **The desktop is Graphite** — `--color-desktop: #b8bcc2`. The entire page background.
-- **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`. Content areas are `--color-window-raised: #eceef2`. Inset fields (inputs, list boxes) are `--color-window-inset: #ffffff`.
-- **Title bars use the Graphite + Aqua gloss gradient** — multi-stop gloss overlay on Graphite hue; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border and top highlight. Title text uses `--font-serif`. Modal windows use `--shadow-modal` (real drop shadow).
-
-### Interaction rules (the modern layer)
-
-- All state changes (hover, active, focus) use CSS transitions: `var(--duration-fast) var(--ease)` (80ms ease-in-out)
-- Button press = `--shadow-inset` + `translate: 1px 1px`, not an instant jump
-- Focus rings must be visible and intentional — use `outline: 2px solid var(--color-accent-mid)`
-- Interactive elements always have a hover state; nothing is ambiguous about clickability
-
-### Styling approach
-
-- CSS variables for all tokens, scoped `<style>` blocks in `.svelte` files — no CSS framework
-- `frontend/src/styles/tokens.css` — single source of truth for all visual values. Never hard-code colors, spacing, or shadows — always use a token variable.
-- `frontend/src/styles/base.css` — global reset and baseline typography. Both imported once in `+layout.svelte`.
-- Components live in `frontend/src/lib/components/`. One `.svelte` file per component.
-
-### Component pattern
+- `frontend/src/styles/tokens.css` holds every visual value. Never hard-code a colour,
+  space, radius, or shadow — always a token.
+- `frontend/src/styles/base.css` is the global reset and baseline typography. Both are
+  imported once in `+layout.svelte`.
+- CSS variables in scoped `<style>` blocks inside `.svelte` files. No CSS framework.
+- One component per file under `frontend/src/lib/components/`.
 
 ```svelte
 <script lang="ts">
@@ -174,10 +146,6 @@ The XP-era 3D bevel system has been removed. All controls now use Aqua-style sha
   }
 </style>
 ```
-
-### Amount display convention
-
-Use `--color-amount-positive` (green) for income and `--color-amount-negative` (red) for expenses. Negative amounts in the data are expenses; positive are income.
 
 ## Epic Workflow
 

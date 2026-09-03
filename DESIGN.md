@@ -132,12 +132,62 @@ that wants to be a full-screen wizard or a multi-step panel (see `AddAccountWiza
 
 ## 4. The visual system
 
-The full aesthetic spec — palette, shadows, radii, typography, component rules — lives in
-`CLAUDE.md` under "Design System" and is implemented in `frontend/src/styles/tokens.css`.
-That file is the single source of truth for every visual value. Never hard-code a colour,
-space, radius, or shadow.
+`frontend/src/styles/tokens.css` is the implementation; this section is the intent. Never
+hard-code a colour, space, radius, or shadow — always a token.
 
-Two things worth restating because they're load-bearing:
+### Aesthetic
+
+The UI draws from **2000s Mac OS X Graphite** — cool silver-grey shell, Lucida Grande as
+the system font, Aqua-style gradient buttons and controls, soft drop shadows, dark section
+bars, Graphite desktop.
+
+The goal is to feel like a real desktop application, not a website. It should say "you are
+using a computer program."
+
+The XP-era 3D bevel system has been removed. All controls use Aqua-style shadows.
+
+### Visual rules
+
+- **Radius scale** — `--radius-sm` (3px) badges/chips, `--radius-md` (6px) buttons/controls,
+  `--radius-lg` (8px) cards/inner panels, `--radius-xl` (12px) modal windows,
+  `--radius-pill` (999px) pill-shaped chips.
+- **Aqua control shadows** — raised controls use `--shadow-control` (soft drop + top gloss
+  highlight). Pressed/inset surfaces use `--shadow-inset` (recessed trough). Card surfaces
+  use `--card-shadow` / `--card-shadow-hover`. Floating panels and dropdowns use
+  `--shadow-window`.
+- **All buttons are `GradientButton`** — gradient background with border. Hover = accent
+  border colour. Active = `--shadow-inset`. `ChromeButton` is for window-chrome widgets
+  only (modal close button, titlebar controls). `Button` is deleted.
+- **Cards are the surface primitive** — use `Card` for any grouped panel. Add a
+  `.section-header` div inside for titled sections (uses `--color-section-bar-*` tokens).
+  `Panel` is deleted.
+- **Lucida Grande at small sizes** — the system font is `Lucida Grande, Segoe UI`. Text is
+  small (13–14px base).
+- **No font smoothing** — `base.css` sets `-webkit-font-smoothing: none` for crisp pixel
+  rendering.
+- **The desktop is Graphite** — `--color-desktop: #b8bcc2`, the entire page background.
+- **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`. Content areas are
+  `--color-window-raised: #eceef2`. Inset fields (inputs, list boxes) are
+  `--color-window-inset: #ffffff`.
+- **Title bars use the Graphite + Aqua gloss gradient** — multi-stop gloss overlay on the
+  Graphite hue; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border
+  and top highlight. Title text uses `--font-serif`. Modal windows use `--shadow-modal`.
+
+### Interaction finishes
+
+- All state changes (hover, active, focus) transition on
+  `var(--duration-fast) var(--ease)` — 80ms ease-in-out.
+- Button press = `--shadow-inset` + `translate: 1px 1px`, not an instant jump.
+- Focus rings are visible and intentional: `outline: 2px solid var(--color-accent-mid)`.
+- Every interactive element has a hover state. Nothing is ambiguous about clickability.
+
+### Amount display
+
+`--color-amount-positive` (green) for income, `--color-amount-negative` (red) for expenses.
+Negative amounts in the data are expenses; positive are income. Rendered through
+`MoneyDisplay`; colour reinforces the sign, the minus carries it.
+
+### Two rules that are load-bearing
 
 **Tokens are a contract, not a palette.** `frontend/src/styles/tokens.test.ts` asserts
 contrast invariants against the token file itself, because a fill and its trough only meet
@@ -148,8 +198,6 @@ pair that must stay distinguishable, add the assertion with it.
 Anything you build must survive all twelve combinations. Never assume the accent is blue,
 never assume the background is light. If a component only looks right in one theme, it is
 not finished.
-
----
 
 ## 5. Components: reuse, extend, or replace
 
