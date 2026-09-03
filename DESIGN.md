@@ -87,6 +87,21 @@ floating over the content as a modern snackbar. This is the case doing real work
 the single best thing the metaphor buys us. The status bar should also carry live state —
 the inbox count is the obvious tenant of "Ready".
 
+**The case never changes size.** The frame is the one thing in the app that is nailed down;
+that is its whole job. A status bar that grows to hold controls, a titlebar that expands, a
+sidebar that reflows the content area on its own — each turns the frame into another panel
+and takes the app's only fixed reference point with it. Contextual controls therefore never
+live *in* the case. They **float over the work**: a tray anchored to the bottom of the
+scroll container, content scrolling underneath, nothing displaced. Floating costs nothing
+in layout and buys room for honest hit targets, which a 28px strip cannot give you.
+
+The tempting version of this mistake is subtle, so it's worth naming: `.window` is a column
+flex with `.window-body` at `flex: 1` and `.content` owning the scroll. Growing the status
+bar therefore shrinks the *viewport* rather than pushing rows down — better than inserting a
+bar into the flow, and still wrong. The scroll container resizes mid-interaction, the
+scrollbar thumb jumps, and anything anchored near the bottom shifts. A floating tray resizes
+nothing at all.
+
 **Period does not mean inconvenient.** The case constrains how things look, never how many
 steps something takes. No nested modals, no five-field dialogs, no OK/Cancel where inline
 editing works, no 2003 information architecture. If someone argues for a worse interaction
@@ -161,8 +176,18 @@ Never `outline: none` without a replacement indicator.
 failure. Over 1s: a `Shimmer` skeleton shaped like the incoming content — never a spinner
 on a blank panel, never a layout that jumps when data lands.
 
-**Notification.** Transient messages go to the status bar. Nothing floats over the work
-uninvited. Where an action is undoable, the status-bar message carries the undo.
+**Notification.** Transient messages go to the status bar. Where an action is undoable, the
+status-bar message carries the undo, and it names the keyboard shortcut alongside it
+("Deleted bank:savings:czk. Undo ⌘Z") — the bar reports that undo exists, the keyboard is
+what the user should reach for. When the bar gains an action it may pulse its background
+once to catch the eye; it does not move, resize, or animate its height.
+
+**Floating is for the invited.** Nothing floats over the work *uninvited* — a snackbar that
+interrupts what you're reading is the thing that rule is aimed at. A surface that appears as
+the direct consequence of the user's own click is invited and belongs over the content
+rather than in the flow: a selection tray after checking a row, a picker under the field that
+opened it. The test is whether the user would be surprised to see it. If they just caused it,
+they wouldn't be.
 
 **Errors.** Errors appear next to the thing that failed, in plain language, saying what to
 do next. "Failed to save" is not an error message. Never a raw status code, never a
@@ -228,6 +253,11 @@ still reading as Windows rather than Mac is a leftover, not a choice — see §1
 - **The desktop is Graphite** — `--color-desktop: #b8bcc2`, the whole page background.
 - **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`; content areas
   `--color-window-raised: #eceef2`; inset fields `--color-window-inset: #ffffff`.
+- **The status bar is tall enough to act in** — it holds interactive text (the undo action,
+  the inbox count), so it clears WCAG 2.5.8's 24×24 minimum target: roughly a 28–32px bar
+  rather than the ~20px `padding: 2px` + `--text-xs` strip that shipped. Period-plausible —
+  Aqua status bars ran ~22px, taller when they carried controls. The height is paid once and
+  never animates (§2).
 - **Title bars use the Graphite + Aqua gloss gradient** — multi-stop gloss over the Graphite
   hue; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border and top
   highlight. Title text uses `--font-serif`. Modals use `--shadow-modal`.
@@ -410,7 +440,8 @@ Run before opening a UI PR. Also the checklist for step 5 of the epic workflow i
 - [ ] Every field that could have a sensible default has one
 - [ ] Completable with the keyboard alone; focus visible, trapped in overlays, restored on close
 - [ ] Loading, first-run, filtered-to-nothing and cleared states all designed
-- [ ] New chrome is period and every widget in it does something real
+- [ ] New chrome is period, every widget in it does something real, and nothing in the case resizes
+- [ ] Contextual controls float over the work rather than displacing it
 - [ ] New flourishes fire at completion, not on the entry path
 - [ ] Correct in light and dark, and in all six accents
 - [ ] Contrast clears 4.5:1 (text) / 3:1 (graphics) in both themes; new token pairs asserted in `tokens.test.ts`
@@ -462,6 +493,14 @@ epics kill them.
 - **17 of 46 `toast.show()` call sites carry failures.** §4 says errors appear next to the
   thing that failed and persist; these evaporate in 3.2s in a bar nobody is watching.
   → `planning/epics/undo.md`
+
+### The case resizes and the work displaces
+- **The accounts bulk bar is a `Card` in normal flow.** Checking one box pushes the table
+  down ~60px; unchecking pulls it back. §2 says contextual controls float over the work.
+  → `planning/epics/undo.md` story 6
+- **The status bar is ~20px** (`padding: 2px` + `--text-xs`), which cannot hold an
+  interactive target at WCAG 2.5.8's 24×24 minimum — and it is about to hold the undo action.
+  → `planning/epics/undo.md` story 1
 
 ### Standing debt
 - **`prefers-reduced-motion`** honoured in 2 places out of ~30 that animate.

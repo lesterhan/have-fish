@@ -19,9 +19,11 @@ the mistake.
 - **Existing patterns reused:** the status bar as notification surface (§2), soft deletes,
   `ConfirmDialog` for the actions that keep one.
 - **Patterns being stretched or replaced:** `toast.svelte.ts` is replaced outright; every
-  call site migrates in this epic.
+  call site migrates in this epic. The accounts page's in-flow bulk bar becomes a floating
+  tray — the first instance of the §2 pattern, so build it to be lifted into `ui/` when a
+  second surface needs one.
 - **What gets deleted:** the string-and-timer toast store, the confirm dialogs on in-scope
-  deletes, and 17 error-carrying `toast.show()` calls.
+  deletes, 17 error-carrying `toast.show()` calls, and the in-flow `.bulk-bar` card.
 
 ## Background
 
@@ -116,6 +118,18 @@ and labelled; `Cmd/Ctrl+Z` triggers the pending action while one is showing (§4
 shortcuts to anything used more than once a session, and this is the shortcut everyone tries
 first).
 
+The shortcut is the primary affordance and the button is the fallback, so the message names
+it — "Deleted bank:savings:czk. Undo ⌘Z" — which both teaches the shortcut and stops the
+action being something the user has to hunt for in a thin strip. Two supports for that, per
+§2 and §5:
+
+- **The status bar gets its permanent height** here: ~28–32px, so the action clears WCAG
+  2.5.8's 24×24 minimum. Paid once, never animated. The bar must not resize when it gains or
+  loses an action — that's the §2 rule, and it's why the height goes in as a constant rather
+  than growing to fit.
+- **A single background pulse** when the bar gains an action. Motion that catches the eye
+  without moving the frame, and gated on `prefers-reduced-motion`.
+
 Migrate all existing `toast.show()` call sites unchanged — same behaviour, new store. No
 call site keeps the old shape (§6: the old thing is deleted in this epic).
 
@@ -190,10 +204,38 @@ different stakes and belongs to its own epic if it's ever wanted.
 affected row and leaves untouched rows alone; undo after a subsequent edit is either
 correctly scoped or unavailable — pick one in the story and assert it.
 
-### 6. Write the rule back into DESIGN.md
+### 6. The bulk selection tray
 
-Update P4 with the actual split — which actions get undo, which keep a confirm, and why —
-and strike the "no undo anywhere" and "toast timer" items from §10.
+`frontend/src/routes/(authed)/accounts/+page.svelte`.
+
+The account list's bulk bar is a `Card` in normal document flow above the account groups, so
+checking a box pushes the whole table down ~60px — and unchecking pulls it back. It is the
+worst layout shift in the app and it fires on the most incidental interaction there is.
+
+Move it to a tray anchored to the bottom of the scroll container: `position: sticky`, list
+scrolling underneath, nothing displaced. This is §2's rule — contextual controls float over
+the work, they don't live in the case and they don't sit in the flow. Two things follow from
+floating rather than squeezing into the status bar:
+
+- The tray can be ~48px with 32px targets, instead of controls crammed into a 28px strip.
+- It coexists with the status bar. "Hide all" on 11 accounts leaves the tray up *and* offers
+  undo below it. Sharing one surface would mean a priority fight every time a bulk action
+  completes while a selection is still live.
+
+Keep the existing behaviour: `Esc` clears, the count is authoritative, rows that leave the
+view take their selection with them (already handled in `visibleRows`/`selection`). The tray
+gains a shadow only when content is scrolled beneath it, so it reads as floating rather than
+welded on — `scrollShadow.ts` already does this elsewhere.
+
+**Tests:** the tray mounts and unmounts without changing the scroll offset or the height of
+any row; `Esc` clears the selection; bulk actions still act on exactly the visible selection;
+the tray and a live status-bar undo can be shown at once.
+
+### 7. Write the rules back into DESIGN.md
+
+Update P4 with the actual split — which actions get undo, which keep a confirm, and why.
+Strike from §10: "no undo anywhere", "the toast timer is wrong", the 17 failure-carrying
+toast calls, the in-flow bulk bar, and the 20px status bar.
 
 ## Out of scope
 
