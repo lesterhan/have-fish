@@ -153,11 +153,11 @@ Implementation reminders that belong with the build instructions:
 
 When the user says this:
 
-1. Read the epic file from `planning/epics/`. List all stories as a numbered checklist so the user can see the full scope. If the epic touches the UI and has no `## UX brief` section, write one first (format in `DESIGN.md` §6) and confirm it before writing code.
+1. Read the epic file from `planning/epics/`. List all stories as a numbered checklist so the user can see the full scope. If the epic touches the UI and has no `## UX brief` section, write one first (format in `DESIGN.md` §7) and confirm it before writing code.
 2. Start story 1. Implement it fully — complete, production-quality code with comprehensive tests.
 3. After finishing the story, present a brief summary of what was produced and **open a PR** against `main` on the public (`have-fish`) repo. Share the PR link for review.
 4. Wait for the user to confirm they are done reviewing.
-5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. For UI stories, run the review checklist in `DESIGN.md` §8. Fix anything that warrants fixing before shipping (push the fix to the same PR branch).
+5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. For UI stories, run the review checklist in `DESIGN.md` §9. Fix anything that warrants fixing before shipping (push the fix to the same PR branch).
 6. Confirm the story is prod-ready. The user merges the PR on GitHub, then runs `git checkout main && git pull origin main` locally.
 7. Move to the next story and repeat from step 2.
 8. After all stories are complete, ask if the user wants any additional tweaks before wrapping up.
