@@ -110,6 +110,12 @@ FRONTEND_URL=http://localhost:8888
 
 ## Design System
 
+**`DESIGN.md` is the design constitution** — UX principles, interaction laws, the rules for
+reusing vs. replacing components, and the process for evolving the UI. Read it before any
+epic that touches the UI. This section is the visual reference it points back to: the
+aesthetic and the token vocabulary. If the two ever disagree, `DESIGN.md` decides intent and
+this section decides implementation.
+
 ### Aesthetic
 
 The UI draws from **2000s Mac OS X Graphite** — cool silver-grey shell, Lucida Grande as the system font, Aqua-style gradient buttons and controls, soft drop shadows, dark section bars, Graphite desktop.
@@ -179,11 +185,11 @@ Use `--color-amount-positive` (green) for income and `--color-amount-negative` (
 
 When the user says this:
 
-1. Read the epic file from `planning/epics/`. List all stories as a numbered checklist so the user can see the full scope.
+1. Read the epic file from `planning/epics/`. List all stories as a numbered checklist so the user can see the full scope. If the epic touches the UI and has no `## UX brief` section, write one first (format in `DESIGN.md` §6) and confirm it before writing code.
 2. Start story 1. Implement it fully — complete, production-quality code with comprehensive tests.
 3. After finishing the story, present a brief summary of what was produced and **open a PR** against `main` on the public (`have-fish`) repo. Share the PR link for review.
 4. Wait for the user to confirm they are done reviewing.
-5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. Fix anything that warrants fixing before shipping (push the fix to the same PR branch).
+5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. For UI stories, run the review checklist in `DESIGN.md` §8. Fix anything that warrants fixing before shipping (push the fix to the same PR branch).
 6. Confirm the story is prod-ready. The user merges the PR on GitHub, then runs `git checkout main && git pull origin main` locally.
 7. Move to the next story and repeat from step 2.
 8. After all stories are complete, ask if the user wants any additional tweaks before wrapping up.
