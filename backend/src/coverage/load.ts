@@ -11,7 +11,7 @@ import { db } from '../db'
 import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
 import { isClearingAccountPath } from '../fish-pie-accounts'
 import { resolveStoredOrInferredType, toClassifierType, DEFAULT_ROOTS } from '../postings/account-type'
-import { addDays, type CoverageInterval } from './intervals'
+import { addDays, mergeCoverage, type CoverageInterval } from './intervals'
 import { inferCycleFromIntervals, mergeConfig, type CoverageConfigOverride } from './horizon'
 import { assembleAccount, type CatchUpAccount, type CatchUpAccountInput } from './catch-up'
 
@@ -37,17 +37,28 @@ export type LoadOptions = {
   spans?: boolean
 }
 
-// Every tracked account, assembled.
+export type CoverageContext = {
+  accounts: CatchUpAccount[]
+  // The merged spans behind each assembly, by account id. `assembleAccount` keeps only the
+  // leading edge and a 90-day strip, which is enough to say how current an account is and
+  // not enough to say whether a given month is recorded — an account covered either side of
+  // a hole has a leading edge that says nothing about the hole. Month classification needs
+  // the spans themselves, so the loader hands back what it already merged rather than making
+  // a second reader re-query the same table.
+  intervalsByAccount: Map<string, CoverageInterval[]>
+}
+
+// Every tracked account, assembled, plus the spans they were assembled from.
 //
 // Tracked means every non-deleted asset and liability account, minus any the user has hidden,
 // flagged illiquid, or dismissed with `tracked: false`. Expense and income accounts, and Fish
 // Pie clearing accounts, are derived from postings rather than imported, so there is nothing
 // to catch up on and nothing they can be behind by.
-export async function loadCoverageAccounts(
+export async function loadCoverageContext(
   userId: string,
   today: string,
   options: LoadOptions = {},
-): Promise<CatchUpAccount[]> {
+): Promise<CoverageContext> {
   const [settings] = await db
     .select({
       preferences: userSettings.preferences,
@@ -185,7 +196,7 @@ export async function loadCoverageAccounts(
     countsByAccount.set(row.accountId, counts)
   }
 
-  return tracked.map((account) => {
+  const assembled = tracked.map((account) => {
     const input: CatchUpAccountInput = {
       accountId: account.id,
       path: account.path,
@@ -198,4 +209,20 @@ export async function loadCoverageAccounts(
     }
     return assembleAccount(input, today)
   })
+
+  return {
+    accounts: assembled,
+    intervalsByAccount: new Map(
+      tracked.map((a) => [a.id, mergeCoverage(intervalsByAccount.get(a.id) ?? [])]),
+    ),
+  }
+}
+
+// The common case: the assembled accounts alone.
+export async function loadCoverageAccounts(
+  userId: string,
+  today: string,
+  options: LoadOptions = {},
+): Promise<CatchUpAccount[]> {
+  return (await loadCoverageContext(userId, today, options)).accounts
 }

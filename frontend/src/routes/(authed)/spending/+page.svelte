@@ -18,13 +18,16 @@
     fetchFxRate,
     fetchSpendingConverted,
     fetchMonthlySpend,
+    fetchMonthCoverage,
   } from '$lib/api'
   import type {
     Account,
     SpendingSummary,
     Transaction,
     MonthlySpend,
+    MonthCoverage,
   } from '$lib/api'
+  import { comparisonBlocker, isFloor, monthNote } from '$lib/coverage'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import ConvertToggle from '$lib/components/ui/ConvertToggle.svelte'
@@ -89,6 +92,57 @@
 
   // --- Monthly trend data ---
   let monthlyData = $state<MonthlySpend[]>([])
+
+  // --- Coverage ---
+  // How much of each month in the trend window is actually recorded. Fetched over the same
+  // seven months the trend covers, so a month with a delta always has a classification.
+  let monthCoverage = $state<Map<string, MonthCoverage>>(new Map())
+  let coverageToday = $state<string | null>(null)
+  // Zero tracked accounts have ever asserted coverage: the feature has never been used, every
+  // month comes back 'uncovered', and saying so would tell someone who has never bootstrapped
+  // that none of their spending is recorded. The page says nothing about coverage instead.
+  let coverageKnown = $state(false)
+
+  const monthKey = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
+  // "September", not "September 2026" — the page header already carries the year, and the
+  // blocker line appears twice on the same row when the selected month is the one at fault.
+  // The year comes back only when a compared month is from a different one.
+  const monthLabel = (key: string) => {
+    const [y, m] = key.split('-').map(Number)
+    return y === year ? MONTH_NAMES[m - 1] : `${MONTH_NAMES[m - 1]} ${y}`
+  }
+
+  let selectedCoverage = $derived(
+    coverageKnown ? (monthCoverage.get(monthKey(year, month)) ?? null) : null,
+  )
+
+  // The total is a floor rather than a value whenever the month is not fully recorded, and
+  // there is no total at all when none of it is.
+  let totalIsFloor = $derived(selectedCoverage !== null && isFloor(selectedCoverage))
+  let totalUnrecorded = $derived(selectedCoverage?.state === 'uncovered')
+
+  let selectedNote = $derived(
+    selectedCoverage && coverageToday ? monthNote(selectedCoverage, coverageToday) : null,
+  )
+
+  function priorMonths(count: number): MonthCoverage[] {
+    const found: MonthCoverage[] = []
+    for (let i = 1; i <= count; i++) {
+      const { year: y, month: m } = shiftMonth(year, month, -i)
+      const cov = monthCoverage.get(monthKey(y, m))
+      if (cov) found.push(cov)
+    }
+    return found
+  }
+
+  // §4: a comparison across a period the app has not fully recorded is not a stale fact, it is
+  // a fabricated one — so it is not drawn, and its space says why.
+  let lastMonthBlocker = $derived.by(() =>
+    selectedCoverage ? comparisonBlocker(selectedCoverage, priorMonths(1), monthLabel) : null,
+  )
+  let avgBlocker = $derived.by(() =>
+    selectedCoverage ? comparisonBlocker(selectedCoverage, priorMonths(3), monthLabel) : null,
+  )
 
   let deltaLastMonth = $derived.by<Record<string, number> | null>(() => {
     if (!summary || monthlyData.length === 0) return null
@@ -296,8 +350,29 @@
     fetchMonthlySpend(7).then((d) => {
       monthlyData = d
     })
+    loadCoverage()
     load().then(loadTxns)
   })
+
+  // The trend window is the last seven months from today; coverage is fetched over the same
+  // span so every month that can carry a delta can also say whether it is recorded.
+  async function loadCoverage() {
+    const now = new Date()
+    const from = shiftMonth(now.getFullYear(), now.getMonth() + 1, -6)
+    try {
+      const payload = await fetchMonthCoverage(
+        monthKey(from.year, from.month),
+        monthKey(now.getFullYear(), now.getMonth() + 1),
+      )
+      coverageToday = payload.today
+      coverageKnown = payload.assertedAccounts > 0
+      monthCoverage = new Map(payload.months.map((m) => [m.month, m]))
+    } catch {
+      // A coverage failure must not take the page down with it. Without it the page simply
+      // makes no claim about how recorded anything is, which is where it was before this.
+      coverageKnown = false
+    }
+  }
 
   // A recategorize or delete from the detail changes spending totals — refresh both panels.
   function onTxChanged() {
@@ -338,12 +413,27 @@
         <!-- Total Spend -->
         <div class="summary-card">
           <div class="card-label">TOTAL SPEND</div>
-          {#each currencyEntries as [c, amount]}
-            <div class="card-row">
-              <CurrencyPill code={c} size="xs" />
-              <span class="card-amount">{formatMoneyAbs(amount)}</span>
-            </div>
-          {/each}
+          {#if totalUnrecorded}
+            <!-- No total. A figure summed over a month the ledger records nothing for is not a
+                 small number, it is an unknown one, and rendering it invites the reader to
+                 treat an unimported month as a frugal one. -->
+            <span class="card-null">—</span>
+          {:else}
+            {#each currencyEntries as [c, amount]}
+              <div class="card-row">
+                <CurrencyPill code={c} size="xs" />
+                <!-- ≥ marks the floor inline with the number rather than under it: a caveat
+                     set below a figure loses to the figure. Inside .card-amount so the row
+                     stays a two-column grid and the pair right-aligns as one unit. -->
+                <span class="card-amount"
+                  >{#if totalIsFloor}<span class="sr-only">at least </span><span
+                      class="card-floor"
+                      aria-hidden="true">≥</span
+                    >{/if}{formatMoneyAbs(amount)}</span
+                >
+              </div>
+            {/each}
+          {/if}
           {#if needsConversion && converting}
             <div class="card-sigma-row">
               {#if fxFetching}
@@ -364,12 +454,22 @@
               {/if}
             </div>
           {/if}
+          {#if selectedNote}
+            <span class="card-asof" title={selectedNote.detail}>{selectedNote.text}</span>
+          {/if}
+          {#if totalUnrecorded}
+            <a class="card-fix" href="/catch-up">Record this month</a>
+          {/if}
         </div>
 
         <!-- vs Last Month -->
         <div class="summary-card">
           <div class="card-label">VS LAST MONTH</div>
-          {#if deltaLastMonth === null}
+          {#if lastMonthBlocker}
+            <span class="card-blocked" title={lastMonthBlocker.detail}
+              >{lastMonthBlocker.text}</span
+            >
+          {:else if deltaLastMonth === null}
             <span class="card-null">—</span>
           {:else}
             {#each currencyEntries as [c]}
@@ -392,7 +492,9 @@
         <!-- vs 3-Month Avg -->
         <div class="summary-card">
           <div class="card-label">VS 3-MO AVG</div>
-          {#if delta3moAvg === null}
+          {#if avgBlocker}
+            <span class="card-blocked" title={avgBlocker.detail}>{avgBlocker.text}</span>
+          {:else if delta3moAvg === null}
             <span class="card-null">—</span>
           {:else}
             {#each currencyEntries as [c]}
@@ -419,7 +521,26 @@
     {:else if error}
       <p class="status error">{error}</p>
     {:else if !summary || currencies.length === 0}
-      <p class="status">No expenses recorded for this month.</p>
+      <!-- "No expenses" and "no imports" are the same screen in a manual-entry app, and the
+           difference is the whole point: one is a frugal month, the other is an unopened one.
+           An empty month the app has not fully recorded says which of the two it is. -->
+      {#if totalIsFloor && selectedCoverage}
+        <p class="status">
+          {#if totalUnrecorded}
+            Nothing is recorded for this month — no account covers any of it, so an empty
+            month here is not the same as having spent nothing.
+          {:else}
+            No expenses in the recorded part of this month.
+            {selectedCoverage.gaps.length === 1
+              ? 'One account is not fully recorded for it'
+              : `${selectedCoverage.gaps.length} accounts are not fully recorded for it`}, so
+            this is not the same as having spent nothing.
+          {/if}
+          <a class="status-link" href="/catch-up">Record it</a>
+        </p>
+      {:else}
+        <p class="status">No expenses recorded for this month.</p>
+      {/if}
     {:else}
       <div class="breakdown-section">
         <div class="section-bar">
@@ -650,6 +771,44 @@
     font-family: var(--font-mono);
     font-size: 18px;
     color: var(--color-text-disabled);
+  }
+
+  /* The floor marker inherits the figure's family, size and weight from .card-amount — a "≥"
+     set small and muted beside a big number reads as decoration, and the number reads as
+     fact. Only the colour steps back. */
+  .card-floor {
+    color: var(--color-text-muted);
+    margin-right: 0.15em;
+  }
+
+  /* The month's as-of, matching the accounts page tiles: a statement, not a warning. The
+     figure keeps its weight and its colour; the date does the honesty work. */
+  .card-asof {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: 1.3;
+    text-wrap: pretty;
+  }
+
+  /* Occupies the space the delta would have. Not muted into invisibility — this is the
+     card's content now, not a footnote on it. */
+  .card-blocked {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: 1.3;
+    text-wrap: pretty;
+  }
+
+  .card-fix,
+  .status-link {
+    font-size: var(--text-xs);
+    color: var(--color-accent);
+    text-decoration: none;
+  }
+
+  .card-fix:hover,
+  .status-link:hover {
+    text-decoration: underline;
   }
 
   .card-sigma-row {

@@ -1,6 +1,12 @@
-import type { AccountCoverageStatus, CoverageState } from './coverage'
+import type { AccountCoverageStatus, CoverageState, MonthCoverage } from './coverage'
 
-export type { AccountCoverageStatus, CoverageState } from './coverage'
+export type {
+  AccountCoverageStatus,
+  CoverageState,
+  MonthCoverage,
+  MonthCoverageState,
+  MonthGap,
+} from './coverage'
 
 // All /api/* requests are proxied by the SvelteKit server to the backend.
 // Empty base means same-origin, which works in both dev and production.
@@ -1523,6 +1529,33 @@ export type CoverageStatusPayload = {
 export async function fetchCoverageStatus(): Promise<CoverageStatusPayload> {
   const res = await fetch(`${BASE}/api/coverage/accounts`, { credentials: 'include' })
   if (!res.ok) throw new Error('Failed to load account coverage')
+  return res.json()
+}
+
+export type MonthCoveragePayload = {
+  today: string
+  // Tracked accounts that have ever had coverage asserted. Zero means the feature has never
+  // been used, and a caller must say nothing about coverage rather than report that none of
+  // the user's spending is recorded.
+  assertedAccounts: number
+  months: MonthCoverage[]
+}
+
+/**
+ * Whether each calendar month in the range is actually recorded. Distinct from
+ * `fetchCoverageStatus`, which answers how *current* an account is — a leading edge says
+ * nothing about a hole behind it, and a month in that hole is unrecorded however recent the
+ * edge is. `from` and `to` are inclusive `YYYY-MM`.
+ */
+export async function fetchMonthCoverage(
+  from: string,
+  to: string,
+): Promise<MonthCoveragePayload> {
+  const res = await fetch(
+    `${BASE}/api/coverage/months?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
+    { credentials: 'include' },
+  )
+  if (!res.ok) throw new Error('Failed to load month coverage')
   return res.json()
 }
 

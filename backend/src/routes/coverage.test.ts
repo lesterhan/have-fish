@@ -32,6 +32,12 @@ async function getCoverage(cookie: string, accountId: string) {
   return app.request(`/api/accounts/${accountId}/coverage`, { headers: { Cookie: cookie } })
 }
 
+function addDays(date: string, n: number): string {
+  const d = new Date(`${date}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + n)
+  return d.toISOString().substring(0, 10)
+}
+
 function daysAgo(n: number): string {
   const d = new Date()
   d.setUTCDate(d.getUTCDate() - n)
@@ -732,6 +738,178 @@ describe('coverage', () => {
 
     it('requires authentication', async () => {
       const res = await app.request('/api/coverage/accounts')
+
+      expect(res.status).toBe(401)
+    })
+  })
+
+  describe('GET /api/coverage/months', () => {
+    const months = async (from: string, to: string) => {
+      const res = await app.request(`/api/coverage/months?from=${from}&to=${to}`, {
+        headers: { Cookie: cookie },
+      })
+      return { status: res.status, body: await res.json() }
+    }
+
+    const today = () => new Date().toISOString().substring(0, 10)
+    const monthOf = (iso: string) => iso.substring(0, 7)
+
+    it('calls a month complete when every tracked account covers all of it', async () => {
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      const chequing = await createAccount(userId, 'assets:chequing')
+      const visa = await createAccount(userId, 'liabilities:visa')
+      for (const id of [chequing.id, visa.id]) {
+        await postCoverage(cookie, {
+          accountId: id, fromDate: daysAgo(400), throughDate: today(), source: 'import',
+        })
+        // Activity inside the covered span, or the account reads dormant and drops out of the
+        // reckoning entirely — which is correct behaviour and not what this test is about.
+        await seedTxn(userId, id, daysAgo(120), groceries.id)
+      }
+
+      const { status, body } = await months(monthOf(daysAgo(120)), monthOf(daysAgo(120)))
+
+      expect(status).toBe(200)
+      expect(body.months[0].state).toBe('complete')
+      expect(body.months[0].gaps).toEqual([])
+    })
+
+    it('names the accounts that fall short of a partial month', async () => {
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      const chequing = await createAccount(userId, 'assets:chequing')
+      const visa = await createAccount(userId, 'liabilities:visa')
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: daysAgo(400), throughDate: daysAgo(1), source: 'import',
+      })
+      await postCoverage(cookie, {
+        accountId: visa.id, fromDate: daysAgo(400), throughDate: daysAgo(90), source: 'import',
+      })
+      await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
+      await seedTxn(userId, visa.id, daysAgo(120), groceries.id)
+
+      // The month the visa's coverage stops inside.
+      const { body } = await months(monthOf(daysAgo(90)), monthOf(daysAgo(90)))
+
+      expect(body.months[0].state).toBe('partial')
+      expect(body.months[0].completeThrough).toBe(daysAgo(90))
+      expect(body.months[0].gaps).toEqual([
+        { accountId: visa.id, path: 'liabilities:visa', name: null, coveredThrough: daysAgo(90) },
+      ])
+    })
+
+    // The reason this endpoint exists rather than the accounts projection answering it: an
+    // account covered either side of a hole has a recent leading edge and an unrecorded month.
+    it('sees a month sitting in a hole behind a recent leading edge', async () => {
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      const chequing = await createAccount(userId, 'assets:chequing')
+      // Two spans with a whole calendar month missing between them. The leading edge is today.
+      const [hole] = [monthOf(daysAgo(60))]
+      const holeStart = `${hole}-01`
+      const holeEnd = `${hole}-${new Date(Date.UTC(+hole.slice(0, 4), +hole.slice(5, 7), 0)).getUTCDate()}`
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: daysAgo(400), throughDate: addDays(holeStart, -1), source: 'import',
+      })
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: addDays(holeEnd, 1), throughDate: today(), source: 'import',
+      })
+      await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
+
+      const { body } = await months(monthOf(addDays(holeStart, -1)), monthOf(addDays(holeEnd, 1)))
+
+      expect(body.months.map((m: any) => m.state)).toEqual(['complete', 'uncovered', 'complete'])
+    })
+
+    // Same rule as a rollup's as-of: an account confirmed empty contributes nothing, so being
+    // unrecorded for it cannot make a month's total wrong.
+    it('does not let a dormant account hold a month back', async () => {
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: daysAgo(400), throughDate: today(), source: 'import',
+      })
+      await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
+      // Long confirmed-empty history and nothing since: dormant.
+      const oldSavings = await createAccount(userId, 'assets:old-savings')
+      await postCoverage(cookie, {
+        accountId: oldSavings.id, fromDate: daysAgo(300), throughDate: daysAgo(200), source: 'empty',
+      })
+
+      const { body } = await months(monthOf(daysAgo(30)), monthOf(daysAgo(30)))
+
+      expect(body.months[0].state).toBe('complete')
+      expect(body.months[0].contributors).toBe(1)
+    })
+
+    it('measures the month in progress against today rather than its end', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: daysAgo(400), throughDate: today(), source: 'import',
+      })
+
+      const { body } = await months(monthOf(today()), monthOf(today()))
+
+      expect(body.months[0].state).toBe('complete')
+      expect(body.months[0].through).toBe(today())
+    })
+
+    it('reports no contributors when nothing is tracked', async () => {
+      await createAccount(userId, 'expenses:groceries')
+
+      const { body } = await months('2026-06', '2026-06')
+
+      expect(body.months[0].contributors).toBe(0)
+    })
+
+    it('walks the whole inclusive range', async () => {
+      const { body } = await months('2026-05', '2026-07')
+
+      expect(body.months.map((m: any) => m.month)).toEqual(['2026-05', '2026-06', '2026-07'])
+    })
+
+    // A user who has never used the coverage feature gets every month back as uncovered,
+    // which is true and useless. The count is how a caller knows to say nothing at all rather
+    // than report that none of their spending is recorded.
+    it('reports that no account has ever asserted coverage', async () => {
+      await createAccount(userId, 'assets:chequing')
+
+      const { body } = await months('2026-06', '2026-06')
+
+      expect(body.assertedAccounts).toBe(0)
+      expect(body.months[0].state).toBe('uncovered')
+    })
+
+    it('counts the accounts that have asserted coverage', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await createAccount(userId, 'assets:cash')
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: daysAgo(400), throughDate: today(), source: 'import',
+      })
+
+      const { body } = await months('2026-06', '2026-06')
+
+      expect(body.assertedAccounts).toBe(1)
+    })
+
+    it('rejects a malformed month', async () => {
+      const { status } = await months('2026-13', '2026-13')
+
+      expect(status).toBe(400)
+    })
+
+    it('rejects an inverted range', async () => {
+      const { status } = await months('2026-09', '2026-07')
+
+      expect(status).toBe(400)
+    })
+
+    it('rejects a range longer than it will classify', async () => {
+      const { status } = await months('2020-01', '2026-09')
+
+      expect(status).toBe(400)
+    })
+
+    it('requires authentication', async () => {
+      const res = await app.request('/api/coverage/months?from=2026-09&to=2026-09')
 
       expect(res.status).toBe(401)
     })
