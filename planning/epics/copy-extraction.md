@@ -178,9 +178,10 @@ change that should not be smuggled in earlier.
 
 ## Open questions
 
-- Does the `copy.test.ts` allowlist go per-file or per-string? Per-file is easier to live
-  with and weaker; per-string is noisy but actually holds. Decide in story 1, with real
-  exceptions in hand rather than imagined ones.
+- ~~Does the `copy.test.ts` allowlist go per-file or per-string?~~ Settled in story 1:
+  per-string, as `{ file, text, why }`, and a stale entry fails the test. Login and signup
+  converted with zero exceptions, so the mechanism has not actually been under pressure yet
+  — if story 3 finds it unlivable, that is the moment to loosen it, not before.
 - Story 5 (import) may be too big for one PR. Do not pre-split it — let story 4 set the
   pace and split if it earns it.
 
