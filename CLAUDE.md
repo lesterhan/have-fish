@@ -180,16 +180,51 @@ When the user says this:
 
 ## PR Workflow
 
+### Naming
+
+Uniform titles and branches, JIRA-shaped without the ticket numbers. The epic slug is
+the identifier — it is the closest thing this repo has to a ticket, and it links a PR
+back to `planning/epics/`.
+
+**PR title** — `[scope] Imperative description`
+
+```
+[trust-signals] Story 2 — rollup tiles carry their as-of
+[mobile-cash]   Fix keyboard overlap on bottom sheets
+[accounts]      Fix the tab strip, which ignored clicks
+[repo]          Add a pull request template
+```
+
+- **scope** is the epic slug when the work belongs to an epic, otherwise the surface or
+  area in one word (`accounts`, `import`, `mobile`, `design`, `repo`, `ci`).
+- Epic stories carry `Story N — ` after the scope, matching the story numbers in the
+  epic file. One story per PR, per the Epic Workflow above.
+- Imperative mood, no trailing full stop, ~70 characters so GitHub's list view doesn't
+  truncate it.
+
+**Branch** — `<author>/<scope>_<short-description>`
+
+```
+lhan/trust-signals_rollup-as-of
+claude/accounts_tab-strip-clicks
+```
+
+Author prefix is `lhan/` or `claude/`. Scope matches the title's. Description is two or
+three words, hyphenated — enough to recognise in `git branch`, not the whole title.
+
+Branches created by Claude Code on the web are named by the harness and cannot follow
+this; the title convention is what holds in every case.
+
 ### Normal feature flow
 
 ```bash
 # 1. branch off main
-git checkout -b feature/my-thing
+git checkout -b lhan/<scope>_<short-description>
 
 # 2. implement, commit
-git push -u origin feature/my-thing
+git push -u origin lhan/<scope>_<short-description>
 
-# 3. open PR on GitHub — Claude does this in the epic workflow
+# 3. open PR on GitHub, titled [scope] Description — Claude does this in the epic workflow
 # 4. review, iterate, merge on GitHub
 
 # 5. sync local main after merge
