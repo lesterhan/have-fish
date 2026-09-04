@@ -23,7 +23,8 @@ the mistake.
   tray — the first instance of the §2 pattern, so build it to be lifted into `ui/` when a
   second surface needs one.
 - **What gets deleted:** the string-and-timer toast store, the confirm dialogs on in-scope
-  deletes, 17 error-carrying `toast.show()` calls, and the in-flow `.bulk-bar` card.
+  deletes, 17 error-carrying `toast.show()` calls, and the in-flow `.bulk-bar` card (the
+  card is already gone — story 6 shipped early; see there).
 
 ## Background
 
@@ -204,7 +205,14 @@ different stakes and belongs to its own epic if it's ever wanted.
 affected row and leaves untouched rows alone; undo after a subsequent edit is either
 correctly scoped or unavailable — pick one in the story and assert it.
 
-### 6. The bulk selection tray
+### 6. The bulk selection tray — shipped ahead of this epic
+
+**Done.** Pulled forward out of order: the in-flow bar turned out to be the trigger for a
+repaint failure on the accounts page (ticking a group checkbox while scrolled down left most
+of the window unpainted), so the fix shipped on its own rather than waiting for undo. The
+tray is `frontend/src/lib/components/ui/SelectionTray.svelte`. The one part of this story
+still outstanding is the last test below — the tray coexisting with a live status-bar undo,
+which cannot be written until stories 1–3 give the status bar an undo to show.
 
 `frontend/src/routes/(authed)/accounts/+page.svelte`.
 
