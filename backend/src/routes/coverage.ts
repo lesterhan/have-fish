@@ -4,7 +4,8 @@ import { accountCoverage, accounts, postings, transactions, userSettings } from 
 import { and, between, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { addDays, mergeCoverage } from '../coverage/intervals'
-import { loadCoverageAccounts, todayUtc } from '../coverage/load'
+import { loadCoverageAccounts, loadCoverageContext, todayUtc } from '../coverage/load'
+import { classifyMonths, monthsBetween } from '../coverage/months'
 import {
   horizon,
   inferCycleFromIntervals,
@@ -168,6 +169,63 @@ app.get('/accounts', async (c) => {
       coveredThrough: a.coveredThrough,
       dormant: a.dormant,
     })),
+  })
+})
+
+// Widest span the month endpoint will classify at once. The spending page asks for seven; a
+// range longer than a few years is a caller mistake, not a use case.
+const MAX_MONTHS = 36
+
+const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/
+
+// GET /api/coverage/months?from=YYYY-MM&to=YYYY-MM
+// Whether each calendar month in the range is actually recorded, and by how much.
+//
+// This is the question `GET /api/coverage/accounts` cannot answer. A leading edge says how
+// current an account is; it says nothing about a hole behind it, and a month sitting in that
+// hole is unrecorded however recent the edge is.
+//
+// Scope is every tracked account, not the accounts with transactions in the month — an
+// account whose statement was never imported has no transactions in the month *because* it
+// was never imported, so classifying against what shows up would read every neglected month
+// as complete.
+// `assertedAccounts` is how many tracked accounts have ever had coverage asserted at all.
+// Zero means the coverage feature has never been used, in which case every month comes back
+// 'uncovered' — technically true and useless. A caller must say nothing about coverage rather
+// than tell a user who has never bootstrapped that none of their spending is recorded.
+// 200: { today, assertedAccounts, months: [{ month, state, completeThrough, through, contributors, gaps }] }
+// 400: malformed or inverted range, or a span over 36 months
+app.get('/months', async (c) => {
+  const from = c.req.query('from')
+  const to = c.req.query('to')
+
+  if (!from || !MONTH_RE.test(from)) return c.json({ error: 'from must be a YYYY-MM month' }, 400)
+  if (!to || !MONTH_RE.test(to)) return c.json({ error: 'to must be a YYYY-MM month' }, 400)
+  if (from > to) return c.json({ error: 'from must be on or before to' }, 400)
+
+  const months = monthsBetween(from, to)
+  if (months.length > MAX_MONTHS) {
+    return c.json({ error: `range must span at most ${MAX_MONTHS} months` }, 400)
+  }
+
+  const today = todayUtc()
+  const { accounts: assembled, intervalsByAccount } = await loadCoverageContext(
+    c.get('userId'),
+    today,
+  )
+
+  const inputs = assembled.map((a) => ({
+    accountId: a.accountId,
+    path: a.path,
+    name: a.name,
+    intervals: intervalsByAccount.get(a.accountId) ?? [],
+    dormant: a.dormant,
+  }))
+
+  return c.json({
+    today,
+    assertedAccounts: inputs.filter((i) => i.intervals.length > 0).length,
+    months: classifyMonths(inputs, months, today),
   })
 })
 
