@@ -124,10 +124,11 @@ it — "Deleted bank:savings:czk. Undo ⌘Z" — which both teaches the shortcut
 action being something the user has to hunt for in a thin strip. Two supports for that, per
 §2 and §5:
 
-- **The status bar gets its permanent height** here: ~28–32px, so the action clears WCAG
-  2.5.8's 24×24 minimum. Paid once, never animated. The bar must not resize when it gains or
-  loses an action — that's the §2 rule, and it's why the height goes in as a constant rather
-  than growing to fit.
+- **The status bar's permanent height is already in** — 30px, shipped in
+  `planning/epics/trust-signals.md` story 4, which made the bar interactive first and could not
+  leave a link under WCAG 2.5.8's 24×24 minimum. Nothing to do here beyond confirming the
+  action clears the same target. The §2 rule still governs: the bar must not resize when it
+  gains or loses an action, which is why the height is a constant rather than growing to fit.
 - **A single background pulse** when the bar gains an action. Motion that catches the eye
   without moving the frame, and gated on `prefers-reduced-motion`.
 

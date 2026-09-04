@@ -1,3 +1,4 @@
+import { bumpCoverage } from './coverageRefresh'
 import type { AccountCoverageStatus, CoverageState, MonthCoverage } from './coverage'
 
 export type {
@@ -509,6 +510,11 @@ export async function updateUserSettings(
     const body = await res.json().catch(() => ({}))
     throw new Error(body.error ?? 'Failed to save settings')
   }
+  // Hiding an account, flagging it illiquid, or pinning coverage config all land here, and
+  // the first two remove it as a contributor outright. Bumping on every settings save is
+  // broader than it needs to be and costs one small re-fetch; a stale trust readout costs
+  // more than that.
+  bumpCoverage()
   return res.json()
 }
 
@@ -770,6 +776,9 @@ export async function createTransaction(body: {
   })
   if (!res.ok)
     throw new Error((await res.json()).error ?? 'Failed to create transaction')
+  // A transaction landing inside an open gap is the revival rule: it pulls a dormant account
+  // back into the reckoning, which changes what every rollup's as-of is computed over.
+  bumpCoverage()
   return res.json()
 }
 
@@ -788,6 +797,7 @@ export async function createTransactionsBulk(
   })
   if (!res.ok)
     throw new Error((await res.json()).error ?? 'Failed to create transactions')
+  bumpCoverage()
   return res.json()
 }
 
@@ -1617,6 +1627,9 @@ export async function createCoverage(body: {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to record coverage')
   }
+  // Here rather than at the call site: the status bar reports coverage on every screen, and
+  // the writes are spread across the import flow, the catch-up hub and the reconcile modal.
+  bumpCoverage()
   return res.json()
 }
 
@@ -1626,6 +1639,7 @@ export async function deleteCoverage(id: string): Promise<void> {
     credentials: 'include',
   })
   if (!res.ok) throw new Error('Failed to withdraw coverage')
+  bumpCoverage()
 }
 
 // Pins part of an account's config by hand. Passing null for a field clears the override and
@@ -1649,6 +1663,9 @@ export async function updateCoverageConfig(
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to update coverage config')
   }
+  // `tracked: false` removes the account as a contributor outright, which moves every as-of
+  // computed over it.
+  bumpCoverage()
   return res.json()
 }
 
@@ -1672,5 +1689,6 @@ export async function recordReconcileCoverage(
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to record coverage')
   }
+  bumpCoverage()
   return res.json()
 }

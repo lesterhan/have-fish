@@ -4,6 +4,7 @@ import {
   completenessNote,
   coverageFor,
   formatCompletenessDate,
+  statusNote,
   type AccountCoverageStatus,
 } from './coverage'
 
@@ -179,5 +180,64 @@ describe('completenessNote', () => {
 
     expect(result?.detail.length).toBeGreaterThan(result!.text.length)
     expect(result?.detail).toContain('Jun 21')
+  })
+})
+
+describe('statusNote', () => {
+  const TODAY = '2026-09-04'
+  const note = (rows: AccountCoverageStatus[]) => statusNote(completeness(rows), TODAY)
+
+  // An empty strip says less than a sentence about nothing.
+  it('says nothing when nothing is tracked', () => {
+    expect(note([])).toBeNull()
+  })
+
+  // The line stands alone in the bar rather than under a figure, so it carries its own
+  // subject — the tiles' bare "complete through Jun 21" would be a fragment here.
+  it('names its subject, unlike the line under a tile', () => {
+    expect(note([behind('a', '2026-06-21')])?.text).toBe('Ledger complete through Jun 21')
+  })
+
+  it('reads as current when nothing is outstanding', () => {
+    const result = note([current('a'), current('b')])
+
+    expect(result?.text).toBe('Ledger complete through today')
+    expect(result?.current).toBe(true)
+  })
+
+  it('takes its date from the stalest live account', () => {
+    expect(note([behind('a', '2026-08-15'), behind('b', '2026-04-23')])?.text).toBe(
+      'Ledger complete through Apr 23',
+    )
+  })
+
+  it('is not held back by a dormant account', () => {
+    const dormant = row({
+      accountId: 'old', state: 'behind', coveredThrough: '2025-01-31', dormant: true,
+    })
+
+    expect(note([current('a'), dormant])?.text).toBe('Ledger complete through today')
+  })
+
+  it('carries the unrecorded accounts alongside the date', () => {
+    const result = note([behind('a', '2026-06-21'), unset('b')])
+
+    expect(result?.text).toBe('Ledger complete through Jun 21 — 1 account has no starting line')
+    expect(result?.current).toBe(false)
+  })
+
+  it('agrees its verb with the count', () => {
+    expect(note([current('a'), unset('b'), unset('c')])?.text).toBe(
+      'Ledger complete through today — 2 accounts have no starting line',
+    )
+  })
+
+  // The same computation the accounts tiles run, so the two can never disagree about the
+  // same accounts — only the wording differs.
+  it('agrees with the tile line on which date is quoted', () => {
+    const rows = [behind('a', '2026-06-21'), current('b')]
+
+    expect(statusNote(completeness(rows), TODAY)?.text).toContain('Jun 21')
+    expect(completenessNote(completeness(rows), TODAY)?.text).toContain('Jun 21')
   })
 })

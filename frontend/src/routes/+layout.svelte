@@ -5,8 +5,10 @@
   import Sidebar from '$lib/components/Sidebar.svelte'
   import { useSession } from '$lib/auth'
   import { toast } from '$lib/toast.svelte'
-  import { fetchAccounts, fetchAccountPostingCounts } from '$lib/api'
+  import { fetchAccounts, fetchAccountPostingCounts, fetchCoverageStatus } from '$lib/api'
   import type { Account } from '$lib/api'
+  import { completeness, statusNote } from '$lib/coverage'
+  import { onCoverageChange } from '$lib/coverageRefresh'
   import sidebarRefresh from '$lib/sidebarRefresh.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
@@ -33,6 +35,38 @@
   // they hold. Last activity is what Recent ranks on.
   let sidebarAccounts = $state<Account[]>([])
   let lastActivityById = $state<Map<string, string | null>>(new Map())
+
+  // The status bar's readout: how far the whole ledger is actually recorded. Computed with the
+  // same helper the accounts page tiles use, so the bar and the tiles can never disagree about
+  // the same accounts.
+  let coverageStatus = $state<{ today: string; note: ReturnType<typeof statusNote> } | null>(null)
+
+  // Bumped by every coverage write in the app, wherever it happens. The subscription is the
+  // rune-free module's half of the contract: it has no state of its own, so the reactivity
+  // lives here.
+  let coverageEpoch = $state(0)
+  $effect(() => onCoverageChange(() => coverageEpoch++))
+
+  // Reading `$session.data` keeps this from firing before there is a session to fetch for.
+  $effect(() => {
+    coverageEpoch
+    if (!$session.data) {
+      coverageStatus = null
+      return
+    }
+    void fetchCoverageStatus()
+      .then((payload) => {
+        coverageStatus = {
+          today: payload.today,
+          note: statusNote(completeness(payload.accounts), payload.today),
+        }
+      })
+      // The bar is on every screen; a failed fetch leaves it empty rather than taking the app
+      // down or, worse, leaving a stale date on screen that reads as current.
+      .catch(() => {
+        coverageStatus = null
+      })
+  })
 
   // $effect re-runs when $session.data changes, so the fetch fires as soon as
   // Better Auth resolves the session — not at mount time when it may still be null.
@@ -173,8 +207,14 @@
       {/if}
     </div>
 
-    <div class="statusbar">
-      <span class="statusbar-ready" title={PUBLIC_VERSION}>Ready</span>
+    <!-- The version moved from the (deleted) "Ready" label to the bar itself, so it is still
+         one hover away without the bar carrying a widget that reports nothing. -->
+    <div class="statusbar" title={PUBLIC_VERSION}>
+      {#if coverageStatus?.note}
+        <a class="statusbar-trust" href="/catch-up" title={coverageStatus.note.detail}>
+          {coverageStatus.note.text}
+        </a>
+      {/if}
       {#if toast.message}
         <span class="statusbar-toast">{toast.message}</span>
       {/if}
@@ -428,10 +468,19 @@
   }
 
   /* --- Status bar --- */
+  /* Tall enough to act in. The bar now holds a link, so it clears WCAG 2.5.8's 24x24 minimum
+     target rather than the ~20px strip that shipped — period-plausible either way, since Aqua
+     status bars ran taller whenever they carried controls. 30px rather than the minimum 28,
+     so the focus ring has somewhere to sit: the bar clips its overflow, and a 24px target with
+     a 2px ring exactly fills 28. The height is paid once at load and never animates: the case
+     does not change size (DESIGN.md §2). */
   .statusbar {
     position: relative;
     overflow: hidden;
-    padding: 2px var(--sp-sm);
+    display: flex;
+    align-items: center;
+    min-height: 30px;
+    padding: 0 var(--sp-sm);
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     background: var(--color-window);
@@ -439,8 +488,29 @@
     box-shadow: var(--shadow-titlebar-inset);
   }
 
-  .statusbar-ready {
-    display: block;
+  /* A statement, not an alarm: muted, upright, no icon. It is a link because it goes
+     somewhere, so the keyboard and the focus ring come for free. */
+  .statusbar-trust {
+    display: inline-flex;
+    align-items: center;
+    min-height: 24px;
+    color: inherit;
+    text-decoration: none;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+
+  .statusbar-trust:hover {
+    color: var(--color-text);
+    text-decoration: underline;
+  }
+
+  .statusbar-trust:focus-visible {
+    outline: 2px solid var(--color-accent-mid);
+    /* Outside the text rather than through it — a negative offset draws the ring over the
+       first and last characters in a strip this tight. */
+    outline-offset: 2px;
   }
 
   .statusbar-toast {
