@@ -11,8 +11,8 @@ ships as one coherent change to how the app presents itself.
 
 - **Question this screen answers:** "what is this program, and what still needs me?" — the
   chrome's job, on every screen.
-- **Inbox role:** the status bar becomes the app's single always-visible report of
-  outstanding work.
+- **Inbox role:** the status bar becomes the app's single always-visible report of how
+  current the data is — filled in by Trust Signals story 4, not by this epic.
 - **Primary action + interaction count:** the chrome has no primary action. The measure here
   is that it costs zero interactions and never lies.
 - **Case or work:** entirely case.
@@ -118,7 +118,24 @@ Keep maximize as-is.
 alone; no control renders without a handler (a cheap render-level assertion that every
 `ChromeButton` in the titlebar has an `onclick`).
 
-### 2. The status bar carries the inbox count
+### 2. The status bar carries the trust readout
+
+**Superseded by `planning/epics/trust-signals.md` story 4 — build it there, not here.**
+
+This story originally put an inbox count in the status bar. Two problems surfaced while
+scoping it. A bare queue count has an ambiguous zero in a manual-entry app ("caught up" and
+"haven't imported in three weeks" look identical), and the two candidate numbers
+(`accountsToCatchUp` versus the `actionRequired` total) are different quantities that would
+disagree in the one line available. The completeness date answers the same question honestly
+and degrades to "Complete through today" when caught up.
+
+Ship Honest Chrome stories 1, 3 and 4 without touching the status bar's content; Trust
+Signals replaces "Ready" when it lands. The two epics are independent in every other respect.
+
+<details>
+<summary>Original story text, kept for the reasoning</summary>
+
+### The status bar carries the inbox count
 
 `frontend/src/routes/+layout.svelte`, `frontend/src/lib/actionRequired.svelte.ts`.
 
@@ -137,6 +154,8 @@ wire the callers that currently don't use it.
 
 **Tests:** the three display states; the click target; invalidation fires from the mutation
 paths.
+
+</details>
 
 ### 3. An Aqua tooltip
 

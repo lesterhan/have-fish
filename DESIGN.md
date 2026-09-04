@@ -42,10 +42,22 @@ When in doubt, count the interactions — literally, in the epic file.
 correct (it exports to hledger — see the Vision in `CLAUDE.md`). Nobody should have to
 think in debits and credits to record lunch. Expose the ledger; don't impose it.
 
-**Trust is earned by being checkable.** Every displayed figure must be traceable to the
-rows that produced it in at most two clicks. Never round silently, never hide a
-reconciliation gap, never show a total the UI can't explain. A pretty dashboard nobody
+**Trust is earned by being checkable, and by being dated.** Every displayed figure must be
+traceable to the rows that produced it in at most two clicks. Never round silently, never
+hide a reconciliation gap, never show a total the UI can't explain. A pretty dashboard nobody
 believes is worse than an ugly table they do.
+
+In a manual-entry app that obligation extends past correctness to currency. A figure summed
+from stale rows is arithmetically right and semantically stale — it answers "the sum of what
+you have recorded" beneath a label promising "what you have," and nobody reads it as the
+former. So: **a rollup is only as current as its stalest live contributor**, and it says so.
+*Live* matters — a dormant account can be months behind without making a total wrong, because
+it has nothing to add.
+
+And the hard line that goes with it: **count the gap, never price it.** How many transactions
+are probably unrecorded is a fact about coverage, derived from the account's own rate. What
+they are worth is a guess about money, and a guess about money displayed beside a real balance
+destroys more trust than the staleness did.
 
 ---
 
@@ -210,6 +222,15 @@ existing instrument — new ones need a reason.
 **Voice.** Dry, specific, competent. The app narrates what happened ("Settled $240.18
 across 3 expenses"), it does not cheer. 有鱼 and the 🧧 are identity, not personality; the
 app has no mascot and makes no jokes at the user's expense while they're doing taxes.
+
+**Aggregates.** Every rollup carries the date it is complete through, computed from the same
+rows it sums so the two can never disagree. Stale figures are not greyed out — when
+everything is stale everything mutes and the page reads as broken; the date does the work and
+the figure keeps its weight. A derived comparison (month over month, versus an average, any
+trend) is **not drawn at all** unless both sides are fully covered, and its space says why:
+a qualified comparison is still read as a fact, because the caveat is smaller than the number
+and loses. Incomplete is a third state, never a low value — hatch it with
+`--color-coverage-hatch`, the app's existing idiom for "not known".
 
 **Numbers.** All amounts render in `--font-mono` with aligned decimals so columns compare by
 eye. Sign convention is in §5; colour reinforces the sign, the minus carries it.
@@ -452,6 +473,8 @@ Run before opening a UI PR. Also the checklist for step 5 of the epic workflow i
 - [ ] Nothing broken below 768px
 - [ ] Destructive actions are reversible, or genuinely destructive and get a dialog
 - [ ] Amounts use `MoneyDisplay`; sign legible without colour
+- [ ] Every aggregate states what date it is complete through
+- [ ] No comparison is drawn across a period that isn't fully covered, and no gap is priced
 
 ---
 
@@ -501,6 +524,14 @@ epics kill them.
 - **The status bar is ~20px** (`padding: 2px` + `--text-xs`), which cannot hold an
   interactive target at WCAG 2.5.8's 24×24 minimum — and it is about to hold the undo action.
   → `planning/epics/undo.md` story 1
+
+### Aggregates overstate what the app knows
+- **The accounts rollups carry no as-of.** Row-level staleness ("stale 74d") is honest and is
+  then discarded when those rows are summed into AVAILABLE in the largest type on the screen.
+  → `planning/epics/trust-signals.md` story 2
+- **`/spending` has no coverage awareness at all** — and it draws a month-over-month delta and
+  a prior-3-month comparison. Under partial coverage those are not stale facts, they are
+  fabricated conclusions. → `planning/epics/trust-signals.md` story 3
 
 ### Standing debt
 - **`prefers-reduced-motion`** honoured in 2 places out of ~30 that animate.
