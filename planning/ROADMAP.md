@@ -70,6 +70,7 @@
 | [Accounts Page — Consolidation and Curation](epics/archive/accounts-page.md) | Done |
 | [Honest Chrome](epics/honest-chrome.md) | Scoped |
 | [Undo](epics/undo.md) | Scoped |
+| [Copy Extraction](epics/copy-extraction.md) | Scoped |
 
 ## Fish Pie sequence
 
