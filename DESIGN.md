@@ -518,9 +518,6 @@ epics kill them.
   → `planning/epics/undo.md`
 
 ### The case resizes and the work displaces
-- **The accounts bulk bar is a `Card` in normal flow.** Checking one box pushes the table
-  down ~60px; unchecking pulls it back. §2 says contextual controls float over the work.
-  → `planning/epics/undo.md` story 6
 - **The status bar is ~20px** (`padding: 2px` + `--text-xs`), which cannot hold an
   interactive target at WCAG 2.5.8's 24×24 minimum — and it is about to hold the undo action.
   → `planning/epics/undo.md` story 1
