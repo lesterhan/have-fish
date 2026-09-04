@@ -12,6 +12,7 @@
   import ConvertToggle from '$lib/components/ui/ConvertToggle.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Select from '$lib/components/ui/Select.svelte'
+  import SelectionTray from '$lib/components/ui/SelectionTray.svelte'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
   import TabStrip, { type TabItem } from '$lib/components/ui/TabStrip.svelte'
   import AddAccountWizard from '$lib/components/wizards/AddAccountWizard.svelte'
@@ -659,68 +660,6 @@
         <p class="message error">{convertError}</p>
       {/if}
 
-      <!-- The bulk bar exists so curating is one gesture rather than six: pinning the Wise
-           accounts one at a time is what would kill the pinned sidebar before it started. -->
-      {#if selection.length > 0}
-        <Card class="bulk-bar">
-          <span class="bulk-count">
-            {selection.length} selected
-          </span>
-          <GradientButton disabled={bulkBusy} onclick={() => bulkPin(true)}>
-            Pin all
-          </GradientButton>
-          <GradientButton disabled={bulkBusy} onclick={() => bulkPin(false)}>
-            Unpin all
-          </GradientButton>
-          <GradientButton
-            disabled={bulkBusy || hidable.length === 0}
-            tooltip={hidable.length === 0
-              ? 'Every account selected is in use'
-              : hidable.length < selection.length
-                ? `${selection.length - hidable.length} in use and will be kept`
-                : undefined}
-            onclick={bulkHide}
-          >
-            Hide all
-          </GradientButton>
-
-          <label class="bulk-currency">
-            <span class="sr-only"
-              >Default currency for the selected accounts</span
-            >
-            <Select
-              bind:value={bulkCurrency}
-              disabled={bulkBusy}
-              aria-label="Default currency for the selected accounts"
-            >
-              <option value="">Set currency…</option>
-              {#each SUPPORTED_CURRENCIES as code (code)}
-                <option value={code}>{code}</option>
-              {/each}
-            </Select>
-          </label>
-          {#if bulkCurrency}
-            <GradientButton disabled={bulkBusy} onclick={bulkSetCurrency}>
-              Apply {bulkCurrency}
-            </GradientButton>
-          {/if}
-
-          <GradientButton
-            disabled={bulkBusy || selection.length !== 1}
-            tooltip={selection.length === 1
-              ? 'Open Import targeting this account'
-              : 'Import takes one account — a statement belongs to one'}
-            onclick={importSelected}
-          >
-            Import
-          </GradientButton>
-
-          <button class="bulk-clear" type="button" onclick={clearSelection}>
-            Clear <span class="key">Esc</span>
-          </button>
-        </Card>
-      {/if}
-
       {#if error}
         <p class="message error">{error}</p>
       {:else if loading}
@@ -935,6 +874,76 @@
           </SectionCard>
         {/each}
       {/if}
+
+      <!-- Bulk actions curate in one gesture rather than six: pinning the Wise accounts one
+           at a time is what would kill the pinned sidebar before it started. The tray is
+           last in the scrolled content and floats over it — see SelectionTray. -->
+      {#if selection.length > 0}
+        <SelectionTray count={selection.length} onclear={clearSelection}>
+          <GradientButton
+            size="lg"
+            disabled={bulkBusy}
+            onclick={() => bulkPin(true)}
+          >
+            Pin all
+          </GradientButton>
+          <GradientButton
+            size="lg"
+            disabled={bulkBusy}
+            onclick={() => bulkPin(false)}
+          >
+            Unpin all
+          </GradientButton>
+          <GradientButton
+            size="lg"
+            disabled={bulkBusy || hidable.length === 0}
+            tooltip={hidable.length === 0
+              ? 'Every account selected is in use'
+              : hidable.length < selection.length
+                ? `${selection.length - hidable.length} in use and will be kept`
+                : undefined}
+            onclick={bulkHide}
+          >
+            Hide all
+          </GradientButton>
+
+          <label class="bulk-currency">
+            <span class="sr-only"
+              >Default currency for the selected accounts</span
+            >
+            <Select
+              bind:value={bulkCurrency}
+              disabled={bulkBusy}
+              aria-label="Default currency for the selected accounts"
+            >
+              <option value="">Set currency…</option>
+              {#each SUPPORTED_CURRENCIES as code (code)}
+                <option value={code}>{code}</option>
+              {/each}
+            </Select>
+          </label>
+          {#if bulkCurrency}
+            <GradientButton
+              size="lg"
+              disabled={bulkBusy}
+              onclick={bulkSetCurrency}
+            >
+              Apply {bulkCurrency}
+            </GradientButton>
+          {/if}
+
+          <GradientButton
+            size="lg"
+            disabled={bulkBusy || selection.length !== 1}
+            tooltip={selection.length === 1
+              ? 'Open Import targeting this account'
+              : 'Import takes one account — a statement belongs to one'}
+            onclick={importSelected}
+          >
+            Import
+          </GradientButton>
+        </SelectionTray>
+      {/if}
     </div>
   {:else}
     <div
@@ -1035,54 +1044,9 @@
   }
 
   /* --- Bulk bar --- */
-  :global(.card.bulk-bar) {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-sm);
-    flex-wrap: wrap;
-    padding: var(--sp-sm) var(--sp-md);
-    background: var(--color-accent-light);
-    border-color: var(--color-accent-mid);
-  }
-
-  .bulk-count {
-    font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
-    white-space: nowrap;
-  }
-
   .bulk-currency {
     display: flex;
     align-items: center;
-  }
-
-  .bulk-clear {
-    margin-left: auto;
-    display: inline-flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    background: none;
-    border: none;
-    padding: 0;
-    color: var(--color-text-muted);
-    font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    cursor: pointer;
-  }
-
-  .bulk-clear:hover {
-    color: var(--color-text);
-    text-decoration: underline;
-  }
-
-  .key {
-    font-family: var(--font-mono);
-    font-size: 9px;
-    padding: 1px 4px;
-    border: 1px solid var(--color-rule);
-    border-radius: var(--radius-sm);
-    background: var(--color-window);
   }
 
   .native {
