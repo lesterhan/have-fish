@@ -68,6 +68,8 @@
 | [Account Page Redesign](epics/archive/account-page-redesign.md) | Done |
 | [Account Settings Modal](epics/archive/account-settings-modal.md) | Done |
 | [Accounts Page — Consolidation and Curation](epics/archive/accounts-page.md) | Done |
+| [Honest Chrome](epics/honest-chrome.md) | Scoped |
+| [Undo](epics/undo.md) | Scoped |
 
 ## Fish Pie sequence
 
