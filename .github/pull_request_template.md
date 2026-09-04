@@ -40,4 +40,7 @@
 <!-- Optional — delete when this isn't epic work.
      Link the file in planning/epics/ so this stays findable from the roadmap. -->
 
-<!-- UI change? DESIGN.md §9 is the review checklist. -->
+<!-- Title: [scope] Imperative description — scope is the epic slug, or the area in one
+     word. Epic stories add "Story N — ". See CLAUDE.md § PR Workflow.
+
+     UI change? DESIGN.md §9 is the review checklist. -->
