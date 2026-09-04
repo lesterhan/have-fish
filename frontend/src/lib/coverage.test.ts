@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'bun:test'
-import { completeness, coverageFor, type AccountCoverageStatus } from './coverage'
+import {
+  completeness,
+  completenessNote,
+  coverageFor,
+  formatCompletenessDate,
+  type AccountCoverageStatus,
+} from './coverage'
 
 function row(over: Partial<AccountCoverageStatus> & { accountId: string }): AccountCoverageStatus {
   return { state: 'current', coveredThrough: '2026-09-04', dormant: false, ...over }
@@ -108,5 +114,70 @@ describe('coverageFor', () => {
   it('feeds completeness so a tile dates itself from its own contributors', () => {
     expect(completeness(coverageFor(byId, ['b'])).through).toBeNull()
     expect(completeness(coverageFor(byId, ['a', 'b'])).through).toBe('2026-06-21')
+  })
+})
+
+describe('formatCompletenessDate', () => {
+  it('drops the year while it is obvious', () => {
+    expect(formatCompletenessDate('2026-06-21', '2026-09-04')).toBe('Jun 21')
+  })
+
+  // A bare month and day from last year reads as recent, which is backwards for a date whose
+  // whole job is to say how far behind something is.
+  it('keeps the year once the date is from another one', () => {
+    expect(formatCompletenessDate('2025-06-21', '2026-09-04')).toBe('Jun 21, 2025')
+  })
+})
+
+describe('completenessNote', () => {
+  const TODAY = '2026-09-04'
+  const note = (rows: AccountCoverageStatus[]) => completenessNote(completeness(rows), TODAY)
+
+  it('says nothing when there are no contributors', () => {
+    expect(note([])).toBeNull()
+  })
+
+  it('reads as complete through today when nothing is outstanding', () => {
+    const result = note([current('a')])
+
+    expect(result?.text).toBe('complete through today')
+    expect(result?.current).toBe(true)
+  })
+
+  it('names the date when something is behind', () => {
+    const result = note([current('a'), behind('b', '2026-06-21')])
+
+    expect(result?.text).toBe('complete through Jun 21')
+    expect(result?.current).toBe(false)
+  })
+
+  // Both facts at one weight. Suppressing the date over a single unbootstrapped account
+  // would throw away the most useful thing the app knows, and on a real ledger that account
+  // is common — nine behind and one unset is what prod actually looks like.
+  it('qualifies the date with the unknown rather than replacing it', () => {
+    const result = note([behind('a', '2026-06-21'), unset('b')])
+
+    expect(result?.text).toBe('complete through Jun 21, 1 account has no starting line')
+    expect(result?.current).toBe(false)
+    expect(result?.detail).toContain('Catch Up')
+  })
+
+  // "Complete through today, 1 account has no starting line" is two clauses contradicting
+  // each other in one breath, so with no date to qualify the unknown is the whole message.
+  it('drops the date clause when there is no date to give', () => {
+    expect(note([current('a'), unset('b')])?.text).toBe('1 account has no starting line')
+  })
+
+  it('agrees its verb with the count', () => {
+    expect(note([unset('a'), unset('b'), current('c')])?.text).toBe(
+      '2 accounts have no starting line',
+    )
+  })
+
+  it('carries a fuller sentence for the tooltip than for the line', () => {
+    const result = note([behind('a', '2026-06-21')])
+
+    expect(result?.detail.length).toBeGreaterThan(result!.text.length)
+    expect(result?.detail).toContain('Jun 21')
   })
 })

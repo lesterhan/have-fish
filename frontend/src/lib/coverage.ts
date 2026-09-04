@@ -76,3 +76,84 @@ export function coverageFor(
   }
   return rows
 }
+
+// ── Saying it ───────────────────────────────────────────────
+
+// 'Jun 21', or 'Jun 21, 2025' once the year stops being obvious. A bare month and day from
+// a previous year reads as recent, which is the opposite of what a staleness date is for.
+export function formatCompletenessDate(date: string, today: string): string {
+  const parsed = new Date(`${date}T00:00:00`)
+  const sameYear = date.substring(0, 4) === today.substring(0, 4)
+  return parsed.toLocaleDateString('en', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}
+
+export type CompletenessNote = {
+  // The line the surface renders, at --text-xs in --color-text-muted. Sentence fragments,
+  // lower case: it sits under a figure as a qualifier, not above one as a heading.
+  text: string
+  // The whole sentence, for a title attribute. The short line has to fit under a tile; this
+  // is where the count, the date and the way out of it go.
+  detail: string
+  // True when nothing is outstanding. Surfaces that want to distinguish "all clear" from a
+  // real date read this rather than testing the string.
+  current: boolean
+}
+
+// An account with no coverage at all has no *starting line* — the catch-up bootstrap's own
+// word for it, and the one that names the fix. "Unknown coverage" describes the app's
+// problem; this describes the user's.
+const noStartingLine = (n: number) =>
+  n === 1 ? '1 account has no starting line' : `${n} accounts have no starting line`
+
+// One phrasing for every surface that dates a total, so the accounts tiles, the spending
+// page and the status bar cannot end up describing the same coverage three ways.
+//
+// Returns null when the set has no contributors at all: a tile summing only accounts the
+// user has hidden or flagged has nothing to be complete or incomplete about, and "complete
+// through today" would be an answer to a question nobody asked.
+export function completenessNote(c: Completeness, today: string): CompletenessNote | null {
+  if (c.contributors === 0) return null
+
+  const when = c.through === null ? null : formatCompletenessDate(c.through, today)
+
+  // Both facts, in one line, at one weight. §4's rule that a caveat loses to the number is
+  // about a caveat set against a *bigger* number — here the whole line is the caveat, so
+  // saying "complete through Apr 23" AND "one account has no starting line" is strictly more
+  // than either alone. Suppressing the date instead would throw away the most useful thing
+  // the app knows over a single unbootstrapped account, which on a real ledger is common.
+  if (c.unknown > 0) {
+    const missing = noStartingLine(c.unknown)
+    return {
+      // With no date to qualify, the unknown is the whole message. Pairing it with "complete
+      // through today" would be two clauses contradicting each other in one breath.
+      text: when === null ? missing : `complete through ${when}, ${missing}`,
+      detail:
+        (when === null
+          ? `Every other account in this figure is recorded up to its latest available data. `
+          : `Complete through ${when} — the oldest recorded account in this figure stops there. `) +
+        `${c.unknown === 1 ? 'One account has' : `${c.unknown} accounts have`} never had a ` +
+        `starting line set, so anything they hold is unaccounted for at any date. Set one in Catch Up.`,
+      current: false,
+    }
+  }
+
+  if (when !== null) {
+    return {
+      text: `complete through ${when}`,
+      detail:
+        `Complete through ${when} — the oldest account in this figure stops there. ` +
+        `Anything after that date is not in it yet.`,
+      current: false,
+    }
+  }
+
+  return {
+    text: 'complete through today',
+    detail: 'Every account in this figure is recorded up to its latest available data.',
+    current: true,
+  }
+}

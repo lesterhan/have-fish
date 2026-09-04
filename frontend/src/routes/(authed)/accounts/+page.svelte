@@ -23,11 +23,13 @@
   import {
     fetchAccountBalances,
     fetchAccountPostingCounts,
+    fetchCoverageStatus,
     fetchFxRateAsOf,
     toClassifierType,
     updateAccount,
   } from '$lib/api'
-  import type { AccountBalance, UserSettings } from '$lib/api'
+  import type { AccountBalance, AccountCoverageStatus, UserSettings } from '$lib/api'
+  import { completeness, completenessNote, coverageFor } from '$lib/coverage'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import { attentionChip } from '$lib/components/transactions/attentionChip'
   import { settingsStore } from '$lib/settings.svelte'
@@ -62,6 +64,7 @@
     currenciesNeedingRates,
     groupCurrency,
     groupRows,
+    positionAccountIds,
     positionTotals,
     type Grouping,
     type Group,
@@ -113,6 +116,11 @@
   // ── Data ──────────────────────────────────────────────────
   let accounts = $state<AccountBalance[]>([])
   let lastActivityById = $state<Map<string, string | null>>(new Map())
+  // Absent ids are not contributors — hidden, illiquid, dismissed, or not the kind of account
+  // you fall behind on. `coverageToday` is the server's calendar day, so a tile does not read
+  // as complete through a date the ledger has not reached.
+  let coverageById = $state<Map<string, AccountCoverageStatus>>(new Map())
+  let coverageToday = $state<string | null>(null)
   let settings = $state<UserSettings | null>(null)
   let rates = $state<Rates>(new Map())
   let loading = $state(true)
@@ -122,15 +130,18 @@
 
   onMount(async () => {
     try {
-      const [balances, counts, loaded] = await Promise.all([
+      const [balances, counts, coverage, loaded] = await Promise.all([
         fetchAccountBalances({ includeUnfiled: true }),
         fetchAccountPostingCounts(),
+        fetchCoverageStatus(),
         settingsStore.load(),
       ])
       accounts = balances
       lastActivityById = new Map(
         counts.map((c) => [c.accountId, c.lastActivity]),
       )
+      coverageById = new Map(coverage.accounts.map((a) => [a.accountId, a]))
+      coverageToday = coverage.today
       settings = loaded
       // The layout loads the attention summary once at start-up and caches it. This page is
       // now where that signal is read, and the fix for it happens elsewhere — the account
@@ -281,14 +292,28 @@
 
   // The position row describes the money you track, so it is computed over your active
   // accounts and does not move as you search, regroup, or peek at hidden rows.
+  let positionRows = $derived(allRows.filter((r) => !hiddenIds.has(r.account.id)))
+
   let position = $derived(
-    positionTotals(
-      allRows.filter((r) => !hiddenIds.has(r.account.id)),
-      roots,
-      activeRates,
-      preferred,
-    ),
+    positionTotals(positionRows, roots, activeRates, preferred),
   )
+
+  // Each tile's as-of, over the same rows the tile sums — the four differ, and that is the
+  // point: Owed to you can be current while Available is two months behind.
+  let positionNotes = $derived.by(() => {
+    const today = coverageToday
+    if (!today) return null
+    const ids = positionAccountIds(positionRows, roots)
+    return {
+      cash: completenessNote(completeness(coverageFor(coverageById, ids.cash)), today),
+      investments: completenessNote(
+        completeness(coverageFor(coverageById, ids.investments)),
+        today,
+      ),
+      owed: completenessNote(completeness(coverageFor(coverageById, ids.owed)), today),
+      owing: completenessNote(completeness(coverageFor(coverageById, ids.owing)), today),
+    }
+  })
 
   // ── Curation ──────────────────────────────────────────────
   // Pins and hides live in the free-form `preferences` JSONB, the same way hiddenAccountIds
@@ -584,6 +609,13 @@
                 >
                   {note}
                 </span>
+              {/if}
+              <!-- The as-of. A statement, not a warning: no icon, no alarm colour, and the
+                   figure above keeps its weight — when everything is stale, muting everything
+                   makes the page read as broken and the user stops seeing it. -->
+              {@const asOf = positionNotes?.[card.key] ?? null}
+              {#if asOf}
+                <span class="position-asof" title={asOf.detail}>{asOf.text}</span>
               {/if}
             {/if}
           </Card>
@@ -1034,6 +1066,18 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     font-style: italic;
+  }
+
+  /* The as-of, deliberately not styled like the caveat above it: upright, because it is a
+     statement about the figure rather than an aside about currencies. Muted and small so the
+     figure keeps the weight — the date does the honesty work, not a colour change. */
+  .position-asof {
+    font-size: var(--text-xs);
+    color: var(--color-text-muted);
+    line-height: 1.3;
+    /* The line runs to two clauses when an account has no starting line, and a narrow tile
+       breaks it. `pretty` keeps the last line from being a single orphaned word. */
+    text-wrap: pretty;
   }
 
   /* --- Toolbar --- */
