@@ -303,3 +303,44 @@ export function comparisonBlocker(
     current: false,
   }
 }
+
+// ── The status bar ──────────────────────────────────────────
+
+// The whole-ledger readout, as whole sentences.
+//
+// The computation is the same `completeness` the accounts tiles use, so the bar and the tiles
+// can never disagree about the same accounts; only the wording differs, because a line under
+// a figure inherits its subject and a line alone in the status bar does not.
+//
+// Null when nothing is tracked. An empty strip says less than a sentence about nothing.
+export function statusNote(c: Completeness, today: string): CompletenessNote | null {
+  if (c.contributors === 0) return null
+
+  const when = c.through === null ? 'today' : formatCompletenessDate(c.through, today)
+
+  if (c.unknown > 0) {
+    const missing =
+      c.unknown === 1 ? '1 account has no starting line' : `${c.unknown} accounts have no starting line`
+    return {
+      text: `Ledger complete through ${when} — ${missing}`,
+      detail: `Set a starting line in Catch Up so this figure can account for ${
+        c.unknown === 1 ? 'it' : 'them'
+      }.`,
+      current: false,
+    }
+  }
+
+  if (c.through === null) {
+    return {
+      text: 'Ledger complete through today',
+      detail: 'Every tracked account is recorded up to its latest available data.',
+      current: true,
+    }
+  }
+
+  return {
+    text: `Ledger complete through ${when}`,
+    detail: `The oldest tracked account stops there. Catch it up to move this date forward.`,
+    current: false,
+  }
+}

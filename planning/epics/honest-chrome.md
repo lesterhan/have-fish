@@ -120,7 +120,7 @@ alone; no control renders without a handler (a cheap render-level assertion that
 
 ### 2. The status bar carries the trust readout
 
-**Superseded by `planning/epics/trust-signals.md` story 4 — build it there, not here.**
+**Shipped in `planning/epics/trust-signals.md` story 4.** Nothing to build here.
 
 This story originally put an inbox count in the status bar. Two problems surfaced while
 scoping it. A bare queue count has an ambiguous zero in a manual-entry app ("caught up" and
@@ -130,7 +130,8 @@ disagree in the one line available. The completeness date answers the same quest
 and degrades to "Complete through today" when caught up.
 
 Ship Honest Chrome stories 1, 3 and 4 without touching the status bar's content; Trust
-Signals replaces "Ready" when it lands. The two epics are independent in every other respect.
+Signals replaced "Ready" with the trust readout. The two epics are independent in every
+other respect.
 
 <details>
 <summary>Original story text, kept for the reasoning</summary>
