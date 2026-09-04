@@ -2,7 +2,7 @@ import { describe, it, expect, beforeEach } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { accountCoverage, accounts, postings, transactions } from '../db/schema'
+import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
 import { eq } from 'drizzle-orm'
 
 async function createAccount(userId: string, path: string) {
@@ -615,6 +615,123 @@ describe('coverage', () => {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ accountId: '00000000-0000-4000-8000-000000000000', throughDate: '2025-07-31' }),
       })
+
+      expect(res.status).toBe(401)
+    })
+  })
+
+  describe('GET /api/coverage/accounts', () => {
+    const projection = async () => {
+      const res = await app.request('/api/coverage/accounts', { headers: { Cookie: cookie } })
+      return { status: res.status, body: await res.json() }
+    }
+
+    const catchUp = async () => {
+      const res = await app.request('/api/catch-up', { headers: { Cookie: cookie } })
+      return res.json()
+    }
+
+    // The whole reason both endpoints go through one loader. If this ever fails, the accounts
+    // page and the coach are describing the same account differently on the same screen.
+    it('agrees with catch-up on every account, for a fixture of every state', async () => {
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      // Behind: covered to a month ago, still transacting.
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: daysAgo(400), throughDate: daysAgo(30), source: 'import',
+      })
+      await seedTxn(userId, chequing.id, daysAgo(35), groceries.id)
+      // Current: covered right up to today.
+      const wise = await createAccount(userId, 'assets:wise')
+      await postCoverage(cookie, {
+        accountId: wise.id, fromDate: daysAgo(90), throughDate: daysAgo(0), source: 'import',
+      })
+      await seedTxn(userId, wise.id, daysAgo(5), groceries.id)
+      // Dormant: a long confirmed-empty stretch and nothing since.
+      const oldSavings = await createAccount(userId, 'assets:old-savings')
+      await postCoverage(cookie, {
+        accountId: oldSavings.id, fromDate: daysAgo(300), throughDate: daysAgo(60), source: 'empty',
+      })
+      // Unset: never asserted at all.
+      await createAccount(userId, 'assets:cash')
+      // Neither of these is a contributor, and neither endpoint should list them.
+      await createAccount(userId, 'assets:receivable:trip')
+      const hidden = await createAccount(userId, 'assets:hidden')
+      await db.update(userSettings)
+        .set({ preferences: { hiddenAccountIds: [hidden.id] } })
+        .where(eq(userSettings.userId, userId))
+
+      const { status, body } = await projection()
+      const coach = await catchUp()
+
+      expect(status).toBe(200)
+      expect(body.today).toBe(coach.today)
+      const shrink = (a: any) => ({
+        accountId: a.accountId, state: a.state, coveredThrough: a.coveredThrough, dormant: a.dormant,
+      })
+      const byId = (rows: any[]) => [...rows].sort((a, b) => a.accountId.localeCompare(b.accountId))
+      expect(byId(body.accounts)).toEqual(byId(coach.accounts.map(shrink)))
+      // Not a tautology on an empty list: the fixture has to actually reach every branch.
+      const states = new Set(body.accounts.map((a: any) => a.state))
+      expect(states).toEqual(new Set(['behind', 'current', 'unset']))
+      expect(body.accounts.filter((a: any) => a.dormant)).toHaveLength(1)
+    })
+
+    it('carries the leading edge as the completeness date of a behind account', async () => {
+      const groceries = await createAccount(userId, 'expenses:groceries')
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: daysAgo(120), throughDate: daysAgo(74), source: 'import',
+      })
+      // Without activity inside the covered span the account reads dormant, which is correct
+      // and not what this test is about.
+      await seedTxn(userId, chequing.id, daysAgo(80), groceries.id)
+
+      const { body } = await projection()
+
+      expect(body.accounts).toEqual([
+        { accountId: chequing.id, state: 'behind', coveredThrough: daysAgo(74), dormant: false },
+      ])
+    })
+
+    // The trap this endpoint exists to avoid: an account nobody has ever asserted coverage for
+    // knows nothing, and "knows nothing" must never serialize as "up to date".
+    it('reports an account with no coverage as unset, not current', async () => {
+      const cash = await createAccount(userId, 'assets:cash')
+
+      const { body } = await projection()
+
+      expect(body.accounts).toEqual([
+        { accountId: cash.id, state: 'unset', coveredThrough: null, dormant: false },
+      ])
+    })
+
+    it('ships none of the strip and interval weight the coach payload carries', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      await postCoverage(cookie, {
+        accountId: chequing.id, fromDate: daysAgo(120), throughDate: daysAgo(74), source: 'import',
+      })
+
+      const { body } = await projection()
+
+      expect(Object.keys(body.accounts[0]).sort()).toEqual([
+        'accountId', 'coveredThrough', 'dormant', 'state',
+      ])
+    })
+
+    it('sees only the caller\'s own accounts', async () => {
+      await createAccount(userId, 'assets:chequing')
+      const otherCookie = await createTestUser('other@example.com')
+      const otherId = await userIdFor(otherCookie)
+      await createAccount(otherId, 'assets:theirs')
+
+      const { body } = await projection()
+
+      expect(body.accounts).toHaveLength(1)
+    })
+
+    it('requires authentication', async () => {
+      const res = await app.request('/api/coverage/accounts')
 
       expect(res.status).toBe(401)
     })

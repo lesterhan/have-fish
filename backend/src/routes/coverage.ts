@@ -4,6 +4,7 @@ import { accountCoverage, accounts, postings, transactions, userSettings } from 
 import { and, between, desc, eq, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { addDays, mergeCoverage } from '../coverage/intervals'
+import { loadCoverageAccounts, todayUtc } from '../coverage/load'
 import {
   horizon,
   inferCycleFromIntervals,
@@ -139,11 +140,36 @@ function windowDaysFrom(raw: string | undefined): number {
   return Math.min(parsed, MAX_WINDOW_DAYS)
 }
 
-// UTC so the horizon doesn't shift under a traveller crossing timezones — the same convention
-// the rest of the app stores dates with.
-function todayUtc(): string {
-  return new Date().toISOString().substring(0, 10)
-}
+// GET /api/coverage/accounts
+// The coverage state of every tracked account, and nothing else.
+//
+// This is GET /api/catch-up projected down to the three fields that answer "can I believe a
+// figure these accounts add up to". The coach payload carries a 90-day strip and a full
+// interval list per account, which is the right weight for a page built to show coverage and
+// far too much for a page that only needs to date a total. Both go through the same loader,
+// so an account can never read as behind on one surface and current on the other.
+//
+// An account MISSING from this list is not a contributor to any completeness date: it is
+// hidden, flagged illiquid, dismissed with tracked: false, a Fish Pie clearing account, or
+// not asset/liability at all. The user has said, in one way or another, that it is not
+// something they fall behind on — so like a dormant account, it holds no total back.
+// 200: { today, accounts: [{ accountId, state, coveredThrough, dormant }] }
+app.get('/accounts', async (c) => {
+  const today = todayUtc()
+  // No spans: firstTxnDate/lastTxnDate exist for bootstrap, and paying an unbounded aggregate
+  // over every posting to date a rollup would make the honest number the expensive one.
+  const assembled = await loadCoverageAccounts(c.get('userId'), today)
+
+  return c.json({
+    today,
+    accounts: assembled.map((a) => ({
+      accountId: a.accountId,
+      state: a.state,
+      coveredThrough: a.coveredThrough,
+      dormant: a.dormant,
+    })),
+  })
+})
 
 // POST /api/coverage
 // Asserts that an account's ledger is complete for an inclusive date range.

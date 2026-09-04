@@ -1,3 +1,7 @@
+import type { AccountCoverageStatus, CoverageState } from './coverage'
+
+export type { AccountCoverageStatus, CoverageState } from './coverage'
+
 // All /api/* requests are proxied by the SvelteKit server to the backend.
 // Empty base means same-origin, which works in both dev and production.
 const BASE = ''
@@ -1449,9 +1453,9 @@ export type CoverageConfig = {
   tracked: boolean
 }
 
-// 'unset' means no coverage has ever been asserted — not evidence of neglect, only of a
-// feature never used. It drives the bootstrap step rather than the queue.
-export type CatchUpState = 'current' | 'behind' | 'unset'
+// The coach's name for the same three states the rollups date themselves from. One union,
+// so a state can never be added in one place and missed in the other.
+export type CatchUpState = CoverageState
 
 export type CatchUpAccount = {
   accountId: string
@@ -1500,6 +1504,25 @@ export type CatchUpPayload = {
 export async function fetchCatchUp(): Promise<CatchUpPayload> {
   const res = await fetch(`${BASE}/api/catch-up`, { credentials: 'include' })
   if (!res.ok) throw new Error('Failed to load catch-up status')
+  return res.json()
+}
+
+export type CoverageStatusPayload = {
+  // The server's calendar day. Rendered rather than the browser's, so a traveller who is
+  // three hours past midnight local doesn't see a date the ledger disagrees with.
+  today: string
+  accounts: AccountCoverageStatus[]
+}
+
+/**
+ * The coverage state of every tracked account and nothing else — the light projection of
+ * `fetchCatchUp`, for surfaces that need to date a total rather than show coverage. Accounts
+ * the user has hidden, flagged illiquid or dismissed are simply absent; see
+ * `$lib/coverage.ts` for what that absence means to a rollup.
+ */
+export async function fetchCoverageStatus(): Promise<CoverageStatusPayload> {
+  const res = await fetch(`${BASE}/api/coverage/accounts`, { credentials: 'include' })
+  if (!res.ok) throw new Error('Failed to load account coverage')
   return res.json()
 }
 
