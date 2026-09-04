@@ -459,6 +459,20 @@ describe('dating a position tile', () => {
     expect(noteFor(cover({}), 'investments')).toBeNull()
   })
 
+  // The shape a real ledger has: several accounts behind by different amounts and one that
+  // has never been bootstrapped. The oldest date is the useful signal and must survive the
+  // unbootstrapped account rather than being suppressed by it.
+  it('keeps the oldest date when one contributor has no starting line', () => {
+    const coverage = cover({
+      'assets:chequing': { state: 'behind', coveredThrough: '2026-04-23' },
+      'assets:wise': { state: 'unset', coveredThrough: null },
+    })
+
+    expect(noteFor(coverage, 'cash')?.text).toBe(
+      'complete through Apr 23, 1 account has no starting line',
+    )
+  })
+
   // A contributor the coverage payload never mentions — hidden, illiquid, dismissed — is not
   // a contributor, so it neither dates the tile nor blocks it.
   it('ignores an account the coverage payload does not carry', () => {

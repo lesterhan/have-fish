@@ -103,7 +103,11 @@ export type CompletenessNote = {
   current: boolean
 }
 
-const accounts = (n: number) => `${n} ${n === 1 ? 'account' : 'accounts'}`
+// An account with no coverage at all has no *starting line* — the catch-up bootstrap's own
+// word for it, and the one that names the fix. "Unknown coverage" describes the app's
+// problem; this describes the user's.
+const noStartingLine = (n: number) =>
+  n === 1 ? '1 account has no starting line' : `${n} accounts have no starting line`
 
 // One phrasing for every surface that dates a total, so the accounts tiles, the spending
 // page and the status bar cannot end up describing the same coverage three ways.
@@ -114,21 +118,30 @@ const accounts = (n: number) => `${n} ${n === 1 ? 'account' : 'accounts'}`
 export function completenessNote(c: Completeness, today: string): CompletenessNote | null {
   if (c.contributors === 0) return null
 
-  // Unknown outranks a date, even when both are present. An account whose coverage has never
-  // been asserted could be missing anything, so a date computed from the others would be an
-  // upper bound rendered as a fact — and the caveat always loses to the number (§4).
+  const when = c.through === null ? null : formatCompletenessDate(c.through, today)
+
+  // Both facts, in one line, at one weight. §4's rule that a caveat loses to the number is
+  // about a caveat set against a *bigger* number — here the whole line is the caveat, so
+  // saying "complete through Apr 23" AND "one account has no starting line" is strictly more
+  // than either alone. Suppressing the date instead would throw away the most useful thing
+  // the app knows over a single unbootstrapped account, which on a real ledger is common.
   if (c.unknown > 0) {
+    const missing = noStartingLine(c.unknown)
     return {
-      text: `coverage unknown for ${accounts(c.unknown)}`,
+      // With no date to qualify, the unknown is the whole message. Pairing it with "complete
+      // through today" would be two clauses contradicting each other in one breath.
+      text: when === null ? missing : `complete through ${when}, ${missing}`,
       detail:
-        `${c.unknown} of the ${accounts(c.contributors)} in this figure have never had their ` +
-        `coverage recorded, so there is no date it is complete through. Record it in Catch Up.`,
+        (when === null
+          ? `Every other account in this figure is recorded up to its latest available data. `
+          : `Complete through ${when} — the oldest recorded account in this figure stops there. `) +
+        `${c.unknown === 1 ? 'One account has' : `${c.unknown} accounts have`} never had a ` +
+        `starting line set, so anything they hold is unaccounted for at any date. Set one in Catch Up.`,
       current: false,
     }
   }
 
-  if (c.through !== null) {
-    const when = formatCompletenessDate(c.through, today)
+  if (when !== null) {
     return {
       text: `complete through ${when}`,
       detail:

@@ -151,19 +151,26 @@ describe('completenessNote', () => {
     expect(result?.current).toBe(false)
   })
 
-  // The caveat always loses to the number, so a date computed over accounts we know nothing
-  // about is not rendered at all — the unknown is what gets said instead.
-  it('reports unknowns instead of a date it cannot stand behind', () => {
+  // Both facts at one weight. Suppressing the date over a single unbootstrapped account
+  // would throw away the most useful thing the app knows, and on a real ledger that account
+  // is common — nine behind and one unset is what prod actually looks like.
+  it('qualifies the date with the unknown rather than replacing it', () => {
     const result = note([behind('a', '2026-06-21'), unset('b')])
 
-    expect(result?.text).toBe('coverage unknown for 1 account')
+    expect(result?.text).toBe('complete through Jun 21, 1 account has no starting line')
     expect(result?.current).toBe(false)
     expect(result?.detail).toContain('Catch Up')
   })
 
-  it('counts more than one unknown', () => {
+  // "Complete through today, 1 account has no starting line" is two clauses contradicting
+  // each other in one breath, so with no date to qualify the unknown is the whole message.
+  it('drops the date clause when there is no date to give', () => {
+    expect(note([current('a'), unset('b')])?.text).toBe('1 account has no starting line')
+  })
+
+  it('agrees its verb with the count', () => {
     expect(note([unset('a'), unset('b'), current('c')])?.text).toBe(
-      'coverage unknown for 2 accounts',
+      '2 accounts have no starting line',
     )
   })
 

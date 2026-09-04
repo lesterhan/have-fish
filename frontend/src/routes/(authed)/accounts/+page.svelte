@@ -1075,6 +1075,9 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     line-height: 1.3;
+    /* The line runs to two clauses when an account has no starting line, and a narrow tile
+       breaks it. `pretty` keeps the last line from being a single orphaned word. */
+    text-wrap: pretty;
   }
 
   /* --- Toolbar --- */
