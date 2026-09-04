@@ -147,6 +147,29 @@ Implementation reminders that belong with the build instructions:
 </style>
 ```
 
+## Copy
+
+User-facing strings live in `frontend/src/lib/copy/`, one file per surface, imported as a
+namespace: `import { copy } from '$lib/copy'`, then `copy.auth.signIn.title`. This is being
+rolled out surface by surface (`planning/epics/copy-extraction.md`); a file that has been
+converted is listed in `CONVERTED` in `copy.test.ts`, and that test fails if a hardcoded
+string reappears in it.
+
+Four rules, and the first is the one that matters:
+
+- **A message owns its whole sentence.** Never build prose at the call site out of two copy
+  keys and a conditional. `${n} transaction${n === 1 ? '' : 's'}` is not a message; it is a
+  splice. Use `plural(n, one, other)` from `$lib/copy` so both readings sit in the copy file
+  as prose. Adjacent independent phrases — a question next to a link's label — are fine.
+- **Parameters are named and typed.** A message that varies is a function, so a renamed
+  argument is a build error instead of `undefined` on screen.
+- **Formatted data is not copy.** Amounts, dates and percentages go through the `money` and
+  `date` helpers and `Intl`. A currency symbol in a copy file is a multi-currency bug.
+- **One file per surface**, added by the story that converts it, and added to `CONVERTED`
+  in the same PR.
+
+No i18n library, no `en/` folder implying a sibling — a typed object is the whole design.
+
 ## Epic Workflow
 
 ### Starting an epic — "let's pick up [epic name]"
