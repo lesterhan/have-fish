@@ -1,5 +1,6 @@
 <script lang="ts">
   import { signIn } from '$lib/auth'
+  import { copy } from '$lib/copy'
   import { HOME } from '$lib/routes'
   import { goto } from '$app/navigation'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -15,7 +16,7 @@
     error = ''
     const result = await signIn.email({ email, password })
     if (result.error) {
-      error = result.error.message ?? 'Sign in failed'
+      error = result.error.message ?? copy.auth.signIn.failed
     } else {
       // Straight there rather than via `/`, which would only redirect here anyway. The
       // shared constant is what keeps this in step with the root load.
@@ -27,13 +28,13 @@
 <div class="panel">
   <div class="panel-titlebar">
     <Icon name="lock" />
-    <span>Sign in</span>
+    <span>{copy.auth.signIn.title}</span>
   </div>
 
   <div class="panel-body">
     <form onsubmit={handleSubmit}>
       <div class="field">
-        <label for="email">Email</label>
+        <label for="email">{copy.auth.signIn.email}</label>
         <TextInput
           id="email"
           type="email"
@@ -44,7 +45,7 @@
       </div>
 
       <div class="field">
-        <label for="password">Password</label>
+        <label for="password">{copy.auth.signIn.password}</label>
         <TextInput
           id="password"
           type="password"
@@ -59,12 +60,13 @@
       {/if}
 
       <div class="actions">
-        <GradientButton type="submit">Sign in</GradientButton>
+        <GradientButton type="submit">{copy.auth.signIn.submit}</GradientButton>
       </div>
     </form>
 
     <p class="switch-link">
-      Don't have an account? <a href="/signup">Sign up</a>
+      {copy.auth.signIn.switch.question}
+      <a href="/signup">{copy.auth.signIn.switch.action}</a>
     </p>
   </div>
 </div>

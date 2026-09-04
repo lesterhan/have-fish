@@ -1,5 +1,6 @@
 <script lang="ts">
   import { signUp } from '$lib/auth'
+  import { copy } from '$lib/copy'
   import { goto } from '$app/navigation'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -16,13 +17,13 @@
     error = ''
 
     if (password !== confirmPassword) {
-      error = 'Passwords do not match'
+      error = copy.auth.signUp.passwordMismatch
       return
     }
 
     const result = await signUp.email({ email, password, name: name.trim() || email })
     if (result.error) {
-      error = result.error.message ?? 'Sign up failed'
+      error = result.error.message ?? copy.auth.signUp.failed
     } else {
       goto('/')
     }
@@ -32,14 +33,14 @@
 <div class="panel">
   <div class="panel-titlebar">
     <Icon name="create-user" />
-    <span>Create account</span>
+    <span>{copy.auth.signUp.title}</span>
   </div>
 
   <div class="panel-body">
     <form onsubmit={handleSubmit}>
       <div class="field">
-        <label for="email">Email</label><span class="label-hint"
-          >(I will never email you)</span
+        <label for="email">{copy.auth.signUp.email}</label><span
+          class="label-hint">{copy.auth.signUp.emailHint}</span
         >
         <TextInput
           id="email"
@@ -51,19 +52,19 @@
       </div>
 
       <div class="field">
-        <label for="name">Display name</label><span class="label-hint"
-          >(optional)</span
+        <label for="name">{copy.auth.signUp.name}</label><span
+          class="label-hint">{copy.auth.signUp.nameHint}</span
         >
         <TextInput
           id="name"
           bind:value={name}
           autocomplete="name"
-          placeholder="How you appear in shared expenses"
+          placeholder={copy.auth.signUp.namePlaceholder}
         />
       </div>
 
       <div class="field">
-        <label for="password">Password</label>
+        <label for="password">{copy.auth.signUp.password}</label>
         <TextInput
           id="password"
           type="password"
@@ -74,7 +75,7 @@
       </div>
 
       <div class="field">
-        <label for="confirm-password">Confirm password</label>
+        <label for="confirm-password">{copy.auth.signUp.confirmPassword}</label>
         <TextInput
           id="confirm-password"
           type="password"
@@ -89,12 +90,13 @@
       {/if}
 
       <div class="actions">
-        <GradientButton type="submit">Create account</GradientButton>
+        <GradientButton type="submit">{copy.auth.signUp.submit}</GradientButton>
       </div>
     </form>
 
     <p class="switch-link">
-      Already have an account? <a href="/login">Sign in</a>
+      {copy.auth.signUp.switch.question}
+      <a href="/login">{copy.auth.signUp.switch.action}</a>
     </p>
   </div>
 </div>
