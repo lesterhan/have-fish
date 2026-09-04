@@ -71,6 +71,7 @@
 | [Trust Signals](epics/trust-signals.md) | Scoped |
 | [Honest Chrome](epics/honest-chrome.md) | Scoped |
 | [Undo](epics/undo.md) | Scoped |
+| [Copy Extraction](epics/copy-extraction.md) | Scoped |
 
 ## Fish Pie sequence
 
