@@ -76,3 +76,71 @@ export function coverageFor(
   }
   return rows
 }
+
+// ── Saying it ───────────────────────────────────────────────
+
+// 'Jun 21', or 'Jun 21, 2025' once the year stops being obvious. A bare month and day from
+// a previous year reads as recent, which is the opposite of what a staleness date is for.
+export function formatCompletenessDate(date: string, today: string): string {
+  const parsed = new Date(`${date}T00:00:00`)
+  const sameYear = date.substring(0, 4) === today.substring(0, 4)
+  return parsed.toLocaleDateString('en', {
+    month: 'short',
+    day: 'numeric',
+    ...(sameYear ? {} : { year: 'numeric' }),
+  })
+}
+
+export type CompletenessNote = {
+  // The line the surface renders, at --text-xs in --color-text-muted. Sentence fragments,
+  // lower case: it sits under a figure as a qualifier, not above one as a heading.
+  text: string
+  // The whole sentence, for a title attribute. The short line has to fit under a tile; this
+  // is where the count, the date and the way out of it go.
+  detail: string
+  // True when nothing is outstanding. Surfaces that want to distinguish "all clear" from a
+  // real date read this rather than testing the string.
+  current: boolean
+}
+
+const accounts = (n: number) => `${n} ${n === 1 ? 'account' : 'accounts'}`
+
+// One phrasing for every surface that dates a total, so the accounts tiles, the spending
+// page and the status bar cannot end up describing the same coverage three ways.
+//
+// Returns null when the set has no contributors at all: a tile summing only accounts the
+// user has hidden or flagged has nothing to be complete or incomplete about, and "complete
+// through today" would be an answer to a question nobody asked.
+export function completenessNote(c: Completeness, today: string): CompletenessNote | null {
+  if (c.contributors === 0) return null
+
+  // Unknown outranks a date, even when both are present. An account whose coverage has never
+  // been asserted could be missing anything, so a date computed from the others would be an
+  // upper bound rendered as a fact — and the caveat always loses to the number (§4).
+  if (c.unknown > 0) {
+    return {
+      text: `coverage unknown for ${accounts(c.unknown)}`,
+      detail:
+        `${c.unknown} of the ${accounts(c.contributors)} in this figure have never had their ` +
+        `coverage recorded, so there is no date it is complete through. Record it in Catch Up.`,
+      current: false,
+    }
+  }
+
+  if (c.through !== null) {
+    const when = formatCompletenessDate(c.through, today)
+    return {
+      text: `complete through ${when}`,
+      detail:
+        `Complete through ${when} — the oldest account in this figure stops there. ` +
+        `Anything after that date is not in it yet.`,
+      current: false,
+    }
+  }
+
+  return {
+    text: 'complete through today',
+    detail: 'Every account in this figure is recorded up to its latest available data.',
+    current: true,
+  }
+}

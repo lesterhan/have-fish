@@ -6,11 +6,18 @@ import {
   daysBetween,
   groupCurrency,
   groupRows,
+  positionAccountIds,
   positionTotals,
   type OverviewAccount,
 } from './accountsOverview'
 import type { Roots } from './accountPaths'
 import type { Money } from '../../money'
+import {
+  completeness,
+  completenessNote,
+  coverageFor,
+  type AccountCoverageStatus,
+} from '../../coverage'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -346,5 +353,117 @@ describe('positionTotals', () => {
     const totals = positionTotals([], ROOTS, rates, 'CAD')
     expect(totals.cash).toEqual({ cents: 0, missing: [], included: [] })
     expect(totals.owing).toEqual({ cents: 0, missing: [], included: [] })
+  })
+})
+
+describe('positionAccountIds', () => {
+  const rows = rowsFor([
+    acct('assets:chequing', [{ currency: 'CAD', amount: '1000.00' }]),
+    acct('assets:wise:usd', [{ currency: 'USD', amount: '100.00' }]),
+    acct('assets:receivable:alice', [{ currency: 'CAD', amount: '25.00' }]),
+    acct('equity:tfsa', [{ currency: 'CAD', amount: '5000.00' }]),
+    acct('liabilities:visa', [{ currency: 'CAD', amount: '-300.00' }]),
+    acct('expenses:food', [{ currency: 'CAD', amount: '42.00' }]),
+  ])
+
+  it('buckets ids the same way positionTotals buckets money', () => {
+    const ids = positionAccountIds(rows, ROOTS)
+
+    expect(ids.cash).toEqual(['assets:chequing', 'assets:wise:usd'])
+    expect(ids.owed).toEqual(['assets:receivable:alice'])
+    expect(ids.investments).toEqual(['equity:tfsa'])
+    expect(ids.owing).toEqual(['liabilities:visa'])
+  })
+
+  it('leaves out what no bucket sums', () => {
+    const all = Object.values(positionAccountIds(rows, ROOTS)).flat()
+
+    expect(all).not.toContain('expenses:food')
+  })
+})
+
+// The composition the accounts page performs per tile. Testing it here rather than in the
+// component keeps the assertion on the derivation, which is the part that can be wrong.
+describe('dating a position tile', () => {
+  const TODAY = '2026-09-04'
+
+  const rows = rowsFor([
+    acct('assets:chequing', [{ currency: 'CAD', amount: '1000.00' }]),
+    acct('assets:wise', [{ currency: 'CAD', amount: '500.00' }]),
+    acct('assets:receivable:alice', [{ currency: 'CAD', amount: '25.00' }]),
+    acct('liabilities:visa', [{ currency: 'CAD', amount: '-300.00' }]),
+  ])
+
+  function cover(
+    entries: Record<string, Partial<AccountCoverageStatus>>,
+  ): Map<string, AccountCoverageStatus> {
+    return new Map(
+      Object.entries(entries).map(([accountId, over]) => [
+        accountId,
+        { accountId, state: 'current', coveredThrough: TODAY, dormant: false, ...over },
+      ]),
+    )
+  }
+
+  function noteFor(
+    coverage: Map<string, AccountCoverageStatus>,
+    bucket: 'cash' | 'investments' | 'owed' | 'owing',
+  ) {
+    const ids = positionAccountIds(rows, ROOTS)
+    return completenessNote(completeness(coverageFor(coverage, ids[bucket])), TODAY)
+  }
+
+  it('reads as complete through today when every contributor is current', () => {
+    const coverage = cover({ 'assets:chequing': {}, 'assets:wise': {} })
+
+    expect(noteFor(coverage, 'cash')?.text).toBe('complete through today')
+    expect(noteFor(coverage, 'cash')?.current).toBe(true)
+  })
+
+  it('takes its date from the stalest contributor', () => {
+    const coverage = cover({
+      'assets:chequing': { state: 'behind', coveredThrough: '2026-06-21' },
+      'assets:wise': {},
+    })
+
+    expect(noteFor(coverage, 'cash')?.text).toBe('complete through Jun 21')
+  })
+
+  it('is not held back by a dormant contributor', () => {
+    const coverage = cover({
+      'assets:chequing': {},
+      'assets:wise': { state: 'behind', coveredThrough: '2025-01-31', dormant: true },
+    })
+
+    expect(noteFor(coverage, 'cash')?.text).toBe('complete through today')
+  })
+
+  // The failure this whole story is about: four figures on one screen, each as current as its
+  // own contributors and no more. Owed to you being current says nothing about Available.
+  it('dates each tile from its own contributors', () => {
+    const coverage = cover({
+      'assets:chequing': { state: 'behind', coveredThrough: '2026-06-21' },
+      'assets:wise': {},
+      'assets:receivable:alice': {},
+      'liabilities:visa': { state: 'behind', coveredThrough: '2026-08-15' },
+    })
+
+    expect(noteFor(coverage, 'cash')?.text).toBe('complete through Jun 21')
+    expect(noteFor(coverage, 'owed')?.text).toBe('complete through today')
+    expect(noteFor(coverage, 'owing')?.text).toBe('complete through Aug 15')
+  })
+
+  // An empty bucket has nothing to be complete about, and saying "complete through today"
+  // over no accounts at all is an answer to a question nobody asked.
+  it('says nothing for a tile with no contributors', () => {
+    expect(noteFor(cover({}), 'investments')).toBeNull()
+  })
+
+  // A contributor the coverage payload never mentions — hidden, illiquid, dismissed — is not
+  // a contributor, so it neither dates the tile nor blocks it.
+  it('ignores an account the coverage payload does not carry', () => {
+    const coverage = cover({ 'assets:chequing': {} })
+
+    expect(noteFor(coverage, 'cash')?.text).toBe('complete through today')
   })
 })

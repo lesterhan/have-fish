@@ -1,5 +1,11 @@
 import { describe, it, expect } from 'bun:test'
-import { completeness, coverageFor, type AccountCoverageStatus } from './coverage'
+import {
+  completeness,
+  completenessNote,
+  coverageFor,
+  formatCompletenessDate,
+  type AccountCoverageStatus,
+} from './coverage'
 
 function row(over: Partial<AccountCoverageStatus> & { accountId: string }): AccountCoverageStatus {
   return { state: 'current', coveredThrough: '2026-09-04', dormant: false, ...over }
@@ -108,5 +114,63 @@ describe('coverageFor', () => {
   it('feeds completeness so a tile dates itself from its own contributors', () => {
     expect(completeness(coverageFor(byId, ['b'])).through).toBeNull()
     expect(completeness(coverageFor(byId, ['a', 'b'])).through).toBe('2026-06-21')
+  })
+})
+
+describe('formatCompletenessDate', () => {
+  it('drops the year while it is obvious', () => {
+    expect(formatCompletenessDate('2026-06-21', '2026-09-04')).toBe('Jun 21')
+  })
+
+  // A bare month and day from last year reads as recent, which is backwards for a date whose
+  // whole job is to say how far behind something is.
+  it('keeps the year once the date is from another one', () => {
+    expect(formatCompletenessDate('2025-06-21', '2026-09-04')).toBe('Jun 21, 2025')
+  })
+})
+
+describe('completenessNote', () => {
+  const TODAY = '2026-09-04'
+  const note = (rows: AccountCoverageStatus[]) => completenessNote(completeness(rows), TODAY)
+
+  it('says nothing when there are no contributors', () => {
+    expect(note([])).toBeNull()
+  })
+
+  it('reads as complete through today when nothing is outstanding', () => {
+    const result = note([current('a')])
+
+    expect(result?.text).toBe('complete through today')
+    expect(result?.current).toBe(true)
+  })
+
+  it('names the date when something is behind', () => {
+    const result = note([current('a'), behind('b', '2026-06-21')])
+
+    expect(result?.text).toBe('complete through Jun 21')
+    expect(result?.current).toBe(false)
+  })
+
+  // The caveat always loses to the number, so a date computed over accounts we know nothing
+  // about is not rendered at all — the unknown is what gets said instead.
+  it('reports unknowns instead of a date it cannot stand behind', () => {
+    const result = note([behind('a', '2026-06-21'), unset('b')])
+
+    expect(result?.text).toBe('coverage unknown for 1 account')
+    expect(result?.current).toBe(false)
+    expect(result?.detail).toContain('Catch Up')
+  })
+
+  it('counts more than one unknown', () => {
+    expect(note([unset('a'), unset('b'), current('c')])?.text).toBe(
+      'coverage unknown for 2 accounts',
+    )
+  })
+
+  it('carries a fuller sentence for the tooltip than for the line', () => {
+    const result = note([behind('a', '2026-06-21')])
+
+    expect(result?.detail.length).toBeGreaterThan(result!.text.length)
+    expect(result?.detail).toContain('Jun 21')
   })
 })

@@ -269,6 +269,31 @@ export function convertRows(
  * sign is flipped on the way in. `owing` therefore arrives negative for a card in debt, and
  * it is the caller's job to label the direction rather than paint a minus sign.
  */
+/**
+ * Which accounts each position card sums, bucketed exactly as `positionTotals` buckets them.
+ *
+ * A tile dates itself from its own contributors, so the four dates differ and are supposed
+ * to: Owed to you can be current while Available is two months behind. Deriving the ids from
+ * the same `bucketOf` call is what stops a tile quoting a date computed over a different set
+ * of accounts than the figure above it.
+ */
+export function positionAccountIds(
+  rows: readonly Row[],
+  roots: Roots,
+): Record<PositionBucket, string[]> {
+  const ids: Record<PositionBucket, string[]> = {
+    cash: [],
+    investments: [],
+    owed: [],
+    owing: [],
+  }
+  for (const row of rows) {
+    const bucket = bucketOf(row.account.path, roots)
+    if (bucket) ids[bucket].push(row.account.id)
+  }
+  return ids
+}
+
 export function positionTotals(
   rows: readonly Row[],
   roots: Roots,
