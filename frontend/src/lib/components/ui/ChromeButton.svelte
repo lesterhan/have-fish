@@ -2,7 +2,7 @@
   import type { HTMLButtonAttributes } from 'svelte/elements'
 
   interface Props extends HTMLButtonAttributes {
-    variant?: 'default' | 'close' | 'minimize' | 'maximize'
+    variant?: 'default' | 'close' | 'maximize'
   }
 
   let { variant = 'default', children, class: className = '', ...restProps }: Props = $props()
