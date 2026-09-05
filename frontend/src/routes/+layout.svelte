@@ -129,9 +129,11 @@
       // The session may already be gone server-side; either way the user asked to leave,
       // so the navigation below still happens rather than stranding them in a dialog.
     }
-    await goto('/login')
+    // Dismissed before the navigation, not after: the dialog is fixed to the viewport and
+    // would otherwise sit over the login screen for as long as the route takes to settle.
     signingOut = false
     showSignOutDialog = false
+    await goto('/login')
   }
 
   function closeMobileSidebar() {
