@@ -15,7 +15,6 @@ html {
   line-height: var(--leading-normal);
   color: var(--color-text);
   background-color: var(--color-desktop);
-  -webkit-font-smoothing: none; /* intentional — keep the crisp pixel rendering */
 }
 
 body {
