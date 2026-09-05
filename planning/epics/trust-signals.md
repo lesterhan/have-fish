@@ -99,6 +99,12 @@ Add `coveredThrough`, `state` and `dormant` to the rows the accounts page alread
 reusing the catch-up assembly rather than duplicating its logic. The catch-up payload itself
 is too heavy for this (90-day strips per account); this is the same derivation, projected.
 
+**Built as `GET /api/coverage/accounts` rather than as fields on `/accounts/balances`.** That
+endpoint already has two mutually-exclusive selection modes (`types` vs `include=unfiled`) and
+did not want a third axis, and story 4 puts this in the status bar on every page, where
+dragging a whole balances payload along to date one sentence is the wrong trade. The accounts
+page merges it exactly as it already merges `/posting-counts`.
+
 Export a shared helper for the completeness date over a set of rows so stories 2 and 4 cannot
 drift apart: given rows, return `min(coveredThrough)` over `behind && !dormant`, or `null`
 when every contributor is current.
@@ -131,6 +137,12 @@ date; a dormant stale contributor does not; tiles compute independently.
 Classify the selected month against the coverage of the accounts contributing to it:
 **complete** (every contributor covers the whole month), **partial**, or **uncovered**.
 
+This needed a second endpoint, `GET /api/coverage/months`, because story 1's projection cannot
+answer it: a leading edge says nothing about a hole behind it, and a month sitting in that hole
+is unrecorded however recent the edge is. It also carries `assertedAccounts` — with no coverage
+asserted anywhere, every month classifies as uncovered, and a user who has never bootstrapped
+must not be told none of their spending is recorded.
+
 - Complete: unchanged.
 - Partial: the total is a floor, not a value. Mark it as such and name what is missing —
   which accounts, and through what date.
@@ -138,7 +150,13 @@ Classify the selected month against the coverage of the accounts contributing to
 
 The month-over-month delta and the prior-3-month comparison are **not drawn** unless both
 sides are complete. Their space says why: "August is only partly recorded — no comparison
-yet." In the monthly series, under-covered months are hatched rather than short.
+yet."
+
+~~In the monthly series, under-covered months are hatched rather than short.~~ **Dropped
+during the build: there is no monthly series.** `/spending` fetches seven months of totals
+(`fetchMonthlySpend(7)`) purely to compute the two deltas and never draws them. The hatch
+rule stayed in `DESIGN.md` §4 for whenever a trend is drawn; nothing was built to satisfy
+it here.
 
 This is the story that most wants a screenshot in the PR (§7): the difference between "you
 spent less" and "we don't know" is the entire point, and it is not reviewable from a diff.

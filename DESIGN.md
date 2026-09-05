@@ -59,6 +59,14 @@ are probably unrecorded is a fact about coverage, derived from the account's own
 they are worth is a guess about money, and a guess about money displayed beside a real balance
 destroys more trust than the staleness did.
 
+One more, which is the ambiguous zero of the inbox model turned on the data itself: **what is
+absent from the ledger is not evidence about the world.** An account whose statement was never
+imported has no transactions in a period *because* it was never imported, so any judgement made
+from the rows that are present will read every neglected period as complete. Coverage is
+therefore always judged against every tracked account, never against the accounts that happen
+to appear — and an empty result says which kind of empty it is, because "you spent nothing" and
+"you imported nothing" are the same screen otherwise.
+
 ---
 
 ## 2. The material: the case and the work
@@ -96,8 +104,9 @@ that the chrome is fake, which retroactively makes the whole frame feel like set
 
 **The status bar is the notification surface.** Toasts belong in the status bar, not
 floating over the content as a modern snackbar. This is the case doing real work, and it's
-the single best thing the metaphor buys us. The status bar should also carry live state —
-the inbox count is the obvious tenant of "Ready".
+the single best thing the metaphor buys us. It also carries live state: the trust readout —
+how far the ledger is recorded — is its resting tenant, and a transient message takes the
+space and hands it back.
 
 **The case never changes size.** The frame is the one thing in the app that is nailed down;
 that is its whole job. A status bar that grows to hold controls, a titlebar that expands, a
@@ -105,7 +114,7 @@ sidebar that reflows the content area on its own — each turns the frame into a
 and takes the app's only fixed reference point with it. Contextual controls therefore never
 live *in* the case. They **float over the work**: a tray anchored to the bottom of the
 scroll container, content scrolling underneath, nothing displaced. Floating costs nothing
-in layout and buys room for honest hit targets, which a 28px strip cannot give you.
+in layout and buys room for honest hit targets, which a 30px strip cannot give you.
 
 The tempting version of this mistake is subtle, so it's worth naming: `.window` is a column
 flex with `.window-body` at `flex: 1` and `.content` owning the scroll. Growing the status
@@ -229,8 +238,32 @@ everything is stale everything mutes and the page reads as broken; the date does
 the figure keeps its weight. A derived comparison (month over month, versus an average, any
 trend) is **not drawn at all** unless both sides are fully covered, and its space says why:
 a qualified comparison is still read as a fact, because the caveat is smaller than the number
-and loses. Incomplete is a third state, never a low value — hatch it with
-`--color-coverage-hatch`, the app's existing idiom for "not known".
+and loses. Incomplete is a third state, never a low value — where a series is drawn, hatch it
+with `--color-coverage-hatch`, the app's existing idiom for "not known".
+
+Five rules under that heading, learned the hard way:
+
+- **Two questions, two mechanisms.** "How current is this account" is answered by its leading
+  edge. "Is this period recorded" is answered only by the spans themselves — an account covered
+  Jan–Jun and Aug–Sep has a leading edge in September and says nothing about July. Never
+  classify a period from an edge.
+- **A floor is declared once and inherited.** When a period is marked as a floor rather than a
+  value, every figure derived from that period is a floor too. Sub-totals and breakdown rows do
+  not each restate it; the statement governing the period governs everything under it. Repeating
+  the caveat per row is noise, and noise is how a caveat stops being read.
+- **The caveat-loses rule has a scope.** A caveat loses to the number when it is *smaller than
+  the thing it qualifies* — that is why a comparison is suppressed rather than annotated. When
+  the whole line is the caveat, both facts belong in it: "complete through Apr 23, 1 account has
+  no starting line" is strictly more than either half, and dropping the date to report the
+  unknown throws away the most useful thing the app knows.
+- **Unknown is not current.** An account that has never asserted coverage is not evidence of
+  being up to date. It is reported alongside the date, never folded into the caught-up case,
+  and it is named in the user's vocabulary — "no starting line", which names the fix — rather
+  than in the app's.
+- **With nothing known, say nothing.** A surface that describes coverage has nothing to describe
+  when no coverage has ever been asserted. It makes no claim at all rather than reporting that
+  everything is unrecorded, which is true and useless. Absence of the feature is not a finding
+  about the user.
 
 **Numbers.** All amounts render in `--font-mono` with aligned decimals so columns compare by
 eye. Sign convention is in §5; colour reinforces the sign, the minus carries it.
@@ -274,9 +307,10 @@ still reading as Windows rather than Mac is a leftover, not a choice — see §1
 - **The desktop is Graphite** — `--color-desktop: #b8bcc2`, the whole page background.
 - **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`; content areas
   `--color-window-raised: #eceef2`; inset fields `--color-window-inset: #ffffff`.
-- **The status bar is tall enough to act in** — it holds interactive text (the undo action,
-  the inbox count), so it clears WCAG 2.5.8's 24×24 minimum target: roughly a 28–32px bar
-  rather than the ~20px `padding: 2px` + `--text-xs` strip that shipped. Period-plausible —
+- **The status bar is 30px** — it holds interactive text (the trust readout, and the undo
+  action when that lands), so it clears WCAG 2.5.8's 24×24 minimum target. 30 rather than the
+  24 + padding it looks like it needs: the bar clips its overflow, and a 24px target with a
+  2px focus ring exactly fills 28, shearing the ring's top and bottom. Period-plausible —
   Aqua status bars ran ~22px, taller when they carried controls. The height is paid once and
   never animates (§2).
 - **Title bars use the Graphite + Aqua gloss gradient** — multi-stop gloss over the Graphite
@@ -475,6 +509,8 @@ Run before opening a UI PR. Also the checklist for step 5 of the epic workflow i
 - [ ] Amounts use `MoneyDisplay`; sign legible without colour
 - [ ] Every aggregate states what date it is complete through
 - [ ] No comparison is drawn across a period that isn't fully covered, and no gap is priced
+- [ ] Coverage is judged against every tracked account, not the ones that appear in the data
+- [ ] Empty results say whether they are empty because nothing happened or because nothing is recorded
 
 ---
 
@@ -490,8 +526,6 @@ epics kill them.
 - **Close asks "Are you sure you want to quit?" and then calls `window.close()`**, which
   browsers ignore for tabs the script didn't open. The most prominent control in the app is
   a dead end. Sign out / lock is the honest meaning. → `planning/epics/honest-chrome.md`
-- **The status bar says "Ready" forever.** Under the inbox model it should carry the
-  outstanding count — the case doing real work. → `planning/epics/honest-chrome.md`
 
 ### The case is not period yet
 - **The tooltip is Windows XP.** `--color-tooltip-bg: #ffffe1` with a 1px black border is
@@ -517,18 +551,13 @@ epics kill them.
   thing that failed and persist; these evaporate in 3.2s in a bar nobody is watching.
   → `planning/epics/undo.md`
 
-### The case resizes and the work displaces
-- **The status bar is ~20px** (`padding: 2px` + `--text-xs`), which cannot hold an
-  interactive target at WCAG 2.5.8's 24×24 minimum — and it is about to hold the undo action.
-  → `planning/epics/undo.md` story 1
-
 ### Aggregates overstate what the app knows
-- **The accounts rollups carry no as-of.** Row-level staleness ("stale 74d") is honest and is
-  then discarded when those rows are summed into AVAILABLE in the largest type on the screen.
-  → `planning/epics/trust-signals.md` story 2
-- **`/spending` has no coverage awareness at all** — and it draws a month-over-month delta and
-  a prior-3-month comparison. Under partial coverage those are not stale facts, they are
-  fabricated conclusions. → `planning/epics/trust-signals.md` story 3
+- **Mobile (`mobile/`) has no coverage awareness at all.** The Companion shows balances and
+  Fish Pie totals with none of the dating the web app now carries, so the same figure is honest
+  on one surface and bare on the other. Same principle, different surfaces — its own epic.
+- **The monthly spend series does not exist.** `/spending` fetches seven months of totals purely
+  to compute two deltas and never draws them, so the hatch rule above is written for a chart
+  nobody has built. If a trend is ever drawn there, the rule is already waiting for it.
 
 ### Standing debt
 - **`prefers-reduced-motion`** honoured in 2 places out of ~30 that animate.
