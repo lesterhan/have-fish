@@ -285,8 +285,9 @@ The case draws from **2000s Mac OS X Graphite** — cool silver-grey shell, Luci
 the system font, Aqua-style gradient buttons and controls, soft drop shadows, dark section
 bars, Graphite desktop. It should say "you are using a computer program."
 
-The XP-era 3D bevel system has been removed. All controls use Aqua-style shadows. Anything
-still reading as Windows rather than Mac is a leftover, not a choice — see §10.
+The XP-era 3D bevel system has been removed, and so are the last two leftovers wearing the
+costume: the Win32 tooltip and the font-smoothing override. All controls use Aqua-style
+shadows. Anything still reading as Windows rather than Mac is a leftover, not a choice.
 
 ### Visual rules
 
@@ -304,6 +305,16 @@ still reading as Windows rather than Mac is a leftover, not a choice — see §1
   `.section-header` div inside for titled sections (`--color-section-bar-*`). `Panel` is
   deleted.
 - **Lucida Grande at small sizes** — 13–14px base. Small and dense is correct.
+- **Font smoothing belongs to the platform** — the app sets no `-webkit-font-smoothing`.
+  `none` was an XP-era leftover fighting the Aqua reference, and it is not coming back;
+  `antialiased` is the only sanctioned override, and only once someone has shown 13px Lucida
+  Grande suffers without it on a real Mac. Pinned by `base.test.ts`, because the property is
+  macOS-only and its return is invisible on a Linux CI runner.
+- **Tooltips are Aqua help tags** — a dark translucent panel, hairline edge, `--radius-sm`,
+  `--shadow-window`, floating over the page rather than pasted onto it. Their contrast
+  contract sits on the *edge*, not the fill: a dark panel over a dark page cannot clear 3:1
+  on fill without going pale grey and ceasing to look like a help tag, and what has to be
+  legible is where the panel stops.
 - **The desktop is Graphite** — `--color-desktop: #b8bcc2`, the whole page background.
 - **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`; content areas
   `--color-window-raised: #eceef2`; inset fields `--color-window-inset: #ffffff`.
@@ -520,20 +531,13 @@ Written 2026-09-03, from an audit of the code against the philosophy above. This
 audit backlog — each item is a known contradiction, not a vague improvement. Strike them as
 epics kill them.
 
-### The case is not honest yet
-- **The minimize button does nothing.** No handler at all in `+layout.svelte`. Delete it or
-  give it a job. → `planning/epics/honest-chrome.md`
-- **Close asks "Are you sure you want to quit?" and then calls `window.close()`**, which
-  browsers ignore for tabs the script didn't open. The most prominent control in the app is
-  a dead end. Sign out / lock is the honest meaning. → `planning/epics/honest-chrome.md`
-
 ### The case is not period yet
-- **The tooltip is Windows XP.** `--color-tooltip-bg: #ffffe1` with a 1px black border is
-  classic Win32, sitting inside a Mac OS X Graphite shell. Should be an Aqua tooltip.
-  → `planning/epics/honest-chrome.md`
-- **`-webkit-font-smoothing: none`** is an XP-era holdover fighting its own reference —
-  Aqua was the era that introduced heavy anti-aliasing. It's why the type reads "Windows"
-  even though everything around it reads "Mac". → `planning/epics/honest-chrome.md`
+- **Nobody has looked at the type on a Mac since smoothing came back on.**
+  `-webkit-font-smoothing: none` is gone, but the property is implemented in Blink for macOS
+  only: on Linux — CI's runners and every container — setting it changes nothing, and two
+  renders with and without it come back byte-identical. So no screenshot taken off a Mac can
+  show what the removal did. If 13px Lucida Grande reads mushy with smoothing on, the
+  sanctioned fix is `antialiased`. `none` does not come back; `base.test.ts` holds that.
 
 ### The work is not modern enough
 - **Modal nesting.** `TransactionDetailModal` is a `Modal` that renders `LedgerEditModal`,

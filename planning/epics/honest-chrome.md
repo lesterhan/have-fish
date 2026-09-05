@@ -180,8 +180,24 @@ PR, because this is the one change in the epic that can't be reviewed from a dif
 If the result is genuinely worse at 13px, fall back to `antialiased` and record the finding
 in `DESIGN.md` §5 as a deliberate exception — but `none` does not come back.
 
+**What shipping this actually found.** The property is implemented in Blink for macOS only.
+On Linux it is inert — the same text rendered with and without it comes back byte-identical
+— so the before/after screenshots this story asks for cannot be taken anywhere but a Mac, and
+none of the ones attached to the PR show the change. The removal shipped on the strength of
+the argument, not a look; whether 13px Lucida Grande wants `antialiased` is still open, and
+is now the one entry under "the case is not period yet" in `DESIGN.md` §10.
+
 ## Out of scope
 
 - The sidebar's nav order (leads with nouns, not the loop) — its own epic.
 - Modal nesting — its own epic.
 - Anything in the work half of §2.
+
+## Review screenshots
+
+`planning/epics/honest-chrome/` holds the before/after sheets attached to the PR — the
+titlebar, the tooltip in both themes, the sign-out dialog across all six accents, and the
+login and mobile chrome. They are in the repo because the alternative was a PR with no
+pictures, and three of the four stories here are changes a diff cannot show. Note what they
+cannot show: story 4. `-webkit-font-smoothing` is macOS-only, so none of these, taken on
+Linux, differs by a pixel because of it.

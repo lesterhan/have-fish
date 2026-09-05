@@ -3,7 +3,8 @@
   import '../styles/tokens.css'
   import '../styles/base.css'
   import Sidebar from '$lib/components/Sidebar.svelte'
-  import { useSession } from '$lib/auth'
+  import { goto } from '$app/navigation'
+  import { signOut, useSession } from '$lib/auth'
   import { toast } from '$lib/toast.svelte'
   import { fetchAccounts, fetchAccountPostingCounts, fetchCoverageStatus } from '$lib/api'
   import type { Account } from '$lib/api'
@@ -14,6 +15,7 @@
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import ChromeButton from '$lib/components/ui/ChromeButton.svelte'
+  import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import CashConfetti from '$lib/components/ui/CashConfetti.svelte'
   import { applyAccent } from '$lib/accent'
   import type { AccentKey } from '$lib/accent'
@@ -25,7 +27,8 @@
   const session = useSession()
 
   let maximized = $state(true)
-  let showQuitDialog = $state(false)
+  let showSignOutDialog = $state(false)
+  let signingOut = $state(false)
   let mobileSidebarOpen = $state(false)
   let pickerOpen = $state(false)
   let currentAccent = $state<AccentKey>('aqua')
@@ -73,7 +76,16 @@
   // The fetched flag prevents re-fetching if the session object is refreshed.
   let sidebarFetched = false
   $effect(() => {
-    if ($session.data && !sidebarFetched) {
+    // Signing out clears the flag as well as the lists. Without it the next sign-in — which
+    // may be a different person — reuses whatever the last session left in the sidebar,
+    // because this component is the root layout and is never torn down between the two.
+    if (!$session.data) {
+      sidebarFetched = false
+      sidebarAccounts = []
+      lastActivityById = new Map()
+      return
+    }
+    if (!sidebarFetched) {
       sidebarFetched = true
       Promise.all([
         fetchAccounts(),
@@ -107,6 +119,22 @@
       },
     )
   })
+
+  async function handleSignOut() {
+    if (signingOut) return
+    signingOut = true
+    try {
+      await signOut()
+    } catch {
+      // The session may already be gone server-side; either way the user asked to leave,
+      // so the navigation below still happens rather than stranding them in a dialog.
+    }
+    // Dismissed before the navigation, not after: the dialog is fixed to the viewport and
+    // would otherwise sit over the login screen for as long as the route takes to settle.
+    signingOut = false
+    showSignOutDialog = false
+    await goto('/login')
+  }
 
   function closeMobileSidebar() {
     mobileSidebarOpen = false
@@ -162,9 +190,6 @@
             <Icon name="menu" size={12} />
           </ChromeButton>
         {/if}
-        <ChromeButton variant="minimize" aria-label="Minimize">
-          <Icon name="minimize" size={12} />
-        </ChromeButton>
         <ChromeButton
           variant="maximize"
           aria-label="Maximize"
@@ -172,13 +197,18 @@
         >
           <Icon name={maximized ? 'restore-window' : 'maximize'} size={12} />
         </ChromeButton>
-        <ChromeButton
-          variant="close"
-          aria-label="Close"
-          onclick={() => (showQuitDialog = true)}
-        >
-          <Icon name="close" size={12} />
-        </ChromeButton>
+        {#if $session.data}
+          <!-- Only where it means something: on the login screen there is no session to end,
+               and a close button that would open a dialog about nothing is the exact thing
+               this epic is about. -->
+          <ChromeButton
+            variant="close"
+            aria-label="Sign out"
+            onclick={() => (showSignOutDialog = true)}
+          >
+            <Icon name="close" size={12} />
+          </ChromeButton>
+        {/if}
       </div>
     </div>
 
@@ -223,28 +253,21 @@
 
   <CashConfetti />
 
-  {#if showQuitDialog}
-    <div class="dialog-overlay">
-      <div class="dialog">
-        <div class="dialog-titlebar">
-          <span class="titlebar-icon">🧧</span>
-          <span>have-fish</span>
-        </div>
-        <div class="dialog-body">
-          <p>Are you sure you want to quit?</p>
-          <p class="dialog-sub">Changes are saved.</p>
-          <div class="dialog-actions">
-            <button class="dialog-btn" onclick={() => window.close()}>
-              Yes
-            </button>
-            <button class="dialog-btn" onclick={() => (showQuitDialog = false)}>
-              No
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-  {/if}
+  <!-- The titlebar's close button. "Quit" has no meaning in a browser tab, so the control
+       carries the nearest true one. The dialog stays because the misclick costs whatever you
+       were part-way through typing, and there is no undo for that. -->
+  <ConfirmDialog
+    title="have-fish"
+    bind:open={showSignOutDialog}
+    confirmLabel="Sign out"
+    busyLabel="Signing out…"
+    busy={signingOut}
+    variant="primary"
+    onconfirm={handleSignOut}
+  >
+    <p>Sign out of have-fish?</p>
+    <p class="dialog-sub">Any unsaved entry on this page will be lost.</p>
+  </ConfirmDialog>
 </div>
 
 <style>
@@ -294,10 +317,6 @@
     color: var(--color-titlebar-fg);
     user-select: none;
     position: relative;
-  }
-
-  .titlebar-icon {
-    font-size: var(--text-sm);
   }
 
   .titlebar-title {
@@ -354,7 +373,6 @@
       display: flex;
     }
 
-    :global(.chrome-btn.minimize),
     :global(.chrome-btn.maximize),
     :global(.chrome-btn.close) {
       display: none;
@@ -397,74 +415,11 @@
 
   }
 
-  /* --- Quit dialog --- */
-  .dialog-overlay {
-    position: absolute;
-    inset: 0;
-    background: rgba(0, 0, 0, 0.35);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
-
-  .dialog {
-    background: var(--color-window);
-    box-shadow: var(--shadow-window);
-    min-width: 260px;
-  }
-
-  .dialog-titlebar {
-    display: flex;
-    align-items: center;
-    gap: var(--sp-xs);
-    padding: 3px var(--sp-xs);
-    background: var(--color-titlebar-bg);
-    color: var(--color-titlebar-fg);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
-    user-select: none;
-  }
-
-  .dialog-body {
-    padding: var(--sp-lg) var(--sp-lg) var(--sp-md);
-    font-size: var(--text-sm);
-  }
-
+  /* The dialog's own furniture comes from ConfirmDialog; this is the one line of it that is
+     ours — the consequence, under the question at a lower weight. No margin: the body is a
+     flex column and its gap already spaces the two lines like every other confirm. */
   .dialog-sub {
     color: var(--color-text-muted);
-    margin-top: var(--sp-xs);
-  }
-
-  .dialog-actions {
-    display: flex;
-    justify-content: flex-end;
-    gap: var(--sp-sm);
-    margin-top: var(--sp-md);
-  }
-
-  .dialog-btn {
-    min-width: 5rem;
-    padding: var(--sp-xs) var(--sp-sm);
-    background: var(--color-window);
-    color: var(--color-text);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-md);
-    box-shadow: var(--shadow-control);
-    font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    cursor: pointer;
-    transition:
-      box-shadow var(--duration-fast) var(--ease),
-      background var(--duration-fast) var(--ease),
-      border-color var(--duration-fast) var(--ease);
-  }
-
-  .dialog-btn:hover {
-    background: var(--color-accent-light);
-  }
-
-  .dialog-btn:active {
-    box-shadow: var(--shadow-inset);
   }
 
   /* --- Status bar --- */

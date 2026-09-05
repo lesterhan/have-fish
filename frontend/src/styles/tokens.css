@@ -103,9 +103,12 @@
   --color-divider: #c8ccd2;
 
   /* --- Tooltip --- */
-  --color-tooltip-bg: #ffffe1; /* classic Windows tooltip yellow */
-  --color-tooltip-border: #000000;
-  --color-tooltip-text: #000000;
+  /* An Aqua help tag: a dark panel floating over the page, not a Win32 yellow sticker
+     glued to it. The values are opaque because tokens.test.ts measures them; the panel
+     renders at 94% over a blurred backdrop (base.css), which the ~11:1 headroom absorbs. */
+  --color-tooltip-bg: #2f333c;
+  --color-tooltip-border: #5f6675;
+  --color-tooltip-text: #f2f4f8;
 
   /* --- Semantic --- */
   --color-success: #007700;
@@ -241,9 +244,11 @@
   --color-divider: #373e4d;
 
   /* --- Tooltip --- */
-  --color-tooltip-bg: #393f4c;
-  --color-tooltip-border: #4c566a;
-  --color-tooltip-text: #eceff4;
+  /* Lighter than the light theme's, not darker: the panel has to read as sitting *above*
+     the page, and here the page is already dark. */
+  --color-tooltip-bg: #3a4150;
+  --color-tooltip-border: #79839b;
+  --color-tooltip-text: #eef1f6;
 
   /* --- Semantic --- */
   --color-success: #a3be8c;
