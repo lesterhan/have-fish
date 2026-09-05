@@ -192,3 +192,12 @@ is now the one entry under "the case is not period yet" in `DESIGN.md` §10.
 - The sidebar's nav order (leads with nouns, not the loop) — its own epic.
 - Modal nesting — its own epic.
 - Anything in the work half of §2.
+
+## Review screenshots
+
+`planning/epics/honest-chrome/` holds the before/after sheets attached to the PR — the
+titlebar, the tooltip in both themes, the sign-out dialog across all six accents, and the
+login and mobile chrome. They are in the repo because the alternative was a PR with no
+pictures, and three of the four stories here are changes a diff cannot show. Note what they
+cannot show: story 4. `-webkit-font-smoothing` is macOS-only, so none of these, taken on
+Linux, differs by a pixel because of it.
