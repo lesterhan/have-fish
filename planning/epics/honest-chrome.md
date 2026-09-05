@@ -120,7 +120,7 @@ alone; no control renders without a handler (a cheap render-level assertion that
 
 ### 2. The status bar carries the trust readout
 
-**Shipped in `planning/epics/trust-signals.md` story 4.** Nothing to build here.
+**Shipped in `planning/epics/archive/trust-signals.md` story 4.** Nothing to build here.
 
 This story originally put an inbox count in the status bar. Two problems surfaced while
 scoping it. A bare queue count has an ambiguous zero in a manual-entry app ("caught up" and

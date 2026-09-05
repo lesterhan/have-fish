@@ -68,7 +68,7 @@
 | [Account Page Redesign](epics/archive/account-page-redesign.md) | Done |
 | [Account Settings Modal](epics/archive/account-settings-modal.md) | Done |
 | [Accounts Page — Consolidation and Curation](epics/archive/accounts-page.md) | Done |
-| [Trust Signals](epics/trust-signals.md) | Scoped |
+| [Trust Signals](epics/archive/trust-signals.md) | Done |
 | [Honest Chrome](epics/honest-chrome.md) | Scoped |
 | [Undo](epics/undo.md) | Scoped |
 | [Copy Extraction](epics/copy-extraction.md) | Scoped |
