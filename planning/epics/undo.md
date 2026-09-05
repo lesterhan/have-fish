@@ -125,10 +125,10 @@ action being something the user has to hunt for in a thin strip. Two supports fo
 §2 and §5:
 
 - **The status bar's permanent height is already in** — 30px, shipped in
-  `planning/epics/trust-signals.md` story 4, which made the bar interactive first and could not
-  leave a link under WCAG 2.5.8's 24×24 minimum. Nothing to do here beyond confirming the
-  action clears the same target. The §2 rule still governs: the bar must not resize when it
-  gains or loses an action, which is why the height is a constant rather than growing to fit.
+  `planning/epics/archive/trust-signals.md` story 4, which made the bar interactive first and
+  could not leave a link under WCAG 2.5.8's 24×24 minimum. Nothing to do here beyond confirming
+  the action clears the same target. The §2 rule still governs: the bar must not resize when
+  it gains or loses an action, which is why the height is a constant rather than growing to fit.
 - **A single background pulse** when the bar gains an action. Motion that catches the eye
   without moving the frame, and gated on `prefers-reduced-motion`.
 

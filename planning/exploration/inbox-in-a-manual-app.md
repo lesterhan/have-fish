@@ -85,7 +85,7 @@ dismissible per account, not a recurring queue item.
 ## Where this landed
 
 The count is not the first thing to build. Trust Signals ships first
-(`planning/epics/trust-signals.md`), because:
+(`planning/epics/archive/trust-signals.md`), because:
 
 - The completeness date has no ambiguous zero. "Complete through Jun 21" degrades to
   "Complete through today" when caught up — the win condition stated as a fact.
