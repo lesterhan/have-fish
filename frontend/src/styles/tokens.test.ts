@@ -28,6 +28,9 @@ const TOKENS = readFileSync(
  */
 const MIN_RATIO = 3
 
+/** WCAG 1.4.3 asks 4.5:1 for body text. A tooltip is a sentence, so it is body text. */
+const MIN_TEXT_RATIO = 4.5
+
 // --- reading the token file ---------------------------------------------------------------
 
 /** The declarations inside one top-level selector block, as a name → value map. */
@@ -142,6 +145,33 @@ describe('the coverage strip reads as a picture in both themes', () => {
         )
         expect(ratio).toBeLessThan(1.6)
       })
+    })
+  }
+})
+
+describe('the tooltip is readable in both themes', () => {
+  // A new fg/bg pair, so it gets an assertion with it (DESIGN.md §5). The pair is measured
+  // opaque; the panel renders at 94% over a blurred backdrop, and the headroom over 4.5:1 is
+  // what pays for that — which is the reason to assert the pair rather than eyeball the panel.
+  for (const [name, theme] of Object.entries(THEMES)) {
+    it(`${name}: tooltip text on the tooltip panel`, () => {
+      const ratio = contrastRatio(
+        token(theme, '--color-tooltip-text'),
+        token(theme, '--color-tooltip-bg'),
+      )
+      expect(ratio).toBeGreaterThanOrEqual(MIN_TEXT_RATIO)
+    })
+
+    it(`${name}: the panel's edge is visible against the page behind it`, () => {
+      // The edge, not the fill. A dark panel over a dark page cannot clear 3:1 on fill alone
+      // without going pale grey and stopping looking like a help tag — the first draft of this
+      // assertion asked for exactly that and the dark theme failed it at 1.29:1. What has to
+      // be legible is where the panel stops, and that is the hairline's job.
+      const ratio = contrastRatio(
+        token(theme, '--color-tooltip-border'),
+        token(theme, '--color-window-raised'),
+      )
+      expect(ratio).toBeGreaterThanOrEqual(MIN_RATIO)
     })
   }
 })

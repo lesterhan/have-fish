@@ -61,13 +61,22 @@ h3 {
 }
 
 /* --- Tooltip (use:tooltip action in $lib/tooltip.ts) --- */
+/* Tooltips are case, so they are period: an Aqua help tag — a soft dark panel with a
+   hairline edge, floating over the page rather than pasted onto it. The translucency is
+   what makes it float; it is held at 94% so the text keeps the contrast tokens.test.ts
+   measures on the opaque pair. backdrop-filter is progressive — where it is unsupported
+   the panel is simply a shade more solid. */
 .hf-tooltip {
   position: fixed;
   z-index: 300;
-  padding: 2px var(--sp-xs);
-  background: var(--color-tooltip-bg);
+  padding: 3px var(--sp-sm);
+  background: color-mix(in srgb, var(--color-tooltip-bg) 94%, transparent);
+  backdrop-filter: blur(6px) saturate(140%);
+  -webkit-backdrop-filter: blur(6px) saturate(140%);
   color: var(--color-tooltip-text);
   border: 1px solid var(--color-tooltip-border);
+  border-radius: var(--radius-sm);
+  box-shadow: var(--shadow-window);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
   max-width: 260px;
