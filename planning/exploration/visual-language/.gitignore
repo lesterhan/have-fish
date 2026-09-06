@@ -1,0 +1,7 @@
+# The design canvas is drafted here and published as an Artifact; the boards are not
+# checked in. Every value they illustrate lives in notes.md and planning/epics/
+# visual-language.md, and a mockup in the repo becomes a second source of truth for how
+# the app looks the moment the real thing diverges from it.
+*.dc.html
+canvas.json
+have-fish-visual-language.html
