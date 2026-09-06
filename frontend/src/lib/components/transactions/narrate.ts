@@ -58,7 +58,9 @@ export function narrateTransaction(postings: Posting[]): NarratedTransaction {
   // when a transaction has no transfer leg (e.g. an opening-balance equity entry).
   const source =
     transfers.length > 0
-      ? [...transfers].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))[0]
+      ? [...transfers].sort(
+          (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
+        )[0]
       : null
 
   // Cross-currency flow exists only when the transfer legs span more than one currency.

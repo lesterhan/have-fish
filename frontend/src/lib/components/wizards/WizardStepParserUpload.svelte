@@ -47,7 +47,9 @@
   {#if columns.length > 0}
     <span class="field-label toggle-label">
       Multi-currency
-      <TooltipIcon label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately." />
+      <TooltipIcon
+        label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."
+      />
     </span>
     <Toggle bind:checked={isMultiCurrency} />
   {/if}

@@ -1,7 +1,7 @@
 <script lang="ts">
-  import { SUPPORTED_CURRENCIES } from "$lib/currency"
-  import CurrencyPill from "./CurrencyPill.svelte"
-  import { settingsStore } from "$lib/settings.svelte"
+  import { SUPPORTED_CURRENCIES } from '$lib/currency'
+  import CurrencyPill from './CurrencyPill.svelte'
+  import { settingsStore } from '$lib/settings.svelte'
 
   interface Props {
     value?: string
@@ -12,9 +12,9 @@
   }
 
   let {
-    value = $bindable("CAD"),
+    value = $bindable('CAD'),
     id,
-    placeholder = "CAD",
+    placeholder = 'CAD',
     style,
     oncommit,
   }: Props = $props()
@@ -22,17 +22,17 @@
   const listboxId = `currency-listbox-${Math.random().toString(36).slice(2, 7)}`
 
   let inputEl: HTMLInputElement | undefined = $state()
-  let inputText = $state(value ?? "")
+  let inputText = $state(value ?? '')
   let open = $state(false)
   let focused = $state(false)
   let activeIndex = $state(0)
 
   $effect(() => {
-    if (!focused) inputText = value ?? ""
+    if (!focused) inputText = value ?? ''
   })
 
   let recentCurrencies = $derived(
-    settingsStore.value?.preferences?.recentCurrencies ?? []
+    settingsStore.value?.preferences?.recentCurrencies ?? [],
   )
 
   let filtered = $derived.by(() => {
@@ -52,12 +52,14 @@
   function pushRecent(code: string) {
     const current = settingsStore.value?.preferences?.recentCurrencies ?? []
     const next = [code, ...current.filter((c) => c !== code)].slice(0, 8)
-    settingsStore.update({ preferences: { recentCurrencies: next } }).catch(() => {})
+    settingsStore
+      .update({ preferences: { recentCurrencies: next } })
+      .catch(() => {})
   }
 
   // Show pill overlay when not focused and value is a known currency
   let showPill = $derived(
-    !focused && SUPPORTED_CURRENCIES.includes((value ?? "").toUpperCase()),
+    !focused && SUPPORTED_CURRENCIES.includes((value ?? '').toUpperCase()),
   )
 
   function handleFocus() {
@@ -81,13 +83,13 @@
         oncommit?.(upper)
         pushRecent(upper)
       } else {
-        inputText = value ?? ""
+        inputText = value ?? ''
       }
     }, 150)
   }
 
   function handleKeydown(e: KeyboardEvent) {
-    if (e.key === "Enter") {
+    if (e.key === 'Enter') {
       e.preventDefault()
       if (open && filtered.length > 0) {
         selectIndex(activeIndex)
@@ -105,15 +107,15 @@
       return
     }
     if (!open) return
-    if (e.key === "ArrowDown") {
+    if (e.key === 'ArrowDown') {
       e.preventDefault()
       activeIndex = (activeIndex + 1) % filtered.length
-    } else if (e.key === "ArrowUp") {
+    } else if (e.key === 'ArrowUp') {
       e.preventDefault()
       activeIndex = (activeIndex - 1 + filtered.length) % filtered.length
-    } else if (e.key === "Escape") {
+    } else if (e.key === 'Escape') {
       open = false
-      inputText = value ?? ""
+      inputText = value ?? ''
       inputEl?.blur()
     }
   }
@@ -130,7 +132,7 @@
   }
 
   function activatePill() {
-    inputText = ""
+    inputText = ''
     inputEl?.focus()
   }
 </script>
@@ -175,7 +177,7 @@
       aria-label="Edit currency {value}"
       onclick={activatePill}
       onkeydown={(e) => {
-        if (e.key === "Enter" || e.key === " ") {
+        if (e.key === 'Enter' || e.key === ' ') {
           e.preventDefault()
           activatePill()
         }
@@ -193,7 +195,10 @@
           class:active={i === activeIndex}
           role="option"
           aria-selected={i === activeIndex}
-          onmousedown={(e) => { e.preventDefault(); selectIndex(i) }}
+          onmousedown={(e) => {
+            e.preventDefault()
+            selectIndex(i)
+          }}
           onmousemove={() => {
             activeIndex = i
           }}
@@ -246,10 +251,10 @@
   }
 
   .currency-input:focus {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
     box-shadow:
       inset 0 1px 2px rgba(0, 0, 0, 0.08),
-      0 0 0 2px var(--color-accent-light);
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   /* Covers the input visually when a valid currency is set and not being edited */
@@ -271,14 +276,14 @@
   }
 
   .pill-overlay:hover {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
   }
 
   .pill-overlay:focus {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
     box-shadow:
       inset 0 1px 2px rgba(0, 0, 0, 0.08),
-      0 0 0 2px var(--color-accent-light);
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .dropdown {

@@ -5,7 +5,12 @@
     variant?: 'default' | 'close' | 'maximize'
   }
 
-  let { variant = 'default', children, class: className = '', ...restProps }: Props = $props()
+  let {
+    variant = 'default',
+    children,
+    class: className = '',
+    ...restProps
+  }: Props = $props()
 </script>
 
 <button class="chrome-btn {variant} {className}" {...restProps}>
@@ -16,7 +21,11 @@
   .chrome-btn {
     width: 21px;
     height: 21px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     color: var(--color-text);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);
@@ -34,7 +43,11 @@
   }
 
   .chrome-btn:hover {
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-accent-chip-bg)
+    );
     border-color: var(--color-accent);
   }
 
@@ -43,7 +56,11 @@
   }
 
   .chrome-btn.close:hover {
-    background: linear-gradient(180deg, #ff8080, var(--color-danger));
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--color-danger) 65%, var(--color-btn-gradient-hi)),
+      var(--color-danger)
+    );
     border-color: var(--color-danger);
     color: var(--color-btn-gradient-hi);
   }

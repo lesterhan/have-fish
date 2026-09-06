@@ -471,9 +471,14 @@
   }
 
   .danger-bar {
-    background: linear-gradient(180deg, #5a2020, #2a0808);
-    border-top-color: #8a4040;
-    border-bottom-color: #0a0202;
+    background: var(--color-danger-light);
+    border-top-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
+    border-bottom-color: color-mix(
+      in srgb,
+      var(--color-danger) 55%,
+      transparent
+    );
+    color: var(--color-danger);
   }
 
   .section-body {

@@ -14,7 +14,9 @@ export function headlineSubject(tx: Transaction): Posting | null {
   const { subjects } = narrateTransaction(tx.postings)
   if (subjects.length === 0) return null
   return subjects.reduce((best, p) =>
-    Math.abs(parseFloat(p.amount)) > Math.abs(parseFloat(best.amount)) ? p : best,
+    Math.abs(parseFloat(p.amount)) > Math.abs(parseFloat(best.amount))
+      ? p
+      : best,
   )
 }
 
@@ -31,7 +33,10 @@ export function stripRoot(accountPath: string): string {
 
 // True when the transaction has a subject leg in the given currency — the filter the
 // currency chips apply. `ALL` matches any transaction with at least one subject leg.
-export function hasSubjectInCurrency(tx: Transaction, currency: string): boolean {
+export function hasSubjectInCurrency(
+  tx: Transaction,
+  currency: string,
+): boolean {
   const { subjects } = narrateTransaction(tx.postings)
   if (currency === 'ALL') return subjects.length > 0
   return subjects.some((p) => p.currency === currency)
@@ -51,7 +56,8 @@ export function txSubjectTotal(
       ? subjects
       : subjects.filter((p) => p.currency === currencyFilter)
   return legs.reduce(
-    (sum, p) => sum + Math.abs(parseFloat(p.amount)) * (fxRates[p.currency] ?? 1),
+    (sum, p) =>
+      sum + Math.abs(parseFloat(p.amount)) * (fxRates[p.currency] ?? 1),
     0,
   )
 }

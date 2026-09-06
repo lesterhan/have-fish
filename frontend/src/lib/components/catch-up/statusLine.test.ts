@@ -1,11 +1,18 @@
 import { describe, it, expect } from 'bun:test'
 import { statusLine } from './statusLine'
 
-const iv = (fromDate: string, throughDate: string) => ({ fromDate, throughDate })
+const iv = (fromDate: string, throughDate: string) => ({
+  fromDate,
+  throughDate,
+})
 
 describe('statusLine', () => {
   it('says nothing is recorded when there are no intervals', () => {
-    const r = statusLine({ intervals: [], horizon: '2026-08-27', nextHorizon: null })
+    const r = statusLine({
+      intervals: [],
+      horizon: '2026-08-27',
+      nextHorizon: null,
+    })
     expect(r.text).toBe('Nothing recorded yet')
     expect(r.daysOpen).toBe(0)
   })
@@ -64,7 +71,10 @@ describe('statusLine', () => {
 
   it('reads the newest interval, which is the one at the head of the list', () => {
     const r = statusLine({
-      intervals: [iv('2026-07-01', '2026-07-31'), iv('2026-05-01', '2026-05-31')],
+      intervals: [
+        iv('2026-07-01', '2026-07-31'),
+        iv('2026-05-01', '2026-05-31'),
+      ],
       horizon: '2026-08-27',
       nextHorizon: null,
     })

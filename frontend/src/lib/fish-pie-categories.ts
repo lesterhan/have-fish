@@ -12,7 +12,10 @@ export function leafName(path: string): string {
 // Auto-suggest an account for a category by matching the category name (case-insensitive)
 // against each account's leaf name. Returns the first matching account id, or null. Used
 // to pre-fill the mapping input on a category the member hasn't mapped yet.
-export function suggestAccountId(categoryName: string, accounts: Account[]): string | null {
+export function suggestAccountId(
+  categoryName: string,
+  accounts: Account[],
+): string | null {
   const target = categoryName.trim().toLowerCase()
   if (!target) return null
   const match = accounts.find((a) => leafName(a.path).toLowerCase() === target)

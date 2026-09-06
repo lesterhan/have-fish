@@ -139,7 +139,9 @@
   let malformedCandidates = $state<MalformedFxSpend[]>([])
   let conversionAccountConfigured = $state(true)
   let repairOpen = $state(false)
-  let malformedIds = $derived(new Set(malformedCandidates.map((c) => c.transactionId)))
+  let malformedIds = $derived(
+    new Set(malformedCandidates.map((c) => c.transactionId)),
+  )
 
   async function loadMalformed() {
     try {
@@ -155,10 +157,14 @@
   }
 
   function handleHealed(transactionId: string) {
-    malformedCandidates = malformedCandidates.filter((c) => c.transactionId !== transactionId)
+    malformedCandidates = malformedCandidates.filter(
+      (c) => c.transactionId !== transactionId,
+    )
     if (malformedCandidates.length === 0) repairOpen = false
     // Pull the corrected postings into the visible list + refresh the attention indicators.
-    fetchTransactions({ accountId: id, from, to }).then((txs) => (transactions = txs))
+    fetchTransactions({ accountId: id, from, to }).then(
+      (txs) => (transactions = txs),
+    )
     actionRequiredStore.invalidate()
     actionRequiredStore.load()
   }
@@ -456,7 +462,11 @@
         </GradientButton>
         <MoreMenu
           items={[
-            { label: 'Reconcile', icon: 'reconcile', onselect: () => (reconcileOpen = true) },
+            {
+              label: 'Reconcile',
+              icon: 'reconcile',
+              onselect: () => (reconcileOpen = true),
+            },
             {
               label: 'Account settings',
               icon: 'account-settings',
@@ -492,7 +502,9 @@
           {#if malformedIds.has(tx.id)}
             <button class="repair-strip" onclick={() => (repairOpen = true)}>
               <span class="repair-strip-icon">⚠</span>
-              <span>Imported incorrectly — cross-currency spend needs repair.</span>
+              <span
+                >Imported incorrectly — cross-currency spend needs repair.</span
+              >
               <span class="repair-strip-cta">Repair</span>
             </button>
           {/if}
@@ -751,7 +763,7 @@
   }
 
   .status-toggle:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 
@@ -812,7 +824,7 @@
   }
 
   .attention-chip:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 1px;
   }
 
@@ -845,5 +857,4 @@
       order: 3;
     }
   }
-
 </style>

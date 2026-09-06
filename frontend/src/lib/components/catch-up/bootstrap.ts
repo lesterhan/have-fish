@@ -35,7 +35,8 @@ export function proposeStartingLines(
   return accounts
     .filter((a) => a.state === 'unset')
     .map((account) => {
-      const noHistory = account.firstTxnDate == null || account.lastTxnDate == null
+      const noHistory =
+        account.firstTxnDate == null || account.lastTxnDate == null
 
       return {
         accountId: account.accountId,
@@ -43,7 +44,9 @@ export function proposeStartingLines(
         name: account.name,
         fromDate: noHistory ? today : account.firstTxnDate!,
         throughDate: noHistory ? today : account.lastTxnDate!,
-        source: (noHistory ? 'empty' : 'manual') satisfies CoverageSource as CoverageSource,
+        source: (noHistory
+          ? 'empty'
+          : 'manual') satisfies CoverageSource as CoverageSource,
         noHistory,
       }
     })
@@ -52,7 +55,10 @@ export function proposeStartingLines(
 
 // Whether an edited proposal can be written. The backend enforces the same rule, but catching
 // it here keeps the user from firing off a batch where one row will bounce.
-export function isValidProposal(proposal: { fromDate: string; throughDate: string }): boolean {
+export function isValidProposal(proposal: {
+  fromDate: string
+  throughDate: string
+}): boolean {
   return (
     /^\d{4}-\d{2}-\d{2}$/.test(proposal.fromDate) &&
     /^\d{4}-\d{2}-\d{2}$/.test(proposal.throughDate) &&
@@ -64,6 +70,7 @@ export function isValidProposal(proposal: { fromDate: string; throughDate: strin
 // never a leap of faith.
 export function describeProposal(proposal: StartingLineProposal): string {
   if (proposal.noHistory) return 'No transactions yet — marks today as covered'
-  if (proposal.fromDate === proposal.throughDate) return `Marks ${proposal.fromDate} as covered`
+  if (proposal.fromDate === proposal.throughDate)
+    return `Marks ${proposal.fromDate} as covered`
   return `Marks ${proposal.fromDate} through ${proposal.throughDate} as covered`
 }

@@ -36,17 +36,16 @@ describe('pinnedRows', () => {
   })
 
   it('labels each row against its own surface root', () => {
-    expect(pinnedRows(accounts, ['1', '2'], ROOTS).map((r) => r.label)).toEqual([
-      'wise:cad',
-      'Amex Cobalt',
-    ])
+    expect(pinnedRows(accounts, ['1', '2'], ROOTS).map((r) => r.label)).toEqual(
+      ['wise:cad', 'Amex Cobalt'],
+    )
   })
 
   it('drops an id that no longer resolves rather than rendering a blank', () => {
     // A pinned account can be deleted; the stale id is not worth a write to clean up.
-    expect(pinnedRows(accounts, ['1', 'gone', '2'], ROOTS).map((r) => r.id)).toEqual(
-      ['1', '2'],
-    )
+    expect(
+      pinnedRows(accounts, ['1', 'gone', '2'], ROOTS).map((r) => r.id),
+    ).toEqual(['1', '2'])
   })
 
   it('is empty when nothing is pinned', () => {
@@ -116,10 +115,12 @@ describe('recentRows', () => {
   })
 
   it('caps the list at the limit', () => {
-    expect(recentRows(accounts, activity, ROOTS, NONE)).toHaveLength(RECENT_LIMIT)
-    expect(recentRows(accounts, activity, ROOTS, NONE, 1).map((r) => r.id)).toEqual([
-      'sav',
-    ])
+    expect(recentRows(accounts, activity, ROOTS, NONE)).toHaveLength(
+      RECENT_LIMIT,
+    )
+    expect(
+      recentRows(accounts, activity, ROOTS, NONE, 1).map((r) => r.id),
+    ).toEqual(['sav'])
   })
 
   it('breaks a same-day tie on the path, so the order does not flicker', () => {

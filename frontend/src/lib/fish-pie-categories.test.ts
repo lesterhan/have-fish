@@ -1,6 +1,11 @@
 /// <reference types="bun" />
 import { describe, it, expect } from 'bun:test'
-import { leafName, suggestAccountId, weightsToPct, pctToVector } from './fish-pie-categories'
+import {
+  leafName,
+  suggestAccountId,
+  weightsToPct,
+  pctToVector,
+} from './fish-pie-categories'
 import type { Account } from './api'
 
 const acct = (id: string, path: string): Account => ({ id, path }) as Account
@@ -14,7 +19,11 @@ describe('leafName', () => {
 })
 
 describe('suggestAccountId', () => {
-  const accounts = [acct('a1', 'expenses:Food'), acct('a2', 'expenses:groceries'), acct('a3', 'assets:cash')]
+  const accounts = [
+    acct('a1', 'expenses:Food'),
+    acct('a2', 'expenses:groceries'),
+    acct('a3', 'assets:cash'),
+  ]
 
   it('matches a category to an account by leaf name, case-insensitively', () => {
     expect(suggestAccountId('food', accounts)).toBe('a1')

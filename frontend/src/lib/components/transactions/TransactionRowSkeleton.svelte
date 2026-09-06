@@ -38,9 +38,21 @@
         'body body';
     }
 
-    .date { grid-area: date; }
-    .body { grid-area: body; border-left: none; padding-left: 0; border-top: 1px solid var(--color-divider); padding-top: var(--sp-xs); margin-top: 0; }
-    .money { grid-area: money; justify-self: end; }
+    .date {
+      grid-area: date;
+    }
+    .body {
+      grid-area: body;
+      border-left: none;
+      padding-left: 0;
+      border-top: 1px solid var(--color-divider);
+      padding-top: var(--sp-xs);
+      margin-top: 0;
+    }
+    .money {
+      grid-area: money;
+      justify-self: end;
+    }
   }
 
   .row:last-child {

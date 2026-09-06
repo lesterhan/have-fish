@@ -2,7 +2,11 @@
   import Modal from '../ui/Modal.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
   import CurrencyInput from '../ui/CurrencyInput.svelte'
-  import { fetchAccountBalanceAtDate, createTransaction, recordReconcileCoverage } from '$lib/api'
+  import {
+    fetchAccountBalanceAtDate,
+    createTransaction,
+    recordReconcileCoverage,
+  } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { toISODate } from '$lib/date'
 
@@ -231,12 +235,16 @@
         {#if isBalanced}
           <p class="balanced">Ledger is balanced.</p>
           {#if coverageRecorded}
-            <p class="coverage">Marks this account complete through {statementDate}.</p>
+            <p class="coverage">
+              Marks this account complete through {statementDate}.
+            </p>
           {/if}
         {:else if posted}
           <p class="balanced">Adjustment posted.</p>
           {#if coverageRecorded}
-            <p class="coverage">Marks this account complete through {statementDate}.</p>
+            <p class="coverage">
+              Marks this account complete through {statementDate}.
+            </p>
           {/if}
         {:else}
           <p class="coverage">
@@ -316,7 +324,7 @@
   }
 
   .form-grid input:focus {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 

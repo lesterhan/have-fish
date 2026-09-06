@@ -36,7 +36,8 @@ export const DEFAULT_ROOTS: Roots = {
 export function rootsFrom(settings: UserSettings | null | undefined): Roots {
   return {
     assets: settings?.defaultAssetsRootPath ?? DEFAULT_ROOTS.assets,
-    liabilities: settings?.defaultLiabilitiesRootPath ?? DEFAULT_ROOTS.liabilities,
+    liabilities:
+      settings?.defaultLiabilitiesRootPath ?? DEFAULT_ROOTS.liabilities,
     equity: settings?.defaultEquityRootPath ?? DEFAULT_ROOTS.equity,
     expenses: settings?.defaultExpensesRootPath ?? DEFAULT_ROOTS.expenses,
     income: settings?.defaultIncomeRootPath ?? DEFAULT_ROOTS.income,
@@ -66,12 +67,7 @@ export function isUnderRoot(path: string, root: string): boolean {
  * account would simply vanish from the app.
  */
 export type Surface =
-  | 'assets'
-  | 'liabilities'
-  | 'equity'
-  | 'expenses'
-  | 'income'
-  | 'unfiled'
+  'assets' | 'liabilities' | 'equity' | 'expenses' | 'income' | 'unfiled'
 
 /** Label for the bucket that catches accounts outside every configured root. */
 export const UNFILED_LABEL = 'Unfiled'
@@ -141,7 +137,9 @@ export function bucketOf(path: string, roots: Roots): PositionBucket | null {
 
 /** `assets:wise:cad` under root `assets` → `wise:cad`. A path not under the root is kept whole. */
 export function shortPath(path: string, root: string): string {
-  return root && path.startsWith(root + SEP) ? path.slice(root.length + 1) : path
+  return root && path.startsWith(root + SEP)
+    ? path.slice(root.length + 1)
+    : path
 }
 
 /** What to call an account on screen: its name when it has one, else its path minus the root. */

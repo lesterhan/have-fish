@@ -89,7 +89,7 @@
   }
 
   .segment:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 
@@ -104,7 +104,7 @@
     width: 15px;
     height: 15px;
     border-radius: var(--radius-pill);
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
     font-size: 9px;
     line-height: 1;

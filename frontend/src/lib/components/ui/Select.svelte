@@ -89,11 +89,11 @@
   }
 
   .select-input:hover:not(:disabled) {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
   }
 
   .select-input:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 1px;
   }
 

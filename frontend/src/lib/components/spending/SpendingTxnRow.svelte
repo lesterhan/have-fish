@@ -16,21 +16,40 @@
   let { tx, idx, converted, fxRates, baseCurrency, onselect }: Props = $props()
 
   const DAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT']
-  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+  const MONTHS = [
+    'Jan',
+    'Feb',
+    'Mar',
+    'Apr',
+    'May',
+    'Jun',
+    'Jul',
+    'Aug',
+    'Sep',
+    'Oct',
+    'Nov',
+    'Dec',
+  ]
 
   // Headline = the meaningful subject leg (role-based, shared classifier). Falls back to the
   // first posting only for a degenerate shape with no subject (shouldn't reach the spend list).
   let mainPosting = $derived(headlineSubject(tx) ?? tx.postings[0])
   let sourcePosting = $derived(rowSource(tx))
 
-  let expensePath = $derived(mainPosting ? stripRoot(mainPosting.accountPath) : '')
-  let fromPath = $derived(sourcePosting ? stripRoot(sourcePosting.accountPath) : '')
+  let expensePath = $derived(
+    mainPosting ? stripRoot(mainPosting.accountPath) : '',
+  )
+  let fromPath = $derived(
+    sourcePosting ? stripRoot(sourcePosting.accountPath) : '',
+  )
 
   let d = $derived(new Date(tx.date.substring(0, 10) + 'T00:00:00'))
   let dayOfWeek = $derived(DAYS[d.getDay()])
   let dateLabel = $derived(`${d.getDate()} ${MONTHS[d.getMonth()]}`)
 
-  let amount = $derived(mainPosting ? Math.abs(parseFloat(mainPosting.amount)) : 0)
+  let amount = $derived(
+    mainPosting ? Math.abs(parseFloat(mainPosting.amount)) : 0,
+  )
   let postingCurrency = $derived(mainPosting?.currency ?? baseCurrency)
 
   let cadEquiv = $derived(fmtAmount(amount * (fxRates[postingCurrency] ?? 1)))
@@ -40,7 +59,12 @@
   }
 </script>
 
-<button class="row" class:odd={idx % 2 !== 0} onclick={() => onselect(tx)} title="View transaction">
+<button
+  class="row"
+  class:odd={idx % 2 !== 0}
+  onclick={() => onselect(tx)}
+  title="View transaction"
+>
   <span class="col-date">
     <span class="day">{dayOfWeek}</span>
     <span class="date">{dateLabel}</span>
@@ -50,7 +74,9 @@
     {#if fromPath || expensePath}
       <span class="account-path">
         {#if fromPath}{fromPath}{/if}
-        {#if fromPath && expensePath} → {/if}
+        {#if fromPath && expensePath}
+          →
+        {/if}
         {expensePath}
       </span>
     {/if}
@@ -88,11 +114,11 @@
   }
 
   .row:hover {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .row:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 

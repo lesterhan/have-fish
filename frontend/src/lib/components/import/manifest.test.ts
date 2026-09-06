@@ -12,7 +12,11 @@ const ACCOUNTS = [
 ]
 
 const GROUPS = [
-  { id: 'g-house', name: 'Household', categories: [{ id: 'c-food', name: 'Groceries' }] },
+  {
+    id: 'g-house',
+    name: 'Household',
+    categories: [{ id: 'c-food', name: 'Groceries' }],
+  },
 ] as ManifestContext['groups']
 
 function ctx(overrides: Partial<ManifestContext> = {}): ManifestContext {
@@ -30,8 +34,18 @@ function ctx(overrides: Partial<ManifestContext> = {}): ManifestContext {
   }
 }
 
-function tx(amount: string, date = '2026-06-10', extra: Partial<ParsedTransaction> = {}): ParsedTransaction {
-  return { isTransfer: false, date, amount, description: 'X', ...extra } as ParsedTransaction
+function tx(
+  amount: string,
+  date = '2026-06-10',
+  extra: Partial<ParsedTransaction> = {},
+): ParsedTransaction {
+  return {
+    isTransfer: false,
+    date,
+    amount,
+    description: 'X',
+    ...extra,
+  } as ParsedTransaction
 }
 
 function row(overrides: Partial<RowState> = {}): RowState {
@@ -58,7 +72,11 @@ describe('per-destination totals', () => {
 
     expect(m.committedCount).toBe(3)
     expect(m.lines).toHaveLength(2)
-    expect(m.lines[0]).toMatchObject({ label: 'expenses:groceries', count: 2, currency: 'CAD' })
+    expect(m.lines[0]).toMatchObject({
+      label: 'expenses:groceries',
+      count: 2,
+      currency: 'CAD',
+    })
     expect(m.lines[0].total).toBeCloseTo(52.5, 2)
     expect(m.lines[1]).toMatchObject({ label: 'expenses:transport', count: 1 })
   })
@@ -67,14 +85,18 @@ describe('per-destination totals', () => {
     const txs = [tx('-1.00'), tx('-1.00'), tx('-1.00')]
     const rows = [row({ offsetAccountId: 'a-transport' }), row(), row()]
 
-    expect(buildManifest(txs, rows, 0, ctx()).lines.map((l) => l.label)).toEqual([
-      'expenses:groceries',
-      'expenses:transport',
-    ])
+    expect(
+      buildManifest(txs, rows, 0, ctx()).lines.map((l) => l.label),
+    ).toEqual(['expenses:groceries', 'expenses:transport'])
   })
 
   it('flags the uncategorized destination — the line this whole step exists to catch', () => {
-    const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: 'a-uncat' })], 0, ctx())
+    const m = buildManifest(
+      [tx('-40.00')],
+      [row({ offsetAccountId: 'a-uncat' })],
+      0,
+      ctx(),
+    )
     expect(m.lines[0].isUncategorized).toBe(true)
   })
 
@@ -84,7 +106,10 @@ describe('per-destination totals', () => {
   })
 
   it('refuses a total when one destination is fed by several currencies', () => {
-    const txs = [tx('-40.00', '2026-06-01', { currency: 'CAD' }), tx('-40.00', '2026-06-02', { currency: 'EUR' })]
+    const txs = [
+      tx('-40.00', '2026-06-01', { currency: 'CAD' }),
+      tx('-40.00', '2026-06-02', { currency: 'EUR' }),
+    ]
     const m = buildManifest(txs, [row(), row()], 0, ctx())
 
     expect(m.lines[0].count).toBe(2)
@@ -93,12 +118,22 @@ describe('per-destination totals', () => {
   })
 
   it('labels a Fish Pie split by group and category', () => {
-    const m = buildManifest([tx('-40.00')], [row({ groupId: 'g-house', categoryId: 'c-food' })], 0, ctx())
+    const m = buildManifest(
+      [tx('-40.00')],
+      [row({ groupId: 'g-house', categoryId: 'c-food' })],
+      0,
+      ctx(),
+    )
     expect(m.lines[0].label).toBe('Household · Groceries')
   })
 
   it('labels an uncategorized split by group alone', () => {
-    const m = buildManifest([tx('-40.00')], [row({ groupId: 'g-house', categoryId: null })], 0, ctx())
+    const m = buildManifest(
+      [tx('-40.00')],
+      [row({ groupId: 'g-house', categoryId: null })],
+      0,
+      ctx(),
+    )
     expect(m.lines[0].label).toBe('Household')
   })
 
@@ -107,7 +142,9 @@ describe('per-destination totals', () => {
       row({ groupId: 'g-house', categoryId: 'c-food' }),
       row({ groupId: 'g-house', categoryId: null }),
     ]
-    expect(buildManifest([tx('-1.00'), tx('-1.00')], rows, 0, ctx()).lines).toHaveLength(2)
+    expect(
+      buildManifest([tx('-1.00'), tx('-1.00')], rows, 0, ctx()).lines,
+    ).toHaveLength(2)
   })
 
   it('sends a cross-currency spend to its expense account', () => {
@@ -119,7 +156,12 @@ describe('per-destination totals', () => {
       targetAmount: '360.00',
       targetCurrency: 'CZK',
     } as ParsedTransaction
-    const m = buildManifest([spend], [row({ kind: 'spend', expenseAccountId: 'a-transport' })], 0, ctx())
+    const m = buildManifest(
+      [spend],
+      [row({ kind: 'spend', expenseAccountId: 'a-transport' })],
+      0,
+      ctx(),
+    )
 
     expect(m.lines[0].label).toBe('expenses:transport')
     expect(m.lines[0].total).toBeCloseTo(360, 2)
@@ -140,7 +182,12 @@ describe('per-destination totals', () => {
   })
 
   it('names an unassigned destination rather than showing a blank line', () => {
-    const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: '' })], 0, ctx())
+    const m = buildManifest(
+      [tx('-40.00')],
+      [row({ offsetAccountId: '' })],
+      0,
+      ctx(),
+    )
     expect(m.lines[0].label).toBe('No account assigned')
   })
 })
@@ -149,7 +196,15 @@ describe('skipped rows', () => {
   it('separates duplicates from manual skips', () => {
     const txs = [tx('-1.00'), tx('-1.00'), tx('-1.00')]
     const rows = [
-      row({ skipped: true, possibleDuplicate: { transactionId: 't', date: '2026-06-01', amount: '-1.00', currency: 'CAD' } }),
+      row({
+        skipped: true,
+        possibleDuplicate: {
+          transactionId: 't',
+          date: '2026-06-01',
+          amount: '-1.00',
+          currency: 'CAD',
+        },
+      }),
       row({ skipped: true }),
       row(),
     ]
@@ -161,7 +216,12 @@ describe('skipped rows', () => {
   })
 
   it('leaves skipped rows out of the destination totals entirely', () => {
-    const m = buildManifest([tx('-40.00'), tx('-40.00')], [row(), row({ skipped: true })], 0, ctx())
+    const m = buildManifest(
+      [tx('-40.00'), tx('-40.00')],
+      [row(), row({ skipped: true })],
+      0,
+      ctx(),
+    )
     expect(m.lines[0].count).toBe(1)
     expect(m.lines[0].total).toBeCloseTo(40, 2)
   })
@@ -169,7 +229,11 @@ describe('skipped rows', () => {
 
 describe('date range', () => {
   it('spans the committed rows', () => {
-    const txs = [tx('-1.00', '2026-06-03'), tx('-1.00', '2026-06-30'), tx('-1.00', '2026-06-15')]
+    const txs = [
+      tx('-1.00', '2026-06-03'),
+      tx('-1.00', '2026-06-30'),
+      tx('-1.00', '2026-06-15'),
+    ]
     const m = buildManifest(txs, [row(), row(), row()], 0, ctx())
     expect(m.dateRange).toEqual({ from: '2026-06-03', to: '2026-06-30' })
   })
@@ -177,18 +241,33 @@ describe('date range', () => {
   it('excludes skipped rows at both ends', () => {
     // A leading week of skipped duplicates would otherwise land the user on a screen whose
     // top is entirely rows they did not just import.
-    const txs = [tx('-1.00', '2026-06-01'), tx('-1.00', '2026-06-10'), tx('-1.00', '2026-06-30')]
+    const txs = [
+      tx('-1.00', '2026-06-01'),
+      tx('-1.00', '2026-06-10'),
+      tx('-1.00', '2026-06-30'),
+    ]
     const rows = [row({ skipped: true }), row(), row({ skipped: true })]
 
-    expect(buildManifest(txs, rows, 0, ctx()).dateRange).toEqual({ from: '2026-06-10', to: '2026-06-10' })
+    expect(buildManifest(txs, rows, 0, ctx()).dateRange).toEqual({
+      from: '2026-06-10',
+      to: '2026-06-10',
+    })
   })
 
   it('is null when everything is skipped', () => {
-    expect(buildManifest([tx('-1.00')], [row({ skipped: true })], 0, ctx()).dateRange).toBeNull()
+    expect(
+      buildManifest([tx('-1.00')], [row({ skipped: true })], 0, ctx())
+        .dateRange,
+    ).toBeNull()
   })
 
   it('reads the date part of an ISO timestamp', () => {
-    const m = buildManifest([tx('-1.00', '2026-06-03T08:00:00Z')], [row()], 0, ctx())
+    const m = buildManifest(
+      [tx('-1.00', '2026-06-03T08:00:00Z')],
+      [row()],
+      0,
+      ctx(),
+    )
     expect(m.dateRange).toEqual({ from: '2026-06-03', to: '2026-06-03' })
   })
 })
@@ -219,7 +298,10 @@ describe('pass-through counts', () => {
       [tx('-1.00')],
       [row()],
       4,
-      ctx({ rulesCreated: ['LOBLAWS', 'BILLA'], accountsCreated: ['assets:wise:jpy'] }),
+      ctx({
+        rulesCreated: ['LOBLAWS', 'BILLA'],
+        accountsCreated: ['assets:wise:jpy'],
+      }),
     )
     expect(m.parseErrors).toBe(4)
     expect(m.rulesCreated).toEqual(['LOBLAWS', 'BILLA'])

@@ -13,14 +13,19 @@
     currentUserId: string
   }
 
-  let { groups, groupId, categoryId, amount, currency, currentUserId }: Props = $props()
+  let { groups, groupId, categoryId, amount, currency, currentUserId }: Props =
+    $props()
 
   let category = $derived(
-    categoryId ? categoryName(groups, groupId, categoryId) : groupName(groups, groupId),
+    categoryId
+      ? categoryName(groups, groupId, categoryId)
+      : groupName(groups, groupId),
   )
 
   // Show the group as a secondary chip only when it adds info beyond the category chip.
-  let group = $derived(categoryId && groups.length > 1 ? groupName(groups, groupId) : null)
+  let group = $derived(
+    categoryId && groups.length > 1 ? groupName(groups, groupId) : null,
+  )
 
   let shareHint = $derived.by(() => {
     const grp = groups.find((g) => g.id === groupId)

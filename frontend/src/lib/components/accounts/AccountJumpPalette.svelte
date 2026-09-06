@@ -92,7 +92,9 @@
       case 'ArrowUp':
         e.preventDefault()
         active =
-          results.length === 0 ? 0 : (active - 1 + results.length) % results.length
+          results.length === 0
+            ? 0
+            : (active - 1 + results.length) % results.length
         break
       case 'Enter':
         e.preventDefault()
@@ -118,7 +120,12 @@
     onkeydown={onPaletteKeydown}
   ></div>
 
-  <div class="palette" role="dialog" aria-label="Jump to account" aria-modal="true">
+  <div
+    class="palette"
+    role="dialog"
+    aria-label="Jump to account"
+    aria-modal="true"
+  >
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
     <div class="field" onkeydown={onPaletteKeydown} role="presentation">
       <input
@@ -138,7 +145,9 @@
     <ul class="results" id="jump-results">
       {#if results.length === 0}
         <li class="empty">
-          {query.trim() ? `Nothing matches “${query.trim()}”.` : 'No accounts yet.'}
+          {query.trim()
+            ? `Nothing matches “${query.trim()}”.`
+            : 'No accounts yet.'}
         </li>
       {:else}
         {#each results as result, i (result.id)}
@@ -162,7 +171,9 @@
                   {/each}
                 </span>
               {:else}
-                <span class="path"><span class="glyph leaf">{result.label}</span></span>
+                <span class="path"
+                  ><span class="glyph leaf">{result.label}</span></span
+                >
               {/if}
             </button>
           </li>
@@ -261,7 +272,7 @@
 
   .glyph.hl {
     color: var(--color-accent-chip-fg);
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
     border-radius: 2px;
   }
 

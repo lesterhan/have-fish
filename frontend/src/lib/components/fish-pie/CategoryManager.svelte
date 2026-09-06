@@ -27,7 +27,14 @@
     onAccountCreated: (account: Account) => void
   }
 
-  let { groupId, members, currentUserId, accounts, categories, onAccountCreated }: Props = $props()
+  let {
+    groupId,
+    members,
+    currentUserId,
+    accounts,
+    categories,
+    onAccountCreated,
+  }: Props = $props()
 
   // Take a snapshot of the initial categories; this component owns the list afterwards
   // and updates it in place as the user edits (the parent loads the group only once).
@@ -54,7 +61,8 @@
     const nextSlider: Record<string, number> = {}
     for (const cat of cats) {
       if (isPair) {
-        nextSlider[cat.id] = weightsToPct(cat.weights, members[0].userId, members[1].userId) ?? 50
+        nextSlider[cat.id] =
+          weightsToPct(cat.weights, members[0].userId, members[1].userId) ?? 50
       }
     }
     sliderPct = nextSlider
@@ -96,7 +104,11 @@
 
   async function handleArchiveToggle(cat: GroupCategory) {
     try {
-      replaceCat(await updateGroupCategory(groupId, cat.id, { archived: !cat.archivedAt }))
+      replaceCat(
+        await updateGroupCategory(groupId, cat.id, {
+          archived: !cat.archivedAt,
+        }),
+      )
     } catch {
       toast.show('Failed to update category')
     }
@@ -121,7 +133,11 @@
 
   async function handleSliderChange(cat: GroupCategory) {
     if (!isPair || savingWeights[cat.id]) return
-    const vector = pctToVector(sliderPct[cat.id] ?? 50, members[0].userId, members[1].userId)
+    const vector = pctToVector(
+      sliderPct[cat.id] ?? 50,
+      members[0].userId,
+      members[1].userId,
+    )
     savingWeights[cat.id] = true
     try {
       replaceCat(await setCategoryWeights(groupId, cat.id, vector))
@@ -153,7 +169,9 @@
 
 <div class="categories">
   {#if active.length === 0}
-    <p class="empty">No categories yet. Add one below to start tagging expenses.</p>
+    <p class="empty">
+      No categories yet. Add one below to start tagging expenses.
+    </p>
   {/if}
 
   {#if active.length > 0}
@@ -164,11 +182,15 @@
           <div class="cat-head">
             <TextInput
               value={cat.name}
-              onblur={(e) => handleRename(cat, (e.target as HTMLInputElement).value)}
-              onkeydown={(e) => e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
+              onblur={(e) =>
+                handleRename(cat, (e.target as HTMLInputElement).value)}
+              onkeydown={(e) =>
+                e.key === 'Enter' && (e.target as HTMLInputElement).blur()}
               style="width: 220px; font-weight: 600"
             />
-            <button class="link-btn" onclick={() => handleArchiveToggle(cat)}>Archive</button>
+            <button class="link-btn" onclick={() => handleArchiveToggle(cat)}
+              >Archive</button
+            >
           </div>
 
           <div class="cat-body">
@@ -185,11 +207,16 @@
                 />
                 {#if !cat.myMapping}
                   {#if suggestion}
-                    <button class="suggest" onclick={() => handleMappingCommit(cat, suggestion.id)}>
+                    <button
+                      class="suggest"
+                      onclick={() => handleMappingCommit(cat, suggestion.id)}
+                    >
                       Use <code>{suggestion.path}</code>?
                     </button>
                   {:else}
-                    <span class="cat-hint">My share of {cat.name} posts here — defaults to my group account.</span>
+                    <span class="cat-hint"
+                      >My share of {cat.name} posts here — defaults to my group account.</span
+                    >
                   {/if}
                 {/if}
               </div>
@@ -200,9 +227,15 @@
                 <span class="cat-field-label">Split</span>
                 <div class="cat-field-input">
                   <div class="split-labels">
-                    <span>{members[0].userName} {Math.round(sliderPct[cat.id] ?? 50)}%</span>
+                    <span
+                      >{members[0].userName}
+                      {Math.round(sliderPct[cat.id] ?? 50)}%</span
+                    >
                     <span class="split-divider">/</span>
-                    <span>{Math.round(100 - (sliderPct[cat.id] ?? 50))}% {members[1].userName}</span>
+                    <span
+                      >{Math.round(100 - (sliderPct[cat.id] ?? 50))}% {members[1]
+                        .userName}</span
+                    >
                   </div>
                   <input
                     type="range"
@@ -212,14 +245,21 @@
                     step="1"
                     bind:value={sliderPct[cat.id]}
                     onchange={() => handleSliderChange(cat)}
-                    aria-label="{cat.name} split — {members[0].userName}'s percentage"
+                    aria-label="{cat.name} split — {members[0]
+                      .userName}'s percentage"
                   />
                   <div class="split-foot">
                     {#if hasWeights(cat)}
                       <span class="cat-hint">Custom split ·</span>
-                      <button class="link-btn" onclick={() => handleResetWeights(cat)}>Reset to group default</button>
+                      <button
+                        class="link-btn"
+                        onclick={() => handleResetWeights(cat)}
+                        >Reset to group default</button
+                      >
                     {:else}
-                      <span class="cat-hint">Using the group's default split.</span>
+                      <span class="cat-hint"
+                        >Using the group's default split.</span
+                      >
                     {/if}
                   </div>
                 </div>
@@ -238,7 +278,9 @@
       onkeydown={(e) => e.key === 'Enter' && handleAdd()}
       style="width: 260px"
     />
-    <GradientButton onclick={handleAdd} disabled={adding || !newName.trim()}>Add category</GradientButton>
+    <GradientButton onclick={handleAdd} disabled={adding || !newName.trim()}
+      >Add category</GradientButton
+    >
   </div>
 
   {#if archived.length > 0}
@@ -247,7 +289,9 @@
       {#each archived as cat (cat.id)}
         <div class="archived-row">
           <span class="archived-name">{cat.name}</span>
-          <button class="link-btn" onclick={() => handleArchiveToggle(cat)}>Unarchive</button>
+          <button class="link-btn" onclick={() => handleArchiveToggle(cat)}
+            >Unarchive</button
+          >
         </div>
       {/each}
     </div>
@@ -324,7 +368,7 @@
     border: none;
     padding: 0;
     font-size: var(--text-xs);
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
     cursor: pointer;
   }
 
@@ -341,7 +385,7 @@
     border: none;
     padding: 0;
     font-size: var(--text-xs);
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
     cursor: pointer;
   }
 

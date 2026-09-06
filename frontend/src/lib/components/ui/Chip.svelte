@@ -52,7 +52,7 @@
   }
 
   .tone-accent {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
     border-color: var(--color-accent);
     color: var(--color-accent-chip-fg);
     font-weight: 700;

@@ -199,7 +199,7 @@
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     padding: 2px var(--sp-xs);
     height: 22px;
     width: 120px;
@@ -239,17 +239,19 @@
 
   .clear:hover {
     color: var(--color-text);
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .clear:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -1px;
   }
 
   .range-input:focus {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .dropdown {

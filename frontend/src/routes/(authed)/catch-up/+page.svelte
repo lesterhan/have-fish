@@ -7,7 +7,10 @@
   import CatchUpProgress from '$lib/components/catch-up/CatchUpProgress.svelte'
   import CatchUpAccountCard from '$lib/components/catch-up/CatchUpAccountCard.svelte'
   import CoverageStrip from '$lib/components/catch-up/CoverageStrip.svelte'
-  import { proposeStartingLines, type StartingLineProposal } from '$lib/components/catch-up/bootstrap'
+  import {
+    proposeStartingLines,
+    type StartingLineProposal,
+  } from '$lib/components/catch-up/bootstrap'
   import {
     currentSummary,
     displayName,
@@ -57,7 +60,8 @@
       if (focusMode) sessionStorage.setItem(FOCUS_KEY, '1')
       else sessionStorage.removeItem(FOCUS_KEY)
 
-      if (focusedAccountId) sessionStorage.setItem(FOCUS_ACCOUNT_KEY, focusedAccountId)
+      if (focusedAccountId)
+        sessionStorage.setItem(FOCUS_ACCOUNT_KEY, focusedAccountId)
       else sessionStorage.removeItem(FOCUS_ACCOUNT_KEY)
     } catch {
       // See above.
@@ -67,7 +71,9 @@
   // Bootstrap owns the page while any account has never been asserted. Showing the queue
   // alongside it would mean showing accounts as maximally behind before the user has had the
   // chance to say where they actually stand.
-  let proposals = $derived(payload ? proposeStartingLines(payload.accounts, payload.today) : [])
+  let proposals = $derived(
+    payload ? proposeStartingLines(payload.accounts, payload.today) : [],
+  )
   let needsBootstrap = $derived(proposals.length > 0)
 
   let groups = $derived(groupAccounts(payload?.accounts ?? []))
@@ -95,7 +101,9 @@
     writeFocusState()
   }
   let allCurrent = $derived(
-    payload !== null && payload.summary.tracked > 0 && groups.behind.length === 0,
+    payload !== null &&
+      payload.summary.tracked > 0 &&
+      groups.behind.length === 0,
   )
 
   async function load() {
@@ -104,7 +112,8 @@
     try {
       payload = await fetchCatchUp()
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Could not load your catch-up status'
+      error =
+        e instanceof Error ? e.message : 'Could not load your catch-up status'
     } finally {
       loading = false
     }
@@ -184,8 +193,8 @@
     <Card>
       <div class="pad">
         <p class="status">
-          No accounts to track yet. Asset and liability accounts show up here once you have
-          some.
+          No accounts to track yet. Asset and liability accounts show up here
+          once you have some.
         </p>
       </div>
     </Card>
@@ -213,10 +222,14 @@
     {:else if focusMode && focused}
       <!-- One account at a time. The rest of the queue is still there, just not in the way. -->
       <div class="focus-bar">
-        <span class="focus-pos">{focusPosition(focusIndex, groups.behind.length)}</span>
+        <span class="focus-pos"
+          >{focusPosition(focusIndex, groups.behind.length)}</span
+        >
         <span class="spacer"></span>
         {#if groups.behind.length > 1}
-          <GradientButton size="sm" onclick={skipFocused}>Skip for now</GradientButton>
+          <GradientButton size="sm" onclick={skipFocused}
+            >Skip for now</GradientButton
+          >
         {/if}
         <GradientButton size="sm" onclick={exitFocus}>Show all</GradientButton>
       </div>
@@ -235,7 +248,9 @@
             {groups.behind.length} accounts waiting
           </span>
           <span class="spacer"></span>
-          <GradientButton size="sm" onclick={enterFocus}>Start catching up</GradientButton>
+          <GradientButton size="sm" onclick={enterFocus}
+            >Start catching up</GradientButton
+          >
         </div>
       {/if}
 
@@ -285,7 +300,9 @@
                 <div class="dormant-head">
                   <span class="quiet-name">{displayName(account)}</span>
                   <span class="quiet-status">
-                    {account.gap ? `${account.gap.days} days uncovered` : currentSummary(account)}
+                    {account.gap
+                      ? `${account.gap.days} days uncovered`
+                      : currentSummary(account)}
                   </span>
                 </div>
                 <div class="pad">
@@ -299,10 +316,16 @@
                   />
                   {#if account.gap}
                     <div class="dormant-actions">
-                      <GradientButton size="sm" onclick={() => markEmpty(account)}>
+                      <GradientButton
+                        size="sm"
+                        onclick={() => markEmpty(account)}
+                      >
                         Nothing happened here
                       </GradientButton>
-                      <GradientButton size="sm" onclick={() => untrack(account)}>
+                      <GradientButton
+                        size="sm"
+                        onclick={() => untrack(account)}
+                      >
                         Don't track this
                       </GradientButton>
                     </div>
@@ -377,7 +400,8 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px) 0 0;
+    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px)
+      0 0;
   }
 
   .quiet-list {
@@ -436,7 +460,7 @@
   }
 
   .dormant-toggle:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
   }
 
   .dormant-list {

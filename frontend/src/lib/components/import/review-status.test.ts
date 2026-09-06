@@ -47,7 +47,13 @@ describe('rowStatus', () => {
 
 describe('statusCounts', () => {
   it('counts each status and totals under all', () => {
-    const rows = [row('none'), row('none'), row('rule'), row('user'), row('none', true)]
+    const rows = [
+      row('none'),
+      row('none'),
+      row('rule'),
+      row('user'),
+      row('none', true),
+    ]
     expect(statusCounts(rows)).toEqual({
       all: 5,
       'needs-review': 2,
@@ -58,7 +64,13 @@ describe('statusCounts', () => {
   })
 
   it('returns zeroes for an empty preview', () => {
-    expect(statusCounts([])).toEqual({ all: 0, 'needs-review': 0, auto: 0, done: 0, skipped: 0 })
+    expect(statusCounts([])).toEqual({
+      all: 0,
+      'needs-review': 0,
+      auto: 0,
+      done: 0,
+      skipped: 0,
+    })
   })
 })
 
@@ -149,7 +161,13 @@ describe('rowsMatchingPattern', () => {
 
   it('handles rows with no description', () => {
     const rows = [row('none')]
-    expect(rowsMatchingPattern([{ isTransfer: false, date: '2026-06-01', amount: '-1.00' }], rows, 'X')).toEqual([])
+    expect(
+      rowsMatchingPattern(
+        [{ isTransfer: false, date: '2026-06-01', amount: '-1.00' }],
+        rows,
+        'X',
+      ),
+    ).toEqual([])
   })
 })
 
@@ -166,12 +184,19 @@ describe('dayBoundaries', () => {
 
   it('follows the filtered set, not the underlying rows', () => {
     // With row 0 filtered out, row 1 becomes the day's first visible row.
-    const txs = [tx('a', '2026-06-01'), tx('b', '2026-06-01'), tx('c', '2026-06-02')]
+    const txs = [
+      tx('a', '2026-06-01'),
+      tx('b', '2026-06-01'),
+      tx('c', '2026-06-02'),
+    ]
     expect([...dayBoundaries(txs, [1, 2])]).toEqual([1, 2])
   })
 
   it('handles ISO timestamps by comparing the date part', () => {
-    const txs = [tx('a', '2026-06-01T08:00:00Z'), tx('b', '2026-06-01T20:00:00Z')]
+    const txs = [
+      tx('a', '2026-06-01T08:00:00Z'),
+      tx('b', '2026-06-01T20:00:00Z'),
+    ]
     expect([...dayBoundaries(txs, [0, 1])]).toEqual([0])
   })
 

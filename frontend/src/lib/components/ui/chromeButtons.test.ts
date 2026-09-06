@@ -39,7 +39,10 @@ function chromeButtonTags(source: string): string[] {
 }
 
 const USAGES = svelteFilesUnder(SRC)
-  .map((file) => ({ file: file.slice(SRC.length), tags: chromeButtonTags(readFileSync(file, 'utf8')) }))
+  .map((file) => ({
+    file: file.slice(SRC.length),
+    tags: chromeButtonTags(readFileSync(file, 'utf8')),
+  }))
   .filter((entry) => entry.tags.length > 0)
 
 describe('the case is honest', () => {

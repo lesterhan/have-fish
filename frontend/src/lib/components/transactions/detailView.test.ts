@@ -86,11 +86,17 @@ describe('headerTag', () => {
   })
 
   it('income inflow tags Income', () => {
-    expect(headerTag(narrate(income), null)).toEqual({ kind: 'simple', label: 'Income' })
+    expect(headerTag(narrate(income), null)).toEqual({
+      kind: 'simple',
+      label: 'Income',
+    })
   })
 
   it('expense-refund inflow tags Refund', () => {
-    expect(headerTag(narrate(refund), null)).toEqual({ kind: 'simple', label: 'Refund' })
+    expect(headerTag(narrate(refund), null)).toEqual({
+      kind: 'simple',
+      label: 'Refund',
+    })
   })
 })
 
@@ -241,7 +247,9 @@ describe('branchAmount', () => {
 
 describe('convertedNote', () => {
   it('multi-currency: paid amount @ rate', () => {
-    expect(convertedNote(narrate(multiCcySpend))).toBe('17.24 USD @ 20.88 CZK/USD')
+    expect(convertedNote(narrate(multiCcySpend))).toBe(
+      '17.24 USD @ 20.88 CZK/USD',
+    )
   })
 
   it('null on a same-currency spend', () => {
@@ -300,10 +308,30 @@ describe('postingRows', () => {
   it('lists every raw leg incl. equity bridges, signed, with role', () => {
     const rows = postingRows(narrate(multiCcySpend))
     expect(rows).toEqual([
-      { path: 'expenses:food:coffee', role: 'subject', amount: '+360.00', currency: 'CZK' },
-      { path: 'assets:usd', role: 'transfer', amount: '-17.24', currency: 'USD' },
-      { path: 'equity:conversions', role: 'conversion', amount: '-360.00', currency: 'CZK' },
-      { path: 'equity:conversions', role: 'conversion', amount: '+17.24', currency: 'USD' },
+      {
+        path: 'expenses:food:coffee',
+        role: 'subject',
+        amount: '+360.00',
+        currency: 'CZK',
+      },
+      {
+        path: 'assets:usd',
+        role: 'transfer',
+        amount: '-17.24',
+        currency: 'USD',
+      },
+      {
+        path: 'equity:conversions',
+        role: 'conversion',
+        amount: '-360.00',
+        currency: 'CZK',
+      },
+      {
+        path: 'equity:conversions',
+        role: 'conversion',
+        amount: '+17.24',
+        currency: 'USD',
+      },
     ])
   })
 

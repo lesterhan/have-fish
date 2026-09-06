@@ -28,7 +28,11 @@
     toClassifierType,
     updateAccount,
   } from '$lib/api'
-  import type { AccountBalance, AccountCoverageStatus, UserSettings } from '$lib/api'
+  import type {
+    AccountBalance,
+    AccountCoverageStatus,
+    UserSettings,
+  } from '$lib/api'
   import { completeness, completenessNote, coverageFor } from '$lib/coverage'
   import { actionRequiredStore } from '$lib/actionRequired.svelte'
   import { attentionChip } from '$lib/components/transactions/attentionChip'
@@ -292,7 +296,9 @@
 
   // The position row describes the money you track, so it is computed over your active
   // accounts and does not move as you search, regroup, or peek at hidden rows.
-  let positionRows = $derived(allRows.filter((r) => !hiddenIds.has(r.account.id)))
+  let positionRows = $derived(
+    allRows.filter((r) => !hiddenIds.has(r.account.id)),
+  )
 
   let position = $derived(
     positionTotals(positionRows, roots, activeRates, preferred),
@@ -305,13 +311,22 @@
     if (!today) return null
     const ids = positionAccountIds(positionRows, roots)
     return {
-      cash: completenessNote(completeness(coverageFor(coverageById, ids.cash)), today),
+      cash: completenessNote(
+        completeness(coverageFor(coverageById, ids.cash)),
+        today,
+      ),
       investments: completenessNote(
         completeness(coverageFor(coverageById, ids.investments)),
         today,
       ),
-      owed: completenessNote(completeness(coverageFor(coverageById, ids.owed)), today),
-      owing: completenessNote(completeness(coverageFor(coverageById, ids.owing)), today),
+      owed: completenessNote(
+        completeness(coverageFor(coverageById, ids.owed)),
+        today,
+      ),
+      owing: completenessNote(
+        completeness(coverageFor(coverageById, ids.owing)),
+        today,
+      ),
     }
   })
 
@@ -615,7 +630,9 @@
                    makes the page read as broken and the user stops seeing it. -->
               {@const asOf = positionNotes?.[card.key] ?? null}
               {#if asOf}
-                <span class="position-asof" title={asOf.detail}>{asOf.text}</span>
+                <span class="position-asof" title={asOf.detail}
+                  >{asOf.text}</span
+                >
               {/if}
             {/if}
           </Card>
@@ -1140,7 +1157,7 @@
   }
 
   tbody tr.selected td {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   /* --- Messages --- */

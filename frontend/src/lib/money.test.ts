@@ -123,7 +123,11 @@ describe('otherCurrencies', () => {
   })
 
   it('does not report the preferred currency as foreign when an amount is unreadable', () => {
-    const total = convertBalances([{ currency: 'CAD', amount: '' }], NO_RATES, 'CAD')
+    const total = convertBalances(
+      [{ currency: 'CAD', amount: '' }],
+      NO_RATES,
+      'CAD',
+    )
     expect(otherCurrencies(total, 'CAD')).toEqual([])
   })
 })
@@ -208,7 +212,11 @@ describe('conversionNote — converted', () => {
   const rates = new Map([['USD', 1.4]])
 
   function note(balances: Money[], r = rates, preferred = 'CAD') {
-    return conversionNote(convertBalances(balances, r, preferred), preferred, true)
+    return conversionNote(
+      convertBalances(balances, r, preferred),
+      preferred,
+      true,
+    )
   }
 
   it('says nothing when every balance made it into the total', () => {

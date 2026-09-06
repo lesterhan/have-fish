@@ -1,7 +1,16 @@
 import { describe, it, expect } from 'bun:test'
-import { ariaSummary, buildStrip, describeDay, summarizeStrip, type CoverageDay } from './coverageStrip'
+import {
+  ariaSummary,
+  buildStrip,
+  describeDay,
+  summarizeStrip,
+  type CoverageDay,
+} from './coverageStrip'
 
-const iv = (fromDate: string, throughDate: string) => ({ fromDate, throughDate })
+const iv = (fromDate: string, throughDate: string) => ({
+  fromDate,
+  throughDate,
+})
 
 function strip(over: Partial<Parameters<typeof buildStrip>[0]> = {}) {
   return buildStrip({
@@ -14,7 +23,8 @@ function strip(over: Partial<Parameters<typeof buildStrip>[0]> = {}) {
   })
 }
 
-const at = (days: CoverageDay[], date: string) => days.find((d) => d.date === date)!
+const at = (days: CoverageDay[], date: string) =>
+  days.find((d) => d.date === date)!
 
 describe('buildStrip', () => {
   it('emits one cell per day, inclusive of both ends', () => {
@@ -34,10 +44,19 @@ describe('buildStrip', () => {
   })
 
   it('spans a month boundary', () => {
-    const days = strip({ from: '2025-06-28', to: '2025-07-03', horizon: '2025-07-03' })
+    const days = strip({
+      from: '2025-06-28',
+      to: '2025-07-03',
+      horizon: '2025-07-03',
+    })
 
     expect(days.map((d) => d.date)).toEqual([
-      '2025-06-28', '2025-06-29', '2025-06-30', '2025-07-01', '2025-07-02', '2025-07-03',
+      '2025-06-28',
+      '2025-06-29',
+      '2025-06-30',
+      '2025-07-01',
+      '2025-07-02',
+      '2025-07-03',
     ])
   })
 
@@ -66,14 +85,23 @@ describe('buildStrip', () => {
         txnDates: ['2025-07-02', '2025-07-08'],
       })
 
-      expect(at(days, '2025-07-02')).toMatchObject({ state: 'covered', hasTxn: true })
-      expect(at(days, '2025-07-08')).toMatchObject({ state: 'uncovered', hasTxn: true })
+      expect(at(days, '2025-07-02')).toMatchObject({
+        state: 'covered',
+        hasTxn: true,
+      })
+      expect(at(days, '2025-07-08')).toMatchObject({
+        state: 'uncovered',
+        hasTxn: true,
+      })
       expect(at(days, '2025-07-09').hasTxn).toBe(false)
     })
 
     // Contradicting a fact the user already recorded would be worse than the redundancy.
     it('lets covered win over beyond-horizon', () => {
-      const days = strip({ intervals: [iv('2025-07-01', '2025-07-10')], horizon: '2025-07-05' })
+      const days = strip({
+        intervals: [iv('2025-07-01', '2025-07-10')],
+        horizon: '2025-07-05',
+      })
 
       expect(at(days, '2025-07-08').state).toBe('covered')
     })
@@ -94,21 +122,36 @@ describe('buildStrip', () => {
   describe('coverage shapes', () => {
     it('shows a hole between two disjoint intervals', () => {
       const days = strip({
-        intervals: [iv('2025-07-01', '2025-07-03'), iv('2025-07-07', '2025-07-10')],
+        intervals: [
+          iv('2025-07-01', '2025-07-03'),
+          iv('2025-07-07', '2025-07-10'),
+        ],
       })
 
       expect(days.map((d) => d.state)).toEqual([
-        'covered', 'covered', 'covered',
-        'uncovered', 'uncovered', 'uncovered',
-        'covered', 'covered', 'covered', 'covered',
+        'covered',
+        'covered',
+        'covered',
+        'uncovered',
+        'uncovered',
+        'uncovered',
+        'covered',
+        'covered',
+        'covered',
+        'covered',
       ])
     })
 
     // Consecutive statements leave no uncovered day between them.
     it('shows no seam between adjacent intervals', () => {
       const days = strip({
-        from: '2025-06-28', to: '2025-07-03', horizon: '2025-07-03',
-        intervals: [iv('2025-06-01', '2025-06-30'), iv('2025-07-01', '2025-07-31')],
+        from: '2025-06-28',
+        to: '2025-07-03',
+        horizon: '2025-07-03',
+        intervals: [
+          iv('2025-06-01', '2025-06-30'),
+          iv('2025-07-01', '2025-07-31'),
+        ],
       })
 
       expect(days.every((d) => d.state === 'covered')).toBe(true)
@@ -127,7 +170,11 @@ describe('buildStrip', () => {
     })
 
     it('labels the first day of each month and nothing else', () => {
-      const days = strip({ from: '2025-06-20', to: '2025-08-02', horizon: '2025-08-02' })
+      const days = strip({
+        from: '2025-06-20',
+        to: '2025-08-02',
+        horizon: '2025-08-02',
+      })
       const labelled = days.filter((d) => d.monthLabel !== null)
 
       expect(labelled.map((d) => [d.date, d.monthLabel])).toEqual([
@@ -138,22 +185,36 @@ describe('buildStrip', () => {
     })
 
     it('does not double-label when the window starts on the first of a month', () => {
-      const days = strip({ from: '2025-07-01', to: '2025-07-05', horizon: '2025-07-05' })
+      const days = strip({
+        from: '2025-07-01',
+        to: '2025-07-05',
+        horizon: '2025-07-05',
+      })
 
       expect(days.filter((d) => d.monthLabel !== null)).toHaveLength(1)
     })
 
     it('labels across a year boundary', () => {
-      const days = strip({ from: '2025-12-20', to: '2026-01-02', horizon: '2026-01-02' })
+      const days = strip({
+        from: '2025-12-20',
+        to: '2026-01-02',
+        horizon: '2026-01-02',
+      })
 
-      expect(days.filter((d) => d.monthLabel).map((d) => d.monthLabel)).toEqual(['Dec', 'Jan'])
+      expect(days.filter((d) => d.monthLabel).map((d) => d.monthLabel)).toEqual(
+        ['Dec', 'Jan'],
+      )
     })
   })
 })
 
 describe('describeDay', () => {
   const day = (over: Partial<CoverageDay>): CoverageDay => ({
-    date: '2025-07-04', state: 'uncovered', hasTxn: false, monthLabel: null, ...over,
+    date: '2025-07-04',
+    state: 'uncovered',
+    hasTxn: false,
+    monthLabel: null,
+    ...over,
   })
 
   it('names a covered day', () => {
@@ -166,11 +227,15 @@ describe('describeDay', () => {
 
   // "not yet available" rather than anything implying the user is behind on it.
   it('names a day past the horizon as not yet available', () => {
-    expect(describeDay(day({ state: 'beyond-horizon' }))).toBe('2025-07-04 · not yet available')
+    expect(describeDay(day({ state: 'beyond-horizon' }))).toBe(
+      '2025-07-04 · not yet available',
+    )
   })
 
   it('mentions transactions when the day has them', () => {
-    expect(describeDay(day({ hasTxn: true }))).toBe('2025-07-04 · not covered · has transactions')
+    expect(describeDay(day({ hasTxn: true }))).toBe(
+      '2025-07-04 · not covered · has transactions',
+    )
   })
 })
 
@@ -194,20 +259,35 @@ describe('summarizeStrip', () => {
 
   it('is all zeroes for an empty strip', () => {
     expect(summarizeStrip([])).toEqual({
-      covered: 0, uncovered: 0, beyondHorizon: 0, txnsInUncovered: 0,
+      covered: 0,
+      uncovered: 0,
+      beyondHorizon: 0,
+      txnsInUncovered: 0,
     })
   })
 })
 
 describe('ariaSummary', () => {
   it('states the counts as prose', () => {
-    expect(ariaSummary({ covered: 40, uncovered: 50, beyondHorizon: 0, txnsInUncovered: 3 }, '2025-04-16', '2025-07-14'))
-      .toBe('Coverage from 2025-04-16 to 2025-07-14: 40 covered, 50 not covered.')
+    expect(
+      ariaSummary(
+        { covered: 40, uncovered: 50, beyondHorizon: 0, txnsInUncovered: 3 },
+        '2025-04-16',
+        '2025-07-14',
+      ),
+    ).toBe(
+      'Coverage from 2025-04-16 to 2025-07-14: 40 covered, 50 not covered.',
+    )
   })
 
   it('mentions the unavailable span only when there is one', () => {
-    expect(ariaSummary({ covered: 60, uncovered: 10, beyondHorizon: 20, txnsInUncovered: 0 }, '2025-04-16', '2025-07-14'))
-      .toContain('20 not yet available')
+    expect(
+      ariaSummary(
+        { covered: 60, uncovered: 10, beyondHorizon: 20, txnsInUncovered: 0 },
+        '2025-04-16',
+        '2025-07-14',
+      ),
+    ).toContain('20 not yet available')
   })
 })
 
@@ -216,35 +296,58 @@ describe('month label crowding', () => {
   // for both.
   it('drops the leading label when a month starts right after the window opens', () => {
     const days = buildStrip({
-      from: '2025-06-29', to: '2025-07-10', intervals: [], horizon: '2025-07-10', txnDates: [],
+      from: '2025-06-29',
+      to: '2025-07-10',
+      intervals: [],
+      horizon: '2025-07-10',
+      txnDates: [],
     })
 
-    expect(days.filter((d) => d.monthLabel).map((d) => [d.date, d.monthLabel])).toEqual([
-      ['2025-07-01', 'Jul'],
-    ])
+    expect(
+      days.filter((d) => d.monthLabel).map((d) => [d.date, d.monthLabel]),
+    ).toEqual([['2025-07-01', 'Jul']])
   })
 
   it('keeps the leading label when the next month is far enough away', () => {
     const days = buildStrip({
-      from: '2025-06-20', to: '2025-07-10', intervals: [], horizon: '2025-07-10', txnDates: [],
+      from: '2025-06-20',
+      to: '2025-07-10',
+      intervals: [],
+      horizon: '2025-07-10',
+      txnDates: [],
     })
 
-    expect(days.filter((d) => d.monthLabel).map((d) => d.monthLabel)).toEqual(['Jun', 'Jul'])
+    expect(days.filter((d) => d.monthLabel).map((d) => d.monthLabel)).toEqual([
+      'Jun',
+      'Jul',
+    ])
   })
 
   it('keeps the leading label when the window ends before the next month', () => {
     const days = buildStrip({
-      from: '2025-06-28', to: '2025-06-30', intervals: [], horizon: '2025-06-30', txnDates: [],
+      from: '2025-06-28',
+      to: '2025-06-30',
+      intervals: [],
+      horizon: '2025-06-30',
+      txnDates: [],
     })
 
-    expect(days.filter((d) => d.monthLabel).map((d) => d.monthLabel)).toEqual(['Jun'])
+    expect(days.filter((d) => d.monthLabel).map((d) => d.monthLabel)).toEqual([
+      'Jun',
+    ])
   })
 
   it('handles a December window rolling into January', () => {
     const days = buildStrip({
-      from: '2025-12-29', to: '2026-01-10', intervals: [], horizon: '2026-01-10', txnDates: [],
+      from: '2025-12-29',
+      to: '2026-01-10',
+      intervals: [],
+      horizon: '2026-01-10',
+      txnDates: [],
     })
 
-    expect(days.filter((d) => d.monthLabel).map((d) => d.monthLabel)).toEqual(['Jan'])
+    expect(days.filter((d) => d.monthLabel).map((d) => d.monthLabel)).toEqual([
+      'Jan',
+    ])
   })
 })

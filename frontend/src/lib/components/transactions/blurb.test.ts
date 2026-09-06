@@ -24,12 +24,15 @@ function p(
 // The text of every emphasized segment, in order — what the render bolds. Only money figures
 // are emphasized now; labels + currency codes ride as plain text.
 const emph = (parts: BlurbParts): string[] =>
-  parts.filter((s) => s.kind === 'emph').map((s) => (s.kind === 'emph' ? s.text : ''))
+  parts
+    .filter((s) => s.kind === 'emph')
+    .map((s) => (s.kind === 'emph' ? s.text : ''))
 // The plain (un-emphasized) text, joined — where labels and the demoted currency codes live.
 const plain = (parts: BlurbParts): string =>
   parts.map((s) => (s.kind === 'text' ? s.text : '')).join('')
 
-const blurb = (postings: Posting[]): BlurbParts => blurbFor(narrateTransaction(postings))
+const blurb = (postings: Posting[]): BlurbParts =>
+  blurbFor(narrateTransaction(postings))
 
 describe('simple spend blurb', () => {
   const parts = blurb([
@@ -38,7 +41,9 @@ describe('simple spend blurb', () => {
   ])
 
   it('reads as a sentence with the amount, category, and source', () => {
-    expect(blurbText(parts)).toBe('You spent 50.00 CAD on Food · Cafe from Chequing.')
+    expect(blurbText(parts)).toBe(
+      'You spent 50.00 CAD on Food · Cafe from Chequing.',
+    )
   })
 
   it('emphasizes only the figure — label + code ride as plain text', () => {
@@ -53,7 +58,9 @@ describe('simple spend blurb', () => {
       p('assets:chequing', '-50.00', 'CAD', 'transfer', 'Daily'),
       p('expenses:food:cafe', '50.00', 'CAD', 'subject', 'Morning Coffee'),
     ])
-    expect(blurbText(named)).toBe('You spent 50.00 CAD on Morning Coffee from Daily.')
+    expect(blurbText(named)).toBe(
+      'You spent 50.00 CAD on Morning Coffee from Daily.',
+    )
   })
 
   it('amount tracks the transaction, not a literal', () => {
@@ -97,7 +104,9 @@ describe('split blurb — you owe (another member fronted)', () => {
   ])
 
   it('reads as money you owe the group, not money owed to you', () => {
-    expect(blurbText(parts)).toBe('You owe Quotidien 287.95 CZK for Food · Restaurant.')
+    expect(blurbText(parts)).toBe(
+      'You owe Quotidien 287.95 CZK for Food · Restaurant.',
+    )
   })
 
   it('does not claim you fronted it', () => {
@@ -149,7 +158,9 @@ describe('inflow blurb', () => {
       p('assets:chequing', '10.00', 'CAD', 'transfer'),
       p('expenses:food:cafe', '-10.00', 'CAD', 'subject'),
     ])
-    expect(blurbText(parts)).toBe('10.00 CAD came into Chequing for Food · Cafe.')
+    expect(blurbText(parts)).toBe(
+      '10.00 CAD came into Chequing for Food · Cafe.',
+    )
   })
 })
 

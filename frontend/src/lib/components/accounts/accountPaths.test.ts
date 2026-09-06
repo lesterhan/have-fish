@@ -143,7 +143,10 @@ describe('rootFor', () => {
 describe('accountDisplayName', () => {
   it('prefers the name', () => {
     expect(
-      accountDisplayName({ path: 'assets:wise:cad', name: 'Wise CAD' }, 'assets'),
+      accountDisplayName(
+        { path: 'assets:wise:cad', name: 'Wise CAD' },
+        'assets',
+      ),
     ).toBe('Wise CAD')
   })
 
@@ -154,6 +157,8 @@ describe('accountDisplayName', () => {
   })
 
   it('keeps an unfiled path whole, since it has no root to strip', () => {
-    expect(accountDisplayName({ path: '储蓄:中国银行' }, '')).toBe('储蓄:中国银行')
+    expect(accountDisplayName({ path: '储蓄:中国银行' }, '')).toBe(
+      '储蓄:中国银行',
+    )
   })
 })

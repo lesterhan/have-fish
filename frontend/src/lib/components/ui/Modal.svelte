@@ -199,8 +199,13 @@
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: linear-gradient(180deg, var(--color-accent-hi), var(--color-accent));
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-accent) 22%, transparent);
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-hi),
+      var(--color-accent)
+    );
+    box-shadow: 0 0 0 3px
+      color-mix(in srgb, var(--color-accent) 22%, transparent);
     flex-shrink: 0;
   }
 

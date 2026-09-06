@@ -83,7 +83,9 @@ const DAY_MS = 24 * 60 * 60 * 1000
 export async function hashCsv(text: string): Promise<string> {
   const bytes = new TextEncoder().encode(text)
   const digest = await crypto.subtle.digest('SHA-256', bytes)
-  return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
+  return [...new Uint8Array(digest)]
+    .map((b) => b.toString(16).padStart(2, '0'))
+    .join('')
 }
 
 function isValidSession(value: unknown): value is ImportSession {
@@ -124,7 +126,10 @@ export function pruneSessions(value: unknown, now: number): ImportSession[] {
 
 // A minimal slice of the Storage API, so these functions are testable without a DOM and
 // can't throw on a server render where localStorage doesn't exist.
-export type SessionStorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
+export type SessionStorageLike = Pick<
+  Storage,
+  'getItem' | 'setItem' | 'removeItem'
+>
 
 function defaultStorage(): SessionStorageLike | null {
   try {
@@ -156,7 +161,9 @@ export function saveSession(
   storage: SessionStorageLike | null = defaultStorage(),
 ): void {
   if (!storage) return
-  const others = loadSessions(now, storage).filter((s) => s.fileHash !== session.fileHash)
+  const others = loadSessions(now, storage).filter(
+    (s) => s.fileHash !== session.fileHash,
+  )
   const next = pruneSessions([session, ...others], now)
   try {
     storage.setItem(STORAGE_KEY, JSON.stringify(next))
@@ -176,7 +183,9 @@ export function clearSession(
   storage: SessionStorageLike | null = defaultStorage(),
 ): void {
   if (!storage) return
-  const remaining = loadSessions(now, storage).filter((s) => s.fileHash !== fileHash)
+  const remaining = loadSessions(now, storage).filter(
+    (s) => s.fileHash !== fileHash,
+  )
   try {
     if (remaining.length === 0) storage.removeItem(STORAGE_KEY)
     else storage.setItem(STORAGE_KEY, JSON.stringify(remaining))
@@ -207,7 +216,9 @@ export function describeAge(savedAt: string, now: number = Date.now()): string {
 
 // Reads a coach handoff off the import URL. Returns null unless every part is present and
 // well-formed — a half-populated handoff would write coverage for a range nobody asked for.
-export function parseCatchUpHandoff(params: URLSearchParams): CatchUpHandoff | null {
+export function parseCatchUpHandoff(
+  params: URLSearchParams,
+): CatchUpHandoff | null {
   const accountId = params.get('account')
   const from = params.get('from')
   const to = params.get('to')
@@ -221,7 +232,10 @@ export function parseCatchUpHandoff(params: URLSearchParams): CatchUpHandoff | n
 export function isIsoDate(value: string | null): boolean {
   if (!value || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
   const parsed = new Date(`${value}T00:00:00Z`)
-  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().substring(0, 10) === value
+  return (
+    !Number.isNaN(parsed.getTime()) &&
+    parsed.toISOString().substring(0, 10) === value
+  )
 }
 
 // What the Confirm step's "this file covers" control starts at.

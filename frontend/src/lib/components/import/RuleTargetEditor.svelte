@@ -41,7 +41,9 @@
   let activeGroup = $derived(groups.find((g) => g.id === groupId))
   // Archived categories are excluded: a rule targeting one would create expenses the user
   // can no longer categorize by hand, and the backend rejects it anyway.
-  let categories = $derived(activeGroup?.categories.filter((c) => !c.archivedAt) ?? [])
+  let categories = $derived(
+    activeGroup?.categories.filter((c) => !c.archivedAt) ?? [],
+  )
 </script>
 
 <div class="target-editor">
@@ -156,7 +158,7 @@
   }
 
   .kind:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 

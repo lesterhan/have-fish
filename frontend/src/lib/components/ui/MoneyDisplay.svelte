@@ -101,5 +101,4 @@
   .money-inline .amount {
     font-size: var(--text-sm);
   }
-
 </style>

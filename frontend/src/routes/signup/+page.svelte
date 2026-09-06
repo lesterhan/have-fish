@@ -21,7 +21,11 @@
       return
     }
 
-    const result = await signUp.email({ email, password, name: name.trim() || email })
+    const result = await signUp.email({
+      email,
+      password,
+      name: name.trim() || email,
+    })
     if (result.error) {
       error = result.error.message ?? copy.auth.signUp.failed
     } else {
@@ -168,6 +172,6 @@
   }
 
   .switch-link a {
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
 </style>

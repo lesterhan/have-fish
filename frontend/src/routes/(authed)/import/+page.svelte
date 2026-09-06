@@ -176,15 +176,20 @@
   // amount in the table.
   let derivedLiabilities = $derived.by(() => {
     if (!preview) return false
-    const root = settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
-    const path = accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
+    const root =
+      settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
+    const path =
+      accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
     return isUnderRoot(path, root)
   })
   let importAsLiabilities = $derived(liabilitiesOverride ?? derivedLiabilities)
 
   // The span the CSV covers, for the File step's summary.
   let dateRange = $derived.by(() => {
-    const dates = (preview?.transactions ?? []).map((tx) => tx.date).filter(Boolean).sort()
+    const dates = (preview?.transactions ?? [])
+      .map((tx) => tx.date)
+      .filter(Boolean)
+      .sort()
     if (dates.length === 0) return ''
     const first = dates[0].slice(0, 10)
     const last = dates[dates.length - 1].slice(0, 10)
@@ -210,7 +215,10 @@
   )
 
   let handoffAccountPath = $derived(
-    catchUp ? (accounts.find((a) => a.id === catchUp!.accountId)?.path ?? 'that account') : '',
+    catchUp
+      ? (accounts.find((a) => a.id === catchUp!.accountId)?.path ??
+          'that account')
+      : '',
   )
 
   // Seeded when Confirm is first reached, then left alone so an edit survives walking back
@@ -315,7 +323,8 @@
       if (rowStates[i]?.skipped) return
       if (tx.isTransfer === true) {
         needed.add(tx.sourceCurrency.toUpperCase())
-        if (rowStates[i]?.kind !== 'spend') needed.add(tx.targetCurrency.toUpperCase())
+        if (rowStates[i]?.kind !== 'spend')
+          needed.add(tx.targetCurrency.toUpperCase())
       } else if (tx.isTransfer === 'same-currency') {
         needed.add(tx.currency.toUpperCase())
       } else {
@@ -329,7 +338,8 @@
 
   function handleAccountCreated(account: Account) {
     accounts = [...accounts, account]
-    if (!accountsCreated.includes(account.path)) accountsCreated = [...accountsCreated, account.path]
+    if (!accountsCreated.includes(account.path))
+      accountsCreated = [...accountsCreated, account.path]
   }
 
   // --- Preview ---
@@ -416,7 +426,9 @@
         accountId:
           tx.isTransfer === false
             ? fetched.isMultiCurrency
-              ? (currencyAccounts[(tx.currency ?? defaultCurrency).toUpperCase()] ?? '')
+              ? (currencyAccounts[
+                  (tx.currency ?? defaultCurrency).toUpperCase()
+                ] ?? '')
               : (fetched.defaultAccountId ?? '')
             : '',
         date: tx.date,
@@ -432,7 +444,8 @@
         // A convert-and-park is excluded: it moves money between the user's own accounts,
         // so there is no expense to share.
         const isSplitSuggestion =
-          !!tx.suggestedGroupId && !(tx.isTransfer === true && tx.suggestedKind === 'transfer')
+          !!tx.suggestedGroupId &&
+          !(tx.isTransfer === true && tx.suggestedKind === 'transfer')
 
         return {
           offsetAccountId:
@@ -445,14 +458,19 @@
           skipped: perRowDuplicates[i] != null,
           possibleDuplicate: perRowDuplicates[i] ?? null,
           groupId: isSplitSuggestion ? (tx.suggestedGroupId ?? null) : null,
-          categoryId: isSplitSuggestion ? (tx.suggestedCategoryId ?? null) : null,
+          categoryId: isSplitSuggestion
+            ? (tx.suggestedCategoryId ?? null)
+            : null,
           // Cross-currency rows default to spend unless the preview flagged a convert-and-park.
-          kind: tx.isTransfer === true ? (tx.suggestedKind ?? 'spend') : 'spend',
+          kind:
+            tx.isTransfer === true ? (tx.suggestedKind ?? 'spend') : 'spend',
           // Spend rows pre-fill the expense account from the import rule, else fall back to the
           // uncategorized account so the spend is still importable and surfaces for review.
           // A split row leaves it empty — its expense leg derives from the category at commit.
           expenseAccountId:
-            tx.isTransfer === true && tx.suggestedKind !== 'transfer' && !isSplitSuggestion
+            tx.isTransfer === true &&
+            tx.suggestedKind !== 'transfer' &&
+            !isSplitSuggestion
               ? (tx.suggestedExpenseAccountId ?? toAccountId)
               : '',
           // A rule filled this row in; anything else is still sitting at its default.
@@ -472,8 +490,13 @@
       // currency already resolved on seed, Sort when no merchant repeats.
       if (accountsStepNeeded(fetched)) {
         step = 'accounts'
-      } else if (buildClusters(fetched.transactions, defaultCurrency).length > 0) {
-        clusterStates = buildClusters(fetched.transactions, defaultCurrency).map(initialClusterState)
+      } else if (
+        buildClusters(fetched.transactions, defaultCurrency).length > 0
+      ) {
+        clusterStates = buildClusters(
+          fetched.transactions,
+          defaultCurrency,
+        ).map(initialClusterState)
         step = 'sort'
       } else {
         step = 'review'
@@ -506,7 +529,9 @@
   // a re-parse.
   function seedClusterStates() {
     const previous = new Map(clusterStates.map((c) => [c.key, c]))
-    clusterStates = clusters.map((c) => previous.get(c.key) ?? initialClusterState(c))
+    clusterStates = clusters.map(
+      (c) => previous.get(c.key) ?? initialClusterState(c),
+    )
   }
 
   async function handleApplyClusters(override: boolean) {
@@ -523,7 +548,12 @@
         if (!target) continue
 
         for (const i of membersToWrite(cluster, state, rowStates, override)) {
-          rowStates[i] = applyTarget(preview.transactions[i], rowStates[i], target, 'cluster')
+          rowStates[i] = applyTarget(
+            preview.transactions[i],
+            rowStates[i],
+            target,
+            'cluster',
+          )
           written++
         }
 
@@ -538,7 +568,8 @@
                 : { accountId: target.accountId }),
             })
             created++
-            if (!rulesCreated.includes(cluster.key)) rulesCreated = [...rulesCreated, cluster.key]
+            if (!rulesCreated.includes(cluster.key))
+              rulesCreated = [...rulesCreated, cluster.key]
           } catch (e) {
             toast.show(
               `Applied ${cluster.key}, but the rule could not be saved: ${e instanceof Error ? e.message : 'unknown error'}`,
@@ -547,7 +578,8 @@
         }
       }
 
-      const ruleMsg = created > 0 ? `, ${created} rule${created === 1 ? '' : 's'} saved` : ''
+      const ruleMsg =
+        created > 0 ? `, ${created} rule${created === 1 ? '' : 's'} saved` : ''
       toast.show(`${written} row${written === 1 ? '' : 's'} assigned${ruleMsg}`)
       step = 'review'
     } finally {
@@ -576,12 +608,16 @@
 
     const target = row.groupId
       ? { groupId: row.groupId, categoryId: row.categoryId }
-      : { accountId: tx.isTransfer === true ? row.expenseAccountId : row.offsetAccountId }
+      : {
+          accountId:
+            tx.isTransfer === true ? row.expenseAccountId : row.offsetAccountId,
+        }
     if (!row.groupId && !target.accountId) return
 
     try {
       await createRule({ pattern: tx.merchantKey, ...target })
-      if (!rulesCreated.includes(tx.merchantKey)) rulesCreated = [...rulesCreated, tx.merchantKey]
+      if (!rulesCreated.includes(tx.merchantKey))
+        rulesCreated = [...rulesCreated, tx.merchantKey]
     } catch (e) {
       toast.show(e instanceof Error ? e.message : 'Could not save the rule.')
       return
@@ -590,9 +626,18 @@
     const rowTarget: RowTarget = row.groupId
       ? { kind: 'split', groupId: row.groupId, categoryId: row.categoryId }
       : { kind: 'account', accountId: target.accountId! }
-    const matches = rowsMatchingPattern(preview!.transactions, rowStates, tx.merchantKey)
+    const matches = rowsMatchingPattern(
+      preview!.transactions,
+      rowStates,
+      tx.merchantKey,
+    )
     for (const i of matches) {
-      rowStates[i] = applyTarget(preview!.transactions[i], rowStates[i], rowTarget, 'cluster')
+      rowStates[i] = applyTarget(
+        preview!.transactions[i],
+        rowStates[i],
+        rowTarget,
+        'cluster',
+      )
     }
 
     const applied = matches.length
@@ -717,7 +762,11 @@
         }
       })
       // Build groupSplits re-indexed to txs positions (skipped rows excluded from txs)
-      const groupSplits: { rowIndex: number; groupId: string; categoryId: string | null }[] = []
+      const groupSplits: {
+        rowIndex: number
+        groupId: string
+        categoryId: string | null
+      }[] = []
       let txIdx = 0
       for (let i = 0; i < rowStates.length; i++) {
         if (rowStates[i].skipped) continue
@@ -774,7 +823,11 @@
       if (backToCoach) {
         goto('/catch-up')
       } else {
-        goto(range ? `/transactions?from=${range.from}&to=${range.to}` : '/transactions')
+        goto(
+          range
+            ? `/transactions?from=${range.from}&to=${range.to}`
+            : '/transactions',
+        )
       }
     } catch {
       error = 'Import failed. Please try again.'
@@ -833,8 +886,9 @@
       <Icon name={handoffMismatch ? 'warning' : 'calendar'} size={14} />
       <span>
         {#if handoffMismatch}
-          The coach asked about <strong>{handoffAccountPath}</strong>, but this file posts
-          somewhere else. Importing is fine — it just won't close that gap.
+          The coach asked about <strong>{handoffAccountPath}</strong>, but this
+          file posts somewhere else. Importing is fine — it just won't close
+          that gap.
         {:else}
           Catching up <strong>{handoffAccountPath}</strong> from
           <strong>{catchUp.from}</strong> to <strong>{catchUp.to}</strong>.
@@ -898,24 +952,29 @@
               <Icon name="arrow-right" size={10} />
               <span class="defaults-label">Override</span>
               <span class="defaults-values">
-                {liabilitiesOverride === null ? 'following the account' : 'set by hand'}
+                {liabilitiesOverride === null
+                  ? 'following the account'
+                  : 'set by hand'}
               </span>
             </summary>
             <div class="override-body">
               <Toggle
                 checked={importAsLiabilities}
                 label="Import as liabilities"
-                onchange={(v) => (liabilitiesOverride = v === derivedLiabilities ? null : v)}
+                onchange={(v) =>
+                  (liabilitiesOverride = v === derivedLiabilities ? null : v)}
               />
               <p class="override-hint">
-                Follows the import account's path by default. Change it only when the
-                statement's signs don't match the account.
+                Follows the import account's path by default. Change it only
+                when the statement's signs don't match the account.
               </p>
             </div>
           </details>
 
           <div class="summary-actions">
-            <GradientButton onclick={handleCancel}>Discard import</GradientButton>
+            <GradientButton onclick={handleCancel}
+              >Discard import</GradientButton
+            >
             <GradientButton size="lg" active onclick={advanceFromFile}>
               Continue
             </GradientButton>
@@ -946,7 +1005,8 @@
           onaccountcreated={handleAccountCreated}
           onapply={handleApplyClusters}
           onskip={() => (step = 'review')}
-          onback={() => (step = accountsStepNeeded(preview!) ? 'accounts' : 'file')}
+          onback={() =>
+            (step = accountsStepNeeded(preview!) ? 'accounts' : 'file')}
         />
       {/if}
     </div>
@@ -995,12 +1055,16 @@
         <span class="resume-text">
           Resume <strong>{resumable.fileName}</strong>?
           <span class="resume-meta">
-            {resumable.rowStates.length} rows · saved {describeAge(resumable.savedAt)}
+            {resumable.rowStates.length} rows · saved {describeAge(
+              resumable.savedAt,
+            )}
           </span>
         </span>
         <div class="resume-actions">
           <GradientButton onclick={discardResumable}>Discard</GradientButton>
-          <GradientButton active onclick={() => resumeSession(resumable!)}>Resume</GradientButton>
+          <GradientButton active onclick={() => resumeSession(resumable!)}
+            >Resume</GradientButton
+          >
         </div>
       </div>
     {/if}
@@ -1067,7 +1131,8 @@
               <span class="file-chip">
                 <Icon name="import" size={13} />
                 <span class="file-name">{file.name}</span>
-                <span class="file-size">{(file.size / 1024).toFixed(1)} KB</span>
+                <span class="file-size">{(file.size / 1024).toFixed(1)} KB</span
+                >
                 <button
                   type="button"
                   class="file-clear"
@@ -1088,17 +1153,21 @@
                   accept=".csv"
                   class="file-input-hidden"
                   onchange={(e) => {
-                    file = (e.currentTarget as HTMLInputElement).files?.[0] ?? null
+                    file =
+                      (e.currentTarget as HTMLInputElement).files?.[0] ?? null
                   }}
                 />
               </label>
               <span class="drop-hint">
                 or drop a file here
                 <span class="pacman"
-                  ><Icon name="pacman" size={14} /><Icon name="dot" size={6} /><Icon
+                  ><Icon name="pacman" size={14} /><Icon
                     name="dot"
                     size={6}
-                  /><Icon name="cherry" size={12} /></span
+                  /><Icon name="dot" size={6} /><Icon
+                    name="cherry"
+                    size={12}
+                  /></span
                 >
               </span>
             {/if}
@@ -1110,7 +1179,8 @@
               <span class="defaults-label">Defaults</span>
               <span class="defaults-values">
                 {defaultCurrency} ·
-                {accounts.find((a) => a.id === toAccountId)?.path ?? 'no uncategorized account'}
+                {accounts.find((a) => a.id === toAccountId)?.path ??
+                  'no uncategorized account'}
               </span>
             </summary>
             <div class="import-fields">
@@ -1149,7 +1219,8 @@
               <span class="error-text">{error}</span>
               {#if noParserFound}
                 <span class="hint-text">
-                  Go to <a href="/settings">Settings</a> to add a parser for this file.
+                  Go to <a href="/settings">Settings</a> to add a parser for this
+                  file.
                 </span>
               {/if}
             </div>
@@ -1158,15 +1229,17 @@
       {:else}
         <div class="export-body">
           <p class="export-blurb">
-            Download all your data as an hledger-compatible <code>.journal</code> file.
-            This is your escape hatch — nothing is locked in.
+            Download all your data as an hledger-compatible <code>.journal</code
+            > file. This is your escape hatch — nothing is locked in.
           </p>
 
           <div class="import-fields">
             <div class="import-field">
               <label class="import-label" for="export-from">
                 From
-                <TooltipIcon label="Leave both dates empty to export everything." />
+                <TooltipIcon
+                  label="Leave both dates empty to export everything."
+                />
               </label>
               <input
                 id="export-from"
@@ -1178,7 +1251,13 @@
             </div>
             <div class="import-field">
               <label class="import-label" for="export-to">To</label>
-              <input id="export-to" type="date" class="date-input" bind:value={exportTo} disabled />
+              <input
+                id="export-to"
+                type="date"
+                class="date-input"
+                bind:value={exportTo}
+                disabled
+              />
             </div>
           </div>
 
@@ -1240,7 +1319,9 @@
       assignment made so far will be discarded. This cannot be undone.
     </p>
     <div class="discard-actions">
-      <GradientButton onclick={() => (showDiscardConfirm = false)}>Keep working</GradientButton>
+      <GradientButton onclick={() => (showDiscardConfirm = false)}
+        >Keep working</GradientButton
+      >
       <GradientButton variant="warning" active onclick={confirmDiscard}>
         Discard import
       </GradientButton>
@@ -1443,7 +1524,7 @@
   }
 
   .tab:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 
@@ -1476,9 +1557,9 @@
   }
 
   .file-row.drag-over {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
     border-style: solid;
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .choose-btn {
@@ -1487,7 +1568,11 @@
     gap: 6px;
     height: 32px;
     padding: 0 16px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);
     font-family: var(--font-sans);
@@ -1502,12 +1587,16 @@
   }
 
   .choose-btn:hover {
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-accent-chip-bg));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-accent-chip-bg)
+    );
     border-color: var(--color-accent);
   }
 
   .choose-btn:focus-within {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 1px;
   }
 
@@ -1680,7 +1769,7 @@
   }
 
   .date-input:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -1px;
   }
 

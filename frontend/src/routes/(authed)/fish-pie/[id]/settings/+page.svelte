@@ -2,7 +2,13 @@
   import { onMount } from 'svelte'
   import { page } from '$app/state'
   import { goto } from '$app/navigation'
-  import { fetchGroup, fetchAccounts, deleteGroup, updateMyExpenseAccount, updateGroup } from '$lib/api'
+  import {
+    fetchGroup,
+    fetchAccounts,
+    deleteGroup,
+    updateMyExpenseAccount,
+    updateGroup,
+  } from '$lib/api'
   import type { ExpenseGroup, Account } from '$lib/api'
   import { useSession } from '$lib/auth'
   import { toast } from '$lib/toast.svelte'
@@ -29,7 +35,10 @@
 
   onMount(async () => {
     try {
-      const [g, accts] = await Promise.all([fetchGroup(groupId), fetchAccounts()])
+      const [g, accts] = await Promise.all([
+        fetchGroup(groupId),
+        fetchAccounts(),
+      ])
       group = g
       allAccounts = accts
       groupName = g.name
@@ -86,7 +95,9 @@
     }
   }
 
-  const isCreator = $derived(group !== null && group.createdBy === currentUserId)
+  const isCreator = $derived(
+    group !== null && group.createdBy === currentUserId,
+  )
 </script>
 
 <div class="page">
@@ -133,7 +144,10 @@
         <div class="setting-row">
           <div class="setting-info">
             <span class="setting-label">My default account</span>
-            <span class="setting-hint">Where my share posts when an expense has no category. Categories below can override it.</span>
+            <span class="setting-hint"
+              >Where my share posts when an expense has no category. Categories
+              below can override it.</span
+            >
           </div>
           <div class="setting-input">
             <AccountPathInput
@@ -151,7 +165,9 @@
           <span class="section-bar-title">Categories</span>
         </div>
         <p class="section-intro">
-          Tag each expense with a category. Per category, you can set your own account and a custom split — both fall back to the group defaults above.
+          Tag each expense with a category. Per category, you can set your own
+          account and a custom split — both fall back to the group defaults
+          above.
         </p>
         <CategoryManager
           {groupId}
@@ -164,18 +180,30 @@
 
         {#if isCreator}
           <div class="danger-footer">
-          {#if !confirmDelete}
-            <button class="danger-link" onclick={() => (confirmDelete = true)}>Delete group…</button>
-            <span class="danger-desc">Removes this group for all members. This cannot be undone.</span>
-          {:else}
-            <div class="confirm-actions">
-              <span class="confirm-text">Are you sure?</span>
-              <GradientButton variant="warning" active onclick={handleDeleteGroup} disabled={deleting}>
-                {deleting ? 'Deleting…' : 'Confirm delete'}
-              </GradientButton>
-              <GradientButton onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</GradientButton>
-            </div>
-          {/if}
+            {#if !confirmDelete}
+              <button class="danger-link" onclick={() => (confirmDelete = true)}
+                >Delete group…</button
+              >
+              <span class="danger-desc"
+                >Removes this group for all members. This cannot be undone.</span
+              >
+            {:else}
+              <div class="confirm-actions">
+                <span class="confirm-text">Are you sure?</span>
+                <GradientButton
+                  variant="warning"
+                  active
+                  onclick={handleDeleteGroup}
+                  disabled={deleting}
+                >
+                  {deleting ? 'Deleting…' : 'Confirm delete'}
+                </GradientButton>
+                <GradientButton
+                  onclick={() => (confirmDelete = false)}
+                  disabled={deleting}>Cancel</GradientButton
+                >
+              </div>
+            {/if}
           </div>
         {/if}
       </div>

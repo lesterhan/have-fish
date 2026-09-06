@@ -16,7 +16,15 @@ function p(
   role: PostingRole,
   id = accountPath + ':' + amount,
 ): Posting {
-  return { id, accountId: accountPath, accountPath, accountName: null, amount, currency, role }
+  return {
+    id,
+    accountId: accountPath,
+    accountPath,
+    accountName: null,
+    amount,
+    currency,
+    role,
+  }
 }
 
 function tx(postings: Posting[]): Transaction {

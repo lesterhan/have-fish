@@ -14,12 +14,16 @@
     account: CatchUpAccount
     // Each returns once the write has landed; the page reloads the payload after.
     onmarkEmpty: (account: CatchUpAccount) => Promise<void>
-    onmarkThrough: (account: CatchUpAccount, throughDate: string) => Promise<void>
+    onmarkThrough: (
+      account: CatchUpAccount,
+      throughDate: string,
+    ) => Promise<void>
     onuntrack: (account: CatchUpAccount) => Promise<void>
     onimport: (account: CatchUpAccount) => void
   }
 
-  let { account, onmarkEmpty, onmarkThrough, onuntrack, onimport }: Props = $props()
+  let { account, onmarkEmpty, onmarkThrough, onuntrack, onimport }: Props =
+    $props()
 
   let busy = $state(false)
   let error = $state<string | null>(null)
@@ -96,18 +100,23 @@
         </label>
         <GradientButton
           disabled={!throughValid || busy}
-          onclick={() => run(async () => {
-            await onmarkThrough(account, throughDate)
-            markingThrough = false
-          })}
+          onclick={() =>
+            run(async () => {
+              await onmarkThrough(account, throughDate)
+              markingThrough = false
+            })}
         >
           Save
         </GradientButton>
-        <GradientButton onclick={() => (markingThrough = false)}>Cancel</GradientButton>
+        <GradientButton onclick={() => (markingThrough = false)}
+          >Cancel</GradientButton
+        >
       </div>
     {:else}
       <div class="actions">
-        <GradientButton onclick={() => onimport(account)} disabled={busy}>Import</GradientButton>
+        <GradientButton onclick={() => onimport(account)} disabled={busy}
+          >Import</GradientButton
+        >
         <GradientButton
           disabled={busy || !account.gap}
           tooltip={emptyActionLabel(account) ?? ''}
@@ -115,8 +124,13 @@
         >
           Nothing happened here
         </GradientButton>
-        <GradientButton disabled={busy} onclick={openMarkThrough}>Mark complete through…</GradientButton>
-        <GradientButton disabled={busy} onclick={() => run(() => onuntrack(account))}>
+        <GradientButton disabled={busy} onclick={openMarkThrough}
+          >Mark complete through…</GradientButton
+        >
+        <GradientButton
+          disabled={busy}
+          onclick={() => run(() => onuntrack(account))}
+        >
           Don't track this
         </GradientButton>
       </div>
@@ -139,7 +153,8 @@
     background: var(--color-section-bar-bg);
     color: var(--color-section-bar-fg);
     border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px) 0 0;
+    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px)
+      0 0;
   }
 
   .name {
@@ -208,7 +223,7 @@
   }
 
   input[type='date']:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -1px;
   }
 

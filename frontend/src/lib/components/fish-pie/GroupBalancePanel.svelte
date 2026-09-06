@@ -19,7 +19,9 @@
   // Every transfer flattened. The current user either owes (is the payer in some
   // transfer) — then they settle — or is only owed, and waits for the other party.
   const allTransfers = $derived(balances.flatMap((b) => b.transfers))
-  const iOwe = $derived(allTransfers.some((t) => t.fromUserId === currentUserId))
+  const iOwe = $derived(
+    allTransfers.some((t) => t.fromUserId === currentUserId),
+  )
   const waitingOnName = $derived.by(() => {
     const debtors = [
       ...new Set(
@@ -77,7 +79,9 @@
         <GradientButton onclick={onSettleClick}>Settle up</GradientButton>
       {:else}
         <GradientButton disabled>
-          Waiting for {waitingOnName ?? 'payment'}{waitingOnName ? ' to pay' : ''}
+          Waiting for {waitingOnName ?? 'payment'}{waitingOnName
+            ? ' to pay'
+            : ''}
         </GradientButton>
       {/if}
     </div>
@@ -124,7 +128,7 @@
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
     border: 1px solid var(--color-accent);
     color: var(--color-accent-chip-fg);
     font-family: var(--font-mono);

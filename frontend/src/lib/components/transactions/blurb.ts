@@ -29,7 +29,8 @@ const em = (text: string): BlurbSegment => ({ kind: 'emph', text })
 const br: BlurbSegment = { kind: 'break' }
 
 // A magnitude at 2dp — "50.00". Sign is conveyed by the surrounding wording, not here.
-const money = (amount: string): string => `${Math.abs(parseFloat(amount) || 0).toFixed(2)}`
+const money = (amount: string): string =>
+  `${Math.abs(parseFloat(amount) || 0).toFixed(2)}`
 
 // An amount as two segments: the number emphasized (bold), the currency CODE demoted to
 // plain text. A bold all-caps code shouts on the page, so only the figure is emphasized.
@@ -49,8 +50,10 @@ const partyName = (path: string): string => {
     .join(' ')
 }
 
-const branchByChip = (n: NarratedTransaction, chip: Branch['chip']): Branch | undefined =>
-  n.branches.find((b) => b.chip === chip)
+const branchByChip = (
+  n: NarratedTransaction,
+  chip: Branch['chip'],
+): Branch | undefined => n.branches.find((b) => b.chip === chip)
 
 // "You spent 50.00 CAD on Food · Cafe from Chequing."
 function directBlurb(n: NarratedTransaction): BlurbParts {
@@ -97,10 +100,17 @@ function splitBlurb(n: NarratedTransaction): BlurbParts {
 
   if (share || owed) {
     parts.push(br)
-    if (share) parts.push(t('Your share is '), ...moneyParts(share.amount, share.currency))
+    if (share)
+      parts.push(
+        t('Your share is '),
+        ...moneyParts(share.amount, share.currency),
+      )
     if (share && owed) parts.push(t(', '))
     if (owed) {
-      parts.push(t(`${partyName(owed.path)} owes you `), ...moneyParts(owed.amount, owed.currency))
+      parts.push(
+        t(`${partyName(owed.path)} owes you `),
+        ...moneyParts(owed.amount, owed.currency),
+      )
     }
   }
   parts.push(t('.'))
@@ -120,21 +130,32 @@ function multiCurrencyBlurb(n: NarratedTransaction): BlurbParts {
     t('.'),
   ]
   if (c) parts.push(br)
-  if (c) parts.push(t(' Which was converted from '), ...moneyParts(c.paid.amount, c.paid.currency), t('.'))
+  if (c)
+    parts.push(
+      t(' Which was converted from '),
+      ...moneyParts(c.paid.amount, c.paid.currency),
+      t('.'),
+    )
   return parts
 }
 
 // "2000.00 CAD came into Chequing for Salary." (income / refund)
 function inflowBlurb(n: NarratedTransaction): BlurbParts {
   if (!n.hero) return [t('Money came in.')]
-  const parts: BlurbParts = [...moneyParts(n.hero.amount, n.hero.currency), t(' came into ')]
+  const parts: BlurbParts = [
+    ...moneyParts(n.hero.amount, n.hero.currency),
+    t(' came into '),
+  ]
   parts.push(t(n.source ? accountLabel(n.source) : 'your account'))
   parts.push(t(' for '), t(n.hero.label), t('.'))
   return parts
 }
 
 // The one map. Edit wording/emphasis per archetype here.
-export const blurbTemplates: Record<Archetype, (n: NarratedTransaction) => BlurbParts> = {
+export const blurbTemplates: Record<
+  Archetype,
+  (n: NarratedTransaction) => BlurbParts
+> = {
   direct: directBlurb,
   split: splitBlurb,
   multiCurrency: multiCurrencyBlurb,

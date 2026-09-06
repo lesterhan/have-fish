@@ -2,7 +2,11 @@
   import Card from '$lib/components/ui/Card.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Checkbox from '$lib/components/ui/Checkbox.svelte'
-  import { describeProposal, isValidProposal, type StartingLineProposal } from './bootstrap'
+  import {
+    describeProposal,
+    isValidProposal,
+    type StartingLineProposal,
+  } from './bootstrap'
 
   interface Props {
     proposals: StartingLineProposal[]
@@ -14,7 +18,9 @@
 
   // Only the user's corrections are stored, not a copy of the proposals — so a reloaded
   // payload flows straight through instead of being shadowed by a stale snapshot.
-  let overrides = $state<Record<string, Partial<{ fromDate: string; throughDate: string }>>>({})
+  let overrides = $state<
+    Record<string, Partial<{ fromDate: string; throughDate: string }>>
+  >({})
   let skipped = $state<Set<string>>(new Set())
   let saving = $state(false)
   let error = $state<string | null>(null)
@@ -27,13 +33,22 @@
     }
   }
 
-  function setDate(accountId: string, field: 'fromDate' | 'throughDate', value: string) {
-    overrides = { ...overrides, [accountId]: { ...overrides[accountId], [field]: value } }
+  function setDate(
+    accountId: string,
+    field: 'fromDate' | 'throughDate',
+    value: string,
+  ) {
+    overrides = {
+      ...overrides,
+      [accountId]: { ...overrides[accountId], [field]: value },
+    }
   }
 
   let included = $derived(proposals.filter((p) => !skipped.has(p.accountId)))
   let invalid = $derived(included.filter((p) => !isValidProposal(datesFor(p))))
-  let canAccept = $derived(included.length > 0 && invalid.length === 0 && !saving)
+  let canAccept = $derived(
+    included.length > 0 && invalid.length === 0 && !saving,
+  )
 
   function toggleSkip(accountId: string) {
     const next = new Set(skipped)
@@ -49,7 +64,8 @@
     try {
       await onaccept(included.map((p) => ({ ...p, ...datesFor(p) })))
     } catch (e) {
-      error = e instanceof Error ? e.message : 'Could not save your starting line'
+      error =
+        e instanceof Error ? e.message : 'Could not save your starting line'
     } finally {
       saving = false
     }
@@ -60,9 +76,9 @@
   <div class="section-header">SET YOUR STARTING LINE</div>
   <div class="section-body">
     <p class="lede">
-      The coach needs to know how far along each account already is. Everything you have
-      entered so far is assumed complete — accept this and the coach only ever asks about
-      what comes after.
+      The coach needs to know how far along each account already is. Everything
+      you have entered so far is assumed complete — accept this and the coach
+      only ever asks about what comes after.
     </p>
 
     <div class="rows">
@@ -85,7 +101,12 @@
               <input
                 type="date"
                 value={dates.fromDate}
-                oninput={(e) => setDate(proposal.accountId, 'fromDate', e.currentTarget.value)}
+                oninput={(e) =>
+                  setDate(
+                    proposal.accountId,
+                    'fromDate',
+                    e.currentTarget.value,
+                  )}
                 disabled={isSkipped}
                 aria-label="Covered from, {proposal.path}"
               />
@@ -95,7 +116,12 @@
               <input
                 type="date"
                 value={dates.throughDate}
-                oninput={(e) => setDate(proposal.accountId, 'throughDate', e.currentTarget.value)}
+                oninput={(e) =>
+                  setDate(
+                    proposal.accountId,
+                    'throughDate',
+                    e.currentTarget.value,
+                  )}
                 disabled={isSkipped}
                 aria-label="Covered through, {proposal.path}"
               />
@@ -123,7 +149,9 @@
       <GradientButton size="lg" onclick={accept} disabled={!canAccept}>
         {saving ? 'Saving…' : `Accept all (${included.length})`}
       </GradientButton>
-      <span class="hint">You can undo any of this later from the account page.</span>
+      <span class="hint"
+        >You can undo any of this later from the account page.</span
+      >
     </div>
   </div>
 </Card>
@@ -137,7 +165,8 @@
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px) 0 0;
+    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px)
+      0 0;
   }
 
   .section-body {
@@ -213,7 +242,7 @@
   }
 
   input[type='date']:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -1px;
   }
 

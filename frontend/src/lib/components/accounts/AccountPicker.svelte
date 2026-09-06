@@ -124,7 +124,11 @@
     const norm = query.trim()
     const exact = accounts.some((a) => a.path === norm)
     const showCreate =
-      !searchOnly && allowCreate && norm.length > 0 && !exact && /[a-z]/i.test(norm)
+      !searchOnly &&
+      allowCreate &&
+      norm.length > 0 &&
+      !exact &&
+      /[a-z]/i.test(norm)
     if (showCreate) rows.push({ kind: 'create', path: norm })
     return rows
   })
@@ -225,7 +229,9 @@
         oncommit?.(value)
       } catch (e) {
         // A refused create used to leave `value` undefined and the box looking committed.
-        toast.show(e instanceof Error ? e.message : 'Could not create that account')
+        toast.show(
+          e instanceof Error ? e.message : 'Could not create that account',
+        )
       } finally {
         creating = false
       }
@@ -510,8 +516,8 @@
     z-index: 51;
   }
   .picker:focus-visible .dbox {
-    border-color: var(--color-accent-mid);
-    box-shadow: 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow: 0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .dbox {
@@ -568,7 +574,7 @@
   .crumb.editing {
     color: var(--color-accent-chip-fg);
     background: var(--color-accent-chip-bg);
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
     font-weight: 600;
   }
   .crumb.deeper {
@@ -633,13 +639,13 @@
   }
   .searchbtn:hover {
     color: var(--color-accent);
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
     background: var(--color-window-inset);
   }
   .searchbtn.on {
     color: var(--color-accent-chip-fg);
     background: var(--color-accent-chip-bg);
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
   }
 
   /* Dropdown */
@@ -710,7 +716,7 @@
     font-size: 13px;
   }
   .chev.dot {
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
   .row.on .chev,
   .row.on .chev.dot {
@@ -724,7 +730,7 @@
     letter-spacing: 0.5px;
     color: var(--color-accent);
     background: var(--color-window-inset);
-    border: 1px solid var(--color-accent-mid);
+    border: 1px solid var(--color-accent-hi);
     border-radius: var(--radius-sm);
     padding: 0 3px;
   }

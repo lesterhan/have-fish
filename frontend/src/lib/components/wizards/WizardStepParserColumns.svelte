@@ -50,7 +50,9 @@
 
   <label for="map-sign-column" class="toggle-label">
     Direction column
-    <TooltipIcon label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT." />
+    <TooltipIcon
+      label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT."
+    />
   </label>
   <select id="map-sign-column" bind:value={mappingSignColumn}>
     <option value="">— not mapped —</option>

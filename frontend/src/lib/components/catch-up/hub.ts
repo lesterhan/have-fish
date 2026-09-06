@@ -104,7 +104,10 @@ export function progressLabel(current: number, tracked: number): string {
 // permanently quiet account nags forever, which is the thing this feature must not do. So the
 // panel says what is actually true: nothing active is waiting, and the quiet ones are parked
 // below rather than finished.
-export function donePanelCopy(groups: HubGroups): { headline: string; note: string } {
+export function donePanelCopy(groups: HubGroups): {
+  headline: string
+  note: string
+} {
   const parked = groups.dormant.filter((a) => a.gap !== null).length
 
   if (parked === 0) {
@@ -116,9 +119,10 @@ export function donePanelCopy(groups: HubGroups): { headline: string; note: stri
 
   return {
     headline: 'Nothing active to catch up.',
-    note: parked === 1
-      ? '1 quiet account is still uncovered, waiting below whenever you want it.'
-      : `${parked} quiet accounts are still uncovered, waiting below whenever you want them.`,
+    note:
+      parked === 1
+        ? '1 quiet account is still uncovered, waiting below whenever you want it.'
+        : `${parked} quiet accounts are still uncovered, waiting below whenever you want them.`,
   }
 }
 
@@ -130,7 +134,10 @@ export function donePanelCopy(groups: HubGroups): { headline: string; note: stri
 // the right place: a successful import removes that account from the queue entirely, so an
 // index would silently point at whatever slid into the slot. By id, a finished account falls
 // through to the next one and an unfinished one is still there waiting.
-export function resolveFocus(queue: CatchUpAccount[], rememberedId: string | null): number {
+export function resolveFocus(
+  queue: CatchUpAccount[],
+  rememberedId: string | null,
+): number {
   if (queue.length === 0) return -1
   if (!rememberedId) return 0
   const index = queue.findIndex((a) => a.accountId === rememberedId)
@@ -146,7 +153,10 @@ export function focusPosition(index: number, total: number): string {
 // rather than at today — asking a bank for days it has not published yet is asking for a file
 // that cannot exist.
 export function importHref(account: CatchUpAccount): string {
-  const params = new URLSearchParams({ account: account.accountId, return: 'catch-up' })
+  const params = new URLSearchParams({
+    account: account.accountId,
+    return: 'catch-up',
+  })
   if (account.gap) {
     params.set('from', account.gap.from)
     params.set('to', account.gap.through)

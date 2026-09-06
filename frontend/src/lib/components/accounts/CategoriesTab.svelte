@@ -700,7 +700,7 @@
   }
 
   .disclosure:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
   }
 
   .leaf-dot {

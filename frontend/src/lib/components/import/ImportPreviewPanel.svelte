@@ -70,7 +70,9 @@
   let visibleIndices = $derived(
     preview.transactions
       .map((_, i) => i)
-      .filter((i) => rowStates[i] && matchesFilter(rowStatus(rowStates[i]), filter)),
+      .filter(
+        (i) => rowStates[i] && matchesFilter(rowStatus(rowStates[i]), filter),
+      ),
   )
 
   let dayStarts = $derived(dayBoundaries(preview.transactions, visibleIndices))
@@ -123,8 +125,10 @@
   let confirmDisabled = $derived(loading || rowStates.every((r) => r.skipped))
 
   let unfinished = $derived(
-    rowStates.filter((row, i) => !row.skipped && rowMissingAccounts(preview.transactions[i], row))
-      .length,
+    rowStates.filter(
+      (row, i) =>
+        !row.skipped && rowMissingAccounts(preview.transactions[i], row),
+    ).length,
   )
 </script>
 
@@ -154,8 +158,9 @@
     {#if unmappedCurrencies.length > 0}
       <div class="unmapped-notice">
         Flipping a row to convert-and-park needs an account for
-        {#each unmappedCurrencies as c, i}<code>{c}</code>{#if i < unmappedCurrencies.length - 1}, {/if}{/each}.
-        Go back to the Accounts step to map
+        {#each unmappedCurrencies as c, i}<code>{c}</code
+          >{#if i < unmappedCurrencies.length - 1},
+          {/if}{/each}. Go back to the Accounts step to map
         {unmappedCurrencies.length === 1 ? 'it' : 'them'}.
       </div>
     {/if}
@@ -168,7 +173,8 @@
       </span>
       <div class="bar-actions">
         {#if unfinished > 0}
-          <span class="unfinished-hint">{unfinished} still need an account</span>
+          <span class="unfinished-hint">{unfinished} still need an account</span
+          >
         {/if}
         <GradientButton onclick={oncancel}>Cancel</GradientButton>
         <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
@@ -325,10 +331,6 @@
     flex-direction: column;
   }
 
-
-
-
-
   .parse-errors {
     font-size: var(--text-sm);
     color: var(--color-danger);
@@ -347,10 +349,6 @@
     margin: 0;
     padding-left: var(--sp-md);
   }
-
-
-
-
 
   .liability-bar {
     display: flex;
@@ -416,7 +414,7 @@
   }
 
   .chip:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 1px;
   }
 
@@ -579,7 +577,7 @@
   }
 
   :global(.table-container tbody tr:hover td) {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   /* Description is a reference cue, not the focus — clip overflow to keep column width

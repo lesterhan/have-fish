@@ -63,9 +63,11 @@
     <h2>Where does this money live?</h2>
     <p>
       {#if isMultiCurrency}
-        This file holds {currencies.length} currenc{currencies.length === 1 ? 'y' : 'ies'}.
-        Each needs an account. The suggestion follows your account naming, but you can point
-        a currency anywhere — including at an account that doesn't match the pattern.
+        This file holds {currencies.length} currenc{currencies.length === 1
+          ? 'y'
+          : 'ies'}. Each needs an account. The suggestion follows your account
+        naming, but you can point a currency anywhere — including at an account
+        that doesn't match the pattern.
       {:else}
         Every row in this file posts to one account.
       {/if}
@@ -77,12 +79,15 @@
       {#each currencies as currency (currency)}
         <div class="row" class:unmapped={!currencyAccounts[currency]}>
           <span class="currency">{currency}</span>
-          <span class="arrow" aria-hidden="true"><Icon name="arrow-right" size={11} /></span>
+          <span class="arrow" aria-hidden="true"
+            ><Icon name="arrow-right" size={11} /></span
+          >
           <div class="picker">
             <AccountPicker
               {accounts}
               bind:value={currencyAccounts[currency]}
-              placeholder={suggestedPathForCurrency(rootPath, currency) || 'Select or create…'}
+              placeholder={suggestedPathForCurrency(rootPath, currency) ||
+                'Select or create…'}
               createCurrency={currency}
               oncreate={onaccountcreated}
             />
@@ -101,7 +106,9 @@
     {:else}
       <div class="row" class:unmapped={!fromAccountId}>
         <span class="currency">Account</span>
-        <span class="arrow" aria-hidden="true"><Icon name="arrow-right" size={11} /></span>
+        <span class="arrow" aria-hidden="true"
+          ><Icon name="arrow-right" size={11} /></span
+        >
         <div class="picker">
           <AccountPicker
             {accounts}
@@ -119,7 +126,12 @@
 
   <div class="actions">
     <GradientButton onclick={onback}>Back</GradientButton>
-    <GradientButton size="lg" active disabled={unmapped.length > 0} onclick={oncontinue}>
+    <GradientButton
+      size="lg"
+      active
+      disabled={unmapped.length > 0}
+      onclick={oncontinue}
+    >
       {unmapped.length > 0
         ? `${unmapped.length} still to map`
         : 'Continue to review'}
