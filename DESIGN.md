@@ -411,8 +411,7 @@ contrast and ladder invariants against the token file itself, because a fill and
 only meet each other in the compositor and no component test can catch that. When you add a
 token pair that must stay distinguishable, add the assertion with it.
 `frontend/src/styles/no-raw-colour.test.ts` enforces the other half: no `.svelte`, `.css` or
-`.ts` file outside the two declared colour sources may hold a hex, a hued `rgb()`, or a named
-colour. Translucent neutrals (`rgba(0, 0, 0, 0.08)`) and `color-mix(…, black)` stay legal —
+`.ts` file outside `tokens.css` may hold a hex, a hued `rgb()`, or a named colour. Translucent neutrals (`rgba(0, 0, 0, 0.08)`) and `color-mix(…, black)` stay legal —
 they shade whatever is beneath them rather than declaring a colour, which is the one thing a
 flat token cannot express.
 
@@ -420,6 +419,12 @@ flat token cannot express.
 Anything you build must survive all twelve combinations. Never assume the accent is blue,
 never assume the background is light. If it only looks right in one theme, it isn't
 finished.
+
+An accent is **a hue and a chroma, not a palette**. Every value it produces — the fill, the
+highlight, the chip pair, the bar track, the text that goes on top of it — is that hue placed
+on a fixed rung, derived by `$lib/oklch`. Do not hand-pick a new accent value; add the hue and
+let it land where the rungs put it. Hand-picking is what produced the old spread, where the
+same choice measured 2.64:1 in one theme and 9.52:1 in the other.
 
 ---
 
@@ -628,10 +633,10 @@ it fixed are struck; the rest are still open, with the story that owns each.
   positive's 6.13:1. It fails the 4.5 floor §8 sets, on the app's most important datum, and the
   two halves of it are not equally legible.~~ Fixed: 5.41 against 6.62 in dark, 5.40 against
   5.01 in light, with an assertion holding the pair within 1.5x of each other in each theme.
-- **Four of six accents fail 4.5:1 in light.** Ochre is 2.64:1 light and 9.52:1 dark. Accent is
-  the one rung a user can move, and nothing constrains where they move it to. → story 2. Until
-  it lands the accents are still the old values, so on a warm-graphite page the saturated blue
-  of the default reads as the loudest thing on several screens.
+- ~~**Four of six accents fail 4.5:1 in light.** Ochre is 2.64:1 light and 9.52:1 dark. Accent
+  is the one rung a user can move, and nothing constrains where they move it to.~~ Fixed: an
+  accent is now a hue and a chroma, and every value it produces is that hue on a fixed rung.
+  All twelve land between 4.6:1 and 5.6:1, and `accent.test.ts` holds the spread under 1.3x.
 - ~~**Light is Aqua and dark is Nord.** A 2016 editor theme with its own opinions. There was no
   dark Mac OS X in 2003, so the dark theme had no period referent and borrowed one — which is
   why §5's aesthetic paragraph only ever describes the light one.~~ Fixed: both themes are now

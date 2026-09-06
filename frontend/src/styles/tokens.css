@@ -136,18 +136,22 @@
   --color-text-muted: #615d54; /*  5.83:1 */
   --color-text-disabled: #6e6a60; /*  4.79:1 — still readable; disabled is not invisible */
 
-  /* --- Accent (default: Aqua — overridden at runtime by accent.ts) --- */
+  /* --- Accent (default: Aqua) ---
+     A pre-hydration fallback only. accent.ts derives all six accents from a hue and a chroma
+     and writes the chosen one onto these same variables at runtime, so these values have to
+     equal ACCENTS.aqua.light — accent.test.ts asserts that, because a mismatch shows up as a
+     flash of the wrong blue on first paint and nowhere else. */
   --color-accent: #2d6ca8;
   --color-accent-hi: #5290cf; /* highlight / icon tint */
   --color-accent-chip-bg: #d8e8fa; /* accent chip background */
-  --color-accent-chip-fg: #134a7b; /* accent chip text */
+  --color-accent-chip-fg: #124a7b; /* accent chip text */
   --color-accent-bar-track: #d7e3f0; /* block-bar unfilled track */
   --color-titlebar-accent: linear-gradient(
     180deg,
     #5290cf,
     #2d6ca8
   ); /* title bar pill */
-  --color-accent-fg: #ffffff; /* the ONLY text-on-accent token — flipped to dark in dark mode by accent.ts */
+  --color-accent-fg: #fcfeff; /* the ONLY text-on-accent token — near-black in dark */
   --color-dropdown-active: #2d6ca8;
 
   /* --- Borders --- */
@@ -299,14 +303,15 @@
   --color-text-muted: #a9a49a; /*  5.77:1 */
   --color-text-disabled: #989389; /*  4.69:1 */
 
-  /* --- Accent (runtime accent vars overridden by accent.ts) --- */
-  --color-accent: #64a2e0;
-  --color-accent-hi: #8cc3fc;
-  --color-accent-chip-bg: #243446;
-  --color-accent-chip-fg: #8bbcef;
-  --color-accent-bar-track: #2d3946;
-  --color-titlebar-accent: linear-gradient(180deg, #8cc3fc, #64a2e0);
-  --color-dropdown-active: #64a2e0;
+  /* --- Accent (pre-hydration fallback; see the light block) --- */
+  --color-accent: #62a2e1;
+  --color-accent-hi: #89c3ff;
+  --color-accent-chip-bg: #273442;
+  --color-accent-chip-fg: #85bcf5;
+  --color-accent-bar-track: #303943;
+  --color-titlebar-accent: linear-gradient(180deg, #89c3ff, #62a2e1);
+  --color-accent-fg: #0e1216;
+  --color-dropdown-active: #62a2e1;
 
   /* --- Borders --- */
   --color-border: #4b473f;

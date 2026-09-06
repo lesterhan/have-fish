@@ -31,6 +31,8 @@ import { describe, it, expect } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
+import { contrastRatio, deltaL, hexToOklch, luminance } from '$lib/oklch'
+
 const TOKENS = readFileSync(
   fileURLToPath(new URL('./tokens.css', import.meta.url)),
   'utf8',
@@ -78,87 +80,10 @@ function token(theme: Map<string, string>, name: string): string {
 
 // --- contrast ------------------------------------------------------------------------------
 
-function parseHex(hex: string): [number, number, number] {
-  const match = /^#([0-9a-f]{6})$/i.exec(hex.trim())
-  if (!match) throw new Error(`expected a 6-digit hex colour, got "${hex}"`)
-  const n = Number.parseInt(match[1]!, 16)
-  return [(n >> 16) & 0xff, (n >> 8) & 0xff, n & 0xff]
-}
-
-/** WCAG relative luminance. */
-export function luminance(hex: string): number {
-  const [r, g, b] = parseHex(hex).map((channel) => {
-    const c = channel / 255
-    return c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  }) as [number, number, number]
-  return 0.2126 * r + 0.7152 * g + 0.0722 * b
-}
-
-/**
- * OKLCH lightness. Perceptual, unlike WCAG luminance: a fixed step in L looks like the same
- * step at either end of the ramp, which is exactly the property a surface ladder needs and
- * the one a contrast ratio does not have.
- */
-export function lightness(hex: string): number {
-  const [r, g, b] = parseHex(hex).map((channel) => {
-    const c = channel / 255
-    return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4
-  }) as [number, number, number]
-
-  const l = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
-  const m = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
-  const s = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
-
-  return 0.2104542553 * l + 0.793617785 * m - 0.0040720468 * s
-}
-
-/** How far apart two surfaces sit on the ladder. */
-export function deltaL(a: string, b: string): number {
-  return Math.abs(lightness(a) - lightness(b))
-}
-
-export function contrastRatio(a: string, b: string): number {
-  const [hi, lo] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [
-    number,
-    number,
-  ]
-  return (hi + 0.05) / (lo + 0.05)
-}
-
-describe('the contrast helpers themselves', () => {
-  it('agrees with the two ratios everyone knows by heart', () => {
-    expect(contrastRatio('#ffffff', '#000000')).toBeCloseTo(21, 1)
-    expect(contrastRatio('#ffffff', '#ffffff')).toBeCloseTo(1, 5)
-  })
-
-  it('does not care which way round the pair is given', () => {
-    expect(contrastRatio('#232731', '#6a7791')).toBeCloseTo(
-      contrastRatio('#6a7791', '#232731'),
-      10,
-    )
-  })
-
-  it('puts OKLCH lightness on the 0-1 scale everyone quotes it on', () => {
-    expect(lightness('#000000')).toBeCloseTo(0, 3)
-    expect(lightness('#ffffff')).toBeCloseTo(1, 3)
-  })
-
-  it('shows why a ratio cannot be the unit of a surface ladder', () => {
-    // A contrast ratio is a nonlinear function of a *pair*, so the same ratio target buys a
-    // different-sized perceptual step depending on where on the ramp you spend it. Asking for
-    // 1.20:1 between two surfaces means ΔL 0.042 in the mid-tones and ΔL 0.072 near black —
-    // the dark end silently gets a step 1.7x shallower than the one you specified, which is
-    // how a dark theme flattens while every value in it still "passes".
-    // Both pairs measure 1.20:1. They are not the same step.
-    const midTones = ['#4b473f', '#56534a'] as const
-    const nearBlack = ['#19160f', '#2a261f'] as const
-
-    expect(contrastRatio(...midTones)).toBeCloseTo(1.2, 2)
-    expect(contrastRatio(...nearBlack)).toBeCloseTo(1.2, 2)
-
-    expect(deltaL(...nearBlack) / deltaL(...midTones)).toBeGreaterThan(1.5)
-  })
-})
+// The maths lives in `$lib/oklch` and is tested there; this file is about the values in
+// `tokens.css`. `lightness` is the OKLCH coordinate — perceptually uniform, the unit surfaces
+// step in. `contrastRatio` is WCAG, the unit ink steps in. See DESIGN.md §5 for why the two.
+const lightness = (hex: string) => hexToOklch(hex).l
 
 describe('the coverage strip reads as a picture in both themes', () => {
   // The trough is the uncovered state: an uncovered day is transparent, so what shows through
