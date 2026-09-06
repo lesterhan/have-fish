@@ -31,7 +31,9 @@ import { describe, it, expect } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
-import { contrastRatio, deltaL, hexToOklch, luminance } from '$lib/oklch'
+// Relative, not `$lib`: CI has no .svelte-kit to resolve the alias from. lib-imports.test.ts
+// guards this, and did not catch it, because it only looked at src/lib.
+import { contrastRatio, deltaL, hexToOklch, luminance } from '../lib/oklch'
 
 const TOKENS = readFileSync(
   fileURLToPath(new URL('./tokens.css', import.meta.url)),

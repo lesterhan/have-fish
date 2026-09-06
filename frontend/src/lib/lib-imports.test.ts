@@ -20,10 +20,19 @@ import { join } from 'node:path'
  * which is why `import type { Account } from '$lib/api'` is all over these modules and
  * has never broken. Type-position `import('$lib/x').Thing` expressions are erased too.
  *
- * .svelte files are unaffected: Vite resolves their aliases and bun never loads them.
+ * .svelte files are unaffected: Vite resolves their aliases and bun never loads them. So are
+ * SvelteKit's own route modules — `+page.ts`, `+layout.server.ts`, `+server.ts`, `hooks.*.ts`
+ * — for the same reason and by the same test: nothing bun runs ever imports them.
+ *
+ * This scans every other .ts file under src/. It used to scan only src/lib, and the first
+ * import to break CI after it was written was in src/styles: the rule was never about which
+ * directory a file lives in, only about who resolves the import.
  */
 
-const LIB_DIR = import.meta.dir
+const SRC_DIR = join(import.meta.dir, '..')
+
+/** Loaded by Vite, never by bun — the same exemption `.svelte` files get. */
+const VITE_LOADED = /^(\+(page|layout|server)[\w.]*|hooks(\.\w+)?|app\.d)\.ts$/
 const SELF = 'lib-imports.test.ts'
 
 function tsFilesUnder(dir: string): string[] {
@@ -31,7 +40,12 @@ function tsFilesUnder(dir: string): string[] {
   for (const entry of readdirSync(dir)) {
     const full = join(dir, entry)
     if (statSync(full).isDirectory()) out.push(...tsFilesUnder(full))
-    else if (entry.endsWith('.ts') && entry !== SELF) out.push(full)
+    else if (
+      entry.endsWith('.ts') &&
+      entry !== SELF &&
+      !VITE_LOADED.test(entry)
+    )
+      out.push(full)
   }
   return out
 }
@@ -56,7 +70,7 @@ function offendersIn(source: string): string[] {
 describe('$lib imports in testable modules', () => {
   it('never value-imports through $lib — CI has no .svelte-kit to resolve it', () => {
     const offenders: string[] = []
-    for (const file of tsFilesUnder(LIB_DIR)) {
+    for (const file of tsFilesUnder(SRC_DIR)) {
       const rel = file.slice(file.indexOf('src/'))
       for (const hit of offendersIn(readFileSync(file, 'utf8'))) {
         offenders.push(`${rel}: ${hit}`)
@@ -92,6 +106,32 @@ describe('$lib imports in testable modules', () => {
     expect(
       offendersIn(`  accentColor?: import('$lib/accent').AccentKey`),
     ).toEqual([])
+  })
+
+  it('exempts the files Vite loads and bun does not', () => {
+    // The exemption has to be tight: a plain helper in src/routes is bun's to resolve like
+    // any other module, and only SvelteKit's own conventional filenames are Vite's.
+    for (const name of [
+      '+page.ts',
+      '+page.server.ts',
+      '+layout.ts',
+      '+layout.server.ts',
+      '+server.ts',
+      'hooks.client.ts',
+      'app.d.ts',
+    ]) {
+      expect(VITE_LOADED.test(name)).toBe(true)
+    }
+
+    for (const name of [
+      'accent.ts',
+      'oklch.ts',
+      'pageHelpers.ts',
+      'server.ts',
+      'layout.ts',
+    ]) {
+      expect(VITE_LOADED.test(name)).toBe(false)
+    }
   })
 
   it('does not let one statement reach the next statement’s specifier', () => {
