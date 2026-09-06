@@ -94,14 +94,48 @@ with each accent's own hue preserved — all twelve land in 4.65–5.47:
   money leads and the cleared state reads as the win condition §4 asks for.
 - **One table, one column geometry** across all groups, replacing a `<table>` per group.
 
+## Stress test — two pages the system was not designed against
+
+A 24-row account ledger and the Spending page, both themes. Three things had to change; none of
+them touched the ladder, which is the result that matters.
+
+**Sign colour does not scale.** On Accounts one or two rows are negative. On a ledger nearly all
+of them are, and twenty-two red numbers reads as twenty-two errors rather than as ordinary
+spending. Rule: in a list where one sign dominates, the dominant sign renders in primary ink and
+the minus carries it, and colour is spent on the minority sign — the row you were looking for. A
+liability balance is not an error either, and stops being red on that ground alone.
+
+**The accent was doing chart duty.** `SpendingBreakdown` fills every block bar with
+`--color-accent`. A token that means "the one live thing" cannot fill nine bars at once, and it
+changes colour per user. Magnitude marks move to `--color-bar-ink` — `#66635a` light, `#9c988f`
+dark, both ≥3:1 against `--color-rule` as the trough, which is the contract that actually
+matters for a bar — and accent is reserved for the category you drilled into.
+
+**Zebra striping is redundant.** Row hairlines already separate at ΔL .115, so the stripe was a
+second answer to a solved question. This pass's named deletion, per §7.
+
+Two smaller things generalised for free: the band rung took a second meaning (a day's run of
+transactions, carrying that day's net) using the same component as a group header, and
+`--color-coverage-hatch` turned out to be the right ink for any incomplete magnitude mark, not
+just the coverage strip — it wants renaming to `--color-incomplete`.
+
+One boundary found and deliberately not crossed: there is no answer here for a multi-series
+categorical chart, because the app has none. §10 records that the monthly spend series does not
+exist. A categorical ramp cannot be derived from this ladder and must not reuse the status
+colours or the accent; inventing one now would be inventing a palette for a chart nobody has
+built.
+
 ## Still open
 
-- Which grey family. Warm graphite ships in the boards; instrument grey and slate violet are
-  drawn beside it.
-- Whether the constrained accents still read as the six colours they name — persimmon and ochre
-  moved furthest.
 - Whether leading the Accounts page with the chore count is right on an ordinary day, or only
   defensible because the caught-up state is its payoff.
+- The mobile companion has its own theme and no access to `tokens.css`. §8 requires the
+  vocabulary to move with it in the same epic.
+
+## Decided since
+
+Warm graphite, and the constrained accents. The specification lives in
+`planning/epics/visual-language.md` — this file is the evidence behind it.
 
 ## Boards
 

@@ -1,0 +1,237 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:wght@600&display=swap');
+    body { margin: 0; }
+    a { color: var(--acc); }
+    .app {
+      --desk:#100d07; --case-hi:#504d45; --case-lo:#3b3730; --case-edge:#24211b;
+      --case-fg:#ece7dc; --case-fg-2:#b3aea4;
+      --sidebar:#302d26; --sidebar-edge:#221f19;
+      --well:#211e16; --panel:#2d2a22; --band:#3f3b33; --band-fg:#ece7dc; --band-fg-2:#bcb7ad;
+      --rule:#4b473f; --rule-soft:#38352d; --inset:#191710;
+      --text:#ece7dc; --muted:#a9a49a; --faint:#989389;
+      --pos:#6ec283; --neg:#f47b74; --warn:#dfa651; --acc:#58b6ea; --acc-dim:#3f8fb8;
+      --bar-ink:#9c988f; --hatch:#6a6459;
+      --ctl-hi:#4a4740; --ctl-lo:#38352e; --ctl-edge:#1f1c16; --gloss:rgba(255,255,255,.10);
+      --nav-hi:#33404a; --nav-lo:#28333b; --nav-fg:#dbecf7; --nav-ring:rgba(88,182,234,.30);
+      --pill-bg:#3a362d; --pill-fg:#c8c2b4;
+      --flag-bg:#3a3120; --flag-fg:#dfa651; --flag-edge:#55482c;
+      width:1440px; height:980px; box-sizing:border-box; background:var(--desk);
+      font-family:'Lucida Grande','Segoe UI',system-ui,sans-serif; font-size:13px; color:var(--text);
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+    .mono { font-family:'JetBrains Mono',Consolas,monospace; font-variant-numeric:tabular-nums; }
+    .titlebar { height:28px; flex-shrink:0; display:flex; align-items:center; padding:0 8px; gap:8px;
+      background:linear-gradient(180deg,var(--case-hi),var(--case-lo)); border-bottom:1px solid var(--case-edge); box-shadow:inset 0 1px 0 rgba(255,255,255,.13); }
+    .appmark { width:11px; height:11px; border-radius:50%; background:radial-gradient(circle at 35% 30%,#8ee0a4,#3f9a5c); }
+    .titlebar .name { font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:13px; color:var(--case-fg); }
+    .cbtns { margin-left:auto; display:flex; gap:6px; }
+    .cbtn { width:15px; height:15px; border-radius:3px; background:linear-gradient(180deg,var(--ctl-hi),var(--ctl-lo)); border:1px solid var(--ctl-edge);
+            display:flex; align-items:center; justify-content:center; color:var(--case-fg-2); box-shadow:inset 0 1px 0 rgba(255,255,255,.13); }
+    .body { flex:1; display:flex; min-height:0; }
+    .side { width:232px; flex-shrink:0; background:var(--sidebar); border-right:1px solid var(--sidebar-edge); display:flex; flex-direction:column; padding:8px 0; }
+    .nav { display:flex; flex-direction:column; gap:1px; padding:0 8px; }
+    .ni { display:flex; align-items:center; gap:10px; padding:7px 9px; border-radius:5px; color:var(--muted); font-size:13px; }
+    .ni.on { background:linear-gradient(180deg,var(--nav-hi),var(--nav-lo)); color:var(--nav-fg); box-shadow:inset 0 1px 0 var(--gloss), inset 0 0 0 1px var(--nav-ring); }
+    .ni.on svg { color:var(--acc); }
+    .ni .badge { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--warn); }
+    .side-h { padding:12px 17px 5px; font-size:10px; letter-spacing:.11em; text-transform:uppercase; color:var(--faint); }
+    .recent { display:flex; flex-direction:column; padding:0 8px; }
+    .recent a { padding:5px 9px; font-size:12.5px; text-decoration:none; color:var(--muted); }
+    .side-foot { margin-top:auto; padding:0 8px; display:flex; flex-direction:column; gap:1px; }
+    .side-foot .ni { font-size:12.5px; }
+
+    .content { flex:1; min-width:0; background:var(--well); display:flex; min-height:0; }
+    .left { flex:1; min-width:0; display:flex; flex-direction:column; padding:14px 16px 0 20px; gap:12px; }
+    .right { width:396px; flex-shrink:0; display:flex; flex-direction:column; padding:14px 20px 0 4px; gap:9px; }
+
+    .monthbar { display:flex; align-items:center; gap:10px; }
+    .mnav { display:flex; }
+    .mnav span { width:24px; height:22px; display:flex; align-items:center; justify-content:center; color:var(--muted);
+                 background:linear-gradient(180deg,var(--ctl-hi),var(--ctl-lo)); border:1px solid var(--ctl-edge); box-shadow:inset 0 1px 0 var(--gloss); }
+    .mnav span:first-child { border-radius:5px 0 0 5px; border-right:0; } .mnav span:last-child { border-radius:0 5px 5px 0; }
+    h1 { font-family:'Source Serif 4',Georgia,serif; font-size:19px; font-weight:600; margin:0; }
+    .mchip { font-size:10.5px; color:var(--faint); border:1px solid var(--rule); border-radius:3px; padding:1px 6px; }
+    .mspacer { margin-left:auto; display:flex; gap:8px; }
+    .ctl { display:flex; align-items:center; gap:6px; padding:5px 10px; border-radius:5px; font-size:12.5px; color:var(--text);
+           background:linear-gradient(180deg,var(--ctl-hi),var(--ctl-lo)); border:1px solid var(--ctl-edge); box-shadow:0 1px 2px rgba(0,0,0,.4), inset 0 1px 0 var(--gloss); }
+    .ctl .k { color:var(--faint); }
+
+    .figs { display:flex; align-items:flex-end; gap:34px; }
+    .lead .lbl { font-size:10.5px; letter-spacing:.10em; text-transform:uppercase; color:var(--muted); display:block; }
+    .lead .fig { font-size:34px; font-weight:500; line-height:1.05; letter-spacing:-.015em; display:block; }
+    .lead .cur { font-size:14px; color:var(--muted); font-weight:400; }
+    .lead .sub { font-size:11px; color:var(--faint); display:block; margin-top:3px; }
+    .cmp { padding-bottom:4px; }
+    .cmp .lbl { font-size:10px; letter-spacing:.10em; text-transform:uppercase; color:var(--faint); display:block; }
+    .cmp .fig { font-size:17px; font-weight:500; display:block; margin-top:2px; }
+    .cmp .fig.up { color:var(--neg); } .cmp .fig.down { color:var(--pos); }
+    .cmp .sub { font-size:10.5px; color:var(--faint); display:block; }
+    /* a comparison that cannot be drawn says why, in the space it would have occupied */
+    .cmp.blocked { border-left:0; }
+    .cmp.blocked .fig { font-size:13px; color:var(--faint); font-weight:400; font-style:italic;
+                        border-bottom:1px dashed var(--rule); padding-bottom:3px; display:inline-block; }
+    .cmp.blocked .sub { max-width:184px; line-height:1.35; margin-top:4px; }
+
+    .bsec { flex:1; min-height:0; display:flex; flex-direction:column; background:var(--panel);
+            border:1px solid var(--ctl-edge); border-radius:7px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.45), inset 0 1px 0 var(--gloss); }
+    .bbar { display:flex; align-items:center; gap:9px; padding:6px 12px; background:var(--band); color:var(--band-fg);
+            border-bottom:1px solid var(--case-edge); font-size:12.5px; }
+    .bbar .t { font-weight:700; }
+    .crumb { display:flex; align-items:center; gap:5px; color:var(--band-fg-2); font-family:'JetBrains Mono',monospace; font-size:11px; }
+    .crumb .on { color:var(--band-fg); }
+    .ctabs { margin-left:auto; display:flex; gap:2px; }
+    .ctab { font-family:'JetBrains Mono',monospace; font-size:10.5px; padding:2px 7px; border-radius:3px; color:var(--band-fg-2); }
+    .ctab.on { background:var(--panel); color:var(--text); box-shadow:inset 0 0 0 1px var(--rule); }
+
+    .brow { display:grid; grid-template-columns:minmax(0,1fr) 208px 132px 56px; align-items:center; padding:0 12px; height:33px;
+            border-bottom:1px solid var(--rule-soft); font-size:12.5px; }
+    .bhead { height:auto; padding:6px 12px; font-size:10px; letter-spacing:.09em; text-transform:uppercase; color:var(--faint);
+             background:var(--rule-soft); border-bottom:1px solid var(--rule); }
+    .bhead .r { text-align:right; }
+    .cat { display:flex; align-items:baseline; gap:8px; }
+    .cat .dr { color:var(--acc); }
+    .cat .kid { font-size:10.5px; color:var(--faint); }
+    .bar { font-family:'JetBrains Mono',monospace; font-size:11px; letter-spacing:-1px; white-space:nowrap; }
+    .bar .fill { color:var(--bar-ink); } .bar .trough { color:var(--rule); }
+    .bar.sel .fill { color:var(--acc); }
+    .bar .hz { color:var(--hatch); }
+    .amt { text-align:right; font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; }
+    .amt .u { font-size:9.5px; color:var(--faint); font-weight:400; margin-right:3px; }
+    .pct { text-align:right; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--faint); }
+    .btot { display:grid; grid-template-columns:minmax(0,1fr) 208px 132px 56px; align-items:center; padding:0 12px; height:34px;
+            border-top:1px solid var(--rule); font-size:12.5px; background:var(--rule-soft); }
+    .floor { font-size:10.5px; color:var(--faint); font-style:italic; }
+
+    .tpanel { flex:1; min-height:0; display:flex; flex-direction:column; background:var(--panel);
+              border:1px solid var(--ctl-edge); border-radius:7px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,.45), inset 0 1px 0 var(--gloss); }
+    .thead { display:flex; align-items:center; gap:8px; padding:6px 12px; background:var(--band); color:var(--band-fg);
+             border-bottom:1px solid var(--case-edge); font-size:12.5px; }
+    .thead .t { font-weight:700; } .thead .c { color:var(--band-fg-2); font-family:'JetBrains Mono',monospace; font-size:10.5px; }
+    .thead .all { margin-left:auto; font-size:11px; color:var(--band-fg-2); }
+    .tfilt { display:flex; align-items:center; gap:6px; padding:6px 12px; border-bottom:1px solid var(--rule); background:var(--rule-soft); }
+    .tfilt .lb { font-size:9.5px; letter-spacing:.10em; text-transform:uppercase; color:var(--faint); }
+    .chip { font-size:10.5px; padding:2px 8px; border-radius:999px; color:var(--muted); border:1px solid var(--rule); }
+    .chip.on { background:var(--nav-lo); color:var(--nav-fg); border-color:var(--nav-ring); }
+    .trow { display:grid; grid-template-columns:52px minmax(0,1fr) 96px; align-items:center; padding:0 12px; height:33px;
+            border-bottom:1px solid var(--rule-soft); font-size:12.5px; }
+    .trow .d { font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--faint); }
+    .trow .p { min-width:0; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    .trow .p i { font-style:normal; font-family:'JetBrains Mono',monospace; font-size:10px; color:var(--faint); display:block; }
+    .trow .a { text-align:right; font-family:'JetBrains Mono',monospace; }
+    .status { height:30px; flex-shrink:0; display:flex; align-items:center; gap:9px; padding:0 12px;
+              background:linear-gradient(180deg,var(--case-lo),var(--sidebar)); border-top:1px solid var(--case-hi); font-size:12px; color:var(--case-fg-2); }
+    .status b { font-weight:400; color:var(--case-fg); } .status .sep { color:var(--faint); }
+    .status .right { margin-left:auto; font-size:11.5px; }
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="titlebar"><span class="appmark"></span><span class="name">have-fish</span>
+    <span class="cbtns"><span class="cbtn"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1" y="1" width="6" height="6"/></svg></span>
+    <span class="cbtn"><svg width="8" height="8" viewBox="0 0 8 8" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M1 1l6 6M7 1l-6 6"/></svg></span></span>
+  </div>
+  <div class="body">
+    <div class="side">
+      <div class="nav">
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 8l7-4 7 4"/><path d="M4.5 8v7M9 8v7M15.5 8v7"/><path d="M2.5 17h15"/></svg>Accounts</div>
+        <div class="ni on"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3 15l4-5 3.5 3L17 5"/><path d="M12.5 5H17v4.5"/></svg>Spending</div>
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="5" width="14" height="11" rx="1.5"/><path d="M3 9h14"/><path d="M7 13h4"/></svg>Budgeting</div>
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M10 3v14M3 10h14"/></svg>Fish Pie</div>
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/></svg>Catch Up<span class="badge">8</span></div>
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5"/><path d="M3.5 14v2.5h13V14"/></svg>Import + Export</div>
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"><path d="M3.5 5h13M3.5 10h13M3.5 15h13"/></svg>Transactions</div>
+      </div>
+      <div class="side-h">Recent</div>
+      <div class="recent"><a href="#">Tangerine Chequing</a><a href="#">Receivable: Quotidien</a><a href="#">Wise CNY</a></div>
+      <div class="side-foot">
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="14" height="12" rx="1.5"/><path d="M8 4v12"/></svg>Compress sidebar</div>
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="10" r="4"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2"/></svg>Light Theme</div>
+        <div class="ni"><svg width="15" height="15" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5"><circle cx="10" cy="7.5" r="3"/><path d="M4 17c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>lester@lester.com</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="left">
+        <div class="monthbar">
+          <span class="mnav"><span>‹</span><span>›</span></span>
+          <h1>September 2026</h1>
+          <span class="mchip">this month</span>
+          <span class="mspacer"><span class="ctl"><span class="k">Convert</span> CAD</span></span>
+        </div>
+
+        <div class="figs">
+          <div class="lead">
+            <span class="lbl">Total spend</span>
+            <span class="fig mono">3,116.42 <span class="cur">CAD</span></span>
+            <span class="sub">Σ across 4 currencies · complete through Sep 4</span>
+          </div>
+          <div class="cmp">
+            <span class="lbl">vs August</span>
+            <span class="fig mono down">−8.4%</span>
+            <span class="sub">3,402.10 last month</span>
+          </div>
+          <div class="cmp blocked">
+            <span class="lbl">vs 3-month average</span>
+            <span class="fig">not drawn</span>
+            <span class="sub">June is missing 11 days across 2 accounts — an average over it would read as a fact</span>
+          </div>
+        </div>
+
+        <div class="bsec">
+          <div class="bbar">
+            <span class="t">Breakdown</span>
+            <span class="crumb"><span>expenses</span><span>:</span><span class="on">all</span></span>
+            <span class="ctabs"><span class="ctab on">CAD</span><span class="ctab">EUR</span><span class="ctab">CNY</span><span class="ctab">NTD</span></span>
+          </div>
+          <div class="brow bhead"><span>Category</span><span>Share</span><span class="r" style="text-align:right">Amount</span><span class="r" style="text-align:right">%</span></div>
+
+          <div class="brow"><span class="cat"><span class="dr">travel</span><span class="kid">3 sub</span></span><span class="bar sel"><span class="fill">████████████████████</span></span><span class="amt"><span class="u">CAD</span>842.60</span><span class="pct">27.0</span></div>
+          <div class="brow"><span class="cat"><span class="dr">dining</span><span class="kid">2 sub</span></span><span class="bar"><span class="fill">████████████</span><span class="trough">░░░░░░░░</span></span><span class="amt"><span class="u">CAD</span>511.30</span><span class="pct">16.4</span></div>
+          <div class="brow"><span class="cat">groceries</span><span class="bar"><span class="fill">███████████</span><span class="trough">░░░░░░░░░</span></span><span class="amt"><span class="u">CAD</span>468.22</span><span class="pct">15.0</span></div>
+          <div class="brow"><span class="cat">rent</span><span class="bar"><span class="fill">█████</span><span class="hz">▓▓▓▓</span><span class="trough">░░░░░░░░░░░</span></span><span class="amt"><span class="u">CAD</span>400.00 <span class="floor">at least</span></span><span class="pct">12.8</span></div>
+          <div class="brow"><span class="cat">transit</span><span class="bar"><span class="fill">███████</span><span class="trough">░░░░░░░░░░░░░</span></span><span class="amt"><span class="u">CAD</span>288.15</span><span class="pct">9.2</span></div>
+          <div class="brow"><span class="cat">health</span><span class="bar"><span class="fill">████</span><span class="trough">░░░░░░░░░░░░░░░░</span></span><span class="amt"><span class="u">CAD</span>187.43</span><span class="pct">6.0</span></div>
+          <div class="brow"><span class="cat">household</span><span class="bar"><span class="fill">████</span><span class="trough">░░░░░░░░░░░░░░░░</span></span><span class="amt"><span class="u">CAD</span>172.90</span><span class="pct">5.5</span></div>
+          <div class="brow"><span class="cat">subscriptions</span><span class="bar"><span class="fill">███</span><span class="trough">░░░░░░░░░░░░░░░░░</span></span><span class="amt"><span class="u">CAD</span>131.99</span><span class="pct">4.2</span></div>
+          <div class="brow"><span class="cat">clothing</span><span class="bar"><span class="fill">███</span><span class="trough">░░░░░░░░░░░░░░░░░</span></span><span class="amt"><span class="u">CAD</span>113.83</span><span class="pct">3.7</span></div>
+          <div class="btot"><span style="color:var(--muted)">Total · 9 categories</span><span class="bar"><span class="trough">────────────────────</span></span><span class="amt"><span class="u">CAD</span>3,116.42</span><span class="pct">100</span></div>
+        </div>
+        <div style="height:14px"></div>
+      </div>
+
+      <div class="right">
+        <div style="height:22px"></div>
+        <div class="tpanel">
+          <div class="thead"><span class="t">Transactions</span><span class="c">86 entries</span><span class="all">View all ›</span></div>
+          <div class="tfilt"><span class="lb">Filter</span><span class="chip on">travel</span><span class="chip">uncategorised 4</span><span class="chip">≥ 100</span></div>
+          <div class="trow"><span class="d">30 Aug</span><span class="p">Air Canada AC848<i>expenses:travel:air</i></span><span class="a">214.60</span></div>
+          <div class="trow"><span class="d">30 Aug</span><span class="p">Hôtel des Grands Boulevards<i>expenses:travel:lodging</i></span><span class="a">11.00</span></div>
+          <div class="trow"><span class="d">28 Aug</span><span class="p">Eurostar London–Paris<i>expenses:travel:rail</i></span><span class="a">168.40</span></div>
+          <div class="trow"><span class="d">27 Aug</span><span class="p">Hertz — 3 days<i>expenses:travel:car</i></span><span class="a">242.11</span></div>
+          <div class="trow"><span class="d">24 Aug</span><span class="p">Airbnb — Lisbon<i>expenses:travel:lodging</i></span><span class="a">92.80</span></div>
+          <div class="trow"><span class="d">22 Aug</span><span class="p">TAP Air Portugal<i>expenses:travel:air</i></span><span class="a">63.29</span></div>
+          <div class="trow"><span class="d">19 Aug</span><span class="p">Baggage fee<i>expenses:travel:air</i></span><span class="a">40.00</span></div>
+          <div class="trow"><span class="d">14 Aug</span><span class="p">Trenitalia<i>expenses:travel:rail</i></span><span class="a">10.40</span></div>
+        </div>
+        <div style="height:14px"></div>
+      </div>
+    </div>
+  </div>
+  <div class="status">
+    <svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="var(--acc)" stroke-width="1.6"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg>
+    September recorded through <b>Sep 4</b> <span class="sep">·</span> rent is a floor, not a total
+    <span class="right">86 entries · 9 categories</span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

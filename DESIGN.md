@@ -539,6 +539,32 @@ epics kill them.
   show what the removal did. If 13px Lucida Grande reads mushy with smoothing on, the
   sanctioned fix is `antialiased`. `none` does not come back; `base.test.ts` holds that.
 
+### The two themes are not one design
+Measured against `tokens.css` in `planning/exploration/visual-language/`. All of these are
+answered by `planning/epics/visual-language.md`; none of them is fixed yet.
+
+- **Hierarchy is a property of the theme, not the design.** `--color-section-bar-bg` is 11.45:1
+  against the page in light and 1.24:1 in dark — ΔL 0.549 against ΔL 0.009. The same element is
+  the loudest thing on one screen and one of the quietest on the other.
+- **`Card` is not a surface.** `--card-bg` is `--color-window`, the page is
+  `--color-window-raised`: 1.06:1 light, 1.05:1 dark. Every panel in the app is separated from
+  the page by a hairline and nothing else. In dark `--color-rule` is 1.24:1 as well, so that
+  theme has neither surface nor line carrying grouping — which is why it reads flat.
+- **Losses are dimmer than gains in dark.** `--color-amount-negative` is 3.05:1 against
+  positive's 6.13:1. It fails the 4.5 floor §8 sets, on the app's most important datum, and the
+  two halves of it are not equally legible.
+- **Four of six accents fail 4.5:1 in light.** Ochre is 2.64:1 light and 9.52:1 dark. Accent is
+  the one rung a user can move, and nothing constrains where they move it to.
+- **Light is Aqua and dark is Nord.** A 2016 editor theme with its own opinions. There was no
+  dark Mac OS X in 2003, so the dark theme had no period referent and borrowed one — which is
+  why §5's aesthetic paragraph only ever describes the light one.
+- **Columns do not line up between account groups.** Each `SectionCard` renders its own
+  `<table>` at `width: 100%` with no fixed layout, so every group sizes columns from its own
+  content and Balance sits at a different x in Cash, Equity and Liabilities.
+- **The accent is doing chart duty.** `SpendingBreakdown` fills every block bar with
+  `--color-accent`, so the token that should mark the one live thing marks nine categories at
+  once — and changes colour per user.
+
 ### The work is not modern enough
 - **Modal nesting.** `TransactionDetailModal` is a `Modal` that renders `LedgerEditModal`,
   which is another `Modal` — two deep, in one of the busiest flows in the app. §4's

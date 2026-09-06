@@ -72,6 +72,7 @@
 | [Honest Chrome](epics/honest-chrome.md) | Scoped |
 | [Undo](epics/undo.md) | Scoped |
 | [Copy Extraction](epics/copy-extraction.md) | Scoped |
+| [Visual Language](epics/visual-language.md) | Scoped |
 
 ## Fish Pie sequence
 
