@@ -1,8 +1,14 @@
 # Visual language pass — 2026-09-06
 
 A design pass in the sense of `DESIGN.md` §7: a critique, not a refactor. Nothing here has
-shipped. The boards are `.dc.html` artboards; `canvas.json` lays them out. The seeded canvas
-is gitignored because it carries a ~2 MB editor payload — reseed it from these files.
+shipped. This file is the working — every measurement, where it came from, and why each
+decision went the way it did. The specification built from it is
+`planning/epics/visual-language.md`.
+
+The mockups are not checked in. They were drafted as a multi-artboard design canvas and
+published as an Artifact; the drafts are gitignored, because a mockup living beside the code
+becomes a second source of truth for how the app looks as soon as the real thing diverges from
+it, and everything they encoded is written down here and in the epic.
 
 ## What the critique found
 
@@ -137,11 +143,10 @@ built.
 Warm graphite, and the constrained accents. The specification lives in
 `planning/epics/visual-language.md` — this file is the evidence behind it.
 
-## Boards
+## Boards, for the record
 
-`Main` / `MainLight` / `Cleared` — Accounts in Direction A, three states.
-`Hues` — the same fragment in three grey families, both themes.
-`Accents` — six accents before and after, and in place.
-`Ladder` — the ladder as a token contract, with the assertions that hold it.
-`Diagnosis` — the critique with the numbers on it.
-`DirectionB` / `DirectionC` — the two directions not taken, kept for reference.
+Thirteen artboards, in git history at `771c48b` under this directory if they are ever wanted
+again: the Accounts page in Direction A across three states and both themes; the hue comparison;
+the six accents before and after; the ladder as a spec sheet; the annotated critique; the two
+directions not taken; and the stress test — a 24-row account ledger and the Spending page, both
+themes.

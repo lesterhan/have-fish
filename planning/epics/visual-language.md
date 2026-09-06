@@ -1,8 +1,15 @@
 # Visual Language
 
-An evolution of the token system, not a re-skin. The exploration that produced it is
-`planning/exploration/visual-language/notes.md`; the boards are the `.dc.html` files beside
-it. Read those before story 1 — this file is the specification, they are the evidence.
+An evolution of the token system, not a re-skin. This file is the specification and it is
+self-contained: every value, ratio and rule needed to execute a story is in it.
+`planning/exploration/visual-language/notes.md` is the working that produced it — the
+measurements taken off the current code, and why each decision went the way it did. Read that
+when a rule here looks arbitrary.
+
+The mockups those two came from are not in the repo. They were drafted as a design canvas and
+published as an Artifact; the tables below are what they encoded, and a mockup checked in beside
+the code becomes a second source of truth for how the app looks the moment the real thing
+diverges from it. Git history has them if a picture is ever wanted.
 
 The one-sentence version: **an element occupies the same rung in both themes.** Today it does
 not, and that is the root of most of what is wrong.
