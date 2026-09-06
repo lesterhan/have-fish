@@ -564,6 +564,12 @@ answered by `planning/epics/visual-language.md`; none of them is fixed yet.
 - **The accent is doing chart duty.** `SpendingBreakdown` fills every block bar with
   `--color-accent`, so the token that should mark the one live thing marks nine categories at
   once — and changes colour per user.
+- **`CurrencyPill` has a light-only colour map.** Thirty-three currencies with hand-picked pale
+  backgrounds and dark text, applied as an inline style that overrides the component's own token
+  fallback. Every money row in the app carries one, so in dark theme they are pale stickers on a
+  dark page. `tokens.test.ts` cannot see it, because it is not a token — which is the argument
+  for a source-level guard against raw colour in `.svelte`, the way `chromeButtons.test.ts`
+  guards handlers.
 
 ### The work is not modern enough
 - **Modal nesting.** `TransactionDetailModal` is a `Modal` that renders `LedgerEditModal`,

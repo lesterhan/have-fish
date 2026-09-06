@@ -23,7 +23,8 @@ not, and that is the root of most of what is wrong.
 - **Patterns being stretched or replaced:** `SectionCard`'s per-group `<table>` is replaced by
   one sheet with fixed column geometry. The always-on selection column is replaced. The
   four-tile position row is replaced by a state-dependent position header.
-- **What gets deleted:** zebra striping on data rows; the legacy accent aliases
+- **What gets deleted:** `CurrencyPill`'s 33-currency colour map; zebra striping on data rows;
+  the legacy accent aliases
   (`--color-accent-mid`, `--color-accent-light`, flagged in §10 since the Graphite epic); the
   per-group `<table>`; the `FLAGS` column header that stood over an empty column.
 
@@ -125,44 +126,186 @@ accent's own hue preserved. All twelve land in 4.65–5.47 against `--color-wind
 `chipBg`, `chipFg` and the titlebar gradient derive from the same hue at fixed offsets rather
 than being hand-picked per accent — that hand-picking is where the spread came from.
 
+## Core principles
+
+Nine rules, numbered so a page story can cite them. Every page not drawn in the exploration is
+adapted by applying these, not by guessing at what the mockups "meant". If a page needs
+something none of these covers, that is a finding: write it down and add a rule rather than
+making a local exception.
+
+**V1 — One ladder, two themes.** Every surface belongs to a named rung, and an element sits on
+the same rung in both themes. Adjacent rungs may differ between themes by up to 2× on ΔL, no
+more. A colour that is not a rung does not go on a surface.
+
+**V2 — Structure comes from bands and rules, not from container fills.** A fill within ΔL .04 of
+its parent is decoration, not grouping — that is the `Card`-is-not-a-surface bug, and it is easy
+to reintroduce. To group things, use the band rung (ΔL ≈ .10) or a rule (ΔL ≈ .115). A card that
+needs to be seen needs a border and a shadow, not a paler fill.
+
+**V3 — Exactly one loudest element per screen state.** Name it. Then name what it becomes in the
+other states — a screen with outstanding work and a screen that is caught up do not have the
+same loudest thing, and both need designing. If two elements compete, one of them is wrong.
+
+**V4 — Colour is scarce and it is semantic.** Four meanings, and no fifth: money in, money out,
+attention, and the accent — which means *the one live thing*, the item you selected or the work
+that needs you. Everything else is ink on a rung. A colour that appears on most rows has stopped
+carrying information and become texture.
+
+**V5 — Colour marks the minority.** Within any list, whichever sign dominates renders in primary
+ink and the minus carries it; the exception gets the colour. This is what stops a ledger from
+being a wall of red.
+
+**V6 — Magnitude marks are ink, not accent.** Bars, coverage strips and any other length-encoded
+mark use `--color-bar-ink` against `--color-rule` as the trough. Their contrast contract sits at
+the fill/trough boundary — 3:1 there — not against the page, because the boundary is what
+carries the value. Accent is reserved for the one mark you have selected.
+
+**V7 — Absence is designed.** A suppressed comparison, an unasserted coverage, a "never", an
+empty result: each takes the slot it would have occupied and states the reason at the size of
+the label it replaces. §4's caveat-loses rule means a caveat smaller than the number it
+qualifies is not read, so the whole slot becomes the statement instead.
+
+**V8 — One column geometry per screen.** Columns align down the entire page. A group heading is
+a spanning row inside the sheet, never a table of its own. 33px rows.
+
+**V9 — The case/work line does not move.** §2 still decides what is period and what is modern.
+This epic changes how both are drawn, not which is which.
+
+## Working page by page
+
+The pass on each page is the same nine steps. Do them in order and the answer falls out; skip to
+step 9 and you are pattern-matching against a mockup.
+
+1. **Say the screen's question** in one sentence with no "and" (P5). Write it in the PR.
+2. **Name the loudest element, per state** (V3). Most pages have at least two states worth
+   designing — has outstanding work / is caught up, has data / is empty, filtered / unfiltered.
+3. **Inventory surfaces.** Every distinct background on the page gets a rung. Anything that maps
+   to no rung is either a mistake or a genuinely new rung — and a new rung needs a ΔL, a value in
+   both themes, and an assertion, in that PR.
+4. **Inventory ink.** Every text colour gets a rung or one of the four meanings (V4). Anything
+   else becomes muted or faint.
+5. **Check each list's sign distribution** and apply V5. This is per list, not per app: the same
+   `MoneyDisplay` behaves differently on Accounts and on a ledger, and that is correct.
+6. **Find the magnitude marks** and apply V6. Bars, strips, meters, sparklines, anything with a
+   length.
+7. **Find the absences** and apply V7.
+8. **Settle the column geometry** (V8) — one grid, defined once, used by header, group bands and
+   rows alike.
+9. **Run the checklist** below, in both themes and at least two accents.
+
+### Per-page checklist
+
+Paste into the story's PR body and tick it. It is DESIGN.md §9 plus what this epic adds.
+
+- [ ] The screen's question is stated, and the loudest element is named for every state
+- [ ] Every surface on the page maps to a rung; no new rung without a ΔL and an assertion
+- [ ] No raw colour anywhere — `bun test` guard passes
+- [ ] Sign colour follows V5 for each list on the page, checked with real data, not one row
+- [ ] Magnitude marks use bar ink; accent appears at most once per screen
+- [ ] Every absence has a designed slot that says why
+- [ ] One column geometry; columns align from the first group to the last
+- [ ] Correct in light and dark, and in at least two accents including ochre and persimmon
+- [ ] Interaction count for the page's primary action is unchanged or lower
+- [ ] Nothing broken below 768px
+- [ ] Screenshots in the PR: both themes, and the page's other state
+
+## Keeping the app working
+
+The migration is several PRs long and the app is in daily use between them, so the sequencing
+matters more than the design does.
+
+**Story 1 changes token values, not token names.** Nothing imports differently, nothing fails to
+compile, and no component needs editing. That makes the blast radius purely visual and bounded
+to the places that bypass the tokens — which are now enumerated, not hypothetical:
+
+| file | what it hard-codes |
+|------|--------------------|
+| `ui/CurrencyPill.svelte` | a 33-currency colour map, light-theme only, applied as an inline style that overrides the token fallback. Every money row in the app carries one, so in dark theme these are pale stickers on a dark page — the largest theme-parity break in the app, and `tokens.test.ts` cannot see it because it is not a token. |
+| `fish-pie/GroupRightPanel.svelte` | `#e8a000` and `#8a5500` — a warning amber that will not move with the theme |
+| `routes/(authed)/settings/+page.svelte` | a `#5a2020 → #2a0808` section bar |
+| `ui/Toggle.svelte`, `ui/Checkbox.svelte` | white-topped Aqua gloss gradients, cool and light-only |
+| `ui/ChromeButton.svelte` | `#ff8080` on the close button |
+| `AccentPicker.svelte` | `#ffffff` label |
+| `routes/+layout.svelte` | the `#007070` login desktop gradient |
+
+All of them are fixed in story 1, because after story 1 they are the only things in the app that
+can look wrong.
+
+**A guard test replaces vigilance.** A source-level test — the pattern `tokens.test.ts` and
+`chromeButtons.test.ts` already use — fails on a raw colour in any `.svelte` file outside a
+named allowlist. Without it a nine-PR migration drifts, and the drift is invisible until someone
+opens the wrong page in the wrong theme.
+
+**A page is migrated whole or not at all.** No flags, no parallel systems, no "the table is done
+but the header isn't". §6 already forbids two ways of doing the same thing; a half-migrated page
+is that, inside one file.
+
+**Order is by blast radius, not by preference.** Tokens, then accents, then the guard, then pages
+in the order they are actually opened. Every page story is independently shippable and leaves the
+app coherent — a page on the new geometry beside a page that has only had the token change is
+consistent, because they are drawn from the same ladder.
+
+**Walk the app after every story.** The token change is global, so a page story can only regress
+its own page structurally, but any story can regress any page visually. One pass through every
+route in both themes, at the end of each PR.
+
+## Page inventory
+
+What each page is likely to need, so no story starts from a blank page. Every one of these gets
+the nine steps above.
+
+| page | what will bite |
+|------|----------------|
+| `accounts` | drawn in the exploration — one sheet, state-dependent position header, flags column, selection off the leading column |
+| `account/[id]` | drawn — the ledger sign rule (V5), day bands, date suppression, the coverage strip on bar ink |
+| `spending` | drawn — bar ink, the drilled category as the only accent, the suppressed comparison slot, currency tabs on the band |
+| `budgeting` | unvisited. Verify whether it draws its own bars; if so V6 applies. Likely has the same three-tile problem the position header solves. |
+| `catch-up` | `CoverageStrip` is the app's other magnitude mark and already has its own contrast contract — reconcile it with V6 rather than leaving two |
+| `transactions` | the ledger pattern again; also carries the modal nesting §10 flags, which is out of scope here and should not be quietly fixed inside a visual PR |
+| `import` | 1777 lines and the most surfaces of any route — preview tables, step chrome, sort UI. Budget it as two stories, and do not grow the file. |
+| `fish-pie` | `GroupRightPanel` at 1266 lines plus the hard-coded amber; the most likely place for a genuinely new rung to be needed |
+| `settings` | the hard-coded danger section bar, and `AccentPicker`, which is the one surface where all six accents appear at once |
+| `login` / `signup` | the desktop gradient and the case with no session — the only place the frame is seen nearly empty |
+
 ## Stories
 
-**1 — Put the ladder in `tokens.css`.** Replace the surface and ink values in both themes with
-the tables above, add `--color-bar-ink`, rename `--color-coverage-hatch` to
-`--color-incomplete` and migrate its call sites, and delete the legacy accent aliases. No
-component changes: every value is already a token, so this story is measured by the app looking
-different and nothing breaking. Extend `tokens.test.ts` with a `deltaL` helper, the surface-step
-assertions (each rung within its band, and neither theme more than 2× the other on the same
-step), and the ink assertions (every rung ≥4.5:1 in both themes; positive and negative within
-25% of each other). Update DESIGN.md §5 to describe the ladder, and strike the Nord reference.
+**1 — The ladder.** Replace the surface and ink values in both themes with the tables above; add
+`--color-bar-ink`; rename `--color-coverage-hatch` to `--color-incomplete` and migrate its call
+sites; delete the legacy accent aliases. Fix all seven hard-coded sites listed above — making
+`CurrencyPill` token-based and neutral, which is the smallest change that is never wrong in
+either theme; whether currency keeps a derived identity hue is a separate question, deliberately
+deferred. Add the raw-colour guard test. Extend `tokens.test.ts` with a `deltaL` helper, the
+surface-step assertions and the ink assertions. Update DESIGN.md §5 and strike the Nord
+reference. No page layout changes at all: this story is measured by every page looking different
+and none of them looking broken.
 
-**2 — Accents on one rung.** Regenerate `ACCENTS` in `accent.ts` from hue + fixed lightness, with
-`chipBg`/`chipFg`/`titlebar` derived rather than authored. Twelve assertions — one per accent per
-theme — in `tokens.test.ts`.
+**2 — Accents on one rung.** Regenerate `ACCENTS` from hue plus fixed lightness, with `chipBg`,
+`chipFg` and the titlebar gradient derived rather than authored. Twelve assertions.
 
-**3 — The Accounts sheet.** One table with fixed column geometry replacing a `<table>` per
-group, so the balance column stops wandering between Cash, Equity and Liabilities. Group bands
-become a spanning row on the ladder's band rung. 33px rows. Flags render in the `Flags` column
-or the column goes. Selection moves off the always-on leftmost column; the leading column
-carries the account's state instead.
+**3 — Accounts.** One sheet with fixed column geometry replacing a `<table>` per group. Group
+bands as spanning rows. 33px rows. Flags in the flags column or the column goes. Selection off
+the leading column. The state-dependent position header, which lands here because this is the
+page that needs it first and becomes a shared pattern afterwards.
 
-**4 — The position header.** Replace the four equal tiles with one dominant figure and
-subordinates on a shared baseline, and make which figure is dominant depend on state: work
-outstanding leads when the count is non-zero, the money leads when it is zero and the cleared
-state reads as the win condition §4 asks for. Each figure keeps its own as-of.
+**4 — The ledger pattern.** `account/[id]` and `transactions`. V5's sign rule as a shared helper
+threaded through `MoneyDisplay`, day bands carrying the day's net, date suppression within a
+run. Delete the zebra striping here. Do not touch the modal nesting — that is §10's item and its
+own epic.
 
-**5 — Colour marks the minority sign.** A shared helper deciding the tone for a list given its
-sign distribution, threaded through `MoneyDisplay`, and applied to the account detail ledger,
-the transactions list and the spending transaction column. Delete the zebra striping in the
-same story — the hairlines already separate rows at ΔL .115, so the stripe is a second answer to
-a solved question.
+**5 — The chart pattern.** `spending` and `budgeting`. Bar ink, accent only on the drilled
+category, the incomplete hatch, and the suppressed-comparison slot. Reconcile `CoverageStrip`'s
+existing contrast contract with V6 so there is one rule for magnitude marks rather than two.
 
-**6 — Chart ink.** `SpendingBreakdown` bars take `--color-bar-ink` with `--color-rule` as the
-trough and accent reserved for the drilled category. The incomplete hatch uses
-`--color-incomplete`. Give a suppressed comparison a designed slot that keeps the row's rhythm
-and states the reason, rather than an absence.
+**6 — Catch Up.**
 
-Stories 3–6 are independent once 1 and 2 land.
+**7 — Import.** Two stories if the surfaces demand it; split the route rather than growing it.
+
+**8 — Fish Pie.**
+
+**9 — Settings, login and the sweep.** The remaining hard-coded surfaces, `AccentPicker` with all
+six accents on one rung, and one pass through every route in both themes at the end.
+
+Stories 3–9 are independent once 1 and 2 land, and each is shippable on its own.
 
 ## Known boundary
 
@@ -172,8 +315,12 @@ categorical ramp, which cannot be derived from this ladder and must not reuse th
 or the accent. That is its own piece of work, and inventing it now would be inventing a palette
 for a chart nobody has built.
 
-## Untested
+## The companion is deferred, by decision
 
-The mobile companion (`mobile/`) has no access to `tokens.css` and carries its own theme. §8
-requires the vocabulary to move with it: when story 1 lands, the companion's theme changes in
-the same epic or the two surfaces disagree about what a colour means.
+`mobile/` has its own theme and no access to `tokens.css`. §8 asks for a token's meaning to move
+with it in the same epic; that is being consciously relaxed here, because the companion is a
+different device with a different case metaphor and no urgency to match. What stays binding is
+the half of §8 that is about meaning rather than appearance: **same concept, same name, same sign
+convention, same semantics for green, red and amber.** The companion may be a different colour;
+it may not disagree about what a colour means. When it does adopt, it adopts the ladder — the ΔL
+targets and ratio contracts are platform-independent — not these hexes.
