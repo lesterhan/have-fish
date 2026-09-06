@@ -45,7 +45,10 @@ export function initialSubjectDrafts(postings: Posting[]): SubjectDraft[] {
 
 // True when any subject draft repoints its leg to a different account. Date/description
 // changes are tracked separately by the component.
-export function hasAccountChange(postings: Posting[], drafts: SubjectDraft[]): boolean {
+export function hasAccountChange(
+  postings: Posting[],
+  drafts: SubjectDraft[],
+): boolean {
   const byId = new Map(postings.map((p) => [p.id, p.accountId]))
   return drafts.some((d) => {
     const next = d.accountId.trim()
@@ -63,7 +66,9 @@ export function buildRecategorizePayload(
   drafts: SubjectDraft[],
 ): { accountId: string; amount: string; currency: string }[] {
   const subjectIds = new Set(recategorizableLegs(postings).map((s) => s.id))
-  const draftById = new Map(drafts.map((d) => [d.postingId, d.accountId.trim()]))
+  const draftById = new Map(
+    drafts.map((d) => [d.postingId, d.accountId.trim()]),
+  )
   return postings.map((p) => {
     const draft = subjectIds.has(p.id) ? draftById.get(p.id) : undefined
     return {

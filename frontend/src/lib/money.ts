@@ -157,7 +157,8 @@ export function conversionNote(
 
   const { missing, included } = total
   if (included.length === 0) return 'no rate available'
-  if (included.length === 1 && included[0] === preferred) return `${preferred} only`
+  if (included.length === 1 && included[0] === preferred)
+    return `${preferred} only`
   const distinct = new Set([...included, ...missing]).size
   return `${included.length} of ${distinct} currencies`
 }

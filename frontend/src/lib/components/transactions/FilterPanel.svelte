@@ -74,7 +74,6 @@
     searchExpanded = false
     draft = accountPath
   }
-
 </script>
 
 <div class="bar">
@@ -87,8 +86,8 @@
           <!-- svelte-ignore a11y_no_static_element_interactions -->
           <span
             class="chip-text chip-clickable"
-            onclick={() => (searchExpanded = true)}
-          >{accountPath}</span>
+            onclick={() => (searchExpanded = true)}>{accountPath}</span
+          >
           <button
             class="chip-clear"
             onclick={handleClear}
@@ -135,7 +134,6 @@
     >
       <Icon name="calendar-{sortDir === 'desc' ? 'desc' : 'asc'}" />
     </GradientButton>
-
   </div>
 
   <div class="date-controls">

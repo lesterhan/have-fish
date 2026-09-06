@@ -1,6 +1,11 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import type { GroupMember, GroupExpense, GroupCategory, Account } from '$lib/api'
+  import type {
+    GroupMember,
+    GroupExpense,
+    GroupCategory,
+    Account,
+  } from '$lib/api'
   import { updateMyPaymentAccount } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { weightsToPct } from '$lib/fish-pie-categories'
@@ -55,8 +60,16 @@
   const today = new Date().toISOString().slice(0, 10)
   let date = $state(today)
   let paidBy = $state(untrack(() => currentUserId))
-  let paymentAccountId = $state(untrack(() => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? ''))
-  let savedPaymentAccountId = $state(untrack(() => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? ''))
+  let paymentAccountId = $state(
+    untrack(
+      () => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? '',
+    ),
+  )
+  let savedPaymentAccountId = $state(
+    untrack(
+      () => allAccounts.find((a) => a.path === myPaymentAccountPath)?.id ?? '',
+    ),
+  )
   let localAccounts = $state(untrack(() => [...allAccounts]))
   let error = $state('')
   let submitting = $state(false)
@@ -74,18 +87,27 @@
   const activeCategories = $derived(categories.filter((c) => !c.archivedAt))
   let categoryId = $state<string | null>(
     untrack(() => {
-      const last = settingsStore.value?.preferences?.lastCategoryByGroup?.[groupId]
-      return last && categories.some((c) => c.id === last && !c.archivedAt) ? last : null
+      const last =
+        settingsStore.value?.preferences?.lastCategoryByGroup?.[groupId]
+      return last && categories.some((c) => c.id === last && !c.archivedAt)
+        ? last
+        : null
     }),
   )
 
-  const selectedCategory = $derived(activeCategories.find((c) => c.id === categoryId) ?? null)
+  const selectedCategory = $derived(
+    activeCategories.find((c) => c.id === categoryId) ?? null,
+  )
 
   // The split percentage this category dictates, when it carries a complete weight
   // vector. Null means "fall back to the group default" — slider stays editable.
   const categoryPct = $derived(
     selectedCategory && members.length === 2
-      ? weightsToPct(selectedCategory.weights, members[0].userId, members[1].userId)
+      ? weightsToPct(
+          selectedCategory.weights,
+          members[0].userId,
+          members[1].userId,
+        )
       : null,
   )
 
@@ -108,7 +130,11 @@
   const postingAccountPath = $derived.by(() => {
     const mappedId = selectedCategory?.myMapping?.accountId
     if (mappedId) {
-      return allAccounts.find((a) => a.id === mappedId)?.path ?? myExpenseAccountPath ?? 'uncategorized'
+      return (
+        allAccounts.find((a) => a.id === mappedId)?.path ??
+        myExpenseAccountPath ??
+        'uncategorized'
+      )
     }
     return myExpenseAccountPath ?? 'uncategorized'
   })
@@ -161,7 +187,11 @@
       if (categoryId) {
         const prev = settingsStore.value?.preferences?.lastCategoryByGroup ?? {}
         settingsStore
-          .update({ preferences: { lastCategoryByGroup: { ...prev, [groupId]: categoryId } } })
+          .update({
+            preferences: {
+              lastCategoryByGroup: { ...prev, [groupId]: categoryId },
+            },
+          })
           .catch(() => {})
       }
       desc = ''
@@ -182,7 +212,9 @@
     sliderSaving = true
     try {
       await onSliderChange(shareSliderPct)
-      toast.show(`Split updated: ${Math.round(shareSliderPct)}% / ${Math.round(100 - shareSliderPct)}%`)
+      toast.show(
+        `Split updated: ${Math.round(shareSliderPct)}% / ${Math.round(100 - shareSliderPct)}%`,
+      )
     } finally {
       sliderSaving = false
     }
@@ -678,7 +710,11 @@
     width: 22px;
     height: 22px;
     flex-shrink: 0;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
     cursor: pointer;
@@ -690,12 +726,12 @@
 
   .slider-lock-btn:hover {
     border-color: var(--color-accent);
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
 
   .slider-lock-btn.unlocked {
     border-color: var(--color-accent);
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
 
   .share-slider-track {
@@ -728,7 +764,7 @@
   }
 
   .hint-link {
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
     text-decoration: none;
   }
 

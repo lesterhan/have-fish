@@ -98,6 +98,14 @@ alternates are drawn on the `Hues` board if this is revisited.
 The case gradient runs `#f4f0e6 → #d3cfc5` in light and `#504d45 → #3b3730` in dark; the
 sidebar is `#d8d4ca` / `#302d26`; the inset trough `#fffdf6` / `#191710`.
 
+**Correction, found by story 1's assertions.** The `window-raised` row above measures its step
+from the *case*, and those two steps (.045 / .105) diverge by 2.2x — the table asks for a
+relationship its own values do not keep. Writing the assertion showed why: a case is always a
+mid-tone between the desktop behind it and the panel inside it, so it sits below the window in
+light and above it in dark, and forcing that pair's two steps to match would be asserting a
+coincidence. The shipped ladder measures `window-raised` against `--color-window` instead, and
+constrains the case↔window pair only to be a real step in each theme. No value changed.
+
 ### Ink — ratio against `--color-window`
 
 | token                     | light     | dark      | light | dark  |

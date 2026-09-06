@@ -27,7 +27,7 @@ a {
 }
 
 a:hover {
-  color: var(--color-accent-mid);
+  color: var(--color-accent-hi);
 }
 
 button {

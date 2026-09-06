@@ -2,7 +2,8 @@ export function scrollShadow(node: HTMLElement) {
   // Wrap node in a positioning context so shadows anchor to the viewport
   // of the scroll container, not to its scrollable content.
   const wrapper = document.createElement('div')
-  wrapper.style.cssText = 'position:relative; overflow:hidden; flex:1; min-height:0; display:flex; flex-direction:column;'
+  wrapper.style.cssText =
+    'position:relative; overflow:hidden; flex:1; min-height:0; display:flex; flex-direction:column;'
 
   node.parentElement!.insertBefore(wrapper, node)
   wrapper.appendChild(node)
@@ -26,9 +27,11 @@ export function scrollShadow(node: HTMLElement) {
   bottom.style.cssText = sharedCss
 
   top.style.top = '0'
-  top.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0.15), transparent)'
+  top.style.background =
+    'linear-gradient(to bottom, rgba(0,0,0,0.15), transparent)'
   bottom.style.bottom = '0'
-  bottom.style.background = 'linear-gradient(to top, rgba(0,0,0,0.15), transparent)'
+  bottom.style.background =
+    'linear-gradient(to top, rgba(0,0,0,0.15), transparent)'
 
   wrapper.appendChild(top)
   wrapper.appendChild(bottom)
@@ -42,7 +45,10 @@ export function scrollShadow(node: HTMLElement) {
 
   function update() {
     setShadow(top, node.scrollTop > 0)
-    setShadow(bottom, node.scrollTop + node.clientHeight < node.scrollHeight - 1)
+    setShadow(
+      bottom,
+      node.scrollTop + node.clientHeight < node.scrollHeight - 1,
+    )
   }
 
   const ro = new ResizeObserver(update)

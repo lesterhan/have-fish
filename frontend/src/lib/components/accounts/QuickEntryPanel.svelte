@@ -359,10 +359,10 @@
   }
 
   .field:focus {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
     box-shadow:
       inset 0 1px 2px rgba(0, 0, 0, 0.08),
-      0 0 0 2px var(--color-accent-light);
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .field-amount {
@@ -411,12 +411,14 @@
     border: none;
     border-bottom: 1px solid var(--color-rule);
     cursor: pointer;
-    transition: color var(--duration-fast) var(--ease), background var(--duration-fast) var(--ease);
+    transition:
+      color var(--duration-fast) var(--ease),
+      background var(--duration-fast) var(--ease);
   }
 
   .add-row-btn:hover {
     color: var(--color-accent);
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   /* Footer */
@@ -442,7 +444,6 @@
     align-items: center;
     gap: var(--sp-sm);
   }
-
 
   .error-msg {
     font-family: var(--font-mono);

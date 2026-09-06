@@ -20,11 +20,18 @@ export function headerTag(
   groupName: string | null,
 ): HeaderTag | null {
   if (n.archetype === 'split') {
-    return { kind: 'fishpie', category: n.hero?.label ?? 'Split', group: groupName ?? 'Split' }
+    return {
+      kind: 'fishpie',
+      category: n.hero?.label ?? 'Split',
+      group: groupName ?? 'Split',
+    }
   }
   if (n.archetype === 'inflow') {
     const path = n.hero?.path ?? ''
-    return { kind: 'simple', label: path.startsWith('income') ? 'Income' : 'Refund' }
+    return {
+      kind: 'simple',
+      label: path.startsWith('income') ? 'Income' : 'Refund',
+    }
   }
   return null
 }
@@ -156,9 +163,18 @@ export function conversionRows(n: NarratedTransaction): ConvRow[] | null {
   if (!c) return null
   const rows: ConvRow[] = [
     { label: 'Paid', amount: c.paid.amount, currency: c.paid.currency },
-    { label: 'Converted', amount: c.converted.amount, currency: c.converted.currency },
+    {
+      label: 'Converted',
+      amount: c.converted.amount,
+      currency: c.converted.currency,
+    },
   ]
-  if (c.fee) rows.push({ label: 'FX fee', amount: c.fee.amount, currency: c.fee.currency })
+  if (c.fee)
+    rows.push({
+      label: 'FX fee',
+      amount: c.fee.amount,
+      currency: c.fee.currency,
+    })
   return rows
 }
 
@@ -174,7 +190,12 @@ export function conversionHint(n: NarratedTransaction): string | null {
 
 // One raw leg of the All-postings ledger: its path, role note, and signed amount. Every leg is
 // listed — including the equity:conversions bridges that never appear as branches.
-export type PostingRow = { path: string; role: string; amount: string; currency: string }
+export type PostingRow = {
+  path: string
+  role: string
+  amount: string
+  currency: string
+}
 
 // A stored amount with an explicit sign — "+50.00" / "-17.24". The ledger shows direction on
 // every leg (unlike the flow tree, where the chip carries it).

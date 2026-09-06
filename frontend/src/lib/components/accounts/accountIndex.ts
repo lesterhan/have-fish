@@ -32,7 +32,10 @@ export interface AccountIndex<A extends IndexedAccount> {
   byId: Map<string, A>
 }
 
-const cache = new WeakMap<readonly IndexedAccount[], AccountIndex<IndexedAccount>>()
+const cache = new WeakMap<
+  readonly IndexedAccount[],
+  AccountIndex<IndexedAccount>
+>()
 
 /**
  * Tree + lookup maps for `accounts`, memoized on the array's identity.
@@ -40,7 +43,9 @@ const cache = new WeakMap<readonly IndexedAccount[], AccountIndex<IndexedAccount
  * Mutating an array in place after indexing it returns a stale index — always
  * replace the array (`accounts = [...accounts, next]`) instead.
  */
-export function accountIndex<A extends IndexedAccount>(accounts: readonly A[]): AccountIndex<A> {
+export function accountIndex<A extends IndexedAccount>(
+  accounts: readonly A[],
+): AccountIndex<A> {
   const hit = cache.get(accounts)
   if (hit) return hit as AccountIndex<A>
 

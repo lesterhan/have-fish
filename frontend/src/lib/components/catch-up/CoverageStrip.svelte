@@ -1,5 +1,10 @@
 <script lang="ts">
-  import { ariaSummary, buildStrip, describeDay, summarizeStrip } from './coverageStrip'
+  import {
+    ariaSummary,
+    buildStrip,
+    describeDay,
+    summarizeStrip,
+  } from './coverageStrip'
 
   interface Props {
     from: string
@@ -49,10 +54,16 @@
 
   {#if showLegend && !compact}
     <div class="legend">
-      <span class="legend-item"><span class="swatch day--covered"></span>Covered</span>
-      <span class="legend-item"><span class="swatch day--uncovered"></span>Not covered</span>
+      <span class="legend-item"
+        ><span class="swatch day--covered"></span>Covered</span
+      >
+      <span class="legend-item"
+        ><span class="swatch day--uncovered"></span>Not covered</span
+      >
       {#if counts.beyondHorizon > 0}
-        <span class="legend-item"><span class="swatch day--beyond-horizon"></span>Not yet available</span>
+        <span class="legend-item"
+          ><span class="swatch day--beyond-horizon"></span>Not yet available</span
+        >
       {/if}
       {#if counts.txnsInUncovered > 0}
         <span class="legend-item">
@@ -149,7 +160,7 @@
     background: repeating-linear-gradient(
       -45deg,
       transparent 0 3px,
-      var(--color-coverage-hatch) 3px 4px
+      var(--color-incomplete) 3px 4px
     );
   }
 

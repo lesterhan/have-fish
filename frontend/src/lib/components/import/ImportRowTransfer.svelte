@@ -76,26 +76,33 @@
 
   // The leg the Fish Pie split is measured against: the target (what was actually spent) for
   // a cross-currency row, or the single amount for a same-currency transfer.
-  let splitAmount = $derived(tx.isTransfer === true ? tx.targetAmount : tx.amount)
-  let splitCurrency = $derived(tx.isTransfer === true ? tx.targetCurrency : tx.currency)
+  let splitAmount = $derived(
+    tx.isTransfer === true ? tx.targetAmount : tx.amount,
+  )
+  let splitCurrency = $derived(
+    tx.isTransfer === true ? tx.targetCurrency : tx.currency,
+  )
 
   let feeAccountPath = $derived(
     rowState.feeAccountId
       ? (accounts.find((a) => a.id === rowState.feeAccountId)?.path ?? null)
-      : null
+      : null,
   )
 
   let conversionAccountPath = $derived(
     rowState.conversionAccountId
-      ? (accounts.find((a) => a.id === rowState.conversionAccountId)?.path ?? null)
-      : null
+      ? (accounts.find((a) => a.id === rowState.conversionAccountId)?.path ??
+          null)
+      : null,
   )
 
   // Cross-currency rows are spend-by-default; convert-and-park is the flagged exception.
   // A spend posts to an expense account and *can* be shared (Fish Pie). A convert is an
   // internal move between the user's own currency accounts — nothing to split.
   let isSpend = $derived(tx.isTransfer === true && rowState.kind === 'spend')
-  let isConvert = $derived(tx.isTransfer === true && rowState.kind === 'transfer')
+  let isConvert = $derived(
+    tx.isTransfer === true && rowState.kind === 'transfer',
+  )
 
   // A convert and a same-currency transfer always post a fee leg; a spend only when the
   // row actually carries a fee. Hiding the empty fee field for the common fee-less spend
@@ -111,18 +118,31 @@
   }
 </script>
 
-<tr class="row-transfer" class:row-skipped={rowState.skipped} data-row-index={index} data-status={status}>
-  <ImportDateCell date={tx.date} possibleDuplicate={rowState.possibleDuplicate} />
-  <td class="cell-description" title={tx.description ?? ''}>{tx.description ?? '—'}</td>
+<tr
+  class="row-transfer"
+  class:row-skipped={rowState.skipped}
+  data-row-index={index}
+  data-status={status}
+>
+  <ImportDateCell
+    date={tx.date}
+    possibleDuplicate={rowState.possibleDuplicate}
+  />
+  <td class="cell-description" title={tx.description ?? ''}
+    >{tx.description ?? '—'}</td
+  >
 
   {#if tx.isTransfer === true}
     <td class="cell-transfer-amount">
       <span class="amt-source">{tx.sourceAmount} {tx.sourceCurrency}</span>
       <span class="amt-target" class:is-spend={isSpend}>
-        <span class="amt-arrow">{isSpend ? '↘' : '→'}</span>{tx.targetAmount} {tx.targetCurrency}
+        <span class="amt-arrow">{isSpend ? '↘' : '→'}</span>{tx.targetAmount}
+        {tx.targetCurrency}
       </span>
       {#if tx.feeAmount}
-        <span class="amt-fee">fee {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}</span>
+        <span class="amt-fee"
+          >fee {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}</span
+        >
       {/if}
     </td>
   {:else}
@@ -149,7 +169,10 @@
             {#if splitFromRule}
               <span
                 class="indicator-icon"
-                use:tooltip={{ label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`, always: true }}
+                use:tooltip={{
+                  label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`,
+                  always: true,
+                }}
               >
                 <Icon name="computer" size={16} />
               </span>
@@ -193,7 +216,10 @@
                 {#if tx.suggestedExpenseAccountId && status === 'auto'}
                   <span
                     class="indicator-icon"
-                    use:tooltip={{ label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`, always: true }}
+                    use:tooltip={{
+                      label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`,
+                      always: true,
+                    }}
                   >
                     <Icon name="computer" size={16} />
                   </span>
@@ -214,11 +240,15 @@
               <span class="field-label">via</span>
               {#if conversionAccountPath}
                 <span class="field-pill">
-                  <Icon name="exchange" size={10} /><code>{conversionAccountPath}</code>
+                  <Icon name="exchange" size={10} /><code
+                    >{conversionAccountPath}</code
+                  >
                   <button
                     type="button"
                     class="pill-remove"
-                    onclick={() => { rowState.conversionAccountId = '' }}>×</button
+                    onclick={() => {
+                      rowState.conversionAccountId = ''
+                    }}>×</button
                   >
                 </span>
               {:else}
@@ -278,7 +308,13 @@
           {#if feeAccountPath}
             <span class="field-pill">
               <Icon name="coin" size={10} /><code>{feeAccountPath}</code>
-              <button type="button" class="pill-remove" onclick={() => { rowState.feeAccountId = '' }}>×</button>
+              <button
+                type="button"
+                class="pill-remove"
+                onclick={() => {
+                  rowState.feeAccountId = ''
+                }}>×</button
+              >
             </span>
           {:else}
             <AccountPicker
@@ -336,7 +372,11 @@
   {/if}
 
   <td class="cell-skip">
-    <input type="checkbox" bind:checked={rowState.skipped} onchange={onedited} />
+    <input
+      type="checkbox"
+      bind:checked={rowState.skipped}
+      onchange={onedited}
+    />
   </td>
 </tr>
 
@@ -403,7 +443,7 @@
   }
 
   .account-label:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -1px;
   }
 

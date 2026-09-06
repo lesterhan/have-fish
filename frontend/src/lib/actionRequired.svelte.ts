@@ -1,4 +1,4 @@
-import { fetchActionRequiredSummary } from "./api"
+import { fetchActionRequiredSummary } from './api'
 
 type ActionRequiredEntry = { accountId: string; count: number }
 

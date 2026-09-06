@@ -234,7 +234,9 @@
           disabled={selectedIds.size === 0 || deleting}
           onclick={deleteSelected}
         >
-          <Icon name="trash" /> Delete{selectedIds.size > 0 ? ` (${selectedIds.size})` : ''}
+          <Icon name="trash" /> Delete{selectedIds.size > 0
+            ? ` (${selectedIds.size})`
+            : ''}
         </GradientButton>
         <GradientButton onclick={toggleSelectMode}>Cancel</GradientButton>
       {:else}

@@ -158,7 +158,7 @@
     gap: var(--sp-sm);
     padding: var(--sp-sm) var(--sp-md);
     background: var(--color-window-raised);
-    border-left: 3px solid var(--color-accent-mid);
+    border-left: 3px solid var(--color-accent-hi);
   }
 
   .loading {
@@ -260,6 +260,6 @@
 
   .link:focus-visible,
   .attention:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
   }
 </style>

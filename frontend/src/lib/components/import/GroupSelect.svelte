@@ -24,8 +24,16 @@
     return group.categories.filter((c) => !c.archivedAt)
   }
 
-  type Option = { groupId: string; categoryId: string | null; label: string; recent: boolean }
-  type Section = { header: string | null; options: (Option & { idx: number })[] }
+  type Option = {
+    groupId: string
+    categoryId: string | null
+    label: string
+    recent: boolean
+  }
+  type Section = {
+    header: string | null
+    options: (Option & { idx: number })[]
+  }
 
   // The split key persisted in recents. UUIDs never contain ':', so this round-trips.
   function splitKey(groupId: string, categoryId: string | null) {
@@ -44,12 +52,24 @@
     if (cid) {
       const cat = activeCats(group).find((c) => c.id === cid)
       if (!cat) return null
-      return { groupId: gid, categoryId: cid, label: `${group.name} · ${cat.name}`, recent: true }
+      return {
+        groupId: gid,
+        categoryId: cid,
+        label: `${group.name} · ${cat.name}`,
+        recent: true,
+      }
     }
-    return { groupId: gid, categoryId: null, label: `${group.name} · No category`, recent: true }
+    return {
+      groupId: gid,
+      categoryId: null,
+      label: `${group.name} · No category`,
+      recent: true,
+    }
   }
 
-  const recentKeys = $derived(settingsStore.value?.preferences?.recentFishPieSplits ?? [])
+  const recentKeys = $derived(
+    settingsStore.value?.preferences?.recentFishPieSplits ?? [],
+  )
 
   // Build display sections plus a flat, index-stamped option list for keyboard nav.
   const built = $derived.by(() => {
@@ -57,7 +77,10 @@
     let idx = 0
     const push = (header: string | null, options: Option[]) => {
       if (options.length === 0) return
-      sections.push({ header, options: options.map((o) => ({ ...o, idx: idx++ })) })
+      sections.push({
+        header,
+        options: options.map((o) => ({ ...o, idx: idx++ })),
+      })
     }
 
     // Recent combos only make sense across multiple groups; for a single group the
@@ -72,7 +95,12 @@
 
     for (const group of groups) {
       const opts: Option[] = [
-        { groupId: group.id, categoryId: null, label: 'No category', recent: false },
+        {
+          groupId: group.id,
+          categoryId: null,
+          label: 'No category',
+          recent: false,
+        },
         ...activeCats(group).map((c) => ({
           groupId: group.id,
           categoryId: c.id,
@@ -115,8 +143,14 @@
     settingsStore
       .update({
         preferences: {
-          recentFishPieSplits: [key, ...splits.filter((k) => k !== key)].slice(0, 8),
-          recentGroups: [o.groupId, ...groupsRecent.filter((g) => g !== o.groupId)].slice(0, 8),
+          recentFishPieSplits: [key, ...splits.filter((k) => k !== key)].slice(
+            0,
+            8,
+          ),
+          recentGroups: [
+            o.groupId,
+            ...groupsRecent.filter((g) => g !== o.groupId),
+          ].slice(0, 8),
         },
       })
       .catch(() => {})
@@ -160,7 +194,9 @@
 </script>
 
 <!-- Takes up 22px in the cell so the row height doesn't change -->
-<div class="placeholder">{multiGroup ? 'Choose split…' : 'Choose category…'}</div>
+<div class="placeholder">
+  {multiGroup ? 'Choose split…' : 'Choose category…'}
+</div>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->
 <!-- svelte-ignore a11y_no_static_element_interactions -->
@@ -187,10 +223,17 @@
         class:lead={o.categoryId === null && !o.recent}
         role="option"
         aria-selected={o.idx === activeIndex}
-        onmousedown={(e) => { e.preventDefault(); commit(o) }}
-        onmousemove={() => { activeIndex = o.idx }}
+        onmousedown={(e) => {
+          e.preventDefault()
+          commit(o)
+        }}
+        onmousemove={() => {
+          activeIndex = o.idx
+        }}
       >
-        {#if o.recent}<span class="recent-icon"><Icon name="pie" size={10} /></span>{/if}
+        {#if o.recent}<span class="recent-icon"
+            ><Icon name="pie" size={10} /></span
+          >{/if}
         {o.label}
       </li>
     {/each}
@@ -207,8 +250,10 @@
     font-size: 11px;
     color: var(--color-text-muted);
     background: var(--color-window-inset);
-    border: 1px solid var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border: 1px solid var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .backdrop {
@@ -263,7 +308,7 @@
 
   .recent-icon {
     display: inline-flex;
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
 
   .group-option.active {

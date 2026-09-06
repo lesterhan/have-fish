@@ -106,7 +106,7 @@
   }
 
   .parsers-table :global(tbody tr:hover td) {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .cell-name {

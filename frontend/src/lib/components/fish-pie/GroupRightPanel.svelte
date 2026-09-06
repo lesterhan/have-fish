@@ -1,5 +1,11 @@
 <script lang="ts">
-  import type { GroupExpense, GroupSettlement, GroupCategory, Account, GroupMember } from '$lib/api'
+  import type {
+    GroupExpense,
+    GroupSettlement,
+    GroupCategory,
+    Account,
+    GroupMember,
+  } from '$lib/api'
   import Icon from '$lib/components/ui/Icon.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
@@ -30,7 +36,10 @@
     groupCreatedBy: string
     onDeleteExpense: (id: string) => Promise<void>
     onDeleteSettlement: (id: string) => Promise<void>
-    onUpdateExpense: (id: string, data: UpdateExpenseData) => Promise<GroupExpense>
+    onUpdateExpense: (
+      id: string,
+      data: UpdateExpenseData,
+    ) => Promise<GroupExpense>
     onConfirmSettlement: (
       id: string,
       receiverAccountId: string,
@@ -87,7 +96,12 @@
   >({})
 
   function openConfirmForm(id: string) {
-    confirmStates[id] = { accountId: '', submitting: false, error: '', open: true }
+    confirmStates[id] = {
+      accountId: '',
+      submitting: false,
+      error: '',
+      open: true,
+    }
   }
 
   function closeConfirmForm(id: string) {
@@ -95,7 +109,9 @@
   }
 
   function canActOnExpense(expense: GroupExpense) {
-    return expense.paidByUserId === currentUserId || groupCreatedBy === currentUserId
+    return (
+      expense.paidByUserId === currentUserId || groupCreatedBy === currentUserId
+    )
   }
 
   function canDeleteSettlement(s: GroupSettlement) {
@@ -145,7 +161,10 @@
     const today = new Date().toISOString().slice(0, 10)
     return editDate === today
       ? 'Today'
-      : new Date(editDate + 'T00:00:00').toLocaleDateString('en-CA', { month: 'short', day: 'numeric' })
+      : new Date(editDate + 'T00:00:00').toLocaleDateString('en-CA', {
+          month: 'short',
+          day: 'numeric',
+        })
   })
 
   async function handleSaveEdit() {
@@ -156,8 +175,14 @@
       const splits =
         members.length === 2
           ? [
-              { userId: members[0].userId, shareWeight: Math.max(1, Math.round(editSliderPct)) },
-              { userId: members[1].userId, shareWeight: Math.max(1, 100 - Math.round(editSliderPct)) },
+              {
+                userId: members[0].userId,
+                shareWeight: Math.max(1, Math.round(editSliderPct)),
+              },
+              {
+                userId: members[1].userId,
+                shareWeight: Math.max(1, 100 - Math.round(editSliderPct)),
+              },
             ]
           : undefined
       await onUpdateExpense(expenseEditId, {
@@ -219,8 +244,12 @@
     }
   }
 
-  const pendingSettlements = $derived(settlements.filter((s) => s.status === 'pending'))
-  const completedSettlements = $derived(settlements.filter((s) => s.status === 'completed'))
+  const pendingSettlements = $derived(
+    settlements.filter((s) => s.status === 'pending'),
+  )
+  const completedSettlements = $derived(
+    settlements.filter((s) => s.status === 'completed'),
+  )
 </script>
 
 <div class="txn-panel">
@@ -230,14 +259,18 @@
       class:active={panelTab === 'expenses'}
       onclick={() => (panelTab = 'expenses')}
     >
-      Expenses{#if expenses.length > 0}<span class="tab-count">{expenses.length}</span>{/if}
+      Expenses{#if expenses.length > 0}<span class="tab-count"
+          >{expenses.length}</span
+        >{/if}
     </button>
     <button
       class="panel-tab"
       class:active={panelTab === 'settlements'}
       onclick={() => (panelTab = 'settlements')}
     >
-      Settlements{#if settlements.length > 0}<span class="tab-count">{settlements.length}</span>{/if}
+      Settlements{#if settlements.length > 0}<span class="tab-count"
+          >{settlements.length}</span
+        >{/if}
     </button>
   </div>
 
@@ -263,7 +296,8 @@
                     if (isEditing) {
                       closeEdit()
                     } else {
-                      expandedExpenseId = expandedExpenseId === expense.id ? null : expense.id
+                      expandedExpenseId =
+                        expandedExpenseId === expense.id ? null : expense.id
                     }
                   }}
                   onkeydown={(e) =>
@@ -271,7 +305,9 @@
                     (isEditing
                       ? closeEdit()
                       : (expandedExpenseId =
-                          expandedExpenseId === expense.id ? null : expense.id))}
+                          expandedExpenseId === expense.id
+                            ? null
+                            : expense.id))}
                 >
                   <div class="row-avatar">{initials(expense.payerName)}</div>
                   <div class="expense-info">
@@ -283,10 +319,14 @@
                         >
                       {/if}
                     </div>
-                    <span class="expense-meta">{expense.date} · {expense.payerName}</span>
+                    <span class="expense-meta"
+                      >{expense.date} · {expense.payerName}</span
+                    >
                   </div>
                   <div class="expense-right">
-                    <span class="expense-amount">{parseFloat(expense.amount).toFixed(2)}</span>
+                    <span class="expense-amount"
+                      >{parseFloat(expense.amount).toFixed(2)}</span
+                    >
                     <CurrencyPill code={expense.currency} />
                   </div>
                   <Icon
@@ -300,7 +340,8 @@
                   <button
                     class="action-btn"
                     class:action-btn--active={isEditing}
-                    onclick={() => (isEditing ? closeEdit() : openEdit(expense))}
+                    onclick={() =>
+                      isEditing ? closeEdit() : openEdit(expense)}
                     aria-label={isEditing ? 'Close edit' : 'Edit expense'}
                   >
                     <Icon name="edit-txn" size={14} />
@@ -354,7 +395,8 @@
                             class="cat-chip"
                             class:selected={editCategoryId === cat.id}
                             onclick={() =>
-                              (editCategoryId = editCategoryId === cat.id ? null : cat.id)}
+                              (editCategoryId =
+                                editCategoryId === cat.id ? null : cat.id)}
                           >
                             {cat.name}
                           </button>
@@ -372,7 +414,10 @@
                             class:selected={editPayerId === m.userId}
                             onclick={() => (editPayerId = m.userId)}
                           >
-                            <div class="chip-avatar" class:selected={editPayerId === m.userId}>
+                            <div
+                              class="chip-avatar"
+                              class:selected={editPayerId === m.userId}
+                            >
                               {initials(m.userName)}
                             </div>
                             <span class="chip-name">{m.userName}</span>
@@ -390,7 +435,9 @@
                             <span class="split-divider">/</span>
                             <strong>{Math.round(100 - editSliderPct)}%</strong>
                           </span>
-                          <span class="split-name split-name--right">{members[1].userName}</span>
+                          <span class="split-name split-name--right"
+                            >{members[1].userName}</span
+                          >
                         </div>
                         <input
                           type="range"
@@ -404,12 +451,21 @@
                     {/if}
                   {/if}
                   <div class="edit-actions">
-                    <GradientButton onclick={closeEdit} disabled={editSubmitting}>Cancel</GradientButton>
+                    <GradientButton
+                      onclick={closeEdit}
+                      disabled={editSubmitting}>Cancel</GradientButton
+                    >
                     <GradientButton
                       onclick={handleSaveEdit}
-                      disabled={editSubmitting || !editAmount || parseFloat(editAmount) <= 0}
+                      disabled={editSubmitting ||
+                        !editAmount ||
+                        parseFloat(editAmount) <= 0}
                     >
-                      {editSubmitting ? 'Saving…' : editSaved ? '✓ Saved' : 'Save'}
+                      {editSubmitting
+                        ? 'Saving…'
+                        : editSaved
+                          ? '✓ Saved'
+                          : 'Save'}
                     </GradientButton>
                   </div>
                   {#if editError}
@@ -417,42 +473,62 @@
                   {/if}
                   {#if editDeleteConfirm}
                     {@const isImportLinked = !!expense.transactionId}
-                    {@const uniqueAccountPaths = [...new Set(
-                      expense.splits.map((s) => s.expenseAccountPath ?? 'uncategorized')
-                    )]}
-                    {@const groupAccount = allAccounts.find((a) => a.path.startsWith('group:'))}
+                    {@const uniqueAccountPaths = [
+                      ...new Set(
+                        expense.splits.map(
+                          (s) => s.expenseAccountPath ?? 'uncategorized',
+                        ),
+                      ),
+                    ]}
+                    {@const groupAccount = allAccounts.find((a) =>
+                      a.path.startsWith('group:'),
+                    )}
                     <div class="delete-dialog">
-                      <p class="delete-dialog-title">Delete "{expense.description}"?</p>
+                      <p class="delete-dialog-title">
+                        Delete "{expense.description}"?
+                      </p>
                       {#if isImportLinked}
                         <p class="delete-dialog-note delete-dialog-note--warn">
-                          This will remove the group split <strong>and</strong> the original import transaction.
+                          This will remove the group split <strong>and</strong> the
+                          original import transaction.
                         </p>
                       {:else}
                         <p class="delete-dialog-note">
-                          {expense.splits.length} member transaction{expense.splits.length !== 1 ? 's' : ''} will be removed.
+                          {expense.splits.length} member transaction{expense
+                            .splits.length !== 1
+                            ? 's'
+                            : ''} will be removed.
                         </p>
                       {/if}
                       <div class="delete-accounts">
-                        <span class="delete-accounts-label">Accounts affected:</span>
+                        <span class="delete-accounts-label"
+                          >Accounts affected:</span
+                        >
                         <ul class="delete-accounts-list">
                           {#if isImportLinked}
-                            <li class="delete-account-item delete-account-item--warn">
-                              source account <span class="account-note">(original payment erased)</span>
+                            <li
+                              class="delete-account-item delete-account-item--warn"
+                            >
+                              source account <span class="account-note"
+                                >(original payment erased)</span
+                              >
                             </li>
                           {/if}
                           {#each uniqueAccountPaths as path}
                             <li class="delete-account-item">{path}</li>
                           {/each}
                           {#if groupAccount}
-                            <li class="delete-account-item">{groupAccount.path}</li>
+                            <li class="delete-account-item">
+                              {groupAccount.path}
+                            </li>
                           {/if}
                         </ul>
                       </div>
                       <div class="delete-dialog-actions">
                         <GradientButton
                           onclick={() => (editDeleteConfirm = false)}
-                          disabled={editDeleting}
-                        >Cancel</GradientButton>
+                          disabled={editDeleting}>Cancel</GradientButton
+                        >
                         {#if isImportLinked}
                           <GradientButton disabled>
                             Remove from group
@@ -463,11 +539,17 @@
                           active
                           onclick={handleDeleteFromEdit}
                           disabled={editDeleting}
-                        >{editDeleting ? 'Deleting…' : 'Delete'}</GradientButton>
+                          >{editDeleting
+                            ? 'Deleting…'
+                            : 'Delete'}</GradientButton
+                        >
                       </div>
                     </div>
                   {:else}
-                    <button class="delete-link" onclick={() => (editDeleteConfirm = true)}>
+                    <button
+                      class="delete-link"
+                      onclick={() => (editDeleteConfirm = true)}
+                    >
                       Delete expense
                     </button>
                   {/if}
@@ -478,7 +560,8 @@
                     <div class="split-row">
                       <span class="split-row-name">{split.userName}</span>
                       <span class="split-amount">
-                        {expense.currency} {parseFloat(split.amount).toFixed(2)}
+                        {expense.currency}
+                        {parseFloat(split.amount).toFixed(2)}
                       </span>
                     </div>
                   {/each}
@@ -503,20 +586,29 @@
             <div class="expense-item pending-item">
               <div class="expense-row-wrap">
                 <div class="expense-row settlement-row-inner">
-                  <div class="row-avatar pending-avatar">{initials(s.fromUserName)}</div>
+                  <div class="row-avatar pending-avatar">
+                    {initials(s.fromUserName)}
+                  </div>
                   <div class="expense-info">
-                    <span class="expense-desc">{s.fromUserName} → {s.toUserName}</span>
-                    <span class="expense-meta">{s.date}{s.note ? ` · ${s.note}` : ''}</span>
+                    <span class="expense-desc"
+                      >{s.fromUserName} → {s.toUserName}</span
+                    >
+                    <span class="expense-meta"
+                      >{s.date}{s.note ? ` · ${s.note}` : ''}</span
+                    >
                   </div>
                   <div class="expense-right">
-                    <span class="expense-amount">{parseFloat(s.amount).toFixed(2)}</span>
+                    <span class="expense-amount"
+                      >{parseFloat(s.amount).toFixed(2)}</span
+                    >
                     <CurrencyPill code={s.currency} />
                   </div>
                 </div>
                 {#if canDeleteSettlement(s)}
                   <button
                     class="action-btn"
-                    class:action-btn--active={settlementDeleteConfirmId === s.id}
+                    class:action-btn--active={settlementDeleteConfirmId ===
+                      s.id}
                     onclick={() =>
                       (settlementDeleteConfirmId =
                         settlementDeleteConfirmId === s.id ? null : s.id)}
@@ -541,7 +633,9 @@
                     active
                     onclick={confirmDeleteSettlement}
                     disabled={settlementDeleting}
-                    >{settlementDeleting ? 'Deleting…' : 'Delete'}</GradientButton
+                    >{settlementDeleting
+                      ? 'Deleting…'
+                      : 'Delete'}</GradientButton
                   >
                 </div>
               {/if}
@@ -559,7 +653,9 @@
                       <span class="form-error">{cs.error}</span>
                     {/if}
                     <div class="confirm-actions">
-                      <GradientButton onclick={() => closeConfirmForm(s.id)}>Cancel</GradientButton>
+                      <GradientButton onclick={() => closeConfirmForm(s.id)}
+                        >Cancel</GradientButton
+                      >
                       <GradientButton
                         onclick={() => handleConfirm(s)}
                         disabled={cs.submitting || !cs.accountId}
@@ -590,11 +686,17 @@
               <div class="expense-row settlement-row-inner">
                 <div class="row-avatar">{initials(s.fromUserName)}</div>
                 <div class="expense-info">
-                  <span class="expense-desc">{s.fromUserName} → {s.toUserName}</span>
-                  <span class="expense-meta">{s.date}{s.note ? ` · ${s.note}` : ''}</span>
+                  <span class="expense-desc"
+                    >{s.fromUserName} → {s.toUserName}</span
+                  >
+                  <span class="expense-meta"
+                    >{s.date}{s.note ? ` · ${s.note}` : ''}</span
+                  >
                 </div>
                 <div class="expense-right">
-                  <span class="expense-amount">{parseFloat(s.amount).toFixed(2)}</span>
+                  <span class="expense-amount"
+                    >{parseFloat(s.amount).toFixed(2)}</span
+                  >
                   <CurrencyPill code={s.currency} />
                 </div>
               </div>
@@ -745,7 +847,7 @@
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
     border: 1px solid var(--color-accent);
     color: var(--color-accent-chip-fg);
     font-family: var(--font-mono);
@@ -821,8 +923,8 @@
 
   .action-btn:hover,
   .action-btn--active {
-    color: var(--color-accent-mid);
-    background-color: var(--color-accent-light);
+    color: var(--color-accent-hi);
+    background-color: var(--color-accent-chip-bg);
   }
 
   /* Edit form */
@@ -878,7 +980,11 @@
     align-items: center;
     gap: 5px;
     padding: 4px 8px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
     cursor: pointer;
@@ -915,7 +1021,11 @@
 
   .cat-chip {
     padding: 3px 9px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
     cursor: pointer;
@@ -951,7 +1061,11 @@
   .payer-chip {
     flex: 1;
     padding: 5px 8px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
     cursor: pointer;
@@ -1196,24 +1310,33 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: 4px 12px;
-    background: color-mix(in srgb, #e8a000 12%, var(--color-window));
-    border-bottom: 1px solid color-mix(in srgb, #e8a000 30%, transparent);
+    background: var(--color-warning-light);
+    border-bottom: 1px solid
+      color-mix(in srgb, var(--color-warning) 30%, transparent);
     font-family: var(--font-mono);
     font-size: 9px;
     font-weight: 700;
     letter-spacing: 0.5px;
     text-transform: uppercase;
-    color: #8a5500;
+    color: var(--color-warning);
   }
 
   .pending-item {
-    background: color-mix(in srgb, #e8a000 5%, var(--color-window));
+    background: color-mix(
+      in srgb,
+      var(--color-warning-light) 50%,
+      var(--color-window)
+    );
   }
 
   .pending-avatar {
-    background: color-mix(in srgb, #e8a000 20%, var(--color-window));
-    border-color: #e8a000;
-    color: #8a5500;
+    background: color-mix(
+      in srgb,
+      var(--color-warning) 20%,
+      var(--color-window)
+    );
+    border-color: var(--color-warning);
+    color: var(--color-warning);
   }
 
   .confirm-prompt {

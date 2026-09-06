@@ -281,9 +281,14 @@ hard-code a colour, space, radius, or shadow — always a token.
 
 ### Aesthetic
 
-The case draws from **2000s Mac OS X Graphite** — cool silver-grey shell, Lucida Grande as
-the system font, Aqua-style gradient buttons and controls, soft drop shadows, dark section
-bars, Graphite desktop. It should say "you are using a computer program."
+The case draws from **the desktop computing of the early 2000s** — a physical shell around
+the work, Lucida Grande as the system font, gradient buttons and controls, soft drop shadows,
+a desktop behind the window. It should say "you are using a computer program."
+
+The palette is **warm graphite**, not Apple's cool silver: OKLCH hue 88 at chroma 0.014, a
+warm putty that gets to the same era by way of SGI, NeXT and Sun rather than by copying Aqua
+exactly. Aqua is the reference for the *grammar* — gloss, bevel, the case-versus-work split —
+not a colour to match.
 
 The XP-era 3D bevel system has been removed, and so are the last two leftovers wearing the
 costume: the Win32 tooltip and the font-smoothing override. All controls use Aqua-style
@@ -315,18 +320,65 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
   contract sits on the *edge*, not the fill: a dark panel over a dark page cannot clear 3:1
   on fill without going pale grey and ceasing to look like a help tag, and what has to be
   legible is where the panel stops.
-- **The desktop is Graphite** — `--color-desktop: #b8bcc2`, the whole page background.
-- **Window chrome is cool silver-grey** — `--color-window: #f4f5f7`; content areas
-  `--color-window-raised: #eceef2`; inset fields `--color-window-inset: #ffffff`.
+- **Every surface is a rung on one ladder** — see *The ladder* below. Do not invent a
+  surface colour; pick the rung whose relationship you want.
 - **The status bar is 30px** — it holds interactive text (the trust readout, and the undo
   action when that lands), so it clears WCAG 2.5.8's 24×24 minimum target. 30 rather than the
   24 + padding it looks like it needs: the bar clips its overflow, and a 24px target with a
   2px focus ring exactly fills 28, shearing the ring's top and bottom. Period-plausible —
   Aqua status bars ran ~22px, taller when they carried controls. The height is paid once and
   never animates (§2).
-- **Title bars use the Graphite + Aqua gloss gradient** — multi-stop gloss over the Graphite
-  hue; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border and top
+- **Title bars use the case colour under a gloss gradient** — multi-stop gloss over the case
+  rung; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border and top
   highlight. Title text uses `--font-serif`. Modals use `--shadow-modal`.
+- **Section bars are bands, not slabs** — one rung off the surface they head, carrying
+  ordinary ink. A header rendered as a dark gradient with reversed-out text is the loudest
+  thing on the page and never the thing you came to read.
+- **Magnitude marks are ink, not accent** — bars, blocks and sparklines take
+  `--color-bar-ink`; `--color-incomplete` marks a magnitude known to be partial. The accent
+  means "the one live thing on this screen", so it can mark the row you drilled into and
+  nothing else. A chart filled with the accent spends it on nine things at once and it stops
+  meaning anything.
+
+### The ladder
+
+Every surface in the app is one rung on a single ramp, and **an element sits on the same rung
+in both themes**. This is the rule the previous palette pair did not keep: light was designed
+as Aqua Graphite and dark was derived by substituting Nord, which preserved the colours but
+not the relationships. The section bar ended up 11.45:1 from the page it headed in light and
+1.24:1 in dark — the same element, a 61x difference in how loud it was. Hierarchy has to be a
+property of the design, not of which theme you happen to have on.
+
+Two units, because they measure different things:
+
+- **Surfaces step by OKLCH ΔL**, never by contrast ratio. A ratio is a nonlinear function of
+  a *pair*, so the same target buys a different-sized perceptual step depending on where on
+  the ramp you spend it — 1.20:1 is ΔL 0.042 in the mid-tones and ΔL 0.070 near black. Spec a
+  ladder in ratios and the dark end silently gets shallower steps than you asked for, which is
+  exactly how the old dark theme flattened while every value in it still "passed".
+- **Ink steps by contrast ratio**, because that is what legibility is measured in and there is
+  a standard to point at.
+
+| rung | light | dark | steps from | ΔL light / dark |
+|---|---|---|---|---|
+| `--color-desktop` | `#a8a49b` | `#100d07` | — | — |
+| the case (titlebar, status bar) | `#d3cfc5` | `#3b3730` | desktop | .135 / .179 |
+| `--color-window-raised` | `#e2ded4` | `#211e16` | — | — |
+| `--color-window` | `#f6f1e7` | `#2d2a22` | raised | .060 / .050 |
+| `--color-section-bar-bg` | `#c1bdb4` | `#3f3b33` | raised | .100 / .120 |
+| `--color-rule` | `#d0ccc2` | `#4b473f` | window | .115 / .116 |
+
+`--color-window-inset` (`#fffdf6` / `#191710`) is the far end of the ramp in each theme, not a
+rung in the middle: an input or a chart trough has to read as a hole cut in the panel.
+
+One relationship legitimately inverts between themes and is exempt from the same-rung rule:
+the case against the window it frames. A shell is always a mid-tone between the desktop behind
+it and the panel inside it, which puts it below the window in light and above it in dark. Both
+directions are still required to be a real step — a titlebar flush with its own panel is a bug
+either way.
+
+`tokens.test.ts` asserts all of it: each step is at least ΔL 0.04 (below that, two surfaces
+read as one surface with a seam), and the two themes' steps stay within 2x of each other.
 
 ### Interaction finishes
 
@@ -340,12 +392,29 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
 Negative amounts in the data are expenses; positive are income. Always through
 `MoneyDisplay`.
 
+**Colour marks the minority sign.** On Accounts one or two rows are negative; on a transaction
+list nearly all of them are, and twenty-two red numbers read as twenty-two errors rather than
+as ordinary spending. So in any list where one sign dominates, the dominant sign renders in
+`--color-text` and the minus carries it, and colour is spent on the minority sign — the row you
+were actually looking for. A liability *balance* is likewise not an error and does not take
+`--color-amount-negative` on that ground alone.
+
+The two amount colours are also held to the same loudness as each other in each theme. Before
+the ladder, a loss in dark mode measured 3.05:1 against a gain's 6.13:1: the number you most
+need to notice was the quieter of the two, and nothing in the design had said so — it fell out
+of borrowing two palette entries that happened not to match.
+
 ### Two rules that are load-bearing
 
 **Tokens are a contract, not a palette.** `frontend/src/styles/tokens.test.ts` asserts
-contrast invariants against the token file itself, because a fill and its trough only meet
-each other in the compositor and no component test can catch that. When you add a token
-pair that must stay distinguishable, add the assertion with it.
+contrast and ladder invariants against the token file itself, because a fill and its trough
+only meet each other in the compositor and no component test can catch that. When you add a
+token pair that must stay distinguishable, add the assertion with it.
+`frontend/src/styles/no-raw-colour.test.ts` enforces the other half: no `.svelte`, `.css` or
+`.ts` file outside the two declared colour sources may hold a hex, a hued `rgb()`, or a named
+colour. Translucent neutrals (`rgba(0, 0, 0, 0.08)`) and `color-mix(…, black)` stay legal —
+they shade whatever is beneath them rather than declaring a colour, which is the one thing a
+flat token cannot express.
 
 **Accent is user data.** Six accents (`frontend/src/lib/accent.ts`) times light/dark.
 Anything you build must survive all twelve combinations. Never assume the accent is blue,
@@ -541,35 +610,49 @@ epics kill them.
 
 ### The two themes are not one design
 Measured against `tokens.css` in `planning/exploration/visual-language/`. All of these are
-answered by `planning/epics/visual-language.md`; none of them is fixed yet.
+answered by `planning/epics/visual-language.md`. Story 1 (the ladder) has landed, so the ones
+it fixed are struck; the rest are still open, with the story that owns each.
 
-- **Hierarchy is a property of the theme, not the design.** `--color-section-bar-bg` is 11.45:1
-  against the page in light and 1.24:1 in dark — ΔL 0.549 against ΔL 0.009. The same element is
-  the loudest thing on one screen and one of the quietest on the other.
-- **`Card` is not a surface.** `--card-bg` is `--color-window`, the page is
+- ~~**Hierarchy is a property of the theme, not the design.** `--color-section-bar-bg` is
+  11.45:1 against the page in light and 1.24:1 in dark — ΔL 0.549 against ΔL 0.009. The same
+  element is the loudest thing on one screen and one of the quietest on the other.~~ Fixed by
+  the ladder: the section bar now steps ΔL .100 / .120 off the panel it heads, and
+  `tokens.test.ts` holds every rung to within 2x between themes.
+- ~~**`Card` is not a surface.** `--card-bg` is `--color-window`, the page is
   `--color-window-raised`: 1.06:1 light, 1.05:1 dark. Every panel in the app is separated from
   the page by a hairline and nothing else. In dark `--color-rule` is 1.24:1 as well, so that
-  theme has neither surface nor line carrying grouping — which is why it reads flat.
-- **Losses are dimmer than gains in dark.** `--color-amount-negative` is 3.05:1 against
+  theme has neither surface nor line carrying grouping — which is why it reads flat.~~ Fixed by
+  the ladder: window against raised is now ΔL .060 / .050, and the rule ΔL .115 / .116. `Card`
+  did not change; the values underneath it did.
+- ~~**Losses are dimmer than gains in dark.** `--color-amount-negative` is 3.05:1 against
   positive's 6.13:1. It fails the 4.5 floor §8 sets, on the app's most important datum, and the
-  two halves of it are not equally legible.
+  two halves of it are not equally legible.~~ Fixed: 5.41 against 6.62 in dark, 5.40 against
+  5.01 in light, with an assertion holding the pair within 1.5x of each other in each theme.
 - **Four of six accents fail 4.5:1 in light.** Ochre is 2.64:1 light and 9.52:1 dark. Accent is
-  the one rung a user can move, and nothing constrains where they move it to.
-- **Light is Aqua and dark is Nord.** A 2016 editor theme with its own opinions. There was no
+  the one rung a user can move, and nothing constrains where they move it to. → story 2. Until
+  it lands the accents are still the old values, so on a warm-graphite page the saturated blue
+  of the default reads as the loudest thing on several screens.
+- ~~**Light is Aqua and dark is Nord.** A 2016 editor theme with its own opinions. There was no
   dark Mac OS X in 2003, so the dark theme had no period referent and borrowed one — which is
-  why §5's aesthetic paragraph only ever describes the light one.
+  why §5's aesthetic paragraph only ever describes the light one.~~ Fixed: both themes are now
+  the same warm-graphite ramp read from opposite ends, and §5 describes one palette rather than
+  the light one.
 - **Columns do not line up between account groups.** Each `SectionCard` renders its own
   `<table>` at `width: 100%` with no fixed layout, so every group sizes columns from its own
-  content and Balance sits at a different x in Cash, Equity and Liabilities.
+  content and Balance sits at a different x in Cash, Equity and Liabilities. → story 3.
 - **The accent is doing chart duty.** `SpendingBreakdown` fills every block bar with
   `--color-accent`, so the token that should mark the one live thing marks nine categories at
-  once — and changes colour per user.
-- **`CurrencyPill` has a light-only colour map.** Thirty-three currencies with hand-picked pale
-  backgrounds and dark text, applied as an inline style that overrides the component's own token
-  fallback. Every money row in the app carries one, so in dark theme they are pale stickers on a
-  dark page. `tokens.test.ts` cannot see it, because it is not a token — which is the argument
-  for a source-level guard against raw colour in `.svelte`, the way `chromeButtons.test.ts`
-  guards handlers.
+  once — and changes colour per user. → story 5. `--color-bar-ink` exists and is asserted; no
+  chart reads it yet.
+- ~~**`CurrencyPill` has a light-only colour map.** Thirty-three currencies with hand-picked
+  pale backgrounds and dark text, applied as an inline style that overrides the component's own
+  token fallback. Every money row in the app carries one, so in dark theme they are pale
+  stickers on a dark page. `tokens.test.ts` cannot see it, because it is not a token — which is
+  the argument for a source-level guard against raw colour in `.svelte`, the way
+  `chromeButtons.test.ts` guards handlers.~~ Fixed: the map is gone and the pill is neutral in
+  both themes. The guard it argued for is `no-raw-colour.test.ts`, which found two more things
+  while it was at it — nine components mixing toward literal `black`, and `accent.ts` as a
+  second declared source of colour.
 
 ### The work is not modern enough
 - **Modal nesting.** `TransactionDetailModal` is a `Modal` that renders `LedgerEditModal`,

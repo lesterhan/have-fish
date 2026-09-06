@@ -1,5 +1,9 @@
 import { bumpCoverage } from './coverageRefresh'
-import type { AccountCoverageStatus, CoverageState, MonthCoverage } from './coverage'
+import type {
+  AccountCoverageStatus,
+  CoverageState,
+  MonthCoverage,
+} from './coverage'
 
 export type {
   AccountCoverageStatus,
@@ -14,7 +18,8 @@ export type {
 const BASE = ''
 
 // The five types path inference can produce.
-export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
+export type AccountType =
+  'asset' | 'liability' | 'equity' | 'income' | 'expense'
 // The full hledger set a stored override may hold (adds Cash + Conversion, which are
 // override-only — inference never produces them).
 export type StoredAccountType = AccountType | 'cash' | 'conversion'
@@ -55,7 +60,11 @@ export async function fetchAccount(id: string): Promise<Account> {
 
 export async function updateAccount(
   id: string,
-  updates: { name?: string | null; defaultCurrency?: string | null; type?: StoredAccountType | null },
+  updates: {
+    name?: string | null
+    defaultCurrency?: string | null
+    type?: StoredAccountType | null
+  },
 ): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     method: 'PATCH',
@@ -96,7 +105,10 @@ export async function fetchAccounts(): Promise<Account[]> {
 // defaultCurrency (ISO 4217) pre-selects the currency in quick entry. The import flow's
 // Accounts step is the one place that knows it for certain — the suggested path was
 // derived from the currency — so it sets it rather than leaving the column null.
-export async function createAccount(body: { path: string; defaultCurrency?: string }): Promise<Account> {
+export async function createAccount(body: {
+  path: string
+  defaultCurrency?: string
+}): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts`, {
     method: 'POST',
     credentials: 'include',
@@ -128,10 +140,18 @@ export async function deleteAccount(id: string) {
 
 // One row per non-deleted account, including never-used ones (count 0, lastActivity null).
 // lastActivity is the YYYY-MM-DD date of the account's most recent transaction.
-export type AccountPostingCount = { accountId: string; count: number; lastActivity: string | null }
+export type AccountPostingCount = {
+  accountId: string
+  count: number
+  lastActivity: string | null
+}
 
-export async function fetchAccountPostingCounts(): Promise<AccountPostingCount[]> {
-  const res = await fetch(`${BASE}/api/accounts/posting-counts`, { credentials: 'include' })
+export async function fetchAccountPostingCounts(): Promise<
+  AccountPostingCount[]
+> {
+  const res = await fetch(`${BASE}/api/accounts/posting-counts`, {
+    credentials: 'include',
+  })
   return res.json()
 }
 
@@ -323,7 +343,11 @@ export async function importCommit(body: {
   accountId: string // empty string for multi-currency imports (source is per-row)
   defaultCurrency: string
   transactions: CommitTransaction[]
-  groupSplits?: { rowIndex: number; groupId: string; categoryId?: string | null }[]
+  groupSplits?: {
+    rowIndex: number
+    groupId: string
+    categoryId?: string | null
+  }[]
 }): Promise<{ created: number; fishPieExpenses: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
@@ -339,7 +363,9 @@ export async function importCommit(body: {
  * (YYYY-MM-DD) bound the exported transactions; omit for everything. Streams the
  * response to a Blob and triggers a browser download. Backend route: GET /api/export/journal.
  */
-export async function exportJournal(opts: { from?: string; to?: string } = {}): Promise<void> {
+export async function exportJournal(
+  opts: { from?: string; to?: string } = {},
+): Promise<void> {
   const params = new URLSearchParams()
   if (opts.from) params.set('from', opts.from)
   if (opts.to) params.set('to', opts.to)
@@ -633,12 +659,16 @@ export async function fetchMalformedFxSpends(): Promise<{
     credentials: 'include',
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to load malformed transactions')
+    throw new Error(
+      (await res.json()).error ?? 'Failed to load malformed transactions',
+    )
   return res.json()
 }
 
 // Repairs a single malformed cross-currency-spend transaction in place.
-export async function healFxSpend(id: string): Promise<{ postings: HealPosting[] }> {
+export async function healFxSpend(
+  id: string,
+): Promise<{ postings: HealPosting[] }> {
   const res = await fetch(`${BASE}/api/transactions/${id}/heal-fx-spend`, {
     method: 'POST',
     credentials: 'include',
@@ -741,7 +771,8 @@ export async function deletePosting(id: string) {
 
 // A posting's role within its transaction, derived by the backend classifier
 // (src/postings/roles.ts). Drives the narrated TransactionDetail view.
-export type PostingRole = 'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
+export type PostingRole =
+  'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
 
 export type Posting = {
   id: string
@@ -838,7 +869,12 @@ export async function fetchFxRate(
 export async function fetchFxRateAsOf(
   from: string,
   to: string,
-): Promise<{ from: string; to: string; rate: string; asOfDate: string } | null> {
+): Promise<{
+  from: string
+  to: string
+  rate: string
+  asOfDate: string
+} | null> {
   const res = await fetch(
     `${BASE}/api/fx-rates/as-of?${new URLSearchParams({ from, to })}`,
     { credentials: 'include' },
@@ -869,22 +905,24 @@ export type ImportRule = {
 // Exactly one target per call. Sending a target on update replaces the existing one
 // wholesale — patching an account rule with a groupId clears its account, and vice versa.
 export type RuleTarget =
-  | { accountId: string }
-  | { groupId: string; categoryId?: string | null }
+  { accountId: string } | { groupId: string; categoryId?: string | null }
 
 export async function fetchRules(): Promise<ImportRule[]> {
   const res = await fetch(`${BASE}/api/rules`, { credentials: 'include' })
   return res.json()
 }
 
-export async function createRule(body: { pattern: string } & RuleTarget): Promise<ImportRule> {
+export async function createRule(
+  body: { pattern: string } & RuleTarget,
+): Promise<ImportRule> {
   const res = await fetch(`${BASE}/api/rules`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to create rule')
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to create rule')
   return res.json()
 }
 
@@ -898,34 +936,53 @@ export async function updateRule(
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to update rule')
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to update rule')
   return res.json()
 }
 
 export async function deleteRule(id: string): Promise<void> {
-  await fetch(`${BASE}/api/rules/${id}`, { method: 'DELETE', credentials: 'include' })
+  await fetch(`${BASE}/api/rules/${id}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
 }
 
 export async function approveRule(id: string): Promise<ImportRule> {
-  const res = await fetch(`${BASE}/api/rules/${id}/approve`, { method: 'POST', credentials: 'include' })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to approve rule')
+  const res = await fetch(`${BASE}/api/rules/${id}/approve`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to approve rule')
   return res.json()
 }
 
 export async function denyRule(id: string): Promise<ImportRule> {
-  const res = await fetch(`${BASE}/api/rules/${id}/deny`, { method: 'POST', credentials: 'include' })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to deny rule')
+  const res = await fetch(`${BASE}/api/rules/${id}/deny`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to deny rule')
   return res.json()
 }
 
 export async function reviveRule(id: string): Promise<ImportRule> {
-  const res = await fetch(`${BASE}/api/rules/${id}/revive`, { method: 'POST', credentials: 'include' })
-  if (!res.ok) throw new Error((await res.json()).error ?? 'Failed to revive rule')
+  const res = await fetch(`${BASE}/api/rules/${id}/revive`, {
+    method: 'POST',
+    credentials: 'include',
+  })
+  if (!res.ok)
+    throw new Error((await res.json()).error ?? 'Failed to revive rule')
   return res.json()
 }
 
 export async function mineRules(): Promise<{ created: number }> {
-  const res = await fetch(`${BASE}/api/rules/mine`, { method: 'POST', credentials: 'include' })
+  const res = await fetch(`${BASE}/api/rules/mine`, {
+    method: 'POST',
+    credentials: 'include',
+  })
   return res.json()
 }
 
@@ -933,18 +990,21 @@ export async function fetchActionRequiredSummary(): Promise<
   { accountId: string; count: number }[]
 > {
   const res = await fetch(`${BASE}/api/accounts/action-required-summary`, {
-    credentials: "include",
+    credentials: 'include',
   })
   return res.json()
 }
 
 export async function fetchActionRequired(
   accountId: string,
-): Promise<{ count: number; transactionIds: string[]; malformedTransactionIds: string[] }> {
-  const res = await fetch(
-    `${BASE}/api/accounts/${accountId}/action-required`,
-    { credentials: "include" },
-  )
+): Promise<{
+  count: number
+  transactionIds: string[]
+  malformedTransactionIds: string[]
+}> {
+  const res = await fetch(`${BASE}/api/accounts/${accountId}/action-required`, {
+    credentials: 'include',
+  })
   return res.json()
 }
 
@@ -1002,13 +1062,17 @@ export type ExpenseGroup = {
 }
 
 export async function fetchGroups(): Promise<ExpenseGroup[]> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/fish-pie/groups`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Failed to fetch groups')
   return res.json()
 }
 
 export async function fetchGroup(id: string): Promise<ExpenseGroup> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Group not found')
   return res.json()
 }
@@ -1024,7 +1088,10 @@ export async function createGroup(name: string): Promise<ExpenseGroup> {
   return res.json()
 }
 
-export async function updateGroup(id: string, data: { name?: string; defaultCurrency?: string | null }): Promise<ExpenseGroup> {
+export async function updateGroup(
+  id: string,
+  data: { name?: string; defaultCurrency?: string | null },
+): Promise<ExpenseGroup> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, {
     method: 'PATCH',
     credentials: 'include',
@@ -1035,18 +1102,28 @@ export async function updateGroup(id: string, data: { name?: string; defaultCurr
   return res.json()
 }
 
-export async function updateMemberWeight(groupId: string, userId: string, shareWeight: number): Promise<GroupMember> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/members/${userId}`, {
-    method: 'PATCH',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ shareWeight }),
-  })
+export async function updateMemberWeight(
+  groupId: string,
+  userId: string,
+  shareWeight: number,
+): Promise<GroupMember> {
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/members/${userId}`,
+    {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ shareWeight }),
+    },
+  )
   if (!res.ok) throw new Error('Failed to update share weight')
   return res.json()
 }
 
-export async function updateMyExpenseAccount(groupId: string, defaultExpenseAccountId: string | null): Promise<GroupMember> {
+export async function updateMyExpenseAccount(
+  groupId: string,
+  defaultExpenseAccountId: string | null,
+): Promise<GroupMember> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/members/me`, {
     method: 'PATCH',
     credentials: 'include',
@@ -1067,13 +1144,20 @@ export async function deleteGroup(id: string): Promise<void> {
 
 // --- Fish-pie group categories (epic: fish-pie-categories) ---
 
-export async function fetchGroupCategories(groupId: string): Promise<GroupCategory[]> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, { credentials: 'include' })
+export async function fetchGroupCategories(
+  groupId: string,
+): Promise<GroupCategory[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Failed to fetch categories')
   return res.json()
 }
 
-export async function createGroupCategory(groupId: string, name: string): Promise<GroupCategory> {
+export async function createGroupCategory(
+  groupId: string,
+  name: string,
+): Promise<GroupCategory> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, {
     method: 'POST',
     credentials: 'include',
@@ -1089,12 +1173,15 @@ export async function updateGroupCategory(
   categoryId: string,
   data: { name?: string; sortOrder?: number; archived?: boolean },
 ): Promise<GroupCategory> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}`, {
-    method: 'PATCH',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(data),
-  })
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}`,
+    {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data),
+    },
+  )
   if (!res.ok) throw new Error('Failed to update category')
   return res.json()
 }
@@ -1105,12 +1192,15 @@ export async function setCategoryMyMapping(
   categoryId: string,
   accountId: string,
 ): Promise<{ categoryId: string; accountId: string }> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}/my-mapping`, {
-    method: 'PUT',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ accountId }),
-  })
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}/my-mapping`,
+    {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ accountId }),
+    },
+  )
   if (!res.ok) throw new Error('Failed to set category account')
   return res.json()
 }
@@ -1122,12 +1212,15 @@ export async function setCategoryWeights(
   categoryId: string,
   weights: { userId: string; weight: number }[],
 ): Promise<GroupCategory> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}/weights`, {
-    method: 'PUT',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ weights }),
-  })
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}/weights`,
+    {
+      method: 'PUT',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ weights }),
+    },
+  )
   if (!res.ok) throw new Error('Failed to set category weights')
   return res.json()
 }
@@ -1144,13 +1237,20 @@ export type GroupInvite = {
   inviterName?: string
 }
 
-export async function fetchGroupInvites(groupId: string): Promise<GroupInvite[]> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, { credentials: 'include' })
+export async function fetchGroupInvites(
+  groupId: string,
+): Promise<GroupInvite[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Failed to fetch invites')
   return res.json()
 }
 
-export async function sendInvite(groupId: string, email: string): Promise<GroupInvite> {
+export async function sendInvite(
+  groupId: string,
+  email: string,
+): Promise<GroupInvite> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, {
     method: 'POST',
     credentials: 'include',
@@ -1164,16 +1264,24 @@ export async function sendInvite(groupId: string, email: string): Promise<GroupI
   return res.json()
 }
 
-export async function cancelInvite(groupId: string, inviteId: string): Promise<void> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites/${inviteId}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  })
+export async function cancelInvite(
+  groupId: string,
+  inviteId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/invites/${inviteId}`,
+    {
+      method: 'DELETE',
+      credentials: 'include',
+    },
+  )
   if (!res.ok) throw new Error('Failed to cancel invite')
 }
 
 export async function fetchMyInvites(): Promise<GroupInvite[]> {
-  const res = await fetch(`${BASE}/api/fish-pie/invites`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/fish-pie/invites`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Failed to fetch invites')
   return res.json()
 }
@@ -1223,12 +1331,17 @@ export type GroupExpense = {
 }
 
 export async function fetchExpenses(groupId: string): Promise<GroupExpense[]> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Failed to fetch expenses')
   return res.json()
 }
 
-export async function updateMyPaymentAccount(groupId: string, defaultPaymentAccountId: string | null): Promise<GroupMember> {
+export async function updateMyPaymentAccount(
+  groupId: string,
+  defaultPaymentAccountId: string | null,
+): Promise<GroupMember> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/members/me`, {
     method: 'PATCH',
     credentials: 'include',
@@ -1241,7 +1354,15 @@ export async function updateMyPaymentAccount(groupId: string, defaultPaymentAcco
 
 export async function createExpense(
   groupId: string,
-  body: { description: string; amount: string; currency: string; date: string; paidByUserId?: string; paymentAccountId: string; categoryId?: string | null },
+  body: {
+    description: string
+    amount: string
+    currency: string
+    date: string
+    paidByUserId?: string
+    paymentAccountId: string
+    categoryId?: string | null
+  },
 ): Promise<GroupExpense> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
     method: 'POST',
@@ -1269,12 +1390,15 @@ export async function updateExpense(
     categoryId?: string | null
   },
 ): Promise<GroupExpense> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
-    method: 'PATCH',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`,
+    {
+      method: 'PATCH',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to update expense')
@@ -1282,11 +1406,17 @@ export async function updateExpense(
   return res.json()
 }
 
-export async function deleteExpense(groupId: string, expenseId: string): Promise<void> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  })
+export async function deleteExpense(
+  groupId: string,
+  expenseId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`,
+    {
+      method: 'DELETE',
+      credentials: 'include',
+    },
+  )
   if (!res.ok) throw new Error('Failed to delete expense')
 }
 
@@ -1313,8 +1443,12 @@ export type CurrencyBalance = {
   transfers: BalanceTransfer[]
 }
 
-export async function fetchBalances(groupId: string): Promise<CurrencyBalance[]> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/balances`, { credentials: 'include' })
+export async function fetchBalances(
+  groupId: string,
+): Promise<CurrencyBalance[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/balances`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Failed to fetch balances')
   return res.json()
 }
@@ -1330,8 +1464,12 @@ export type GroupOverview = {
   balances: CurrencyBalance[]
 }
 
-export async function fetchGroupOverview(groupId: string): Promise<GroupOverview> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/overview`, { credentials: 'include' })
+export async function fetchGroupOverview(
+  groupId: string,
+): Promise<GroupOverview> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/overview`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Failed to load group')
   return res.json()
 }
@@ -1360,22 +1498,38 @@ export type GroupSettlement = {
   deletedAt: string | null
 }
 
-export async function fetchSettlements(groupId: string): Promise<GroupSettlement[]> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, { credentials: 'include' })
+export async function fetchSettlements(
+  groupId: string,
+): Promise<GroupSettlement[]> {
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/settlements`,
+    { credentials: 'include' },
+  )
   if (!res.ok) throw new Error('Failed to fetch settlements')
   return res.json()
 }
 
 export async function createSettlement(
   groupId: string,
-  body: { fromUserId: string; toUserId: string; amount: string; currency: string; date: string; note?: string; payerAccountId: string },
+  body: {
+    fromUserId: string
+    toUserId: string
+    amount: string
+    currency: string
+    date: string
+    note?: string
+    payerAccountId: string
+  },
 ): Promise<GroupSettlement> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/settlements`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to create settlement')
@@ -1388,12 +1542,15 @@ export async function confirmSettlement(
   settlementId: string,
   receiverAccountId: string,
 ): Promise<GroupSettlement> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ receiverAccountId }),
-  })
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiverAccountId }),
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to confirm settlement')
@@ -1401,11 +1558,17 @@ export async function confirmSettlement(
   return res.json()
 }
 
-export async function deleteSettlement(groupId: string, settlementId: string): Promise<void> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  })
+export async function deleteSettlement(
+  groupId: string,
+  settlementId: string,
+): Promise<void> {
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}`,
+    {
+      method: 'DELETE',
+      credentials: 'include',
+    },
+  )
   if (!res.ok) throw new Error('Failed to delete settlement')
 }
 
@@ -1422,14 +1585,22 @@ export type BatchSettlementLine = {
 
 export async function createSettlementBatch(
   groupId: string,
-  body: { payerAccountId: string; date: string; note?: string; lines: BatchSettlementLine[] },
+  body: {
+    payerAccountId: string
+    date: string
+    note?: string
+    lines: BatchSettlementLine[]
+  },
 ): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/batch`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/settlements/batch`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to create settlement')
@@ -1442,19 +1613,21 @@ export async function confirmSettlementBatch(
   batchId: string,
   receiverAccountId: string,
 ): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
-  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/batch/${batchId}/confirm`, {
-    method: 'POST',
-    credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ receiverAccountId }),
-  })
+  const res = await fetch(
+    `${BASE}/api/fish-pie/groups/${groupId}/settlements/batch/${batchId}/confirm`,
+    {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ receiverAccountId }),
+    },
+  )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
     throw new Error((err as any).error ?? 'Failed to confirm settlement')
   }
   return res.json()
 }
-
 
 // --- Catch-Up Coach ---
 
@@ -1537,7 +1710,9 @@ export type CoverageStatusPayload = {
  * `$lib/coverage.ts` for what that absence means to a rollup.
  */
 export async function fetchCoverageStatus(): Promise<CoverageStatusPayload> {
-  const res = await fetch(`${BASE}/api/coverage/accounts`, { credentials: 'include' })
+  const res = await fetch(`${BASE}/api/coverage/accounts`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw new Error('Failed to load account coverage')
   return res.json()
 }
@@ -1605,7 +1780,10 @@ export async function fetchAccountCoverage(
   days?: number,
 ): Promise<AccountCoverage> {
   const query = days ? `?days=${days}` : ''
-  const res = await fetch(`${BASE}/api/accounts/${accountId}/coverage${query}`, { credentials: 'include' })
+  const res = await fetch(
+    `${BASE}/api/accounts/${accountId}/coverage${query}`,
+    { credentials: 'include' },
+  )
   if (!res.ok) throw new Error('Failed to load coverage')
   return res.json()
 }
@@ -1652,7 +1830,13 @@ export async function updateCoverageConfig(
     releaseLag: number | null
     tracked: boolean | null
   }>,
-): Promise<{ accountId: string; override: Partial<CoverageConfig>; config: CoverageConfig; horizon: string; nextHorizon: string | null }> {
+): Promise<{
+  accountId: string
+  override: Partial<CoverageConfig>
+  config: CoverageConfig
+  horizon: string
+  nextHorizon: string | null
+}> {
   const res = await fetch(`${BASE}/api/coverage/config/${accountId}`, {
     method: 'PATCH',
     credentials: 'include',

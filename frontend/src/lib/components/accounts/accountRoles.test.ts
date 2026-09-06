@@ -28,20 +28,25 @@ function settings(over: Partial<UserSettings> = {}): UserSettings {
 
 describe('rolesOf', () => {
   it('names the role an account fills', () => {
-    expect(rolesOf('a', settings({ defaultOffsetAccountId: 'a' }))).toEqual(['offset'])
-    expect(rolesOf('a', settings({ defaultConversionAccountId: 'a' }))).toEqual([
-      'conversion',
+    expect(rolesOf('a', settings({ defaultOffsetAccountId: 'a' }))).toEqual([
+      'offset',
     ])
-    expect(rolesOf('a', settings({ defaultAdjustmentsAccountId: 'a' }))).toEqual([
-      'adjustments',
-    ])
+    expect(rolesOf('a', settings({ defaultConversionAccountId: 'a' }))).toEqual(
+      ['conversion'],
+    )
+    expect(
+      rolesOf('a', settings({ defaultAdjustmentsAccountId: 'a' })),
+    ).toEqual(['adjustments'])
   })
 
   it('names every role when one account fills several', () => {
     expect(
       rolesOf(
         'a',
-        settings({ defaultOffsetAccountId: 'a', defaultAdjustmentsAccountId: 'a' }),
+        settings({
+          defaultOffsetAccountId: 'a',
+          defaultAdjustmentsAccountId: 'a',
+        }),
       ),
     ).toEqual(['offset', 'adjustments'])
   })
@@ -95,7 +100,11 @@ describe('protectionFor', () => {
 
   it('reports a receivable as system-managed', () => {
     expect(
-      protectionFor({ id: 'r', path: 'assets:receivable:alice' }, settings(), ROOTS),
+      protectionFor(
+        { id: 'r', path: 'assets:receivable:alice' },
+        settings(),
+        ROOTS,
+      ),
     ).toEqual({ kind: 'system' })
   })
 

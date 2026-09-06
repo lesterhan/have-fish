@@ -42,7 +42,11 @@ describe('glyphs', () => {
   it('returns one glyph per character, so nothing is dropped', () => {
     const path = '储蓄:中国银行'
     expect(glyphs(path, []).length).toBe(path.length)
-    expect(glyphs(path, []).map((g) => g.ch).join('')).toBe(path)
+    expect(
+      glyphs(path, [])
+        .map((g) => g.ch)
+        .join(''),
+    ).toBe(path)
   })
 
   it('handles an empty path and an empty match', () => {

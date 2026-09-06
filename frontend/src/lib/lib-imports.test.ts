@@ -74,10 +74,14 @@ describe('$lib imports in testable modules', () => {
   it('catches the shapes it is meant to catch', () => {
     // A regex that silently stops matching would otherwise pass the check above by
     // finding nothing at all.
-    expect(offendersIn(`import { MONTH_NAMES } from '$lib/date'`)).toHaveLength(1)
+    expect(offendersIn(`import { MONTH_NAMES } from '$lib/date'`)).toHaveLength(
+      1,
+    )
     expect(offendersIn(`import def from "$lib/api"`)).toHaveLength(1)
     expect(offendersIn(`export { thing } from '$lib/util'`)).toHaveLength(1)
-    expect(offendersIn(`import {\n  a,\n  b,\n} from '$lib/api'`)).toHaveLength(1)
+    expect(offendersIn(`import {\n  a,\n  b,\n} from '$lib/api'`)).toHaveLength(
+      1,
+    )
   })
 
   it('leaves the erased forms alone', () => {
@@ -85,7 +89,9 @@ describe('$lib imports in testable modules', () => {
     expect(offendersIn(`export type { Account } from '$lib/api'`)).toEqual([])
     expect(offendersIn(`import { MONTH_NAMES } from '../../date'`)).toEqual([])
     // A type-position dynamic import, as in api.ts's UserPreferences.
-    expect(offendersIn(`  accentColor?: import('$lib/accent').AccentKey`)).toEqual([])
+    expect(
+      offendersIn(`  accentColor?: import('$lib/accent').AccentKey`),
+    ).toEqual([])
   })
 
   it('does not let one statement reach the next statement’s specifier', () => {

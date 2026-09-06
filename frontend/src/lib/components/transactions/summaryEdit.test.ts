@@ -17,7 +17,15 @@ function p(
   role: PostingRole,
   id = accountPath + ':' + amount,
 ): Posting {
-  return { id, accountId: accountPath, accountPath, accountName: null, amount, currency, role }
+  return {
+    id,
+    accountId: accountPath,
+    accountPath,
+    accountName: null,
+    amount,
+    currency,
+    role,
+  }
 }
 
 // The canonical fee-bearing cross-currency Wise spend: only the cafe leg is a subject.
@@ -62,7 +70,10 @@ describe('recategorizableLegs / initialSubjectDrafts', () => {
 
   it('seeds one draft per subject, defaulting to the leg account', () => {
     expect(initialSubjectDrafts(wiseSpend())).toEqual([
-      { postingId: 'expenses:food:cafe:50.00', accountId: 'expenses:food:cafe' },
+      {
+        postingId: 'expenses:food:cafe:50.00',
+        accountId: 'expenses:food:cafe',
+      },
     ])
   })
 
@@ -89,7 +100,10 @@ describe('hasAccountChange', () => {
   it('true once a subject is repointed', () => {
     expect(
       hasAccountChange(tx, [
-        { postingId: 'expenses:food:cafe:50.00', accountId: 'expenses:food:restaurants' },
+        {
+          postingId: 'expenses:food:cafe:50.00',
+          accountId: 'expenses:food:restaurants',
+        },
       ]),
     ).toBe(true)
   })
@@ -107,21 +121,31 @@ describe('buildRecategorizePayload', () => {
   it('repoints only the subject leg; every other leg + all amounts untouched', () => {
     const tx = wiseSpend()
     const payload = buildRecategorizePayload(tx, [
-      { postingId: 'expenses:food:cafe:50.00', accountId: 'expenses:food:restaurants' },
+      {
+        postingId: 'expenses:food:cafe:50.00',
+        accountId: 'expenses:food:restaurants',
+      },
     ])
     expect(payload).toEqual([
       { accountId: 'assets:wise:cad', amount: '-80.00', currency: 'CAD' },
       { accountId: 'assets:wise:eur', amount: '50.00', currency: 'EUR' },
       { accountId: 'equity:conversion', amount: '80.00', currency: 'CAD' },
       { accountId: 'expenses:banking:fee', amount: '0.05', currency: 'EUR' },
-      { accountId: 'expenses:food:restaurants', amount: '50.00', currency: 'EUR' },
+      {
+        accountId: 'expenses:food:restaurants',
+        amount: '50.00',
+        currency: 'EUR',
+      },
     ])
   })
 
   it('preserves every leg amount + currency exactly (so balance is untouched)', () => {
     const tx = wiseSpend()
     const payload = buildRecategorizePayload(tx, [
-      { postingId: 'expenses:food:cafe:50.00', accountId: 'expenses:food:restaurants' },
+      {
+        postingId: 'expenses:food:cafe:50.00',
+        accountId: 'expenses:food:restaurants',
+      },
     ])
     expect(payload.map((l) => `${l.amount} ${l.currency}`)).toEqual(
       tx.map((p) => `${p.amount} ${p.currency}`),
@@ -134,7 +158,9 @@ describe('buildRecategorizePayload', () => {
       // Attempt to repoint the fee leg — not a subject, must be ignored.
       { postingId: 'expenses:banking:fee:0.05', accountId: 'assets:hacked' },
     ])
-    expect(payload.find((l) => l.amount === '0.05')?.accountId).toBe('expenses:banking:fee')
+    expect(payload.find((l) => l.amount === '0.05')?.accountId).toBe(
+      'expenses:banking:fee',
+    )
   })
 
   it('blank draft falls back to the current account', () => {

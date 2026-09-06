@@ -99,7 +99,9 @@
     return accounts.find((a) => a.id === other.accountId)?.resolvedType ?? null
   })
 
-  let tone = $derived(amountTone(currentPosting?.amount ?? '0', counterpartType))
+  let tone = $derived(
+    amountTone(currentPosting?.amount ?? '0', counterpartType),
+  )
 
   // MoneyDisplay's flow classes paint --color-transfer-* directly, which would outrank the
   // cell's tone and turn every refund teal. Only a genuine transfer gets a flow direction
@@ -318,7 +320,6 @@
       {/if}
     {/if}
   </div>
-
 </div>
 
 <style>
@@ -340,11 +341,11 @@
   }
 
   .row:hover {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .row:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 

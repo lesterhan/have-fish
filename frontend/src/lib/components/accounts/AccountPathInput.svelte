@@ -98,7 +98,8 @@
     const exactMatch = accounts.some(
       (a) => a.path.toLowerCase() === inputText.trim().toLowerCase(),
     )
-    const showCreate = !searchOnly && allowCreate && inputText.trim().length > 0 && !exactMatch
+    const showCreate =
+      !searchOnly && allowCreate && inputText.trim().length > 0 && !exactMatch
 
     return showCreate
       ? [...matched, { kind: 'create', path: inputText.trim() }]
@@ -214,7 +215,9 @@
         oncommit?.(value)
       } catch (e) {
         // A refused create used to leave `value` undefined and the box looking committed.
-        toast.show(e instanceof Error ? e.message : 'Could not create that account')
+        toast.show(
+          e instanceof Error ? e.message : 'Could not create that account',
+        )
       } finally {
         creating = false
         open = false
@@ -224,7 +227,11 @@
 
   function portal(node: HTMLElement) {
     document.body.appendChild(node)
-    return { destroy() { node.remove() } }
+    return {
+      destroy() {
+        node.remove()
+      },
+    }
   }
 </script>
 
@@ -253,7 +260,13 @@
   />
 
   {#if open && options.length > 0}
-    <ul use:portal id={listboxId} class="dropdown" style={dropdownStyle} role="listbox">
+    <ul
+      use:portal
+      id={listboxId}
+      class="dropdown"
+      style={dropdownStyle}
+      role="listbox"
+    >
       {#each options as option, i}
         <li
           class="option"
@@ -261,7 +274,10 @@
           class:create={option.kind === 'create'}
           role="option"
           aria-selected={i === activeIndex}
-          onmousedown={(e) => { e.preventDefault(); selectOption(i) }}
+          onmousedown={(e) => {
+            e.preventDefault()
+            selectOption(i)
+          }}
           onmousemove={() => {
             activeIndex = i
           }}
@@ -301,7 +317,7 @@
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.10);
+    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     padding: 2px var(--sp-xs);
     height: 22px;
     outline: none;
@@ -311,8 +327,10 @@
   }
 
   .path-input:focus {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .path-input:disabled {

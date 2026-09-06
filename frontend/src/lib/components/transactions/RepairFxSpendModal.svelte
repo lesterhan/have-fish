@@ -21,10 +21,14 @@
   let healing = $state<Record<string, boolean>>({})
   let errors = $state<Record<string, string>>({})
 
-  function newAccountPath(c: MalformedFxSpend, postingId: string): string | null {
+  function newAccountPath(
+    c: MalformedFxSpend,
+    postingId: string,
+  ): string | null {
     const after = c.after.find((p) => p.id === postingId)
     const before = c.before.find((p) => p.id === postingId)
-    if (!after || !before || after.accountPath === before.accountPath) return null
+    if (!after || !before || after.accountPath === before.accountPath)
+      return null
     return after.accountPath
   }
 
@@ -51,9 +55,10 @@
 
 <Modal bind:open title="Repair imported transactions">
   <div class="intro">
-    These cross-currency purchases were imported with the spend booked against the wrong
-    accounts — the expense was reused as the conversion bridge and the money landed in a
-    holding account it never really sat in. Repairing routes the conversion through
+    These cross-currency purchases were imported with the spend booked against
+    the wrong accounts — the expense was reused as the conversion bridge and the
+    money landed in a holding account it never really sat in. Repairing routes
+    the conversion through
     <code>equity:conversions</code> and books the spend correctly. Amounts don't change.
   </div>
 
@@ -104,7 +109,9 @@
             onclick={() => fix(c)}
             disabled={!c.canHeal || healing[c.transactionId]}
           >
-            {healing[c.transactionId] ? 'Repairing…' : 'Repair this transaction'}
+            {healing[c.transactionId]
+              ? 'Repairing…'
+              : 'Repair this transaction'}
           </GradientButton>
         </div>
       </li>
@@ -189,7 +196,7 @@
   }
 
   .row.changed {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .arrow {

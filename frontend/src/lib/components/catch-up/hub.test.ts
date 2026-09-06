@@ -32,8 +32,19 @@ function account(over: Partial<CatchUpAccount> = {}): CatchUpAccount {
     dormant: false,
     firstTxnDate: null,
     lastTxnDate: null,
-    strip: { from: '2025-04-16', to: '2025-07-14', days: 90, intervals: [], txnDates: [] },
-    config: { exportMode: 'range', cycleDay: null, releaseLag: 0, tracked: true },
+    strip: {
+      from: '2025-04-16',
+      to: '2025-07-14',
+      days: 90,
+      intervals: [],
+      txnDates: [],
+    },
+    config: {
+      exportMode: 'range',
+      cycleDay: null,
+      releaseLag: 0,
+      tracked: true,
+    },
     ...over,
   }
 }
@@ -55,7 +66,12 @@ describe('groupAccounts', () => {
   // shown, just last.
   it('files a dormant account under dormant whatever its state', () => {
     const groups = groupAccounts([
-      account({ accountId: 'quiet-current', state: 'current', gap: null, dormant: true }),
+      account({
+        accountId: 'quiet-current',
+        state: 'current',
+        gap: null,
+        dormant: true,
+      }),
     ])
 
     expect(groups.current).toEqual([])
@@ -65,12 +81,19 @@ describe('groupAccounts', () => {
   // The server already ordered smallest-gap-first; grouping must not second-guess it.
   it('preserves the order it was given', () => {
     const groups = groupAccounts([
-      account({ accountId: 'small', gap: { from: 'a', through: 'b', days: 2 } }),
+      account({
+        accountId: 'small',
+        gap: { from: 'a', through: 'b', days: 2 },
+      }),
       account({ accountId: 'mid', gap: { from: 'a', through: 'b', days: 20 } }),
       account({ accountId: 'big', gap: { from: 'a', through: 'b', days: 90 } }),
     ])
 
-    expect(groups.behind.map((a) => a.accountId)).toEqual(['small', 'mid', 'big'])
+    expect(groups.behind.map((a) => a.accountId)).toEqual([
+      'small',
+      'mid',
+      'big',
+    ])
   })
 
   it('handles an empty list', () => {
@@ -80,7 +103,9 @@ describe('groupAccounts', () => {
 
 describe('displayName', () => {
   it('prefers the display name', () => {
-    expect(displayName(account({ name: 'Everyday Chequing' }))).toBe('Everyday Chequing')
+    expect(displayName(account({ name: 'Everyday Chequing' }))).toBe(
+      'Everyday Chequing',
+    )
   })
 
   it('falls back to the path', () => {
@@ -94,8 +119,11 @@ describe('gapSummary', () => {
   })
 
   it('singularises a one-day gap', () => {
-    expect(gapSummary(account({ gap: { from: 'a', through: 'b', days: 1 }, expectedTxns: 1 })))
-      .toBe('1 day · ~1 transaction')
+    expect(
+      gapSummary(
+        account({ gap: { from: 'a', through: 'b', days: 1 }, expectedTxns: 1 }),
+      ),
+    ).toBe('1 day · ~1 transaction')
   })
 
   // An honest "we don't know yet" beats a confident zero.
@@ -104,14 +132,22 @@ describe('gapSummary', () => {
   })
 
   it('keeps a zero estimate when the gap really is empty', () => {
-    expect(gapSummary(account({ expectedTxns: 0 }))).toBe('14 days · ~0 transactions')
+    expect(gapSummary(account({ expectedTxns: 0 }))).toBe(
+      '14 days · ~0 transactions',
+    )
   })
 
   // The dangerous contradiction: "~0 transactions" sitting directly above a button that marks
   // the whole range covered, on a gap that visibly holds entered days.
   it('never estimates below the days already holding transactions', () => {
-    expect(gapSummary(account({ expectedTxns: 0, txnDatesInGap: ['2025-07-02', '2025-07-09'] })))
-      .toBe('14 days · ~2 transactions')
+    expect(
+      gapSummary(
+        account({
+          expectedTxns: 0,
+          txnDatesInGap: ['2025-07-02', '2025-07-09'],
+        }),
+      ),
+    ).toBe('14 days · ~2 transactions')
   })
 
   it('is null with no gap', () => {
@@ -121,42 +157,70 @@ describe('gapSummary', () => {
 
 describe('expectedForDisplay', () => {
   it('passes a healthy estimate through', () => {
-    expect(expectedForDisplay(account({ expectedTxns: 18, txnDatesInGap: ['2025-07-02'] }))).toBe(18)
+    expect(
+      expectedForDisplay(
+        account({ expectedTxns: 18, txnDatesInGap: ['2025-07-02'] }),
+      ),
+    ).toBe(18)
   })
 
   it('floors at the days already holding transactions', () => {
-    expect(expectedForDisplay(account({
-      expectedTxns: 1, txnDatesInGap: ['2025-07-02', '2025-07-05', '2025-07-09'],
-    }))).toBe(3)
+    expect(
+      expectedForDisplay(
+        account({
+          expectedTxns: 1,
+          txnDatesInGap: ['2025-07-02', '2025-07-05', '2025-07-09'],
+        }),
+      ),
+    ).toBe(3)
   })
 
   // Null means "not enough history to guess", which is not the same as a low number and must
   // not be turned into one.
   it('stays null when there is no estimate to make', () => {
-    expect(expectedForDisplay(account({ expectedTxns: null, txnDatesInGap: ['2025-07-02'] }))).toBeNull()
+    expect(
+      expectedForDisplay(
+        account({ expectedTxns: null, txnDatesInGap: ['2025-07-02'] }),
+      ),
+    ).toBeNull()
   })
 })
 
 describe('currentSummary', () => {
   it('is plain for an account that exports on demand', () => {
-    expect(currentSummary(account({ state: 'current', gap: null }))).toBe('Current')
+    expect(currentSummary(account({ state: 'current', gap: null }))).toBe(
+      'Current',
+    )
   })
 
   // A card sitting at "current" for three weeks should explain itself rather than look stalled.
   it('names the next statement for a cycle account', () => {
-    expect(currentSummary(account({
-      state: 'current', gap: null, horizonReason: 'statement', nextHorizonDate: '2025-08-25',
-    }))).toBe('Current · next statement 2025-08-25')
+    expect(
+      currentSummary(
+        account({
+          state: 'current',
+          gap: null,
+          horizonReason: 'statement',
+          nextHorizonDate: '2025-08-25',
+        }),
+      ),
+    ).toBe('Current · next statement 2025-08-25')
   })
 
   it('stays plain when a cycle account has no next date', () => {
-    expect(currentSummary(account({ horizonReason: 'statement', nextHorizonDate: null }))).toBe('Current')
+    expect(
+      currentSummary(
+        account({ horizonReason: 'statement', nextHorizonDate: null }),
+      ),
+    ).toBe('Current')
   })
 })
 
 describe('emptyActionLabel', () => {
   it('spells out what the action would assert', () => {
-    expect(emptyActionLabel(account())).toBe('Marks 2025-07-01 through 2025-07-14 as covered')
+    expect(emptyActionLabel(account())).toBe(
+      'Marks 2025-07-01 through 2025-07-14 as covered',
+    )
   })
 
   it('is null with no gap to cover', () => {
@@ -166,13 +230,17 @@ describe('emptyActionLabel', () => {
 
 describe('enteredInGapNote', () => {
   it('counts the days already holding transactions', () => {
-    expect(enteredInGapNote(account({ txnDatesInGap: ['2025-07-02', '2025-07-09'] })))
-      .toBe('2 days in this range already have transactions')
+    expect(
+      enteredInGapNote(
+        account({ txnDatesInGap: ['2025-07-02', '2025-07-09'] }),
+      ),
+    ).toBe('2 days in this range already have transactions')
   })
 
   it('singularises one day', () => {
-    expect(enteredInGapNote(account({ txnDatesInGap: ['2025-07-02'] })))
-      .toBe('1 day in this range already has transactions')
+    expect(enteredInGapNote(account({ txnDatesInGap: ['2025-07-02'] }))).toBe(
+      '1 day in this range already has transactions',
+    )
   })
 
   it('is null when the gap is empty', () => {
@@ -204,15 +272,22 @@ describe('progress', () => {
 })
 
 describe('donePanelCopy', () => {
-  const groups = (dormant: CatchUpAccount[] = []) => ({ behind: [], current: [], dormant })
+  const groups = (dormant: CatchUpAccount[] = []) => ({
+    behind: [],
+    current: [],
+    dormant,
+  })
 
   it('says everything is caught up when nothing is left uncovered', () => {
     expect(donePanelCopy(groups()).headline).toBe('Everything is caught up.')
   })
 
   it('ignores a dormant account that is itself current', () => {
-    expect(donePanelCopy(groups([account({ state: 'current', gap: null, dormant: true })])).headline)
-      .toBe('Everything is caught up.')
+    expect(
+      donePanelCopy(
+        groups([account({ state: 'current', gap: null, dormant: true })]),
+      ).headline,
+    ).toBe('Everything is caught up.')
   })
 
   // Claiming "everything is caught up" beside a progress bar reading 2 of 3 is a plain
@@ -222,14 +297,18 @@ describe('donePanelCopy', () => {
     const copy = donePanelCopy(groups([account({ dormant: true })]))
 
     expect(copy.headline).toBe('Nothing active to catch up.')
-    expect(copy.note).toBe('1 quiet account is still uncovered, waiting below whenever you want it.')
+    expect(copy.note).toBe(
+      '1 quiet account is still uncovered, waiting below whenever you want it.',
+    )
   })
 
   it('pluralises several parked accounts', () => {
-    const copy = donePanelCopy(groups([
-      account({ accountId: 'a', dormant: true }),
-      account({ accountId: 'b', dormant: true }),
-    ]))
+    const copy = donePanelCopy(
+      groups([
+        account({ accountId: 'a', dormant: true }),
+        account({ accountId: 'b', dormant: true }),
+      ]),
+    )
 
     expect(copy.note).toContain('2 quiet accounts are still uncovered')
   })
@@ -273,10 +352,12 @@ describe('importHref', () => {
   // The range ends at the horizon, not today — asking a bank for days it has not published
   // is asking for a file that cannot exist.
   it('carries the account, its gap and the return path', () => {
-    const href = importHref(account({
-      accountId: 'acct-9',
-      gap: { from: '2025-07-01', through: '2025-07-25', days: 25 },
-    }))
+    const href = importHref(
+      account({
+        accountId: 'acct-9',
+        gap: { from: '2025-07-01', through: '2025-07-25', days: 25 },
+      }),
+    )
     const params = new URLSearchParams(href.split('?')[1])
 
     expect(href.startsWith('/import?')).toBe(true)
@@ -287,7 +368,9 @@ describe('importHref', () => {
   })
 
   it('omits the range when there is no gap', () => {
-    const params = new URLSearchParams(importHref(account({ gap: null })).split('?')[1])
+    const params = new URLSearchParams(
+      importHref(account({ gap: null })).split('?')[1],
+    )
 
     expect(params.get('from')).toBeNull()
     expect(params.get('to')).toBeNull()

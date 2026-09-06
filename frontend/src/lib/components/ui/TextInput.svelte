@@ -34,10 +34,10 @@
   }
 
   .text-input:focus {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
     box-shadow:
       inset 0 1px 2px rgba(0, 0, 0, 0.08),
-      0 0 0 2px var(--color-accent-light);
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .text-input:disabled {

@@ -14,7 +14,7 @@
   --sp-3xl: 4rem;
 
   /* --- Typography ---
-   * Lucida Grande / Segoe UI: period-accurate Graphite shell body font.
+   * Lucida Grande / Segoe UI: period-accurate shell body font.
    * JetBrains Mono: all numeric data and code.
    * Source Serif 4: section headers and month labels.
    */
@@ -38,111 +38,168 @@
   --weight-medium: 500;
   --weight-semibold: 700;
 
+  /* =========================================================================
+     THE LADDER — surfaces
+     -------------------------------------------------------------------------
+     Every surface in the app is one rung on a single warm-graphite ramp:
+     OKLCH hue 88, chroma 0.014, varying only in lightness. An element sits on
+     the SAME RUNG in both themes; what changes between themes is which end of
+     the ramp the rung is measured from, never which element is louder than
+     which.
+
+     Surfaces are specified by OKLCH ΔL between adjacent rungs, NOT by contrast
+     ratio. At the dark end a perceptually equal step produces a tiny WCAG
+     ratio — which is exactly how the previous dark theme flattened into one
+     grey. Ink keeps the ratio contract; surfaces keep the ΔL contract. Both
+     are asserted in tokens.test.ts.
+
+       rung                        light      ΔL      dark       ΔL
+       desktop                     #a8a49b     —      #100d07     —
+       case (titlebar/status)      #d3cfc5   .135     #3b3730   .179
+       window-raised               #e2ded4   .045     #211e16   .105
+       window                      #f6f1e7   .060     #2d2a22   .050
+       section-bar (from raised)   #c1bdb4   .100     #3f3b33   .120
+       rule (from window)          #d0ccc2   .115     #4b473f   .116
+
+     Warm putty rather than cool silver: the same era of computing by way of
+     SGI, NeXT and Sun rather than a straight copy of Aqua.
+     ========================================================================= */
+
   /* --- The desktop --- */
-  --color-desktop: #b8bcc2; /* Graphite grey shell */
+  --color-desktop: #a8a49b;
 
-  /* --- Window chrome (cool silver-grey, Graphite shell) --- */
-  --color-window: #f4f5f7;        /* panel surface */
-  --color-window-raised: #eceef2; /* alternate panel surface */
-  --color-window-inset: #ffffff;  /* text inputs, list boxes */
-  --color-sidebar: #e2e5ea;
-  --color-sidebar-border: #8a909a;
+  /* --- Window chrome --- */
+  --color-window: #f6f1e7; /* panel surface */
+  --color-window-raised: #e2ded4; /* alternate panel surface */
+  --color-window-inset: #fffdf6; /* text inputs, list boxes, chart troughs */
+  --color-sidebar: #d8d4ca;
+  --color-sidebar-border: #aeaaa1;
 
-  /* --- Title bar (Graphite + Aqua gloss) --- */
+  /* --- Title bar (the case, plus a gloss overlay) --- */
   --color-titlebar-bg:
-    linear-gradient(180deg, rgba(255,255,255,0.65), rgba(255,255,255,0.08) 47%, rgba(0,0,0,0.02) 53%, rgba(0,0,0,0.08)),
-    linear-gradient(180deg, #d8dde4, #9aa0aa);
-  --color-titlebar-fg: #1a1f28;
-  --color-titlebar-border: #b0b5be;
-  --shadow-titlebar-inset: inset 0 1px 0 rgba(255,255,255,0.75);
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.55),
+      rgba(255, 255, 255, 0.06) 47%,
+      rgba(0, 0, 0, 0.02) 53%,
+      rgba(0, 0, 0, 0.07)
+    ),
+    linear-gradient(180deg, #f4f0e6, #d3cfc5);
+  --color-titlebar-fg: #221f17;
+  --color-titlebar-border: #a29e95;
+  --shadow-titlebar-inset: inset 0 1px 0 rgba(255, 255, 255, 0.7);
 
-  /* --- Section bar (dark panel headers — Breakdown, Transactions) --- */
-  --color-section-bar-bg: linear-gradient(180deg, #5a6068, #2a3038);
-  --color-section-bar-fg: #f0f2f4;
-  --color-section-bar-border-top: #7a808a;
-  --color-section-bar-border-bottom: #0a1018;
+  /* --- Section bar (panel headers — Breakdown, Transactions) ---
+     A band, not a slab. It is one rung off the surface it sits on, and it
+     carries ordinary ink: a header that outshouts its own contents was the
+     loudest thing on every page and never the thing you came to read. */
+  --color-section-bar-bg: #c1bdb4;
+  --color-section-bar-fg: #221f17;
+  --color-section-bar-border-top: #d5d1c7;
+  --color-section-bar-border-bottom: #aeaaa1;
 
   /* --- Rules and dividers --- */
-  --color-rule: #c8ccd2;
-  --color-rule-soft: #e2e5ea;
+  --color-rule: #d0ccc2;
+  --color-rule-soft: #e2ded4;
 
   /* --- Coverage strip ---
      An uncovered day is transparent, so the trough that shows through is
      --color-window-inset. These are defined against it: every mark in the strip clears 3:1
      so the band reports a shape rather than a smudge. Do not swap them for the button
      gradient tokens — that is the bug tokens.test.ts exists to catch. */
-  --color-coverage-covered-hi: #8d929c; /* 3.1:1 on white */
-  --color-coverage-covered-lo: #767c86; /* 4.2:1 on white */
-  --color-coverage-hatch: #767c86;      /* beyond the horizon — ink for the diagonal rule */
+  --color-coverage-covered-hi: #8a867d; /* 3.6:1 on the inset trough */
+  --color-coverage-covered-lo: #7e7a71; /* 4.2:1 on the inset trough */
 
+  /* --- Magnitude marks ---
+     Bars, blocks and sparklines are ink, not accent. The accent means "the one
+     live thing on this screen"; if it also fills nine category bars it means
+     nothing. --color-bar-ink clears 3:1 against --color-rule, which is the
+     trough a bar is drawn in. --color-incomplete marks a magnitude known to be
+     partial — a month still running, a day past the horizon. */
+  --color-bar-ink: #66635a;
+  --color-incomplete: #8a857a;
 
   /* --- Button gradient highlight --- */
-  --color-btn-gradient-hi: #ffffff; /* top of gradient buttons — white in light, Polar Night 2 in dark */
+  --color-btn-gradient-hi: #fffdf6; /* top of gradient buttons */
 
-  /* --- Text --- */
-  --color-text: #1a1f28;
-  --color-text-muted: #5a6068;
-  --color-text-disabled: #8a909a;
-  --color-text-on-dark: #f0f2f4;
+  /* =========================================================================
+     THE LADDER — ink
+     -------------------------------------------------------------------------
+     Ink keeps the contrast-ratio contract, measured against --color-window.
+     Each token lands on the same RUNG in both themes rather than on the same
+     ratio to two decimals: dark themes want slightly brighter ink to read as
+     equally present, so the rungs are bands (primary ~11-15, secondary
+     ~5.7-5.9, tertiary ~4.7-4.8, coloured ~5-6.7).
+     ========================================================================= */
+
+  --color-text: #221f17; /* 14.62:1 */
+  --color-text-muted: #615d54; /*  5.83:1 */
+  --color-text-disabled: #6e6a60; /*  4.79:1 — still readable; disabled is not invisible */
 
   /* --- Accent (default: Aqua — overridden at runtime by accent.ts) --- */
-  --color-accent: #2a78c0;
-  --color-accent-hi: #5aa8e8;           /* highlight / icon tint */
-  --color-accent-chip-bg: #dde6f2;      /* currency pill background */
-  --color-accent-chip-fg: #1a3868;      /* currency pill text */
-  --color-accent-bar-track: #dde6f2;    /* block-bar unfilled track */
-  --color-titlebar-accent: linear-gradient(180deg, #5aa8e8, #2a78c0); /* title bar pill */
-  /* legacy aliases — components updated in story 4 */
-  --color-accent-mid: #5aa8e8;
-  --color-accent-light: #dde6f2;
-  --color-accent-fg: #ffffff;   /* the ONLY text-on-accent token — flipped to dark in dark mode by accent.ts */
-  --color-dropdown-active: #2a78c0;
+  --color-accent: #2d6ca8;
+  --color-accent-hi: #5290cf; /* highlight / icon tint */
+  --color-accent-chip-bg: #d8e8fa; /* accent chip background */
+  --color-accent-chip-fg: #134a7b; /* accent chip text */
+  --color-accent-bar-track: #d7e3f0; /* block-bar unfilled track */
+  --color-titlebar-accent: linear-gradient(
+    180deg,
+    #5290cf,
+    #2d6ca8
+  ); /* title bar pill */
+  --color-accent-fg: #ffffff; /* the ONLY text-on-accent token — flipped to dark in dark mode by accent.ts */
+  --color-dropdown-active: #2d6ca8;
 
   /* --- Borders --- */
-  --color-border: #c8ccd2;
-  --color-divider: #c8ccd2;
+  --color-border: #d0ccc2;
+  --color-divider: #d0ccc2;
 
   /* --- Tooltip --- */
-  /* An Aqua help tag: a dark panel floating over the page, not a Win32 yellow sticker
-     glued to it. The values are opaque because tokens.test.ts measures them; the panel
-     renders at 94% over a blurred backdrop (base.css), which the ~11:1 headroom absorbs. */
-  --color-tooltip-bg: #2f333c;
-  --color-tooltip-border: #5f6675;
-  --color-tooltip-text: #f2f4f8;
+  /* A help tag: a panel floating over the page, not a Win32 yellow sticker glued to it.
+     The values are opaque because tokens.test.ts measures them; the panel renders at 94%
+     over a blurred backdrop (base.css), which the ~11:1 headroom absorbs. */
+  --color-tooltip-bg: #36332b;
+  --color-tooltip-border: #5b584f;
+  --color-tooltip-text: #f6f1e7;
 
   /* --- Semantic --- */
-  --color-success: #007700;
-  --color-success-light: #e0ffe0;
-  --color-warning: #b86800;
-  --color-warning-light: #fff3e0;
-  --color-danger: #cc0000;
-  --color-danger-light: #ffe0e0;
+  --color-success: #137738;
+  --color-success-light: #d9f3dd;
+  --color-warning: #8a5600;
+  --color-warning-light: #fde7cf;
+  --color-danger: #be222a;
+  --color-danger-light: #ffe2de;
 
-  /* --- Amounts --- */
-  --color-amount-positive: #007700; /* income  */
-  --color-amount-negative: #cc0000; /* expense */
+  /* --- Amounts ---
+     Colour marks the MINORITY sign. In a list where nearly every row is an
+     expense, 22 red numbers read as 22 errors; there the dominant sign takes
+     --color-text and the minus carries it. See DESIGN.md §5. */
+  --color-amount-positive: #137738; /* income  — 5.01:1 */
+  --color-amount-negative: #be222a; /* expense — 5.40:1 */
 
   /* --- Transfers (neutral directional — no good/bad judgment) --- */
-  --color-transfer-in: #006e8a; /* teal — money arriving */
-  --color-transfer-out: #4a5fa8; /* slate blue — money leaving */
+  --color-transfer-in: #117490; /* teal — money arriving */
+  --color-transfer-out: #4f64ab; /* slate blue — money leaving */
 
   /* Modal window — real drop shadow */
-  --shadow-modal: 0 20px 60px rgba(0,0,0,0.25), 0 4px 16px rgba(0,0,0,0.15);
+  --shadow-modal:
+    0 20px 60px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.15);
 
   /* Small floating panel / dropdown chrome */
-  --shadow-window: 0 4px 12px rgba(0,0,0,0.18), 0 1px 3px rgba(0,0,0,0.10);
+  --shadow-window: 0 4px 12px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.1);
 
-  /* --- Control shadows (Aqua-style) ---
+  /* --- Control shadows ---
    * control: raised surface for standard buttons and chips
    * inset:   recessed trough for tracks, inset lists, and the pressed state
    */
-  --shadow-control: 0 1px 2px rgba(0,0,0,0.12), inset 0 1px 0 rgba(255,255,255,0.65);
-  --shadow-inset: inset 0 1px 3px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(0,0,0,0.07);
+  --shadow-control:
+    0 1px 2px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --shadow-inset:
+    inset 0 1px 3px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(0, 0, 0, 0.07);
 
-  /* --- Card surface (Aqua-style grouped panel) ---
-   * The Aqua alternative to the XP bevel: a flat panel that floats on a soft
-   * drop shadow with a faint glossy top highlight, hairline border, and a
-   * whisper of corner rounding. Reusable anywhere a "card" surface is needed.
+  /* --- Card surface (grouped panel) ---
+   * A flat panel that floats on a soft drop shadow with a faint glossy top
+   * highlight, hairline border, and a whisper of corner rounding.
    *   background: var(--card-bg);
    *   border: 1px solid var(--card-border-color);
    *   border-radius: var(--card-radius);
@@ -151,14 +208,16 @@
   --card-bg: var(--color-window);
   --card-border-color: var(--color-rule);
   --card-radius: var(--radius-lg);
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --card-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --card-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --card-shadow-hover:
+    0 2px 6px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
   /* --- Shape --- */
-  --radius-sm: 3px;    /* small elements: currency pills, role badges */
-  --radius-md: 6px;    /* controls: buttons */
-  --radius-lg: 8px;    /* cards, inner panels */
-  --radius-xl: 12px;   /* modal window */
+  --radius-sm: 3px; /* small elements: currency pills, role badges */
+  --radius-md: 6px; /* controls: buttons */
+  --radius-lg: 8px; /* cards, inner panels */
+  --radius-xl: 12px; /* modal window */
   --radius-pill: 999px; /* pill-shaped chips */
 
   /* --- Transitions (the modern UX layer) --- */
@@ -168,108 +227,121 @@
 }
 
 /* =============================================================================
-   Dark theme — Nord palette
+   Dark theme
    Applied when <html data-theme="dark"> is set.
+
+   Not a different palette — the same ladder, read from the other end. Each
+   token here sits on the rung its light-theme counterpart sits on, so an
+   element's place in the hierarchy is a property of the design rather than of
+   the theme. tokens.test.ts asserts that the two themes' steps stay within 2x
+   of each other; the previous pair diverged by 61x on the section bar alone.
+
    Only color tokens are overridden; spacing, type, radius, and most shadows
    are inherited from :root unchanged.
-   Nord reference: Polar Night #2e3440 #3b4252 #434c5e #4c566a
-                   Snow Storm  #d8dee9 #e5e9f0 #eceff4
-                   Frost       #8fbcbb #88c0d0 #81a1c1 #5e81ac
-                   Aurora      red #bf616a  green #a3be8c  yellow #ebcb8b
    ============================================================================= */
 [data-theme='dark'] {
   color-scheme: dark;
 
   /* --- The desktop --- */
-  --color-desktop: #1a1f2a;
+  --color-desktop: #100d07;
 
   /* --- Window chrome --- */
-  --color-window: #2e3440;        /* Nord Polar Night base — main panel bg */
-  --color-window-raised: #2a3040; /* slightly inset alt surface */
-  --color-window-inset: #232731;  /* darkest — text inputs, list boxes */
-  --color-sidebar: #262c38;
-  --color-sidebar-border: #373e4d;
+  --color-window: #2d2a22; /* main panel bg */
+  --color-window-raised: #211e16; /* alternate panel surface */
+  --color-window-inset: #191710; /* darkest — text inputs, list boxes, chart troughs */
+  --color-sidebar: #302d26;
+  --color-sidebar-border: #4f4b43;
 
-  /* --- Title bar (Nord + Aqua gloss) --- */
+  /* --- Title bar (the case, plus a gloss overlay) --- */
   --color-titlebar-bg:
-    linear-gradient(180deg, rgba(255,255,255,0.10), rgba(255,255,255,0) 47%, rgba(0,0,0,0.05) 53%, rgba(0,0,0,0.20)),
-    linear-gradient(180deg, #434c5e, #2e3440);
-  --color-titlebar-fg: #eceff4;
-  --color-titlebar-border: #1e2230;
-  --shadow-titlebar-inset: inset 0 1px 0 rgba(255,255,255,0.10);
+    linear-gradient(
+      180deg,
+      rgba(255, 255, 255, 0.1),
+      rgba(255, 255, 255, 0) 47%,
+      rgba(0, 0, 0, 0.05) 53%,
+      rgba(0, 0, 0, 0.18)
+    ),
+    linear-gradient(180deg, #504d45, #3b3730);
+  --color-titlebar-fg: #ece7dc;
+  --color-titlebar-border: #1d1a13;
+  --shadow-titlebar-inset: inset 0 1px 0 rgba(255, 255, 255, 0.1);
 
   /* --- Section bar --- */
-  --color-section-bar-bg: linear-gradient(180deg, #373e4d, #1a1f2a);
-  --color-section-bar-fg: #eceff4;
-  --color-section-bar-border-top: #434c5e;
-  --color-section-bar-border-bottom: #0e1218;
+  --color-section-bar-bg: #3f3b33;
+  --color-section-bar-fg: #ece7dc;
+  --color-section-bar-border-top: #504d44;
+  --color-section-bar-border-bottom: #221f18;
 
   /* --- Rules --- */
-  --color-rule: #20242d;
-  --color-rule-soft: #272c38;
+  --color-rule: #4b473f;
+  --color-rule-soft: #3c3931;
 
   /* --- Coverage strip (see the light block for the contract) --- */
-  --color-coverage-covered-hi: #7c8aa5; /* 4.3:1 on the inset trough */
-  --color-coverage-covered-lo: #6a7791; /* 3.3:1 on the inset trough */
-  --color-coverage-hatch: #6a7791;
+  --color-coverage-covered-hi: #78746b; /* 3.9:1 on the inset trough */
+  --color-coverage-covered-lo: #6c6960; /* 3.3:1 on the inset trough */
 
+  /* --- Magnitude marks (see the light block for the contract) --- */
+  --color-bar-ink: #9c988f;
+  --color-incomplete: #6a6459;
 
   /* --- Button gradient highlight --- */
-  --color-btn-gradient-hi: #3b4252; /* Nord Polar Night 2 — replaces white for dark gradient buttons */
+  --color-btn-gradient-hi: #3f3b33; /* replaces the near-white top for dark gradient buttons */
 
   /* --- Control shadows (dark: heavier opacity, barely-there gloss) --- */
-  --shadow-control: 0 1px 3px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.06);
-  --shadow-inset: inset 0 1px 3px rgba(0,0,0,0.40), inset 0 0 0 1px rgba(0,0,0,0.20);
-  --shadow-window: 0 4px 14px rgba(0,0,0,0.50), 0 1px 4px rgba(0,0,0,0.30);
+  --shadow-control:
+    0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-inset:
+    inset 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  --shadow-window: 0 4px 14px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3);
 
   /* --- Text --- */
-  --color-text: #d8dee9;          /* Nord Snow Storm 1 */
-  --color-text-muted: #9aabbc;    /* subdued labels — bumped for contrast on dark bg */
-  --color-text-disabled: #4c566a; /* Nord Polar Night 4 */
-  --color-text-on-dark: #eceff4;  /* Nord Snow Storm 3 */
+  --color-text: #ece7dc; /* 11.62:1 */
+  --color-text-muted: #a9a49a; /*  5.77:1 */
+  --color-text-disabled: #989389; /*  4.69:1 */
 
-  /* --- Accent (Nord Frost teal — runtime accent vars not overridden in dark) --- */
-  --color-accent: #4a8a9a;
-  --color-accent-hi: #88c0d0;
-  --color-accent-chip-bg: #2a3a44;
-  --color-accent-chip-fg: #88c0d0;
-  --color-accent-bar-track: #313744;
-  --color-titlebar-accent: linear-gradient(180deg, #88c0d0, #4a8a9a);
-  --color-accent-mid: #88c0d0;
-  --color-accent-light: #2a3a44;
-  --color-dropdown-active: #4a8a9a;
+  /* --- Accent (runtime accent vars overridden by accent.ts) --- */
+  --color-accent: #64a2e0;
+  --color-accent-hi: #8cc3fc;
+  --color-accent-chip-bg: #243446;
+  --color-accent-chip-fg: #8bbcef;
+  --color-accent-bar-track: #2d3946;
+  --color-titlebar-accent: linear-gradient(180deg, #8cc3fc, #64a2e0);
+  --color-dropdown-active: #64a2e0;
 
   /* --- Borders --- */
-  --color-border: #373e4d;
-  --color-divider: #373e4d;
+  --color-border: #4b473f;
+  --color-divider: #4b473f;
 
   /* --- Tooltip --- */
   /* Lighter than the light theme's, not darker: the panel has to read as sitting *above*
      the page, and here the page is already dark. */
-  --color-tooltip-bg: #3a4150;
-  --color-tooltip-border: #79839b;
-  --color-tooltip-text: #eef1f6;
+  --color-tooltip-bg: #4b473f;
+  --color-tooltip-border: #8a867d;
+  --color-tooltip-text: #ece7dc;
 
   /* --- Semantic --- */
-  --color-success: #a3be8c;
-  --color-success-light: #263322;
-  --color-warning: #ebcb8b;
-  --color-warning-light: #363020;
-  --color-danger: #bf616a;
-  --color-danger-light: #3a2020;
+  --color-success: #6ec283;
+  --color-success-light: #1c2c1f;
+  --color-warning: #dfa651;
+  --color-warning-light: #312515;
+  --color-danger: #f47b74;
+  --color-danger-light: #362120;
 
-  /* --- Amounts --- */
-  --color-amount-positive: #a3be8c; /* Nord Aurora green */
-  --color-amount-negative: #bf616a; /* Nord Aurora red */
+  /* --- Amounts (see the light block on which sign takes colour) --- */
+  --color-amount-positive: #6ec283; /* 6.62:1 */
+  --color-amount-negative: #f47b74; /* 5.41:1 */
 
   /* --- Transfers --- */
-  --color-transfer-in: #88c0d0;  /* Nord Frost 2 */
-  --color-transfer-out: #81a1c1; /* Nord Frost 3 */
+  --color-transfer-in: #54aac7;
+  --color-transfer-out: #8199e5;
 
   /* --- Card surface (dark: stronger lift, barely-there gloss) --- */
-  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --card-shadow-hover: 0 2px 7px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --card-shadow:
+    0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --card-shadow-hover:
+    0 2px 7px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
   /* Modal window shadow (dark: deeper) */
-  --shadow-modal: 0 24px 70px rgba(0,0,0,0.55), 0 4px 18px rgba(0,0,0,0.45);
+  --shadow-modal:
+    0 24px 70px rgba(0, 0, 0, 0.55), 0 4px 18px rgba(0, 0, 0, 0.45);
 }

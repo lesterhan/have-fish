@@ -39,8 +39,10 @@ export function rolesOf(
   if (!settings) return []
   const roles: AccountRole[] = []
   if (settings.defaultOffsetAccountId === accountId) roles.push('offset')
-  if (settings.defaultConversionAccountId === accountId) roles.push('conversion')
-  if (settings.defaultAdjustmentsAccountId === accountId) roles.push('adjustments')
+  if (settings.defaultConversionAccountId === accountId)
+    roles.push('conversion')
+  if (settings.defaultAdjustmentsAccountId === accountId)
+    roles.push('adjustments')
   return roles
 }
 
@@ -57,8 +59,7 @@ export function isSystemManaged(path: string, roots: Roots): boolean {
  * control with no explanation is the thing that makes people click it repeatedly.
  */
 export type Protection =
-  | { kind: 'role'; roles: AccountRole[] }
-  | { kind: 'system' }
+  { kind: 'role'; roles: AccountRole[] } | { kind: 'system' }
 
 export function protectionFor(
   account: { id: string; path: string },

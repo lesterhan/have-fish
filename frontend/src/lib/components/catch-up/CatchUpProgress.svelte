@@ -96,9 +96,15 @@
   .fill {
     height: 100%;
     border-radius: var(--radius-pill);
-    background: linear-gradient(180deg, var(--color-accent-hi), var(--color-accent));
+    background: linear-gradient(
+      180deg,
+      var(--color-accent-hi),
+      var(--color-accent)
+    );
     /* Aqua's signature: a gloss highlight over the top half of the fill. */
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.55), inset 0 6px 6px -6px rgba(255, 255, 255, 0.7);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.55),
+      inset 0 6px 6px -6px rgba(255, 255, 255, 0.7);
     transition: width var(--duration-normal) var(--ease);
   }
 

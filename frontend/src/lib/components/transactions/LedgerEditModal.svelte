@@ -474,7 +474,9 @@
 
     {#if tx.groupExpenseId}
       <div class="group-link-row">
-        <span class="group-link-label">Shared to <strong>{tx.groupName ?? 'Fish Pie'}</strong></span>
+        <span class="group-link-label"
+          >Shared to <strong>{tx.groupName ?? 'Fish Pie'}</strong></span
+        >
         {#if showRemoveGroupConfirm}
           <span class="confirm-inline-text">Remove for all members?</span>
           <GradientButton
@@ -485,9 +487,17 @@
           >
             {removingFromGroup ? 'Removing…' : 'Confirm remove'}
           </GradientButton>
-          <GradientButton disabled={removingFromGroup} onclick={() => (showRemoveGroupConfirm = false)}>Cancel</GradientButton>
+          <GradientButton
+            disabled={removingFromGroup}
+            onclick={() => (showRemoveGroupConfirm = false)}
+            >Cancel</GradientButton
+          >
         {:else}
-          <GradientButton variant="warning" onclick={() => (showRemoveGroupConfirm = true)}>Remove from group</GradientButton>
+          <GradientButton
+            variant="warning"
+            onclick={() => (showRemoveGroupConfirm = true)}
+            >Remove from group</GradientButton
+          >
         {/if}
       </div>
     {/if}
@@ -500,7 +510,9 @@
             showDiscardConfirm = false
           }}>Keep editing</GradientButton
         >
-        <GradientButton variant="warning" active onclick={discard}>Discard</GradientButton>
+        <GradientButton variant="warning" active onclick={discard}
+          >Discard</GradientButton
+        >
       </div>
     {:else if showDeleteConfirm}
       <div class="confirm-row">
@@ -510,7 +522,12 @@
             showDeleteConfirm = false
           }}>Cancel</GradientButton
         >
-        <GradientButton variant="warning" active disabled={deleting} onclick={handleDelete}>
+        <GradientButton
+          variant="warning"
+          active
+          disabled={deleting}
+          onclick={handleDelete}
+        >
           {deleting ? 'Deleting…' : 'Delete'}
         </GradientButton>
       </div>
@@ -528,7 +545,9 @@
           }}>Delete</GradientButton
         >
         <div class="footer-actions">
-          <GradientButton disabled={saving} onclick={requestClose}>Cancel</GradientButton>
+          <GradientButton disabled={saving} onclick={requestClose}
+            >Cancel</GradientButton
+          >
           <GradientButton
             active
             disabled={!balanced || !dirty || saving}
@@ -582,15 +601,17 @@
   }
 
   .date-input:focus {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .tx-description {
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
 
   .desc-sizer {
@@ -616,7 +637,7 @@
     font-family: inherit;
     font-size: inherit;
     font-weight: var(--weight-semibold);
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
@@ -630,8 +651,10 @@
   }
 
   .desc-input:focus {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   /* ---- Postings list ---- */

@@ -27,10 +27,12 @@ describe('accountIndex — lookups', () => {
 
   it('builds a tree over the same accounts', () => {
     const idx = accountIndex(ACCOUNTS)
-    expect(idx.tree.childrenOf('').map((n) => n.name).sort()).toEqual([
-      'assets',
-      'expenses',
-    ])
+    expect(
+      idx.tree
+        .childrenOf('')
+        .map((n) => n.name)
+        .sort(),
+    ).toEqual(['assets', 'expenses'])
   })
 
   it('handles an empty list', () => {
@@ -71,6 +73,8 @@ describe('accountIndex — memoization', () => {
     const a = [...ACCOUNTS]
     const b = [...ACCOUNTS]
     expect(accountIndex(a)).not.toBe(accountIndex(b))
-    expect(accountIndex(b).byId.get('a1')?.path).toBe(accountIndex(a).byId.get('a1')?.path)
+    expect(accountIndex(b).byId.get('a1')?.path).toBe(
+      accountIndex(a).byId.get('a1')?.path,
+    )
   })
 })

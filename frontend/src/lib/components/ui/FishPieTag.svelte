@@ -16,7 +16,9 @@
 </script>
 
 <span class="fp-tag" {style}>
-  <Chip tone="accent" icon="pie" truncate style="flex-shrink: 1">{category}</Chip>
+  <Chip tone="accent" icon="pie" truncate style="flex-shrink: 1"
+    >{category}</Chip
+  >
   {#if group}
     <Chip tone="muted" truncate style="flex-shrink: 2">{group}</Chip>
   {/if}

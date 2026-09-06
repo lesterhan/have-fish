@@ -282,9 +282,15 @@
 
           <span class="field-label toggle-label">
             Delimiter
-            <TooltipIcon label="Auto-detected from the file. Override it if the columns below didn't split correctly (some banks export semicolon- or tab-separated CSVs)." />
+            <TooltipIcon
+              label="Auto-detected from the file. Override it if the columns below didn't split correctly (some banks export semicolon- or tab-separated CSVs)."
+            />
           </span>
-          <select aria-label="Delimiter" value={delimiter} onchange={handleDelimiterChange}>
+          <select
+            aria-label="Delimiter"
+            value={delimiter}
+            onchange={handleDelimiterChange}
+          >
             {#each SUPPORTED_DELIMITERS as d}
               <option value={d}>{DELIMITER_LABELS[d]}</option>
             {/each}
@@ -305,7 +311,9 @@
         {#if columns.length > 0}
           <span class="field-label toggle-label">
             Multi-currency
-            <TooltipIcon label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately." />
+            <TooltipIcon
+              label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."
+            />
           </span>
           <Toggle bind:checked={isMultiCurrency} />
         {/if}
@@ -338,7 +346,9 @@
 
         <label for="map-sign-column" class="toggle-label">
           Direction column
-          <TooltipIcon label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT." />
+          <TooltipIcon
+            label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT."
+          />
         </label>
         <select id="map-sign-column" bind:value={mappingSignColumn}>
           <option value="">— not mapped —</option>
@@ -546,8 +556,10 @@
   }
 
   .form-grid input:focus {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .form-grid select {
@@ -568,8 +580,10 @@
   }
 
   .form-grid select:focus {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .file-input {

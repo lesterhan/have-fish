@@ -81,14 +81,20 @@
     if (!group) return null
     const myMember = group.members.find((m) => m.userId === currentUserId)
     if (!myMember?.defaultExpenseAccountId) return null
-    return allAccounts.find((a) => a.id === myMember.defaultExpenseAccountId)?.path ?? null
+    return (
+      allAccounts.find((a) => a.id === myMember.defaultExpenseAccountId)
+        ?.path ?? null
+    )
   })
 
   const myPaymentAccountPath = $derived.by(() => {
     if (!group) return null
     const myMember = group.members.find((m) => m.userId === currentUserId)
     if (!myMember?.defaultPaymentAccountId) return null
-    return allAccounts.find((a) => a.id === myMember.defaultPaymentAccountId)?.path ?? null
+    return (
+      allAccounts.find((a) => a.id === myMember.defaultPaymentAccountId)
+        ?.path ?? null
+    )
   })
 
   onMount(async () => {
@@ -106,7 +112,8 @@
       balances = overview.balances
       settlements = overview.settlements
       allAccounts = accts
-      preferredCurrency = settings.preferredCurrency ?? g.defaultCurrency ?? 'CAD'
+      preferredCurrency =
+        settings.preferredCurrency ?? g.defaultCurrency ?? 'CAD'
       configCurrency = g.defaultCurrency ?? ''
       if (g.members.length === 2) {
         const total = g.members[0].shareWeight + g.members[1].shareWeight
@@ -175,7 +182,9 @@
     return updated
   }
 
-  async function handleSettle(data: Parameters<typeof createSettlementBatch>[1]) {
+  async function handleSettle(
+    data: Parameters<typeof createSettlementBatch>[1],
+  ) {
     await createSettlementBatch(groupId, data)
     await refreshBalances()
   }
@@ -185,11 +194,15 @@
     await refreshBalances()
   }
 
-  async function handleConfirmSettlement(settlementId: string, receiverAccountId: string) {
+  async function handleConfirmSettlement(
+    settlementId: string,
+    receiverAccountId: string,
+  ) {
     // Batch rows confirm through the batch endpoint (the single-row path rejects them,
     // since a cross-currency row's cash leg is in the settled, not the debt, currency).
     const s = settlements.find((x) => x.id === settlementId)
-    if (s?.batchId) await confirmSettlementBatch(groupId, s.batchId, receiverAccountId)
+    if (s?.batchId)
+      await confirmSettlementBatch(groupId, s.batchId, receiverAccountId)
     else await confirmSettlement(groupId, settlementId, receiverAccountId)
     await refreshBalances()
   }
@@ -228,7 +241,6 @@
       deleting = false
     }
   }
-
 </script>
 
 <div class="page">
@@ -298,11 +310,19 @@
       </header>
       {#if confirmDelete}
         <div class="confirm-bar">
-          <span class="confirm-text">Delete <strong>{group.name}</strong>?</span>
-          <GradientButton variant="warning" onclick={handleDeleteGroup} disabled={deleting}>
+          <span class="confirm-text">Delete <strong>{group.name}</strong>?</span
+          >
+          <GradientButton
+            variant="warning"
+            onclick={handleDeleteGroup}
+            disabled={deleting}
+          >
             {deleting ? 'Deleting…' : 'Delete'}
           </GradientButton>
-          <GradientButton onclick={() => (confirmDelete = false)} disabled={deleting}>Cancel</GradientButton>
+          <GradientButton
+            onclick={() => (confirmDelete = false)}
+            disabled={deleting}>Cancel</GradientButton
+          >
         </div>
       {/if}
       <div class="left-body">

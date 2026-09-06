@@ -6,7 +6,11 @@
   import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
-  import type { Account, RegularParsedTransaction, ExpenseGroup } from '$lib/api'
+  import type {
+    Account,
+    RegularParsedTransaction,
+    ExpenseGroup,
+  } from '$lib/api'
   import type { RowState } from './row-state'
   import type { RowStatus } from './review-status'
 
@@ -57,7 +61,9 @@
   // — more importantly — avoids mounting hundreds of AccountPicker instances, each of which
   // carries its own search index and listbox.
   let editing = $state(false)
-  let showPicker = $derived(editing || status === 'needs-review' || !rowState.offsetAccountId)
+  let showPicker = $derived(
+    editing || status === 'needs-review' || !rowState.offsetAccountId,
+  )
 
   function accountPath(id: string): string {
     return accounts.find((a) => a.id === id)?.path ?? ''
@@ -82,14 +88,24 @@
   }
 </script>
 
-<tr class:row-skipped={rowState.skipped} data-row-index={index} data-status={status}>
-  <ImportDateCell date={tx.date} possibleDuplicate={rowState.possibleDuplicate} />
+<tr
+  class:row-skipped={rowState.skipped}
+  data-row-index={index}
+  data-status={status}
+>
+  <ImportDateCell
+    date={tx.date}
+    possibleDuplicate={rowState.possibleDuplicate}
+  />
   <td class="cell-description" title={tx.description ?? ''}>
     {tx.description ?? '—'}
     {#if rowState.possibleDuplicate?.fishPieGroupName}
       <span class="fishpie-hint">
         · Fish Pie settlement in
-        <a href="/fish-pie/{rowState.possibleDuplicate.fishPieGroupId}" class="fishpie-hint-link">
+        <a
+          href="/fish-pie/{rowState.possibleDuplicate.fishPieGroupId}"
+          class="fishpie-hint-link"
+        >
           {rowState.possibleDuplicate.fishPieGroupName}
         </a>
       </span>
@@ -100,7 +116,8 @@
     class:positive={parseFloat(displayAmount(tx.amount)) > 0}
     class:negative={parseFloat(displayAmount(tx.amount)) < 0}
   >
-    {displayAmount(tx.amount)}{#if isMultiCurrency}{tx.currency ?? defaultCurrency}{/if}
+    {displayAmount(tx.amount)}{#if isMultiCurrency}{tx.currency ??
+        defaultCurrency}{/if}
   </td>
   {#if !isMultiCurrency}<td>{tx.currency ?? defaultCurrency}</td>{/if}
   <td class="cell-offset" bind:this={offsetCellEl}>
@@ -121,7 +138,10 @@
           {#if splitFromRule}
             <span
               class="indicator-icon"
-              use:tooltip={{ label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`, always: true }}
+              use:tooltip={{
+                label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`,
+                always: true,
+              }}
             >
               <Icon name="computer" size={16} />
             </span>
@@ -163,7 +183,10 @@
           {#if tx.suggestedOffsetAccountId && status === 'auto'}
             <span
               class="indicator-icon"
-              use:tooltip={{ label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`, always: true }}
+              use:tooltip={{
+                label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`,
+                always: true,
+              }}
             >
               <Icon name="computer" size={16} />
             </span>
@@ -210,10 +233,15 @@
               rowState = { ...rowState, groupId: null, categoryId: null }
               onclosesplit()
               onedited()
-            }}
-          ><Icon name="close" size={16} /></GradientButton>
+            }}><Icon name="close" size={16} /></GradientButton
+          >
         {:else}
-          <GradientButton square size="lg" aria-label="Split with group" onclick={onsplitopen}>
+          <GradientButton
+            square
+            size="lg"
+            aria-label="Split with group"
+            onclick={onsplitopen}
+          >
             <Icon name="pie" size={16} />
           </GradientButton>
         {/if}
@@ -221,7 +249,11 @@
     </td>
   {/if}
   <td class="cell-skip">
-    <input type="checkbox" bind:checked={rowState.skipped} onchange={onedited} />
+    <input
+      type="checkbox"
+      bind:checked={rowState.skipped}
+      onchange={onedited}
+    />
   </td>
 </tr>
 
@@ -268,7 +300,7 @@
   }
 
   .account-label:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -1px;
   }
 
@@ -294,7 +326,7 @@
     color: var(--color-text-muted);
   }
   .fishpie-hint-link {
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
     text-decoration: none;
   }
   .fishpie-hint-link:hover {

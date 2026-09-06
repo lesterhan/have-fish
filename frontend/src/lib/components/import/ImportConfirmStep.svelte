@@ -59,10 +59,15 @@
   // CSV put hundreds of items in front of every import. Collapsed here, and capped.
   const ERROR_PREVIEW = 10
   let showAllErrors = $state(false)
-  let visibleErrors = $derived(showAllErrors ? parseErrors : parseErrors.slice(0, ERROR_PREVIEW))
+  let visibleErrors = $derived(
+    showAllErrors ? parseErrors : parseErrors.slice(0, ERROR_PREVIEW),
+  )
 
   let canCommit = $derived(
-    !loading && manifest.committedCount > 0 && manifest.incomplete.length === 0 && coverageValid,
+    !loading &&
+      manifest.committedCount > 0 &&
+      manifest.incomplete.length === 0 &&
+      coverageValid,
   )
 
   function money(total: number | null, currency: string | null): string {
@@ -80,10 +85,14 @@
 <div class="confirm-step">
   <div class="headline">
     <h2>
-      {manifest.committedCount} transaction{manifest.committedCount === 1 ? '' : 's'}
+      {manifest.committedCount} transaction{manifest.committedCount === 1
+        ? ''
+        : 's'}
     </h2>
     {#if manifest.dateRange}
-      <span class="range">{manifest.dateRange.from} → {manifest.dateRange.to}</span>
+      <span class="range"
+        >{manifest.dateRange.from} → {manifest.dateRange.to}</span
+      >
     {/if}
     <span class="parser">via {parserName}</span>
     {#if importAsLiabilities}
@@ -101,7 +110,10 @@
         <span class="dest-count">{line.count}</span>
         <span class="dest-total">{money(line.total, line.currency)}</span>
         {#if line.isUncategorized}
-          <span class="warn-flag" title="These rows were never assigned an account">
+          <span
+            class="warn-flag"
+            title="These rows were never assigned an account"
+          >
             <Icon name="warning" size={13} /> uncategorized
           </span>
         {/if}
@@ -114,25 +126,48 @@
   <dl class="notes">
     {#if manifest.skippedDuplicates > 0}
       <div class="note">
-        <dt>{manifest.skippedDuplicates} skipped as duplicate{manifest.skippedDuplicates === 1 ? '' : 's'}</dt>
-        <dd><button type="button" class="link" onclick={onreviewskipped}>review</button></dd>
+        <dt>
+          {manifest.skippedDuplicates} skipped as duplicate{manifest.skippedDuplicates ===
+          1
+            ? ''
+            : 's'}
+        </dt>
+        <dd>
+          <button type="button" class="link" onclick={onreviewskipped}
+            >review</button
+          >
+        </dd>
       </div>
     {/if}
     {#if manifest.skippedManual > 0}
       <div class="note">
         <dt>{manifest.skippedManual} skipped by hand</dt>
-        <dd><button type="button" class="link" onclick={onreviewskipped}>review</button></dd>
+        <dd>
+          <button type="button" class="link" onclick={onreviewskipped}
+            >review</button
+          >
+        </dd>
       </div>
     {/if}
     {#if manifest.rulesCreated.length > 0}
       <div class="note">
-        <dt>{manifest.rulesCreated.length} import rule{manifest.rulesCreated.length === 1 ? '' : 's'} created</dt>
+        <dt>
+          {manifest.rulesCreated.length} import rule{manifest.rulesCreated
+            .length === 1
+            ? ''
+            : 's'} created
+        </dt>
         <dd class="note-detail">{manifest.rulesCreated.join(', ')}</dd>
       </div>
     {/if}
     {#if manifest.accountsCreated.length > 0}
       <div class="note">
-        <dt>{manifest.accountsCreated.length} account{manifest.accountsCreated.length === 1 ? '' : 's'} created</dt>
+        <dt>
+          {manifest.accountsCreated.length} account{manifest.accountsCreated
+            .length === 1
+            ? ''
+            : 's'} created
+        </dt>
         <dd class="note-detail">{manifest.accountsCreated.join(', ')}</dd>
       </div>
     {/if}
@@ -142,7 +177,8 @@
     <details class="parse-errors">
       <summary>
         <Icon name="arrow-right" size={10} />
-        {parseErrors.length} row{parseErrors.length === 1 ? '' : 's'} could not be parsed and will be skipped
+        {parseErrors.length} row{parseErrors.length === 1 ? '' : 's'} could not be
+        parsed and will be skipped
       </summary>
       <ul>
         {#each visibleErrors as e (e.row)}
@@ -150,7 +186,11 @@
         {/each}
       </ul>
       {#if !showAllErrors && parseErrors.length > ERROR_PREVIEW}
-        <button type="button" class="link" onclick={() => (showAllErrors = true)}>
+        <button
+          type="button"
+          class="link"
+          onclick={() => (showAllErrors = true)}
+        >
           {parseErrors.length - ERROR_PREVIEW} more
         </button>
       {/if}
@@ -162,7 +202,9 @@
     <div class="incomplete">
       <p class="incomplete-head">
         <Icon name="warning-filled" size={13} />
-        {manifest.incomplete.length} row{manifest.incomplete.length === 1 ? '' : 's'} still
+        {manifest.incomplete.length} row{manifest.incomplete.length === 1
+          ? ''
+          : 's'} still
         {manifest.incomplete.length === 1 ? 'needs' : 'need'} an account:
       </p>
       <ul>
@@ -201,12 +243,13 @@
         {#if !coverageValid}
           The start date has to come before the end date.
         {:else if fromCoach}
-          The range the coach asked for. A statement can cover days with no transactions on
-          them, so this is usually wider than the dates in the file — leave it as the
-          statement period rather than the first and last row.
+          The range the coach asked for. A statement can cover days with no
+          transactions on them, so this is usually wider than the dates in the
+          file — leave it as the statement period rather than the first and last
+          row.
         {:else}
-          Taken from the dates in the file. Widen it if the statement period starts before its
-          first transaction.
+          Taken from the dates in the file. Widen it if the statement period
+          starts before its first transaction.
         {/if}
       </p>
       {#if coverageAccountCount > 1}
@@ -228,9 +271,14 @@
       {#if loading}
         Importing…
       {:else if manifest.incomplete.length > 0}
-        {manifest.incomplete.length} row{manifest.incomplete.length === 1 ? '' : 's'} to fix
+        {manifest.incomplete.length} row{manifest.incomplete.length === 1
+          ? ''
+          : 's'} to fix
       {:else}
-        Import {manifest.committedCount} transaction{manifest.committedCount === 1 ? '' : 's'}
+        Import {manifest.committedCount} transaction{manifest.committedCount ===
+        1
+          ? ''
+          : 's'}
       {/if}
     </GradientButton>
   </div>
@@ -385,7 +433,7 @@
   }
 
   .link:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 2px;
   }
 
@@ -498,7 +546,7 @@
   }
 
   .covers input[type='date']:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -1px;
   }
 

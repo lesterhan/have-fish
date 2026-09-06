@@ -15,10 +15,21 @@
     [key: string]: unknown
   }
 
-  let { gloss = false, muted = false, class: klass = '', children, ...rest }: Props = $props()
+  let {
+    gloss = false,
+    muted = false,
+    class: klass = '',
+    children,
+    ...rest
+  }: Props = $props()
 </script>
 
-<div class="card {klass}" class:card--gloss={gloss} class:card--muted={muted} {...rest}>
+<div
+  class="card {klass}"
+  class:card--gloss={gloss}
+  class:card--muted={muted}
+  {...rest}
+>
   {@render children()}
 </div>
 
@@ -35,7 +46,11 @@
   }
 
   .card--gloss {
-    background: linear-gradient(180deg, var(--color-window-inset), var(--color-window));
+    background: linear-gradient(
+      180deg,
+      var(--color-window-inset),
+      var(--color-window)
+    );
   }
 
   .card--gloss:hover {

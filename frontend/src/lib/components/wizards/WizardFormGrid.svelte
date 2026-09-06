@@ -43,8 +43,10 @@
   }
 
   .form-grid :global(input:not(.file-input):focus) {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .form-grid :global(select) {
@@ -65,8 +67,10 @@
   }
 
   .form-grid :global(select:focus) {
-    border-color: var(--color-accent-mid);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.08), 0 0 0 2px var(--color-accent-light);
+    border-color: var(--color-accent-hi);
+    box-shadow:
+      inset 0 1px 2px rgba(0, 0, 0, 0.08),
+      0 0 0 2px var(--color-accent-chip-bg);
   }
 
   .form-grid :global(.required) {
@@ -87,5 +91,4 @@
     gap: var(--sp-xs);
     justify-content: flex-end;
   }
-
 </style>

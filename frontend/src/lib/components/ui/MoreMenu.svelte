@@ -76,7 +76,12 @@
   {#if open}
     <div class="menu" class:left={align === 'left'} role="menu">
       {#each items as item (item.label)}
-        <button class="item" role="menuitem" type="button" onclick={() => choose(item)}>
+        <button
+          class="item"
+          role="menuitem"
+          type="button"
+          onclick={() => choose(item)}
+        >
           <span class="item-icon">
             {#if item.icon}<Icon name={item.icon} size={13} />{/if}
           </span>
@@ -142,7 +147,7 @@
   }
 
   .item:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 

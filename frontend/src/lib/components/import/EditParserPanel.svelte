@@ -123,11 +123,7 @@
         <h3 class="section-heading">General</h3>
         <div class="form-grid">
           <label for="ep-name">Name <span class="required">*</span></label>
-          <TextInput
-            id="ep-name"
-            bind:value={name}
-            autocomplete="off"
-          />
+          <TextInput id="ep-name" bind:value={name} autocomplete="off" />
 
           <label for="ep-account">Default account</label>
           <AccountPicker
@@ -142,7 +138,9 @@
 
           <span class="toggle-label">
             Multi-currency
-            <TooltipIcon label="Enable for banks that encode transfers inline (e.g. Wise)." />
+            <TooltipIcon
+              label="Enable for banks that encode transfers inline (e.g. Wise)."
+            />
           </span>
           <Toggle bind:checked={isMultiCurrency} />
 
@@ -191,7 +189,9 @@
 
           <label for="ep-sign-col" class="toggle-label">
             Direction column
-            <TooltipIcon label="For banks that put IN/OUT in a separate column (e.g. Wise)." />
+            <TooltipIcon
+              label="For banks that put IN/OUT in a separate column (e.g. Wise)."
+            />
           </label>
           <Select id="ep-sign-col" bind:value={mappingSignColumn}>
             <option value="">— not mapped —</option>
@@ -269,10 +269,7 @@
       {/if}
       <div class="footer-actions">
         <GradientButton onclick={onCancel}>Cancel</GradientButton>
-        <GradientButton
-          onclick={handleSave}
-          disabled={saving || !valid}
-        >
+        <GradientButton onclick={handleSave} disabled={saving || !valid}>
           <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
         </GradientButton>
       </div>

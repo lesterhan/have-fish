@@ -135,7 +135,7 @@
   }
 
   .toggle:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 2px;
   }
 
@@ -219,7 +219,7 @@
   }
 
   .body :global(tbody tr:hover td) {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .body :global(th.num),

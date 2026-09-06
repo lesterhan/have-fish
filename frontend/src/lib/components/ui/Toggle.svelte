@@ -95,7 +95,11 @@
     width: 12px;
     height: 12px;
     border-radius: 50%;
-    background: linear-gradient(180deg, #ffffff, #e8eaed);
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-window-raised)
+    );
     box-shadow: 0 1px 2px rgba(0, 0, 0, 0.35);
     transition: transform var(--duration-normal) var(--ease);
   }
@@ -106,7 +110,7 @@
 
   /* Focus ring on the track when the hidden input is focused */
   .toggle-input:focus-visible + .track {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 2px;
   }
 

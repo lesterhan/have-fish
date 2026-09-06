@@ -5,7 +5,12 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
-  import { createTransaction, fetchFxRate, type Account, type Transaction } from '$lib/api'
+  import {
+    createTransaction,
+    fetchFxRate,
+    type Account,
+    type Transaction,
+  } from '$lib/api'
   import { toISODate } from '$lib/date'
 
   interface Props {
@@ -200,7 +205,7 @@
         aria-label="Description"
         disabled={submitting}
         class="desc-input"
-        style="font-family: var(--font-sans); font-weight: var(--weight-semibold); color: var(--color-accent-mid); flex: 1; min-width: 0"
+        style="font-family: var(--font-sans); font-weight: var(--weight-semibold); color: var(--color-accent-hi); flex: 1; min-width: 0"
       />
     </div>
 
@@ -226,7 +231,10 @@
             disabled={submitting}
             style="width: 10ch; text-align: right"
           />
-          <CurrencyInput bind:value={posting.currency} style="width: 4rem; flex-shrink: 0" />
+          <CurrencyInput
+            bind:value={posting.currency}
+            style="width: 4rem; flex-shrink: 0"
+          />
           <button
             class="delete-btn"
             title="Remove posting"
@@ -269,13 +277,18 @@
           {#each foreignCurrencies as cur}
             {@const rate = fxRates.get(cur)}
             {#if rate === null}
-              <span class="fx-hint fx-unavailable">rate unavailable for {date}</span>
+              <span class="fx-hint fx-unavailable"
+                >rate unavailable for {date}</span
+              >
             {:else if rate !== undefined}
-              {@const converted = (maxAbsAmount(cur) * parseFloat(rate)).toFixed(2)}
+              {@const converted = (
+                maxAbsAmount(cur) * parseFloat(rate)
+              ).toFixed(2)}
               <span class="fx-hint">
-                1 {cur} = {parseFloat(rate).toFixed(4)} {preferredCurrency.toUpperCase()}
-                &nbsp;·&nbsp;
-                ≈ {converted} {preferredCurrency.toUpperCase()}
+                1 {cur} = {parseFloat(rate).toFixed(4)}
+                {preferredCurrency.toUpperCase()}
+                &nbsp;·&nbsp; ≈ {converted}
+                {preferredCurrency.toUpperCase()}
               </span>
             {/if}
           {/each}
@@ -289,7 +302,9 @@
 
     <div class="footer">
       <div class="footer-actions">
-        <GradientButton disabled={submitting} onclick={onclose}>Cancel</GradientButton>
+        <GradientButton disabled={submitting} onclick={onclose}
+          >Cancel</GradientButton
+        >
         <GradientButton active disabled={!canSubmit} onclick={handleSubmit}>
           {submitting ? 'Adding…' : 'Add'}
         </GradientButton>
@@ -337,7 +352,6 @@
   .posting-account-cell {
     min-width: 0;
   }
-
 
   /* ---- Delete + add posting buttons — same as LedgerEditModal ---- */
   .delete-btn {

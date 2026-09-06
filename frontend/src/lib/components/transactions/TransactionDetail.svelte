@@ -228,7 +228,11 @@
         {#if tag}
           {#if tag.kind === 'fishpie'}
             <!-- Two-chip Fish Pie identity, shared with the import preview via FishPieTag. -->
-            <FishPieTag category={tag.category} group={tag.group} style="flex-shrink: 0" />
+            <FishPieTag
+              category={tag.category}
+              group={tag.group}
+              style="flex-shrink: 0"
+            />
           {:else}
             <span class="tag">{tag.label}</span>
           {/if}
@@ -559,7 +563,7 @@
     font-weight: 600;
     padding: 1px 6px;
     color: var(--color-accent);
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
     border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
     border-radius: var(--radius-lg);
     white-space: nowrap;
@@ -710,7 +714,8 @@
     width: 9px;
     height: 9px;
     background: var(--color-accent);
-    border: 1px solid color-mix(in srgb, var(--color-accent) 60%, #000);
+    border: 1px solid
+      color-mix(in srgb, var(--color-accent) 60%, var(--color-rule));
     border-radius: 50%;
   }
 
@@ -747,7 +752,11 @@
     letter-spacing: 0.04em;
     padding: 1px 5px;
     color: var(--color-text-muted);
-    background: color-mix(in srgb, var(--color-text-muted) 14%, var(--color-window));
+    background: color-mix(
+      in srgb,
+      var(--color-text-muted) 14%,
+      var(--color-window)
+    );
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
     white-space: nowrap;
@@ -755,7 +764,7 @@
 
   .tone-accent .chip {
     color: var(--color-accent);
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
     border-color: color-mix(in srgb, var(--color-accent) 35%, transparent);
   }
 
@@ -855,7 +864,7 @@
   }
 
   .caret-row:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 2px;
   }
 
@@ -1020,7 +1029,7 @@
   }
 
   .ledger-link:hover {
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
 
   .ledger-link:focus-visible {

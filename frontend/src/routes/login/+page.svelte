@@ -133,6 +133,6 @@
   }
 
   .switch-link a {
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
 </style>

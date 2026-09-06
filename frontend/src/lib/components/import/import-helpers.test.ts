@@ -45,16 +45,22 @@ describe('currenciesInPreview', () => {
   })
 
   it('normalizes case so cad and CAD are one currency', () => {
-    expect(currenciesInPreview([regular('cad'), regular('CAD')], 'CAD')).toEqual(['CAD'])
+    expect(
+      currenciesInPreview([regular('cad'), regular('CAD')], 'CAD'),
+    ).toEqual(['CAD'])
   })
 
   it('requires both sides of a convert-and-park', () => {
-    expect(currenciesInPreview([transfer('CAD', 'EUR', 'transfer')], 'CAD')).toEqual(['CAD', 'EUR'])
+    expect(
+      currenciesInPreview([transfer('CAD', 'EUR', 'transfer')], 'CAD'),
+    ).toEqual(['CAD', 'EUR'])
   })
 
   it('requires only the funding side of a cross-currency spend', () => {
     // The money never lands in a CZK account — it goes straight to an expense.
-    expect(currenciesInPreview([transfer('USD', 'CZK', 'spend')], 'CAD')).toEqual(['USD'])
+    expect(
+      currenciesInPreview([transfer('USD', 'CZK', 'spend')], 'CAD'),
+    ).toEqual(['USD'])
   })
 
   it('includes a same-currency transfer’s currency', () => {
@@ -71,8 +77,14 @@ describe('currenciesInPreview', () => {
   it('ignores row-level edits by reading only the preview’s own suggestion', () => {
     // Same two rows, differing only in what the preview suggested. The required set must
     // follow the preview, so flipping a row later cannot re-gate a finished step.
-    const asSpend = currenciesInPreview([transfer('USD', 'CZK', 'spend')], 'CAD')
-    const asTransfer = currenciesInPreview([transfer('USD', 'CZK', 'transfer')], 'CAD')
+    const asSpend = currenciesInPreview(
+      [transfer('USD', 'CZK', 'spend')],
+      'CAD',
+    )
+    const asTransfer = currenciesInPreview(
+      [transfer('USD', 'CZK', 'transfer')],
+      'CAD',
+    )
     expect(asSpend).toEqual(['USD'])
     expect(asTransfer).toEqual(['USD', 'CZK'])
   })
@@ -96,12 +108,16 @@ describe('seedCurrencyAccounts', () => {
 
   it('keeps an existing mapping rather than re-deriving over it', () => {
     // The user pointed RMB at their CNY account; re-seeding must not undo that.
-    const seeded = seedCurrencyAccounts(['RMB'], ACCOUNTS, 'assets:wise', { RMB: 'a-cny' })
+    const seeded = seedCurrencyAccounts(['RMB'], ACCOUNTS, 'assets:wise', {
+      RMB: 'a-cny',
+    })
     expect(seeded.RMB).toBe('a-cny')
   })
 
   it('drops currencies no longer present in the import', () => {
-    const seeded = seedCurrencyAccounts(['CAD'], ACCOUNTS, 'assets:wise', { EUR: 'a-eur' })
+    const seeded = seedCurrencyAccounts(['CAD'], ACCOUNTS, 'assets:wise', {
+      EUR: 'a-eur',
+    })
     expect(Object.keys(seeded)).toEqual(['CAD'])
   })
 
@@ -113,7 +129,9 @@ describe('seedCurrencyAccounts', () => {
 
 describe('suggestedPathForCurrency', () => {
   it('lowercases the currency under the root', () => {
-    expect(suggestedPathForCurrency('assets:wise', 'EUR')).toBe('assets:wise:eur')
+    expect(suggestedPathForCurrency('assets:wise', 'EUR')).toBe(
+      'assets:wise:eur',
+    )
   })
 
   it('returns an empty string without a root', () => {

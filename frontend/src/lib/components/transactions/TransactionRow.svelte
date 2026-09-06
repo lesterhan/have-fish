@@ -176,7 +176,8 @@
           <span class="arrow" aria-hidden="true">→</span>
           <span
             class="account account-to"
-            class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+            class:account-uncategorized={to.accountId ===
+              defaultOffsetAccountId}
           >
             {accountPaths[to.accountId] ?? to.accountId}
           </span>
@@ -204,7 +205,8 @@
 
           <span
             class="account account-to"
-            class:account-uncategorized={to.accountId === defaultOffsetAccountId}
+            class:account-uncategorized={to.accountId ===
+              defaultOffsetAccountId}
           >
             {accountPaths[to.accountId] ?? to.accountId}
           </span>
@@ -221,7 +223,6 @@
         </div>
       {/if}
     {/if}
-
   </div>
 
   <div class="money-col">
@@ -247,7 +248,6 @@
       <MoneyDisplay amount={fmt(to.amount)} currency={to.currency} />
     {/if}
   </div>
-
 </div>
 
 <style>
@@ -270,11 +270,11 @@
   }
 
   .row:hover {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .row:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: -2px;
   }
 
@@ -283,7 +283,7 @@
   }
 
   .row.selected {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .select-col {
@@ -309,7 +309,7 @@
   .checkbox.checked {
     background: linear-gradient(
       180deg,
-      var(--color-accent-mid),
+      var(--color-accent-hi),
       var(--color-accent)
     );
     border-color: var(--color-accent);

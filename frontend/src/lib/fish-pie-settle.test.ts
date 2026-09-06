@@ -11,7 +11,12 @@ import {
 } from './fish-pie-settle'
 import type { CurrencyBalance } from './api'
 
-const transfer = (from: string, to: string, amount: string, currency: string) => ({
+const transfer = (
+  from: string,
+  to: string,
+  amount: string,
+  currency: string,
+) => ({
   fromUserId: from,
   fromUserName: from,
   toUserId: to,
@@ -21,8 +26,16 @@ const transfer = (from: string, to: string, amount: string, currency: string) =>
 })
 
 const balances: CurrencyBalance[] = [
-  { currency: 'CAD', netPositions: [], transfers: [transfer('me', 'partner', '500.00', 'CAD')] },
-  { currency: 'EUR', netPositions: [], transfers: [transfer('me', 'partner', '50.00', 'EUR')] },
+  {
+    currency: 'CAD',
+    netPositions: [],
+    transfers: [transfer('me', 'partner', '500.00', 'CAD')],
+  },
+  {
+    currency: 'EUR',
+    netPositions: [],
+    transfers: [transfer('me', 'partner', '50.00', 'EUR')],
+  },
 ]
 
 const line = (over: Partial<SettleLine>): SettleLine => ({
@@ -41,11 +54,23 @@ const line = (over: Partial<SettleLine>): SettleLine => ({
 describe('owedDebts', () => {
   it('extracts only the transfers where the current user is the debtor', () => {
     const mixed: CurrencyBalance[] = [
-      { currency: 'CAD', netPositions: [], transfers: [transfer('me', 'partner', '500.00', 'CAD'), transfer('other', 'me', '10.00', 'CAD')] },
+      {
+        currency: 'CAD',
+        netPositions: [],
+        transfers: [
+          transfer('me', 'partner', '500.00', 'CAD'),
+          transfer('other', 'me', '10.00', 'CAD'),
+        ],
+      },
     ]
     const debts = owedDebts(mixed, 'me')
     expect(debts).toHaveLength(1)
-    expect(debts[0]).toEqual({ toUserId: 'partner', toUserName: 'partner', amount: '500.00', currency: 'CAD' })
+    expect(debts[0]).toEqual({
+      toUserId: 'partner',
+      toUserName: 'partner',
+      amount: '500.00',
+      currency: 'CAD',
+    })
   })
 
   it('flattens debts across currencies', () => {
@@ -70,11 +95,17 @@ describe('initLines', () => {
 
 describe('isConverted', () => {
   it('is false when currencies match even if convert is on', () => {
-    expect(isConverted(line({ debtCurrency: 'CAD', convert: true }), 'CAD')).toBe(false)
+    expect(
+      isConverted(line({ debtCurrency: 'CAD', convert: true }), 'CAD'),
+    ).toBe(false)
   })
   it('is true only when convert is on and currencies differ', () => {
-    expect(isConverted(line({ debtCurrency: 'EUR', convert: true }), 'CAD')).toBe(true)
-    expect(isConverted(line({ debtCurrency: 'EUR', convert: false }), 'CAD')).toBe(false)
+    expect(
+      isConverted(line({ debtCurrency: 'EUR', convert: true }), 'CAD'),
+    ).toBe(true)
+    expect(
+      isConverted(line({ debtCurrency: 'EUR', convert: false }), 'CAD'),
+    ).toBe(false)
   })
 })
 
@@ -93,29 +124,61 @@ describe('linesReady', () => {
     expect(linesReady([line({ include: false })], 'CAD')).toBe(false)
   })
   it('passes a native line with no settled amount', () => {
-    expect(linesReady([line({ debtCurrency: 'CAD', convert: false })], 'CAD')).toBe(true)
+    expect(
+      linesReady([line({ debtCurrency: 'CAD', convert: false })], 'CAD'),
+    ).toBe(true)
   })
   it('fails a converted line missing a positive settled amount', () => {
-    expect(linesReady([line({ debtCurrency: 'EUR', convert: true, settledAmount: '' })], 'CAD')).toBe(false)
-    expect(linesReady([line({ debtCurrency: 'EUR', convert: true, settledAmount: '80.00' })], 'CAD')).toBe(true)
+    expect(
+      linesReady(
+        [line({ debtCurrency: 'EUR', convert: true, settledAmount: '' })],
+        'CAD',
+      ),
+    ).toBe(false)
+    expect(
+      linesReady(
+        [line({ debtCurrency: 'EUR', convert: true, settledAmount: '80.00' })],
+        'CAD',
+      ),
+    ).toBe(true)
   })
 })
 
 describe('buildBatchLines', () => {
   it('omits excluded lines (partial batch)', () => {
-    const lines = [line({ debtCurrency: 'CAD', convert: false }), line({ include: false })]
+    const lines = [
+      line({ debtCurrency: 'CAD', convert: false }),
+      line({ include: false }),
+    ]
     const built = buildBatchLines(lines, 'CAD')
     expect(built).toHaveLength(1)
   })
 
   it('native line mirrors settled to debt', () => {
-    const built = buildBatchLines([line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: false })], 'CAD')
-    expect(built[0]).toEqual({ toUserId: 'partner', debtAmount: '500.00', debtCurrency: 'CAD', settledAmount: '500.00', settledCurrency: 'CAD' })
+    const built = buildBatchLines(
+      [line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: false })],
+      'CAD',
+    )
+    expect(built[0]).toEqual({
+      toUserId: 'partner',
+      debtAmount: '500.00',
+      debtCurrency: 'CAD',
+      settledAmount: '500.00',
+      settledCurrency: 'CAD',
+    })
   })
 
   it('converted line carries the target currency, settled amount and rate', () => {
     const built = buildBatchLines(
-      [line({ debtCurrency: 'EUR', debtAmount: '50.00', convert: true, settledAmount: '80.00', fxRate: '1.60' })],
+      [
+        line({
+          debtCurrency: 'EUR',
+          debtAmount: '50.00',
+          convert: true,
+          settledAmount: '80.00',
+          fxRate: '1.60',
+        }),
+      ],
       'CAD',
     )
     expect(built[0]).toEqual({
@@ -129,7 +192,10 @@ describe('buildBatchLines', () => {
   })
 
   it('a convert toggle on a same-currency line stays native', () => {
-    const built = buildBatchLines([line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: true })], 'CAD')
+    const built = buildBatchLines(
+      [line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: true })],
+      'CAD',
+    )
     expect(built[0].settledCurrency).toBe('CAD')
     expect(built[0].fxRate).toBeUndefined()
   })

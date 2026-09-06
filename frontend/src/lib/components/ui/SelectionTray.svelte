@@ -100,8 +100,8 @@
        tray to read as a surface rather than a strip. */
     min-height: 48px;
     padding: var(--sp-xs) var(--sp-md);
-    background: var(--color-accent-light);
-    border: 1px solid var(--color-accent-mid);
+    background: var(--color-accent-chip-bg);
+    border: 1px solid var(--color-accent-hi);
     border-radius: var(--radius-lg);
     /* Settled at the end of the list it is just the last card; the shadow is what says
        "there is more underneath me". */

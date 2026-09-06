@@ -44,14 +44,20 @@
 
   // A rule targets exactly one of an account or a group, so the form is only complete once
   // one of them is chosen. The backend enforces the same invariant.
-  function targetOf(accountId: string, groupId: string | null, categoryId: string | null): RuleTarget | null {
+  function targetOf(
+    accountId: string,
+    groupId: string | null,
+    categoryId: string | null,
+  ): RuleTarget | null {
     if (groupId) return { groupId, categoryId }
     if (accountId) return { accountId }
     return null
   }
 
   let newTarget = $derived(targetOf(newAccountId, newGroupId, newCategoryId))
-  let editTarget = $derived(targetOf(editAccountId, editGroupId, editCategoryId))
+  let editTarget = $derived(
+    targetOf(editAccountId, editGroupId, editCategoryId),
+  )
 
   let panelTab = $state<'suggestions' | 'denied'>('suggestions')
 
@@ -68,7 +74,11 @@
   )
 
   onMount(async () => {
-    const [r, a, g] = await Promise.all([fetchRules(), fetchAccounts(), fetchGroups()])
+    const [r, a, g] = await Promise.all([
+      fetchRules(),
+      fetchAccounts(),
+      fetchGroups(),
+    ])
     rules = r
     accounts = a
     groups = g
@@ -83,7 +93,9 @@
   function ruleTarget(rule: ImportRule): string {
     if (rule.accountPath) return rule.accountPath
     if (rule.groupName) {
-      return rule.categoryName ? `${rule.groupName} · ${rule.categoryName}` : rule.groupName
+      return rule.categoryName
+        ? `${rule.groupName} · ${rule.categoryName}`
+        : rule.groupName
     }
     return ''
   }
@@ -129,7 +141,10 @@
   async function handleSaveEdit() {
     if (!editingId || !editPattern.trim() || !editTarget) return
     try {
-      await updateRule(editingId, { pattern: editPattern.trim(), ...editTarget })
+      await updateRule(editingId, {
+        pattern: editPattern.trim(),
+        ...editTarget,
+      })
       rules = await fetchRules()
       cancelEdit()
     } catch (e) {
@@ -152,14 +167,18 @@
   async function handleDeny(id: string) {
     const updated = await denyRule(id)
     rules = rules.map((r) =>
-      r.id === id ? { ...r, status: updated.status, updatedAt: updated.updatedAt } : r,
+      r.id === id
+        ? { ...r, status: updated.status, updatedAt: updated.updatedAt }
+        : r,
     )
   }
 
   async function handleRevive(id: string) {
     const updated = await reviveRule(id)
     rules = rules.map((r) =>
-      r.id === id ? { ...r, status: updated.status, updatedAt: updated.updatedAt } : r,
+      r.id === id
+        ? { ...r, status: updated.status, updatedAt: updated.updatedAt }
+        : r,
     )
   }
 
@@ -278,8 +297,10 @@
               </td>
               <td class="cell-actions">
                 <div class="action-row">
-                  <GradientButton onclick={handleSaveEdit} disabled={!editTarget} active
-                    >Save</GradientButton
+                  <GradientButton
+                    onclick={handleSaveEdit}
+                    disabled={!editTarget}
+                    active>Save</GradientButton
                   >
                   <GradientButton square onclick={cancelEdit}>
                     <Icon name="close" size={12} />
@@ -342,7 +363,8 @@
         class:active={panelTab === 'denied'}
         onclick={() => (panelTab = 'denied')}
       >
-        Denied{#if denied.length > 0}<span class="tab-count">{denied.length}</span
+        Denied{#if denied.length > 0}<span class="tab-count"
+            >{denied.length}</span
           >{/if}
       </button>
     </div>
@@ -485,7 +507,7 @@
   }
 
   .rules-table :global(tbody tr:not(.form-row):hover td) {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .rules-table :global(.col-actions) {
@@ -612,7 +634,7 @@
   }
 
   .suggestion-card:hover {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .suggestion-info {

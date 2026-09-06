@@ -202,7 +202,8 @@
 
         {#if pinned.length === 0 && recent.length === 0}
           <p class="lists-empty">
-            Pin accounts on the <a href="/accounts">Accounts</a> page to keep them here.
+            Pin accounts on the <a href="/accounts">Accounts</a> page to keep them
+            here.
           </p>
         {/if}
       </div>
@@ -257,7 +258,11 @@
   </div>
 </aside>
 
-<AccountJumpPalette {accounts} initial={[...pinned, ...recent]} bind:open={paletteOpen} />
+<AccountJumpPalette
+  {accounts}
+  initial={[...pinned, ...recent]}
+  bind:open={paletteOpen}
+/>
 
 <style>
   /* --- Sidebar shell --- */
@@ -367,7 +372,7 @@
   .nav-link.active {
     background: linear-gradient(
       180deg,
-      var(--color-accent-mid),
+      var(--color-accent-hi),
       var(--color-accent)
     );
     color: var(--color-accent-fg);
@@ -422,12 +427,12 @@
   }
 
   .jump:hover {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
     color: var(--color-text);
   }
 
   .jump:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 1px;
   }
 
@@ -482,11 +487,11 @@
   }
 
   .account-row:hover {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
   }
 
   .account-row.active {
-    background: var(--color-accent-light);
+    background: var(--color-accent-chip-bg);
     box-shadow: inset 2px 0 0 var(--color-accent);
     font-weight: var(--weight-semibold);
   }
@@ -517,7 +522,7 @@
   }
 
   .lists-empty a {
-    color: var(--color-accent-mid);
+    color: var(--color-accent-hi);
   }
 
   .action-dot {
@@ -622,7 +627,7 @@
   .sidebar.collapsed .nav-link.active {
     background: linear-gradient(
       180deg,
-      var(--color-accent-mid),
+      var(--color-accent-hi),
       var(--color-accent)
     );
     color: var(--color-accent-fg);

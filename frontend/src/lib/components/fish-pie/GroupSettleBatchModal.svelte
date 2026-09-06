@@ -35,7 +35,13 @@
     onSettle: (data: BatchPayload) => Promise<void>
   }
 
-  let { open = $bindable(false), debts, defaultTargetCurrency, payerAccounts, onSettle }: Props = $props()
+  let {
+    open = $bindable(false),
+    debts,
+    defaultTargetCurrency,
+    payerAccounts,
+    onSettle,
+  }: Props = $props()
 
   const today = () => new Date().toISOString().slice(0, 10)
 
@@ -71,7 +77,11 @@
         const r = await fetchFxRateAsOf(l.debtCurrency, target)
         lines[i].fxRate = r?.rate ?? null
         lines[i].asOfDate = r?.asOfDate ?? null
-        if (!lines[i].settledAmount) lines[i].settledAmount = convertedAmount(l.debtAmount, r?.rate ?? null)
+        if (!lines[i].settledAmount)
+          lines[i].settledAmount = convertedAmount(
+            l.debtAmount,
+            r?.rate ?? null,
+          )
       }),
     )
   }
@@ -105,7 +115,12 @@
     error = ''
     submitting = true
     try {
-      await onSettle({ payerAccountId, date, note: note.trim() || undefined, lines: buildBatchLines(lines, target) })
+      await onSettle({
+        payerAccountId,
+        date,
+        note: note.trim() || undefined,
+        lines: buildBatchLines(lines, target),
+      })
       open = false
     } catch (e: any) {
       error = e.message ?? 'Failed to settle'
@@ -119,78 +134,87 @@
   <div class="settle-batch">
     <div class="target-row">
       <span class="field-label">Settle in</span>
-      <CurrencyInput value={target} oncommit={onTargetCommit} style="width: 60px" />
+      <CurrencyInput
+        value={target}
+        oncommit={onTargetCommit}
+        style="width: 60px"
+      />
       <span class="target-hint">converted debts are paid in this currency</span>
     </div>
 
     <div class="debts-group">
       <span class="group-label">Balances to settle</span>
       <div class="lines">
-      {#each lines as l, i (l.toUserId + l.debtCurrency)}
-        {@const converted = isConverted(l, target)}
-        <Card gloss muted={!l.include}>
-          <div class="line-row">
-          <Checkbox
-            bind:checked={l.include}
-            ariaLabel={l.include ? 'Exclude this debt' : 'Include this debt'}
-          />
+        {#each lines as l, i (l.toUserId + l.debtCurrency)}
+          {@const converted = isConverted(l, target)}
+          <Card gloss muted={!l.include}>
+            <div class="line-row">
+              <Checkbox
+                bind:checked={l.include}
+                ariaLabel={l.include
+                  ? 'Exclude this debt'
+                  : 'Include this debt'}
+              />
 
-          <div class="line-main">
-            <div class="line-debt">
-              <span class="line-to">{l.toUserName ?? 'them'}</span>
-              <span class="line-owe">
-                owes <CurrencyPill code={l.debtCurrency} /> {parseFloat(l.debtAmount).toFixed(2)}
-              </span>
-            </div>
+              <div class="line-main">
+                <div class="line-debt">
+                  <span class="line-to">{l.toUserName ?? 'them'}</span>
+                  <span class="line-owe">
+                    owes <CurrencyPill code={l.debtCurrency} />
+                    {parseFloat(l.debtAmount).toFixed(2)}
+                  </span>
+                </div>
 
-            {#if l.debtCurrency !== target}
-              <div class="line-mode">
-                <button
-                  type="button"
-                  class="mode-btn"
-                  class:mode-btn--on={!l.convert}
-                  onclick={() => l.convert && toggleConvert(i)}
-                  disabled={!l.include}
-                >
-                  Pay {l.debtCurrency}
-                </button>
-                <button
-                  type="button"
-                  class="mode-btn"
-                  class:mode-btn--on={l.convert}
-                  onclick={() => !l.convert && toggleConvert(i)}
-                  disabled={!l.include}
-                >
-                  Pay {target}
-                </button>
-              </div>
-            {/if}
-
-            {#if converted}
-              <div class="convert-row">
-                <TextInput
-                  bind:value={l.settledAmount}
-                  placeholder="0.00"
-                  type="number"
-                  min="0"
-                  step="0.01"
-                  disabled={!l.include}
-                  class="convert-amount"
-                />
-                <CurrencyPill code={target} />
-              </div>
-              <span class="rate-hint">
-                {#if l.fxRate}
-                  {l.debtCurrency} → {target} rate {parseFloat(l.fxRate).toFixed(4)} as of {l.asOfDate}
-                {:else}
-                  no rate found — enter the amount you paid
+                {#if l.debtCurrency !== target}
+                  <div class="line-mode">
+                    <button
+                      type="button"
+                      class="mode-btn"
+                      class:mode-btn--on={!l.convert}
+                      onclick={() => l.convert && toggleConvert(i)}
+                      disabled={!l.include}
+                    >
+                      Pay {l.debtCurrency}
+                    </button>
+                    <button
+                      type="button"
+                      class="mode-btn"
+                      class:mode-btn--on={l.convert}
+                      onclick={() => !l.convert && toggleConvert(i)}
+                      disabled={!l.include}
+                    >
+                      Pay {target}
+                    </button>
+                  </div>
                 {/if}
-              </span>
-            {/if}
-          </div>
-          </div>
-        </Card>
-      {/each}
+
+                {#if converted}
+                  <div class="convert-row">
+                    <TextInput
+                      bind:value={l.settledAmount}
+                      placeholder="0.00"
+                      type="number"
+                      min="0"
+                      step="0.01"
+                      disabled={!l.include}
+                      class="convert-amount"
+                    />
+                    <CurrencyPill code={target} />
+                  </div>
+                  <span class="rate-hint">
+                    {#if l.fxRate}
+                      {l.debtCurrency} → {target} rate {parseFloat(
+                        l.fxRate,
+                      ).toFixed(4)} as of {l.asOfDate}
+                    {:else}
+                      no rate found — enter the amount you paid
+                    {/if}
+                  </span>
+                {/if}
+              </div>
+            </div>
+          </Card>
+        {/each}
       </div>
     </div>
 
@@ -203,7 +227,11 @@
         </div>
         <div class="note-field">
           <span class="field-label">Note</span>
-          <TextInput bind:value={note} placeholder="Optional" class="note-input" />
+          <TextInput
+            bind:value={note}
+            placeholder="Optional"
+            class="note-input"
+          />
         </div>
       </div>
 
@@ -223,7 +251,9 @@
     {/if}
 
     <div class="actions">
-      <GradientButton onclick={() => ((open = false), (error = ''))}>Cancel</GradientButton>
+      <GradientButton onclick={() => ((open = false), (error = ''))}
+        >Cancel</GradientButton
+      >
       <GradientButton onclick={handleSubmit} disabled={!ready || submitting}>
         {submitting ? 'Proposing…' : 'Propose'}
       </GradientButton>
@@ -328,7 +358,11 @@
     font-size: var(--text-xs);
     font-weight: 700;
     padding: 2px 8px;
-    background: linear-gradient(180deg, var(--color-btn-gradient-hi), var(--color-rule-soft));
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-rule-soft)
+    );
     border: 1px solid var(--color-rule);
     cursor: pointer;
     color: var(--color-text-muted);

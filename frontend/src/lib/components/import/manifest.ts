@@ -54,7 +54,12 @@ function destinationOf(
   tx: ParsedTransaction,
   row: RowState,
   ctx: ManifestContext,
-): { key: string; groupId: string | null; categoryId: string | null; accountId: string } {
+): {
+  key: string
+  groupId: string | null
+  categoryId: string | null
+  accountId: string
+} {
   if (row.groupId) {
     return {
       key: `group:${row.groupId}:${row.categoryId ?? ''}`,
@@ -73,17 +78,31 @@ function destinationOf(
           ? (ctx.currencyAccounts[tx.currency.toUpperCase()] ?? '')
           : ctx.fromAccountId
         : row.offsetAccountId
-  return { key: accountId || '(unassigned)', groupId: null, categoryId: null, accountId }
+  return {
+    key: accountId || '(unassigned)',
+    groupId: null,
+    categoryId: null,
+    accountId,
+  }
 }
 
-function amountOf(tx: ParsedTransaction, defaultCurrency: string): { amount: number; currency: string } {
+function amountOf(
+  tx: ParsedTransaction,
+  defaultCurrency: string,
+): { amount: number; currency: string } {
   if (tx.isTransfer === true) {
-    return { amount: Math.abs(parseFloat(tx.targetAmount)), currency: tx.targetCurrency }
+    return {
+      amount: Math.abs(parseFloat(tx.targetAmount)),
+      currency: tx.targetCurrency,
+    }
   }
   if (tx.isTransfer === 'same-currency') {
     return { amount: Math.abs(parseFloat(tx.amount)), currency: tx.currency }
   }
-  return { amount: Math.abs(parseFloat(tx.amount)), currency: tx.currency ?? defaultCurrency }
+  return {
+    amount: Math.abs(parseFloat(tx.amount)),
+    currency: tx.currency ?? defaultCurrency,
+  }
 }
 
 function labelFor(
@@ -98,7 +117,10 @@ function labelFor(
     const name = group?.name ?? 'Fish Pie group'
     return category ? `${name} · ${category.name}` : name
   }
-  return ctx.accounts.find((a) => a.id === dest.accountId)?.path ?? 'No account assigned'
+  return (
+    ctx.accounts.find((a) => a.id === dest.accountId)?.path ??
+    'No account assigned'
+  )
 }
 
 export function buildManifest(
@@ -143,7 +165,9 @@ export function buildManifest(
         total: amount,
         currency,
         isUncategorized:
-          !dest.groupId && !!ctx.uncategorizedAccountId && dest.accountId === ctx.uncategorizedAccountId,
+          !dest.groupId &&
+          !!ctx.uncategorizedAccountId &&
+          dest.accountId === ctx.uncategorizedAccountId,
         currencies: new Set([currency]),
       })
     }
@@ -169,7 +193,8 @@ export function buildManifest(
     parseErrors,
     rulesCreated: ctx.rulesCreated,
     accountsCreated: ctx.accountsCreated,
-    dateRange: dates.length > 0 ? { from: dates[0], to: dates[dates.length - 1] } : null,
+    dateRange:
+      dates.length > 0 ? { from: dates[0], to: dates[dates.length - 1] } : null,
     incomplete,
   }
 }

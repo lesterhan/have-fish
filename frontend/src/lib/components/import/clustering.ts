@@ -35,14 +35,23 @@ export type ClusterState = {
 }
 
 // The amount a cluster sums, per row kind: what was actually spent.
-function spendFacing(tx: ParsedTransaction, defaultCurrency: string): { amount: number; currency: string } {
+function spendFacing(
+  tx: ParsedTransaction,
+  defaultCurrency: string,
+): { amount: number; currency: string } {
   if (tx.isTransfer === true) {
-    return { amount: Math.abs(parseFloat(tx.targetAmount)), currency: tx.targetCurrency }
+    return {
+      amount: Math.abs(parseFloat(tx.targetAmount)),
+      currency: tx.targetCurrency,
+    }
   }
   if (tx.isTransfer === 'same-currency') {
     return { amount: Math.abs(parseFloat(tx.amount)), currency: tx.currency }
   }
-  return { amount: Math.abs(parseFloat(tx.amount)), currency: tx.currency ?? defaultCurrency }
+  return {
+    amount: Math.abs(parseFloat(tx.amount)),
+    currency: tx.currency ?? defaultCurrency,
+  }
 }
 
 // Clusters of two or more rows sharing a merchant stem, biggest first. Singletons are left
@@ -67,7 +76,9 @@ export function buildClusters(
       (transactions[a].date ?? '').localeCompare(transactions[b].date ?? ''),
     )
 
-    const amounts = ordered.map((i) => spendFacing(transactions[i], defaultCurrency))
+    const amounts = ordered.map((i) =>
+      spendFacing(transactions[i], defaultCurrency),
+    )
     const currencies = new Set(amounts.map((a) => a.currency))
     const singleCurrency = currencies.size === 1 ? [...currencies][0] : null
 
@@ -75,16 +86,24 @@ export function buildClusters(
       key,
       indices: ordered,
       firstDate: (transactions[ordered[0]].date ?? '').slice(0, 10),
-      lastDate: (transactions[ordered[ordered.length - 1]].date ?? '').slice(0, 10),
-      total: singleCurrency ? amounts.reduce((sum, a) => sum + a.amount, 0) : null,
+      lastDate: (transactions[ordered[ordered.length - 1]].date ?? '').slice(
+        0,
+        10,
+      ),
+      total: singleCurrency
+        ? amounts.reduce((sum, a) => sum + a.amount, 0)
+        : null,
       currency: singleCurrency,
       matchedRulePattern:
-        ordered.map((i) => transactions[i].matchedRulePattern).find(Boolean) ?? null,
+        ordered.map((i) => transactions[i].matchedRulePattern).find(Boolean) ??
+        null,
     })
   }
 
   // Count descending, then alphabetically so the order is stable across re-renders.
-  return clusters.sort((a, b) => b.indices.length - a.indices.length || a.key.localeCompare(b.key))
+  return clusters.sort(
+    (a, b) => b.indices.length - a.indices.length || a.key.localeCompare(b.key),
+  )
 }
 
 // `remember` defaults on for a cluster of three or more and off for a pair. Three is where
@@ -101,7 +120,9 @@ export function initialClusterState(cluster: MerchantCluster): ClusterState {
     // A cluster a rule already covers defaults to off however large it is — the user is
     // overriding an existing rule here, and remembering would write a second rule with the
     // same pattern rather than correcting the one that fired. They can still turn it on.
-    remember: !cluster.matchedRulePattern && cluster.indices.length >= REMEMBER_THRESHOLD,
+    remember:
+      !cluster.matchedRulePattern &&
+      cluster.indices.length >= REMEMBER_THRESHOLD,
     excluded: [],
   }
 }
@@ -112,7 +133,12 @@ export type RowTarget =
   | { kind: 'split'; groupId: string; categoryId: string | null }
 
 export function clusterTarget(state: ClusterState): RowTarget | null {
-  if (state.groupId) return { kind: 'split', groupId: state.groupId, categoryId: state.categoryId }
+  if (state.groupId)
+    return {
+      kind: 'split',
+      groupId: state.groupId,
+      categoryId: state.categoryId,
+    }
   if (state.accountId) return { kind: 'account', accountId: state.accountId }
   return null
 }
@@ -127,13 +153,30 @@ export function applyTarget(
   source: RowSource,
 ): RowState {
   if (target.kind === 'split') {
-    return { ...row, groupId: target.groupId, categoryId: target.categoryId, source }
+    return {
+      ...row,
+      groupId: target.groupId,
+      categoryId: target.categoryId,
+      source,
+    }
   }
   // A cross-currency spend posts to its expense account; every other row to its offset.
   if (tx.isTransfer === true) {
-    return { ...row, expenseAccountId: target.accountId, groupId: null, categoryId: null, source }
+    return {
+      ...row,
+      expenseAccountId: target.accountId,
+      groupId: null,
+      categoryId: null,
+      source,
+    }
   }
-  return { ...row, offsetAccountId: target.accountId, groupId: null, categoryId: null, source }
+  return {
+    ...row,
+    offsetAccountId: target.accountId,
+    groupId: null,
+    categoryId: null,
+    source,
+  }
 }
 
 // Member rows a bulk assign would write.
@@ -162,6 +205,9 @@ export function userEditedCount(
   rowStates: RowState[],
 ): number {
   return cluster.indices.filter(
-    (i) => !state.excluded.includes(i) && rowStates[i]?.source === 'user' && !rowStates[i].skipped,
+    (i) =>
+      !state.excluded.includes(i) &&
+      rowStates[i]?.source === 'user' &&
+      !rowStates[i].skipped,
   ).length
 }

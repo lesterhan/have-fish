@@ -14,7 +14,10 @@ export type ImportRowAccounts = {
 // Single source of truth for "this row still needs an account assigned". Both the preview
 // panel (to disable Confirm) and the commit handler (to block submit) call this, so the two
 // gates can't drift apart.
-export function rowMissingAccounts(tx: ParsedTransaction, row: ImportRowAccounts): boolean {
+export function rowMissingAccounts(
+  tx: ParsedTransaction,
+  row: ImportRowAccounts,
+): boolean {
   if (tx.isTransfer === true) {
     // Shared spend → the Fish Pie cross-currency path derives the expense from the group,
     // so it only needs the bridge + fee (same as a convert).
@@ -89,14 +92,18 @@ export function seedCurrencyAccounts(
 ): Record<string, string> {
   const seeded: Record<string, string> = {}
   for (const currency of currencies) {
-    seeded[currency] = existing[currency] || accountIdForCurrency(accounts, rootPath, currency)
+    seeded[currency] =
+      existing[currency] || accountIdForCurrency(accounts, rootPath, currency)
   }
   return seeded
 }
 
 // The suggested path for a currency that has no account yet — what the Accounts step
 // offers to create.
-export function suggestedPathForCurrency(rootPath: string | null, currency: string): string {
+export function suggestedPathForCurrency(
+  rootPath: string | null,
+  currency: string,
+): string {
   return rootPath ? `${rootPath}:${currency.toLowerCase()}` : ''
 }
 
@@ -124,7 +131,9 @@ export function myShareRatio(
   categoryId: string | null,
 ): number | null {
   if (!group) return null
-  const cat = categoryId ? group.categories.find((c) => c.id === categoryId) : null
+  const cat = categoryId
+    ? group.categories.find((c) => c.id === categoryId)
+    : null
   if (cat && cat.weights.length === group.members.length) {
     const total = cat.weights.reduce((s, w) => s + w.weight, 0)
     const mine = cat.weights.find((w) => w.userId === currentUserId)?.weight

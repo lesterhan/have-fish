@@ -103,7 +103,8 @@
   // that none of their spending is recorded. The page says nothing about coverage instead.
   let coverageKnown = $state(false)
 
-  const monthKey = (y: number, m: number) => `${y}-${String(m).padStart(2, '0')}`
+  const monthKey = (y: number, m: number) =>
+    `${y}-${String(m).padStart(2, '0')}`
   // "September", not "September 2026" — the page header already carries the year, and the
   // blocker line appears twice on the same row when the selected month is the one at fault.
   // The year comes back only when a compared month is from a different one.
@@ -118,11 +119,15 @@
 
   // The total is a floor rather than a value whenever the month is not fully recorded, and
   // there is no total at all when none of it is.
-  let totalIsFloor = $derived(selectedCoverage !== null && isFloor(selectedCoverage))
+  let totalIsFloor = $derived(
+    selectedCoverage !== null && isFloor(selectedCoverage),
+  )
   let totalUnrecorded = $derived(selectedCoverage?.state === 'uncovered')
 
   let selectedNote = $derived(
-    selectedCoverage && coverageToday ? monthNote(selectedCoverage, coverageToday) : null,
+    selectedCoverage && coverageToday
+      ? monthNote(selectedCoverage, coverageToday)
+      : null,
   )
 
   function priorMonths(count: number): MonthCoverage[] {
@@ -138,10 +143,14 @@
   // §4: a comparison across a period the app has not fully recorded is not a stale fact, it is
   // a fabricated one — so it is not drawn, and its space says why.
   let lastMonthBlocker = $derived.by(() =>
-    selectedCoverage ? comparisonBlocker(selectedCoverage, priorMonths(1), monthLabel) : null,
+    selectedCoverage
+      ? comparisonBlocker(selectedCoverage, priorMonths(1), monthLabel)
+      : null,
   )
   let avgBlocker = $derived.by(() =>
-    selectedCoverage ? comparisonBlocker(selectedCoverage, priorMonths(3), monthLabel) : null,
+    selectedCoverage
+      ? comparisonBlocker(selectedCoverage, priorMonths(3), monthLabel)
+      : null,
   )
 
   let deltaLastMonth = $derived.by<Record<string, number> | null>(() => {
@@ -455,7 +464,9 @@
             </div>
           {/if}
           {#if selectedNote}
-            <span class="card-asof" title={selectedNote.detail}>{selectedNote.text}</span>
+            <span class="card-asof" title={selectedNote.detail}
+              >{selectedNote.text}</span
+            >
           {/if}
           {#if totalUnrecorded}
             <a class="card-fix" href="/catch-up">Record this month</a>
@@ -493,7 +504,9 @@
         <div class="summary-card">
           <div class="card-label">VS 3-MO AVG</div>
           {#if avgBlocker}
-            <span class="card-blocked" title={avgBlocker.detail}>{avgBlocker.text}</span>
+            <span class="card-blocked" title={avgBlocker.detail}
+              >{avgBlocker.text}</span
+            >
           {:else if delta3moAvg === null}
             <span class="card-null">—</span>
           {:else}
@@ -527,14 +540,14 @@
       {#if totalIsFloor && selectedCoverage}
         <p class="status">
           {#if totalUnrecorded}
-            Nothing is recorded for this month — no account covers any of it, so an empty
-            month here is not the same as having spent nothing.
+            Nothing is recorded for this month — no account covers any of it, so
+            an empty month here is not the same as having spent nothing.
           {:else}
             No expenses in the recorded part of this month.
             {selectedCoverage.gaps.length === 1
               ? 'One account is not fully recorded for it'
-              : `${selectedCoverage.gaps.length} accounts are not fully recorded for it`}, so
-            this is not the same as having spent nothing.
+              : `${selectedCoverage.gaps.length} accounts are not fully recorded for it`},
+            so this is not the same as having spent nothing.
           {/if}
           <a class="status-link" href="/catch-up">Record it</a>
         </p>

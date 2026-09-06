@@ -52,28 +52,38 @@
   const stateFor = (key: string) => clusterStates.find((c) => c.key === key)!
 
   // Clusters with a target chosen — the ones Apply would write.
-  let targeted = $derived(clusters.filter((c) => clusterTarget(stateFor(c.key)) !== null))
+  let targeted = $derived(
+    clusters.filter((c) => clusterTarget(stateFor(c.key)) !== null),
+  )
 
   let writeCount = $derived(
     targeted.reduce(
-      (sum, c) => sum + membersToWrite(c, stateFor(c.key), rowStates, false).length,
+      (sum, c) =>
+        sum + membersToWrite(c, stateFor(c.key), rowStates, false).length,
       0,
     ),
   )
 
   // Hand-edited members a plain Apply would leave alone, across every targeted cluster.
   let protectedCount = $derived(
-    targeted.reduce((sum, c) => sum + userEditedCount(c, stateFor(c.key), rowStates), 0),
+    targeted.reduce(
+      (sum, c) => sum + userEditedCount(c, stateFor(c.key), rowStates),
+      0,
+    ),
   )
 
-  let rememberCount = $derived(targeted.filter((c) => stateFor(c.key).remember).length)
+  let rememberCount = $derived(
+    targeted.filter((c) => stateFor(c.key).remember).length,
+  )
 
   function toggleExcluded(key: string, index: number) {
     const state = stateFor(key)
     const excluded = state.excluded.includes(index)
       ? state.excluded.filter((i) => i !== index)
       : [...state.excluded, index]
-    clusterStates = clusterStates.map((c) => (c.key === key ? { ...c, excluded } : c))
+    clusterStates = clusterStates.map((c) =>
+      c.key === key ? { ...c, excluded } : c,
+    )
   }
 
   function setSplit(key: string, groupId: string, categoryId: string | null) {
@@ -90,7 +100,9 @@
   }
 
   function setRemember(key: string, remember: boolean) {
-    clusterStates = clusterStates.map((c) => (c.key === key ? { ...c, remember } : c))
+    clusterStates = clusterStates.map((c) =>
+      c.key === key ? { ...c, remember } : c,
+    )
   }
 
   function rowAmount(tx: ParsedTransaction): string {
@@ -111,10 +123,11 @@
   <div class="intro">
     <h2>Repeat merchants</h2>
     <p>
-      {clusters.length} merchant{clusters.length === 1 ? '' : 's'} appear{clusters.length === 1
+      {clusters.length} merchant{clusters.length === 1 ? '' : 's'} appear{clusters.length ===
+      1
         ? 's'
-        : ''} more than once. Assign each one here and its rows drop out of the review list.
-      Anything you skip is still waiting in Review.
+        : ''} more than once. Assign each one here and its rows drop out of the review
+      list. Anything you skip is still waiting in Review.
     </p>
   </div>
 
@@ -122,13 +135,18 @@
     {#each clusters as cluster (cluster.key)}
       {@const state = stateFor(cluster.key)}
       {@const matched = !!cluster.matchedRulePattern}
-      <div class="cluster" class:matched class:expanded={expanded === cluster.key}>
+      <div
+        class="cluster"
+        class:matched
+        class:expanded={expanded === cluster.key}
+      >
         <div class="cluster-row">
           <button
             type="button"
             class="stem"
             aria-expanded={expanded === cluster.key}
-            onclick={() => (expanded = expanded === cluster.key ? null : cluster.key)}
+            onclick={() =>
+              (expanded = expanded === cluster.key ? null : cluster.key)}
           >
             <span class="disclosure" class:open={expanded === cluster.key}>
               <Icon name="arrow-right" size={10} />
@@ -137,7 +155,11 @@
             <span class="stem-count">×{cluster.indices.length}</span>
           </button>
 
-          <span class="dates">{shortDate(cluster.firstDate)} – {shortDate(cluster.lastDate)}</span>
+          <span class="dates"
+            >{shortDate(cluster.firstDate)} – {shortDate(
+              cluster.lastDate,
+            )}</span
+          >
 
           <span class="total">
             {#if cluster.total !== null}
@@ -175,7 +197,11 @@
             {:else}
               <AccountPicker
                 {accounts}
-                bind:value={clusterStates[clusterStates.findIndex((c) => c.key === cluster.key)].accountId}
+                bind:value={
+                  clusterStates[
+                    clusterStates.findIndex((c) => c.key === cluster.key)
+                  ].accountId
+                }
                 placeholder={matched ? 'Override…' : 'expenses:groceries…'}
                 oncreate={onaccountcreated}
               />
@@ -221,9 +247,14 @@
                     checked={!excluded}
                     onchange={() => toggleExcluded(cluster.key, i)}
                   />
-                  <span class="member-date">{shortDate(transactions[i].date)}</span>
-                  <span class="member-desc">{transactions[i].description ?? '—'}</span>
-                  <span class="member-amount">{rowAmount(transactions[i])}</span>
+                  <span class="member-date"
+                    >{shortDate(transactions[i].date)}</span
+                  >
+                  <span class="member-desc"
+                    >{transactions[i].description ?? '—'}</span
+                  >
+                  <span class="member-amount">{rowAmount(transactions[i])}</span
+                  >
                 </label>
                 {#if rowStates[i]?.source === 'user'}
                   <span class="member-flag">edited by hand</span>
@@ -247,7 +278,12 @@
       </GradientButton>
     {/if}
     <GradientButton onclick={onskip} disabled={applying}>Skip</GradientButton>
-    <GradientButton size="lg" active disabled={applying || writeCount === 0} onclick={() => onapply(false)}>
+    <GradientButton
+      size="lg"
+      active
+      disabled={applying || writeCount === 0}
+      onclick={() => onapply(false)}
+    >
       {#if applying}
         Applying…
       {:else if writeCount === 0}
@@ -312,7 +348,10 @@
 
   .cluster-row {
     display: grid;
-    grid-template-columns: minmax(9rem, 1fr) auto auto minmax(12rem, 26rem) auto auto;
+    grid-template-columns: minmax(9rem, 1fr) auto auto minmax(
+        12rem,
+        26rem
+      ) auto auto;
     align-items: center;
     gap: var(--sp-sm);
     padding: var(--sp-sm) var(--sp-md);
@@ -334,7 +373,7 @@
   }
 
   .stem:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 2px;
   }
 

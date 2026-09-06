@@ -117,7 +117,11 @@ describe('groupRows', () => {
       ]),
       'institution',
     )
-    expect(groups.map((g) => g.label)).toEqual(['Assets', 'Liabilities', 'Wise'])
+    expect(groups.map((g) => g.label)).toEqual([
+      'Assets',
+      'Liabilities',
+      'Wise',
+    ])
     expect(groups[0]!.rows.map((r) => r.displayName)).toEqual([
       'chequing',
       'savings',
@@ -195,7 +199,12 @@ describe('groupRows', () => {
   })
 
   it('keeps unfiled accounts in their own group under every grouping, sorted last', () => {
-    for (const grouping of ['institution', 'type', 'currency', 'flat'] as const) {
+    for (const grouping of [
+      'institution',
+      'type',
+      'currency',
+      'flat',
+    ] as const) {
       const groups = groupRows(
         rowsFor([
           acct('储蓄:中国银行', [{ currency: 'CNY', amount: '1.00' }]),
@@ -233,7 +242,10 @@ describe('groupCurrency', () => {
   })
 
   it('is null for a group that is not a single currency', () => {
-    const institution = groupRows(rowsFor([acct('assets:wise:cad')]), 'institution')
+    const institution = groupRows(
+      rowsFor([acct('assets:wise:cad')]),
+      'institution',
+    )
     expect(groupCurrency(institution[0]!)).toBeNull()
 
     // No-balance and Unfiled both hold rows of mixed or absent currency.
@@ -277,7 +289,7 @@ describe('currenciesNeedingRates', () => {
     expect(currenciesNeedingRates(rows, 'CAD')).toEqual(['CZK', 'USD'])
   })
 
-  it('reads the account\'s whole balance set, not the row\'s narrowed one', () => {
+  it("reads the account's whole balance set, not the row's narrowed one", () => {
     // Currency grouping narrows Row.balances; the rate list must still cover both legs.
     const rows = groupRows(
       rowsFor([
@@ -400,7 +412,13 @@ describe('dating a position tile', () => {
     return new Map(
       Object.entries(entries).map(([accountId, over]) => [
         accountId,
-        { accountId, state: 'current', coveredThrough: TODAY, dormant: false, ...over },
+        {
+          accountId,
+          state: 'current',
+          coveredThrough: TODAY,
+          dormant: false,
+          ...over,
+        },
       ]),
     )
   }
@@ -410,7 +428,10 @@ describe('dating a position tile', () => {
     bucket: 'cash' | 'investments' | 'owed' | 'owing',
   ) {
     const ids = positionAccountIds(rows, ROOTS)
-    return completenessNote(completeness(coverageFor(coverage, ids[bucket])), TODAY)
+    return completenessNote(
+      completeness(coverageFor(coverage, ids[bucket])),
+      TODAY,
+    )
   }
 
   it('reads as complete through today when every contributor is current', () => {
@@ -432,7 +453,11 @@ describe('dating a position tile', () => {
   it('is not held back by a dormant contributor', () => {
     const coverage = cover({
       'assets:chequing': {},
-      'assets:wise': { state: 'behind', coveredThrough: '2025-01-31', dormant: true },
+      'assets:wise': {
+        state: 'behind',
+        coveredThrough: '2025-01-31',
+        dormant: true,
+      },
     })
 
     expect(noteFor(coverage, 'cash')?.text).toBe('complete through today')

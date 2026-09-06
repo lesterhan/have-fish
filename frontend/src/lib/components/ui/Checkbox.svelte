@@ -71,7 +71,11 @@
        checkbox reads as a radio button — "pick one" where the control means "pick any". */
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-rule);
-    background: linear-gradient(180deg, #ffffff, #dfe2e7);
+    background: linear-gradient(
+      180deg,
+      var(--color-btn-gradient-hi),
+      var(--color-window-raised)
+    );
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.7),
       0 1px 1px rgba(0, 0, 0, 0.12);
@@ -97,11 +101,11 @@
   }
 
   .cb-wrap:hover .cb-box {
-    border-color: var(--color-accent-mid);
+    border-color: var(--color-accent-hi);
   }
 
   .cb-input:focus-visible + .cb-box {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     outline-offset: 1px;
   }
 

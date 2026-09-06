@@ -6,7 +6,11 @@
   import { goto } from '$app/navigation'
   import { signOut, useSession } from '$lib/auth'
   import { toast } from '$lib/toast.svelte'
-  import { fetchAccounts, fetchAccountPostingCounts, fetchCoverageStatus } from '$lib/api'
+  import {
+    fetchAccounts,
+    fetchAccountPostingCounts,
+    fetchCoverageStatus,
+  } from '$lib/api'
   import type { Account } from '$lib/api'
   import { completeness, statusNote } from '$lib/coverage'
   import { onCoverageChange } from '$lib/coverageRefresh'
@@ -42,7 +46,10 @@
   // The status bar's readout: how far the whole ledger is actually recorded. Computed with the
   // same helper the accounts page tiles use, so the bar and the tiles can never disagree about
   // the same accounts.
-  let coverageStatus = $state<{ today: string; note: ReturnType<typeof statusNote> } | null>(null)
+  let coverageStatus = $state<{
+    today: string
+    note: ReturnType<typeof statusNote>
+  } | null>(null)
 
   // Bumped by every coverage write in the app, wherever it happens. The subscription is the
   // rune-free module's half of the contract: it has no state of its own, so the reactivity
@@ -94,7 +101,9 @@
         actionRequiredStore.load(),
       ]).then(([accts, counts, settings]) => {
         sidebarAccounts = accts
-        lastActivityById = new Map(counts.map((c) => [c.accountId, c.lastActivity]))
+        lastActivityById = new Map(
+          counts.map((c) => [c.accountId, c.lastActivity]),
+        )
         currentAccent = settings.preferences.accentColor ?? 'aqua'
         applyAccent(currentAccent, theme.dark)
       })
@@ -115,7 +124,9 @@
     Promise.all([fetchAccounts(), fetchAccountPostingCounts()]).then(
       ([accts, counts]) => {
         sidebarAccounts = accts
-        lastActivityById = new Map(counts.map((c) => [c.accountId, c.lastActivity]))
+        lastActivityById = new Map(
+          counts.map((c) => [c.accountId, c.lastActivity]),
+        )
       },
     )
   })
@@ -241,7 +252,11 @@
          one hover away without the bar carrying a widget that reports nothing. -->
     <div class="statusbar" title={PUBLIC_VERSION}>
       {#if coverageStatus?.note}
-        <a class="statusbar-trust" href="/catch-up" title={coverageStatus.note.detail}>
+        <a
+          class="statusbar-trust"
+          href="/catch-up"
+          title={coverageStatus.note.detail}
+        >
           {coverageStatus.note.text}
         </a>
       {/if}
@@ -279,7 +294,7 @@
     align-items: flex-start;
     justify-content: center;
     padding: var(--sp-xl);
-    background: linear-gradient(135deg, #007070 0%, #008080 50%, #006858 100%);
+    background: var(--color-desktop);
   }
 
   .desktop {
@@ -302,7 +317,7 @@
     transition: max-width 150ms var(--ease);
   }
 
-  /* Restored (non-maximized): float as a windowed panel on the classic teal desktop */
+  /* Restored (non-maximized): float as a windowed panel on the desktop */
   .desktop:not(.maximized) .window {
     max-width: 1100px;
   }
@@ -411,8 +426,6 @@
     .mobile-backdrop {
       display: block;
     }
-
-
   }
 
   /* The dialog's own furniture comes from ConfirmDialog; this is the one line of it that is
@@ -462,7 +475,7 @@
   }
 
   .statusbar-trust:focus-visible {
-    outline: 2px solid var(--color-accent-mid);
+    outline: 2px solid var(--color-accent-hi);
     /* Outside the text rather than through it — a negative offset draws the ring over the
        first and last characters in a strip this tight. */
     outline-offset: 2px;
