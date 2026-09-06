@@ -1,0 +1,195 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500&family=Source+Serif+4:wght@600&display=swap');
+    body { margin: 0; }
+    a { color: #7ec8ff; } a:hover { color: #a7dbff; }
+
+    .app {
+      --ground:#17191c; --chrome:#1d2023; --chrome-2:#1a1d20; --edge:#2d3135;
+      --rule:#232629; --rule-2:#2b2f33;
+      --text:#eef0f2; --muted:#949aa1; --faint:#6a7076;
+      --acc:#7ec8ff; --pos:#74c98a; --neg:#f0837a; --amber:#e3b263;
+      width:1440px; height:980px; box-sizing:border-box; background:var(--ground);
+      font-family:'Lucida Grande','Segoe UI',system-ui,sans-serif; font-size:12.5px; color:var(--text);
+      display:flex; flex-direction:column; overflow:hidden;
+    }
+    .mono { font-family:'JetBrains Mono',Consolas,monospace; font-variant-numeric:tabular-nums; }
+
+    .titlebar { height:28px; flex-shrink:0; display:flex; align-items:center; padding:0 10px; gap:8px;
+                background:var(--chrome); border-bottom:1px solid var(--edge); }
+    .appmark { width:9px; height:9px; border-radius:50%; background:#5fb87d; }
+    .titlebar .name { font-family:'Source Serif 4',Georgia,serif; font-weight:600; font-size:12.5px; color:var(--muted); letter-spacing:.02em; }
+    .cbtns { margin-left:auto; display:flex; gap:10px; color:#565c62; }
+
+    .body { flex:1; display:flex; min-height:0; }
+    .side { width:210px; flex-shrink:0; background:var(--chrome-2); border-right:1px solid var(--edge); display:flex; flex-direction:column; padding:10px 0; }
+    .nav { display:flex; flex-direction:column; padding:0 6px; }
+    .ni { display:flex; align-items:center; gap:10px; padding:6px 10px; border-radius:4px; color:var(--faint); font-size:12.5px; }
+    .ni.on { color:var(--text); background:#24282c; }
+    .ni .badge { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:10.5px; color:var(--amber); }
+    .jump { margin:12px 6px 4px; display:flex; align-items:center; gap:8px; padding:5px 10px; border-radius:4px; color:#5c6268; font-size:12px; border:1px solid var(--rule-2); }
+    .jump .kbd { margin-left:auto; font-family:'JetBrains Mono',monospace; font-size:10px; }
+    .side-h { padding:14px 16px 4px; font-size:9.5px; letter-spacing:.13em; text-transform:uppercase; color:#565c62; }
+    .recent { display:flex; flex-direction:column; padding:0 6px; }
+    .recent a { padding:4px 10px; color:var(--faint); font-size:12px; text-decoration:none; }
+    .side-foot { margin-top:auto; padding:0 6px; display:flex; flex-direction:column; }
+
+    .content { flex:1; min-width:0; display:flex; flex-direction:column; overflow:hidden; padding:0 34px; }
+    .chead { padding:22px 0 0; }
+    .kicker { display:flex; align-items:baseline; gap:14px; }
+    h1 { font-family:'Source Serif 4',Georgia,serif; font-size:16px; font-weight:600; margin:0; color:var(--muted); letter-spacing:.02em; }
+    .tabs { display:flex; gap:14px; font-size:12px; }
+    .tab { color:var(--faint); } .tab.on { color:var(--text); }
+    .who { margin-left:auto; font-size:11.5px; color:var(--faint); }
+
+    .headline { display:flex; align-items:flex-end; gap:52px; padding:14px 0 20px; }
+    .lead .lbl { font-size:10.5px; letter-spacing:.14em; text-transform:uppercase; color:var(--faint); display:block; }
+    .lead .fig { font-size:50px; font-weight:300; line-height:1; letter-spacing:-.025em; display:block; margin-top:6px; }
+    .lead .cur { font-size:17px; color:var(--faint); font-weight:400; }
+    .lead .asof { font-size:12px; color:var(--muted); display:block; margin-top:8px; }
+    .minor { display:flex; gap:38px; padding-bottom:6px; }
+    .m .lbl { font-size:10px; letter-spacing:.13em; text-transform:uppercase; color:var(--faint); display:block; }
+    .m .fig { font-size:17px; font-weight:400; display:block; margin-top:3px; color:var(--muted); }
+    .m .cur { font-size:10px; }
+    .attn { margin-left:auto; text-align:right; padding-bottom:6px; }
+    .attn .fig { font-size:30px; font-weight:300; color:var(--acc); line-height:1; }
+    .attn .lbl { font-size:11.5px; color:var(--acc); display:block; margin-top:3px; opacity:.85; }
+    .attn .brk { font-size:10.5px; color:var(--faint); display:block; margin-top:1px; }
+
+    .filters { display:flex; align-items:center; gap:18px; padding:0 0 10px; font-size:12px; color:var(--faint); border-bottom:1px solid var(--rule-2); }
+    .filters b { font-weight:400; color:var(--muted); }
+    .filters .right { margin-left:auto; display:flex; gap:18px; align-items:center; }
+
+    .grid { display:grid; grid-template-columns:10px minmax(0,1fr) 76px 158px 116px 118px; align-items:center; }
+    .ch { font-size:9.5px; letter-spacing:.12em; text-transform:uppercase; color:#5b6167; padding:9px 0 7px; }
+    .ch.r { text-align:right; padding-right:20px; }
+    .gl { grid-column:1 / -1; display:grid; grid-template-columns:subgrid; padding:19px 0 5px; }
+    .gl .nm { grid-column:2; font-size:13px; font-weight:700; letter-spacing:.02em; }
+    .gl .ct { color:var(--faint); font-weight:400; font-size:11px; margin-left:8px; }
+    .gl .tot { grid-column:4; text-align:right; padding-right:20px; font-size:13px; color:var(--text); }
+    .gl .cvg { grid-column:5 / -1; font-size:10.5px; color:var(--faint); }
+    .cl { height:28px; display:flex; align-items:center; border-bottom:1px solid var(--rule); font-size:12.5px; }
+    .cl.n  { gap:9px; padding-right:12px; min-width:0; }
+    .cl.a  { justify-content:flex-end; font-family:'JetBrains Mono',monospace; font-size:12.5px; gap:7px; padding-right:20px; }
+    .cl.w  { color:var(--muted); font-size:11.5px; }
+    .cl.t  { color:var(--faint); font-size:11px; }
+    .path { font-family:'JetBrains Mono',monospace; font-size:10px; color:#5f656b; }
+    .tick { width:3px; height:14px; border-radius:1px; background:var(--amber); }
+    .pill { font-family:'JetBrains Mono',monospace; font-size:9px; color:#6f7780; }
+    .neg { color:var(--neg); } .dash { color:#5b6167; }
+    .fl { font-size:10.5px; color:var(--amber); }
+    .fl.q { color:var(--faint); }
+
+    .status { height:30px; flex-shrink:0; display:flex; align-items:center; gap:9px; padding:0 14px;
+              background:var(--chrome); border-top:1px solid var(--edge); font-size:11.5px; color:var(--muted); }
+    .status .sep { color:#4d5359; }
+    .status .right { margin-left:auto; color:var(--faint); display:flex; gap:9px; }
+  </style>
+</helmet>
+
+<div class="app">
+  <div class="titlebar">
+    <span class="appmark"></span><span class="name">have-fish</span>
+    <span class="cbtns">
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.2"><rect x="1.5" y="1.5" width="9" height="9" rx="1"/></svg>
+      <svg width="11" height="11" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.3"><path d="M2 2l8 8M10 2l-8 8"/></svg>
+    </span>
+  </div>
+
+  <div class="body">
+    <div class="side">
+      <div class="nav">
+        <div class="ni on"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 8l7-4 7 4"/><path d="M4.5 8v7M9 8v7M15.5 8v7"/><path d="M2.5 17h15"/></svg>Accounts</div>
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3 15l4-5 3.5 3L17 5"/><path d="M12.5 5H17v4.5"/></svg>Spending</div>
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="3" y="5" width="14" height="11" rx="1.5"/><path d="M3 9h14"/><path d="M7 13h4"/></svg>Budgeting</div>
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><circle cx="10" cy="10" r="7"/><path d="M10 3v14M3 10h14"/></svg>Fish Pie</div>
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><rect x="3" y="4" width="14" height="13" rx="1.5"/><path d="M3 8h14M7 2.5v3M13 2.5v3"/></svg>Catch Up<span class="badge">8</span></div>
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M10 3v9M6.5 8.5L10 12l3.5-3.5"/><path d="M3.5 14v2.5h13V14"/></svg>Import + Export</div>
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"><path d="M3.5 5h13M3.5 10h13M3.5 15h13"/></svg>Transactions</div>
+      </div>
+      <div class="jump"><svg width="12" height="12" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="9" cy="9" r="5.5"/><path d="M13 13l4 4"/></svg>Jump to account<span class="kbd">⌘K</span></div>
+      <div class="side-h">Recent</div>
+      <div class="recent"><a href="#">Receivable: Quotidien</a><a href="#">Wise CNY</a><a href="#">Wise CAD</a></div>
+      <div class="side-foot">
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><rect x="3" y="4" width="14" height="12" rx="1.5"/><path d="M8 4v12"/></svg>Compress sidebar</div>
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="10" cy="10" r="4"/><path d="M10 2.5v2M10 15.5v2M2.5 10h2M15.5 10h2"/></svg>Light Theme</div>
+        <div class="ni"><svg width="14" height="14" viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4"><circle cx="10" cy="7.5" r="3"/><path d="M4 17c0-3.3 2.7-5 6-5s6 1.7 6 5"/></svg>lester@lester.com</div>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="chead">
+        <div class="kicker">
+          <h1>Accounts</h1>
+          <div class="tabs"><span class="tab on">Accounts</span><span class="tab">Categories</span></div>
+          <span class="who">20 accounts · grouped by institution · active only · CAD</span>
+        </div>
+        <div class="headline">
+          <div class="lead">
+            <span class="lbl">Available</span>
+            <span class="fig mono">13,115.37 <span class="cur">CAD</span></span>
+            <span class="asof">complete through Apr 23 · 5 currencies held · 1 account has no starting line</span>
+          </div>
+          <div class="minor">
+            <div class="m"><span class="lbl">Investments</span><span class="fig mono">128,212.16 <span class="cur">CAD</span></span></div>
+            <div class="m"><span class="lbl">Owed to you</span><span class="fig mono">1,243.87 <span class="cur">CAD</span></span></div>
+            <div class="m"><span class="lbl">You owe</span><span class="fig mono">3,956.30 <span class="cur">CAD</span></span></div>
+          </div>
+          <div class="attn">
+            <span class="fig mono">8</span>
+            <span class="lbl">need you</span>
+            <span class="brk">6 stale · 1 unreconciled · 1 no start</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="filters">
+        <span>Search accounts</span>
+        <span class="right"><span>Group <b>Institution</b></span><span>Show <b>Active</b></span><span>Convert <b>CAD</b></span><span style="color:var(--acc)">+ New account</span></span>
+      </div>
+
+      <div class="grid">
+        <div class="ch"></div><div class="ch">Account</div><div class="ch">Type</div><div class="ch r">Balance</div><div class="ch">Last activity</div><div class="ch">Flags</div>
+
+        <div class="gl"><span class="nm">Cash<span class="ct">1</span></span><span class="tot mono">0.00</span><span class="cvg">no coverage asserted</span></div>
+        <div class="cl"><span class="tick"></span></div><div class="cl n">Cash (NTD) <span class="path">assets:cash:ntd</span></div><div class="cl t">asset</div><div class="cl a"><span class="dash">—</span></div><div class="cl w">never</div><div class="cl"><span class="fl">no starting line</span></div>
+
+        <div class="gl"><span class="nm">Equity<span class="ct">3</span></span><span class="tot mono">108,212.16</span><span class="cvg">complete through Apr 7</span></div>
+        <div class="cl"></div><div class="cl n">CAGE <span class="path">equity:cage</span></div><div class="cl t">equity</div><div class="cl a"><span class="dash">—</span></div><div class="cl w">never</div><div class="cl"></div>
+        <div class="cl"><span class="tick"></span></div><div class="cl n">FHSA <span class="path">equity:fhsa</span></div><div class="cl t">equity</div><div class="cl a"><span class="pill">CAD</span>35,563.03</div><div class="cl w">2026‑04‑07</div><div class="cl"><span class="fl">stale 152d</span></div>
+        <div class="cl"><span class="tick"></span></div><div class="cl n">TFSA <span class="path">equity:tfsa</span></div><div class="cl t">equity</div><div class="cl a"><span class="pill">CAD</span>72,649.13</div><div class="cl w">2026‑04‑07</div><div class="cl"><span class="fl">stale 152d</span></div>
+
+        <div class="gl"><span class="nm">Liabilities<span class="ct">1</span></span><span class="tot mono">−196.84</span><span class="cvg">complete through May 21</span></div>
+        <div class="cl"><span class="tick"></span></div><div class="cl n">Amex <span class="path">liabilities:amex</span></div><div class="cl t">liability</div><div class="cl a"><span class="pill">CAD</span><span class="neg">−196.84</span></div><div class="cl w">2026‑05‑21</div><div class="cl"><span class="fl">stale 108d</span></div>
+
+        <div class="gl"><span class="nm">Receivable<span class="ct">2</span></span><span class="tot mono">1,243.87</span><span class="cvg">+3 currencies held</span></div>
+        <div class="cl"></div><div class="cl n">Quotidien <span class="path">assets:receivable:quotidien</span></div><div class="cl t">asset</div><div class="cl a"><span class="pill">EUR</span>742.10</div><div class="cl w">2026‑08‑30</div><div class="cl"></div>
+        <div class="cl"></div><div class="cl n">Split — Ines <span class="path">assets:receivable:ines</span></div><div class="cl t">asset</div><div class="cl a"><span class="pill">CAD</span>431.20</div><div class="cl w">2026‑09‑01</div><div class="cl"></div>
+
+        <div class="gl"><span class="nm">Bank<span class="ct">6</span></span><span class="tot mono">12,884.90</span><span class="cvg">complete through Sep 4</span></div>
+        <div class="cl"></div><div class="cl n">Wise CAD <span class="path">assets:bank:wise:cad</span></div><div class="cl t">asset</div><div class="cl a"><span class="pill">CAD</span>4,120.55</div><div class="cl w">2026‑09‑04</div><div class="cl"></div>
+        <div class="cl"></div><div class="cl n">Wise CNY <span class="path">assets:bank:wise:cny</span></div><div class="cl t">asset</div><div class="cl a"><span class="pill">CNY</span>18,402.00</div><div class="cl w">2026‑09‑03</div><div class="cl"></div>
+        <div class="cl"><span class="tick" style="background:#5b6167"></span></div><div class="cl n">Tangerine Chequing <span class="path">assets:bank:tangerine</span></div><div class="cl t">asset</div><div class="cl a"><span class="pill">CAD</span>2,209.31</div><div class="cl w">2026‑09‑02</div><div class="cl"><span class="fl q">unreconciled</span></div>
+        <div class="cl"></div><div class="cl n">EQ Savings <span class="path">assets:bank:eq</span></div><div class="cl t">asset</div><div class="cl a"><span class="pill">CAD</span>6,555.04</div><div class="cl w">2026‑09‑04</div><div class="cl"></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="status">
+    <svg width="11" height="11" viewBox="0 0 20 20" fill="none" stroke="#7ec8ff" stroke-width="1.6"><circle cx="10" cy="10" r="7"/><path d="M10 6v4l2.5 2"/></svg>
+    Ledger complete through <b style="font-weight:400;color:var(--text)">Apr 23</b>
+    <span class="sep">·</span> 1 account has no starting line
+    <span class="right"><span>8 need you</span><span class="sep">·</span><span>20 accounts</span></span>
+  </div>
+</div>
+</x-dc>
+</body>
+</html>

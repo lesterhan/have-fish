@@ -1,0 +1,215 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600&family=Source+Serif+4:wght@600&display=swap');
+    body { margin: 0; }
+    a { color: #58b6ea; } a:hover { color: #8ccef2; }
+    .page { width:1080px; height:980px; box-sizing:border-box; background:#141210; color:#ece7dc;
+            font-family:'Lucida Grande','Segoe UI',system-ui,sans-serif; font-size:12.5px; padding:26px 28px; display:flex; flex-direction:column; gap:16px; }
+    h2 { font-family:'Source Serif 4',Georgia,serif; font-size:20px; font-weight:600; margin:0; }
+    .lede { color:#b3aea4; font-size:13px; line-height:1.5; margin:0; max-width:1000px; }
+    .lede b { color:#dfa651; font-weight:400; }
+    h3 { font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:#989389; margin:4px 0 0; font-weight:700; }
+    table { border-collapse:collapse; width:100%; }
+    th { font-size:9.5px; letter-spacing:.10em; text-transform:uppercase; color:#989389; font-weight:600; text-align:left; padding:0 6px 6px; border-bottom:1px solid #3a3730; }
+    th.c { text-align:center; }
+    td { padding:5px 6px; border-bottom:1px solid #26231d; vertical-align:middle; }
+    .an { font-size:13px; width:96px; }
+    .chip { display:inline-block; font-family:'JetBrains Mono',monospace; font-size:12.5px; font-weight:500;
+            padding:4px 9px; border-radius:4px; border:1px solid rgba(128,128,128,.28); }
+    .num { font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#a9a49a; width:46px; }
+    .num.bad { color:#f47b74; } .num.ok { color:#6ec283; }
+    .ar { color:#6e6a60; width:24px; text-align:center; }
+    .situ { display:grid; grid-template-columns:repeat(6,minmax(0,1fr)); gap:10px; }
+    .sit { display:flex; flex-direction:column; gap:5px; }
+    .sname { font-size:11px; color:#989389; }
+    .pane { border:1px solid; border-radius:5px; padding:8px; display:flex; flex-direction:column; gap:5px; }
+    .nav { display:flex; align-items:center; gap:6px; padding:4px 7px; border-radius:4px; font-size:10.5px; color:inherit; }
+    .sq { width:6px; height:6px; border-radius:1px; }
+    .fig { font-family:'JetBrains Mono',monospace; font-size:19px; font-weight:500; line-height:1.05; }
+    .mny { font-family:'JetBrains Mono',monospace; font-size:13px; font-weight:500; }
+    .uu { font-size:9.5px; font-weight:400; }
+    .pane .nav { color:#c8c2b4; }
+    .pane:last-child .nav { color:#4c483f; }
+    .foot { font-size:12px; color:#b3aea4; line-height:1.55; margin:0; }
+    .foot b { color:#ece7dc; font-weight:400; }
+    code { font-family:'JetBrains Mono',monospace; font-size:11.5px; color:#dfa651; }
+  </style>
+</helmet>
+<div class="page">
+  <div>
+    <h2>Six accents, one rung</h2>
+    <p class="lede">The accent is the only rung a user can move, so it is the only one that can break the ladder from outside the design. Today it does: <b>ochre reads 2.64:1 in light and 9.52:1 in dark</b> — the same token, a 3.6× swing, and four of the six fail 4.5:1 in light. Regenerating each at a fixed lightness while keeping its hue holds all twelve inside 4.65–5.47 without changing what any accent <i>is</i>.</p>
+  </div>
+
+  <h3>Before and after — accent ink on the panel it sits on</h3>
+  <table>
+    <thead><tr><th>Accent</th><th colspan="2">Today · light</th><th colspan="2">Today · dark</th><th></th><th colspan="2">Constrained · light</th><th colspan="2">Constrained · dark</th></tr></thead>
+    <tbody>
+  <tr>
+    <td class="an">aqua</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#2a78c0">13,115.37</span></td>
+    <td class="num bad">4.10</td>
+    <td><span class="chip" style="background:#2d2a22;color:#68b8f0">13,115.37</span></td>
+    <td class="num ">6.62</td>
+    <td class="ar">→</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#2d6ca8">13,115.37</span></td>
+    <td class="num ok">4.88</td>
+    <td><span class="chip" style="background:#2d2a22;color:#64a2e0">13,115.37</span></td>
+    <td class="num ok">5.31</td>
+  </tr>
+  <tr>
+    <td class="an">sage</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#4a8a5a">13,115.37</span></td>
+    <td class="num bad">3.68</td>
+    <td><span class="chip" style="background:#2d2a22;color:#8dd09e">13,115.37</span></td>
+    <td class="num ">7.95</td>
+    <td class="ar">→</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#39794a">13,115.37</span></td>
+    <td class="num ok">4.65</td>
+    <td><span class="chip" style="background:#2d2a22;color:#6eae7d">13,115.37</span></td>
+    <td class="num ok">5.47</td>
+  </tr>
+  <tr>
+    <td class="an">persimmon</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#c46838">13,115.37</span></td>
+    <td class="num bad">3.46</td>
+    <td><span class="chip" style="background:#2d2a22;color:#f0a878">13,115.37</span></td>
+    <td class="num ">7.22</td>
+    <td class="ar">→</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#9d5128">13,115.37</span></td>
+    <td class="num ok">5.12</td>
+    <td><span class="chip" style="background:#2d2a22;color:#d38763">13,115.37</span></td>
+    <td class="num ok">5.06</td>
+  </tr>
+  <tr>
+    <td class="an">plum</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#8a4a8a">13,115.37</span></td>
+    <td class="num ">5.44</td>
+    <td><span class="chip" style="background:#2d2a22;color:#cc90cc">13,115.37</span></td>
+    <td class="num ">5.75</td>
+    <td class="ar">→</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#8b4f8b">13,115.37</span></td>
+    <td class="num ok">5.20</td>
+    <td><span class="chip" style="background:#2d2a22;color:#c085c0">13,115.37</span></td>
+    <td class="num ok">5.02</td>
+  </tr>
+  <tr>
+    <td class="an">ochre</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#b89028">13,115.37</span></td>
+    <td class="num bad">2.64</td>
+    <td><span class="chip" style="background:#2d2a22;color:#f0d070">13,115.37</span></td>
+    <td class="num ">9.52</td>
+    <td class="ar">→</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#866300">13,115.37</span></td>
+    <td class="num ok">4.91</td>
+    <td><span class="chip" style="background:#2d2a22;color:#bc973e">13,115.37</span></td>
+    <td class="num ok">5.21</td>
+  </tr>
+  <tr>
+    <td class="an">slate</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#5a6878">13,115.37</span></td>
+    <td class="num ">5.06</td>
+    <td><span class="chip" style="background:#2d2a22;color:#a0b0c0">13,115.37</span></td>
+    <td class="num ">6.46</td>
+    <td class="ar">→</td>
+    <td><span class="chip" style="background:#f6f1e7;color:#5c6a7b">13,115.37</span></td>
+    <td class="num ok">4.91</td>
+    <td><span class="chip" style="background:#2d2a22;color:#909faf">13,115.37</span></td>
+    <td class="num ok">5.30</td>
+  </tr></tbody>
+  </table>
+
+  <h3>In place — the attention figure and the active nav item, both themes</h3>
+  <div class="situ">
+  <div class="sit">
+    <div class="sname">aqua</div>
+    <div class="pane" style="background:#211e16;border-color:#3a3730">
+      <div class="nav" style="background:#2d2a22;box-shadow:inset 0 0 0 1px #64a2e055"><span class="sq" style="background:#64a2e0"></span>Accounts</div>
+      <div class="fig" style="color:#64a2e0">8 <span class="uu" style="color:#a9a49a">need you</span></div>
+      <div class="mny" style="color:#ece7dc">13,115.37 <span class="uu" style="color:#a9a49a">CAD</span></div>
+    </div>
+    <div class="pane" style="background:#e2ded4;border-color:#c6c2b8">
+      <div class="nav" style="background:#f6f1e7;box-shadow:inset 0 0 0 1px #2d6ca855"><span class="sq" style="background:#2d6ca8"></span>Accounts</div>
+      <div class="fig" style="color:#2d6ca8">8 <span class="uu" style="color:#615d54">need you</span></div>
+      <div class="mny" style="color:#221f17">13,115.37 <span class="uu" style="color:#615d54">CAD</span></div>
+    </div>
+  </div>
+  <div class="sit">
+    <div class="sname">sage</div>
+    <div class="pane" style="background:#211e16;border-color:#3a3730">
+      <div class="nav" style="background:#2d2a22;box-shadow:inset 0 0 0 1px #6eae7d55"><span class="sq" style="background:#6eae7d"></span>Accounts</div>
+      <div class="fig" style="color:#6eae7d">8 <span class="uu" style="color:#a9a49a">need you</span></div>
+      <div class="mny" style="color:#ece7dc">13,115.37 <span class="uu" style="color:#a9a49a">CAD</span></div>
+    </div>
+    <div class="pane" style="background:#e2ded4;border-color:#c6c2b8">
+      <div class="nav" style="background:#f6f1e7;box-shadow:inset 0 0 0 1px #39794a55"><span class="sq" style="background:#39794a"></span>Accounts</div>
+      <div class="fig" style="color:#39794a">8 <span class="uu" style="color:#615d54">need you</span></div>
+      <div class="mny" style="color:#221f17">13,115.37 <span class="uu" style="color:#615d54">CAD</span></div>
+    </div>
+  </div>
+  <div class="sit">
+    <div class="sname">persimmon</div>
+    <div class="pane" style="background:#211e16;border-color:#3a3730">
+      <div class="nav" style="background:#2d2a22;box-shadow:inset 0 0 0 1px #d3876355"><span class="sq" style="background:#d38763"></span>Accounts</div>
+      <div class="fig" style="color:#d38763">8 <span class="uu" style="color:#a9a49a">need you</span></div>
+      <div class="mny" style="color:#ece7dc">13,115.37 <span class="uu" style="color:#a9a49a">CAD</span></div>
+    </div>
+    <div class="pane" style="background:#e2ded4;border-color:#c6c2b8">
+      <div class="nav" style="background:#f6f1e7;box-shadow:inset 0 0 0 1px #9d512855"><span class="sq" style="background:#9d5128"></span>Accounts</div>
+      <div class="fig" style="color:#9d5128">8 <span class="uu" style="color:#615d54">need you</span></div>
+      <div class="mny" style="color:#221f17">13,115.37 <span class="uu" style="color:#615d54">CAD</span></div>
+    </div>
+  </div>
+  <div class="sit">
+    <div class="sname">plum</div>
+    <div class="pane" style="background:#211e16;border-color:#3a3730">
+      <div class="nav" style="background:#2d2a22;box-shadow:inset 0 0 0 1px #c085c055"><span class="sq" style="background:#c085c0"></span>Accounts</div>
+      <div class="fig" style="color:#c085c0">8 <span class="uu" style="color:#a9a49a">need you</span></div>
+      <div class="mny" style="color:#ece7dc">13,115.37 <span class="uu" style="color:#a9a49a">CAD</span></div>
+    </div>
+    <div class="pane" style="background:#e2ded4;border-color:#c6c2b8">
+      <div class="nav" style="background:#f6f1e7;box-shadow:inset 0 0 0 1px #8b4f8b55"><span class="sq" style="background:#8b4f8b"></span>Accounts</div>
+      <div class="fig" style="color:#8b4f8b">8 <span class="uu" style="color:#615d54">need you</span></div>
+      <div class="mny" style="color:#221f17">13,115.37 <span class="uu" style="color:#615d54">CAD</span></div>
+    </div>
+  </div>
+  <div class="sit">
+    <div class="sname">ochre</div>
+    <div class="pane" style="background:#211e16;border-color:#3a3730">
+      <div class="nav" style="background:#2d2a22;box-shadow:inset 0 0 0 1px #bc973e55"><span class="sq" style="background:#bc973e"></span>Accounts</div>
+      <div class="fig" style="color:#bc973e">8 <span class="uu" style="color:#a9a49a">need you</span></div>
+      <div class="mny" style="color:#ece7dc">13,115.37 <span class="uu" style="color:#a9a49a">CAD</span></div>
+    </div>
+    <div class="pane" style="background:#e2ded4;border-color:#c6c2b8">
+      <div class="nav" style="background:#f6f1e7;box-shadow:inset 0 0 0 1px #86630055"><span class="sq" style="background:#866300"></span>Accounts</div>
+      <div class="fig" style="color:#866300">8 <span class="uu" style="color:#615d54">need you</span></div>
+      <div class="mny" style="color:#221f17">13,115.37 <span class="uu" style="color:#615d54">CAD</span></div>
+    </div>
+  </div>
+  <div class="sit">
+    <div class="sname">slate</div>
+    <div class="pane" style="background:#211e16;border-color:#3a3730">
+      <div class="nav" style="background:#2d2a22;box-shadow:inset 0 0 0 1px #909faf55"><span class="sq" style="background:#909faf"></span>Accounts</div>
+      <div class="fig" style="color:#909faf">8 <span class="uu" style="color:#a9a49a">need you</span></div>
+      <div class="mny" style="color:#ece7dc">13,115.37 <span class="uu" style="color:#a9a49a">CAD</span></div>
+    </div>
+    <div class="pane" style="background:#e2ded4;border-color:#c6c2b8">
+      <div class="nav" style="background:#f6f1e7;box-shadow:inset 0 0 0 1px #5c6a7b55"><span class="sq" style="background:#5c6a7b"></span>Accounts</div>
+      <div class="fig" style="color:#5c6a7b">8 <span class="uu" style="color:#615d54">need you</span></div>
+      <div class="mny" style="color:#221f17">13,115.37 <span class="uu" style="color:#615d54">CAD</span></div>
+    </div>
+  </div></div>
+
+  <p class="foot">Accent keeps marking the active nav item, but it no longer <b>owns the loudest pixel</b>: the nav highlight is a tinted panel with an accent hairline, while full-strength accent is spent once per screen on the count of what needs you. The generated values become <code>ACCENTS[k].light.hex</code> / <code>.dark.hex</code>; <code>chipBg</code>, <code>chipFg</code> and the titlebar gradient derive from the same hue at fixed offsets rather than being hand-picked per accent, which is where today's spread came from. Twelve assertions in <code>tokens.test.ts</code> — one per accent per theme — keep it there.</p>
+</div>
+</x-dc>
+</body>
+</html>

@@ -1,0 +1,224 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Source+Serif+4:wght@600&display=swap');
+    body { margin: 0; }
+    a { color: #58b6ea; } a:hover { color: #8ccef2; }
+    .page { width:1440px; height:980px; box-sizing:border-box; background:#141210; color:#ece7dc;
+            font-family:'Lucida Grande','Segoe UI',system-ui,sans-serif; font-size:12.5px; padding:24px 26px; display:flex; flex-direction:column; gap:14px; }
+    h2 { font-family:'Source Serif 4',Georgia,serif; font-size:20px; font-weight:600; margin:0; }
+    .lede { color:#b3aea4; font-size:13px; line-height:1.5; margin:0; max-width:1080px; }
+    .lede b { color:#dfa651; font-weight:400; }
+    .cols { display:grid; grid-template-columns:repeat(3,minmax(0,1fr)); gap:20px; }
+    .col { display:flex; flex-direction:column; gap:9px; }
+    .ch { display:flex; flex-direction:column; gap:1px; }
+    .cn { font-size:14px; font-weight:700; }
+    .cnote { font-size:11.5px; color:#989389; }
+    .hexes { display:flex; gap:8px; font-family:'JetBrains Mono',monospace; font-size:10px; color:#8d8880; }
+    .hexes .sl { color:#5c5850; }
+
+    .frag { border-radius:5px; overflow:hidden; border:1px solid #3a3730; background:var(--well); font-size:11px; color:var(--text); }
+    .f-title { height:19px; display:flex; align-items:center; gap:6px; padding:0 7px; font-family:'Source Serif 4',Georgia,serif;
+               font-size:11px; background:linear-gradient(180deg,var(--caseHi),var(--caseLo)); box-shadow:inset 0 1px 0 var(--gloss); }
+    .f-dot { width:7px; height:7px; border-radius:50%; background:#5fb87d; }
+    .f-body { display:flex; }
+    .f-side { width:92px; flex-shrink:0; background:var(--sidebar); padding:5px 4px; display:flex; flex-direction:column; gap:1px; }
+    .f-ni { padding:3px 6px; border-radius:3px; color:var(--muted); font-size:10.5px; display:flex; }
+    .f-ni.on { background:var(--panel); color:var(--text); box-shadow:inset 0 0 0 1px var(--rule); }
+    .f-b { margin-left:auto; color:var(--warn); font-family:'JetBrains Mono',monospace; font-size:9.5px; }
+    .f-well { flex:1; min-width:0; padding:7px; display:flex; flex-direction:column; gap:6px; }
+    .f-lead, .f-lead2 { display:flex; align-items:baseline; gap:7px; }
+    .f-lbl { font-size:8.5px; letter-spacing:.10em; text-transform:uppercase; color:var(--muted); width:56px; flex-shrink:0; }
+    .f-fig { font-family:'JetBrains Mono',monospace; font-size:15px; font-weight:500; }
+    .f-fig.acc { color:var(--acc); }
+    .f-u { font-size:9px; color:var(--muted); font-weight:400; }
+    .f-sheet { border:1px solid var(--rule); border-radius:4px; overflow:hidden; background:var(--panel); }
+    .f-band { display:flex; padding:3px 7px; background:var(--band); font-weight:700; font-size:10.5px; border-bottom:1px solid var(--rule); }
+    .f-tot { margin-left:auto; font-family:'JetBrains Mono',monospace; font-weight:500; }
+    .f-row { display:flex; align-items:center; gap:7px; padding:0 7px; height:22px; border-bottom:1px solid var(--ruleSoft); font-size:10.5px; }
+    .f-d { width:5px; height:5px; border-radius:50%; background:var(--rule); flex-shrink:0; }
+    .f-d.warn { background:var(--warn); }
+    .f-a { margin-left:auto; font-family:'JetBrains Mono',monospace; }
+    .f-a.neg { color:var(--neg); }
+    .f-fl { width:56px; text-align:right; font-size:9px; color:var(--warn); }
+    .f-status { height:19px; display:flex; align-items:center; padding:0 7px; font-size:9.5px; color:var(--muted);
+                background:linear-gradient(180deg,var(--caseLo),var(--sidebar)); border-top:1px solid var(--caseHi); }
+    .f-r { margin-left:auto; }
+    .foot { font-size:12px; color:#b3aea4; line-height:1.55; margin:0; max-width:1180px; }
+    .foot b { color:#ece7dc; font-weight:400; }
+  </style>
+</helmet>
+<div class="page">
+  <div>
+    <h2>Three ways to invoke the era without copying Apple</h2>
+    <p class="lede">Same ladder, same steps, same ink ratios in all three — <b>hue is now a free variable</b>, which is the point of stepping surfaces by lightness. Each column is dark over light so you can see the pair behave identically. Direction A currently ships the first one.</p>
+  </div>
+  <div class="cols">
+<div class="col">
+  <div class="ch"><span class="cn">Warm graphite</span><span class="cnote">SGI Indy · NeXT · Sun putty — the era, not the brand</span></div>
+  
+<div class="frag" style="--desk:#100d07;--caseHi:#504d45;--caseLo:#3b3730;--sidebar:#302d26;--well:#211e16;--panel:#2d2a22;--band:#3f3b33;--rule:#4b473f;--ruleSoft:#38352d;--text:#ece7dc;--muted:#a9a49a;--faint:#989389;--pos:#6ec283;--neg:#f47b74;--warn:#dfa651;--acc:#58b6ea;--gloss:rgba(255,255,255,.11)">
+  <div class="f-title"><span class="f-dot"></span>have-fish</div>
+  <div class="f-body">
+    <div class="f-side">
+      <div class="f-ni on">Accounts</div><div class="f-ni">Spending</div><div class="f-ni">Budgeting</div>
+      <div class="f-ni">Catch Up<span class="f-b">8</span></div><div class="f-ni">Transactions</div>
+    </div>
+    <div class="f-well">
+      <div class="f-lead"><span class="f-lbl">Need you</span><span class="f-fig acc">8 <span class="f-u">accounts</span></span></div>
+      <div class="f-lead2"><span class="f-lbl">Available</span><span class="f-fig">13,115.37 <span class="f-u">CAD</span></span></div>
+      <div class="f-sheet">
+        <div class="f-band"><span>Equity</span><span class="f-tot">108,212.16</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>FHSA</span><span class="f-a">35,563.03</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>TFSA</span><span class="f-a">72,649.13</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-band"><span>Liabilities</span><span class="f-tot">−196.84</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>Amex</span><span class="f-a neg">−196.84</span><span class="f-fl">stale 108d</span></div>
+        <div class="f-band"><span>Bank</span><span class="f-tot">12,884.90</span></div>
+        <div class="f-row"><span class="f-d"></span><span>Wise CAD</span><span class="f-a">4,120.55</span><span class="f-fl q"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="f-status">Ledger complete through Apr 23<span class="f-r">8 need you</span></div>
+</div>
+  
+<div class="frag" style="--desk:#a8a49b;--caseHi:#f4f0e6;--caseLo:#d3cfc5;--sidebar:#d8d4ca;--well:#e2ded4;--panel:#f6f1e7;--band:#c1bdb4;--rule:#d0ccc2;--ruleSoft:#e0dcd2;--text:#221f17;--muted:#615d54;--faint:#6e6a60;--pos:#137738;--neg:#be222a;--warn:#8a5600;--acc:#0d64ac;--gloss:rgba(255,255,255,.9)">
+  <div class="f-title"><span class="f-dot"></span>have-fish</div>
+  <div class="f-body">
+    <div class="f-side">
+      <div class="f-ni on">Accounts</div><div class="f-ni">Spending</div><div class="f-ni">Budgeting</div>
+      <div class="f-ni">Catch Up<span class="f-b">8</span></div><div class="f-ni">Transactions</div>
+    </div>
+    <div class="f-well">
+      <div class="f-lead"><span class="f-lbl">Need you</span><span class="f-fig acc">8 <span class="f-u">accounts</span></span></div>
+      <div class="f-lead2"><span class="f-lbl">Available</span><span class="f-fig">13,115.37 <span class="f-u">CAD</span></span></div>
+      <div class="f-sheet">
+        <div class="f-band"><span>Equity</span><span class="f-tot">108,212.16</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>FHSA</span><span class="f-a">35,563.03</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>TFSA</span><span class="f-a">72,649.13</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-band"><span>Liabilities</span><span class="f-tot">−196.84</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>Amex</span><span class="f-a neg">−196.84</span><span class="f-fl">stale 108d</span></div>
+        <div class="f-band"><span>Bank</span><span class="f-tot">12,884.90</span></div>
+        <div class="f-row"><span class="f-d"></span><span>Wise CAD</span><span class="f-a">4,120.55</span><span class="f-fl q"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="f-status">Ledger complete through Apr 23<span class="f-r">8 need you</span></div>
+</div>
+  <div class="hexes"><span>#211e16</span><span>#2d2a22</span><span>#3f3b33</span><span class="sl">/</span><span>#e2ded4</span><span>#f6f1e7</span><span>#c1bdb4</span></div>
+</div>
+<div class="col">
+  <div class="ch"><span class="cn">Instrument grey</span><span class="cnote">lab bench and scope housings — cool, green-cast, clinical</span></div>
+  
+<div class="frag" style="--desk:#090f0b;--caseHi:#484f4b;--caseLo:#333935;--sidebar:#292f2b;--well:#1a1f1c;--panel:#252c28;--band:#373d39;--rule:#434a45;--ruleSoft:#313733;--text:#e1ebe4;--muted:#9ea7a1;--faint:#8d9690;--pos:#6ec283;--neg:#f47b74;--warn:#dfa651;--acc:#58b6ea;--gloss:rgba(255,255,255,.11)">
+  <div class="f-title"><span class="f-dot"></span>have-fish</div>
+  <div class="f-body">
+    <div class="f-side">
+      <div class="f-ni on">Accounts</div><div class="f-ni">Spending</div><div class="f-ni">Budgeting</div>
+      <div class="f-ni">Catch Up<span class="f-b">8</span></div><div class="f-ni">Transactions</div>
+    </div>
+    <div class="f-well">
+      <div class="f-lead"><span class="f-lbl">Need you</span><span class="f-fig acc">8 <span class="f-u">accounts</span></span></div>
+      <div class="f-lead2"><span class="f-lbl">Available</span><span class="f-fig">13,115.37 <span class="f-u">CAD</span></span></div>
+      <div class="f-sheet">
+        <div class="f-band"><span>Equity</span><span class="f-tot">108,212.16</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>FHSA</span><span class="f-a">35,563.03</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>TFSA</span><span class="f-a">72,649.13</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-band"><span>Liabilities</span><span class="f-tot">−196.84</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>Amex</span><span class="f-a neg">−196.84</span><span class="f-fl">stale 108d</span></div>
+        <div class="f-band"><span>Bank</span><span class="f-tot">12,884.90</span></div>
+        <div class="f-row"><span class="f-d"></span><span>Wise CAD</span><span class="f-a">4,120.55</span><span class="f-fl q"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="f-status">Ledger complete through Apr 23<span class="f-r">8 need you</span></div>
+</div>
+  
+<div class="frag" style="--desk:#9fa7a2;--caseHi:#eaf2ed;--caseLo:#cad2cd;--sidebar:#cfd6d1;--well:#d8e0db;--panel:#ecf4ef;--band:#b8c0bb;--rule:#c7cec9;--ruleSoft:#d7dfda;--text:#1a211d;--muted:#57605b;--faint:#646d67;--pos:#137738;--neg:#be222a;--warn:#8a5600;--acc:#0d64ac;--gloss:rgba(255,255,255,.9)">
+  <div class="f-title"><span class="f-dot"></span>have-fish</div>
+  <div class="f-body">
+    <div class="f-side">
+      <div class="f-ni on">Accounts</div><div class="f-ni">Spending</div><div class="f-ni">Budgeting</div>
+      <div class="f-ni">Catch Up<span class="f-b">8</span></div><div class="f-ni">Transactions</div>
+    </div>
+    <div class="f-well">
+      <div class="f-lead"><span class="f-lbl">Need you</span><span class="f-fig acc">8 <span class="f-u">accounts</span></span></div>
+      <div class="f-lead2"><span class="f-lbl">Available</span><span class="f-fig">13,115.37 <span class="f-u">CAD</span></span></div>
+      <div class="f-sheet">
+        <div class="f-band"><span>Equity</span><span class="f-tot">108,212.16</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>FHSA</span><span class="f-a">35,563.03</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>TFSA</span><span class="f-a">72,649.13</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-band"><span>Liabilities</span><span class="f-tot">−196.84</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>Amex</span><span class="f-a neg">−196.84</span><span class="f-fl">stale 108d</span></div>
+        <div class="f-band"><span>Bank</span><span class="f-tot">12,884.90</span></div>
+        <div class="f-row"><span class="f-d"></span><span>Wise CAD</span><span class="f-a">4,120.55</span><span class="f-fl q"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="f-status">Ledger complete through Apr 23<span class="f-r">8 need you</span></div>
+</div>
+  <div class="hexes"><span>#1a1f1c</span><span>#252c28</span><span>#373d39</span><span class="sl">/</span><span>#d8e0db</span><span>#ecf4ef</span><span>#b8c0bb</span></div>
+</div>
+<div class="col">
+  <div class="ch"><span class="cn">Slate violet</span><span class="cnote">the cool end without landing on Apple’s blue-grey</span></div>
+  
+<div class="frag" style="--desk:#0d0c13;--caseHi:#4d4c55;--caseLo:#38363f;--sidebar:#2d2c35;--well:#1e1d24;--panel:#2a2931;--band:#3b3a43;--rule:#48464f;--ruleSoft:#35343d;--text:#e8e6f3;--muted:#a4a3af;--faint:#94929e;--pos:#6ec283;--neg:#f47b74;--warn:#dfa651;--acc:#58b6ea;--gloss:rgba(255,255,255,.11)">
+  <div class="f-title"><span class="f-dot"></span>have-fish</div>
+  <div class="f-body">
+    <div class="f-side">
+      <div class="f-ni on">Accounts</div><div class="f-ni">Spending</div><div class="f-ni">Budgeting</div>
+      <div class="f-ni">Catch Up<span class="f-b">8</span></div><div class="f-ni">Transactions</div>
+    </div>
+    <div class="f-well">
+      <div class="f-lead"><span class="f-lbl">Need you</span><span class="f-fig acc">8 <span class="f-u">accounts</span></span></div>
+      <div class="f-lead2"><span class="f-lbl">Available</span><span class="f-fig">13,115.37 <span class="f-u">CAD</span></span></div>
+      <div class="f-sheet">
+        <div class="f-band"><span>Equity</span><span class="f-tot">108,212.16</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>FHSA</span><span class="f-a">35,563.03</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>TFSA</span><span class="f-a">72,649.13</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-band"><span>Liabilities</span><span class="f-tot">−196.84</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>Amex</span><span class="f-a neg">−196.84</span><span class="f-fl">stale 108d</span></div>
+        <div class="f-band"><span>Bank</span><span class="f-tot">12,884.90</span></div>
+        <div class="f-row"><span class="f-d"></span><span>Wise CAD</span><span class="f-a">4,120.55</span><span class="f-fl q"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="f-status">Ledger complete through Apr 23<span class="f-r">8 need you</span></div>
+</div>
+  
+<div class="frag" style="--desk:#a4a3ad;--caseHi:#f0effa;--caseLo:#cfced9;--sidebar:#d4d3de;--well:#dedce7;--panel:#f2f0fb;--band:#bebcc7;--rule:#cccbd5;--ruleSoft:#dcdbe6;--text:#1f1e27;--muted:#5d5c67;--faint:#6a6974;--pos:#137738;--neg:#be222a;--warn:#8a5600;--acc:#0d64ac;--gloss:rgba(255,255,255,.9)">
+  <div class="f-title"><span class="f-dot"></span>have-fish</div>
+  <div class="f-body">
+    <div class="f-side">
+      <div class="f-ni on">Accounts</div><div class="f-ni">Spending</div><div class="f-ni">Budgeting</div>
+      <div class="f-ni">Catch Up<span class="f-b">8</span></div><div class="f-ni">Transactions</div>
+    </div>
+    <div class="f-well">
+      <div class="f-lead"><span class="f-lbl">Need you</span><span class="f-fig acc">8 <span class="f-u">accounts</span></span></div>
+      <div class="f-lead2"><span class="f-lbl">Available</span><span class="f-fig">13,115.37 <span class="f-u">CAD</span></span></div>
+      <div class="f-sheet">
+        <div class="f-band"><span>Equity</span><span class="f-tot">108,212.16</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>FHSA</span><span class="f-a">35,563.03</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>TFSA</span><span class="f-a">72,649.13</span><span class="f-fl">stale 152d</span></div>
+        <div class="f-band"><span>Liabilities</span><span class="f-tot">−196.84</span></div>
+        <div class="f-row"><span class="f-d warn"></span><span>Amex</span><span class="f-a neg">−196.84</span><span class="f-fl">stale 108d</span></div>
+        <div class="f-band"><span>Bank</span><span class="f-tot">12,884.90</span></div>
+        <div class="f-row"><span class="f-d"></span><span>Wise CAD</span><span class="f-a">4,120.55</span><span class="f-fl q"></span></div>
+      </div>
+    </div>
+  </div>
+  <div class="f-status">Ledger complete through Apr 23<span class="f-r">8 need you</span></div>
+</div>
+  <div class="hexes"><span>#1e1d24</span><span>#2a2931</span><span>#3b3a43</span><span class="sl">/</span><span>#dedce7</span><span>#f2f0fb</span><span>#bebcc7</span></div>
+</div></div>
+  <p class="foot"><b>Warm graphite</b> has the strongest period pedigree that isn't Apple — SGI, NeXT and Sun all shipped warm putty enclosures — and warm greys are rare in software today, so it reads as a deliberate choice rather than a default. It also sits with 有鱼 and the 🧧 rather than against them. <b>Instrument grey</b> is the most severe and the most "measuring device"; it risks reading sickly at the light end. <b>Slate violet</b> keeps the cool feel you have now while stepping clear of Graphite's exact hue — the safest change, and the least character gained.</p>
+</div>
+</x-dc>
+</body>
+</html>

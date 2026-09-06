@@ -1,0 +1,27 @@
+{
+  "pages": [
+    { "id": "page-1", "name": "Direction A" },
+    { "id": "page-2", "name": "Critique" },
+    { "id": "page-3", "name": "Alternates" }
+  ],
+  "artboards": [
+    { "file": "Main.dc.html",       "page": "page-1", "x": 0,    "y": 0,    "w": 1440, "h": 980, "title": "Accounts — dark, work outstanding" },
+    { "file": "MainLight.dc.html",  "page": "page-1", "x": 1560, "y": 0,    "w": 1440, "h": 980, "title": "Accounts — light" },
+    { "file": "Cleared.dc.html",    "page": "page-1", "x": 3120, "y": 0,    "w": 1440, "h": 980, "title": "Accounts — caught up" },
+    { "file": "Hues.dc.html",       "page": "page-1", "x": 0,    "y": 1160, "w": 1440, "h": 980, "title": "Which grey?" },
+    { "file": "Accents.dc.html",    "page": "page-1", "x": 1560, "y": 1160, "w": 1080, "h": 980, "title": "Six accents, one rung" },
+    { "file": "Ladder.dc.html",     "page": "page-1", "x": 2760, "y": 1160, "w": 940,  "h": 980, "title": "The contrast ladder" },
+
+    { "file": "Diagnosis.dc.html",  "page": "page-2", "x": 0,    "y": 0,    "w": 1440, "h": 980, "title": "Where the eye goes" },
+
+    { "file": "DirectionB.dc.html", "page": "page-3", "x": 0,    "y": 0,    "w": 1440, "h": 980, "title": "B · Ledger & Case" },
+    { "file": "DirectionC.dc.html", "page": "page-3", "x": 1560, "y": 0,    "w": 1440, "h": 980, "title": "C · Quiet case, loud data" }
+  ],
+  "annotations": [
+    { "id": "n-a",   "page": "page-1", "x": 0, "y": -138, "w": 900, "text": "Direction A, retuned to your steer. Warm graphite rather than Apple's cool silver — same era, different hand. 33px rows. The loudest block changes with state: work outstanding on the left board, caught up on the third. Pick a grey on the Which grey? board below and I'll commit the whole system to it." },
+    { "id": "n-a2",  "page": "page-1", "x": 0, "y": 1022, "w": 900, "text": "The two decisions still open: which grey family, and confirmation that the constrained accents still read as the six colours you chose. The ladder sheet is the contract underneath both." },
+    { "id": "n-c",   "page": "page-2", "x": 0, "y": -110, "w": 820, "text": "The measured critique. Every number here came from the token file or the component source, not from the screenshots." },
+    { "id": "n-alt", "page": "page-3", "x": 0, "y": -110, "w": 820, "text": "Not chosen, kept for reference. B's margin-gutter group labels and C's density are both still liftable into A if you want them." }
+  ],
+  "launch": { "view": "canvas", "page": "page-1" }
+}

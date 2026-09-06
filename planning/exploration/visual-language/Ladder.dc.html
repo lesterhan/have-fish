@@ -1,0 +1,117 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;600&family=Source+Serif+4:wght@600&display=swap');
+    body { margin: 0; }
+    a { color: #58b6ea; } a:hover { color: #8ccef2; }
+    .sp { width:940px; height:980px; box-sizing:border-box; background:#141210; color:#ece7dc;
+          font-family:'Lucida Grande','Segoe UI',system-ui,sans-serif; font-size:12.5px;
+          padding:26px 28px; display:flex; flex-direction:column; gap:16px; }
+    h2 { font-family:'Source Serif 4',Georgia,serif; font-size:20px; font-weight:600; margin:0; }
+    .rule-stmt { font-size:13px; line-height:1.5; color:#c9c4ba; margin:0; max-width:840px; }
+    .rule-stmt b { color:#dfa651; font-weight:400; }
+    h3 { font-size:10.5px; letter-spacing:.11em; text-transform:uppercase; color:#989389; margin:6px 0 0; font-weight:700; }
+    .mono { font-family:'JetBrains Mono',Consolas,monospace; font-variant-numeric:tabular-nums; }
+    table { width:100%; border-collapse:collapse; font-size:12px; }
+    th { text-align:left; font-size:9.5px; letter-spacing:.10em; text-transform:uppercase; color:#989389; font-weight:600;
+         padding:0 8px 5px; border-bottom:1px solid #3b3730; }
+    td { padding:5px 8px; border-bottom:1px solid #2b271f; vertical-align:middle; }
+    .sw { display:inline-block; width:46px; height:17px; border-radius:3px; border:1px solid rgba(255,255,255,.14); vertical-align:-4px; }
+    .num { font-family:'JetBrains Mono',monospace; font-variant-numeric:tabular-nums; }
+    .r { text-align:right; }
+    .role { color:#b3aea4; font-size:11.5px; }
+    .ok { color:#6ec283; } .bad { color:#f47b74; } .warn { color:#dfa651; }
+    .split { display:grid; grid-template-columns:1fr 1fr; gap:22px; }
+    .box { border:1px solid #332f27; border-radius:6px; padding:12px 14px; }
+    .box .t { font-size:11px; letter-spacing:.09em; text-transform:uppercase; color:#989389; margin-bottom:8px; }
+    .kv { display:flex; justify-content:space-between; gap:12px; padding:3px 0; font-size:12px; border-bottom:1px solid #2a271f; }
+    .kv:last-child { border-bottom:0; }
+    .kv .k { color:#b3aea4; }
+    pre { margin:0; font-family:'JetBrains Mono',monospace; font-size:11px; line-height:1.65; color:#c6c1b6;
+          background:#0f0d09; border:1px solid #312d26; border-radius:6px; padding:12px 14px; overflow:auto; }
+    pre .c { color:#8a857c; } pre .s { color:#6ec283; } pre .k2 { color:#58b6ea; }
+    .foot { font-size:11.5px; color:#989389; line-height:1.5; margin:0; }
+  </style>
+</helmet>
+
+<div class="sp">
+  <div>
+    <h2>The contrast ladder — warm graphite</h2>
+    <p class="rule-stmt">One rule fixes most of the critique: <b>an element occupies the same rung in both themes.</b> Surfaces step by apparent lightness — OKLCH ΔL, because at the dark end a perceptually equal step produces a tiny WCAG ratio, which is exactly why today's dark theme reads flat. Ink keeps the ratio contract. Both are assertable in <span class="mono">tokens.test.ts</span> against the token file, the same way the coverage strip already is.</p>
+  </div>
+
+  <h3>Surfaces — stepped by ΔL, not by ratio</h3>
+  <table>
+    <thead><tr><th style="width:118px">Rung</th><th>Role</th><th style="width:120px">Light</th><th style="width:120px">Dark</th><th class="r" style="width:150px">Step from</th><th class="r" style="width:96px">ΔL L / D</th></tr></thead>
+    <tbody>
+      <tr><td>desktop</td><td class="role">behind the window</td><td><span class="sw" style="background:#a8a49b"></span> <span class="num">#a8a49b</span></td><td><span class="sw" style="background:#100d07"></span> <span class="num">#100d07</span></td><td class="r role">—</td><td class="r num">—</td></tr>
+      <tr><td>case</td><td class="role">titlebar · sidebar · status bar</td><td><span class="sw" style="background:#d3cfc5"></span> <span class="num">#d3cfc5</span></td><td><span class="sw" style="background:#3b3730"></span> <span class="num">#3b3730</span></td><td class="r role">desktop</td><td class="r num">.135 / .179</td></tr>
+      <tr><td>well</td><td class="role">the content area the work sits in</td><td><span class="sw" style="background:#e2ded4"></span> <span class="num">#e2ded4</span></td><td><span class="sw" style="background:#211e16"></span> <span class="num">#211e16</span></td><td class="r role">case</td><td class="r num">.045 / .105</td></tr>
+      <tr><td>panel</td><td class="role">the sheet rows are drawn on</td><td><span class="sw" style="background:#f6f1e7"></span> <span class="num">#f6f1e7</span></td><td><span class="sw" style="background:#2d2a22"></span> <span class="num">#2d2a22</span></td><td class="r role">well</td><td class="r num ok">.060 / .050</td></tr>
+      <tr><td>band</td><td class="role">group header inside the sheet</td><td><span class="sw" style="background:#c1bdb4"></span> <span class="num">#c1bdb4</span></td><td><span class="sw" style="background:#3f3b33"></span> <span class="num">#3f3b33</span></td><td class="r role">well</td><td class="r num ok">.100 / .120</td></tr>
+      <tr><td>rule</td><td class="role">structural divider</td><td><span class="sw" style="background:#d0ccc2"></span> <span class="num">#d0ccc2</span></td><td><span class="sw" style="background:#4b473f"></span> <span class="num">#4b473f</span></td><td class="r role">panel</td><td class="r num ok">.115 / .116</td></tr>
+    </tbody>
+  </table>
+
+  <h3>Ink — ratio against the panel it sits on</h3>
+  <table>
+    <thead><tr><th style="width:118px">Rung</th><th>Carries</th><th style="width:120px">Light</th><th style="width:120px">Dark</th><th class="r" style="width:150px">Light ratio</th><th class="r" style="width:96px">Dark ratio</th></tr></thead>
+    <tbody>
+      <tr><td>primary</td><td class="role">account names, figures</td><td><span class="sw" style="background:#221f17"></span> <span class="num">#221f17</span></td><td><span class="sw" style="background:#ece7dc"></span> <span class="num">#ece7dc</span></td><td class="r num">14.62</td><td class="r num">11.62</td></tr>
+      <tr><td>muted</td><td class="role">dates, labels, counts</td><td><span class="sw" style="background:#615d54"></span> <span class="num">#615d54</span></td><td><span class="sw" style="background:#a9a49a"></span> <span class="num">#a9a49a</span></td><td class="r num ok">5.83</td><td class="r num ok">5.77</td></tr>
+      <tr><td>faint</td><td class="role">ledger paths, ghost hints</td><td><span class="sw" style="background:#6e6a60"></span> <span class="num">#6e6a60</span></td><td><span class="sw" style="background:#989389"></span> <span class="num">#989389</span></td><td class="r num ok">4.79</td><td class="r num ok">4.69</td></tr>
+      <tr><td>positive</td><td class="role">income</td><td><span class="sw" style="background:#137738"></span> <span class="num">#137738</span></td><td><span class="sw" style="background:#6ec283"></span> <span class="num">#6ec283</span></td><td class="r num ok">5.01</td><td class="r num ok">6.62</td></tr>
+      <tr><td>negative</td><td class="role">expense</td><td><span class="sw" style="background:#be222a"></span> <span class="num">#be222a</span></td><td><span class="sw" style="background:#f47b74"></span> <span class="num">#f47b74</span></td><td class="r num ok">5.40</td><td class="r num ok">5.41</td></tr>
+      <tr><td>attention</td><td class="role">stale, unreconciled, no start</td><td><span class="sw" style="background:#8a5600"></span> <span class="num">#8a5600</span></td><td><span class="sw" style="background:#dfa651"></span> <span class="num">#dfa651</span></td><td class="r num ok">5.47</td><td class="r num ok">6.62</td></tr>
+      <tr><td>accent</td><td class="role">the one live thing</td><td><span class="sw" style="background:#0d64ac"></span> <span class="num">#0d64ac</span></td><td><span class="sw" style="background:#58b6ea"></span> <span class="num">#58b6ea</span></td><td class="r num ok">5.43</td><td class="r num ok">6.34</td></tr>
+    </tbody>
+  </table>
+
+  <div class="split">
+    <div class="box">
+      <div class="t">What today's tokens do</div>
+      <div class="kv"><span class="k">band vs well — ΔL</span><span class="num"><span class="bad">.549</span> light / <span class="bad">.009</span> dark</span></div>
+      <div class="kv"><span class="k">card vs page — ΔL</span><span class="num"><span class="bad">.021</span> / <span class="bad">.014</span></span></div>
+      <div class="kv"><span class="k">rule vs card — ΔL</span><span class="num">.126 / <span class="bad">.064</span></span></div>
+      <div class="kv"><span class="k">negative ink</span><span class="num">5.40 / <span class="bad">3.05 fails</span></span></div>
+      <div class="kv"><span class="k">positive ink</span><span class="num">5.29 / 6.13</span></div>
+      <div class="kv"><span class="k">accent ink</span><span class="num"><span class="warn">4.23</span> / <span class="bad">3.21</span></span></div>
+    </div>
+    <div class="box">
+      <div class="t">What the ladder does</div>
+      <div class="kv"><span class="k">band vs well — ΔL</span><span class="num"><span class="ok">.100</span> / <span class="ok">.120</span></span></div>
+      <div class="kv"><span class="k">panel vs well — ΔL</span><span class="num"><span class="ok">.060</span> / <span class="ok">.050</span></span></div>
+      <div class="kv"><span class="k">rule vs panel — ΔL</span><span class="num"><span class="ok">.115</span> / <span class="ok">.116</span></span></div>
+      <div class="kv"><span class="k">negative ink</span><span class="num"><span class="ok">5.40</span> / <span class="ok">5.41</span></span></div>
+      <div class="kv"><span class="k">positive ink</span><span class="num"><span class="ok">5.01</span> / <span class="ok">6.62</span></span></div>
+      <div class="kv"><span class="k">accent ink</span><span class="num"><span class="ok">5.43</span> / <span class="ok">6.34</span></span></div>
+    </div>
+  </div>
+
+  <h3>The assertions that hold it</h3>
+<pre><span class="c">// surfaces: adjacent rungs step by apparent lightness, and by a comparable
+// amount in both themes — the dark end needs a slightly larger step to look equal.</span>
+<span class="k2">for</span> (<span class="k2">const</span> [a, b, lo, hi] <span class="k2">of</span> SURFACE_STEPS) {
+  expect(deltaL(light[a], light[b])).toBeWithin(lo, hi)
+  expect(deltaL(dark[a],  dark[b] )).toBeWithin(lo, hi)
+  <span class="c">// and neither theme may be more than 2x the other on the same step</span>
+  expect(ratioOfSteps(a, b)).toBeLessThan(<span class="s">2</span>)
+}
+
+<span class="c">// ink: every rung clears 4.5:1 on its panel in BOTH themes, and the two
+// halves of an opposed pair land within 25% of each other.</span>
+expect(contrast(<span class="s">'--color-amount-negative'</span>, <span class="s">'--surface-panel'</span>)).toBeGreaterThan(<span class="s">4.5</span>)
+expect(spread(<span class="s">'--color-amount-positive'</span>, <span class="s">'--color-amount-negative'</span>)).toBeLessThan(<span class="s">1.25</span>)</pre>
+
+  <p class="foot">Six accents × two themes still has to survive this: the accent rung is the only one a user can move, so it is asserted per accent rather than once. That is twelve assertions the token file can carry, and it is cheaper than finding out in a screenshot.</p>
+</div>
+</x-dc>
+</body>
+</html>
