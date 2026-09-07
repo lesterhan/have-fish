@@ -2,6 +2,7 @@
   import { ACCENTS } from '$lib/accent'
   import type { AccentKey } from '$lib/accent'
   import { tooltip as tooltipAction } from '$lib/tooltip'
+  import { theme } from '$lib/theme.svelte'
 
   interface Props {
     current: AccentKey
@@ -33,7 +34,7 @@
 <div class="picker" role="dialog" aria-label="Choose accent colour">
   <div class="grid">
     {#each Object.keys(ACCENTS) as key (key)}
-      {@const a = ACCENTS[key as AccentKey].light}
+      {@const a = ACCENTS[key as AccentKey][theme.dark ? 'dark' : 'light']}
       {@const active = key === current}
       <button
         class="swatch"

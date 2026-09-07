@@ -1,142 +1,125 @@
-type AccentVariant = {
+import { oklchToHex } from './oklch'
+
+/**
+ * The six accents, derived rather than authored.
+ *
+ * These used to be twelve hand-picked palettes — six accents times two themes, each with six
+ * hex values written out. Hand-picking is where the spread came from: measured against the
+ * page, the accents ran from 2.64:1 (ochre in light) to 9.52:1 (the same ochre in dark). Four
+ * of six failed the 4.5:1 floor in light. The accent is the one rung a user can move, and
+ * nothing constrained where they moved it to.
+ *
+ * So an accent is now two numbers — a hue and a chroma — and every value it produces is that
+ * hue placed on a fixed rung. Twelve variants, all landing between 4.6:1 and 5.6:1 against
+ * `--color-window`. Adding a seventh accent means adding one line, and it is on the rung by
+ * construction rather than by somebody's eye.
+ *
+ * The rungs are lightnesses, not ratios, for the reason DESIGN.md §5 gives: a ratio is a
+ * function of a pair, so it cannot be the coordinate of a single colour. That the ratios come
+ * out in a tight band is the *consequence* of everything sitting at one lightness, and it is
+ * what `accent.test.ts` checks.
+ */
+
+type Role = 'hex' | 'hi' | 'chipBg' | 'chipFg' | 'barTrack' | 'fg'
+
+/**
+ * Hue in degrees, and the chroma the accent is drawn at. Five sit at the same cap; slate is
+ * deliberately near-grey — it is the accent for people who do not want one, and raising its
+ * chroma to match the others would defeat the only thing it is for.
+ */
+const ACCENT_HUES = {
+  aqua: { hue: 250, chroma: 0.115 },
+  sage: { hue: 150, chroma: 0.115 },
+  persimmon: { hue: 47, chroma: 0.115 },
+  plum: { hue: 327, chroma: 0.115 },
+  ochre: { hue: 85, chroma: 0.115 },
+  slate: { hue: 253, chroma: 0.031 },
+} as const
+
+export type AccentKey = keyof typeof ACCENT_HUES
+
+/**
+ * Where each role sits on the ramp, per theme. A role occupies the same *position* in both —
+ * `chipBg` is a faint wash of the accent either way — but the two themes read the ramp from
+ * opposite ends, so the numbers are mirrored rather than shared.
+ */
+const RUNGS: Record<'light' | 'dark', Record<Role, number>> = {
+  light: {
+    hex: 0.52,
+    hi: 0.64,
+    chipBg: 0.925,
+    chipFg: 0.4,
+    barTrack: 0.91,
+    fg: 0.995,
+  },
+  dark: {
+    hex: 0.695,
+    hi: 0.8,
+    chipBg: 0.32,
+    chipFg: 0.78,
+    barTrack: 0.34,
+    fg: 0.18,
+  },
+}
+
+/**
+ * How much of the accent's chroma each role keeps, and the ceiling it keeps it under. A
+ * fraction rather than a fixed chroma so slate stays near-grey all the way down: giving every
+ * chip the same 0.030 would make slate's chip more colourful than slate.
+ */
+const CHROMA: Record<Role, { of: number; max: number }> = {
+  hex: { of: 1, max: 1 },
+  hi: { of: 1, max: 1 },
+  chipBg: { of: 0.26, max: 0.03 },
+  chipFg: { of: 0.87, max: 0.1 },
+  barTrack: { of: 0.19, max: 0.022 },
+  fg: { of: 0.09, max: 0.01 },
+}
+
+export type AccentVariant = {
   hex: string
   hi: string
   chipBg: string
   chipFg: string
   barTrack: string
   titlebar: string
-  fg: string // text color for use ON an accent-filled surface
+  /** Text ON an accent-filled surface. Near-white in light, near-black in dark. */
+  fg: string
 }
 
-type AccentDef = {
-  light: AccentVariant
-  dark: AccentVariant
+export type AccentDef = { light: AccentVariant; dark: AccentVariant }
+
+function variant(key: AccentKey, theme: 'light' | 'dark'): AccentVariant {
+  const { hue, chroma } = ACCENT_HUES[key]
+  const at = (role: Role) =>
+    oklchToHex({
+      l: RUNGS[theme][role],
+      c: Math.min(chroma * CHROMA[role].of, CHROMA[role].max),
+      h: hue,
+    })
+
+  const hex = at('hex')
+  const hi = at('hi')
+
+  return {
+    hex,
+    hi,
+    chipBg: at('chipBg'),
+    chipFg: at('chipFg'),
+    barTrack: at('barTrack'),
+    // The gloss runs from the highlight down to the accent itself, so the pill reads as lit
+    // from above like every other control.
+    titlebar: `linear-gradient(180deg,${hi},${hex})`,
+    fg: at('fg'),
+  }
 }
 
-export const ACCENTS: Record<string, AccentDef> = {
-  aqua: {
-    light: {
-      hex: '#2a78c0',
-      hi: '#5aa8e8',
-      chipBg: '#dde6f2',
-      chipFg: '#1a3868',
-      barTrack: '#dde6f2',
-      titlebar: 'linear-gradient(180deg,#5aa8e8,#2a78c0)',
-      fg: '#ffffff',
-    },
-    dark: {
-      hex: '#68b8f0',
-      hi: '#90ceff',
-      chipBg: '#1a2a3a',
-      chipFg: '#90ceff',
-      barTrack: '#1a2a3a',
-      titlebar: 'linear-gradient(180deg,#90ceff,#68b8f0)',
-      fg: '#0e1620',
-    },
-  },
-  sage: {
-    light: {
-      hex: '#4a8a5a',
-      hi: '#7ac08a',
-      chipBg: '#dee8de',
-      chipFg: '#1f4828',
-      barTrack: '#dee8de',
-      titlebar: 'linear-gradient(180deg,#7ac08a,#4a8a5a)',
-      fg: '#ffffff',
-    },
-    dark: {
-      hex: '#8dd09e',
-      hi: '#a8e0b8',
-      chipBg: '#1a2e22',
-      chipFg: '#a8e0b8',
-      barTrack: '#1a2e22',
-      titlebar: 'linear-gradient(180deg,#a8e0b8,#8dd09e)',
-      fg: '#0e1a12',
-    },
-  },
-  persimmon: {
-    light: {
-      hex: '#c46838',
-      hi: '#e89868',
-      chipBg: '#f0e0d4',
-      chipFg: '#5a2a10',
-      barTrack: '#f0e0d4',
-      titlebar: 'linear-gradient(180deg,#e89868,#c46838)',
-      fg: '#ffffff',
-    },
-    dark: {
-      hex: '#f0a878',
-      hi: '#f8c0a0',
-      chipBg: '#2e1a0a',
-      chipFg: '#f8c0a0',
-      barTrack: '#2e1a0a',
-      titlebar: 'linear-gradient(180deg,#f8c0a0,#f0a878)',
-      fg: '#1e0e04',
-    },
-  },
-  plum: {
-    light: {
-      hex: '#8a4a8a',
-      hi: '#b878b8',
-      chipBg: '#e8dee8',
-      chipFg: '#3a103a',
-      barTrack: '#e8dee8',
-      titlebar: 'linear-gradient(180deg,#b878b8,#8a4a8a)',
-      fg: '#ffffff',
-    },
-    dark: {
-      hex: '#cc90cc',
-      hi: '#e0b0e0',
-      chipBg: '#261026',
-      chipFg: '#e0b0e0',
-      barTrack: '#261026',
-      titlebar: 'linear-gradient(180deg,#e0b0e0,#cc90cc)',
-      fg: '#180a18',
-    },
-  },
-  ochre: {
-    light: {
-      hex: '#b89028',
-      hi: '#e8c060',
-      chipBg: '#efe6cc',
-      chipFg: '#4a3408',
-      barTrack: '#efe6cc',
-      titlebar: 'linear-gradient(180deg,#e8c060,#b89028)',
-      fg: '#ffffff',
-    },
-    dark: {
-      hex: '#f0d070',
-      hi: '#f8e090',
-      chipBg: '#28200a',
-      chipFg: '#f8e090',
-      barTrack: '#28200a',
-      titlebar: 'linear-gradient(180deg,#f8e090,#f0d070)',
-      fg: '#1a1400',
-    },
-  },
-  slate: {
-    light: {
-      hex: '#5a6878',
-      hi: '#8a98a8',
-      chipBg: '#dde2e8',
-      chipFg: '#1a2838',
-      barTrack: '#dde2e8',
-      titlebar: 'linear-gradient(180deg,#8a98a8,#5a6878)',
-      fg: '#ffffff',
-    },
-    dark: {
-      hex: '#a0b0c0',
-      hi: '#c0d0e0',
-      chipBg: '#1a2030',
-      chipFg: '#c0d0e0',
-      barTrack: '#1a2030',
-      titlebar: 'linear-gradient(180deg,#c0d0e0,#a0b0c0)',
-      fg: '#0e1420',
-    },
-  },
-} as const
-
-export type AccentKey = keyof typeof ACCENTS
+export const ACCENTS: Record<AccentKey, AccentDef> = Object.fromEntries(
+  (Object.keys(ACCENT_HUES) as AccentKey[]).map((key) => [
+    key,
+    { light: variant(key, 'light'), dark: variant(key, 'dark') },
+  ]),
+) as Record<AccentKey, AccentDef>
 
 export function applyAccent(key: AccentKey, dark = false) {
   const a = ACCENTS[key][dark ? 'dark' : 'light']

@@ -32,8 +32,9 @@
  * `color-mix(…, var(--token) 30%, transparent)` is fine and is the intended escape hatch for
  * a tint: it derives from a token, so it follows the theme.
  *
- * Two files are colour *sources* and are exempt wholesale — see `COLOUR_SOURCES`. That there
- * are two rather than one is itself a finding; the second is the next story's subject.
+ * One file is a colour *source* and is exempt wholesale — see `COLOUR_SOURCES`. It was two:
+ * `accent.ts` held twelve hand-authored palettes until they were replaced by a hue and a
+ * chroma per accent, at which point it stopped declaring any colour at all.
  */
 
 import { describe, it, expect } from 'bun:test'
@@ -51,14 +52,6 @@ const COLOUR_SOURCES: Array<{ file: string; why: string }> = [
   {
     file: 'styles/tokens.css',
     why: 'The token file. This is the single source of truth the rest of the test defends.',
-  },
-  {
-    file: 'lib/accent.ts',
-    why:
-      'The six accent palettes, applied to the token variables at runtime. They are colour ' +
-      'the token file cannot hold, because the user picks one. The values are still ' +
-      'hand-authored per accent per theme, which is where their contrast spread came from; ' +
-      'deriving them from hue plus a fixed lightness is its own story.',
   },
 ]
 
