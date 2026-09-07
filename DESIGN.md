@@ -360,6 +360,11 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
   means "the one live thing on this screen", so it can mark the row you drilled into and
   nothing else. A chart filled with the accent spends it on nine things at once and it stops
   meaning anything.
+- **`--color-amount-*` means money, not trouble** — a required-field marker, a duplicate
+  warning, an unmapped-currency notice and a save error are statuses, and statuses take
+  `--color-warning` or `--color-danger`. The import route had eight places using the
+  money-out colour to mean "something is wrong", which is how a page ends up red without any
+  of it being about money.
 - **A figure the app knows is partial says so** — an incompletely recorded month draws its
   bars in `--color-incomplete` and its totals with a `≥`, and a comparison across a period
   that is not fully recorded is not drawn at all: the slot says which month is missing
@@ -423,6 +428,13 @@ as ordinary spending. So in any list where one sign dominates, the dominant sign
 `--color-text` and the minus carries it, and colour is spent on the minority sign — the row you
 were actually looking for. A liability *balance* is likewise not an error and does not take
 `--color-amount-negative` on that ground alone.
+
+Which sign is the minority is a property of the list, not of the app, and it **cannot be a
+constant**. A chequing statement is mostly negative, so its refunds are the minority; the same
+statement imported as liabilities has its signs flipped — a charge increases what you owe and
+reads positive — so there the minority is negative. `minority-sign.ts` decides it per screen
+from the rows in front of it, and returns "neither" when the split is nearer than two to one,
+because colour that marks half a column marks nothing.
 
 Both ledgers resolve this through `$lib/components/transactions/ledger.ts` and pass the answer
 to `MoneyDisplay` as `tone`, rather than each page expressing it in its own stylesheet. The

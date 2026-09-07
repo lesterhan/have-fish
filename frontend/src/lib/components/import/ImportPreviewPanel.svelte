@@ -4,6 +4,7 @@
   import ImportRowTransfer from './ImportRowTransfer.svelte'
   import ImportRowRegular from './ImportRowRegular.svelte'
   import { rowMissingAccounts } from './import-helpers'
+  import { minoritySign } from './minority-sign'
   import type { RowState } from './row-state'
   import {
     REVIEW_FILTERS,
@@ -64,6 +65,19 @@
   // groceries, and regrouping by anything but date destroys that context.
 
   let filter = $state<ReviewFilter>('needs-review')
+  /* Decided once over the whole statement rather than per row, because "minority" is a
+     property of the list. The liability flip is applied first, so the sign compared here is
+     the sign the reader actually sees. */
+  let minority = $derived(
+    minoritySign(
+      preview.transactions.map((t) => {
+        const n = Number.parseFloat('amount' in t ? (t.amount ?? '0') : '0')
+        if (!Number.isFinite(n)) return 0
+        return importAsLiabilities ? -n : n
+      }),
+    ),
+  )
+
   let counts = $derived(statusCounts(rowStates))
   let reviewed = $derived(reviewedCount(rowStates))
 
@@ -237,6 +251,7 @@
             {#if tx.isTransfer === false}
               <ImportRowRegular
                 {tx}
+                {minority}
                 bind:rowState={rowStates[i]}
                 {accounts}
                 {groups}
@@ -361,11 +376,12 @@
 
   /* Narrow late gate: the Accounts step covers everything the preview expected, so this
      only appears when a row was flipped to convert-and-park afterwards. */
+  /* A notice, not a figure — see ImportAccountsStep for the same correction. */
   .unmapped-notice {
     padding: var(--sp-sm) var(--sp-md);
     border-bottom: 1px solid var(--color-rule);
-    background: var(--color-window-raised);
-    color: var(--color-amount-negative);
+    background: var(--color-warning-light);
+    color: var(--color-warning);
     font-size: var(--text-sm);
   }
 
@@ -505,7 +521,7 @@
 
   .unfinished-hint {
     font-size: var(--text-xs);
-    color: var(--color-amount-negative);
+    color: var(--color-warning);
   }
 
   /* ── Table structure ── */
@@ -640,14 +656,23 @@
     opacity: 1;
   }
 
+  /* Two different meanings shared one class and one colour. The date cell's icon flags a
+     possible duplicate — a warning — and the row's flags that a rule pre-filled the split,
+     which is information. Both were painted with `--color-accent`, so a duplicate warning
+     rendered in whatever colour the user had chosen: green, if they picked sage.
+     A warning is a warning; the informational one is muted. */
   :global(.table-container .indicator-icon) {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    color: var(--color-accent);
+    color: var(--color-text-muted);
     cursor: default;
     vertical-align: middle;
     margin-left: var(--sp-xs);
+  }
+
+  :global(.table-container .indicator-icon.warn) {
+    color: var(--color-warning);
   }
 
   /* ── Panel footer ── */

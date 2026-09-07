@@ -200,8 +200,10 @@
     white-space: nowrap;
   }
 
+  /* A status, not an amount. This row is not reporting money going out; it is reporting
+     that something still needs an answer. */
   .status-needed {
-    color: var(--color-amount-negative);
+    color: var(--color-warning);
   }
 
   .status-ok,

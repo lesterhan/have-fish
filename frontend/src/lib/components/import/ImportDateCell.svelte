@@ -21,7 +21,7 @@
   </span>
   {#if possibleDuplicate}
     <span
-      class="indicator-icon"
+      class="indicator-icon warn"
       use:tooltip={{
         label: `Possible duplicate: ${possibleDuplicate.date} ${possibleDuplicate.amount} ${possibleDuplicate.currency}`,
         always: true,
