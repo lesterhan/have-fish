@@ -93,13 +93,20 @@
     overflow: hidden;
   }
 
+  /* Bar ink, not accent. This is a magnitude mark — its length reports how many accounts are
+     current — and the accent means "the one live thing on this screen", which on this page is
+     the account you are being asked to deal with, not the readout of how far along you are.
+     Filled with the accent it was also the loudest thing here, above the work itself.
+
+     The trough above is `--color-window-inset`, the ground every magnitude mark in the app is
+     measured against; `tokens.test.ts` states that contract once for all of them. */
   .fill {
     height: 100%;
     border-radius: var(--radius-pill);
     background: linear-gradient(
       180deg,
-      var(--color-accent-hi),
-      var(--color-accent)
+      color-mix(in srgb, var(--color-bar-ink) 78%, white),
+      var(--color-bar-ink)
     );
     /* Aqua's signature: a gloss highlight over the top half of the fill. */
     box-shadow:
@@ -108,6 +115,8 @@
     transition: width var(--duration-normal) var(--ease);
   }
 
+  /* The exception, and the only one: finishing is the celebration P8 allows at the end of the
+     loop. Green here is a status, not a quantity — the bar is full by definition. */
   .progress.complete .fill {
     background: linear-gradient(
       180deg,

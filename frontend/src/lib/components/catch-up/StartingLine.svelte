@@ -146,7 +146,12 @@
     {/if}
 
     <div class="actions">
-      <GradientButton size="lg" onclick={accept} disabled={!canAccept}>
+      <GradientButton
+        size="lg"
+        variant="primary"
+        onclick={accept}
+        disabled={!canAccept}
+      >
         {saving ? 'Saving…' : `Accept all (${included.length})`}
       </GradientButton>
       <span class="hint"

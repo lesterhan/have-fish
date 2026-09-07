@@ -20,10 +20,24 @@
     ) => Promise<void>
     onuntrack: (account: CatchUpAccount) => Promise<void>
     onimport: (account: CatchUpAccount) => void
+    /**
+     * This card is the page's lead, so its Import carries the accent.
+     *
+     * False in the queue view, where the page leads with "Start catching up" and a column of
+     * accent-filled buttons would be the page saying "do this" eight times. True in focus
+     * mode, and true when there is only one account behind and no focus bar to lead with.
+     */
+    primary?: boolean
   }
 
-  let { account, onmarkEmpty, onmarkThrough, onuntrack, onimport }: Props =
-    $props()
+  let {
+    account,
+    onmarkEmpty,
+    onmarkThrough,
+    onuntrack,
+    onimport,
+    primary = false,
+  }: Props = $props()
 
   let busy = $state(false)
   let error = $state<string | null>(null)
@@ -114,8 +128,13 @@
       </div>
     {:else}
       <div class="actions">
-        <GradientButton onclick={() => onimport(account)} disabled={busy}
-          >Import</GradientButton
+        <!-- One command leads (V3). The other three are the ways out of it — "nothing
+             happened", "I already entered it", "stop asking" — and four raised chips of
+             equal weight made the reader pick which of them was the point. -->
+        <GradientButton
+          variant={primary ? 'primary' : 'default'}
+          onclick={() => onimport(account)}
+          disabled={busy}>Import</GradientButton
         >
         <GradientButton
           disabled={busy || !account.gap}
