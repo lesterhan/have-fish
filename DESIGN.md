@@ -306,6 +306,13 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
 - **All buttons are `GradientButton`** — gradient background with border. Hover = accent
   border colour. Active = `--shadow-inset`. `ChromeButton` is for case widgets only (modal
   close, titlebar controls). `Button` is deleted.
+- **One command leads, and it is the only accent-filled button on the screen** —
+  `variant="primary"`. The rest of a surface's buttons stay default, including its escape
+  hatches. Four raised chips of equal weight make the reader work out which one is the point,
+  and a *column* of primary buttons — one per card in a queue — is the page saying "do this"
+  eight times. Which button leads can be a property of position rather than of the component:
+  on Catch Up the account card's Import is primary in focus mode and when it is the only card,
+  and not when the page above it already leads with "Start catching up".
 - **Cards are the surface primitive** — use `Card` for any grouped panel, with a
   `.section-header` div inside for titled sections (`--color-section-bar-*`). `Panel` is
   deleted.

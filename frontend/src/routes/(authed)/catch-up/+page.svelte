@@ -236,6 +236,7 @@
 
       <CatchUpAccountCard
         account={focused}
+        primary
         onmarkEmpty={markEmpty}
         onmarkThrough={markThrough}
         onuntrack={untrack}
@@ -248,7 +249,7 @@
             {groups.behind.length} accounts waiting
           </span>
           <span class="spacer"></span>
-          <GradientButton size="sm" onclick={enterFocus}
+          <GradientButton size="sm" variant="primary" onclick={enterFocus}
             >Start catching up</GradientButton
           >
         </div>
@@ -258,6 +259,7 @@
         {#each groups.behind as account (account.accountId)}
           <CatchUpAccountCard
             {account}
+            primary={groups.behind.length === 1}
             onmarkEmpty={markEmpty}
             onmarkThrough={markThrough}
             onuntrack={untrack}
