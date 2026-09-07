@@ -11,7 +11,11 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import AccountDrawer from './AccountDrawer.svelte'
   import AccountFlags from './AccountFlags.svelte'
-  import SectionCard from './SectionCard.svelte'
+  import Sheet, {
+    WIDTH,
+    type SheetColumn,
+  } from '$lib/components/ui/Sheet.svelte'
+  import SheetBand from '$lib/components/ui/SheetBand.svelte'
   import {
     createAccount,
     deleteAccount,
@@ -339,6 +343,24 @@
   function label(node: CategoryNode): string {
     return view === 'flat' ? node.path : node.segment
   }
+
+  // ── The column geometry ───────────────────────────────────
+  // Drawn from the same width vocabulary as the Accounts tab, so a column that means the
+  // same thing is the same width on both. The two tabs drifting apart is what SectionCard
+  // was written to stop; it stopped the typography drifting and left the widths free, which
+  // is the half that actually moved.
+  const COLUMNS: SheetColumn[] = [
+    { key: 'category', label: 'Category' },
+    { key: 'entries', label: 'Entries', width: WIDTH.count, numeric: true },
+    { key: 'used', label: 'Last used', width: WIDTH.date },
+    { key: 'flags', label: 'Flags', width: WIDTH.flags },
+    {
+      key: 'actions',
+      label: 'Actions',
+      width: WIDTH.actions,
+      unlabelled: true,
+    },
+  ]
 </script>
 
 <ControlBar>
@@ -400,225 +422,219 @@
 {:else if sections.length === 0}
   <p class="message">No categories yet — add one above.</p>
 {:else}
-  {#each sections as section (section.key)}
-    {@const rows = rowsFor(section)}
-    <SectionCard
-      label={section.label}
-      count={rows.length}
-      total={String(section.entries)}
-      unit={section.entries === 1 ? 'entry' : 'entries'}
-      collapsed={sectionCollapsed[section.key] ?? false}
-      ontoggle={() =>
-        (sectionCollapsed[section.key] = !sectionCollapsed[section.key])}
-    >
-      {#snippet trailing()}
-        {#if view === 'tree'}
-          <GradientButton
-            quiet
-            disabled={searching}
-            onclick={() => collapseAll(section)}
-            tooltip={searching
-              ? 'A filtered tree stays open — clear the filter to fold it'
-              : 'Fold or unfold every branch in this section'}
-          >
-            Fold all
-          </GradientButton>
-        {/if}
-      {/snippet}
+  <Sheet columns={COLUMNS} caption="Categories, grouped by root">
+    {#each sections as section (section.key)}
+      {@const rows = rowsFor(section)}
+      {@const sectionFolded = sectionCollapsed[section.key] ?? false}
+      <SheetBand
+        label={section.label}
+        count={rows.length}
+        total={String(section.entries)}
+        unit={section.entries === 1 ? 'entry' : 'entries'}
+        collapsed={sectionFolded}
+        ontoggle={() => (sectionCollapsed[section.key] = !sectionFolded)}
+      >
+        {#snippet trailing()}
+          {#if view === 'tree'}
+            <GradientButton
+              quiet
+              disabled={searching}
+              onclick={() => collapseAll(section)}
+              tooltip={searching
+                ? 'A filtered tree stays open — clear the filter to fold it'
+                : 'Fold or unfold every branch in this section'}
+            >
+              Fold all
+            </GradientButton>
+          {/if}
+        {/snippet}
+      </SheetBand>
 
-      {#if rows.length === 0}
-        <p class="message">
-          {emptyOnly
-            ? 'Nothing empty here.'
-            : `Nothing matches “${query.trim()}”.`}
-        </p>
-      {:else}
-        <table>
-          <thead>
-            <tr>
-              <th>Category</th>
-              <th class="num">Entries</th>
-              <th>Last used</th>
-              <th>Flags</th>
-              <th class="actions"><span class="sr-only">Actions</span></th>
-            </tr>
-          </thead>
-          <tbody>
-            {#each rows as { node, depth, hasChildren, collapsed: folded } (node.path)}
-              {@const editing = editingPath === node.path}
-              {@const blocker = guard(node)}
-              {@const empty = isDeletable(node)}
-              {@const deletable = empty && blocker === null}
-              {@const needs = attentionFor(node.accountId) ?? 0}
-              {@const open = openPath === node.path}
-              <tr class:editing class:open>
-                <td>
-                  <div class="cell" style="padding-left: calc({depth} * 16px)">
-                    {#if hasChildren}
-                      <button
-                        type="button"
-                        class="disclosure"
-                        aria-expanded={!folded}
-                        aria-label={folded
-                          ? `Expand ${node.path}`
-                          : `Collapse ${node.path}`}
-                        onclick={() => toggleBranch(node.path)}
-                      >
-                        <Icon
-                          name={folded
-                            ? 'chevron-right-filled'
-                            : 'chevron-down-line'}
-                          size={13}
-                        />
-                      </button>
-                    {:else}
-                      <span class="leaf-dot"></span>
-                    {/if}
-
-                    {#if editing}
-                      <TextInput
-                        bind:value={editValue}
-                        spellcheck={false}
-                        disabled={busy}
-                        aria-label={`Rename ${node.path}`}
-                        onkeydown={(e: KeyboardEvent) => onEditKeydown(e, node)}
-                        style="width: 12rem"
+      {#if !sectionFolded}
+        {#if rows.length === 0}
+          <tr class="spanning">
+            <td colspan={COLUMNS.length}>
+              <p class="message">
+                {emptyOnly
+                  ? 'Nothing empty here.'
+                  : `Nothing matches “${query.trim()}”.`}
+              </p>
+            </td>
+          </tr>
+        {:else}
+          {#each rows as { node, depth, hasChildren, collapsed: folded } (node.path)}
+            {@const editing = editingPath === node.path}
+            {@const blocker = guard(node)}
+            {@const empty = isDeletable(node)}
+            {@const deletable = empty && blocker === null}
+            {@const needs = attentionFor(node.accountId) ?? 0}
+            {@const open = openPath === node.path}
+            <tr class:editing class:open>
+              <td>
+                <div class="cell" style="padding-left: calc({depth} * 16px)">
+                  {#if hasChildren}
+                    <button
+                      type="button"
+                      class="disclosure"
+                      aria-expanded={!folded}
+                      aria-label={folded
+                        ? `Expand ${node.path}`
+                        : `Collapse ${node.path}`}
+                      onclick={() => toggleBranch(node.path)}
+                    >
+                      <Icon
+                        name={folded
+                          ? 'chevron-right-filled'
+                          : 'chevron-down-line'}
+                        size={13}
                       />
-                      <GradientButton
-                        square
-                        disabled={busy}
-                        aria-label="Save name"
-                        tooltip="Save"
-                        onclick={() => submitEdit(node)}
-                      >
-                        <Icon name="floppy" size={12} />
-                      </GradientButton>
-                      <GradientButton
-                        square
-                        disabled={busy}
-                        aria-label="Cancel rename"
-                        tooltip="Cancel"
-                        onclick={cancelEdit}
-                      >
-                        <Icon name="close" size={12} />
-                      </GradientButton>
-                    {:else}
-                      <span class="segment">{label(node)}</span>
-                    {/if}
-                  </div>
-                </td>
-                <td class="num">
-                  {#if node.entries === 0}
-                    <span class="muted">—</span>
+                    </button>
                   {:else}
-                    {node.entries}
+                    <span class="leaf-dot"></span>
                   {/if}
-                </td>
-                <td>
-                  {#if node.lastUsed}
-                    {node.lastUsed}
-                  {:else}
-                    <span class="muted">never</span>
-                  {/if}
-                </td>
-                <td>
-                  <AccountFlags
-                    accountId={node.accountId}
-                    {settings}
-                    protection={blocker}
-                  >
-                    {#snippet lead()}
-                      {#if needs > 0}
-                        <span title={attentionChip(needs).label}>
-                          <Chip size="xs" icon="warning">{needs}</Chip>
-                        </span>
-                      {/if}
-                      {#if node.accountId === null}
-                        <span
-                          title="No account was filed at this path — it exists because something beneath it does"
-                        >
-                          <Chip size="xs">category</Chip>
-                        </span>
-                      {/if}
-                    {/snippet}
-                    {#if empty}
-                      <Chip size="xs">empty</Chip>
-                    {/if}
-                  </AccountFlags>
-                </td>
-                <td class="actions">
-                  <GradientButton
-                    quiet
-                    square
-                    aria-label={open
-                      ? `Hide recent entries for ${node.path}`
-                      : `Show recent entries for ${node.path}`}
-                    aria-expanded={open}
-                    tooltip={open
-                      ? 'Close'
-                      : 'Recent entries and what is unfinished'}
-                    onclick={() => toggleRow(node.path)}
-                  >
-                    <Icon
-                      name={open ? 'chevron-up-filled' : 'chevron-down-line'}
-                      size={13}
+
+                  {#if editing}
+                    <TextInput
+                      bind:value={editValue}
+                      spellcheck={false}
+                      disabled={busy}
+                      aria-label={`Rename ${node.path}`}
+                      onkeydown={(e: KeyboardEvent) => onEditKeydown(e, node)}
+                      style="width: 12rem"
                     />
-                  </GradientButton>
-                  <GradientButton
-                    quiet
-                    square
-                    disabled={blocker?.kind === 'system' ||
-                      editingPath !== null}
-                    aria-label={`Rename ${node.path}`}
-                    tooltip={blocker?.kind === 'system'
-                      ? protectionMessage(blocker)
-                      : hasChildren
-                        ? 'Rename — this renames everything beneath it too'
-                        : 'Rename'}
-                    onclick={() => startEdit(node)}
-                  >
-                    <Icon name="edit-txn" size={13} />
-                  </GradientButton>
-                  <GradientButton
-                    quiet
-                    square
-                    disabled={!deletable}
-                    aria-label={`Delete ${node.path}`}
-                    tooltip={blocker
-                      ? protectionMessage(blocker)
-                      : node.accountId === null
-                        ? 'Nothing was filed here, so there is nothing to delete'
-                        : deletable
-                          ? 'Delete this category'
-                          : 'Only a category with no entries and nothing beneath it can be deleted'}
-                    onclick={() => (deleting = node)}
-                  >
-                    <Icon name="trash" size={13} />
-                  </GradientButton>
-                </td>
-              </tr>
-              {#if open}
-                <!-- A category row stands for its whole subtree, so the drawer matches on
+                    <GradientButton
+                      square
+                      disabled={busy}
+                      aria-label="Save name"
+                      tooltip="Save"
+                      onclick={() => submitEdit(node)}
+                    >
+                      <Icon name="floppy" size={12} />
+                    </GradientButton>
+                    <GradientButton
+                      square
+                      disabled={busy}
+                      aria-label="Cancel rename"
+                      tooltip="Cancel"
+                      onclick={cancelEdit}
+                    >
+                      <Icon name="close" size={12} />
+                    </GradientButton>
+                  {:else}
+                    <span class="segment">{label(node)}</span>
+                  {/if}
+                </div>
+              </td>
+              <td class="num">
+                {#if node.entries === 0}
+                  <span class="muted">—</span>
+                {:else}
+                  {node.entries}
+                {/if}
+              </td>
+              <td>
+                {#if node.lastUsed}
+                  {node.lastUsed}
+                {:else}
+                  <span class="muted">never</span>
+                {/if}
+              </td>
+              <td>
+                <AccountFlags
+                  accountId={node.accountId}
+                  {settings}
+                  protection={blocker}
+                >
+                  {#snippet lead()}
+                    {#if needs > 0}
+                      <span title={attentionChip(needs).label}>
+                        <Chip size="xs" icon="warning">{needs}</Chip>
+                      </span>
+                    {/if}
+                    {#if node.accountId === null}
+                      <span
+                        title="No account was filed at this path — it exists because something beneath it does"
+                      >
+                        <Chip size="xs">category</Chip>
+                      </span>
+                    {/if}
+                  {/snippet}
+                  {#if empty}
+                    <Chip size="xs">empty</Chip>
+                  {/if}
+                </AccountFlags>
+              </td>
+              <td class="actions">
+                <GradientButton
+                  quiet
+                  square
+                  aria-label={open
+                    ? `Hide recent entries for ${node.path}`
+                    : `Show recent entries for ${node.path}`}
+                  aria-expanded={open}
+                  tooltip={open
+                    ? 'Close'
+                    : 'Recent entries and what is unfinished'}
+                  onclick={() => toggleRow(node.path)}
+                >
+                  <Icon
+                    name={open ? 'chevron-up-filled' : 'chevron-down-line'}
+                    size={13}
+                  />
+                </GradientButton>
+                <GradientButton
+                  quiet
+                  square
+                  disabled={blocker?.kind === 'system' || editingPath !== null}
+                  aria-label={`Rename ${node.path}`}
+                  tooltip={blocker?.kind === 'system'
+                    ? protectionMessage(blocker)
+                    : hasChildren
+                      ? 'Rename — this renames everything beneath it too'
+                      : 'Rename'}
+                  onclick={() => startEdit(node)}
+                >
+                  <Icon name="edit-txn" size={13} />
+                </GradientButton>
+                <GradientButton
+                  quiet
+                  square
+                  disabled={!deletable}
+                  aria-label={`Delete ${node.path}`}
+                  tooltip={blocker
+                    ? protectionMessage(blocker)
+                    : node.accountId === null
+                      ? 'Nothing was filed here, so there is nothing to delete'
+                      : deletable
+                        ? 'Delete this category'
+                        : 'Only a category with no entries and nothing beneath it can be deleted'}
+                  onclick={() => (deleting = node)}
+                >
+                  <Icon name="trash" size={13} />
+                </GradientButton>
+              </td>
+            </tr>
+            {#if open}
+              <!-- A category row stands for its whole subtree, so the drawer matches on
                      the path rather than the id — which is also the only thing a virtual
                      segment has to match on. -->
-                <tr class="drawer-row">
-                  <td colspan="5">
-                    <AccountDrawer
-                      match={{ kind: 'subtree', path: node.path }}
-                      path={node.path}
-                      accountId={node.accountId}
-                      root={rootFor(section.key, roots)}
-                      attention={attentionFor(node.accountId)}
-                    />
-                  </td>
-                </tr>
-              {/if}
-            {/each}
-          </tbody>
-        </table>
+              <tr class="spanning">
+                <td colspan={COLUMNS.length}>
+                  <AccountDrawer
+                    match={{ kind: 'subtree', path: node.path }}
+                    path={node.path}
+                    accountId={node.accountId}
+                    root={rootFor(section.key, roots)}
+                    attention={attentionFor(node.accountId)}
+                  />
+                </td>
+              </tr>
+            {/if}
+          {/each}
+        {/if}
       {/if}
-    </SectionCard>
-  {/each}
+    {/each}
+  </Sheet>
 {/if}
 
 {#if pending}
@@ -721,18 +737,16 @@
   }
 
   /* --- Row expansion --- *
-     The drawer brings its own padding and left rule, so the cell gets out of the way. */
-  tr.drawer-row td {
-    padding: 0;
-  }
-
+     The drawer brings its own padding and left rule; Sheet's `.spanning` gets the cell out
+     of the way. */
   tr.open td {
     background: var(--color-window-raised);
   }
 
   /* --- Messages --- *
      Kept in step with the Accounts tab by hand: two rules is under the weight of another
-     shared component, and they are the last thing the two tabs still say twice. */
+     shared component, and they are the last thing the two tabs still say twice. Inside the
+     sheet the message sits in a spanning row, which supplies no padding of its own. */
   .message {
     margin: 0;
     padding: var(--sp-lg);

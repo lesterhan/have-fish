@@ -2,7 +2,6 @@
   import { onMount } from 'svelte'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
-  import Card from '$lib/components/ui/Card.svelte'
   import Checkbox from '$lib/components/ui/Checkbox.svelte'
   import ControlBar from '$lib/components/ui/ControlBar.svelte'
   import SearchField from '$lib/components/ui/SearchField.svelte'
@@ -19,7 +18,11 @@
   import AccountDrawer from '$lib/components/accounts/AccountDrawer.svelte'
   import AccountFlags from '$lib/components/accounts/AccountFlags.svelte'
   import CategoriesTab from '$lib/components/accounts/CategoriesTab.svelte'
-  import SectionCard from '$lib/components/accounts/SectionCard.svelte'
+  import Sheet, {
+    WIDTH,
+    type SheetColumn,
+  } from '$lib/components/ui/Sheet.svelte'
+  import SheetBand from '$lib/components/ui/SheetBand.svelte'
   import {
     fetchAccountBalances,
     fetchAccountPostingCounts,
@@ -98,6 +101,38 @@
     { key: 'owed', label: 'Owed to you' },
     { key: 'owing', label: 'You owe', magnitude: true },
   ]
+
+  // ── The column geometry ───────────────────────────────────
+  // One list, one grid (DESIGN.md §5). Balance used to sit at a different x in every group
+  // because each group rendered its own auto-sized table; declaring the widths here and
+  // handing them to a single sheet is the whole fix.
+  //
+  // Account takes the remainder — it is what the row is about. Everything else is sized to
+  // its worst case from the shared vocabulary, so a column that means the same thing on the
+  // Categories tab is the same width there.
+  let columns = $derived.by<SheetColumn[]>(() => [
+    { key: 'account', label: 'Account' },
+    { key: 'type', label: 'Type', width: WIDTH.chip },
+    { key: 'balance', label: 'Balance', width: WIDTH.money, numeric: true },
+    ...(converted
+      ? [
+          {
+            key: 'converted',
+            label: `≈ ${preferred}`,
+            width: WIDTH.converted,
+            numeric: true,
+          } satisfies SheetColumn,
+        ]
+      : []),
+    { key: 'activity', label: 'Last activity', width: WIDTH.date },
+    { key: 'flags', label: 'Flags', width: WIDTH.flags },
+    {
+      key: 'actions',
+      label: 'Actions',
+      width: WIDTH.actions,
+      unlabelled: true,
+    },
+  ])
 
   function tabFromUrl(url: URL): string {
     const t = url.searchParams.get('tab')
@@ -330,6 +365,20 @@
     }
   })
 
+  // ── What is outstanding ───────────────────────────────────
+  // Two kinds of unfinished work reach this page, and they are not the same thing: entries
+  // that need a decision, and accounts that have never had a starting line so nothing about
+  // them can be dated at all. Both make the figures below provisional, which is why the
+  // header keys off them rather than reporting them as an aside.
+  let unbootstrapped = $derived.by(() => {
+    if (!coverageToday) return 0
+    const ids = positionAccountIds(positionRows, roots)
+    const all = [...ids.cash, ...ids.investments, ...ids.owed, ...ids.owing]
+    return completeness(coverageFor(coverageById, all)).unknown
+  })
+
+  let outstanding = $derived(attentionTotal > 0 || unbootstrapped > 0)
+
   // ── Curation ──────────────────────────────────────────────
   // Pins and hides live in the free-form `preferences` JSONB, the same way hiddenAccountIds
   // already does, so neither needs a migration.
@@ -391,7 +440,18 @@
   // Pinning six Wise accounts one at a time is six round trips, so the pinned sidebar only
   // survives if curating is cheap. Selection is by id rather than by row, so it holds while
   // you regroup or search.
+  //
+  // It is a mode rather than a permanent column. A checkbox in front of every account is
+  // 14px of chrome leading every row of the page, ahead of the thing you came to read, for
+  // an action most visits never take — and it was also the reason selection could not simply
+  // be a click on the row. The transactions page already works this way; this is that.
+  let selectMode = $state(false)
   let selectedIds = $state<Set<string>>(new Set())
+
+  function toggleSelectMode() {
+    selectMode = !selectMode
+    selectedIds = new Set()
+  }
 
   // Rows that left the view take their selection with them — acting on a row you can no
   // longer see is exactly the surprise a bulk bar must not spring.
@@ -425,10 +485,13 @@
   }
 
   function onKeydown(e: KeyboardEvent) {
-    if (e.key === 'Escape' && selectedIds.size > 0) {
-      e.preventDefault()
-      clearSelection()
-    }
+    if (e.key !== 'Escape' || !selectMode) return
+    e.preventDefault()
+    // Escape backs out one step at a time: it clears a selection first and leaves the mode
+    // only once there is nothing selected, so a mis-click does not also close the mode you
+    // were halfway through using.
+    if (selectedIds.size > 0) clearSelection()
+    else selectMode = false
   }
 
   // ── Bulk actions ──────────────────────────────────────────
@@ -596,48 +659,95 @@
       aria-labelledby="accounts-tab-accounts"
     >
       <!-- Position: the four-way split of what you have, all four derived from the
-           configured root paths rather than from any per-account flag. -->
-      <div class="position">
-        {#each POSITION_CARDS as card (card.key)}
-          {@const bucket = position[card.key]}
-          <Card class="position-card">
-            <span class="position-label">{card.label}</span>
-            {#if loading}
-              <Shimmer height="1.25rem" />
-            {:else}
-              <span
-                class="position-value"
-                class:negative={!card.magnitude && bucket.cents < 0}
-              >
-                {card.magnitude
-                  ? formatCentsAbs(bucket.cents)
-                  : formatCents(bucket.cents)}
-                <span class="position-currency">{preferred}</span>
-              </span>
+           configured root paths rather than from any per-account flag.
+
+           Exactly one loudest element, and which one depends on the state (DESIGN.md §5).
+           Caught up, that is Available — the number you opened the page for. With work
+           outstanding it is the work, because every figure below it is provisional until
+           that work is done, and an aggregate the app knows to be incomplete should not be
+           the biggest thing on the screen. Four tiles of equal weight answered neither
+           state: the eye had to pick, every time. -->
+      <section class="position" aria-label="Position">
+        {#if loading}
+          <div class="headline">
+            <Shimmer height="2rem" />
+          </div>
+        {:else}
+          {#if outstanding}
+            <div class="outstanding">
+              <Icon name="warning" size={14} />
+              <p class="outstanding-text">
+                {#if unbootstrapped > 0}
+                  <span>
+                    {unbootstrapped === 1
+                      ? 'One account has'
+                      : `${unbootstrapped} accounts have`} no starting line, so nothing
+                    they hold is counted below.
+                  </span>
+                  <a class="outstanding-action" href="/catch-up">Set them</a>
+                {/if}
+                {#if attentionTotal > 0}
+                  <span>
+                    {attentionTotal === 1
+                      ? 'One entry needs'
+                      : `${attentionTotal} entries need`} a decision.
+                  </span>
+                  <!-- The filter lives here rather than in the toolbar: it is the action
+                       this sentence is asking for, and having it in both places would be
+                       two ways to do one thing. -->
+                  <button
+                    type="button"
+                    class="outstanding-action"
+                    aria-pressed={attentionOnly}
+                    onclick={() => (attentionOnly = !attentionOnly)}
+                  >
+                    {attentionOnly ? 'Show every account' : 'Show them'}
+                  </button>
+                {/if}
+              </p>
+            </div>
+          {/if}
+
+          <div class="figures" class:stacked={!outstanding}>
+            {#each POSITION_CARDS as card, i (card.key)}
+              {@const bucket = position[card.key]}
               {@const note = conversionNote(bucket, preferred, converted)}
-              {#if note}
-                <span
-                  class="position-note"
-                  title={converted
-                    ? `Balances in ${bucket.missing.join(', ')} are not included — no exchange rate available`
-                    : `Also holds ${bucket.missing.join(', ')} — convert to fold them in`}
-                >
-                  {note}
-                </span>
-              {/if}
-              <!-- The as-of. A statement, not a warning: no icon, no alarm colour, and the
-                   figure above keeps its weight — when everything is stale, muting everything
-                   makes the page read as broken and the user stops seeing it. -->
               {@const asOf = positionNotes?.[card.key] ?? null}
-              {#if asOf}
-                <span class="position-asof" title={asOf.detail}
-                  >{asOf.text}</span
+              {@const lead = i === 0 && !outstanding}
+              <div class="figure" class:lead>
+                <span class="position-label">{card.label}</span>
+                <span
+                  class="position-value"
+                  class:negative={!card.magnitude && bucket.cents < 0}
                 >
-              {/if}
-            {/if}
-          </Card>
-        {/each}
-      </div>
+                  {card.magnitude
+                    ? formatCentsAbs(bucket.cents)
+                    : formatCents(bucket.cents)}
+                  <span class="position-currency">{preferred}</span>
+                </span>
+                {#if note}
+                  <span
+                    class="position-note"
+                    title={converted
+                      ? `Balances in ${bucket.missing.join(', ')} are not included — no exchange rate available`
+                      : `Also holds ${bucket.missing.join(', ')} — convert to fold them in`}
+                  >
+                    {note}
+                  </span>
+                {/if}
+                <!-- The as-of. A statement, not a warning: no icon, no alarm colour, and
+                     the figure above keeps its weight — when everything is stale, muting
+                     everything makes the page read as broken and the user stops seeing it. -->
+                {#if asOf}
+                  <span class="position-asof" title={asOf.detail}
+                    >{asOf.text}</span
+                  >
+                {/if}
+              </div>
+            {/each}
+          </div>
+        {/if}
+      </section>
 
       <ControlBar>
         <SearchField bind:value={query} placeholder="Search accounts" />
@@ -660,20 +770,6 @@
             <option value="hidden">Hidden</option>
           </Select>
         </label>
-
-        {#if needAttention.length > 0}
-          {@const chip = attentionChip(attentionTotal)}
-          <GradientButton
-            active={attentionOnly}
-            attention={!attentionOnly}
-            tooltip={attentionOnly
-              ? 'Show every account again'
-              : `Scope the table to the ${needAttention.length === 1 ? 'account' : 'accounts'} with something unfinished`}
-            onclick={() => (attentionOnly = !attentionOnly)}
-          >
-            {chip.label}
-          </GradientButton>
-        {/if}
 
         {#if foreignCurrencies.length > 0}
           <ConvertToggle
@@ -698,6 +794,18 @@
             <option value="equity">Equity</option>
           </Select>
         </label>
+
+        {#if selectMode}
+          <GradientButton active onclick={toggleSelectMode}>Done</GradientButton
+          >
+        {:else}
+          <GradientButton
+            tooltip="Pin, hide or set the currency of several accounts at once"
+            onclick={toggleSelectMode}
+          >
+            <Icon name="edit-txn" /> Select
+          </GradientButton>
+        {/if}
 
         <span class="count trailing">
           {visibleRows.length}
@@ -724,204 +832,194 @@
             : 'No accounts here yet.'}
         </p>
       {:else}
-        {#each groups as group (group.key)}
-          {@const total = groupTotal(group)}
-          {@const state = groupState(group)}
-          <SectionCard
-            label={group.label}
-            count={group.rows.length}
-            total={`${total.approx ? '≈ ' : ''}${formatCents(total.cents)}`}
-            unit={total.unit}
-            note={conversionNote(total, total.unit, converted) ?? undefined}
-            noteTitle={converted
-              ? `Balances in ${total.missing.join(', ')} are not included — no exchange rate available`
-              : `Also holds ${total.missing.join(', ')} — convert to fold them in`}
-            collapsed={collapsed[group.key] ?? false}
-            ontoggle={() => toggle(group.key)}
-          >
-            {#snippet lead()}
-              <Checkbox
-                checked={state.all}
-                ariaLabel={`Select every account in ${group.label}`}
-                size={14}
-                onchange={(on) => toggleGroup(group, on)}
-              />
-            {/snippet}
-            <table>
-              <thead>
-                <tr>
-                  <th class="pick"><span class="sr-only">Select</span></th>
-                  <th>Account</th>
-                  <th>Type</th>
-                  <th class="num">Balance</th>
-                  {#if converted}
-                    <th class="num">≈ {preferred}</th>
-                  {/if}
-                  <th>Last activity</th>
-                  <th>Flags</th>
-                  <th class="actions"><span class="sr-only">Actions</span></th>
-                </tr>
-              </thead>
-              <tbody>
-                {#each group.rows as row (row.account.id)}
-                  {@const rowConverted = rowTotal(row)}
-                  {@const guard = protection(row)}
-                  {@const pinned = pinnedIds.has(row.account.id)}
-                  {@const hidden = hiddenIds.has(row.account.id)}
-                  {@const open = openRowId === row.account.id}
-                  <tr
-                    class:selected={selectedIds.has(row.account.id)}
-                    class:open
-                  >
-                    <td class="pick">
-                      <Checkbox
-                        checked={selectedIds.has(row.account.id)}
-                        ariaLabel={`Select ${row.displayName}`}
-                        size={14}
-                        onchange={(on) => toggleSelected(row.account.id, on)}
-                      />
-                    </td>
-                    <td>
-                      <a class="account-link" href="/account/{row.account.id}">
-                        {row.displayName}
-                      </a>
-                      {#if row.account.name}
-                        <span class="sub">{row.account.path}</span>
+        <Sheet {columns} caption="Accounts, grouped">
+          {#each groups as group (group.key)}
+            {@const total = groupTotal(group)}
+            <SheetBand
+              label={group.label}
+              count={group.rows.length}
+              total={`${total.approx ? '≈ ' : ''}${formatCents(total.cents)}`}
+              unit={total.unit}
+              note={conversionNote(total, total.unit, converted) ?? undefined}
+              noteTitle={converted
+                ? `Balances in ${total.missing.join(', ')} are not included — no exchange rate available`
+                : `Also holds ${total.missing.join(', ')} — convert to fold them in`}
+              collapsed={collapsed[group.key] ?? false}
+              ontoggle={() => toggle(group.key)}
+            >
+              {#snippet trailing()}
+                {#if selectMode}
+                  {@const state = groupState(group)}
+                  <Checkbox
+                    checked={state.all}
+                    ariaLabel={`Select every account in ${group.label}`}
+                    size={14}
+                    onchange={(on) => toggleGroup(group, on)}
+                  />
+                {/if}
+              {/snippet}
+            </SheetBand>
+
+            {#if !(collapsed[group.key] ?? false)}
+              {#each group.rows as row (row.account.id)}
+                {@const rowConverted = rowTotal(row)}
+                {@const guard = protection(row)}
+                {@const pinned = pinnedIds.has(row.account.id)}
+                {@const hidden = hiddenIds.has(row.account.id)}
+                {@const open = openRowId === row.account.id}
+                {@const selected = selectedIds.has(row.account.id)}
+                <tr class:selected class:open>
+                  <td class="account">
+                    <div class="name-cell">
+                      {#if selectMode}
+                        <Checkbox
+                          checked={selected}
+                          ariaLabel={`Select ${row.displayName}`}
+                          size={14}
+                          onchange={(on) => toggleSelected(row.account.id, on)}
+                        />
                       {/if}
-                    </td>
-                    <td><Chip size="xs">{typeLabel(row)}</Chip></td>
+                      <span class="name">
+                        <a
+                          class="account-link"
+                          href="/account/{row.account.id}"
+                        >
+                          {row.displayName}
+                        </a>
+                        {#if row.account.name}
+                          <span class="sub">{row.account.path}</span>
+                        {/if}
+                      </span>
+                    </div>
+                  </td>
+                  <td><Chip size="xs">{typeLabel(row)}</Chip></td>
+                  <td class="num">
+                    {#if row.balances.length === 0}
+                      <span class="muted">—</span>
+                    {:else}
+                      {#each row.balances as b (b.currency)}
+                        {@const cents = toCents(b.amount)}
+                        <span class="native">
+                          <CurrencyPill code={b.currency} size="xs" />
+                          {cents === null ? b.amount : formatCents(cents)}
+                        </span>
+                      {/each}
+                    {/if}
+                  </td>
+                  {#if converted}
                     <td class="num">
-                      {#if row.balances.length === 0}
+                      {#if rowConverted.missing.length > 0}
+                        <span class="muted" title="No exchange rate available"
+                          >—</span
+                        >
+                      {:else if row.balances.length === 0}
                         <span class="muted">—</span>
                       {:else}
-                        {#each row.balances as b (b.currency)}
-                          {@const cents = toCents(b.amount)}
-                          <span class="native">
-                            <CurrencyPill code={b.currency} size="xs" />
-                            {cents === null ? b.amount : formatCents(cents)}
-                          </span>
-                        {/each}
+                        {formatCents(rowConverted.cents)}
                       {/if}
                     </td>
-                    {#if converted}
-                      <td class="num">
-                        {#if rowConverted.missing.length > 0}
-                          <span class="muted" title="No exchange rate available"
-                            >—</span
-                          >
-                        {:else if row.balances.length === 0}
-                          <span class="muted">—</span>
-                        {:else}
-                          {formatCents(rowConverted.cents)}
-                        {/if}
-                      </td>
+                  {/if}
+                  <td>
+                    {#if row.lastActivity}
+                      {row.lastActivity}
+                      {#if row.idleDays !== null && row.idleDays > STALE_AFTER_DAYS}
+                        <span class="sub stale">stale {row.idleDays}d</span>
+                      {/if}
+                    {:else}
+                      <span class="muted">never</span>
                     {/if}
-                    <td>
-                      {#if row.lastActivity}
-                        {row.lastActivity}
-                        {#if row.idleDays !== null && row.idleDays > STALE_AFTER_DAYS}
-                          <span class="sub stale">stale {row.idleDays}d</span>
+                  </td>
+                  <td>
+                    <AccountFlags
+                      accountId={row.account.id}
+                      {settings}
+                      protection={guard}
+                    >
+                      {#snippet lead()}
+                        {@const needs = attentionFor(row.account.id) ?? 0}
+                        {#if needs > 0}
+                          <span title={attentionChip(needs).label}>
+                            <Chip size="xs" icon="warning">{needs}</Chip>
+                          </span>
                         {/if}
-                      {:else}
-                        <span class="muted">never</span>
+                      {/snippet}
+                      {#if pinned}
+                        <Chip size="xs" icon="pin">pinned</Chip>
                       {/if}
-                    </td>
-                    <td>
-                      <AccountFlags
+                      {#if hidden}
+                        <Chip size="xs" icon="eye-off">hidden</Chip>
+                      {/if}
+                    </AccountFlags>
+                  </td>
+                  <td class="actions">
+                    <GradientButton
+                      quiet
+                      square
+                      aria-label={open
+                        ? `Hide recent entries for ${row.displayName}`
+                        : `Show recent entries for ${row.displayName}`}
+                      aria-expanded={open}
+                      tooltip={open
+                        ? 'Close'
+                        : 'Recent entries and what is unfinished'}
+                      onclick={() => toggleRow(row.account.id)}
+                    >
+                      <Icon
+                        name={open ? 'chevron-up-filled' : 'chevron-down-line'}
+                        size={13}
+                      />
+                    </GradientButton>
+                    <GradientButton
+                      quiet
+                      square
+                      active={pinned}
+                      aria-label={pinned
+                        ? `Unpin ${row.displayName}`
+                        : `Pin ${row.displayName}`}
+                      tooltip={pinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                      onclick={() => setPinned([row.account.id], !pinned)}
+                    >
+                      <Icon name="pin" size={13} />
+                    </GradientButton>
+                    <GradientButton
+                      quiet
+                      square
+                      active={hidden}
+                      disabled={guard !== null && !hidden}
+                      aria-label={hidden
+                        ? `Unhide ${row.displayName}`
+                        : `Hide ${row.displayName}`}
+                      tooltip={guard !== null && !hidden
+                        ? protectionMessage(guard)
+                        : hidden
+                          ? 'Unhide'
+                          : 'Hide'}
+                      onclick={() => setHidden([row.account.id], !hidden)}
+                    >
+                      <Icon name={hidden ? 'eye' : 'eye-off'} size={13} />
+                    </GradientButton>
+                  </td>
+                </tr>
+                {#if open}
+                  <!-- A second row rather than a nested table: a <td> cannot contain a
+                       row, and colspan is what keeps the drawer inside the grid. -->
+                  <tr class="spanning">
+                    <td colspan={columns.length}>
+                      <AccountDrawer
+                        match={{ kind: 'account', accountId: row.account.id }}
+                        path={row.account.path}
                         accountId={row.account.id}
-                        {settings}
-                        protection={guard}
-                      >
-                        {#snippet lead()}
-                          {@const needs = attentionFor(row.account.id) ?? 0}
-                          {#if needs > 0}
-                            <span title={attentionChip(needs).label}>
-                              <Chip size="xs" icon="warning">{needs}</Chip>
-                            </span>
-                          {/if}
-                        {/snippet}
-                        {#if pinned}
-                          <Chip size="xs" icon="pin">pinned</Chip>
-                        {/if}
-                        {#if hidden}
-                          <Chip size="xs" icon="eye-off">hidden</Chip>
-                        {/if}
-                      </AccountFlags>
-                    </td>
-                    <td class="actions">
-                      <GradientButton
-                        quiet
-                        square
-                        aria-label={open
-                          ? `Hide recent entries for ${row.displayName}`
-                          : `Show recent entries for ${row.displayName}`}
-                        aria-expanded={open}
-                        tooltip={open
-                          ? 'Close'
-                          : 'Recent entries and what is unfinished'}
-                        onclick={() => toggleRow(row.account.id)}
-                      >
-                        <Icon
-                          name={open
-                            ? 'chevron-up-filled'
-                            : 'chevron-down-line'}
-                          size={13}
-                        />
-                      </GradientButton>
-                      <GradientButton
-                        quiet
-                        square
-                        active={pinned}
-                        aria-label={pinned
-                          ? `Unpin ${row.displayName}`
-                          : `Pin ${row.displayName}`}
-                        tooltip={pinned
-                          ? 'Unpin from sidebar'
-                          : 'Pin to sidebar'}
-                        onclick={() => setPinned([row.account.id], !pinned)}
-                      >
-                        <Icon name="pin" size={13} />
-                      </GradientButton>
-                      <GradientButton
-                        quiet
-                        square
-                        active={hidden}
-                        disabled={guard !== null && !hidden}
-                        aria-label={hidden
-                          ? `Unhide ${row.displayName}`
-                          : `Hide ${row.displayName}`}
-                        tooltip={guard !== null && !hidden
-                          ? protectionMessage(guard)
-                          : hidden
-                            ? 'Unhide'
-                            : 'Hide'}
-                        onclick={() => setHidden([row.account.id], !hidden)}
-                      >
-                        <Icon name={hidden ? 'eye' : 'eye-off'} size={13} />
-                      </GradientButton>
+                        root={rootFor(row.surface, roots)}
+                        attention={attentionFor(row.account.id)}
+                        canImport
+                      />
                     </td>
                   </tr>
-                  {#if open}
-                    <!-- A second row rather than a nested table: a <td> cannot contain a
-                         row, and colspan is what keeps the drawer inside the grid. -->
-                    <tr class="drawer-row">
-                      <td colspan={converted ? 8 : 7}>
-                        <AccountDrawer
-                          match={{ kind: 'account', accountId: row.account.id }}
-                          path={row.account.path}
-                          accountId={row.account.id}
-                          root={rootFor(row.surface, roots)}
-                          attention={attentionFor(row.account.id)}
-                          canImport
-                        />
-                      </td>
-                    </tr>
-                  {/if}
-                {/each}
-              </tbody>
-            </table>
-          </SectionCard>
-        {/each}
+                {/if}
+              {/each}
+            {/if}
+          {/each}
+        </Sheet>
       {/if}
 
       <!-- Bulk actions curate in one gesture rather than six: pinning the Wise accounts one
@@ -1034,25 +1132,76 @@
     gap: var(--sp-md);
   }
 
-  /* --- Position row --- */
+  /* --- Position header --- *
+     Two states, one loudest element in each. Caught up, that is the Available figure, set
+     large and leading; with work outstanding it is the outstanding line, and all four
+     figures step down to the same secondary weight because every one of them is provisional
+     until the work is done. */
   .position {
+    display: flex;
+    flex-direction: column;
+    gap: var(--sp-sm);
+  }
+
+  .outstanding {
+    display: flex;
+    align-items: flex-start;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--sp-sm);
+    background: var(--color-warning-light);
+    border: 1px solid color-mix(in srgb, var(--color-warning) 35%, transparent);
+    border-radius: var(--radius-md);
+    color: var(--color-warning);
+  }
+
+  .outstanding-text {
+    margin: 0;
+    font-size: var(--text-sm);
+    line-height: 1.45;
+    text-wrap: pretty;
+  }
+
+  /* The action reads as the link it is, in the same ink as the sentence around it: this
+     band is already the loudest thing on the screen, and spending the accent inside it as
+     well would be spending it twice. */
+  .outstanding-action {
+    padding: 0;
+    background: none;
+    border: none;
+    font: inherit;
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+    cursor: pointer;
+  }
+
+  .outstanding-action:focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
+  }
+
+  .figures {
     display: grid;
     grid-template-columns: repeat(4, 1fr);
     gap: var(--sp-sm);
   }
 
-  @media (max-width: 700px) {
-    .position {
-      grid-template-columns: repeat(2, 1fr);
-    }
+  /* Caught up: the lead figure takes a column and a half and the other three share the
+     rest, which is what makes it read as the answer rather than as the first of four. */
+  .figures.stacked {
+    grid-template-columns: 1.6fr 1fr 1fr 1fr;
   }
 
-  :global(.card.position-card) {
+  .figure {
     display: flex;
     flex-direction: column;
     gap: 2px;
-    padding: var(--sp-sm) var(--sp-md);
     min-width: 0;
+    padding: var(--sp-sm) var(--sp-md);
+    background: var(--color-window);
+    border: 1px solid var(--color-rule);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--card-shadow);
   }
 
   .position-label {
@@ -1069,6 +1218,11 @@
     white-space: nowrap;
   }
 
+  .figure.lead .position-value {
+    font-size: var(--text-2xl);
+    line-height: 1.15;
+  }
+
   .position-value.negative {
     color: var(--color-amount-negative);
   }
@@ -1077,6 +1231,10 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     font-weight: var(--weight-normal);
+  }
+
+  .figure.lead .position-currency {
+    font-size: var(--text-sm);
   }
 
   .position-note {
@@ -1095,6 +1253,17 @@
     /* The line runs to two clauses when an account has no starting line, and a narrow tile
        breaks it. `pretty` keeps the last line from being a single orphaned word. */
     text-wrap: pretty;
+  }
+
+  .headline {
+    padding: var(--sp-sm) var(--sp-md);
+  }
+
+  @media (max-width: 900px) {
+    .figures,
+    .figures.stacked {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   /* --- Toolbar --- */
@@ -1117,6 +1286,19 @@
     gap: 4px;
   }
 
+  /* The checkbox shares the account cell rather than owning a column of its own, so it
+     costs nothing on the visits — most of them — that never enter select mode. */
+  .name-cell {
+    display: flex;
+    align-items: center;
+    gap: var(--sp-xs);
+    min-width: 0;
+  }
+
+  .name {
+    min-width: 0;
+  }
+
   .account-link {
     color: var(--color-text);
     text-decoration: none;
@@ -1131,32 +1313,23 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
   .stale {
     color: var(--color-amount-negative);
   }
 
-  /* --- Row expansion --- *
-     The drawer supplies its own padding and left rule, so the cell gets out of the way. */
-  tbody tr.drawer-row td {
-    padding: 0;
-  }
-
-  tbody tr.open td {
+  /* --- Row state --- *
+     `tbody` is not in this component's markup — it belongs to Sheet — so these selectors
+     start at the row, which is. */
+  tr.open td {
     background: var(--color-window-raised);
   }
 
-  /* --- Selection --- *
-     The rest of the table's column semantics (`.num`, `.actions`, `.muted`) come from
-     SectionCard, which is what keeps the two tabs looking like one page. */
-  th.pick,
-  td.pick {
-    width: 1%;
-    padding-right: 0;
-  }
-
-  tbody tr.selected td {
+  tr.selected td {
     background: var(--color-accent-chip-bg);
   }
 

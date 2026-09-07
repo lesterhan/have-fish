@@ -309,6 +309,11 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
 - **Cards are the surface primitive** — use `Card` for any grouped panel, with a
   `.section-header` div inside for titled sections (`--color-section-bar-*`). `Panel` is
   deleted.
+- **Tabular data is a `Sheet`** — one table, one `<colgroup>`, `table-layout: fixed`, and
+  groups as `SheetBand` rows inside it rather than tables of their own. A group that owns its
+  own table owns a column geometry too, and three groups then mean three geometries that look
+  like one. Widths come from `Sheet`'s exported `WIDTH` vocabulary so a column meaning the
+  same thing is the same width on every sheet. `SectionCard` is deleted.
 - **Lucida Grande at small sizes** — 13–14px base. Small and dense is correct.
 - **Font smoothing belongs to the platform** — the app sets no `-webkit-font-smoothing`.
   `none` was an XP-era leftover fighting the Aqua reference, and it is not coming back;
@@ -642,9 +647,11 @@ it fixed are struck; the rest are still open, with the story that owns each.
   why §5's aesthetic paragraph only ever describes the light one.~~ Fixed: both themes are now
   the same warm-graphite ramp read from opposite ends, and §5 describes one palette rather than
   the light one.
-- **Columns do not line up between account groups.** Each `SectionCard` renders its own
+- ~~**Columns do not line up between account groups.** Each `SectionCard` renders its own
   `<table>` at `width: 100%` with no fixed layout, so every group sizes columns from its own
-  content and Balance sits at a different x in Cash, Equity and Liabilities. → story 3.
+  content and Balance sits at a different x in Cash, Equity and Liabilities.~~ Fixed: both
+  tabs of the Accounts route are one `Sheet` with the widths declared once, and `SectionCard`
+  is gone.
 - **The accent is doing chart duty.** `SpendingBreakdown` fills every block bar with
   `--color-accent`, so the token that should mark the one live thing marks nine categories at
   once — and changes colour per user. → story 5. `--color-bar-ink` exists and is asserted; no
