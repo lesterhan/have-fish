@@ -344,11 +344,19 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
 - **Section bars are bands, not slabs** — one rung off the surface they head, carrying
   ordinary ink. A header rendered as a dark gradient with reversed-out text is the loudest
   thing on the page and never the thing you came to read.
-- **Magnitude marks are ink, not accent** — bars, blocks and sparklines take
-  `--color-bar-ink`; `--color-incomplete` marks a magnitude known to be partial. The accent
+- **Magnitude marks are ink, not accent, and they live in a trough** — bars, blocks and
+  sparklines take `--color-bar-ink` over `--color-window-inset`; `--color-incomplete` marks a
+  magnitude known to be partial; the unfilled remainder takes `--color-rule` and is
+  deliberately *below* 3:1, because it is the extent of the axis rather than a figure. One
+  ground for every chart, because a token tuned against one trough is not legible against
+  another: `--color-incomplete` measures 3.6:1 in the trough and 2.4:1 on a panel. The accent
   means "the one live thing on this screen", so it can mark the row you drilled into and
   nothing else. A chart filled with the accent spends it on nine things at once and it stops
   meaning anything.
+- **A figure the app knows is partial says so** — an incompletely recorded month draws its
+  bars in `--color-incomplete` and its totals with a `≥`, and a comparison across a period
+  that is not fully recorded is not drawn at all: the slot says which month is missing
+  (`comparisonBlocker`). A number that looks final and is not is worse than no number.
 
 ### The ladder
 
@@ -664,10 +672,12 @@ it fixed are struck; the rest are still open, with the story that owns each.
   content and Balance sits at a different x in Cash, Equity and Liabilities.~~ Fixed: both
   tabs of the Accounts route are one `Sheet` with the widths declared once, and `SectionCard`
   is gone.
-- **The accent is doing chart duty.** `SpendingBreakdown` fills every block bar with
+- ~~**The accent is doing chart duty.** `SpendingBreakdown` fills every block bar with
   `--color-accent`, so the token that should mark the one live thing marks nine categories at
-  once — and changes colour per user. → story 5. `--color-bar-ink` exists and is asserted; no
-  chart reads it yet.
+  once — and changes colour per user.~~ Fixed: bars are `--color-bar-ink` in a trough, and the
+  accent marks the drilled row and the active currency tab and nothing else. The same pass
+  took it off the category names, the spending payees and the transactions-list descriptions,
+  which were all wearing it on every row.
 - ~~**`CurrencyPill` has a light-only colour map.** Thirty-three currencies with hand-picked
   pale backgrounds and dark text, applied as an inline style that overrides the component's own
   token fallback. Every money row in the app carries one, so in dark theme they are pale

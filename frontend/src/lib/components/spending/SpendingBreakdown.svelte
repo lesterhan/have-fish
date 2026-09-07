@@ -10,10 +10,23 @@
     }[]
     currency: string
     activePath?: string | null
+    /**
+     * The month these figures cover is not fully recorded, so every bar is a floor rather
+     * than a length. The bars say so instead of being drawn as if they were final — a
+     * magnitude the app knows is partial and draws like a complete one is the same lie as
+     * an aggregate that hides its as-of (DESIGN.md §8).
+     */
+    incomplete?: boolean
     onclick: (category: string, childCount: number) => void
   }
 
-  let { categories, currency, activePath = null, onclick }: Props = $props()
+  let {
+    categories,
+    currency,
+    activePath = null,
+    incomplete = false,
+    onclick,
+  }: Props = $props()
 
   const MAX_CELLS = 22
   const DASHES = '─'.repeat(MAX_CELLS)
@@ -35,10 +48,19 @@
     return Math.max(...sorted.map((c) => Math.abs(c.amount)))
   })
 
-  function bar(amount: number): string {
-    if (maxAbs === 0) return '░'.repeat(MAX_CELLS)
-    const filled = Math.round((Math.abs(amount) / maxAbs) * MAX_CELLS)
-    return '█'.repeat(filled) + '░'.repeat(MAX_CELLS - filled)
+  /**
+   * Two marks, not one string: the filled length carries the figure and the remainder is
+   * only the extent of the axis, so they cannot be the same colour. They used to be — both
+   * were `--color-accent`, which meant the token that marks the one live thing on a screen
+   * was filling nine category bars at once, in a colour the user picks.
+   */
+  function bar(amount: number): { filled: string; rest: string } {
+    const cells =
+      maxAbs === 0 ? 0 : Math.round((Math.abs(amount) / maxAbs) * MAX_CELLS)
+    return {
+      filled: '█'.repeat(cells),
+      rest: '░'.repeat(MAX_CELLS - cells),
+    }
   }
 
   function fmtAmount(n: number): string {
@@ -61,6 +83,7 @@
     <!-- Data rows -->
     {#each sorted as cat}
       {@const pct = maxAbs > 0 ? (Math.abs(cat.amount) / maxAbs) * 100 : 0}
+      {@const cells = bar(cat.amount)}
       <button
         class="row data-row drillable"
         class:active={cat.category === activePath}
@@ -73,7 +96,13 @@
         >
           {shortName(cat.category)}
         </span>
-        <span class="col-bar block-bar">{bar(cat.amount)}</span>
+        <span class="col-bar block-bar">
+          <span class="bar-track"
+            ><span class="bar-fill" class:incomplete>{cells.filled}</span><span
+              class="bar-rest">{cells.rest}</span
+            ></span
+          >
+        </span>
         <span class="col-amt amt-cell">
           <span class="amt-currency">{currency}</span>{fmtAmount(cat.amount)}
         </span>
@@ -151,16 +180,52 @@
     font-size: var(--text-xs);
   }
 
+  /* Ordinary ink. A category name is the row's content, not a link out of it, and nine
+     accent-coloured names is the accent marking everything. */
   .cat-name.drillable {
-    color: var(--color-accent);
+    color: var(--color-text);
   }
 
   .col-bar {
     overflow: hidden;
     white-space: nowrap;
     font-size: 11px;
-    color: var(--color-accent);
     letter-spacing: -1px;
+  }
+
+  /* --- The bar --- *
+     A magnitude mark is legible against the trough it is drawn in, and the trough is
+     `--color-window-inset` — the same ground the coverage strip's marks sit on, so the app
+     has one contract for magnitude rather than one per chart. `tokens.test.ts` holds it.
+
+     The track wraps the glyphs rather than the grid cell: a trough that runs to the end of a
+     `1fr` column is a well the bar sits at one end of, which reads as a second, much longer
+     bar that every category happens to fill completely. */
+  .bar-track {
+    display: inline-block;
+    background: var(--color-window-inset);
+    box-shadow: var(--shadow-inset);
+    border-radius: var(--radius-sm);
+    padding: 0 3px;
+  }
+
+  .bar-fill {
+    color: var(--color-bar-ink);
+  }
+
+  /* The unfilled remainder is deliberately below the 3:1 floor: it is the extent of the
+     axis, not a figure. Raising it to meet the fill would draw a second bar. */
+  .bar-rest {
+    color: var(--color-rule);
+  }
+
+  /* The one live thing on the screen — the row you drilled into, and nothing else. */
+  .data-row.active .bar-fill {
+    color: var(--color-accent);
+  }
+
+  .bar-fill.incomplete {
+    color: var(--color-incomplete);
   }
 
   .total-dashes {
