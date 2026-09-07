@@ -20,6 +20,8 @@
   import { onMount } from 'svelte'
   import FilterPanel from '$lib/components/transactions/FilterPanel.svelte'
   import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
+  import DayBand from '$lib/components/transactions/DayBand.svelte'
+  import { groupByDay } from '$lib/components/transactions/ledger'
   import TransactionRowSkeleton from '$lib/components/transactions/TransactionRowSkeleton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
@@ -114,6 +116,17 @@
       const cmp = a.date < b.date ? -1 : a.date > b.date ? 1 : 0
       return sortDir === 'desc' ? -cmp : cmp
     }),
+  )
+
+  // Runs of one date, each carrying what that day did to your money. On this list the
+  // subject is the own-money side of each row — summing every posting would always be zero,
+  // because a ledger balances.
+  let days = $derived(
+    groupByDay(
+      sortedTransactions,
+      (accountId) =>
+        accounts.find((a) => a.id === accountId)?.resolvedType ?? null,
+    ),
   )
 
   function navigate(params: Record<string, string>) {
@@ -264,17 +277,24 @@
     {:else if sortedTransactions.length === 0}
       <p class="empty">No transactions in this period.</p>
     {:else}
-      {#each sortedTransactions as tx (tx.id)}
-        <TransactionRow
-          {tx}
-          {accounts}
-          {defaultOffsetAccountId}
-          {defaultConversionAccountId}
-          selectable={selectMode}
-          selected={selectedIds.has(tx.id)}
-          ontoggleselect={toggleSelect}
-          onselect={(t) => (selectedTx = t)}
+      {#each days as day (day.date)}
+        <DayBand
+          date={day.date}
+          count={day.transactions.length}
+          net={day.net}
         />
+        {#each day.transactions as tx (tx.id)}
+          <TransactionRow
+            {tx}
+            {accounts}
+            {defaultOffsetAccountId}
+            {defaultConversionAccountId}
+            selectable={selectMode}
+            selected={selectedIds.has(tx.id)}
+            ontoggleselect={toggleSelect}
+            onselect={(t) => (selectedTx = t)}
+          />
+        {/each}
       {/each}
     {/if}
   </div>

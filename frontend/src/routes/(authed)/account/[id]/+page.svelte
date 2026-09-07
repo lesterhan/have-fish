@@ -26,6 +26,8 @@
   import FilterPanel from '$lib/components/transactions/FilterPanel.svelte'
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
   import AccountTransactionRow from '$lib/components/transactions/AccountTransactionRow.svelte'
+  import DayBand from '$lib/components/transactions/DayBand.svelte'
+  import { groupByDay } from '$lib/components/transactions/ledger'
   import AccountTransactionRowSkeleton from '$lib/components/transactions/AccountTransactionRowSkeleton.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountSettingsModal from '$lib/components/accounts/AccountSettingsModal.svelte'
@@ -288,6 +290,17 @@
       : sortedTransactions,
   )
 
+  // Runs of one date, each carrying what that day did to this account. The date used to be
+  // a column repeated on every row — five identical dates down the left of a busy Saturday.
+  let days = $derived(
+    groupByDay(
+      displayedTransactions,
+      (accountId) =>
+        accounts.find((a) => a.id === accountId)?.resolvedType ?? null,
+      id,
+    ),
+  )
+
   async function toggleActionRequired() {
     if (actionRequiredIds === null) {
       const result = await fetchActionRequired(id)
@@ -478,7 +491,6 @@
     </div>
 
     <div class="tx-col-header">
-      <span>DATE</span>
       <span>DESCRIPTION</span>
       <span class="col-account">ACCOUNT</span>
       <span class="col-amount">AMOUNT</span>
@@ -498,28 +510,34 @@
             : 'No transactions in this period.'}
         </p>
       {:else}
-        {#each displayedTransactions as tx, i (tx.id)}
-          {#if malformedIds.has(tx.id)}
-            <button class="repair-strip" onclick={() => (repairOpen = true)}>
-              <span class="repair-strip-icon">⚠</span>
-              <span
-                >Imported incorrectly — cross-currency spend needs repair.</span
-              >
-              <span class="repair-strip-cta">Repair</span>
-            </button>
-          {/if}
-          <AccountTransactionRow
-            {tx}
-            idx={i}
-            {accounts}
-            {defaultOffsetAccountId}
-            {defaultConversionAccountId}
-            currentAccountId={id}
-            {convertFx}
-            {preferredCurrency}
-            {fxRateMap}
-            onselect={(t) => (selectedTx = t)}
+        {#each days as day (day.date)}
+          <DayBand
+            date={day.date}
+            count={day.transactions.length}
+            net={day.net}
           />
+          {#each day.transactions as tx (tx.id)}
+            {#if malformedIds.has(tx.id)}
+              <button class="repair-strip" onclick={() => (repairOpen = true)}>
+                <span class="repair-strip-icon">⚠</span>
+                <span
+                  >Imported incorrectly — cross-currency spend needs repair.</span
+                >
+                <span class="repair-strip-cta">Repair</span>
+              </button>
+            {/if}
+            <AccountTransactionRow
+              {tx}
+              {accounts}
+              {defaultOffsetAccountId}
+              {defaultConversionAccountId}
+              currentAccountId={id}
+              {convertFx}
+              {preferredCurrency}
+              {fxRateMap}
+              onselect={(t) => (selectedTx = t)}
+            />
+          {/each}
         {/each}
       {/if}
     </div>
@@ -643,7 +661,7 @@
      "Transactions · N entries" bar is gone — the count moved into the toolbar, next to
      the filter that produces it, and two bands became one. */
   .tx-col-header {
-    --tx-cols: 5.5rem 1fr 1.5fr 8rem;
+    --tx-cols: 1fr 1.5fr 8rem;
     display: grid;
     grid-template-columns: var(--tx-cols);
     align-items: center;
@@ -668,11 +686,11 @@
 
   /* Scrollable body — passes --tx-cols to child rows */
   .tx-body {
-    --tx-cols: 5.5rem 1fr 1.5fr 8rem;
+    --tx-cols: 1fr 1.5fr 8rem;
     flex: 1;
     min-height: 0;
     overflow-y: auto;
-    background: var(--color-window-raised);
+    background: var(--color-window);
   }
 
   .empty {
@@ -695,7 +713,7 @@
 
     .tx-col-header,
     .tx-body {
-      --tx-cols: auto 1fr auto;
+      --tx-cols: 1fr auto;
     }
 
     .tx-col-header .col-account {

@@ -1,12 +1,13 @@
 import type { StoredAccountType } from '$lib/api'
 
 /**
- * Which colour an amount carries in the account-page ledger.
+ * Which colour an amount carries in a ledger.
  *
- * The account page colours amounts *by exception* rather than by sign. On a credit card
- * every row is an expense, so the usual negative-is-red convention paints the whole column
- * red and stops carrying information. Expenses are the default here and take the ordinary
- * text colour; only money coming back is tinted.
+ * A ledger colours amounts *by exception* rather than by sign. On a credit card every row
+ * is an expense, so the usual negative-is-red convention paints the whole column red and
+ * stops carrying information — twenty-two red numbers read as twenty-two errors rather than
+ * as ordinary spending. Expenses are the default here and take the ordinary text colour;
+ * only money coming back is tinted. Colour marks the minority sign (DESIGN.md §5).
  *
  * The decision keys off the **counterpart's** type rather than the row's `isTransfer`
  * flag. `isTransfer` asks whether the destination posting is an expense account, and on an
@@ -23,12 +24,16 @@ import type { StoredAccountType } from '$lib/api'
  *    between your own accounts is not a gain and must never read as green.
  *  - `neutral` — everything else, including an ordinary spend and an unparseable amount.
  *
- * Scoped to `AccountTransactionRow`. The transactions list and the spending page keep the
- * signed convention documented in CLAUDE.md.
+ * This is the primitive. `ledger.ts` resolves which posting to ask about on each surface —
+ * the account you are viewing, or the own-money side of a row on the global list — so both
+ * ledgers apply one rule rather than two. The spending page keeps the signed convention
+ * documented in CLAUDE.md: there every figure is a spend by construction, so there is no
+ * minority sign for colour to mark.
  */
 export type AmountTone = 'positive' | 'transfer' | 'neutral'
 
-const OWN_MONEY: ReadonlySet<string> = new Set([
+/** Account types that hold your own money, as opposed to describing where it went. */
+export const OWN_MONEY: ReadonlySet<string> = new Set([
   'asset',
   'liability',
   'equity',
