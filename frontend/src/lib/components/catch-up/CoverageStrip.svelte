@@ -94,7 +94,12 @@
 
   /* The trough belongs to the whole band, not to each cell. Per-cell shadows turned a run of
      covered days into stripes, which read as ninety separate things rather than as one
-     stretch that is done — the shape of coverage is the entire point of the picture. */
+     stretch that is done — the shape of coverage is the entire point of the picture.
+
+     `--color-window-inset` is the ground *every* magnitude mark in the app is measured
+     against, not just this one: the spending page's block bars sit in the same trough for
+     the same reason, and `tokens.test.ts` states the contract once for both. This strip is
+     where that rule was first worked out; it is no longer the only place it applies. */
   .strip {
     background: var(--color-window-inset);
     border-radius: var(--radius-sm);

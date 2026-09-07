@@ -359,30 +359,59 @@ describe('ink sits on the same rung in both themes', () => {
 })
 
 describe('magnitude marks are ink, not accent', () => {
-  // A bar, block or sparkline is drawn in the trough a rule would divide, so that is what it
-  // has to be legible against — and it has to be legible without the accent, which means "the
-  // one live thing on this screen" and cannot also be the fill for nine category bars at once.
+  /**
+   * One contract for every magnitude mark in the app, not one per chart.
+   *
+   * A mark that carries a figure is drawn *in a trough*, and the trough is
+   * `--color-window-inset`. The coverage strip already worked that way; the spending page's
+   * block bars were moved onto the same ground rather than being given a second rule of
+   * their own. That matters because the two would otherwise drift: `--color-incomplete` was
+   * tuned against the strip's trough and measures 2.44:1 against the panel surface, so a bar
+   * drawn straight onto a panel would have shipped an illegible partial-magnitude mark while
+   * passing a test written about a different background.
+   *
+   * And the mark cannot be the accent. The accent means "the one live thing on this screen";
+   * it cannot also be the fill for nine category bars at once, in a colour the user picks.
+   */
+  const TROUGH = '--color-window-inset'
+
   for (const [name, theme] of Object.entries(THEMES)) {
-    it(`${name}: --color-bar-ink reads against the rule it is drawn over`, () => {
-      const ratio = contrastRatio(
-        token(theme, '--color-bar-ink'),
-        token(theme, '--color-rule'),
-      )
-      expect(ratio).toBeGreaterThanOrEqual(MIN_RATIO)
+    it(`${name}: --color-bar-ink reads against the trough it is drawn in`, () => {
+      expect(
+        contrastRatio(token(theme, '--color-bar-ink'), token(theme, TROUGH)),
+      ).toBeGreaterThanOrEqual(MIN_RATIO)
     })
 
     it(`${name}: --color-incomplete is quieter than a complete mark but still a mark`, () => {
       const incomplete = contrastRatio(
         token(theme, '--color-incomplete'),
-        token(theme, '--color-window-inset'),
+        token(theme, TROUGH),
       )
       const complete = contrastRatio(
         token(theme, '--color-bar-ink'),
-        token(theme, '--color-window-inset'),
+        token(theme, TROUGH),
       )
 
       expect(incomplete).toBeGreaterThanOrEqual(MIN_RATIO)
       expect(incomplete).toBeLessThan(complete)
+    })
+
+    it(`${name}: the unfilled remainder stays below the floor, on purpose`, () => {
+      // The empty part of a bar is the extent of the axis, not a figure. WCAG 1.4.11 asks
+      // 3:1 of graphical objects you need to see to understand the content, and a bar is
+      // read from its filled length. Asserting the ceiling rather than a floor is what stops
+      // someone helpfully raising it later and drawing a second bar.
+      expect(
+        contrastRatio(token(theme, '--color-rule'), token(theme, TROUGH)),
+      ).toBeLessThan(MIN_RATIO)
+
+      // It still has to be distinguishable from the fill, or the bar has no end.
+      expect(
+        contrastRatio(
+          token(theme, '--color-bar-ink'),
+          token(theme, '--color-rule'),
+        ),
+      ).toBeGreaterThanOrEqual(MIN_RATIO)
     })
   }
 })

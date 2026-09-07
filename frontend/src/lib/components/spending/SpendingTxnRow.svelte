@@ -150,17 +150,25 @@
     min-width: 0;
   }
 
+  /* Ordinary ink, with clickability arriving on hover — the same treatment both ledgers
+     use. A panel of eighty accent-coloured payees is the accent marking everything. */
   .payee {
     font-family: var(--font-serif);
     font-size: 13px;
     font-weight: 400;
-    color: var(--color-accent);
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 2px;
+    color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: text-decoration-color var(--duration-fast) var(--ease);
+  }
+
+  .row:hover .payee,
+  .row:focus-visible .payee {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: var(--color-accent);
+    text-underline-offset: 2px;
   }
 
   .account-path {
@@ -194,9 +202,11 @@
     color: var(--color-text);
   }
 
+  /* A converted figure is a derived reading of the line above it, not a live thing —
+     muted rather than accented. */
   .converted-line {
     font-family: var(--font-mono);
     font-size: 10px;
-    color: var(--color-accent);
+    color: var(--color-text-muted);
   }
 </style>

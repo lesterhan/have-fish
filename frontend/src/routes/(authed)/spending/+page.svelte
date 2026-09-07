@@ -575,9 +575,9 @@
               {/if}
             {/each}
           </nav>
-        </div>
-        {#if currencies.length > 1}
-          <div class="currency-tabs-row">
+          <!-- On the band rather than in a strip below it: two stacked bars for one panel
+               header is two structures where the page has one thing to say. -->
+          {#if currencies.length > 1}
             <div class="currency-tabs" role="tablist" aria-label="Currency">
               {#each currencies as c}
                 <button
@@ -589,13 +589,14 @@
                 >
               {/each}
             </div>
-          </div>
-        {/if}
+          {/if}
+        </div>
         <div class="panel-body">
           <SpendingBreakdown
             categories={summary.categories}
             {currency}
             activePath={drillPath}
+            incomplete={totalIsFloor}
             onclick={drill}
           />
         </div>
@@ -1131,61 +1132,42 @@
     opacity: 1;
   }
 
-  /* Currency tabs */
-  .currency-tabs-row {
+  /* --- Currency tabs --- *
+     On the band now, so they read as a control belonging to the panel header rather than as
+     a second header. That also lets them drop the folder-tab chrome: a raised tab needs a
+     surface to be raised from, and on a band there is nothing to lift off. */
+  .currency-tabs {
     display: flex;
     gap: 2px;
-    padding: 8px 14px 0;
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-window);
+    margin-left: auto;
     flex-shrink: 0;
   }
 
-  .currency-tabs {
-    display: contents;
-  }
-
   .currency-tab {
-    padding: 5px 16px;
+    padding: 1px 8px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: 0.5px;
-    border: 1px solid var(--color-rule);
-    border-radius: 4px 4px 0 0;
-    cursor: pointer;
-    position: relative;
-    margin-bottom: -1px;
-    background: linear-gradient(
-      180deg,
-      var(--color-rule-soft),
-      var(--color-rule)
-    );
+    border: 1px solid transparent;
+    border-radius: var(--radius-sm);
+    background: none;
     color: var(--color-text-muted);
-    z-index: 1;
+    cursor: pointer;
     transition:
       background var(--duration-fast) var(--ease),
       color var(--duration-fast) var(--ease);
   }
 
   .currency-tab:hover:not(.active) {
-    background: linear-gradient(
-      180deg,
-      var(--color-btn-gradient-hi),
-      var(--color-rule-soft)
-    );
-    color: var(--color-text);
+    color: var(--color-section-bar-fg);
   }
 
+  /* The accent, once: which currency you are reading is the live choice on this panel. */
   .currency-tab.active {
-    background: linear-gradient(
-      180deg,
-      var(--color-btn-gradient-hi),
-      var(--color-rule-soft)
-    );
-    border-bottom-color: var(--color-window);
-    color: var(--color-text);
-    z-index: 2;
+    background: var(--color-accent-chip-bg);
+    border-color: color-mix(in srgb, var(--color-accent) 40%, transparent);
+    color: var(--color-accent-chip-fg);
   }
 
   .panel-body {
