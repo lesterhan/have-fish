@@ -3,12 +3,8 @@
   import { type Account, type Transaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { isUnderRoot } from '$lib/components/accounts/accountPaths'
-  import {
-    parseDateParts,
-    summarize,
-    classifyTransfer,
-    fmt,
-  } from './transactionUtils'
+  import { summarize, classifyTransfer, fmt } from './transactionUtils'
+  import { ledgerTone } from './ledger'
 
   interface Props {
     tx: Transaction
@@ -41,7 +37,15 @@
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
   )
 
-  let dateParts = $derived(parseDateParts(tx.date))
+  // The sign rule, from the same helper the account page uses. This list is nearly all
+  // spending, so an ordinary spend is the default and takes plain ink; colour marks the row
+  // you were actually looking for (DESIGN.md §5). Until now the rule lived only on the
+  // account page and this list showed every figure the same.
+  let typeOf = $derived(
+    (id: string) => accounts.find((a) => a.id === id)?.resolvedType ?? null,
+  )
+
+  let tone = $derived(ledgerTone(tx.postings, typeOf))
 
   // A cross-currency transfer has postings in more than one currency.
   let isCrossCurrency = $derived(
@@ -112,11 +116,6 @@
       <span class="checkbox" class:checked={selected}></span>
     </div>
   {/if}
-
-  <div class="date">
-    <span class="date-meta">{dateParts.year} {dateParts.dow}</span>
-    <span class="date-main">{dateParts.monthDay}</span>
-  </div>
 
   <div class="body">
     <!-- Description -->
@@ -241,6 +240,8 @@
         amount={fmt(from.amount)}
         currency={to.currency}
         {flowDirection}
+        {tone}
+        inline
       />
     {:else}
       <MoneyDisplay amount={fmt(from.amount)} currency={from.currency} />
@@ -251,22 +252,21 @@
 </div>
 
 <style>
+  /* One surface, ruled. The alternating fill that used to separate rows is gone: with a day
+     band above every run, the striping was a second structure saying something the first one
+     already said, and it made a quiet list look busier than the day it described. */
   .row {
     display: grid;
-    grid-template-columns: auto 1fr auto;
+    grid-template-columns: 1fr auto;
     grid-template-rows: auto;
     align-items: start;
     gap: var(--sp-xs);
     padding: 7px 14px;
-    border-bottom: 1px solid var(--color-rule);
-    background: var(--color-window-raised);
+    border-bottom: 1px solid var(--color-rule-soft);
+    background: var(--color-window);
     cursor: pointer;
     text-align: left;
     transition: background var(--duration-fast) var(--ease);
-  }
-
-  .row:nth-child(even) {
-    background: var(--color-window);
   }
 
   .row:hover {
@@ -279,7 +279,7 @@
   }
 
   .row.selectable {
-    grid-template-columns: auto auto 1fr;
+    grid-template-columns: auto 1fr auto;
   }
 
   .row.selected {
@@ -328,32 +328,16 @@
     border-bottom: none;
   }
 
-  .date {
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 2px;
-    font-family: var(--font-mono);
-    flex-shrink: 0;
-  }
-
-  .date-meta {
-    font-size: 9px;
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .date-main {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--color-text);
-  }
-
+  /* One line. With the date column lifted into the day band there is room for the
+     description and the accounts to sit side by side, and a two-line row in a list this
+     dense was mostly the whitespace the date used to occupy. The account page already read
+     this way; this is the list catching up to it. */
   .body {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    flex-direction: row;
+    align-items: baseline;
+    flex-wrap: wrap;
+    gap: var(--sp-xs) var(--sp-sm);
     min-width: 0;
   }
 
@@ -368,16 +352,27 @@
     align-self: flex-start;
   }
 
+  /* Primary ink, not accent. Thirty-one accent-coloured descriptions down a list is the
+     accent marking everything, which is the accent marking nothing (DESIGN.md §5) — and the
+     description is the row's own content, not a link out of it. */
   .description {
     font-family: var(--font-serif);
     font-size: 13px;
-    color: var(--color-accent);
-    text-decoration: underline;
-    text-decoration-style: dotted;
-    text-underline-offset: 2px;
+    color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+    transition: text-decoration-color var(--duration-fast) var(--ease);
+  }
+
+  /* Clickability arrives on hover rather than sitting on every row at rest — the same
+     treatment the account-page ledger already used. */
+  .row:hover .description,
+  .row:focus-visible .description {
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-decoration-color: var(--color-accent);
+    text-underline-offset: 2px;
   }
 
   .summary-line {
@@ -445,41 +440,29 @@
   }
 
   @media (max-width: 520px) {
+    /* The date is not in this picture any more — the day band above the run carries it once
+       for the whole day, which is most of what narrow screens were short of. */
     .row {
-      grid-template-columns: auto 1fr;
+      grid-template-columns: 1fr auto;
       grid-template-rows: auto auto;
       grid-template-areas:
-        'date money'
-        'body body';
-      border-bottom: 2px solid var(--color-border);
+        'body money'
+        'body money';
+      border-bottom: 1px solid var(--color-rule);
       padding: var(--sp-xs) var(--sp-sm);
       gap: var(--sp-xs);
     }
 
     .row.selectable {
-      grid-template-columns: auto auto 1fr;
+      grid-template-columns: auto 1fr auto;
       grid-template-areas:
-        'sel date money'
-        'sel body body';
+        'sel body money'
+        'sel body money';
     }
 
     .select-col {
       grid-area: sel;
       align-self: center;
-    }
-
-    .date {
-      grid-area: date;
-      flex-direction: row;
-      align-items: baseline;
-      gap: var(--sp-xs);
-    }
-
-    .date-main {
-      font-size: var(--text-sm);
-    }
-    .date-meta {
-      font-size: var(--text-xs);
     }
 
     .body {

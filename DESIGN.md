@@ -309,6 +309,11 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
 - **Cards are the surface primitive** — use `Card` for any grouped panel, with a
   `.section-header` div inside for titled sections (`--color-section-bar-*`). `Panel` is
   deleted.
+- **A ledger is day bands over one-line rows** — `DayBand` carries the date once for the
+  run beneath it and the day's net; the rows carry no date at all. A date column repeats
+  itself five times down a busy Saturday and tells you nothing the line above didn't. The
+  band is also what lets the zebra striping go: an alternating fill was a second structure
+  saying what the first one already said.
 - **Tabular data is a `Sheet`** — one table, one `<colgroup>`, `table-layout: fixed`, and
   groups as `SheetBand` rows inside it rather than tables of their own. A group that owns its
   own table owns a column geometry too, and three groups then mean three geometries that look
@@ -403,6 +408,13 @@ as ordinary spending. So in any list where one sign dominates, the dominant sign
 `--color-text` and the minus carries it, and colour is spent on the minority sign — the row you
 were actually looking for. A liability *balance* is likewise not an error and does not take
 `--color-amount-negative` on that ground alone.
+
+Both ledgers resolve this through `$lib/components/transactions/ledger.ts` and pass the answer
+to `MoneyDisplay` as `tone`, rather than each page expressing it in its own stylesheet. The
+rule needs to know which posting the row is *about* — the account you are viewing, or the
+own-money side of a row on the global list — and that question has one answer, so it has one
+implementation. It applies to a day band's net for the same reason it applies to a row: over a
+month of bands most days net negative.
 
 The two amount colours are also held to the same loudness as each other in each theme. Before
 the ladder, a loss in dark mode measured 3.05:1 against a gain's 6.13:1: the number you most

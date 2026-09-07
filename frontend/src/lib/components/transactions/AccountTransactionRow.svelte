@@ -5,17 +5,11 @@
   import { isUnderRoot } from '$lib/components/accounts/accountPaths'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
-  import {
-    parseDateParts,
-    summarize,
-    classifyTransfer,
-    fmt,
-  } from './transactionUtils'
-  import { amountTone } from './amountTone'
+  import { summarize, classifyTransfer, fmt } from './transactionUtils'
+  import { ledgerTone } from './ledger'
 
   interface Props {
     tx: Transaction
-    idx: number
     accounts: Account[]
     currentAccountId: string
     defaultOffsetAccountId?: string | null
@@ -28,7 +22,6 @@
 
   let {
     tx,
-    idx,
     accounts,
     currentAccountId,
     defaultOffsetAccountId,
@@ -44,8 +37,6 @@
   let accountPaths = $derived(
     Object.fromEntries(accounts.map((a) => [a.id, a.path])),
   )
-
-  let dateParts = $derived(parseDateParts(tx.date))
 
   // --- Transaction classification ---
   let isCrossCurrency = $derived(
@@ -89,19 +80,14 @@
     tx.postings.find((p) => p.accountId === currentAccountId),
   )
 
-  // Amount colour is by exception on this page — see amountTone. The decision needs the
-  // counterpart's type, not the row's isTransfer flag: on an asset or liability page the
-  // destination of every money-in row is the account you are looking at, so isTransfer
-  // reports refunds as transfers and the tint would never fire.
-  let counterpartType = $derived.by(() => {
-    const other = tx.postings.find((p) => p.accountId !== currentAccountId)
-    if (!other) return null
-    return accounts.find((a) => a.id === other.accountId)?.resolvedType ?? null
-  })
-
-  let tone = $derived(
-    amountTone(currentPosting?.amount ?? '0', counterpartType),
+  // Amount colour is by exception here — see `ledger.ts`. Which posting to ask about and
+  // what its sign means are both the helper's business now, so this page and the global
+  // transactions list reach the same answer for the same row.
+  let typeOf = $derived(
+    (id: string) => accounts.find((a) => a.id === id)?.resolvedType ?? null,
   )
+
+  let tone = $derived(ledgerTone(tx.postings, typeOf, currentAccountId))
 
   // MoneyDisplay's flow classes paint --color-transfer-* directly, which would outrank the
   // cell's tone and turn every refund teal. Only a genuine transfer gets a flow direction
@@ -133,7 +119,6 @@
 <div
   class="row"
   class:transfer={isTransfer}
-  class:odd={idx % 2 !== 0}
   role="button"
   tabindex="0"
   onclick={() => onselect?.(tx)}
@@ -144,12 +129,6 @@
     }
   }}
 >
-  <!-- Date -->
-  <div class="date">
-    <span class="date-meta">{dateParts.year} {dateParts.dow}</span>
-    <span class="date-main">{dateParts.monthDay}</span>
-  </div>
-
   <!-- Description -->
   <div class="desc-cell">
     <span class="description">{tx.description || '—'}</span>
@@ -234,7 +213,7 @@
   </div>
 
   <!-- Amount -->
-  <div class="amount-cell tone-{tone}">
+  <div class="amount-cell">
     {#if isCrossCurrency}
       <div class="transfer-amounts">
         <MoneyDisplay
@@ -314,6 +293,7 @@
           amount={fmt(currentPosting.amount)}
           currency={currentPosting.currency}
           flowDirection={amountFlow}
+          {tone}
           inline
           emphasis
         />
@@ -323,21 +303,20 @@
 </div>
 
 <style>
+  /* One surface, ruled. The alternating fill that used to separate rows is gone: with a day
+     band above every run, the striping was a second structure saying something the first one
+     already said, and it made a quiet list look busier than the day it described. */
   .row {
     display: grid;
     grid-template-columns: var(--tx-cols);
     align-items: center;
     gap: var(--sp-xs);
     padding: 7px 14px;
-    background: var(--color-window-raised);
-    border-bottom: 1px solid var(--color-rule);
+    background: var(--color-window);
+    border-bottom: 1px solid var(--color-rule-soft);
     cursor: pointer;
     text-align: left;
     transition: background var(--duration-fast) var(--ease);
-  }
-
-  .row.odd {
-    background: var(--color-window);
   }
 
   .row:hover {
@@ -351,28 +330,6 @@
 
   .row:last-child {
     border-bottom: none;
-  }
-
-  /* --- Date --- */
-  .date {
-    display: flex;
-    flex-direction: column;
-    gap: 2px;
-    font-family: var(--font-mono);
-    flex-shrink: 0;
-  }
-
-  .date-meta {
-    font-size: 9px;
-    color: var(--color-text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
-  }
-
-  .date-main {
-    font-size: 10px;
-    font-weight: 700;
-    color: var(--color-text);
   }
 
   /* --- Description --- */
@@ -470,13 +427,6 @@
     color: var(--color-text);
   }
 
-  /* Colour by exception: only money coming back is tinted. Expenses are the default on
-     this page, and defaults do not need a colour. `.tone-transfer` and `.tone-neutral`
-     deliberately set nothing — transfers are coloured by MoneyDisplay's flow classes. */
-  .amount-cell.tone-positive {
-    color: var(--color-amount-positive);
-  }
-
   .transfer-amounts {
     display: flex;
     flex-direction: column;
@@ -568,32 +518,20 @@
     gap: 4px;
   }
 
-  /* Mobile: stack desc and account below the date/amount row */
+  /* Mobile: description and account stack under the amount. The date is not in this
+     picture any more — the day band above the run carries it once for the whole day. */
   @media (max-width: 520px) {
     .row {
-      grid-template-columns: auto 1fr auto;
-      grid-template-rows: auto auto auto;
+      grid-template-columns: 1fr auto;
+      grid-template-rows: auto auto;
       grid-template-areas:
-        'date   .       amount'
-        'desc   desc    desc'
-        'acct   acct    acct';
+        'desc   amount'
+        'acct   acct';
       min-height: unset;
       padding: var(--sp-xs) var(--sp-sm) 0;
-      border-bottom: 2px solid var(--color-border);
+      border-bottom: 1px solid var(--color-rule);
     }
 
-    .date {
-      grid-area: date;
-      flex-direction: row;
-      align-items: baseline;
-      gap: var(--sp-xs);
-    }
-    .date-main {
-      font-size: var(--text-sm);
-    }
-    .date-meta {
-      font-size: var(--text-xs);
-    }
     .desc-cell {
       grid-area: desc;
       border-top: 1px solid var(--color-divider);

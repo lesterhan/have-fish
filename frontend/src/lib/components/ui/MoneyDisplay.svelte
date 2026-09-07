@@ -1,6 +1,7 @@
 <script lang="ts">
   import Icon from '$lib/components/ui/Icon.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
+  import type { AmountTone } from '$lib/components/transactions/amountTone'
 
   interface Props {
     amount: string
@@ -9,6 +10,17 @@
     inline?: boolean
     /** Bold the figure — for the one amount a row is actually about. */
     emphasis?: boolean
+    /**
+     * Which of the three ledger meanings this figure carries (DESIGN.md §5). It lives here
+     * rather than on each caller's cell because the rule is one rule: the account page used
+     * to express it in its own stylesheet and the transactions list did not express it at
+     * all, which is how one screen idea got implemented once and skipped once.
+     *
+     * `transfer` deliberately paints nothing — a transfer's colour is its *direction*, and
+     * that comes from `flowDirection` below. Money moving between your own accounts is not
+     * a gain and must never read as green.
+     */
+    tone?: AmountTone
   }
 
   let {
@@ -17,12 +29,14 @@
     flowDirection = null,
     inline = false,
     emphasis = false,
+    tone = 'neutral',
   }: Props = $props()
 </script>
 
 {#if inline}
   <div
     class="money-inline"
+    class:tone-positive={tone === 'positive'}
     class:flow-in={flowDirection === 'in'}
     class:flow-out={flowDirection === 'out'}
   >
@@ -36,6 +50,7 @@
     <CurrencyPill code={currency} size="xs" />
     <div
       class="amount-row"
+      class:tone-positive={tone === 'positive'}
       class:flow-in={flowDirection === 'in'}
       class:flow-out={flowDirection === 'out'}
     >
@@ -59,6 +74,14 @@
     display: flex;
     align-items: center;
     gap: 3px;
+  }
+
+  /* Only money coming back is tinted; an ordinary spend is the default and defaults do not
+     need a colour. The flow rules follow and win, which is what keeps a transfer neutral
+     directional rather than green. */
+  .amount-row.tone-positive,
+  .money-inline.tone-positive {
+    color: var(--color-amount-positive);
   }
 
   .amount-row.flow-in {
