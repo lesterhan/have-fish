@@ -161,6 +161,13 @@ needs to be seen needs a border and a shadow, not a paler fill.
 other states — a screen with outstanding work and a screen that is caught up do not have the
 same loudest thing, and both need designing. If two elements compete, one of them is wrong.
 
+*Refinement, found by story 8.* Read "screen" as **pane** where a route puts two independent
+panes side by side. Fish Pie's group page is a ledger on the right and a form on the left, and
+each genuinely leads with its own command — Save on an open expense, Add Expense on the form.
+Forcing one accent-filled button across both would leave the other pane's command indistinguishable
+from its Cancel, which is the defect V3 exists to prevent, not an instance of it. The rule still
+bites *within* a pane: two competing commands in one pane is still one of them being wrong.
+
 **V4 — Colour is scarce and it is semantic.** Four meanings, and no fifth: money in, money out,
 attention, and the accent — which means *the one live thing*, the item you selected or the work
 that needs you. Everything else is ink on a rung. A colour that appears on most rows has stopped
@@ -174,6 +181,13 @@ being a wall of red.
 mark use `--color-bar-ink` against `--color-rule` as the trough. Their contrast contract sits at
 the fill/trough boundary — 3:1 there — not against the page, because the boundary is what
 carries the value. Accent is reserved for the one mark you have selected.
+
+*Scope, found by story 8.* V6 is about marks that **encode data**. A range control's filled
+track encodes where its own handle sits — it is control state, and it keeps the accent, which is
+why Fish Pie's split sliders were left alone. What does not survive is dimming that accent to
+express *disabled*: opacity alone reads as grey on a cream track and as live orange on a
+near-black one, so a disabled control names its own colour (`--color-text-disabled`) rather than
+fading the live one. Same element, same rung, both themes — V1.
 
 **V7 — Absence is designed.** A suppressed comparison, an unasserted coverage, a "never", an
 empty result: each takes the slot it would have occupied and states the reason at the size of
@@ -319,6 +333,13 @@ existing contrast contract with V6 so there is one rule for magnitude marks rath
 
 **9 — Settings, login and the sweep.** The remaining hard-coded surfaces, `AccentPicker` with all
 six accents on one rung, and one pass through every route in both themes at the end.
+
+Also carries a naming debt story 8 turned up and deliberately did not fix locally: twenty-six
+call sites paint a **form error** with `--color-amount-negative`. The value is right and the name
+is a lie — an invalid field is not money out, and V4's four meanings have no slot for it. This is
+one rename plus an alias, worth nothing as a one-file change and worth doing once across the app;
+either widen V4 to name *invalid* as a fifth meaning or say explicitly that it shares money-out's
+red, but say which.
 
 Stories 3–9 are independent once 1 and 2 land, and each is shippable on its own.
 

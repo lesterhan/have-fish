@@ -124,13 +124,15 @@
     border-bottom: none;
   }
 
+  /* Neutral: the initial repeats the name sitting beside it, so it carries nothing the
+     accent could mark. See the note on GroupRightPanel's .row-avatar. */
   .member-avatar {
     width: 28px;
     height: 28px;
     border-radius: 50%;
-    background: var(--color-accent-chip-bg);
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent-chip-fg);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    color: var(--color-text-muted);
     font-family: var(--font-mono);
     font-size: 9px;
     font-weight: 700;
@@ -177,12 +179,13 @@
     font-weight: var(--weight-semibold);
   }
 
-  .member-balance--owes {
-    color: var(--color-amount-negative);
-  }
-
+  /* V5 has no minority to mark here. A two-person balance is one debt printed from both
+     ends, so the two rows always split one-to-one and the same figure would appear once
+     red and once green — colour as decoration, not information. The words "owes" and
+     "gets" carry the direction, and a debt within a household is not an error anyway. */
+  .member-balance--owes,
   .member-balance--owed {
-    color: var(--color-amount-positive);
+    color: var(--color-text);
   }
 
   .member-balance--settled {

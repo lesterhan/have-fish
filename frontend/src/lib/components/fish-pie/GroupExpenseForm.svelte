@@ -364,7 +364,9 @@
   </div>
 
   <div class="add-cta">
+    <!-- The form's one command (DESIGN.md §5). -->
     <GradientButton
+      variant="primary"
       active={added}
       onclick={handleAdd}
       disabled={submitting || !amount || parseFloat(amount) <= 0}
@@ -589,14 +591,14 @@
     border-color: var(--color-accent);
   }
 
+  /* A selected radio, not the form's command. Filled with the accent at full strength it was
+     the loudest thing on a form whose actual command — Add Expense — sat at the bottom in
+     grey, so the eye landed on the answer to a question it had not been asked yet. The chip
+     still reads as chosen; it just stops outranking the button. */
   .payer-chip.selected {
-    background: linear-gradient(
-      180deg,
-      var(--color-accent),
-      color-mix(in srgb, var(--color-accent) 80%, black)
-    );
+    background: var(--color-accent-chip-bg);
     border-color: var(--color-accent);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow-inset);
   }
 
   .chip-avatar {
@@ -620,9 +622,9 @@
   }
 
   .chip-avatar.selected {
-    background: color-mix(in srgb, var(--color-accent-fg) 25%, transparent);
-    border-color: color-mix(in srgb, var(--color-accent-fg) 50%, transparent);
-    color: var(--color-accent-fg);
+    background: var(--color-window-inset);
+    border-color: var(--color-accent);
+    color: var(--color-accent-chip-fg);
   }
 
   .chip-info {
@@ -643,8 +645,11 @@
     transition: color var(--duration-fast) var(--ease);
   }
 
+  /* The chip is a tint now, not an accent fill, so its text is ordinary ink. It used to be
+     reversed out against the fill, which on the tint left the selected payer's own name the
+     least readable thing in the row. */
   .payer-chip.selected .chip-name {
-    color: var(--color-btn-gradient-hi);
+    color: var(--color-accent-chip-fg);
   }
 
   .chip-share {
@@ -655,7 +660,7 @@
   }
 
   .payer-chip.selected .chip-share {
-    color: color-mix(in srgb, var(--color-accent-fg) 65%, transparent);
+    color: color-mix(in srgb, var(--color-accent-chip-fg) 75%, transparent);
   }
 
   .share-slider-wrap {
@@ -740,8 +745,13 @@
     accent-color: var(--color-accent);
   }
 
+  /* A locked slider must not read as accent. Opacity alone did that in light and not in
+     dark — the accent survives 0.4 against a near-black track — so the disabled state
+     names its own colour instead of dimming the live one (V1: same element, same rung,
+     both themes). */
   .share-slider-track.slider-disabled {
-    opacity: 0.4;
+    accent-color: var(--color-text-disabled);
+    opacity: 0.55;
     cursor: not-allowed;
   }
 

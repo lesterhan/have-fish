@@ -314,7 +314,7 @@
                     <div class="expense-desc-line">
                       <span class="expense-desc">{expense.description}</span>
                       {#if expense.categoryName}
-                        <Chip tone="accent" size="xs" style="flex-shrink: 0"
+                        <Chip size="xs" style="flex-shrink: 0"
                           >{expense.categoryName}</Chip
                         >
                       {/if}
@@ -456,6 +456,7 @@
                       disabled={editSubmitting}>Cancel</GradientButton
                     >
                     <GradientButton
+                      variant="primary"
                       onclick={handleSaveEdit}
                       disabled={editSubmitting ||
                         !editAmount ||
@@ -843,13 +844,21 @@
     background: var(--color-window-raised);
   }
 
+  /* Neutral. Every row already names its payer in words two lines down, so the initial is a
+     second copy of that fact — and eight accent circles down a list is the accent marking
+     every row, which is the accent marking nothing (DESIGN.md §5).
+
+     Whether a member should carry a *derived* identity hue is a real question and a separate
+     one, the same shape as CurrencyPill's: a fixed small set that could be distinguished by
+     colour. It needs its own rung with its own contract, and it is not this story's to
+     invent. Neutral is the reading that is never wrong in the meantime. */
   .row-avatar {
     width: 24px;
     height: 24px;
     border-radius: 50%;
-    background: var(--color-accent-chip-bg);
-    border: 1px solid var(--color-accent);
-    color: var(--color-accent-chip-fg);
+    background: var(--color-window-raised);
+    border: 1px solid var(--color-rule);
+    color: var(--color-text-muted);
     font-family: var(--font-mono);
     font-size: 8px;
     font-weight: 700;
@@ -1042,15 +1051,13 @@
     border-color: var(--color-accent);
   }
 
+  /* A chosen radio is not the loudest thing on a form — the command is. The accent
+     tint plus the pressed shadow says "chosen" without out-shouting Save. */
   .cat-chip.selected {
-    background: linear-gradient(
-      180deg,
-      var(--color-accent),
-      color-mix(in srgb, var(--color-accent) 80%, black)
-    );
+    background: var(--color-accent-chip-bg);
     border-color: var(--color-accent);
-    color: var(--color-btn-gradient-hi);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+    color: var(--color-accent-chip-fg);
+    box-shadow: var(--shadow-inset);
   }
 
   .payer-chips {
@@ -1082,13 +1089,9 @@
   }
 
   .payer-chip.selected {
-    background: linear-gradient(
-      180deg,
-      var(--color-accent),
-      color-mix(in srgb, var(--color-accent) 80%, black)
-    );
+    background: var(--color-accent-chip-bg);
     border-color: var(--color-accent);
-    box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.25);
+    box-shadow: var(--shadow-inset);
   }
 
   .chip-avatar {
@@ -1111,9 +1114,9 @@
   }
 
   .chip-avatar.selected {
-    background: color-mix(in srgb, var(--color-accent-fg) 25%, transparent);
-    border-color: color-mix(in srgb, var(--color-accent-fg) 50%, transparent);
-    color: var(--color-accent-fg);
+    background: var(--color-window-inset);
+    border-color: var(--color-accent);
+    color: var(--color-accent-chip-fg);
   }
 
   .chip-name {
@@ -1127,7 +1130,7 @@
   }
 
   .payer-chip.selected .chip-name {
-    color: var(--color-btn-gradient-hi);
+    color: var(--color-accent-chip-fg);
   }
 
   .split-slider-labels {
