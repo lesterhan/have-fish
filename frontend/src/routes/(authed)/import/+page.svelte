@@ -1443,7 +1443,7 @@
   }
 
   .fact-warn {
-    color: var(--color-amount-negative);
+    color: var(--color-warning);
   }
 
   .override-body {

@@ -740,12 +740,14 @@
     border-left: none;
   }
 
+  /* Muted, like every other column label in the app. Three accent labels across the top of
+     one page is the accent naming the furniture. */
   .card-label {
     font-family: var(--font-mono);
     font-size: 10px;
     font-weight: 700;
     letter-spacing: 1.2px;
-    color: var(--color-accent);
+    color: var(--color-text-muted);
     margin-bottom: 6px;
   }
 
@@ -832,7 +834,7 @@
     gap: 10px;
     margin-top: 6px;
     padding-top: 8px;
-    border-top: 1px dashed var(--color-accent);
+    border-top: 1px dashed var(--color-rule);
   }
 
   .card-sigma-badge {
@@ -848,6 +850,8 @@
     line-height: 1;
   }
 
+  /* Ink. The accent Σ badge beside it already says which figure this is; a number is not
+     the live thing you selected. */
   .card-sigma-amount {
     display: flex;
     align-items: baseline;
@@ -856,7 +860,7 @@
     font-family: var(--font-mono);
     font-size: 19px;
     font-weight: 700;
-    color: var(--color-accent);
+    color: var(--color-text);
     font-variant-numeric: tabular-nums;
   }
 
@@ -1039,7 +1043,7 @@
     font-family: var(--font-mono);
     font-size: 13px;
     font-weight: 700;
-    color: var(--color-accent);
+    color: var(--color-text);
     font-variant-numeric: tabular-nums;
   }
 
@@ -1110,9 +1114,11 @@
     opacity: 0.5;
   }
 
+  /* The weight is what marks where you are; the accent belongs to the crumbs you can still
+     click, and spending it on both leaves it marking neither. */
   .section-bar .crumb-current {
     font-weight: var(--weight-semibold);
-    color: var(--color-accent);
+    color: var(--color-text);
   }
 
   .section-bar .crumb-link {

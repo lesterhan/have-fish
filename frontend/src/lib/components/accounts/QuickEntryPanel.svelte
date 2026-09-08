@@ -395,7 +395,7 @@
   }
 
   .remove-btn:hover {
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
   }
 
   /* Inline add-row button */
@@ -448,7 +448,7 @@
   .error-msg {
     font-family: var(--font-mono);
     font-size: 11px;
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     max-width: 200px;
     overflow: hidden;
     text-overflow: ellipsis;

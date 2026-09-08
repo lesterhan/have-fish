@@ -60,7 +60,9 @@
       {/if}
 
       <div class="actions">
-        <GradientButton type="submit">{copy.auth.signIn.submit}</GradientButton>
+        <GradientButton variant="primary" type="submit"
+          >{copy.auth.signIn.submit}</GradientButton
+        >
       </div>
     </form>
 

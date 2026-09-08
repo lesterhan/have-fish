@@ -78,8 +78,8 @@
     border-radius: 50%;
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--color-amount-positive) 55%, white),
-      var(--color-amount-positive)
+      color-mix(in srgb, var(--color-success) 55%, white),
+      var(--color-success)
     );
     box-shadow: var(--shadow-control);
     color: var(--color-window-inset);
@@ -120,8 +120,8 @@
   .progress.complete .fill {
     background: linear-gradient(
       180deg,
-      color-mix(in srgb, var(--color-amount-positive) 55%, white),
-      var(--color-amount-positive)
+      color-mix(in srgb, var(--color-success) 55%, white),
+      var(--color-success)
     );
   }
 </style>

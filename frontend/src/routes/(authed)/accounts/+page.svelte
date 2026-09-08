@@ -91,13 +91,20 @@
   // answering. Owing reads as a magnitude under its own label rather than a signed figure —
   // a card that owes 3,759 is not an error, and a minus sign there is an alarm that never
   // stops going off.
+  //
+  // `neutralSign` is the other half of the same idea. `bucketOf` maps equity into
+  // investments, and equity is negative by construction — a 30,000 opening balance is
+  // bookkeeping, not a loss — so deriving alarm from `cents < 0` painted the only red
+  // figure on the page onto the one number that is always going to be negative. Available
+  // and Owed still take the colour when they go negative, because there it means something.
   const POSITION_CARDS: {
     key: PositionBucket
     label: string
     magnitude?: boolean
+    neutralSign?: boolean
   }[] = [
     { key: 'cash', label: 'Available' },
-    { key: 'investments', label: 'Investments' },
+    { key: 'investments', label: 'Investments', neutralSign: true },
     { key: 'owed', label: 'Owed to you' },
     { key: 'owing', label: 'You owe', magnitude: true },
   ]
@@ -718,7 +725,9 @@
                 <span class="position-label">{card.label}</span>
                 <span
                   class="position-value"
-                  class:negative={!card.magnitude && bucket.cents < 0}
+                  class:negative={!card.magnitude &&
+                    !card.neutralSign &&
+                    bucket.cents < 0}
                 >
                   {card.magnitude
                     ? formatCentsAbs(bucket.cents)
@@ -1319,7 +1328,7 @@
   }
 
   .stale {
-    color: var(--color-amount-negative);
+    color: var(--color-warning);
   }
 
   /* --- Row state --- *

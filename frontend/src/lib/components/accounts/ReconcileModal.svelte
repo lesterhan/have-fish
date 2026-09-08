@@ -385,7 +385,7 @@
 
   .balanced {
     font-size: var(--text-sm);
-    color: var(--color-amount-positive);
+    color: var(--color-success);
     margin-top: var(--sp-xs);
   }
 
@@ -398,7 +398,7 @@
 
   .error {
     font-size: var(--text-sm);
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);
   }

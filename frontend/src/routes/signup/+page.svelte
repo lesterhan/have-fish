@@ -59,12 +59,7 @@
         <label for="name">{copy.auth.signUp.name}</label><span
           class="label-hint">{copy.auth.signUp.nameHint}</span
         >
-        <TextInput
-          id="name"
-          bind:value={name}
-          autocomplete="name"
-          placeholder={copy.auth.signUp.namePlaceholder}
-        />
+        <TextInput id="name" bind:value={name} autocomplete="name" />
       </div>
 
       <div class="field">
@@ -94,7 +89,9 @@
       {/if}
 
       <div class="actions">
-        <GradientButton type="submit">{copy.auth.signUp.submit}</GradientButton>
+        <GradientButton variant="primary" type="submit"
+          >{copy.auth.signUp.submit}</GradientButton
+        >
       </div>
     </form>
 

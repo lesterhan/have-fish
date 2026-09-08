@@ -611,11 +611,11 @@
   .column-preview-empty {
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--color-amount-negative);
+    color: var(--color-warning);
   }
 
   .required {
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
   }
 
   .toggle-label {
@@ -672,7 +672,7 @@
 
   .summary-error {
     font-size: var(--text-sm);
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);
   }

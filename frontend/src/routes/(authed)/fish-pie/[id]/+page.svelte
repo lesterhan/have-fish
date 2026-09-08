@@ -622,7 +622,7 @@
 
   .form-error {
     font-size: var(--text-xs);
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     font-family: var(--font-sans);
     display: block;
   }
