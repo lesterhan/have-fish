@@ -348,10 +348,9 @@
 
   .cluster-row {
     display: grid;
-    grid-template-columns: minmax(9rem, 1fr) auto auto minmax(
-        12rem,
-        26rem
-      ) auto auto;
+    grid-template-columns:
+      minmax(9rem, 1fr) auto auto minmax(12rem, 26rem)
+      auto auto;
     align-items: center;
     gap: var(--sp-sm);
     padding: var(--sp-sm) var(--sp-md);
@@ -403,9 +402,10 @@
     color: var(--color-text-muted);
   }
 
+  /* A merchant's total across the statement. Same rule as the rows: these are all spends,
+     so the figure takes plain ink and the minus carries the sign. */
   .total {
     text-align: right;
-    color: var(--color-amount-negative);
   }
 
   .total-currency {

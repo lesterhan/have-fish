@@ -6,6 +6,7 @@
   import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
+  import { formatCents, toCents } from '$lib/money'
   import type {
     Account,
     RegularParsedTransaction,
@@ -29,6 +30,12 @@
     index: number
     // A row with no merchant stem has nothing to build a rule pattern from.
     canSaveRule: boolean
+    /**
+     * Which sign is the minority across the whole statement, or 0 when neither is. Only a
+     * row on the minority side is tinted; see `minority-sign.ts` for why this cannot be a
+     * constant.
+     */
+    minority: -1 | 0 | 1
     onsplitopen: () => void
     onclosesplit: () => void
     onaccountcreated: (account: Account) => void
@@ -50,6 +57,7 @@
     status,
     index,
     canSaveRule,
+    minority,
     onsplitopen,
     onclosesplit,
     onaccountcreated,
@@ -81,10 +89,24 @@
     !!tx.suggestedGroupId && rowState.groupId === tx.suggestedGroupId,
   )
 
+  let signedValue = $derived(displayValue(tx.amount))
+
+  /** The signed value as the reader sees it: liabilities flip, so a charge reads positive. */
+  function displayValue(amount: string): number {
+    const n = Number.parseFloat(amount)
+    if (!Number.isFinite(n)) return Number.NaN
+    return importAsLiabilities ? -n : n
+  }
+
+  /**
+   * Through the money helpers, like every other figure in the app. These used to render the
+   * raw CSV string, so a statement showed "84.2", "1250" and "-412.1" in a column that is
+   * meant to be scanned.
+   */
   function displayAmount(amount: string): string {
-    if (!importAsLiabilities) return amount
-    const n = parseFloat(amount)
-    return isNaN(n) ? amount : String(-n)
+    const value = displayValue(amount)
+    if (!Number.isFinite(value)) return amount
+    return formatCents(toCents(value.toFixed(2)) ?? 0)
   }
 </script>
 
@@ -113,8 +135,8 @@
   </td>
   <td
     class="cell-amount"
-    class:positive={parseFloat(displayAmount(tx.amount)) > 0}
-    class:negative={parseFloat(displayAmount(tx.amount)) < 0}
+    class:tinted={minority !== 0 && Math.sign(signedValue) === minority}
+    class:up={signedValue > 0}
   >
     {displayAmount(tx.amount)}{#if isMultiCurrency}{tx.currency ??
         defaultCurrency}{/if}
@@ -263,11 +285,16 @@
     text-align: right;
     white-space: nowrap;
   }
-  .cell-amount.positive {
-    color: var(--color-amount-positive);
-  }
-  .cell-amount.negative {
+  /* Colour marks the minority sign (DESIGN.md §5). A statement is nearly all one direction
+     by construction, so tinting that direction says nothing the signs did not already say
+     and buries the row that goes the other way. Which direction dominates is decided per
+     statement — see minority-sign.ts. */
+  .cell-amount.tinted {
     color: var(--color-amount-negative);
+  }
+
+  .cell-amount.tinted.up {
+    color: var(--color-amount-positive);
   }
 
   /* Pad the labelled field to match the cross-currency rows' .transfer-accounts inset, so
@@ -325,11 +352,17 @@
     font-size: var(--text-xs);
     color: var(--color-text-muted);
   }
+  /* Ordinary ink, with the accent arriving on hover — the treatment both ledgers and the
+     spending panel already use for a link that repeats down a list. */
   .fishpie-hint-link {
-    color: var(--color-accent-hi);
-    text-decoration: none;
+    color: var(--color-text);
+    text-decoration: underline;
+    text-decoration-style: dotted;
+    text-underline-offset: 2px;
+    text-decoration-color: var(--color-rule);
+    transition: text-decoration-color var(--duration-fast) var(--ease);
   }
   .fishpie-hint-link:hover {
-    text-decoration: underline;
+    text-decoration-color: var(--color-accent);
   }
 </style>

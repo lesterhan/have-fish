@@ -97,6 +97,10 @@
     color: var(--color-accent);
   }
 
+  /* A step you have not reached, and a step you have finished, are both neutral. The accent
+     marks where you *are* — on the Review step there were four accent chips behind the one
+     that mattered, and a stepper whose finished steps are as loud as the current one is a
+     progress indicator that does not indicate progress. */
   .marker {
     display: inline-flex;
     align-items: center;
@@ -104,14 +108,20 @@
     width: 15px;
     height: 15px;
     border-radius: var(--radius-pill);
-    background: var(--color-accent-chip-bg);
-    color: var(--color-accent-chip-fg);
+    background: var(--color-window-raised);
+    color: var(--color-text-muted);
+    box-shadow: inset 0 0 0 1px var(--color-rule);
     font-size: 9px;
     line-height: 1;
+  }
+
+  .segment.done .marker {
+    color: var(--color-text);
   }
 
   .segment.current .marker {
     background: var(--color-accent);
     color: var(--color-accent-fg);
+    box-shadow: none;
   }
 </style>

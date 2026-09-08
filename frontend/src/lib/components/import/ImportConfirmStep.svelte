@@ -366,12 +366,14 @@
     color: var(--color-text-muted);
   }
 
+  /* What is about to land in one account. A confirm screen listing four red totals reads as
+     four problems; it is four ordinary destinations. */
   .dest-total {
-    color: var(--color-amount-negative);
+    color: var(--color-text);
   }
 
   .destination.warn .dest-label {
-    color: var(--color-amount-negative);
+    color: var(--color-warning);
   }
 
   .warn-flag {
@@ -380,7 +382,7 @@
     gap: 4px;
     font-family: var(--font-mono);
     font-size: var(--text-xs);
-    color: var(--color-amount-negative);
+    color: var(--color-warning);
   }
 
   .nothing {
@@ -474,13 +476,13 @@
     align-items: center;
     gap: var(--sp-xs);
     margin: 0;
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     font-size: var(--text-sm);
   }
 
   .error {
     margin: 0;
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     font-size: var(--text-sm);
   }
 

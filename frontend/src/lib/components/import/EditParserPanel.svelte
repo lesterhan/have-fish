@@ -369,8 +369,9 @@
     justify-content: flex-end;
   }
 
+  /* A required-field marker is a status, not a figure. */
   .required {
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
   }
 
   .edit-footer {
@@ -389,7 +390,7 @@
 
   .save-error {
     font-size: var(--text-sm);
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);
     margin: 0;
