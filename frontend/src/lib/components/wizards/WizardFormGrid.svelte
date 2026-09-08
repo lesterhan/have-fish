@@ -74,7 +74,7 @@
   }
 
   .form-grid :global(.required) {
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     text-transform: none;
   }
 

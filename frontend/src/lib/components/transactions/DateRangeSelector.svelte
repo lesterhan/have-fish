@@ -202,7 +202,10 @@
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
     padding: 2px var(--sp-xs);
     height: 22px;
-    width: 120px;
+    /* Wide enough for the longest string it can hold — an explicit range, "2026-06-10 to
+       2026-09-08", 24 monospace characters — plus its own padding, its border, and the room
+       the × below claims. At a flat 120px it clipped to "2026-06-10 to 2(". */
+    width: calc(24ch + 2 * var(--sp-xs) + 18px + 2px);
     outline: none;
     cursor: text;
     transition:

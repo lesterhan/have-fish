@@ -305,6 +305,10 @@ const INK_RUNGS: Array<{ token: string; min: number; max: number }> = [
   { token: '--color-amount-positive', min: 4.5, max: 7 },
   { token: '--color-amount-negative', min: 4.5, max: 7 },
   { token: '--color-warning', min: 4.5, max: 7 },
+  // Status ink. Held the same values as its money twin and no assertion of its own, which is
+  // how sixty call sites came to depend on a rung nothing measured — see semantic-colour.test.ts.
+  { token: '--color-success', min: 4.5, max: 7 },
+  { token: '--color-danger', min: 4.5, max: 7 },
 ]
 
 describe('ink sits on the same rung in both themes', () => {

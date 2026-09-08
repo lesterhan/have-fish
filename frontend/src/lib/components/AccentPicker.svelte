@@ -40,9 +40,9 @@
         class="swatch"
         class:active
         style="background: linear-gradient(180deg, {a.hi}, {a.hex})"
-        title={LABELS[key as AccentKey]}
+        aria-label={LABELS[key as AccentKey]}
         aria-pressed={active}
-        use:tooltipAction={{ label: 'Choose accent colour', always: true }}
+        use:tooltipAction={{ label: LABELS[key as AccentKey], always: true }}
         onclick={() => onselect(key as AccentKey)}
       >
         {#if active}<span class="check" aria-hidden="true">✓</span>{/if}
@@ -90,8 +90,10 @@
     filter: brightness(1.15);
   }
 
+  /* An inset ring rather than a thicker border: a 2px border shrinks the swatch's colour
+     area by a pixel a side, so selecting one made it jog. */
   .swatch.active {
-    border: 2px solid var(--color-text);
+    box-shadow: inset 0 0 0 2px var(--color-text);
   }
 
   .check {

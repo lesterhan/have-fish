@@ -173,6 +173,17 @@ attention, and the accent — which means *the one live thing*, the item you sel
 that needs you. Everything else is ink on a rung. A colour that appears on most rows has stopped
 carrying information and become texture.
 
+*Correction, found by story 9.* Four meanings is what the colours *look* like; it is not what
+the tokens are. The app has two vocabularies — **status** (`success` / `warning` / `danger`) and
+**money** (`amount-positive` / `amount-negative`) — and in each theme a status token and its
+money twin hold the same value. That is deliberate: green means the same thing on both axes. But
+it made them interchangeable at the call site, and nineteen rules had picked the wrong one, so
+"attention" was quietly covering error, invalid, destructive and stale as well. The rule V4 was
+missing is that the *name* records which axis you are on. `semantic-colour.test.ts` enforces the
+half that is checkable — a selector naming a status may not take a money token — and DESIGN.md
+§5 carries the table. Reading the ladder: a status is not a fifth colour, it is a second reason
+to reach for the same two.
+
 **V5 — Colour marks the minority.** Within any list, whichever sign dominates renders in primary
 ink and the minus carries it; the exception gets the colour. This is what stops a ledger from
 being a wall of red.

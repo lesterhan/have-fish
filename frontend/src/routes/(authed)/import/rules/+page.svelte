@@ -371,7 +371,10 @@
 
     {#if panelTab === 'suggestions'}
       <div class="mine-strip">
+        <!-- The pane's one command, and the empty state below already tells you to press
+             it. Add rule stays neutral: it is the other way in, not the recommended one. -->
         <GradientButton
+          variant="primary"
           onclick={handleMine}
           disabled={mining}
           tooltip="Analyze to find patterns in transaction history."

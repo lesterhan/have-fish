@@ -347,29 +347,17 @@
     </div>
   </div>
 
-  <!-- Danger zone -->
-  <div class="settings-section section-danger">
-    <div class="section-bar danger-bar">
-      <span class="section-bar-title">Danger Zone</span>
-    </div>
-    <div class="section-body">
-      <div class="setting-row danger-row">
-        <div class="danger-info">
-          <span class="danger-title">Delete my account</span>
-          <span class="danger-desc"
-            >Permanently removes your account and all associated data. This
-            cannot be undone.</span
-          >
-        </div>
-        <GradientButton
-          variant="warning"
-          active
-          onclick={() => (showDeleteConfirm = true)}
-        >
-          Delete account
-        </GradientButton>
-      </div>
-    </div>
+  <!-- Danger zone. A quiet footer, matching the group settings page: a page you open to
+       change a default posting path should not have its most destructive action as the
+       loudest thing on it (V3). The alarm belongs in the confirmation, which is where it is. -->
+  <div class="danger-footer">
+    <button class="danger-link" onclick={() => (showDeleteConfirm = true)}
+      >Delete my account…</button
+    >
+    <span class="danger-desc"
+      >Permanently removes your account and all associated data. This cannot be
+      undone.</span
+    >
   </div>
 </div>
 
@@ -403,11 +391,6 @@
 
   .settings-section {
     border-bottom: 1px solid var(--color-rule);
-  }
-
-  .section-danger {
-    border-bottom: none;
-    margin-top: auto;
   }
 
   @media (max-width: 640px) {
@@ -470,17 +453,6 @@
     opacity: 0.3;
   }
 
-  .danger-bar {
-    background: var(--color-danger-light);
-    border-top-color: color-mix(in srgb, var(--color-danger) 35%, transparent);
-    border-bottom-color: color-mix(
-      in srgb,
-      var(--color-danger) 55%,
-      transparent
-    );
-    color: var(--color-danger);
-  }
-
   .section-body {
     display: flex;
     flex-direction: column;
@@ -515,24 +487,33 @@
     white-space: nowrap;
   }
 
-  /* --- Danger row --- */
-  /* The one row that keeps the full width — its button belongs at the far edge. */
-  .danger-row {
-    max-width: none;
-    grid-template-columns: 1fr auto;
-  }
-
-  .danger-info {
+  /* --- Danger footer --- */
+  /* Pushed to the very bottom of the page so the delete action sits far from the controls
+     you came here to use and can't be clicked by accident. Same shape as the group
+     settings page's footer, because it is the same action. */
+  .danger-footer {
     display: flex;
-    flex-direction: column;
-    gap: 2px;
+    align-items: center;
+    gap: var(--sp-md);
+    margin-top: auto;
+    padding: var(--sp-lg) 14px var(--sp-lg);
+    border-top: 1px solid var(--color-rule);
   }
 
-  .danger-title {
+  .danger-link {
+    background: none;
+    border: none;
+    padding: 0;
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
     color: var(--color-danger);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+
+  .danger-link:hover {
+    text-decoration: underline;
   }
 
   .danger-desc {

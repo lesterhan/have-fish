@@ -24,8 +24,10 @@ export const authCopy = {
     email: 'Email',
     emailHint: '(I will never email you)',
     name: 'Display name',
-    nameHint: '(optional)',
-    namePlaceholder: 'How you appear in shared expenses',
+    // One line rather than a hint plus a placeholder: the placeholder said why the field
+    // exists and the field was 40px too narrow to show it, so the only copy that explained
+    // the field was the copy nobody could read.
+    nameHint: '(optional) — how you appear in shared expenses',
     password: 'Password',
     confirmPassword: 'Confirm password',
     passwordMismatch: 'Passwords do not match',

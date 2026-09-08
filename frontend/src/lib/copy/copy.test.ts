@@ -382,7 +382,7 @@ describe('markupStrings', () => {
   it('leaves interpolated copy alone', () => {
     expect(markupStrings('<span>{copy.auth.signIn.title}</span>')).toEqual([])
     expect(
-      markupStrings('<input placeholder={copy.auth.signUp.namePlaceholder} />'),
+      markupStrings('<input placeholder={copy.auth.signUp.nameHint} />'),
     ).toEqual([])
     expect(markupStrings('<input placeholder="{label}" />')).toEqual([])
   })

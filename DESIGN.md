@@ -448,6 +448,36 @@ the ladder, a loss in dark mode measured 3.05:1 against a gain's 6.13:1: the num
 need to notice was the quieter of the two, and nothing in the design had said so — it fell out
 of borrowing two palette entries that happened not to match.
 
+### Status is not an amount
+
+The app names green and red twice, on purpose. `--color-success` / `--color-warning` /
+`--color-danger` say how something *went*; `--color-amount-positive` / `--color-amount-negative`
+say which way *money* moved. In each theme a status token and its money twin hold the same
+value, because the app does mean the same thing by green and by red.
+
+That shared value is exactly what makes them interchangeable at the call site, and they were:
+nineteen rules picked the wrong one. Five `.form-error` rules were painted in money-out red, an
+invalid field wearing the colour of an expense. `CatchUpProgress` carried the comment "green
+here is a status, not a quantity" directly above a rule reaching for `--color-amount-positive`.
+Nothing looked wrong — and that is the failure mode. It stays invisible until someone moves one
+of the two values, at which point a form error follows the expense colour somewhere new and
+nobody can say why.
+
+So the name is the only thing carrying the distinction, and
+`frontend/src/styles/semantic-colour.test.ts` defends it: **a selector that names a status may
+not reach for a money token.** The rule is one-way. A money amount flagged for attention is
+legitimate — the amber FX-fee amount in `TransactionDetail` is exactly that — and `.balance-bad`
+is a status about a balance, not a balance.
+
+Which token you reach for follows from what the rule is *about*, not from the colour you want:
+
+| the rule is about | token |
+| --- | --- |
+| money arriving / leaving | `--color-amount-positive` / `--color-amount-negative` |
+| a thing that worked | `--color-success` |
+| a thing that needs a look, or a caveat on what is shown | `--color-warning` |
+| a thing that failed, is invalid, or destroys data | `--color-danger` |
+
 ### Two rules that are load-bearing
 
 **Tokens are a contract, not a palette.** `frontend/src/styles/tokens.test.ts` asserts

@@ -993,7 +993,7 @@
   }
 
   .ledger-foot.ok {
-    color: var(--color-amount-positive);
+    color: var(--color-success);
   }
 
   /* --- edit mode -------------------------------------------------------------------- */

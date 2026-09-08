@@ -166,7 +166,12 @@
   --color-tooltip-border: #5b584f;
   --color-tooltip-text: #f6f1e7;
 
-  /* --- Semantic --- */
+  /* --- Status ---
+     How something WENT. Deliberately the same values as the amount pair below, because the
+     app means the same thing by green and by red on both axes — but a status is not an
+     amount, and the name is the only thing carrying that. semantic-colour.test.ts enforces
+     it and DESIGN.md §5 has the table. If these ever diverge from the amounts, that is a
+     decision, not a drift. */
   --color-success: #137738;
   --color-success-light: #d9f3dd;
   --color-warning: #8a5600;
@@ -175,6 +180,9 @@
   --color-danger-light: #ffe2de;
 
   /* --- Amounts ---
+     Which way MONEY moved. The status twins above hold the same values; reach for these only
+     when the rule is about an amount.
+
      Colour marks the MINORITY sign. In a list where nearly every row is an
      expense, 22 red numbers read as 22 errors; there the dominant sign takes
      --color-text and the minus carries it. See DESIGN.md §5. */
@@ -324,7 +332,7 @@
   --color-tooltip-border: #8a867d;
   --color-tooltip-text: #ece7dc;
 
-  /* --- Semantic --- */
+  /* --- Status (see the light block: a status is not an amount) --- */
   --color-success: #6ec283;
   --color-success-light: #1c2c1f;
   --color-warning: #dfa651;

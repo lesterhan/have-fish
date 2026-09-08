@@ -163,12 +163,12 @@
 
   .summary-warn {
     font-size: var(--text-sm);
-    color: var(--color-amount-negative);
+    color: var(--color-warning);
   }
 
   .summary-error {
     font-size: var(--text-sm);
-    color: var(--color-amount-negative);
+    color: var(--color-danger);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);
   }
