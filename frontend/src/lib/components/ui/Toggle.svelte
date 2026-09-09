@@ -43,7 +43,7 @@
     gap: var(--sp-xs);
     cursor: pointer;
     user-select: none;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .toggle-wrap.disabled {

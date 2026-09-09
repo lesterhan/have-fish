@@ -302,14 +302,14 @@
   .headline h2 {
     margin: 0;
     font-family: var(--font-serif);
-    font-size: var(--text-lg);
+    font-size: var(--text-figure);
     font-weight: 600;
   }
 
   .range,
   .parser {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -341,7 +341,7 @@
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-md);
     border-bottom: 1px solid var(--color-rule);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .destination:last-child {
@@ -381,7 +381,7 @@
     align-items: center;
     gap: 4px;
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-warning);
   }
 
@@ -389,7 +389,7 @@
     margin: 0;
     padding: var(--sp-md);
     color: var(--color-text-muted);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .notes {
@@ -403,7 +403,7 @@
     display: flex;
     align-items: baseline;
     gap: var(--sp-sm);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .note dt {
@@ -416,7 +416,7 @@
 
   .note-detail {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -440,7 +440,7 @@
   }
 
   .parse-errors {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .parse-errors summary {
@@ -456,7 +456,7 @@
 
   .parse-errors li,
   .incomplete li {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .err-row {
@@ -477,13 +477,13 @@
     gap: var(--sp-xs);
     margin: 0;
     color: var(--color-danger);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .error {
     margin: 0;
     color: var(--color-danger);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .actions {
@@ -519,8 +519,8 @@
 
   .covers-title {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
@@ -532,7 +532,7 @@
 
   .covers-sep {
     color: var(--color-text-muted);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .covers input[type='date'] {
@@ -543,7 +543,7 @@
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-inset);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 
@@ -555,7 +555,7 @@
   .covers-note {
     margin: 0;
     max-width: 66ch;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     line-height: 1.45;
   }

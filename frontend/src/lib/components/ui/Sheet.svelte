@@ -139,16 +139,16 @@
     table-layout: fixed;
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   th {
     height: 27px;
     padding: 0 var(--sp-sm);
     text-align: left;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     color: var(--color-text-muted);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     white-space: nowrap;

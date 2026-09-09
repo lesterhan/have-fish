@@ -205,7 +205,7 @@
         aria-label="Description"
         disabled={submitting}
         class="desc-input"
-        style="font-family: var(--font-sans); font-weight: var(--weight-semibold); color: var(--color-accent-hi); flex: 1; min-width: 0"
+        style="font-family: var(--font-sans); font-weight: var(--weight-bold); color: var(--color-accent-hi); flex: 1; min-width: 0"
       />
     </div>
 
@@ -356,7 +356,7 @@
   /* ---- Delete + add posting buttons — same as LedgerEditModal ---- */
   .delete-btn {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     background: transparent;
     border: none;
@@ -385,7 +385,7 @@
   .add-posting-btn {
     align-self: flex-start;
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     background: transparent;
     border: none;
@@ -416,7 +416,7 @@
     align-items: center;
     gap: var(--sp-sm);
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .balance-label {
@@ -445,7 +445,7 @@
 
   .fx-hint {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -462,7 +462,7 @@
   /* ---- Footer ---- */
   .save-error {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     margin: 0;
   }

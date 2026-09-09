@@ -313,7 +313,7 @@
     background: transparent;
     color: var(--color-text);
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     text-align: left;
     cursor: text;
     transition:
@@ -349,7 +349,7 @@
 
   .fishpie-hint {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
   /* Ordinary ink, with the accent arriving on hover — the treatment both ledgers and the

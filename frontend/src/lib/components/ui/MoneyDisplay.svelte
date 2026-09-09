@@ -111,17 +111,17 @@
   /* --- Shared --- */
   .amount {
     font-family: var(--font-mono);
-    font-size: var(--text-base);
+    font-size: var(--text-amount);
     color: inherit;
   }
 
   .amount.emphasis {
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
   }
 
   /* Inline mode is used in compact single-line rows — match body text size */
   .money-inline .amount {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 </style>

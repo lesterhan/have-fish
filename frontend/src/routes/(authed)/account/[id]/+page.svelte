@@ -581,7 +581,7 @@
     border: none;
     border-left: 3px solid var(--color-warning);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     cursor: pointer;
     transition: filter var(--duration-fast) var(--ease);
   }
@@ -592,7 +592,7 @@
 
   .repair-strip-cta {
     margin-left: auto;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     text-decoration: underline;
   }
 
@@ -736,7 +736,7 @@
 
   .status-text {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -753,7 +753,7 @@
     border-radius: var(--radius-sm);
     background: none;
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     cursor: pointer;
     flex-shrink: 0;
@@ -796,8 +796,8 @@
     );
     box-shadow: var(--shadow-control);
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
     color: color-mix(in srgb, var(--color-warning) 30%, black);
     white-space: nowrap;
     flex-shrink: 0;

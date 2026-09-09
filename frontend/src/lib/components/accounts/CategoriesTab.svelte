@@ -751,7 +751,7 @@
     margin: 0;
     padding: var(--sp-lg);
     color: var(--color-text-muted);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .message.error {
@@ -781,6 +781,6 @@
   }
 
   .affected li {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 </style>

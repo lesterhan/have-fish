@@ -220,7 +220,7 @@
 
   .posting-account {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     display: block;
     white-space: nowrap;
@@ -234,14 +234,14 @@
 
   .posting-amount {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     text-align: right;
   }
 
   .amount-input.active {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -266,7 +266,7 @@
 
   .delete-btn {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     background: transparent;
     border: none;

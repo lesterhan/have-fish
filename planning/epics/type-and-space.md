@@ -99,8 +99,7 @@ reaching for a *genuinely* small label writes `10px` — xs is taken.
   rungs at the bottom). The `--sp-*` scale is extended downward, not renamed. `--weight-*` is
   corrected. `--tracking-*` and `--leading-none` are new.
 - **What gets deleted:** `Empty`'s `inset` prop and all 9 call sites that pass it; the
-  hard-coded type in `base.css`'s `.section-bar-title`; `--text-3xl`, if the sweep confirms
-  nothing uses it.
+  hard-coded type in `base.css`'s `.section-bar-title`; `--text-3xl`, which has zero uses.
 
 ## Proposal
 
@@ -108,29 +107,46 @@ Two ladders, and they are deliberately **asymmetric** — one gets renamed and o
 
 ### Type: renamed by role, extended at both ends
 
-Seven rungs, one job each. Sizes stay in `rem` with the px in a comment, as the file already
+Nine rungs, one job each. Sizes stay in `rem` with the px in a comment, as the file already
 does, so a reader's browser font setting still scales the app (§8).
 
 | token | px | family | job |
 |---|---|---|---|
-| `--text-figure-lg` | 28 | mono | the one number a page is about — an account's balance |
+| `--text-display` | 28 | mono | the one number a page is about — an account's balance |
 | `--text-title` | 22 | serif | page and object titles |
-| `--text-figure` | 18 | mono | a card's headline amount |
+| `--text-figure` | 18 | mono | a card's headline amount, a panel's heading |
+| `--text-amount` | 16 | mono | money in a row — `MoneyDisplay`'s size |
 | `--text-body` | 14 | sans | the reading register — rows, prose, inputs |
 | `--text-dense` | 12 | sans | secondary text inside a dense row |
+| `--text-control` | 11 | mono | text inside an interactive control |
 | `--text-label` | 10 | mono | uppercase chrome labels — section bars, column heads |
 | `--text-micro` | 9 | mono | the smallest legible mark — key caps, ticks, initials |
 
-Fifteen raw sizes collapse to seven rungs. The casualties are deliberate and each one is a
-claim to check in the browser, not a rounding:
+Nine is more than the seven this epic was first scoped with, and the two extra rungs are the
+epic's first two findings — both cases of a census being read as drift when it was a register.
 
-- **11px → 10 or 12** (31 rules). The largest and riskiest move. 11px is currently doing both
-  jobs — 23 of the 31 are mono, so most go down to `--text-label`; the sans ones go up to
-  `--text-dense`.
+**11px is the control register.** The first draft proposed splitting its 31 rules between 10
+and 12 by font family. Reading them instead of counting them: `GradientButton`, `TabStrip`,
+`CurrencyInput`, `Select`, `AccountPathInput`, `DateRangeSelector`, `QuickEntryPanel`'s
+fields, `AccountPicker`'s rows. That is not drift, it is the size text takes when it sits
+inside something you interact with, and collapsing it resizes every button, tab, input and
+select in the app.
+
+**16px is money in a row.** `--text-base` looked nearly dead at 6 uses, but one of them is
+`MoneyDisplay`, which is every amount the app renders in a list. Folding it into 14 would have
+moved every money row to make the ladder one rung shorter.
+
+`--text-3xl` really is dead — zero uses anywhere — and is deleted.
+
+Four rungs one pixel apart (9, 10, 11, 12) is uncomfortable and is the thing to check in the
+browser rather than argue on paper: whether the uppercase-label voice at 10 and the control
+voice at 11 are two rungs or one. The rest of the collapses are deliberate:
+
 - **13px → 14** (15 rules). 13 and 14 are one register pretending to be two.
-- **15 and 19 → 18** (2 rules). `.card-amount` at 18 and `.card-sigma-amount` at 19 sit on
-  the same spending page. Nobody chose a 1px difference.
+- **15 → 16**, **19 → 18** (2 rules). `.card-amount` at 18 and `.card-sigma-amount` at 19 sit
+  on the same spending page. Nobody chose a 1px difference.
 - **24 → 22** (4 rules), **30 → 28** (1), **7, 8, 8.5 → 9** (5).
+- **`--text-xl` (20) and `--text-2xl` (24) → `--text-title` (22)** (7 uses).
 
 ### Space: extended downward, kept as it is
 
@@ -204,8 +220,9 @@ changes pixels on screens the tests cannot see.
    thing that pushes people to raw pixels, and role names are what made the colour ladder
    stick. The case against: it is the largest mechanical diff in the epic and it improves no
    pixel. I think yes, but it is the one call I would not make alone.
-2. **11px.** Splitting it 23/8 by font family is a guess from the census. It may turn out
-   there is a real 11px register and the scale wants eight rungs, not seven. Story 3 finds out.
+2. ~~**11px.**~~ Answered before any of it was applied: it is the control register, it stays
+   as its own rung, and the ladder is nine. What is still open one rung up is whether **10 and
+   11** are two voices or one — the browser decides that, not the census.
 3. **rem or px.** Keeping rem preserves browser font scaling, at the cost of rungs like
    `0.5625rem` for 9px. Switching to px would read better in the file and would suit an
    instrument panel with fixed density — but the app has never had a responsive or zoom audit

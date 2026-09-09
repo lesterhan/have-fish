@@ -138,7 +138,7 @@
   .summary-row {
     display: flex;
     gap: var(--sp-sm);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     align-items: baseline;
   }
 
@@ -156,18 +156,18 @@
   }
 
   .summary-muted {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     font-style: italic;
   }
 
   .summary-warn {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-warning);
   }
 
   .summary-error {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-danger);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);

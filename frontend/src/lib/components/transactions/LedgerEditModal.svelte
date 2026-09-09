@@ -578,14 +578,14 @@
 
   .tx-date {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     flex-shrink: 0;
   }
 
   .date-input {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -609,8 +609,8 @@
 
   .tx-description {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-accent-hi);
   }
 
@@ -619,7 +619,7 @@
     align-self: flex-start;
     flex: 1;
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .desc-sizer::after {
@@ -636,7 +636,7 @@
     min-width: 0;
     font-family: inherit;
     font-size: inherit;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     color: var(--color-accent-hi);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -668,7 +668,7 @@
   .add-posting-btn {
     align-self: flex-start;
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     background: transparent;
     border: none;
@@ -699,7 +699,7 @@
     align-items: center;
     gap: var(--sp-sm);
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .balance-label {
@@ -722,7 +722,7 @@
   /* ---- Footer ---- */
   .save-error {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     margin: 0;
   }
@@ -750,7 +750,7 @@
 
   .confirm-text {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     flex: 1;
   }
@@ -763,19 +763,19 @@
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window-raised);
     border: 1px solid var(--color-rule);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .group-link-label {
     flex: 1;
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
   .confirm-inline-text {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
   }
 

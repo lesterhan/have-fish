@@ -339,7 +339,7 @@
   }
 
   .parse-errors {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-danger);
     background: var(--color-danger-light);
     border-left: 3px solid var(--color-danger);
@@ -349,7 +349,7 @@
 
   .parse-errors p {
     margin: 0 0 var(--sp-xs);
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
   }
 
   .parse-errors ul {
@@ -374,7 +374,7 @@
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-warning-light);
     color: var(--color-warning);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .unmapped-notice code {
@@ -409,7 +409,7 @@
     background: var(--color-window-raised);
     box-shadow: var(--shadow-control);
     color: var(--color-text);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     cursor: pointer;
     transition:
       background var(--duration-fast) var(--ease),
@@ -446,7 +446,7 @@
   }
 
   .jump-hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     white-space: nowrap;
   }
@@ -483,7 +483,7 @@
     padding: var(--sp-lg) var(--sp-md);
     text-align: center;
     color: var(--color-text-muted);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .liability-chip {
@@ -512,7 +512,7 @@
   }
 
   .unfinished-hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-warning);
   }
 
@@ -577,7 +577,7 @@
   :global(.table-container td) {
     padding: 5px 12px;
     border-bottom: 1px solid var(--color-rule-soft);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   :global(.table-container tbody tr:last-child td) {
@@ -684,7 +684,7 @@
 
   .error {
     flex: 1;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
   }
 

@@ -117,7 +117,7 @@
     );
     font-family: var(--font-mono);
     font-size: 11px;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     letter-spacing: 0.5px;
     color: var(--color-text-muted);
     cursor: pointer;

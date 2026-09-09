@@ -494,7 +494,7 @@
     padding: 5px 12px;
     border-bottom: 1px solid var(--color-rule-soft);
     background: var(--color-window-inset);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .rules-table :global(tbody tr:last-child td) {
@@ -511,8 +511,8 @@
 
   .cell-pattern {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
   }
 
   .split-target {
@@ -524,7 +524,7 @@
 
   .cell-mono {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -612,7 +612,7 @@
 
   .empty-state {
     padding: var(--sp-md) 12px;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -638,8 +638,8 @@
 
   .suggestion-pattern {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -648,7 +648,7 @@
 
   .suggestion-account {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -657,7 +657,7 @@
 
   .suggestion-count {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-disabled);
   }
 

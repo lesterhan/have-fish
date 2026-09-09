@@ -221,7 +221,7 @@
           aria-label="Description"
           placeholder="Description"
           bind:value={draft.description}
-          style="flex: 1; min-width: 0; font-family: var(--font-serif); font-size: var(--text-lg); height: 28px;"
+          style="flex: 1; min-width: 0; font-family: var(--font-serif); font-size: var(--text-figure); height: 28px;"
         />
       {:else}
         <span class="payee">{tx.description || '—'}</span>
@@ -549,7 +549,7 @@
 
   .payee {
     font-family: var(--font-serif);
-    font-size: var(--text-lg);
+    font-size: var(--text-figure);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -559,7 +559,7 @@
   .tag {
     flex-shrink: 0;
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     font-weight: 600;
     padding: 1px 6px;
     color: var(--color-accent);
@@ -578,7 +578,7 @@
 
   .date {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     white-space: nowrap;
   }
@@ -600,7 +600,7 @@
 
   .hero-label {
     font-family: var(--font-sans);
-    font-size: var(--text-lg);
+    font-size: var(--text-figure);
     font-weight: 600;
     color: var(--color-text);
     overflow: hidden;
@@ -610,7 +610,7 @@
 
   .hero-path {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -627,7 +627,7 @@
   .hero-amount .num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--text-xl);
+    font-size: var(--text-title);
     color: var(--color-text);
   }
 
@@ -639,7 +639,7 @@
   .blurb {
     margin: 0;
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     line-height: 1.5;
     color: var(--color-text-muted);
   }
@@ -660,7 +660,7 @@
 
   .moved-label {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--color-text-muted);
@@ -790,7 +790,7 @@
 
   .branch-label {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -803,13 +803,13 @@
 
   .branch-path {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
   .note {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-accent);
   }
 
@@ -824,7 +824,7 @@
   .amount .num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 
@@ -880,7 +880,7 @@
 
   .caret-label {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     text-transform: uppercase;
     letter-spacing: 0.06em;
     color: var(--color-text-muted);
@@ -889,7 +889,7 @@
   .caret-hint {
     margin-left: auto;
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -904,7 +904,7 @@
 
   .conv-key {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--color-text-muted);
@@ -920,13 +920,13 @@
   .conv-val .num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 
   .rate {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 
@@ -947,7 +947,7 @@
 
   .leg-path {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -972,7 +972,7 @@
   .leg-amount .num {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
   }
 
@@ -986,7 +986,7 @@
     gap: var(--sp-xs);
     margin-top: var(--sp-xs);
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     text-transform: uppercase;
     letter-spacing: 0.04em;
     color: var(--color-warning);
@@ -1018,7 +1018,7 @@
   .ledger-link {
     align-self: flex-start;
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     background: transparent;
     border: none;
@@ -1044,19 +1044,19 @@
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window-raised);
     border: 1px solid var(--color-rule);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .group-label {
     flex: 1;
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
   .confirm-warn {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
   }
 
@@ -1069,14 +1069,14 @@
   .confirm-text {
     flex: 1;
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
   }
 
   .save-error {
     margin: 0;
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
   }
 

@@ -57,13 +57,13 @@
     align-items: center;
     gap: 5px;
     font-family: var(--font-sans);
-    font-size: var(--text-base);
+    font-size: var(--text-amount);
     color: var(--color-text);
   }
 
   .count {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-variant-numeric: tabular-nums;
   }

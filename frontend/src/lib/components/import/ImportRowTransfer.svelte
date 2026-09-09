@@ -408,7 +408,7 @@
     color: var(--color-text-muted);
   }
   .amt-fee {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     margin-top: 1px;
   }
@@ -429,7 +429,7 @@
     background: transparent;
     color: var(--color-text);
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     text-align: left;
     cursor: text;
     transition:

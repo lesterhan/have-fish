@@ -479,7 +479,7 @@
     }
 
     .money-col :global(.money .amount) {
-      font-size: var(--text-sm);
+      font-size: var(--text-body);
     }
 
     .summary-line {

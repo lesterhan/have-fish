@@ -103,7 +103,7 @@
     border: none;
     color: inherit;
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     text-align: left;
     cursor: pointer;
   }
@@ -124,7 +124,7 @@
   }
 
   .label {
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
@@ -141,23 +141,23 @@
 
   .count {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .total {
     margin-left: auto;
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     white-space: nowrap;
   }
 
   .unit {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     font-weight: var(--weight-normal);
   }
 
   .note {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     font-style: italic;
     white-space: nowrap;
   }

@@ -1358,7 +1358,7 @@
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
     border-bottom: 1px solid var(--color-rule);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .resume-text {
@@ -1368,7 +1368,7 @@
   .resume-meta {
     margin-left: var(--sp-xs);
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     opacity: 0.8;
   }
 
@@ -1436,7 +1436,7 @@
 
   .fact dd {
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .fact-warn {
@@ -1453,7 +1453,7 @@
   .override-hint {
     margin: 0;
     max-width: 42rem;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -1475,7 +1475,7 @@
 
   .discard-modal p {
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .discard-actions {
@@ -1601,7 +1601,7 @@
     display: inline-flex;
     align-items: center;
     gap: 6px;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-disabled);
   }
 
@@ -1625,13 +1625,13 @@
 
   .file-name {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 
   .file-size {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -1704,7 +1704,7 @@
 
   .defaults-values {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-disabled);
     white-space: nowrap;
     overflow: hidden;
@@ -1761,7 +1761,7 @@
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-inset);
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 
@@ -1792,7 +1792,7 @@
     margin: 0;
     padding: var(--sp-md) var(--sp-md) 0;
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     line-height: 1.5;
     color: var(--color-text-muted);
     max-width: 52ch;
@@ -1800,7 +1800,7 @@
 
   .export-blurb code {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     padding: 1px 4px;
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -1817,7 +1817,7 @@
     gap: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-md);
     background: var(--color-danger-light);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     font-family: var(--font-sans);
     border-top: 1px solid var(--color-danger);
   }
@@ -1848,13 +1848,13 @@
     background: var(--color-window-raised);
     border: 1px solid var(--color-rule-soft);
     border-radius: var(--radius-lg);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
   .coach-strip strong {
     color: var(--color-text);
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
   }
 
   .coach-strip.mismatch {

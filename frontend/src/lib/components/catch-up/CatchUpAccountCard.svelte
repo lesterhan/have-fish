@@ -173,13 +173,13 @@
 
   .name {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
   }
 
   .summary {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     opacity: 0.85;
     font-variant-numeric: tabular-nums;
   }
@@ -195,7 +195,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-sm);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -220,7 +220,7 @@
   }
 
   .field-label {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -232,7 +232,7 @@
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-inset);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 
@@ -243,7 +243,7 @@
 
   .error {
     margin: 0;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-warning);
   }
 </style>

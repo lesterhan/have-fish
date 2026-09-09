@@ -150,14 +150,14 @@
   .intro h2 {
     margin: 0 0 var(--sp-xs);
     font-family: var(--font-serif);
-    font-size: var(--text-lg);
+    font-size: var(--text-figure);
     font-weight: 600;
   }
 
   .intro p {
     margin: 0;
     max-width: 48rem;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
   }
 
@@ -185,7 +185,7 @@
 
   .currency {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     font-weight: 700;
   }
 
@@ -196,7 +196,7 @@
 
   .status {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     white-space: nowrap;
   }
 

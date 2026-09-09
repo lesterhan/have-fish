@@ -57,7 +57,7 @@
   table {
     width: 100%;
     border-collapse: collapse;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   th {
@@ -65,7 +65,7 @@
     border-bottom: 1px solid var(--color-rule);
     padding: var(--sp-xs) var(--sp-sm);
     text-align: left;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     white-space: nowrap;
   }
 

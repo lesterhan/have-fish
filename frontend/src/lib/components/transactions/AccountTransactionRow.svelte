@@ -360,7 +360,7 @@
   }
 
   .transfer-tag {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     flex-shrink: 0;
   }
@@ -446,7 +446,7 @@
 
   .cross-sep {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 

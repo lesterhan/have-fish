@@ -295,7 +295,7 @@
     align-items: center;
     gap: 5px;
     padding: 3px 10px;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     cursor: default;
     white-space: nowrap;

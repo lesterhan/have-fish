@@ -89,8 +89,8 @@
     padding: 3px var(--sp-xs);
     background: var(--color-titlebar-bg);
     color: var(--color-titlebar-fg);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     user-select: none;
   }
 
@@ -106,12 +106,12 @@
   }
 
   label {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 
   .error {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-danger);
     margin-bottom: var(--sp-md);
     padding: var(--sp-xs);
@@ -127,7 +127,7 @@
   }
 
   .switch-link {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     text-align: center;
     margin-top: var(--sp-md);

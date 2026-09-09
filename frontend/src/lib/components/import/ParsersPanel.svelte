@@ -90,7 +90,7 @@
     padding: 5px 12px;
     border-bottom: 1px solid var(--color-rule-soft);
     background: var(--color-window-inset);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .parsers-table :global(tbody tr:last-child td) {
@@ -102,12 +102,12 @@
   }
 
   .cell-name {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .cell-mono {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .cell-actions {

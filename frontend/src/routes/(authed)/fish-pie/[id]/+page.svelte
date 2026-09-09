@@ -530,7 +530,7 @@
 
   .confirm-text {
     flex: 1;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-danger);
   }
 
@@ -585,7 +585,7 @@
     gap: var(--sp-sm);
     padding: 6px 22px;
     border-bottom: 1px solid var(--color-rule-soft);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .pending-row:last-child {
@@ -595,18 +595,18 @@
   .pending-email {
     flex: 1;
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
   }
 
   .pending-label {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
   .form-error {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     font-family: var(--font-sans);
     display: block;

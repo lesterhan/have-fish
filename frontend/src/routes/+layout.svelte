@@ -337,7 +337,7 @@
   .titlebar-title {
     font-family: var(--font-serif);
     font-size: 13px;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     letter-spacing: 0.01em;
     flex: 1;
   }
@@ -449,7 +449,7 @@
     align-items: center;
     min-height: 30px;
     padding: 0 var(--sp-sm);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     background: var(--color-window);
     border-top: 1px solid var(--color-border);

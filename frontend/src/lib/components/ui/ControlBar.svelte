@@ -33,7 +33,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
   }
 

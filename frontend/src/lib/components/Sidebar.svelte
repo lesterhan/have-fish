@@ -392,7 +392,7 @@
     .nav-link {
       min-height: 44px;
       padding: var(--sp-sm) var(--sp-md);
-      font-size: var(--text-base);
+      font-size: var(--text-amount);
     }
   }
 
@@ -419,7 +419,7 @@
     box-shadow: var(--shadow-inset);
     color: var(--color-text-muted);
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     cursor: pointer;
     transition:
       border-color var(--duration-fast) var(--ease),
@@ -457,8 +457,8 @@
   .list-header {
     margin: 0;
     padding: 3px var(--sp-sm);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
     font-family: var(--font-mono);
     text-transform: uppercase;
     letter-spacing: 1px;
@@ -476,7 +476,7 @@
     justify-content: space-between;
     gap: var(--sp-xs);
     padding: 3px var(--sp-sm);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
     text-decoration: none;
     transition: background var(--duration-fast) var(--ease);
@@ -489,14 +489,14 @@
   .account-row.active {
     background: var(--color-accent-chip-bg);
     box-shadow: inset 2px 0 0 var(--color-accent);
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
   }
 
   @media (max-width: 600px) {
     .account-row {
       min-height: 44px;
       padding: var(--sp-xs) var(--sp-md);
-      font-size: var(--text-sm);
+      font-size: var(--text-body);
     }
   }
 
@@ -512,7 +512,7 @@
   .lists-empty {
     margin: 0;
     padding: 0 var(--sp-sm);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     line-height: 1.5;
   }
@@ -638,7 +638,7 @@
     .footer-btn {
       min-height: 44px;
       padding: var(--sp-xs) var(--sp-md);
-      font-size: var(--text-sm);
+      font-size: var(--text-body);
     }
   }
 </style>

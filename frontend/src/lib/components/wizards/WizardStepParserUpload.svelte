@@ -57,7 +57,7 @@
 
 <style>
   .file-input {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     font-family: var(--font-mono);
     background: none;
     box-shadow: none;
@@ -67,7 +67,7 @@
 
   .detected-header {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     word-break: break-all;
   }

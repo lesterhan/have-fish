@@ -308,14 +308,14 @@
   .intro h2 {
     margin: 0 0 var(--sp-xs);
     font-family: var(--font-serif);
-    font-size: var(--text-lg);
+    font-size: var(--text-figure);
     font-weight: 600;
   }
 
   .intro p {
     margin: 0;
     max-width: 48rem;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
   }
 
@@ -366,7 +366,7 @@
     background: transparent;
     color: var(--color-text);
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     text-align: left;
     cursor: pointer;
   }
@@ -397,7 +397,7 @@
   .dates,
   .total {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     white-space: nowrap;
     color: var(--color-text-muted);
   }
@@ -424,7 +424,7 @@
     border-radius: var(--radius-pill);
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .chip-remove {
@@ -432,14 +432,14 @@
     background: transparent;
     color: inherit;
     cursor: pointer;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     line-height: 1;
   }
 
   .matched-note {
     padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + 18px);
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -454,7 +454,7 @@
     align-items: center;
     gap: var(--sp-sm);
     padding: 2px 0;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .member-label {

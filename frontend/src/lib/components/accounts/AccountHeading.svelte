@@ -81,7 +81,7 @@
   @media (max-width: 520px) {
     .account-name {
       white-space: normal;
-      font-size: var(--text-xl);
+      font-size: var(--text-title);
     }
   }
 
@@ -138,7 +138,7 @@
   .balance-amount {
     font-family: var(--font-mono);
     font-size: 30px;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     line-height: 1.05;
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
