@@ -3,7 +3,7 @@
 A design pass in the sense of `DESIGN.md` §7: a critique, not a refactor. Nothing here has
 shipped. This file is the working — every measurement, where it came from, and why each
 decision went the way it did. The specification built from it is
-`planning/epics/visual-language.md`.
+`planning/epics/archive/visual-language.md`.
 
 The mockups are not checked in. They were drafted as a multi-artboard design canvas and
 published as an Artifact; the drafts are gitignored, because a mockup living beside the code
@@ -141,7 +141,7 @@ built.
 ## Decided since
 
 Warm graphite, and the constrained accents. The specification lives in
-`planning/epics/visual-language.md` — this file is the evidence behind it.
+`planning/epics/archive/visual-language.md` — this file is the evidence behind it.
 
 ## Boards, for the record
 

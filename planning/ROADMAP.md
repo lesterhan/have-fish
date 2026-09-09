@@ -69,10 +69,10 @@
 | [Account Settings Modal](epics/archive/account-settings-modal.md) | Done |
 | [Accounts Page — Consolidation and Curation](epics/archive/accounts-page.md) | Done |
 | [Trust Signals](epics/archive/trust-signals.md) | Done |
-| [Honest Chrome](epics/honest-chrome.md) | Scoped |
+| [Honest Chrome](epics/archive/honest-chrome.md) | Done |
 | [Undo](epics/undo.md) | Scoped |
 | [Copy Extraction](epics/copy-extraction.md) | Scoped |
-| [Visual Language](epics/visual-language.md) | Scoped |
+| [Visual Language](epics/archive/visual-language.md) | Done |
 
 ## Fish Pie sequence
 

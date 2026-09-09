@@ -1,5 +1,11 @@
 # Epic: Honest Chrome
 
+**Done, 2026-09-05.** Stories 1, 3 and 4 shipped; story 2 was answered inside Trust Signals
+instead and is annotated in place with why. Story 4's outcome is the one worth re-reading: the
+change it made cannot be seen on any machine this project builds on, so it shipped on the
+argument rather than a screenshot, and the open half is the standing entry under `DESIGN.md`
+§10 "the case is not period yet".
+
 **Depends on:** `DESIGN.md` §2 (the case/work rule) — this epic is that rule applied to
 the case for the first time.
 
@@ -195,7 +201,7 @@ is now the one entry under "the case is not period yet" in `DESIGN.md` §10.
 
 ## Review screenshots
 
-`planning/epics/honest-chrome/` holds the before/after sheets attached to the PR — the
+`planning/epics/archive/honest-chrome/` holds the before/after sheets attached to the PR — the
 titlebar, the tooltip in both themes, the sign-out dialog across all six accents, and the
 login and mobile chrome. They are in the repo because the alternative was a PR with no
 pictures, and three of the four stories here are changes a diff cannot show. Note what they

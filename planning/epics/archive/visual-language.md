@@ -1,5 +1,11 @@
 # Visual Language
 
+**Done, 2026-09-08.** Nine stories shipped as PRs #224–#232 over three days, plus a tenth PR
+(#233) that was not a story: a cleanup pass over what the epic itself left behind. §10's "the
+two themes are not one design" audit is closed in full against this file. See **Outcome** at
+the bottom for what changed in the principles along the way, what got answered, and what this
+epic handed to the next one.
+
 An evolution of the token system, not a re-skin. This file is the specification and it is
 self-contained: every value, ratio and rule needed to execute a story is in it.
 `planning/exploration/visual-language/notes.md` is the working that produced it — the
@@ -371,3 +377,66 @@ the half of §8 that is about meaning rather than appearance: **same concept, sa
 convention, same semantics for green, red and amber.** The companion may be a different colour;
 it may not disagree about what a colour means. When it does adopt, it adopts the ladder — the ΔL
 targets and ratio contracts are platform-independent — not these hexes.
+
+---
+
+## Outcome
+
+### The principles moved
+
+Three of the nine were wrong in a way only the work could show, and each correction is
+recorded above beside the principle it amends rather than only here.
+
+- **V3** became *one loudest element per pane*, not per screen. A two-pane route has two
+  independent reading tasks side by side; forcing one command across both makes the quieter
+  pane look broken.
+- **V6** was scoped to *data* marks. A range slider's fill is control state, not magnitude,
+  and holding it to bar ink would have said the control was a measurement.
+- **V4** was corrected outright, and it was the largest finding in the epic. Status and money
+  are **two vocabularies** that happen to hold identical values in both themes — which is
+  exactly what made them interchangeable at the call site and let nineteen rules pick the
+  wrong one. Nothing looked wrong; that is the failure mode. `semantic-colour.test.ts` now
+  holds the distinction one-way: a selector named for a status may not take a money token.
+
+### The deferred question, answered
+
+The epic deliberately parked *whether a currency should carry a derived identity hue* (story
+1, and again for Fish Pie member avatars in story 8). Closing it: **neither yes nor no.**
+
+A hue would be colour on every money row in the app, which by V4 identifies nothing and by V5
+competes with the sign tint on the same line. But "always neutral" is not right either,
+because the pill is also on every row of a *single-currency* list, where three characters
+repeat forty times to say what the reader already knows. The defect is not the colour, it is
+the ubiquity — so apply V5 to it: **the pill should mark the minority currency**, the way
+colour marks the minority sign. An all-CAD list says CAD once at the top and shows no pills;
+one EUR row among forty shows one pill. `import/minority-sign.ts` already establishes the
+shape and the day band already computes mixed-versus-single per day. A mark that appears only
+when it is rare does not need a hue to be findable.
+
+The Fish Pie member avatars get the same answer for a stronger reason and need no epic: a
+two-person household renders `L` and `P` directly beside the names they abbreviate. There is
+nothing for a hue to mark that the word beside it is not already saying.
+
+### What it handed on
+
+- **The type and spacing scale are not on a ladder.** The epic put every *colour* on one and
+  left this untouched: 172 raw pixel font sizes across 53 of 100 components, `10px` used 68
+  times, `9px` 35 times, and `--text-xs` bottoming out at 12px — so the scale does not
+  describe the app's actual chrome at all. Plus 283 raw px paddings, gaps and radii against a
+  spacing scale whose own comment says "never raw px". Same shape as the colour problem, one
+  rung down, and the obvious next design epic.
+- **The `CategoryManager` density** on the group settings page is a layout redesign, not a
+  visual-language one. Deliberately not touched.
+- **A multi-series categorical ramp** is still unbuilt, as "Known boundary" above says, and
+  still should not be invented before a chart needs one.
+
+### The cleanup pass (#233)
+
+Nine stories of a large epic leave sediment, and the sweep for it found one dead channel
+(`--color-accent-bar-track`, orphaned by story 5 but still deriving through twelve sites and
+defended by three assertions), two recipes copied past the point of drift (the section bar's
+skin in twenty-one components, `.empty` in fourteen), and five copies of the same directory
+walker across the guards — which had themselves diverged. The rule that came out of it is in
+§6: **the third copy of a CSS rule goes to `base.css`, the way the third copy of a component
+goes to `ui/`**, because a scoped `<style>` block cannot share with the file next door and
+nobody ever decides to make the third copy — it just appears.
