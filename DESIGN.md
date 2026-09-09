@@ -711,10 +711,19 @@ epics kill them.
   show what the removal did. If 13px Lucida Grande reads mushy with smoothing on, the
   sanctioned fix is `antialiased`. `none` does not come back; `base.test.ts` holds that.
 
-### The two themes are not one design
-Measured against `tokens.css` in `planning/exploration/visual-language/`. All of these are
-answered by `planning/epics/visual-language.md`. Story 1 (the ladder) has landed, so the ones
-it fixed are struck; the rest are still open, with the story that owns each.
+### The two themes are not one design — closed
+Measured against `tokens.css` in `planning/exploration/visual-language/`, and answered in full
+by [`planning/epics/archive/visual-language.md`](planning/epics/archive/visual-language.md).
+Every item below is struck: the epic's nine stories landed between 2026-09-06 and 2026-09-08.
+Kept rather than deleted because the measurements are what the ladder was argued from, and
+because a closed audit is the only evidence that an audit backlog is a thing this project
+actually clears.
+
+Three of them were only half of what was wrong, and the epic said so as it went: V3 became
+per-*pane* rather than per-screen (story 8), V6 was scoped to data marks rather than control
+state (story 8), and V4 was corrected outright — status and money are two vocabularies that
+happen to share their values, which is what let nineteen rules pick the wrong one (story 9).
+Those refinements are in the epic file, not here.
 
 - ~~**Hierarchy is a property of the theme, not the design.** `--color-section-bar-bg` is
   11.45:1 against the page in light and 1.24:1 in dark — ΔL 0.549 against ΔL 0.009. The same
@@ -788,8 +797,10 @@ it fixed are struck; the rest are still open, with the story that owns each.
 ### Standing debt
 - **`prefers-reduced-motion`** honoured in 2 places out of ~30 that animate.
 - **ARIA coverage** ~70% of components.
-- **`/import` at 1777 lines** — redesigned once already. Next time split, don't grow.
+- **`/import` at 1863 lines** — redesigned once already. Next time split, don't grow. It has
+  grown 86 lines since that sentence was written, which is the sentence's own point.
 - **No responsive audit** has ever been run on the web app.
 - **No virtualisation** anywhere; transaction lists rely on date filtering to stay small.
-- **Legacy accent aliases** (`--color-accent-mid`, `--color-accent-light`) still marked
-  "components updated in story 4" in `tokens.css` — finish the migration or drop the label.
+- ~~**Legacy accent aliases** (`--color-accent-mid`, `--color-accent-light`) still marked
+  "components updated in story 4" in `tokens.css`.~~ Gone — Visual Language story 2 derives
+  every accent value from a hue and a rung, so there was nothing left for an alias to point at.
