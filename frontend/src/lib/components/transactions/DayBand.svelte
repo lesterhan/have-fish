@@ -27,7 +27,7 @@
   let parts = $derived(parseDateParts(date))
 </script>
 
-<div class="day-band">
+<div class="day-band section-bar">
   <span class="day-date">
     <span class="dow">{parts.dow}</span>
     <span class="month-day">{parts.monthDay}</span>
@@ -64,10 +64,6 @@
     gap: var(--sp-sm);
     height: 29px;
     padding: 0 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
   }
 
   .day-date {

@@ -271,7 +271,7 @@
 
     {#if groups.current.length > 0 && !allCurrent && !focusMode}
       <Card>
-        <div class="section-header">CURRENT</div>
+        <div class="section-header section-bar section-bar--card">Current</div>
         <div class="quiet-list">
           {#each groups.current as account (account.accountId)}
             <div class="quiet-row">
@@ -396,14 +396,9 @@
 
   .section-header {
     padding: 3px var(--sp-sm);
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px)
-      0 0;
   }
 
   .quiet-list {

@@ -57,3 +57,17 @@ export function accountIndex<A extends IndexedAccount>(
   cache.set(accounts, built as AccountIndex<IndexedAccount>)
   return built
 }
+
+/**
+ * `accountId` → its path, over the index rather than a fresh object per caller.
+ *
+ * `Object.fromEntries(accounts.map((a) => [a.id, a.path]))` is the obvious way to write this
+ * and was in a transaction row, which meant every row in a list rebuilt the whole map. Null
+ * for an id the list does not hold, so a caller's `?? accountId` fallback still fires.
+ */
+export function pathResolver<A extends IndexedAccount>(
+  accounts: readonly A[],
+): (accountId: string) => string | null {
+  const { byId } = accountIndex(accounts)
+  return (id) => byId.get(id)?.path ?? null
+}

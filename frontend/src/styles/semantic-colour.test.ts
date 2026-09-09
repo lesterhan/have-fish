@@ -27,8 +27,9 @@
  */
 
 import { describe, it, expect } from 'bun:test'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { rulesIn, svelteFilesUnder } from '../testing/source-scan'
 
 /** `frontend/src`, from `frontend/src/styles`. */
 const SRC = join(import.meta.dir, '..')
@@ -55,47 +56,6 @@ const STATUS_WORDS = [
 /** The tokens that measure money. A status rule may not use one. */
 const MONEY_TOKENS = ['--color-amount-positive', '--color-amount-negative']
 
-const SKIP_DIRS = new Set(['node_modules', '.svelte-kit'])
-
-function svelteFilesUnder(dir: string): string[] {
-  const out: string[] = []
-  for (const entry of readdirSync(dir)) {
-    if (SKIP_DIRS.has(entry)) continue
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) out.push(...svelteFilesUnder(full))
-    else if (entry.endsWith('.svelte')) out.push(full)
-  }
-  return out
-}
-
-export interface Rule {
-  selector: string
-  body: string
-}
-
-/**
- * The rules in a component's `<style>` block. Comments go first — one of them explains this
- * very distinction, and reading it as part of the selector beneath it is how the prototype of
- * this test managed to miss the rule it was written for. Nested at-rules leave their prelude
- * behind as a rule with no declarations, which is harmless.
- */
-export function rulesIn(source: string): Rule[] {
-  const open = source.indexOf('<style')
-  if (open === -1) return []
-  // Past the `>` of the opening tag: leaving it in makes the block's first rule read as a
-  // selector starting with `<`, which the loop below then skips. Every file's first rule.
-  const start = source.indexOf('>', open) + 1
-  const style = source.slice(start).replace(/\/\*[\s\S]*?\*\//g, '')
-
-  const rules: Rule[] = []
-  for (const [, selector, body] of style.matchAll(/([^{}]+)\{([^{}]*)\}/g)) {
-    const cleaned = selector!.trim().replace(/\s+/g, ' ')
-    if (cleaned.startsWith('@') || cleaned.startsWith('<')) continue
-    rules.push({ selector: cleaned, body: body! })
-  }
-  return rules
-}
-
 /** Whole-word, so `.checkbox` is not `ok` and `.warning-free` is still `warn`-ish. */
 export function statusWordsIn(selector: string): string[] {
   const lower = selector.toLowerCase()
@@ -113,20 +73,6 @@ export function moneyTokensIn(body: string): string[] {
 // --- the detectors themselves -------------------------------------------------------------
 
 describe('reading a style block', () => {
-  it('does not read a comment as part of the selector under it', () => {
-    // The bug this test was written to catch was hidden behind exactly this comment.
-    const rules = rulesIn(`<style>
-      /* Green here is a status, not a quantity. */
-      .progress.complete .fill { color: var(--color-success); }
-    </style>`)
-    expect(rules).toEqual([
-      {
-        selector: '.progress.complete .fill',
-        body: ' color: var(--color-success); ',
-      },
-    ])
-  })
-
   it('matches a status word only as a whole word', () => {
     expect(statusWordsIn('.checkbox')).toEqual([])
     expect(statusWordsIn('.ledger-foot.ok')).toEqual(['ok'])

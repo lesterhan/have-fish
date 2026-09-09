@@ -1,17 +1,13 @@
 import { bumpCoverage } from './coverageRefresh'
-import type {
-  AccountCoverageStatus,
-  CoverageState,
-  MonthCoverage,
-} from './coverage'
+import type { AccountCoverageStatus, CoverageState } from './coverage'
+import type { MonthCoverage } from './monthCoverage'
 
+export type { AccountCoverageStatus, CoverageState } from './coverage'
 export type {
-  AccountCoverageStatus,
-  CoverageState,
   MonthCoverage,
   MonthCoverageState,
   MonthGap,
-} from './coverage'
+} from './monthCoverage'
 
 // All /api/* requests are proxied by the SvelteKit server to the backend.
 // Empty base means same-origin, which works in both dev and production.
@@ -995,9 +991,7 @@ export async function fetchActionRequiredSummary(): Promise<
   return res.json()
 }
 
-export async function fetchActionRequired(
-  accountId: string,
-): Promise<{
+export async function fetchActionRequired(accountId: string): Promise<{
   count: number
   transactionIds: string[]
   malformedTransactionIds: string[]

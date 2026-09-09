@@ -27,7 +27,7 @@
   import AddTransactionModal from '$lib/components/transactions/AddTransactionModal.svelte'
   import AccountTransactionRow from '$lib/components/transactions/AccountTransactionRow.svelte'
   import DayBand from '$lib/components/transactions/DayBand.svelte'
-  import { groupByDay } from '$lib/components/transactions/ledger'
+  import { groupByDay, typeResolver } from '$lib/components/transactions/ledger'
   import AccountTransactionRowSkeleton from '$lib/components/transactions/AccountTransactionRowSkeleton.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountSettingsModal from '$lib/components/accounts/AccountSettingsModal.svelte'
@@ -40,6 +40,7 @@
   import { statusLine } from '$lib/components/catch-up/statusLine'
   import { attentionChip } from '$lib/components/transactions/attentionChip'
   import { scrollShadow } from '$lib/scrollShadow'
+  import Empty from '$lib/components/ui/Empty.svelte'
 
   let id = $derived(page.params.id!)
 
@@ -293,12 +294,7 @@
   // Runs of one date, each carrying what that day did to this account. The date used to be
   // a column repeated on every row — five identical dates down the left of a busy Saturday.
   let days = $derived(
-    groupByDay(
-      displayedTransactions,
-      (accountId) =>
-        accounts.find((a) => a.id === accountId)?.resolvedType ?? null,
-      id,
-    ),
+    groupByDay(displayedTransactions, typeResolver(accounts), id),
   )
 
   async function toggleActionRequired() {
@@ -490,7 +486,7 @@
       </div>
     </div>
 
-    <div class="tx-col-header">
+    <div class="tx-col-header section-bar">
       <span>DESCRIPTION</span>
       <span class="col-account">ACCOUNT</span>
       <span class="col-amount">AMOUNT</span>
@@ -502,13 +498,13 @@
           <AccountTransactionRowSkeleton />
         {/each}
       {:else if notFound}
-        <p class="empty">Account not found.</p>
+        <Empty>Account not found.</Empty>
       {:else if displayedTransactions.length === 0}
-        <p class="empty">
+        <Empty>
           {actionRequiredActive
             ? 'No flagged transactions in this period.'
             : 'No transactions in this period.'}
-        </p>
+        </Empty>
       {:else}
         {#each days as day (day.date)}
           <DayBand
@@ -667,10 +663,6 @@
     align-items: center;
     gap: var(--sp-xs);
     padding: 6px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
     font-family: var(--font-mono);
     font-size: 9px;
@@ -691,14 +683,6 @@
     min-height: 0;
     overflow-y: auto;
     background: var(--color-window);
-  }
-
-  .empty {
-    padding: var(--sp-lg) 14px;
-    font-family: var(--font-serif);
-    font-size: var(--text-sm);
-    font-style: italic;
-    color: var(--color-text-muted);
   }
 
   @media (max-width: 520px) {

@@ -255,7 +255,7 @@
         <div class="skel-title"><Shimmer width="190px" height="24px" /></div>
       </header>
       <div class="left-body">
-        <div class="skel-bar"></div>
+        <div class="skel-bar section-bar"></div>
         <div class="skel-form">
           {#each Array.from({ length: 4 }) as _, i (i)}
             <div class="skel-field">
@@ -268,7 +268,7 @@
       </div>
     </div>
     <div class="right-col">
-      <div class="skel-bar"></div>
+      <div class="skel-bar section-bar"></div>
       <div class="skel-rows">
         {#each Array.from({ length: 6 }) as _, i (i)}
           <div class="skel-row">
@@ -476,9 +476,6 @@
 
   .skel-bar {
     height: 22px;
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
   }
 
@@ -560,18 +557,6 @@
     align-items: center;
     justify-content: space-between;
     padding: 4px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-  }
-
-  .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
   }
 
   .invite-section {

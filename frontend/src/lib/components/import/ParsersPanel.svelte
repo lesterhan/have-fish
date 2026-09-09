@@ -17,7 +17,7 @@
 
 <div class="parsers-window">
   <div class="section-bar">
-    <span class="section-bar-title">PARSERS</span>
+    <span class="section-bar-title">Parsers</span>
     <GradientButton onclick={onadd}>Add parser</GradientButton>
   </div>
   <div class="parsers-table">
@@ -66,17 +66,9 @@
     align-items: center;
     gap: var(--sp-md);
     padding: 4px 12px;
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
   }
 
   .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    color: var(--color-section-bar-fg);
     flex: 1;
     white-space: nowrap;
   }

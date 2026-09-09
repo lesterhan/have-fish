@@ -48,7 +48,7 @@
 </script>
 
 <tr class="band spanning">
-  <td colspan={sheet.columnCount}>
+  <td class="section-bar" colspan={sheet.columnCount}>
     <div class="band-inner">
       <button
         type="button"
@@ -79,12 +79,6 @@
 </tr>
 
 <style>
-  .band td {
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-  }
-
   /* The first band sits directly under the column header, which already draws a rule. */
   :global(thead + tbody) .band:first-child td {
     border-top: none;
@@ -96,7 +90,6 @@
     gap: var(--sp-sm);
     height: 29px;
     padding: 0 var(--sp-sm);
-    color: var(--color-section-bar-fg);
   }
 
   .toggle {

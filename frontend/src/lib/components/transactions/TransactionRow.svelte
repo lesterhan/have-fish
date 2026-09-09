@@ -2,9 +2,10 @@
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import { type Account, type Transaction } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
+  import { pathResolver } from '$lib/components/accounts/accountIndex'
   import { isUnderRoot } from '$lib/components/accounts/accountPaths'
   import { summarize, classifyTransfer, fmt } from './transactionUtils'
-  import { ledgerTone } from './ledger'
+  import { ledgerTone, typeResolver } from './ledger'
 
   interface Props {
     tx: Transaction
@@ -33,17 +34,15 @@
   // Row is read-only display now; editing lives in the page-level TransactionDetailModal,
   // opened by clicking the row (onselect). Display derives straight from the `tx` prop, so a
   // save reflects when the host swaps in the updated transaction.
-  let accountPaths = $derived(
-    Object.fromEntries(accounts.map((a) => [a.id, a.path])),
-  )
+  // Indexed rather than rebuilt: this runs in every row, and an id→path object per row over
+  // the whole account list is the same O(rows × accounts) the tone lookup used to be.
+  let pathOf = $derived(pathResolver(accounts))
 
   // The sign rule, from the same helper the account page uses. This list is nearly all
   // spending, so an ordinary spend is the default and takes plain ink; colour marks the row
   // you were actually looking for (DESIGN.md §5). Until now the rule lived only on the
   // account page and this list showed every figure the same.
-  let typeOf = $derived(
-    (id: string) => accounts.find((a) => a.id === id)?.resolvedType ?? null,
-  )
+  let typeOf = $derived(typeResolver(accounts))
 
   let tone = $derived(ledgerTone(tx.postings, typeOf))
 
@@ -56,7 +55,7 @@
     const settings = settingsStore.value
     if (!settings) return false
     const expRoot = settings.defaultExpensesRootPath
-    const toPath = accountPaths[to.accountId] ?? ''
+    const toPath = pathOf(to.accountId) ?? ''
     return !isUnderRoot(toPath, expRoot)
   })
 
@@ -132,26 +131,24 @@
           <!-- On the source account page: show only where money went -->
           <span class="arrow" aria-hidden="true">→</span>
           <span class="account account-to">
-            {accountPaths[transfer.target?.accountId ?? ''] ??
+            {pathOf(transfer.target?.accountId ?? '') ??
               transfer.target?.accountId ??
               '—'}
           </span>
         {:else if currentIsTarget}
           <!-- On the target account page: show only where money came from -->
           <span class="account account-from account-from-transfer">
-            {accountPaths[transfer.source.accountId] ??
-              transfer.source.accountId}
+            {pathOf(transfer.source.accountId) ?? transfer.source.accountId}
           </span>
           <span class="arrow" aria-hidden="true">←</span>
         {:else}
           <!-- Full display (transactions page or current account not in source/target) -->
           <span class="account account-from account-from-transfer">
-            {accountPaths[transfer.source.accountId] ??
-              transfer.source.accountId}
+            {pathOf(transfer.source.accountId) ?? transfer.source.accountId}
           </span>
           <span class="arrow" aria-hidden="true">➜</span>
           <span class="account account-to">
-            {accountPaths[transfer.target?.accountId ?? ''] ??
+            {pathOf(transfer.target?.accountId ?? '') ??
               transfer.target?.accountId ??
               '—'}
           </span>
@@ -178,7 +175,7 @@
             class:account-uncategorized={to.accountId ===
               defaultOffsetAccountId}
           >
-            {accountPaths[to.accountId] ?? to.accountId}
+            {pathOf(to.accountId) ?? to.accountId}
           </span>
         {:else if currentIsTo}
           <!-- On the "to" account page: show only where money came from -->
@@ -187,7 +184,7 @@
             class:account-uncategorized={from.accountId ===
               defaultOffsetAccountId}
           >
-            {accountPaths[from.accountId] ?? from.accountId}
+            {pathOf(from.accountId) ?? from.accountId}
           </span>
           <span class="arrow" aria-hidden="true">←</span>
         {:else}
@@ -197,7 +194,7 @@
             class:account-uncategorized={from.accountId ===
               defaultOffsetAccountId}
           >
-            {accountPaths[from.accountId] ?? from.accountId}
+            {pathOf(from.accountId) ?? from.accountId}
           </span>
 
           <span class="arrow" aria-hidden="true">➜</span>
@@ -207,7 +204,7 @@
             class:account-uncategorized={to.accountId ===
               defaultOffsetAccountId}
           >
-            {accountPaths[to.accountId] ?? to.accountId}
+            {pathOf(to.accountId) ?? to.accountId}
           </span>
         {/if}
       </div>

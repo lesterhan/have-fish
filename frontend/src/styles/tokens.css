@@ -145,7 +145,6 @@
   --color-accent-hi: #5290cf; /* highlight / icon tint */
   --color-accent-chip-bg: #d8e8fa; /* accent chip background */
   --color-accent-chip-fg: #124a7b; /* accent chip text */
-  --color-accent-bar-track: #d7e3f0; /* block-bar unfilled track */
   --color-titlebar-accent: linear-gradient(
     180deg,
     #5290cf,
@@ -316,7 +315,6 @@
   --color-accent-hi: #89c3ff;
   --color-accent-chip-bg: #273442;
   --color-accent-chip-fg: #85bcf5;
-  --color-accent-bar-track: #303943;
   --color-titlebar-accent: linear-gradient(180deg, #89c3ff, #62a2e1);
   --color-accent-fg: #0e1216;
   --color-dropdown-active: #62a2e1;

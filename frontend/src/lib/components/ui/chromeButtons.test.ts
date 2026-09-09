@@ -17,21 +17,12 @@
  */
 
 import { describe, it, expect } from 'bun:test'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { svelteFilesUnder } from '../../../testing/source-scan'
 
 const SRC = fileURLToPath(new URL('../../..', import.meta.url))
-
-function svelteFilesUnder(dir: string): string[] {
-  const out: string[] = []
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) out.push(...svelteFilesUnder(full))
-    else if (entry.endsWith('.svelte')) out.push(full)
-  }
-  return out
-}
 
 /** Every `<ChromeButton …>` opening tag in a source, whole. */
 function chromeButtonTags(source: string): string[] {

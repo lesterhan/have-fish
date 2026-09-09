@@ -5,7 +5,7 @@ import {
   monthNote,
   type MonthCoverage,
   type MonthGap,
-} from './coverage'
+} from './monthCoverage'
 
 const TODAY = '2026-09-04'
 const MONTHS = [

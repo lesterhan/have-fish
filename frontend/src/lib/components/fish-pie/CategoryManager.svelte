@@ -17,6 +17,7 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Card from '$lib/components/ui/Card.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import Empty from '../ui/Empty.svelte'
 
   interface Props {
     groupId: string
@@ -169,9 +170,9 @@
 
 <div class="categories">
   {#if active.length === 0}
-    <p class="empty">
+    <Empty inset="22px">
       No categories yet. Add one below to start tagging expenses.
-    </p>
+    </Empty>
   {/if}
 
   {#if active.length > 0}
@@ -303,15 +304,6 @@
     display: flex;
     flex-direction: column;
     background: var(--color-window-raised);
-  }
-
-  .empty {
-    padding: var(--sp-md) 22px;
-    font-family: var(--font-serif);
-    font-size: var(--text-sm);
-    font-style: italic;
-    color: var(--color-text-muted);
-    margin: 0;
   }
 
   /* Each category reads as its own card, lifted off the section background. */

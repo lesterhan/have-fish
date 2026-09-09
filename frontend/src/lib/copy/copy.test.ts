@@ -30,8 +30,9 @@
  */
 
 import { describe, it, expect } from 'bun:test'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { svelteFilesUnder } from '../../testing/source-scan'
 
 /** `frontend/src`, from `frontend/src/lib/copy`. */
 const SRC = join(import.meta.dir, '..', '..')
@@ -50,16 +51,6 @@ const CONVERTED = ['routes/login/+page.svelte', 'routes/signup/+page.svelte']
 const ALLOWED: Array<{ file: string; text: string; why: string }> = []
 
 // --- finding the files ----------------------------------------------------------------
-
-function svelteFilesUnder(dir: string): string[] {
-  const out: string[] = []
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) out.push(...svelteFilesUnder(full))
-    else if (entry.endsWith('.svelte')) out.push(full)
-  }
-  return out
-}
 
 function convertedFiles(): string[] {
   const out: string[] = []
