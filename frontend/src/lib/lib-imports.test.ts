@@ -1,6 +1,7 @@
 import { describe, it, expect } from 'bun:test'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
+import { sourceFilesUnder } from '../testing/source-scan'
 
 /**
  * Guards the one import rule that CI enforces and a local run cannot.
@@ -35,19 +36,12 @@ const SRC_DIR = join(import.meta.dir, '..')
 const VITE_LOADED = /^(\+(page|layout|server)[\w.]*|hooks(\.\w+)?|app\.d)\.ts$/
 const SELF = 'lib-imports.test.ts'
 
-function tsFilesUnder(dir: string): string[] {
-  const out: string[] = []
-  for (const entry of readdirSync(dir)) {
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) out.push(...tsFilesUnder(full))
-    else if (
-      entry.endsWith('.ts') &&
-      entry !== SELF &&
-      !VITE_LOADED.test(entry)
-    )
-      out.push(full)
-  }
-  return out
+/** Every .ts file the rule applies to: not this test, not the modules Vite loads. */
+function scannedFiles(): string[] {
+  return sourceFilesUnder(SRC_DIR, ['.ts']).filter((full) => {
+    const name = full.slice(full.lastIndexOf('/') + 1)
+    return name !== SELF && !VITE_LOADED.test(name)
+  })
 }
 
 /**
@@ -70,7 +64,7 @@ function offendersIn(source: string): string[] {
 describe('$lib imports in testable modules', () => {
   it('never value-imports through $lib — CI has no .svelte-kit to resolve it', () => {
     const offenders: string[] = []
-    for (const file of tsFilesUnder(SRC_DIR)) {
+    for (const file of scannedFiles()) {
       const rel = file.slice(file.indexOf('src/'))
       for (const hit of offendersIn(readFileSync(file, 'utf8'))) {
         offenders.push(`${rel}: ${hit}`)

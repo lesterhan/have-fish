@@ -156,7 +156,7 @@
 
         {#if pinned.length > 0}
           <section class="list">
-            <h2 class="list-header">Pinned</h2>
+            <h2 class="list-header section-bar">Pinned</h2>
             <ul class="account-list">
               {#each pinned as row (row.id)}
                 <li>
@@ -179,7 +179,7 @@
 
         {#if recent.length > 0}
           <section class="list">
-            <h2 class="list-header">Recent</h2>
+            <h2 class="list-header section-bar">Recent</h2>
             <ul class="account-list">
               {#each recent as row (row.id)}
                 <li>
@@ -462,10 +462,6 @@
     font-family: var(--font-mono);
     text-transform: uppercase;
     letter-spacing: 1px;
-    color: var(--color-section-bar-fg);
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
   }
 
   .account-list {

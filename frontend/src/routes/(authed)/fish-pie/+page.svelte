@@ -11,6 +11,7 @@
     declineInvite,
   } from '$lib/api'
   import type { ExpenseGroup, GroupInvite } from '$lib/api'
+  import Empty from '$lib/components/ui/Empty.svelte'
 
   let groups = $state<ExpenseGroup[]>([])
   let invites = $state<GroupInvite[]>([])
@@ -130,11 +131,11 @@
 
   <div class="body">
     {#if loading}
-      <p class="empty">Loading…</p>
+      <Empty inset="22px">Loading…</Empty>
     {:else if groups.length === 0}
-      <p class="empty">
+      <Empty inset="22px">
         No groups yet. Create one to start splitting expenses with others.
-      </p>
+      </Empty>
     {:else}
       {#each groups as group (group.id)}
         <a class="group-row" href="/fish-pie/{group.id}">
@@ -198,19 +199,7 @@
     display: flex;
     align-items: center;
     padding: 6px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
-  }
-
-  .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
   }
 
   .invites-body {
@@ -288,14 +277,6 @@
 
   .group-meta {
     font-size: var(--text-xs);
-    color: var(--color-text-muted);
-  }
-
-  .empty {
-    padding: var(--sp-lg) 22px;
-    font-family: var(--font-serif);
-    font-size: var(--text-sm);
-    font-style: italic;
     color: var(--color-text-muted);
   }
 </style>

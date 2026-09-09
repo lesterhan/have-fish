@@ -73,7 +73,7 @@
 </script>
 
 <Card>
-  <div class="head">
+  <div class="head section-bar section-bar--card">
     <span class="name">{displayName(account)}</span>
     <span class="summary">{gapSummary(account) ?? ''}</span>
   </div>
@@ -169,11 +169,6 @@
     gap: var(--sp-sm);
     flex-wrap: wrap;
     padding: 3px var(--sp-sm);
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px)
-      0 0;
   }
 
   .name {

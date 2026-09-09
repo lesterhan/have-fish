@@ -1,6 +1,13 @@
 import { describe, it, expect } from 'bun:test'
 import type { Posting, StoredAccountType, Transaction } from '$lib/api'
-import { dayNet, groupByDay, ledgerTone, subjectPosting } from './ledger'
+import {
+  dayNet,
+  groupByDay,
+  ledgerTone,
+  subjectPosting,
+  typeResolver,
+  type TypedAccount,
+} from './ledger'
 
 // ── Fixtures ────────────────────────────────────────────────
 //
@@ -244,5 +251,34 @@ describe('groupByDay', () => {
       typeOf,
     )
     expect(groups[0]!.date).toBe('2026-09-06')
+  })
+})
+
+describe('typeResolver', () => {
+  // The list shape the pages actually hand it. `accountIndex` memoizes on array identity, so
+  // these must be distinct arrays where the test cares about a rebuild.
+  const accounts: TypedAccount[] = [
+    { id: 'card', path: 'liabilities:visa', resolvedType: 'liability' },
+    { id: 'groceries', path: 'expenses:food', resolvedType: 'expense' },
+    { id: 'mystery', path: 'assets:x', resolvedType: null },
+  ]
+
+  it('resolves an id to its type', () => {
+    expect(typeResolver(accounts)('card')).toBe('liability')
+  })
+
+  it('is null for an account that never resolved, and for one not in the list', () => {
+    const typeOfAccount = typeResolver(accounts)
+    expect(typeOfAccount('mystery')).toBeNull()
+    expect(typeOfAccount('nope')).toBeNull()
+  })
+
+  it('answers the same as the hand-written scan it replaces', () => {
+    // The four call sites all wrote `accounts.find((a) => a.id === id)?.resolvedType ?? null`.
+    const indexed = typeResolver(accounts)
+    for (const id of ['card', 'groceries', 'mystery', 'nope']) {
+      const scanned = accounts.find((a) => a.id === id)?.resolvedType ?? null
+      expect(indexed(id)).toBe(scanned)
+    }
   })
 })

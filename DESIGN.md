@@ -526,12 +526,36 @@ The inventory is `frontend/src/lib/components/ui/` (primitives) plus domain fold
 maintenance task.** It means a pattern was stretched past what it was for. The epic gets a
 paragraph asking whether the flow itself is right before anyone refactors the file.
 
-Watchlist, largest first: `fish-pie/GroupRightPanel` (1266),
-`transactions/TransactionDetail` (1084), `accounts/CategoriesTab` (772),
-`transactions/LedgerEditModal` (770), `fish-pie/GroupExpenseForm` (763),
-`accounts/AccountPicker` (760), and the `/import` route at 1777 lines.
+Watchlist, largest first: `fish-pie/GroupRightPanel` (1382),
+`transactions/TransactionDetail` (1093), `fish-pie/GroupExpenseForm` (797),
+`transactions/LedgerEditModal` (793), `accounts/CategoriesTab` (786),
+`accounts/AccountPicker` (766), and the `/import` route at 1863 lines.
 
 Being listed is not a defect. It's an invitation to ask P5's question of it.
+
+### The rule a scoped `<style>` block cannot follow
+
+Rule 3 above — *the third time is a pattern* — is the one this codebase breaks most often,
+and it breaks it for a structural reason. A Svelte component's styles are scoped, so a rule
+cannot be shared with the file next door, and writing it out again is always the shortest
+path. Nobody makes a decision; the third copy just appears.
+
+The result is measurable. The section bar's four-declaration skin lived in **twenty-one**
+components, and it had drifted: three panels shouted `PARSERS` in the markup because their
+copy of the label rule had lost its `text-transform`. `.empty` was written **fourteen** times,
+in four different paddings, and the spending breakdown's had lost the serif italic — so the
+absence a user meets most often was the one that looked like a different app.
+
+So the third copy of a *rule* goes to `styles/base.css`, the way the third copy of a
+*component* goes to `ui/`. `.sr-only`, `.section-bar` and `.section-bar-title` are there for
+this reason. Two limits keep it from becoming a utility framework: only the **skin** is
+shared — every bar keeps its own padding, gap and content in its own file — and a global
+class earns a guard in `base.test.ts` naming what may no longer be hand-rolled, because a
+convention with nothing checking it is the state we just left.
+
+An absence is a component rather than a class, because it has content and two shapes: `Empty`
+(V7). A muted one-line notice inside a dense panel is not one — dressing that as prose makes
+it the loudest thing in a panel it only annotates.
 
 ### Retiring a pattern
 

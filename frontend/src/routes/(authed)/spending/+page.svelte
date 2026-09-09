@@ -27,7 +27,7 @@
     MonthlySpend,
     MonthCoverage,
   } from '$lib/api'
-  import { comparisonBlocker, isFloor, monthNote } from '$lib/coverage'
+  import { comparisonBlocker, isFloor, monthNote } from '$lib/monthCoverage'
   import { monthStart, monthEnd, shiftMonth, MONTH_NAMES } from '$lib/date'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import ConvertToggle from '$lib/components/ui/ConvertToggle.svelte'
@@ -606,7 +606,7 @@
 
   <div class="right-col">
     <div class="txn-panel">
-      <div class="txn-header">
+      <div class="txn-header section-bar">
         <span class="txn-header-title">Transactions</span>
         <span class="txn-header-count">{txns.length} entries</span>
         <span class="txn-header-spacer"></span>
@@ -924,10 +924,6 @@
     align-items: center;
     gap: 8px;
     padding: 6px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
   }
 
@@ -1084,17 +1080,9 @@
     align-items: center;
     gap: var(--sp-md);
     padding: 4px 12px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
   }
 
   .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
     white-space: nowrap;
     flex-shrink: 0;
   }

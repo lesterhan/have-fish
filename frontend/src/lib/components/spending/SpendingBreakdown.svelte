@@ -1,6 +1,7 @@
 <script lang="ts">
   import { formatCentsAbs } from '$lib/money'
   import { tooltip } from '$lib/tooltip'
+  import Empty from '../ui/Empty.svelte'
 
   interface Props {
     categories: {
@@ -69,7 +70,7 @@
 </script>
 
 {#if sorted.length === 0}
-  <p class="empty">No expenses for this period.</p>
+  <Empty inset="0">No expenses for this period.</Empty>
 {:else}
   <div class="breakdown">
     <!-- Header row -->
@@ -286,11 +287,5 @@
     font-weight: 700;
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
-  }
-
-  .empty {
-    font-size: var(--text-sm);
-    color: var(--color-text-muted);
-    padding: var(--sp-md) 0;
   }
 </style>

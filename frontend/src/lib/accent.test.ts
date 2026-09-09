@@ -48,7 +48,6 @@ const FALLBACK_TOKENS: Array<
   ['--color-accent-hi', 'hi'],
   ['--color-accent-chip-bg', 'chipBg'],
   ['--color-accent-chip-fg', 'chipFg'],
-  ['--color-accent-bar-track', 'barTrack'],
   ['--color-accent-fg', 'fg'],
   ['--color-dropdown-active', 'hex'],
 ]
@@ -147,15 +146,6 @@ describe('the derived roles hold up', () => {
         expect(hexToOklch(accent.hi).l).toBeGreaterThan(
           hexToOklch(accent.hex).l,
         )
-      })
-
-      it(`${key} ${theme}: the bar track reads as a trough in the page`, () => {
-        // An unfilled track has to be visible without being a bar of its own, so it is held
-        // to the same floor as any other surface step (DESIGN.md §5) and no more.
-        expect(deltaL(accent.barTrack, WINDOW[theme])).toBeGreaterThanOrEqual(
-          0.04,
-        )
-        expect(contrastRatio(accent.barTrack, WINDOW[theme])).toBeLessThan(1.5)
       })
     }
   }

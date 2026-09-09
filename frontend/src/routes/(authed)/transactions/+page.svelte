@@ -21,10 +21,11 @@
   import FilterPanel from '$lib/components/transactions/FilterPanel.svelte'
   import TransactionRow from '$lib/components/transactions/TransactionRow.svelte'
   import DayBand from '$lib/components/transactions/DayBand.svelte'
-  import { groupByDay } from '$lib/components/transactions/ledger'
+  import { groupByDay, typeResolver } from '$lib/components/transactions/ledger'
   import TransactionRowSkeleton from '$lib/components/transactions/TransactionRowSkeleton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { scrollShadow } from '$lib/scrollShadow'
+  import Empty from '$lib/components/ui/Empty.svelte'
 
   // Default range: last 90 days → today, computed once at module load.
   function defaultRange() {
@@ -121,13 +122,7 @@
   // Runs of one date, each carrying what that day did to your money. On this list the
   // subject is the own-money side of each row — summing every posting would always be zero,
   // because a ledger balances.
-  let days = $derived(
-    groupByDay(
-      sortedTransactions,
-      (accountId) =>
-        accounts.find((a) => a.id === accountId)?.resolvedType ?? null,
-    ),
-  )
+  let days = $derived(groupByDay(sortedTransactions, typeResolver(accounts)))
 
   function navigate(params: Record<string, string>) {
     const base: Record<string, string> = { from, to, dir: sortDir }
@@ -275,7 +270,7 @@
         <TransactionRowSkeleton />
       {/each}
     {:else if sortedTransactions.length === 0}
-      <p class="empty">No transactions in this period.</p>
+      <Empty>No transactions in this period.</Empty>
     {:else}
       {#each days as day (day.date)}
         <DayBand
@@ -371,18 +366,7 @@
     align-items: center;
     gap: var(--sp-md);
     padding: 6px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
-  }
-
-  .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
   }
 
   .tx-body {
@@ -390,14 +374,6 @@
     min-height: 0;
     overflow-y: auto;
     background: var(--color-window-raised);
-  }
-
-  .empty {
-    padding: var(--sp-lg) 14px;
-    font-family: var(--font-serif);
-    font-size: var(--text-sm);
-    font-style: italic;
-    color: var(--color-text-muted);
   }
 
   @media (max-width: 520px) {

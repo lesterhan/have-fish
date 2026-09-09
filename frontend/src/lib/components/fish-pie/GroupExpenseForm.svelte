@@ -391,18 +391,6 @@
     align-items: center;
     justify-content: space-between;
     padding: 4px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-  }
-
-  .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
   }
 
   .expense-form-wrap {

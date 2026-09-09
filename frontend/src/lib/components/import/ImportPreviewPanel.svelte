@@ -150,7 +150,7 @@
 
 <div class="preview-window">
   <div class="section-bar">
-    <span class="section-bar-title">REVIEW — {preview.parser}</span>
+    <span class="section-bar-title">Review — {preview.parser}</span>
     <span class="preview-counts">
       {reviewed} of {counts.all} reviewed
     </span>
@@ -318,17 +318,9 @@
     align-items: center;
     gap: var(--sp-md);
     padding: 4px 12px;
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
   }
 
   .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    color: var(--color-section-bar-fg);
     flex: 1;
     white-space: nowrap;
   }

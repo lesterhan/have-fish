@@ -20,7 +20,7 @@ import { oklchToHex } from './oklch'
  * what `accent.test.ts` checks.
  */
 
-type Role = 'hex' | 'hi' | 'chipBg' | 'chipFg' | 'barTrack' | 'fg'
+type Role = 'hex' | 'hi' | 'chipBg' | 'chipFg' | 'fg'
 
 /**
  * Hue in degrees, and the chroma the accent is drawn at. Five sit at the same cap; slate is
@@ -49,7 +49,6 @@ const RUNGS: Record<'light' | 'dark', Record<Role, number>> = {
     hi: 0.64,
     chipBg: 0.925,
     chipFg: 0.4,
-    barTrack: 0.91,
     fg: 0.995,
   },
   dark: {
@@ -57,7 +56,6 @@ const RUNGS: Record<'light' | 'dark', Record<Role, number>> = {
     hi: 0.8,
     chipBg: 0.32,
     chipFg: 0.78,
-    barTrack: 0.34,
     fg: 0.18,
   },
 }
@@ -72,7 +70,6 @@ const CHROMA: Record<Role, { of: number; max: number }> = {
   hi: { of: 1, max: 1 },
   chipBg: { of: 0.26, max: 0.03 },
   chipFg: { of: 0.87, max: 0.1 },
-  barTrack: { of: 0.19, max: 0.022 },
   fg: { of: 0.09, max: 0.01 },
 }
 
@@ -81,7 +78,6 @@ export type AccentVariant = {
   hi: string
   chipBg: string
   chipFg: string
-  barTrack: string
   titlebar: string
   /** Text ON an accent-filled surface. Near-white in light, near-black in dark. */
   fg: string
@@ -106,7 +102,6 @@ function variant(key: AccentKey, theme: 'light' | 'dark'): AccentVariant {
     hi,
     chipBg: at('chipBg'),
     chipFg: at('chipFg'),
-    barTrack: at('barTrack'),
     // The gloss runs from the highlight down to the accent itself, so the pill reads as lit
     // from above like every other control.
     titlebar: `linear-gradient(180deg,${hi},${hex})`,
@@ -128,7 +123,6 @@ export function applyAccent(key: AccentKey, dark = false) {
   s.setProperty('--color-accent-hi', a.hi)
   s.setProperty('--color-accent-chip-bg', a.chipBg)
   s.setProperty('--color-accent-chip-fg', a.chipFg)
-  s.setProperty('--color-accent-bar-track', a.barTrack)
   s.setProperty('--color-titlebar-accent', a.titlebar)
   s.setProperty('--color-dropdown-active', a.hex)
   s.setProperty('--color-accent-fg', a.fg)

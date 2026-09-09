@@ -17,6 +17,7 @@
   import Icon from '$lib/components/ui/Icon.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import CategoryManager from '$lib/components/fish-pie/CategoryManager.svelte'
+  import Empty from '$lib/components/ui/Empty.svelte'
 
   const groupId = $derived(page.params.id ?? '')
   const session = useSession()
@@ -116,7 +117,7 @@
     <div class="body"></div>
   {:else if notFound || !group}
     <div class="body">
-      <p class="empty">Group not found.</p>
+      <Empty inset="22px">Group not found.</Empty>
     </div>
   {:else}
     <div class="body">
@@ -244,19 +245,7 @@
     display: flex;
     align-items: center;
     padding: 4px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
-  }
-
-  .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    text-transform: uppercase;
   }
 
   .body {
@@ -364,13 +353,5 @@
     color: var(--color-danger);
     font-family: var(--font-mono);
     margin-right: var(--sp-xs);
-  }
-
-  .empty {
-    padding: var(--sp-lg) 22px;
-    font-family: var(--font-serif);
-    font-size: var(--text-sm);
-    font-style: italic;
-    color: var(--color-text-muted);
   }
 </style>

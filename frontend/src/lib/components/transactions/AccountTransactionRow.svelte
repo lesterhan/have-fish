@@ -6,7 +6,7 @@
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { summarize, classifyTransfer, fmt } from './transactionUtils'
-  import { ledgerTone } from './ledger'
+  import { ledgerTone, typeResolver } from './ledger'
 
   interface Props {
     tx: Transaction
@@ -83,9 +83,7 @@
   // Amount colour is by exception here — see `ledger.ts`. Which posting to ask about and
   // what its sign means are both the helper's business now, so this page and the global
   // transactions list reach the same answer for the same row.
-  let typeOf = $derived(
-    (id: string) => accounts.find((a) => a.id === id)?.resolvedType ?? null,
-  )
+  let typeOf = $derived(typeResolver(accounts))
 
   let tone = $derived(ledgerTone(tx.postings, typeOf, currentAccountId))
 

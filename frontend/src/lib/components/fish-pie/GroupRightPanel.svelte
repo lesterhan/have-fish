@@ -14,6 +14,7 @@
   import Chip from '$lib/components/ui/Chip.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import { initials } from './utils'
+  import Empty from '../ui/Empty.svelte'
 
   interface UpdateExpenseData {
     description?: string
@@ -253,7 +254,7 @@
 </script>
 
 <div class="txn-panel">
-  <div class="panel-tabs">
+  <div class="panel-tabs section-bar">
     <button
       class="panel-tab"
       class:active={panelTab === 'expenses'}
@@ -277,7 +278,7 @@
   <div class="panel-body">
     {#if panelTab === 'expenses'}
       {#if expenses.length === 0}
-        <p class="empty">No expenses yet.</p>
+        <Empty inset="22px">No expenses yet.</Empty>
       {:else}
         <div class="expense-list">
           {#each expenses as expense (expense.id)}
@@ -573,7 +574,7 @@
         </div>
       {/if}
     {:else if settlements.length === 0}
-      <p class="empty">No settlements recorded.</p>
+      <Empty inset="22px">No settlements recorded.</Empty>
     {:else}
       <div class="settlement-list">
         {#if pendingSettlements.length > 0}
@@ -750,9 +751,6 @@
 
   .panel-tabs {
     display: flex;
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
   }
 
@@ -796,14 +794,6 @@
     min-height: 0;
     overflow-y: auto;
     background: var(--color-window);
-  }
-
-  .empty {
-    padding: var(--sp-lg) 22px;
-    font-family: var(--font-serif);
-    font-size: var(--text-sm);
-    font-style: italic;
-    color: var(--color-text-muted);
   }
 
   .expense-list,

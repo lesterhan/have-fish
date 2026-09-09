@@ -73,7 +73,9 @@
 </script>
 
 <Card>
-  <div class="section-header">SET YOUR STARTING LINE</div>
+  <div class="section-header section-bar section-bar--card">
+    Set your starting line
+  </div>
   <div class="section-body">
     <p class="lede">
       The coach needs to know how far along each account already is. Everything
@@ -164,14 +166,9 @@
 <style>
   .section-header {
     padding: 3px var(--sp-sm);
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
     font-family: var(--font-sans);
     font-size: var(--text-sm);
     font-weight: var(--weight-semibold);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
-    border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px)
-      0 0;
   }
 
   .section-body {

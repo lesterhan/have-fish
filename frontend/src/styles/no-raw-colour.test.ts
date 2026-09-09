@@ -38,8 +38,9 @@
  */
 
 import { describe, it, expect } from 'bun:test'
-import { readdirSync, readFileSync, statSync } from 'node:fs'
+import { readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
+import { sourceFilesUnder, stripNoise } from '../testing/source-scan'
 
 /** `frontend/src`, from `frontend/src/styles`. */
 const SRC = join(import.meta.dir, '..')
@@ -65,39 +66,12 @@ const ALLOWED: Array<{ file: string; value: string; why: string }> = []
 // --- finding the files ------------------------------------------------------------------
 
 const EXTENSIONS = ['.svelte', '.css', '.ts']
-const SKIP_DIRS = new Set(['node_modules', '.svelte-kit'])
 
-function sourceFilesUnder(dir: string): string[] {
-  const out: string[] = []
-  for (const entry of readdirSync(dir)) {
-    if (SKIP_DIRS.has(entry)) continue
-    const full = join(dir, entry)
-    if (statSync(full).isDirectory()) out.push(...sourceFilesUnder(full))
-    else if (EXTENSIONS.some((ext) => entry.endsWith(ext))) out.push(full)
-  }
-  return out
-}
-
-const FILES = sourceFilesUnder(SRC)
+const FILES = sourceFilesUnder(SRC, EXTENSIONS)
   .map((full) => relative(SRC, full))
   .filter((file) => !COLOUR_SOURCES.some((source) => source.file === file))
   .filter((file) => !file.endsWith('.test.ts')) // a test may quote the value it is asserting
   .sort()
-
-// --- reading a file ---------------------------------------------------------------------
-
-/**
- * Comments, and the `<path d="…">` guts of inline SVG. Comments explain the values they
- * name — several of the ones in this codebase quote the exact hexes of a bug they document —
- * and an SVG path is coordinates that happen to look like anything.
- */
-function stripNoise(source: string): string {
-  return source
-    .replace(/\/\*[\s\S]*?\*\//g, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
-    .replace(/(^|\n)\s*(\/\/|\s\*)[^\n]*/g, '$1')
-    .replace(/\sd="[^"]*"/g, '')
-}
 
 // --- the detectors ----------------------------------------------------------------------
 

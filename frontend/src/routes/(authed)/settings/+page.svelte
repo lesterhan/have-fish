@@ -405,18 +405,11 @@
     align-items: center;
     gap: var(--sp-sm);
     padding: 5px 14px;
-    background: var(--color-section-bar-bg);
-    color: var(--color-section-bar-fg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
   }
 
   .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
     font-weight: var(--weight-semibold);
-    letter-spacing: 0.6px;
     flex: 1;
   }
 

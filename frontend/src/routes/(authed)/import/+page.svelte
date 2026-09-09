@@ -1346,9 +1346,6 @@
     display: flex;
     align-items: stretch;
     padding: 0 var(--sp-sm);
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
   }
 
   /* ── Resume strip (a saved import found on mount) ── */

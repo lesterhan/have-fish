@@ -348,7 +348,7 @@
 
   <!-- Right: suggestions / denied sidebar -->
   <div class="right-col">
-    <div class="panel-tabs">
+    <div class="panel-tabs section-bar">
       <button
         class="panel-tab"
         class:active={panelTab === 'suggestions'}
@@ -470,18 +470,10 @@
     align-items: center;
     gap: var(--sp-md);
     padding: 4px 12px;
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
   }
 
   .section-bar-title {
-    font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
-    color: var(--color-section-bar-fg);
     flex: 1;
   }
 
@@ -566,9 +558,6 @@
 
   .panel-tabs {
     display: flex;
-    background: var(--color-section-bar-bg);
-    border-top: 1px solid var(--color-section-bar-border-top);
-    border-bottom: 1px solid var(--color-section-bar-border-bottom);
     flex-shrink: 0;
   }
 

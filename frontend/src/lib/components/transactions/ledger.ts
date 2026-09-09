@@ -1,5 +1,6 @@
 import type { Posting, StoredAccountType, Transaction } from '$lib/api'
 import { toCents } from '../../money'
+import { accountIndex } from '../accounts/accountIndex'
 import { amountTone, OWN_MONEY, type AmountTone } from './amountTone'
 
 /**
@@ -16,6 +17,32 @@ import { amountTone, OWN_MONEY, type AmountTone } from './amountTone'
  * with the expense or income account as its counterpart. Reducing both pages to "find the
  * subject, judge its sign against its counterpart" is what makes one rule cover both.
  */
+
+/** The part of an `Account` this needs. `Account` from the API satisfies it. */
+export interface TypedAccount {
+  id: string
+  path: string
+  resolvedType?: StoredAccountType | null
+}
+
+/**
+ * `accountId` → the type it resolved to, over an indexed lookup.
+ *
+ * Every function below takes this as a callback rather than the account list, because the
+ * account page and the global list disagree about which account matters and agree about
+ * nothing else. Four call sites had written the same closure by hand —
+ * `accounts.find((a) => a.id === id)?.resolvedType ?? null` — and each one ran a linear scan
+ * per posting inside a per-row `$derived`, so a page of two hundred rows over two hundred
+ * accounts did eighty thousand comparisons to colour a column. `accountIndex` already
+ * memoizes an id map on the array's identity for exactly this reason; it was built for the
+ * account pickers and nothing else had found it.
+ */
+export function typeResolver(
+  accounts: readonly TypedAccount[],
+): (accountId: string) => StoredAccountType | null {
+  const { byId } = accountIndex(accounts)
+  return (id) => byId.get(id)?.resolvedType ?? null
+}
 
 /** The posting a ledger row is about, or null when nothing in the row is your own money. */
 export function subjectPosting(
