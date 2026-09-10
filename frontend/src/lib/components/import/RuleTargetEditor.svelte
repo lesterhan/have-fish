@@ -128,7 +128,7 @@
   }
 
   .kind {
-    padding: 3px 9px;
+    padding: var(--sp-3xs) var(--sp-xs);
     border: 1px solid var(--color-border);
     background: var(--color-window-raised);
     color: var(--color-text-muted);

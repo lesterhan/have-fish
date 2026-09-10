@@ -317,7 +317,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
   }
 
   .section-bar-title {
@@ -402,8 +402,8 @@
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 3px 10px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-3xs) var(--gutter-tight);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-pill);
     background: var(--color-window-raised);
@@ -452,7 +452,7 @@
   }
 
   .jump-hint kbd {
-    padding: 1px 5px;
+    padding: var(--sp-hair) var(--sp-2xs);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
     background: var(--color-window-raised);
@@ -489,7 +489,7 @@
   .liability-chip {
     display: inline-flex;
     align-items: center;
-    padding: 2px var(--sp-sm);
+    padding: var(--sp-4xs) var(--sp-sm);
     border-radius: var(--radius-pill);
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
@@ -532,7 +532,7 @@
     background: var(--color-window);
     box-shadow: none;
     border-bottom: 1px solid var(--color-rule);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
     text-align: left;
     font-family: var(--font-mono);
     font-size: var(--text-micro);
@@ -575,7 +575,7 @@
   /* ── Shared row/cell styles — :global so they reach child-rendered <td> elements ── */
 
   :global(.table-container td) {
-    padding: 5px 12px;
+    padding: var(--sp-2xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule-soft);
     font-size: var(--text-dense);
   }
@@ -636,7 +636,7 @@
   :global(.table-container .cell-split) {
     text-align: center;
     vertical-align: middle;
-    padding: 2px 4px;
+    padding: var(--sp-4xs) var(--sp-3xs);
     white-space: nowrap;
   }
 

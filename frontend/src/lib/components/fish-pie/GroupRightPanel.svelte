@@ -278,7 +278,7 @@
   <div class="panel-body">
     {#if panelTab === 'expenses'}
       {#if expenses.length === 0}
-        <Empty inset="22px">No expenses yet.</Empty>
+        <Empty inset="wide">No expenses yet.</Empty>
       {:else}
         <div class="expense-list">
           {#each expenses as expense (expense.id)}
@@ -574,7 +574,7 @@
         </div>
       {/if}
     {:else if settlements.length === 0}
-      <Empty inset="22px">No settlements recorded.</Empty>
+      <Empty inset="wide">No settlements recorded.</Empty>
     {:else}
       <div class="settlement-list">
         {#if pendingSettlements.length > 0}
@@ -755,7 +755,7 @@
   }
 
   .panel-tab {
-    padding: 5px 14px;
+    padding: var(--sp-2xs) var(--gutter);
     font-family: var(--font-mono);
     font-size: var(--text-label);
     font-weight: var(--weight-bold);
@@ -824,7 +824,7 @@
     grid-template-columns: auto 1fr auto 1rem;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 8px 8px 8px 12px;
+    padding: var(--sp-xs) var(--sp-xs) var(--sp-xs) var(--sp-sm);
     flex: 1;
     cursor: pointer;
     transition: background var(--duration-fast) var(--ease);
@@ -861,7 +861,7 @@
   .expense-info {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
   }
 
@@ -890,7 +890,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 1px;
+    gap: var(--sp-hair);
     flex-shrink: 0;
   }
 
@@ -928,7 +928,7 @@
 
   /* Edit form */
   .edit-form {
-    padding: 10px 12px;
+    padding: var(--gutter-tight) var(--sp-sm);
     background: var(--color-window-raised);
     border-top: 1px solid var(--color-accent);
     display: flex;
@@ -939,7 +939,7 @@
   .edit-field {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--sp-3xs);
   }
 
   .field-label {
@@ -977,8 +977,8 @@
   .date-chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -1019,7 +1019,7 @@
   }
 
   .cat-chip {
-    padding: 3px 9px;
+    padding: var(--sp-3xs) var(--sp-xs);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -1057,7 +1057,7 @@
 
   .payer-chip {
     flex: 1;
-    padding: 5px 8px;
+    padding: var(--sp-2xs) var(--sp-xs);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -1068,7 +1068,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2xs);
     transition:
       background var(--duration-fast) var(--ease),
       border-color var(--duration-fast) var(--ease);
@@ -1130,7 +1130,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-micro);
     color: var(--color-text-muted);
-    margin-bottom: 2px;
+    margin-bottom: var(--sp-4xs);
   }
 
   .split-name {
@@ -1147,7 +1147,7 @@
   .split-pcts {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     color: var(--color-text);
   }
 
@@ -1170,13 +1170,13 @@
   }
 
   .delete-dialog {
-    margin: 0 -12px -10px;
-    padding: 10px 12px;
+    margin: 0 -var(--sp-sm) -var(--sp-xs);
+    padding: var(--gutter-tight) var(--sp-sm);
     background: var(--color-danger-light);
     border-top: 1px solid var(--color-danger);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--sp-2xs);
   }
 
   .delete-dialog-title {
@@ -1200,7 +1200,7 @@
   .delete-accounts {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .delete-accounts-label {
@@ -1218,14 +1218,14 @@
     padding: 0;
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
   }
 
   .delete-account-item {
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     color: var(--color-text);
-    padding-left: 10px;
+    padding-left: var(--gutter-tight);
     position: relative;
   }
 
@@ -1249,7 +1249,7 @@
     display: flex;
     justify-content: flex-end;
     gap: var(--sp-xs);
-    padding-top: 4px;
+    padding-top: var(--sp-3xs);
   }
 
   .delete-link {
@@ -1279,7 +1279,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 5px 22px 5px 28px;
+    padding: var(--sp-2xs) var(--gutter-wide) var(--sp-2xs) var(--sp-lg);
     border-top: 1px solid var(--color-rule-soft);
     font-size: var(--text-dense);
   }
@@ -1302,7 +1302,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
     background: var(--color-warning-light);
     border-bottom: 1px solid
       color-mix(in srgb, var(--color-warning) 30%, transparent);
@@ -1333,13 +1333,13 @@
   }
 
   .confirm-prompt {
-    padding: 6px 12px 8px;
+    padding: var(--sp-2xs) var(--sp-sm) var(--sp-xs);
     display: flex;
     justify-content: flex-end;
   }
 
   .confirm-form {
-    padding: 8px 12px;
+    padding: var(--sp-xs) var(--sp-sm);
     display: flex;
     flex-direction: column;
     gap: var(--sp-xs);
@@ -1354,7 +1354,7 @@
   }
 
   .awaiting-label {
-    padding: 5px 12px 7px;
+    padding: var(--sp-2xs) var(--sp-sm) var(--sp-xs);
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     color: var(--color-text-muted);

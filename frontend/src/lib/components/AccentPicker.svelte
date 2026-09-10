@@ -71,7 +71,7 @@
   .grid {
     display: grid;
     grid-template-columns: repeat(3, 20px);
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .swatch {

@@ -523,10 +523,10 @@
   .dbox {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     box-sizing: border-box;
     min-height: 22px;
-    padding: 1px 2px 1px 4px;
+    padding: var(--sp-hair) var(--sp-4xs) var(--sp-hair) var(--sp-3xs);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -541,7 +541,7 @@
     align-items: center;
     flex-wrap: wrap;
     flex: 1 1 auto;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
   }
 
@@ -549,7 +549,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-control);
     color: var(--color-text-disabled);
-    padding: 2px 4px;
+    padding: var(--sp-4xs) var(--sp-3xs);
   }
 
   .crumb {
@@ -559,7 +559,7 @@
     background: transparent;
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
-    padding: 2px 4px;
+    padding: var(--sp-4xs) var(--sp-3xs);
     cursor: pointer;
     white-space: nowrap;
     transition:
@@ -580,7 +580,7 @@
   .crumb.deeper {
     color: var(--color-text-disabled);
     font-size: var(--text-body);
-    padding: 0 3px;
+    padding: 0 var(--sp-3xs);
   }
 
   .csep {
@@ -599,7 +599,7 @@
     background: transparent;
     border: none;
     outline: none;
-    padding: 2px 4px;
+    padding: var(--sp-4xs) var(--sp-3xs);
   }
   .dsearch:disabled {
     cursor: wait;
@@ -615,7 +615,7 @@
     text-transform: uppercase;
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-sm);
-    padding: 0 3px;
+    padding: 0 var(--sp-3xs);
   }
 
   .searchbtn {
@@ -653,7 +653,7 @@
     z-index: 100;
     list-style: none;
     margin: 0;
-    padding: 3px;
+    padding: var(--sp-3xs);
     background: var(--color-window);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-lg);
@@ -666,8 +666,8 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 8px;
-    padding: 4px 7px;
+    gap: var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
     font-size: var(--text-control);
@@ -732,7 +732,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-accent-hi);
     border-radius: var(--radius-sm);
-    padding: 0 3px;
+    padding: 0 var(--sp-3xs);
   }
   .row.on .best {
     color: var(--color-accent-fg);
@@ -742,11 +742,11 @@
 
   /* Demoted create row */
   .row.create {
-    margin-top: 4px;
-    padding-top: 6px;
+    margin-top: var(--sp-3xs);
+    padding-top: var(--sp-2xs);
     border-top: 1px dashed var(--color-rule);
     color: var(--color-text-muted);
-    gap: 5px;
+    gap: var(--sp-2xs);
     justify-content: flex-start;
   }
   .row.create.on {

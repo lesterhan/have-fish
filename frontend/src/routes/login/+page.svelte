@@ -86,7 +86,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     background: var(--color-titlebar-bg);
     color: var(--color-titlebar-fg);
     font-size: var(--text-body);
@@ -101,7 +101,7 @@
   .field {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--sp-3xs);
     margin-bottom: var(--sp-md);
   }
 

@@ -70,7 +70,7 @@
 </script>
 
 {#if sorted.length === 0}
-  <Empty inset="0">No expenses for this period.</Empty>
+  <Empty inset="none">No expenses for this period.</Empty>
 {:else}
   <div class="breakdown">
     <!-- Header row -->
@@ -134,9 +134,9 @@
   .row {
     display: grid;
     grid-template-columns: 200px 1fr 110px 50px;
-    gap: 12px;
+    gap: var(--sp-sm);
     align-items: baseline;
-    padding: 3px 0;
+    padding: var(--sp-3xs) 0;
   }
 
   /* Header row */
@@ -145,9 +145,9 @@
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
-    padding-bottom: 6px;
+    padding-bottom: var(--sp-2xs);
     border-bottom: 1px solid var(--color-rule);
-    margin-bottom: 2px;
+    margin-bottom: var(--sp-4xs);
   }
 
   /* Data rows */
@@ -158,7 +158,7 @@
     text-align: left;
     cursor: default;
     color: var(--color-text);
-    padding: 3px 0;
+    padding: var(--sp-3xs) 0;
     transition: background var(--duration-fast) var(--ease);
   }
 
@@ -207,7 +207,7 @@
     background: var(--color-window-inset);
     box-shadow: var(--shadow-inset);
     border-radius: var(--radius-sm);
-    padding: 0 3px;
+    padding: 0 var(--sp-3xs);
   }
 
   .bar-fill {
@@ -246,7 +246,7 @@
     display: flex;
     align-items: baseline;
     justify-content: flex-end;
-    gap: 3px;
+    gap: var(--sp-3xs);
   }
 
   .amt-currency {
@@ -267,8 +267,8 @@
 
   /* Total row */
   .total-row {
-    margin-top: 4px;
-    padding-top: 6px;
+    margin-top: var(--sp-3xs);
+    padding-top: var(--sp-2xs);
     border-top: 1px solid var(--color-rule);
   }
 
@@ -282,7 +282,7 @@
     display: flex;
     align-items: baseline;
     justify-content: flex-end;
-    gap: 3px;
+    gap: var(--sp-3xs);
     font-size: var(--text-body);
     font-weight: var(--weight-bold);
     color: var(--color-text);

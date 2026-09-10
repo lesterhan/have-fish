@@ -80,7 +80,7 @@
   .strip-wrap {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--sp-3xs);
     min-width: 0;
   }
 
@@ -186,7 +186,7 @@
     bottom: 3px;
     width: 3px;
     height: 3px;
-    margin-left: -1.5px;
+    margin-left: -var(--sp-4xs);
     border-radius: 50%;
     background: var(--color-accent);
   }
@@ -195,7 +195,7 @@
     display: flex;
     flex-wrap: wrap;
     gap: var(--sp-sm);
-    margin-top: 2px;
+    margin-top: var(--sp-4xs);
     font-family: var(--font-sans);
     font-size: var(--text-dense);
     color: var(--color-text-muted);
@@ -204,7 +204,7 @@
   .legend-item {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .swatch {

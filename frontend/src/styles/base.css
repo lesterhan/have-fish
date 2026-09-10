@@ -72,7 +72,7 @@ h3 {
 .hf-tooltip {
   position: fixed;
   z-index: 300;
-  padding: 3px var(--sp-sm);
+  padding: var(--sp-3xs) var(--sp-sm);
   background: color-mix(in srgb, var(--color-tooltip-bg) 94%, transparent);
   backdrop-filter: blur(6px) saturate(140%);
   -webkit-backdrop-filter: blur(6px) saturate(140%);
@@ -96,7 +96,7 @@ h3 {
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -1px;
+  margin: -var(--sp-hair);
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -108,7 +108,7 @@ h3 {
    cannot share a rule with the file next door. Same reason `.sr-only` is global: a recipe
    copied twenty-one times is a recipe that drifts, and this one already had. Layout stays
    local — every bar has its own padding, gap and content — so a component still writes
-   `.section-bar { padding: 6px 14px }`; only the skin comes from here. */
+   `.section-bar { padding: var(--sp-2xs) var(--gutter) }`; only the skin comes from here. */
 .section-bar {
   background: var(--color-section-bar-bg);
   color: var(--color-section-bar-fg);

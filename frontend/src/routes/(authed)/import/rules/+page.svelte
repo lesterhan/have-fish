@@ -469,7 +469,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
     flex-shrink: 0;
   }
 
@@ -481,7 +481,7 @@
     background: var(--color-window);
     box-shadow: none;
     border-bottom: 1px solid var(--color-rule);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
     font-family: var(--font-mono);
     font-size: var(--text-micro);
     font-weight: var(--weight-bold);
@@ -491,7 +491,7 @@
   }
 
   .rules-table :global(td) {
-    padding: 5px 12px;
+    padding: var(--sp-2xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule-soft);
     background: var(--color-window-inset);
     font-size: var(--text-dense);
@@ -518,7 +518,7 @@
   .split-target {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--sp-2xs);
     color: var(--color-accent-chip-fg);
   }
 
@@ -530,17 +530,17 @@
 
   .cell-actions {
     white-space: nowrap;
-    padding: 2px var(--sp-xs) !important;
+    padding: var(--sp-4xs) var(--sp-xs) !important;
   }
 
   .cell-form {
-    padding: 4px 8px !important;
+    padding: var(--sp-3xs) var(--sp-xs) !important;
   }
 
   .action-row {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .form-row :global(td) {
@@ -562,7 +562,7 @@
   }
 
   .panel-tab {
-    padding: 5px 14px;
+    padding: var(--sp-2xs) var(--gutter);
     font-family: var(--font-mono);
     font-size: var(--text-label);
     font-weight: var(--weight-bold);
@@ -600,7 +600,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 6px 12px;
+    padding: var(--sp-2xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-border);
     flex-shrink: 0;
   }
@@ -611,17 +611,17 @@
   }
 
   .empty-state {
-    padding: var(--sp-md) 12px;
+    padding: var(--sp-md) var(--sp-sm);
     font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
   .suggestion-card {
-    padding: 8px 12px;
+    padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule-soft);
     display: flex;
     flex-direction: column;
-    gap: 6px;
+    gap: var(--sp-2xs);
     background: var(--color-window);
   }
 
@@ -632,7 +632,7 @@
   .suggestion-info {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
   }
 

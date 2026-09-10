@@ -404,7 +404,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 5px 14px;
+    padding: var(--sp-2xs) var(--gutter);
     flex-shrink: 0;
   }
 
@@ -460,7 +460,7 @@
     grid-template-columns: 10rem 1fr;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 7px 14px;
+    padding: var(--sp-xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule);
   }
 
@@ -476,7 +476,7 @@
     color: var(--color-text-muted);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     white-space: nowrap;
   }
 
@@ -489,7 +489,7 @@
     align-items: center;
     gap: var(--sp-md);
     margin-top: auto;
-    padding: var(--sp-lg) 14px var(--sp-lg);
+    padding: var(--sp-lg) var(--gutter) var(--sp-lg);
     border-top: 1px solid var(--color-rule);
   }
 

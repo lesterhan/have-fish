@@ -361,7 +361,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
     border: none;
     background: transparent;
     color: var(--color-text);
@@ -419,8 +419,8 @@
   .split-chip {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px var(--sp-sm);
+    gap: var(--sp-3xs);
+    padding: var(--sp-4xs) var(--sp-sm);
     border-radius: var(--radius-pill);
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
@@ -437,7 +437,7 @@
   }
 
   .matched-note {
-    padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + 18px);
+    padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + var(--sp-md));
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     color: var(--color-text-muted);
@@ -445,7 +445,7 @@
 
   .members {
     margin: 0;
-    padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + 18px);
+    padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + var(--sp-md));
     list-style: none;
   }
 
@@ -453,7 +453,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
     font-size: var(--text-dense);
   }
 

@@ -258,7 +258,7 @@
     grid-template-rows: auto;
     align-items: start;
     gap: var(--sp-xs);
-    padding: 7px 14px;
+    padding: var(--sp-xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule-soft);
     background: var(--color-window);
     cursor: pointer;
@@ -287,7 +287,7 @@
     display: flex;
     align-items: center;
     align-self: center;
-    padding-top: 1px;
+    padding-top: var(--sp-hair);
   }
 
   .checkbox {

@@ -127,7 +127,7 @@
     align-items: center;
     gap: var(--sp-xs);
     width: 100%;
-    padding: 5px var(--sp-sm);
+    padding: var(--sp-2xs) var(--sp-sm);
     border: none;
     background: none;
     font-family: var(--font-sans);

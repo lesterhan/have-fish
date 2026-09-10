@@ -165,7 +165,7 @@
 
 <style>
   .section-header {
-    padding: 3px var(--sp-sm);
+    padding: var(--sp-3xs) var(--sp-sm);
     font-family: var(--font-sans);
     font-size: var(--text-body);
     font-weight: var(--weight-bold);
@@ -222,7 +222,7 @@
   .field {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .field-label {
@@ -232,7 +232,7 @@
 
   input[type='date'] {
     height: 24px;
-    padding: 0 6px;
+    padding: 0 var(--sp-2xs);
     background: var(--color-window-inset);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);

@@ -62,6 +62,6 @@
   .flags {
     display: flex;
     flex-wrap: wrap;
-    gap: 3px;
+    gap: var(--sp-3xs);
   }
 </style>

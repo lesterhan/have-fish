@@ -229,7 +229,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-micro);
     color: var(--color-text-muted);
-    padding: 1px 4px;
+    padding: var(--sp-hair) var(--sp-3xs);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-sm);
     white-space: nowrap;

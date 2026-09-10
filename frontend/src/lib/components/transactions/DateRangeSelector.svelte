@@ -200,7 +200,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 2px var(--sp-xs);
+    padding: var(--sp-4xs) var(--sp-xs);
     height: 22px;
     /* Wide enough for the longest string it can hold — an explicit range, "2026-06-10 to
        2026-09-08", 24 monospace characters — plus its own padding, its border, and the room
@@ -215,7 +215,7 @@
 
   /* Room for the × so a long range string never slides under it. */
   .clearable .range-input {
-    padding-right: 18px;
+    padding-right: var(--sp-md);
   }
 
   .clear {
@@ -271,7 +271,7 @@
   .preset-option {
     display: block;
     width: 100%;
-    padding: 3px 8px;
+    padding: var(--sp-3xs) var(--sp-xs);
     font-family: var(--font-mono);
     font-size: var(--text-control);
     color: var(--color-text);

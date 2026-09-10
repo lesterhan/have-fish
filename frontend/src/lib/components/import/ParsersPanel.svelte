@@ -65,7 +65,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
   }
 
   .section-bar-title {
@@ -77,7 +77,7 @@
     background: var(--color-window);
     box-shadow: none;
     border-bottom: 1px solid var(--color-rule);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
     font-family: var(--font-mono);
     font-size: var(--text-micro);
     font-weight: var(--weight-bold);
@@ -87,7 +87,7 @@
   }
 
   .parsers-table :global(td) {
-    padding: 5px 12px;
+    padding: var(--sp-2xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule-soft);
     background: var(--color-window-inset);
     font-size: var(--text-dense);
@@ -112,6 +112,6 @@
 
   .cell-actions {
     white-space: nowrap;
-    padding: 2px var(--sp-xs);
+    padding: var(--sp-4xs) var(--sp-xs);
   }
 </style>

@@ -590,7 +590,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     height: 24px;
     outline: none;
     flex-shrink: 0;
@@ -641,7 +641,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     height: 24px;
     outline: none;
     box-sizing: border-box;
@@ -661,7 +661,7 @@
   .postings {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   /* ---- Add posting button ---- */

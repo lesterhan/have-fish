@@ -404,13 +404,13 @@
     color: var(--color-amount-negative);
   }
   .amt-arrow {
-    margin-right: 2px;
+    margin-right: var(--sp-4xs);
     color: var(--color-text-muted);
   }
   .amt-fee {
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    margin-top: 1px;
+    margin-top: var(--sp-hair);
   }
 
   /* Keeps the rule indicator on the pills' baseline instead of pushing it to a new line. */
@@ -423,7 +423,7 @@
 
   .account-label {
     flex: 1;
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     background: transparent;
@@ -457,20 +457,20 @@
     align-self: flex-start;
     /* Align the flip under the input column, past the label gutter. */
     margin-left: calc(3rem + var(--sp-xs));
-    margin-top: 2px;
+    margin-top: var(--sp-4xs);
   }
 
   .transfer-accounts {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--sp-3xs);
     padding: var(--sp-xs) var(--sp-sm);
   }
 
   .field-pill {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     min-width: 0;
     font-family: var(--font-mono);
     font-size: var(--text-label);
@@ -494,7 +494,7 @@
     border: none;
     cursor: pointer;
     color: var(--color-text-muted);
-    padding: 0 2px;
+    padding: 0 var(--sp-4xs);
     font-size: var(--text-body);
     line-height: var(--leading-none);
   }

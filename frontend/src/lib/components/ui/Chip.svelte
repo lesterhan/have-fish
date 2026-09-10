@@ -33,8 +33,8 @@
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
+    gap: var(--sp-3xs);
+    padding: var(--sp-4xs) var(--sp-2xs);
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-rule);
     background: var(--color-window-raised);
@@ -48,7 +48,7 @@
 
   .chip.xs {
     font-size: var(--text-micro);
-    padding: 1px 4px;
+    padding: var(--sp-hair) var(--sp-3xs);
   }
 
   .tone-accent {

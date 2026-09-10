@@ -662,7 +662,7 @@
     grid-template-columns: var(--tx-cols);
     align-items: center;
     gap: var(--sp-xs);
-    padding: 6px 14px;
+    padding: var(--sp-2xs) var(--gutter);
     flex-shrink: 0;
     font-family: var(--font-mono);
     font-size: var(--text-micro);
@@ -747,8 +747,8 @@
   .status-toggle {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px 6px;
+    gap: var(--sp-3xs);
+    padding: var(--sp-4xs) var(--sp-2xs);
     border: none;
     border-radius: var(--radius-sm);
     background: none;

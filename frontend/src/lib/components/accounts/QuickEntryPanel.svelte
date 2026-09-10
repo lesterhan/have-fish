@@ -234,7 +234,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-sm);
-    padding: 8px 14px;
+    padding: var(--sp-xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
@@ -290,11 +290,11 @@
   }
 
   .entry-card {
-    padding: 5px 8px;
+    padding: var(--sp-2xs) var(--sp-xs);
     border-bottom: 1px solid var(--color-rule);
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--sp-3xs);
   }
 
   .entry-card.alt {
@@ -303,7 +303,7 @@
 
   .card-top {
     display: flex;
-    gap: 4px;
+    gap: var(--sp-3xs);
     align-items: center;
   }
 
@@ -319,7 +319,7 @@
 
   .card-bottom {
     display: flex;
-    gap: 4px;
+    gap: var(--sp-3xs);
     align-items: center;
   }
 
@@ -350,7 +350,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 2px var(--sp-xs);
+    padding: var(--sp-4xs) var(--sp-xs);
     height: 22px;
     outline: none;
     transition:
@@ -402,7 +402,7 @@
   .add-row-btn {
     display: block;
     width: 100%;
-    padding: 5px 8px;
+    padding: var(--sp-2xs) var(--sp-xs);
     text-align: left;
     font-family: var(--font-mono);
     font-size: var(--text-control);
@@ -427,7 +427,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-sm);
-    padding: 8px 14px;
+    padding: var(--sp-xs) var(--gutter);
     border-top: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;

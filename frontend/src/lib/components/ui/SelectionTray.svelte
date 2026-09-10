@@ -128,7 +128,7 @@
   .key {
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    padding: 1px 4px;
+    padding: var(--sp-hair) var(--sp-3xs);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-sm);
     background: var(--color-window);

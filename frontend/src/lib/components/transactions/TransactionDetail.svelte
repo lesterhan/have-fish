@@ -561,7 +561,7 @@
     font-family: var(--font-sans);
     font-size: var(--text-dense);
     font-weight: var(--weight-semibold);
-    padding: 1px 6px;
+    padding: var(--sp-hair) var(--sp-2xs);
     color: var(--color-accent);
     background: var(--color-accent-chip-bg);
     border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -594,7 +594,7 @@
   .hero-id {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
   }
 
@@ -731,7 +731,7 @@
   .body {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
     padding: var(--sp-xs) 0;
   }
@@ -750,7 +750,7 @@
     font-weight: var(--weight-semibold);
     text-transform: uppercase;
     letter-spacing: var(--tracking-label);
-    padding: 1px 5px;
+    padding: var(--sp-hair) var(--sp-2xs);
     color: var(--color-text-muted);
     background: color-mix(
       in srgb,
@@ -899,7 +899,8 @@
     grid-template-columns: auto 1fr;
     align-items: center;
     gap: var(--sp-xs) var(--sp-md);
-    padding: var(--sp-sm) 0 var(--sp-xs) calc(10px + var(--sp-sm));
+    padding: var(--sp-sm) 0 var(--sp-xs)
+      calc(var(--gutter-tight) + var(--sp-sm));
   }
 
   .conv-key {
@@ -934,8 +935,8 @@
   .ledger {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: var(--sp-sm) 0 0 calc(10px + var(--sp-sm));
+    gap: var(--sp-4xs);
+    padding: var(--sp-sm) 0 0 calc(var(--gutter-tight) + var(--sp-sm));
   }
 
   .leg {

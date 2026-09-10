@@ -100,7 +100,7 @@
   .label-cell {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
   }
 
@@ -136,7 +136,7 @@
   .status {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     min-width: 0;
     font-size: var(--text-control);
     white-space: nowrap;
@@ -176,7 +176,7 @@
   @media (max-width: 520px) {
     .row {
       grid-template-columns: auto minmax(6rem, 1fr);
-      row-gap: 2px;
+      row-gap: var(--sp-4xs);
     }
 
     .label-cell {

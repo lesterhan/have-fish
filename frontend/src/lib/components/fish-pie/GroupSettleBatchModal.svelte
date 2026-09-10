@@ -293,7 +293,7 @@
   .debts-group {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--sp-2xs);
   }
 
   /* Each debt is its own selectable Aqua gloss Card; this is just the row layout
@@ -325,7 +325,7 @@
   .line-main {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
     flex: 1;
     min-width: 0;
   }
@@ -350,14 +350,14 @@
 
   .line-mode {
     display: flex;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .mode-btn {
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     font-weight: var(--weight-bold);
-    padding: 2px 8px;
+    padding: var(--sp-4xs) var(--sp-xs);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -404,7 +404,7 @@
   .note-field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .note-field {
@@ -413,7 +413,7 @@
 
   .date-input {
     height: 28px;
-    padding: 0 6px;
+    padding: 0 var(--sp-2xs);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -431,7 +431,7 @@
   .field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .field-label {

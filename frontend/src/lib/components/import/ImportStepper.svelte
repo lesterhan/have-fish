@@ -50,7 +50,7 @@
   .stepper {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .separator {
@@ -62,8 +62,8 @@
   .segment {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-2xs) var(--sp-sm);
     background: transparent;
     border: none;
     font-family: var(--font-mono);

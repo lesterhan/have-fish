@@ -44,7 +44,7 @@
     width: 100%;
     height: 24px;
     box-sizing: border-box;
-    padding: 0 24px 0 8px; /* right gutter reserves the tail */
+    padding: 0 var(--sp-lg) 0 var(--sp-xs); /* right gutter reserves the tail */
     font-family: var(--font-sans);
     font-size: var(--text-control);
     font-weight: var(--weight-semibold);

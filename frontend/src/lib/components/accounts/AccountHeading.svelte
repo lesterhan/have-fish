@@ -42,7 +42,7 @@
     display: flex;
     justify-content: space-between;
     align-items: flex-end;
-    padding: 14px 22px 10px;
+    padding: var(--gutter) var(--gutter-wide) var(--gutter-tight);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule);
     gap: var(--sp-xl);
@@ -61,7 +61,7 @@
   .header-left {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
     min-width: 0;
   }
 
@@ -113,7 +113,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 1px;
+    gap: var(--sp-hair);
   }
 
   @media (max-width: 520px) {

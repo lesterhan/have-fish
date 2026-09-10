@@ -1396,8 +1396,8 @@
   .liability-chip {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px var(--sp-sm);
+    gap: var(--sp-3xs);
+    padding: var(--sp-4xs) var(--sp-sm);
     border-radius: var(--radius-pill);
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
@@ -1422,7 +1422,7 @@
   .fact {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .fact dt {
@@ -1488,14 +1488,14 @@
 
   .tabs {
     display: flex;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .tab {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 6px 14px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-2xs) var(--gutter);
     background: transparent;
     border: none;
     border-bottom: 2px solid transparent;
@@ -1562,9 +1562,9 @@
   .choose-btn {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2xs);
     height: 32px;
-    padding: 0 16px;
+    padding: 0 var(--sp-md);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -1600,7 +1600,7 @@
   .drop-hint {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2xs);
     font-size: var(--text-dense);
     color: var(--color-text-disabled);
   }
@@ -1608,15 +1608,15 @@
   .pacman {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     color: var(--color-text-disabled);
   }
 
   .file-chip {
     display: inline-flex;
     align-items: center;
-    gap: 8px;
-    padding: 5px 6px 5px 10px;
+    gap: var(--sp-xs);
+    padding: var(--sp-2xs) var(--sp-2xs) var(--sp-2xs) var(--gutter-tight);
     background: var(--color-accent-chip-bg);
     border: 1px solid var(--color-accent);
     border-radius: var(--radius-pill);
@@ -1672,7 +1672,7 @@
   .defaults-summary {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2xs);
     padding: var(--sp-sm) var(--sp-md);
     cursor: pointer;
     list-style: none;
@@ -1744,7 +1744,7 @@
   .import-label {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     font-family: var(--font-mono);
     font-size: var(--text-label);
     font-weight: var(--weight-bold);
@@ -1755,7 +1755,7 @@
 
   .date-input {
     height: 28px;
-    padding: 0 8px;
+    padding: 0 var(--sp-xs);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -1801,7 +1801,7 @@
   .export-blurb code {
     font-family: var(--font-mono);
     font-size: var(--text-dense);
-    padding: 1px 4px;
+    padding: var(--sp-hair) var(--sp-3xs);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-sm);
@@ -1842,7 +1842,7 @@
   .coach-strip {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2xs);
     margin-bottom: var(--sp-sm);
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window-raised);

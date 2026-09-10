@@ -390,12 +390,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 14px;
+    padding: var(--sp-3xs) var(--gutter);
   }
 
   .expense-form-wrap {
     background: var(--color-window);
-    padding: 12px 22px;
+    padding: var(--sp-sm) var(--gutter-wide);
     border-bottom: 1px solid var(--color-rule);
     display: flex;
     flex-direction: column;
@@ -405,7 +405,7 @@
   .field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .field-label {
@@ -451,8 +451,8 @@
   .date-chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -498,7 +498,7 @@
   }
 
   .cat-chip {
-    padding: 4px 10px;
+    padding: var(--sp-3xs) var(--gutter-tight);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -552,7 +552,7 @@
   .payer-chip {
     flex: 1;
     min-width: 100px;
-    padding: 8px 12px;
+    padding: var(--sp-xs) var(--sp-sm);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -563,7 +563,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-xs);
     transition:
       background var(--duration-fast) var(--ease),
       border-color var(--duration-fast) var(--ease),
@@ -618,7 +618,7 @@
   .chip-info {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     text-align: left;
     min-width: 0;
   }
@@ -654,7 +654,7 @@
   .share-slider-wrap {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .share-slider-labels {
@@ -680,7 +680,7 @@
   .share-slider-pcts {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     font-weight: var(--weight-bold);
     color: var(--color-text);
   }
@@ -779,7 +779,7 @@
 
   @media (max-width: 600px) {
     .expense-form-wrap {
-      padding: 10px 14px;
+      padding: var(--gutter-tight) var(--gutter);
     }
 
     .amount-row {

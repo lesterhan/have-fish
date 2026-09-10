@@ -42,7 +42,7 @@
   .progress {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--sp-2xs);
   }
 
   .row {
@@ -55,7 +55,7 @@
   .label {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--sp-2xs);
     font-family: var(--font-sans);
     font-size: var(--text-amount);
     color: var(--color-text);

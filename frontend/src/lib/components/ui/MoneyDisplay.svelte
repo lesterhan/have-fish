@@ -73,7 +73,7 @@
   .amount-row {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
   }
 
   /* Only money coming back is tinted; an ordinary spend is the default and defaults do not
@@ -96,7 +96,7 @@
   .money-inline {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     flex-shrink: 0;
   }
 

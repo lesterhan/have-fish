@@ -350,7 +350,7 @@
   .toolbar-sep {
     width: 1px;
     background: var(--color-rule);
-    margin: 6px 0;
+    margin: var(--sp-2xs) 0;
     flex-shrink: 0;
   }
 
@@ -365,7 +365,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 6px 14px;
+    padding: var(--sp-2xs) var(--gutter);
     flex-shrink: 0;
   }
 

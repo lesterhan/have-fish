@@ -96,8 +96,8 @@
   .row {
     display: grid;
     grid-template-columns: 52px 1fr auto;
-    gap: 10px;
-    padding: 7px 14px;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--gutter);
     border: none;
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window-raised);
@@ -125,7 +125,7 @@
   .col-date {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
     flex-shrink: 0;
   }
 
@@ -146,7 +146,7 @@
   .col-payee {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
     min-width: 0;
   }
 
@@ -184,14 +184,14 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 2px;
+    gap: var(--sp-4xs);
     flex-shrink: 0;
   }
 
   .amount-line {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .amount-value {

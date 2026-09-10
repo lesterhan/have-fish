@@ -307,7 +307,7 @@
   /* Resolved rows show their account as text; the picker mounts on demand. */
   .account-label {
     flex: 1;
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     border: 1px solid transparent;
     border-radius: var(--radius-md);
     background: transparent;

@@ -23,7 +23,7 @@
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     height: 24px;
     box-sizing: border-box;
     outline: none;

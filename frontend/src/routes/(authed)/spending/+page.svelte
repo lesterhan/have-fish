@@ -700,8 +700,8 @@
   .month-bar {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 22px 10px;
+    gap: var(--sp-md);
+    padding: var(--gutter) var(--gutter-wide) var(--gutter-tight);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
@@ -709,7 +709,7 @@
 
   .nav-btns {
     display: flex;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .month-label {
@@ -729,10 +729,10 @@
   }
 
   .summary-card {
-    padding: 14px 22px;
+    padding: var(--gutter) var(--gutter-wide);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
     border-left: 1px solid var(--color-rule);
   }
 
@@ -748,14 +748,14 @@
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
-    margin-bottom: 6px;
+    margin-bottom: var(--sp-2xs);
   }
 
   .card-row {
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: baseline;
-    gap: 10px;
+    gap: var(--sp-xs);
   }
 
   .card-amount {
@@ -831,9 +831,9 @@
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: baseline;
-    gap: 10px;
-    margin-top: 6px;
-    padding-top: 8px;
+    gap: var(--sp-xs);
+    margin-top: var(--sp-2xs);
+    padding-top: var(--sp-xs);
     border-top: 1px dashed var(--color-rule);
   }
 
@@ -846,7 +846,7 @@
     letter-spacing: var(--tracking-label);
     color: var(--color-accent-fg);
     background: var(--color-accent);
-    padding: 2px 5px;
+    padding: var(--sp-4xs) var(--sp-2xs);
     line-height: var(--leading-none);
   }
 
@@ -856,7 +856,7 @@
     display: flex;
     align-items: baseline;
     justify-content: flex-end;
-    gap: 6px;
+    gap: var(--sp-2xs);
     font-family: var(--font-mono);
     font-size: var(--text-figure);
     font-weight: var(--weight-bold);
@@ -922,8 +922,8 @@
   .txn-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
+    gap: var(--sp-xs);
+    padding: var(--sp-2xs) var(--gutter);
     flex-shrink: 0;
   }
 
@@ -964,8 +964,8 @@
   .txn-toolbar {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-2xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule);
     flex-shrink: 0;
     background: var(--color-window);
@@ -977,11 +977,11 @@
     font-weight: var(--weight-bold);
     letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
-    margin-right: 2px;
+    margin-right: var(--sp-4xs);
   }
 
   .filter-chip {
-    padding: 2px 8px;
+    padding: var(--sp-4xs) var(--sp-xs);
     border-radius: 2px;
     font-family: var(--font-mono);
     font-size: var(--text-label);
@@ -1012,8 +1012,8 @@
   .txn-footer {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--gutter);
     border-top: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
@@ -1046,8 +1046,8 @@
   .txn-col-header {
     display: grid;
     grid-template-columns: 52px 1fr auto;
-    gap: 10px;
-    padding: 4px 14px;
+    gap: var(--sp-xs);
+    padding: var(--sp-3xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
@@ -1079,7 +1079,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
   }
 
   .section-bar-title {
@@ -1132,13 +1132,13 @@
      surface to be raised from, and on a band there is nothing to lift off. */
   .currency-tabs {
     display: flex;
-    gap: 2px;
+    gap: var(--sp-4xs);
     margin-left: auto;
     flex-shrink: 0;
   }
 
   .currency-tab {
-    padding: 1px 8px;
+    padding: var(--sp-hair) var(--sp-xs);
     font-family: var(--font-mono);
     font-size: var(--text-label);
     font-weight: var(--weight-semibold);

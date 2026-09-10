@@ -237,7 +237,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 2px var(--sp-xs);
+    padding: var(--sp-4xs) var(--sp-xs);
     height: 22px;
     outline: none;
     transition:
@@ -264,7 +264,7 @@
     z-index: 1;
     display: flex;
     align-items: center;
-    padding: 0 2px;
+    padding: 0 var(--sp-4xs);
     cursor: text;
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -292,7 +292,7 @@
     left: 0;
     z-index: 100;
     list-style: none;
-    margin: 1px 0 0;
+    margin: var(--sp-hair) 0 0;
     padding: 0;
     background: var(--color-window);
     border: 1px solid var(--color-border);
@@ -303,7 +303,7 @@
   }
 
   .option {
-    padding: 3px 8px;
+    padding: var(--sp-3xs) var(--sp-xs);
     font-size: var(--text-control);
     font-family: var(--font-mono);
     color: var(--color-text);

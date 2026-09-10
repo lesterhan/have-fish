@@ -31,7 +31,7 @@
     font-weight: var(--weight-bold);
     font-size: var(--text-label);
     line-height: var(--leading-none);
-    padding: 2px 5px;
+    padding: var(--sp-4xs) var(--sp-2xs);
     background: var(--color-window-raised);
     color: var(--color-text-muted);
     border: 1px solid var(--color-rule);
@@ -42,6 +42,6 @@
 
   .pill.xs {
     font-size: var(--text-micro);
-    padding: 1px 4px;
+    padding: var(--sp-hair) var(--sp-3xs);
   }
 </style>

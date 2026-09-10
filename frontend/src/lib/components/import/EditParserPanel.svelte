@@ -287,7 +287,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
   }
 
   .section-bar-title {
@@ -326,7 +326,7 @@
   .form-grid {
     display: grid;
     grid-template-columns: 8rem 1fr;
-    gap: 5px var(--sp-sm);
+    gap: var(--sp-2xs) var(--sp-sm);
     align-items: center;
   }
 
@@ -334,7 +334,7 @@
   .multi-grid {
     display: grid;
     grid-template-columns: 8rem 1fr 8rem 1fr;
-    gap: 5px var(--sp-sm);
+    gap: var(--sp-2xs) var(--sp-sm);
     align-items: center;
   }
 

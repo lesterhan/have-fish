@@ -71,9 +71,9 @@
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    gap: 5px;
+    gap: var(--sp-2xs);
     height: 24px;
-    padding: 0 10px;
+    padding: 0 var(--gutter-tight);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -97,13 +97,13 @@
 
   .btn.sm {
     height: 20px;
-    padding: 0 8px;
+    padding: 0 var(--sp-xs);
     font-size: var(--text-label);
   }
 
   .btn.lg {
     height: 32px;
-    padding: 0 16px;
+    padding: 0 var(--sp-md);
     font-size: var(--text-body);
     border-radius: var(--radius-md);
   }

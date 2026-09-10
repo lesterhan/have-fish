@@ -131,9 +131,9 @@
 
   <div class="body">
     {#if loading}
-      <Empty inset="22px">Loading…</Empty>
+      <Empty inset="wide">Loading…</Empty>
     {:else if groups.length === 0}
-      <Empty inset="22px">
+      <Empty inset="wide">
         No groups yet. Create one to start splitting expenses with others.
       </Empty>
     {:else}
@@ -164,7 +164,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 14px 22px 10px;
+    padding: var(--gutter) var(--gutter-wide) var(--gutter-tight);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule);
     flex-shrink: 0;
@@ -184,7 +184,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: var(--sp-xs) 22px;
+    padding: var(--sp-xs) var(--gutter-wide);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule);
     flex-shrink: 0;
@@ -198,7 +198,7 @@
   .section-bar {
     display: flex;
     align-items: center;
-    padding: 6px 14px;
+    padding: var(--sp-2xs) var(--gutter);
     flex-shrink: 0;
   }
 
@@ -213,7 +213,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-md);
-    padding: 8px 22px;
+    padding: var(--sp-xs) var(--gutter-wide);
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
@@ -224,7 +224,7 @@
   .invite-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .invite-group {
@@ -256,7 +256,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 10px 22px;
+    padding: var(--gutter-tight) var(--gutter-wide);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule-soft);
     text-decoration: none;

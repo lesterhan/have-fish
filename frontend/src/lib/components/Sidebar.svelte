@@ -329,7 +329,7 @@
 
   .top-nav {
     border-bottom: 1px solid var(--color-border);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
     flex-shrink: 0;
   }
 
@@ -337,8 +337,8 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    margin: 2px 5px;
-    padding: 5px calc(var(--sp-sm) - 5px);
+    margin: var(--sp-4xs) var(--sp-2xs);
+    padding: var(--sp-2xs) calc(var(--sp-sm) - var(--sp-2xs));
     border-radius: 6px;
     font-family: var(--font-mono);
     font-size: var(--text-dense);
@@ -412,7 +412,7 @@
     align-items: center;
     gap: var(--sp-xs);
     margin: 0 var(--sp-sm);
-    padding: 4px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -447,7 +447,7 @@
   .jump-key {
     font-family: var(--font-mono);
     font-size: var(--text-micro);
-    padding: 1px 3px;
+    padding: var(--sp-hair) var(--sp-3xs);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-sm);
     background: var(--color-window);
@@ -456,7 +456,7 @@
 
   .list-header {
     margin: 0;
-    padding: 3px var(--sp-sm);
+    padding: var(--sp-3xs) var(--sp-sm);
     font-size: var(--text-dense);
     font-weight: var(--weight-bold);
     font-family: var(--font-mono);
@@ -475,7 +475,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-xs);
-    padding: 3px var(--sp-sm);
+    padding: var(--sp-3xs) var(--sp-sm);
     font-size: var(--text-dense);
     color: var(--color-text);
     text-decoration: none;
@@ -547,8 +547,8 @@
     align-items: center;
     align-self: stretch;
     gap: var(--sp-sm);
-    margin: 2px 5px;
-    padding: 5px calc(var(--sp-sm) - 5px);
+    margin: var(--sp-4xs) var(--sp-2xs);
+    padding: var(--sp-2xs) calc(var(--sp-sm) - var(--sp-2xs));
     border-radius: 6px;
     font-size: var(--text-dense);
     font-family: var(--font-mono);
@@ -593,7 +593,7 @@
   .sidebar.collapsed .footer-btn {
     width: 28px;
     height: 28px;
-    margin: 3px 10px;
+    margin: var(--sp-3xs) var(--sp-xs);
     padding: 0;
     border-radius: 6px;
     justify-content: center;

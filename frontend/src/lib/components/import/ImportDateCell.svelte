@@ -42,7 +42,7 @@
     display: inline-flex;
     flex-direction: column;
     align-items: flex-start;
-    gap: 1px;
+    gap: var(--sp-hair);
     font-family: var(--font-mono);
     vertical-align: middle;
   }

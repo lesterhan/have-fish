@@ -1204,7 +1204,7 @@
   .figure {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
     min-width: 0;
     padding: var(--sp-sm) var(--sp-md);
     background: var(--color-window);
@@ -1292,7 +1292,7 @@
     display: flex;
     align-items: center;
     justify-content: flex-end;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   /* The checkbox shares the account cell rather than owning a column of its own, so it
