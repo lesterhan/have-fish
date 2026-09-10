@@ -332,6 +332,80 @@ describe('extracted surfaces stay extracted', () => {
   })
 })
 
+// --- the splice, everywhere ------------------------------------------------------------
+
+/**
+ * A ternary that inflects a word from outside it.
+ *
+ * ```
+ * `${n} transaction${n === 1 ? '' : 's'} imported`
+ * ```
+ *
+ * This one is not scoped to `CONVERTED`, because it is not about where copy lives. The
+ * splice is unfixable in principle rather than untidy: Polish needs three plural forms and
+ * Chinese needs none, and no message format can express "append an s to the middle of my
+ * sentence." Every other rule in this epic is a preference that a second locale would make
+ * expensive; this one a second locale cannot satisfy at all. So it is banned repo-wide from
+ * the day the last one was removed, which is cheaper than removing them twice.
+ *
+ * The signature is narrow on purpose: both branches string literals, and at least one of
+ * them either empty or a bare inflectional ending. A ternary between two whole words
+ * (`'entry' : 'entries'`) is not matched — that is a value and its unit in a table cell as
+ * often as it is prose, and the surface stories judge those case by case.
+ */
+const SPLICE =
+  /\?\s*(?:'([^'\\]*)'|"([^"\\]*)")\s*:\s*(?:'([^'\\]*)'|"([^"\\]*)")/g
+
+/** The endings English glues on. Empty counts: it is the other half of every `'' : 's'`. */
+const INFLECTION = new Set(['', 's', 'es', 'y', 'ies', "'s", 'en'])
+
+export function spliceTernaries(source: string): string[] {
+  SPLICE.lastIndex = 0
+  const found: string[] = []
+  for (const m of source.matchAll(SPLICE)) {
+    const left = m[1] ?? m[2]
+    const right = m[3] ?? m[4]
+    if (left === undefined || right === undefined) continue
+    if (INFLECTION.has(left) && INFLECTION.has(right)) {
+      found.push(m[0].replace(/\s+/g, ' '))
+    }
+  }
+  return found
+}
+
+describe('the plural splice', () => {
+  it('appears nowhere in the app', () => {
+    const offenders: string[] = []
+    for (const file of svelteFilesUnder(SRC)) {
+      for (const hit of spliceTernaries(readFileSync(file, 'utf8'))) {
+        offenders.push(`${relative(SRC, file)}: ${hit}`)
+      }
+    }
+
+    expect(
+      offenders,
+      offenders.length
+        ? `Use plural(n, one, other) so both readings are whole sentences:\n  ${offenders.join('\n  ')}`
+        : '',
+    ).toEqual([])
+  })
+
+  it('catches the shapes it is meant to catch', () => {
+    expect(spliceTernaries("`${n} row${n === 1 ? '' : 's'}`")).toHaveLength(1)
+    expect(spliceTernaries("{n === 1 ? 's' : ''}")).toHaveLength(1)
+    expect(spliceTernaries("currenc{n === 1 ? 'y' : 'ies'}")).toHaveLength(1)
+    expect(spliceTernaries('{n === 1 ? "" : "s"}')).toHaveLength(1)
+  })
+
+  it('leaves whole words and real messages alone', () => {
+    expect(spliceTernaries("{n === 1 ? 'entry' : 'entries'}")).toEqual([])
+    expect(spliceTernaries("plural(n, '1 row', `${n} rows`)")).toEqual([])
+    expect(spliceTernaries("{open ? 'Hide' : 'Show'}")).toEqual([])
+    expect(spliceTernaries("{ok ? '' : 'error'}")).toEqual([])
+    expect(spliceTernaries("class={active ? 'on' : ''}")).toEqual([])
+  })
+})
+
 // --- the detectors, checked against themselves ----------------------------------------
 //
 // A detector that silently stopped matching would pass the check above by finding nothing

@@ -1,5 +1,6 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import { plural } from '$lib/copy'
   import Icon from '$lib/components/ui/Icon.svelte'
   import type { ParsedTransaction } from '$lib/api'
   import type { Manifest } from './manifest'
@@ -85,9 +86,11 @@
 <div class="confirm-step">
   <div class="headline">
     <h2>
-      {manifest.committedCount} transaction{manifest.committedCount === 1
-        ? ''
-        : 's'}
+      {plural(
+        manifest.committedCount,
+        '1 transaction',
+        `${manifest.committedCount} transactions`,
+      )}
     </h2>
     {#if manifest.dateRange}
       <span class="range"
@@ -126,12 +129,7 @@
   <dl class="notes">
     {#if manifest.skippedDuplicates > 0}
       <div class="note">
-        <dt>
-          {manifest.skippedDuplicates} skipped as duplicate{manifest.skippedDuplicates ===
-          1
-            ? ''
-            : 's'}
-        </dt>
+        <dt>Skipped as duplicates: {manifest.skippedDuplicates}</dt>
         <dd>
           <button type="button" class="link" onclick={onreviewskipped}
             >review</button
@@ -141,7 +139,7 @@
     {/if}
     {#if manifest.skippedManual > 0}
       <div class="note">
-        <dt>{manifest.skippedManual} skipped by hand</dt>
+        <dt>Skipped by hand: {manifest.skippedManual}</dt>
         <dd>
           <button type="button" class="link" onclick={onreviewskipped}
             >review</button
@@ -151,23 +149,13 @@
     {/if}
     {#if manifest.rulesCreated.length > 0}
       <div class="note">
-        <dt>
-          {manifest.rulesCreated.length} import rule{manifest.rulesCreated
-            .length === 1
-            ? ''
-            : 's'} created
-        </dt>
+        <dt>Import rules created: {manifest.rulesCreated.length}</dt>
         <dd class="note-detail">{manifest.rulesCreated.join(', ')}</dd>
       </div>
     {/if}
     {#if manifest.accountsCreated.length > 0}
       <div class="note">
-        <dt>
-          {manifest.accountsCreated.length} account{manifest.accountsCreated
-            .length === 1
-            ? ''
-            : 's'} created
-        </dt>
+        <dt>Accounts created: {manifest.accountsCreated.length}</dt>
         <dd class="note-detail">{manifest.accountsCreated.join(', ')}</dd>
       </div>
     {/if}
@@ -177,8 +165,11 @@
     <details class="parse-errors">
       <summary>
         <Icon name="arrow-right" size={10} />
-        {parseErrors.length} row{parseErrors.length === 1 ? '' : 's'} could not be
-        parsed and will be skipped
+        {plural(
+          parseErrors.length,
+          '1 row could not be parsed and will be skipped',
+          `${parseErrors.length} rows could not be parsed and will be skipped`,
+        )}
       </summary>
       <ul>
         {#each visibleErrors as e (e.row)}
@@ -202,10 +193,11 @@
     <div class="incomplete">
       <p class="incomplete-head">
         <Icon name="warning-filled" size={13} />
-        {manifest.incomplete.length} row{manifest.incomplete.length === 1
-          ? ''
-          : 's'} still
-        {manifest.incomplete.length === 1 ? 'needs' : 'need'} an account:
+        {plural(
+          manifest.incomplete.length,
+          '1 row still needs an account:',
+          `${manifest.incomplete.length} rows still need an account:`,
+        )}
       </p>
       <ul>
         {#each manifest.incomplete as index (index)}
@@ -271,14 +263,17 @@
       {#if loading}
         Importing…
       {:else if manifest.incomplete.length > 0}
-        {manifest.incomplete.length} row{manifest.incomplete.length === 1
-          ? ''
-          : 's'} to fix
+        {plural(
+          manifest.incomplete.length,
+          '1 row to fix',
+          `${manifest.incomplete.length} rows to fix`,
+        )}
       {:else}
-        Import {manifest.committedCount} transaction{manifest.committedCount ===
-        1
-          ? ''
-          : 's'}
+        {plural(
+          manifest.committedCount,
+          'Import 1 transaction',
+          `Import ${manifest.committedCount} transactions`,
+        )}
       {/if}
     </GradientButton>
   </div>

@@ -14,6 +14,7 @@
   // subject-less shape (nothing to recategorize) offers only the `oneditledger` raw escape,
   // which the host (story 6b wrapper) fulfils by mounting LedgerEditModal.
   import { untrack } from 'svelte'
+  import { plural } from '$lib/copy'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import FishPieTag from '$lib/components/ui/FishPieTag.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -397,7 +398,7 @@
       </span>
       <span class="caret-label">All postings</span>
       <span class="caret-hint"
-        >{legs.length} leg{legs.length === 1 ? '' : 's'}</span
+        >{plural(legs.length, '1 leg', `${legs.length} legs`)}</span
       >
     </button>
     {#if postingsOpen}

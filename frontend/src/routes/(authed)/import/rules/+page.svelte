@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { plural } from '$lib/copy'
   import {
     fetchRules,
     fetchAccounts,
@@ -190,7 +191,14 @@
       rules = fresh
       minedOnce = true
       if (created === 0) toast.show('No new suggestions found.')
-      else toast.show(`${created} suggestion${created === 1 ? '' : 's'} added.`)
+      else
+        toast.show(
+          plural(
+            created,
+            '1 suggestion added.',
+            `${created} suggestions added.`,
+          ),
+        )
     } finally {
       mining = false
     }

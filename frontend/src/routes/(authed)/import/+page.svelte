@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { plural } from '$lib/copy'
   import { page } from '$app/state'
   import {
     fetchAccounts,
@@ -579,8 +580,12 @@
       }
 
       const ruleMsg =
-        created > 0 ? `, ${created} rule${created === 1 ? '' : 's'} saved` : ''
-      toast.show(`${written} row${written === 1 ? '' : 's'} assigned${ruleMsg}`)
+        created > 0
+          ? `, ${plural(created, '1 rule saved', `${created} rules saved`)}`
+          : ''
+      toast.show(
+        `${plural(written, '1 row assigned', `${written} rows assigned`)}${ruleMsg}`,
+      )
       step = 'review'
     } finally {
       applyingClusters = false
@@ -643,7 +648,11 @@
     const applied = matches.length
     toast.show(
       applied > 0
-        ? `Rule saved for “${tx.merchantKey}” — applied to ${applied} more row${applied === 1 ? '' : 's'}`
+        ? plural(
+            applied,
+            `Rule saved for “${tx.merchantKey}” — applied to 1 more row`,
+            `Rule saved for “${tx.merchantKey}” — applied to ${applied} more rows`,
+          )
         : `Rule saved for “${tx.merchantKey}”`,
     )
   }
@@ -688,7 +697,11 @@
     // a row flipped to convert-and-park after that step introduces a target currency the
     // step never asked about. Name the currencies rather than saying "some account".
     if (unmappedCommitCurrencies.length > 0) {
-      error = `No account mapped for ${unmappedCommitCurrencies.join(', ')}. Go back to Accounts to map ${unmappedCommitCurrencies.length === 1 ? 'it' : 'them'}.`
+      error = plural(
+        unmappedCommitCurrencies.length,
+        `No account mapped for ${unmappedCommitCurrencies.join(', ')}. Go back to Accounts to map it.`,
+        `No account mapped for ${unmappedCommitCurrencies.join(', ')}. Go back to Accounts to map them.`,
+      )
       return
     }
     const invalid = preview.transactions.some(
@@ -1315,8 +1328,11 @@
   <div class="discard-modal">
     <p>
       {#if fileName}<strong>{fileName}</strong> —{/if}
-      {rowStates.length} row{rowStates.length === 1 ? '' : 's'} and every account
-      assignment made so far will be discarded. This cannot be undone.
+      {plural(
+        rowStates.length,
+        '1 row and every account assignment made so far will be discarded. This cannot be undone.',
+        `${rowStates.length} rows and every account assignment made so far will be discarded. This cannot be undone.`,
+      )}
     </p>
     <div class="discard-actions">
       <GradientButton onclick={() => (showDiscardConfirm = false)}

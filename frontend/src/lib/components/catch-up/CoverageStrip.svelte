@@ -5,6 +5,7 @@
     describeDay,
     summarizeStrip,
   } from './coverageStrip'
+  import { plural } from '$lib/copy'
 
   interface Props {
     from: string
@@ -68,8 +69,11 @@
       {#if counts.txnsInUncovered > 0}
         <span class="legend-item">
           <span class="swatch day--uncovered has-txn"></span>
-          {counts.txnsInUncovered}
-          {counts.txnsInUncovered === 1 ? 'day' : 'days'} already entered
+          {plural(
+            counts.txnsInUncovered,
+            '1 day already entered',
+            `${counts.txnsInUncovered} days already entered`,
+          )}
         </span>
       {/if}
     </div>
