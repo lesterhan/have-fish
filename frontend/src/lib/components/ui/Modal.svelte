@@ -211,8 +211,8 @@
 
   .titlebar-text {
     font-family: var(--font-serif);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-titlebar-fg);
     flex: 1;
   }
@@ -221,7 +221,7 @@
     padding: var(--sp-lg) var(--sp-xl);
     background: var(--color-window-raised);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
   }
 </style>

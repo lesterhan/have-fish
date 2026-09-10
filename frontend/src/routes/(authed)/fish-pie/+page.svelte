@@ -172,7 +172,7 @@
 
   .page-title {
     font-family: var(--font-serif);
-    font-size: 24px;
+    font-size: var(--text-title);
     font-weight: 600;
     color: var(--color-text);
     line-height: var(--leading-tight);
@@ -228,14 +228,14 @@
   }
 
   .invite-group {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
   .invite-from {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -270,13 +270,13 @@
 
   .group-name {
     flex: 1;
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
   .group-meta {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 </style>

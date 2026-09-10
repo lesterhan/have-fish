@@ -105,7 +105,7 @@
   }
 
   .label {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     font-weight: var(--weight-medium);
     color: var(--color-text);
   }

@@ -276,7 +276,7 @@
   }
 
   .target-hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -337,14 +337,14 @@
   }
 
   .line-to {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
   .line-owe {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -355,7 +355,7 @@
 
   .mode-btn {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     font-weight: 700;
     padding: 2px 8px;
     background: linear-gradient(
@@ -390,7 +390,7 @@
   }
 
   .rate-hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-style: italic;
   }
@@ -419,7 +419,7 @@
     border-radius: var(--radius-sm);
     box-shadow: var(--shadow-inset);
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
   }
 
@@ -444,7 +444,7 @@
   }
 
   .form-error {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     display: block;
   }

@@ -232,7 +232,7 @@
 
   .page-title {
     font-family: var(--font-serif);
-    font-size: 24px;
+    font-size: var(--text-title);
     font-weight: 600;
     color: var(--color-text);
     line-height: var(--leading-tight);
@@ -266,7 +266,7 @@
   .section-intro {
     margin: 0;
     padding: var(--sp-sm) 22px;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule-soft);
@@ -291,13 +291,13 @@
   }
 
   .setting-label {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
   .setting-hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     line-height: var(--leading-normal);
   }
@@ -327,7 +327,7 @@
     background: none;
     border: none;
     padding: 0;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     cursor: pointer;
     transition: opacity var(--duration-fast) var(--ease);
@@ -338,7 +338,7 @@
   }
 
   .danger-desc {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -349,7 +349,7 @@
   }
 
   .confirm-text {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     font-family: var(--font-mono);
     margin-right: var(--sp-xs);

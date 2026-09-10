@@ -3,15 +3,35 @@
   color-scheme: light;
 
   /* --- Spacing scale ---
-   * 4px base unit. Use for margin, padding, gap — never raw px.
+   * Two vocabularies, because the app spaces things for two different reasons.
+   *
+   * GAPS (--sp-*) separate things from each other. The scale used to start at
+   * 8px, which is where it also ended for most of the app: 313 of the 470 raw
+   * pixel values in spacing declarations were BELOW the smallest rung, because
+   * the space inside a control — between a glyph and its label, a chip and its
+   * border — is 1 to 6px and there was nothing down there to reach for. Three
+   * rungs added below; the rest are unchanged and keep their 590 uses.
+   *
+   * GUTTERS (--gutter-*) are the distance from a surface's edge to its
+   * content, which is a different question from how far apart two things sit.
+   * 14 and 22px are this app's house gutters and they land between --sp-sm
+   * and --sp-md, so they were written by hand 58 times. `Empty` took a string
+   * prop for the sole purpose of letting a caller say "22px".
    */
-  --sp-xs: 0.5rem;
-  --sp-sm: 0.75rem;
-  --sp-md: 1rem;
-  --sp-lg: 1.5rem;
-  --sp-xl: 2rem;
-  --sp-2xl: 3rem;
-  --sp-3xl: 4rem;
+  --sp-hair: 0.0625rem; /* 1px — a border's worth; optical nudges */
+  --sp-3xs: 0.125rem; /* 2px — inside a chip, glyph to label */
+  --sp-2xs: 0.25rem; /* 4px — inside a control */
+  --sp-xs: 0.5rem; /* 8px */
+  --sp-sm: 0.75rem; /* 12px */
+  --sp-md: 1rem; /* 16px */
+  --sp-lg: 1.5rem; /* 24px */
+  --sp-xl: 2rem; /* 32px */
+  --sp-2xl: 3rem; /* 48px */
+  --sp-3xl: 4rem; /* 64px */
+
+  --gutter-tight: 0.625rem; /* 10px — a dense panel's edge */
+  --gutter: 0.875rem; /* 14px — the house gutter; list rows, most panels */
+  --gutter-wide: 1.375rem; /* 22px — a card's breathing edge */
 
   /* --- Typography ---
    * Lucida Grande / Segoe UI: period-accurate shell body font.
@@ -22,21 +42,84 @@
   --font-serif: 'Source Serif 4', Georgia, serif;
   --font-mono: 'JetBrains Mono', Consolas, monospace;
 
-  --text-xs: 0.75rem; /* 12px */
-  --text-sm: 0.875rem; /* 14px */
-  --text-base: 1rem; /* 16px */
-  --text-lg: 1.125rem; /* 18px */
-  --text-xl: 1.25rem;
-  --text-2xl: 1.5rem;
-  --text-3xl: 2rem;
+  /* --- THE LADDER — type ---
+   * Named for the job, not the size, for the same reason the surface rungs
+   * below are: a t-shirt scale tells you where a rung sits relative to the
+   * others, and what a writer needs to know is which one means what. The old
+   * scale named its most-used size "extra small" — --text-xs carried 157 of
+   * 303 token uses — so anyone reaching for something genuinely small found
+   * the name taken and wrote a pixel value instead. 127 of the 160 raw font
+   * sizes in the app were below --text-xs's 12px. The scale did not describe
+   * the app's chrome at all.
+   *
+   * Nine rungs, each with one job. Sizes in rem so a reader's browser font
+   * setting still scales the app (DESIGN.md §8); the px is what you think in.
+   *
+   *   micro    9  mono   the smallest legible mark — key caps, ticks, initials
+   *   label   10  mono   uppercase chrome labels — section bars, column heads
+   *   control 11  mono   text inside an interactive control
+   *   dense   12  sans   secondary text inside a dense row
+   *   body    14  sans   the reading register — rows, prose, inputs
+   *   amount  16  mono   money in a row; MoneyDisplay's size
+   *   figure  18  mono   a card's headline amount, a panel's heading
+   *   title   22  serif  page and object titles
+   *   display 28  mono   the one number a page is about
+   *
+   * Two of these look like drift and are not, which is why the ladder is nine
+   * rungs rather than the seven it was scoped with:
+   *
+   * `control` is the size text takes inside something you interact with —
+   * GradientButton, TabStrip, CurrencyInput, Select, the pickers' rows. A
+   * census reads 11px as noise between two rungs; reading the rules shows one
+   * register that every control in the app already agrees on.
+   *
+   * `amount` and `figure` sit two pixels apart on purpose: one is money
+   * appearing in a list of other things (MoneyDisplay, on every row), the
+   * other is a number a card exists to state. Collapsing either pair would
+   * have moved a very large number of pixels to make the scale shorter, which
+   * is the scale's convenience bought with the app's.
+   */
+  --text-micro: 0.5625rem; /* 9px */
+  --text-label: 0.625rem; /* 10px */
+  --text-control: 0.6875rem; /* 11px */
+  --text-dense: 0.75rem; /* 12px */
+  --text-body: 0.875rem; /* 14px */
+  --text-amount: 1rem; /* 16px */
+  --text-figure: 1.125rem; /* 18px */
+  --text-title: 1.375rem; /* 22px */
+  --text-display: 1.75rem; /* 28px */
 
+  /* --- Leading ---
+   * `1` is the most-used value in the app and had no token, so it was written
+   * out 23 times. A single-line label in a fixed-height row does not want
+   * leading; it wants its own height.
+   */
+  --leading-none: 1;
   --leading-tight: 1.2;
+  --leading-snug: 1.35; /* absorbs the ad-hoc 1.3 / 1.4 / 1.45 */
   --leading-normal: 1.5;
   --leading-loose: 1.75;
 
+  /* --- Tracking ---
+   * Uppercase mono at 9–10px needs tracking to stay readable, and that one
+   * job was being done by four values (0.4, 0.5, 0.6, 0.8px) across fourteen
+   * distinct declarations that also mixed px and em.
+   */
+  --tracking-tight: -0.2px; /* large mono figures, which set too loose */
+  --tracking-label: 0.6px; /* uppercase mono labels — the one that matters */
+  --tracking-wide: 1px; /* the sparsest labels */
+
+  /* --- Weight ---
+   * --weight-semibold was defined as 700, which is bold. That is why the app
+   * held 63 raw `700`s beside 53 uses of the token: the name did not describe
+   * the value, so half the codebase spelled it the other way. And 21 places
+   * wanted a real 600 that no token provided. Corrected here; every previous
+   * use of --weight-semibold moves to --weight-bold in the same change.
+   */
   --weight-normal: 400;
   --weight-medium: 500;
-  --weight-semibold: 700;
+  --weight-semibold: 600;
+  --weight-bold: 700;
 
   /* =========================================================================
      THE LADDER — surfaces

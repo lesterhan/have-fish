@@ -139,14 +139,14 @@
   }
 
   .member-name {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
   .member-email {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -163,8 +163,8 @@
 
   .member-balance {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
   }
 
   /* V5 has no minority to mark here. A two-person balance is one debt printed from both
@@ -191,6 +191,6 @@
   .settle-btn-wrap :global(.btn) {
     width: 100%;
     height: 32px;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 </style>

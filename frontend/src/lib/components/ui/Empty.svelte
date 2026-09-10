@@ -7,7 +7,7 @@
    *
    * V7 says an empty slot states why it is empty, and until now that principle existed as
    * prose and as fourteen separate `.empty` rules. Eight of them were the same rule — serif,
-   * italic, `--text-sm`, muted ink — written out eight times, and they had already drifted:
+   * italic, `--text-body`, muted ink — written out eight times, and they had already drifted:
    * the spending breakdown's had lost the serif italic, so the one absence a user sees most
    * often was the one that looked like a different app. A principle with no component is a
    * principle that gets re-derived, slightly differently, by whoever is nearest.
@@ -27,7 +27,7 @@
    *
    * Not every muted line in the app is one of these. A one-line notice inside a dense panel —
    * the account drawer's "Nothing has been posted here yet", the rules page's suggestion
-   * pane — is furniture at `--text-xs`, and dressing it as prose would make it the loudest
+   * pane — is furniture at `--text-dense`, and dressing it as prose would make it the loudest
    * thing in a panel it is only annotating. Those stay as they are.
    */
   interface Props {
@@ -66,7 +66,7 @@
     margin: 0;
     padding: var(--sp-lg) var(--empty-inset);
     font-family: var(--font-serif);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     font-style: italic;
     color: var(--color-text-muted);
   }
@@ -92,14 +92,14 @@
 
   h1 {
     font-family: var(--font-serif);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-figure);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     margin: 0;
   }
 
   .page-body {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     line-height: 1.5;
     margin: 0;
   }

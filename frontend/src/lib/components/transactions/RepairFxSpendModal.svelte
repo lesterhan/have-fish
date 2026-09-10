@@ -177,14 +177,14 @@
   }
 
   .desc {
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
   }
 
   .postings {
     display: flex;
     flex-direction: column;
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .row {
@@ -211,7 +211,7 @@
 
   .new {
     color: var(--color-accent);
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
   }
 
   .amount {

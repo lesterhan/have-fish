@@ -600,7 +600,7 @@
   .account-path {
     margin: 0 0 var(--sp-md);
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     overflow: hidden;
     text-overflow: ellipsis;

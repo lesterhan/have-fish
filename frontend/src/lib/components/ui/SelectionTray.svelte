@@ -115,8 +115,8 @@
 
   .count {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
     white-space: nowrap;
   }
 

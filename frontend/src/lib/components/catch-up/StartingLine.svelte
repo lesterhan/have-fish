@@ -167,8 +167,8 @@
   .section-header {
     padding: 3px var(--sp-sm);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
   }
 
   .section-body {
@@ -178,7 +178,7 @@
   .lede {
     margin: 0 0 var(--sp-md);
     max-width: 60ch;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     line-height: 1.5;
   }
@@ -226,7 +226,7 @@
   }
 
   .field-label {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -238,7 +238,7 @@
     border-radius: var(--radius-md);
     box-shadow: var(--shadow-inset);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     transition: border-color var(--duration-fast) var(--ease);
   }
@@ -256,7 +256,7 @@
   .row-note {
     grid-area: note;
     margin: 0;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -266,7 +266,7 @@
 
   .error {
     margin: var(--sp-md) 0 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-warning);
   }
 
@@ -281,7 +281,7 @@
   }
 
   .hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 

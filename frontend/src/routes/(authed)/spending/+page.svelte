@@ -800,7 +800,7 @@
   /* The month's as-of, matching the accounts page tiles: a statement, not a warning. The
      figure keeps its weight and its colour; the date does the honesty work. */
   .card-asof {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     line-height: 1.3;
     text-wrap: pretty;
@@ -809,7 +809,7 @@
   /* Occupies the space the delta would have. Not muted into invisibility — this is the
      card's content now, not a footnote on it. */
   .card-blocked {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     line-height: 1.3;
     text-wrap: pretty;
@@ -817,7 +817,7 @@
 
   .card-fix,
   .status-link {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-accent);
     text-decoration: none;
   }
@@ -1105,7 +1105,7 @@
   /* The weight is what marks where you are; the accent belongs to the crumbs you can still
      click, and spending it on both leaves it marking neither. */
   .section-bar .crumb-current {
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
@@ -1170,7 +1170,7 @@
 
   .status {
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     padding: var(--sp-md) 0;
   }

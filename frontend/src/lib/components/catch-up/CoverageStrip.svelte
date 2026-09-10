@@ -197,7 +197,7 @@
     gap: var(--sp-sm);
     margin-top: 2px;
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 

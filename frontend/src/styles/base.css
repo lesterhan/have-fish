@@ -11,7 +11,7 @@
 
 html {
   font-family: var(--font-sans);
-  font-size: var(--text-base);
+  font-size: var(--text-amount);
   line-height: var(--leading-normal);
   color: var(--color-text);
   background-color: var(--color-desktop);
@@ -44,17 +44,17 @@ textarea {
 }
 
 h1 {
-  font-size: var(--text-2xl);
-  font-weight: var(--weight-semibold);
+  font-size: var(--text-title);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
 }
 h2 {
-  font-size: var(--text-xl);
-  font-weight: var(--weight-semibold);
+  font-size: var(--text-title);
+  font-weight: var(--weight-bold);
   line-height: var(--leading-tight);
 }
 h3 {
-  font-size: var(--text-lg);
+  font-size: var(--text-figure);
   font-weight: var(--weight-medium);
   line-height: var(--leading-tight);
 }
@@ -77,7 +77,7 @@ h3 {
   border-radius: var(--radius-sm);
   box-shadow: var(--shadow-window);
   font-family: var(--font-sans);
-  font-size: var(--text-xs);
+  font-size: var(--text-dense);
   max-width: 260px;
   line-height: var(--leading-normal);
   pointer-events: none;

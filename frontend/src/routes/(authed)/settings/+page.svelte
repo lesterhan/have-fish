@@ -409,7 +409,7 @@
   }
 
   .section-bar-title {
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     flex: 1;
   }
 
@@ -432,7 +432,7 @@
   .user-display-name {
     flex: 1;
     font-family: var(--font-mono);
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     font-size: 11px;
     color: var(--color-section-bar-fg);
     opacity: 0.6;
@@ -471,7 +471,7 @@
   .setting-label {
     font-family: var(--font-mono);
     font-size: 10px;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     letter-spacing: 0.4px;
     color: var(--color-text-muted);
     display: flex;
@@ -498,8 +498,8 @@
     border: none;
     padding: 0;
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-danger);
     cursor: pointer;
     white-space: nowrap;
@@ -511,7 +511,7 @@
 
   .danger-desc {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -533,7 +533,7 @@
     flex-direction: column;
     gap: var(--sp-md);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     min-width: 340px;
   }

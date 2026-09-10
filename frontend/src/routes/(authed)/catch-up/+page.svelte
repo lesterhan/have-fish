@@ -354,8 +354,8 @@
   h1 {
     margin: 0;
     font-family: var(--font-serif);
-    font-size: var(--text-xl);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-title);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
@@ -371,7 +371,7 @@
 
   .status {
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
   }
 
@@ -384,21 +384,21 @@
   .done-line {
     margin: 0;
     font-family: var(--font-serif);
-    font-size: var(--text-lg);
+    font-size: var(--text-figure);
     color: var(--color-text);
   }
 
   .error {
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-warning);
   }
 
   .section-header {
     padding: 3px var(--sp-sm);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
   }
 
   .quiet-list {
@@ -412,7 +412,7 @@
     justify-content: space-between;
     gap: var(--sp-sm);
     padding: 5px var(--sp-md);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .quiet-row + .quiet-row {
@@ -424,7 +424,7 @@
   }
 
   .quiet-status {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -446,7 +446,7 @@
     border: none;
     border-radius: var(--radius-sm);
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     cursor: pointer;
     transition: color var(--duration-fast) var(--ease);
@@ -491,7 +491,7 @@
 
   .focus-pos {
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-variant-numeric: tabular-nums;
   }

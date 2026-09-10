@@ -540,7 +540,7 @@
 
   .form-grid input {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -564,7 +564,7 @@
 
   .form-grid select {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -587,7 +587,7 @@
   }
 
   .file-input {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     font-family: var(--font-mono);
     background: none !important;
     box-shadow: none !important;
@@ -597,7 +597,7 @@
 
   .detected-header {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     word-break: break-all;
   }
@@ -610,7 +610,7 @@
 
   .column-preview-empty {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-warning);
   }
 
@@ -638,8 +638,8 @@
   }
 
   .summary-heading {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     padding-bottom: var(--sp-xs);
     border-bottom: 1px solid var(--color-border);
     margin-bottom: var(--sp-xs);
@@ -648,7 +648,7 @@
   .summary-row {
     display: flex;
     gap: var(--sp-sm);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     align-items: baseline;
   }
 
@@ -665,13 +665,13 @@
 
   .summary-muted {
     font-family: var();
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     font-style: italic;
   }
 
   .summary-error {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-danger);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);

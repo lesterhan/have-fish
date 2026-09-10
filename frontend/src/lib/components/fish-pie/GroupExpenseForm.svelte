@@ -434,7 +434,7 @@
 
   .expense-form-wrap :global(.amount-text) {
     font-family: var(--font-mono);
-    font-size: var(--text-2xl);
+    font-size: var(--text-title);
     height: 64px;
     border: 1px solid var(--color-accent);
     border-radius: var(--radius-xl);
@@ -477,7 +477,7 @@
 
   .date-chip-label {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     font-weight: 700;
   }
 
@@ -507,8 +507,8 @@
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
     cursor: pointer;
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     transition:
       background var(--duration-fast) var(--ease),
@@ -624,8 +624,8 @@
   }
 
   .chip-name {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -746,11 +746,11 @@
   .add-cta :global(.btn) {
     width: 100%;
     height: 36px;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .expense-account-hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
     margin: 0;
@@ -771,7 +771,7 @@
   }
 
   .form-error {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     font-family: var(--font-sans);
     display: block;

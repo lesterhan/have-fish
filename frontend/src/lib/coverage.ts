@@ -94,7 +94,7 @@ export function formatCompletenessDate(date: string, today: string): string {
 }
 
 export type CompletenessNote = {
-  // The line the surface renders, at --text-xs in --color-text-muted. Sentence fragments,
+  // The line the surface renders, at --text-dense in --color-text-muted. Sentence fragments,
   // lower case: it sits under a figure as a qualifier, not above one as a heading.
   text: string
   // The whole sentence, for a title attribute. The short line has to fit under a tile; this

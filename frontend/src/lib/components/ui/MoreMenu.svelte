@@ -131,7 +131,7 @@
     border: none;
     background: none;
     font-family: var(--font-sans);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
     text-align: left;
     white-space: nowrap;

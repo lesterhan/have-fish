@@ -337,8 +337,8 @@
   }
 
   .cat-field-label {
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
     color: var(--color-text-muted);
   }
 
@@ -350,7 +350,7 @@
   }
 
   .cat-hint {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -359,7 +359,7 @@
     background: none;
     border: none;
     padding: 0;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-accent-hi);
     cursor: pointer;
   }
@@ -376,7 +376,7 @@
     background: none;
     border: none;
     padding: 0;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-accent-hi);
     cursor: pointer;
   }
@@ -388,7 +388,7 @@
   .split-labels {
     display: flex;
     justify-content: space-between;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
   }
 
@@ -427,7 +427,7 @@
   }
 
   .archived-title {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.4px;
@@ -443,7 +443,7 @@
   }
 
   .archived-name {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
   }
 </style>

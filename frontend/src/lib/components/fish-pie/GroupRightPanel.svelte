@@ -873,7 +873,7 @@
   }
 
   .expense-desc {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -882,7 +882,7 @@
 
   .expense-meta {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -896,9 +896,9 @@
 
   .expense-amount {
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text);
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
   }
 
   .action-btn,
@@ -998,7 +998,7 @@
 
   .date-chip-label {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     font-weight: 700;
   }
 
@@ -1028,8 +1028,8 @@
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-xl);
     cursor: pointer;
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     transition:
       background var(--duration-fast) var(--ease),
@@ -1110,8 +1110,8 @@
   }
 
   .chip-name {
-    font-size: var(--text-xs);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-dense);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -1180,14 +1180,14 @@
   }
 
   .delete-dialog-title {
-    font-size: var(--text-sm);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-danger);
     margin: 0;
   }
 
   .delete-dialog-note {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
     margin: 0;
     font-family: var(--font-sans);
@@ -1223,7 +1223,7 @@
 
   .delete-account-item {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text);
     padding-left: 10px;
     position: relative;
@@ -1258,7 +1258,7 @@
     padding: 0;
     cursor: pointer;
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     text-decoration: underline;
     text-underline-offset: 2px;
@@ -1281,7 +1281,7 @@
     justify-content: space-between;
     padding: 5px 22px 5px 28px;
     border-top: 1px solid var(--color-rule-soft);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .split-row-name {
@@ -1356,13 +1356,13 @@
   .awaiting-label {
     padding: 5px 12px 7px;
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-style: italic;
   }
 
   .form-error {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-danger);
     font-family: var(--font-sans);
   }

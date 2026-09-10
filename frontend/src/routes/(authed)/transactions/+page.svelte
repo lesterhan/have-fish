@@ -315,7 +315,7 @@
     border: none;
     border-bottom: 1px solid var(--color-warning);
     font-family: var(--font-sans);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     cursor: pointer;
     transition: filter var(--duration-fast) var(--ease);
   }
@@ -325,12 +325,12 @@
   }
 
   .repair-icon {
-    font-size: var(--text-base);
+    font-size: var(--text-amount);
   }
 
   .repair-cta {
     margin-left: auto;
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
     text-decoration: underline;
   }
 

@@ -1130,8 +1130,8 @@
 
   h1 {
     font-family: var(--font-serif);
-    font-size: var(--text-lg);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-title);
+    font-weight: var(--weight-bold);
     margin: 0;
   }
 
@@ -1165,7 +1165,7 @@
 
   .outstanding-text {
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     line-height: 1.45;
     text-wrap: pretty;
   }
@@ -1214,7 +1214,7 @@
   }
 
   .position-label {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     text-transform: uppercase;
     letter-spacing: 0.06em;
@@ -1222,13 +1222,13 @@
 
   .position-value {
     font-family: var(--font-mono);
-    font-size: var(--text-base);
-    font-weight: var(--weight-semibold);
+    font-size: var(--text-amount);
+    font-weight: var(--weight-bold);
     white-space: nowrap;
   }
 
   .figure.lead .position-value {
-    font-size: var(--text-2xl);
+    font-size: var(--text-title);
     line-height: 1.15;
   }
 
@@ -1237,17 +1237,17 @@
   }
 
   .position-currency {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-weight: var(--weight-normal);
   }
 
   .figure.lead .position-currency {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .position-note {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-style: italic;
   }
@@ -1256,7 +1256,7 @@
      statement about the figure rather than an aside about currencies. Muted and small so the
      figure keeps the weight — the date does the honesty work, not a colour change. */
   .position-asof {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     line-height: 1.3;
     /* The line runs to two clauses when an account has no starting line, and a narrow tile
@@ -1277,7 +1277,7 @@
 
   /* --- Toolbar --- */
   .count {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
   }
@@ -1319,7 +1319,7 @@
 
   .sub {
     display: block;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
     white-space: nowrap;
@@ -1346,7 +1346,7 @@
   .message {
     padding: var(--sp-lg);
     color: var(--color-text-muted);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .message.error {

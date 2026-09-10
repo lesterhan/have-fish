@@ -306,12 +306,12 @@
   }
 
   .form-grid label {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     text-align: right;
   }
 
   .form-grid input {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     font-family: var(--font-sans);
     padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-window-inset);
@@ -355,7 +355,7 @@
     display: flex;
     justify-content: space-between;
     align-items: baseline;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .comp-label {
@@ -384,20 +384,20 @@
   }
 
   .balanced {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-success);
     margin-top: var(--sp-xs);
   }
 
   .warn {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-text-muted);
     font-style: italic;
     margin-top: var(--sp-xs);
   }
 
   .error {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-danger);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);
@@ -416,7 +416,7 @@
      not explicitly ask for, and a silent assertion about completeness is exactly the kind of
      thing that later looks like a bug. */
   .coverage {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
     margin-top: var(--sp-xs);
   }

@@ -169,7 +169,7 @@
 
   .empty {
     margin: 0;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-text-muted);
   }
 
@@ -187,7 +187,7 @@
     align-items: baseline;
     gap: var(--sp-sm);
     padding: 2px 0;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .when {
@@ -249,7 +249,7 @@
     display: inline-flex;
     align-items: center;
     gap: 3px;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     color: var(--color-accent);
     text-decoration: none;
   }

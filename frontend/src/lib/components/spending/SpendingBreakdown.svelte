@@ -128,7 +128,7 @@
     display: flex;
     flex-direction: column;
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .row {
@@ -178,7 +178,7 @@
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   /* Ordinary ink. A category name is the row's content, not a link out of it, and nine
@@ -238,7 +238,7 @@
     text-align: right;
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     font-weight: 600;
   }
 
@@ -273,7 +273,7 @@
   }
 
   .total-label {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     font-weight: 700;
     color: var(--color-text);
   }

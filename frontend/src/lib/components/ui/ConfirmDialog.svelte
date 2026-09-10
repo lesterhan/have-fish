@@ -67,12 +67,12 @@
 
   .confirm :global(p) {
     margin: 0;
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 
   .confirm :global(code) {
     font-family: var(--font-mono);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .actions {

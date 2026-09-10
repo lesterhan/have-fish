@@ -222,7 +222,7 @@
     background: none;
     color: var(--color-text);
     font-family: var(--font-mono);
-    font-size: var(--text-base);
+    font-size: var(--text-amount);
   }
 
   .hint {
@@ -253,7 +253,7 @@
     background: none;
     color: var(--color-text);
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     cursor: pointer;
   }
 
@@ -267,7 +267,7 @@
   }
 
   .glyph.leaf {
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
   }
 
   .glyph.hl {
@@ -284,6 +284,6 @@
   .empty {
     padding: var(--sp-sm);
     color: var(--color-text-muted);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
   }
 </style>

@@ -71,12 +71,12 @@
     align-items: baseline;
     gap: var(--sp-xs);
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     white-space: nowrap;
   }
 
   .month-day {
-    font-weight: var(--weight-semibold);
+    font-weight: var(--weight-bold);
   }
 
   .dow,
@@ -85,7 +85,7 @@
   .unit,
   .muted {
     color: var(--color-text-muted);
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
   }
 
   .day-count {
@@ -95,7 +95,7 @@
   .day-net {
     margin-left: auto;
     font-family: var(--font-mono);
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     white-space: nowrap;
   }
 

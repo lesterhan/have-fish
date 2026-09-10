@@ -341,7 +341,7 @@
   .form-grid label,
   .form-grid .toggle-label,
   .multi-grid label {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     text-align: right;
     color: var(--color-text-muted);
     white-space: nowrap;
@@ -350,7 +350,7 @@
   .form-grid :global(.text-input),
   .form-grid :global(.select-shell),
   .multi-grid :global(.select-shell) {
-    font-size: var(--text-xs);
+    font-size: var(--text-dense);
     width: 100%;
   }
 
@@ -381,7 +381,7 @@
   }
 
   .save-error {
-    font-size: var(--text-sm);
+    font-size: var(--text-body);
     color: var(--color-danger);
     background: var(--color-danger-light);
     padding: var(--sp-xs) var(--sp-sm);
