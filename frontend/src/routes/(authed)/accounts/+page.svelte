@@ -1130,7 +1130,7 @@
 
   h1 {
     font-family: var(--font-serif);
-    font-size: var(--text-figure);
+    font-size: var(--text-title);
     font-weight: var(--weight-bold);
     margin: 0;
   }

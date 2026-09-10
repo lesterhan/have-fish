@@ -536,7 +536,7 @@
 
   .page-title {
     font-family: var(--font-serif);
-    font-size: 24px;
+    font-size: var(--text-title);
     font-weight: 600;
     color: var(--color-text);
     line-height: var(--leading-tight);
