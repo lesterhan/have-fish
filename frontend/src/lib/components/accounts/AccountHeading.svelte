@@ -67,15 +67,15 @@
 
   .account-name {
     font-family: var(--font-serif);
-    font-size: 22px;
-    font-weight: 600;
+    font-size: var(--text-title);
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     line-height: var(--leading-tight);
     margin: 0;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    letter-spacing: -0.2px;
+    letter-spacing: var(--tracking-tight);
   }
 
   @media (max-width: 520px) {
@@ -87,9 +87,9 @@
 
   .account-path {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     margin: 0;
   }
 
@@ -127,9 +127,9 @@
      a pill competing with a 30px number. */
   .balance-label {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: var(--color-text-muted);
     white-space: nowrap;
@@ -137,16 +137,16 @@
 
   .balance-amount {
     font-family: var(--font-mono);
-    font-size: 30px;
+    font-size: var(--text-display);
     font-weight: var(--weight-bold);
-    line-height: 1.05;
+    line-height: var(--leading-none);
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
   }
 
   @media (max-width: 520px) {
     .balance-amount {
-      font-size: 22px;
+      font-size: var(--text-title);
     }
   }
 </style>

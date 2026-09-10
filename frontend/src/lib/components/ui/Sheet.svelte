@@ -150,7 +150,7 @@
     color: var(--color-text-muted);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     white-space: nowrap;
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule);

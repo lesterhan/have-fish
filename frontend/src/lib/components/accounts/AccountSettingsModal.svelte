@@ -629,7 +629,7 @@
 
   .unsaved {
     margin-right: auto;
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text-muted);
   }
 </style>

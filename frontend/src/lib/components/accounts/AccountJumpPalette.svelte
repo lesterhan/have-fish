@@ -227,7 +227,7 @@
 
   .hint {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     padding: 1px 4px;
     border: 1px solid var(--color-rule);

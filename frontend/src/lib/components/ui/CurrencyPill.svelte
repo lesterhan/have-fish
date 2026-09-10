@@ -28,9 +28,9 @@
     display: inline-flex;
     align-items: center;
     font-family: var(--font-mono);
-    font-weight: 700;
-    font-size: 10px;
-    line-height: 1;
+    font-weight: var(--weight-bold);
+    font-size: var(--text-label);
+    line-height: var(--leading-none);
     padding: 2px 5px;
     background: var(--color-window-raised);
     color: var(--color-text-muted);
@@ -41,7 +41,7 @@
   }
 
   .pill.xs {
-    font-size: 9px;
+    font-size: var(--text-micro);
     padding: 1px 4px;
   }
 </style>

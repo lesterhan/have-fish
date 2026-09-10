@@ -79,9 +79,9 @@
     border-bottom: 1px solid var(--color-rule);
     padding: 4px 12px;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     text-transform: uppercase;
   }

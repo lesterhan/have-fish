@@ -26,9 +26,9 @@
     background: var(--color-text-muted);
     color: var(--color-window);
     font-family: var(--font-sans);
-    font-size: 10px;
-    font-weight: bold;
-    line-height: 1;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    line-height: var(--leading-none);
     padding: 0;
     border: none;
     cursor: help;

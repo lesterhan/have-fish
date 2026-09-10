@@ -313,7 +313,7 @@
     width: 100%;
     box-sizing: border-box;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -352,7 +352,7 @@
 
   .option {
     padding: 3px 8px;
-    font-size: 11px;
+    font-size: var(--text-control);
     font-family: var(--font-mono);
     color: var(--color-text);
     cursor: default;

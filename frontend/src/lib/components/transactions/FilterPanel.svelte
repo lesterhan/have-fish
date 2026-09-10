@@ -186,7 +186,7 @@
 
   .chip-text {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-accent-chip-fg);
     white-space: nowrap;
     overflow: hidden;
@@ -210,12 +210,12 @@
     background: none;
     border: none;
     color: var(--color-accent);
-    font-size: 13px;
+    font-size: var(--text-body);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height: 1;
+    line-height: var(--leading-none);
     padding: 0;
     opacity: 0.7;
     transition: opacity var(--duration-fast) var(--ease);

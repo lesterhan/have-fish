@@ -99,9 +99,9 @@
   }
 
   .dots {
-    font-size: 14px;
-    line-height: 1;
-    letter-spacing: 1px;
+    font-size: var(--text-body);
+    line-height: var(--leading-none);
+    letter-spacing: var(--tracking-wide);
   }
 
   .menu {

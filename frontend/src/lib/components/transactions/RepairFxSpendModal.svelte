@@ -122,7 +122,7 @@
 <style>
   .intro {
     max-width: 460px;
-    line-height: 1.4;
+    line-height: var(--leading-snug);
     margin-bottom: var(--sp-sm);
     color: var(--color-text-muted, var(--color-text));
   }

@@ -309,7 +309,7 @@
     margin: 0 0 var(--sp-xs);
     font-family: var(--font-serif);
     font-size: var(--text-figure);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
 
   .intro p {
@@ -387,7 +387,7 @@
   }
 
   .stem-name {
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .stem-count {
@@ -433,7 +433,7 @@
     color: inherit;
     cursor: pointer;
     font-size: var(--text-body);
-    line-height: 1;
+    line-height: var(--leading-none);
   }
 
   .matched-note {
@@ -483,7 +483,7 @@
 
   .member-flag {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     white-space: nowrap;
   }

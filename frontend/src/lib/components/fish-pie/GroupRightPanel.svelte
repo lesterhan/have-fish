@@ -757,9 +757,9 @@
   .panel-tab {
     padding: 5px 14px;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     border: none;
     border-right: 1px solid var(--color-section-bar-border-bottom);
@@ -784,7 +784,7 @@
   }
 
   .tab-count {
-    font-weight: 400;
+    font-weight: var(--weight-normal);
     margin-left: var(--sp-xs);
     opacity: 0.7;
   }
@@ -850,8 +850,8 @@
     border: 1px solid var(--color-rule);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 8px;
-    font-weight: 700;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -944,9 +944,9 @@
 
   .field-label {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -999,7 +999,7 @@
   .date-chip-label {
     font-family: var(--font-mono);
     font-size: var(--text-dense);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .date-input-hidden {
@@ -1092,8 +1092,8 @@
     border: 1px solid var(--color-border);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 7px;
-    font-weight: 700;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -1128,7 +1128,7 @@
     align-items: center;
     justify-content: space-between;
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     margin-bottom: 2px;
   }
@@ -1153,7 +1153,7 @@
 
   .split-divider {
     color: var(--color-text-muted);
-    font-weight: 400;
+    font-weight: var(--weight-normal);
   }
 
   .split-slider {
@@ -1205,9 +1205,9 @@
 
   .delete-accounts-label {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -1307,9 +1307,9 @@
     border-bottom: 1px solid
       color-mix(in srgb, var(--color-warning) 30%, transparent);
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-warning);
   }

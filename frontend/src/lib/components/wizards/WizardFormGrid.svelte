@@ -17,9 +17,9 @@
   .form-grid :global(label),
   .form-grid :global(.field-label) {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
     text-align: right;
@@ -80,9 +80,9 @@
 
   .form-grid :global(.optional) {
     color: var(--color-text-muted);
-    font-weight: normal;
+    font-weight: var(--weight-normal);
     text-transform: none;
-    font-size: 9px;
+    font-size: var(--text-micro);
   }
 
   .form-grid :global(.toggle-label) {

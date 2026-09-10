@@ -100,7 +100,7 @@
 
   .page-body {
     font-size: var(--text-body);
-    line-height: 1.5;
+    line-height: var(--leading-normal);
     margin: 0;
   }
 </style>

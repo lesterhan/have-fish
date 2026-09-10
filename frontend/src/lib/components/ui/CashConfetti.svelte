@@ -33,7 +33,7 @@
   .particle {
     position: absolute;
     top: -3rem;
-    line-height: 1;
+    line-height: var(--leading-none);
     will-change: transform, opacity;
     animation: cash-fall linear forwards;
   }

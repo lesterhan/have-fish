@@ -116,9 +116,9 @@
       var(--color-rule)
     );
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     font-weight: var(--weight-bold);
-    letter-spacing: 0.5px;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
     cursor: pointer;
     transition:
@@ -153,8 +153,8 @@
   }
 
   .alert {
-    font-size: 8px;
-    line-height: 1;
+    font-size: var(--text-micro);
+    line-height: var(--leading-none);
     color: var(--color-danger);
   }
 </style>

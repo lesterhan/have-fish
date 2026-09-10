@@ -483,9 +483,9 @@
     border-bottom: 1px solid var(--color-rule);
     padding: 4px 12px;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     text-transform: uppercase;
   }
@@ -564,9 +564,9 @@
   .panel-tab {
     padding: 5px 14px;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     border: none;
     border-right: 1px solid var(--color-section-bar-border-bottom);
@@ -591,7 +591,7 @@
   }
 
   .tab-count {
-    font-weight: 400;
+    font-weight: var(--weight-normal);
     margin-left: var(--sp-xs);
     opacity: 0.7;
   }

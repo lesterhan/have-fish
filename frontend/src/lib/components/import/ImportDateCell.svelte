@@ -47,14 +47,14 @@
     vertical-align: middle;
   }
   .date-meta {
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
   }
   .date-main {
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 </style>

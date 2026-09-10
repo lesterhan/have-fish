@@ -410,9 +410,9 @@
 
   .field-label {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -471,14 +471,14 @@
   }
 
   .date-chip-icon {
-    font-size: 12px;
-    line-height: 1;
+    font-size: var(--text-dense);
+    line-height: var(--leading-none);
   }
 
   .date-chip-label {
     font-family: var(--font-mono);
     font-size: var(--text-dense);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .date-input-hidden {
@@ -533,7 +533,7 @@
 
   .split-source-hint {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     font-style: italic;
   }
@@ -597,8 +597,8 @@
     border: 1px solid var(--color-border);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 8px;
-    font-weight: 700;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -642,7 +642,7 @@
 
   .chip-share {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     transition: color var(--duration-fast) var(--ease);
   }
@@ -662,7 +662,7 @@
     align-items: center;
     justify-content: space-between;
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
   }
 
@@ -681,13 +681,13 @@
     display: flex;
     align-items: center;
     gap: 3px;
-    font-weight: 700;
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
   .share-slider-divider {
     color: var(--color-text-muted);
-    font-weight: 400;
+    font-weight: var(--weight-normal);
   }
 
   .share-slider-row {
@@ -758,7 +758,7 @@
 
   .hint-account {
     color: var(--color-text);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .hint-link {

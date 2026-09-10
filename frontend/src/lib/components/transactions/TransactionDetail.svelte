@@ -560,7 +560,7 @@
     flex-shrink: 0;
     font-family: var(--font-sans);
     font-size: var(--text-dense);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     padding: 1px 6px;
     color: var(--color-accent);
     background: var(--color-accent-chip-bg);
@@ -601,7 +601,7 @@
   .hero-label {
     font-family: var(--font-sans);
     font-size: var(--text-figure);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -640,13 +640,13 @@
     margin: 0;
     font-family: var(--font-sans);
     font-size: var(--text-body);
-    line-height: 1.5;
+    line-height: var(--leading-normal);
     color: var(--color-text-muted);
   }
 
   .seg.emph {
     color: var(--color-text);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
 
   /* --- how it moved (flow tree) ------------------------------------------------------ */
@@ -662,7 +662,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
   }
 
@@ -746,10 +746,10 @@
 
   .chip {
     font-family: var(--font-sans);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--text-label);
+    font-weight: var(--weight-semibold);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     padding: 1px 5px;
     color: var(--color-text-muted);
     background: color-mix(
@@ -882,7 +882,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
   }
 
@@ -906,7 +906,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
   }
 
@@ -956,9 +956,9 @@
 
   .leg-role {
     font-family: var(--font-sans);
-    font-size: 10px;
+    font-size: var(--text-label);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
   }
 
@@ -988,7 +988,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-warning);
   }
 

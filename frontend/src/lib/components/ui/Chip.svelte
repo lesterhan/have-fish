@@ -40,14 +40,14 @@
     background: var(--color-window-raised);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 10px;
-    line-height: 1;
+    font-size: var(--text-label);
+    line-height: var(--leading-none);
     white-space: nowrap;
     min-width: 0;
   }
 
   .chip.xs {
-    font-size: 9px;
+    font-size: var(--text-micro);
     padding: 1px 4px;
   }
 
@@ -55,7 +55,7 @@
     background: var(--color-accent-chip-bg);
     border-color: var(--color-accent);
     color: var(--color-accent-chip-fg);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .label {

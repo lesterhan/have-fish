@@ -109,10 +109,10 @@
 
   .tick-label {
     font-family: var(--font-sans);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     white-space: nowrap;
-    line-height: 1;
+    line-height: var(--leading-none);
     /* Labels overflow their 1fr column freely — a day cell is only a few pixels wide, and the
        month name has to sit above its first day without stretching the grid. */
     overflow: visible;

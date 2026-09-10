@@ -341,8 +341,8 @@
 
   .description {
     font-family: var(--font-serif);
-    font-size: 13px;
-    font-weight: 400;
+    font-size: var(--text-body);
+    font-weight: var(--weight-normal);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -372,7 +372,7 @@
     gap: var(--sp-xs);
     min-width: 0;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
   }
 
   .dir-arrow {
@@ -409,7 +409,7 @@
     display: flex;
     align-items: center;
     gap: 2px;
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     flex-shrink: 0;
     white-space: nowrap;
@@ -441,7 +441,7 @@
 
   .transfer-exchange :global(.amount),
   .transfer-exchange :global(.currency) {
-    font-size: 10px;
+    font-size: var(--text-label);
   }
 
   .cross-sep {
@@ -467,8 +467,8 @@
 
   .fx-main-amount {
     font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
     color: inherit;
   }
@@ -489,7 +489,7 @@
     align-items: center;
     gap: 3px;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
   }
 
@@ -498,8 +498,8 @@
   }
 
   .fx-orig-code {
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-label);
   }
 
   .fx-orig-amount {

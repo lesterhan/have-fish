@@ -645,8 +645,8 @@
   /* Which days are on screen, spelled out — the date field shows a preset name. */
   .range-summary {
     font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.3px;
+    font-size: var(--text-label);
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -665,9 +665,9 @@
     padding: 6px 14px;
     flex-shrink: 0;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     user-select: none;
   }
@@ -839,9 +839,9 @@
 
   .coverage-expanded-title {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     margin-bottom: var(--sp-xs);
   }

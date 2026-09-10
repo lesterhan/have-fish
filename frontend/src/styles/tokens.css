@@ -9,8 +9,15 @@
    * 8px, which is where it also ended for most of the app: 313 of the 470 raw
    * pixel values in spacing declarations were BELOW the smallest rung, because
    * the space inside a control — between a glyph and its label, a chip and its
-   * border — is 1 to 6px and there was nothing down there to reach for. Three
+   * border — is 1 to 6px and there was nothing down there to reach for. Four
    * rungs added below; the rest are unchanged and keep their 590 uses.
+   *
+   * The bottom of the scale doubles to 4 and then steps by 2, which is not the
+   * rule the rest of it follows. 6px is 36 declarations of genuinely common
+   * gap, and including it caps every value's move at 1px where a strict
+   * 1/2/4/8 would have shifted about eighty of them by 2px. A ladder that
+   * bends once at the bottom to avoid moving eighty gaps is a better trade
+   * than a tidy rule nobody can afford to apply.
    *
    * GUTTERS (--gutter-*) are the distance from a surface's edge to its
    * content, which is a different question from how far apart two things sit.
@@ -19,8 +26,9 @@
    * prop for the sole purpose of letting a caller say "22px".
    */
   --sp-hair: 0.0625rem; /* 1px — a border's worth; optical nudges */
-  --sp-3xs: 0.125rem; /* 2px — inside a chip, glyph to label */
-  --sp-2xs: 0.25rem; /* 4px — inside a control */
+  --sp-4xs: 0.125rem; /* 2px — inside a chip, glyph to label */
+  --sp-3xs: 0.25rem; /* 4px — inside a control */
+  --sp-2xs: 0.375rem; /* 6px — a control's roomier inside */
   --sp-xs: 0.5rem; /* 8px */
   --sp-sm: 0.75rem; /* 12px */
   --sp-md: 1rem; /* 16px */

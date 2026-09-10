@@ -344,7 +344,7 @@
 
   .transfer-tag {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     align-self: flex-start;
   }
@@ -354,7 +354,7 @@
      description is the row's own content, not a link out of it. */
   .description {
     font-family: var(--font-serif);
-    font-size: 13px;
+    font-size: var(--text-body);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -374,7 +374,7 @@
 
   .summary-line {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
@@ -387,7 +387,7 @@
 
   .fee-label {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
   }
 
@@ -432,7 +432,7 @@
 
   .cross-arrow {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
   }
 

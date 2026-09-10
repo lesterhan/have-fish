@@ -362,7 +362,7 @@
     border: none;
     cursor: pointer;
     padding: 0 var(--sp-xs);
-    line-height: 1;
+    line-height: var(--leading-none);
     height: 20px;
     outline: none;
     transition: color var(--duration-fast) var(--ease);

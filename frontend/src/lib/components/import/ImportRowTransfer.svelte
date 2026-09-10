@@ -473,7 +473,7 @@
     gap: 3px;
     min-width: 0;
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     white-space: nowrap;
   }
@@ -483,7 +483,7 @@
     text-overflow: ellipsis;
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
   }
 
   .pill-remove {
@@ -495,8 +495,8 @@
     cursor: pointer;
     color: var(--color-text-muted);
     padding: 0 2px;
-    font-size: 13px;
-    line-height: 1;
+    font-size: var(--text-body);
+    line-height: var(--leading-none);
   }
 
   .pill-remove:hover {

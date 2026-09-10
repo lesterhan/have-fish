@@ -151,7 +151,7 @@
     margin: 0 0 var(--sp-xs);
     font-family: var(--font-serif);
     font-size: var(--text-figure);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
 
   .intro p {
@@ -186,7 +186,7 @@
   .currency {
     font-family: var(--font-mono);
     font-size: var(--text-body);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .arrow {

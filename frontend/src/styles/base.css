@@ -11,7 +11,11 @@
 
 html {
   font-family: var(--font-sans);
-  font-size: var(--text-amount);
+  /* No font-size. The root size is the rem basis every token is measured from,
+     so it belongs to the reader, not to us — 16px is the browser default and
+     anyone who has changed it meant to. It used to read `var(--text-base)`,
+     which looked deliberate until the rung was renamed for its job and the
+     line started claiming the app's basis was the size of money in a row. */
   line-height: var(--leading-normal);
   color: var(--color-text);
   background-color: var(--color-desktop);
@@ -125,9 +129,9 @@ h3 {
    rule had lost the transform, which is the same drift one rung down. */
 .section-bar-title {
   font-family: var(--font-mono);
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.6px;
+  font-size: var(--text-label);
+  font-weight: var(--weight-bold);
+  letter-spacing: var(--tracking-label);
   text-transform: uppercase;
   color: var(--color-section-bar-fg);
 }

@@ -1166,7 +1166,7 @@
   .outstanding-text {
     margin: 0;
     font-size: var(--text-body);
-    line-height: 1.45;
+    line-height: var(--leading-snug);
     text-wrap: pretty;
   }
 
@@ -1217,7 +1217,7 @@
     font-size: var(--text-dense);
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
   }
 
   .position-value {
@@ -1229,7 +1229,7 @@
 
   .figure.lead .position-value {
     font-size: var(--text-title);
-    line-height: 1.15;
+    line-height: var(--leading-tight);
   }
 
   .position-value.negative {
@@ -1258,7 +1258,7 @@
   .position-asof {
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.3;
+    line-height: var(--leading-snug);
     /* The line runs to two clauses when an account has no starting line, and a narrow tile
        breaks it. `pretty` keeps the last line from being a single orphaned word. */
     text-wrap: pretty;

@@ -336,7 +336,7 @@
 
   .titlebar-title {
     font-family: var(--font-serif);
-    font-size: 13px;
+    font-size: var(--text-body);
     font-weight: var(--weight-bold);
     letter-spacing: 0.01em;
     flex: 1;

@@ -180,7 +180,7 @@
     max-width: 60ch;
     font-size: var(--text-body);
     color: var(--color-text-muted);
-    line-height: 1.5;
+    line-height: var(--leading-normal);
   }
 
   .rows {

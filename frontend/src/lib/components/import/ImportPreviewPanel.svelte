@@ -327,7 +327,7 @@
 
   .preview-counts {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-section-bar-fg);
     opacity: 0.75;
     white-space: nowrap;
@@ -441,7 +441,7 @@
 
   .chip-count {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     opacity: 0.8;
   }
 
@@ -458,7 +458,7 @@
     background: var(--color-window-raised);
     box-shadow: var(--shadow-control);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
   }
 
   /* ── Day headers ── */
@@ -472,9 +472,9 @@
     border-bottom: 1px solid var(--color-rule);
     text-align: left;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -494,9 +494,9 @@
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
@@ -535,9 +535,9 @@
     padding: 4px 12px;
     text-align: left;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     text-transform: uppercase;
     white-space: nowrap;
@@ -617,7 +617,7 @@
   }
   :global(.table-container .field-label) {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     text-align: right;
     user-select: none;

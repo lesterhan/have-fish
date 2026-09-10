@@ -303,7 +303,7 @@
     margin: 0;
     font-family: var(--font-serif);
     font-size: var(--text-figure);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
 
   .range,
@@ -319,9 +319,9 @@
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
@@ -557,7 +557,7 @@
     max-width: 66ch;
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.45;
+    line-height: var(--leading-snug);
   }
 
   .covers-note.invalid {

@@ -195,7 +195,7 @@
 
   .range-input {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -231,8 +231,8 @@
     border-radius: var(--radius-sm);
     background: none;
     font-family: var(--font-sans);
-    font-size: 13px;
-    line-height: 1;
+    font-size: var(--text-body);
+    line-height: var(--leading-none);
     color: var(--color-text-muted);
     cursor: pointer;
     transition:
@@ -273,7 +273,7 @@
     width: 100%;
     padding: 3px 8px;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     background: transparent;
     border: none;
@@ -294,7 +294,7 @@
 
   .error {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-danger);
     white-space: nowrap;
   }

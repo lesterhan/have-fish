@@ -141,9 +141,9 @@
 
   /* Header row */
   .header-row {
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 1px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     padding-bottom: 6px;
     border-bottom: 1px solid var(--color-rule);
@@ -190,7 +190,7 @@
   .col-bar {
     overflow: hidden;
     white-space: nowrap;
-    font-size: 11px;
+    font-size: var(--text-control);
     letter-spacing: -1px;
   }
 
@@ -239,7 +239,7 @@
     white-space: nowrap;
     font-variant-numeric: tabular-nums;
     font-size: var(--text-body);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
 
   .amt-cell {
@@ -251,14 +251,14 @@
 
   .amt-currency {
     opacity: 0.55;
-    font-size: 9px;
-    font-weight: 400;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-normal);
   }
 
   .col-pct {
     text-align: right;
     white-space: nowrap;
-    font-size: 10px;
+    font-size: var(--text-label);
   }
 
   .pct-cell {
@@ -274,7 +274,7 @@
 
   .total-label {
     font-size: var(--text-body);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
@@ -283,8 +283,8 @@
     align-items: baseline;
     justify-content: flex-end;
     gap: 3px;
-    font-size: 14px;
-    font-weight: 700;
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
   }

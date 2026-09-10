@@ -714,10 +714,10 @@
 
   .month-label {
     font-family: var(--font-serif);
-    font-size: 24px;
-    font-weight: 600;
+    font-size: var(--text-title);
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
-    letter-spacing: -0.2px;
+    letter-spacing: var(--tracking-tight);
   }
 
   /* Summary grid */
@@ -744,9 +744,9 @@
      one page is the accent naming the furniture. */
   .card-label {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     margin-bottom: 6px;
   }
@@ -760,8 +760,8 @@
 
   .card-amount {
     font-family: var(--font-mono);
-    font-size: 18px;
-    font-weight: 600;
+    font-size: var(--text-figure);
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -769,8 +769,8 @@
 
   .card-delta {
     font-family: var(--font-mono);
-    font-size: 15px;
-    font-weight: 600;
+    font-size: var(--text-amount);
+    font-weight: var(--weight-semibold);
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
@@ -785,7 +785,7 @@
 
   .card-null {
     font-family: var(--font-mono);
-    font-size: 18px;
+    font-size: var(--text-figure);
     color: var(--color-text-disabled);
   }
 
@@ -802,7 +802,7 @@
   .card-asof {
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.3;
+    line-height: var(--leading-snug);
     text-wrap: pretty;
   }
 
@@ -811,7 +811,7 @@
   .card-blocked {
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.3;
+    line-height: var(--leading-snug);
     text-wrap: pretty;
   }
 
@@ -841,13 +841,13 @@
     display: inline-flex;
     align-items: center;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     color: var(--color-accent-fg);
     background: var(--color-accent);
     padding: 2px 5px;
-    line-height: 1;
+    line-height: var(--leading-none);
   }
 
   /* Ink. The accent Σ badge beside it already says which figure this is; a number is not
@@ -858,22 +858,22 @@
     justify-content: flex-end;
     gap: 6px;
     font-family: var(--font-mono);
-    font-size: 19px;
-    font-weight: 700;
+    font-size: var(--text-figure);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
   }
 
   .card-sigma-loading {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     text-align: right;
   }
 
   .card-sigma-warn {
     font-family: var(--font-sans);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-warning);
     grid-column: 1 / -1;
   }
@@ -929,16 +929,16 @@
 
   .txn-header-title {
     font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
+    font-size: var(--text-control);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
   .txn-header-count {
     font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 400;
+    font-size: var(--text-control);
+    font-weight: var(--weight-normal);
     opacity: 0.75;
   }
 
@@ -948,9 +948,9 @@
 
   .txn-view-all {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-section-bar-fg);
     opacity: 0.75;
     text-decoration: none;
@@ -973,9 +973,9 @@
 
   .txn-toolbar-label {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     margin-right: 2px;
   }
@@ -984,8 +984,8 @@
     padding: 2px 8px;
     border-radius: 2px;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
     background: var(--color-window);
     color: var(--color-text);
     border: 1px solid var(--color-rule);
@@ -1021,7 +1021,7 @@
 
   .txn-footer-count {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
   }
 
@@ -1031,14 +1031,14 @@
 
   .txn-footer-label {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
   }
 
   .txn-footer-total {
     font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
   }
@@ -1052,9 +1052,9 @@
     background: var(--color-window);
     flex-shrink: 0;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     text-transform: uppercase;
   }
@@ -1092,7 +1092,7 @@
     align-items: center;
     gap: var(--sp-xs);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-section-bar-fg);
     opacity: 0.85;
   }
@@ -1140,9 +1140,9 @@
   .currency-tab {
     padding: 1px 8px;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-label);
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: none;

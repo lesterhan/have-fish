@@ -247,7 +247,7 @@
     align-items: center;
     padding: 0 var(--sp-xs);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text-muted);
     background: var(--color-window-inset);
     border: 1px solid var(--color-accent-hi);
@@ -278,9 +278,9 @@
   .section-header {
     padding: 4px 10px 2px;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
     border-top: 1px solid var(--color-rule-soft);

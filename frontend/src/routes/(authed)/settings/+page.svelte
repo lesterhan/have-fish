@@ -415,7 +415,7 @@
 
   .user-email {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-section-bar-fg);
     opacity: 0.75;
     flex-shrink: 0;
@@ -433,7 +433,7 @@
     flex: 1;
     font-family: var(--font-mono);
     font-weight: var(--weight-bold);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-section-bar-fg);
     opacity: 0.6;
     overflow: hidden;
@@ -470,9 +470,9 @@
 
   .setting-label {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     font-weight: var(--weight-bold);
-    letter-spacing: 0.4px;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
     display: flex;
     align-items: center;
@@ -522,8 +522,8 @@
     padding: 0;
     font: inherit;
     cursor: pointer;
-    line-height: 1;
-    font-size: 14px;
+    line-height: var(--leading-none);
+    font-size: var(--text-body);
     flex-shrink: 0;
   }
 

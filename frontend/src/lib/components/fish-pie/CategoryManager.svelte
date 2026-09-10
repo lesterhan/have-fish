@@ -430,7 +430,7 @@
     font-size: var(--text-dense);
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: var(--tracking-label);
     font-family: var(--font-mono);
     margin-bottom: 2px;
   }

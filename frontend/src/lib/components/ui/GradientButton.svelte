@@ -82,11 +82,11 @@
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);
     font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 600;
+    font-size: var(--text-control);
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     cursor: pointer;
-    line-height: 1;
+    line-height: var(--leading-none);
     user-select: none;
     transition:
       background var(--duration-fast) var(--ease),
@@ -98,13 +98,13 @@
   .btn.sm {
     height: 20px;
     padding: 0 8px;
-    font-size: 10px;
+    font-size: var(--text-label);
   }
 
   .btn.lg {
     height: 32px;
     padding: 0 16px;
-    font-size: 13px;
+    font-size: var(--text-body);
     border-radius: var(--radius-md);
   }
 

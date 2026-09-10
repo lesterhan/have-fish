@@ -111,8 +111,8 @@
   }
 
   .hint {
-    font-size: 11px;
-    line-height: 1.3;
+    font-size: var(--text-control);
+    line-height: var(--leading-snug);
     color: var(--color-text-muted);
   }
 
@@ -138,7 +138,7 @@
     align-items: center;
     gap: 4px;
     min-width: 0;
-    font-size: 11px;
+    font-size: var(--text-control);
     white-space: nowrap;
   }
 

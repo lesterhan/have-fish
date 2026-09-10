@@ -173,11 +173,11 @@
   .page-title {
     font-family: var(--font-serif);
     font-size: var(--text-title);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     line-height: var(--leading-tight);
     margin: 0;
-    letter-spacing: -0.2px;
+    letter-spacing: var(--tracking-tight);
   }
 
   .new-group-form {

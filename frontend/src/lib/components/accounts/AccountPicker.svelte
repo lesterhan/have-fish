@@ -547,14 +547,14 @@
 
   .placeholder {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text-disabled);
     padding: 2px 4px;
   }
 
   .crumb {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text-muted);
     background: transparent;
     border: 1px solid transparent;
@@ -575,18 +575,18 @@
     color: var(--color-accent-chip-fg);
     background: var(--color-accent-chip-bg);
     border-color: var(--color-accent-hi);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
   .crumb.deeper {
     color: var(--color-text-disabled);
-    font-size: 13px;
+    font-size: var(--text-body);
     padding: 0 3px;
   }
 
   .csep {
     color: var(--color-text-disabled);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     opacity: 0.55;
   }
 
@@ -594,7 +594,7 @@
     flex: 1 1 auto;
     min-width: 0;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     background: transparent;
     border: none;
@@ -611,7 +611,7 @@
   }
   .rhint kbd {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     text-transform: uppercase;
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-sm);
@@ -625,8 +625,8 @@
     justify-content: center;
     width: 18px;
     height: 18px;
-    font-size: 13px;
-    line-height: 1;
+    font-size: var(--text-body);
+    line-height: var(--leading-none);
     color: var(--color-text-muted);
     background: var(--color-window-raised);
     border: 1px solid var(--color-border);
@@ -670,7 +670,7 @@
     padding: 4px 7px;
     border-radius: var(--radius-sm);
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     cursor: default;
     white-space: nowrap;
   }
@@ -700,7 +700,7 @@
   }
   .hl {
     color: var(--color-accent);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
   /* On the active (accent-filled) row, flip highlights to stay legible. */
   .row.on .anc,
@@ -713,7 +713,7 @@
   .chev {
     flex: 0 0 auto;
     color: var(--color-text-disabled);
-    font-size: 13px;
+    font-size: var(--text-body);
   }
   .chev.dot {
     color: var(--color-accent-hi);
@@ -725,9 +725,9 @@
 
   .best {
     flex: 0 0 auto;
-    font-size: 8.5px;
+    font-size: var(--text-micro);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: var(--tracking-label);
     color: var(--color-accent);
     background: var(--color-window-inset);
     border: 1px solid var(--color-accent-hi);
@@ -755,7 +755,7 @@
   }
   .row.create .ci {
     color: var(--color-accent);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
   .row.create.on .ci {
     color: var(--color-accent-fg);

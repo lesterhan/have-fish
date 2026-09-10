@@ -341,9 +341,9 @@
     padding: 5px calc(var(--sp-sm) - 5px);
     border-radius: 6px;
     font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.2px;
+    font-size: var(--text-dense);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
     color: var(--color-text);
     text-decoration: none;
     outline: 1px solid transparent;
@@ -376,7 +376,7 @@
       var(--color-accent)
     );
     color: var(--color-accent-fg);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.35),
       inset 0 -1px 0 rgba(0, 0, 0, 0.15),
@@ -446,7 +446,7 @@
 
   .jump-key {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     padding: 1px 3px;
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-sm);
@@ -461,7 +461,7 @@
     font-weight: var(--weight-bold);
     font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: var(--tracking-wide);
   }
 
   .account-list {
@@ -514,7 +514,7 @@
     padding: 0 var(--sp-sm);
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.5;
+    line-height: var(--leading-normal);
   }
 
   .lists-empty a {
@@ -550,7 +550,7 @@
     margin: 2px 5px;
     padding: 5px calc(var(--sp-sm) - 5px);
     border-radius: 6px;
-    font-size: 12px;
+    font-size: var(--text-dense);
     font-family: var(--font-mono);
     color: var(--color-text);
     text-decoration: none;

@@ -122,8 +122,8 @@
     border: 1px solid var(--color-rule);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -178,7 +178,7 @@
 
   .member-balance--settled {
     color: var(--color-text-muted);
-    font-weight: 400;
+    font-weight: var(--weight-normal);
     font-style: italic;
   }
 

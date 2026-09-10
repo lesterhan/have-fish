@@ -249,9 +249,9 @@
 
   .header-title {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
     white-space: nowrap;
@@ -259,7 +259,7 @@
 
   .header-account {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -275,9 +275,9 @@
 
   .currency-label {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -329,7 +329,7 @@
     height: 22px;
     min-height: 22px;
     max-height: 22px;
-    line-height: 1;
+    line-height: var(--leading-none);
     -webkit-appearance: none;
     appearance: none;
   }
@@ -345,7 +345,7 @@
     width: 100%;
     box-sizing: border-box;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
@@ -388,7 +388,7 @@
     background: none;
     border: none;
     color: var(--color-text-muted);
-    font-size: 14px;
+    font-size: var(--text-body);
     cursor: pointer;
     padding: 0;
     transition: color var(--duration-fast) var(--ease);
@@ -405,7 +405,7 @@
     padding: 5px 8px;
     text-align: left;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text-muted);
     background: none;
     border: none;
@@ -447,7 +447,7 @@
 
   .error-msg {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-danger);
     max-width: 200px;
     overflow: hidden;

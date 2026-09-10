@@ -131,15 +131,15 @@
 
   .day {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     text-transform: uppercase;
   }
 
   .date {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
@@ -154,8 +154,8 @@
      use. A panel of eighty accent-coloured payees is the accent marking everything. */
   .payee {
     font-family: var(--font-serif);
-    font-size: 13px;
-    font-weight: 400;
+    font-size: var(--text-body);
+    font-weight: var(--weight-normal);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -173,7 +173,7 @@
 
   .account-path {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -196,8 +196,8 @@
 
   .amount-value {
     font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
     color: var(--color-text);
   }
@@ -206,7 +206,7 @@
      muted rather than accented. */
   .converted-line {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
   }
 </style>

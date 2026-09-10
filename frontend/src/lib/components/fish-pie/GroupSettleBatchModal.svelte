@@ -283,9 +283,9 @@
   /* Small section label shared by the debts + payment groups. */
   .group-label {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -356,7 +356,7 @@
   .mode-btn {
     font-family: var(--font-mono);
     font-size: var(--text-dense);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
     padding: 2px 8px;
     background: linear-gradient(
       180deg,
@@ -436,9 +436,9 @@
 
   .field-label {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }

@@ -1402,9 +1402,9 @@
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
@@ -1427,9 +1427,9 @@
 
   .fact dt {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -1500,9 +1500,9 @@
     border: none;
     border-bottom: 2px solid transparent;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
     cursor: pointer;
@@ -1573,8 +1573,8 @@
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);
     font-family: var(--font-sans);
-    font-size: 13px;
-    font-weight: 600;
+    font-size: var(--text-body);
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     cursor: pointer;
     white-space: nowrap;
@@ -1645,8 +1645,8 @@
     background: transparent;
     border: none;
     border-radius: var(--radius-pill);
-    font-size: 11px;
-    line-height: 1;
+    font-size: var(--text-control);
+    line-height: var(--leading-none);
     color: var(--color-text-muted);
     cursor: pointer;
     transition:
@@ -1695,9 +1695,9 @@
 
   .defaults-label {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -1746,9 +1746,9 @@
     align-items: center;
     gap: 4px;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
     white-space: nowrap;
   }
@@ -1793,7 +1793,7 @@
     padding: var(--sp-md) var(--sp-md) 0;
     font-family: var(--font-sans);
     font-size: var(--text-body);
-    line-height: 1.5;
+    line-height: var(--leading-normal);
     color: var(--color-text-muted);
     max-width: 52ch;
   }
