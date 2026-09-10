@@ -326,7 +326,8 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
   own table owns a column geometry too, and three groups then mean three geometries that look
   like one. Widths come from `Sheet`'s exported `WIDTH` vocabulary so a column meaning the
   same thing is the same width on every sheet. `SectionCard` is deleted.
-- **Lucida Grande at small sizes** — 13–14px base. Small and dense is correct.
+- **Lucida Grande at small sizes** — `--text-body` is 14px and the chrome runs 9–11px. Small
+  and dense is correct, and the ladder below says which small.
 - **Font smoothing belongs to the platform** — the app sets no `-webkit-font-smoothing`.
   `none` was an XP-era leftover fighting the Aqua reference, and it is not coming back;
   `antialiased` is the only sanctioned override, and only once someone has shown 13px Lucida
@@ -337,8 +338,9 @@ shadows. Anything still reading as Windows rather than Mac is a leftover, not a 
   contract sits on the *edge*, not the fill: a dark panel over a dark page cannot clear 3:1
   on fill without going pale grey and ceasing to look like a help tag, and what has to be
   legible is where the panel stops.
-- **Every surface is a rung on one ladder** — see *The ladder* below. Do not invent a
-  surface colour; pick the rung whose relationship you want.
+- **Every surface is a rung on one ladder, and so is every size** — see *The ladder* and
+  *The type ladder* below. Do not invent a surface colour, a font size or a gap; pick the
+  rung whose relationship you want.
 - **The status bar is 30px** — it holds interactive text (the trust readout, and the undo
   action when that lands), so it clears WCAG 2.5.8's 24×24 minimum target. 30 rather than the
   24 + padding it looks like it needs: the bar clips its overflow, and a 24px target with a
@@ -409,6 +411,57 @@ either way.
 
 `tokens.test.ts` asserts all of it: each step is at least ΔL 0.04 (below that, two surfaces
 read as one surface with a seam), and the two themes' steps stay within 2x of each other.
+
+### The type ladder
+
+Nine rungs, named for the job rather than the size. That naming is the whole lesson of the
+epic that drew them: the previous scale was `xs` through `3xl`, and `--text-xs` carried 157 of
+its 303 uses — the app's most common size was called "extra small", so anyone reaching for
+something genuinely small found the name taken and wrote a pixel value. A scale is only used
+if a writer can tell which rung means what without measuring.
+
+| rung | px | family | job |
+|---|---|---|---|
+| `--text-display` | 28 | mono | the one number a page is about — an account's balance |
+| `--text-title` | 22 | serif | page and object titles |
+| `--text-figure` | 18 | mono | a card's headline amount, a panel's heading |
+| `--text-amount` | 16 | mono | money in a row — `MoneyDisplay`'s size |
+| `--text-body` | 14 | sans | the reading register — rows, prose, inputs |
+| `--text-dense` | 12 | sans | secondary text inside a dense row |
+| `--text-control` | 11 | mono | text inside an interactive control |
+| `--text-label` | 10 | mono | uppercase chrome labels — section bars, column heads |
+| `--text-micro` | 9 | mono | the smallest legible mark — key caps, ticks, initials |
+
+The family column is what a rung is usually set in, not a rule the tokens enforce. What *is*
+load-bearing is that four of the rungs sit one pixel apart, and each earns it:
+
+- **`label` and `control`** are the same size to a census and two different voices on screen.
+  Uppercase mono at 10 is furniture; mixed-case at 11 is something you click. Set both at 10
+  and the tabs and buttons flatten into the column heads above them — a control that reads as
+  a label, which is the V3 problem stated in type.
+- **`amount` and `figure`** are money appearing in a list of other things versus a number a
+  card exists to state. Collapsing them moves every money row in the app.
+
+Sizes are `rem`, so a reader's browser font setting scales the app (§8). `base.css` sets no
+root font-size: the rem basis is the reader's, and 16px is the browser default.
+
+**Space is two vocabularies**, because the app spaces things for two different reasons. `--sp-*`
+separates things from each other and runs 1 / 2 / 4 / 6 / 8 / 12 / 16 / 24 / 32 / 48 / 64 — it
+bends its doubling once at the bottom, deliberately, because 6px is a genuinely common gap and
+including it caps the worst rounding at 1px. `--gutter-tight` (10), `--gutter` (14) and
+`--gutter-wide` (22) are the distance from a surface's edge to its content, which is a
+different question: of the 58 declarations using 14 and 22px before they were tokens, all 58
+were padding and not one was a margin.
+
+Weight is `normal` 400, `medium` 500, `semibold` **600**, `bold` 700 — semibold used to be
+defined as 700, which is why the app carried 63 raw `700`s beside 53 uses of the token and 21
+places wanting a 600 that nothing provided. Leading runs `none` (1) through `loose` (1.75);
+tracking is `tight`, `label` and `wide`, and `label` is the one that matters, because uppercase
+mono at 9–10px is unreadable without it.
+
+`no-raw-type.test.ts` holds all of it: in a component's `<style>` block a size is a token or
+it is a bug, `calc()` included. Three declarations are exempt and each carries its reason —
+all three are marks drawn out of glyphs rather than text set at a tracking.
 
 ### Interaction finishes
 
