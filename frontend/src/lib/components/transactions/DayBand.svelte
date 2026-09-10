@@ -1,5 +1,6 @@
 <script lang="ts">
   import { formatCents } from '$lib/money'
+  import { plural } from '$lib/copy'
   import { parseDateParts } from './transactionUtils'
   import type { DayNet } from './ledger'
 
@@ -34,7 +35,7 @@
     <span class="year">{parts.year}</span>
   </span>
 
-  <span class="day-count">{count} {count === 1 ? 'entry' : 'entries'}</span>
+  <span class="day-count">{plural(count, '1 entry', `${count} entries`)}</span>
 
   {#if net.kind === 'net'}
     <!-- Same rule as the rows below it, for the same reason: over a month of bands most days

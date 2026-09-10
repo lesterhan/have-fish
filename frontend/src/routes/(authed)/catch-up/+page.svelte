@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { plural } from '$lib/copy'
   import { goto } from '$app/navigation'
   import Card from '$lib/components/ui/Card.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -291,8 +292,11 @@
           aria-expanded={dormantOpen}
         >
           {dormantOpen ? '▾' : '▸'}
-          {groups.dormant.length} quiet
-          {groups.dormant.length === 1 ? 'account' : 'accounts'}
+          {plural(
+            groups.dormant.length,
+            '1 quiet account',
+            `${groups.dormant.length} quiet accounts`,
+          )}
         </button>
 
         {#if dormantOpen}

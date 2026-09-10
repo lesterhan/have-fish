@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { plural } from '$lib/copy'
   import Chip from '$lib/components/ui/Chip.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import ControlBar from '$lib/components/ui/ControlBar.svelte'
@@ -648,10 +649,12 @@
     oncancel={() => (pending = null)}
   >
     <p>
-      This renames <strong>{pending.affected.length}</strong>
-      account{pending.affected.length === 1 ? '' : 's'} under
-      <code>{pending.from}</code> → <code>{pending.to}</code>. Entries stay
-      attached — only the name changes.
+      <code>{pending.from}</code> → <code>{pending.to}</code>.
+      {plural(
+        pending.affected.length,
+        'This renames 1 account; its entries stay attached, only the name changes.',
+        `This renames ${pending.affected.length} accounts; their entries stay attached, only the name changes.`,
+      )}
     </p>
     <ul class="affected">
       {#each pending.affected as p (p)}

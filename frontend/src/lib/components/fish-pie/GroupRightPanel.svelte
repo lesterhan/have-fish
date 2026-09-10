@@ -6,6 +6,7 @@
     Account,
     GroupMember,
   } from '$lib/api'
+  import { plural } from '$lib/copy'
   import Icon from '$lib/components/ui/Icon.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
@@ -496,10 +497,11 @@
                         </p>
                       {:else}
                         <p class="delete-dialog-note">
-                          {expense.splits.length} member transaction{expense
-                            .splits.length !== 1
-                            ? 's'
-                            : ''} will be removed.
+                          {plural(
+                            expense.splits.length,
+                            '1 member transaction will be removed.',
+                            `${expense.splits.length} member transactions will be removed.`,
+                          )}
                         </p>
                       {/if}
                       <div class="delete-accounts">
