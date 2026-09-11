@@ -1,0 +1,13 @@
+[Unit]
+Description=have-fish database backup
+Documentation=https://github.com/lesterhan/have-fish/blob/main/ops/README.md
+After=network-online.target
+
+[Service]
+Type=oneshot
+# Adjust to wherever the repo is checked out on the server.
+WorkingDirectory=/opt/have-fish
+ExecStart=/opt/have-fish/ops/backup.sh --quiet
+# Offsite credentials. Keep them out of .env, which is read by the app containers too:
+# this file should be root-owned and chmod 600.
+EnvironmentFile=-/etc/have-fish/backup.env
