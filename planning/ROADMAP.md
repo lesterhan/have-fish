@@ -73,7 +73,7 @@
 | [Undo](epics/undo.md) | Scoped |
 | [Copy Extraction](epics/copy-extraction.md) | Scoped |
 | [Visual Language](epics/archive/visual-language.md) | Done |
-| [Type & Space Scale](epics/type-and-space.md) | In progress |
+| [Type & Space Scale](epics/archive/type-and-space.md) | Done |
 
 ## Fish Pie sequence
 
