@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   export type TabItem = {
     id: string
     label: string
@@ -84,7 +85,7 @@
     >
       {tab.label}
       {#if tab.alert}
-        <span class="alert" aria-label="needs attention">●</span>
+        <span class="alert" aria-label={copy.case.tabs.needsAttention}>●</span>
       {/if}
     </button>
   {/each}

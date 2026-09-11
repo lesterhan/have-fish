@@ -21,6 +21,7 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { svelteFilesUnder } from '../../../testing/source-scan'
+import { copy } from '../../copy'
 
 const SRC = fileURLToPath(new URL('../../..', import.meta.url))
 
@@ -69,7 +70,11 @@ describe('the titlebar close button', () => {
     // The confirm is the one place in the app where a dialog beats an undo (P4), because what
     // a misclick costs is whatever you were part-way through typing.
     expect(LAYOUT).toContain('<ConfirmDialog')
-    expect(LAYOUT).toContain('confirmLabel="Sign out"')
+    expect(LAYOUT).toContain('confirmLabel={copy.case.signOut.confirm}')
+    // The wording moved into the copy module, so asserting the literal here would break on
+    // every copy edit. What this test owns is the honesty rule: the control names what it
+    // actually does, rather than a window action a browser tab cannot perform.
+    expect(copy.case.signOut.confirm.toLowerCase()).toContain('sign out')
   })
 
   it('carries no minimize control', () => {

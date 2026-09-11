@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import { afterNavigate } from '$app/navigation'
   import { page } from '$app/state'
   import { theme } from '$lib/theme.svelte'
@@ -85,64 +86,64 @@
         href="/accounts"
         class="nav-link"
         class:active={currentPath.startsWith('/accounts')}
-        use:tooltip={'Accounts'}
+        use:tooltip={copy.case.sidebar.nav.accounts}
       >
         <Icon name="accounts" size={16} />
-        <span class="nav-label">Accounts</span>
+        <span class="nav-label">{copy.case.sidebar.nav.accounts}</span>
       </a>
       <a
         href="/spending"
         class="nav-link"
         class:active={currentPath.startsWith('/spending')}
-        use:tooltip={'Spending'}
+        use:tooltip={copy.case.sidebar.nav.spending}
       >
         <Icon name="spending" size={16} />
-        <span class="nav-label">Spending</span>
+        <span class="nav-label">{copy.case.sidebar.nav.spending}</span>
       </a>
       <a
         href="/budgeting"
         class="nav-link"
         class:active={currentPath.startsWith('/budgeting')}
-        use:tooltip={'Budgeting'}
+        use:tooltip={copy.case.sidebar.nav.budgeting}
       >
         <Icon name="piggy-bank" size={16} />
-        <span class="nav-label">Budgeting</span>
+        <span class="nav-label">{copy.case.sidebar.nav.budgeting}</span>
       </a>
       <a
         href="/fish-pie"
         class="nav-link"
         class:active={currentPath.startsWith('/fish-pie')}
-        use:tooltip={'Fish Pie'}
+        use:tooltip={copy.case.sidebar.nav.fishPie}
       >
         <Icon name="pie" size={16} />
-        <span class="nav-label">Fish Pie</span>
+        <span class="nav-label">{copy.case.sidebar.nav.fishPie}</span>
       </a>
       <a
         href="/catch-up"
         class="nav-link"
         class:active={currentPath.startsWith('/catch-up')}
-        use:tooltip={'Catch Up'}
+        use:tooltip={copy.case.sidebar.nav.catchUp}
       >
         <Icon name="calendar" size={16} />
-        <span class="nav-label">Catch Up</span>
+        <span class="nav-label">{copy.case.sidebar.nav.catchUp}</span>
       </a>
       <a
         href="/import"
         class="nav-link"
         class:active={currentPath.startsWith('/import')}
-        use:tooltip={'Import + Export'}
+        use:tooltip={copy.case.sidebar.nav.importExport}
       >
         <Icon name="import-export" size={16} />
-        <span class="nav-label">Import + Export</span>
+        <span class="nav-label">{copy.case.sidebar.nav.importExport}</span>
       </a>
       <a
         href="/transactions"
         class="nav-link"
         class:active={currentPath.startsWith('/transactions')}
-        use:tooltip={'Transactions'}
+        use:tooltip={copy.case.sidebar.nav.transactions}
       >
         <Icon name="transactions" size={16} />
-        <span class="nav-label">Transactions</span>
+        <span class="nav-label">{copy.case.sidebar.nav.transactions}</span>
       </a>
     </div>
 
@@ -150,13 +151,13 @@
       <div class="lists">
         <button class="jump" type="button" onclick={() => (paletteOpen = true)}>
           <Icon name="search" size={13} />
-          <span class="jump-label">Jump to account</span>
-          <span class="jump-key">Ctrl K</span>
+          <span class="jump-label">{copy.case.sidebar.jump}</span>
+          <span class="jump-key">{copy.case.sidebar.jumpKey}</span>
         </button>
 
         {#if pinned.length > 0}
           <section class="list">
-            <h2 class="list-header section-bar">Pinned</h2>
+            <h2 class="list-header section-bar">{copy.case.sidebar.pinned}</h2>
             <ul class="account-list">
               {#each pinned as row (row.id)}
                 <li>
@@ -168,7 +169,10 @@
                   >
                     <span class="account-name">{row.label}</span>
                     {#if actionRequiredIds.has(row.id)}
-                      <span class="action-dot" title="Needs attention"></span>
+                      <span
+                        class="action-dot"
+                        title={copy.case.sidebar.needsAttention}
+                      ></span>
                     {/if}
                   </a>
                 </li>
@@ -179,7 +183,7 @@
 
         {#if recent.length > 0}
           <section class="list">
-            <h2 class="list-header section-bar">Recent</h2>
+            <h2 class="list-header section-bar">{copy.case.sidebar.recent}</h2>
             <ul class="account-list">
               {#each recent as row (row.id)}
                 <li>
@@ -191,7 +195,10 @@
                   >
                     <span class="account-name">{row.label}</span>
                     {#if actionRequiredIds.has(row.id)}
-                      <span class="action-dot" title="Needs attention"></span>
+                      <span
+                        class="action-dot"
+                        title={copy.case.sidebar.needsAttention}
+                      ></span>
                     {/if}
                   </a>
                 </li>
@@ -202,8 +209,8 @@
 
         {#if pinned.length === 0 && recent.length === 0}
           <p class="lists-empty">
-            Pin accounts on the <a href="/accounts">Accounts</a> page to keep them
-            here.
+            {copy.case.sidebar.empty}
+            <a href="/accounts">{copy.case.sidebar.emptyAction}</a>
           </p>
         {/if}
       </div>
@@ -215,12 +222,16 @@
       <button
         class="footer-btn footer-collapse"
         onclick={() => (expanded = !expanded)}
-        aria-label={expanded ? 'Compress sidebar' : 'Expand sidebar'}
-        use:tooltip={expanded ? 'Compress sidebar' : 'Expand sidebar'}
+        aria-label={expanded
+          ? copy.case.sidebar.compress
+          : copy.case.sidebar.expand}
+        use:tooltip={expanded
+          ? copy.case.sidebar.compress
+          : copy.case.sidebar.expand}
       >
         {#if expanded}
           <Icon name="collapse-sidebar" size={16} />
-          <span class="nav-label">Compress sidebar</span>
+          <span class="nav-label">{copy.case.sidebar.compress}</span>
         {:else}
           <Icon name="menu" size={16} />
         {/if}
@@ -229,26 +240,30 @@
       <button
         class="footer-btn footer-mobile-close"
         onclick={() => onMobileClose?.()}
-        aria-label="Close sidebar"
+        aria-label={copy.case.sidebar.closeSidebar}
       >
         <Icon name="close" size={16} />
-        <span class="nav-label">Close</span>
+        <span class="nav-label">{copy.case.sidebar.close}</span>
       </button>
       <button
         class="footer-btn"
         onclick={() => theme.toggle()}
-        use:tooltip={theme.dark ? 'Light Theme' : 'Dark Theme'}
+        use:tooltip={theme.dark
+          ? copy.case.sidebar.lightTheme
+          : copy.case.sidebar.darkTheme}
       >
         <Icon name={theme.dark ? 'sun' : 'moon'} size={16} />
         <span class="nav-label"
-          >{theme.dark ? 'Light Theme' : 'Dark Theme'}</span
+          >{theme.dark
+            ? copy.case.sidebar.lightTheme
+            : copy.case.sidebar.darkTheme}</span
         >
       </button>
       {#if email}
         <a
           href="/settings"
           class="footer-btn footer-settings"
-          use:tooltip={'Settings'}
+          use:tooltip={copy.case.sidebar.settings}
         >
           <Icon name="user" size={16} />
           <span class="nav-label">{email}</span>

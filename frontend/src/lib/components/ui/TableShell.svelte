@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import type { Snippet } from 'svelte'
   import Shimmer from '$lib/components/ui/Shimmer.svelte'
 
@@ -21,7 +22,7 @@
     loading = false,
     loadingRows = 3,
     empty = false,
-    emptyText = 'No results.',
+    emptyText = copy.case.table.noResults,
     children,
   }: Props = $props()
 </script>
