@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import { PUBLIC_VERSION } from '$env/static/public'
   import '../styles/tokens.css'
   import '../styles/base.css'
@@ -159,7 +160,7 @@
     // reject rather than silently corrupting the store.
     settingsStore
       .update({ preferences: { accentColor: key } })
-      .catch(() => toast.show('Accent saved for this session only.'))
+      .catch(() => toast.show(copy.case.accent.sessionOnly))
   }
 </script>
 
@@ -174,7 +175,7 @@
         <div class="titlebar-pill-wrap">
           <button
             class="titlebar-pill"
-            aria-label="Choose accent color"
+            aria-label={copy.case.titlebar.accent}
             aria-expanded={pickerOpen}
             onclick={() => (pickerOpen = !pickerOpen)}
           >
@@ -189,21 +190,21 @@
           {/if}
         </div>
       {/if}
-      <span class="titlebar-title">have-fish</span>
+      <span class="titlebar-title">{copy.case.appName}</span>
       <div class="titlebar-controls">
         {#if $session.data}
           <!-- Mobile hamburger — lives in titlebar, hidden on desktop -->
           <ChromeButton
             class="hamburger"
             onclick={() => (mobileSidebarOpen = true)}
-            aria-label="Open menu"
+            aria-label={copy.case.titlebar.openMenu}
           >
             <Icon name="menu" size={12} />
           </ChromeButton>
         {/if}
         <ChromeButton
           variant="maximize"
-          aria-label="Maximize"
+          aria-label={copy.case.titlebar.maximize}
           onclick={() => (maximized = !maximized)}
         >
           <Icon name={maximized ? 'restore-window' : 'maximize'} size={12} />
@@ -214,7 +215,7 @@
                this epic is about. -->
           <ChromeButton
             variant="close"
-            aria-label="Sign out"
+            aria-label={copy.case.titlebar.signOut}
             onclick={() => (showSignOutDialog = true)}
           >
             <Icon name="close" size={12} />
@@ -272,16 +273,16 @@
        carries the nearest true one. The dialog stays because the misclick costs whatever you
        were part-way through typing, and there is no undo for that. -->
   <ConfirmDialog
-    title="have-fish"
+    title={copy.case.appName}
     bind:open={showSignOutDialog}
-    confirmLabel="Sign out"
-    busyLabel="Signing out…"
+    confirmLabel={copy.case.signOut.confirm}
+    busyLabel={copy.case.signOut.busy}
     busy={signingOut}
     variant="primary"
     onconfirm={handleSignOut}
   >
-    <p>Sign out of have-fish?</p>
-    <p class="dialog-sub">Any unsaved entry on this page will be lost.</p>
+    <p>{copy.case.signOut.question}</p>
+    <p class="dialog-sub">{copy.case.signOut.warning}</p>
   </ConfirmDialog>
 </div>
 

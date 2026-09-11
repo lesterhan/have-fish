@@ -42,7 +42,15 @@ const SRC = join(import.meta.dir, '..', '..')
  * `.svelte` file beneath it. Append here as part of the story that converts the surface —
  * an extraction PR that does not extend this list has not actually finished.
  */
-const CONVERTED = ['routes/login/+page.svelte', 'routes/signup/+page.svelte']
+const CONVERTED = [
+  'routes/login/+page.svelte',
+  'routes/signup/+page.svelte',
+  // The case, per DESIGN.md §2: the shell and the furniture, story 3.
+  'routes/+layout.svelte',
+  'lib/components/Sidebar.svelte',
+  'lib/components/AccentPicker.svelte',
+  'lib/components/ui',
+]
 
 /**
  * Strings a converted file is allowed to keep, with the reason. Keep these rare: almost
@@ -174,6 +182,68 @@ function hasWords(text: string): boolean {
 }
 
 /**
+ * Does this string literal, found inside a `{…}`, look like something a user reads?
+ *
+ * Markup expressions are full of strings that are not copy — class names, icon names, route
+ * paths, currency codes, `'2-digit'`. But they are also where a lot of real copy hides:
+ * `use:tooltip={'Accounts'}`, `aria-label={open ? 'Compress sidebar' : 'Expand sidebar'}`,
+ * `{theme.dark ? 'Light Theme' : 'Dark Theme'}`. Skipping every mustache, as the first
+ * version of this file did, made the check blind to every tooltip in the app.
+ *
+ * The signature of a label is sentence case or more than one word. Lowercase single words
+ * (`'active'`, `'sun'`, `'moon'`) are wiring; SHOUTED ones (`'CAD'`, `'USD'`) are codes;
+ * anything with a slash or a `$` is a path or a built string.
+ */
+function looksLikeLabel(value: string): boolean {
+  const text = value.trim()
+  if (text.length < 2) return false
+  if (/[/$<>{}[\]]/.test(text)) return false // a path, a built string, a CSS selector
+  if (KEY_NAMES.has(text)) return false
+  if (!/[a-z]/.test(text)) return false // all caps, or no letters at all: a code
+  return /^[A-Z]/.test(text) || /[A-Za-z]\s+[A-Za-z]/.test(text)
+}
+
+/**
+ * `KeyboardEvent.key` values, which are capitalised words that are not words.
+ *
+ * `e.key === 'Enter'` reads exactly like a label and appears in markup handlers all over
+ * the app. Excluding them by name is narrower than excluding every capitalised string, and
+ * unlike an allowlist entry it does not have to be re-argued in each new file. The key
+ * legends the app prints — "Ctrl K", "Esc" — are different strings and stay copy.
+ */
+const KEY_NAMES = new Set([
+  'Alt',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+  'ArrowUp',
+  'Backspace',
+  'Control',
+  'Delete',
+  'End',
+  'Enter',
+  'Escape',
+  'Home',
+  'Meta',
+  'PageDown',
+  'PageUp',
+  'Shift',
+  'Tab',
+])
+
+/** Label-shaped string literals inside one `{…}` expression, quotes included. */
+function mustacheLabels(mustache: string): string[] {
+  const found: string[] = []
+  for (const [whole, single, double] of mustache.matchAll(
+    /'([^'\\]*)'|"([^"\\]*)"/g,
+  )) {
+    const value = single ?? double
+    if (value !== undefined && looksLikeLabel(value)) found.push(whole)
+  }
+  return found
+}
+
+/**
  * Every hardcoded user-facing string in the markup of one `.svelte` source.
  *
  * The scanner alternates between text and tag: inside a tag it only reports quoted values
@@ -196,7 +266,9 @@ export function markupStrings(source: string): string[] {
     const c = markup[i]
 
     if (c === '{') {
-      i = skipMustache(markup, i)
+      const end = skipMustache(markup, i)
+      found.push(...mustacheLabels(markup.slice(i, end)))
+      i = end
       // An interpolation splits a text node without joining the words either side of it.
       flushText()
       continue
@@ -221,7 +293,9 @@ function scanTag(markup: string, from: number, found: string[]): number {
   let i = from + 1
   while (i < markup.length && markup[i] !== '>') {
     if (markup[i] === '{') {
-      i = skipMustache(markup, i) // a spread or a shorthand attribute
+      const end = skipMustache(markup, i) // a spread, or an attribute's expression
+      found.push(...mustacheLabels(markup.slice(i, end)))
+      i = end
       continue
     }
 
@@ -276,7 +350,7 @@ export function scriptStrings(source: string): string[] {
 }
 
 function isProse(value: string): boolean {
-  if (value.includes('/') || value.includes('$')) return false
+  if (/[/$[\]]/.test(value)) return false
   const words = value.match(/[A-Za-z]{2,}/g)
   return words !== null && words.length >= 2 && / /.test(value.trim())
 }
@@ -444,6 +518,38 @@ describe('markupStrings', () => {
     ).toEqual([])
   })
 
+  it('catches labels hiding inside expressions', () => {
+    expect(markupStrings("<a use:tooltip={'Accounts'} />")).toEqual([
+      "'Accounts'",
+    ])
+    expect(
+      markupStrings("<span>{dark ? 'Light Theme' : 'Dark Theme'}</span>"),
+    ).toEqual(["'Light Theme'", "'Dark Theme'"])
+    expect(
+      markupStrings(
+        "<button aria-label={open ? 'Compress sidebar' : 'Expand sidebar'} />",
+      ),
+    ).toEqual(["'Compress sidebar'", "'Expand sidebar'"])
+  })
+
+  it('leaves the expressions that are wiring alone', () => {
+    expect(
+      markupStrings("<input onkeydown={(e) => e.key === 'Enter' && go()} />"),
+    ).toEqual([])
+    expect(markupStrings("<div class={active ? 'on' : 'off'} />")).toEqual([])
+    expect(markupStrings("<Icon name={dark ? 'sun' : 'moon'} />")).toEqual([])
+    expect(markupStrings("<a class:active={path === '/accounts'} />")).toEqual(
+      [],
+    )
+    expect(markupStrings("<CurrencyPill code={'CAD'} />")).toEqual([])
+    expect(markupStrings("{#if unit === 'USD'}<b>{unit}</b>{/if}")).toEqual([])
+    expect(
+      markupStrings(
+        "<time>{d.toLocaleDateString(l, { day: '2-digit' })}</time>",
+      ),
+    ).toEqual([])
+  })
+
   it('leaves interpolated copy alone', () => {
     expect(markupStrings('<span>{copy.auth.signIn.title}</span>')).toEqual([])
     expect(
@@ -500,6 +606,11 @@ describe('scriptStrings', () => {
     ).toEqual([])
     expect(
       scriptStrings("<script>el.setAttribute('data-theme', 'dark')</script>"),
+    ).toEqual([])
+    expect(
+      scriptStrings(
+        `<script>const F = 'a[href], button:not([disabled]), [tabindex]'</script>`,
+      ),
     ).toEqual([])
     expect(
       scriptStrings(

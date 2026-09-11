@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import { SUPPORTED_CURRENCIES } from '$lib/currency'
   import CurrencyPill from './CurrencyPill.svelte'
   import { settingsStore } from '$lib/settings.svelte'
@@ -174,7 +175,7 @@
       class="pill-overlay"
       tabindex="0"
       role="button"
-      aria-label="Edit currency {value}"
+      aria-label={copy.case.currency.edit(value)}
       onclick={activatePill}
       onkeydown={(e) => {
         if (e.key === 'Enter' || e.key === ' ') {

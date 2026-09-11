@@ -24,9 +24,11 @@
  * well-shaped input like this is a scripted transform away from a real message catalog.
  */
 import { authCopy } from './auth'
+import { caseCopy } from './case'
 
 export const copy = {
   auth: authCopy,
+  case: caseCopy,
 } as const
 
 export { plural } from './plural'

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
 
@@ -38,7 +39,7 @@
     onclick,
   }: Props = $props()
 
-  let action = $derived(converted ? offLabel : `Convert to ${currency}`)
+  let action = $derived(converted ? offLabel : copy.case.convert.to(currency))
 </script>
 
 <GradientButton
@@ -51,7 +52,7 @@
   {#if compact}
     <CurrencyPill code={currency} size="xs" />
   {:else if busy}
-    Converting…
+    {copy.case.convert.converting}
   {:else}
     {action}
   {/if}

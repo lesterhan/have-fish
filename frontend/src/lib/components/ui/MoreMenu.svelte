@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import GradientButton from './GradientButton.svelte'
   import Icon from './Icon.svelte'
 
@@ -16,7 +17,11 @@
     align?: 'left' | 'right'
   }
 
-  let { items, tooltip = 'More actions', align = 'right' }: Props = $props()
+  let {
+    items,
+    tooltip = copy.case.menu.moreActions,
+    align = 'right',
+  }: Props = $props()
 
   let open = $state(false)
   let wrapperEl = $state<HTMLDivElement | undefined>(undefined)
