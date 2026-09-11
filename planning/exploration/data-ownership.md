@@ -44,10 +44,26 @@ Two things were added to the definition that aren't about export at all:
 2. **Fish Pie is multiplayer.** It requires the server, says so plainly, and is unavailable
    rather than quietly degraded.
 3. **Where they meet, the personal side wins** and the shared part is deferred to a queue.
-4. **Sync is replication of the personal ledger between replicas.** The server is the replica
-   with an address and uptime — not an authority.
+4. **Sync is automatic replication of the personal ledger between replicas.** It runs
+   whenever the server is reachable, never blocks the UI, and is not a button the user
+   presses. The server is the replica with an address and uptime — not an authority.
 5. **The export serialization and the sync payload are the same format.** Export stops being
    a side feature and becomes the foundation everything else stands on.
+
+### Decided: sync is automatic, not manual (2026-09-11)
+
+The first instinct was deliberate sync — "multiplayer when I want it", by analogy with a
+game's single-player save. That analogy breaks, because single-player saves never merge.
+
+Long divergence windows are precisely what produce real conflicts: the same CSV imported
+twice, the same account renamed differently on two devices, a transaction entered on the
+phone and again on the laptop. Sync once a month and every one of those is waiting for you;
+sync continuously and conflicts are seconds old and resolve themselves. Deliberate sync is
+therefore the *harder* engineering problem, not the easier one.
+
+What was actually being asked for is "never **wait** for the network" — and
+automatic-when-reachable, non-blocking sync delivers that feeling without the divergence.
+Settled in favour of automatic.
 
 ## Single-player / multiplayer, concretely
 
@@ -233,12 +249,6 @@ transaction she ever entered.
    weeks, but cannot run on React Native so it is a prototype rather than a destination).
 3. **Better Auth and client-generated user ids** — see Identity above. Worth checking before
    anything else is committed to, because the fallback is a data migration.
-4. **Sync cadence.** Lester's instinct is explicit, deliberate sync ("multiplayer when I want
-   it"). The counter-argument: deliberate sync is *harder* than automatic sync, because long
-   divergence windows are what produce real conflicts — the same CSV imported twice, the same
-   account renamed differently on two devices. The feeling being asked for is "never *wait*
-   for the network", which automatic-when-reachable, non-blocking sync delivers without the
-   divergence. Unresolved.
 
 ## Cheapest next experiment
 
