@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import type { Snippet } from 'svelte'
   import GradientButton from './GradientButton.svelte'
 
@@ -83,7 +84,8 @@
   <span class="count">{count} {noun}</span>
   {@render children()}
   <GradientButton quiet size="lg" onclick={onclear}>
-    Clear <span class="key">Esc</span>
+    {copy.case.selection.clear}
+    <span class="key">{copy.case.selection.clearKey}</span>
   </GradientButton>
 </div>
 

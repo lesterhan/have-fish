@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import type { Snippet } from 'svelte'
   import ChromeButton from './ChromeButton.svelte'
 
@@ -143,7 +144,7 @@
         <ChromeButton
           variant="close"
           onclick={close}
-          aria-label="Close"
+          aria-label={copy.case.dialog.close}
           class="close-btn">✕</ChromeButton
         >
       </div>
