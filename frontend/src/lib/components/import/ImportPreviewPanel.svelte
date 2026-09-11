@@ -1,5 +1,6 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
+  import { plural } from '$lib/copy'
   import type { Account, ImportPreviewResult, ExpenseGroup } from '$lib/api'
   import ImportRowTransfer from './ImportRowTransfer.svelte'
   import ImportRowRegular from './ImportRowRegular.svelte'
@@ -174,8 +175,12 @@
         Flipping a row to convert-and-park needs an account for
         {#each unmappedCurrencies as c, i}<code>{c}</code
           >{#if i < unmappedCurrencies.length - 1},
-          {/if}{/each}. Go back to the Accounts step to map
-        {unmappedCurrencies.length === 1 ? 'it' : 'them'}.
+          {/if}{/each}.
+        {plural(
+          unmappedCurrencies.length,
+          'Go back to the Accounts step to map it.',
+          'Go back to the Accounts step to map them.',
+        )}
       </div>
     {/if}
 

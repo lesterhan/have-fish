@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { plural } from '$lib/copy'
   import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
   import SpendingTxnRow from '$lib/components/spending/SpendingTxnRow.svelte'
@@ -449,7 +450,7 @@
                 <span class="card-sigma-badge">Σ</span>
                 <span class="card-sigma-loading">
                   {fxRemaining > 0
-                    ? `${fxRemaining} rate${fxRemaining === 1 ? '' : 's'}…`
+                    ? plural(fxRemaining, '1 rate…', `${fxRemaining} rates…`)
                     : 'Converting…'}
                 </span>
               {:else if convertedTotal !== null}
@@ -544,10 +545,11 @@
             an empty month here is not the same as having spent nothing.
           {:else}
             No expenses in the recorded part of this month.
-            {selectedCoverage.gaps.length === 1
-              ? 'One account is not fully recorded for it'
-              : `${selectedCoverage.gaps.length} accounts are not fully recorded for it`},
-            so this is not the same as having spent nothing.
+            {plural(
+              selectedCoverage.gaps.length,
+              'One account is not fully recorded for it, so this is not the same as having spent nothing.',
+              `${selectedCoverage.gaps.length} accounts are not fully recorded for it, so this is not the same as having spent nothing.`,
+            )}
           {/if}
           <a class="status-link" href="/catch-up">Record it</a>
         </p>

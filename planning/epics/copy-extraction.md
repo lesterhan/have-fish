@@ -187,26 +187,40 @@ change that should not be smuggled in earlier.
 
 ## Appendix: plural splice sites
 
-For story 2. Grepped from `frontend/src/`; `AccountPicker.svelte:247,283` and
-`RuleTargetEditor.svelte:37` also match `=== 1` but are keyboard and selection logic, not
-copy, and are out of scope.
+Done in story 2. The sites are recorded by treatment rather than by line number, which
+went stale within a week of the epic being written. `copy.test.ts` now bans the idiom
+across every `.svelte` file rather than only the converted ones — unlike the rest of the
+epic this is not a preference a second locale would make expensive, it is a shape a second
+locale cannot express at all, so it is cheaper to ban it now than to remove it twice.
 
-```
-lib/components/transactions/TransactionDetail.svelte:396
-lib/components/catch-up/CoverageStrip.svelte:61
-lib/components/fish-pie/GroupRightPanel.svelte:432
-lib/components/import/ImportPreviewPanel.svelte:159
-lib/components/import/ImportConfirmStep.svelte:83,117,129,135,145,165,166,231,233
-lib/components/import/ImportSortStep.svelte:114,256,257
-lib/components/import/ImportAccountsStep.svelte:66
-lib/components/accounts/AccountSettingsModal.svelte:569
-lib/components/accounts/CategoriesTab.svelte:409,636
-lib/components/accounts/QuickEntryPanel.svelte:215
-routes/(authed)/transactions/+page.svelte:210
-routes/(authed)/catch-up/+page.svelte:278
-routes/(authed)/fish-pie/+page.svelte:143
-routes/(authed)/spending/+page.svelte:353
-routes/(authed)/import/rules/+page.svelte:174
-routes/(authed)/import/+page.svelte:550,551,601,646,1239
-routes/(authed)/accounts/+page.svelte:339,426,445,621
-```
+**Reworded to `label: value`** — `ImportConfirmStep`'s notes list, all four rows. The
+count moved to the end (`Skipped as duplicates: 3`), which drops the plural entirely and
+makes the one row that never had a splice (`3 skipped by hand`) read like its neighbours.
+
+**Kept both readings, via `plural`** — everywhere else, about thirty sites across the
+import wizard, accounts, catch-up, spending, transactions and Fish Pie. One of them
+(`GroupRightPanel`'s delete dialog) was missed by every grep that produced this appendix,
+because its `!== 1` wrapped onto the next line; the repo-wide check added in this story
+found it. That is roughly the argument for the check. Four of them were
+already whole-clause ternaries with a shared tail spliced on after (`'One account has'` …
+`no starting line, so nothing they hold is counted below`); those now carry the tail in
+both readings, so the singular says *it holds* rather than *they hold*.
+
+Two sentences restructured rather than duplicated, because they had markup mid-sentence:
+
+- `CategoriesTab`'s rename dialog leads with the paths and follows with the count
+  sentence, instead of wrapping `<strong>` around a count inside the sentence. The bold
+  on the number is gone.
+- `ImportPreviewPanel` splits the currency list and the instruction into two sentences,
+  so `map it` / `map them` is a complete sentence rather than a pronoun spliced onto a
+  `{#each}`.
+
+**Deferred, deliberately** — `CategoriesTab.svelte`'s
+`unit={section.entries === 1 ? 'entry' : 'entries'}`. `SheetBand` renders `total` and
+`unit` as two separately-styled spans, so this is a figure and its unit (the same slot
+holds `CAD`), not a sentence with a noun in it. De-splicing it means changing the
+component's props, which belongs to story 4 where the accounts surface is extracted.
+
+Not splices, left alone: `AccountPicker`'s keyboard handling, `RuleTargetEditor`'s
+single-group shortcut, `QuickEntryPanel`'s row striping, and the bulk-import tooltip that
+picks between two complete sentences on selection count.

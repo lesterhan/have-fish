@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
+  import { plural } from '$lib/copy'
   import {
     updateAccount,
     updateCoverageConfig,
@@ -566,7 +567,7 @@
                   <option value={String(days)}>
                     {days === 0
                       ? 'Same day'
-                      : `${days} ${days === 1 ? 'day' : 'days'}`}
+                      : plural(days, '1 day', `${days} days`)}
                   </option>
                 {/each}
               </Select>

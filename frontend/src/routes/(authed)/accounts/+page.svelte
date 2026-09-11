@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { plural } from '$lib/copy'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import Checkbox from '$lib/components/ui/Checkbox.svelte'
@@ -433,7 +434,11 @@
     // disappears. Say where it went rather than leaving them to wonder what they deleted.
     if (hidden && show === 'active') {
       toast.show(
-        `Hidden — switch Show to All or Hidden to see ${ids.length === 1 ? 'it' : 'them'}.`,
+        plural(
+          ids.length,
+          'Hidden — switch Show to All or Hidden to see it.',
+          'Hidden — switch Show to All or Hidden to see them.',
+        ),
       )
     }
   }
@@ -534,7 +539,11 @@
       )
       if (skipped > 0) {
         toast.show(
-          `Hid ${hidable.length}; kept ${skipped} that ${skipped === 1 ? 'is' : 'are'} in use.`,
+          plural(
+            skipped,
+            `Hid ${hidable.length}; kept ${skipped} that is in use.`,
+            `Hid ${hidable.length}; kept ${skipped} that are in use.`,
+          ),
         )
       }
     } finally {
@@ -553,7 +562,11 @@
         ),
       )
       toast.show(
-        `Default currency set to ${bulkCurrency} on ${targets.length} account${targets.length === 1 ? '' : 's'}.`,
+        plural(
+          targets.length,
+          `Default currency set to ${bulkCurrency} on 1 account.`,
+          `Default currency set to ${bulkCurrency} on ${targets.length} accounts.`,
+        ),
       )
       bulkCurrency = ''
     } catch {
@@ -686,18 +699,21 @@
               <p class="outstanding-text">
                 {#if unbootstrapped > 0}
                   <span>
-                    {unbootstrapped === 1
-                      ? 'One account has'
-                      : `${unbootstrapped} accounts have`} no starting line, so nothing
-                    they hold is counted below.
+                    {plural(
+                      unbootstrapped,
+                      'One account has no starting line, so nothing it holds is counted below.',
+                      `${unbootstrapped} accounts have no starting line, so nothing they hold is counted below.`,
+                    )}
                   </span>
                   <a class="outstanding-action" href="/catch-up">Set them</a>
                 {/if}
                 {#if attentionTotal > 0}
                   <span>
-                    {attentionTotal === 1
-                      ? 'One entry needs'
-                      : `${attentionTotal} entries need`} a decision.
+                    {plural(
+                      attentionTotal,
+                      'One entry needs a decision.',
+                      `${attentionTotal} entries need a decision.`,
+                    )}
                   </span>
                   <!-- The filter lives here rather than in the toolbar: it is the action
                        this sentence is asking for, and having it in both places would be
@@ -817,8 +833,11 @@
         {/if}
 
         <span class="count trailing">
-          {visibleRows.length}
-          {visibleRows.length === 1 ? 'account' : 'accounts'}
+          {plural(
+            visibleRows.length,
+            '1 account',
+            `${visibleRows.length} accounts`,
+          )}
         </span>
       </ControlBar>
 

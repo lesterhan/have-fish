@@ -1,5 +1,6 @@
 <script lang="ts">
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
+  import { plural } from '$lib/copy'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import type { Account } from '$lib/api'
@@ -63,11 +64,12 @@
     <h2>Where does this money live?</h2>
     <p>
       {#if isMultiCurrency}
-        This file holds {currencies.length} currenc{currencies.length === 1
-          ? 'y'
-          : 'ies'}. Each needs an account. The suggestion follows your account
-        naming, but you can point a currency anywhere — including at an account
-        that doesn't match the pattern.
+        {plural(
+          currencies.length,
+          'This file holds 1 currency. It needs an account.',
+          `This file holds ${currencies.length} currencies. Each needs an account.`,
+        )} The suggestion follows your account naming, but you can point a currency
+        anywhere — including at an account that doesn't match the pattern.
       {:else}
         Every row in this file posts to one account.
       {/if}

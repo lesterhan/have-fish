@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { plural } from '$lib/copy'
   import { updateAccount, createTransactionsBulk, type Account } from '$lib/api'
   import { toISODate } from '$lib/date'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
@@ -212,7 +213,11 @@
       <GradientButton onclick={submit} disabled={!canSubmit || submitting}>
         {submitting
           ? 'Saving…'
-          : `Save ${rowCount} transaction${rowCount === 1 ? '' : 's'}`}
+          : plural(
+              rowCount,
+              'Save 1 transaction',
+              `Save ${rowCount} transactions`,
+            )}
       </GradientButton>
     </div>
   </div>

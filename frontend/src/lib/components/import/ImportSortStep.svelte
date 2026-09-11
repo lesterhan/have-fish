@@ -1,5 +1,6 @@
 <script lang="ts">
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
+  import { plural } from '$lib/copy'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import GroupSelect from './GroupSelect.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
@@ -123,11 +124,12 @@
   <div class="intro">
     <h2>Repeat merchants</h2>
     <p>
-      {clusters.length} merchant{clusters.length === 1 ? '' : 's'} appear{clusters.length ===
-      1
-        ? 's'
-        : ''} more than once. Assign each one here and its rows drop out of the review
-      list. Anything you skip is still waiting in Review.
+      {plural(
+        clusters.length,
+        '1 merchant appears more than once.',
+        `${clusters.length} merchants appear more than once.`,
+      )} Assign each one here and its rows drop out of the review list. Anything you
+      skip is still waiting in Review.
     </p>
   </div>
 
@@ -289,8 +291,12 @@
       {:else if writeCount === 0}
         Nothing to apply
       {:else}
-        Apply to {writeCount} row{writeCount === 1 ? '' : 's'}{rememberCount > 0
-          ? ` · ${rememberCount} rule${rememberCount === 1 ? '' : 's'}`
+        {plural(
+          writeCount,
+          'Apply to 1 row',
+          `Apply to ${writeCount} rows`,
+        )}{rememberCount > 0
+          ? ` · ${plural(rememberCount, '1 rule', `${rememberCount} rules`)}`
           : ''}
       {/if}
     </GradientButton>

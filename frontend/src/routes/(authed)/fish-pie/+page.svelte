@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { plural } from '$lib/copy'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -141,9 +142,11 @@
         <a class="group-row" href="/fish-pie/{group.id}">
           <span class="group-name">{group.name}</span>
           <span class="group-meta"
-            >{group.members.length} member{group.members.length === 1
-              ? ''
-              : 's'}</span
+            >{plural(
+              group.members.length,
+              '1 member',
+              `${group.members.length} members`,
+            )}</span
           >
           <Icon name="chevron-right-filled" size={12} />
         </a>

@@ -8,6 +8,7 @@
     type MalformedFxSpend,
     type Transaction,
   } from '$lib/api'
+  import { plural } from '$lib/copy'
   import RepairFxSpendModal from '$lib/components/transactions/RepairFxSpendModal.svelte'
   import TransactionDetailModal from '$lib/components/transactions/TransactionDetailModal.svelte'
   import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
@@ -214,9 +215,11 @@
     <button class="repair-banner" onclick={() => (repairModalOpen = true)}>
       <span class="repair-icon">⚠</span>
       <span>
-        {malformed.length}
-        {malformed.length === 1 ? 'transaction needs' : 'transactions need'}
-        repair — a cross-currency import booked the spend incorrectly.
+        {plural(
+          malformed.length,
+          '1 transaction needs repair — a cross-currency import booked the spend incorrectly.',
+          `${malformed.length} transactions need repair — a cross-currency import booked the spend incorrectly.`,
+        )}
       </span>
       <span class="repair-cta">Review</span>
     </button>
