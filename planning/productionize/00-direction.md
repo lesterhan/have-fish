@@ -50,7 +50,7 @@ Three consequences, and the first one binds immediately:
 
 1. **Relay code can never land in this repository.** A published MIT licence cannot be
    withdrawn from code already released under it. The sync service therefore starts life
-   in a separate private repository, from its first commit — not migrated there later.
+   in [`lesterhan/have-fish-ops`](https://github.com/lesterhan/have-fish-ops), from its first commit — not migrated there later.
 2. **The sync protocol and the client half of sync stay MIT**, because they run on the
    user's machine and touch their data, which is the point. So anyone can read the client
    and write their own relay. That is the self-hosting escape hatch working as intended,
@@ -208,7 +208,7 @@ Under that rule the direction, the design research and the architecture all stay
 the open. Publishing them is fine and probably good — an open-core project's roadmap is
 part of how it earns the trust that D1 says is the actual moat.
 
-Two documents fail the rule and live in the private repository instead:
+Two documents fail the rule and live in [`lesterhan/have-fish-ops`](https://github.com/lesterhan/have-fish-ops) instead:
 
 - **`01-current-state-assessment.md`** — a detailed inventory of unfixed security gaps in
   a live deployment. The source it audits is already public, so it discloses little that
@@ -235,8 +235,8 @@ applies to it, re-scoped and much smaller:
 
 | Doc | Fate |
 |---|---|
-| `01` current state | **Fully valid**, and **held privately** — see "What is public and what is private". |
-| `02` data security | **Held privately.** §3 (input handling) and §7 (supply chain) apply **unchanged** in the local model; the rest is relay-scoped. |
+| `01` current state | **Fully valid**, and held in `have-fish-ops` — see "What is public and what is private". |
+| `02` data security | Held in `have-fish-ops`. §3 (input handling) and §7 (supply chain) apply **unchanged** in the local model; the rest is relay-scoped. |
 | `03` compliance | PCI answer stands: we hold no cardholder data, and hosted-redirect checkout keeps us at SAQ A. Privacy obligations shrink to relay accounts and invitee emails. |
 | `04` auth hardening | Applies to **relay accounts**. The local app has no login at all. |
 | `05` billing | Applies **almost verbatim** — Better Auth's Stripe plugin, on the relay's accounts. |

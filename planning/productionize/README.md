@@ -34,8 +34,8 @@ and ciphertext, never ledgers.
 |---|----------|-------|--------|
 | 00 | [direction.md](00-direction.md) | **Decisions — read first** | Living |
 | — | [PROGRESS.md](PROGRESS.md) | Cross-session tracker | Living |
-| 01 | _private repo_ | Audit of codebase & infra, 2026-07-04 | Draft — **fully valid**, held privately |
-| 02 | _private repo_ | Protecting financial data & PII | Draft — held privately; §3, §7 apply unchanged |
+| 01 | _held in [have-fish-ops](https://github.com/lesterhan/have-fish-ops)_ | Audit of codebase & infra, 2026-07-04 | Draft — **fully valid**, held privately |
+| 02 | _held in [have-fish-ops](https://github.com/lesterhan/have-fish-ops)_ | Protecting financial data & PII | Draft — held privately; §3, §7 apply unchanged |
 | 03 | [compliance-pci-privacy.md](03-compliance-pci-privacy.md) | PCI DSS, PIPEDA/GDPR, retention | Draft — relay-scoped, much reduced |
 | 04 | [auth-hardening.md](04-auth-hardening.md) | Verification, 2FA, rate limits, sessions | Outline — relay accounts only |
 | 05 | [subscriptions-billing.md](05-subscriptions-billing.md) | Entitlements & billing | Draft — applies almost verbatim |
