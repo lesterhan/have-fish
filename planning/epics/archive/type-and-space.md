@@ -255,6 +255,22 @@ rung once rungs existed below 8px, so the spacing half of the guard needs no exe
 all. All three exemptions are tracking, and all three are marks drawn out of glyphs rather
 than text set at a tracking.
 
+**Verified after the merge, not before it.** The pull request was honest that nothing below
+1440px had been looked at, and that 147 spacing values had moved by a pixel in panels nobody
+opened. Both were then checked: the modals and wizards (new transaction, add parser, quick
+entry, transaction detail, account settings), the routes the sweep never screenshotted
+(budgeting, import rules, account detail), and every main route at 1024 and 768. Nothing the
+epic moved is wrong at any of them.
+
+What *is* wrong below about 1100px is older and much larger than a pixel. The accounts sheet
+clips its last two columns at 768 — `LAST ACTIVITY` and `FLAGS` are simply off the right edge
+— and the spending page's three panels slide under one another until the month header reads
+"September" with the year on its own line and the breakdown loses its amounts entirely. This
+is not the sweep: `git diff` from before the rename to after the sweep changes **zero**
+`width`, `min-width` or `grid-template-columns` declarations in `frontend/src`. It is fixed
+column geometry meeting a fixed 200px sidebar, which is the responsive debt §10 has been
+admitting to in the abstract. It now has numbers.
+
 **What it hands on.** The type ladder has nine rungs with four of them one pixel apart. Each
 earns its place today, but that is a ladder someone can still pick the wrong rung from, and no
 guard can catch *which* rung — only that a token was used. The other open thread is `%`, `em`
@@ -270,8 +286,10 @@ is a real hole if someone starts spelling sizes in `em` to get past it.
    stick. The case against: it is the largest mechanical diff in the epic and it improves no
    pixel. I think yes, but it is the one call I would not make alone.
 2. ~~**11px.**~~ Answered before any of it was applied: it is the control register, it stays
-   as its own rung, and the ladder is nine. What is still open one rung up is whether **10 and
-   11** are two voices or one — the browser decides that, not the census.
+   as its own rung, and the ladder is nine. The residual — whether **10 and 11** are two voices
+   or one — the sweep answered too: two. Across both themes, seven routes and five modals, the
+   tabs and buttons at 11 stay visibly clickable above the column heads at 10, and forcing them
+   together flattens the distinction. A rung apart is enough when one of them is a control.
 3. ~~**rem or px.**~~ rem, see Decisions.
    Original argument: Keeping rem preserves browser font scaling, at the cost of rungs like
    `0.5625rem` for 9px. Switching to px would read better in the file and would suit an
