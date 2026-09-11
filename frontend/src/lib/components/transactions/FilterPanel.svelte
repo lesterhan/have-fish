@@ -173,9 +173,9 @@
   .active-filter-chip {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     height: 20px;
-    padding: 0 4px 0 7px;
+    padding: 0 var(--sp-3xs) 0 var(--sp-xs);
     background: var(--color-accent-chip-bg);
     border: 1px solid var(--color-accent);
     border-radius: var(--radius-xl);
@@ -186,7 +186,7 @@
 
   .chip-text {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-accent-chip-fg);
     white-space: nowrap;
     overflow: hidden;
@@ -210,12 +210,12 @@
     background: none;
     border: none;
     color: var(--color-accent);
-    font-size: 13px;
+    font-size: var(--text-body);
     cursor: pointer;
     display: flex;
     align-items: center;
     justify-content: center;
-    line-height: 1;
+    line-height: var(--leading-none);
     padding: 0;
     opacity: 0.7;
     transition: opacity var(--duration-fast) var(--ease);

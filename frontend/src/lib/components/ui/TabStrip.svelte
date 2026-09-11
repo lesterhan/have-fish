@@ -96,18 +96,18 @@
   .strip {
     display: flex;
     align-items: flex-end;
-    gap: 2px;
+    gap: var(--sp-4xs);
     border-bottom: 1px solid var(--color-rule);
   }
 
   .tab {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
+    gap: var(--sp-2xs);
     position: relative;
     z-index: 1;
-    margin-bottom: -1px;
-    padding: 5px 14px;
+    margin-bottom: -var(--sp-hair);
+    padding: var(--sp-2xs) var(--gutter);
     border: 1px solid var(--color-rule);
     border-radius: 4px 4px 0 0;
     background: linear-gradient(
@@ -116,9 +116,9 @@
       var(--color-rule)
     );
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     font-weight: var(--weight-bold);
-    letter-spacing: 0.5px;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
     cursor: pointer;
     transition:
@@ -153,8 +153,8 @@
   }
 
   .alert {
-    font-size: 8px;
-    line-height: 1;
+    font-size: var(--text-micro);
+    line-height: var(--leading-none);
     color: var(--color-danger);
   }
 </style>

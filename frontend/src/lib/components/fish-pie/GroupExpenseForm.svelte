@@ -390,12 +390,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 14px;
+    padding: var(--sp-3xs) var(--gutter);
   }
 
   .expense-form-wrap {
     background: var(--color-window);
-    padding: 12px 22px;
+    padding: var(--sp-sm) var(--gutter-wide);
     border-bottom: 1px solid var(--color-rule);
     display: flex;
     flex-direction: column;
@@ -405,14 +405,14 @@
   .field {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .field-label {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -451,8 +451,8 @@
   .date-chip {
     display: inline-flex;
     align-items: center;
-    gap: 5px;
-    padding: 4px 8px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -471,14 +471,14 @@
   }
 
   .date-chip-icon {
-    font-size: 12px;
-    line-height: 1;
+    font-size: var(--text-dense);
+    line-height: var(--leading-none);
   }
 
   .date-chip-label {
     font-family: var(--font-mono);
     font-size: var(--text-dense);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .date-input-hidden {
@@ -498,7 +498,7 @@
   }
 
   .cat-chip {
-    padding: 4px 10px;
+    padding: var(--sp-3xs) var(--gutter-tight);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -533,7 +533,7 @@
 
   .split-source-hint {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     font-style: italic;
   }
@@ -552,7 +552,7 @@
   .payer-chip {
     flex: 1;
     min-width: 100px;
-    padding: 8px 12px;
+    padding: var(--sp-xs) var(--sp-sm);
     background: linear-gradient(
       180deg,
       var(--color-btn-gradient-hi),
@@ -563,7 +563,7 @@
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 8px;
+    gap: var(--sp-xs);
     transition:
       background var(--duration-fast) var(--ease),
       border-color var(--duration-fast) var(--ease),
@@ -597,8 +597,8 @@
     border: 1px solid var(--color-border);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 8px;
-    font-weight: 700;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -618,7 +618,7 @@
   .chip-info {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     text-align: left;
     min-width: 0;
   }
@@ -642,7 +642,7 @@
 
   .chip-share {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     transition: color var(--duration-fast) var(--ease);
   }
@@ -654,7 +654,7 @@
   .share-slider-wrap {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .share-slider-labels {
@@ -662,7 +662,7 @@
     align-items: center;
     justify-content: space-between;
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
   }
 
@@ -680,14 +680,14 @@
   .share-slider-pcts {
     display: flex;
     align-items: center;
-    gap: 3px;
-    font-weight: 700;
+    gap: var(--sp-3xs);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
   .share-slider-divider {
     color: var(--color-text-muted);
-    font-weight: 400;
+    font-weight: var(--weight-normal);
   }
 
   .share-slider-row {
@@ -758,7 +758,7 @@
 
   .hint-account {
     color: var(--color-text);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .hint-link {
@@ -779,7 +779,7 @@
 
   @media (max-width: 600px) {
     .expense-form-wrap {
-      padding: 10px 14px;
+      padding: var(--gutter-tight) var(--gutter);
     }
 
     .amount-row {

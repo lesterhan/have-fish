@@ -327,7 +327,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     background: var(--color-titlebar-bg);
     color: var(--color-titlebar-fg);
     user-select: none;
@@ -336,7 +336,7 @@
 
   .titlebar-title {
     font-family: var(--font-serif);
-    font-size: 13px;
+    font-size: var(--text-body);
     font-weight: var(--weight-bold);
     letter-spacing: 0.01em;
     flex: 1;
@@ -374,7 +374,7 @@
 
   .titlebar-controls {
     display: flex;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   /* Hamburger — hidden on desktop, visible on mobile only */

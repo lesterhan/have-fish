@@ -170,7 +170,7 @@
 
 <div class="categories">
   {#if active.length === 0}
-    <Empty inset="22px">
+    <Empty inset="wide">
       No categories yet. Add one below to start tagging expenses.
     </Empty>
   {/if}
@@ -311,7 +311,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-md);
-    padding: var(--sp-md) 22px;
+    padding: var(--sp-md) var(--gutter-wide);
   }
 
   .cat-head {
@@ -333,7 +333,7 @@
   .cat-field {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--sp-2xs);
   }
 
   .cat-field-label {
@@ -346,7 +346,7 @@
     max-width: 380px;
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--sp-2xs);
   }
 
   .cat-hint {
@@ -405,7 +405,7 @@
   .split-foot {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     min-height: 14px;
   }
 
@@ -413,7 +413,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: var(--sp-md) 22px;
+    padding: var(--sp-md) var(--gutter-wide);
     background: var(--color-window-raised);
     border-top: 1px solid var(--color-rule-soft);
   }
@@ -422,7 +422,7 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-xs);
-    padding: var(--sp-md) 22px;
+    padding: var(--sp-md) var(--gutter-wide);
     background: var(--color-window-raised);
   }
 
@@ -430,9 +430,9 @@
     font-size: var(--text-dense);
     color: var(--color-text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.4px;
+    letter-spacing: var(--tracking-label);
     font-family: var(--font-mono);
-    margin-bottom: 2px;
+    margin-bottom: var(--sp-4xs);
   }
 
   .archived-row {

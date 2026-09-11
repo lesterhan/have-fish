@@ -34,10 +34,13 @@
     /** The sentence. Say why it is empty, not that it is. */
     children: Snippet
     /**
-     * Horizontal inset, so the sentence lines up with the rows it stands in for. Panels
-     * differ, so the caller names its own; the default is the list gutter.
+     * Which gutter the sentence starts at, so it lines up with the rows it stands in for.
+     * It used to be a free-form string, and every caller passed a pixel value — which is
+     * what a component looks like when the scale it needs does not exist. Now it names a
+     * rung: `gutter` is the house gutter most lists sit on, `wide` a card's roomier edge,
+     * `none` for a panel that insets its own content already.
      */
-    inset?: string
+    inset?: 'gutter' | 'wide' | 'none'
     /** The whole-route shape: centred, headed, and sized to the page. */
     page?: boolean
     /** `page` only — the heading above the explanation. */
@@ -46,7 +49,19 @@
     icon?: string
   }
 
-  let { children, inset = '14px', page = false, title, icon }: Props = $props()
+  let {
+    children,
+    inset = 'gutter',
+    page = false,
+    title,
+    icon,
+  }: Props = $props()
+
+  const INSET = {
+    gutter: 'var(--gutter)',
+    wide: 'var(--gutter-wide)',
+    none: '0',
+  } as const
 </script>
 
 {#if page}
@@ -58,7 +73,7 @@
     </div>
   </div>
 {:else}
-  <p class="line" style:--empty-inset={inset}>{@render children()}</p>
+  <p class="line" style:--empty-inset={INSET[inset]}>{@render children()}</p>
 {/if}
 
 <style>
@@ -100,7 +115,7 @@
 
   .page-body {
     font-size: var(--text-body);
-    line-height: 1.5;
+    line-height: var(--leading-normal);
     margin: 0;
   }
 </style>

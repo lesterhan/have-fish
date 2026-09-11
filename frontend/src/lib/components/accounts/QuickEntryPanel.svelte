@@ -239,7 +239,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-sm);
-    padding: 8px 14px;
+    padding: var(--sp-xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
@@ -254,9 +254,9 @@
 
   .header-title {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
     white-space: nowrap;
@@ -264,7 +264,7 @@
 
   .header-account {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -280,9 +280,9 @@
 
   .currency-label {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
   }
@@ -295,11 +295,11 @@
   }
 
   .entry-card {
-    padding: 5px 8px;
+    padding: var(--sp-2xs) var(--sp-xs);
     border-bottom: 1px solid var(--color-rule);
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--sp-3xs);
   }
 
   .entry-card.alt {
@@ -308,7 +308,7 @@
 
   .card-top {
     display: flex;
-    gap: 4px;
+    gap: var(--sp-3xs);
     align-items: center;
   }
 
@@ -324,7 +324,7 @@
 
   .card-bottom {
     display: flex;
-    gap: 4px;
+    gap: var(--sp-3xs);
     align-items: center;
   }
 
@@ -334,7 +334,7 @@
     height: 22px;
     min-height: 22px;
     max-height: 22px;
-    line-height: 1;
+    line-height: var(--leading-none);
     -webkit-appearance: none;
     appearance: none;
   }
@@ -350,12 +350,12 @@
     width: 100%;
     box-sizing: border-box;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 2px var(--sp-xs);
+    padding: var(--sp-4xs) var(--sp-xs);
     height: 22px;
     outline: none;
     transition:
@@ -393,7 +393,7 @@
     background: none;
     border: none;
     color: var(--color-text-muted);
-    font-size: 14px;
+    font-size: var(--text-body);
     cursor: pointer;
     padding: 0;
     transition: color var(--duration-fast) var(--ease);
@@ -407,10 +407,10 @@
   .add-row-btn {
     display: block;
     width: 100%;
-    padding: 5px 8px;
+    padding: var(--sp-2xs) var(--sp-xs);
     text-align: left;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text-muted);
     background: none;
     border: none;
@@ -432,7 +432,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-sm);
-    padding: 8px 14px;
+    padding: var(--sp-xs) var(--gutter);
     border-top: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
@@ -452,7 +452,7 @@
 
   .error-msg {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-danger);
     max-width: 200px;
     overflow: hidden;

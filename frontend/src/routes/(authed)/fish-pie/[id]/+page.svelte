@@ -461,7 +461,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 14px 22px 10px;
+    padding: var(--gutter) var(--gutter-wide) var(--gutter-tight);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule);
     flex-shrink: 0;
@@ -483,14 +483,14 @@
     display: flex;
     flex-direction: column;
     gap: var(--sp-md);
-    padding: 12px 22px;
+    padding: var(--sp-sm) var(--gutter-wide);
     background: var(--color-window);
   }
 
   .skel-field {
     display: flex;
     flex-direction: column;
-    gap: 5px;
+    gap: var(--sp-2xs);
   }
 
   .skel-rows {
@@ -501,7 +501,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 8px 12px;
+    padding: var(--sp-xs) var(--sp-sm);
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
@@ -509,7 +509,7 @@
     flex: 1;
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .header-controls {
@@ -522,7 +522,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: var(--sp-xs) 22px;
+    padding: var(--sp-xs) var(--gutter-wide);
     background: var(--color-danger-light);
     border-bottom: 1px solid var(--color-danger);
     flex-shrink: 0;
@@ -537,11 +537,11 @@
   .page-title {
     font-family: var(--font-serif);
     font-size: var(--text-title);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     line-height: var(--leading-tight);
     margin: 0;
-    letter-spacing: -0.2px;
+    letter-spacing: var(--tracking-tight);
     flex: 1;
   }
 
@@ -556,7 +556,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 14px;
+    padding: var(--sp-3xs) var(--gutter);
   }
 
   .invite-section {
@@ -567,7 +567,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: var(--sp-xs) 22px;
+    padding: var(--sp-xs) var(--gutter-wide);
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
@@ -583,7 +583,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 6px 22px;
+    padding: var(--sp-2xs) var(--gutter-wide);
     border-bottom: 1px solid var(--color-rule-soft);
     font-size: var(--text-body);
   }
@@ -643,14 +643,14 @@
     }
 
     .page-header {
-      padding: 10px 14px 8px;
+      padding: var(--gutter-tight) var(--gutter) var(--sp-xs);
       flex-wrap: wrap;
     }
 
     .invite-form,
     .pending-row {
-      padding-left: 14px;
-      padding-right: 14px;
+      padding-left: var(--gutter);
+      padding-right: var(--gutter);
     }
   }
 </style>

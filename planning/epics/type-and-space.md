@@ -213,9 +213,58 @@ places quietly get lighter.
 Each of 3, 4 and 5 ends in a browser sweep across both themes, because every one of them
 changes pixels on screens the tests cannot see.
 
+## Decisions
+
+Settled 2026-09-10, before the sweep, since each one was cheap to change at three commits
+and expensive at six hundred sites.
+
+1. **Units — rem.** The px would read better in the file, but the app has never had a zoom or
+   responsive audit (§10), and removing the one mechanism that currently makes it scale while
+   that is true is betting the wrong way.
+2. **The space scale bends once.** 1 / 2 / 4 / 6 / 8 rather than strict doubling. 6px is 36
+   declarations of genuinely common gap; including it caps the sweep's worst move at 1px where
+   1/2/4/8 would have shifted about eighty gaps by 2px. This went against the first
+   recommendation and the numbers were on the other side.
+3. **The guard covers type and space, with exemptions.** Three entries, each carrying its
+   reason. What is deliberately not on the list: "this value is too small to matter", which is
+   an argument for deleting a declaration rather than keeping it.
+4. **`base.css` sets no root font-size.** The rem basis belongs to the reader. The old
+   `var(--text-base)` looked deliberate right up until the rung was renamed for its job and
+   the line began claiming the app's basis was the size of money in a row.
+
+## Outcome
+
+All six stories shipped across two pull requests — the ladders in
+[#235](https://github.com/lesterhan/have-fish/pull/235), the sweep and the guard after it.
+
+**Two rungs the census got wrong**, both found by reading rules rather than counting them.
+11px is the control register, not drift between two rungs, and 16px is `MoneyDisplay`. The
+A/B that settled 11px is worth keeping: forcing every 11px element on the accounts page down
+to 10 flattens the tabs and buttons into the column heads above them, and the text floats
+inside button padding that did not shrink with it. A control that reads as a label is V3
+stated in type.
+
+**`Empty`'s prop was not deleted.** The plan said delete it and its nine call sites, on the
+grounds that a component taking a magic number as a prop is a missing scale seen from outside.
+Half right: three genuinely different insets exist, so the capability was needed and only the
+*vocabulary* was wrong. It now takes `gutter | wide | none` — the caller names a rung. The
+same argument as the type rename, one level up.
+
+**The six `calc()` expressions were not exemptions.** Every one turned out to be a rung plus a
+rung once rungs existed below 8px, so the spacing half of the guard needs no exemption list at
+all. All three exemptions are tracking, and all three are marks drawn out of glyphs rather
+than text set at a tracking.
+
+**What it hands on.** The type ladder has nine rungs with four of them one pixel apart. Each
+earns its place today, but that is a ladder someone can still pick the wrong rung from, and no
+guard can catch *which* rung — only that a token was used. The other open thread is `%`, `em`
+and `ch`, which the guard deliberately ignores as relationships rather than measurements; that
+is a real hole if someone starts spelling sizes in `em` to get past it.
+
 ## Open questions
 
-1. **Is the type rename worth it?** It touches 303 correct declarations to change nothing
+1. ~~**Is the type rename worth it?**~~ Merged in #235, which settles it — reversing now costs
+   more than it saves.  Original argument: It touches 303 correct declarations to change nothing
    visible about them. The case for: `--text-xs` naming the most-used size is the specific
    thing that pushes people to raw pixels, and role names are what made the colour ladder
    stick. The case against: it is the largest mechanical diff in the epic and it improves no
@@ -223,12 +272,14 @@ changes pixels on screens the tests cannot see.
 2. ~~**11px.**~~ Answered before any of it was applied: it is the control register, it stays
    as its own rung, and the ladder is nine. What is still open one rung up is whether **10 and
    11** are two voices or one — the browser decides that, not the census.
-3. **rem or px.** Keeping rem preserves browser font scaling, at the cost of rungs like
+3. ~~**rem or px.**~~ rem, see Decisions.
+   Original argument: Keeping rem preserves browser font scaling, at the cost of rungs like
    `0.5625rem` for 9px. Switching to px would read better in the file and would suit an
    instrument panel with fixed density — but the app has never had a responsive or zoom audit
    (§10 standing debt), so removing the one mechanism that currently makes it scale seems like
    the wrong direction to bet. Proposal keeps rem.
-4. **Does the guard cover spacing?** Raw px in `padding`/`gap` is 470 sites; the guard is what
+4. ~~**Does the guard cover spacing?**~~ Both, with exemptions — and the spacing half needed
+   none. Original argument: Raw px in `padding`/`gap` is 470 sites; the guard is what
    stops it coming back. But there are legitimate raw px values in spacing — a 1px border
    compensation, a hairline overlap. Either the exemption list gets long or the guard covers
    type only and space is held by convention. Leaning toward covering both and letting the

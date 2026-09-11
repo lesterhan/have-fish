@@ -702,8 +702,8 @@
   .month-bar {
     display: flex;
     align-items: center;
-    gap: 14px;
-    padding: 14px 22px 10px;
+    gap: var(--sp-md);
+    padding: var(--gutter) var(--gutter-wide) var(--gutter-tight);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
@@ -711,15 +711,15 @@
 
   .nav-btns {
     display: flex;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .month-label {
     font-family: var(--font-serif);
-    font-size: 24px;
-    font-weight: 600;
+    font-size: var(--text-title);
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
-    letter-spacing: -0.2px;
+    letter-spacing: var(--tracking-tight);
   }
 
   /* Summary grid */
@@ -731,10 +731,10 @@
   }
 
   .summary-card {
-    padding: 14px 22px;
+    padding: var(--gutter) var(--gutter-wide);
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
     border-left: 1px solid var(--color-rule);
   }
 
@@ -746,24 +746,24 @@
      one page is the accent naming the furniture. */
   .card-label {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1.2px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
-    margin-bottom: 6px;
+    margin-bottom: var(--sp-2xs);
   }
 
   .card-row {
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: baseline;
-    gap: 10px;
+    gap: var(--sp-xs);
   }
 
   .card-amount {
     font-family: var(--font-mono);
-    font-size: 18px;
-    font-weight: 600;
+    font-size: var(--text-figure);
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     text-align: right;
     font-variant-numeric: tabular-nums;
@@ -771,8 +771,8 @@
 
   .card-delta {
     font-family: var(--font-mono);
-    font-size: 15px;
-    font-weight: 600;
+    font-size: var(--text-amount);
+    font-weight: var(--weight-semibold);
     font-variant-numeric: tabular-nums;
     text-align: right;
   }
@@ -787,7 +787,7 @@
 
   .card-null {
     font-family: var(--font-mono);
-    font-size: 18px;
+    font-size: var(--text-figure);
     color: var(--color-text-disabled);
   }
 
@@ -804,7 +804,7 @@
   .card-asof {
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.3;
+    line-height: var(--leading-snug);
     text-wrap: pretty;
   }
 
@@ -813,7 +813,7 @@
   .card-blocked {
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.3;
+    line-height: var(--leading-snug);
     text-wrap: pretty;
   }
 
@@ -833,9 +833,9 @@
     display: grid;
     grid-template-columns: auto 1fr;
     align-items: baseline;
-    gap: 10px;
-    margin-top: 6px;
-    padding-top: 8px;
+    gap: var(--sp-xs);
+    margin-top: var(--sp-2xs);
+    padding-top: var(--sp-xs);
     border-top: 1px dashed var(--color-rule);
   }
 
@@ -843,13 +843,13 @@
     display: inline-flex;
     align-items: center;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     color: var(--color-accent-fg);
     background: var(--color-accent);
-    padding: 2px 5px;
-    line-height: 1;
+    padding: var(--sp-4xs) var(--sp-2xs);
+    line-height: var(--leading-none);
   }
 
   /* Ink. The accent Σ badge beside it already says which figure this is; a number is not
@@ -858,24 +858,24 @@
     display: flex;
     align-items: baseline;
     justify-content: flex-end;
-    gap: 6px;
+    gap: var(--sp-2xs);
     font-family: var(--font-mono);
-    font-size: 19px;
-    font-weight: 700;
+    font-size: var(--text-figure);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
   }
 
   .card-sigma-loading {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     text-align: right;
   }
 
   .card-sigma-warn {
     font-family: var(--font-sans);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-warning);
     grid-column: 1 / -1;
   }
@@ -924,23 +924,23 @@
   .txn-header {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 6px 14px;
+    gap: var(--sp-xs);
+    padding: var(--sp-2xs) var(--gutter);
     flex-shrink: 0;
   }
 
   .txn-header-title {
     font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
+    font-size: var(--text-control);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
   .txn-header-count {
     font-family: var(--font-mono);
-    font-size: 11px;
-    font-weight: 400;
+    font-size: var(--text-control);
+    font-weight: var(--weight-normal);
     opacity: 0.75;
   }
 
@@ -950,9 +950,9 @@
 
   .txn-view-all {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-section-bar-fg);
     opacity: 0.75;
     text-decoration: none;
@@ -966,8 +966,8 @@
   .txn-toolbar {
     display: flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 14px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-2xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule);
     flex-shrink: 0;
     background: var(--color-window);
@@ -975,19 +975,19 @@
 
   .txn-toolbar-label {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 1px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
-    margin-right: 2px;
+    margin-right: var(--sp-4xs);
   }
 
   .filter-chip {
-    padding: 2px 8px;
+    padding: var(--sp-4xs) var(--sp-xs);
     border-radius: 2px;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
     background: var(--color-window);
     color: var(--color-text);
     border: 1px solid var(--color-rule);
@@ -1014,8 +1014,8 @@
   .txn-footer {
     display: flex;
     align-items: center;
-    gap: 8px;
-    padding: 8px 14px;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--gutter);
     border-top: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
@@ -1023,7 +1023,7 @@
 
   .txn-footer-count {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
   }
 
@@ -1033,14 +1033,14 @@
 
   .txn-footer-label {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
   }
 
   .txn-footer-total {
     font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
     font-variant-numeric: tabular-nums;
   }
@@ -1048,15 +1048,15 @@
   .txn-col-header {
     display: grid;
     grid-template-columns: 52px 1fr auto;
-    gap: 10px;
-    padding: 4px 14px;
+    gap: var(--sp-xs);
+    padding: var(--sp-3xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window);
     flex-shrink: 0;
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     text-transform: uppercase;
   }
@@ -1081,7 +1081,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
   }
 
   .section-bar-title {
@@ -1094,7 +1094,7 @@
     align-items: center;
     gap: var(--sp-xs);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-section-bar-fg);
     opacity: 0.85;
   }
@@ -1134,17 +1134,17 @@
      surface to be raised from, and on a band there is nothing to lift off. */
   .currency-tabs {
     display: flex;
-    gap: 2px;
+    gap: var(--sp-4xs);
     margin-left: auto;
     flex-shrink: 0;
   }
 
   .currency-tab {
-    padding: 1px 8px;
+    padding: var(--sp-hair) var(--sp-xs);
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 600;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-label);
     border: 1px solid transparent;
     border-radius: var(--radius-sm);
     background: none;

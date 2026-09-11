@@ -122,7 +122,7 @@
 <style>
   .intro {
     max-width: 460px;
-    line-height: 1.4;
+    line-height: var(--leading-snug);
     margin-bottom: var(--sp-sm);
     color: var(--color-text-muted, var(--color-text));
   }
@@ -130,7 +130,7 @@
   code {
     font-family: var(--font-mono);
     background: var(--color-window);
-    padding: 0 2px;
+    padding: 0 var(--sp-4xs);
   }
 
   .warn {
@@ -191,7 +191,7 @@
     display: grid;
     grid-template-columns: 1fr auto auto;
     gap: var(--sp-sm);
-    padding: 1px 0;
+    padding: var(--sp-hair) 0;
     align-items: baseline;
   }
 
@@ -201,7 +201,7 @@
 
   .arrow {
     color: var(--color-accent);
-    margin: 0 2px;
+    margin: 0 var(--sp-4xs);
   }
 
   .old {

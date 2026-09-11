@@ -93,7 +93,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 4px 14px;
+    padding: var(--sp-3xs) var(--gutter);
   }
 
   .members-body {
@@ -104,7 +104,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 8px 22px;
+    padding: var(--sp-xs) var(--gutter-wide);
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
@@ -122,8 +122,8 @@
     border: 1px solid var(--color-rule);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -133,7 +133,7 @@
   .member-info {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     flex: 1;
     min-width: 0;
   }
@@ -157,7 +157,7 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 1px;
+    gap: var(--sp-hair);
     flex-shrink: 0;
   }
 
@@ -178,14 +178,14 @@
 
   .member-balance--settled {
     color: var(--color-text-muted);
-    font-weight: 400;
+    font-weight: var(--weight-normal);
     font-style: italic;
   }
 
   .settle-actions {
     background: var(--color-window);
     border-top: 1px solid var(--color-rule-soft);
-    padding: var(--sp-xs) 22px;
+    padding: var(--sp-xs) var(--gutter-wide);
   }
 
   .settle-btn-wrap :global(.btn) {

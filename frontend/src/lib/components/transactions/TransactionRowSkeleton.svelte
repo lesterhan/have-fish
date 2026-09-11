@@ -63,14 +63,14 @@
     display: flex;
     flex-direction: column;
     margin-top: var(--sp-xs);
-    gap: 3px;
+    gap: var(--sp-3xs);
   }
 
   .body {
     display: flex;
     flex-direction: column;
     margin-top: var(--sp-xs);
-    gap: 8px;
+    gap: var(--sp-xs);
     border-left: 1px solid var(--color-divider);
     padding-left: var(--sp-xs);
   }
@@ -80,6 +80,6 @@
     flex-direction: column;
     align-items: flex-end;
     margin-top: var(--sp-xs);
-    gap: 3px;
+    gap: var(--sp-3xs);
   }
 </style>

@@ -404,7 +404,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 5px 14px;
+    padding: var(--sp-2xs) var(--gutter);
     flex-shrink: 0;
   }
 
@@ -415,7 +415,7 @@
 
   .user-email {
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-section-bar-fg);
     opacity: 0.75;
     flex-shrink: 0;
@@ -433,7 +433,7 @@
     flex: 1;
     font-family: var(--font-mono);
     font-weight: var(--weight-bold);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-section-bar-fg);
     opacity: 0.6;
     overflow: hidden;
@@ -460,7 +460,7 @@
     grid-template-columns: 10rem 1fr;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 7px 14px;
+    padding: var(--sp-xs) var(--gutter);
     border-bottom: 1px solid var(--color-rule);
   }
 
@@ -470,13 +470,13 @@
 
   .setting-label {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     font-weight: var(--weight-bold);
-    letter-spacing: 0.4px;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     white-space: nowrap;
   }
 
@@ -489,7 +489,7 @@
     align-items: center;
     gap: var(--sp-md);
     margin-top: auto;
-    padding: var(--sp-lg) 14px var(--sp-lg);
+    padding: var(--sp-lg) var(--gutter) var(--sp-lg);
     border-top: 1px solid var(--color-rule);
   }
 
@@ -522,8 +522,8 @@
     padding: 0;
     font: inherit;
     cursor: pointer;
-    line-height: 1;
-    font-size: 14px;
+    line-height: var(--leading-none);
+    font-size: var(--text-body);
     flex-shrink: 0;
   }
 

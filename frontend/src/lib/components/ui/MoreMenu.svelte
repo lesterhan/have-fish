@@ -99,9 +99,9 @@
   }
 
   .dots {
-    font-size: 14px;
-    line-height: 1;
-    letter-spacing: 1px;
+    font-size: var(--text-body);
+    line-height: var(--leading-none);
+    letter-spacing: var(--tracking-wide);
   }
 
   .menu {
@@ -127,7 +127,7 @@
     align-items: center;
     gap: var(--sp-xs);
     width: 100%;
-    padding: 5px var(--sp-sm);
+    padding: var(--sp-2xs) var(--sp-sm);
     border: none;
     background: none;
     font-family: var(--font-sans);

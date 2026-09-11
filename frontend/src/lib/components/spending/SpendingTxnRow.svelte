@@ -96,8 +96,8 @@
   .row {
     display: grid;
     grid-template-columns: 52px 1fr auto;
-    gap: 10px;
-    padding: 7px 14px;
+    gap: var(--sp-xs);
+    padding: var(--sp-xs) var(--gutter);
     border: none;
     border-bottom: 1px solid var(--color-rule);
     background: var(--color-window-raised);
@@ -125,28 +125,28 @@
   .col-date {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
     flex-shrink: 0;
   }
 
   .day {
     font-family: var(--font-mono);
-    font-size: 9px;
+    font-size: var(--text-micro);
     color: var(--color-text-muted);
     text-transform: uppercase;
   }
 
   .date {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
     color: var(--color-text);
   }
 
   .col-payee {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
     min-width: 0;
   }
 
@@ -154,8 +154,8 @@
      use. A panel of eighty accent-coloured payees is the accent marking everything. */
   .payee {
     font-family: var(--font-serif);
-    font-size: 13px;
-    font-weight: 400;
+    font-size: var(--text-body);
+    font-weight: var(--weight-normal);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -173,7 +173,7 @@
 
   .account-path {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     white-space: nowrap;
     overflow: hidden;
@@ -184,20 +184,20 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 2px;
+    gap: var(--sp-4xs);
     flex-shrink: 0;
   }
 
   .amount-line {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .amount-value {
     font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
     color: var(--color-text);
   }
@@ -206,7 +206,7 @@
      muted rather than accented. */
   .converted-line {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
   }
 </style>

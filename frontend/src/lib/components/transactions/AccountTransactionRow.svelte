@@ -309,7 +309,7 @@
     grid-template-columns: var(--tx-cols);
     align-items: center;
     gap: var(--sp-xs);
-    padding: 7px 14px;
+    padding: var(--sp-xs) var(--gutter);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule-soft);
     cursor: pointer;
@@ -341,8 +341,8 @@
 
   .description {
     font-family: var(--font-serif);
-    font-size: 13px;
-    font-weight: 400;
+    font-size: var(--text-body);
+    font-weight: var(--weight-normal);
     color: var(--color-text);
     white-space: nowrap;
     overflow: hidden;
@@ -372,7 +372,7 @@
     gap: var(--sp-xs);
     min-width: 0;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
   }
 
   .dir-arrow {
@@ -408,8 +408,8 @@
   .fees {
     display: flex;
     align-items: center;
-    gap: 2px;
-    font-size: 10px;
+    gap: var(--sp-4xs);
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     flex-shrink: 0;
     white-space: nowrap;
@@ -429,19 +429,19 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 1px;
+    gap: var(--sp-hair);
   }
 
   .transfer-exchange {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     opacity: 0.6;
   }
 
   .transfer-exchange :global(.amount),
   .transfer-exchange :global(.currency) {
-    font-size: 10px;
+    font-size: var(--text-label);
   }
 
   .cross-sep {
@@ -455,20 +455,20 @@
     display: flex;
     flex-direction: column;
     align-items: flex-end;
-    gap: 2px;
+    gap: var(--sp-4xs);
     flex-shrink: 0;
   }
 
   .fx-primary {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .fx-main-amount {
     font-family: var(--font-mono);
-    font-size: 13px;
-    font-weight: 700;
+    font-size: var(--text-body);
+    font-weight: var(--weight-bold);
     font-variant-numeric: tabular-nums;
     color: inherit;
   }
@@ -487,9 +487,9 @@
   .fx-secondary {
     display: flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
   }
 
@@ -498,8 +498,8 @@
   }
 
   .fx-orig-code {
-    font-weight: 600;
-    letter-spacing: 0.02em;
+    font-weight: var(--weight-semibold);
+    letter-spacing: var(--tracking-label);
   }
 
   .fx-orig-amount {
@@ -513,7 +513,7 @@
 
   .fx-no-rate .fx-secondary {
     color: var(--color-warning);
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   /* Mobile: description and account stack under the amount. The date is not in this

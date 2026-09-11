@@ -17,9 +17,9 @@
   .form-grid :global(label),
   .form-grid :global(.field-label) {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.4px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
     text-align: right;
@@ -32,7 +32,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     height: 24px;
     box-sizing: border-box;
     width: 100%;
@@ -56,7 +56,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     height: 24px;
     box-sizing: border-box;
     width: 100%;
@@ -80,9 +80,9 @@
 
   .form-grid :global(.optional) {
     color: var(--color-text-muted);
-    font-weight: normal;
+    font-weight: var(--weight-normal);
     text-transform: none;
-    font-size: 9px;
+    font-size: var(--text-micro);
   }
 
   .form-grid :global(.toggle-label) {

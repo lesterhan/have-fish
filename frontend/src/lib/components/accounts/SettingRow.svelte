@@ -100,7 +100,7 @@
   .label-cell {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
   }
 
@@ -111,8 +111,8 @@
   }
 
   .hint {
-    font-size: 11px;
-    line-height: 1.3;
+    font-size: var(--text-control);
+    line-height: var(--leading-snug);
     color: var(--color-text-muted);
   }
 
@@ -136,9 +136,9 @@
   .status {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     min-width: 0;
-    font-size: 11px;
+    font-size: var(--text-control);
     white-space: nowrap;
   }
 
@@ -176,7 +176,7 @@
   @media (max-width: 520px) {
     .row {
       grid-template-columns: auto minmax(6rem, 1fr);
-      row-gap: 2px;
+      row-gap: var(--sp-4xs);
     }
 
     .label-cell {

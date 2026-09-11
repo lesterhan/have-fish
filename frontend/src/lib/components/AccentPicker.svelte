@@ -71,7 +71,7 @@
   .grid {
     display: grid;
     grid-template-columns: repeat(3, 20px);
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .swatch {
@@ -97,10 +97,10 @@
   }
 
   .check {
-    font-size: 11px;
-    font-weight: 700;
+    font-size: var(--text-control);
+    font-weight: var(--weight-bold);
     color: var(--color-accent-fg);
     text-shadow: 0 1px 2px rgba(0, 0, 0, 0.6);
-    line-height: 1;
+    line-height: var(--leading-none);
   }
 </style>

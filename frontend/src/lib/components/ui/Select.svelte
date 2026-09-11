@@ -44,11 +44,11 @@
     width: 100%;
     height: 24px;
     box-sizing: border-box;
-    padding: 0 24px 0 8px; /* right gutter reserves the tail */
+    padding: 0 var(--sp-lg) 0 var(--sp-xs); /* right gutter reserves the tail */
     font-family: var(--font-sans);
-    font-size: 11px;
-    font-weight: 600;
-    line-height: 1;
+    font-size: var(--text-control);
+    font-weight: var(--weight-semibold);
+    line-height: var(--leading-none);
     color: var(--color-text);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);
@@ -113,6 +113,6 @@
   .select-input :global(option) {
     background: var(--color-window);
     color: var(--color-text);
-    font-weight: normal;
+    font-weight: var(--weight-normal);
   }
 </style>

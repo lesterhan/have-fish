@@ -28,10 +28,10 @@
     display: inline-flex;
     align-items: center;
     font-family: var(--font-mono);
-    font-weight: 700;
-    font-size: 10px;
-    line-height: 1;
-    padding: 2px 5px;
+    font-weight: var(--weight-bold);
+    font-size: var(--text-label);
+    line-height: var(--leading-none);
+    padding: var(--sp-4xs) var(--sp-2xs);
     background: var(--color-window-raised);
     color: var(--color-text-muted);
     border: 1px solid var(--color-rule);
@@ -41,7 +41,7 @@
   }
 
   .pill.xs {
-    font-size: 9px;
-    padding: 1px 4px;
+    font-size: var(--text-micro);
+    padding: var(--sp-hair) var(--sp-3xs);
   }
 </style>

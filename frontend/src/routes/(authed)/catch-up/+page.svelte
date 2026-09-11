@@ -382,7 +382,7 @@
   .done {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
   }
 
   .done-line {
@@ -399,7 +399,7 @@
   }
 
   .section-header {
-    padding: 3px var(--sp-sm);
+    padding: var(--sp-3xs) var(--sp-sm);
     font-family: var(--font-sans);
     font-size: var(--text-body);
     font-weight: var(--weight-bold);
@@ -415,7 +415,7 @@
     align-items: baseline;
     justify-content: space-between;
     gap: var(--sp-sm);
-    padding: 5px var(--sp-md);
+    padding: var(--sp-2xs) var(--sp-md);
     font-size: var(--text-body);
   }
 
@@ -445,7 +445,7 @@
 
   .dormant-toggle {
     align-self: flex-start;
-    padding: 2px 4px;
+    padding: var(--sp-4xs) var(--sp-3xs);
     background: none;
     border: none;
     border-radius: var(--radius-sm);
@@ -475,7 +475,7 @@
     align-items: baseline;
     justify-content: space-between;
     gap: var(--sp-sm);
-    padding: 4px var(--sp-md);
+    padding: var(--sp-3xs) var(--sp-md);
     border-bottom: 1px solid var(--color-rule-soft);
   }
 
@@ -490,7 +490,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 0 2px;
+    padding: 0 var(--sp-4xs);
   }
 
   .focus-pos {

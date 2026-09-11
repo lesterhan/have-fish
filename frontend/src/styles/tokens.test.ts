@@ -419,3 +419,157 @@ describe('magnitude marks are ink, not accent', () => {
     })
   }
 })
+
+/* =========================================================================
+   THE LADDERS — type and space
+   -------------------------------------------------------------------------
+   The surface ladder above is asserted because a value can pass every local
+   check and still be wrong about its neighbours. The same is true one rung
+   down, and the type scale had no assertions at all until now — which is
+   part of why it drifted into a shape nobody would have chosen: seven rungs
+   used as two, with three untokenized sizes underneath.
+
+   What is worth pinning is not the numbers themselves — a designer may move
+   a rung — but the properties that make it a ladder: every rung distinct,
+   strictly ordered by name, and reaching down to where the app actually
+   renders. A scale whose smallest rung is above the app's most common size
+   is the failure this epic was about, and it is invisible in a diff.
+   ========================================================================= */
+
+/** Rungs in ladder order, smallest first. Root is 16px, so 1rem = 16px. */
+const TYPE_RUNGS = [
+  'micro',
+  'label',
+  'control',
+  'dense',
+  'body',
+  'amount',
+  'figure',
+  'title',
+  'display',
+] as const
+
+const SPACE_RUNGS = [
+  'hair',
+  '4xs',
+  '3xs',
+  '2xs',
+  'xs',
+  'sm',
+  'md',
+  'lg',
+  'xl',
+  '2xl',
+  '3xl',
+] as const
+
+const GUTTER_RUNGS = ['tight', '', 'wide'] as const
+
+/** A rem token in px. Root font-size is unset, so the browser default of 16 applies. */
+function px(name: string): number {
+  const raw = token(THEMES.light, name)
+  const value = Number.parseFloat(raw)
+  if (raw.endsWith('rem')) return value * 16
+  return value
+}
+
+function ascending(values: number[]): boolean {
+  return values.every((v, i) => i === 0 || v > values[i - 1]!)
+}
+
+describe('the type ladder', () => {
+  const sizes = TYPE_RUNGS.map((r) => px(`--text-${r}`))
+
+  it('has every rung, and each is a real size', () => {
+    for (const [i, size] of sizes.entries()) {
+      expect(size, `--text-${TYPE_RUNGS[i]}`).toBeGreaterThan(0)
+    }
+  })
+
+  it('is strictly ordered — no two rungs are the same size', () => {
+    expect(sizes, sizes.join(' / ')).toSatisfy(ascending)
+  })
+
+  it('reaches the register the app actually renders its chrome at', () => {
+    // The whole finding. --text-xs bottomed out at 12px while 127 of 160 raw font sizes
+    // were below it, so the scale did not describe the app's chrome at all.
+    expect(px('--text-micro')).toBeLessThanOrEqual(9)
+  })
+
+  it('keeps the reading register where DESIGN.md §5 says it is', () => {
+    // "Lucida Grande at small sizes — 13–14px base. Small and dense is correct."
+    expect(px('--text-body')).toBeGreaterThanOrEqual(13)
+    expect(px('--text-body')).toBeLessThanOrEqual(14)
+  })
+
+  it('has no dead rung above the reading register', () => {
+    // --text-3xl existed with zero uses. A rung nobody stands on is a rung someone will
+    // eventually stand on by accident, so the ladder stops where the app stops.
+    expect(px('--text-display')).toBeLessThanOrEqual(32)
+  })
+})
+
+describe('the space ladder', () => {
+  const gaps = SPACE_RUNGS.map((r) => px(`--sp-${r}`))
+
+  it('is strictly ordered — no two rungs are the same gap', () => {
+    expect(gaps, gaps.join(' / ')).toSatisfy(ascending)
+  })
+
+  it('reaches inside a control', () => {
+    // 313 of 470 raw spacing values were below --sp-xs's 8px, which is where the space
+    // between a glyph and its label lives.
+    expect(px('--sp-hair')).toBeLessThanOrEqual(1)
+    expect(px('--sp-4xs')).toBeLessThanOrEqual(2)
+  })
+
+  it('bends its doubling exactly once, at the bottom', () => {
+    // 1 / 2 / 4 / 6 / 8 — the 6 rung is deliberate and is the only step that is not a
+    // double or one of the original rungs. It caps the sweep's worst move at 1px; strict
+    // doubling would have shifted about eighty gaps by 2px.
+    expect(px('--sp-2xs')).toBe(6)
+    expect(px('--sp-3xs')).toBe(4)
+  })
+
+  it('keeps the gutters between the gap rungs they sit between', () => {
+    // Gutters are a different question from gaps — the distance from a surface's edge to
+    // its content — and the census proved it: of 58 uses of 14 and 22px, all 58 were
+    // padding and none was a margin.
+    const gutters = GUTTER_RUNGS.map((r) =>
+      px(r ? `--gutter-${r}` : '--gutter'),
+    )
+    expect(gutters, gutters.join(' / ')).toSatisfy(ascending)
+    expect(px('--gutter')).toBeGreaterThan(px('--sp-sm'))
+    expect(px('--gutter')).toBeLessThan(px('--sp-md'))
+  })
+})
+
+describe('the small vocabularies', () => {
+  it('names each weight the weight it actually is', () => {
+    // --weight-semibold was defined as 700, which is bold. That is why the app held 63 raw
+    // `700`s beside 53 uses of the token, and why 21 places wanted a 600 nothing provided.
+    expect(Number(token(THEMES.light, '--weight-normal'))).toBe(400)
+    expect(Number(token(THEMES.light, '--weight-medium'))).toBe(500)
+    expect(Number(token(THEMES.light, '--weight-semibold'))).toBe(600)
+    expect(Number(token(THEMES.light, '--weight-bold'))).toBe(700)
+  })
+
+  it('has a leading that means no leading', () => {
+    // `line-height: 1` was the most-used value in the app and had no token, so it was
+    // written out 23 times.
+    expect(Number(token(THEMES.light, '--leading-none'))).toBe(1)
+  })
+
+  it('orders leading from none to loose', () => {
+    const leads = ['none', 'tight', 'snug', 'normal', 'loose'].map((r) =>
+      Number(token(THEMES.light, `--leading-${r}`)),
+    )
+    expect(leads, leads.join(' / ')).toSatisfy(ascending)
+  })
+
+  it('orders tracking from tight through label to wide', () => {
+    const track = ['tight', 'label', 'wide'].map((r) => px(`--tracking-${r}`))
+    expect(track, track.join(' / ')).toSatisfy(ascending)
+    expect(px('--tracking-tight')).toBeLessThan(0)
+  })
+})

@@ -31,7 +31,7 @@
   .fp-tag {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     min-width: 0;
   }
 </style>

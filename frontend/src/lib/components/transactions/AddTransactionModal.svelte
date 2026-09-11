@@ -338,7 +338,7 @@
   .postings {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .posting-row {
@@ -346,7 +346,7 @@
     grid-template-columns: 1fr auto auto auto;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
   }
 
   .posting-account-cell {
@@ -362,7 +362,7 @@
     border: none;
     cursor: pointer;
     padding: 0 var(--sp-xs);
-    line-height: 1;
+    line-height: var(--leading-none);
     height: 20px;
     outline: none;
     transition: color var(--duration-fast) var(--ease);
@@ -440,7 +440,7 @@
   .fx-hints {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .fx-hint {

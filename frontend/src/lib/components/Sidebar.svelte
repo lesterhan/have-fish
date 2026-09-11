@@ -329,7 +329,7 @@
 
   .top-nav {
     border-bottom: 1px solid var(--color-border);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
     flex-shrink: 0;
   }
 
@@ -337,13 +337,13 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    margin: 2px 5px;
-    padding: 5px calc(var(--sp-sm) - 5px);
+    margin: var(--sp-4xs) var(--sp-2xs);
+    padding: var(--sp-2xs) calc(var(--sp-sm) - var(--sp-2xs));
     border-radius: 6px;
     font-family: var(--font-mono);
-    font-size: 12px;
-    font-weight: 500;
-    letter-spacing: 0.2px;
+    font-size: var(--text-dense);
+    font-weight: var(--weight-medium);
+    letter-spacing: var(--tracking-label);
     color: var(--color-text);
     text-decoration: none;
     outline: 1px solid transparent;
@@ -376,7 +376,7 @@
       var(--color-accent)
     );
     color: var(--color-accent-fg);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.35),
       inset 0 -1px 0 rgba(0, 0, 0, 0.15),
@@ -412,7 +412,7 @@
     align-items: center;
     gap: var(--sp-xs);
     margin: 0 var(--sp-sm);
-    padding: 4px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     border-radius: var(--radius-md);
@@ -446,8 +446,8 @@
 
   .jump-key {
     font-family: var(--font-mono);
-    font-size: 9px;
-    padding: 1px 3px;
+    font-size: var(--text-micro);
+    padding: var(--sp-hair) var(--sp-3xs);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-sm);
     background: var(--color-window);
@@ -456,12 +456,12 @@
 
   .list-header {
     margin: 0;
-    padding: 3px var(--sp-sm);
+    padding: var(--sp-3xs) var(--sp-sm);
     font-size: var(--text-dense);
     font-weight: var(--weight-bold);
     font-family: var(--font-mono);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: var(--tracking-wide);
   }
 
   .account-list {
@@ -475,7 +475,7 @@
     align-items: center;
     justify-content: space-between;
     gap: var(--sp-xs);
-    padding: 3px var(--sp-sm);
+    padding: var(--sp-3xs) var(--sp-sm);
     font-size: var(--text-dense);
     color: var(--color-text);
     text-decoration: none;
@@ -514,7 +514,7 @@
     padding: 0 var(--sp-sm);
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.5;
+    line-height: var(--leading-normal);
   }
 
   .lists-empty a {
@@ -547,10 +547,10 @@
     align-items: center;
     align-self: stretch;
     gap: var(--sp-sm);
-    margin: 2px 5px;
-    padding: 5px calc(var(--sp-sm) - 5px);
+    margin: var(--sp-4xs) var(--sp-2xs);
+    padding: var(--sp-2xs) calc(var(--sp-sm) - var(--sp-2xs));
     border-radius: 6px;
-    font-size: 12px;
+    font-size: var(--text-dense);
     font-family: var(--font-mono);
     color: var(--color-text);
     text-decoration: none;
@@ -593,7 +593,7 @@
   .sidebar.collapsed .footer-btn {
     width: 28px;
     height: 28px;
-    margin: 3px 10px;
+    margin: var(--sp-3xs) var(--sp-xs);
     padding: 0;
     border-radius: 6px;
     justify-content: center;

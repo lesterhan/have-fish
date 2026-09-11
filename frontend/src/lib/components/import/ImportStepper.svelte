@@ -50,7 +50,7 @@
   .stepper {
     display: flex;
     align-items: center;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .separator {
@@ -62,14 +62,14 @@
   .segment {
     display: inline-flex;
     align-items: center;
-    gap: 6px;
-    padding: 6px 12px;
+    gap: var(--sp-2xs);
+    padding: var(--sp-2xs) var(--sp-sm);
     background: transparent;
     border: none;
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
     transition: color var(--duration-fast) var(--ease);
@@ -111,8 +111,8 @@
     background: var(--color-window-raised);
     color: var(--color-text-muted);
     box-shadow: inset 0 0 0 1px var(--color-rule);
-    font-size: 9px;
-    line-height: 1;
+    font-size: var(--text-micro);
+    line-height: var(--leading-none);
   }
 
   .segment.done .marker {

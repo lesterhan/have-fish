@@ -128,13 +128,13 @@
   }
 
   .kind {
-    padding: 3px 9px;
+    padding: var(--sp-3xs) var(--sp-xs);
     border: 1px solid var(--color-border);
     background: var(--color-window-raised);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 10px;
-    letter-spacing: 0.4px;
+    font-size: var(--text-label);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     cursor: pointer;
     transition:

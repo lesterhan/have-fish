@@ -313,12 +313,12 @@
     width: 100%;
     box-sizing: border-box;
     font-family: var(--font-mono);
-    font-size: 11px;
+    font-size: var(--text-control);
     color: var(--color-text);
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 2px var(--sp-xs);
+    padding: var(--sp-4xs) var(--sp-xs);
     height: 22px;
     outline: none;
     transition:
@@ -351,8 +351,8 @@
   }
 
   .option {
-    padding: 3px 8px;
-    font-size: 11px;
+    padding: var(--sp-3xs) var(--sp-xs);
+    font-size: var(--text-control);
     font-family: var(--font-mono);
     color: var(--color-text);
     cursor: default;

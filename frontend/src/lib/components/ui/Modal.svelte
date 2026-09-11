@@ -182,7 +182,7 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    padding: 7px var(--sp-sm);
+    padding: var(--sp-xs) var(--sp-sm);
     background: var(--color-titlebar-bg);
     border-bottom: 1px solid var(--color-titlebar-border);
     box-shadow: var(--shadow-titlebar-inset);

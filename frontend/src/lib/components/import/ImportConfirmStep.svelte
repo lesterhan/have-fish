@@ -298,7 +298,7 @@
     margin: 0;
     font-family: var(--font-serif);
     font-size: var(--text-figure);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
 
   .range,
@@ -309,14 +309,14 @@
   }
 
   .liability-chip {
-    padding: 2px var(--sp-sm);
+    padding: var(--sp-4xs) var(--sp-sm);
     border-radius: var(--radius-pill);
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.5px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
   }
 
@@ -374,7 +374,7 @@
   .warn-flag {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     color: var(--color-warning);
@@ -390,7 +390,7 @@
   .notes {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
     margin: 0;
   }
 
@@ -496,7 +496,7 @@
   .covers {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: var(--sp-3xs);
     margin-top: var(--sp-md);
     padding: var(--sp-sm) var(--sp-md);
     background: var(--color-window-raised);
@@ -522,7 +522,7 @@
   .covers-dates {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2xs);
   }
 
   .covers-sep {
@@ -532,7 +532,7 @@
 
   .covers input[type='date'] {
     height: 24px;
-    padding: 0 6px;
+    padding: 0 var(--sp-2xs);
     background: var(--color-window-inset);
     border: 1px solid var(--color-rule);
     border-radius: var(--radius-md);
@@ -552,7 +552,7 @@
     max-width: 66ch;
     font-size: var(--text-dense);
     color: var(--color-text-muted);
-    line-height: 1.45;
+    line-height: var(--leading-snug);
   }
 
   .covers-note.invalid {

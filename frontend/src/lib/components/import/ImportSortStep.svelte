@@ -315,7 +315,7 @@
     margin: 0 0 var(--sp-xs);
     font-family: var(--font-serif);
     font-size: var(--text-figure);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
 
   .intro p {
@@ -367,7 +367,7 @@
     display: inline-flex;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
     border: none;
     background: transparent;
     color: var(--color-text);
@@ -393,7 +393,7 @@
   }
 
   .stem-name {
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .stem-count {
@@ -425,8 +425,8 @@
   .split-chip {
     display: inline-flex;
     align-items: center;
-    gap: 4px;
-    padding: 2px var(--sp-sm);
+    gap: var(--sp-3xs);
+    padding: var(--sp-4xs) var(--sp-sm);
     border-radius: var(--radius-pill);
     background: var(--color-accent-chip-bg);
     color: var(--color-accent-chip-fg);
@@ -439,11 +439,11 @@
     color: inherit;
     cursor: pointer;
     font-size: var(--text-body);
-    line-height: 1;
+    line-height: var(--leading-none);
   }
 
   .matched-note {
-    padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + 18px);
+    padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + var(--sp-md));
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     color: var(--color-text-muted);
@@ -451,7 +451,7 @@
 
   .members {
     margin: 0;
-    padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + 18px);
+    padding: 0 var(--sp-md) var(--sp-sm) calc(var(--sp-md) + var(--sp-md));
     list-style: none;
   }
 
@@ -459,7 +459,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-sm);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
     font-size: var(--text-dense);
   }
 
@@ -489,7 +489,7 @@
 
   .member-flag {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     white-space: nowrap;
   }

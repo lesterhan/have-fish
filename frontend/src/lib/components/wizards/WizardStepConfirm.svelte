@@ -125,9 +125,9 @@
 
   .summary-heading {
     font-family: var(--font-mono);
-    font-size: 10px;
-    font-weight: 700;
-    letter-spacing: 0.6px;
+    font-size: var(--text-label);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-label);
     text-transform: uppercase;
     color: var(--color-text-muted);
     padding-bottom: var(--sp-xs);
@@ -144,7 +144,7 @@
 
   .summary-label {
     font-family: var(--font-mono);
-    font-size: 10px;
+    font-size: var(--text-label);
     color: var(--color-text-muted);
     min-width: 9rem;
     text-align: right;

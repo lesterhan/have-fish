@@ -33,29 +33,29 @@
   .chip {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
-    padding: 2px 6px;
+    gap: var(--sp-3xs);
+    padding: var(--sp-4xs) var(--sp-2xs);
     border-radius: var(--radius-sm);
     border: 1px solid var(--color-rule);
     background: var(--color-window-raised);
     color: var(--color-text-muted);
     font-family: var(--font-mono);
-    font-size: 10px;
-    line-height: 1;
+    font-size: var(--text-label);
+    line-height: var(--leading-none);
     white-space: nowrap;
     min-width: 0;
   }
 
   .chip.xs {
-    font-size: 9px;
-    padding: 1px 4px;
+    font-size: var(--text-micro);
+    padding: var(--sp-hair) var(--sp-3xs);
   }
 
   .tone-accent {
     background: var(--color-accent-chip-bg);
     border-color: var(--color-accent);
     color: var(--color-accent-chip-fg);
-    font-weight: 700;
+    font-weight: var(--weight-bold);
   }
 
   .label {

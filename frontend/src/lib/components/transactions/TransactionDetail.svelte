@@ -561,8 +561,8 @@
     flex-shrink: 0;
     font-family: var(--font-sans);
     font-size: var(--text-dense);
-    font-weight: 600;
-    padding: 1px 6px;
+    font-weight: var(--weight-semibold);
+    padding: var(--sp-hair) var(--sp-2xs);
     color: var(--color-accent);
     background: var(--color-accent-chip-bg);
     border: 1px solid color-mix(in srgb, var(--color-accent) 35%, transparent);
@@ -595,14 +595,14 @@
   .hero-id {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
   }
 
   .hero-label {
     font-family: var(--font-sans);
     font-size: var(--text-figure);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     overflow: hidden;
     text-overflow: ellipsis;
@@ -641,13 +641,13 @@
     margin: 0;
     font-family: var(--font-sans);
     font-size: var(--text-body);
-    line-height: 1.5;
+    line-height: var(--leading-normal);
     color: var(--color-text-muted);
   }
 
   .seg.emph {
     color: var(--color-text);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
   }
 
   /* --- how it moved (flow tree) ------------------------------------------------------ */
@@ -663,7 +663,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
   }
 
@@ -732,7 +732,7 @@
   .body {
     display: flex;
     flex-direction: column;
-    gap: 1px;
+    gap: var(--sp-hair);
     min-width: 0;
     padding: var(--sp-xs) 0;
   }
@@ -747,11 +747,11 @@
 
   .chip {
     font-family: var(--font-sans);
-    font-size: 10px;
-    font-weight: 600;
+    font-size: var(--text-label);
+    font-weight: var(--weight-semibold);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
-    padding: 1px 5px;
+    letter-spacing: var(--tracking-label);
+    padding: var(--sp-hair) var(--sp-2xs);
     color: var(--color-text-muted);
     background: color-mix(
       in srgb,
@@ -883,7 +883,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.06em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
   }
 
@@ -900,14 +900,15 @@
     grid-template-columns: auto 1fr;
     align-items: center;
     gap: var(--sp-xs) var(--sp-md);
-    padding: var(--sp-sm) 0 var(--sp-xs) calc(10px + var(--sp-sm));
+    padding: var(--sp-sm) 0 var(--sp-xs)
+      calc(var(--gutter-tight) + var(--sp-sm));
   }
 
   .conv-key {
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
   }
 
@@ -935,8 +936,8 @@
   .ledger {
     display: flex;
     flex-direction: column;
-    gap: 2px;
-    padding: var(--sp-sm) 0 0 calc(10px + var(--sp-sm));
+    gap: var(--sp-4xs);
+    padding: var(--sp-sm) 0 0 calc(var(--gutter-tight) + var(--sp-sm));
   }
 
   .leg {
@@ -957,9 +958,9 @@
 
   .leg-role {
     font-family: var(--font-sans);
-    font-size: 10px;
+    font-size: var(--text-label);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-text-muted);
   }
 
@@ -989,7 +990,7 @@
     font-family: var(--font-mono);
     font-size: var(--text-dense);
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: var(--tracking-label);
     color: var(--color-warning);
   }
 

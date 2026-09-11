@@ -695,7 +695,7 @@
   .cell {
     display: flex;
     align-items: center;
-    gap: 6px;
+    gap: var(--sp-2xs);
     min-height: 22px;
   }
 
@@ -728,7 +728,7 @@
     border-radius: 50%;
     background: var(--color-text-muted);
     flex-shrink: 0;
-    margin: 0 5px;
+    margin: 0 var(--sp-2xs);
   }
 
   .segment {
@@ -780,7 +780,7 @@
     box-shadow: var(--shadow-inset);
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: var(--sp-4xs);
   }
 
   .affected li {

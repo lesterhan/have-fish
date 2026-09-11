@@ -117,7 +117,7 @@
     <div class="body"></div>
   {:else if notFound || !group}
     <div class="body">
-      <Empty inset="22px">Group not found.</Empty>
+      <Empty inset="wide">Group not found.</Empty>
     </div>
   {:else}
     <div class="body">
@@ -224,7 +224,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 14px 22px 10px;
+    padding: var(--gutter) var(--gutter-wide) var(--gutter-tight);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule);
     flex-shrink: 0;
@@ -233,18 +233,18 @@
   .page-title {
     font-family: var(--font-serif);
     font-size: var(--text-title);
-    font-weight: 600;
+    font-weight: var(--weight-semibold);
     color: var(--color-text);
     line-height: var(--leading-tight);
     margin: 0;
-    letter-spacing: -0.2px;
+    letter-spacing: var(--tracking-tight);
     flex: 1;
   }
 
   .section-bar {
     display: flex;
     align-items: center;
-    padding: 4px 14px;
+    padding: var(--sp-3xs) var(--gutter);
     flex-shrink: 0;
   }
 
@@ -265,7 +265,7 @@
 
   .section-intro {
     margin: 0;
-    padding: var(--sp-sm) 22px;
+    padding: var(--sp-sm) var(--gutter-wide);
     font-size: var(--text-dense);
     color: var(--color-text-muted);
     background: var(--color-window);
@@ -277,7 +277,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-xl);
-    padding: var(--sp-md) 22px;
+    padding: var(--sp-md) var(--gutter-wide);
     background: var(--color-window);
     border-bottom: 1px solid var(--color-rule-soft);
   }
@@ -285,7 +285,7 @@
   .setting-info {
     display: flex;
     flex-direction: column;
-    gap: 3px;
+    gap: var(--sp-3xs);
     width: 300px;
     flex-shrink: 0;
   }
@@ -315,7 +315,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: var(--sp-md) 22px var(--sp-lg);
+    padding: var(--sp-md) var(--gutter-wide) var(--sp-lg);
     border-top: 1px solid var(--color-rule-soft);
     /* Push to the very bottom of the scroll body so the delete action sits far
        from the regularly-used controls and can't be clicked by accident. */

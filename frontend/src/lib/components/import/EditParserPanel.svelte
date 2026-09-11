@@ -287,7 +287,7 @@
     display: flex;
     align-items: center;
     gap: var(--sp-md);
-    padding: 4px 12px;
+    padding: var(--sp-3xs) var(--sp-sm);
   }
 
   .section-bar-title {
@@ -313,9 +313,9 @@
 
   .section-heading {
     font-family: var(--font-mono);
-    font-size: 9px;
-    font-weight: 700;
-    letter-spacing: 0.8px;
+    font-size: var(--text-micro);
+    font-weight: var(--weight-bold);
+    letter-spacing: var(--tracking-wide);
     color: var(--color-text-muted);
     text-transform: uppercase;
     padding-bottom: var(--sp-xs);
@@ -326,7 +326,7 @@
   .form-grid {
     display: grid;
     grid-template-columns: 8rem 1fr;
-    gap: 5px var(--sp-sm);
+    gap: var(--sp-2xs) var(--sp-sm);
     align-items: center;
   }
 
@@ -334,7 +334,7 @@
   .multi-grid {
     display: grid;
     grid-template-columns: 8rem 1fr 8rem 1fr;
-    gap: 5px var(--sp-sm);
+    gap: var(--sp-2xs) var(--sp-sm);
     align-items: center;
   }
 

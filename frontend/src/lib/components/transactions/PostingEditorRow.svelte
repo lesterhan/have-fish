@@ -207,7 +207,7 @@
     grid-template-columns: 1fr auto auto auto;
     align-items: center;
     gap: var(--sp-xs);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
   }
 
   .posting-row.deleted {
@@ -246,7 +246,7 @@
     background: var(--color-window-inset);
     border: 1px solid var(--color-border);
     box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
-    padding: 3px var(--sp-xs);
+    padding: var(--sp-3xs) var(--sp-xs);
     height: 24px;
     outline: none;
     width: 10ch;
@@ -272,7 +272,7 @@
     border: none;
     cursor: pointer;
     padding: 0 var(--sp-xs);
-    line-height: 1;
+    line-height: var(--leading-none);
     height: 20px;
     outline: none;
     transition: color var(--duration-fast) var(--ease);

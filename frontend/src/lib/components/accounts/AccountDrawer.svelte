@@ -186,7 +186,7 @@
     grid-template-columns: auto 1fr auto;
     align-items: baseline;
     gap: var(--sp-sm);
-    padding: 2px 0;
+    padding: var(--sp-4xs) 0;
     font-size: var(--text-dense);
   }
 
@@ -220,7 +220,7 @@
   .amount {
     display: flex;
     align-items: center;
-    gap: 4px;
+    gap: var(--sp-3xs);
     font-family: var(--font-mono);
     white-space: nowrap;
   }
@@ -248,7 +248,7 @@
   .link {
     display: inline-flex;
     align-items: center;
-    gap: 3px;
+    gap: var(--sp-3xs);
     font-size: var(--text-dense);
     color: var(--color-accent);
     text-decoration: none;

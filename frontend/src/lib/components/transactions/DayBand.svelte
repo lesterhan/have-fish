@@ -64,7 +64,7 @@
     align-items: baseline;
     gap: var(--sp-sm);
     height: 29px;
-    padding: 0 14px;
+    padding: 0 var(--gutter);
   }
 
   .day-date {
