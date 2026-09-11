@@ -13,8 +13,8 @@ relay**, which holds identity and ciphertext but never ledgers.
 | Doc | Status | Next action |
 |-----|--------|-------------|
 | 00 direction | **Living — the decision record** | Update whenever a decision lands; keep "Still open" honest |
-| 01 current-state | Draft — **fully valid**; **moved to the private repo** | Re-audit before any public exposure; frontend/mobile depth still missing |
-| 02 data-security | Draft — **moved to the private repo**; §3 and §7 apply unchanged | Re-read with a relay lens; Q2 is now answered by D6 |
+| 01 current-state | Draft — **fully valid**; **moved to `have-fish-ops`** | Re-audit before any public exposure; frontend/mobile depth still missing |
+| 02 data-security | Draft — **moved to `have-fish-ops`**; §3 and §7 apply unchanged | Re-read with a relay lens; Q2 is now answered by D6 |
 | 03 compliance | Draft — obligations shrink to relay accounts + invitee emails | Decide Q1 (jurisdictions); draft retention numbers for relay data only |
 | 04 auth-hardening | Outline — applies to **relay accounts only** | Write after the relay exists in design; the local app has no login |
 | 05 subscriptions-billing | Draft — applies **almost verbatim** to the relay | Decide Q3 (Stripe vs MoR); price the sync tier |
