@@ -1,5 +1,10 @@
 # Roadmap
 
+> Product direction — what have-fish is becoming and why — lives in
+> [`planning/productionize/00-direction.md`](productionize/00-direction.md).
+> Read it before scoping anything that touches packaging, sync, or Fish Pie's
+> availability.
+
 | Epic | Status |
 |------|--------|
 | Assets Summary | Done |
