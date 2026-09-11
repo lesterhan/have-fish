@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import type { Snippet } from 'svelte'
   import GradientButton from './GradientButton.svelte'
   import Modal from './Modal.svelte'
@@ -49,7 +50,9 @@
   <div class="confirm">
     {@render children()}
     <div class="actions">
-      <GradientButton disabled={busy} onclick={cancel}>Cancel</GradientButton>
+      <GradientButton disabled={busy} onclick={cancel}
+        >{copy.case.dialog.cancel}</GradientButton
+      >
       <GradientButton {variant} disabled={busy} onclick={onconfirm}>
         {busy && busyLabel ? busyLabel : confirmLabel}
       </GradientButton>

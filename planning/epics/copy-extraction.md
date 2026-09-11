@@ -179,11 +179,42 @@ change that should not be smuggled in earlier.
 ## Open questions
 
 - ~~Does the `copy.test.ts` allowlist go per-file or per-string?~~ Settled in story 1:
-  per-string, as `{ file, text, why }`, and a stale entry fails the test. Login and signup
-  converted with zero exceptions, so the mechanism has not actually been under pressure yet
-  — if story 3 finds it unlivable, that is the moment to loosen it, not before.
+  per-string, as `{ file, text, why }`, and a stale entry fails the test. Story 3 put it
+  under real pressure — fifty-six strings across the whole shell — and it is still empty.
+  Both candidates turned out to be detector bugs rather than exceptions: a CSS selector in
+  `Modal`, and `KeyboardEvent.key` names, which are capitalised words that are not words.
+  Fixing the detector is the better answer whenever the false positive names a whole class;
+  the allowlist is for the string that is genuinely one of a kind. It has not met one yet.
 - Story 5 (import) may be too big for one PR. Do not pre-split it — let story 4 set the
   pace and split if it earns it.
+
+## What extracting the case turned up
+
+Recorded because it is the argument for doing the rest of the epic, not just a log.
+
+**The detector was blind to tooltips.** `use:tooltip={'Accounts'}` is a mustache, and story
+1's scanner skipped every mustache wholesale. Story 3 is the tooltips story, so the check
+would have certified a converted sidebar while every tooltip in it stayed hardcoded. The
+scanner now reads string literals inside markup expressions and reports the ones shaped like
+labels — sentence case, or more than one word. Lowercase single words (`'active'`, `'sun'`)
+are wiring; SHOUTED ones are codes.
+
+**Two inconsistencies, invisible until the words sat together.** The accent control was
+"Choose accent colour" in `AccentPicker` and "Choose accent color" in the titlebar — two
+labels for the same control, one of each spelling. The attention dot was "Needs attention"
+in the sidebar and "needs attention" in the tab strip. Neither is findable by reading a
+component; both are obvious in a fifty-line file. This is the copy-editing case the epic
+opened with, arriving on the third story.
+
+**A test was asserting on a copy literal.** `chromeButtons.test.ts` checked
+`confirmLabel="Sign out"` in the layout source, so it failed on extraction — the frontend
+version of the problem story 8 fixes for the backend. It now asserts the binding and the
+meaning, not the wording.
+
+**One reword.** The sidebar's empty state wrapped a sentence around a link — "Pin accounts
+on the [Accounts] page to keep them here." A sentence split into before-link and after-link
+halves is the shape this epic exists to remove, so it now ends with the link instead. This
+is the only rendered change in the story that is not a fixed inconsistency.
 
 ## Appendix: plural splice sites
 
