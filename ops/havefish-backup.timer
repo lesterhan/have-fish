@@ -1,0 +1,12 @@
+[Unit]
+Description=have-fish database backup, daily
+
+[Timer]
+OnCalendar=daily
+# Spread the run so it does not collide with every other daily timer on the host,
+# and catch up after downtime rather than silently skipping a day.
+RandomizedDelaySec=30m
+Persistent=true
+
+[Install]
+WantedBy=timers.target
