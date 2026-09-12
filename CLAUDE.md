@@ -195,9 +195,23 @@ server repo when it exists. The full guide, label set and board setup live in
   Project's `Next` column and its row order, and that is a human's call.
 - **Dependencies** are one line in the body, `Depends on: #N`. Check it before starting;
   nothing enforces it.
-- **`type:decision`** closes with a comment recording the decision plus, if it changes a
-  D-number, a PR to `planning/productionize/00-direction.md`. **`type:probe`** closes with
-  the numbers as a comment; the decision it feeds is its own issue.
+- **Decisions are issues, and only the user closes them.** Whenever a session hits a
+  choice that the conventions do not dictate and that would change the plan (a data-model
+  trade-off, what to build, an order, a price, anything that alters a D-number or a
+  parent's scope), it does not decide silently. It files a `type:decision` issue in the
+  repo the choice affects, with the template in `have-fish-ops/tracking/README.md`
+  (question, options with the recommended one first, what happens if undecided, which
+  issues it blocks), adds `Blocked by: #N` to the affected issue, and then either
+  continues on the recommended default if that is cheap to reverse, or stops and says so.
+  Small implementation choices are not decisions; they go in the PR body as before.
+- **Deciding.** The user comments `Decision: <choice>. Because <reason>.` and closes the
+  issue, or says "**decided #N: <choice> because <reason>**" and the session posts that
+  comment and closes it. Either way the session then **actions** it: a PR to
+  `planning/productionize/00-direction.md` if a D-number changed, `Blocked by` lines
+  removed from the issues it unblocked, and new issues filed for any work the decision
+  creates. Closed `type:decision` issues are the decision log; nothing is logged twice.
+- **`type:probe`** closes with the numbers as a comment; the decision it feeds is its own
+  issue.
 - **Parents never get a PR.** A parent closes when its last sub-issue does, after the gate
   in its body is checked. Sub-issue order is the suggested sequence; reorder by dragging.
 - **Frozen files.** `planning/TASKS.md` and `planning/BUGS.md` are no longer edited; their
@@ -213,6 +227,10 @@ Things you can say:
   closed, propose an order, reorder the sub-issues to match.
 - "**file this**": create the issue in the right repo with the right labels and parent. Do
   not start a branch.
+- "**decided #N: <choice> because <reason>**": post the decision comment, close the issue,
+  and action it as above.
+- "**what's waiting on me?**": list open `type:decision` issues across the repos, each with
+  its recommended option and what it blocks.
 
 Claude can create, label, parent and comment on issues in any attached repo. It cannot
 move Project cards; cards move on PR merge (automatic) or by hand.
