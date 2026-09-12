@@ -12,9 +12,10 @@ Two scripts:
 
 - **`backup.sh`** — dumps the database to gzipped plain SQL, verifies the dump is neither
   truncated nor empty, rotates local copies, and optionally pushes offsite with restic.
-- **`restore-check.sh`** — restores the most recent dump into a scratch database, compares
-  row counts against live, and checks that every transaction's postings still balance per
-  currency. Drops the scratch database on the way out, including on failure.
+- **`restore-check.sh`** — checks the newest dump is recent, restores it into a scratch
+  database, compares row counts against live, and checks that every transaction's postings
+  still balance per currency. Drops the scratch database on the way out, including on
+  failure.
 
 Run the second one. A backup nobody has restored is a hope.
 
@@ -68,6 +69,12 @@ The unit assumes the repo is at `/opt/have-fish`; edit `WorkingDirectory` if not
 monthly `restore-check.sh` in your calendar — deliberately not automated, because a
 restore check that nobody reads is the same as no restore check.
 
+That monthly run is also how you find out the timer died. `restore-check.sh` refuses a
+newest dump older than 48 hours rather than cheerfully restoring a stale one and
+reporting PASS — a backup job that silently stopped months ago is the likeliest way this
+fails, and it looks identical to a healthy one until you need it. Restoring a
+deliberately old dump still works: name it as an argument and the age check is skipped.
+
 ### Configuration
 
 All optional; the defaults work.
@@ -76,6 +83,7 @@ All optional; the defaults work.
 |---|---|---|
 | `HAVEFISH_BACKUP_DIR` | `./backups` | Where local dumps land |
 | `HAVEFISH_KEEP_LOCAL` | `14` | Local dumps kept; restic handles long-term retention |
+| `HAVEFISH_MAX_DUMP_AGE_HOURS` | `48` | `restore-check.sh` fails if the newest dump is older; `0` disables |
 | `HAVEFISH_COMPOSE` | autodetected | `podman compose` or `docker compose` |
 | `RESTIC_REPOSITORY` | unset | Unset means local-only, and the script says so each run |
 | `RESTIC_KEEP_DAILY` / `_WEEKLY` / `_MONTHLY` | `7` / `4` / `12` | Offsite retention |

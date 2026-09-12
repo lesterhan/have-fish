@@ -30,8 +30,21 @@ if [[ -z "$COMPOSE" ]]; then
 fi
 
 BACKUP_DIR="${HAVEFISH_BACKUP_DIR:-$ROOT/backups}"
-DUMP="${1:-$(ls -1t "$BACKUP_DIR"/havefish-*.sql.gz 2>/dev/null | head -1 || true)}"
+EXPLICIT="${1:-}"
+DUMP="${EXPLICIT:-$(ls -1t "$BACKUP_DIR"/havefish-*.sql.gz 2>/dev/null | head -1 || true)}"
 [[ -n "$DUMP" && -f "$DUMP" ]] || die "no dump found in $BACKUP_DIR — run ops/backup.sh first"
+
+# A timer that quietly stopped running is the likeliest way this whole thing fails, and
+# restoring a six-month-old dump would otherwise PASS and tell you nothing. Only applies
+# when we picked the dump ourselves — restoring a named old dump is a deliberate act.
+MAX_AGE_HOURS="${HAVEFISH_MAX_DUMP_AGE_HOURS:-48}"
+if [[ -z "$EXPLICIT" && "$MAX_AGE_HOURS" != "0" ]]; then
+  AGE_HOURS=$(( ( $(date +%s) - $(date -r "$DUMP" +%s) ) / 3600 ))
+  if (( AGE_HOURS > MAX_AGE_HOURS )); then
+    die "newest dump is ${AGE_HOURS}h old (limit ${MAX_AGE_HOURS}h) — backups have stopped running: $DUMP"
+  fi
+  echo "restore-check: newest dump is ${AGE_HOURS}h old"
+fi
 
 # Check the archive before touching the database, so a truncated or tampered dump fails
 # with a sentence rather than a gzip warning from the middle of a pipeline.
