@@ -170,15 +170,62 @@ Four rules, and the first is the one that matters:
 
 No i18n library, no `en/` folder implying a sibling — a typed object is the whole design.
 
+## Work Tracking
+
+Work is tracked as **GitHub Issues**, viewed on one **GitHub Project** (`have-fish`, owned by
+the `lesterhan` user) that spans this repo, the private `lesterhan/have-fish-ops`, and the
+server repo when it exists. The full guide, label set and board setup live in
+`have-fish-ops/tracking/README.md`; the reasoning behind the backlog is in
+`have-fish-ops/audits/`. The rules that matter in a session:
+
+- **Issue first.** Work has an issue before it has a branch. Parents (`type:epic`) hold
+  sub-issues; a story of an epic is a sub-issue of that epic's parent.
+- **One PR per issue.** The PR body ends with `Closes #N` (or
+  `Closes lesterhan/have-fish-ops#N` across repos). Merging closes the issue and moves the
+  Project card; nothing else is needed.
+- **Cross-repo references are fully qualified**: `lesterhan/have-fish-ops#10`. A bare `#10`
+  means this repo's issue 10.
+- **What goes where.** Code, UX, mobile, docs and release work are issues here. Anything
+  describing an unfixed weakness in the running hosted instance, or business, legal,
+  pricing and support, is an issue in `have-fish-ops`, never here. The fix for a private
+  weakness is still an ordinary public PR that says what it hardens, not what was exploitable.
+- **Labels**: `type:` (`epic`, `bug`, `backlog`, `decision`, `probe`), `phase:` (parents
+  only), `area:`, `who:` (`claude`, `human`, `pair`; a first guess, change freely), `size:`
+  (`XS` under an evening, `S` 1–2, `M` 3–5, `L` 6+). No priority label: priority is the
+  Project's `Next` column and its row order, and that is a human's call.
+- **Dependencies** are one line in the body, `Depends on: #N`. Check it before starting;
+  nothing enforces it.
+- **`type:decision`** closes with a comment recording the decision plus, if it changes a
+  D-number, a PR to `planning/productionize/00-direction.md`. **`type:probe`** closes with
+  the numbers as a comment; the decision it feeds is its own issue.
+- **Parents never get a PR.** A parent closes when its last sub-issue does, after the gate
+  in its body is checked. Sub-issue order is the suggested sequence; reorder by dragging.
+- **Frozen files.** `planning/TASKS.md` and `planning/BUGS.md` are no longer edited; their
+  open items became issues. `planning/ROADMAP.md` stays as the index of epic files.
+
+Things you can say:
+
+- "**let's pick up #282**": read the issue, its parent, and the audit section it names. If
+  the parent has a `planning/epics/` file, follow the Epic Workflow below. Otherwise
+  implement it directly: one branch, one PR, `Closes #282`.
+- "**what should I pick up?**": list open `who:human size:XS` issues with no open dependency.
+- "**plan phase P1**": read the parent, check each sub-issue's dependencies against what is
+  closed, propose an order, reorder the sub-issues to match.
+- "**file this**": create the issue in the right repo with the right labels and parent. Do
+  not start a branch.
+
+Claude can create, label, parent and comment on issues in any attached repo. It cannot
+move Project cards; cards move on PR merge (automatic) or by hand.
+
 ## Epic Workflow
 
 ### Starting an epic — "let's pick up [epic name]"
 
 When the user says this:
 
-1. Read the epic file from `planning/epics/`. List all stories as a numbered checklist so the user can see the full scope. If the epic touches the UI and has no `## UX brief` section, write one first (format in `DESIGN.md` §7) and confirm it before writing code.
+1. Read the epic file from `planning/epics/`. List all stories as a numbered checklist so the user can see the full scope. If the epic touches the UI and has no `## UX brief` section, write one first (format in `DESIGN.md` §7) and confirm it before writing code. Make sure the epic has a `type:epic` parent issue and one sub-issue per story (create what is missing; the epic file's header links the parent issue), so the Project shows the epic's progress.
 2. Start story 1. Implement it fully — complete, production-quality code with comprehensive tests.
-3. After finishing the story, present a brief summary of what was produced and **open a PR** against `main` on the public (`have-fish`) repo. Share the PR link for review.
+3. After finishing the story, present a brief summary of what was produced and **open a PR** against `main` on the public (`have-fish`) repo, its body ending with `Closes #<story issue>`. Share the PR link for review.
 4. Wait for the user to confirm they are done reviewing.
 5. Once confirmed, re-read all files changed in that story and check for non-functional issues: security, performance, correctness, type safety, anything that would not pass a prod review. For UI stories, run the review checklist in `DESIGN.md` §9. Fix anything that warrants fixing before shipping (push the fix to the same PR branch).
 6. Confirm the story is prod-ready. The user merges the PR on GitHub, then runs `git checkout main && git pull origin main` locally.
@@ -191,7 +238,8 @@ When the user says this:
 
 1. Move the epic file from `planning/epics/` to `planning/epics/archive/`.
 2. Update `planning/ROADMAP.md` — change the epic's status to `Done` and update the file link to point to the archive path.
-3. Confirm done.
+3. Close the epic's parent issue with a one-line comment (every sub-issue should already be closed by its PR).
+4. Confirm done.
 
 ## How I Like to Be Assisted
 
@@ -247,7 +295,7 @@ git checkout -b lhan/<scope>_<short-description>
 # 2. implement, commit
 git push -u origin lhan/<scope>_<short-description>
 
-# 3. open PR on GitHub, titled [scope] Description — Claude does this in the epic workflow
+# 3. open PR on GitHub, titled [scope] Description, body ending "Closes #N" — Claude does this in the epic workflow
 # 4. review, iterate, merge on GitHub
 
 # 5. sync local main after merge
