@@ -21,6 +21,7 @@ import fishPieBalancesRoute from './routes/fish-pie-balances'
 import fishPieSettlementsRoute from './routes/fish-pie-settlements'
 import coverageRoute, { accountCoverageRoute } from './routes/coverage'
 import catchUpRoute from './routes/catch-up'
+import { fail } from './errors'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -45,7 +46,7 @@ app.get('/health', (c) => c.json({ status: 'ok' }))
 app.use('/api/*', async (c, next) => {
   if (c.req.path.startsWith('/api/auth/')) return next()
   const session = await auth.api.getSession({ headers: c.req.raw.headers })
-  if (!session) return c.json({ error: 'Unauthorized' }, 401)
+  if (!session) return fail(c, 'UNAUTHORIZED')
   c.set('userId', session.user.id)
   return next()
 })

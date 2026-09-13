@@ -78,7 +78,7 @@
 | [Trust Signals](epics/archive/trust-signals.md) | Done |
 | [Honest Chrome](epics/archive/honest-chrome.md) | Done |
 | [Undo](epics/undo.md) | Scoped |
-| [Copy Extraction](epics/copy-extraction.md) | Scoped |
+| [Copy Extraction](epics/copy-extraction.md) | In progress |
 | [Visual Language](epics/archive/visual-language.md) | Done |
 | [Type & Space Scale](epics/type-and-space.md) | In progress |
 

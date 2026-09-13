@@ -8,6 +8,7 @@ import { isValidCurrency } from '../currencies'
 import { loadHealContext, findMalformedFxSpends, healFxSpend } from '../postings/heal-service'
 import { loadClassifySettings } from '../postings/classify-service'
 import { classifyPostings, type PostingRole } from '../postings/roles'
+import { fail, failWith } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -101,8 +102,8 @@ app.get('/', async (c) => {
   const to = c.req.query('to')
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
-  if (from && !dateRe.test(from)) return c.json({ error: 'Invalid from date, expected YYYY-MM-DD' }, 400)
-  if (to && !dateRe.test(to)) return c.json({ error: 'Invalid to date, expected YYYY-MM-DD' }, 400)
+  if (from && !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
+  if (to && !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
 
   let txRows = await db
     .select()
@@ -232,13 +233,13 @@ app.post('/', async (c) => {
   const { date, description, postings: postingInputs } = body
 
   if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
-    return c.json({ error: 'At least two postings are required' }, 400)
+    return fail(c, 'TOO_FEW_POSTINGS')
   }
 
   // Validate currency codes
   for (const p of postingInputs) {
     if (!isValidCurrency(p.currency)) {
-      return c.json({ error: `Unsupported currency: ${p.currency}` }, 400)
+      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency })
     }
   }
 
@@ -249,14 +250,14 @@ app.post('/', async (c) => {
   }
   for (const [currency, sum] of Object.entries(balances)) {
     if (Math.abs(sum) > 0.001) {
-      return c.json({ error: `Postings do not balance for currency ${currency}: sum is ${sum}` }, 400)
+      return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, sum })
     }
   }
 
   // Verify every referenced account belongs to this user before inserting.
   const inputAccountIds = postingInputs.map((p: { accountId: string }) => p.accountId)
   if (!(await accountsOwnedBy(userId, inputAccountIds))) {
-    return c.json({ error: 'One or more accounts not found' }, 404)
+    return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
 
   const created = await db.transaction(async (tx) => {
@@ -292,18 +293,18 @@ app.post('/bulk', async (c) => {
   const { transactions: txInputs } = body
 
   if (!Array.isArray(txInputs) || txInputs.length === 0) {
-    return c.json({ error: 'transactions array is required and must be non-empty' }, 400)
+    return fail(c, 'FIELD_EMPTY', { field: 'transactions' })
   }
 
   // Validate each transaction before touching the DB
   for (let i = 0; i < txInputs.length; i++) {
     const { postings: postingInputs } = txInputs[i]
     if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
-      return c.json({ error: `Transaction at index ${i}: at least two postings are required` }, 400)
+      return fail(c, 'TOO_FEW_POSTINGS', { index: i })
     }
     for (const p of postingInputs) {
       if (!isValidCurrency(p.currency)) {
-        return c.json({ error: `Transaction at index ${i}: unsupported currency ${p.currency}` }, 400)
+        return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency, index: i })
       }
     }
     const balances: Record<string, number> = {}
@@ -312,7 +313,7 @@ app.post('/bulk', async (c) => {
     }
     for (const [currency, sum] of Object.entries(balances)) {
       if (Math.abs(sum) > 0.001) {
-        return c.json({ error: `Transaction at index ${i}: postings do not balance for currency ${currency}` }, 400)
+        return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, index: i })
       }
     }
   }
@@ -322,7 +323,7 @@ app.post('/bulk', async (c) => {
     t.postings.map((p) => p.accountId),
   )
   if (!(await accountsOwnedBy(userId, allAccountIds))) {
-    return c.json({ error: 'One or more accounts not found' }, 404)
+    return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
 
   const created = await db.transaction(async (tx) => {
@@ -368,13 +369,13 @@ app.patch('/:id', async (c) => {
   if ('description' in body) updates.description = body.description ?? null
   if ('date' in body) {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
-      return c.json({ error: 'Invalid date format, expected YYYY-MM-DD' }, 400)
+      return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
     }
     updates.date = new Date(body.date)
   }
 
   if (Object.keys(updates).length === 0) {
-    return c.json({ error: 'No updatable fields provided' }, 400)
+    return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
   const [updated] = await db
@@ -383,7 +384,7 @@ app.patch('/:id', async (c) => {
     .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
     .returning()
 
-  if (!updated) return c.json({ error: 'Transaction not found' }, 404)
+  if (!updated) return fail(c, 'TRANSACTION_NOT_FOUND')
   return c.json(updated)
 })
 
@@ -403,13 +404,13 @@ app.post('/:id/postings', async (c) => {
 
   // Validate inputs
   if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
-    return c.json({ error: 'At least two postings are required' }, 400)
+    return fail(c, 'TOO_FEW_POSTINGS')
   }
 
   // Validate currency codes
   for (const p of postingInputs) {
     if (!isValidCurrency(p.currency)) {
-      return c.json({ error: `Unsupported currency: ${p.currency}` }, 400)
+      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency })
     }
   }
 
@@ -420,7 +421,7 @@ app.post('/:id/postings', async (c) => {
   }
   for (const [currency, sum] of Object.entries(balances)) {
     if (Math.abs(sum) > 0.001) {
-      return c.json({ error: `Postings do not balance for currency ${currency}: sum is ${sum}` }, 400)
+      return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, sum })
     }
   }
 
@@ -430,12 +431,12 @@ app.post('/:id/postings', async (c) => {
     .from(transactions)
     .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
 
-  if (!tx) return c.json({ error: 'Transaction not found' }, 404)
+  if (!tx) return fail(c, 'TRANSACTION_NOT_FOUND')
 
   // Verify all accounts exist and belong to this user
   const inputAccountIds = postingInputs.map((p: { accountId: string }) => p.accountId)
   if (!(await accountsOwnedBy(userId, inputAccountIds))) {
-    return c.json({ error: 'One or more accounts not found' }, 404)
+    return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
 
   // Atomically replace all postings
@@ -467,7 +468,7 @@ app.post('/:id/heal-fx-spend', async (c) => {
   const id = c.req.param('id')
   const ctx = await loadHealContext(userId)
   const result = await healFxSpend(userId, id, ctx)
-  if (!result.ok) return c.json({ error: result.error }, result.status)
+  if (!result.ok) return failWith(c, result.failure)
   return c.json({ postings: result.postings })
 })
 

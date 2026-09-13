@@ -129,7 +129,7 @@ describe('transactions', () => {
     })
 
     expect(res.status).toBe(400)
-    expect((await res.json() as { error: string }).error).toMatch(/do not balance/)
+    expect((await res.json() as { error: string }).error).toBe('POSTINGS_DO_NOT_BALANCE')
   })
 
   it('rejects a split whose legs do not add up to the total', async () => {
@@ -155,7 +155,7 @@ describe('transactions', () => {
     })
 
     expect(res.status).toBe(400)
-    expect((await res.json() as { error: string }).error).toMatch(/do not balance/)
+    expect((await res.json() as { error: string }).error).toBe('POSTINGS_DO_NOT_BALANCE')
   })
 
   it('GET /api/transactions attaches accountPath and a derived role to each posting', async () => {
@@ -313,7 +313,7 @@ describe('transactions', () => {
       ] }),
     })
     expect(res.status).toBe(404)
-    expect((await res.json()).error).toBe('One or more accounts not found')
+    expect((await res.json()).error).toBe('ACCOUNTS_NOT_FOUND')
 
     // Nothing was created.
     const list = await app.request('/api/transactions', { headers: { Cookie: cookie } }).then(r => r.json())

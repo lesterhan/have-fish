@@ -1,6 +1,8 @@
 import { db } from '../db'
 import { postings, accounts, transactions, userSettings } from '../db/schema'
 import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
+import { errorBody } from '../errors'
+import type { ErrorBody } from '../errors'
 import {
   detectMalformedFxSpend,
   planFxSpendRepair,
@@ -150,7 +152,7 @@ export async function malformedFxSpendsByAccount(
 
 export type HealResult =
   | { ok: true; postings: HealPosting[] }
-  | { ok: false; status: 404 | 400 | 409; error: string }
+  | { ok: false; failure: ErrorBody }
 
 // Applies the repair to a single transaction. Pure account repoint — amounts never change,
 // so the per-currency balance is preserved (re-validated defensively before commit).
@@ -159,14 +161,14 @@ export async function healFxSpend(userId: string, txId: string, ctx: HealContext
     .select({ id: transactions.id })
     .from(transactions)
     .where(and(eq(transactions.id, txId), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
-  if (!tx) return { ok: false, status: 404, error: 'Transaction not found' }
+  if (!tx) return { ok: false, failure: errorBody('TRANSACTION_NOT_FOUND') }
 
   const ps = (await fetchPostingsWithPaths(userId, [txId])).get(txId) ?? []
   const finding = detectMalformedFxSpend(ps, ctx.settings)
-  if (!finding) return { ok: false, status: 409, error: 'Transaction is not a malformed cross-currency spend' }
+  if (!finding) return { ok: false, failure: errorBody('TRANSACTION_NOT_MALFORMED') }
 
   if (!ctx.conversionAccountId) {
-    return { ok: false, status: 400, error: 'No conversion account configured; set one in settings before healing' }
+    return { ok: false, failure: errorBody('CONVERSION_ACCOUNT_REQUIRED') }
   }
 
   const repoints = planFxSpendRepair(finding, ctx.conversionAccountId)
@@ -176,7 +178,7 @@ export async function healFxSpend(userId: string, txId: string, ctx: HealContext
   for (const p of ps) balances[p.currency] = (balances[p.currency] ?? 0) + parseFloat(p.amount)
   for (const [currency, sum] of Object.entries(balances)) {
     if (Math.abs(sum) > 0.001) {
-      return { ok: false, status: 409, error: `Repair would unbalance currency ${currency} (sum ${sum})` }
+      return { ok: false, failure: errorBody('HEAL_WOULD_UNBALANCE', { currency, sum }) }
     }
   }
 

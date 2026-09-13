@@ -5,6 +5,7 @@ import { expenseGroups, expenseGroupMembers, groupSettlements, user, accounts, t
 import { eq, isNull, and, inArray } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { ensureSharedAccount } from '../fish-pie-accounts'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -52,7 +53,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await db
     .select({ userId: expenseGroupMembers.userId })
@@ -60,7 +61,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
     .where(eq(expenseGroupMembers.groupId, groupId))
 
   const memberIds = new Set(members.map((m) => m.userId))
-  if (!memberIds.has(userId)) return c.json({ error: 'not found' }, 404)
+  if (!memberIds.has(userId)) return fail(c, 'GROUP_NOT_FOUND')
 
   const body = await c.req.json<{
     fromUserId?: string
@@ -72,22 +73,22 @@ app.post('/groups/:groupId/settlements', async (c) => {
     payerAccountId?: string
   }>()
 
-  if (!body.fromUserId || !memberIds.has(body.fromUserId)) return c.json({ error: 'fromUserId must be a group member' }, 400)
-  if (!body.toUserId || !memberIds.has(body.toUserId)) return c.json({ error: 'toUserId must be a group member' }, 400)
-  if (body.fromUserId === body.toUserId) return c.json({ error: 'from and to must differ' }, 400)
-  if (body.fromUserId !== userId) return c.json({ error: 'only the payer can initiate a settlement' }, 403)
+  if (!body.fromUserId || !memberIds.has(body.fromUserId)) return fail(c, 'NAMED_USER_NOT_A_MEMBER', { field: 'fromUserId' })
+  if (!body.toUserId || !memberIds.has(body.toUserId)) return fail(c, 'NAMED_USER_NOT_A_MEMBER', { field: 'toUserId' })
+  if (body.fromUserId === body.toUserId) return fail(c, 'SETTLEMENT_SAME_USER')
+  if (body.fromUserId !== userId) return fail(c, 'ONLY_PAYER_CAN_SETTLE')
   if (!body.amount || isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
-    return c.json({ error: 'amount must be a positive number' }, 400)
-  if (!body.currency?.trim()) return c.json({ error: 'currency is required' }, 400)
-  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
-  if (!body.payerAccountId) return c.json({ error: 'payerAccountId is required' }, 400)
+    return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'amount' })
+  if (!body.currency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'currency' })
+  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
+  if (!body.payerAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'payerAccountId' })
 
   // Verify payer account belongs to the fromUser
   const [payerAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, body.payerAccountId), eq(accounts.userId, body.fromUserId), isNull(accounts.deletedAt)))
-  if (!payerAccount) return c.json({ error: 'payerAccountId not found' }, 400)
+  if (!payerAccount) return fail(c, 'PAYER_ACCOUNT_NOT_FOUND')
 
   const amount = parseFloat(body.amount).toFixed(2)
   const currency = body.currency.trim().toUpperCase()
@@ -159,14 +160,14 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await db
     .select({ userId: expenseGroupMembers.userId })
     .from(expenseGroupMembers)
     .where(eq(expenseGroupMembers.groupId, groupId))
   const memberIds = new Set(members.map((m) => m.userId))
-  if (!memberIds.has(userId)) return c.json({ error: 'not found' }, 404)
+  if (!memberIds.has(userId)) return fail(c, 'GROUP_NOT_FOUND')
 
   const body = await c.req.json<{
     payerAccountId?: string
@@ -182,17 +183,17 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     }[]
   }>()
 
-  if (!body.payerAccountId) return c.json({ error: 'payerAccountId is required' }, 400)
-  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
+  if (!body.payerAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'payerAccountId' })
+  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
   if (!Array.isArray(body.lines) || body.lines.length === 0)
-    return c.json({ error: 'lines must be a non-empty array' }, 400)
+    return fail(c, 'FIELD_EMPTY', { field: 'lines' })
 
   // The payer is always the caller — the cash leaves their account.
   const [payerAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, body.payerAccountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!payerAccount) return c.json({ error: 'payerAccountId not found' }, 400)
+  if (!payerAccount) return fail(c, 'PAYER_ACCOUNT_NOT_FOUND')
 
   type NormLine = {
     toUserId: string
@@ -205,14 +206,14 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
   }
   const lines: NormLine[] = []
   for (const l of body.lines) {
-    if (!l.toUserId || !memberIds.has(l.toUserId)) return c.json({ error: 'each line toUserId must be a group member' }, 400)
-    if (l.toUserId === userId) return c.json({ error: 'cannot settle with yourself' }, 400)
+    if (!l.toUserId || !memberIds.has(l.toUserId)) return fail(c, 'NAMED_USER_NOT_A_MEMBER', { field: 'toUserId' })
+    if (l.toUserId === userId) return fail(c, 'SETTLEMENT_SAME_USER')
     if (!l.debtAmount || isNaN(parseFloat(l.debtAmount)) || parseFloat(l.debtAmount) <= 0)
-      return c.json({ error: 'debtAmount must be a positive number' }, 400)
-    if (!l.debtCurrency?.trim()) return c.json({ error: 'debtCurrency is required' }, 400)
+      return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'debtAmount' })
+    if (!l.debtCurrency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'debtCurrency' })
     if (!l.settledAmount || isNaN(parseFloat(l.settledAmount)) || parseFloat(l.settledAmount) <= 0)
-      return c.json({ error: 'settledAmount must be a positive number' }, 400)
-    if (!l.settledCurrency?.trim()) return c.json({ error: 'settledCurrency is required' }, 400)
+      return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'settledAmount' })
+    if (!l.settledCurrency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'settledCurrency' })
 
     const debtCurrency = l.debtCurrency.trim().toUpperCase()
     const settledCurrency = l.settledCurrency.trim().toUpperCase()
@@ -221,9 +222,9 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     const converted = settledCurrency !== debtCurrency
 
     if (!converted && debtAmount !== settledAmount)
-      return c.json({ error: 'native line settledAmount must equal debtAmount' }, 400)
+      return fail(c, 'SETTLEMENT_NATIVE_AMOUNT_MISMATCH')
     if (converted && (!l.fxRate || isNaN(parseFloat(l.fxRate)) || parseFloat(l.fxRate) <= 0))
-      return c.json({ error: 'converted line requires a positive fxRate' }, 400)
+      return fail(c, 'SETTLEMENT_FX_RATE_REQUIRED')
 
     lines.push({
       toUserId: l.toUserId,
@@ -245,7 +246,7 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
       .where(eq(userSettings.userId, userId))
     conversionAccountId = settings?.conversionAccountId ?? null
     if (!conversionAccountId)
-      return c.json({ error: 'a conversion account is required for cross-currency settlement; set one in settings' }, 400)
+      return fail(c, 'CONVERSION_ACCOUNT_REQUIRED')
   }
 
   const txDate = new Date(`${body.date}T00:00:00Z`)
@@ -328,29 +329,29 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
     .select()
     .from(groupSettlements)
     .where(and(eq(groupSettlements.id, settlementId), eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt)))
-  if (!settlement) return c.json({ error: 'not found' }, 404)
+  if (!settlement) return fail(c, 'SETTLEMENT_NOT_FOUND')
 
-  if (settlement.toUserId !== userId) return c.json({ error: 'forbidden' }, 403)
-  if (settlement.status === 'completed') return c.json({ error: 'already confirmed' }, 409)
+  if (settlement.toUserId !== userId) return fail(c, 'ONLY_RECIPIENT_CAN_CONFIRM')
+  if (settlement.status === 'completed') return fail(c, 'SETTLEMENT_ALREADY_CONFIRMED')
   // Batch rows (esp. cross-currency) must confirm through the batch endpoint, which
   // books the cash leg in the settled currency. This single-row path would wrongly
   // book the debt currency/amount as the cash received.
-  if (settlement.batchId) return c.json({ error: 'use the batch confirm endpoint' }, 409)
+  if (settlement.batchId) return fail(c, 'SETTLEMENT_NEEDS_BATCH_CONFIRM')
 
   const body = await c.req.json<{ receiverAccountId?: string }>()
-  if (!body.receiverAccountId) return c.json({ error: 'receiverAccountId is required' }, 400)
+  if (!body.receiverAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'receiverAccountId' })
 
   const [group] = await db
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const [receiverAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, body.receiverAccountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!receiverAccount) return c.json({ error: 'receiverAccountId not found' }, 400)
+  if (!receiverAccount) return fail(c, 'RECEIVER_ACCOUNT_NOT_FOUND')
 
   const result = await db.transaction(async (tx) => {
     // Receiver's ledger transaction:
@@ -401,7 +402,7 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   // Rows in this batch addressed to the caller (the receiver).
   const rows = await db
@@ -415,18 +416,18 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
         isNull(groupSettlements.deletedAt),
       ),
     )
-  if (rows.length === 0) return c.json({ error: 'not found' }, 404)
-  if (rows.every((r) => r.status === 'completed')) return c.json({ error: 'already confirmed' }, 409)
+  if (rows.length === 0) return fail(c, 'SETTLEMENT_NOT_FOUND')
+  if (rows.every((r) => r.status === 'completed')) return fail(c, 'SETTLEMENT_ALREADY_CONFIRMED')
   const pending = rows.filter((r) => r.status !== 'completed')
 
   const body = await c.req.json<{ receiverAccountId?: string }>()
-  if (!body.receiverAccountId) return c.json({ error: 'receiverAccountId is required' }, 400)
+  if (!body.receiverAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'receiverAccountId' })
 
   const [receiverAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, body.receiverAccountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!receiverAccount) return c.json({ error: 'receiverAccountId not found' }, 400)
+  if (!receiverAccount) return fail(c, 'RECEIVER_ACCOUNT_NOT_FOUND')
 
   // Cross-currency rows need the receiver's conversion account to bridge currencies.
   const hasConverted = pending.some((r) => r.settledCurrency !== null)
@@ -438,7 +439,7 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
       .where(eq(userSettings.userId, userId))
     conversionAccountId = settings?.conversionAccountId ?? null
     if (!conversionAccountId)
-      return c.json({ error: 'a conversion account is required for cross-currency settlement; set one in settings' }, 400)
+      return fail(c, 'CONVERSION_ACCOUNT_REQUIRED')
   }
 
   const result = await db.transaction(async (tx) => {
@@ -502,13 +503,13 @@ app.get('/groups/:groupId/settlements', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const [membership] = await db
     .select()
     .from(expenseGroupMembers)
     .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
-  if (!membership) return c.json({ error: 'not found' }, 404)
+  if (!membership) return fail(c, 'GROUP_NOT_FOUND')
 
   return c.json(await fetchGroupSettlements(groupId))
 })
@@ -523,14 +524,14 @@ app.delete('/groups/:groupId/settlements/:settlementId', async (c) => {
     .select()
     .from(groupSettlements)
     .where(and(eq(groupSettlements.id, settlementId), eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt)))
-  if (!settlement) return c.json({ error: 'not found' }, 404)
+  if (!settlement) return fail(c, 'SETTLEMENT_NOT_FOUND')
 
   const [group] = await db.select().from(expenseGroups).where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const isParty = settlement.fromUserId === userId || settlement.toUserId === userId
   const isCreator = group.createdBy === userId
-  if (!isParty && !isCreator) return c.json({ error: 'forbidden' }, 403)
+  if (!isParty && !isCreator) return fail(c, 'NOT_A_PARTY_OR_GROUP_CREATOR')
 
   // A batch shares one payer transaction across all its rows, so a single row can't be
   // removed in isolation without unbalancing that transaction — delete the whole batch

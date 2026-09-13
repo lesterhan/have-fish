@@ -25,10 +25,12 @@
  */
 import { authCopy } from './auth'
 import { caseCopy } from './case'
+import { errorsCopy } from './errors'
 
 export const copy = {
   auth: authCopy,
   case: caseCopy,
+  errors: errorsCopy,
 } as const
 
 export { plural } from './plural'

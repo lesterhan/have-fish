@@ -6,6 +6,7 @@ import type { AppVariables } from '../app'
 import { addDays, mergeCoverage } from '../coverage/intervals'
 import { loadCoverageAccounts, loadCoverageContext, todayUtc } from '../coverage/load'
 import { classifyMonths, monthsBetween } from '../coverage/months'
+import { fail } from '../errors'
 import {
   horizon,
   inferCycleFromIntervals,
@@ -199,13 +200,13 @@ app.get('/months', async (c) => {
   const from = c.req.query('from')
   const to = c.req.query('to')
 
-  if (!from || !MONTH_RE.test(from)) return c.json({ error: 'from must be a YYYY-MM month' }, 400)
-  if (!to || !MONTH_RE.test(to)) return c.json({ error: 'to must be a YYYY-MM month' }, 400)
-  if (from > to) return c.json({ error: 'from must be on or before to' }, 400)
+  if (!from || !MONTH_RE.test(from)) return fail(c, 'FIELD_NOT_MONTH', { field: 'from' })
+  if (!to || !MONTH_RE.test(to)) return fail(c, 'FIELD_NOT_MONTH', { field: 'to' })
+  if (from > to) return fail(c, 'RANGE_OUT_OF_ORDER', { from: 'from', to: 'to' })
 
   const months = monthsBetween(from, to)
   if (months.length > MAX_MONTHS) {
-    return c.json({ error: `range must span at most ${MAX_MONTHS} months` }, 400)
+    return fail(c, 'RANGE_TOO_LONG', { months: MAX_MONTHS })
   }
 
   const today = todayUtc()
@@ -238,25 +239,25 @@ app.get('/months', async (c) => {
 app.post('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+  if (!body) return fail(c, 'INVALID_JSON_BODY')
 
   const { accountId, fromDate, throughDate, source, note } = body
 
-  if (!isUuid(accountId)) return c.json({ error: 'accountId must be a UUID string' }, 400)
-  if (!isIsoDate(fromDate)) return c.json({ error: 'fromDate must be a YYYY-MM-DD date' }, 400)
-  if (!isIsoDate(throughDate)) return c.json({ error: 'throughDate must be a YYYY-MM-DD date' }, 400)
+  if (!isUuid(accountId)) return fail(c, 'FIELD_NOT_UUID', { field: 'accountId' })
+  if (!isIsoDate(fromDate)) return fail(c, 'FIELD_NOT_DATE', { field: 'fromDate' })
+  if (!isIsoDate(throughDate)) return fail(c, 'FIELD_NOT_DATE', { field: 'throughDate' })
   if (fromDate > throughDate) {
-    return c.json({ error: 'fromDate must be on or before throughDate' }, 400)
+    return fail(c, 'RANGE_OUT_OF_ORDER', { from: 'fromDate', to: 'throughDate' })
   }
   if (typeof source !== 'string' || !SOURCES.includes(source as CoverageSource)) {
-    return c.json({ error: `source must be one of ${SOURCES.join(', ')}` }, 400)
+    return fail(c, 'FIELD_NOT_IN_SET', { field: 'source', allowed: SOURCES })
   }
   if (note != null && typeof note !== 'string') {
-    return c.json({ error: 'note must be a string' }, 400)
+    return fail(c, 'FIELD_NOT_STRING', { field: 'note' })
   }
 
   if (!(await ownsAccount(userId, accountId))) {
-    return c.json({ error: 'account not found' }, 404)
+    return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   // No reconciliation against existing rows — overlaps and duplicates are allowed to pile up
@@ -311,10 +312,10 @@ app.patch('/config/:accountId', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.param('accountId')
 
-  if (!isUuid(accountId)) return c.json({ error: 'account not found' }, 404)
+  if (!isUuid(accountId)) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+  if (!body) return fail(c, 'INVALID_JSON_BODY')
 
   // Distinguishes "clear this override" (explicit null) from "leave it alone" (key absent).
   const cleared = new Set<keyof CoverageConfigOverride>()
@@ -323,30 +324,30 @@ app.patch('/config/:accountId', async (c) => {
   if ('exportMode' in body) {
     if (body.exportMode === null) cleared.add('exportMode')
     else if (body.exportMode === 'range' || body.exportMode === 'cycle') patch.exportMode = body.exportMode
-    else return c.json({ error: "exportMode must be 'range', 'cycle', or null" }, 400)
+    else return fail(c, 'FIELD_NOT_IN_SET', { field: 'exportMode', allowed: ['range', 'cycle'] })
   }
   if ('cycleDay' in body) {
     if (body.cycleDay === null) cleared.add('cycleDay')
     else if (isCycleDay(body.cycleDay)) patch.cycleDay = body.cycleDay
-    else return c.json({ error: 'cycleDay must be a whole number from 1 to 31, or null' }, 400)
+    else return fail(c, 'FIELD_OUT_OF_RANGE', { field: 'cycleDay', min: 1, max: 31 })
   }
   if ('releaseLag' in body) {
     if (body.releaseLag === null) cleared.add('releaseLag')
     else if (isReleaseLag(body.releaseLag)) patch.releaseLag = body.releaseLag
-    else return c.json({ error: 'releaseLag must be a whole number from 0 to 31, or null' }, 400)
+    else return fail(c, 'FIELD_OUT_OF_RANGE', { field: 'releaseLag', min: 0, max: 31 })
   }
   if ('tracked' in body) {
     if (body.tracked === null) cleared.add('tracked')
     else if (typeof body.tracked === 'boolean') patch.tracked = body.tracked
-    else return c.json({ error: 'tracked must be a boolean or null' }, 400)
+    else return fail(c, 'FIELD_NOT_BOOLEAN', { field: 'tracked' })
   }
 
   if (cleared.size === 0 && Object.keys(patch).length === 0) {
-    return c.json({ error: 'no valid fields to update' }, 400)
+    return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
   if (!(await ownsAccount(userId, accountId))) {
-    return c.json({ error: 'account not found' }, 404)
+    return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   const [overrides, intervals] = await Promise.all([
@@ -363,7 +364,7 @@ app.patch('/config/:accountId', async (c) => {
   // than inventing a boundary, but silently ignoring what the user asked for would leave them
   // staring at a 'cycle' account behaving exactly like a 'range' one.
   if (config.exportMode === 'cycle' && config.cycleDay == null) {
-    return c.json({ error: 'a cycle account needs a cycleDay' }, 400)
+    return fail(c, 'CYCLE_ACCOUNT_NEEDS_CYCLE_DAY')
   }
 
   await writeOverride(userId, accountId, override)
@@ -422,14 +423,14 @@ async function writeOverride(userId: string, accountId: string, override: Covera
 app.post('/reconcile', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+  if (!body) return fail(c, 'INVALID_JSON_BODY')
 
   const { accountId, throughDate } = body
-  if (!isUuid(accountId)) return c.json({ error: 'accountId must be a UUID string' }, 400)
-  if (!isIsoDate(throughDate)) return c.json({ error: 'throughDate must be a YYYY-MM-DD date' }, 400)
+  if (!isUuid(accountId)) return fail(c, 'FIELD_NOT_UUID', { field: 'accountId' })
+  if (!isIsoDate(throughDate)) return fail(c, 'FIELD_NOT_DATE', { field: 'throughDate' })
 
   if (!(await ownsAccount(userId, accountId))) {
-    return c.json({ error: 'account not found' }, 404)
+    return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   const merged = mergeCoverage(await readIntervals(userId, accountId))
@@ -495,9 +496,9 @@ accountCoverageRoute.get('/:id/coverage', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.param('id')
 
-  if (!isUuid(accountId)) return c.json({ error: 'account not found' }, 404)
+  if (!isUuid(accountId)) return fail(c, 'ACCOUNT_NOT_FOUND')
   if (!(await ownsAccount(userId, accountId))) {
-    return c.json({ error: 'account not found' }, 404)
+    return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   return c.json(await readCoverage(userId, accountId, windowDaysFrom(c.req.query('days'))))

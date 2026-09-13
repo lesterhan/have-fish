@@ -4,6 +4,7 @@ import { expenseGroupInvites, expenseGroupMembers, expenseGroups, user } from '.
 import { eq, and, isNull } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { ensureSharedAccount } from '../fish-pie-accounts'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -15,13 +16,13 @@ app.post('/groups/:id/invites', async (c) => {
   const groupId = c.req.param('id')
   const body = await c.req.json<{ email?: string }>()
   const email = body.email?.trim().toLowerCase()
-  if (!email) return c.json({ error: 'email is required' }, 400)
+  if (!email) return fail(c, 'FIELD_REQUIRED', { field: 'email' })
 
   const [group] = await db
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await db
     .select()
@@ -29,13 +30,13 @@ app.post('/groups/:id/invites', async (c) => {
     .where(eq(expenseGroupMembers.groupId, groupId))
 
   const isMember = members.some((m) => m.userId === userId)
-  if (!isMember) return c.json({ error: 'not found' }, 404)
+  if (!isMember) return fail(c, 'GROUP_NOT_FOUND')
 
   const [invitee] = await db.select().from(user).where(eq(user.email, email))
-  if (!invitee) return c.json({ error: 'no user with that email' }, 404)
+  if (!invitee) return fail(c, 'NO_USER_WITH_EMAIL')
 
   const alreadyMember = members.some((m) => m.userId === invitee.id)
-  if (alreadyMember) return c.json({ error: 'user is already a member' }, 409)
+  if (alreadyMember) return fail(c, 'ALREADY_A_MEMBER')
 
   const existingPending = await db
     .select()
@@ -47,7 +48,7 @@ app.post('/groups/:id/invites', async (c) => {
         eq(expenseGroupInvites.status, 'pending'),
       ),
     )
-  if (existingPending.length > 0) return c.json({ error: 'invite already pending' }, 409)
+  if (existingPending.length > 0) return fail(c, 'INVITE_ALREADY_PENDING')
 
   const [invite] = await db
     .insert(expenseGroupInvites)
@@ -67,13 +68,13 @@ app.get('/groups/:id/invites', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const [membership] = await db
     .select()
     .from(expenseGroupMembers)
     .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
-  if (!membership) return c.json({ error: 'not found' }, 404)
+  if (!membership) return fail(c, 'GROUP_NOT_FOUND')
 
   const invites = await db
     .select()
@@ -94,12 +95,12 @@ app.delete('/groups/:id/invites/:inviteId', async (c) => {
     .select()
     .from(expenseGroupInvites)
     .where(and(eq(expenseGroupInvites.id, inviteId), eq(expenseGroupInvites.groupId, groupId)))
-  if (!invite || invite.status !== 'pending') return c.json({ error: 'not found' }, 404)
+  if (!invite || invite.status !== 'pending') return fail(c, 'INVITE_NOT_FOUND')
 
   const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, groupId))
   const isInviter = invite.invitedByUserId === userId
   const isCreator = group?.createdBy === userId
-  if (!isInviter && !isCreator) return c.json({ error: 'forbidden' }, 403)
+  if (!isInviter && !isCreator) return fail(c, 'NOT_THE_INVITER_OR_GROUP_CREATOR')
 
   await db.delete(expenseGroupInvites).where(eq(expenseGroupInvites.id, inviteId))
 
@@ -112,7 +113,7 @@ app.get('/invites', async (c) => {
   const userId = c.get('userId')
 
   const [currentUser] = await db.select().from(user).where(eq(user.id, userId))
-  if (!currentUser) return c.json({ error: 'not found' }, 404)
+  if (!currentUser) return fail(c, 'USER_NOT_FOUND')
 
   const invites = await db
     .select({
@@ -147,7 +148,7 @@ app.post('/invites/:inviteId/accept', async (c) => {
   const inviteId = c.req.param('inviteId')
 
   const [currentUser] = await db.select().from(user).where(eq(user.id, userId))
-  if (!currentUser) return c.json({ error: 'not found' }, 404)
+  if (!currentUser) return fail(c, 'USER_NOT_FOUND')
 
   const [invite] = await db
     .select()
@@ -159,7 +160,7 @@ app.post('/invites/:inviteId/accept', async (c) => {
         eq(expenseGroupInvites.status, 'pending'),
       ),
     )
-  if (!invite) return c.json({ error: 'not found' }, 404)
+  if (!invite) return fail(c, 'INVITE_NOT_FOUND')
 
   const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, invite.groupId))
 
@@ -188,7 +189,7 @@ app.post('/invites/:inviteId/decline', async (c) => {
   const inviteId = c.req.param('inviteId')
 
   const [currentUser] = await db.select().from(user).where(eq(user.id, userId))
-  if (!currentUser) return c.json({ error: 'not found' }, 404)
+  if (!currentUser) return fail(c, 'USER_NOT_FOUND')
 
   const [invite] = await db
     .select()
@@ -200,7 +201,7 @@ app.post('/invites/:inviteId/decline', async (c) => {
         eq(expenseGroupInvites.status, 'pending'),
       ),
     )
-  if (!invite) return c.json({ error: 'not found' }, 404)
+  if (!invite) return fail(c, 'INVITE_NOT_FOUND')
 
   const [updated] = await db
     .update(expenseGroupInvites)
