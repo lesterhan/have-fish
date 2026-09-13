@@ -6,6 +6,7 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getBaseUrl, getSession } from './auth'
 import { ExpenseQueuedError } from './expense-submit'
+import { errorMessage } from './errors'
 
 // ---------------------------------------------------------------------------
 // Core fetch wrapper
@@ -379,7 +380,7 @@ export async function createTransaction(body: {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create transaction')
+    throw new Error(errorMessage(err, 'Failed to create transaction'))
   }
   return res.json()
 }
@@ -487,7 +488,7 @@ export async function sendInvite(groupId: string, email: string): Promise<GroupI
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to send invite')
+    throw new Error(errorMessage(err, 'Failed to send invite'))
   }
   return res.json()
 }
@@ -557,7 +558,7 @@ export async function createExpense(
     // The server reached us and rejected the request — a real error, not an
     // offline case. Surface it.
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create expense')
+    throw new Error(errorMessage(err, 'Failed to create expense'))
   }
   return res.json()
 }
@@ -581,7 +582,7 @@ export async function updateExpense(
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to update expense')
+    throw new Error(errorMessage(err, 'Failed to update expense'))
   }
   return res.json()
 }
@@ -629,7 +630,7 @@ export async function createSettlement(
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create settlement')
+    throw new Error(errorMessage(err, 'Failed to create settlement'))
   }
   return res.json()
 }
@@ -651,7 +652,7 @@ export async function confirmSettlement(
   )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+    throw new Error(errorMessage(err, 'Failed to confirm settlement'))
   }
   return res.json()
 }
@@ -689,7 +690,7 @@ export async function createBatchSettlement(
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create settlement')
+    throw new Error(errorMessage(err, 'Failed to create settlement'))
   }
   return res.json()
 }
@@ -710,7 +711,7 @@ export async function confirmBatchSettlement(
   )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+    throw new Error(errorMessage(err, 'Failed to confirm settlement'))
   }
   return res.json()
 }

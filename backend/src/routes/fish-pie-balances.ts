@@ -4,6 +4,7 @@ import { expenseGroups, expenseGroupMembers, groupExpenses, groupExpenseSplits, 
 import { eq, isNull, and, inArray } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { computeCurrencyBalances } from '../fish-pie-balance-service'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -16,7 +17,7 @@ app.get('/groups/:groupId/balances', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await db
     .select({ userId: expenseGroupMembers.userId, userName: user.name })
@@ -24,7 +25,7 @@ app.get('/groups/:groupId/balances', async (c) => {
     .innerJoin(user, eq(expenseGroupMembers.userId, user.id))
     .where(eq(expenseGroupMembers.groupId, groupId))
 
-  if (!members.some((m) => m.userId === userId)) return c.json({ error: 'not found' }, 404)
+  if (!members.some((m) => m.userId === userId)) return fail(c, 'GROUP_NOT_FOUND')
   if (members.length === 0) return c.json([])
 
   const [expenseRows, settlements] = await Promise.all([

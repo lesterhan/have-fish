@@ -3,6 +3,7 @@ import { db } from '../db'
 import { accounts, postings, transactions } from '../db/schema'
 import { and, count, eq, isNull } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -16,7 +17,7 @@ app.patch('/:id', async (c) => {
 
   const { accountId, amount, currency } = body
   if (!accountId && amount === undefined && !currency) {
-    return c.json({ error: 'At least one of accountId, amount, or currency is required' }, 400)
+    return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
   if (accountId) {
@@ -24,7 +25,7 @@ app.patch('/:id', async (c) => {
       .select({ id: accounts.id })
       .from(accounts)
       .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-    if (!targetAccount) return c.json({ error: 'Account not found' }, 404)
+    if (!targetAccount) return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   const [posting] = await db
@@ -33,7 +34,7 @@ app.patch('/:id', async (c) => {
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
     .where(and(eq(postings.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt), isNull(postings.deletedAt)))
 
-  if (!posting) return c.json({ error: 'Posting not found' }, 404)
+  if (!posting) return fail(c, 'POSTING_NOT_FOUND')
 
   const updates: { accountId?: string; amount?: string; currency?: string } = {}
   if (accountId) updates.accountId = accountId
@@ -58,7 +59,7 @@ app.post('/', async (c) => {
 
   const { transactionId, accountId, amount, currency } = body
   if (!transactionId || !accountId || amount === undefined || !currency) {
-    return c.json({ error: 'transactionId, accountId, amount, and currency are required' }, 400)
+    return fail(c, 'FIELDS_REQUIRED', { fields: ['transactionId', 'accountId', 'amount', 'currency'] })
   }
 
   const [tx] = await db
@@ -66,14 +67,14 @@ app.post('/', async (c) => {
     .from(transactions)
     .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
 
-  if (!tx) return c.json({ error: 'Transaction not found' }, 404)
+  if (!tx) return fail(c, 'TRANSACTION_NOT_FOUND')
 
   const [targetAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
 
-  if (!targetAccount) return c.json({ error: 'Account not found' }, 404)
+  if (!targetAccount) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   const [created] = await db
     .insert(postings)
@@ -95,7 +96,7 @@ app.delete('/:id', async (c) => {
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
     .where(and(eq(postings.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt), isNull(postings.deletedAt)))
 
-  if (!posting) return c.json({ error: 'Posting not found' }, 404)
+  if (!posting) return fail(c, 'POSTING_NOT_FOUND')
 
   const [{ activeCount }] = await db
     .select({ activeCount: count() })
@@ -103,7 +104,7 @@ app.delete('/:id', async (c) => {
     .where(and(eq(postings.transactionId, posting.transactionId), isNull(postings.deletedAt)))
 
   if (activeCount <= 2) {
-    return c.json({ error: 'A transaction must have at least 2 postings' }, 400)
+    return fail(c, 'TOO_FEW_POSTINGS')
   }
 
   const [deleted] = await db

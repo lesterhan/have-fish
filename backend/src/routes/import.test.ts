@@ -58,7 +58,7 @@ describe('POST /api/import/preview', () => {
     })
     expect(res.status).toBe(422)
     const body = await res.json()
-    expect(body.error).toMatch(/no saved parser/i)
+    expect(body.error).toBe('NO_PARSER_MATCHED')
   })
 
   it('parses the CSV using the matching saved parser', async () => {
@@ -795,7 +795,10 @@ describe('POST /api/import/commit', () => {
     })
 
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toContain('feeAccountId')
+    expect(await res.json()).toEqual({
+      error: 'IMPORT_ROW_MISSING_ACCOUNT',
+      detail: { rowKind: 'cross-currency-spend', field: 'feeAccountId' },
+    })
   })
 })
 

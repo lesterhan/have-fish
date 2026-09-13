@@ -161,7 +161,7 @@ describe('cross-currency spend healing', () => {
       method: 'POST', headers: { Cookie: cookie },
     })
     expect(healRes.status).toBe(400)
-    expect((await healRes.json()).error).toMatch(/conversion account/i)
+    expect((await healRes.json()).error).toBe('CONVERSION_ACCOUNT_REQUIRED')
   })
 
   it('surfaces malformed spends in the per-account attention indicators', async () => {

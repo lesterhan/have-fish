@@ -51,6 +51,13 @@ jobs:
         working-directory: backend
         run: bun test
 
+      # `bun test` strips types rather than checking them, so nothing in this job would
+      # notice a type error until the dev server crashed. It matters for `src/errors.ts`,
+      # whose whole point is that `fail(c, code, detail)` types the detail per code.
+      - name: Type check
+        working-directory: backend
+        run: bun run check
+
   frontend:
     runs-on: ubuntu-latest
 
