@@ -4,6 +4,7 @@ import { userSettings, accounts } from '../db/schema'
 import { eq, and, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -57,7 +58,7 @@ app.patch('/', async (c) => {
     }
 
     if (typeof value !== 'string') {
-      return c.json({ error: `${field} must be a UUID string or null` }, 400)
+      return fail(c, 'FIELD_NOT_UUID', { field })
     }
 
     // Verify the account exists and belongs to this user
@@ -66,7 +67,7 @@ app.patch('/', async (c) => {
       .from(accounts)
       .where(and(eq(accounts.id, value), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
 
-    if (!account) return c.json({ error: `account not found: ${field}` }, 400)
+    if (!account) return fail(c, 'SETTING_ACCOUNT_NOT_FOUND', { field })
 
     patch[field] = value
   }
@@ -76,7 +77,7 @@ app.patch('/', async (c) => {
     if (!(field in body)) continue
     const value = body[field]
     if (typeof value !== 'string' || !value.trim()) {
-      return c.json({ error: `${field} must be a non-empty string` }, 400)
+      return fail(c, 'FIELD_EMPTY', { field })
     }
     patch[field] = value.trim()
   }
@@ -85,10 +86,10 @@ app.patch('/', async (c) => {
   if ('preferredCurrency' in body) {
     const value = body.preferredCurrency
     if (typeof value !== 'string' || !value.trim()) {
-      return c.json({ error: 'preferredCurrency must be a non-empty string' }, 400)
+      return fail(c, 'FIELD_EMPTY', { field: 'preferredCurrency' })
     }
     if (!isValidCurrency(value)) {
-      return c.json({ error: `Unsupported currency: ${value}` }, 400)
+      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: value })
     }
     patch.preferredCurrency = value.trim().toUpperCase()
   }
@@ -98,13 +99,13 @@ app.patch('/', async (c) => {
   let preferencePatch: ReturnType<typeof sql> | undefined
   if ('preferences' in body) {
     if (typeof body.preferences !== 'object' || body.preferences === null || Array.isArray(body.preferences)) {
-      return c.json({ error: 'preferences must be a JSON object' }, 400)
+      return fail(c, 'FIELD_NOT_OBJECT', { field: 'preferences' })
     }
     preferencePatch = sql`COALESCE(${userSettings.preferences}, '{}') || ${JSON.stringify(body.preferences)}::jsonb`
   }
 
   if (Object.keys(patch).length === 0 && !preferencePatch) {
-    return c.json({ error: 'no valid fields to update' }, 400)
+    return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
   // Upsert: create the row if it doesn't exist, otherwise update it

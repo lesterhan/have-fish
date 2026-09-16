@@ -1030,7 +1030,7 @@ describe('fish-pie Story 3 — paymentAccountId required, 3-posting payer tx, de
     })
     expect(res.status).toBe(400)
     const body = await res.json() as any
-    expect(body.error).toMatch(/paymentAccountId/)
+    expect(body).toEqual({ error: 'FIELD_REQUIRED', detail: { field: 'paymentAccountId' } })
   })
 
   it('POST returns 400 when paymentAccountId belongs to another user', async () => {

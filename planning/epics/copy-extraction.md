@@ -1,5 +1,8 @@
 # Copy Extraction
 
+**Tracked as [#350](https://github.com/lesterhan/have-fish/issues/350)**, one sub-issue per
+story below.
+
 Move every user-facing string out of the components and into copy modules, so copy can be
 edited in one place by reading it as prose rather than by hunting it across 31k lines of
 Svelte — and so that localisation, if it ever happens, is a build step rather than an
@@ -171,6 +174,11 @@ real count lands after story 1). Route tests assert on codes, which makes them s
 on copy edits. This story is a prerequisite for mobile, which currently renders whatever the
 API says.
 
+The real count was **294** rather than 269 — the grep that produced the original figure only
+matched single-quoted literals and missed every double-quoted and templated one. The frontend
+half was far smaller than the 335 feared: `api.ts` is the one chokepoint and holds 66 of the
+68 sites. Done; findings below.
+
 **9. Mobile.** ~98 strings in `mobile/app` and `mobile/components`. Same module shape,
 same conventions. Whether the two copy directories get physically shared or stay duplicated
 is deferred to this story — sharing means a workspace package, and that is a build-system
@@ -215,6 +223,39 @@ meaning, not the wording.
 on the [Accounts] page to keep them here." A sentence split into before-link and after-link
 halves is the shape this epic exists to remove, so it now ends with the link instead. This
 is the only rendered change in the story that is not a fixed inconsistency.
+
+## What the backend error codes turned up
+
+**One idea, four spellings, and nobody could see it.** `No valid fields to update`, `no valid
+fields to update`, `no fields to update`, `at least one field is required`, `No updatable
+fields provided` and `At least one of accountId, amount, or currency is required` are one
+failure written six times. 294 literals collapsed to 92 codes, and most of the collapse is
+that shape rather than anything clever.
+
+**`not found` meant six different things.** Thirty-five Fish Pie routes answered `not found`
+for a missing group, category, expense, settlement, invitation, or the caller's own user row.
+Reading them as one code made that obvious in a way reading thirty-five route files had not;
+they are now six codes and six sentences. `forbidden` was the same story — eight routes, five
+genuinely different rules about who may act, all of them rendered to the reader as one shrug.
+
+**A status disagreed with itself.** `category not found in that group` answered 404 in
+`rules.ts` and 400 in `fish-pie-expenses.ts` and `import.ts`. One failure gets one status now,
+and the registry is where that is decided rather than at 294 call sites. The one deliberate
+behaviour change in the story is `rules.ts` moving to 400 to match the other two.
+
+**The backend was telling the reader where to click.** `No saved parser matched this CSV.
+Create one in Settings → Import Parsers.` — a route handler that knows Settings has an Import
+Parsers tab. The sentence now lives in `copy/errors.ts` and the route says `NO_PARSER_MATCHED`.
+
+**The plural splice had survived in the backend**, because story 2's repo-wide ban only scans
+`frontend/src`. `this account has ${entries} ${entries === 1 ? 'entry' : 'entries'}` was the
+last one; it is now `ACCOUNT_HAS_ENTRIES` with a count, and both readings are prose in the
+copy file.
+
+**Mobile needed a stopgap.** It renders `body.error` straight into a `<Text>` in eight places,
+so shipping codes without it would have put `ACCOUNT_NOT_FOUND` in front of the reader on the
+app that gets used while travelling. `mobile/lib/errors.ts` unshouts a code into a plain
+sentence until story 9 gives mobile the real catalog.
 
 ## Appendix: plural splice sites
 

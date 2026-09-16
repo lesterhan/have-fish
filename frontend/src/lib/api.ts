@@ -1,4 +1,5 @@
 import { bumpCoverage } from './coverageRefresh'
+import { errorMessage } from './copy/errors'
 import type { AccountCoverageStatus, CoverageState } from './coverage'
 import type { MonthCoverage } from './monthCoverage'
 
@@ -12,6 +13,22 @@ export type {
 // All /api/* requests are proxied by the SvelteKit server to the backend.
 // Empty base means same-origin, which works in both dev and production.
 const BASE = ''
+
+/**
+ * The error to throw for a failed response.
+ *
+ * The API answers a failure with a code — `{ error: 'ACCOUNT_NOT_FOUND' }` — and
+ * `copy/errors.ts` owns the sentence for it. Every failure in this file goes through here so
+ * that mapping happens once; before this, thirty call sites read `body.error` and rendered
+ * whatever the route had written, and the other thirty ignored the server entirely.
+ *
+ * `fallback` is what the reader sees when there is no code to look up: a proxy timing out,
+ * an unhandled 500, an HTML error page. Reading the body is allowed to fail for the same
+ * reason.
+ */
+async function apiError(res: Response, fallback: string): Promise<Error> {
+  return new Error(errorMessage(await res.json().catch(() => null), fallback))
+}
 
 // The five types path inference can produce.
 export type AccountType =
@@ -50,7 +67,7 @@ export async function fetchAccount(id: string): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error(`Account not found: ${id}`)
+  if (!res.ok) throw await apiError(res, `Account not found: ${id}`)
   return res.json()
 }
 
@@ -68,14 +85,14 @@ export async function updateAccount(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   })
-  if (!res.ok) throw new Error('Failed to update account')
+  if (!res.ok) throw await apiError(res, 'Failed to update account')
   return res.json()
 }
 
 // Rewrites an account path prefix `from` → `to`, cascading to every descendant. A leaf
 // rename is `from`/`to` being full leaf paths; a parent/category rename rewrites the
-// shared prefix across all accounts under it. Throws with the server message on 409
-// (collision → that's a merge) or 400 (invalid / receivable).
+// shared prefix across all accounts under it. Throws the sentence for the server's code on
+// 409 (collision → that's a merge) or 400 (invalid / receivable).
 export async function renameAccount(
   from: string,
   to: string,
@@ -87,8 +104,7 @@ export async function renameAccount(
     body: JSON.stringify({ from, to }),
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? 'Failed to rename account')
+    throw await apiError(res, 'Failed to rename account')
   }
   return res.json()
 }
@@ -114,14 +130,13 @@ export async function createAccount(body: {
   // A rejected create used to be returned as `{ error }` and used as an account, which meant
   // the caller silently committed an undefined id. Throw so the surface can say what happened.
   if (!res.ok) {
-    const problem = await res.json().catch(() => ({}))
-    throw new Error(problem.error ?? 'Failed to create account')
+    throw await apiError(res, 'Failed to create account')
   }
   return res.json()
 }
 
 // Refused (409) when the account still has entries, fills a default role, or is one Fish Pie
-// manages — see the DELETE handler. The message is written for display.
+// manages — see the DELETE handler. The code it sends becomes a sentence in copy/errors.ts.
 export async function deleteAccount(id: string) {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     method: 'DELETE',
@@ -129,8 +144,7 @@ export async function deleteAccount(id: string) {
     headers: { 'Content-Type': 'application/json' },
   })
   if (!res.ok) {
-    const problem = await res.json().catch(() => ({}))
-    throw new Error(problem.error ?? 'Failed to delete account')
+    throw await apiError(res, 'Failed to delete account')
   }
 }
 
@@ -315,8 +329,7 @@ export async function importPreview(
     body: form,
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? 'Failed to parse CSV.')
+    throw await apiError(res, 'Failed to parse CSV.')
   }
   return res.json()
 }
@@ -330,7 +343,7 @@ export async function checkDuplicates(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows }),
   })
-  if (!res.ok) throw new Error('Failed to check for duplicates.')
+  if (!res.ok) throw await apiError(res, 'Failed to check for duplicates.')
   const data = await res.json()
   return data.duplicates
 }
@@ -370,8 +383,7 @@ export async function exportJournal(
     credentials: 'include',
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? 'Failed to export journal.')
+    throw await apiError(res, 'Failed to export journal.')
   }
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
@@ -454,7 +466,7 @@ export async function createParser(body: {
     body: JSON.stringify(body),
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create parser')
+    throw await apiError(res, 'Failed to create parser')
   return res.json()
 }
 
@@ -529,8 +541,7 @@ export async function updateUserSettings(
   // Unchecked, a failure here parsed the error body as settings and wrote it into the
   // store — so a control backed by this endpoint could only ever report success.
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? 'Failed to save settings')
+    throw await apiError(res, 'Failed to save settings')
   }
   // Hiding an account, flagging it illiquid, or pinning coverage config all land here, and
   // the first two remove it as a contributor outright. Bumping on every settings save is
@@ -582,9 +593,7 @@ export async function fetchAccountBalanceAtDate(
     { credentials: 'include' },
   )
   if (!res.ok)
-    throw new Error(
-      (await res.json()).error ?? 'Failed to fetch account balance',
-    )
+    throw await apiError(res, 'Failed to fetch account balance')
   return res.json()
 }
 
@@ -594,7 +603,7 @@ export async function deleteTransaction(id: string): Promise<void> {
     credentials: 'include',
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to delete transaction')
+    throw await apiError(res, 'Failed to delete transaction')
 }
 
 export async function patchTransaction(
@@ -608,7 +617,7 @@ export async function patchTransaction(
     body: JSON.stringify(updates),
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to update transaction')
+    throw await apiError(res, 'Failed to update transaction')
   return res.json()
 }
 
@@ -623,7 +632,7 @@ export async function patchPosting(
     body: JSON.stringify(updates),
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to update posting')
+    throw await apiError(res, 'Failed to update posting')
   return res.json()
 }
 
@@ -655,9 +664,7 @@ export async function fetchMalformedFxSpends(): Promise<{
     credentials: 'include',
   })
   if (!res.ok)
-    throw new Error(
-      (await res.json()).error ?? 'Failed to load malformed transactions',
-    )
+    throw await apiError(res, 'Failed to load malformed transactions')
   return res.json()
 }
 
@@ -670,7 +677,7 @@ export async function healFxSpend(
     credentials: 'include',
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to repair transaction')
+    throw await apiError(res, 'Failed to repair transaction')
   return res.json()
 }
 
@@ -747,7 +754,7 @@ export async function createPosting(body: {
     body: JSON.stringify(body),
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create posting')
+    throw await apiError(res, 'Failed to create posting')
   return (await res.json()) as {
     id: string
     accountId: string
@@ -762,7 +769,7 @@ export async function deletePosting(id: string) {
     credentials: 'include',
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to delete posting')
+    throw await apiError(res, 'Failed to delete posting')
 }
 
 // A posting's role within its transaction, derived by the backend classifier
@@ -802,7 +809,7 @@ export async function createTransaction(body: {
     body: JSON.stringify(body),
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create transaction')
+    throw await apiError(res, 'Failed to create transaction')
   // A transaction landing inside an open gap is the revival rule: it pulls a dormant account
   // back into the reckoning, which changes what every rollup's as-of is computed over.
   bumpCoverage()
@@ -823,7 +830,7 @@ export async function createTransactionsBulk(
     body: JSON.stringify({ transactions: txns }),
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create transactions')
+    throw await apiError(res, 'Failed to create transactions')
   bumpCoverage()
   return res.json()
 }
@@ -842,7 +849,7 @@ export async function replacePostings(
     },
   )
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to update postings')
+    throw await apiError(res, 'Failed to update postings')
   return res.json()
 }
 
@@ -918,7 +925,7 @@ export async function createRule(
     body: JSON.stringify(body),
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create rule')
+    throw await apiError(res, 'Failed to create rule')
   return res.json()
 }
 
@@ -933,7 +940,7 @@ export async function updateRule(
     body: JSON.stringify(body),
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to update rule')
+    throw await apiError(res, 'Failed to update rule')
   return res.json()
 }
 
@@ -950,7 +957,7 @@ export async function approveRule(id: string): Promise<ImportRule> {
     credentials: 'include',
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to approve rule')
+    throw await apiError(res, 'Failed to approve rule')
   return res.json()
 }
 
@@ -960,7 +967,7 @@ export async function denyRule(id: string): Promise<ImportRule> {
     credentials: 'include',
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to deny rule')
+    throw await apiError(res, 'Failed to deny rule')
   return res.json()
 }
 
@@ -970,7 +977,7 @@ export async function reviveRule(id: string): Promise<ImportRule> {
     credentials: 'include',
   })
   if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to revive rule')
+    throw await apiError(res, 'Failed to revive rule')
   return res.json()
 }
 
@@ -1059,7 +1066,7 @@ export async function fetchGroups(): Promise<ExpenseGroup[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch groups')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch groups')
   return res.json()
 }
 
@@ -1067,7 +1074,7 @@ export async function fetchGroup(id: string): Promise<ExpenseGroup> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Group not found')
+  if (!res.ok) throw await apiError(res, 'Group not found')
   return res.json()
 }
 
@@ -1078,7 +1085,7 @@ export async function createGroup(name: string): Promise<ExpenseGroup> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
-  if (!res.ok) throw new Error('Failed to create group')
+  if (!res.ok) throw await apiError(res, 'Failed to create group')
   return res.json()
 }
 
@@ -1092,7 +1099,7 @@ export async function updateGroup(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error('Failed to update group')
+  if (!res.ok) throw await apiError(res, 'Failed to update group')
   return res.json()
 }
 
@@ -1110,7 +1117,7 @@ export async function updateMemberWeight(
       body: JSON.stringify({ shareWeight }),
     },
   )
-  if (!res.ok) throw new Error('Failed to update share weight')
+  if (!res.ok) throw await apiError(res, 'Failed to update share weight')
   return res.json()
 }
 
@@ -1124,7 +1131,7 @@ export async function updateMyExpenseAccount(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ defaultExpenseAccountId }),
   })
-  if (!res.ok) throw new Error('Failed to update expense account')
+  if (!res.ok) throw await apiError(res, 'Failed to update expense account')
   return res.json()
 }
 
@@ -1133,7 +1140,7 @@ export async function deleteGroup(id: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to delete group')
+  if (!res.ok) throw await apiError(res, 'Failed to delete group')
 }
 
 // --- Fish-pie group categories (epic: fish-pie-categories) ---
@@ -1144,7 +1151,7 @@ export async function fetchGroupCategories(
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch categories')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch categories')
   return res.json()
 }
 
@@ -1158,7 +1165,7 @@ export async function createGroupCategory(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
-  if (!res.ok) throw new Error('Failed to create category')
+  if (!res.ok) throw await apiError(res, 'Failed to create category')
   return res.json()
 }
 
@@ -1176,7 +1183,7 @@ export async function updateGroupCategory(
       body: JSON.stringify(data),
     },
   )
-  if (!res.ok) throw new Error('Failed to update category')
+  if (!res.ok) throw await apiError(res, 'Failed to update category')
   return res.json()
 }
 
@@ -1195,7 +1202,7 @@ export async function setCategoryMyMapping(
       body: JSON.stringify({ accountId }),
     },
   )
-  if (!res.ok) throw new Error('Failed to set category account')
+  if (!res.ok) throw await apiError(res, 'Failed to set category account')
   return res.json()
 }
 
@@ -1215,7 +1222,7 @@ export async function setCategoryWeights(
       body: JSON.stringify({ weights }),
     },
   )
-  if (!res.ok) throw new Error('Failed to set category weights')
+  if (!res.ok) throw await apiError(res, 'Failed to set category weights')
   return res.json()
 }
 
@@ -1237,7 +1244,7 @@ export async function fetchGroupInvites(
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch invites')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch invites')
   return res.json()
 }
 
@@ -1252,8 +1259,7 @@ export async function sendInvite(
     body: JSON.stringify({ email }),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to send invite')
+    throw await apiError(res, 'Failed to send invite')
   }
   return res.json()
 }
@@ -1269,14 +1275,14 @@ export async function cancelInvite(
       credentials: 'include',
     },
   )
-  if (!res.ok) throw new Error('Failed to cancel invite')
+  if (!res.ok) throw await apiError(res, 'Failed to cancel invite')
 }
 
 export async function fetchMyInvites(): Promise<GroupInvite[]> {
   const res = await fetch(`${BASE}/api/fish-pie/invites`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch invites')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch invites')
   return res.json()
 }
 
@@ -1285,7 +1291,7 @@ export async function acceptInvite(inviteId: string): Promise<GroupInvite> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to accept invite')
+  if (!res.ok) throw await apiError(res, 'Failed to accept invite')
   return res.json()
 }
 
@@ -1294,7 +1300,7 @@ export async function declineInvite(inviteId: string): Promise<GroupInvite> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to decline invite')
+  if (!res.ok) throw await apiError(res, 'Failed to decline invite')
   return res.json()
 }
 
@@ -1328,7 +1334,7 @@ export async function fetchExpenses(groupId: string): Promise<GroupExpense[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch expenses')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch expenses')
   return res.json()
 }
 
@@ -1342,7 +1348,7 @@ export async function updateMyPaymentAccount(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ defaultPaymentAccountId }),
   })
-  if (!res.ok) throw new Error('Failed to update payment account')
+  if (!res.ok) throw await apiError(res, 'Failed to update payment account')
   return res.json()
 }
 
@@ -1365,8 +1371,7 @@ export async function createExpense(
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create expense')
+    throw await apiError(res, 'Failed to create expense')
   }
   return res.json()
 }
@@ -1394,8 +1399,7 @@ export async function updateExpense(
     },
   )
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to update expense')
+    throw await apiError(res, 'Failed to update expense')
   }
   return res.json()
 }
@@ -1411,7 +1415,7 @@ export async function deleteExpense(
       credentials: 'include',
     },
   )
-  if (!res.ok) throw new Error('Failed to delete expense')
+  if (!res.ok) throw await apiError(res, 'Failed to delete expense')
 }
 
 export async function removeGroupExpense(expenseId: string): Promise<void> {
@@ -1419,7 +1423,7 @@ export async function removeGroupExpense(expenseId: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to remove from group')
+  if (!res.ok) throw await apiError(res, 'Failed to remove from group')
 }
 
 export type BalanceTransfer = {
@@ -1443,7 +1447,7 @@ export async function fetchBalances(
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/balances`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch balances')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch balances')
   return res.json()
 }
 
@@ -1464,7 +1468,7 @@ export async function fetchGroupOverview(
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/overview`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to load group')
+  if (!res.ok) throw await apiError(res, 'Failed to load group')
   return res.json()
 }
 
@@ -1499,7 +1503,7 @@ export async function fetchSettlements(
     `${BASE}/api/fish-pie/groups/${groupId}/settlements`,
     { credentials: 'include' },
   )
-  if (!res.ok) throw new Error('Failed to fetch settlements')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch settlements')
   return res.json()
 }
 
@@ -1525,8 +1529,7 @@ export async function createSettlement(
     },
   )
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create settlement')
+    throw await apiError(res, 'Failed to create settlement')
   }
   return res.json()
 }
@@ -1546,8 +1549,7 @@ export async function confirmSettlement(
     },
   )
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+    throw await apiError(res, 'Failed to confirm settlement')
   }
   return res.json()
 }
@@ -1563,7 +1565,7 @@ export async function deleteSettlement(
       credentials: 'include',
     },
   )
-  if (!res.ok) throw new Error('Failed to delete settlement')
+  if (!res.ok) throw await apiError(res, 'Failed to delete settlement')
 }
 
 // One debt being settled. Native lines repeat the debt currency/amount in the
@@ -1596,8 +1598,7 @@ export async function createSettlementBatch(
     },
   )
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create settlement')
+    throw await apiError(res, 'Failed to create settlement')
   }
   return res.json()
 }
@@ -1617,8 +1618,7 @@ export async function confirmSettlementBatch(
     },
   )
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+    throw await apiError(res, 'Failed to confirm settlement')
   }
   return res.json()
 }
@@ -1686,7 +1686,7 @@ export type CatchUpPayload = {
 
 export async function fetchCatchUp(): Promise<CatchUpPayload> {
   const res = await fetch(`${BASE}/api/catch-up`, { credentials: 'include' })
-  if (!res.ok) throw new Error('Failed to load catch-up status')
+  if (!res.ok) throw await apiError(res, 'Failed to load catch-up status')
   return res.json()
 }
 
@@ -1707,7 +1707,7 @@ export async function fetchCoverageStatus(): Promise<CoverageStatusPayload> {
   const res = await fetch(`${BASE}/api/coverage/accounts`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to load account coverage')
+  if (!res.ok) throw await apiError(res, 'Failed to load account coverage')
   return res.json()
 }
 
@@ -1734,7 +1734,7 @@ export async function fetchMonthCoverage(
     `${BASE}/api/coverage/months?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
     { credentials: 'include' },
   )
-  if (!res.ok) throw new Error('Failed to load month coverage')
+  if (!res.ok) throw await apiError(res, 'Failed to load month coverage')
   return res.json()
 }
 
@@ -1778,7 +1778,7 @@ export async function fetchAccountCoverage(
     `${BASE}/api/accounts/${accountId}/coverage${query}`,
     { credentials: 'include' },
   )
-  if (!res.ok) throw new Error('Failed to load coverage')
+  if (!res.ok) throw await apiError(res, 'Failed to load coverage')
   return res.json()
 }
 
@@ -1796,8 +1796,7 @@ export async function createCoverage(body: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to record coverage')
+    throw await apiError(res, 'Failed to record coverage')
   }
   // Here rather than at the call site: the status bar reports coverage on every screen, and
   // the writes are spread across the import flow, the catch-up hub and the reconcile modal.
@@ -1810,7 +1809,7 @@ export async function deleteCoverage(id: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to withdraw coverage')
+  if (!res.ok) throw await apiError(res, 'Failed to withdraw coverage')
   bumpCoverage()
 }
 
@@ -1838,8 +1837,7 @@ export async function updateCoverageConfig(
     body: JSON.stringify(patch),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to update coverage config')
+    throw await apiError(res, 'Failed to update coverage config')
   }
   // `tracked: false` removes the account as a contributor outright, which moves every as-of
   // computed over it.
@@ -1864,8 +1862,7 @@ export async function recordReconcileCoverage(
     body: JSON.stringify({ accountId, throughDate }),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to record coverage')
+    throw await apiError(res, 'Failed to record coverage')
   }
   bumpCoverage()
   return res.json()

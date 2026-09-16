@@ -8,6 +8,7 @@
   import WizardStepParserMultiCurrency from './WizardStepParserMultiCurrency.svelte'
   import WizardStepConfirm from './WizardStepConfirm.svelte'
   import { settingsStore } from '$lib/settings.svelte'
+  import { errorMessage } from '$lib/copy/errors'
 
   interface Props {
     type: 'asset' | 'liability' | 'equity'
@@ -232,7 +233,7 @@
       })
       if (!accountRes.ok) {
         const err = await accountRes.json().catch(() => ({}))
-        throw new Error(err.error ?? 'Failed to create account.')
+        throw new Error(errorMessage(err, 'Failed to create account.'))
       }
       const account = await accountRes.json()
 
@@ -263,7 +264,7 @@
         if (!txRes.ok) {
           const err = await txRes.json().catch(() => ({}))
           throw new Error(
-            err.error ?? 'Account created but failed to post starting balance.',
+            errorMessage(err, 'Account created but failed to post starting balance.'),
           )
         }
       }
@@ -302,7 +303,7 @@
         if (!parserRes.ok) {
           const err = await parserRes.json().catch(() => ({}))
           throw new Error(
-            err.error ?? 'Account created but failed to save parser.',
+            errorMessage(err, 'Account created but failed to save parser.'),
           )
         }
       }

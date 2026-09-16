@@ -4,6 +4,7 @@ import { fxRates } from '../db/schema'
 import { and, eq } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -79,16 +80,16 @@ app.get('/as-of', async (c) => {
   const { from, to } = c.req.query()
 
   if (!from || !to) {
-    return c.json({ error: 'from and to are required' }, 400)
+    return fail(c, 'FIELDS_REQUIRED', { fields: ['from', 'to'] })
   }
 
   if (!isValidCurrency(from) || !isValidCurrency(to)) {
-    return c.json({ error: 'Unsupported currency' }, 400)
+    return fail(c, 'UNSUPPORTED_CURRENCY', { currency: isValidCurrency(from) ? to : from })
   }
 
   const result = await getRateAsOf(from, to)
   if (result === null) {
-    return c.json({ error: 'rate unavailable' }, 404)
+    return fail(c, 'FX_RATE_UNAVAILABLE')
   }
 
   return c.json({ from, to, ...result })
@@ -102,16 +103,16 @@ app.get('/', async (c) => {
   const { date, from, to } = c.req.query()
 
   if (!date || !from || !to) {
-    return c.json({ error: 'date, from, and to are required' }, 400)
+    return fail(c, 'FIELDS_REQUIRED', { fields: ['date', 'from', 'to'] })
   }
 
   if (!isValidCurrency(from) || !isValidCurrency(to)) {
-    return c.json({ error: 'Unsupported currency' }, 400)
+    return fail(c, 'UNSUPPORTED_CURRENCY', { currency: isValidCurrency(from) ? to : from })
   }
 
   const rate = await getOrFetchRate(date, from, to)
   if (rate === null) {
-    return c.json({ error: 'rate unavailable for this date' }, 404)
+    return fail(c, 'FX_RATE_UNAVAILABLE_FOR_DATE')
   }
 
   return c.json({ date, from, to, rate })

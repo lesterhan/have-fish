@@ -168,6 +168,15 @@ Four rules, and the first is the one that matters:
 - **One file per surface**, added by the story that converts it, and added to `CONVERTED`
   in the same PR.
 
+**The backend writes no sentences.** A route answers a failed request with a code and the
+values that vary — `fail(c, 'FIELD_REQUIRED', { field: 'name' })` sends
+`{ error: 'FIELD_REQUIRED', detail: { field: 'name' } }` — and `copy/errors.ts` owns the
+words. Add a failure by adding the code and its status to `backend/src/errors.ts` and the
+sentence to `frontend/src/lib/copy/errors.ts`; the status lives in the registry so one
+failure cannot answer 400 in one route and 404 in another. Two tests hold it: a written-out
+`error: '…'` anywhere under `backend/src` fails `errors.test.ts`, and a code with no sentence
+(or a sentence with no code) fails `copy/errors.test.ts`.
+
 No i18n library, no `en/` folder implying a sibling — a typed object is the whole design.
 
 ## Work Tracking

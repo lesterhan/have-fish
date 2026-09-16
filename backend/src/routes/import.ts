@@ -10,6 +10,7 @@ import { buildRegularPostings, buildFishPiePostings, buildFishPieCrossCurrencyPo
 import { createGroupExpenseInTx, fetchGroupWithMembers, resolvePayerImportContext } from '../fish-pie-expense-service'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 import { merchantKey } from '../import/merchant'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -29,8 +30,8 @@ app.post('/preview', async (c) => {
   const file = form.get('file')
   const defaultCurrency = form.get('defaultCurrency')
 
-  if (!file || typeof file === 'string') return c.json({ error: 'file is required' }, 400)
-  if (!defaultCurrency || typeof defaultCurrency !== 'string') return c.json({ error: 'defaultCurrency is required' }, 400)
+  if (!file || typeof file === 'string') return fail(c, 'FIELD_REQUIRED', { field: 'file' })
+  if (!defaultCurrency || typeof defaultCurrency !== 'string') return fail(c, 'FIELD_REQUIRED', { field: 'defaultCurrency' })
 
   const csv = await file.text()
 
@@ -56,13 +57,10 @@ app.post('/preview', async (c) => {
     if (matched) break
   }
 
-  if (rows.length === 0) return c.json({ error: 'CSV is empty or has no data rows' }, 422)
+  if (rows.length === 0) return fail(c, 'CSV_EMPTY')
 
   if (!matched) {
-    return c.json(
-      { error: 'No saved parser matched this CSV. Create one in Settings → Import Parsers.' },
-      422,
-    )
+    return fail(c, 'NO_PARSER_MATCHED')
   }
 
   const parse = buildParser(matched.columnMapping as ColumnMapping)
@@ -317,8 +315,8 @@ app.post('/commit', async (c) => {
   const body = await c.req.json()
   const { accountId, defaultCurrency, transactions: parsed, groupSplits } = body
 
-  if (!defaultCurrency || typeof defaultCurrency !== 'string') return c.json({ error: 'defaultCurrency is required' }, 400)
-  if (!Array.isArray(parsed) || parsed.length === 0) return c.json({ error: 'transactions must be a non-empty array' }, 400)
+  if (!defaultCurrency || typeof defaultCurrency !== 'string') return fail(c, 'FIELD_REQUIRED', { field: 'defaultCurrency' })
+  if (!Array.isArray(parsed) || parsed.length === 0) return fail(c, 'FIELD_EMPTY', { field: 'transactions' })
 
   // Validate groupSplits and verify membership up front (fail fast before any DB writes)
   type GroupSplit = { rowIndex: number; groupId: string; categoryId?: string | null }
@@ -326,16 +324,16 @@ app.post('/commit', async (c) => {
   const groupCache = new Map<string, Awaited<ReturnType<typeof fetchGroupWithMembers>>>()
   for (const split of splits) {
     if (typeof split.rowIndex !== 'number' || typeof split.groupId !== 'string') {
-      return c.json({ error: 'groupSplits entries must have rowIndex and groupId' }, 400)
+      return fail(c, 'GROUP_SPLIT_MALFORMED')
     }
     if (split.rowIndex < 0 || split.rowIndex >= parsed.length) {
-      return c.json({ error: `groupSplits rowIndex ${split.rowIndex} out of range` }, 400)
+      return fail(c, 'GROUP_SPLIT_ROW_OUT_OF_RANGE', { rowIndex: split.rowIndex })
     }
     if (!groupCache.has(split.groupId)) {
       const result = await fetchGroupWithMembers(split.groupId)
-      if (!result) return c.json({ error: `group ${split.groupId} not found` }, 404)
+      if (!result) return fail(c, 'GROUP_NOT_FOUND', { groupId: split.groupId })
       if (!result.members.some((m) => m.userId === userId)) {
-        return c.json({ error: `not a member of group ${split.groupId}` }, 403)
+        return fail(c, 'NOT_A_GROUP_MEMBER', { groupId: split.groupId })
       }
       groupCache.set(split.groupId, result)
     }
@@ -346,8 +344,8 @@ app.post('/commit', async (c) => {
         .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
         .from(groupCategories)
         .where(and(eq(groupCategories.id, split.categoryId), eq(groupCategories.groupId, split.groupId)))
-      if (!cat) return c.json({ error: `category ${split.categoryId} not found in group ${split.groupId}` }, 400)
-      if (cat.archivedAt) return c.json({ error: `category ${split.categoryId} is archived` }, 400)
+      if (!cat) return fail(c, 'CATEGORY_NOT_IN_GROUP', { categoryId: split.categoryId, groupId: split.groupId })
+      if (cat.archivedAt) return fail(c, 'CATEGORY_ARCHIVED', { categoryId: split.categoryId })
     }
   }
   const splitByRowIndex = new Map(splits.map((s) => [s.rowIndex, s]))
@@ -355,26 +353,26 @@ app.post('/commit', async (c) => {
   // Per-row validation — requirements differ by row type
   for (const [rowIdx, t] of (parsed as Record<string, unknown>[]).entries()) {
     if (t.isTransfer === 'cross-currency-spend') {
-      if (!t.sourceAccountId) return c.json({ error: 'cross-currency-spend rows must include sourceAccountId' }, 400)
-      if (!t.expenseAccountId) return c.json({ error: 'cross-currency-spend rows must include expenseAccountId' }, 400)
-      if (!t.conversionAccountId) return c.json({ error: 'cross-currency-spend rows must include conversionAccountId' }, 400)
-      if (t.feeAmount && !t.feeAccountId) return c.json({ error: 'cross-currency-spend rows with a fee must include feeAccountId' }, 400)
+      if (!t.sourceAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'cross-currency-spend', field: 'sourceAccountId' })
+      if (!t.expenseAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'cross-currency-spend', field: 'expenseAccountId' })
+      if (!t.conversionAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'cross-currency-spend', field: 'conversionAccountId' })
+      if (t.feeAmount && !t.feeAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'cross-currency-spend', field: 'feeAccountId' })
     } else if (t.isTransfer === true) {
-      if (!t.sourceAccountId) return c.json({ error: 'transfer rows must include sourceAccountId' }, 400)
+      if (!t.sourceAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'sourceAccountId' })
       // A Fish Pie split routes through buildFishPieCrossCurrencyPostings, which splits the
       // target leg into the group + payer-expense accounts and never uses targetAccountId —
       // so a shared cross-currency spend has no target asset to require.
-      if (!t.targetAccountId && !splitByRowIndex.has(rowIdx)) return c.json({ error: 'transfer rows must include targetAccountId' }, 400)
-      if (!t.conversionAccountId) return c.json({ error: 'transfer rows must include conversionAccountId' }, 400)
-      if (!t.feeAccountId) return c.json({ error: 'transfer rows must include feeAccountId' }, 400)
+      if (!t.targetAccountId && !splitByRowIndex.has(rowIdx)) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'targetAccountId' })
+      if (!t.conversionAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'conversionAccountId' })
+      if (!t.feeAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'feeAccountId' })
     } else if (t.isTransfer === 'same-currency') {
-      if (!t.targetAccountId) return c.json({ error: 'same-currency transfer rows must include targetAccountId' }, 400)
-      if (!t.sourceAccountId) return c.json({ error: 'same-currency transfer rows must include sourceAccountId' }, 400)
-      if (!t.feeAccountId) return c.json({ error: 'same-currency transfer rows must include feeAccountId' }, 400)
+      if (!t.targetAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'same-currency-transfer', field: 'targetAccountId' })
+      if (!t.sourceAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'same-currency-transfer', field: 'sourceAccountId' })
+      if (!t.feeAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'same-currency-transfer', field: 'feeAccountId' })
     } else {
       // Fish Pie rows don't need offsetAccountId — the backend derives it from ensureSharedAccount
-      if (!t.offsetAccountId && !splitByRowIndex.has(rowIdx)) return c.json({ error: 'regular rows must include offsetAccountId' }, 400)
-      if (!t.sourceAccountId && !accountId) return c.json({ error: 'regular rows require sourceAccountId or a global accountId' }, 400)
+      if (!t.offsetAccountId && !splitByRowIndex.has(rowIdx)) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'regular', field: 'offsetAccountId' })
+      if (!t.sourceAccountId && !accountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'regular', field: 'sourceAccountId' })
     }
   }
 
