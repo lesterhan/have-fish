@@ -1,5 +1,6 @@
 <script lang="ts">
   import { tick } from 'svelte'
+  import { copy } from '$lib/copy'
   import { createAccount, type Account } from '$lib/api'
   import { toast } from '$lib/toast.svelte'
   import { rank } from './accountScorer'
@@ -27,7 +28,7 @@
   let {
     accounts,
     value = $bindable(''),
-    placeholder = 'Pick an account…',
+    placeholder = copy.accounts.picker.placeholder,
     searchOnly = false,
     allowCreate = true,
     oncreate,
@@ -230,7 +231,7 @@
       } catch (e) {
         // A refused create used to leave `value` undefined and the box looking committed.
         toast.show(
-          e instanceof Error ? e.message : 'Could not create that account',
+          e instanceof Error ? e.message : copy.accounts.pathInput.createFailed,
         )
       } finally {
         creating = false
@@ -380,11 +381,11 @@
         disabled={creating}
         spellcheck="false"
         autocomplete="off"
-        aria-label="Search accounts"
+        aria-label={copy.accounts.picker.search}
         onkeydown={onSearchKeydown}
         oninput={() => (sActive = 0)}
       />
-      <span class="rhint"><kbd>esc</kbd></span>
+      <span class="rhint"><kbd>{copy.accounts.picker.escapeKey}</kbd></span>
     {:else}
       <div class="crumbs">
         {#if segs.length === 0}
@@ -407,7 +408,7 @@
           <button
             type="button"
             class="crumb deeper"
-            title="Go deeper"
+            title={copy.accounts.picker.deeper}
             onclick={onDeeperClick}
             tabindex="-1"
           >
@@ -420,8 +421,8 @@
       type="button"
       class="searchbtn"
       class:on={searching}
-      title="Search the whole tree — or just start typing"
-      aria-label="Search accounts"
+      title={copy.accounts.picker.searchHint}
+      aria-label={copy.accounts.picker.search}
       onmousedown={(e) => {
         e.preventDefault()
         toggleSearch()
@@ -449,7 +450,10 @@
               }}
             >
               <span class="ci">＋</span>
-              <span class="ct">Create new account <code>{row.path}</code></span>
+              <span class="ct">
+                {copy.accounts.picker.create}
+                <code>{row.path}</code>
+              </span>
             </li>
           {:else}
             <li
@@ -473,12 +477,14 @@
                     >{/if}
                 {/each}
               </span>
-              {#if i === 0}<span class="best">best</span>{/if}
+              {#if i === 0}<span class="best">
+                  {copy.accounts.picker.best}
+                </span>{/if}
             </li>
           {/if}
         {/each}
       {:else if colItems.length === 0}
-        <li class="row empty">nothing deeper</li>
+        <li class="row empty">{copy.accounts.picker.noChildren}</li>
       {:else}
         {#each colItems as node, i (node.path)}
           <li

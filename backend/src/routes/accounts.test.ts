@@ -339,7 +339,7 @@ describe('accounts', () => {
       it('rejects an unknown type', async () => {
         const res = await app.request('/api/accounts/balances?types=wallet', { headers: { Cookie: cookie } })
         expect(res.status).toBe(400)
-        expect(await res.json()).toEqual({ error: 'invalid account type: wallet' })
+        expect(await res.json()).toEqual({ error: 'ACCOUNT_TYPE_INVALID', detail: { type: 'wallet' } })
       })
 
       it('rejects an empty types parameter rather than returning everything', async () => {
@@ -686,7 +686,7 @@ describe('accounts', () => {
       const res = await create({ path: 'assets:chequing', type: 'wallet' })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'invalid account type' })
+      expect(await res.json()).toEqual({ error: 'ACCOUNT_TYPE_INVALID', detail: { type: 'wallet' } })
     })
 
     it('accepts a null type, which means infer from the path', async () => {
@@ -703,7 +703,7 @@ describe('accounts', () => {
       const res = await create({ path: 'assets:receivable:someone' })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toMatchObject({ error: expect.stringContaining('receivable') })
+      expect(await res.json()).toEqual({ error: 'RECEIVABLE_NOT_CREATABLE' })
     })
 
     it('rejects a non-string name rather than storing it', async () => {
@@ -744,7 +744,7 @@ describe('accounts', () => {
       const res = await patch(account.id, { defaultCurrency: 'BANANA' })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'invalid currency' })
+      expect(await res.json()).toEqual({ error: 'UNSUPPORTED_CURRENCY', detail: { currency: 'BANANA' } })
 
       // The stored value is untouched — a rejected write must not be a partial one.
       const after = await app.request(`/api/accounts/${account.id}`, { headers: { Cookie: cookie } })
@@ -775,7 +775,7 @@ describe('accounts', () => {
       })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'invalid currency' })
+      expect(await res.json()).toEqual({ error: 'UNSUPPORTED_CURRENCY', detail: { currency: 'BANANA' } })
     })
 
     it('does not reject the other fields when currency is absent', async () => {
@@ -1296,7 +1296,7 @@ describe('accounts', () => {
 
       const res = await del(food)
       expect(res.status).toBe(409)
-      expect((await res.json() as { error: string }).error).toContain('1 entry')
+      expect(await res.json()).toEqual({ error: 'ACCOUNT_HAS_ENTRIES', detail: { entries: 1 } })
       // Still there — a refused delete must not half-apply.
       expect(await pathsFor()).toContain('expenses:food')
     })
@@ -1332,7 +1332,7 @@ describe('accounts', () => {
 
       const res = await del(offset)
       expect(res.status).toBe(409)
-      expect((await res.json() as { error: string }).error).toContain('offset')
+      expect(await res.json()).toEqual({ error: 'ACCOUNT_IS_A_DEFAULT', detail: { roles: ['offset'] } })
 
       // Re-pointing the setting releases it.
       await app.request('/api/user-settings', {
@@ -1358,7 +1358,7 @@ describe('accounts', () => {
 
       const res = await del(row!.id)
       expect(res.status).toBe(409)
-      expect((await res.json() as { error: string }).error).toContain('system-managed')
+      expect((await res.json() as { error: string }).error).toBe('RECEIVABLE_NOT_DELETABLE')
     })
 
     it('404s on another user\'s account rather than reporting success', async () => {

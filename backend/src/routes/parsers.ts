@@ -3,6 +3,7 @@ import { db } from '../db'
 import { csvParsers } from '../db/schema'
 import { eq, isNull, and } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -29,10 +30,10 @@ app.post('/', async (c) => {
   const body = await c.req.json()
   const { name, normalizedHeader, columnMapping } = body
 
-  if (!name || typeof name !== 'string') return c.json({ error: 'name is required' }, 400)
-  if (!normalizedHeader || typeof normalizedHeader !== 'string') return c.json({ error: 'normalizedHeader is required' }, 400)
-  if (!columnMapping || typeof columnMapping !== 'object') return c.json({ error: 'columnMapping is required' }, 400)
-  if (!columnMapping.date || !columnMapping.amount) return c.json({ error: 'columnMapping must include date and amount' }, 400)
+  if (!name || typeof name !== 'string') return fail(c, 'FIELD_REQUIRED', { field: 'name' })
+  if (!normalizedHeader || typeof normalizedHeader !== 'string') return fail(c, 'FIELD_REQUIRED', { field: 'normalizedHeader' })
+  if (!columnMapping || typeof columnMapping !== 'object') return fail(c, 'FIELD_REQUIRED', { field: 'columnMapping' })
+  if (!columnMapping.date || !columnMapping.amount) return fail(c, 'PARSER_MAPPING_INCOMPLETE')
 
   const defaultAccountId = body.defaultAccountId ?? null
   const isMultiCurrency = body.isMultiCurrency === true
@@ -62,36 +63,36 @@ app.patch('/:id', async (c) => {
   const patch: Record<string, unknown> = {}
 
   if ('name' in body) {
-    if (!body.name || typeof body.name !== 'string') return c.json({ error: 'name must be a non-empty string' }, 400)
+    if (!body.name || typeof body.name !== 'string') return fail(c, 'FIELD_EMPTY', { field: 'name' })
     patch.name = body.name
   }
 
   if ('columnMapping' in body) {
-    if (!body.columnMapping || typeof body.columnMapping !== 'object') return c.json({ error: 'columnMapping must be an object' }, 400)
-    if (!body.columnMapping.date || !body.columnMapping.amount) return c.json({ error: 'columnMapping must include date and amount' }, 400)
+    if (!body.columnMapping || typeof body.columnMapping !== 'object') return fail(c, 'FIELD_NOT_OBJECT', { field: 'columnMapping' })
+    if (!body.columnMapping.date || !body.columnMapping.amount) return fail(c, 'PARSER_MAPPING_INCOMPLETE')
     patch.columnMapping = body.columnMapping
   }
 
   if ('defaultAccountId' in body) {
     if (body.defaultAccountId !== null && typeof body.defaultAccountId !== 'string') {
-      return c.json({ error: 'defaultAccountId must be a UUID string or null' }, 400)
+      return fail(c, 'FIELD_NOT_UUID', { field: 'defaultAccountId' })
     }
     patch.defaultAccountId = body.defaultAccountId
   }
 
   if ('isMultiCurrency' in body) {
-    if (typeof body.isMultiCurrency !== 'boolean') return c.json({ error: 'isMultiCurrency must be a boolean' }, 400)
+    if (typeof body.isMultiCurrency !== 'boolean') return fail(c, 'FIELD_NOT_BOOLEAN', { field: 'isMultiCurrency' })
     patch.isMultiCurrency = body.isMultiCurrency
   }
 
   if ('defaultFeeAccountId' in body) {
     if (body.defaultFeeAccountId !== null && typeof body.defaultFeeAccountId !== 'string') {
-      return c.json({ error: 'defaultFeeAccountId must be a UUID string or null' }, 400)
+      return fail(c, 'FIELD_NOT_UUID', { field: 'defaultFeeAccountId' })
     }
     patch.defaultFeeAccountId = body.defaultFeeAccountId
   }
 
-  if (Object.keys(patch).length === 0) return c.json({ error: 'at least one field is required' }, 400)
+  if (Object.keys(patch).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
 
   const [updated] = await db
     .update(csvParsers)
@@ -99,7 +100,7 @@ app.patch('/:id', async (c) => {
     .where(and(eq(csvParsers.id, c.req.param('id')), eq(csvParsers.userId, userId), isNull(csvParsers.deletedAt)))
     .returning()
 
-  if (!updated) return c.json({ error: 'parser not found' }, 404)
+  if (!updated) return fail(c, 'PARSER_NOT_FOUND')
 
   return c.json(updated)
 })

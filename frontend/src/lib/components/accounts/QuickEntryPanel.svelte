@@ -1,6 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import { updateAccount, createTransactionsBulk, type Account } from '$lib/api'
   import { toISODate } from '$lib/date'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
@@ -111,7 +111,7 @@
       await createTransactionsBulk(txns)
       onsuccess()
     } catch (e: unknown) {
-      error = e instanceof Error ? e.message : 'Failed to save transactions.'
+      error = e instanceof Error ? e.message : copy.accounts.quickEntry.failed
     } finally {
       submitting = false
     }
@@ -137,17 +137,17 @@
 <div class="panel">
   <div class="panel-header">
     <div class="header-main">
-      <span class="header-title">Quick Entry</span>
+      <span class="header-title">{copy.accounts.quickEntry.title}</span>
       <span class="header-account">→ {account.name ?? account.path}</span>
     </div>
     <div class="header-controls">
-      <span class="currency-label">Currency</span>
+      <span class="currency-label">{copy.accounts.quickEntry.currency}</span>
       <CurrencyInput
         bind:value={currency}
         oncommit={onCurrencyChange}
         style="width: 64px"
       />
-      <GradientButton square onclick={onclose} tooltip="Close">
+      <GradientButton square onclick={onclose} tooltip={copy.case.dialog.close}>
         <Icon name="close" size={12} />
       </GradientButton>
     </div>
@@ -160,7 +160,7 @@
           <input
             class="field field-text"
             type="text"
-            placeholder="Description"
+            placeholder={copy.accounts.quickEntry.description}
             bind:value={row.description}
             onkeydown={(e) => handleEnterAddRow(e, i)}
           />
@@ -177,7 +177,7 @@
           <button
             class="remove-btn"
             onclick={() => removeRow(i)}
-            aria-label="Remove row">×</button
+            aria-label={copy.accounts.quickEntry.removeRow}>×</button
           >
         </div>
         <div class="card-bottom">
@@ -185,7 +185,7 @@
           <AccountPathInput
             {accounts}
             bind:value={row.offsetAccountId}
-            placeholder="expenses:…"
+            placeholder={copy.accounts.quickEntry.offsetPlaceholder}
             allowCreate={true}
             oncreate={(a) => {
               onaccountcreated(a)
@@ -201,7 +201,9 @@
         </div>
       </div>
     {/each}
-    <button class="add-row-btn" onclick={addRow}>+ Add row</button>
+    <button class="add-row-btn" onclick={addRow}>
+      {copy.accounts.quickEntry.addRow}
+    </button>
   </div>
 
   <div class="panel-footer">
@@ -212,12 +214,8 @@
       {/if}
       <GradientButton onclick={submit} disabled={!canSubmit || submitting}>
         {submitting
-          ? 'Saving…'
-          : plural(
-              rowCount,
-              'Save 1 transaction',
-              `Save ${rowCount} transactions`,
-            )}
+          ? copy.accounts.quickEntry.saving
+          : copy.accounts.quickEntry.save(rowCount)}
       </GradientButton>
     </div>
   </div>

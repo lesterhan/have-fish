@@ -23,12 +23,18 @@
  * This is a typed object; that is the whole design. If a second locale ever arrives,
  * well-shaped input like this is a scripted transform away from a real message catalog.
  */
+import { accountsCopy } from './accounts'
 import { authCopy } from './auth'
 import { caseCopy } from './case'
+import { errorsCopy } from './errors'
+import { settingsCopy } from './settings'
 
 export const copy = {
+  accounts: accountsCopy,
   auth: authCopy,
   case: caseCopy,
+  errors: errorsCopy,
+  settings: settingsCopy,
 } as const
 
 export { plural } from './plural'

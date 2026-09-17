@@ -1,5 +1,6 @@
 <script lang="ts">
   import { untrack } from 'svelte'
+  import { copy } from '$lib/copy'
   import { createAccount } from '$lib/api'
   import { toast } from '$lib/toast.svelte'
 
@@ -21,7 +22,7 @@
   let {
     accounts,
     value = $bindable(''),
-    placeholder = 'Type an account path…',
+    placeholder = copy.accounts.pathInput.placeholder,
     searchOnly = false,
     allowCreate = true,
     oncreate,
@@ -216,7 +217,7 @@
       } catch (e) {
         // A refused create used to leave `value` undefined and the box looking committed.
         toast.show(
-          e instanceof Error ? e.message : 'Could not create that account',
+          e instanceof Error ? e.message : copy.accounts.pathInput.createFailed,
         )
       } finally {
         creating = false
@@ -285,7 +286,7 @@
           {#if option.kind === 'existing'}
             {option.account.path}
           {:else}
-            Create new account '{option.path}'
+            {copy.accounts.pathInput.create(option.path)}
           {/if}
         </li>
       {/each}

@@ -13,6 +13,8 @@ import {
 import { eq, isNull, and } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { cleanDescription, merchantKey } from '../import/merchant'
+import { fail, failWith, errorBody } from '../errors'
+import type { ErrorBody } from '../errors'
 
 // Re-exported for callers that imported it from here before it moved to import/merchant.ts.
 export { cleanDescription }
@@ -22,37 +24,39 @@ const app = new Hono<{ Variables: AppVariables }>()
 // Resolves the target of a create/patch body into the columns to write.
 //
 // A rule targets exactly one of an expense account or a Fish Pie split; the two are
-// mutually exclusive, so setting one clears the other. Returns an error message instead
-// of throwing so callers can turn it into the right status code.
+// mutually exclusive, so setting one clears the other. Returns a failure body instead of
+// throwing, so the two routes that call it can send it with `failWith`. The status rides
+// along in the registry rather than at each return, which is how the same failure used to
+// get two different ones.
 type TargetColumns = { accountId: string | null; groupId: string | null; categoryId: string | null }
 async function resolveTarget(
   userId: string,
   body: Record<string, unknown>,
-): Promise<{ columns: TargetColumns } | { error: string; status: 400 | 403 | 404 }> {
+): Promise<{ columns: TargetColumns } | { failure: ErrorBody }> {
   const hasAccount = body.accountId != null
   const hasGroup = body.groupId != null
 
   if (hasAccount && hasGroup) {
-    return { error: 'a rule targets either accountId or groupId, not both', status: 400 }
+    return { failure: errorBody('RULE_TARGET_AMBIGUOUS') }
   }
   if (!hasAccount && !hasGroup) {
-    return { error: 'a rule requires either accountId or groupId', status: 400 }
+    return { failure: errorBody('RULE_TARGET_MISSING') }
   }
 
   if (hasAccount) {
-    if (typeof body.accountId !== 'string') return { error: 'accountId must be a UUID string', status: 400 }
+    if (typeof body.accountId !== 'string') return { failure: errorBody('FIELD_NOT_UUID', { field: 'accountId' }) }
     if (body.categoryId != null) {
-      return { error: 'categoryId is only valid with groupId', status: 400 }
+      return { failure: errorBody('RULE_CATEGORY_WITHOUT_GROUP') }
     }
     const [owned] = await db
       .select({ id: accounts.id })
       .from(accounts)
       .where(and(eq(accounts.id, body.accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-    if (!owned) return { error: 'account not found', status: 404 }
+    if (!owned) return { failure: errorBody('ACCOUNT_NOT_FOUND') }
     return { columns: { accountId: body.accountId, groupId: null, categoryId: null } }
   }
 
-  if (typeof body.groupId !== 'string') return { error: 'groupId must be a UUID string', status: 400 }
+  if (typeof body.groupId !== 'string') return { failure: errorBody('FIELD_NOT_UUID', { field: 'groupId' }) }
 
   // The rule may only target a group the user is actually in — otherwise an import
   // could post into a stranger's shared ledger.
@@ -67,12 +71,12 @@ async function resolveTarget(
         isNull(expenseGroups.deletedAt),
       ),
     )
-  if (!membership) return { error: 'not a member of that group', status: 403 }
+  if (!membership) return { failure: errorBody('NOT_A_GROUP_MEMBER') }
 
   if (body.categoryId == null) {
     return { columns: { accountId: null, groupId: body.groupId, categoryId: null } }
   }
-  if (typeof body.categoryId !== 'string') return { error: 'categoryId must be a UUID string', status: 400 }
+  if (typeof body.categoryId !== 'string') return { failure: errorBody('FIELD_NOT_UUID', { field: 'categoryId' }) }
 
   // A category is only meaningful inside its own group, and an archived one would
   // produce expenses the user can no longer categorize by hand.
@@ -80,8 +84,8 @@ async function resolveTarget(
     .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
     .from(groupCategories)
     .where(and(eq(groupCategories.id, body.categoryId), eq(groupCategories.groupId, body.groupId)))
-  if (!category) return { error: 'category not found in that group', status: 404 }
-  if (category.archivedAt) return { error: 'category is archived', status: 400 }
+  if (!category) return { failure: errorBody('CATEGORY_NOT_IN_GROUP') }
+  if (category.archivedAt) return { failure: errorBody('CATEGORY_ARCHIVED') }
 
   return { columns: { accountId: null, groupId: body.groupId, categoryId: body.categoryId } }
 }
@@ -131,10 +135,10 @@ app.post('/', async (c) => {
   const body = await c.req.json()
   const { pattern } = body
 
-  if (!pattern || typeof pattern !== 'string') return c.json({ error: 'pattern is required' }, 400)
+  if (!pattern || typeof pattern !== 'string') return fail(c, 'FIELD_REQUIRED', { field: 'pattern' })
 
   const target = await resolveTarget(userId, body)
-  if ('error' in target) return c.json({ error: target.error }, target.status)
+  if ('failure' in target) return failWith(c, target.failure)
 
   const [created] = await db
     .insert(importRules)
@@ -250,17 +254,17 @@ app.patch('/:id', async (c) => {
   const patch: Record<string, unknown> = {}
 
   if ('pattern' in body) {
-    if (!body.pattern || typeof body.pattern !== 'string') return c.json({ error: 'pattern must be a non-empty string' }, 400)
+    if (!body.pattern || typeof body.pattern !== 'string') return fail(c, 'FIELD_EMPTY', { field: 'pattern' })
     patch.pattern = body.pattern
   }
 
   if ('accountId' in body || 'groupId' in body || 'categoryId' in body) {
     const target = await resolveTarget(userId, body)
-    if ('error' in target) return c.json({ error: target.error }, target.status)
+    if ('failure' in target) return failWith(c, target.failure)
     Object.assign(patch, target.columns)
   }
 
-  if (Object.keys(patch).length === 0) return c.json({ error: 'at least one field is required' }, 400)
+  if (Object.keys(patch).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
 
   patch.updatedAt = new Date()
 
@@ -270,7 +274,7 @@ app.patch('/:id', async (c) => {
     .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
     .returning()
 
-  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  if (!updated) return fail(c, 'RULE_NOT_FOUND')
   return c.json(updated)
 })
 
@@ -296,7 +300,7 @@ app.post('/:id/approve', async (c) => {
     .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
     .returning()
 
-  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  if (!updated) return fail(c, 'RULE_NOT_FOUND')
   return c.json(updated)
 })
 
@@ -319,7 +323,7 @@ app.post('/:id/deny', async (c) => {
     )
     .returning()
 
-  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  if (!updated) return fail(c, 'RULE_NOT_FOUND')
   return c.json(updated)
 })
 
@@ -341,7 +345,7 @@ app.post('/:id/revive', async (c) => {
     )
     .returning()
 
-  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  if (!updated) return fail(c, 'RULE_NOT_FOUND')
   return c.json(updated)
 })
 

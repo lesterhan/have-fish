@@ -16,6 +16,7 @@ import type { AppVariables } from '../app'
 import { ensureSharedAccount, slugify, CLEARING_PREFIX } from '../fish-pie-accounts'
 import { fetchCategoriesForGroups } from './fish-pie-categories'
 import { fetchMembersForGroups } from './fish-pie-groups'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -30,18 +31,18 @@ app.post('/merge', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json<{ groupIds?: string[]; name?: string }>()
 
-  if (!body.name?.trim()) return c.json({ error: 'name is required' }, 400)
-  if (!Array.isArray(body.groupIds)) return c.json({ error: 'groupIds is required' }, 400)
+  if (!body.name?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'name' })
+  if (!Array.isArray(body.groupIds)) return fail(c, 'FIELD_REQUIRED', { field: 'groupIds' })
 
   // Preserve request order (first group is the weight/defaults fallback) but de-dupe.
   const groupIds = [...new Set(body.groupIds)]
-  if (groupIds.length < 2) return c.json({ error: 'at least two distinct groups are required' }, 400)
+  if (groupIds.length < 2) return fail(c, 'MERGE_NEEDS_TWO_GROUPS')
 
   const sourceGroups = await db
     .select()
     .from(expenseGroups)
     .where(and(inArray(expenseGroups.id, groupIds), isNull(expenseGroups.deletedAt)))
-  if (sourceGroups.length !== groupIds.length) return c.json({ error: 'one or more groups not found' }, 404)
+  if (sourceGroups.length !== groupIds.length) return fail(c, 'GROUPS_NOT_FOUND')
   const sourceGroupById = new Map(sourceGroups.map((g) => [g.id, g]))
 
   const allMembers = await db
@@ -59,17 +60,17 @@ app.post('/merge', async (c) => {
   // Caller must be a member of every group.
   for (const gid of groupIds) {
     const list = membersByGroup.get(gid) ?? []
-    if (!list.some((m) => m.userId === userId)) return c.json({ error: 'not a member of all groups' }, 403)
+    if (!list.some((m) => m.userId === userId)) return fail(c, 'NOT_A_MEMBER_OF_ALL_GROUPS')
   }
 
   // Identical, non-empty member sets across all groups.
   const memberSetKey = (gid: string) => (membersByGroup.get(gid) ?? []).map((m) => m.userId).sort().join(',')
   const keys = new Set(groupIds.map(memberSetKey))
-  if (keys.size !== 1) return c.json({ error: 'groups must have identical member sets' }, 400)
+  if (keys.size !== 1) return fail(c, 'MERGE_MEMBERS_DIFFER')
 
   const firstGroupId = groupIds[0]
   const firstGroupMembers = membersByGroup.get(firstGroupId) ?? []
-  if (firstGroupMembers.length === 0) return c.json({ error: 'groups have no members' }, 400)
+  if (firstGroupMembers.length === 0) return fail(c, 'MERGE_GROUPS_EMPTY')
   const memberUserIds = firstGroupMembers.map((m) => m.userId)
 
   const newGroup = await db.transaction(async (tx) => {

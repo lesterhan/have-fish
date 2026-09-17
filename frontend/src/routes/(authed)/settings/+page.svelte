@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { copy } from '$lib/copy'
   import { fetchAccounts } from '$lib/api'
   import type { Account } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
@@ -7,6 +8,7 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import CurrencyInput from '$lib/components/ui/CurrencyInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import { DEFAULT_ROOTS } from '$lib/components/accounts/accountPaths'
   import Modal from '$lib/components/ui/Modal.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { signOut, useSession, authClient } from '$lib/auth'
@@ -17,6 +19,9 @@
   import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
 
   const session = useSession()
+
+  /** The one control on this page focused from script, so it is reachable by id. */
+  const NAME_INPUT_ID = 'settings-display-name'
 
   let editingName = $state(false)
   let nameInput = $state('')
@@ -31,7 +36,7 @@
     nameInput = $session.data?.user.name ?? ''
     editingName = true
     await tick()
-    document.querySelector<HTMLInputElement>('.name-section input')?.focus()
+    document.getElementById(NAME_INPUT_ID)?.focus()
   }
 
   async function handleSaveName() {
@@ -39,9 +44,9 @@
     if (!trimmed) return
     const result = await authClient.updateUser({ name: trimmed })
     if (result.error) {
-      toast.show('Failed to save display name')
+      toast.show(copy.settings.user.nameFailed)
     } else {
-      toast.show('Display name saved')
+      toast.show(copy.settings.user.nameSaved)
       editingName = false
     }
   }
@@ -75,10 +80,13 @@
     preferredCurrency = settings.preferredCurrency ?? 'CAD'
   })
 
-  const defaultLabels: Record<string, string> = {
-    defaultOffsetAccountId: 'Uncategorized account',
-    defaultConversionAccountId: 'Conversion account',
-    defaultAdjustmentsAccountId: 'Adjustments account',
+  // Each field names its own confirmation rather than sharing a `${label} saved`
+  // template: the assembled version meant "Uncategorized account saved" appeared nowhere
+  // in the source, so it could not be found by anyone wanting to edit it.
+  const defaultSaved: Record<string, string> = {
+    defaultOffsetAccountId: copy.settings.defaults.offset.saved,
+    defaultConversionAccountId: copy.settings.defaults.conversion.saved,
+    defaultAdjustmentsAccountId: copy.settings.defaults.adjustments.saved,
   }
 
   async function handleDefaultChange(
@@ -89,14 +97,14 @@
     accountId: string,
   ) {
     await settingsStore.update({ [field]: accountId || null })
-    toast.show(`${defaultLabels[field]} saved`)
+    toast.show(defaultSaved[field]!)
   }
 
-  const rootPathLabels: Record<string, string> = {
-    defaultAssetsRootPath: 'Assets root path',
-    defaultLiabilitiesRootPath: 'Liabilities root path',
-    defaultExpensesRootPath: 'Expenses root path',
-    defaultEquityRootPath: 'Equity root path',
+  const rootPathSaved: Record<string, string> = {
+    defaultAssetsRootPath: copy.settings.roots.assets.saved,
+    defaultLiabilitiesRootPath: copy.settings.roots.liabilities.saved,
+    defaultExpensesRootPath: copy.settings.roots.expenses.saved,
+    defaultEquityRootPath: copy.settings.roots.equity.saved,
   }
 
   async function handleRootPathChange(
@@ -109,7 +117,7 @@
   ) {
     if (!value.trim()) return
     await settingsStore.update({ [field]: value.trim() })
-    toast.show(`${rootPathLabels[field]} saved`)
+    toast.show(rootPathSaved[field]!)
   }
 
   let showDeleteConfirm = $state(false)
@@ -127,18 +135,19 @@
       <button
         class="secret-btn"
         onclick={() => {
-          toast.show('年年有鱼 · Year Year Have Fish')
+          toast.show(copy.settings.user.greeting)
           confetti.trigger()
         }}
-        aria-label="Year Year Have Fish">🧧</button
+        aria-label={copy.settings.user.greetingLabel}>🧧</button
       >
       {#if $session.data}
         <span class="user-email">{$session.data.user.email}</span>
         <div class="name-section">
           {#if editingName}
             <TextInput
+              id={NAME_INPUT_ID}
               bind:value={nameInput}
-              placeholder="Display name"
+              placeholder={copy.settings.user.namePlaceholder}
               spellcheck={false}
               style="flex: 1; min-width: 0; height: 20px; font-size: 11px"
               onkeydown={(e: KeyboardEvent) => {
@@ -146,55 +155,63 @@
                 if (e.key === 'Escape') cancelEditName()
               }}
             />
-            <GradientButton square onclick={handleSaveName} tooltip="Save name">
+            <GradientButton
+              square
+              onclick={handleSaveName}
+              tooltip={copy.settings.user.saveName}
+            >
               <Icon name="check" size={10} />
             </GradientButton>
-            <GradientButton square onclick={cancelEditName} tooltip="Cancel">
+            <GradientButton
+              square
+              onclick={cancelEditName}
+              tooltip={copy.case.dialog.cancel}
+            >
               <Icon name="close" size={10} />
             </GradientButton>
           {:else}
             <span class="user-display-name" class:placeholder={!displayName}>
-              [ {displayName || "what's your name…"} ]
+              [ {displayName || copy.settings.user.nameUnset} ]
             </span>
             <GradientButton
               square
               onclick={startEditName}
-              tooltip="Edit display name"
+              tooltip={copy.settings.user.editName}
             >
               <Icon name="edit-txn" size={10} />
             </GradientButton>
           {/if}
         </div>
       {/if}
-      <GradientButton onclick={handleSignOut}>Sign out</GradientButton>
+      <GradientButton onclick={handleSignOut}>
+        {copy.settings.user.signOut}
+      </GradientButton>
     </div>
   </div>
 
   <!-- Account defaults -->
   <div class="settings-section section-defaults">
     <div class="section-bar">
-      <span class="section-bar-title">Account Defaults</span>
+      <span class="section-bar-title">{copy.settings.defaults.title}</span>
       <!-- These three are pointers *at* accounts, so they stay here; the accounts themselves
            moved. The link is where the old "Manage" button was, for the muscle memory. -->
       <GradientButton
         onclick={() => goto('/accounts')}
-        tooltip="Add, rename, pin and hide accounts and categories"
+        tooltip={copy.settings.defaults.manageHint}
       >
-        Accounts
+        {copy.settings.defaults.manage}
       </GradientButton>
     </div>
     <div class="section-body">
       <div class="setting-row">
         <span class="setting-label">
-          Uncategorized
-          <TooltipIcon
-            label="Imported transactions with no matched category will use this account."
-          />
+          {copy.settings.defaults.offset.label}
+          <TooltipIcon label={copy.settings.defaults.offset.hint} />
         </span>
         <AccountPathInput
           {accounts}
           bind:value={offsetAccountId}
-          placeholder="liabilities:offset"
+          placeholder={copy.settings.defaults.offset.example}
           oncommit={(id) => handleDefaultChange('defaultOffsetAccountId', id)}
           oncreate={(a) => {
             accounts = [...accounts, a]
@@ -203,15 +220,13 @@
       </div>
       <div class="setting-row">
         <span class="setting-label">
-          Conversion balance
-          <TooltipIcon
-            label="Equity account used to balance cross-currency transfers. Required for multi-currency imports."
-          />
+          {copy.settings.defaults.conversion.label}
+          <TooltipIcon label={copy.settings.defaults.conversion.hint} />
         </span>
         <AccountPathInput
           {accounts}
           bind:value={conversionAccountId}
-          placeholder="equity:conversions"
+          placeholder={copy.settings.defaults.conversion.example}
           oncommit={(id) =>
             handleDefaultChange('defaultConversionAccountId', id)}
           oncreate={(a) => {
@@ -221,15 +236,13 @@
       </div>
       <div class="setting-row">
         <span class="setting-label">
-          Adjustments
-          <TooltipIcon
-            label="Equity account used as the offset when posting a reconciliation adjustment."
-          />
+          {copy.settings.defaults.adjustments.label}
+          <TooltipIcon label={copy.settings.defaults.adjustments.hint} />
         </span>
         <AccountPathInput
           {accounts}
           bind:value={adjustmentsAccountId}
-          placeholder="equity:adjustments"
+          placeholder={copy.settings.defaults.adjustments.example}
           oncommit={(id) =>
             handleDefaultChange('defaultAdjustmentsAccountId', id)}
           oncreate={(a) => {
@@ -239,10 +252,8 @@
       </div>
       <div class="setting-row">
         <label class="setting-label" for="preferred-currency">
-          Preferred currency
-          <TooltipIcon
-            label="Your home currency. Used for FX conversion displays."
-          />
+          {copy.settings.defaults.currency.label}
+          <TooltipIcon label={copy.settings.defaults.currency.hint} />
         </label>
         <CurrencyInput
           id="preferred-currency"
@@ -250,7 +261,7 @@
           style="width: 7rem"
           oncommit={async () => {
             await settingsStore.update({ preferredCurrency })
-            toast.show('Preferred currency saved')
+            toast.show(copy.settings.defaults.currency.saved)
           }}
         />
       </div>
@@ -260,86 +271,81 @@
   <!-- Root paths -->
   <div class="settings-section section-roots">
     <div class="section-bar">
-      <span class="section-bar-title">Root Paths</span>
+      <span class="section-bar-title">{copy.settings.roots.title}</span>
     </div>
     <div class="section-body">
       <div class="setting-row">
         <label class="setting-label" for="assets-root-path">
-          Assets
-          <TooltipIcon
-            label="Root prefix for asset accounts (e.g. 'assets' → 'assets:bank:chequing')."
-          />
+          {copy.settings.roots.assets.label}
+          <TooltipIcon label={copy.settings.roots.assets.hint} />
         </label>
         <TextInput
           id="assets-root-path"
-          value={settingsStore.value?.defaultAssetsRootPath ?? 'assets'}
+          value={settingsStore.value?.defaultAssetsRootPath ??
+            DEFAULT_ROOTS.assets}
           onblur={(e) =>
             handleRootPathChange(
               'defaultAssetsRootPath',
               (e.currentTarget as HTMLInputElement).value,
             )}
-          placeholder="assets"
+          placeholder={DEFAULT_ROOTS.assets}
           spellcheck={false}
           style="width: 100%; box-sizing: border-box"
         />
       </div>
       <div class="setting-row">
         <label class="setting-label" for="liabilities-root-path">
-          Liabilities
-          <TooltipIcon
-            label="Root prefix for liability accounts (e.g. 'liabilities' → 'liabilities:creditcard')."
-          />
+          {copy.settings.roots.liabilities.label}
+          <TooltipIcon label={copy.settings.roots.liabilities.hint} />
         </label>
         <TextInput
           id="liabilities-root-path"
           value={settingsStore.value?.defaultLiabilitiesRootPath ??
-            'liabilities'}
+            DEFAULT_ROOTS.liabilities}
           onblur={(e) =>
             handleRootPathChange(
               'defaultLiabilitiesRootPath',
               (e.currentTarget as HTMLInputElement).value,
             )}
-          placeholder="liabilities"
+          placeholder={DEFAULT_ROOTS.liabilities}
           spellcheck={false}
           style="width: 100%; box-sizing: border-box"
         />
       </div>
       <div class="setting-row">
         <label class="setting-label" for="expenses-root-path">
-          Expenses
-          <TooltipIcon
-            label="Root prefix for expense accounts. Used to filter spending reports."
-          />
+          {copy.settings.roots.expenses.label}
+          <TooltipIcon label={copy.settings.roots.expenses.hint} />
         </label>
         <TextInput
           id="expenses-root-path"
-          value={settingsStore.value?.defaultExpensesRootPath ?? 'expenses'}
+          value={settingsStore.value?.defaultExpensesRootPath ??
+            DEFAULT_ROOTS.expenses}
           onblur={(e) =>
             handleRootPathChange(
               'defaultExpensesRootPath',
               (e.currentTarget as HTMLInputElement).value,
             )}
-          placeholder="expenses"
+          placeholder={DEFAULT_ROOTS.expenses}
           spellcheck={false}
           style="width: 100%; box-sizing: border-box"
         />
       </div>
       <div class="setting-row">
         <label class="setting-label" for="equity-root-path">
-          Equity
-          <TooltipIcon
-            label="Root prefix for equity accounts. (e.g. 'equity' → 'equity:investments')."
-          />
+          {copy.settings.roots.equity.label}
+          <TooltipIcon label={copy.settings.roots.equity.hint} />
         </label>
         <TextInput
           id="equity-root-path"
-          value={settingsStore.value?.defaultEquityRootPath ?? 'equity'}
+          value={settingsStore.value?.defaultEquityRootPath ??
+            DEFAULT_ROOTS.equity}
           onblur={(e) =>
             handleRootPathChange(
               'defaultEquityRootPath',
               (e.currentTarget as HTMLInputElement).value,
             )}
-          placeholder="equity"
+          placeholder={DEFAULT_ROOTS.equity}
           spellcheck={false}
           style="width: 100%; box-sizing: border-box"
         />
@@ -352,28 +358,22 @@
        loudest thing on it (V3). The alarm belongs in the confirmation, which is where it is. -->
   <div class="danger-footer">
     <button class="danger-link" onclick={() => (showDeleteConfirm = true)}
-      >Delete my account…</button
+      >{copy.settings.danger.open}</button
     >
-    <span class="danger-desc"
-      >Permanently removes your account and all associated data. This cannot be
-      undone.</span
-    >
+    <span class="danger-desc">{copy.settings.danger.description}</span>
   </div>
 </div>
 
-<Modal title="Delete account" bind:open={showDeleteConfirm}>
+<Modal title={copy.settings.danger.title} bind:open={showDeleteConfirm}>
   <div class="delete-modal">
-    <p>
-      This will permanently delete your user account and all data. This cannot
-      be undone.
-    </p>
+    <p>{copy.settings.danger.warning}</p>
     <div class="delete-actions">
-      <GradientButton onclick={() => (showDeleteConfirm = false)}
-        >Cancel</GradientButton
-      >
-      <GradientButton variant="warning" active onclick={handleDeleteUser}
-        >Delete account</GradientButton
-      >
+      <GradientButton onclick={() => (showDeleteConfirm = false)}>
+        {copy.case.dialog.cancel}
+      </GradientButton>
+      <GradientButton variant="warning" active onclick={handleDeleteUser}>
+        {copy.settings.danger.confirm}
+      </GradientButton>
     </div>
   </div>
 </Modal>

@@ -1,5 +1,8 @@
 # Copy Extraction
 
+**Tracked as [#350](https://github.com/lesterhan/have-fish/issues/350)**, one sub-issue per
+story below.
+
 Move every user-facing string out of the components and into copy modules, so copy can be
 edited in one place by reading it as prose rather than by hunting it across 31k lines of
 Svelte — and so that localisation, if it ever happens, is a build step rather than an
@@ -155,6 +158,11 @@ in one place.
 **4. Settings + accounts.** ~97 strings across `routes/(authed)/settings`,
 `routes/(authed)/accounts`, and `lib/components/accounts`.
 
+The real figure was **311** — 266 in `copy/accounts.ts`, 45 in `copy/settings.ts`. The
+estimate was low because the detector that produced it read neither this app's word-bearing
+component props (`tooltip`, `hint`, `caption`) nor any `.ts` module. Both now count. Done;
+findings below.
+
 **5. Import.** ~166 strings across `lib/components/import`, `lib/components/wizards`, and
 `routes/(authed)/import`. The largest surface by a wide margin and the one with the most
 guidance prose, so it may want splitting into wizards vs. steps once story 4 has calibrated
@@ -171,6 +179,11 @@ real count lands after story 1). Route tests assert on codes, which makes them s
 on copy edits. This story is a prerequisite for mobile, which currently renders whatever the
 API says.
 
+The real count was **294** rather than 269 — the grep that produced the original figure only
+matched single-quoted literals and missed every double-quoted and templated one. The frontend
+half was far smaller than the 335 feared: `api.ts` is the one chokepoint and holds 66 of the
+68 sites. Done; findings below.
+
 **9. Mobile.** ~98 strings in `mobile/app` and `mobile/components`. Same module shape,
 same conventions. Whether the two copy directories get physically shared or stay duplicated
 is deferred to this story — sharing means a workspace package, and that is a build-system
@@ -185,8 +198,11 @@ change that should not be smuggled in earlier.
   `Modal`, and `KeyboardEvent.key` names, which are capitalised words that are not words.
   Fixing the detector is the better answer whenever the false positive names a whole class;
   the allowlist is for the string that is genuinely one of a kind. It has not met one yet.
-- Story 5 (import) may be too big for one PR. Do not pre-split it — let story 4 set the
-  pace and split if it earns it.
+- ~~Story 5 (import) may be too big for one PR.~~ Story 4 set the pace: 311 messages
+  across 13 files, one PR, and the copy file stayed readable because it is organised by the
+  component that speaks rather than alphabetically. Import's 166 is smaller than that, so it
+  does not need splitting on size. Split it only if the wizards and the steps turn out to
+  want different voices.
 
 ## What extracting the case turned up
 
@@ -215,6 +231,83 @@ meaning, not the wording.
 on the [Accounts] page to keep them here." A sentence split into before-link and after-link
 halves is the shape this epic exists to remove, so it now ends with the link instead. This
 is the only rendered change in the story that is not a fixed inconsistency.
+
+## What the backend error codes turned up
+
+**One idea, four spellings, and nobody could see it.** `No valid fields to update`, `no valid
+fields to update`, `no fields to update`, `at least one field is required`, `No updatable
+fields provided` and `At least one of accountId, amount, or currency is required` are one
+failure written six times. 294 literals collapsed to 92 codes, and most of the collapse is
+that shape rather than anything clever.
+
+**`not found` meant six different things.** Thirty-five Fish Pie routes answered `not found`
+for a missing group, category, expense, settlement, invitation, or the caller's own user row.
+Reading them as one code made that obvious in a way reading thirty-five route files had not;
+they are now six codes and six sentences. `forbidden` was the same story — eight routes, five
+genuinely different rules about who may act, all of them rendered to the reader as one shrug.
+
+**A status disagreed with itself.** `category not found in that group` answered 404 in
+`rules.ts` and 400 in `fish-pie-expenses.ts` and `import.ts`. One failure gets one status now,
+and the registry is where that is decided rather than at 294 call sites. The one deliberate
+behaviour change in the story is `rules.ts` moving to 400 to match the other two.
+
+**The backend was telling the reader where to click.** `No saved parser matched this CSV.
+Create one in Settings → Import Parsers.` — a route handler that knows Settings has an Import
+Parsers tab. The sentence now lives in `copy/errors.ts` and the route says `NO_PARSER_MATCHED`.
+
+**The plural splice had survived in the backend**, because story 2's repo-wide ban only scans
+`frontend/src`. `this account has ${entries} ${entries === 1 ? 'entry' : 'entries'}` was the
+last one; it is now `ACCOUNT_HAS_ENTRIES` with a count, and both readings are prose in the
+copy file.
+
+**Mobile needed a stopgap.** It renders `body.error` straight into a `<Text>` in eight places,
+so shipping codes without it would have put `ACCOUNT_NOT_FOUND` in front of the reader on the
+app that gets used while travelling. `mobile/lib/errors.ts` unshouts a code into a plain
+sentence until story 9 gives mobile the real catalog.
+
+## What settings and accounts turned up
+
+**311 messages, against an estimate of 97.** The epic's figure counted what a grep for
+quoted prose could see in three directories. The real surface is 266 entries in
+`copy/accounts.ts` and 45 in `copy/settings.ts` — the issue's own re-count (214 in the
+components directory alone) was the closer guess. Story 5's 166 should be read the same way.
+
+**The check could not see a tooltip or a hint.** `tooltip="Go deeper"` and
+`hint="Blank falls back to the path."` are component props, not HTML attributes, so the
+markup scanner walked straight past them — twenty-eight strings that were found by reading
+the files rather than by running the test. The scanner now reads this app's own word-bearing
+props alongside `title` and `aria-label`.
+
+**The check could not see a `.ts` file at all.** It read `.svelte` and nothing else, and the
+words in this surface were not all in markup: `accountRoles.ts` held the tooltip on every
+role chip *and* the only sentence explaining why a hide button is greyed out,
+`balanceLabel.ts` held `OWING` and `IN CREDIT`, and `categoryTree.ts` held the four
+validation messages you get while typing a category path. A markup-only check would have
+certified the surface converted with all of it still in place. `CONVERTED` now covers every
+non-test `.ts` module in a converted directory.
+
+**A splice wearing whole words.** `protectionMessage` inflected its own middle:
+`` `Point ${names} at another account in Settings first — ${subject} in use.` `` with
+`subject` a ternary between `'this is'` and `'these are'`. Story 2's ban only matches
+inflectional endings, so it sailed through — but it is the same shape, and the fix is the
+same: two whole sentences behind `plural`.
+
+**A label glued to a verb.** Settings confirmed each saved pointer with
+`` `${defaultLabels[field]} saved` ``, which meant the sentence the user reads —
+"Uncategorized account saved" — appeared nowhere in the source. Unfindable when you want to
+edit it, and unreachable for any language that does not end on the verb. Each row now owns
+its confirmation.
+
+**One sentence wrapped around a path.** The delete-category dialog read
+``Delete `expenses:x`? It has no entries and nothing filed beneath it.`` — prose either side
+of an interpolation, which is the splice with a value in the middle instead of a ternary.
+The path moved to its own line, matching the rename dialog directly above it. This is the
+story's one rendered change.
+
+**A placeholder that was really a default.** The four root-path fields fell back to
+`'assets'`, `'liabilities'`… in the value and typed the same word again in the placeholder,
+one copy of each per field, none of them connected to `DEFAULT_ROOTS` where the real
+defaults live. They read from it now — the placeholder was never copy, it was the value.
 
 ## Appendix: plural splice sites
 

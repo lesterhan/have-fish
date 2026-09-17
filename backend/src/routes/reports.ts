@@ -5,6 +5,7 @@ import { eq, isNull, and, gte, lte, like } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
 import { loadClassifySettings } from '../postings/classify-service'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -43,13 +44,13 @@ app.get('/spending-summary', async (c) => {
   const prefix = c.req.query('prefix') || null
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
-  if (from && !dateRe.test(from)) return c.json({ error: 'Invalid from date, expected YYYY-MM-DD' }, 400)
-  if (to && !dateRe.test(to)) return c.json({ error: 'Invalid to date, expected YYYY-MM-DD' }, 400)
+  if (from && !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
+  if (to && !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
 
   const expensesRoot = await getExpensesRoot(userId)
 
   if (prefix && !prefix.startsWith(`${expensesRoot}:`)) {
-    return c.json({ error: 'prefix must be within the expenses root' }, 400)
+    return fail(c, 'PREFIX_OUTSIDE_EXPENSES')
   }
 
   // Escape LIKE special chars in prefix for safe use in the LIKE pattern
@@ -138,7 +139,7 @@ app.get('/monthly-spend', async (c) => {
   const months = monthsParam ? parseInt(monthsParam, 10) : 12
 
   if (isNaN(months) || months < 1 || months > 120) {
-    return c.json({ error: 'months must be a number between 1 and 120' }, 400)
+    return fail(c, 'FIELD_OUT_OF_RANGE', { field: 'months', min: 1, max: 120 })
   }
 
   // Build the window: from the first day of (months) ago to end of current month
@@ -209,9 +210,9 @@ app.get('/spending-fx-pairs', async (c) => {
   const { from, to, targetCurrency } = c.req.query()
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
-  if (!from || !dateRe.test(from)) return c.json({ error: 'Invalid from date' }, 400)
-  if (!to || !dateRe.test(to)) return c.json({ error: 'Invalid to date' }, 400)
-  if (!targetCurrency || !isValidCurrency(targetCurrency)) return c.json({ error: 'Invalid targetCurrency' }, 400)
+  if (!from || !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
+  if (!to || !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
+  if (!targetCurrency || !isValidCurrency(targetCurrency)) return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
 
   const expensesRoot = await getExpensesRoot(userId)
 
@@ -277,9 +278,9 @@ app.get('/spending-converted', async (c) => {
   const { from, to, targetCurrency } = c.req.query()
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
-  if (!from || !dateRe.test(from)) return c.json({ error: 'Invalid from date' }, 400)
-  if (!to || !dateRe.test(to)) return c.json({ error: 'Invalid to date' }, 400)
-  if (!targetCurrency || !isValidCurrency(targetCurrency)) return c.json({ error: 'Invalid targetCurrency' }, 400)
+  if (!from || !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
+  if (!to || !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
+  if (!targetCurrency || !isValidCurrency(targetCurrency)) return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
 
   const expensesRoot = await getExpensesRoot(userId)
 

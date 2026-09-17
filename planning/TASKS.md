@@ -1,5 +1,7 @@
 # Backlog Tasks
 
+> **Frozen 2026-09-12.** Open items here were migrated to GitHub Issues (`type:backlog`, lesterhan/have-fish#261–#271) and are tracked on the `have-fish` Project. Do not add to this file; file an issue. The write-ups below are kept for their detail.
+
 Small, self-contained tasks that don't belong to an epic, grouped by area and tagged
 with a rough priority.
 

@@ -355,13 +355,13 @@ describe('rules — split targets', () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
     const res = await postRule(cookie, { pattern: 'BILLA', accountId: acct.id, groupId })
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toContain('not both')
+    expect((await res.json()).error).toBe('RULE_TARGET_AMBIGUOUS')
   })
 
   it('rejects a rule with neither target set', async () => {
     const res = await postRule(cookie, { pattern: 'BILLA' })
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toContain('either accountId or groupId')
+    expect((await res.json()).error).toBe('RULE_TARGET_MISSING')
   })
 
   it('rejects a categoryId sent alongside an accountId', async () => {
@@ -393,7 +393,10 @@ describe('rules — split targets', () => {
     const category = await createCategory(cookie, otherGroupId, 'Flights')
 
     const res = await postRule(cookie, { pattern: 'BILLA', groupId, categoryId: category.id })
-    expect(res.status).toBe(404)
+    // 400, not the 404 this used to answer: the same failure reaches this route through
+    // `import.ts` and `fish-pie-expenses.ts` as a 400, and one failure gets one status.
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('CATEGORY_NOT_IN_GROUP')
   })
 
   it('rejects an archived category', async () => {

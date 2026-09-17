@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
   import Modal from '../ui/Modal.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
   import CurrencyInput from '../ui/CurrencyInput.svelte'
@@ -100,7 +101,8 @@
       // could ever be recorded.
       if (parseFloat(diff) === 0) await recordCoverage()
     } catch (e) {
-      checkError = e instanceof Error ? e.message : 'Failed to fetch balance.'
+      checkError =
+        e instanceof Error ? e.message : copy.accounts.reconcile.checkFailed
     } finally {
       checking = false
     }
@@ -111,7 +113,7 @@
     const adjustmentsAccountId =
       settingsStore.value?.defaultAdjustmentsAccountId
     if (!adjustmentsAccountId) {
-      submitError = 'No adjustments account set. Configure one in Settings.'
+      submitError = copy.accounts.reconcile.noAdjustmentsAccountSet
       return
     }
     const diff = parseFloat(result.difference)
@@ -122,7 +124,7 @@
     try {
       await createTransaction({
         date: statementDate,
-        description: `Reconciliation adjustment — ${accountPath}`,
+        description: copy.accounts.reconcile.adjustmentDescription(accountPath),
         postings: [
           { accountId, amount: result.difference, currency: result.currency },
           {
@@ -137,7 +139,7 @@
       onSuccess?.()
     } catch (e) {
       submitError =
-        e instanceof Error ? e.message : 'Failed to post adjustment.'
+        e instanceof Error ? e.message : copy.accounts.reconcile.postFailed
     } finally {
       submitting = false
     }
@@ -162,10 +164,14 @@
   )
 </script>
 
-<Modal title="Reconcile — {accountPath}" bind:open onclose={close}>
+<Modal
+  title={copy.accounts.reconcile.title(accountPath)}
+  bind:open
+  onclose={close}
+>
   <div class="reconcile-body">
     <div class="form-grid">
-      <label for="rec-date">Statement date</label>
+      <label for="rec-date">{copy.accounts.reconcile.statementDate}</label>
       <input
         id="rec-date"
         type="date"
@@ -176,7 +182,9 @@
         }}
       />
 
-      <label for="rec-amount">Statement balance</label>
+      <label for="rec-amount">
+        {copy.accounts.reconcile.statementBalance}
+      </label>
       <div class="balance-row">
         <input
           id="rec-amount"
@@ -208,20 +216,24 @@
     {#if result}
       <div class="comparison">
         <div class="comparison-row">
-          <span class="comp-label">Ledger balance</span>
+          <span class="comp-label">
+            {copy.accounts.reconcile.ledgerBalance}
+          </span>
           <span class="comp-value mono"
             >{result.ledgerAmount} {result.currency}</span
           >
         </div>
         <div class="comparison-row">
-          <span class="comp-label">Statement balance</span>
+          <span class="comp-label">
+            {copy.accounts.reconcile.statementBalance}
+          </span>
           <span class="comp-value mono"
             >{result.statementAmount} {result.currency}</span
           >
         </div>
         <div class="comparison-divider"></div>
         <div class="comparison-row">
-          <span class="comp-label">Difference</span>
+          <span class="comp-label">{copy.accounts.reconcile.difference}</span>
           <span
             class="comp-value mono"
             class:positive={parseFloat(result.difference) > 0}
@@ -233,27 +245,26 @@
         </div>
 
         {#if isBalanced}
-          <p class="balanced">Ledger is balanced.</p>
+          <p class="balanced">{copy.accounts.reconcile.balanced}</p>
           {#if coverageRecorded}
             <p class="coverage">
-              Marks this account complete through {statementDate}.
+              {copy.accounts.reconcile.markedComplete(statementDate)}
             </p>
           {/if}
         {:else if posted}
-          <p class="balanced">Adjustment posted.</p>
+          <p class="balanced">{copy.accounts.reconcile.posted}</p>
           {#if coverageRecorded}
             <p class="coverage">
-              Marks this account complete through {statementDate}.
+              {copy.accounts.reconcile.markedComplete(statementDate)}
             </p>
           {/if}
         {:else}
           <p class="coverage">
-            Posting the adjustment also marks this account complete through {statementDate}.
+            {copy.accounts.reconcile.willMarkComplete(statementDate)}
           </p>
           {#if !settingsStore.value?.defaultAdjustmentsAccountId}
             <p class="warn">
-              No adjustments account configured — set one in Settings before
-              posting.
+              {copy.accounts.reconcile.noAdjustmentsAccount}
             </p>
           {/if}
           {#if submitError}
@@ -271,7 +282,9 @@
         onclick={handleCheck}
         disabled={!formValid || checking}
       >
-        {checking ? 'Checking…' : 'Check balance'}
+        {checking
+          ? copy.accounts.reconcile.checking
+          : copy.accounts.reconcile.check}
       </GradientButton>
     {/if}
     {#if result && !isBalanced && !posted}
@@ -281,11 +294,13 @@
         disabled={submitting ||
           !settingsStore.value?.defaultAdjustmentsAccountId}
       >
-        {submitting ? 'Posting…' : 'Post adjustment'}
+        {submitting
+          ? copy.accounts.reconcile.posting
+          : copy.accounts.reconcile.post}
       </GradientButton>
     {/if}
     {#if isBalanced || posted}
-      <GradientButton onclick={close}>Close</GradientButton>
+      <GradientButton onclick={close}>{copy.case.dialog.close}</GradientButton>
     {/if}
   </div>
 </Modal>

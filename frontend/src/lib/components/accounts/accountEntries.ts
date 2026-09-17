@@ -11,6 +11,7 @@
 
 import { toCents } from '../../money'
 import { isUnderRoot, shortPath } from './accountPaths'
+import { accountsCopy } from '../../copy/accounts'
 import type { Posting, Transaction } from '../../api'
 
 /** How many entries the drawer shows. Enough to recognise the account, short enough to scan. */
@@ -56,7 +57,7 @@ function counterpartyOf(
 ): string | null {
   const paths = [...new Set(others.map((p) => p.accountPath))]
   if (paths.length === 0) return null
-  if (paths.length > 1) return 'split'
+  if (paths.length > 1) return accountsCopy.drawer.split
   return shortPath(paths[0]!, root)
 }
 

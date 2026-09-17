@@ -12,16 +12,21 @@
  * is the list of surfaces under that contract; each extraction story appends to it, and
  * the entry is the story's actual deliverable.
  *
- * Two detectors, because copy hides in two places:
+ * Three detectors, because copy hides in three places:
  *
- * - **Markup** — text nodes, and the handful of attributes that render as words
- *   (`placeholder`, `title`, `aria-label`, …). Everything a component interpolates is a
- *   mustache, so anything left over with a letter in it is a literal someone typed.
- * - **Script** — prose string literals. This one cannot be exact: `'2-digit'` and
- *   `'application/json'` are strings too. The heuristic is "two or more words", which
- *   catches `'Passwords do not match'` and ignores every option constant in the codebase.
- *   It will miss a single-word label. That is accepted: a detector that fires on `'POST'`
- *   would be turned off within a week, and the markup detector is the strict one.
+ * - **Markup** — text nodes, and the attributes that render as words (`placeholder`,
+ *   `title`, `aria-label`, and this app's own `tooltip` and `hint` props). Everything a
+ *   component interpolates is a mustache, so anything left over with a letter in it is a
+ *   literal someone typed.
+ * - **Script** — prose string literals in a component's `<script>`. This one cannot be
+ *   exact: `'2-digit'` and `'application/json'` are strings too. The heuristic is "two or
+ *   more words", which catches `'Passwords do not match'` and ignores every option constant
+ *   in the codebase. It will miss a single-word label. That is accepted: a detector that
+ *   fires on `'POST'` would be turned off within a week, and the markup detector is the
+ *   strict one.
+ * - **Modules** — the same prose read over the `.ts` files inside a converted surface. A
+ *   label table is copy wherever it is declared, and story 4 found six sentences sitting in
+ *   `accountRoles.ts` that a markup-only check would have declared converted.
  *
  * Exceptions go in `ALLOWED` as file+text pairs rather than whole-file exemptions, so an
  * exemption covers the one string it was argued for and not everything added afterwards.
@@ -32,15 +37,16 @@
 import { describe, it, expect } from 'bun:test'
 import { readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
-import { svelteFilesUnder } from '../../testing/source-scan'
+import { sourceFilesUnder } from '../../testing/source-scan'
 
 /** `frontend/src`, from `frontend/src/lib/copy`. */
 const SRC = join(import.meta.dir, '..', '..')
 
 /**
  * Surfaces that have been extracted, as paths under `src/`. A directory covers every
- * `.svelte` file beneath it. Append here as part of the story that converts the surface —
- * an extraction PR that does not extend this list has not actually finished.
+ * `.svelte` and every non-test `.ts` file beneath it. Append here as part of the story that
+ * converts the surface — an extraction PR that does not extend this list has not actually
+ * finished.
  */
 const CONVERTED = [
   'routes/login/+page.svelte',
@@ -50,6 +56,12 @@ const CONVERTED = [
   'lib/components/Sidebar.svelte',
   'lib/components/AccentPicker.svelte',
   'lib/components/ui',
+  // Settings and accounts, story 4. The components directory is listed whole: the drawer,
+  // the two pickers, the palette and the modals all read from `copy.accounts`, and a new
+  // file dropped in beside them should have to as well.
+  'routes/(authed)/settings/+page.svelte',
+  'routes/(authed)/accounts',
+  'lib/components/accounts',
 ]
 
 /**
@@ -60,15 +72,25 @@ const ALLOWED: Array<{ file: string; text: string; why: string }> = []
 
 // --- finding the files ----------------------------------------------------------------
 
+/**
+ * The files under contract, both kinds.
+ *
+ * A surface is not only its markup. `accountRoles.ts` held six sentences — the tooltip on
+ * every role chip and the reason a hide button is greyed out — and a check that reads
+ * `.svelte` files alone would have called that surface converted with the copy still in it.
+ * Tests are excluded: a test that asserts on a sentence is quoting the copy file, which is
+ * the point of it.
+ */
 function convertedFiles(): string[] {
   const out: string[] = []
   for (const entry of CONVERTED) {
     const full = join(SRC, entry)
     const stat = statSync(full) // throws if a story removed a file without updating the list
-    if (stat.isDirectory()) out.push(...svelteFilesUnder(full))
+    if (stat.isDirectory())
+      out.push(...sourceFilesUnder(full, ['.svelte', '.ts']))
     else out.push(full)
   }
-  return out.sort()
+  return out.filter((f) => !f.endsWith('.test.ts')).sort()
 }
 
 // --- reading a .svelte file -----------------------------------------------------------
@@ -76,6 +98,12 @@ function convertedFiles(): string[] {
 /**
  * Attributes whose literal value reaches the user's eyes or their screen reader.
  * `name`, `for`, `type`, `href` and friends are deliberately absent — they are wiring.
+ *
+ * The second group is this app's own component props. They are not HTML attributes, but
+ * `tooltip="Go deeper"` renders words exactly as `title` does, and leaving them out made
+ * the check blind to every tooltip and every form hint in the app — twenty-eight strings
+ * that story 4 found by reading rather than by running the test. Matched case-insensitively,
+ * so the camelCase spellings are written in lowercase here.
  */
 const USER_FACING_ATTRS = new Set([
   'alt',
@@ -87,6 +115,16 @@ const USER_FACING_ATTRS = new Set([
   'label',
   'placeholder',
   'title',
+
+  'arialabel',
+  'busylabel',
+  'caption',
+  'confirmlabel',
+  'emptytext',
+  'hint',
+  'note',
+  'offlabel',
+  'tooltip',
 ])
 
 /** `<script>` and `<style>` bodies, and HTML comments — handled separately or not at all. */
@@ -334,8 +372,23 @@ function scanTag(markup: string, from: number, found: string[]): number {
  * the check worth ignoring.
  */
 export function scriptStrings(source: string): string[] {
+  return proseStrings(scriptBodies(source))
+}
+
+/**
+ * The same read over a whole `.ts` module, which is all script and no markup.
+ *
+ * A converted surface's helper modules are held to the rule its components are: a label
+ * table is copy wherever it is declared.
+ */
+export function moduleStrings(source: string): string[] {
+  return proseStrings(stripComments(source))
+}
+
+/** Prose-looking literals in already-decommented JavaScript. */
+function proseStrings(js: string): string[] {
   const found: string[] = []
-  for (const line of scriptBodies(source).split('\n')) {
+  for (const line of js.split('\n')) {
     if (line.includes('console.') || line.includes('new Error(')) continue
     for (const [, single, double] of line.matchAll(
       /'([^'\\]*)'|"([^"\\]*)"/g,
@@ -362,7 +415,9 @@ describe('extracted surfaces stay extracted', () => {
   for (const file of convertedFiles()) {
     const rel = relative(SRC, file)
     const source = readFileSync(file, 'utf8')
-    const strings = [...markupStrings(source), ...scriptStrings(source)]
+    const strings = file.endsWith('.ts')
+      ? moduleStrings(source)
+      : [...markupStrings(source), ...scriptStrings(source)]
     if (strings.length) hits.set(rel, strings)
   }
 
@@ -450,7 +505,7 @@ export function spliceTernaries(source: string): string[] {
 describe('the plural splice', () => {
   it('appears nowhere in the app', () => {
     const offenders: string[] = []
-    for (const file of svelteFilesUnder(SRC)) {
+    for (const file of sourceFilesUnder(SRC, ['.svelte'])) {
       for (const hit of spliceTernaries(readFileSync(file, 'utf8'))) {
         offenders.push(`${relative(SRC, file)}: ${hit}`)
       }
@@ -496,6 +551,16 @@ describe('markupStrings', () => {
   it('catches user-facing attributes', () => {
     expect(markupStrings('<input placeholder="Your name" />')).toEqual([
       'placeholder="Your name"',
+    ])
+    // The component props are the half the first version of this file was blind to.
+    expect(markupStrings('<Button tooltip="Go deeper" />')).toEqual([
+      'tooltip="Go deeper"',
+    ])
+    expect(markupStrings('<SettingRow hint="Blank falls back." />')).toEqual([
+      'hint="Blank falls back."',
+    ])
+    expect(markupStrings('<Sheet caption="Accounts, grouped" />')).toEqual([
+      'caption="Accounts, grouped"',
     ])
     expect(markupStrings('<button aria-label="Close panel" />')).toEqual([
       'aria-label="Close panel"',
@@ -579,6 +644,22 @@ describe('markupStrings', () => {
     expect(markupStrings('<!-- a note to the reader -->')).toEqual([])
     expect(markupStrings('<span>&nbsp;</span>')).toEqual([])
     expect(markupStrings('<span>&mdash;</span>')).toEqual([])
+  })
+})
+
+describe('moduleStrings', () => {
+  it('catches prose in a plain module', () => {
+    expect(moduleStrings("export const M = 'Imports post rows here'")).toEqual([
+      "'Imports post rows here'",
+    ])
+  })
+
+  it('leaves wiring and comments alone', () => {
+    expect(moduleStrings("import { toCents } from '../../money'")).toEqual([])
+    expect(moduleStrings("const m = { method: 'POST' }")).toEqual([])
+    expect(
+      moduleStrings('// the "see everything" escape hatch\nconst a = 1'),
+    ).toEqual([])
   })
 })
 

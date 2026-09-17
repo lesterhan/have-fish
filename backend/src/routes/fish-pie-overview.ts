@@ -8,6 +8,7 @@ import { fetchCategoriesForGroups } from './fish-pie-categories'
 import { fetchGroupExpenses } from './fish-pie-expenses'
 import { fetchGroupSettlements } from './fish-pie-settlements'
 import { computeCurrencyBalances } from '../fish-pie-balance-service'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -25,10 +26,10 @@ app.get('/:id/overview', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await fetchMembersForGroups([groupId])
-  if (!members.some((m) => m.userId === userId)) return c.json({ error: 'not found' }, 404)
+  if (!members.some((m) => m.userId === userId)) return fail(c, 'GROUP_NOT_FOUND')
 
   const [categories, expenses, settlements, invites] = await Promise.all([
     fetchCategoriesForGroups([groupId], userId),

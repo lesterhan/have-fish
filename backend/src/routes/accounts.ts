@@ -7,6 +7,7 @@ import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-se
 import { isClearingAccountPath } from '../fish-pie-accounts'
 import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, STORED_ACCOUNT_TYPES, DEFAULT_ROOTS, type AccountTypeRoots, type StoredAccountType } from '../postings/account-type'
 import { isValidCurrency } from '../currencies'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -147,13 +148,13 @@ app.get('/balances', async (c) => {
   // path is visibly stray rather than silently missing.
   const includeParam = c.req.query('include')
   if (includeParam !== undefined && includeParam !== 'unfiled') {
-    return c.json({ error: `invalid include: ${includeParam}` }, 400)
+    return fail(c, 'ACCOUNT_INCLUDE_INVALID', { value: includeParam })
   }
   const includeUnfiled = includeParam === 'unfiled'
   // The two are different selection modes — `types` picks by resolved type, `include` widens
   // the root-based default — so combining them would be ambiguous rather than additive.
   if (includeUnfiled && typesParam !== undefined) {
-    return c.json({ error: 'include=unfiled cannot be combined with types' }, 400)
+    return fail(c, 'ACCOUNT_INCLUDE_UNFILED_WITH_TYPES')
   }
 
   let typeFilter: Set<StoredAccountType> | null = null
@@ -162,10 +163,10 @@ app.get('/balances', async (c) => {
     // An empty parameter is a caller mistake, not "everything" — a typo'd filter must not
     // silently widen to the whole ledger.
     if (requested.length === 0 || requested.some((t) => t === '')) {
-      return c.json({ error: 'types must not be empty' }, 400)
+      return fail(c, 'FIELD_EMPTY', { field: 'types' })
     }
     for (const t of requested) {
-      if (!isStoredAccountType(t)) return c.json({ error: `invalid account type: ${t}` }, 400)
+      if (!isStoredAccountType(t)) return fail(c, 'ACCOUNT_TYPE_INVALID', { type: t })
     }
     typeFilter = new Set(requested as StoredAccountType[])
   }
@@ -277,18 +278,18 @@ app.get('/:id/balance', async (c) => {
   const accountId = c.req.param('id')
   const dateParam = c.req.query('date')
 
-  if (!dateParam) return c.json({ error: 'date query parameter is required' }, 400)
+  if (!dateParam) return fail(c, 'FIELD_REQUIRED', { field: 'date' })
 
   // Parse as a local date — treat the param as midnight UTC on that day.
   const asOf = new Date(`${dateParam}T23:59:59.999Z`)
-  if (isNaN(asOf.getTime())) return c.json({ error: 'invalid date format, expected YYYY-MM-DD' }, 400)
+  if (isNaN(asOf.getTime())) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
 
   // Verify the account belongs to this user
   const [account] = await db
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!account) return c.json({ error: 'account not found' }, 404)
+  if (!account) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   const rows = await db
     .select({
@@ -394,7 +395,7 @@ app.get('/:id/action-required', async (c) => {
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!account) return c.json({ error: 'account not found' }, 404)
+  if (!account) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   const { offsetAccountId } = await getActionRequiredSettings(userId)
 
@@ -431,7 +432,7 @@ app.get('/:id', async (c) => {
     .select()
     .from(accounts)
     .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!found) return c.json({ error: 'Not found' }, 404)
+  if (!found) return fail(c, 'ACCOUNT_NOT_FOUND')
   const roots = await loadAccountTypeRoots(userId)
   return c.json(withResolvedTypes(found, roots))
 })
@@ -474,16 +475,16 @@ function readCurrency(value: unknown): CurrencyRead {
 app.post('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+  if (!body) return fail(c, 'INVALID_JSON_BODY')
 
   const path = body.path
   if (typeof path !== 'string' || !isValidPath(path)) {
-    return c.json({ error: 'invalid account path' }, 400)
+    return fail(c, 'ACCOUNT_PATH_INVALID')
   }
   // Receivable accounts are re-spawned at import, so the rename route refuses to move an
   // account into that namespace. Creating one there directly is the same hole by another door.
   if (isClearingAccountPath(path)) {
-    return c.json({ error: 'receivable accounts are system-managed and cannot be created by hand' }, 400)
+    return fail(c, 'RECEIVABLE_NOT_CREATABLE')
   }
 
   const values: {
@@ -496,14 +497,14 @@ app.post('/', async (c) => {
 
   if ('name' in body) {
     if (body.name !== null && typeof body.name !== 'string') {
-      return c.json({ error: 'name must be a string or null' }, 400)
+      return fail(c, 'FIELD_NOT_STRING', { field: 'name' })
     }
     values.name = body.name
   }
 
   if ('defaultCurrency' in body) {
     const currency = readCurrency(body.defaultCurrency)
-    if (!currency.ok) return c.json({ error: 'invalid currency' }, 400)
+    if (!currency.ok) return fail(c, 'UNSUPPORTED_CURRENCY', { currency: String(body.defaultCurrency) })
     values.defaultCurrency = currency.value
   }
 
@@ -511,7 +512,7 @@ app.post('/', async (c) => {
   // of the seven hledger types.
   if ('type' in body) {
     if (body.type !== null && !isStoredAccountType(body.type)) {
-      return c.json({ error: 'invalid account type' }, 400)
+      return fail(c, 'ACCOUNT_TYPE_INVALID', { type: String(body.type) })
     }
     values.type = body.type as StoredAccountType | null
   }
@@ -536,11 +537,11 @@ app.post('/rename', async (c) => {
   const from = typeof body.from === 'string' ? body.from : ''
   const to = typeof body.to === 'string' ? body.to : ''
 
-  if (!from || !to) return c.json({ error: '`from` and `to` are required' }, 400)
-  if (from === to) return c.json({ error: '`from` and `to` are identical' }, 400)
-  if (!isValidPath(to)) return c.json({ error: 'invalid target path' }, 400)
-  if (isClearingAccountPath(from)) return c.json({ error: 'receivable accounts are system-managed and cannot be renamed' }, 400)
-  if (isClearingAccountPath(to)) return c.json({ error: 'cannot rename into the receivable namespace' }, 400)
+  if (!from || !to) return fail(c, 'FIELDS_REQUIRED', { fields: ['from', 'to'] })
+  if (from === to) return fail(c, 'RENAME_TARGET_SAME_AS_SOURCE')
+  if (!isValidPath(to)) return fail(c, 'RENAME_TARGET_INVALID')
+  if (isClearingAccountPath(from)) return fail(c, 'RECEIVABLE_NOT_RENAMABLE')
+  if (isClearingAccountPath(to)) return fail(c, 'RECEIVABLE_NOT_A_RENAME_TARGET')
 
   // Load all of this user's active accounts; match/collision-check in JS to avoid LIKE
   // wildcard hazards (`_`/`%` in a path) and keep anchoring exact. Per-user counts are small.
@@ -552,7 +553,7 @@ app.post('/rename', async (c) => {
   // Anchored prefix match: exactly `from`, or a descendant `from:...`. So renaming
   // `expenses:food` leaves `expenses:foodcourt` untouched.
   const matched = all.filter((a) => a.path === from || a.path.startsWith(`${from}:`))
-  if (matched.length === 0) return c.json({ error: 'no account matches the given path' }, 404)
+  if (matched.length === 0) return fail(c, 'RENAME_NO_MATCH')
 
   const matchedIds = new Set(matched.map((a) => a.id))
   const existingPaths = new Set(all.filter((a) => !matchedIds.has(a.id)).map((a) => a.path))
@@ -561,7 +562,7 @@ app.post('/rename', async (c) => {
   const rewrites = matched.map((a) => ({ id: a.id, newPath: `${to}${a.path.slice(from.length)}` }))
   const collision = rewrites.find((r) => existingPaths.has(r.newPath))
   if (collision) {
-    return c.json({ error: `target path already exists: ${collision.newPath} (merge, not rename)` }, 409)
+    return fail(c, 'RENAME_TARGET_EXISTS', { path: collision.newPath })
   }
 
   const updated = await db.transaction(async (tx) => {
@@ -590,24 +591,24 @@ app.patch('/:id', async (c) => {
   }
   if ('defaultCurrency' in body) {
     const currency = readCurrency(body.defaultCurrency)
-    if (!currency.ok) return c.json({ error: 'invalid currency' }, 400)
+    if (!currency.ok) return fail(c, 'UNSUPPORTED_CURRENCY', { currency: String(body.defaultCurrency) })
     updates.defaultCurrency = currency.value
   }
   // `type` is the hledger type override. null clears it (back to inference); any other value
   // must be one of the seven valid types. Reject anything else rather than storing garbage.
   if ('type' in body) {
     if (body.type !== null && !isStoredAccountType(body.type)) {
-      return c.json({ error: 'invalid account type' }, 400)
+      return fail(c, 'ACCOUNT_TYPE_INVALID', { type: String(body.type) })
     }
     updates.type = body.type
   }
-  if (Object.keys(updates).length === 0) return c.json({ error: 'No valid fields to update' }, 400)
+  if (Object.keys(updates).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
   const [updated] = await db
     .update(accounts)
     .set(updates)
     .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
     .returning()
-  if (!updated) return c.json({ error: 'Not found' }, 404)
+  if (!updated) return fail(c, 'ACCOUNT_NOT_FOUND')
   const roots = await loadAccountTypeRoots(userId)
   return c.json(withResolvedTypes(updated, roots))
 })
@@ -631,10 +632,10 @@ app.delete('/:id', async (c) => {
     .select({ path: accounts.path })
     .from(accounts)
     .where(and(eq(accounts.id, id), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!account) return c.json({ error: 'account not found' }, 404)
+  if (!account) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   if (isClearingAccountPath(account.path)) {
-    return c.json({ error: 'receivable accounts are system-managed and cannot be deleted' }, 409)
+    return fail(c, 'RECEIVABLE_NOT_DELETABLE')
   }
 
   // Postings on a soft-deleted transaction do not count — the entry is already gone, so the
@@ -646,10 +647,7 @@ app.delete('/:id', async (c) => {
     .innerJoin(transactions, and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)))
     .where(and(eq(postings.accountId, id), isNull(postings.deletedAt)))
   if (entries > 0) {
-    return c.json(
-      { error: `this account has ${entries} ${entries === 1 ? 'entry' : 'entries'} — move or delete them first` },
-      409,
-    )
+    return fail(c, 'ACCOUNT_HAS_ENTRIES', { entries })
   }
 
   const [roles] = await db
@@ -666,10 +664,7 @@ app.delete('/:id', async (c) => {
     roles?.adjustments === id ? 'adjustments' : null,
   ].filter((r): r is string => r !== null)
   if (held.length > 0) {
-    return c.json(
-      { error: `this is your default ${held.join(' and ')} account — point that setting elsewhere first` },
-      409,
-    )
+    return fail(c, 'ACCOUNT_IS_A_DEFAULT', { roles: held })
   }
 
   await db
