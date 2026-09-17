@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { copy } from '$lib/copy'
   import type { SaveState } from './saveState'
   import Icon from '../ui/Icon.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
@@ -67,10 +68,10 @@
         <span class="message">{note}</span>
       </span>
     {:else if state.status === 'saving'}
-      <span class="status muted">Saving…</span>
+      <span class="status muted">{copy.accounts.saveRow.saving}</span>
     {:else if state.status === 'saved'}
       <span class="status muted">
-        <Icon name="check" size={11} />Saved
+        <Icon name="check" size={11} />{copy.accounts.saveRow.saved}
       </span>
     {:else if state.status === 'error'}
       <span class="status error" title={state.message}>
@@ -78,7 +79,9 @@
         <span class="message">{state.message}</span>
       </span>
       {#if onretry}
-        <GradientButton size="sm" onclick={onretry}>Retry</GradientButton>
+        <GradientButton size="sm" onclick={onretry}>
+          {copy.accounts.saveRow.retry}
+        </GradientButton>
       {/if}
     {/if}
   </div>

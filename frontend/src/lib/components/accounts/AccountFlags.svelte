@@ -1,5 +1,6 @@
 <script lang="ts">
   import type { Snippet } from 'svelte'
+  import { copy } from '$lib/copy'
   import Chip from '$lib/components/ui/Chip.svelte'
   import {
     ROLE_DESCRIPTION,
@@ -50,7 +51,7 @@
   {/if}
   {#if protection?.kind === 'system'}
     <span title={protectionMessage(protection)}>
-      <Chip size="xs" icon="lock">managed</Chip>
+      <Chip size="xs" icon="lock">{copy.accounts.flags.managed}</Chip>
     </span>
   {/if}
   {@render children?.()}

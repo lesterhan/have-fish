@@ -13,23 +13,18 @@
  */
 
 import type { UserSettings } from '../../api'
+// Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
+import { accountsCopy } from '../../copy/accounts'
 import { RECEIVABLE_SEGMENT, isUnderRoot, type Roots } from './accountPaths'
 
 export type AccountRole = 'offset' | 'conversion' | 'adjustments'
 
 /** Short, uppercase, for a chip on the row. */
-export const ROLE_LABEL: Record<AccountRole, string> = {
-  offset: 'OFFSET',
-  conversion: 'CONVERSION',
-  adjustments: 'ADJUSTMENTS',
-}
+export const ROLE_LABEL: Record<AccountRole, string> = accountsCopy.flags.roles
 
 /** What breaks if the pointer is left dangling — the tooltip on the chip. */
-export const ROLE_DESCRIPTION: Record<AccountRole, string> = {
-  offset: 'Imports post uncategorized rows here',
-  conversion: 'Cross-currency transactions clear through here',
-  adjustments: 'Reconciliation writes its adjustments here',
-}
+export const ROLE_DESCRIPTION: Record<AccountRole, string> =
+  accountsCopy.flags.roleHints
 
 /** Every role this account currently fills, in a stable order. */
 export function rolesOf(
@@ -74,10 +69,9 @@ export function protectionFor(
 
 /** One sentence naming the blocker and the way out of it. */
 export function protectionMessage(protection: Protection): string {
-  if (protection.kind === 'system') {
-    return 'Fish Pie manages this account — it is re-created on import.'
-  }
+  if (protection.kind === 'system') return accountsCopy.flags.systemManaged
+  // The roles are joined here and the sentence chosen there: the old version inflected
+  // "this is"/"these are" mid-sentence, which is a splice wearing whole words.
   const names = protection.roles.map((r) => ROLE_LABEL[r]).join(', ')
-  const subject = protection.roles.length === 1 ? 'this is' : 'these are'
-  return `Point ${names} at another account in Settings first — ${subject} in use.`
+  return accountsCopy.flags.rolesInUse(names, protection.roles.length)
 }

@@ -12,6 +12,7 @@
 // Relative, not `$lib`: this module is unit-tested directly, and a value import through the
 // alias has no .svelte-kit to resolve against in CI. See lib-imports.test.ts.
 import { toClassifierType, type StoredAccountType } from '../../api'
+import { accountsCopy } from '../../copy/accounts'
 import {
   convertBalances,
   type Converted,
@@ -20,7 +21,6 @@ import {
 } from '../../money'
 import {
   SURFACE_LABEL,
-  UNFILED_LABEL,
   bucketOf,
   accountDisplayName,
   institutionOf,
@@ -106,16 +106,10 @@ export interface Group {
   rows: Row[]
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  asset: 'Assets',
-  liability: 'Liabilities',
-  equity: 'Equity',
-  income: 'Income',
-  expense: 'Expenses',
-}
+const TYPE_LABEL: Record<string, string> = accountsCopy.groups.type
 
 /** Group with no currency at all — an account that has never been posted to. */
-export const NO_BALANCE_LABEL = 'No balance'
+export const NO_BALANCE_LABEL = accountsCopy.groups.noBalance
 
 function titleCase(segment: string): string {
   return segment.charAt(0).toUpperCase() + segment.slice(1)
@@ -160,7 +154,7 @@ export function groupRows(rows: readonly Row[], grouping: Grouping): Group[] {
     // Unfiled always wins over the chosen grouping: the point of the bucket is that these
     // rows are visibly set apart, not quietly filed under an institution or a type.
     if (row.surface === 'unfiled') {
-      push(map, 'unfiled', UNFILED_LABEL, row)
+      push(map, 'unfiled', SURFACE_LABEL.unfiled, row)
       continue
     }
 
@@ -206,7 +200,7 @@ export function groupRows(rows: readonly Row[], grouping: Grouping): Group[] {
         break
       }
       case 'flat':
-        push(map, 'flat', 'All accounts', row)
+        push(map, 'flat', accountsCopy.groups.all, row)
         break
     }
   }

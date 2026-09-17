@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import Chip from '$lib/components/ui/Chip.svelte'
   import ConfirmDialog from '$lib/components/ui/ConfirmDialog.svelte'
   import ControlBar from '$lib/components/ui/ControlBar.svelte'
@@ -101,7 +101,7 @@
       )
       error = null
     } catch {
-      error = 'Could not load categories.'
+      error = copy.accounts.categories.loadFailed
     } finally {
       loading = false
     }
@@ -233,7 +233,7 @@
     const to = renameTarget(node.path, segment)
     const collision = findCollision(allAccountPaths, node.path, to)
     if (collision) {
-      toast.show(`“${collision}” already exists — merging isn't supported yet`)
+      toast.show(copy.accounts.categories.collision(collision))
       return
     }
 
@@ -253,11 +253,13 @@
       await renameAccount(from, to)
       await load()
       refreshSidebar()
-      toast.show(`Renamed to ${to}`)
+      toast.show(copy.accounts.categories.renamed(to))
       cancelEdit()
       pending = null
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Rename failed')
+      toast.show(
+        e instanceof Error ? e.message : copy.accounts.categories.renameFailed,
+      )
     } finally {
       busy = false
     }
@@ -285,11 +287,11 @@
     try {
       await deleteAccount(node.accountId)
       await load()
-      toast.show(`Deleted ${node.path}`)
+      toast.show(copy.accounts.categories.deleted(node.path))
       deleting = null
     } catch (e) {
       toast.show(
-        e instanceof Error ? e.message : 'Could not delete that category',
+        e instanceof Error ? e.message : copy.accounts.categories.deleteFailed,
       )
     } finally {
       busy = false
@@ -316,9 +318,11 @@
       await load()
       refreshSidebar()
       newPath = ''
-      toast.show(`Added ${path}`)
+      toast.show(copy.accounts.categories.added(path))
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not add that category')
+      toast.show(
+        e instanceof Error ? e.message : copy.accounts.categories.addFailed,
+      )
     } finally {
       adding = false
     }
@@ -351,13 +355,26 @@
   // was written to stop; it stopped the typography drifting and left the widths free, which
   // is the half that actually moved.
   const COLUMNS: SheetColumn[] = [
-    { key: 'category', label: 'Category' },
-    { key: 'entries', label: 'Entries', width: WIDTH.count, numeric: true },
-    { key: 'used', label: 'Last used', width: WIDTH.date },
-    { key: 'flags', label: 'Flags', width: WIDTH.flags },
+    { key: 'category', label: copy.accounts.categories.columns.category },
+    {
+      key: 'entries',
+      label: copy.accounts.categories.columns.entries,
+      width: WIDTH.count,
+      numeric: true,
+    },
+    {
+      key: 'used',
+      label: copy.accounts.categories.columns.used,
+      width: WIDTH.date,
+    },
+    {
+      key: 'flags',
+      label: copy.accounts.categories.columns.flags,
+      width: WIDTH.flags,
+    },
     {
       key: 'actions',
-      label: 'Actions',
+      label: copy.accounts.categories.columns.actions,
       width: WIDTH.actions,
       unlabelled: true,
     },
@@ -365,13 +382,16 @@
 </script>
 
 <ControlBar>
-  <SearchField bind:value={query} placeholder="Search categories" />
+  <SearchField
+    bind:value={query}
+    placeholder={copy.accounts.categories.search}
+  />
 
   <label class="control">
-    <span>View</span>
-    <Select bind:value={view} aria-label="Category view">
-      <option value="tree">Tree</option>
-      <option value="flat">Flat</option>
+    <span>{copy.accounts.categories.view}</span>
+    <Select bind:value={view} aria-label={copy.accounts.categories.viewLabel}>
+      <option value="tree">{copy.accounts.categories.views.tree}</option>
+      <option value="flat">{copy.accounts.categories.views.flat}</option>
     </Select>
   </label>
 
@@ -379,11 +399,11 @@
     <GradientButton
       active={emptyOnly}
       tooltip={emptyOnly
-        ? 'Show every category again'
-        : 'Show only categories with no entries — the ones that can be deleted'}
+        ? copy.accounts.categories.showAll
+        : copy.accounts.categories.showEmptyOnly}
       onclick={() => (emptyOnly = !emptyOnly)}
     >
-      {emptyPaths.size} empty
+      {copy.accounts.categories.emptyCount(emptyPaths.size)}
     </GradientButton>
   {/if}
 
@@ -396,14 +416,14 @@
   >
     <TextInput
       bind:value={newPath}
-      placeholder="expenses:travel:flights"
-      aria-label="New category path"
+      placeholder={copy.accounts.categories.addPlaceholder}
+      aria-label={copy.accounts.categories.addLabel}
       aria-invalid={addProblem !== null}
       spellcheck={false}
       style="width: 16rem"
     />
     <GradientButton type="submit" variant="primary" disabled={!canAdd}>
-      {adding ? 'Adding…' : 'Add'}
+      {adding ? copy.accounts.categories.adding : copy.accounts.categories.add}
     </GradientButton>
   </form>
 </ControlBar>
@@ -421,9 +441,9 @@
     {/each}
   </div>
 {:else if sections.length === 0}
-  <p class="message">No categories yet — add one above.</p>
+  <p class="message">{copy.accounts.categories.empty}</p>
 {:else}
-  <Sheet columns={COLUMNS} caption="Categories, grouped by root">
+  <Sheet columns={COLUMNS} caption={copy.accounts.categories.caption}>
     {#each sections as section (section.key)}
       {@const rows = rowsFor(section)}
       {@const sectionFolded = sectionCollapsed[section.key] ?? false}
@@ -431,7 +451,7 @@
         label={section.label}
         count={rows.length}
         total={String(section.entries)}
-        unit={section.entries === 1 ? 'entry' : 'entries'}
+        unit={copy.accounts.categories.entryUnit(section.entries)}
         collapsed={sectionFolded}
         ontoggle={() => (sectionCollapsed[section.key] = !sectionFolded)}
       >
@@ -442,10 +462,10 @@
               disabled={searching}
               onclick={() => collapseAll(section)}
               tooltip={searching
-                ? 'A filtered tree stays open — clear the filter to fold it'
-                : 'Fold or unfold every branch in this section'}
+                ? copy.accounts.categories.foldBlocked
+                : copy.accounts.categories.foldHint}
             >
-              Fold all
+              {copy.accounts.categories.foldAll}
             </GradientButton>
           {/if}
         {/snippet}
@@ -457,8 +477,8 @@
             <td colspan={COLUMNS.length}>
               <p class="message">
                 {emptyOnly
-                  ? 'Nothing empty here.'
-                  : `Nothing matches “${query.trim()}”.`}
+                  ? copy.accounts.categories.noneEmpty
+                  : copy.accounts.search.noMatch(query.trim())}
               </p>
             </td>
           </tr>
@@ -479,8 +499,8 @@
                       class="disclosure"
                       aria-expanded={!folded}
                       aria-label={folded
-                        ? `Expand ${node.path}`
-                        : `Collapse ${node.path}`}
+                        ? copy.accounts.categories.expand(node.path)
+                        : copy.accounts.categories.collapse(node.path)}
                       onclick={() => toggleBranch(node.path)}
                     >
                       <Icon
@@ -499,15 +519,15 @@
                       bind:value={editValue}
                       spellcheck={false}
                       disabled={busy}
-                      aria-label={`Rename ${node.path}`}
+                      aria-label={copy.accounts.categories.rename(node.path)}
                       onkeydown={(e: KeyboardEvent) => onEditKeydown(e, node)}
                       style="width: 12rem"
                     />
                     <GradientButton
                       square
                       disabled={busy}
-                      aria-label="Save name"
-                      tooltip="Save"
+                      aria-label={copy.accounts.categories.saveName}
+                      tooltip={copy.accounts.settings.name.save}
                       onclick={() => submitEdit(node)}
                     >
                       <Icon name="floppy" size={12} />
@@ -515,8 +535,8 @@
                     <GradientButton
                       square
                       disabled={busy}
-                      aria-label="Cancel rename"
-                      tooltip="Cancel"
+                      aria-label={copy.accounts.categories.cancelRename}
+                      tooltip={copy.case.dialog.cancel}
                       onclick={cancelEdit}
                     >
                       <Icon name="close" size={12} />
@@ -537,7 +557,7 @@
                 {#if node.lastUsed}
                   {node.lastUsed}
                 {:else}
-                  <span class="muted">never</span>
+                  <span class="muted">{copy.accounts.rows.never}</span>
                 {/if}
               </td>
               <td>
@@ -553,15 +573,14 @@
                       </span>
                     {/if}
                     {#if node.accountId === null}
-                      <span
-                        title="No account was filed at this path — it exists because something beneath it does"
-                      >
-                        <Chip size="xs">category</Chip>
+                      <span title={copy.accounts.categories.virtualHint}>
+                        <Chip size="xs">{copy.accounts.categories.virtual}</Chip
+                        >
                       </span>
                     {/if}
                   {/snippet}
                   {#if empty}
-                    <Chip size="xs">empty</Chip>
+                    <Chip size="xs">{copy.accounts.categories.emptyFlag}</Chip>
                   {/if}
                 </AccountFlags>
               </td>
@@ -570,12 +589,12 @@
                   quiet
                   square
                   aria-label={open
-                    ? `Hide recent entries for ${node.path}`
-                    : `Show recent entries for ${node.path}`}
+                    ? copy.accounts.rows.hideEntries(node.path)
+                    : copy.accounts.rows.showEntries(node.path)}
                   aria-expanded={open}
                   tooltip={open
-                    ? 'Close'
-                    : 'Recent entries and what is unfinished'}
+                    ? copy.case.dialog.close
+                    : copy.accounts.rows.entriesHint}
                   onclick={() => toggleRow(node.path)}
                 >
                   <Icon
@@ -587,12 +606,12 @@
                   quiet
                   square
                   disabled={blocker?.kind === 'system' || editingPath !== null}
-                  aria-label={`Rename ${node.path}`}
+                  aria-label={copy.accounts.categories.rename(node.path)}
                   tooltip={blocker?.kind === 'system'
                     ? protectionMessage(blocker)
                     : hasChildren
-                      ? 'Rename — this renames everything beneath it too'
-                      : 'Rename'}
+                      ? copy.accounts.categories.renameCascadeHint
+                      : copy.accounts.categories.renameHint}
                   onclick={() => startEdit(node)}
                 >
                   <Icon name="edit-txn" size={13} />
@@ -601,14 +620,14 @@
                   quiet
                   square
                   disabled={!deletable}
-                  aria-label={`Delete ${node.path}`}
+                  aria-label={copy.accounts.categories.delete(node.path)}
                   tooltip={blocker
                     ? protectionMessage(blocker)
                     : node.accountId === null
-                      ? 'Nothing was filed here, so there is nothing to delete'
+                      ? copy.accounts.categories.deleteNothingHint
                       : deletable
-                        ? 'Delete this category'
-                        : 'Only a category with no entries and nothing beneath it can be deleted'}
+                        ? copy.accounts.categories.deleteHint
+                        : copy.accounts.categories.deleteBlockedHint}
                   onclick={() => (deleting = node)}
                 >
                   <Icon name="trash" size={13} />
@@ -640,21 +659,17 @@
 
 {#if pending}
   <ConfirmDialog
-    title="Rename category"
+    title={copy.accounts.categories.renameDialog.title}
     open={true}
-    confirmLabel="Rename all"
-    busyLabel="Renaming…"
+    confirmLabel={copy.accounts.categories.renameDialog.confirm}
+    busyLabel={copy.accounts.categories.renameDialog.busy}
     {busy}
     onconfirm={() => pending && applyRename(pending.from, pending.to)}
     oncancel={() => (pending = null)}
   >
     <p>
       <code>{pending.from}</code> → <code>{pending.to}</code>.
-      {plural(
-        pending.affected.length,
-        'This renames 1 account; its entries stay attached, only the name changes.',
-        `This renames ${pending.affected.length} accounts; their entries stay attached, only the name changes.`,
-      )}
+      {copy.accounts.categories.renameDialog.summary(pending.affected.length)}
     </p>
     <ul class="affected">
       {#each pending.affected as p (p)}
@@ -669,19 +684,19 @@
 
 {#if deleting}
   <ConfirmDialog
-    title="Delete category"
+    title={copy.accounts.categories.deleteDialog.title}
     open={true}
-    confirmLabel="Delete"
-    busyLabel="Deleting…"
+    confirmLabel={copy.accounts.categories.deleteDialog.confirm}
+    busyLabel={copy.accounts.categories.deleteDialog.busy}
     variant="warning"
     {busy}
     onconfirm={confirmDelete}
     oncancel={() => (deleting = null)}
   >
-    <p>
-      Delete <code>{deleting.path}</code>? It has no entries and nothing filed
-      beneath it.
-    </p>
+    <!-- The path on its own line, as in the rename dialog above. It used to sit in the
+         middle of the sentence, which is one message no copy file can hold. -->
+    <p><code>{deleting.path}</code></p>
+    <p>{copy.accounts.categories.deleteDialog.question}</p>
   </ConfirmDialog>
 {/if}
 

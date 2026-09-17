@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onDestroy, untrack } from 'svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import {
     updateAccount,
     updateCoverageConfig,
@@ -75,7 +75,7 @@
   let nameState = $state<SaveState>({ status: 'idle' })
 
   const nameSaver = new SaveTracker({
-    fallbackMessage: 'Could not save the name',
+    fallbackMessage: copy.accounts.settings.name.failed,
     onchange: (s) => (nameState = s),
   })
 
@@ -104,22 +104,15 @@
   // The stored override, or '' for "Auto", which falls back to path inference. Order
   // matches hledger's. Cash and Conversion are override-only — inference never yields them.
 
-  const TYPE_LABELS: Record<StoredAccountType, string> = {
-    asset: 'Asset',
-    cash: 'Cash',
-    liability: 'Liability',
-    equity: 'Equity',
-    income: 'Income',
-    expense: 'Expense',
-    conversion: 'Conversion',
-  }
+  const TYPE_LABELS: Record<StoredAccountType, string> =
+    copy.accounts.settings.type.options
   const TYPE_OPTIONS = Object.keys(TYPE_LABELS) as StoredAccountType[]
 
   let typeValue = $state(untrack(() => account.type ?? ''))
   let typeState = $state<SaveState>({ status: 'idle' })
 
   const typeSaver = new SaveTracker({
-    fallbackMessage: 'Could not save the type',
+    fallbackMessage: copy.accounts.settings.type.failed,
     onchange: (s) => (typeState = s),
   })
 
@@ -132,7 +125,7 @@
   const inferredLabel = $derived(
     account.inferredType
       ? TYPE_LABELS[account.inferredType as AccountType]
-      : 'unclassified',
+      : copy.accounts.settings.type.unclassified,
   )
 
   async function saveType() {
@@ -149,7 +142,7 @@
   let visibilityState = $state<SaveState>({ status: 'idle' })
 
   const visibilitySaver = new SaveTracker({
-    fallbackMessage: 'Could not save sidebar visibility',
+    fallbackMessage: copy.accounts.settings.sidebar.failed,
     onchange: (s) => (visibilityState = s),
   })
 
@@ -176,7 +169,7 @@
   let currencyState = $state<SaveState>({ status: 'idle' })
 
   const currencySaver = new SaveTracker({
-    fallbackMessage: 'Could not save the currency',
+    fallbackMessage: copy.accounts.settings.currency.failed,
     onchange: (s) => (currencyState = s),
   })
 
@@ -224,15 +217,15 @@
   let lagState = $state<SaveState>({ status: 'idle' })
 
   const trackedSaver = new SaveTracker({
-    fallbackMessage: 'Could not save tracking',
+    fallbackMessage: copy.accounts.settings.tracked.failed,
     onchange: (s) => (trackedState = s),
   })
   const cycleSaver = new SaveTracker({
-    fallbackMessage: 'Could not save the statement cycle',
+    fallbackMessage: copy.accounts.settings.statements.failed,
     onchange: (s) => (cycleState = s),
   })
   const lagSaver = new SaveTracker({
-    fallbackMessage: 'Could not save the release lag',
+    fallbackMessage: copy.accounts.settings.releaseLag.failed,
     onchange: (s) => (lagState = s),
   })
 
@@ -310,12 +303,12 @@
     [
       {
         id: 'identity',
-        label: 'Identity',
+        label: copy.accounts.settings.tabs.identity,
         alert: nameState.status === 'error' || typeState.status === 'error',
       },
       {
         id: 'preferences',
-        label: 'Preferences',
+        label: copy.accounts.settings.tabs.preferences,
         alert:
           currencyState.status === 'error' ||
           visibilityState.status === 'error',
@@ -324,7 +317,7 @@
         ? [
             {
               id: 'catch-up',
-              label: 'Catch-up',
+              label: copy.accounts.settings.tabs.catchUp,
               alert:
                 trackedState.status === 'error' ||
                 cycleState.status === 'error' ||
@@ -388,7 +381,7 @@
   })
 </script>
 
-<Modal bind:open title="Account settings" onclose={handleClose}>
+<Modal bind:open title={copy.accounts.settings.title} onclose={handleClose}>
   <div class="settings">
     <p class="account-path" title={account.path}>{account.path}</p>
 
@@ -396,7 +389,7 @@
       {tabs}
       active={activeTab}
       onselect={(id) => (activeTab = id as TabId)}
-      label="Account settings sections"
+      label={copy.accounts.settings.tabsLabel}
       panelIdPrefix="account-settings"
     />
 
@@ -410,8 +403,8 @@
         <!-- No `onretry`: the Save button is still on screen after a failure, so a second
            retry affordance beside it would be one button too many. -->
         <SettingRow
-          label="Display name"
-          hint="Shown instead of the path. Blank falls back to the path."
+          label={copy.accounts.settings.name.label}
+          hint={copy.accounts.settings.name.hint}
           controlId="setting-account-name"
           state={nameState}
         >
@@ -424,14 +417,14 @@
           />
           {#if nameDirty}
             <GradientButton size="sm" onclick={saveName} disabled={nameSaving}>
-              Save
+              {copy.accounts.settings.name.save}
             </GradientButton>
           {/if}
         </SettingRow>
 
         <SettingRow
-          label="Type"
-          hint="Used on hledger export. Auto infers it from the path."
+          label={copy.accounts.settings.type.label}
+          hint={copy.accounts.settings.type.hint}
           controlId="setting-account-type"
           state={typeState}
           onretry={saveType}
@@ -441,7 +434,9 @@
             bind:value={typeValue}
             onchange={saveType}
           >
-            <option value="">Auto (inferred: {inferredLabel})</option>
+            <option value="">
+              {copy.accounts.settings.type.auto(inferredLabel)}
+            </option>
             {#each TYPE_OPTIONS as t}
               <option value={t}>{TYPE_LABELS[t]}</option>
             {/each}
@@ -453,8 +448,8 @@
              entry is not a display concern. -->
 
         <SettingRow
-          label="Default currency"
-          hint="Pre-selects the currency when you add a transaction here."
+          label={copy.accounts.settings.currency.label}
+          hint={copy.accounts.settings.currency.hint}
           controlId="setting-account-currency"
           state={currencyState}
           onretry={saveCurrency}
@@ -464,7 +459,9 @@
             bind:value={currencyValue}
             onchange={saveCurrency}
           >
-            <option value="">Default ({preferredCurrency})</option>
+            <option value="">
+              {copy.accounts.settings.currency.fallback(preferredCurrency)}
+            </option>
             {#each SUPPORTED_CURRENCIES as code}
               <option value={code}>{currencyFlag(code)} {code}</option>
             {/each}
@@ -472,8 +469,8 @@
         </SettingRow>
 
         <SettingRow
-          label="Show in sidebar"
-          hint="Hidden accounts stay reachable from Accounts."
+          label={copy.accounts.settings.sidebar.label}
+          hint={copy.accounts.settings.sidebar.hint}
           state={visibilityState}
           onretry={saveVisibility}
         >
@@ -489,8 +486,8 @@
         </SettingRow>
       {:else if activeTab === 'catch-up' && coverage}
         <SettingRow
-          label="Track this account"
-          hint="Whether the coach asks you to keep this account up to date."
+          label={copy.accounts.settings.tracked.label}
+          hint={copy.accounts.settings.tracked.hint}
           state={trackedState}
           onretry={saveTracked}
         >
@@ -505,8 +502,8 @@
 
         {#if trackedValue}
           <SettingRow
-            label="Statements"
-            hint="A card only produces data when its cycle closes; most other accounts export any range."
+            label={copy.accounts.settings.statements.label}
+            hint={copy.accounts.settings.statements.hint}
             controlId="setting-export-mode"
             state={cycleState}
             onretry={saveCycle}
@@ -519,15 +516,19 @@
               <option value={AUTOMATIC}
                 >{exportModeLabel(inference.mode)}</option
               >
-              <option value="range">Any date range</option>
-              <option value="cycle">Statement cycle</option>
+              <option value="range">
+                {copy.accounts.settings.statements.range}
+              </option>
+              <option value="cycle">
+                {copy.accounts.settings.statements.cycle}
+              </option>
             </Select>
           </SettingRow>
 
           {#if showsCycleFields}
             <SettingRow
-              label="Cycle closes on"
-              hint="Clamped to the last day of shorter months."
+              label={copy.accounts.settings.cycleDay.label}
+              hint={copy.accounts.settings.cycleDay.hint}
               controlId="setting-cycle-day"
               state={cycleState}
               note={cyclePlan.status === 'incomplete'
@@ -549,8 +550,8 @@
             </SettingRow>
 
             <SettingRow
-              label="Available after"
-              hint="Days between the cycle closing and the statement being downloadable."
+              label={copy.accounts.settings.releaseLag.label}
+              hint={copy.accounts.settings.releaseLag.hint}
               controlId="setting-release-lag"
               state={lagState}
               onretry={saveLag}
@@ -566,8 +567,8 @@
                 {#each RELEASE_LAGS as days}
                   <option value={String(days)}>
                     {days === 0
-                      ? 'Same day'
-                      : plural(days, '1 day', `${days} days`)}
+                      ? copy.accounts.settings.releaseLag.sameDay
+                      : copy.accounts.settings.releaseLag.days(days)}
                   </option>
                 {/each}
               </Select>
@@ -582,10 +583,10 @@
         <!-- Named at the point of action: this is the click that throws the edit away.
              Scoped to the name, because the other two rows are already on the server —
              a blanket "Discard" would promise to undo a type change it cannot touch. -->
-        <span class="unsaved">Closing discards the unsaved name.</span>
+        <span class="unsaved">{copy.accounts.settings.unsaved}</span>
       {/if}
       <GradientButton variant="primary" size="lg" onclick={closeModal}>
-        Close
+        {copy.case.dialog.close}
       </GradientButton>
     </div>
   </div>
