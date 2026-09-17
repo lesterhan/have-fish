@@ -19,6 +19,8 @@ import {
   type Roots,
   type Surface,
 } from './accountPaths'
+// Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
+import { accountsCopy } from '../../copy/accounts'
 
 const SEP = ':'
 
@@ -354,8 +356,9 @@ export function renameTarget(path: string, segment: string): string {
  */
 export function segmentError(segment: string, current: string): string | null {
   const trimmed = segment.trim()
-  if (!trimmed) return 'A name cannot be empty'
-  if (trimmed.includes(SEP)) return 'A name cannot contain a colon'
+  if (!trimmed) return accountsCopy.categories.validation.nameEmpty
+  if (trimmed.includes(SEP))
+    return accountsCopy.categories.validation.nameSeparator
   if (trimmed === current) return null
   return null
 }
@@ -407,8 +410,9 @@ export function pathError(
   if (!path) return null
   const segs = path.split(SEP)
   if (segs.some((s) => s.length === 0 || s !== s.trim())) {
-    return 'Use single colons between names, with no blank segments'
+    return accountsCopy.categories.validation.pathShape
   }
-  if (existingPaths.includes(path)) return 'That account already exists'
+  if (existingPaths.includes(path))
+    return accountsCopy.categories.validation.pathExists
   return null
 }

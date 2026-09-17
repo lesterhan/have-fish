@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import { goto } from '$app/navigation'
   import { page } from '$app/state'
   import Checkbox from '$lib/components/ui/Checkbox.svelte'
@@ -83,8 +83,8 @@
   // `?tab=` keeps the two halves of the page linkable — story 7 redirects the retired
   // /accounts/manage route straight at the Categories tab.
   const TABS: TabItem[] = [
-    { id: 'accounts', label: 'Accounts' },
-    { id: 'categories', label: 'Categories' },
+    { id: 'accounts', label: copy.accounts.page.tabs.accounts },
+    { id: 'categories', label: copy.accounts.page.tabs.categories },
   ]
 
   // "Available", not "Cash": unconverted, the figure is the preferred-currency balance and
@@ -98,16 +98,17 @@
   // bookkeeping, not a loss — so deriving alarm from `cents < 0` painted the only red
   // figure on the page onto the one number that is always going to be negative. Available
   // and Owed still take the colour when they go negative, because there it means something.
+  // The label is looked up by key rather than carried here, so the four names sit
+  // together in the copy file where the voice of the row can be read at once.
   const POSITION_CARDS: {
     key: PositionBucket
-    label: string
     magnitude?: boolean
     neutralSign?: boolean
   }[] = [
-    { key: 'cash', label: 'Available' },
-    { key: 'investments', label: 'Investments', neutralSign: true },
-    { key: 'owed', label: 'Owed to you' },
-    { key: 'owing', label: 'You owe', magnitude: true },
+    { key: 'cash' },
+    { key: 'investments', neutralSign: true },
+    { key: 'owed' },
+    { key: 'owing', magnitude: true },
   ]
 
   // ── The column geometry ───────────────────────────────────
@@ -119,24 +120,33 @@
   // its worst case from the shared vocabulary, so a column that means the same thing on the
   // Categories tab is the same width there.
   let columns = $derived.by<SheetColumn[]>(() => [
-    { key: 'account', label: 'Account' },
-    { key: 'type', label: 'Type', width: WIDTH.chip },
-    { key: 'balance', label: 'Balance', width: WIDTH.money, numeric: true },
+    { key: 'account', label: copy.accounts.columns.account },
+    { key: 'type', label: copy.accounts.columns.type, width: WIDTH.chip },
+    {
+      key: 'balance',
+      label: copy.accounts.columns.balance,
+      width: WIDTH.money,
+      numeric: true,
+    },
     ...(converted
       ? [
           {
             key: 'converted',
-            label: `≈ ${preferred}`,
+            label: copy.accounts.columns.converted(preferred),
             width: WIDTH.converted,
             numeric: true,
           } satisfies SheetColumn,
         ]
       : []),
-    { key: 'activity', label: 'Last activity', width: WIDTH.date },
-    { key: 'flags', label: 'Flags', width: WIDTH.flags },
+    {
+      key: 'activity',
+      label: copy.accounts.columns.activity,
+      width: WIDTH.date,
+    },
+    { key: 'flags', label: copy.accounts.columns.flags, width: WIDTH.flags },
     {
       key: 'actions',
-      label: 'Actions',
+      label: copy.accounts.columns.actions,
       width: WIDTH.actions,
       unlabelled: true,
     },
@@ -197,7 +207,7 @@
       actionRequiredStore.invalidate()
       void actionRequiredStore.load()
     } catch {
-      error = 'Could not load accounts.'
+      error = copy.accounts.toasts.loadFailed
     } finally {
       loading = false
     }
@@ -264,7 +274,7 @@
       // view rather than switching into a column of dashes and calling that a conversion.
       // A partial failure does convert, and says what it missed per figure.
       if (rates.size === 0) {
-        convertError = `No exchange rates available right now — still showing ${preferred} balances.`
+        convertError = copy.accounts.conversion.noRates(preferred)
         return
       }
       converted = true
@@ -407,7 +417,7 @@
       })
       settings = settingsStore.value
     } catch {
-      toast.show('Could not save that — nothing changed.')
+      toast.show(copy.accounts.toasts.saveFailed)
     }
   }
 
@@ -433,13 +443,7 @@
     // The Active view filters hidden accounts out, so the row the user just acted on
     // disappears. Say where it went rather than leaving them to wonder what they deleted.
     if (hidden && show === 'active') {
-      toast.show(
-        plural(
-          ids.length,
-          'Hidden — switch Show to All or Hidden to see it.',
-          'Hidden — switch Show to All or Hidden to see them.',
-        ),
-      )
+      toast.show(copy.accounts.toasts.hidden(ids.length))
     }
   }
 
@@ -528,7 +532,7 @@
   async function bulkHide() {
     const skipped = selection.length - hidable.length
     if (hidable.length === 0) {
-      toast.show('Nothing to hide — every account selected is in use.')
+      toast.show(copy.accounts.toasts.nothingToHide)
       return
     }
     bulkBusy = true
@@ -539,11 +543,7 @@
       )
       if (skipped > 0) {
         toast.show(
-          plural(
-            skipped,
-            `Hid ${hidable.length}; kept ${skipped} that is in use.`,
-            `Hid ${hidable.length}; kept ${skipped} that are in use.`,
-          ),
+          copy.accounts.toasts.hidSomeKeptOthers(hidable.length, skipped),
         )
       }
     } finally {
@@ -561,16 +561,10 @@
           updateAccount(a.id, { defaultCurrency: bulkCurrency }),
         ),
       )
-      toast.show(
-        plural(
-          targets.length,
-          `Default currency set to ${bulkCurrency} on 1 account.`,
-          `Default currency set to ${bulkCurrency} on ${targets.length} accounts.`,
-        ),
-      )
+      toast.show(copy.accounts.toasts.currencySet(bulkCurrency, targets.length))
       bulkCurrency = ''
     } catch {
-      toast.show('Could not set the currency on every account.')
+      toast.show(copy.accounts.toasts.currencyFailed)
     } finally {
       bulkBusy = false
     }
@@ -630,7 +624,10 @@
   // ── Row helpers ───────────────────────────────────────────
   function typeLabel(row: Row): string {
     const resolved = row.account.resolvedType
-    if (!resolved) return row.surface === 'unfiled' ? 'unfiled' : row.surface
+    if (!resolved)
+      return row.surface === 'unfiled'
+        ? copy.accounts.rows.unfiled
+        : row.surface
     return toClassifierType(resolved)
   }
 
@@ -650,7 +647,7 @@
   }
 </script>
 
-<svelte:head><title>Accounts · have-fish</title></svelte:head>
+<svelte:head><title>{copy.accounts.page.documentTitle}</title></svelte:head>
 <svelte:window onkeydown={onKeydown} />
 
 <AddAccountWizard
@@ -661,12 +658,12 @@
 
 <div class="page">
   <header class="page-head">
-    <h1>Accounts</h1>
+    <h1>{copy.accounts.page.heading}</h1>
     <TabStrip
       tabs={TABS}
       active={activeTab}
       onselect={selectTab}
-      label="Accounts page sections"
+      label={copy.accounts.page.tabsLabel}
       panelIdPrefix="accounts"
     />
   </header>
@@ -687,7 +684,7 @@
            that work is done, and an aggregate the app knows to be incomplete should not be
            the biggest thing on the screen. Four tiles of equal weight answered neither
            state: the eye had to pick, every time. -->
-      <section class="position" aria-label="Position">
+      <section class="position" aria-label={copy.accounts.position.regionLabel}>
         {#if loading}
           <div class="headline">
             <Shimmer height="2rem" />
@@ -699,21 +696,15 @@
               <p class="outstanding-text">
                 {#if unbootstrapped > 0}
                   <span>
-                    {plural(
-                      unbootstrapped,
-                      'One account has no starting line, so nothing it holds is counted below.',
-                      `${unbootstrapped} accounts have no starting line, so nothing they hold is counted below.`,
-                    )}
+                    {copy.accounts.position.noStartingLine(unbootstrapped)}
                   </span>
-                  <a class="outstanding-action" href="/catch-up">Set them</a>
+                  <a class="outstanding-action" href="/catch-up">
+                    {copy.accounts.position.setStartingLines}
+                  </a>
                 {/if}
                 {#if attentionTotal > 0}
                   <span>
-                    {plural(
-                      attentionTotal,
-                      'One entry needs a decision.',
-                      `${attentionTotal} entries need a decision.`,
-                    )}
+                    {copy.accounts.position.needsDecision(attentionTotal)}
                   </span>
                   <!-- The filter lives here rather than in the toolbar: it is the action
                        this sentence is asking for, and having it in both places would be
@@ -724,7 +715,9 @@
                     aria-pressed={attentionOnly}
                     onclick={() => (attentionOnly = !attentionOnly)}
                   >
-                    {attentionOnly ? 'Show every account' : 'Show them'}
+                    {attentionOnly
+                      ? copy.accounts.position.showEverything
+                      : copy.accounts.position.showOutstanding}
                   </button>
                 {/if}
               </p>
@@ -738,7 +731,9 @@
               {@const asOf = positionNotes?.[card.key] ?? null}
               {@const lead = i === 0 && !outstanding}
               <div class="figure" class:lead>
-                <span class="position-label">{card.label}</span>
+                <span class="position-label">
+                  {copy.accounts.position[card.key]}
+                </span>
                 <span
                   class="position-value"
                   class:negative={!card.magnitude &&
@@ -754,8 +749,12 @@
                   <span
                     class="position-note"
                     title={converted
-                      ? `Balances in ${bucket.missing.join(', ')} are not included — no exchange rate available`
-                      : `Also holds ${bucket.missing.join(', ')} — convert to fold them in`}
+                      ? copy.accounts.conversion.missingRate(
+                          bucket.missing.join(', '),
+                        )
+                      : copy.accounts.conversion.notConverted(
+                          bucket.missing.join(', '),
+                        )}
                   >
                     {note}
                   </span>
@@ -775,24 +774,41 @@
       </section>
 
       <ControlBar>
-        <SearchField bind:value={query} placeholder="Search accounts" />
+        <SearchField
+          bind:value={query}
+          placeholder={copy.accounts.controls.search}
+        />
 
         <label class="control">
-          <span>Group</span>
-          <Select bind:value={grouping} aria-label="Group accounts by">
-            <option value="institution">Institution</option>
-            <option value="type">Type</option>
-            <option value="currency">Currency</option>
-            <option value="flat">Flat</option>
+          <span>{copy.accounts.controls.group}</span>
+          <Select
+            bind:value={grouping}
+            aria-label={copy.accounts.controls.groupBy}
+          >
+            <option value="institution">
+              {copy.accounts.controls.grouping.institution}
+            </option>
+            <option value="type">{copy.accounts.controls.grouping.type}</option>
+            <option value="currency">
+              {copy.accounts.controls.grouping.currency}
+            </option>
+            <option value="flat">{copy.accounts.controls.grouping.flat}</option>
           </Select>
         </label>
 
         <label class="control">
-          <span>Show</span>
-          <Select bind:value={show} aria-label="Which accounts to show">
-            <option value="active">Active</option>
-            <option value="all">All</option>
-            <option value="hidden">Hidden</option>
+          <span>{copy.accounts.controls.show}</span>
+          <Select
+            bind:value={show}
+            aria-label={copy.accounts.controls.showWhich}
+          >
+            <option value="active">
+              {copy.accounts.controls.showing.active}
+            </option>
+            <option value="all">{copy.accounts.controls.showing.all}</option>
+            <option value="hidden">
+              {copy.accounts.controls.showing.hidden}
+            </option>
           </Select>
         </label>
 
@@ -801,43 +817,44 @@
             {converted}
             busy={converting}
             currency={preferred}
-            offLabel={`Show ${preferred} only`}
+            offLabel={copy.accounts.conversion.showNative(preferred)}
             onclick={toggleConvert}
           />
         {/if}
 
         <label class="control">
-          <span class="sr-only">Create an account</span>
+          <span class="sr-only">{copy.accounts.controls.create}</span>
           <Select
             bind:value={newAccountKind}
-            aria-label="Create an account"
+            aria-label={copy.accounts.controls.create}
             onchange={() => startWizard(newAccountKind)}
           >
-            <option value="">New account…</option>
-            <option value="asset">Asset</option>
-            <option value="liability">Liability</option>
-            <option value="equity">Equity</option>
+            <option value="">{copy.accounts.controls.newAccount}</option>
+            <option value="asset">{copy.accounts.controls.kinds.asset}</option>
+            <option value="liability">
+              {copy.accounts.controls.kinds.liability}
+            </option>
+            <option value="equity">{copy.accounts.controls.kinds.equity}</option
+            >
           </Select>
         </label>
 
         {#if selectMode}
-          <GradientButton active onclick={toggleSelectMode}>Done</GradientButton
-          >
+          <GradientButton active onclick={toggleSelectMode}>
+            {copy.accounts.controls.selectDone}
+          </GradientButton>
         {:else}
           <GradientButton
-            tooltip="Pin, hide or set the currency of several accounts at once"
+            tooltip={copy.accounts.controls.selectHint}
             onclick={toggleSelectMode}
           >
-            <Icon name="edit-txn" /> Select
+            <Icon name="edit-txn" />
+            {copy.accounts.controls.select}
           </GradientButton>
         {/if}
 
         <span class="count trailing">
-          {plural(
-            visibleRows.length,
-            '1 account',
-            `${visibleRows.length} accounts`,
-          )}
+          {copy.accounts.controls.count(visibleRows.length)}
         </span>
       </ControlBar>
 
@@ -856,11 +873,11 @@
       {:else if groups.length === 0}
         <p class="message">
           {query.trim()
-            ? `Nothing matches “${query.trim()}”.`
-            : 'No accounts here yet.'}
+            ? copy.accounts.search.noMatch(query.trim())
+            : copy.accounts.search.empty}
         </p>
       {:else}
-        <Sheet {columns} caption="Accounts, grouped">
+        <Sheet {columns} caption={copy.accounts.columns.caption}>
           {#each groups as group (group.key)}
             {@const total = groupTotal(group)}
             <SheetBand
@@ -870,8 +887,10 @@
               unit={total.unit}
               note={conversionNote(total, total.unit, converted) ?? undefined}
               noteTitle={converted
-                ? `Balances in ${total.missing.join(', ')} are not included — no exchange rate available`
-                : `Also holds ${total.missing.join(', ')} — convert to fold them in`}
+                ? copy.accounts.conversion.missingRate(total.missing.join(', '))
+                : copy.accounts.conversion.notConverted(
+                    total.missing.join(', '),
+                  )}
               collapsed={collapsed[group.key] ?? false}
               ontoggle={() => toggle(group.key)}
             >
@@ -880,7 +899,7 @@
                   {@const state = groupState(group)}
                   <Checkbox
                     checked={state.all}
-                    ariaLabel={`Select every account in ${group.label}`}
+                    ariaLabel={copy.accounts.groups.selectAll(group.label)}
                     size={14}
                     onchange={(on) => toggleGroup(group, on)}
                   />
@@ -902,7 +921,7 @@
                       {#if selectMode}
                         <Checkbox
                           checked={selected}
-                          ariaLabel={`Select ${row.displayName}`}
+                          ariaLabel={copy.accounts.rows.select(row.displayName)}
                           size={14}
                           onchange={(on) => toggleSelected(row.account.id, on)}
                         />
@@ -937,8 +956,9 @@
                   {#if converted}
                     <td class="num">
                       {#if rowConverted.missing.length > 0}
-                        <span class="muted" title="No exchange rate available"
-                          >—</span
+                        <span
+                          class="muted"
+                          title={copy.accounts.conversion.noRate}>—</span
                         >
                       {:else if row.balances.length === 0}
                         <span class="muted">—</span>
@@ -951,10 +971,12 @@
                     {#if row.lastActivity}
                       {row.lastActivity}
                       {#if row.idleDays !== null && row.idleDays > STALE_AFTER_DAYS}
-                        <span class="sub stale">stale {row.idleDays}d</span>
+                        <span class="sub stale">
+                          {copy.accounts.rows.idle(row.idleDays)}
+                        </span>
                       {/if}
                     {:else}
-                      <span class="muted">never</span>
+                      <span class="muted">{copy.accounts.rows.never}</span>
                     {/if}
                   </td>
                   <td>
@@ -972,10 +994,14 @@
                         {/if}
                       {/snippet}
                       {#if pinned}
-                        <Chip size="xs" icon="pin">pinned</Chip>
+                        <Chip size="xs" icon="pin">
+                          {copy.accounts.rows.pinned}
+                        </Chip>
                       {/if}
                       {#if hidden}
-                        <Chip size="xs" icon="eye-off">hidden</Chip>
+                        <Chip size="xs" icon="eye-off">
+                          {copy.accounts.rows.hidden}
+                        </Chip>
                       {/if}
                     </AccountFlags>
                   </td>
@@ -984,12 +1010,12 @@
                       quiet
                       square
                       aria-label={open
-                        ? `Hide recent entries for ${row.displayName}`
-                        : `Show recent entries for ${row.displayName}`}
+                        ? copy.accounts.rows.hideEntries(row.displayName)
+                        : copy.accounts.rows.showEntries(row.displayName)}
                       aria-expanded={open}
                       tooltip={open
-                        ? 'Close'
-                        : 'Recent entries and what is unfinished'}
+                        ? copy.case.dialog.close
+                        : copy.accounts.rows.entriesHint}
                       onclick={() => toggleRow(row.account.id)}
                     >
                       <Icon
@@ -1002,9 +1028,11 @@
                       square
                       active={pinned}
                       aria-label={pinned
-                        ? `Unpin ${row.displayName}`
-                        : `Pin ${row.displayName}`}
-                      tooltip={pinned ? 'Unpin from sidebar' : 'Pin to sidebar'}
+                        ? copy.accounts.rows.unpin(row.displayName)
+                        : copy.accounts.rows.pin(row.displayName)}
+                      tooltip={pinned
+                        ? copy.accounts.rows.unpinHint
+                        : copy.accounts.rows.pinHint}
                       onclick={() => setPinned([row.account.id], !pinned)}
                     >
                       <Icon name="pin" size={13} />
@@ -1015,13 +1043,13 @@
                       active={hidden}
                       disabled={guard !== null && !hidden}
                       aria-label={hidden
-                        ? `Unhide ${row.displayName}`
-                        : `Hide ${row.displayName}`}
+                        ? copy.accounts.rows.unhide(row.displayName)
+                        : copy.accounts.rows.hide(row.displayName)}
                       tooltip={guard !== null && !hidden
                         ? protectionMessage(guard)
                         : hidden
-                          ? 'Unhide'
-                          : 'Hide'}
+                          ? copy.accounts.rows.unhideHint
+                          : copy.accounts.rows.hideHint}
                       onclick={() => setHidden([row.account.id], !hidden)}
                     >
                       <Icon name={hidden ? 'eye' : 'eye-off'} size={13} />
@@ -1060,38 +1088,38 @@
             disabled={bulkBusy}
             onclick={() => bulkPin(true)}
           >
-            Pin all
+            {copy.accounts.bulk.pinAll}
           </GradientButton>
           <GradientButton
             size="lg"
             disabled={bulkBusy}
             onclick={() => bulkPin(false)}
           >
-            Unpin all
+            {copy.accounts.bulk.unpinAll}
           </GradientButton>
           <GradientButton
             size="lg"
             disabled={bulkBusy || hidable.length === 0}
             tooltip={hidable.length === 0
-              ? 'Every account selected is in use'
+              ? copy.accounts.bulk.allInUse
               : hidable.length < selection.length
-                ? `${selection.length - hidable.length} in use and will be kept`
+                ? copy.accounts.bulk.someInUse(
+                    selection.length - hidable.length,
+                  )
                 : undefined}
             onclick={bulkHide}
           >
-            Hide all
+            {copy.accounts.bulk.hideAll}
           </GradientButton>
 
           <label class="bulk-currency">
-            <span class="sr-only"
-              >Default currency for the selected accounts</span
-            >
+            <span class="sr-only">{copy.accounts.bulk.currency}</span>
             <Select
               bind:value={bulkCurrency}
               disabled={bulkBusy}
-              aria-label="Default currency for the selected accounts"
+              aria-label={copy.accounts.bulk.currency}
             >
-              <option value="">Set currency…</option>
+              <option value="">{copy.accounts.bulk.setCurrency}</option>
               {#each SUPPORTED_CURRENCIES as code (code)}
                 <option value={code}>{code}</option>
               {/each}
@@ -1103,7 +1131,7 @@
               disabled={bulkBusy}
               onclick={bulkSetCurrency}
             >
-              Apply {bulkCurrency}
+              {copy.accounts.bulk.apply(bulkCurrency)}
             </GradientButton>
           {/if}
 
@@ -1111,11 +1139,11 @@
             size="lg"
             disabled={bulkBusy || selection.length !== 1}
             tooltip={selection.length === 1
-              ? 'Open Import targeting this account'
-              : 'Import takes one account — a statement belongs to one'}
+              ? copy.accounts.bulk.importOne
+              : copy.accounts.bulk.importMany}
             onclick={importSelected}
           >
-            Import
+            {copy.accounts.bulk.import}
           </GradientButton>
         </SelectionTray>
       {/if}

@@ -10,6 +10,8 @@
  */
 
 import type { UserSettings } from '../../api'
+// Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
+import { accountsCopy } from '../../copy/accounts'
 
 const SEP = ':'
 
@@ -69,16 +71,14 @@ export function isUnderRoot(path: string, root: string): boolean {
 export type Surface =
   'assets' | 'liabilities' | 'equity' | 'expenses' | 'income' | 'unfiled'
 
-/** Label for the bucket that catches accounts outside every configured root. */
-export const UNFILED_LABEL = 'Unfiled'
-
+/**
+ * The heading each surface gets. A mapping from the taxonomy to the words, which is why it
+ * lives here and the words do not — `unfiled` is a bucket this file invented, and its name
+ * is a copy decision like any other.
+ */
 export const SURFACE_LABEL: Record<Surface, string> = {
-  assets: 'Assets',
-  liabilities: 'Liabilities',
-  equity: 'Equity',
-  expenses: 'Expenses',
-  income: 'Income',
-  unfiled: UNFILED_LABEL,
+  ...accountsCopy.groups.surface,
+  unfiled: accountsCopy.groups.unfiled,
 }
 
 /** Surfaces the Accounts tab renders. Expenses and income belong to Categories. */

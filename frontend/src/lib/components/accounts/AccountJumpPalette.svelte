@@ -1,5 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation'
+  import { copy } from '$lib/copy'
   import { rank } from './accountScorer'
   import { glyphs } from './accountHighlight'
   import type { SidebarAccount, SidebarRow } from './sidebarAccounts'
@@ -123,7 +124,7 @@
   <div
     class="palette"
     role="dialog"
-    aria-label="Jump to account"
+    aria-label={copy.case.sidebar.jump}
     aria-modal="true"
   >
     <!-- svelte-ignore a11y_no_noninteractive_element_interactions -->
@@ -133,21 +134,21 @@
         bind:value={query}
         class="input"
         type="text"
-        placeholder="Jump to account…"
-        aria-label="Jump to account"
+        placeholder={copy.accounts.jump.placeholder}
+        aria-label={copy.case.sidebar.jump}
         aria-controls="jump-results"
         autocomplete="off"
         spellcheck="false"
       />
-      <span class="hint">Ctrl K</span>
+      <span class="hint">{copy.case.sidebar.jumpKey}</span>
     </div>
 
     <ul class="results" id="jump-results">
       {#if results.length === 0}
         <li class="empty">
           {query.trim()
-            ? `Nothing matches “${query.trim()}”.`
-            : 'No accounts yet.'}
+            ? copy.accounts.search.noMatch(query.trim())
+            : copy.accounts.jump.empty}
         </li>
       {:else}
         {#each results as result, i (result.id)}

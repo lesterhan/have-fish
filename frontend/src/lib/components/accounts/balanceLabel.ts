@@ -1,6 +1,7 @@
 import type { StoredAccountType } from '$lib/api'
 // Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
 import { formatCents, formatCentsAbs, toCents } from '../../money'
+import { accountsCopy } from '../../copy/accounts'
 
 /**
  * The label and rendered figure for an account balance.
@@ -33,12 +34,17 @@ export function balanceLabel(
 
   // An unparseable amount is passed through untouched rather than rendered as NaN.
   if (cents === null) {
-    return { label: `BALANCE · ${cur}`, display: amount, signInLabel: false }
+    return {
+      label: `${accountsCopy.balance.neutral} · ${cur}`,
+      display: amount,
+      signInLabel: false,
+    }
   }
 
   if (resolvedType === 'liability' && cents !== 0) {
     // A liability in credit is the overpaid card — "OWING −412.08" would be nonsense.
-    const label = cents < 0 ? 'OWING' : 'IN CREDIT'
+    const label =
+      cents < 0 ? accountsCopy.balance.owing : accountsCopy.balance.inCredit
     return {
       label: `${label} · ${cur}`,
       display: formatCentsAbs(cents),
@@ -47,7 +53,7 @@ export function balanceLabel(
   }
 
   return {
-    label: `BALANCE · ${cur}`,
+    label: `${accountsCopy.balance.neutral} · ${cur}`,
     display: formatCents(cents),
     signInLabel: false,
   }

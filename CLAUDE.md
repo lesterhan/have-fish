@@ -153,7 +153,9 @@ User-facing strings live in `frontend/src/lib/copy/`, one file per surface, impo
 namespace: `import { copy } from '$lib/copy'`, then `copy.auth.signIn.title`. This is being
 rolled out surface by surface (`planning/epics/copy-extraction.md`); a file that has been
 converted is listed in `CONVERTED` in `copy.test.ts`, and that test fails if a hardcoded
-string reappears in it.
+string reappears in it. A converted *directory* covers its `.ts` modules too — a label table
+is copy wherever it is declared — and the markup check reads this app's word-bearing
+component props (`tooltip`, `hint`, `caption`, …) as well as `title` and `aria-label`.
 
 Four rules, and the first is the one that matters:
 
