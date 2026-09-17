@@ -12,10 +12,11 @@ Two scripts:
 
 - **`backup.sh`** — dumps the database to gzipped plain SQL, verifies the dump is neither
   truncated nor empty, rotates local copies, and optionally pushes offsite with restic.
-- **`restore-check.sh`** — checks the newest dump is recent, restores it into a scratch
-  database, compares row counts against live, and checks that every transaction's postings
-  still balance per currency. Drops the scratch database on the way out, including on
-  failure.
+- **`restore-check.sh`** — checks the newest dump is recent, replays it into a scratch
+  database with `ON_ERROR_STOP` so a dump that only half-restores fails instead of
+  reporting PASS, compares row counts for **every** table in the public schema against
+  live, and checks that every transaction's postings still balance per currency. Drops the
+  scratch database on the way out, including on failure.
 
 Run the second one. A backup nobody has restored is a hope.
 
@@ -59,14 +60,34 @@ whether or not the server's disk is.
 
 ```bash
 # 3. Run it daily.
-sudo cp ops/havefish-backup.{service,timer} /etc/systemd/system/
+sudo cp ops/havefish-backup.service ops/havefish-backup-failed.service \
+        ops/havefish-backup.timer /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now havefish-backup.timer
 systemctl list-timers havefish-backup
 ```
 
-The unit assumes the repo is at `/opt/have-fish`; edit `WorkingDirectory` if not. Put a
-monthly `restore-check.sh` in your calendar — deliberately not automated, because a
+The unit assumes the repo is at `/opt/have-fish`; edit `WorkingDirectory` if not.
+
+```bash
+# 4. Be told when it breaks. Make a check at healthchecks.io (free tier is enough),
+#    set its period to 1 day and its grace to a few hours, and put the ping URL in
+#    the same credentials file:
+echo 'HAVEFISH_PING_URL=https://hc-ping.com/your-uuid-here' \
+  | sudo tee -a /etc/have-fish/backup.env >/dev/null
+sudo systemctl restart havefish-backup.service   # take one now and watch the check go green
+```
+
+`backup.sh` pings `…/start` when it begins and the bare URL when it finishes, so three
+different failures all reach you: a run that **fails** (the `/fail` ping, sent from the
+script's exit trap whatever killed it), a run that **never happens** (no start ping inside
+the check's period — the case a dead timer creates, and the reason P0.1 exists), and a run
+that **cannot start at all** (`OnFailure=havefish-backup-failed.service`, for a bad
+`WorkingDirectory` or an OOM kill before the script's own trap is armed). An ntfy topic or
+any URL that lands on your phone works the same way; leave `HAVEFISH_PING_URL` unset and
+every ping is skipped silently.
+
+Put a monthly `restore-check.sh` in your calendar — deliberately not automated, because a
 restore check that nobody reads is the same as no restore check.
 
 That monthly run is also how you find out the timer died. `restore-check.sh` refuses a
@@ -85,8 +106,31 @@ All optional; the defaults work.
 | `HAVEFISH_KEEP_LOCAL` | `14` | Local dumps kept; restic handles long-term retention |
 | `HAVEFISH_MAX_DUMP_AGE_HOURS` | `48` | `restore-check.sh` fails if the newest dump is older; `0` disables |
 | `HAVEFISH_COMPOSE` | autodetected | `podman compose` or `docker compose` |
+| `HAVEFISH_PING_URL` | unset | Heartbeat base URL; unset means no monitoring and no pings |
 | `RESTIC_REPOSITORY` | unset | Unset means local-only, and the script says so each run |
-| `RESTIC_KEEP_DAILY` / `_WEEKLY` / `_MONTHLY` | `7` / `4` / `12` | Offsite retention |
+| `RESTIC_KEEP_DAILY` / `_WEEKLY` / `_MONTHLY` | `7` / `4` / `12` | Offsite retention, applied with `--group-by host,tags` |
+
+### Offsite retention needs `--group-by host,tags`
+
+Not a detail. `restic forget` groups snapshots by host *and paths* by default, and every
+run backs up a differently named file — so each snapshot lands in a group of one, every
+group's single member is the newest in that group, and `--keep-daily 7` keeps all of them
+forever. Ten daily snapshots in a scratch repository: the default grouping proposes
+removing **none**; `--group-by host,tags` makes one group of ten, keeps seven, removes
+three. Check yours with `restic snapshots --group-by host,tags` — one group is right.
+
+### If you set this up before the P0.2 fixes
+
+Dumps written by the earlier script were world-readable, and `umask` cannot retroactively
+fix files that already exist:
+
+```bash
+chmod 700 backups
+chmod 600 backups/*.sql.gz
+```
+
+Then `restic forget --dry-run --tag havefish --group-by host,tags --keep-daily 7` once, to
+see what the old grouping had been quietly keeping.
 
 ### Restoring for real
 

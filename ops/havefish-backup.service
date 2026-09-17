@@ -2,6 +2,8 @@
 Description=have-fish database backup
 Documentation=https://github.com/lesterhan/have-fish/blob/main/ops/README.md
 After=network-online.target
+# A backup that fails where nobody is looking is the same as no backup.
+OnFailure=havefish-backup-failed.service
 
 [Service]
 Type=oneshot

@@ -1,0 +1,13 @@
+[Unit]
+Description=have-fish backup failed — tell a human
+Documentation=https://github.com/lesterhan/have-fish/blob/main/ops/README.md
+
+[Service]
+Type=oneshot
+# Same credentials file as the backup itself; HAVEFISH_PING_URL lives there.
+EnvironmentFile=-/etc/have-fish/backup.env
+# backup.sh pings /fail itself on any non-zero exit. This unit is the case that cannot:
+# the script never ran at all — a missing binary, a bad WorkingDirectory, an OOM kill.
+# Exit 0 when no URL is configured so a host without monitoring does not log a second
+# failure on top of the real one.
+ExecStart=/bin/sh -c '[ -n "$HAVEFISH_PING_URL" ] || exit 0; exec curl -fsS -m 10 --retry 3 -o /dev/null "${HAVEFISH_PING_URL%/}/fail"'

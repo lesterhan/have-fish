@@ -10,6 +10,9 @@
 # Usage:  ops/backup.sh [--quiet]
 # Cron:   see ops/README.md
 set -euo pipefail
+# Dumps are the whole ledger in plain text. Nothing this script creates is readable by
+# anyone but the owner, including the directory it creates on a first run.
+umask 077
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -19,8 +22,26 @@ QUIET=0
 log() { [[ $QUIET -eq 1 ]] || echo "$@"; }
 die() { echo "backup: $*" >&2; exit 1; }
 
+# Heartbeat. HAVEFISH_PING_URL is a healthchecks.io check URL (or an ntfy topic, or
+# anything that lands on a phone). Pinging /start at the top and the bare URL at the end
+# means a run that *never happens* is alerted too, which is the failure P0.1 makes
+# likely: a silent timer looks exactly like a healthy one until you need the backup.
+# Never fatal — a backup that worked must not be reported as failed because the network
+# was down.
+heartbeat() {
+  [[ -n "${HAVEFISH_PING_URL:-}" ]] || return 0
+  curl -fsS -m 10 --retry 3 -o /dev/null "${HAVEFISH_PING_URL%/}${1:-}" || \
+    echo "backup: warning — could not reach ${HAVEFISH_PING_URL%/}${1:-}" >&2
+}
+
+# Any exit but a clean one tells the monitor, whether it came from die(), from set -e, or
+# from the machine losing power mid-run.
+trap 'rc=$?; (( rc == 0 )) || heartbeat /fail' EXIT
+
 [[ -f .env ]] || die "no .env at $ROOT — copy .env.example and fill it in"
 set -a; . ./.env; set +a
+
+heartbeat /start
 
 : "${POSTGRES_USER:?not set in .env}"
 : "${POSTGRES_DB:?not set in .env}"
@@ -37,6 +58,9 @@ fi
 BACKUP_DIR="${HAVEFISH_BACKUP_DIR:-$ROOT/backups}"
 KEEP_LOCAL="${HAVEFISH_KEEP_LOCAL:-14}"
 mkdir -p "$BACKUP_DIR"
+# umask only covers what this run creates; an existing directory from before keeps its
+# mode, so say it outright.
+chmod 700 "$BACKUP_DIR"
 
 STAMP="$(date -u +%Y%m%dT%H%M%SZ)"
 OUT="$BACKUP_DIR/havefish-$STAMP.sql.gz"
@@ -63,6 +87,15 @@ if ! gzip -dc "$TMP" | grep -qE '^(COPY|INSERT INTO) '; then
   die "dump contains no table data — refusing to keep it"
 fi
 
+# The line above passes on a dump of an empty ledger: a table with no rows still emits a
+# COPY header. Ask the live database instead. A count of zero means the wrong database,
+# a wiped volume, or an auth failure that answered politely — all three are things you
+# want to hear about tonight rather than at restore time.
+ROWS=$($COMPOSE exec -T postgres psql -qtAX -U "$POSTGRES_USER" -d "$POSTGRES_DB" \
+  -c "SELECT count(*) FROM transactions WHERE deleted_at IS NULL;" | tr -d '[:space:]')
+[[ "$ROWS" =~ ^[0-9]+$ && "$ROWS" -gt 0 ]] || { rm -f "$TMP"; die "live database reports ${ROWS:-no} transactions — refusing to keep a dump of an empty ledger"; }
+log "backup: live ledger holds $ROWS transactions"
+
 mv "$TMP" "$OUT"
 log "backup: wrote $OUT ($(du -h "$OUT" | cut -f1))"
 
@@ -79,7 +112,11 @@ if [[ -n "${RESTIC_REPOSITORY:-}" ]]; then
   command -v restic >/dev/null 2>&1 || die "RESTIC_REPOSITORY set but restic is not installed"
   log "backup: pushing to $RESTIC_REPOSITORY"
   restic backup --quiet --tag havefish "$OUT"
-  restic forget --quiet --prune --tag havefish \
+  # --group-by is not optional: restic's default groups by host *and* paths, and every
+  # run backs up a differently named file, so each snapshot lands in a group of one and
+  # --keep-daily keeps all of them forever. Grouping by tag alone makes retention apply
+  # to the series.
+  restic forget --quiet --prune --tag havefish --group-by host,tags \
     --keep-daily "${RESTIC_KEEP_DAILY:-7}" \
     --keep-weekly "${RESTIC_KEEP_WEEKLY:-4}" \
     --keep-monthly "${RESTIC_KEEP_MONTHLY:-12}"
@@ -88,4 +125,5 @@ else
   log "backup: RESTIC_REPOSITORY unset — local only, no offsite copy"
 fi
 
+heartbeat
 log "backup: done"

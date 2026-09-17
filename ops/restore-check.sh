@@ -10,6 +10,9 @@
 #
 # Usage:  ops/restore-check.sh [path/to/dump.sql.gz]
 set -euo pipefail
+# This script writes nothing but temporary psql output; the umask is here so that stays
+# true if it ever grows a scratch file.
+umask 077
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$ROOT"
@@ -51,8 +54,10 @@ fi
 gzip -t "$DUMP" 2>/dev/null || die "not a valid gzip stream (truncated or corrupt): $DUMP"
 
 SCRATCH="havefish_restorecheck"
-psql_scratch() { $COMPOSE exec -T postgres psql -qtAX --username "$POSTGRES_USER" --dbname "$SCRATCH" -c "$1"; }
-psql_admin()   { $COMPOSE exec -T postgres psql -qtAX --username "$POSTGRES_USER" --dbname postgres -c "$1"; }
+psql_db()      { $COMPOSE exec -T postgres psql -qtAX --username "$POSTGRES_USER" --dbname "$1" -c "$2"; }
+psql_scratch() { psql_db "$SCRATCH" "$1"; }
+psql_admin()   { psql_db postgres "$1"; }
+psql_live()    { psql_db "$POSTGRES_DB" "$1"; }
 
 cleanup() { psql_admin "DROP DATABASE IF EXISTS $SCRATCH;" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
@@ -61,18 +66,29 @@ echo "restore-check: restoring $DUMP into $SCRATCH"
 cleanup
 psql_admin "CREATE DATABASE $SCRATCH;" >/dev/null
 
-# --clean --if-exists in the dump means DROP statements run against an empty database
-# and emit notices; ON_ERROR_STOP would abort on those, so check the data instead.
-gzip -dc "$DUMP" | $COMPOSE exec -T postgres psql -q --username "$POSTGRES_USER" --dbname "$SCRATCH" >/dev/null
+# ON_ERROR_STOP or the restore is theatre: without it psql prints the error, carries on,
+# and exits 0, so a dump that half-restores reports PASS. The DROPs in a --clean dump are
+# the reason it was left off, and --if-exists already demotes those to notices, which
+# ON_ERROR_STOP does not trip on.
+gzip -dc "$DUMP" | $COMPOSE exec -T postgres psql -q -v ON_ERROR_STOP=1 \
+  --username "$POSTGRES_USER" --dbname "$SCRATCH" >/dev/null \
+  || die "restore failed — the dump does not replay cleanly into an empty database: $DUMP"
+
+# Every table, not a hand-written six. A list that has to be edited when the schema grows
+# is a list that silently stops covering the new table, which is the one most likely to be
+# missing from an old dump.
+TABLES=$(psql_live "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY 1;" | tr -d '\r')
+[[ -n "$TABLES" ]] || die "live database $POSTGRES_DB has no tables in schema public — wrong database?"
 
 FAILED=0
-echo "restore-check: comparing row counts against the live database"
-printf '%-22s %12s %12s\n' TABLE LIVE RESTORED
-for t in accounts transactions postings expense_groups group_expenses account_coverage; do
-  live=$($COMPOSE exec -T postgres psql -qtAX --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" \
-           -c "SELECT count(*) FROM $t;" 2>/dev/null | tr -d '[:space:]' || echo "?")
-  got=$(psql_scratch "SELECT count(*) FROM $t;" 2>/dev/null | tr -d '[:space:]' || echo "?")
-  printf '%-22s %12s %12s' "$t" "$live" "$got"
+echo "restore-check: comparing row counts for $(wc -l <<<"$TABLES") tables against the live database"
+echo "restore-check: live is read at a later instant than the dump, so a few rows' drift on"
+echo "               transactions or postings right after a write is expected, not a fault."
+printf '%-32s %12s %12s\n' TABLE LIVE RESTORED
+for t in $TABLES; do
+  live=$(psql_live "SELECT count(*) FROM public.\"$t\";" 2>/dev/null | tr -d '[:space:]' || echo "?")
+  got=$(psql_scratch "SELECT count(*) FROM public.\"$t\";" 2>/dev/null | tr -d '[:space:]' || echo "?")
+  printf '%-32s %12s %12s' "$t" "$live" "$got"
   if [[ "$live" == "$got" && "$got" != "?" ]]; then echo "  ok"; else echo "  MISMATCH"; FAILED=1; fi
 done
 
