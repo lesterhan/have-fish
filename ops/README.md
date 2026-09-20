@@ -91,6 +91,11 @@ echo 'HAVEFISH_PING_URL=https://hc-ping.com/your-uuid-here' \
 sudo systemctl restart havefish-backup.service   # take one now and watch the check go green
 ```
 
+The unit also sets `RESTIC_CACHE_DIR` and lets systemd own `/var/cache/havefish-backup`.
+Without it restic has no `$HOME` under systemd, cannot find a cache, and re-fetches index
+and pack metadata from the remote on every run — which shows up in the journal as
+`unable to open cache` and a warning that prune will be very slow.
+
 `backup.sh` pings `…/start` when it begins and the bare URL when it finishes, so three
 different failures all reach you: a run that **fails** (the `/fail` ping, sent from the
 script's exit trap whatever killed it), a run that **never happens** (no start ping inside
@@ -121,6 +126,7 @@ All optional; the defaults work.
 | `HAVEFISH_COMPOSE` | autodetected | `podman compose` or `docker compose` |
 | `HAVEFISH_PING_URL` | unset | Heartbeat base URL; unset means no monitoring and no pings |
 | `HAVEFISH_RESTIC_HOST` | `havefish` | Hostname stamped on snapshots; fixed so a server move keeps one retention series |
+| `HAVEFISH_PRUNE_EVERY_DAYS` | `7` | How often `forget` also prunes; `0` never prunes and never reclaims space |
 | `RESTIC_REPOSITORY` | unset | Unset means local-only, and the script says so each run |
 | `RESTIC_KEEP_DAILY` / `_WEEKLY` / `_MONTHLY` | `7` / `4` / `12` | Offsite retention, applied with `--group-by host,tags` |
 
@@ -142,6 +148,23 @@ groups and removes **nothing**; with the fixed host it sees one group, keeps sev
 removes three. If snapshots already exist under a real hostname, they stay in their own
 group — `restic forget --group-by host,tags --host <oldname> --keep-last 1` once, or just
 let them sit; they are a handful of small files.
+
+### `forget` nightly, `prune` weekly
+
+`forget` drops snapshot references and costs almost nothing, so it runs every night and
+the snapshot list is always correct. `prune` is the expensive half — it downloads
+partially-used pack files, rewrites the blobs still in use, uploads the replacements and
+deletes the originals — so it runs every seventh day, tracked by `backups/.last-prune`
+rather than a weekday, so a machine that was off on the chosen day does not skip a whole
+cycle. The only consequence is that space from forgotten snapshots is reclaimed up to a
+week late.
+
+Two things worth knowing before tuning this. The dump is gzipped before restic sees it,
+and two gzips of slightly different SQL share almost no bytes, so deduplication between
+days is close to zero and every snapshot is effectively a standalone copy — which is also
+why prune has little to repack here. And the storage bill is not the reason for any of
+this: 23 snapshots at a few hundred KB is single-digit megabytes, which at B2's $6/TB/month
+rounds to nothing. The reason is not doing avoidable work unattended at 3am.
 
 ### If you set this up before the P0.2 fixes
 
