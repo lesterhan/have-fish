@@ -81,8 +81,16 @@ fi
 # gzip -t catches a stream that ended early but still exited 0 somewhere in the pipe.
 gzip -t "$TMP" || { rm -f "$TMP"; die "dump is not a valid gzip stream — discarded"; }
 
-# A dump with no COPY or INSERT lines is an empty database or a silent auth failure.
-if ! gzip -dc "$TMP" | grep -qE '^(COPY|INSERT INTO) '; then
+# A dump with no COPY or INSERT lines at all is a schema-only dump — the one failure the
+# live row count below cannot see, since it asks the database rather than the file.
+#
+# grep -c, not grep -q: -q exits the moment it matches, gzip takes SIGPIPE while it is
+# still decompressing the rest, and `set -o pipefail` turns that 141 into a pipeline
+# failure. The guard then reports "no table data" about a perfectly good dump. It only
+# bites once the dump outgrows the 64K pipe buffer, which is to say only on a real
+# ledger and never on a test fixture.
+DATA_SECTIONS=$(gzip -dc "$TMP" | grep -cE '^(COPY|INSERT INTO) ' || true)
+if [[ ! "$DATA_SECTIONS" =~ ^[0-9]+$ || "$DATA_SECTIONS" -eq 0 ]]; then
   rm -f "$TMP"
   die "dump contains no table data — refusing to keep it"
 fi
