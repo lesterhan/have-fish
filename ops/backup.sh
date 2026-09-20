@@ -65,6 +65,14 @@ KEEP_LOCAL="${HAVEFISH_KEEP_LOCAL:-14}"
 # fixed name keeps one series across a hardware change. Override only if two machines
 # genuinely back up to this repository and you want them retained apart.
 SNAPSHOT_HOST="${HAVEFISH_RESTIC_HOST:-havefish}"
+
+# `forget` drops snapshot references and costs almost nothing. `prune` repacks the
+# repository — downloading partially-used pack files, rewriting the blobs still in use,
+# uploading the replacements and deleting the originals — and there is no reason to do
+# that every night. Tracked by a stamp rather than a weekday, so a machine that happened
+# to be off on the chosen day does not skip a whole cycle. 0 disables pruning; space from
+# forgotten snapshots is then never reclaimed, so only do that deliberately.
+PRUNE_EVERY_DAYS="${HAVEFISH_PRUNE_EVERY_DAYS:-7}"
 mkdir -p "$BACKUP_DIR"
 # umask only covers what this run creates; an existing directory from before keeps its
 # mode, so say it outright.
@@ -128,14 +136,34 @@ if [[ -n "${RESTIC_REPOSITORY:-}" ]]; then
   command -v restic >/dev/null 2>&1 || die "RESTIC_REPOSITORY set but restic is not installed"
   log "backup: pushing to $RESTIC_REPOSITORY"
   restic backup --quiet --tag havefish --host "$SNAPSHOT_HOST" "$OUT"
+
+  PRUNE_STAMP="$BACKUP_DIR/.last-prune"
+  PRUNE_DUE=0
+  if [[ "$PRUNE_EVERY_DAYS" != "0" ]]; then
+    if [[ ! -f "$PRUNE_STAMP" ]]; then
+      PRUNE_DUE=1
+    elif (( ( $(date +%s) - $(date -r "$PRUNE_STAMP" +%s) ) / 86400 >= PRUNE_EVERY_DAYS )); then
+      PRUNE_DUE=1
+    fi
+  fi
+
   # --group-by is not optional: restic's default groups by host *and* paths, and every
   # run backs up a differently named file, so each snapshot lands in a group of one and
   # --keep-daily keeps all of them forever. Grouping by tag alone makes retention apply
   # to the series.
-  restic forget --quiet --prune --tag havefish --group-by host,tags \
-    --keep-daily "${RESTIC_KEEP_DAILY:-7}" \
-    --keep-weekly "${RESTIC_KEEP_WEEKLY:-4}" \
-    --keep-monthly "${RESTIC_KEEP_MONTHLY:-12}"
+  FORGET_ARGS=(--quiet --tag havefish --group-by "host,tags"
+    --keep-daily "${RESTIC_KEEP_DAILY:-7}"
+    --keep-weekly "${RESTIC_KEEP_WEEKLY:-4}"
+    --keep-monthly "${RESTIC_KEEP_MONTHLY:-12}")
+  if (( PRUNE_DUE )); then
+    FORGET_ARGS+=(--prune)
+    log "backup: pruning this run (every ${PRUNE_EVERY_DAYS}d)"
+  fi
+  restic forget "${FORGET_ARGS[@]}"
+  # Stamped only after forget returns, so a failed prune is retried tomorrow rather than
+  # silently deferred for another full cycle.
+  if (( PRUNE_DUE )); then : > "$PRUNE_STAMP"; fi
+
   log "backup: offsite ok"
 else
   log "backup: RESTIC_REPOSITORY unset — local only, no offsite copy"
