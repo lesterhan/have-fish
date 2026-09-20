@@ -18,6 +18,12 @@ Two scripts:
   live, and checks that every transaction's postings still balance per currency. Drops the
   scratch database on the way out, including on failure.
 
+A ledger table whose counts disagree is a failure. Better Auth's `session` and
+`verification` tables are reported but not fatal: the dump is up to 48 hours older than
+the live database it is compared against, so a single login would otherwise fail the
+check, and a check that cries wolf is one you stop reading. They are still required to be
+present and queryable — a table missing from the dump fails whatever its name.
+
 Run the second one. A backup nobody has restored is a hope.
 
 ### Why plain SQL rather than `pg_dump -Fc`

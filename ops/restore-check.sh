@@ -80,16 +80,33 @@ gzip -dc "$DUMP" | $COMPOSE exec -T postgres psql -q -v ON_ERROR_STOP=1 \
 TABLES=$(psql_live "SELECT tablename FROM pg_tables WHERE schemaname='public' ORDER BY 1;" | tr -d '\r')
 [[ -n "$TABLES" ]] || die "live database $POSTGRES_DB has no tables in schema public — wrong database?"
 
+# Tables whose row count moves without anyone touching the ledger. Better Auth writes a
+# session row on every login and prunes expired ones on its own schedule; verification
+# rows are short-lived tokens. The dump under test is up to 48 hours older than the live
+# database it is compared against, so requiring these to match exactly fails the check for
+# the ordinary act of logging in — and a check that cries wolf is one you stop reading,
+# which is the whole failure this script exists to prevent. They are still required to be
+# present and queryable: a table missing from the dump fails whatever its name.
+DRIFT_OK=" session verification "
+
 FAILED=0
 echo "restore-check: comparing row counts for $(wc -l <<<"$TABLES") tables against the live database"
-echo "restore-check: live is read at a later instant than the dump, so a few rows' drift on"
-echo "               transactions or postings right after a write is expected, not a fault."
+echo "restore-check: ledger tables must match exactly. If one drifts because the ledger was"
+echo "               written to while the check ran, re-run it rather than learning to shrug."
 printf '%-32s %12s %12s\n' TABLE LIVE RESTORED
 for t in $TABLES; do
   live=$(psql_live "SELECT count(*) FROM public.\"$t\";" 2>/dev/null | tr -d '[:space:]' || echo "?")
   got=$(psql_scratch "SELECT count(*) FROM public.\"$t\";" 2>/dev/null | tr -d '[:space:]' || echo "?")
   printf '%-32s %12s %12s' "$t" "$live" "$got"
-  if [[ "$live" == "$got" && "$got" != "?" ]]; then echo "  ok"; else echo "  MISMATCH"; FAILED=1; fi
+  if [[ "$live" == "?" || "$got" == "?" ]]; then
+    echo "  MISSING"; FAILED=1
+  elif [[ "$live" == "$got" ]]; then
+    echo "  ok"
+  elif [[ "$DRIFT_OK" == *" $t "* ]]; then
+    echo "  drift ok"
+  else
+    echo "  MISMATCH"; FAILED=1
+  fi
 done
 
 # Row counts alone would pass on a dump full of NULLs. Check the ledger still balances
