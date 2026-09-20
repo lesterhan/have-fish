@@ -113,6 +113,7 @@ All optional; the defaults work.
 | `HAVEFISH_MAX_DUMP_AGE_HOURS` | `48` | `restore-check.sh` fails if the newest dump is older; `0` disables |
 | `HAVEFISH_COMPOSE` | autodetected | `podman compose` or `docker compose` |
 | `HAVEFISH_PING_URL` | unset | Heartbeat base URL; unset means no monitoring and no pings |
+| `HAVEFISH_RESTIC_HOST` | `havefish` | Hostname stamped on snapshots; fixed so a server move keeps one retention series |
 | `RESTIC_REPOSITORY` | unset | Unset means local-only, and the script says so each run |
 | `RESTIC_KEEP_DAILY` / `_WEEKLY` / `_MONTHLY` | `7` / `4` / `12` | Offsite retention, applied with `--group-by host,tags` |
 
@@ -124,6 +125,16 @@ group's single member is the newest in that group, and `--keep-daily 7` keeps al
 forever. Ten daily snapshots in a scratch repository: the default grouping proposes
 removing **none**; `--group-by host,tags` makes one group of ten, keeps seven, removes
 three. Check yours with `restic snapshots --group-by host,tags` — one group is right.
+
+Which is also why `backup.sh` passes `--host havefish` rather than letting restic use the
+machine's real hostname: moving the server to new hardware would otherwise start a second
+group, and the old machine's snapshots would never age out, because ageing out needs newer
+snapshots in the same group and none ever arrive again. Measured on the same ten daily
+snapshots, six taken before a move and four after: with the real hostnames restic sees two
+groups and removes **nothing**; with the fixed host it sees one group, keeps seven and
+removes three. If snapshots already exist under a real hostname, they stay in their own
+group — `restic forget --group-by host,tags --host <oldname> --keep-last 1` once, or just
+let them sit; they are a handful of small files.
 
 ### If you set this up before the P0.2 fixes
 

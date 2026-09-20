@@ -57,6 +57,14 @@ fi
 
 BACKUP_DIR="${HAVEFISH_BACKUP_DIR:-$ROOT/backups}"
 KEEP_LOCAL="${HAVEFISH_KEEP_LOCAL:-14}"
+
+# restic stamps every snapshot with the machine's hostname, and the --group-by below
+# groups on it. Move the server to new hardware and the new hostname starts a second
+# retention group: 7/4/12 kept from each, and the old machine's snapshots never age out,
+# because ageing out requires newer snapshots in the same group and none ever arrive. A
+# fixed name keeps one series across a hardware change. Override only if two machines
+# genuinely back up to this repository and you want them retained apart.
+SNAPSHOT_HOST="${HAVEFISH_RESTIC_HOST:-havefish}"
 mkdir -p "$BACKUP_DIR"
 # umask only covers what this run creates; an existing directory from before keeps its
 # mode, so say it outright.
@@ -119,7 +127,7 @@ fi
 if [[ -n "${RESTIC_REPOSITORY:-}" ]]; then
   command -v restic >/dev/null 2>&1 || die "RESTIC_REPOSITORY set but restic is not installed"
   log "backup: pushing to $RESTIC_REPOSITORY"
-  restic backup --quiet --tag havefish "$OUT"
+  restic backup --quiet --tag havefish --host "$SNAPSHOT_HOST" "$OUT"
   # --group-by is not optional: restic's default groups by host *and* paths, and every
   # run backs up a differently named file, so each snapshot lands in a group of one and
   # --keep-daily keeps all of them forever. Grouping by tag alone makes retention apply
