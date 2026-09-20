@@ -66,14 +66,21 @@ whether or not the server's disk is.
 
 ```bash
 # 3. Run it daily.
-sudo cp ops/havefish-backup.service ops/havefish-backup-failed.service \
-        ops/havefish-backup.timer /etc/systemd/system/
+# install, not cp: a restrictive root umask makes cp write these 0600, which works
+# but leaves them unreadable to you. The service assumes the repo is at /opt/have-fish
+# — edit WorkingDirectory and ExecStart if it is anywhere else, before enabling.
+sudo install -o root -g root -m 644 -t /etc/systemd/system/ \
+  ops/havefish-backup.service ops/havefish-backup-failed.service ops/havefish-backup.timer
 sudo systemctl daemon-reload
+systemd-analyze verify /etc/systemd/system/havefish-backup.service   # silence = paths are real
 sudo systemctl enable --now havefish-backup.timer
 systemctl list-timers havefish-backup
 ```
 
-The unit assumes the repo is at `/opt/have-fish`; edit `WorkingDirectory` if not.
+The unit assumes the repo is at `/opt/have-fish`; edit both `WorkingDirectory` and
+`ExecStart` if not. `systemd-analyze verify` catches a wrong path before the timer does,
+which is worth the two seconds — otherwise the first you hear of it is a failure
+notification at midnight.
 
 ```bash
 # 4. Be told when it breaks. Make a check at healthchecks.io (free tier is enough),
