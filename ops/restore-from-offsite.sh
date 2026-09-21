@@ -79,21 +79,32 @@ $CONTAINER run --rm -d --name "$SCRATCH" \
   -e POSTGRES_DB=havefish_restore \
   "$PG_IMAGE" >/dev/null
 
+# Wait over TCP, not the unix socket, and this is not a detail. On a first start the
+# official Postgres image runs a bootstrap phase: it brings up a temporary server that
+# listens on the socket ONLY, runs initialisation, shuts that server down, and then starts
+# the real one on TCP. A socket-based pg_isready answers "ready" during that window, so a
+# script charges ahead and the load dies partway through with "the database system is
+# shutting down". The temporary server never listens on TCP, so asking over TCP skips the
+# whole phase.
 ready=0
-for _ in $(seq 60); do
-  if $CONTAINER exec "$SCRATCH" pg_isready -U havefish -q >/dev/null 2>&1; then ready=1; break; fi
+for _ in $(seq 90); do
+  if $CONTAINER exec "$SCRATCH" pg_isready -h 127.0.0.1 -U havefish -q >/dev/null 2>&1 \
+     && $CONTAINER exec "$SCRATCH" psql -h 127.0.0.1 -qtAX -U havefish -d havefish_restore \
+          -c 'SELECT 1' >/dev/null 2>&1; then
+    ready=1; break
+  fi
   sleep 1
 done
 (( ready )) || die "$SCRATCH did not become ready; check '$CONTAINER logs $SCRATCH'"
 
-psql_scratch() { $CONTAINER exec -i "$SCRATCH" psql -qtAX -U havefish -d havefish_restore -c "$1"; }
+psql_scratch() { $CONTAINER exec -i "$SCRATCH" psql -h 127.0.0.1 -qtAX -U havefish -d havefish_restore -c "$1"; }
 
 # ON_ERROR_STOP or this is theatre: without it psql prints the error, carries on, and
 # exits 0, so a dump that only half-replays reports success.
 log "replaying the dump"
 restic dump "$SNAPSHOT" "$DUMP_PATH" \
   | gzip -dc \
-  | $CONTAINER exec -i "$SCRATCH" psql -q -v ON_ERROR_STOP=1 -U havefish -d havefish_restore >/dev/null \
+  | $CONTAINER exec -i "$SCRATCH" psql -h 127.0.0.1 -q -v ON_ERROR_STOP=1 -U havefish -d havefish_restore >/dev/null \
   || die "the dump does not replay cleanly — this backup would not have saved you"
 
 TABLES=$(psql_scratch "SELECT count(*) FROM pg_tables WHERE schemaname='public';" | tr -d '[:space:]')
@@ -118,7 +129,7 @@ echo
 # the backup is real, and no script can do it for you — so the last thing this prints is
 # your ledger, and the last step is yours.
 log "the ten most recent postings in the restored copy:"
-$CONTAINER exec -i "$SCRATCH" psql -U havefish -d havefish_restore -c "
+$CONTAINER exec -i "$SCRATCH" psql -h 127.0.0.1 -U havefish -d havefish_restore -c "
   SELECT t.date::date AS date,
          coalesce(t.description, '(none)') AS description,
          p.currency, p.amount,
@@ -136,7 +147,7 @@ restore-from-offsite: the checks passed. Now read the rows above and confirm the
 your money — that is the step that matters, and it is the one you have to do yourself.
 
 The scratch database is still running, so you can look further:
-  $CONTAINER exec -it $SCRATCH psql -U havefish -d havefish_restore
+  $CONTAINER exec -it $SCRATCH psql -h 127.0.0.1 -U havefish -d havefish_restore
 
 When you are done:
   $CONTAINER rm -f $SCRATCH
