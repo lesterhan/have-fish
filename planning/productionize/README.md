@@ -7,6 +7,12 @@ other people can install and use.
 are building, why, and which of the open choices below have since been settled. Everything
 else in this directory is research that feeds it.
 
+**Then read the audit.** `audits/2026-09-architecture-audit.md` in the private
+[`lesterhan/have-fish-ops`](https://github.com/lesterhan/have-fish-ops) repository reviews
+every decision in `00-direction.md` and is the source of the amendments dated 2026-09-21
+there. The same directory holds the UX pass, the path-to-production review and the mobile
+companion review. A session that skips it will re-derive its findings, badly and slowly.
+
 ## Direction, in one line
 
 A free local-first application where your ledger is a file on your machine, plus an
