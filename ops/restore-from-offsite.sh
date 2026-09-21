@@ -77,7 +77,8 @@ $CONTAINER run --rm -d --name "$SCRATCH" \
   -e POSTGRES_USER=havefish \
   -e POSTGRES_PASSWORD=scratch \
   -e POSTGRES_DB=havefish_restore \
-  "$PG_IMAGE" >/dev/null
+  "$PG_IMAGE" >/dev/null \
+  || die "could not start $PG_IMAGE — is $CONTAINER running, and can it reach the registry?"
 
 # Wait over TCP, not the unix socket, and this is not a detail. On a first start the
 # official Postgres image runs a bootstrap phase: it brings up a temporary server that
@@ -101,11 +102,26 @@ psql_scratch() { $CONTAINER exec -i "$SCRATCH" psql -h 127.0.0.1 -qtAX -U havefi
 
 # ON_ERROR_STOP or this is theatre: without it psql prints the error, carries on, and
 # exits 0, so a dump that only half-replays reports success.
+#
+# The three stages fail for three quite different reasons and a single `|| die` would
+# blame the backup for all of them — which, in the one script whose job is telling you the
+# truth about your backups, is the wrong way to be wrong. PIPESTATUS tells them apart.
+# 141 is SIGPIPE: an upstream stage killed because a downstream one exited first, so it is
+# a symptom rather than the cause and is not worth reporting.
 log "replaying the dump"
+set +e
 restic dump "$SNAPSHOT" "$DUMP_PATH" \
   | gzip -dc \
-  | $CONTAINER exec -i "$SCRATCH" psql -h 127.0.0.1 -q -v ON_ERROR_STOP=1 -U havefish -d havefish_restore >/dev/null \
-  || die "the dump does not replay cleanly — this backup would not have saved you"
+  | $CONTAINER exec -i "$SCRATCH" psql -h 127.0.0.1 -q -v ON_ERROR_STOP=1 -U havefish -d havefish_restore >/dev/null
+rc=("${PIPESTATUS[@]}")
+set -e
+if   (( rc[0] != 0 && rc[0] != 141 )); then
+  die "could not read the snapshot out of the repository — a repository or network problem, not necessarily a bad backup"
+elif (( rc[1] != 0 && rc[1] != 141 )); then
+  die "the stored snapshot is not a valid gzip stream — the dump in the repository is corrupt"
+elif (( rc[2] != 0 )); then
+  die "the dump does not replay cleanly — this backup would not have saved you"
+fi
 
 TABLES=$(psql_scratch "SELECT count(*) FROM pg_tables WHERE schemaname='public';" | tr -d '[:space:]')
 TXNS=$(psql_scratch   "SELECT count(*) FROM transactions WHERE deleted_at IS NULL;" | tr -d '[:space:]')
