@@ -12,6 +12,9 @@ Two scripts:
 
 - **`backup.sh`** — dumps the database to gzipped plain SQL, verifies the dump is neither
   truncated nor empty, rotates local copies, and optionally pushes offsite with restic.
+- **`restore-from-offsite.sh`** — the one to run on a laptop. Pulls the newest snapshot
+  out of the offsite repository, replays it into a throwaway database on the machine you
+  are sitting at, and checks it holds a real ledger. Assumes the server is gone.
 - **`restore-check.sh`** — checks the newest dump is recent, replays it into a scratch
   database with `ON_ERROR_STOP` so a dump that only half-restores fails instead of
   reporting PASS, compares row counts for **every** table in the public schema against
@@ -178,6 +181,35 @@ chmod 600 backups/*.sql.gz
 
 Then `restic forget --dry-run --tag havefish --group-by host,tags --keep-daily 7` once, to
 see what the old grouping had been quietly keeping.
+
+### Rehearsing the disaster
+
+`restore-check.sh` runs on the server, against the live database, using credentials that
+live on the box it is protecting. It cannot tell you whether you could rebuild from
+nothing — and that is the only question backups exist to answer. So once in a while, on a
+laptop, with nothing but a password manager:
+
+```bash
+export RESTIC_REPOSITORY='b2:your-bucket-name:havefish'
+ops/restore-from-offsite.sh          # prompts for the password and B2 keys
+```
+
+It asks for the credentials itself rather than telling you to export them first, because
+pasting a block of `read` lines into a shell makes each one swallow the next line of the
+paste as its input, and you end up authenticating with a fragment of the instructions.
+
+The most informative moment is the first: if the repository opens, the password you kept
+somewhere else really is the password that decrypts the backups. That is the fact most
+worth knowing early and worst to discover late.
+
+It then replays the dump under `ON_ERROR_STOP`, checks the table count, the transaction
+count and that every transaction still balances per currency, and prints your ten most
+recent postings. **Read them.** The counts prove the machinery; recognising your own money
+is what decides whether the backup is real, and no script can do that part for you. The
+scratch database is left running so you can look further.
+
+Needs podman or docker (it prefers podman, same as `backup.sh`) and a Postgres image
+matching the server's major version — `HAVEFISH_PG_IMAGE` if that ever diverges.
 
 ### Restoring for real
 
