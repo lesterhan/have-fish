@@ -11,13 +11,27 @@ describe how something works, they hold.
 The two-track framing in the old `README.md` — cloud SaaS versus local-first, decide
 later — is **resolved**. See D1.
 
+**The audit that amends this document.** `audits/2026-09-architecture-audit.md` in the
+private [`lesterhan/have-fish-ops`](https://github.com/lesterhan/have-fish-ops) repository
+reviews every decision below, decision by decision, and is the source of everything here
+dated **2026-09-21**. Its findings are cited inline as `F1`–`F10`. Read it alongside this
+document; a session that has not read it will re-derive its conclusions badly.
+
 ## The product, in a paragraph
 
 have-fish is a personal finance tracker you install on your machine. Your ledger lives
 in a file you own, and the app works completely without a network — entering, importing,
 reporting, reconciling. It is free. Optionally you can pay for a sync service that
 replicates your ledger between your own devices and powers Fish Pie, the shared-expense
-feature, with other people. The sync service never sees your data: it relays ciphertext.
+feature, with other people.
+
+The sync service relays ciphertext, and it is worth being exact about which half is which.
+**Encrypted before it leaves your machine, unreadable by the service:** amounts,
+descriptions, account names and paths, member names, and every transaction and posting.
+**Readable by the service, because routing and billing need it:** your account and email
+address, the email addresses of people you invite, who shares a group with whom, when you
+sync, and how large each message is. A breach leaks the second list, not the first.
+
 If you stop paying, or we disappear, the app and every transaction in it keep working.
 
 ## Decisions
@@ -28,6 +42,15 @@ If you stop paying, or we disappear, the app and every transaction in it keep wo
 We are not building a cloud service that holds other people's ledgers. Track A
 (documents `01`–`08`) is **superseded as a product direction**, and survives as research
 for the relay, which is a miniature version of it — see "What survives from Track A".
+
+**The driver is ownership and sellability, not latency** (2026-09-21, `F1`). Most of the
+slowness and downtime that motivated this direction has a weekend fix on the hosted
+edition — a restart policy, and a static frontend build that deletes the per-page auth
+round trip — and is being fixed there first. Local-first is worth six months of evenings
+because the ledger should belong to the person who wrote it, and because a free app with
+paid sync is a thing someone can buy. It is not worth them as a way to make a page load
+faster. Naming the real driver changes what "done" means: not a quicker render, but a
+ledger that does not depend on a server at all.
 
 Monetization is the Obsidian / Actual Budget pattern: free local app, paid sync. The
 alternative considered and rejected was a flat fee for the app plus a subscription for
@@ -43,6 +66,19 @@ charges for the thing with a real marginal cost, which is the honest structure.
 that touches your ledger is auditable by the people whose ledger it is. That is the whole
 claim, and it is not worth much if it can be withdrawn later.
 
+**Stated precisely (2026-09-21, `F8`): the MIT promise is kept by choice, not by law.**
+Anything already released under MIT stays MIT and cannot be recalled — that much is
+settled. But `LICENSE` has a single copyright holder and no third-party human
+contributors, so nothing prevents *future* versions being released under different terms.
+The promise above is a commitment, not a legal impossibility. It is worth more said
+honestly than overstated, because the claim it supports is a claim about trust.
+
+**The name is not part of the grant.** The MIT licence covers the code. "have-fish", "Fish
+Pie" and the logo are not licensed with it. Fork the code freely — that is the
+self-hosting escape hatch working exactly as D1 intends — but a fork that points its users
+at a different relay should carry a different name, so that someone who trusts the name
+can tell what they are connecting to.
+
 **The sync service is private and proprietary.** It is a service, it costs money to run,
 and charging for it is a separate matter from the app.
 
@@ -56,9 +92,10 @@ Three consequences, and the first one binds immediately:
    and write their own relay. That is the self-hosting escape hatch working as intended,
    and it means the private service is **not a moat**. The moat is convenience and trust.
 3. **E2EE becomes load-bearing for trust, not just liability** (D6). The honest pitch is:
-   you cannot audit my server, but you can audit the client that encrypts before it sends
-   and verify the server never receives plaintext. The licence split and D6 hold each
-   other up.
+   you cannot audit my server, but you can audit the client that encrypts before it sends,
+   and see for yourself that no ledger content leaves in the clear. Not that the server
+   learns nothing — it learns who you are and who you share with, as the product paragraph
+   above sets out. The licence split and D6 hold each other up.
 
 ### D2 — The single-player / multiplayer boundary
 **2026-09-11.**
@@ -119,6 +156,12 @@ it is a first-class feature rather than a Fish Pie side effect. It is also the s
 subscription pitch — "your ledger on every device, end-to-end encrypted" sells better
 than shared-expense sync — and it is what unblocks true local mobile (`L08` O2).
 
+**Amended 2026-09-21 (`F4`): this is the *whole* of relay v1.** The relay replicates the
+personal ledger only, under a single per-user key. Group replication is a separate
+product and a separate decision, deferred until a Fish Pie group exists that is not one
+household. Until then Fish Pie runs on the hosted edition exactly as it does today — see
+D9.
+
 ### D6 — Encryption: plaintext locally, end-to-end encrypted on the relay
 **2026-09-11. Resolves Q2; narrows LQ2.**
 
@@ -136,6 +179,19 @@ privacy and breach-notification obligations in `03` to nearly nothing.
 Note this reverses an earlier judgement that E2EE was unnecessary. That judgement was
 scoped to a personal tool on a private tailnet, where it was correct. Holding other
 people's financial data changes the premise.
+
+**Amended 2026-09-21 (`F4`): the cheap half ships, the expensive half waits.** Personal
+replication needs one symmetric key per user — passphrase-derived or keychain-held, with
+no exchange, no rotation and no recovery protocol — and is days of work. Group sync needs
+per-group keys, sealed invites, rotation and re-encryption every time a member leaves, and
+an answer for a member who loses their key; `L03` budgets 2–3 weeks for that and the audit
+calls the estimate optimistic. Relay v1 ships the first only. The second is decided when
+there is a group to decide it for, and until then group data stays plaintext on the hosted
+edition — a deliberate trade, made with the household in mind, not an oversight.
+
+Either way the relay sees account and invitee email addresses, the membership graph, sync
+timing and message sizes. That is why the paragraph at the top of this document lists what
+is ciphertext and what is not, instead of claiming the service sees nothing.
 
 ### D7 — Form factor: compiled Bun binary now, Tauri wrapper later
 **Per `L01`, confirmed 2026-09-11.**
@@ -167,7 +223,27 @@ The first local release ships single-user. Fish Pie is visible but gated behind
 single largest work item in the whole plan (`L03` estimates 8–12 weeks for the event
 log, relay and key management combined).
 
-### D10 — Export scope, and export is the sync format
+**Amended 2026-09-21 (`F5`): gate it on the hosted edition, which exists.** Gating Fish
+Pie on the relay makes it unavailable for the 8–12 weeks the relay takes to build. It runs
+on the hosted edition today, so that is the gate. Which forces the thing this plan has
+been avoiding saying:
+
+> **The hosted edition is a permanent deployment target, not a transition artifact.**
+
+It is what the household runs, what anyone who tries have-fish without installing a binary
+will run, and what Fish Pie runs on for at least a year. `HAVEFISH_MODE=server` therefore
+has to stay real, and "we'll delete it after the migration" is not a plan anyone should
+budget against.
+
+Admitting that opens a dialect question with three answers: one dialect everywhere,
+Postgres on the host with SQLite in the binary, or a dual-dialect matrix maintained
+forever. The third is the worst of the three and the one this plan drifts into by never
+choosing. **The choice is deferred to Probe 1 (D8) and is owed explicitly** — it is a
+decision to be made with measurements in hand, not a default to be inherited. Whichever
+way it lands, it gets written down here as a decision rather than discovered later as an
+accident.
+
+### D10 — Export scope, and why export is **not** the sync format
 **2026-09-11.**
 
 What must be able to leave: accounts, transactions, postings — enough to walk away to
@@ -176,26 +252,49 @@ are analysis and social bookkeeping; they do not need to leave, because you can 
 them once you have the ledger. The money side of Fish Pie leaves anyway, since
 settlements and splits write real transactions and postings into your own ledger.
 
-The export serialization and the sync payload are **the same format**. This makes the
-export work load-bearing rather than a side feature, and makes bootstrapping a new
-replica the same operation as restoring a backup.
+**Corrected 2026-09-21 (`F6`): these are two formats, and conflating them was a
+contradiction inside this decision.** The hledger journal is lossy on purpose — it carries
+no UUIDs, no tombstones, no `accountCoverage` intervals, no `importRules`, no
+`csvParsers`, no preferences, no `groupExpenseId` links and no settlement FX. A replica
+bootstrapped from a journal would lose every import rule and parser and re-flag every
+account as uncovered. It is not your ledger, which is precisely what D5 promises to put on
+every device.
+
+So: **sync replicates versioned documents** (the `{transaction, postings[]}` unit of
+`F2`), and **bootstrap is the encrypted database file**. Export stays exactly as
+`epics/hledger-export.md` scopes it — one-directional, lossy, and the escape hatch that
+Vision principle #2 promises. Keeping them separate costs nothing today and stops the sync
+payload being designed around a format that cannot carry it.
 
 ## Do these now, regardless of everything above
 
-From `01`, audited 2026-07-04 and believed still true. These affect the deployment that
-exists today, not the one being planned.
+From `01`, audited 2026-07-04. These affect the deployment that exists today, not the one
+being planned. Revised 2026-09-21: item 1 is done, and the old item 2 was dropped as work
+for a product this document supersedes — both noted below rather than silently edited out,
+because a list like this is only useful if you can see what left it and why.
 
-1. **There are no backups.** One Docker volume, no dumps, no offsite copy, no tested
-   restore. Everything else on this list is recoverable; this is not.
-2. **No password reset and no email transport**, so a forgotten password is permanent
-   lockout. The `emailVerified` column exists and nothing ever sets it.
-3. **Postgres is published on host port 8886**, containers run as **root**, and there is
-   no rate limiting on any application route.
-4. **The per-route IDOR audit has never been done.** Tests were written for correctness,
+1. ~~**There are no backups.**~~ **Done 2026-09-21** (#272, #365). Nightly dump, offsite
+   restic repository, retention that actually expires, root-only dump permissions, a
+   restore check that compares every table, and an off-machine restore rehearsed from a
+   laptop against the real repository. One piece is outstanding: a deliberate failure that
+   produces a notification actually received. The failure hook is wired and waits on a
+   ping URL.
+2. **Postgres is published on host port 8886**, containers run as **root**, and there is
+   no rate limiting on any application route. (#274 removes the port mapping.)
+3. **The per-route IDOR audit has never been done.** Tests were written for correctness,
    not for adversarial access, and Fish Pie is genuinely multi-user today.
-5. **CI has no dependency audit, secret scanning or image scanning.**
+4. **CI has no dependency audit, secret scanning or image scanning.**
 
-Items 1 and 2 are worth doing this month whatever happens to the rest of this plan.
+**Removed 2026-09-21 (`F10`): "no password reset and no email transport".** That was table
+stakes for the public SaaS this document supersedes in D1. Under the direction actually
+chosen, the local application has no login at all, and the hosted edition has two users
+whose passwords can be reset directly in the database. Password reset, email transport and
+`emailVerified` are **relay concerns** — they belong to relay accounts, in whatever shape
+the relay ends up needing, and `04-auth-hardening.md` is already re-scoped that way. An
+evening spent wiring an email provider now is an evening spent building it twice.
+
+The trigger that reopens both this and item 3 is the same one: a person outside the
+household getting an account on the hosted edition.
 
 ## What is public and what is private
 
@@ -263,6 +362,8 @@ applies to it, re-scoped and much smaller:
 | — | On linking, does the relay adopt the locally-generated `userId`, or is a rewrite needed? | `L01`, D2 |
 | LQ1 | Is multi-currency settlement math stable under event reordering? | `L03` |
 | LQ2 | Optional passphrase encryption of the local file | `L02`, D6 |
+| — | Group end-to-end encryption: per-group keys, rotation, recovery. Deferred 2026-09-21 until a Fish Pie group exists outside the household | D6, `F4` |
+| — | Dialect for the hosted edition: one everywhere, split, or a dual matrix. Deferred 2026-09-21 to Probe 1; owed explicitly, not by default | D8, D9, `F5` |
 | Q1 | Target jurisdictions — Canada/US first, or accept EU users? | `03` |
 | Q3 | Stripe direct vs merchant of record | `05` |
 | Q5 | Sole proprietor or incorporate before holding others' data? | `08` |
@@ -306,14 +407,33 @@ constraints. The rest: `::date` casts (`coverage/load.ts:168`,
 `routes/coverage.ts:386-392`), and 3 `db.execute` raw queries
 (`postings/heal-service.ts:93`, `routes/accounts.ts:364` and `:405`).
 
-**No amount is ever summed in SQL** — only `count()` and `groupBy`, with amounts totalled
-in JavaScript. This removes the main hazard of D8.
+**Amounts are summed in SQL in two places.** Corrected 2026-09-21 (`F3`); this document
+previously claimed no amount was ever summed in SQL, which made D8 look cheaper than it
+is. `routes/accounts.ts:185` and `:297` both run `SUM(${postings.amount})`. Everywhere
+else totals in JavaScript — though not innocently, since those totals go through
+`parseFloat`/`toFixed`. Under SQLite a `numeric()` column in `sqlite-core` takes NUMERIC
+affinity and text amounts sum as doubles, so both sites are port work that has to be
+counted, not a hazard that was already absent.
 
-**The model is accidentally sync-friendly.** UUID primary keys let replicas create rows
-without coordinating. Soft deletes everywhere mean deletions are ordinary writes —
-tombstones you already have. `accountCoverage` is append-only merging intervals, which is
-CRDT-shaped by accident. The Undo epic restores `deletedAt` to null, which is also just a
-write, so it will not fight last-write-wins.
+**The model is partly sync-friendly, and one part of it is actively hostile.** UUID
+primary keys let replicas create rows without coordinating. `accountCoverage` is
+append-only merging intervals, which is CRDT-shaped by accident. The Undo epic restores
+`deletedAt` to null, which is an ordinary write and will not fight last-write-wins.
+
+**But "soft deletes everywhere" is wrong**, corrected 2026-09-21 (`F2`).
+`routes/transactions.ts:444` and `:483` **hard-delete every posting** on update and on
+delete, then re-insert with fresh UUIDs. Splits, weights and invites are hard-deleted too
+(`fish-pie-expenses.ts`, `fish-pie-categories.ts`, `fish-pie-invites.ts`). So posting
+identity is not stable across an edit, and the rows that vanish leave no tombstone.
+Row-level last-write-wins on `postings` would keep one device's edited row *and* another
+device's replacement set, and produce a transaction that does not balance — found months
+later, reconciling a bank statement.
+
+This is why the sync unit is the **transaction, not the row**: replicate
+`{transaction, postings[]}` as one versioned document, with `updatedAt` on `transactions`
+only. The same shape applies to `{expense, splits[]}` and to settlement batches, which are
+already grouped by `batchId`. Step 3 of the sequencing sketch below was written against
+the wrong table and should be read with this correction in hand.
 
 ## Two obstacles the research did not have
 
@@ -342,10 +462,14 @@ shared-expense rule block an entire bank statement.
 
 ## Sequencing sketch (non-binding)
 
-1. **Backups for the current deployment.** Unrelated to this plan and more urgent than it.
+1. ~~**Backups for the current deployment.**~~ **Done 2026-09-21.** Unrelated to this
+   plan and more urgent than it, which is why it went first.
 2. **Finish `epics/hledger-export.md` + CSV.** Delivers Vision principle #2 outright and
    makes every later decision reversible.
-3. **`updatedAt` on every replicated table.** One small PR.
+3. **`updatedAt` on every replicated document root** — `transactions`, expenses and
+   settlement batches. *Not* on `postings` or splits, whose identity is not stable across
+   an edit (`F2`, and the correction under "Code evidence" above). Still one small PR, but
+   design the sync unit before writing it, or it lands on the wrong tables.
 4. **Static frontend build target.** Removes the per-page auth round trip; a latency win
    today with or without the rest.
 5. **The spike, as two cheap probes.** Linux only — that alone deletes the entire code
