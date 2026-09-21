@@ -221,6 +221,38 @@ gzip -dc backups/havefish-20260911T120000Z.sql.gz \
 The dump carries `--clean --if-exists`, so it drops and recreates its own objects. Stop
 the backend first so nothing writes underneath the restore.
 
+### Reaching the database without a published port
+
+Postgres is deliberately **not** published on the host. It listens only on the Compose
+network, where the backend reaches it as `postgres:5432`. Nothing in `ops/` needs a host
+port — both scripts here go through the container:
+
+```bash
+podman compose exec -T postgres psql -U havefish -d havefish
+```
+
+For an ad-hoc query from your laptop, SSH in and do the same thing there (drop the `-T`
+for an interactive session). That is the whole story for anything text-based.
+
+**For a GUI client there is no longer a one-liner, and that is the point.** A published
+port means anyone who can reach the host on the LAN can reach Postgres, guarded only by
+the password. If you genuinely need Drizzle Studio or a desktop client against the live
+database, publish the port to **loopback only**, for as long as you need it, and take it
+back off:
+
+```yaml
+    ports:
+      - "127.0.0.1:8886:5432"   # temporary; loopback only, never 0.0.0.0
+```
+
+```bash
+ssh -N -L 8886:127.0.0.1:8886 you@server      # then connect to 127.0.0.1:8886
+```
+
+Bound that way the port is unreachable from the network and only someone who can already
+log into the host can tunnel to it. Remove the mapping when you are done, rather than
+leaving it as the permanent state this change was undoing.
+
 ### What this does not cover
 
 Postgres is the whole story today, so dumping it is enough. Once the local-first work
