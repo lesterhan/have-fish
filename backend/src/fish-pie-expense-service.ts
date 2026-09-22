@@ -1,5 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from './db'
+import { returnedRow } from './db/returning'
 import {
   expenseGroupMembers,
   expenseGroups,
@@ -79,7 +80,7 @@ export function applyCategoryWeights<T extends Member>(members: T[], ctx: Catego
 // weights when they apply, group weights otherwise).
 export async function resolvePayerImportContext(
   tx: TxDb,
-  opts: { categoryId?: string | null; members: Member[]; payerId: string },
+  opts: { categoryId?: string | null | undefined; members: Member[]; payerId: string },
 ): Promise<{ payerExpenseAccountId: string; payerShareRatio: number }> {
   const { categoryId, members, payerId } = opts
   const ctx = await resolveCategoryContext(tx, categoryId, members)
@@ -144,11 +145,11 @@ export async function createMemberTransactionsInTx(
     date: string
     payerId: string
     totalAmount: string
-    paymentAccountId?: string
-    skipPayerMemberTx?: boolean
+    paymentAccountId?: string | undefined
+    skipPayerMemberTx?: boolean | undefined
     // Category-mapped expense account per member; takes precedence over the member's
     // group default. Empty/omitted → fall back to the default → uncategorized.
-    categoryAccounts?: Map<string, string>
+    categoryAccounts?: Map<string, string> | undefined
   },
 ): Promise<void> {
   const {
@@ -184,15 +185,18 @@ export async function createMemberTransactionsInTx(
     }
     const sharedAccountId = sharedAccountIds.get(split.userId)!
 
-    const [memberTx] = await tx
-      .insert(transactions)
-      .values({
-        userId: split.userId,
-        date: txDate,
-        description: description.trim(),
-        groupExpenseId: expenseId,
-      })
-      .returning()
+    const memberTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId: split.userId,
+          date: txDate,
+          description: description.trim(),
+          groupExpenseId: expenseId,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
     const isPayerWithSource = split.userId === payerId && !!paymentAccountId
     if (isPayerWithSource) {
@@ -280,16 +284,16 @@ export async function createGroupExpenseInTx(
     amount: string
     currency: string
     date: string
-    linkedTransactionId?: string
+    linkedTransactionId?: string | undefined
     // When true, skips creating the payer's member transaction. Used for import-linked
     // expenses where the import tx already records the payer's share as a direct posting.
-    skipPayerMemberTx?: boolean
+    skipPayerMemberTx?: boolean | undefined
     // Account the payer is paying from. When provided, the payer gets a 3-posting tx
     // (source, group clearing, expense) instead of the legacy 2-posting tx.
-    paymentAccountId?: string
+    paymentAccountId?: string | undefined
     // Spending category. Drives per-member expense-account resolution and, when every
     // member has a per-category weight, the split weights.
-    categoryId?: string | null
+    categoryId?: string | null | undefined
   },
 ): Promise<string> {
   const {
@@ -312,19 +316,22 @@ export async function createGroupExpenseInTx(
   const normalizedAmount = parseFloat(amount).toFixed(2)
   const normalizedCurrency = currency.trim().toUpperCase()
 
-  const [expense] = await tx
-    .insert(groupExpenses)
-    .values({
-      groupId: group.id,
-      categoryId: categoryId ?? null,
-      paidByUserId: payerId,
-      description: description.trim(),
-      amount: normalizedAmount,
-      currency: normalizedCurrency,
-      date,
-      transactionId: linkedTransactionId ?? null,
-    })
-    .returning()
+  const expense = returnedRow(
+    await tx
+      .insert(groupExpenses)
+      .values({
+        groupId: group.id,
+        categoryId: categoryId ?? null,
+        paidByUserId: payerId,
+        description: description.trim(),
+        amount: normalizedAmount,
+        currency: normalizedCurrency,
+        date,
+        transactionId: linkedTransactionId ?? null,
+      })
+      .returning(),
+    'insert groupExpenses',
+  )
 
   await tx
     .insert(groupExpenseSplits)

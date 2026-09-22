@@ -46,9 +46,13 @@ export function simplifyDebts(nets: { userId: string; userName: string | null; n
 
   let ci = 0
   let di = 0
-  while (ci < creditors.length && di < debtors.length) {
+  // Runs until either side is exhausted. Reading the pair first and stopping on a miss
+  // is the same bound as `ci < creditors.length && di < debtors.length`, stated where the
+  // values are actually used rather than one line above them.
+  for (;;) {
     const c = creditors[ci]
     const d = debtors[di]
+    if (!c || !d) break
     const amount = Math.min(c.remaining, d.remaining)
     if (amount > 0.005) {
       transfers.push({

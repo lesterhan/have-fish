@@ -116,6 +116,12 @@ purpose).
 with `git config blame.ignoreRevsFile .git-blame-ignore-revs`; GitHub reads the file
 automatically.
 
+The backend's `tsconfig.json` turns on the strictness flags that `strict` does not imply —
+`noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noFallthroughCasesInSwitch`,
+`noImplicitOverride` and `verbatimModuleSyntax` — each with a comment saying what it buys.
+`bun run check` in `backend/` is the gate; CI runs it. The test files are still excluded
+from that check and are not yet clean under the new flags (#397).
+
 ## Development Workflow
 
 - Write tests first in `*.test.ts` co-located with the route file
@@ -376,3 +382,13 @@ git checkout main && git pull origin main
 - All timestamps stored in UTC
 - Default currency is CAD
 - Soft deletes — records are never hard deleted. Use `deletedAt` timestamp; `null` means active. Query active records by filtering `deletedAt IS NULL`.
+- Drizzle returns an array from every query, so under `noUncheckedIndexedAccess` the first
+  element is `Row | undefined`. When the statement itself guarantees the row — an insert, or
+  an update to a row the same transaction just wrote — read it with
+  `returnedRow(rows, 'insert accounts')` from `backend/src/db/returning.ts`, which throws
+  naming the statement. When the row may legitimately be missing, that is a 404:
+  `const [row] = await …; if (!row) return fail(c, 'ACCOUNT_NOT_FOUND')`. Never `!`: it
+  deletes the question rather than answering it.
+- A guard narrows `body.field`, but that narrowing does not survive into a
+  `db.transaction(async (tx) => …)` callback. Read the checked value into a local right
+  after the guard rather than re-asserting it inside.

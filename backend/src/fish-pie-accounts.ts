@@ -3,6 +3,7 @@ import { and, eq, isNull } from 'drizzle-orm'
 import type { PgTransaction } from 'drizzle-orm/pg-core'
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
 import { db } from './db'
+import { returnedRow } from './db/returning'
 import { accounts } from './db/schema'
 
 type Tx = PgTransaction<
@@ -54,10 +55,13 @@ export async function ensureSharedAccount(
 
   if (existing) return existing.id
 
-  const [created] = await client
-    .insert(accounts)
-    .values({ userId, path, name: `Receivable: ${group.name}` })
-    .returning({ id: accounts.id })
+  const created = returnedRow(
+    await client
+      .insert(accounts)
+      .values({ userId, path, name: `Receivable: ${group.name}` })
+      .returning({ id: accounts.id }),
+    'insert accounts',
+  )
 
   return created.id
 }
@@ -75,10 +79,13 @@ export async function ensureUncategorizedAccount(userId: string, tx?: Tx): Promi
 
   if (existing) return existing.id
 
-  const [created] = await client
-    .insert(accounts)
-    .values({ userId, path, name: 'Uncategorized' })
-    .returning({ id: accounts.id })
+  const created = returnedRow(
+    await client
+      .insert(accounts)
+      .values({ userId, path, name: 'Uncategorized' })
+      .returning({ id: accounts.id }),
+    'insert accounts',
+  )
 
   return created.id
 }

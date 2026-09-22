@@ -11,6 +11,7 @@
 // Usage: bun run scripts/migrate-fish-pie.ts
 
 import { db } from '../src/db'
+import { returnedRow } from '../src/db/returning'
 import { groupExpenses, groupExpenseSplits, expenseGroupMembers, expenseGroups, transactions, postings } from '../src/db/schema'
 import { ensureSharedAccount, ensureUncategorizedAccount } from '../src/fish-pie-accounts'
 import { eq, isNull, and } from 'drizzle-orm'
@@ -76,15 +77,18 @@ await db.transaction(async (tx) => {
       const sharedAccountId = sharedAccountIds.get(split.userId)!
 
       const txDate = new Date(`${expense.date}T00:00:00Z`)
-      const [t] = await tx
-        .insert(transactions)
-        .values({
-          userId: split.userId,
-          date: txDate,
-          description: expense.description,
-          groupExpenseId: expense.id,
-        })
-        .returning()
+      const t = returnedRow(
+        await tx
+          .insert(transactions)
+          .values({
+            userId: split.userId,
+            date: txDate,
+            description: expense.description,
+            groupExpenseId: expense.id,
+          })
+          .returning(),
+        'insert transactions',
+      )
 
       await tx.insert(postings).values([
         { transactionId: t.id, accountId: expenseAccountId, amount: `-${split.amount}`, currency: expense.currency },

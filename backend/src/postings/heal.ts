@@ -91,9 +91,10 @@ export function detectMalformedFxSpend(
       if (byCurrency.has(leg.currency)) return null
       byCurrency.set(leg.currency, leg)
     }
-    if (byCurrency.size !== 2) continue
-
     const [a, b] = [...byCurrency.values()]
+    // Exactly two currencies is the bridge shape this heals; `!a || !b` is the same bound
+    // as `size !== 2` said where the two legs are read.
+    if (!a || !b || byCurrency.size !== 2) continue
     const aVal = parseFloat(a.amount)
     const bVal = parseFloat(b.amount)
     if (Math.sign(aVal) === Math.sign(bVal)) continue // must be opposite signs

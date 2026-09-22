@@ -2,6 +2,7 @@ import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import {
   accounts,
   expenseGroupMembers,
@@ -146,10 +147,13 @@ app.post('/:groupId/categories', async (c) => {
     sortOrder = existing.reduce((max, r) => Math.max(max, r.sortOrder + 1), 0)
   }
 
-  const [created] = await db
-    .insert(groupCategories)
-    .values({ groupId, name: body.name.trim(), sortOrder })
-    .returning()
+  const created = returnedRow(
+    await db
+      .insert(groupCategories)
+      .values({ groupId, name: body.name.trim(), sortOrder })
+      .returning(),
+    'insert groupCategories',
+  )
 
   return c.json(
     {
@@ -229,14 +233,17 @@ app.put('/:groupId/categories/:id/my-mapping', async (c) => {
     )
   if (!acct) return fail(c, 'ACCOUNT_NOT_YOURS')
 
-  const [mapping] = await db
-    .insert(groupCategoryMemberAccounts)
-    .values({ categoryId, userId, accountId: body.accountId })
-    .onConflictDoUpdate({
-      target: [groupCategoryMemberAccounts.categoryId, groupCategoryMemberAccounts.userId],
-      set: { accountId: body.accountId },
-    })
-    .returning()
+  const mapping = returnedRow(
+    await db
+      .insert(groupCategoryMemberAccounts)
+      .values({ categoryId, userId, accountId: body.accountId })
+      .onConflictDoUpdate({
+        target: [groupCategoryMemberAccounts.categoryId, groupCategoryMemberAccounts.userId],
+        set: { accountId: body.accountId },
+      })
+      .returning(),
+    'insert groupCategoryMemberAccounts',
+  )
 
   return c.json({ categoryId, accountId: mapping.accountId })
 })

@@ -101,17 +101,21 @@ app.get('/spending-summary', async (c) => {
       ? segments.slice(0, prefixDepth + 1).join(':') // one level deeper than prefix
       : segments.length >= 2
         ? `${segments[0]}:${segments[1]}`
-        : segments[0]
+        : // A path with fewer than two segments is its own category; `row.path` says that
+          // without indexing into a split whose length the compiler cannot see.
+          row.path
 
     totalByCurrency[currency] = (totalByCurrency[currency] ?? 0) + amount
-    categoryMap[category] ??= {}
-    categoryMap[category][currency] = (categoryMap[category][currency] ?? 0) + amount
+    const byCurrency = categoryMap[category] ?? {}
+    byCurrency[currency] = (byCurrency[currency] ?? 0) + amount
+    categoryMap[category] = byCurrency
 
     // If this path is deeper than the category, record the direct child
     const categoryDepth = category.split(':').length
     if (segments.length > categoryDepth) {
-      directChildSets[category] ??= new Set()
-      directChildSets[category].add(segments.slice(0, categoryDepth + 1).join(':'))
+      const children = directChildSets[category] ?? new Set()
+      children.add(segments.slice(0, categoryDepth + 1).join(':'))
+      directChildSets[category] = children
     }
   }
 
@@ -192,8 +196,10 @@ app.get('/monthly-spend', async (c) => {
   for (const row of rows) {
     const d = new Date(row.date)
     const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-    if (!(key in monthMap)) continue
-    monthMap[key][row.currency] = (monthMap[key][row.currency] ?? 0) + parseFloat(row.amount)
+    const bucket = monthMap[key]
+    // Rows outside the requested range land on a month with no bucket; skip them.
+    if (!bucket) continue
+    bucket[row.currency] = (bucket[row.currency] ?? 0) + parseFloat(row.amount)
   }
 
   const result = Object.entries(monthMap).map(([month, byCurrency]) => ({

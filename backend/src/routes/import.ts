@@ -2,6 +2,7 @@ import { and, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import {
   accounts,
   csvParsers,
@@ -77,8 +78,9 @@ app.post('/preview', async (c) => {
   let matched: (typeof userParsers)[number] | undefined
   for (const delimiter of candidates) {
     rows = parseCsv(csv, delimiter)
-    if (rows.length === 0) continue
-    const fingerprint = normalizeHeader(Object.keys(rows[0]))
+    const header = rows[0]
+    if (!header) continue
+    const fingerprint = normalizeHeader(Object.keys(header))
     matched = userParsers.find((p) => p.normalizedHeader === fingerprint)
     if (matched) break
   }
@@ -213,16 +215,19 @@ app.post('/check-duplicates', async (c) => {
   const inputRows = rows as InputRow[]
   const result: PossibleDuplicate[] = inputRows.map(() => null)
 
-  // Group row indices by accountId; skip empty strings (transfer rows not checked).
-  const byAccount = new Map<string, number[]>()
-  for (let i = 0; i < inputRows.length; i++) {
-    const { accountId } = inputRows[i]
+  // Group rows by accountId; skip empty strings (transfer rows not checked). The row
+  // travels with its index because the answer is positional — `result[i]` lines up with
+  // the caller's `rows[i]` — but every read downstream wants the row, not the number.
+  const byAccount = new Map<string, { i: number; row: InputRow }[]>()
+  for (const [i, row] of inputRows.entries()) {
+    const { accountId } = row
     if (!accountId) continue
-    if (!byAccount.has(accountId)) byAccount.set(accountId, [])
-    byAccount.get(accountId)!.push(i)
+    const forAccount = byAccount.get(accountId) ?? []
+    forAccount.push({ i, row })
+    byAccount.set(accountId, forAccount)
   }
 
-  for (const [accountId, indices] of byAccount) {
+  for (const [accountId, entries] of byAccount) {
     // Verify the account belongs to this user before querying postings.
     const owned = await db
       .select({ id: accounts.id })
@@ -233,7 +238,7 @@ app.post('/check-duplicates', async (c) => {
       .limit(1)
     if (owned.length === 0) continue
 
-    const dates = indices.map((i) => new Date(inputRows[i].date))
+    const dates = entries.map((e) => new Date(e.row.date))
     const minDate = new Date(Math.min(...dates.map((d) => d.getTime())))
     const maxDate = new Date(Math.max(...dates.map((d) => d.getTime())))
     minDate.setDate(minDate.getDate() - 1)
@@ -260,8 +265,7 @@ app.post('/check-duplicates', async (c) => {
       )
 
     const dayMs = 24 * 60 * 60 * 1000
-    for (const i of indices) {
-      const row = inputRows[i]
+    for (const { i, row } of entries) {
       const txDate = new Date(row.date).getTime()
       const txAmount = parseFloat(row.amount)
 
@@ -286,7 +290,7 @@ app.post('/check-duplicates', async (c) => {
   }
 
   // Enrich matched duplicates: check if any matched transaction is a Fish Pie settlement
-  const matchedTxIds = result.filter((r) => r !== null).map((r) => r!.transactionId)
+  const matchedTxIds = result.filter((r) => r !== null).map((r) => r.transactionId)
   if (matchedTxIds.length > 0) {
     const settlementRows = await db
       .select({
@@ -538,10 +542,16 @@ app.post('/commit', async (c) => {
     for (const [rowIndex, t] of (
       parsed as (RegularRow | TransferRow | SameCurrencyTransferRow | CrossCurrencySpendRow)[]
     ).entries()) {
-      const [newTx] = await tx
-        .insert(transactions)
-        .values({ userId, date: new Date(t.date), description: t.description })
-        .returning()
+      const newTx = returnedRow(
+        await tx
+          .insert(transactions)
+          // `?? null` rather than letting `undefined` through: the column is nullable with
+          // no default, so an omitted key and an explicit null store the same thing, and
+          // `exactOptionalPropertyTypes` wants the difference spelled out.
+          .values({ userId, date: new Date(t.date), description: t.description ?? null })
+          .returning(),
+        'insert transactions',
+      )
 
       if (t.isTransfer === 'cross-currency-spend') {
         // Cross-currency spend — a purchase in a currency the user doesn't hold, funded

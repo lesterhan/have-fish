@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import { accounts, expenseGroupMembers, expenseGroups, user } from '../db/schema'
 import { fail } from '../errors'
 import { ensureSharedAccount } from '../fish-pie-accounts'
@@ -32,12 +33,13 @@ app.post('/', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json<{ name?: string }>()
   if (!body.name?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'name' })
+  const name = body.name.trim()
 
   const group = await db.transaction(async (tx) => {
-    const [g] = await tx
-      .insert(expenseGroups)
-      .values({ name: body.name!.trim(), createdBy: userId })
-      .returning()
+    const g = returnedRow(
+      await tx.insert(expenseGroups).values({ name, createdBy: userId }).returning(),
+      'insert expenseGroups',
+    )
     await tx.insert(expenseGroupMembers).values({ groupId: g.id, userId, shareWeight: 1 })
     await ensureSharedAccount(userId, g, tx)
     return g

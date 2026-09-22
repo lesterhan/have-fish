@@ -67,6 +67,11 @@ export function dateInMonth(year: number, month: number, day: number): string {
 
 function parts(date: string): { year: number; month: number; day: number } {
   const [year, month, day] = date.split('-').map(Number)
+  // Every caller passes a 'YYYY-MM-DD' string the routes have already validated. This is the
+  // one place that says so, so the three numbers below are numbers everywhere else.
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new Error(`not a YYYY-MM-DD date: "${date}"`)
+  }
   return { year, month, day }
 }
 
@@ -153,7 +158,10 @@ export function inferCycleFromIntervals(
   // Consecutive closes must be roughly a month apart. This is what rejects a pile of ad-hoc
   // range exports that happen to share a day of month.
   for (let i = 0; i < ends.length - 1; i++) {
-    const daysApart = daysBetween(ends[i + 1], ends[i])
+    const earlier = ends[i + 1]
+    const later = ends[i]
+    if (earlier === undefined || later === undefined) break
+    const daysApart = daysBetween(earlier, later)
     if (daysApart < 26 || daysApart > 33) return null
   }
 
@@ -164,8 +172,9 @@ export function inferCycleFromIntervals(
   }
 
   const days = ends.map((d) => parts(d).day)
-  if (days.every((d) => d === days[0])) {
-    return { exportMode: 'cycle', cycleDay: days[0] }
+  const firstDay = days[0]
+  if (firstDay !== undefined && days.every((d) => d === firstDay)) {
+    return { exportMode: 'cycle', cycleDay: firstDay }
   }
 
   return null

@@ -2,6 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import {
   accounts,
   expenseGroupMembers,
@@ -32,11 +33,15 @@ app.post('/merge', async (c) => {
   const body = await c.req.json<{ groupIds?: string[]; name?: string }>()
 
   if (!body.name?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'name' })
+  const name = body.name.trim()
   if (!Array.isArray(body.groupIds)) return fail(c, 'FIELD_REQUIRED', { field: 'groupIds' })
 
   // Preserve request order (first group is the weight/defaults fallback) but de-dupe.
   const groupIds = [...new Set(body.groupIds)]
-  if (groupIds.length < 2) return fail(c, 'MERGE_NEEDS_TWO_GROUPS')
+  // The first group is the weight/defaults fallback, so the merge needs it to exist —
+  // which `< 2` already guarantees, said in a way the compiler can follow.
+  const firstGroupId = groupIds[0]
+  if (groupIds.length < 2 || firstGroupId === undefined) return fail(c, 'MERGE_NEEDS_TWO_GROUPS')
 
   const sourceGroups = await db
     .select()
@@ -72,7 +77,6 @@ app.post('/merge', async (c) => {
   const keys = new Set(groupIds.map(memberSetKey))
   if (keys.size !== 1) return fail(c, 'MERGE_MEMBERS_DIFFER')
 
-  const firstGroupId = groupIds[0]
   const firstGroupMembers = membersByGroup.get(firstGroupId) ?? []
   if (firstGroupMembers.length === 0) return fail(c, 'MERGE_GROUPS_EMPTY')
   const memberUserIds = firstGroupMembers.map((m) => m.userId)
@@ -82,14 +86,17 @@ app.post('/merge', async (c) => {
     //    shareWeight + account defaults come from the first group as a *fallback* —
     //    the real per-category weights/accounts live on the categories below.
     const firstGroup = sourceGroupById.get(firstGroupId)!
-    const [created] = await tx
-      .insert(expenseGroups)
-      .values({
-        name: body.name!.trim(),
-        createdBy: userId,
-        defaultCurrency: firstGroup.defaultCurrency ?? null,
-      })
-      .returning()
+    const created = returnedRow(
+      await tx
+        .insert(expenseGroups)
+        .values({
+          name,
+          createdBy: userId,
+          defaultCurrency: firstGroup.defaultCurrency ?? null,
+        })
+        .returning(),
+      'insert expenseGroups',
+    )
 
     const firstMemberByUser = new Map(firstGroupMembers.map((m) => [m.userId, m]))
     await tx.insert(expenseGroupMembers).values(
@@ -119,10 +126,13 @@ app.post('/merge', async (c) => {
     for (const gid of groupIds) {
       const srcGroup = sourceGroupById.get(gid)!
       const srcMembers = membersByGroup.get(gid)!
-      const [cat] = await tx
-        .insert(groupCategories)
-        .values({ groupId: created.id, name: srcGroup.name, sortOrder: sortOrder++ })
-        .returning()
+      const cat = returnedRow(
+        await tx
+          .insert(groupCategories)
+          .values({ groupId: created.id, name: srcGroup.name, sortOrder: sortOrder++ })
+          .returning(),
+        'insert groupCategories',
+      )
       categoryByGroup.set(gid, cat.id)
 
       const mappingRows = srcMembers

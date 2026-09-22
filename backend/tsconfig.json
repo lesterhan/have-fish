@@ -4,6 +4,22 @@
     "module": "ESNext",
     "moduleResolution": "bundler",
     "strict": true,
+    // The four flags `strict` does not imply. Each closes a hole that this codebase
+    // actually had — see the PR for #389 for the count behind each.
+    //
+    // Indexing an array or a record yields `T | undefined` rather than `T`. Drizzle
+    // returns an array from every `.returning()`, and the destructure that reads a row
+    // out of it was typed as if the row were guaranteed.
+    "noUncheckedIndexedAccess": true,
+    // `{ a?: string }` stops accepting `{ a: undefined }`. "Absent" and "present and
+    // undefined" are different states and the query builders here treat them so.
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    // A type-only import must say `import type`, so nothing type-shaped survives into
+    // what Bun runs. Zero errors when turned on — Biome's `useImportType` had already
+    // done the work — and it stays on so it cannot regress.
+    "verbatimModuleSyntax": true,
     "skipLibCheck": true,
     "types": ["bun"]
   }

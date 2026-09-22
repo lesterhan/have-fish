@@ -202,7 +202,7 @@ export interface ErrorDetails {
   RANGE_TOO_LONG: { months: number }
 
   /** `currency` is absent when the request omitted it entirely. */
-  UNSUPPORTED_CURRENCY: { currency?: string; index?: number }
+  UNSUPPORTED_CURRENCY: { currency?: string | undefined; index?: number }
   ACCOUNT_TYPE_INVALID: { type: string }
   ACCOUNT_INCLUDE_INVALID: { value: string }
   ACCOUNT_HAS_ENTRIES: { entries: number }
