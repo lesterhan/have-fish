@@ -7,10 +7,10 @@ ARG PUBLIC_VERSION=dev
 ENV PUBLIC_VERSION=$PUBLIC_VERSION
 RUN bun run build
 
-FROM node:22-alpine
-WORKDIR /app
-COPY --from=builder /app/build ./build
-COPY --from=builder /app/package.json .
-RUN npm install --omit=dev
+# The build is now a directory of static files rather than a Node server, so nothing here
+# runs JavaScript. This stage is interim: once the backend serves `build/` directly the
+# whole service goes away and this file with it.
+FROM nginx:alpine
+COPY --from=builder /app/build /usr/share/nginx/html
+COPY nginx.conf /etc/nginx/conf.d/default.conf
 EXPOSE 8888
-CMD ["node", "build"]

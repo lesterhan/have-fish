@@ -1,5 +1,6 @@
 <script lang="ts">
   import { signIn } from '$lib/auth'
+  import { forgetSession } from '$lib/session'
   import { copy } from '$lib/copy'
   import { HOME } from '$lib/routes'
   import { goto } from '$app/navigation'
@@ -18,6 +19,9 @@
     if (result.error) {
       error = result.error.message ?? copy.auth.signIn.failed
     } else {
+      // The guards cached "no session" on the way in here. Drop it, or the redirect below
+      // bounces straight back to this form.
+      forgetSession()
       // Straight there rather than via `/`, which would only redirect here anyway. The
       // shared constant is what keeps this in step with the root load.
       goto(HOME)

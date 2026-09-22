@@ -6,6 +6,7 @@
   import Sidebar from '$lib/components/Sidebar.svelte'
   import { goto } from '$app/navigation'
   import { signOut, useSession } from '$lib/auth'
+  import { forgetSession } from '$lib/session'
   import { toast } from '$lib/toast.svelte'
   import {
     fetchAccounts,
@@ -141,6 +142,9 @@
       // The session may already be gone server-side; either way the user asked to leave,
       // so the navigation below still happens rather than stranding them in a dialog.
     }
+    // Whatever the server said, this user is leaving. Clearing the cache stops the route
+    // guards waving them back into the app on the next navigation.
+    forgetSession()
     // Dismissed before the navigation, not after: the dialog is fixed to the viewport and
     // would otherwise sit over the login screen for as long as the route takes to settle.
     signingOut = false

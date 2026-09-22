@@ -40,9 +40,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-    environment:
-      PORT: "8888"
-      INTERNAL_API_URL: http://backend:8887
     ports:
       - "8888:8888"
     depends_on:
