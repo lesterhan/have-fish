@@ -217,6 +217,16 @@ failure cannot answer 400 in one route and 404 in another. Two tests hold it: a 
 
 No i18n library, no `en/` folder implying a sibling — a typed object is the whole design.
 
+**And the backend trusts no body.** A route parses its request body through a Zod schema
+declared beside the handler, via `parseBody(c, Schema)` from `backend/src/validation.ts` —
+never `c.req.json()`, which is a cast over a value nothing has looked at. `bodies.test.ts`
+fails if one comes back. `validation.ts` maps what the schema rejects onto the codes in
+`errors.ts`, so a validator still never writes a sentence; `as`, `asField` and `asInput`
+are how one check overrides that mapping to keep the code a route already answered with.
+Where a route's own domain check produces a better failure than a schema could
+(`ACCOUNT_PATH_INVALID`, `UNSUPPORTED_CURRENCY`), the schema types the field `unknown` and
+the check stays.
+
 ## Work Tracking
 
 Work is tracked as **GitHub Issues**, viewed on one **GitHub Project** (`have-fish`, owned by
@@ -392,3 +402,6 @@ git checkout main && git pull origin main
 - A guard narrows `body.field`, but that narrowing does not survive into a
   `db.transaction(async (tx) => …)` callback. Read the checked value into a local right
   after the guard rather than re-asserting it inside.
+- A parsed body holds only the keys its schema names, so spread it into an insert or an
+  update rather than copying field by field. Drizzle refuses a key that might be present
+  and `undefined`; `defined()` from `validation.ts` states what parsing already guarantees.
