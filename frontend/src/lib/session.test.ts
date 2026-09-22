@@ -4,7 +4,10 @@ import { describe, it, expect, beforeEach, mock } from 'bun:test'
 let answer: () => Promise<{ data: { user: { id: string; email: string } } | null }>
 let calls = 0
 
-mock.module('$lib/auth', () => ({
+// Mocked by the specifier `session.ts` itself uses. Mocking '$lib/auth' instead only
+// worked where `svelte-kit sync` had already generated the path mapping — which is not
+// the case on a fresh checkout, and is not the case in CI.
+mock.module('./auth', () => ({
   authClient: {
     getSession: () => {
       calls += 1

@@ -9,7 +9,7 @@
     "preview": "vite preview",
     "check": "sh -c 'export PUBLIC_VERSION=${PUBLIC_VERSION:-dev}; svelte-kit sync && svelte-check --tsconfig ./tsconfig.json'",
     "format": "prettier --write .",
-    "test": "bun test"
+    "test": "svelte-kit sync && bun test"
   },
   "dependencies": {
     "@sveltejs/kit": "^2.70.2",
