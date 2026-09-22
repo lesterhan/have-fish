@@ -97,6 +97,45 @@ Three consequences, and the first one binds immediately:
    learns nothing — it learns who you are and who you share with, as the product paragraph
    above sets out. The licence split and D6 hold each other up.
 
+**Amended 2026-09-22: both services are proprietary, and the client halves of both stay
+MIT.** Two corrections and one extension, following `#383`.
+
+*The correction.* Consequence 1 above reasons that because a published MIT licence cannot
+be withdrawn, server code must never land in a public repository. The premise is true and
+the conclusion is too strong. `LICENSE` has a single copyright holder and no third-party
+contributors (`F8`), and a copyright owner is not a licensee of their own work — they may
+license it under any terms, in parallel, at any time. MIT is permissive rather than
+copyleft in any case. What cannot be undone is **recalling what is already published**:
+anyone holding a copy of the Fish Pie code released so far may fork it and run a competing
+service forever. Proprietary licensing protects what gets built next, never the current
+feature set. (Consequence 1 is also now stale on its facts: the relay lives in
+`lesterhan/have-fish-server`, not in the ops repository.)
+
+*The extension.* With the hosted edition retired (D9), the paid side is two services — the
+relay and the Fish Pie service — and **both are proprietary from the start.** Starting
+closed is the only choice that stays reversible: proprietary may be opened on any future
+day, and open may never be closed.
+
+*The line that makes it defensible.* Consequence 2 keeps the sync protocol and the client
+half of sync MIT, "because they run on the user's machine and touch their data". The same
+reasoning binds Fish Pie: **its client, including its encryption, stays MIT and public.**
+A closed client that claims to encrypt before sending is an unverifiable assertion, which
+would destroy the very argument in consequence 3 that lets the server be closed at all. So:
+
+```
+public, MIT                        proprietary
+───────────                        ───────────
+local app                          relay
+Fish Pie client + encryption       Fish Pie service
+protocol spec (#377)
+```
+
+*What this now depends on.* Sole copyright ownership is load-bearing, and it ends the
+first time an outside contribution lands in a public repository and later needs to reach a
+private one. A CLA is therefore not optional housekeeping but a prerequisite of this
+amendment (`#384`). A DCO does not serve — it certifies origin and grants no relicensing
+rights.
+
 ### D2 — The single-player / multiplayer boundary
 **2026-09-11.**
 
@@ -197,6 +236,38 @@ edition — a deliberate trade, made with the household in mind, not an oversigh
 Either way the relay sees account and invitee email addresses, the membership graph, sync
 timing and message sizes. That is why the paragraph at the top of this document lists what
 is ciphertext and what is not, instead of claiming the service sees nothing.
+
+**Amended 2026-09-22: the expensive half is no longer deferred, because it stopped being
+expensive.** `#374` decided that a household is both the billing unit and the key domain,
+strictly — a person belongs to one household, and group keys never cross that boundary.
+That decision retires most of what made group encryption cost 2–3 weeks:
+
+| The expensive part | Why a household dissolves it |
+|---|---|
+| Sealed invites | Members are co-located. Key exchange happens in person, by QR or a short word list |
+| Rotation when a member leaves | N ≤ 6 and it happens rarely, so re-encrypting everything is acceptable |
+| Key recovery | Another member holds the same key — *but see below* |
+
+So the paragraph above is superseded in two places. Group data does **not** stay plaintext
+on the hosted edition, because the hosted edition no longer exists (D9); and the second
+half is no longer deferred to a group that is not one household, because `#383` ties
+charging to Fish Pie being encrypted. The work is scoped in `#385`.
+
+*The hole the two decisions leave between them.* `#373` allows a household of one account
+member plus several name members — exactly the case where one person uses have-fish and
+their housemates do not. Such a household has **one** key holder, so "another member holds
+the key" is unavailable in precisely the situation name members were introduced to serve.
+The answer taken is to **seal the group key under the member's personal ledger key**, which
+already has a recovery story in this decision — passphrase-derived via Argon2id, or held in
+the OS keychain. Two independent ways to lose data collapse into one, it behaves identically
+for a household of one account member or six, and it introduces no new class of loss: if
+the personal key is gone the ledger was already gone, which is the risk this decision
+accepts by name.
+
+*Ordering consequence.* The audit's phasing ships the personal-ledger key first (P4.3) and
+defers group keys past Gate G5. Tying revenue to the encryption promise inverts that, so
+Fish Pie's group keys may need to land before the relay's per-user keys. P4's internal
+order is no longer the audit's order.
 
 ### D7 — Form factor: compiled Bun binary now, Tauri wrapper later
 **Per `L01`, confirmed 2026-09-11.**
