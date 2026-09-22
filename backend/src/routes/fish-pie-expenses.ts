@@ -140,6 +140,8 @@ app.post('/groups/:groupId/expenses', async (c) => {
   if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
   if (!body.paymentAccountId?.trim())
     return fail(c, 'FIELD_REQUIRED', { field: 'paymentAccountId' })
+  // A local, because the guard's narrowing does not survive into the transaction callback.
+  const bodyPaymentAccountId = body.paymentAccountId
 
   // Categorizing is optional; if given the category must belong to the group and be active.
   if (body.categoryId) {
@@ -179,10 +181,10 @@ app.post('/groups/:groupId/expenses', async (c) => {
 
     // Auto-save the payer's defaultPaymentAccountId if it changed
     const payerMember = members.find((m) => m.userId === payerId)!
-    if (payerMember.defaultPaymentAccountId !== body.paymentAccountId) {
+    if (payerMember.defaultPaymentAccountId !== bodyPaymentAccountId) {
       await tx
         .update(expenseGroupMembers)
-        .set({ defaultPaymentAccountId: body.paymentAccountId })
+        .set({ defaultPaymentAccountId: bodyPaymentAccountId })
         .where(
           and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, payerId)),
         )
@@ -420,12 +422,13 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
 
     // Auto-save the payer's defaultPaymentAccountId when explicitly changed
     // (parity with POST). Recovered/derived accounts don't overwrite the default.
-    if (body.paymentAccountId) {
+    const bodyPaymentAccountId = body.paymentAccountId
+    if (bodyPaymentAccountId) {
       const payerMember = members.find((m) => m.userId === payerId)!
-      if (payerMember.defaultPaymentAccountId !== body.paymentAccountId) {
+      if (payerMember.defaultPaymentAccountId !== bodyPaymentAccountId) {
         await tx
           .update(expenseGroupMembers)
-          .set({ defaultPaymentAccountId: body.paymentAccountId })
+          .set({ defaultPaymentAccountId: bodyPaymentAccountId })
           .where(
             and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, payerId)),
           )

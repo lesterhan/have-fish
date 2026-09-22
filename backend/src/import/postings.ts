@@ -37,9 +37,12 @@ export function buildFishPieCrossCurrencyPostings(opts: {
   conversionSrcAmount: string // positive net without fee, e.g. "15.00"
   targetAmount: string // positive, e.g. "10.00"
   targetCurrency: string
-  feeAmount?: string // positive, e.g. "0.20"
-  feeCurrency?: string
-  feeAccountId?: string
+  // `| undefined` alongside `?` is deliberate under `exactOptionalPropertyTypes`: a row
+  // with no fee passes `feeAmount: undefined` rather than omitting the key, and both spell
+  // the same thing here.
+  feeAmount?: string | undefined // positive, e.g. "0.20"
+  feeCurrency?: string | undefined
+  feeAccountId?: string | undefined
   groupAccountId: string
   expenseAccountId: string
   payerShareRatio: number
@@ -119,9 +122,9 @@ export function buildCrossCurrencySpendPostings(opts: {
   targetAmount: string // positive, e.g. "360.00"
   targetCurrency: string
   expenseAccountId: string // the spend lands here, in targetCurrency
-  feeAmount?: string // positive, e.g. "0.05"
-  feeCurrency?: string
-  feeAccountId?: string
+  feeAmount?: string | undefined // positive, e.g. "0.05"
+  feeCurrency?: string | undefined
+  feeAccountId?: string | undefined
 }): PostingSpec[] {
   const {
     transactionId,

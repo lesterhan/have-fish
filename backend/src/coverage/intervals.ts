@@ -46,7 +46,11 @@ export function mergeCoverage(intervals: CoverageInterval[]): CoverageInterval[]
   )
 
   const merged: CoverageInterval[] = []
-  let current = { fromDate: sorted[0].fromDate, throughDate: sorted[0].throughDate }
+  // `intervals.length === 0` returned above, so this is the same guarantee said again where
+  // the running span is seeded.
+  const first = sorted[0]
+  if (!first) return merged
+  let current = { fromDate: first.fromDate, throughDate: first.throughDate }
 
   for (const next of sorted.slice(1)) {
     if (next.fromDate <= addDays(current.throughDate, 1)) {

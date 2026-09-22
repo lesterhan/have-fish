@@ -23,7 +23,7 @@ if (existing) {
 }
 
 const result = await auth.api.signUpEmail({
-  body: { email, password, name: email.split('@')[0] },
+  body: { email, password, name: email.split('@')[0] ?? email },
 })
 
 if (result.user) {

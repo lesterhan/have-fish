@@ -209,8 +209,10 @@ app.post('/mine', async (c) => {
   for (const { description, postings: txPostings } of byTx.values()) {
     if (!description) continue
     const expensePostings = txPostings.filter((p) => p.accountPath.startsWith(`${expensesRoot}:`))
-    if (expensePostings.length !== 1) continue
     const expensePosting = expensePostings[0]
+    // Exactly one expense leg, or the transaction says nothing about which account a
+    // pattern maps to.
+    if (expensePostings.length !== 1 || !expensePosting) continue
     // Same normalization the import preview stamps as merchantKey, so a mined pattern
     // and the preview cluster it covers are the same string.
     const pattern = merchantKey(description)

@@ -9,6 +9,7 @@
 // Expenses always reproduce the same set — seeded from the group name string.
 
 import { db } from '../src/db'
+import { returnedRow } from '../src/db/returning'
 import { auth } from '../src/auth'
 import {
   user,
@@ -63,7 +64,11 @@ const rand = makePrng(hashStr(GROUP_NAME))
 
 function rf(min: number, max: number) { return min + rand() * (max - min) }
 function ri(min: number, max: number) { return Math.floor(rf(min, max + 1)) }
-function pick<T>(arr: T[]): T { return arr[Math.floor(rand() * arr.length)] }
+function pick<T>(arr: T[]): T {
+  const item = arr[Math.floor(rand() * arr.length)]
+  if (item === undefined) throw new Error('pick() from an empty array')
+  return item
+}
 function fmt(n: number) { return n.toFixed(2) }
 
 // Dates spread across the last ~60 days
@@ -87,13 +92,17 @@ let [foundPartner] = await db.select().from(user).where(eq(user.email, partnerEm
 if (!foundPartner) {
   console.log(`Partner ${partnerEmail} not found — creating…`)
   const result = await auth.api.signUpEmail({
-    body: { email: partnerEmail, password: partnerPassword, name: partnerEmail.split('@')[0] },
+    body: { email: partnerEmail, password: partnerPassword, name: partnerEmail.split('@')[0] ?? partnerEmail },
   })
   if (!result.user) {
     console.error('Failed to create partner account:', result)
     process.exit(1)
   }
   const [created] = await db.select().from(user).where(eq(user.email, partnerEmail))
+  if (!created) {
+    console.error(`Created partner ${partnerEmail} but could not read it back`)
+    process.exit(1)
+  }
   foundPartner = created
 }
 
@@ -114,7 +123,10 @@ async function ensureAccount(ownerId: string, path: string): Promise<string> {
     .from(accounts)
     .where(and(eq(accounts.userId, ownerId), eq(accounts.path, path), isNull(accounts.deletedAt)))
   if (existing) return existing.id
-  const [created] = await db.insert(accounts).values({ userId: ownerId, path }).returning({ id: accounts.id })
+  const created = returnedRow(
+    await db.insert(accounts).values({ userId: ownerId, path }).returning({ id: accounts.id }),
+    'insert accounts',
+  )
   console.log(`  created account ${path} for ${ownerId.slice(0, 8)}…`)
   return created.id
 }
@@ -126,10 +138,13 @@ const partnerHousingAccountId = await ensureAccount(partnerId, 'expenses:housing
 // Create group + members
 // ---------------------------------------------------------------------------
 
-const [group] = await db
-  .insert(expenseGroups)
-  .values({ name: GROUP_NAME, defaultCurrency: 'CAD', createdBy: userId })
-  .returning()
+const group = returnedRow(
+  await db
+    .insert(expenseGroups)
+    .values({ name: GROUP_NAME, defaultCurrency: 'CAD', createdBy: userId })
+    .returning(),
+  'insert expenseGroups',
+)
 
 await db.insert(expenseGroupMembers).values([
   { groupId: group.id, userId, shareWeight: 1, defaultExpenseAccountId: myHousingAccountId },
@@ -183,10 +198,13 @@ async function seedExpense(
   const splits = computeSplits(amountStr, payerId)
 
   await db.transaction(async (tx) => {
-    const [expense] = await tx
-      .insert(groupExpenses)
-      .values({ groupId: group.id, paidByUserId: payerId, description, amount: amountStr, currency, date })
-      .returning()
+    const expense = returnedRow(
+      await tx
+        .insert(groupExpenses)
+        .values({ groupId: group.id, paidByUserId: payerId, description, amount: amountStr, currency, date })
+        .returning(),
+      'insert groupExpenses',
+    )
 
     await tx.insert(groupExpenseSplits).values(
       splits.map((s) => ({ expenseId: expense.id, userId: s.userId, amount: s.amount })),
@@ -194,15 +212,18 @@ async function seedExpense(
 
     for (const split of splits) {
       const member = members.find((m) => m.userId === split.userId)!
-      const [t] = await tx
-        .insert(transactions)
-        .values({
-          userId: split.userId,
-          date: new Date(`${date}T00:00:00Z`),
-          description,
-          groupExpenseId: expense.id,
-        })
-        .returning()
+      const t = returnedRow(
+        await tx
+          .insert(transactions)
+          .values({
+            userId: split.userId,
+            date: new Date(`${date}T00:00:00Z`),
+            description,
+            groupExpenseId: expense.id,
+          })
+          .returning(),
+        'insert transactions',
+      )
 
       await tx.insert(postings).values([
         { transactionId: t.id, accountId: member.defaultExpenseAccountId, amount: `-${split.amount}`, currency },

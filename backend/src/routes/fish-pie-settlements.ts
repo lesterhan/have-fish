@@ -3,6 +3,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import {
   accounts,
   expenseGroupMembers,
@@ -99,6 +100,11 @@ app.post('/groups/:groupId/settlements', async (c) => {
   if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
   if (!body.payerAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'payerAccountId' })
 
+  // Read out of `body` once the guards above have run. Narrowing a property does not
+  // survive into the transaction callback below — which is why these reads used to carry
+  // a `!` — but a local does.
+  const { fromUserId, toUserId, payerAccountId, date } = body
+
   // Verify payer account belongs to the fromUser
   const [payerAccount] = await db
     .select({ id: accounts.id })
@@ -117,52 +123,61 @@ app.post('/groups/:groupId/settlements', async (c) => {
   const txDate = new Date(`${body.date}T00:00:00Z`)
 
   const result = await db.transaction(async (tx) => {
-    const [settlement] = await tx
-      .insert(groupSettlements)
-      .values({
-        groupId,
-        fromUserId: body.fromUserId!,
-        toUserId: body.toUserId!,
-        amount,
-        currency,
-        date: body.date!,
-        note: body.note?.trim() || null,
-        status: 'pending',
-        payerAccountId: body.payerAccountId,
-      })
-      .returning()
+    const settlement = returnedRow(
+      await tx
+        .insert(groupSettlements)
+        .values({
+          groupId,
+          fromUserId,
+          toUserId,
+          amount,
+          currency,
+          date,
+          note: body.note?.trim() || null,
+          status: 'pending',
+          payerAccountId,
+        })
+        .returning(),
+      'insert groupSettlements',
+    )
 
     // Payer's ledger transaction:
     // debit payerAccount (cash out): -amount
     // credit group:<group> (payment into group recorded): +amount
-    const sharedAccountId = await ensureSharedAccount(body.fromUserId!, group, tx)
+    const sharedAccountId = await ensureSharedAccount(fromUserId, group, tx)
 
-    const [payerTx] = await tx
-      .insert(transactions)
-      .values({
-        userId: body.fromUserId!,
-        date: txDate,
-        description: body.note?.trim() || `Settlement to ${group.name}`,
-      })
-      .returning()
+    const payerTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId: fromUserId,
+          date: txDate,
+          description: body.note?.trim() || `Settlement to ${group.name}`,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
     await tx.insert(postings).values([
       {
         transactionId: payerTx.id,
-        accountId: body.payerAccountId!,
+        accountId: payerAccountId,
         amount: `-${amount}`,
         currency,
       },
       { transactionId: payerTx.id, accountId: sharedAccountId, amount, currency },
     ])
 
-    const [updated] = await tx
-      .update(groupSettlements)
-      .set({ payerTransactionId: payerTx.id })
-      .where(eq(groupSettlements.id, settlement.id))
-      .returning()
-
-    return updated
+    // The row this updates was inserted two statements ago inside the same transaction,
+    // so a miss here is a broken invariant, not a 404.
+    return returnedRow(
+      await tx
+        .update(groupSettlements)
+        .set({ payerTransactionId: payerTx.id })
+        .where(eq(groupSettlements.id, settlement.id))
+        .returning(),
+      'update groupSettlements',
+    )
   })
 
   const [withNames] = await fetchSettlementsWithNames([result.id])
@@ -214,6 +229,11 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
   if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
   if (!Array.isArray(body.lines) || body.lines.length === 0)
     return fail(c, 'FIELD_EMPTY', { field: 'lines' })
+
+  // Locals, for the same reason as the single-settlement route above: the guards narrow
+  // `body.payerAccountId` and `body.date`, but that narrowing does not reach inside the
+  // transaction callback.
+  const { payerAccountId, date } = body
 
   // The payer is always the caller — the cash leaves their account.
   const [payerAccount] = await db
@@ -292,14 +312,17 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
   const result = await db.transaction(async (tx) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
 
-    const [payerTx] = await tx
-      .insert(transactions)
-      .values({
-        userId,
-        date: txDate,
-        description: body.note?.trim() || `Settlement to ${group.name}`,
-      })
-      .returning()
+    const payerTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId,
+          date: txDate,
+          description: body.note?.trim() || `Settlement to ${group.name}`,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
     const postingRows: {
       transactionId: string
@@ -366,10 +389,10 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
           settledCurrency: l.converted ? l.settledCurrency : null,
           fxRate: l.fxRate,
           batchId,
-          date: body.date!,
+          date,
           note: body.note?.trim() || null,
           status: 'pending' as const,
-          payerAccountId: body.payerAccountId,
+          payerAccountId,
           payerTransactionId: payerTx.id,
         })),
       )
@@ -411,6 +434,7 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
 
   const body = await c.req.json<{ receiverAccountId?: string }>()
   if (!body.receiverAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'receiverAccountId' })
+  const { receiverAccountId } = body
 
   const [group] = await db
     .select()
@@ -437,19 +461,22 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     const txDate = new Date(`${settlement.date}T00:00:00Z`)
 
-    const [receiverTx] = await tx
-      .insert(transactions)
-      .values({
-        userId,
-        date: txDate,
-        description: settlement.note || `Settlement from ${group.name}`,
-      })
-      .returning()
+    const receiverTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId,
+          date: txDate,
+          description: settlement.note || `Settlement from ${group.name}`,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
     await tx.insert(postings).values([
       {
         transactionId: receiverTx.id,
-        accountId: body.receiverAccountId!,
+        accountId: receiverAccountId,
         amount: settlement.amount,
         currency: settlement.currency,
       },
@@ -461,13 +488,16 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
       },
     ])
 
-    const [updated] = await tx
-      .update(groupSettlements)
-      .set({ status: 'completed', receiverTransactionId: receiverTx.id })
-      .where(eq(groupSettlements.id, settlementId))
-      .returning()
-
-    return updated
+    // `settlement` was read and checked above, and this transaction is the only writer,
+    // so no row back here means the invariant broke rather than the row being gone.
+    return returnedRow(
+      await tx
+        .update(groupSettlements)
+        .set({ status: 'completed', receiverTransactionId: receiverTx.id })
+        .where(eq(groupSettlements.id, settlementId))
+        .returning(),
+      'update groupSettlements',
+    )
   })
 
   const [withNames] = await fetchSettlementsWithNames([result.id])
@@ -504,11 +534,16 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
       ),
     )
   if (rows.length === 0) return fail(c, 'SETTLEMENT_NOT_FOUND')
-  if (rows.every((r) => r.status === 'completed')) return fail(c, 'SETTLEMENT_ALREADY_CONFIRMED')
   const pending = rows.filter((r) => r.status !== 'completed')
+  // Nothing pending means every row in the batch is already confirmed — the same check
+  // as before, read off the filtered list so the first row below is a value rather than
+  // an index into an array the compiler has no reason to think is non-empty.
+  const firstPending = pending[0]
+  if (!firstPending) return fail(c, 'SETTLEMENT_ALREADY_CONFIRMED')
 
   const body = await c.req.json<{ receiverAccountId?: string }>()
   if (!body.receiverAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'receiverAccountId' })
+  const { receiverAccountId } = body
 
   const [receiverAccount] = await db
     .select({ id: accounts.id })
@@ -537,16 +572,19 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
   const result = await db.transaction(async (tx) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     // All rows in a batch share the payer's date; use the first.
-    const txDate = new Date(`${pending[0].date}T00:00:00Z`)
+    const txDate = new Date(`${firstPending.date}T00:00:00Z`)
 
-    const [receiverTx] = await tx
-      .insert(transactions)
-      .values({
-        userId,
-        date: txDate,
-        description: pending[0].note || `Settlement from ${group.name}`,
-      })
-      .returning()
+    const receiverTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId,
+          date: txDate,
+          description: firstPending.note || `Settlement from ${group.name}`,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
     const postingRows: {
       transactionId: string
@@ -565,7 +603,7 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     for (const [currency, total] of cashByCurrency) {
       postingRows.push({
         transactionId: receiverTx.id,
-        accountId: body.receiverAccountId!,
+        accountId: receiverAccountId,
         amount: total.toFixed(2),
         currency,
       })

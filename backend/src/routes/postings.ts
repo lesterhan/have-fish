@@ -2,6 +2,7 @@ import { and, count, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import { accounts, postings, transactions } from '../db/schema'
 import { fail } from '../errors'
 
@@ -118,10 +119,14 @@ app.delete('/:id', async (c) => {
 
   if (!posting) return fail(c, 'POSTING_NOT_FOUND')
 
-  const [{ activeCount }] = await db
-    .select({ activeCount: count() })
-    .from(postings)
-    .where(and(eq(postings.transactionId, posting.transactionId), isNull(postings.deletedAt)))
+  // An aggregate without GROUP BY always returns exactly one row.
+  const { activeCount } = returnedRow(
+    await db
+      .select({ activeCount: count() })
+      .from(postings)
+      .where(and(eq(postings.transactionId, posting.transactionId), isNull(postings.deletedAt))),
+    'select count(postings)',
+  )
 
   if (activeCount <= 2) {
     return fail(c, 'TOO_FEW_POSTINGS')

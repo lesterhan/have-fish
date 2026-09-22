@@ -13,6 +13,7 @@
 // (i.e. no existing transactions for this user).
 
 import { db } from '../src/db'
+import { returnedRow } from '../src/db/returning'
 import { user, accounts, transactions, postings } from '../src/db/schema'
 import { eq, and, isNull } from 'drizzle-orm'
 
@@ -33,6 +34,10 @@ if (!/^\d{4}-\d{2}$/.test(monthArg)) {
 }
 
 const [year, month] = monthArg.split('-').map(Number)
+if (year === undefined || month === undefined) {
+  console.error('Month must be in YYYY-MM format, e.g. 2026-03')
+  process.exit(1)
+}
 const daysInMonth = new Date(year, month, 0).getDate()
 
 console.log(`Seeding ${monthArg} for ${email}…`)
@@ -67,7 +72,11 @@ function rf(min: number, max: number) { return min + rand() * (max - min) }
 // rand int in [min, max] inclusive
 function ri(min: number, max: number) { return Math.floor(rf(min, max + 1)) }
 // pick random element from array
-function pick<T>(arr: T[]): T { return arr[Math.floor(rand() * arr.length)] }
+function pick<T>(arr: T[]): T {
+  const item = arr[Math.floor(rand() * arr.length)]
+  if (item === undefined) throw new Error('pick() from an empty array')
+  return item
+}
 // random day in [earliest, daysInMonth]
 function randDay(earliest = 4) { return ri(earliest, daysInMonth) }
 
@@ -117,10 +126,13 @@ async function ensureAccount(path: string): Promise<string> {
     .from(accounts)
     .where(and(eq(accounts.userId, userId), eq(accounts.path, path), isNull(accounts.deletedAt)))
   if (existing) return existing.id
-  const [created] = await db
-    .insert(accounts)
-    .values({ userId, path })
-    .returning({ id: accounts.id })
+  const created = returnedRow(
+    await db
+      .insert(accounts)
+      .values({ userId, path })
+      .returning({ id: accounts.id }),
+    'insert accounts',
+  )
   console.log(`  created account: ${path}`)
   return created.id
 }
@@ -139,10 +151,13 @@ type PostingInput = { accountId: string; amount: string; currency?: string }
 
 async function insertTx(date: string, description: string, legs: PostingInput[]) {
   await db.transaction(async (tx) => {
-    const [newTx] = await tx
-      .insert(transactions)
-      .values({ userId, date: new Date(date), description })
-      .returning()
+    const newTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({ userId, date: new Date(date), description })
+        .returning(),
+      'insert transactions',
+    )
     await tx.insert(postings).values(
       legs.map((l) => ({
         transactionId: newTx.id,

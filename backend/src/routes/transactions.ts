@@ -3,6 +3,7 @@ import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import { accounts, expenseGroups, groupExpenses, postings, transactions } from '../db/schema'
 import { fail, failWith } from '../errors'
 import { loadClassifySettings } from '../postings/classify-service'
@@ -273,10 +274,13 @@ app.post('/', async (c) => {
   }
 
   const created = await db.transaction(async (tx) => {
-    const [newTx] = await tx
-      .insert(transactions)
-      .values({ userId, date: new Date(date), description })
-      .returning()
+    const newTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({ userId, date: new Date(date), description })
+        .returning(),
+      'insert transactions',
+    )
 
     const newPostings = await tx
       .insert(postings)
@@ -343,10 +347,13 @@ app.post('/bulk', async (c) => {
   const created = await db.transaction(async (tx) => {
     const results = []
     for (const { date, description, postings: postingInputs } of txInputs) {
-      const [newTx] = await tx
-        .insert(transactions)
-        .values({ userId, date: new Date(date), description })
-        .returning()
+      const newTx = returnedRow(
+        await tx
+          .insert(transactions)
+          .values({ userId, date: new Date(date), description })
+          .returning(),
+        'insert transactions',
+      )
       const newPostings = await tx
         .insert(postings)
         .values(
