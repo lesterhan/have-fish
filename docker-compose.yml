@@ -14,36 +14,32 @@ services:
       timeout: 5s
       retries: 10
 
+  # Still called `backend` though it now serves the frontend too: it is the same process
+  # and the same image, and renaming it would break every `compose logs backend` and
+  # `have-fish-backend-1` in anyone's history for a cosmetic gain.
   backend:
     image: ghcr.io/lesterhan/have-fish-backend:latest
     restart: unless-stopped
     build:
-      context: ./backend
+      context: .
       dockerfile: Dockerfile
     environment:
       DATABASE_URL: postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       PORT: "8887"
       BETTER_AUTH_SECRET: ${BETTER_AUTH_SECRET}
       BETTER_AUTH_URL: ${BETTER_AUTH_URL}
+      # Still read: Better Auth checks it as a trusted origin, and the mobile app is a
+      # separate origin whichever way the web app is served.
       FRONTEND_URL: ${FRONTEND_URL}
       TRUSTED_ORIGINS: ${TRUSTED_ORIGINS:-}
+    # Published on 8888, the port the app has always answered on, so bookmarks and
+    # Tailscale keep working. Inside the container it still listens on 8887.
     ports:
-      - "8887:8887"
+      - "8888:8887"
     depends_on:
       postgres:
         condition: service_healthy
     command: sh -c "bun run db:migrate && bun run src/index.ts"
-
-  frontend:
-    image: ghcr.io/lesterhan/have-fish-frontend:latest
-    restart: unless-stopped
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
-    ports:
-      - "8888:8888"
-    depends_on:
-      - backend
 
 volumes:
   postgres_data:

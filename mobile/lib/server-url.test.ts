@@ -128,6 +128,6 @@ describe('pushServer', () => {
 
 describe('constants', () => {
   it('exposes the standard backend port', () => {
-    expect(DEFAULT_PORT).toBe('8887')
+    expect(DEFAULT_PORT).toBe('8888')
   })
 })

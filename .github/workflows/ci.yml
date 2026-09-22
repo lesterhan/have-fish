@@ -88,3 +88,9 @@ jobs:
       - name: Type check
         working-directory: frontend
         run: bun run check
+
+      # The frontend is no longer built by its own image, so a build break would otherwise
+      # reach `main` and only surface when the combined image is assembled.
+      - name: Build
+        working-directory: frontend
+        run: bun run build
