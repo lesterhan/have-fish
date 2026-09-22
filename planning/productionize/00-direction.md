@@ -279,8 +279,9 @@ because a list like this is only useful if you can see what left it and why.
    laptop against the real repository. One piece is outstanding: a deliberate failure that
    produces a notification actually received. The failure hook is wired and waits on a
    ping URL.
-2. **Postgres is published on host port 8886**, containers run as **root**, and there is
-   no rate limiting on any application route. (#274 removes the port mapping.)
+2. ~~**Postgres is published on host port 8886**~~ — removed 2026-09-21 (#274); it now
+   listens only on the Compose network. Still open: containers run as **root**, and there
+   is no rate limiting on any application route.
 3. **The per-route IDOR audit has never been done.** Tests were written for correctness,
    not for adversarial access, and Fish Pie is genuinely multi-user today.
 4. **CI has no dependency audit, secret scanning or image scanning.**
