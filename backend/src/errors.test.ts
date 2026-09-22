@@ -132,6 +132,7 @@ describe('the routes write no sentences', () => {
   it('catches the shapes it is meant to catch', () => {
     expect(writtenErrorsIn("c.json({ error: 'not found' }, 404)")).toHaveLength(1)
     expect(writtenErrorsIn('c.json({ error: "not found" }, 404)')).toHaveLength(1)
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: source text under test, not an interpolation
     expect(writtenErrorsIn('c.json({ error: `no ${x}` }, 404)')).toHaveLength(1)
   })
 

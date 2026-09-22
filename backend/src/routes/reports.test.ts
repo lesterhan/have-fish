@@ -126,14 +126,14 @@ describe('reports', () => {
     const body = (await res.json()) as { total: Record<string, string>; categories: Category[] }
 
     // Both expense postings (CZK spend + USD fee) must be reflected in the total
-    expect(body.total['CZK']).toBe('360.00')
-    expect(body.total['USD']).toBe('0.05')
+    expect(body.total.CZK).toBe('360.00')
+    expect(body.total.USD).toBe('0.05')
 
     const foodCat = body.categories.find((c) => c.category === 'expenses:food')
-    expect(foodCat?.total['CZK']).toBe('360.00')
+    expect(foodCat?.total.CZK).toBe('360.00')
 
     const bankingCat = body.categories.find((c) => c.category === 'expenses:banking')
-    expect(bankingCat?.total['USD']).toBe('0.05')
+    expect(bankingCat?.total.USD).toBe('0.05')
   })
 
   it('GET /api/reports/spending-summary excludes configured fee and conversion legs from the total', async () => {
@@ -178,10 +178,10 @@ describe('reports', () => {
     const body = (await res.json()) as { total: Record<string, string>; categories: Category[] }
 
     // Only the real spend remains; the USD fee leg is gone from the total.
-    expect(body.total['CZK']).toBe('360.00')
-    expect(body.total['USD']).toBeUndefined()
+    expect(body.total.CZK).toBe('360.00')
+    expect(body.total.USD).toBeUndefined()
     expect(body.categories.find((c) => c.category === 'expenses:banking')).toBeUndefined()
-    expect(body.categories.find((c) => c.category === 'expenses:food')?.total['CZK']).toBe('360.00')
+    expect(body.categories.find((c) => c.category === 'expenses:food')?.total.CZK).toBe('360.00')
   })
 
   it('GET /api/reports/monthly-spend returns one entry per month with empty totals when there are no transactions', async () => {

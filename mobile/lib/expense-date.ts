@@ -54,7 +54,6 @@ export function resolveDate(
     case 'pick':
       return clampISO(pickISO ?? todayISO(now), now)
     case 'today':
-    default:
       return todayISO(now)
   }
 }

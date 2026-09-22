@@ -208,9 +208,7 @@ describe('fish-pie merge', () => {
 
     it('collapses old clearing postings into the merged receivable account', async () => {
       const { housing, food } = await twoGroupsWithExpenses()
-      const merged = (await (
-        await merge(cookieA, { groupIds: [housing, food], name: 'Household' })
-      ).json()) as any
+      await merge(cookieA, { groupIds: [housing, food], name: 'Household' })
 
       // Old per-source clearing accounts are soft-deleted
       const oldHousing = await db

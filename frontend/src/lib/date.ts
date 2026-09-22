@@ -26,7 +26,7 @@ export function toISODate(date: Date): string {
  */
 function isValidDate(isoDate: string): boolean {
   const d = new Date(isoDate)
-  return !isNaN(d.getTime())
+  return !Number.isNaN(d.getTime())
 }
 
 export function parseCustomDateRange(input: string): { from: string; to: string } | null {
@@ -37,7 +37,7 @@ export function parseCustomDateRange(input: string): { from: string; to: string 
     .replace(/^past\s+/, '')
     .match(/^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|mo|mos|mon|mons|month|months)$/)
   if (relative) {
-    const num = parseInt(relative[1])
+    const num = parseInt(relative[1], 10)
     const unit = relative[2]
     const days = unit.startsWith('w') ? num * 7 : unit.startsWith('mo') ? num * 31 : num // d/day/days
     const from = new Date(today)

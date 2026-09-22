@@ -2,14 +2,7 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { app } from '../app'
 import { db } from '../db'
-import {
-  accounts,
-  expenseGroupMembers,
-  groupExpenseSplits,
-  groupExpenses,
-  postings,
-  transactions,
-} from '../db/schema'
+import { accounts, groupExpenses, postings, transactions } from '../db/schema'
 import { clearDatabase, createTestUser } from '../test-utils'
 
 describe('fish-pie expenses', () => {

@@ -16,6 +16,7 @@ import { ServerAddressFields } from '@/components/ServerAddressFields'
 import { addServer, getServers, removeServer, setBaseUrl, setSession, signIn } from '@/lib/auth'
 import { composeServerUrl, parseServerUrl, type Scheme } from '@/lib/server-url'
 import { theme } from '@/lib/theme'
+import { thrownMessage } from '../../lib/errors'
 
 /**
  * Login screen — first launch (and every re-login) asks for the self-hosted
@@ -40,7 +41,9 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    getServers().then(setServers)
+    getServers()
+      .then(setServers)
+      .catch(() => setServers([]))
   }, [])
 
   function pickServer(url: string) {
@@ -77,8 +80,8 @@ export default function LoginScreen() {
       await setSession(cookie, trimmedEmail)
       await addServer(url)
       router.replace('/(app)')
-    } catch (e: any) {
-      setError(e?.message ?? 'Login failed')
+    } catch (e) {
+      setError(thrownMessage(e, 'Login failed'))
     } finally {
       setLoading(false)
     }

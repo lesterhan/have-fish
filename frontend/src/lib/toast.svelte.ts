@@ -5,11 +5,11 @@ export const toast = {
   get message() {
     return message
   },
-  show(text: string, duration = 2500) {
+  show(text: string, duration = 3200) {
     message = text
     if (timer) clearTimeout(timer)
     timer = setTimeout(() => {
       message = null
-    }, 3200)
+    }, duration)
   },
 }

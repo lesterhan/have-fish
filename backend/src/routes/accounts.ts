@@ -298,7 +298,7 @@ app.get('/:id/balance', async (c) => {
 
   // Parse as a local date — treat the param as midnight UTC on that day.
   const asOf = new Date(`${dateParam}T23:59:59.999Z`)
-  if (isNaN(asOf.getTime())) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
+  if (Number.isNaN(asOf.getTime())) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
 
   // Verify the account belongs to this user
   const [account] = await db

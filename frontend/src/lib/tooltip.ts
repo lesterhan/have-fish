@@ -51,7 +51,7 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
     el = null
   }
 
-  function showOnKeyboard(e: FocusEvent) {
+  function showOnKeyboard() {
     if (!node.matches(':focus-visible')) return
     const rect = node.getBoundingClientRect()
     show({ clientX: rect.left, clientY: rect.bottom } as MouseEvent)

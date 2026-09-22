@@ -29,7 +29,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   }
-  if (session) headers['Cookie'] = session
+  if (session) headers.Cookie = session
   if (options.body) headers['Content-Type'] = 'application/json'
 
   return fetch(`${baseUrl}${path}`, { ...options, headers })

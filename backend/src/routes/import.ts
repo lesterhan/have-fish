@@ -35,7 +35,7 @@ import {
   buildFishPieSameCurrencyPostings,
   buildRegularPostings,
 } from '../import/postings'
-import type { ColumnMapping, ParsedTransaction } from '../import/types'
+import type { ColumnMapping } from '../import/types'
 
 const app = new Hono<{ Variables: AppVariables }>()
 

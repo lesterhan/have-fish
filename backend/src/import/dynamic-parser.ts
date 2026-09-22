@@ -39,7 +39,7 @@ export function buildParser(
       // --- date ---
       const rawDate = row[columnMapping.date]
       const date = new Date(rawDate)
-      if (!rawDate || isNaN(date.getTime())) {
+      if (!rawDate || Number.isNaN(date.getTime())) {
         errors.push({ row: rowNumber, reason: `invalid date: "${rawDate}"` })
         return
       }
@@ -56,14 +56,14 @@ export function buildParser(
         if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
           const rawSourceAmount = row[columnMapping.sourceAmount!]
           const sourceAmountVal = parseFloat(rawSourceAmount)
-          if (!rawSourceAmount || isNaN(sourceAmountVal)) {
+          if (!rawSourceAmount || Number.isNaN(sourceAmountVal)) {
             errors.push({ row: rowNumber, reason: `invalid sourceAmount: "${rawSourceAmount}"` })
             return
           }
 
           const rawTargetAmount = row[columnMapping.targetAmount!]
           const targetAmountVal = parseFloat(rawTargetAmount)
-          if (!rawTargetAmount || isNaN(targetAmountVal)) {
+          if (!rawTargetAmount || Number.isNaN(targetAmountVal)) {
             errors.push({ row: rowNumber, reason: `invalid targetAmount: "${rawTargetAmount}"` })
             return
           }
@@ -81,7 +81,7 @@ export function buildParser(
           if (columnMapping.feeAmount) {
             const rawFee = row[columnMapping.feeAmount]
             const feeVal = parseFloat(rawFee)
-            if (rawFee && !isNaN(feeVal)) {
+            if (rawFee && !Number.isNaN(feeVal)) {
               tx.feeAmount = Math.abs(feeVal).toFixed(2) // fee is always a positive expense amount
               tx.feeCurrency = columnMapping.feeCurrency
                 ? (row[columnMapping.feeCurrency]?.trim() ?? sourceCurrency)
@@ -102,10 +102,10 @@ export function buildParser(
         ) {
           const rawFee = row[columnMapping.feeAmount]
           const feeVal = parseFloat(rawFee)
-          if (rawFee && !isNaN(feeVal) && feeVal !== 0) {
+          if (rawFee && !Number.isNaN(feeVal) && feeVal !== 0) {
             const rawTargetAmount = row[columnMapping.targetAmount!]
             const targetAmountVal = parseFloat(rawTargetAmount)
-            if (!rawTargetAmount || isNaN(targetAmountVal)) {
+            if (!rawTargetAmount || Number.isNaN(targetAmountVal)) {
               errors.push({ row: rowNumber, reason: `invalid targetAmount: "${rawTargetAmount}"` })
               return
             }
@@ -126,7 +126,7 @@ export function buildParser(
       // --- regular transaction row ---
       const rawAmount = row[columnMapping.amount]
       const amount = parseFloat(rawAmount)
-      if (!rawAmount || isNaN(amount)) {
+      if (!rawAmount || Number.isNaN(amount)) {
         errors.push({ row: rowNumber, reason: `invalid amount: "${rawAmount}"` })
         return
       }

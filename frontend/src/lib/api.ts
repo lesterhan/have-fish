@@ -183,6 +183,9 @@ export async function deleteCategory(id: string) {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
   })
+  if (!res.ok) {
+    throw await apiError(res, 'Failed to delete category')
+  }
 }
 
 // Mirrors the ParsedTransaction discriminated union from the backend.

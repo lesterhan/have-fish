@@ -42,7 +42,9 @@ export default function AccountScreen() {
       }
       setHapticsOn(haptics.parseHapticsEnabled(raw))
     }
-    load()
+    // Best-effort hydration: SecureStore can throw, and every field already holds
+    // a usable default, so a failure leaves the form working rather than blank.
+    load().catch(() => {})
   }, [])
 
   async function toggleHaptics(value: boolean) {

@@ -1,11 +1,12 @@
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useState } from 'react'
-import { ScrollView, StyleSheet, Text, View } from 'react-native'
+import { ScrollView, StyleSheet, Text } from 'react-native'
 import { CASH_PARENT, defaultWalletName, walletPath } from '@/lib/cash-wallet-create'
 import { orderByRecent, RECENT_CURRENCIES_KEY, topRecents } from '@/lib/currency'
 import { useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
 import { useWallets } from '@/lib/wallet-context'
+import { thrownMessage } from '../lib/errors'
 import { BottomSheet } from './BottomSheet'
 import { CurrencyGrid } from './CurrencyGrid'
 import { GlossButton } from './GlossButton'
@@ -61,8 +62,8 @@ export function WalletCreateSheet({ visible, onClose, first }: Props) {
     try {
       await createWallet(currency)
       onClose()
-    } catch (e: any) {
-      setError(e?.message ?? "Couldn't create the wallet.")
+    } catch (e) {
+      setError(thrownMessage(e, "Couldn't create the wallet."))
     } finally {
       setBusy(false)
     }

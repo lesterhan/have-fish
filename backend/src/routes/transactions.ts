@@ -194,7 +194,9 @@ app.get('/', async (c) => {
   // Group postings by transactionId and embed into each transaction, with role attached
   type EmbeddedPosting = (typeof postingRows)[number] & { role: PostingRole }
   const postingsByTx = postingRows.reduce<Record<string, EmbeddedPosting[]>>((acc, p) => {
-    ;(acc[p.transactionId] ??= []).push({ ...p, role: roleById.get(p.id)! })
+    const forTx = acc[p.transactionId] ?? []
+    forTx.push({ ...p, role: roleById.get(p.id)! })
+    acc[p.transactionId] = forTx
     return acc
   }, {})
 

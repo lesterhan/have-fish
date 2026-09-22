@@ -1,4 +1,4 @@
-import { type ReactNode } from 'react'
+import type { ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { CurrencyBalance, GroupMember } from '@/lib/api'
 import {

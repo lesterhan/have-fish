@@ -1,4 +1,4 @@
-import { randomUUID } from 'crypto'
+import { randomUUID } from 'node:crypto'
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
@@ -93,7 +93,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
     return fail(c, 'NAMED_USER_NOT_A_MEMBER', { field: 'toUserId' })
   if (body.fromUserId === body.toUserId) return fail(c, 'SETTLEMENT_SAME_USER')
   if (body.fromUserId !== userId) return fail(c, 'ONLY_PAYER_CAN_SETTLE')
-  if (!body.amount || isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
+  if (!body.amount || Number.isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
     return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'amount' })
   if (!body.currency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'currency' })
   if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
@@ -242,10 +242,14 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     if (!l.toUserId || !memberIds.has(l.toUserId))
       return fail(c, 'NAMED_USER_NOT_A_MEMBER', { field: 'toUserId' })
     if (l.toUserId === userId) return fail(c, 'SETTLEMENT_SAME_USER')
-    if (!l.debtAmount || isNaN(parseFloat(l.debtAmount)) || parseFloat(l.debtAmount) <= 0)
+    if (!l.debtAmount || Number.isNaN(parseFloat(l.debtAmount)) || parseFloat(l.debtAmount) <= 0)
       return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'debtAmount' })
     if (!l.debtCurrency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'debtCurrency' })
-    if (!l.settledAmount || isNaN(parseFloat(l.settledAmount)) || parseFloat(l.settledAmount) <= 0)
+    if (
+      !l.settledAmount ||
+      Number.isNaN(parseFloat(l.settledAmount)) ||
+      parseFloat(l.settledAmount) <= 0
+    )
       return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'settledAmount' })
     if (!l.settledCurrency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'settledCurrency' })
 
@@ -257,7 +261,7 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
 
     if (!converted && debtAmount !== settledAmount)
       return fail(c, 'SETTLEMENT_NATIVE_AMOUNT_MISMATCH')
-    if (converted && (!l.fxRate || isNaN(parseFloat(l.fxRate)) || parseFloat(l.fxRate) <= 0))
+    if (converted && (!l.fxRate || Number.isNaN(parseFloat(l.fxRate)) || parseFloat(l.fxRate) <= 0))
       return fail(c, 'SETTLEMENT_FX_RATE_REQUIRED')
 
     lines.push({

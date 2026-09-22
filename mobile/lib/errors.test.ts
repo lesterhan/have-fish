@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { errorMessage } from './errors'
+import { errorMessage, thrownMessage } from './errors'
 
 describe('errorMessage', () => {
   it('unshouts a code', () => {
@@ -20,5 +20,26 @@ describe('errorMessage', () => {
     expect(errorMessage({}, 'Failed to send invite')).toBe('Failed to send invite')
     expect(errorMessage('<html>502</html>', 'Failed to send invite')).toBe('Failed to send invite')
     expect(errorMessage({ error: '' }, 'Failed to send invite')).toBe('Failed to send invite')
+  })
+})
+
+describe('thrownMessage', () => {
+  it('reads the message off a thrown Error', () => {
+    expect(thrownMessage(new Error('Group is gone'), 'x')).toBe('Group is gone')
+  })
+
+  it('reads it off any object that carries one', () => {
+    expect(thrownMessage({ message: 'Network request failed' }, 'x')).toBe('Network request failed')
+  })
+
+  it('falls back on everything that carries no message', () => {
+    expect(thrownMessage(undefined, 'Failed to load')).toBe('Failed to load')
+    expect(thrownMessage(null, 'Failed to load')).toBe('Failed to load')
+    expect(thrownMessage('boom', 'Failed to load')).toBe('Failed to load')
+    expect(thrownMessage({ message: 42 }, 'Failed to load')).toBe('Failed to load')
+  })
+
+  it('falls back on an empty message rather than showing nothing', () => {
+    expect(thrownMessage(new Error(''), 'Failed to load')).toBe('Failed to load')
   })
 })

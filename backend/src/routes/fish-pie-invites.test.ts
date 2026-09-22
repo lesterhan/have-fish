@@ -4,12 +4,11 @@ import { clearDatabase, createTestUser } from '../test-utils'
 
 describe('fish-pie invites', () => {
   let cookieA: string
-  let cookieB: string
 
   beforeEach(async () => {
     await clearDatabase()
     cookieA = await createTestUser('a@example.com', 'password123')
-    cookieB = await createTestUser('b@example.com', 'password123')
+    await createTestUser('b@example.com', 'password123')
   })
 
   it('POST /api/fish-pie/groups/:id/invites sends an invite', async () => {

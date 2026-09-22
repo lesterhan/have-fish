@@ -21,8 +21,8 @@
 //   2. Point <application android:networkSecurityConfig> at it.
 
 const { withAndroidManifest, withDangerousMod } = require('@expo/config-plugins')
-const fs = require('fs')
-const path = require('path')
+const fs = require('node:fs')
+const path = require('node:path')
 
 // Cleartext permitted only for the Tailscale MagicDNS suffix:
 //  - includeSubdomains ts.net → covers any *.<tailnet>.ts.net FQDN

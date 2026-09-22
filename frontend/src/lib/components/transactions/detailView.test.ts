@@ -24,7 +24,7 @@ function p(
   accountName: string | null = null,
 ): Posting {
   return {
-    id: accountPath + ':' + amount,
+    id: `${accountPath}:${amount}`,
     accountId: accountPath,
     accountPath,
     accountName,

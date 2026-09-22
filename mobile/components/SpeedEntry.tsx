@@ -129,10 +129,12 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
   // its default — never leaving the previous group's currency stuck in state.
   useEffect(() => {
     let cancelled = false
-    AsyncStorage.getItem(lastCurrencyKey(group.id)).then((saved) => {
-      if (cancelled) return
-      setCurrency(saved ?? group.defaultCurrency ?? 'CAD')
-    })
+    AsyncStorage.getItem(lastCurrencyKey(group.id))
+      .then((saved) => {
+        if (cancelled) return
+        setCurrency(saved ?? group.defaultCurrency ?? 'CAD')
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -175,19 +177,21 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
   }, [group.id])
 
   useEffect(() => {
-    AsyncStorage.getItem(RECENT_CURRENCIES_KEY).then((raw) => {
-      if (!raw) return
-      try {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) {
-          setRecents(
-            parsed.filter((c): c is string => typeof c === 'string' && isSupportedCurrency(c)),
-          )
+    AsyncStorage.getItem(RECENT_CURRENCIES_KEY)
+      .then((raw) => {
+        if (!raw) return
+        try {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            setRecents(
+              parsed.filter((c): c is string => typeof c === 'string' && isSupportedCurrency(c)),
+            )
+          }
+        } catch {
+          // Corrupt value — ignore and start fresh.
         }
-      } catch {
-        // Corrupt value — ignore and start fresh.
-      }
-    })
+      })
+      .catch(() => {})
   }, [])
 
   function selectCurrency(code: string) {

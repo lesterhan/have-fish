@@ -27,7 +27,7 @@ export default function RootLayout() {
     async function bootstrap() {
       try {
         // Hydrate the haptics preference before any tactile UI can fire.
-        loadHapticsEnabled()
+        await loadHapticsEnabled()
 
         const authed = await isAuthenticated()
         const inAuthGroup = segments[0] === '(auth)'
@@ -52,7 +52,7 @@ export default function RootLayout() {
         setChecked(true)
       }
     }
-    bootstrap()
+    void bootstrap()
   }, [])
 
   // Gate the navigator on both the auth check and the bundled fonts so the UI

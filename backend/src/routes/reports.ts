@@ -142,7 +142,7 @@ app.get('/monthly-spend', async (c) => {
   const monthsParam = c.req.query('months')
   const months = monthsParam ? parseInt(monthsParam, 10) : 12
 
-  if (isNaN(months) || months < 1 || months > 120) {
+  if (Number.isNaN(months) || months < 1 || months > 120) {
     return fail(c, 'FIELD_OUT_OF_RANGE', { field: 'months', min: 1, max: 120 })
   }
 

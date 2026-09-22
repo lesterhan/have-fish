@@ -96,7 +96,7 @@ h3 {
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -var(--sp-hair);
+  margin: calc(-1 * var(--sp-hair));
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;

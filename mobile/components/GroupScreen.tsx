@@ -39,7 +39,7 @@ export function GroupScreen({ refreshOnFocus = false, contentStyle, children }: 
 
   useFocusEffect(
     useCallback(() => {
-      if (refreshOnFocus) reloadData()
+      if (refreshOnFocus) void reloadData()
     }, [refreshOnFocus, reloadData]),
   )
 

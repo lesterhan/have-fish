@@ -7,6 +7,7 @@ import { type CashHistoryRow, cashHistoryRows, dayHeading, groupByDay } from '@/
 import { useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
 import { useWallets } from '@/lib/wallet-context'
+import { thrownMessage } from '../lib/errors'
 import { GlossSurface } from './GlossSurface'
 
 /**
@@ -35,9 +36,9 @@ export function CashHistoryPanel() {
     try {
       setTransactions(await fetchTransactions({ accountId: walletId }))
       setError(null)
-    } catch (e: any) {
+    } catch (e) {
       // Keep the last feed on screen; a dropped tailnet shouldn't blank it.
-      setError(e?.message ?? 'Failed to load history')
+      setError(thrownMessage(e, 'Failed to load history'))
     } finally {
       setLoading(false)
     }
@@ -46,7 +47,7 @@ export function CashHistoryPanel() {
   // Refresh on focus so a spend or top-up made elsewhere shows up on return.
   useFocusEffect(
     useCallback(() => {
-      load()
+      void load()
     }, [load]),
   )
 

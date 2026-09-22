@@ -22,6 +22,7 @@ import {
   walletCreateFailure,
   walletCreateRequest,
 } from './cash-wallet-create'
+import { thrownMessage } from './errors'
 
 interface WalletContextValue {
   /** Every cash wallet with its balance, in stable display order. */
@@ -80,10 +81,10 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       const stored = activeIdRef.current ?? (await AsyncStorage.getItem(LAST_WALLET_KEY))
       applyActiveId(resolveActiveWalletId(stored, views))
       setError(null)
-    } catch (e: any) {
+    } catch (e) {
       // Keep the last-known wallets on screen — a tailnet drop shouldn't blank
       // out balances the user was reading.
-      setError(e?.message ?? 'Failed to load wallets')
+      setError(thrownMessage(e, 'Failed to load wallets'))
     } finally {
       setLoading(false)
     }
@@ -93,7 +94,7 @@ export function WalletProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
-    load()
+    void load()
   }, [load])
 
   const setActiveWallet = useCallback(
@@ -124,12 +125,13 @@ export function WalletProvider({ children }: { children: ReactNode }) {
         await load()
         setActiveWallet(account.id)
         return account.id
-      } catch (e: any) {
+      } catch (e) {
         const { message } = walletCreateFailure(step)
         // Surface the untagged account so a retry can find it rather than
         // creating a second one.
         if (step === 'tag') await load()
-        throw new Error(e?.message ? `${message} (${e.message})` : message)
+        const detail = thrownMessage(e, '')
+        throw new Error(detail ? `${message} (${detail})` : message)
       }
     },
     [taken, load, setActiveWallet],

@@ -512,6 +512,7 @@ describe('the plural splice', () => {
   })
 
   it('catches the shapes it is meant to catch', () => {
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: source text under test, not an interpolation
     expect(spliceTernaries("`${n} row${n === 1 ? '' : 's'}`")).toHaveLength(1)
     expect(spliceTernaries("{n === 1 ? 's' : ''}")).toHaveLength(1)
     expect(spliceTernaries("currenc{n === 1 ? 'y' : 'ies'}")).toHaveLength(1)
@@ -520,6 +521,7 @@ describe('the plural splice', () => {
 
   it('leaves whole words and real messages alone', () => {
     expect(spliceTernaries("{n === 1 ? 'entry' : 'entries'}")).toEqual([])
+    // biome-ignore lint/suspicious/noTemplateCurlyInString: source text under test, not an interpolation
     expect(spliceTernaries("plural(n, '1 row', `${n} rows`)")).toEqual([])
     expect(spliceTernaries("{open ? 'Hide' : 'Show'}")).toEqual([])
     expect(spliceTernaries("{ok ? '' : 'error'}")).toEqual([])

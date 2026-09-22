@@ -95,7 +95,7 @@ app.delete('/groups/:id/invites/:inviteId', async (c) => {
     .select()
     .from(expenseGroupInvites)
     .where(and(eq(expenseGroupInvites.id, inviteId), eq(expenseGroupInvites.groupId, groupId)))
-  if (!invite || invite.status !== 'pending') return fail(c, 'INVITE_NOT_FOUND')
+  if (invite?.status !== 'pending') return fail(c, 'INVITE_NOT_FOUND')
 
   const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, groupId))
   const isInviter = invite.invitedByUserId === userId

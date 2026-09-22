@@ -134,7 +134,7 @@ app.post('/groups/:groupId/expenses', async (c) => {
   }>()
 
   if (!body.description?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'description' })
-  if (!body.amount || isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
+  if (!body.amount || Number.isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
     return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'amount' })
   if (!body.currency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'currency' })
   if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
@@ -273,7 +273,7 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
   const payerId = body.paidByUserId ?? expense.paidByUserId
 
   if (!description) return fail(c, 'FIELD_REQUIRED', { field: 'description' })
-  if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
+  if (Number.isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
     return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'amount' })
   if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
   if (!members.some((m) => m.userId === payerId)) return fail(c, 'PAYER_NOT_A_MEMBER')

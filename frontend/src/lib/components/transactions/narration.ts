@@ -113,7 +113,7 @@ export function prettifyPath(path: string): string {
 
 // The display label for an account: its explicit `name` if set, else a prettified path.
 export function accountLabel(p: { accountName: string | null; accountPath: string }): string {
-  return p.accountName && p.accountName.trim() ? p.accountName : prettifyPath(p.accountPath)
+  return p.accountName?.trim() ? p.accountName : prettifyPath(p.accountPath)
 }
 
 // --- role/path predicates ---------------------------------------------------------------

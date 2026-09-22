@@ -36,3 +36,19 @@ export function errorMessage(body: unknown, fallback: string): string {
   const words = code.toLowerCase().replace(/_/g, ' ')
   return `${words.charAt(0).toUpperCase()}${words.slice(1)}.`
 }
+
+/**
+ * The sentence for a value that was thrown.
+ *
+ * `catch` hands you `unknown`. It is an `Error` nearly always, but a rejected string, a
+ * rejected object and `undefined` are all reachable, which is why every call site used to
+ * widen it to `any` and reach for `.message` anyway. This reads the same field with the
+ * same intent and says so in the type.
+ *
+ * An empty `message` takes the fallback rather than showing a reader nothing, matching
+ * `errorMessage` above.
+ */
+export function thrownMessage(e: unknown, fallback: string): string {
+  const message = (e as { message?: unknown } | null | undefined)?.message
+  return typeof message === 'string' && message !== '' ? message : fallback
+}

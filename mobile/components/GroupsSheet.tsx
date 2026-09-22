@@ -4,6 +4,7 @@ import { createGroup } from '@/lib/api'
 import { useGroups } from '@/lib/group-context'
 import { groupSubtitle } from '@/lib/group-store'
 import { theme } from '@/lib/theme'
+import { thrownMessage } from '../lib/errors'
 import { Avatar } from './Avatar'
 import { BottomSheet } from './BottomSheet'
 import { GlossButton } from './GlossButton'
@@ -42,8 +43,8 @@ export function GroupsSheet({ visible, onClose }: Props) {
       setCreating(false)
       await reloadGroups()
       if (created?.id) pick(created.id)
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to create group')
+    } catch (e) {
+      setError(thrownMessage(e, 'Failed to create group'))
     } finally {
       setBusy(false)
     }

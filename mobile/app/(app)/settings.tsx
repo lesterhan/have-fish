@@ -61,9 +61,11 @@ export default function GroupSettingsScreen() {
   // Identify the caller (by email) so their share can be highlighted in a split.
   useEffect(() => {
     let cancelled = false
-    getEmail().then((email) => {
-      if (!cancelled) setMyUserId(group ? resolveMyUserId(group, email) : null)
-    })
+    getEmail()
+      .then((email) => {
+        if (!cancelled) setMyUserId(group ? resolveMyUserId(group, email) : null)
+      })
+      .catch(() => setMyUserId(null))
     return () => {
       cancelled = true
     }

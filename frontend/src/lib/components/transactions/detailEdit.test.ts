@@ -16,7 +16,7 @@ function p(
   amount: string,
   currency: string,
   role: PostingRole,
-  id = accountPath + ':' + amount,
+  id = `${accountPath}:${amount}`,
 ): Posting {
   return {
     id,

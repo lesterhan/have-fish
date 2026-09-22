@@ -187,7 +187,7 @@ export function CashSpend() {
       resetEntry()
       haptics.success()
       flashThenReset('added')
-      reload()
+      void reload()
     } catch (e) {
       if (submitOutcome(e) === 'queued') {
         // Enqueued offline — a soft success. Don't reload balances; nothing has

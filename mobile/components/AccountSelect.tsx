@@ -10,6 +10,7 @@ import {
 import { type Account, createAccount } from '@/lib/api'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
+import { thrownMessage } from '../lib/errors'
 import { BottomSheet } from './BottomSheet'
 import { GlossSurface } from './GlossSurface'
 
@@ -124,8 +125,8 @@ export function AccountSelect({
       setCreated((prev) => [...prev, account])
       onCreate?.(account)
       choose(account.id)
-    } catch (e: any) {
-      setError(e?.message ?? 'Could not create account')
+    } catch (e) {
+      setError(thrownMessage(e, 'Could not create account'))
     } finally {
       setCreating(false)
     }

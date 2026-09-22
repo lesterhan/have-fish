@@ -215,7 +215,7 @@ export function postingRows(n: NarratedTransaction): PostingRow[] {
 // The transaction date as "Wed, Jun 24, 2026". Parsed at local midnight so the stored UTC
 // calendar date is not shifted by the viewer's timezone.
 export function formatTxDate(date: string): string {
-  const d = new Date(date.substring(0, 10) + 'T00:00:00')
+  const d = new Date(`${date.substring(0, 10)}T00:00:00`)
   return d.toLocaleDateString('en', {
     weekday: 'short',
     month: 'short',
