@@ -1,6 +1,61 @@
 # ops
 
-Running have-fish on a server. Currently: backups.
+Running have-fish on a server: surviving a reboot, and backups.
+
+## Surviving a reboot
+
+All three services carry `restart: unless-stopped` in `docker-compose.yml`. That covers a
+crashed container and a restarted daemon, and it stops short of fighting you: a container
+you deliberately `stop` stays stopped, including across a reboot. `always` would override
+that, which is the wrong trade for a machine you also maintain.
+
+**The compose file is the smaller half of this.** A restart policy is inert if the
+container engine itself never starts, so the host has to bring it up at boot:
+
+```bash
+systemctl is-enabled docker        # want: enabled
+sudo systemctl enable --now docker # if it is not
+```
+
+For the rootless Podman dev boxes it is two things, and missing either one looks identical
+to the policy not working:
+
+```bash
+systemctl --user enable --now podman-restart.service
+loginctl enable-linger "$USER"     # or the session manager tears it all down at logout
+```
+
+### Why all three services need a policy, not just Postgres
+
+`depends_on` does not survive a reboot. `condition: service_healthy` is honoured by
+`compose up` and ignored when the engine starts containers on boot — they come up in no
+particular order. The backend runs `db:migrate` before it serves, so on a cold boot it can
+easily start before Postgres is accepting connections, fail, and exit. The restart policy
+is what makes that converge instead of leaving the stack half-up. Expect a few restarts in
+the logs after a power cut; that is the mechanism working.
+
+### Testing it without pulling the plug
+
+Most of the path can be exercised remotely. Weakest to strongest:
+
+```bash
+docker kill have-fish-backend-1          # exact name from `docker compose ps`
+sleep 5 && docker compose ps             # expect: running again
+```
+
+```bash
+sudo systemctl restart docker            # restarts the engine; all three should return
+sleep 20 && docker compose ps
+curl -fsS http://localhost:8887/health
+```
+
+The daemon restart is the useful one — it is the same code path a boot takes, minus the
+boot. What it does **not** prove is that the engine starts at boot at all, which is the
+half that actually fails in practice and the reason the `is-enabled` check above matters.
+
+The real acceptance is still a power cut: pull the plug, plug it back in, and the app
+answers within two minutes with nobody touching it. That needs you standing next to the
+machine.
 
 ## Backups
 
