@@ -78,9 +78,12 @@ jobs:
         working-directory: frontend
         run: bun install
 
+      # `bun run test`, not `bun test`: the script runs `svelte-kit sync` first, which
+      # generates the `$lib` path mapping. A checkout does not carry it, and the route
+      # guards under test import through that alias.
       - name: Run tests
         working-directory: frontend
-        run: bun test
+        run: bun run test
 
       - name: Type check
         working-directory: frontend

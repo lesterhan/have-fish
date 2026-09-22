@@ -1,9 +1,7 @@
+// No `App.Locals`: there is no server. The app is a static build (`adapter-static`) and
+// the session is fetched in the browser — see `$lib/session.ts`.
 declare global {
-  namespace App {
-    interface Locals {
-      session: { user: { id: string; email: string } } | null
-    }
-  }
+  namespace App {}
 }
 
 export {}
