@@ -145,6 +145,7 @@ export const errorsCopy = {
   FIELDS_REQUIRED: ({ fields }: { fields: string[] }) =>
     `${AND.format(fields.map(nameOf))} are all required.`,
   FIELD_EMPTY: ({ field }: { field: string }) => `${nameOf(field)} cannot be empty.`,
+  FIELD_INVALID: ({ field }: { field: string }) => `${nameOf(field)} is not valid.`,
   FIELD_NOT_STRING: ({ field }: { field: string }) => `${nameOf(field)} must be text.`,
   FIELD_NOT_BOOLEAN: ({ field }: { field: string }) => `${nameOf(field)} must be yes or no.`,
   FIELD_NOT_OBJECT: ({ field }: { field: string }) => `${nameOf(field)} is the wrong shape.`,

@@ -47,6 +47,7 @@ export const ERROR_STATUS = {
   FIELD_REQUIRED: 400,
   FIELDS_REQUIRED: 400,
   FIELD_EMPTY: 400,
+  FIELD_INVALID: 400,
   FIELD_NOT_STRING: 400,
   FIELD_NOT_BOOLEAN: 400,
   FIELD_NOT_OBJECT: 400,
@@ -185,6 +186,13 @@ export type ErrorCode = keyof typeof ERROR_STATUS
  */
 export interface ErrorDetails {
   FIELD_REQUIRED: { field: string }
+  /**
+   * The catch-all for a field a body schema rejected in a way nothing more specific
+   * covers. `validation.ts` maps each kind of schema failure onto the code the route
+   * already used; this is the floor under that map, so a check nobody has mapped yet
+   * still answers with a code rather than leaking a validator's own sentence.
+   */
+  FIELD_INVALID: { field: string }
   FIELDS_REQUIRED: { fields: string[] }
   FIELD_EMPTY: { field: string }
   FIELD_NOT_STRING: { field: string }
@@ -232,7 +240,7 @@ export interface ErrorDetails {
  * and `[detail?]` when every field of the detail is itself optional — `TOO_FEW_POSTINGS`
  * carries a batch index or nothing, and `fail(c, 'TOO_FEW_POSTINGS', {})` would be noise.
  */
-type DetailArgs<C extends ErrorCode> = C extends keyof ErrorDetails
+export type DetailArgs<C extends ErrorCode> = C extends keyof ErrorDetails
   ? Record<string, never> extends ErrorDetails[C]
     ? [detail?: ErrorDetails[C]]
     : [detail: ErrorDetails[C]]
