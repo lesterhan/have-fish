@@ -1,23 +1,23 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
-  fetchGroups,
-  fetchGroup,
-  fetchExpenses,
-  fetchBalances,
-  fetchSettlements,
-  type ExpenseGroup,
-  type GroupExpense,
   type CurrencyBalance,
+  type ExpenseGroup,
+  fetchBalances,
+  fetchExpenses,
+  fetchGroup,
+  fetchGroups,
+  fetchSettlements,
+  type GroupExpense,
   type GroupSettlement,
 } from '@/lib/api'
 import { LAST_GROUP_KEY, resolveActiveGroupId } from '@/lib/group-store'

@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
   AUTOMATIC,
   cycleDayLabel,
@@ -88,10 +88,7 @@ describe('planCycleCommit', () => {
   const noInference = { mode: null, day: null }
 
   it('clears both fields when the user goes back to automatic', () => {
-    const plan = planCycleCommit(
-      { mode: AUTOMATIC, day: AUTOMATIC },
-      { mode: 'cycle', day: 25 },
-    )
+    const plan = planCycleCommit({ mode: AUTOMATIC, day: AUTOMATIC }, { mode: 'cycle', day: 25 })
 
     expect(plan).toEqual({
       status: 'send',
@@ -118,10 +115,7 @@ describe('planCycleCommit', () => {
   })
 
   it('lets a cycle through on an inferred day alone', () => {
-    const plan = planCycleCommit(
-      { mode: 'cycle', day: AUTOMATIC },
-      { mode: 'cycle', day: 25 },
-    )
+    const plan = planCycleCommit({ mode: 'cycle', day: AUTOMATIC }, { mode: 'cycle', day: 25 })
 
     expect(plan).toEqual({
       status: 'send',
@@ -141,19 +135,13 @@ describe('planCycleCommit', () => {
   it('treats automatic-that-infers-to-cycle the same as picking cycle', () => {
     // Inference found a rhythm and the user has not overridden it, so the effective mode is
     // 'cycle' and the same day requirement applies.
-    const plan = planCycleCommit(
-      { mode: AUTOMATIC, day: AUTOMATIC },
-      { mode: 'cycle', day: null },
-    )
+    const plan = planCycleCommit({ mode: AUTOMATIC, day: AUTOMATIC }, { mode: 'cycle', day: null })
 
     expect(plan.status).toBe('incomplete')
   })
 
   it('falls back to range when nothing is chosen and nothing is inferred', () => {
-    const plan = planCycleCommit(
-      { mode: AUTOMATIC, day: AUTOMATIC },
-      noInference,
-    )
+    const plan = planCycleCommit({ mode: AUTOMATIC, day: AUTOMATIC }, noInference)
 
     expect(plan).toEqual({
       status: 'send',

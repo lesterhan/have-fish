@@ -1,7 +1,7 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { ParsedTransaction } from '$lib/api'
 import { buildManifest, type ManifestContext } from './manifest'
 import type { RowState } from './row-state'
-import type { ParsedTransaction } from '$lib/api'
 
 const ACCOUNTS = [
   { id: 'a-groceries', path: 'expenses:groceries' },
@@ -85,18 +85,14 @@ describe('per-destination totals', () => {
     const txs = [tx('-1.00'), tx('-1.00'), tx('-1.00')]
     const rows = [row({ offsetAccountId: 'a-transport' }), row(), row()]
 
-    expect(
-      buildManifest(txs, rows, 0, ctx()).lines.map((l) => l.label),
-    ).toEqual(['expenses:groceries', 'expenses:transport'])
+    expect(buildManifest(txs, rows, 0, ctx()).lines.map((l) => l.label)).toEqual([
+      'expenses:groceries',
+      'expenses:transport',
+    ])
   })
 
   it('flags the uncategorized destination — the line this whole step exists to catch', () => {
-    const m = buildManifest(
-      [tx('-40.00')],
-      [row({ offsetAccountId: 'a-uncat' })],
-      0,
-      ctx(),
-    )
+    const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: 'a-uncat' })], 0, ctx())
     expect(m.lines[0].isUncategorized).toBe(true)
   })
 
@@ -142,9 +138,7 @@ describe('per-destination totals', () => {
       row({ groupId: 'g-house', categoryId: 'c-food' }),
       row({ groupId: 'g-house', categoryId: null }),
     ]
-    expect(
-      buildManifest([tx('-1.00'), tx('-1.00')], rows, 0, ctx()).lines,
-    ).toHaveLength(2)
+    expect(buildManifest([tx('-1.00'), tx('-1.00')], rows, 0, ctx()).lines).toHaveLength(2)
   })
 
   it('sends a cross-currency spend to its expense account', () => {
@@ -182,12 +176,7 @@ describe('per-destination totals', () => {
   })
 
   it('names an unassigned destination rather than showing a blank line', () => {
-    const m = buildManifest(
-      [tx('-40.00')],
-      [row({ offsetAccountId: '' })],
-      0,
-      ctx(),
-    )
+    const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: '' })], 0, ctx())
     expect(m.lines[0].label).toBe('No account assigned')
   })
 })
@@ -216,12 +205,7 @@ describe('skipped rows', () => {
   })
 
   it('leaves skipped rows out of the destination totals entirely', () => {
-    const m = buildManifest(
-      [tx('-40.00'), tx('-40.00')],
-      [row(), row({ skipped: true })],
-      0,
-      ctx(),
-    )
+    const m = buildManifest([tx('-40.00'), tx('-40.00')], [row(), row({ skipped: true })], 0, ctx())
     expect(m.lines[0].count).toBe(1)
     expect(m.lines[0].total).toBeCloseTo(40, 2)
   })
@@ -229,11 +213,7 @@ describe('skipped rows', () => {
 
 describe('date range', () => {
   it('spans the committed rows', () => {
-    const txs = [
-      tx('-1.00', '2026-06-03'),
-      tx('-1.00', '2026-06-30'),
-      tx('-1.00', '2026-06-15'),
-    ]
+    const txs = [tx('-1.00', '2026-06-03'), tx('-1.00', '2026-06-30'), tx('-1.00', '2026-06-15')]
     const m = buildManifest(txs, [row(), row(), row()], 0, ctx())
     expect(m.dateRange).toEqual({ from: '2026-06-03', to: '2026-06-30' })
   })
@@ -241,11 +221,7 @@ describe('date range', () => {
   it('excludes skipped rows at both ends', () => {
     // A leading week of skipped duplicates would otherwise land the user on a screen whose
     // top is entirely rows they did not just import.
-    const txs = [
-      tx('-1.00', '2026-06-01'),
-      tx('-1.00', '2026-06-10'),
-      tx('-1.00', '2026-06-30'),
-    ]
+    const txs = [tx('-1.00', '2026-06-01'), tx('-1.00', '2026-06-10'), tx('-1.00', '2026-06-30')]
     const rows = [row({ skipped: true }), row(), row({ skipped: true })]
 
     expect(buildManifest(txs, rows, 0, ctx()).dateRange).toEqual({
@@ -255,19 +231,11 @@ describe('date range', () => {
   })
 
   it('is null when everything is skipped', () => {
-    expect(
-      buildManifest([tx('-1.00')], [row({ skipped: true })], 0, ctx())
-        .dateRange,
-    ).toBeNull()
+    expect(buildManifest([tx('-1.00')], [row({ skipped: true })], 0, ctx()).dateRange).toBeNull()
   })
 
   it('reads the date part of an ISO timestamp', () => {
-    const m = buildManifest(
-      [tx('-1.00', '2026-06-03T08:00:00Z')],
-      [row()],
-      0,
-      ctx(),
-    )
+    const m = buildManifest([tx('-1.00', '2026-06-03T08:00:00Z')], [row()], 0, ctx())
     expect(m.dateRange).toEqual({ from: '2026-06-03', to: '2026-06-03' })
   })
 })

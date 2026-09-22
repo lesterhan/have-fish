@@ -1,20 +1,20 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { CatchUpAccount } from '$lib/api'
 import {
   currentSummary,
-  expectedForDisplay,
   displayName,
   donePanelCopy,
   emptyActionLabel,
   enteredInGapNote,
+  expectedForDisplay,
   focusPosition,
   gapSummary,
   groupAccounts,
   importHref,
-  resolveFocus,
   progressLabel,
   progressPercent,
+  resolveFocus,
 } from './hub'
-import type { CatchUpAccount } from '$lib/api'
 
 function account(over: Partial<CatchUpAccount> = {}): CatchUpAccount {
   return {
@@ -89,11 +89,7 @@ describe('groupAccounts', () => {
       account({ accountId: 'big', gap: { from: 'a', through: 'b', days: 90 } }),
     ])
 
-    expect(groups.behind.map((a) => a.accountId)).toEqual([
-      'small',
-      'mid',
-      'big',
-    ])
+    expect(groups.behind.map((a) => a.accountId)).toEqual(['small', 'mid', 'big'])
   })
 
   it('handles an empty list', () => {
@@ -103,9 +99,7 @@ describe('groupAccounts', () => {
 
 describe('displayName', () => {
   it('prefers the display name', () => {
-    expect(displayName(account({ name: 'Everyday Chequing' }))).toBe(
-      'Everyday Chequing',
-    )
+    expect(displayName(account({ name: 'Everyday Chequing' }))).toBe('Everyday Chequing')
   })
 
   it('falls back to the path', () => {
@@ -120,9 +114,7 @@ describe('gapSummary', () => {
 
   it('singularises a one-day gap', () => {
     expect(
-      gapSummary(
-        account({ gap: { from: 'a', through: 'b', days: 1 }, expectedTxns: 1 }),
-      ),
+      gapSummary(account({ gap: { from: 'a', through: 'b', days: 1 }, expectedTxns: 1 })),
     ).toBe('1 day · ~1 transaction')
   })
 
@@ -132,9 +124,7 @@ describe('gapSummary', () => {
   })
 
   it('keeps a zero estimate when the gap really is empty', () => {
-    expect(gapSummary(account({ expectedTxns: 0 }))).toBe(
-      '14 days · ~0 transactions',
-    )
+    expect(gapSummary(account({ expectedTxns: 0 }))).toBe('14 days · ~0 transactions')
   })
 
   // The dangerous contradiction: "~0 transactions" sitting directly above a button that marks
@@ -157,11 +147,9 @@ describe('gapSummary', () => {
 
 describe('expectedForDisplay', () => {
   it('passes a healthy estimate through', () => {
-    expect(
-      expectedForDisplay(
-        account({ expectedTxns: 18, txnDatesInGap: ['2025-07-02'] }),
-      ),
-    ).toBe(18)
+    expect(expectedForDisplay(account({ expectedTxns: 18, txnDatesInGap: ['2025-07-02'] }))).toBe(
+      18,
+    )
   })
 
   it('floors at the days already holding transactions', () => {
@@ -179,18 +167,14 @@ describe('expectedForDisplay', () => {
   // not be turned into one.
   it('stays null when there is no estimate to make', () => {
     expect(
-      expectedForDisplay(
-        account({ expectedTxns: null, txnDatesInGap: ['2025-07-02'] }),
-      ),
+      expectedForDisplay(account({ expectedTxns: null, txnDatesInGap: ['2025-07-02'] })),
     ).toBeNull()
   })
 })
 
 describe('currentSummary', () => {
   it('is plain for an account that exports on demand', () => {
-    expect(currentSummary(account({ state: 'current', gap: null }))).toBe(
-      'Current',
-    )
+    expect(currentSummary(account({ state: 'current', gap: null }))).toBe('Current')
   })
 
   // A card sitting at "current" for three weeks should explain itself rather than look stalled.
@@ -208,19 +192,15 @@ describe('currentSummary', () => {
   })
 
   it('stays plain when a cycle account has no next date', () => {
-    expect(
-      currentSummary(
-        account({ horizonReason: 'statement', nextHorizonDate: null }),
-      ),
-    ).toBe('Current')
+    expect(currentSummary(account({ horizonReason: 'statement', nextHorizonDate: null }))).toBe(
+      'Current',
+    )
   })
 })
 
 describe('emptyActionLabel', () => {
   it('spells out what the action would assert', () => {
-    expect(emptyActionLabel(account())).toBe(
-      'Marks 2025-07-01 through 2025-07-14 as covered',
-    )
+    expect(emptyActionLabel(account())).toBe('Marks 2025-07-01 through 2025-07-14 as covered')
   })
 
   it('is null with no gap to cover', () => {
@@ -230,11 +210,9 @@ describe('emptyActionLabel', () => {
 
 describe('enteredInGapNote', () => {
   it('counts the days already holding transactions', () => {
-    expect(
-      enteredInGapNote(
-        account({ txnDatesInGap: ['2025-07-02', '2025-07-09'] }),
-      ),
-    ).toBe('2 days in this range already have transactions')
+    expect(enteredInGapNote(account({ txnDatesInGap: ['2025-07-02', '2025-07-09'] }))).toBe(
+      '2 days in this range already have transactions',
+    )
   })
 
   it('singularises one day', () => {
@@ -284,9 +262,7 @@ describe('donePanelCopy', () => {
 
   it('ignores a dormant account that is itself current', () => {
     expect(
-      donePanelCopy(
-        groups([account({ state: 'current', gap: null, dormant: true })]),
-      ).headline,
+      donePanelCopy(groups([account({ state: 'current', gap: null, dormant: true })])).headline,
     ).toBe('Everything is caught up.')
   })
 
@@ -368,9 +344,7 @@ describe('importHref', () => {
   })
 
   it('omits the range when there is no gap', () => {
-    const params = new URLSearchParams(
-      importHref(account({ gap: null })).split('?')[1],
-    )
+    const params = new URLSearchParams(importHref(account({ gap: null })).split('?')[1])
 
     expect(params.get('from')).toBeNull()
     expect(params.get('to')).toBeNull()

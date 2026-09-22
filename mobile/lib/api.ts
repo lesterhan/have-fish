@@ -5,8 +5,8 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getBaseUrl, getSession } from './auth'
-import { ExpenseQueuedError } from './expense-submit'
 import { errorMessage } from './errors'
+import { ExpenseQueuedError } from './expense-submit'
 
 // ---------------------------------------------------------------------------
 // Core fetch wrapper
@@ -463,10 +463,10 @@ export async function updateCategoryWeights(
   categoryId: string,
   weights: { userId: string; weight: number }[],
 ): Promise<GroupCategory> {
-  const res = await apiFetch(
-    `/api/fish-pie/groups/${groupId}/categories/${categoryId}/weights`,
-    { method: 'PUT', body: JSON.stringify({ weights }) },
-  )
+  const res = await apiFetch(`/api/fish-pie/groups/${groupId}/categories/${categoryId}/weights`, {
+    method: 'PUT',
+    body: JSON.stringify({ weights }),
+  })
   if (!res.ok) throw new Error('Failed to update category weights')
   return res.json()
 }

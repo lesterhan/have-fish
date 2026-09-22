@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { and, eq, isNull } from 'drizzle-orm'
 import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { expenseGroups, groupExpenses, groupSettlements, accounts, postings } from '../db/schema'
-import { eq, and, isNull } from 'drizzle-orm'
+import { accounts, expenseGroups, groupExpenses, groupSettlements, postings } from '../db/schema'
+import { clearDatabase, createTestUser } from '../test-utils'
 
 async function getUserId(cookie: string): Promise<string> {
   const res = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
@@ -28,7 +28,12 @@ async function createAccount(cookie: string, path: string): Promise<string> {
   return ((await res.json()) as any).id
 }
 
-async function inviteAndAccept(groupId: string, ownerCookie: string, email: string, memberCookie: string) {
+async function inviteAndAccept(
+  groupId: string,
+  ownerCookie: string,
+  email: string,
+  memberCookie: string,
+) {
   const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
     method: 'POST',
     headers: { Cookie: ownerCookie, 'Content-Type': 'application/json' },
@@ -74,7 +79,9 @@ function merge(cookie: string, body: Record<string, unknown>) {
 }
 
 async function balances(groupId: string, cookie: string) {
-  const res = await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookie } })
+  const res = await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
+    headers: { Cookie: cookie },
+  })
   return (await res.json()) as any[]
 }
 
@@ -103,7 +110,13 @@ describe('fish-pie merge', () => {
     await setWeight(housing, cookieA, userBId, 40)
     const housingAcct = await createAccount(cookieA, 'expenses:housing')
     await setMyExpenseAccount(housing, cookieA, housingAcct)
-    await createExpense(housing, cookieA, { description: 'Rent', amount: '100.00', currency: 'CAD', date: '2026-05-01', paymentAccountId: payA })
+    await createExpense(housing, cookieA, {
+      description: 'Rent',
+      amount: '100.00',
+      currency: 'CAD',
+      date: '2026-05-01',
+      paymentAccountId: payA,
+    })
 
     const food = await createGroup(cookieA, 'Food')
     await inviteAndAccept(food, cookieA, 'b@test.com', cookieB)
@@ -111,7 +124,13 @@ describe('fish-pie merge', () => {
     await setWeight(food, cookieA, userBId, 30)
     const foodAcct = await createAccount(cookieA, 'expenses:food')
     await setMyExpenseAccount(food, cookieA, foodAcct)
-    await createExpense(food, cookieA, { description: 'Groceries', amount: '100.00', currency: 'CAD', date: '2026-05-02', paymentAccountId: payA })
+    await createExpense(food, cookieA, {
+      description: 'Groceries',
+      amount: '100.00',
+      currency: 'CAD',
+      date: '2026-05-02',
+      paymentAccountId: payA,
+    })
 
     return { housing, food, housingAcct, foodAcct }
   }
@@ -145,11 +164,17 @@ describe('fish-pie merge', () => {
 
     it('re-points source expenses onto the merged group + category', async () => {
       const { housing, food } = await twoGroupsWithExpenses()
-      const merged = (await (await merge(cookieA, { groupIds: [housing, food], name: 'Household' })).json()) as any
+      const merged = (await (
+        await merge(cookieA, { groupIds: [housing, food], name: 'Household' })
+      ).json()) as any
       const housingCatId = merged.categories.find((c: any) => c.name === 'Housing').id
 
       const rows = await db
-        .select({ groupId: groupExpenses.groupId, categoryId: groupExpenses.categoryId, description: groupExpenses.description })
+        .select({
+          groupId: groupExpenses.groupId,
+          categoryId: groupExpenses.categoryId,
+          description: groupExpenses.description,
+        })
         .from(groupExpenses)
         .where(isNull(groupExpenses.deletedAt))
       expect(rows).toHaveLength(2)
@@ -160,7 +185,9 @@ describe('fish-pie merge', () => {
 
     it('merged balances equal the sum of the source balances', async () => {
       const { housing, food } = await twoGroupsWithExpenses()
-      const merged = (await (await merge(cookieA, { groupIds: [housing, food], name: 'Household' })).json()) as any
+      const merged = (await (
+        await merge(cookieA, { groupIds: [housing, food], name: 'Household' })
+      ).json()) as any
 
       const bal = await balances(merged.id, cookieA)
       const cad = bal.find((b) => b.currency === 'CAD')!
@@ -181,20 +208,34 @@ describe('fish-pie merge', () => {
 
     it('collapses old clearing postings into the merged receivable account', async () => {
       const { housing, food } = await twoGroupsWithExpenses()
-      const merged = (await (await merge(cookieA, { groupIds: [housing, food], name: 'Household' })).json()) as any
+      const merged = (await (
+        await merge(cookieA, { groupIds: [housing, food], name: 'Household' })
+      ).json()) as any
 
       // Old per-source clearing accounts are soft-deleted
       const oldHousing = await db
         .select()
         .from(accounts)
-        .where(and(eq(accounts.userId, userBId), eq(accounts.path, 'assets:receivable:housing'), isNull(accounts.deletedAt)))
+        .where(
+          and(
+            eq(accounts.userId, userBId),
+            eq(accounts.path, 'assets:receivable:housing'),
+            isNull(accounts.deletedAt),
+          ),
+        )
       expect(oldHousing).toHaveLength(0)
 
       // B's new clearing account holds the collapsed debt: -40 (Housing) + -30 (Food) = -70
       const [newClearing] = await db
         .select()
         .from(accounts)
-        .where(and(eq(accounts.userId, userBId), eq(accounts.path, 'assets:receivable:household'), isNull(accounts.deletedAt)))
+        .where(
+          and(
+            eq(accounts.userId, userBId),
+            eq(accounts.path, 'assets:receivable:household'),
+            isNull(accounts.deletedAt),
+          ),
+        )
       expect(newClearing).toBeDefined()
       const ps = await db
         .select({ amount: postings.amount })
@@ -211,23 +252,41 @@ describe('fish-pie merge', () => {
       const settleRes = await app.request(`/api/fish-pie/groups/${housing}/settlements`, {
         method: 'POST',
         headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ fromUserId: userBId, toUserId: userAId, amount: '40.00', currency: 'CAD', date: '2026-05-10', payerAccountId: payB }),
+        body: JSON.stringify({
+          fromUserId: userBId,
+          toUserId: userAId,
+          amount: '40.00',
+          currency: 'CAD',
+          date: '2026-05-10',
+          payerAccountId: payB,
+        }),
       })
       expect(settleRes.status).toBe(201)
 
-      const merged = (await (await merge(cookieA, { groupIds: [housing, food], name: 'Household' })).json()) as any
+      const merged = (await (
+        await merge(cookieA, { groupIds: [housing, food], name: 'Household' })
+      ).json()) as any
       const rows = await db.select({ groupId: groupSettlements.groupId }).from(groupSettlements)
       expect(rows.every((r) => r.groupId === merged.id)).toBe(true)
     })
 
     it('newly created expenses in the merged group use the migrated category weights', async () => {
       const { housing, food } = await twoGroupsWithExpenses()
-      const merged = (await (await merge(cookieA, { groupIds: [housing, food], name: 'Household' })).json()) as any
+      const merged = (await (
+        await merge(cookieA, { groupIds: [housing, food], name: 'Household' })
+      ).json()) as any
       const housingCatId = merged.categories.find((c: any) => c.name === 'Housing').id
 
-      const expense = (await (await createExpense(merged.id, cookieA, {
-        description: 'More rent', amount: '100.00', currency: 'CAD', date: '2026-06-01', paymentAccountId: payA, categoryId: housingCatId,
-      })).json()) as any
+      const expense = (await (
+        await createExpense(merged.id, cookieA, {
+          description: 'More rent',
+          amount: '100.00',
+          currency: 'CAD',
+          date: '2026-06-01',
+          paymentAccountId: payA,
+          categoryId: housingCatId,
+        })
+      ).json()) as any
       const splitB = expense.splits.find((s: any) => s.userId === userBId)
       expect(splitB.amount).toBe('40.00') // migrated Housing 60/40
     })
@@ -266,7 +325,10 @@ describe('fish-pie merge', () => {
 
     it('404s for a non-existent group', async () => {
       const housing = await createGroup(cookieA, 'Housing')
-      const res = await merge(cookieA, { groupIds: [housing, '00000000-0000-0000-0000-000000000000'], name: 'Household' })
+      const res = await merge(cookieA, {
+        groupIds: [housing, '00000000-0000-0000-0000-000000000000'],
+        name: 'Household',
+      })
       expect(res.status).toBe(404)
     })
   })

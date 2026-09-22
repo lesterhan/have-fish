@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { toUser } from './session'
 
 // The caching is `once`, tested in `once.test.ts`. What is left here is the shape of a

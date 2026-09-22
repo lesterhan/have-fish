@@ -1,16 +1,16 @@
 import { useEffect, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import {
+  type Account,
   confirmBatchSettlement,
   confirmSettlement,
-  type Account,
   type ExpenseGroup,
 } from '@/lib/api'
-import { receiptLines, type IncomingBatch } from '@/lib/settle-actions'
 import * as haptics from '@/lib/haptics'
+import { type IncomingBatch, receiptLines } from '@/lib/settle-actions'
 import { theme } from '@/lib/theme'
-import { BottomSheet } from './BottomSheet'
 import { AccountSelect } from './AccountSelect'
+import { BottomSheet } from './BottomSheet'
 import { GlossButton } from './GlossButton'
 import { Label } from './Label'
 

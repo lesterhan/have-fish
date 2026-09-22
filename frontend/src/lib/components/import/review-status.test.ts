@@ -1,15 +1,15 @@
-import { describe, it, expect } from 'bun:test'
-import {
-  rowStatus,
-  statusCounts,
-  matchesFilter,
-  reviewedCount,
-  nextUnreviewedIndex,
-  rowsMatchingPattern,
-  dayBoundaries,
-} from './review-status'
-import type { RowState, RowSource } from './row-state'
+import { describe, expect, it } from 'bun:test'
 import type { ParsedTransaction } from '$lib/api'
+import {
+  dayBoundaries,
+  matchesFilter,
+  nextUnreviewedIndex,
+  reviewedCount,
+  rowStatus,
+  rowsMatchingPattern,
+  statusCounts,
+} from './review-status'
+import type { RowSource, RowState } from './row-state'
 
 function row(source: RowSource, skipped = false): RowState {
   return {
@@ -47,13 +47,7 @@ describe('rowStatus', () => {
 
 describe('statusCounts', () => {
   it('counts each status and totals under all', () => {
-    const rows = [
-      row('none'),
-      row('none'),
-      row('rule'),
-      row('user'),
-      row('none', true),
-    ]
+    const rows = [row('none'), row('none'), row('rule'), row('user'), row('none', true)]
     expect(statusCounts(rows)).toEqual({
       all: 5,
       'needs-review': 2,
@@ -125,12 +119,7 @@ describe('nextUnreviewedIndex', () => {
 })
 
 describe('rowsMatchingPattern', () => {
-  const txs = [
-    tx('LOBLAWS #042'),
-    tx('LOBLAWS #117'),
-    tx('BILLA'),
-    tx('loblaws city market'),
-  ]
+  const txs = [tx('LOBLAWS #042'), tx('LOBLAWS #117'), tx('BILLA'), tx('loblaws city market')]
 
   it('matches case-insensitively as a substring, like the backend does', () => {
     const rows = [row('none'), row('none'), row('none'), row('none')]
@@ -162,11 +151,7 @@ describe('rowsMatchingPattern', () => {
   it('handles rows with no description', () => {
     const rows = [row('none')]
     expect(
-      rowsMatchingPattern(
-        [{ isTransfer: false, date: '2026-06-01', amount: '-1.00' }],
-        rows,
-        'X',
-      ),
+      rowsMatchingPattern([{ isTransfer: false, date: '2026-06-01', amount: '-1.00' }], rows, 'X'),
     ).toEqual([])
   })
 })
@@ -184,19 +169,12 @@ describe('dayBoundaries', () => {
 
   it('follows the filtered set, not the underlying rows', () => {
     // With row 0 filtered out, row 1 becomes the day's first visible row.
-    const txs = [
-      tx('a', '2026-06-01'),
-      tx('b', '2026-06-01'),
-      tx('c', '2026-06-02'),
-    ]
+    const txs = [tx('a', '2026-06-01'), tx('b', '2026-06-01'), tx('c', '2026-06-02')]
     expect([...dayBoundaries(txs, [1, 2])]).toEqual([1, 2])
   })
 
   it('handles ISO timestamps by comparing the date part', () => {
-    const txs = [
-      tx('a', '2026-06-01T08:00:00Z'),
-      tx('b', '2026-06-01T20:00:00Z'),
-    ]
+    const txs = [tx('a', '2026-06-01T08:00:00Z'), tx('b', '2026-06-01T20:00:00Z')]
     expect([...dayBoundaries(txs, [0, 1])]).toEqual([0])
   })
 

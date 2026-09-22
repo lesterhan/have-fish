@@ -12,11 +12,7 @@ import { MONTH_NAMES } from '../../date'
  * vocabularies on one screen is the problem; spelling the range out next to the preset is
  * the fix, and it costs no extra control.
  */
-export function rangeSummary(
-  from: string,
-  to: string,
-  entries: number,
-): string {
+export function rangeSummary(from: string, to: string, entries: number): string {
   const count = `${entries} ${entries === 1 ? 'entry' : 'entries'}`
   const range = `${shortDate(from)} → ${shortDate(to)}`
   return `${range} · ${count}`

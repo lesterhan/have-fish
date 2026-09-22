@@ -1,6 +1,6 @@
 import { StyleSheet, Text, View } from 'react-native'
-import { theme } from '@/lib/theme'
 import { initials } from '@/lib/initials'
+import { theme } from '@/lib/theme'
 import { GlossLayers } from './GlossLayers'
 
 interface Props {

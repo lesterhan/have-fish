@@ -67,8 +67,7 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
   return {
     update(newParam: TooltipParam) {
       label = typeof newParam === 'string' ? newParam : (newParam?.label ?? '')
-      always =
-        typeof newParam === 'string' ? false : (newParam?.always ?? false)
+      always = typeof newParam === 'string' ? false : (newParam?.always ?? false)
     },
     destroy() {
       node.removeEventListener('mouseenter', show)

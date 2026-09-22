@@ -1,10 +1,10 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { accountLeaf } from '@/lib/account-search'
 import type { Account } from '@/lib/api'
 import type { SplitRow } from '@/lib/cash-entry'
-import { useShellMode } from '@/lib/shell-mode-context'
 import * as haptics from '@/lib/haptics'
+import { useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
 import { Label } from './Label'
 

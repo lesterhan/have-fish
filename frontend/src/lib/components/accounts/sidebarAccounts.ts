@@ -10,9 +10,9 @@
 import {
   ACCOUNT_SURFACES,
   accountDisplayName,
+  type Roots,
   rootFor,
   surfaceOf,
-  type Roots,
 } from './accountPaths'
 
 /** The minimal shape the sidebar needs from `GET /api/accounts`. */

@@ -87,7 +87,6 @@ export function formatCompact(amount: string): string {
   const n = parseFloat(amount)
   if (isNaN(n)) return amount
   const abs = Math.abs(n)
-  const formatted =
-    abs >= 10000 ? `${(abs / 1000).toFixed(1)}K` : abs.toFixed(2)
+  const formatted = abs >= 10000 ? `${(abs / 1000).toFixed(1)}K` : abs.toFixed(2)
   return n < 0 ? `-${formatted}` : formatted
 }

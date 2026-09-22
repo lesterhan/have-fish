@@ -26,10 +26,7 @@ const SKIP_DIRS = new Set(['node_modules', '.svelte-kit'])
  * the filesystem gives them. Callers that report offenders should sort; callers that only
  * count need not.
  */
-export function sourceFilesUnder(
-  dir: string,
-  extensions: readonly string[],
-): string[] {
+export function sourceFilesUnder(dir: string, extensions: readonly string[]): string[] {
   const out: string[] = []
   for (const entry of readdirSync(dir)) {
     if (SKIP_DIRS.has(entry)) continue

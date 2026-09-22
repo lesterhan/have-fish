@@ -1,6 +1,6 @@
-import { bumpCoverage } from './coverageRefresh'
 import { errorMessage } from './copy/errors'
 import type { AccountCoverageStatus, CoverageState } from './coverage'
+import { bumpCoverage } from './coverageRefresh'
 import type { MonthCoverage } from './monthCoverage'
 
 export type { AccountCoverageStatus, CoverageState } from './coverage'
@@ -31,8 +31,7 @@ async function apiError(res: Response, fallback: string): Promise<Error> {
 }
 
 // The five types path inference can produce.
-export type AccountType =
-  'asset' | 'liability' | 'equity' | 'income' | 'expense'
+export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
 // The full hledger set a stored override may hold (adds Cash + Conversion, which are
 // override-only — inference never produces them).
 export type StoredAccountType = AccountType | 'cash' | 'conversion'
@@ -156,9 +155,7 @@ export type AccountPostingCount = {
   lastActivity: string | null
 }
 
-export async function fetchAccountPostingCounts(): Promise<
-  AccountPostingCount[]
-> {
+export async function fetchAccountPostingCounts(): Promise<AccountPostingCount[]> {
   const res = await fetch(`${BASE}/api/accounts/posting-counts`, {
     credentials: 'include',
   })
@@ -275,12 +272,11 @@ export type TransferCommitTransaction = TransferParsedTransaction & {
   feeAccountId: string
 }
 
-export type SameCurrencyTransferCommitTransaction =
-  SameCurrencyTransferParsedTransaction & {
-    targetAccountId: string
-    sourceAccountId: string
-    feeAccountId: string
-  }
+export type SameCurrencyTransferCommitTransaction = SameCurrencyTransferParsedTransaction & {
+  targetAccountId: string
+  sourceAccountId: string
+  feeAccountId: string
+}
 
 // A cross-currency spend (story 1 shape): a purchase in a currency the user doesn't hold,
 // funded from another-currency account via on-the-fly conversion. Bridged through
@@ -372,9 +368,7 @@ export async function importCommit(body: {
  * (YYYY-MM-DD) bound the exported transactions; omit for everything. Streams the
  * response to a Blob and triggers a browser download. Backend route: GET /api/export/journal.
  */
-export async function exportJournal(
-  opts: { from?: string; to?: string } = {},
-): Promise<void> {
+export async function exportJournal(opts: { from?: string; to?: string } = {}): Promise<void> {
   const params = new URLSearchParams()
   if (opts.from) params.set('from', opts.from)
   if (opts.to) params.set('to', opts.to)
@@ -434,11 +428,7 @@ export async function updateParser(
   body: Partial<
     Pick<
       CsvParser,
-      | 'name'
-      | 'columnMapping'
-      | 'defaultAccountId'
-      | 'isMultiCurrency'
-      | 'defaultFeeAccountId'
+      'name' | 'columnMapping' | 'defaultAccountId' | 'isMultiCurrency' | 'defaultFeeAccountId'
     >
   >,
 ): Promise<CsvParser> {
@@ -465,8 +455,7 @@ export async function createParser(body: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to create parser')
+  if (!res.ok) throw await apiError(res, 'Failed to create parser')
   return res.json()
 }
 
@@ -592,8 +581,7 @@ export async function fetchAccountBalanceAtDate(
     `${BASE}/api/accounts/${accountId}/balance?date=${encodeURIComponent(date)}`,
     { credentials: 'include' },
   )
-  if (!res.ok)
-    throw await apiError(res, 'Failed to fetch account balance')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch account balance')
   return res.json()
 }
 
@@ -602,8 +590,7 @@ export async function deleteTransaction(id: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to delete transaction')
+  if (!res.ok) throw await apiError(res, 'Failed to delete transaction')
 }
 
 export async function patchTransaction(
@@ -616,8 +603,7 @@ export async function patchTransaction(
     credentials: 'include',
     body: JSON.stringify(updates),
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to update transaction')
+  if (!res.ok) throw await apiError(res, 'Failed to update transaction')
   return res.json()
 }
 
@@ -631,8 +617,7 @@ export async function patchPosting(
     credentials: 'include',
     body: JSON.stringify(updates),
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to update posting')
+  if (!res.ok) throw await apiError(res, 'Failed to update posting')
   return res.json()
 }
 
@@ -663,21 +648,17 @@ export async function fetchMalformedFxSpends(): Promise<{
   const res = await fetch(`${BASE}/api/transactions/malformed-fx-spend`, {
     credentials: 'include',
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to load malformed transactions')
+  if (!res.ok) throw await apiError(res, 'Failed to load malformed transactions')
   return res.json()
 }
 
 // Repairs a single malformed cross-currency-spend transaction in place.
-export async function healFxSpend(
-  id: string,
-): Promise<{ postings: HealPosting[] }> {
+export async function healFxSpend(id: string): Promise<{ postings: HealPosting[] }> {
   const res = await fetch(`${BASE}/api/transactions/${id}/heal-fx-spend`, {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to repair transaction')
+  if (!res.ok) throw await apiError(res, 'Failed to repair transaction')
   return res.json()
 }
 
@@ -705,13 +686,10 @@ export async function fetchSpendingSummary(
 
 export type MonthlySpend = { month: string; total: Record<string, string> }
 
-export async function fetchMonthlySpend(
-  months: number,
-): Promise<MonthlySpend[]> {
-  const res = await fetch(
-    `${BASE}/api/reports/monthly-spend?months=${months}`,
-    { credentials: 'include' },
-  )
+export async function fetchMonthlySpend(months: number): Promise<MonthlySpend[]> {
+  const res = await fetch(`${BASE}/api/reports/monthly-spend?months=${months}`, {
+    credentials: 'include',
+  })
   return res.json()
 }
 
@@ -753,8 +731,7 @@ export async function createPosting(body: {
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to create posting')
+  if (!res.ok) throw await apiError(res, 'Failed to create posting')
   return (await res.json()) as {
     id: string
     accountId: string
@@ -768,14 +745,12 @@ export async function deletePosting(id: string) {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to delete posting')
+  if (!res.ok) throw await apiError(res, 'Failed to delete posting')
 }
 
 // A posting's role within its transaction, derived by the backend classifier
 // (src/postings/roles.ts). Drives the narrated TransactionDetail view.
-export type PostingRole =
-  'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
+export type PostingRole = 'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
 
 export type Posting = {
   id: string
@@ -808,8 +783,7 @@ export async function createTransaction(body: {
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to create transaction')
+  if (!res.ok) throw await apiError(res, 'Failed to create transaction')
   // A transaction landing inside an open gap is the revival rule: it pulls a dormant account
   // back into the reckoning, which changes what every rollup's as-of is computed over.
   bumpCoverage()
@@ -829,8 +803,7 @@ export async function createTransactionsBulk(
     credentials: 'include',
     body: JSON.stringify({ transactions: txns }),
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to create transactions')
+  if (!res.ok) throw await apiError(res, 'Failed to create transactions')
   bumpCoverage()
   return res.json()
 }
@@ -839,17 +812,13 @@ export async function replacePostings(
   transactionId: string,
   postings: { accountId: string; amount: string; currency: string }[],
 ) {
-  const res = await fetch(
-    `${BASE}/api/transactions/${transactionId}/postings`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ postings }),
-    },
-  )
-  if (!res.ok)
-    throw await apiError(res, 'Failed to update postings')
+  const res = await fetch(`${BASE}/api/transactions/${transactionId}/postings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ postings }),
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to update postings')
   return res.json()
 }
 
@@ -859,10 +828,9 @@ export async function fetchFxRate(
   from: string,
   to: string,
 ): Promise<{ date: string; from: string; to: string; rate: string } | null> {
-  const res = await fetch(
-    `${BASE}/api/fx-rates?${new URLSearchParams({ date, from, to })}`,
-    { credentials: 'include' },
-  )
+  const res = await fetch(`${BASE}/api/fx-rates?${new URLSearchParams({ date, from, to })}`, {
+    credentials: 'include',
+  })
   if (!res.ok) return null
   return res.json()
 }
@@ -878,10 +846,9 @@ export async function fetchFxRateAsOf(
   rate: string
   asOfDate: string
 } | null> {
-  const res = await fetch(
-    `${BASE}/api/fx-rates/as-of?${new URLSearchParams({ from, to })}`,
-    { credentials: 'include' },
-  )
+  const res = await fetch(`${BASE}/api/fx-rates/as-of?${new URLSearchParams({ from, to })}`, {
+    credentials: 'include',
+  })
   if (!res.ok) return null
   return res.json()
 }
@@ -907,25 +874,21 @@ export type ImportRule = {
 
 // Exactly one target per call. Sending a target on update replaces the existing one
 // wholesale — patching an account rule with a groupId clears its account, and vice versa.
-export type RuleTarget =
-  { accountId: string } | { groupId: string; categoryId?: string | null }
+export type RuleTarget = { accountId: string } | { groupId: string; categoryId?: string | null }
 
 export async function fetchRules(): Promise<ImportRule[]> {
   const res = await fetch(`${BASE}/api/rules`, { credentials: 'include' })
   return res.json()
 }
 
-export async function createRule(
-  body: { pattern: string } & RuleTarget,
-): Promise<ImportRule> {
+export async function createRule(body: { pattern: string } & RuleTarget): Promise<ImportRule> {
   const res = await fetch(`${BASE}/api/rules`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to create rule')
+  if (!res.ok) throw await apiError(res, 'Failed to create rule')
   return res.json()
 }
 
@@ -939,8 +902,7 @@ export async function updateRule(
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to update rule')
+  if (!res.ok) throw await apiError(res, 'Failed to update rule')
   return res.json()
 }
 
@@ -956,8 +918,7 @@ export async function approveRule(id: string): Promise<ImportRule> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to approve rule')
+  if (!res.ok) throw await apiError(res, 'Failed to approve rule')
   return res.json()
 }
 
@@ -966,8 +927,7 @@ export async function denyRule(id: string): Promise<ImportRule> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to deny rule')
+  if (!res.ok) throw await apiError(res, 'Failed to deny rule')
   return res.json()
 }
 
@@ -976,8 +936,7 @@ export async function reviveRule(id: string): Promise<ImportRule> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw await apiError(res, 'Failed to revive rule')
+  if (!res.ok) throw await apiError(res, 'Failed to revive rule')
   return res.json()
 }
 
@@ -1108,15 +1067,12 @@ export async function updateMemberWeight(
   userId: string,
   shareWeight: number,
 ): Promise<GroupMember> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/members/${userId}`,
-    {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shareWeight }),
-    },
-  )
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/members/${userId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shareWeight }),
+  })
   if (!res.ok) throw await apiError(res, 'Failed to update share weight')
   return res.json()
 }
@@ -1145,9 +1101,7 @@ export async function deleteGroup(id: string): Promise<void> {
 
 // --- Fish-pie group categories (epic: fish-pie-categories) ---
 
-export async function fetchGroupCategories(
-  groupId: string,
-): Promise<GroupCategory[]> {
+export async function fetchGroupCategories(groupId: string): Promise<GroupCategory[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, {
     credentials: 'include',
   })
@@ -1155,10 +1109,7 @@ export async function fetchGroupCategories(
   return res.json()
 }
 
-export async function createGroupCategory(
-  groupId: string,
-  name: string,
-): Promise<GroupCategory> {
+export async function createGroupCategory(groupId: string, name: string): Promise<GroupCategory> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, {
     method: 'POST',
     credentials: 'include',
@@ -1174,15 +1125,12 @@ export async function updateGroupCategory(
   categoryId: string,
   data: { name?: string; sortOrder?: number; archived?: boolean },
 ): Promise<GroupCategory> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}`,
-    {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    },
-  )
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
   if (!res.ok) throw await apiError(res, 'Failed to update category')
   return res.json()
 }
@@ -1238,9 +1186,7 @@ export type GroupInvite = {
   inviterName?: string
 }
 
-export async function fetchGroupInvites(
-  groupId: string,
-): Promise<GroupInvite[]> {
+export async function fetchGroupInvites(groupId: string): Promise<GroupInvite[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, {
     credentials: 'include',
   })
@@ -1248,10 +1194,7 @@ export async function fetchGroupInvites(
   return res.json()
 }
 
-export async function sendInvite(
-  groupId: string,
-  email: string,
-): Promise<GroupInvite> {
+export async function sendInvite(groupId: string, email: string): Promise<GroupInvite> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, {
     method: 'POST',
     credentials: 'include',
@@ -1264,17 +1207,11 @@ export async function sendInvite(
   return res.json()
 }
 
-export async function cancelInvite(
-  groupId: string,
-  inviteId: string,
-): Promise<void> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/invites/${inviteId}`,
-    {
-      method: 'DELETE',
-      credentials: 'include',
-    },
-  )
+export async function cancelInvite(groupId: string, inviteId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites/${inviteId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
   if (!res.ok) throw await apiError(res, 'Failed to cancel invite')
 }
 
@@ -1389,32 +1326,23 @@ export async function updateExpense(
     categoryId?: string | null
   },
 ): Promise<GroupExpense> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`,
-    {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  )
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!res.ok) {
     throw await apiError(res, 'Failed to update expense')
   }
   return res.json()
 }
 
-export async function deleteExpense(
-  groupId: string,
-  expenseId: string,
-): Promise<void> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`,
-    {
-      method: 'DELETE',
-      credentials: 'include',
-    },
-  )
+export async function deleteExpense(groupId: string, expenseId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
   if (!res.ok) throw await apiError(res, 'Failed to delete expense')
 }
 
@@ -1441,9 +1369,7 @@ export type CurrencyBalance = {
   transfers: BalanceTransfer[]
 }
 
-export async function fetchBalances(
-  groupId: string,
-): Promise<CurrencyBalance[]> {
+export async function fetchBalances(groupId: string): Promise<CurrencyBalance[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/balances`, {
     credentials: 'include',
   })
@@ -1462,9 +1388,7 @@ export type GroupOverview = {
   balances: CurrencyBalance[]
 }
 
-export async function fetchGroupOverview(
-  groupId: string,
-): Promise<GroupOverview> {
+export async function fetchGroupOverview(groupId: string): Promise<GroupOverview> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/overview`, {
     credentials: 'include',
   })
@@ -1496,13 +1420,10 @@ export type GroupSettlement = {
   deletedAt: string | null
 }
 
-export async function fetchSettlements(
-  groupId: string,
-): Promise<GroupSettlement[]> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/settlements`,
-    { credentials: 'include' },
-  )
+export async function fetchSettlements(groupId: string): Promise<GroupSettlement[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw await apiError(res, 'Failed to fetch settlements')
   return res.json()
 }
@@ -1519,15 +1440,12 @@ export async function createSettlement(
     payerAccountId: string
   },
 ): Promise<GroupSettlement> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/settlements`,
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  )
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!res.ok) {
     throw await apiError(res, 'Failed to create settlement')
   }
@@ -1554,17 +1472,11 @@ export async function confirmSettlement(
   return res.json()
 }
 
-export async function deleteSettlement(
-  groupId: string,
-  settlementId: string,
-): Promise<void> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}`,
-    {
-      method: 'DELETE',
-      credentials: 'include',
-    },
-  )
+export async function deleteSettlement(groupId: string, settlementId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
   if (!res.ok) throw await apiError(res, 'Failed to delete settlement')
 }
 
@@ -1588,15 +1500,12 @@ export async function createSettlementBatch(
     lines: BatchSettlementLine[]
   },
 ): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/settlements/batch`,
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  )
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/batch`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!res.ok) {
     throw await apiError(res, 'Failed to create settlement')
   }
@@ -1726,10 +1635,7 @@ export type MonthCoveragePayload = {
  * nothing about a hole behind it, and a month in that hole is unrecorded however recent the
  * edge is. `from` and `to` are inclusive `YYYY-MM`.
  */
-export async function fetchMonthCoverage(
-  from: string,
-  to: string,
-): Promise<MonthCoveragePayload> {
+export async function fetchMonthCoverage(from: string, to: string): Promise<MonthCoveragePayload> {
   const res = await fetch(
     `${BASE}/api/coverage/months?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
     { credentials: 'include' },
@@ -1774,10 +1680,9 @@ export async function fetchAccountCoverage(
   days?: number,
 ): Promise<AccountCoverage> {
   const query = days ? `?days=${days}` : ''
-  const res = await fetch(
-    `${BASE}/api/accounts/${accountId}/coverage${query}`,
-    { credentials: 'include' },
-  )
+  const res = await fetch(`${BASE}/api/accounts/${accountId}/coverage${query}`, {
+    credentials: 'include',
+  })
   if (!res.ok) throw await apiError(res, 'Failed to load coverage')
   return res.json()
 }

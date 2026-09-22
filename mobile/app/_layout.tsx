@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
 import { useFonts } from 'expo-font'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { useEffect, useState } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { isAuthenticated } from '@/lib/auth'
 import { flushOfflineQueue } from '@/lib/api'
-import { loadHapticsEnabled } from '@/lib/haptics'
+import { isAuthenticated } from '@/lib/auth'
 import { fontAssets } from '@/lib/fonts'
+import { loadHapticsEnabled } from '@/lib/haptics'
 
 /**
  * Root layout — guards the entire app behind authentication.

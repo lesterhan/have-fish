@@ -123,7 +123,10 @@ describe('accountRows', () => {
       category({ id: 'c1', name: 'Food', myMapping: { accountId: 'a1' } }),
       category({ id: 'c2', name: 'Travel', sortOrder: 1, myMapping: { accountId: 'a2' } }),
     ]
-    const accts = [account({ id: 'a1', path: 'expenses:food' }), account({ id: 'a2', path: 'expenses:travel' })]
+    const accts = [
+      account({ id: 'a1', path: 'expenses:food' }),
+      account({ id: 'a2', path: 'expenses:travel' }),
+    ]
     expect(accountRows(cats, accts)).toEqual([
       { categoryId: 'c1', name: 'Food', accountPath: 'expenses:food' },
       { categoryId: 'c2', name: 'Travel', accountPath: 'expenses:travel' },
@@ -136,7 +139,10 @@ describe('accountRows', () => {
   })
 
   it('degrades to null when the mapped account is missing', () => {
-    const rows = accountRows([category({ myMapping: { accountId: 'gone' } })], [account({ id: 'a1' })])
+    const rows = accountRows(
+      [category({ myMapping: { accountId: 'gone' } })],
+      [account({ id: 'a1' })],
+    )
     expect(rows[0].accountPath).toBeNull()
   })
 })
@@ -145,7 +151,12 @@ describe('categoryHasOverride / inheritsBaseline', () => {
   const members = [member({ userId: 'u1' }), member({ userId: 'u2' })]
 
   it('is an override only when every member is covered', () => {
-    const full = category({ weights: [{ userId: 'u1', weight: 2 }, { userId: 'u2', weight: 1 }] })
+    const full = category({
+      weights: [
+        { userId: 'u1', weight: 2 },
+        { userId: 'u2', weight: 1 },
+      ],
+    })
     expect(categoryHasOverride(full, members)).toBe(true)
     expect(inheritsBaseline(full, members)).toBe(false)
   })
@@ -168,7 +179,12 @@ describe('categoryWeightRows', () => {
   ]
 
   it('uses the override weights when complete', () => {
-    const cat = category({ weights: [{ userId: 'u1', weight: 3 }, { userId: 'u2', weight: 1 }] })
+    const cat = category({
+      weights: [
+        { userId: 'u1', weight: 3 },
+        { userId: 'u2', weight: 1 },
+      ],
+    })
     expect(categoryWeightRows(cat, members)).toEqual([
       { userId: 'u1', name: 'Ada', weight: 3, percent: 75 },
       { userId: 'u2', name: 'Bo', weight: 1, percent: 25 },
@@ -195,7 +211,12 @@ describe('baselineVector / categoryVector', () => {
   })
 
   it('categoryVector uses the override when complete', () => {
-    const cat = category({ weights: [{ userId: 'u1', weight: 7 }, { userId: 'u2', weight: 3 }] })
+    const cat = category({
+      weights: [
+        { userId: 'u1', weight: 7 },
+        { userId: 'u2', weight: 3 },
+      ],
+    })
     expect(categoryVector(cat, members)).toEqual([
       { userId: 'u1', weight: 7 },
       { userId: 'u2', weight: 3 },
@@ -212,13 +233,19 @@ describe('baselineVector / categoryVector', () => {
 
 describe('weightsToPct', () => {
   it('returns the first member percentage', () => {
-    const weights = [{ userId: 'u1', weight: 60 }, { userId: 'u2', weight: 40 }]
+    const weights = [
+      { userId: 'u1', weight: 60 },
+      { userId: 'u2', weight: 40 },
+    ]
     expect(weightsToPct(weights, 'u1', 'u2')).toBe(60)
     expect(weightsToPct(weights, 'u2', 'u1')).toBe(40)
   })
 
   it('rounds to a whole percent', () => {
-    const weights = [{ userId: 'u1', weight: 1 }, { userId: 'u2', weight: 2 }]
+    const weights = [
+      { userId: 'u1', weight: 1 },
+      { userId: 'u2', weight: 2 },
+    ]
     expect(weightsToPct(weights, 'u1', 'u2')).toBe(33)
   })
 

@@ -1,7 +1,7 @@
 import type { Posting, StoredAccountType, Transaction } from '$lib/api'
 import { toCents } from '../../money'
 import { accountIndex } from '../accounts/accountIndex'
-import { amountTone, OWN_MONEY, type AmountTone } from './amountTone'
+import { type AmountTone, amountTone, OWN_MONEY } from './amountTone'
 
 /**
  * The two things a ledger has to decide about a row, in one place.

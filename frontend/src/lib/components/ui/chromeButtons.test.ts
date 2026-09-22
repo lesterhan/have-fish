@@ -16,7 +16,7 @@
  * forward it.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { fileURLToPath } from 'node:url'

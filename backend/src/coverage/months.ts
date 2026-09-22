@@ -10,7 +10,7 @@
 // transactions in the month *because* it was never imported, so classifying against the
 // accounts that appear would read every neglected month as complete.
 
-import { daysBetween, type CoverageInterval } from './intervals'
+import { type CoverageInterval, daysBetween } from './intervals'
 
 export type MonthCoverageState =
   // Every contributor covers the whole month.

@@ -1,23 +1,27 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createAccount, fetchCashBalances, updateAccountType, type AccountBalance } from './api'
+import { type AccountBalance, createAccount, fetchCashBalances, updateAccountType } from './api'
 import {
   LAST_WALLET_KEY,
   resolveActiveWalletId,
   takenCurrencies,
-  walletViews,
   type WalletView,
+  walletViews,
 } from './cash-accounts'
-import { walletCreateFailure, walletCreateRequest, type WalletCreateStep } from './cash-wallet-create'
+import {
+  type WalletCreateStep,
+  walletCreateFailure,
+  walletCreateRequest,
+} from './cash-wallet-create'
 
 interface WalletContextValue {
   /** Every cash wallet with its balance, in stable display order. */
@@ -148,7 +152,17 @@ export function WalletProvider({ children }: { children: ReactNode }) {
       reload: load,
       createWallet,
     }),
-    [wallets, activeWallet, activeWalletId, taken, loading, error, setActiveWallet, load, createWallet],
+    [
+      wallets,
+      activeWallet,
+      activeWalletId,
+      taken,
+      loading,
+      error,
+      setActiveWallet,
+      load,
+      createWallet,
+    ],
   )
 
   return <WalletContext.Provider value={value}>{children}</WalletContext.Provider>

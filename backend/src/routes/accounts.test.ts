@@ -1,9 +1,13 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
-import { db } from '../db'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { and, eq } from 'drizzle-orm'
-import { accounts as accountsTable, postings as postingsTable, transactions as transactionsTable } from '../db/schema.ts'
+import { app } from '../app'
+import { db } from '../db'
+import {
+  accounts as accountsTable,
+  postings as postingsTable,
+  transactions as transactionsTable,
+} from '../db/schema.ts'
+import { clearDatabase, createTestUser } from '../test-utils'
 
 type Account = typeof accountsTable.$inferSelect
 
@@ -20,9 +24,9 @@ describe('accounts', () => {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(200)
-    const allAccounts = await res.json() as Account[]
-    expect(allAccounts.map(a => a.path)).toEqual(
-      expect.arrayContaining(['expenses:uncategorized', 'equity:conversions'])
+    const allAccounts = (await res.json()) as Account[]
+    expect(allAccounts.map((a) => a.path)).toEqual(
+      expect.arrayContaining(['expenses:uncategorized', 'equity:conversions']),
     )
   })
 
@@ -34,16 +38,14 @@ describe('accounts', () => {
     })
     expect(res.status).toBe(201)
 
-    const created = await res.json() as Account
+    const created = (await res.json()) as Account
     expect(created.path).toBe('assets:chequing')
     expect(created.userId).toBeDefined()
 
     const getRes = await app.request('/api/accounts', {
       headers: { Cookie: cookie },
     })
-    expect(await getRes.json()).toEqual(expect.arrayContaining([
-      expect.objectContaining(created)
-    ]))
+    expect(await getRes.json()).toEqual(expect.arrayContaining([expect.objectContaining(created)]))
   })
 
   describe('GET /api/accounts/balances', () => {
@@ -54,7 +56,7 @@ describe('accounts', () => {
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
       })
-      return (await res.json() as Account).id
+      return ((await res.json()) as Account).id
     }
 
     // Helper: set (or clear, with null) an account's stored hledger type override
@@ -68,7 +70,9 @@ describe('accounts', () => {
     }
 
     // Helper: create a transaction with the given postings
-    async function createTransaction(postingInputs: { accountId: string; amount: string; currency: string }[]) {
+    async function createTransaction(
+      postingInputs: { accountId: string; amount: string; currency: string }[],
+    ) {
       return app.request('/api/transactions', {
         method: 'POST',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
@@ -87,14 +91,17 @@ describe('accounts', () => {
 
       const res = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
       expect(res.status).toBe(200)
-      const body = await res.json() as { path: string; balances: { currency: string; amount: string }[] }[]
+      const body = (await res.json()) as {
+        path: string
+        balances: { currency: string; amount: string }[]
+      }[]
 
       // Only the assets account should appear — expenses:food is excluded
-      const paths = body.map(b => b.path)
+      const paths = body.map((b) => b.path)
       expect(paths).toContain('assets:chequing')
       expect(paths).not.toContain('expenses:food')
 
-      const chequing = body.find(b => b.path === 'assets:chequing')!
+      const chequing = body.find((b) => b.path === 'assets:chequing')!
       expect(chequing.balances).toEqual([{ currency: 'CAD', amount: '1000.00' }])
     })
 
@@ -102,9 +109,9 @@ describe('accounts', () => {
       await createAccount('assets:savings')
 
       const res = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
-      const body = await res.json() as { path: string; balances: unknown[] }[]
+      const body = (await res.json()) as { path: string; balances: unknown[] }[]
 
-      const savings = body.find(b => b.path === 'assets:savings')
+      const savings = body.find((b) => b.path === 'assets:savings')
       expect(savings).toBeDefined()
       expect(savings!.balances).toEqual([])
     })
@@ -124,28 +131,37 @@ describe('accounts', () => {
       ])
 
       const res = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
-      const body = await res.json() as { path: string; balances: { currency: string; amount: string }[] }[]
+      const body = (await res.json()) as {
+        path: string
+        balances: { currency: string; amount: string }[]
+      }[]
 
-      const wise = body.find(b => b.path === 'assets:wise:cad')!
+      const wise = body.find((b) => b.path === 'assets:wise:cad')!
       expect(wise.balances).toHaveLength(2)
-      expect(wise.balances).toEqual(expect.arrayContaining([
-        { currency: 'CAD', amount: '500.00' },
-        { currency: 'GBP', amount: '200.00' },
-      ]))
+      expect(wise.balances).toEqual(
+        expect.arrayContaining([
+          { currency: 'CAD', amount: '500.00' },
+          { currency: 'GBP', amount: '200.00' },
+        ]),
+      )
     })
 
-    it('reports each account\'s resolved type', async () => {
+    it("reports each account's resolved type", async () => {
       await createAccount('assets:chequing')
       await createAccount('liabilities:visa')
 
       const res = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
-      const body = await res.json() as { path: string; type: string | null; resolvedType: string | null }[]
+      const body = (await res.json()) as {
+        path: string
+        type: string | null
+        resolvedType: string | null
+      }[]
 
-      const chequing = body.find(b => b.path === 'assets:chequing')!
+      const chequing = body.find((b) => b.path === 'assets:chequing')!
       expect(chequing.resolvedType).toBe('asset')
       // Untagged, so the raw override is null and the type came from path inference.
       expect(chequing.type).toBeNull()
-      expect(body.find(b => b.path === 'liabilities:visa')!.resolvedType).toBe('liability')
+      expect(body.find((b) => b.path === 'liabilities:visa')!.resolvedType).toBe('liability')
     })
 
     it('reports the stored override as the resolved type, not the inferred one', async () => {
@@ -153,9 +169,13 @@ describe('accounts', () => {
       await setType(walletId, 'cash')
 
       const res = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
-      const body = await res.json() as { path: string; type: string | null; resolvedType: string | null }[]
+      const body = (await res.json()) as {
+        path: string
+        type: string | null
+        resolvedType: string | null
+      }[]
 
-      const wallet = body.find(b => b.path === 'assets:cash:cad')!
+      const wallet = body.find((b) => b.path === 'assets:cash:cad')!
       // `resolvedType` is stored-wins; inference alone would have said 'asset'. Both fields
       // mean the same thing they do on GET /api/accounts.
       expect(wallet.resolvedType).toBe('cash')
@@ -191,9 +211,7 @@ describe('accounts', () => {
         ])
 
         const { body } = await balances('?include=unfiled')
-        const row = (body as { id: string; balances: unknown[] }[]).find(
-          (a) => a.id === stray,
-        )
+        const row = (body as { id: string; balances: unknown[] }[]).find((a) => a.id === stray)
         // The balance is the point: showing the row without its money would be its own lie.
         expect(row?.balances).toEqual([{ currency: 'CNY', amount: '-900.00' }])
       })
@@ -236,7 +254,7 @@ describe('accounts', () => {
         expect((await balances('?include=unfiled&types=asset')).status).toBe(400)
       })
 
-      it('never returns another user\'s unfiled account', async () => {
+      it("never returns another user's unfiled account", async () => {
         const other = await createTestUser('unfiled-other@example.com')
         await app.request('/api/accounts', {
           method: 'POST',
@@ -254,11 +272,13 @@ describe('accounts', () => {
         await createAccount('assets:chequing')
         await createAccount('liabilities:visa')
 
-        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        const res = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
         expect(res.status).toBe(200)
-        const body = await res.json() as { path: string }[]
+        const body = (await res.json()) as { path: string }[]
 
-        expect(body.map(b => b.path)).toEqual(['assets:cash:cad'])
+        expect(body.map((b) => b.path)).toEqual(['assets:cash:cad'])
       })
 
       it('includes a tagged account whose path sits outside every configured root', async () => {
@@ -268,12 +288,18 @@ describe('accounts', () => {
         const walletId = await createAccount('储蓄:现金')
         await setType(walletId, 'cash')
 
-        const unfiltered = await app.request('/api/accounts/balances', { headers: { Cookie: cookie } })
-        expect((await unfiltered.json() as { path: string }[]).map(b => b.path)).not.toContain('储蓄:现金')
+        const unfiltered = await app.request('/api/accounts/balances', {
+          headers: { Cookie: cookie },
+        })
+        expect(((await unfiltered.json()) as { path: string }[]).map((b) => b.path)).not.toContain(
+          '储蓄:现金',
+        )
 
-        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
-        const body = await res.json() as { path: string; resolvedType: string }[]
-        expect(body.map(b => b.path)).toEqual(['储蓄:现金'])
+        const res = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
+        const body = (await res.json()) as { path: string; resolvedType: string }[]
+        expect(body.map((b) => b.path)).toEqual(['储蓄:现金'])
         expect(body[0].resolvedType).toBe('cash')
       })
 
@@ -282,7 +308,9 @@ describe('accounts', () => {
         // `assets:cash:*` account is an ordinary asset and must not match.
         await createAccount('assets:cash:cad')
 
-        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        const res = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
         expect(await res.json()).toEqual([])
       })
 
@@ -291,7 +319,9 @@ describe('accounts', () => {
         await setType(walletId, 'cash')
         await setType(walletId, null)
 
-        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        const res = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
         expect(await res.json()).toEqual([])
       })
 
@@ -309,8 +339,13 @@ describe('accounts', () => {
           { accountId: expenseId, amount: '40.00', currency: 'CAD' },
         ])
 
-        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
-        const body = await res.json() as { path: string; balances: { currency: string; amount: string }[] }[]
+        const res = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
+        const body = (await res.json()) as {
+          path: string
+          balances: { currency: string; amount: string }[]
+        }[]
         expect(body[0].balances).toEqual([{ currency: 'CAD', amount: '260.00' }])
       })
 
@@ -318,8 +353,10 @@ describe('accounts', () => {
         const walletId = await createAccount('assets:cash:jpy')
         await setType(walletId, 'cash')
 
-        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
-        const body = await res.json() as { path: string; balances: unknown[] }[]
+        const res = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
+        const body = (await res.json()) as { path: string; balances: unknown[] }[]
         expect(body).toHaveLength(1)
         expect(body[0].balances).toEqual([])
       })
@@ -330,20 +367,29 @@ describe('accounts', () => {
         await createAccount('assets:chequing')
         await createAccount('expenses:food')
 
-        const res = await app.request('/api/accounts/balances?types=cash,asset', { headers: { Cookie: cookie } })
-        const body = await res.json() as { path: string }[]
+        const res = await app.request('/api/accounts/balances?types=cash,asset', {
+          headers: { Cookie: cookie },
+        })
+        const body = (await res.json()) as { path: string }[]
 
-        expect(body.map(b => b.path).sort()).toEqual(['assets:cash:cad', 'assets:chequing'])
+        expect(body.map((b) => b.path).sort()).toEqual(['assets:cash:cad', 'assets:chequing'])
       })
 
       it('rejects an unknown type', async () => {
-        const res = await app.request('/api/accounts/balances?types=wallet', { headers: { Cookie: cookie } })
+        const res = await app.request('/api/accounts/balances?types=wallet', {
+          headers: { Cookie: cookie },
+        })
         expect(res.status).toBe(400)
-        expect(await res.json()).toEqual({ error: 'ACCOUNT_TYPE_INVALID', detail: { type: 'wallet' } })
+        expect(await res.json()).toEqual({
+          error: 'ACCOUNT_TYPE_INVALID',
+          detail: { type: 'wallet' },
+        })
       })
 
       it('rejects an empty types parameter rather than returning everything', async () => {
-        const res = await app.request('/api/accounts/balances?types=', { headers: { Cookie: cookie } })
+        const res = await app.request('/api/accounts/balances?types=', {
+          headers: { Cookie: cookie },
+        })
         expect(res.status).toBe(400)
       })
 
@@ -351,18 +397,22 @@ describe('accounts', () => {
         await createAccount('assets:chequing')
         await createAccount('expenses:food')
 
-        const res = await app.request('/api/accounts/balances?types=expense', { headers: { Cookie: cookie } })
-        const body = await res.json() as { path: string; resolvedType: string }[]
+        const res = await app.request('/api/accounts/balances?types=expense', {
+          headers: { Cookie: cookie },
+        })
+        const body = (await res.json()) as { path: string; resolvedType: string }[]
 
-        expect(body.map(b => b.path)).toContain('expenses:food')
-        expect(body.map(b => b.path)).not.toContain('assets:chequing')
+        expect(body.map((b) => b.path)).toContain('expenses:food')
+        expect(body.map((b) => b.path)).not.toContain('assets:chequing')
       })
 
       it('matches an account sitting at a root itself, not just under it', async () => {
         await createAccount('assets')
 
-        const res = await app.request('/api/accounts/balances?types=asset', { headers: { Cookie: cookie } })
-        expect((await res.json() as { path: string }[]).map(b => b.path)).toContain('assets')
+        const res = await app.request('/api/accounts/balances?types=asset', {
+          headers: { Cookie: cookie },
+        })
+        expect(((await res.json()) as { path: string }[]).map((b) => b.path)).toContain('assets')
       })
 
       it('falls back to inference for an account whose stored type is not a valid one', async () => {
@@ -372,10 +422,12 @@ describe('accounts', () => {
         const id = await createAccount('assets:chequing')
         await db.update(accountsTable).set({ type: 'not-a-type' }).where(eq(accountsTable.id, id))
 
-        const res = await app.request('/api/accounts/balances?types=asset', { headers: { Cookie: cookie } })
-        const body = await res.json() as { path: string; resolvedType: string }[]
+        const res = await app.request('/api/accounts/balances?types=asset', {
+          headers: { Cookie: cookie },
+        })
+        const body = (await res.json()) as { path: string; resolvedType: string }[]
 
-        const chequing = body.find(b => b.path === 'assets:chequing')
+        const chequing = body.find((b) => b.path === 'assets:chequing')
         expect(chequing).toBeDefined()
         expect(chequing!.resolvedType).toBe('asset')
       })
@@ -395,16 +447,20 @@ describe('accounts', () => {
           }),
         })
         expect(createRes.status).toBe(201)
-        const created = await createRes.json() as Account
+        const created = (await createRes.json()) as Account
 
         // Before the tag, the wallet is not a wallet.
-        const before = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
+        const before = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
         expect(await before.json()).toEqual([])
 
         await setType(created.id, 'cash')
 
-        const after = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
-        const body = await after.json() as {
+        const after = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
+        const body = (await after.json()) as {
           id: string
           path: string
           name: string | null
@@ -434,11 +490,13 @@ describe('accounts', () => {
         await setType(walletId, 'cash')
         await setType(walletId, 'cash')
 
-        const res = await app.request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
-        expect((await res.json() as unknown[]).length).toBe(1)
+        const res = await app.request('/api/accounts/balances?types=cash', {
+          headers: { Cookie: cookie },
+        })
+        expect(((await res.json()) as unknown[]).length).toBe(1)
       })
 
-      it('never returns another user\'s cash accounts', async () => {
+      it("never returns another user's cash accounts", async () => {
         const walletId = await createAccount('assets:cash:cad')
         await setType(walletId, 'cash')
 
@@ -458,10 +516,13 @@ describe('accounts', () => {
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
       })
-      return (await res.json() as { id: string }).id
+      return ((await res.json()) as { id: string }).id
     }
 
-    async function createTransaction(date: string, postingInputs: { accountId: string; amount: string; currency: string }[]) {
+    async function createTransaction(
+      date: string,
+      postingInputs: { accountId: string; amount: string; currency: string }[],
+    ) {
       return app.request('/api/transactions', {
         method: 'POST',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
@@ -486,7 +547,11 @@ describe('accounts', () => {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(200)
-      const body = await res.json() as { accountId: string; date: string; balances: { currency: string; amount: string }[] }
+      const body = (await res.json()) as {
+        accountId: string
+        date: string
+        balances: { currency: string; amount: string }[]
+      }
       expect(body.balances).toEqual([{ currency: 'CAD', amount: '1000.00' }])
     })
   })
@@ -498,7 +563,7 @@ describe('accounts', () => {
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
       })
-      return (await res.json() as { id: string }).id
+      return ((await res.json()) as { id: string }).id
     }
 
     async function createTransaction(
@@ -510,7 +575,7 @@ describe('accounts', () => {
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ date, postings }),
       })
-      return (await res.json() as { id: string }).id
+      return ((await res.json()) as { id: string }).id
     }
 
     async function setSettings(body: Record<string, string | null>) {
@@ -543,7 +608,7 @@ describe('accounts', () => {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(200)
-      const body = await res.json() as { count: number; transactionIds: string[] }
+      const body = (await res.json()) as { count: number; transactionIds: string[] }
       expect(body.count).toBe(1)
       expect(body.transactionIds).toContain(flaggedId)
     })
@@ -562,7 +627,7 @@ describe('accounts', () => {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(200)
-      const body = await res.json() as { accountId: string; count: number }[]
+      const body = (await res.json()) as { accountId: string; count: number }[]
 
       const assetEntry = body.find((e) => e.accountId === assetId)
       expect(assetEntry).toBeDefined()
@@ -580,7 +645,7 @@ describe('accounts', () => {
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: 'assets:chequing' }),
     })
-    const created = await createRes.json() as Account
+    const created = (await createRes.json()) as Account
 
     const patchRes = await app.request(`/api/accounts/${created.id}`, {
       method: 'PATCH',
@@ -588,14 +653,14 @@ describe('accounts', () => {
       body: JSON.stringify({ defaultCurrency: 'USD' }),
     })
     expect(patchRes.status).toBe(200)
-    const patched = await patchRes.json() as Account
+    const patched = (await patchRes.json()) as Account
     expect(patched.defaultCurrency).toBe('USD')
 
     const getRes = await app.request(`/api/accounts/${created.id}`, {
       headers: { Cookie: cookie },
     })
     expect(getRes.status).toBe(200)
-    const fetched = await getRes.json() as Account
+    const fetched = (await getRes.json()) as Account
     expect(fetched.defaultCurrency).toBe('USD')
   })
 
@@ -633,7 +698,7 @@ describe('accounts', () => {
       const res = await create({ path: 'assets:chequing', id: chosen })
 
       expect(res.status).toBe(201)
-      expect((await res.json() as Account).id).not.toBe(chosen)
+      expect(((await res.json()) as Account).id).not.toBe(chosen)
     })
 
     it('ignores a deletedAt, which would have created an invisible account', async () => {
@@ -645,7 +710,7 @@ describe('accounts', () => {
 
       // Born deleted, it would never have appeared in a listing again.
       const list = await app.request('/api/accounts', { headers: { Cookie: cookie } })
-      expect((await list.json() as Account[]).map((a) => a.path)).toContain('assets:chequing')
+      expect(((await list.json()) as Account[]).map((a) => a.path)).toContain('assets:chequing')
     })
 
     it('ignores a backdated createdAt', async () => {
@@ -656,7 +721,7 @@ describe('accounts', () => {
         createdAt: new Date('1999-01-01').toISOString(),
       })
 
-      const created = await res.json() as Account
+      const created = (await res.json()) as Account
       expect(new Date(created.createdAt!).getTime()).toBeGreaterThanOrEqual(before - 1000)
     })
 
@@ -671,7 +736,9 @@ describe('accounts', () => {
       // Their listing is not empty — sign-up seeds default accounts — so the assertion is
       // that the account landed on the caller, not on the id they named.
       const theirs = await app.request('/api/accounts', { headers: { Cookie: otherCookie } })
-      expect((await theirs.json() as Account[]).map((a) => a.path)).not.toContain('assets:chequing')
+      expect(((await theirs.json()) as Account[]).map((a) => a.path)).not.toContain(
+        'assets:chequing',
+      )
     })
 
     it('rejects a missing or malformed path instead of failing at the column', async () => {
@@ -686,14 +753,17 @@ describe('accounts', () => {
       const res = await create({ path: 'assets:chequing', type: 'wallet' })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'ACCOUNT_TYPE_INVALID', detail: { type: 'wallet' } })
+      expect(await res.json()).toEqual({
+        error: 'ACCOUNT_TYPE_INVALID',
+        detail: { type: 'wallet' },
+      })
     })
 
     it('accepts a null type, which means infer from the path', async () => {
       const res = await create({ path: 'assets:chequing', type: null })
 
       expect(res.status).toBe(201)
-      expect((await res.json() as Account).type).toBeNull()
+      expect(((await res.json()) as Account).type).toBeNull()
     })
 
     // The rename route refuses to move an account into the receivable namespace because
@@ -718,7 +788,7 @@ describe('accounts', () => {
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: 'assets:chequing', defaultCurrency: 'USD' }),
       })
-      return await res.json() as Account
+      return (await res.json()) as Account
     }
 
     function patch(id: string, body: unknown) {
@@ -735,7 +805,7 @@ describe('accounts', () => {
       const res = await patch(account.id, { defaultCurrency: null })
 
       expect(res.status).toBe(200)
-      expect((await res.json() as Account).defaultCurrency).toBeNull()
+      expect(((await res.json()) as Account).defaultCurrency).toBeNull()
     })
 
     it('rejects a code outside the supported set rather than storing it', async () => {
@@ -744,11 +814,16 @@ describe('accounts', () => {
       const res = await patch(account.id, { defaultCurrency: 'BANANA' })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'UNSUPPORTED_CURRENCY', detail: { currency: 'BANANA' } })
+      expect(await res.json()).toEqual({
+        error: 'UNSUPPORTED_CURRENCY',
+        detail: { currency: 'BANANA' },
+      })
 
       // The stored value is untouched — a rejected write must not be a partial one.
-      const after = await app.request(`/api/accounts/${account.id}`, { headers: { Cookie: cookie } })
-      expect((await after.json() as Account).defaultCurrency).toBe('USD')
+      const after = await app.request(`/api/accounts/${account.id}`, {
+        headers: { Cookie: cookie },
+      })
+      expect(((await after.json()) as Account).defaultCurrency).toBe('USD')
     })
 
     it('rejects a non-string just as firmly', async () => {
@@ -764,7 +839,7 @@ describe('accounts', () => {
       const res = await patch(account.id, { defaultCurrency: 'eur' })
 
       expect(res.status).toBe(200)
-      expect((await res.json() as Account).defaultCurrency).toBe('EUR')
+      expect(((await res.json()) as Account).defaultCurrency).toBe('EUR')
     })
 
     it('is checked at creation too, not only on update', async () => {
@@ -775,7 +850,10 @@ describe('accounts', () => {
       })
 
       expect(res.status).toBe(400)
-      expect(await res.json()).toEqual({ error: 'UNSUPPORTED_CURRENCY', detail: { currency: 'BANANA' } })
+      expect(await res.json()).toEqual({
+        error: 'UNSUPPORTED_CURRENCY',
+        detail: { currency: 'BANANA' },
+      })
     })
 
     it('does not reject the other fields when currency is absent', async () => {
@@ -784,7 +862,7 @@ describe('accounts', () => {
       const res = await patch(account.id, { name: 'Chequing' })
 
       expect(res.status).toBe(200)
-      expect((await res.json() as Account).name).toBe('Chequing')
+      expect(((await res.json()) as Account).name).toBe('Chequing')
     })
   })
 
@@ -806,8 +884,8 @@ describe('accounts', () => {
       headers: { Cookie: cookie },
     })
 
-    const allAccounts = await getRes.json() as Account[]
-    expect(allAccounts.map(a => a.id)).not.toContain(created.id)
+    const allAccounts = (await getRes.json()) as Account[]
+    expect(allAccounts.map((a) => a.id)).not.toContain(created.id)
   })
 
   describe('POST /api/accounts/rename', () => {
@@ -838,14 +916,14 @@ describe('accounts', () => {
 
     async function pathOf(id: string): Promise<string> {
       const res = await app.request(`/api/accounts/${id}`, { headers: { Cookie: cookie } })
-      return (await res.json() as Account).path
+      return ((await res.json()) as Account).path
     }
 
     it('renames a leaf path and keeps the same id', async () => {
       const acct = await createAccount('expenses:food:cafe')
       const res = await rename('expenses:food:cafe', 'expenses:food:coffeeshop')
       expect(res.status).toBe(200)
-      const body = await res.json() as { renamed: number; accounts: Account[] }
+      const body = (await res.json()) as { renamed: number; accounts: Account[] }
       expect(body.renamed).toBe(1)
       expect(body.accounts[0].id).toBe(acct.id)
       expect(await pathOf(acct.id)).toBe('expenses:food:coffeeshop')
@@ -865,8 +943,12 @@ describe('accounts', () => {
         }),
       })
       await rename('expenses:food:cafe', 'expenses:food:coffeeshop')
-      const counts = await app.request('/api/accounts/posting-counts', { headers: { Cookie: cookie } })
-      const row = (await counts.json() as { accountId: string; count: number }[]).find(r => r.accountId === acct.id)
+      const counts = await app.request('/api/accounts/posting-counts', {
+        headers: { Cookie: cookie },
+      })
+      const row = ((await counts.json()) as { accountId: string; count: number }[]).find(
+        (r) => r.accountId === acct.id,
+      )
       expect(row?.count).toBe(2)
     })
 
@@ -875,7 +957,7 @@ describe('accounts', () => {
       const resto = await createAccount('expenses:food:resto')
       const res = await rename('expenses:food', 'expenses:dining')
       expect(res.status).toBe(200)
-      expect((await res.json() as { renamed: number }).renamed).toBe(2)
+      expect(((await res.json()) as { renamed: number }).renamed).toBe(2)
       expect(await pathOf(cafe.id)).toBe('expenses:dining:cafe')
       expect(await pathOf(resto.id)).toBe('expenses:dining:resto')
     })
@@ -939,19 +1021,21 @@ describe('accounts', () => {
       expect(res.status).toBe(404)
     })
 
-    it('does not rename another user\'s accounts', async () => {
+    it("does not rename another user's accounts", async () => {
       const other = await createTestUser('other@example.com')
       const otherAcctRes = await app.request('/api/accounts', {
         method: 'POST',
         headers: { Cookie: other, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: 'expenses:food:cafe' }),
       })
-      const otherAcct = await otherAcctRes.json() as Account
+      const otherAcct = (await otherAcctRes.json()) as Account
       // Current user has no such account → 404, and the other user's row is untouched.
       const res = await rename('expenses:food:cafe', 'expenses:food:coffeeshop')
       expect(res.status).toBe(404)
-      const check = await app.request(`/api/accounts/${otherAcct.id}`, { headers: { Cookie: other } })
-      expect((await check.json() as Account).path).toBe('expenses:food:cafe')
+      const check = await app.request(`/api/accounts/${otherAcct.id}`, {
+        headers: { Cookie: other },
+      })
+      expect(((await check.json()) as Account).path).toBe('expenses:food:cafe')
     })
   })
 
@@ -964,12 +1048,12 @@ describe('accounts', () => {
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      return (await res.json() as Account).id
+      return ((await res.json()) as Account).id
     }
 
     async function get(id: string) {
       const res = await app.request('/api/accounts', { headers: { Cookie: cookie } })
-      const all = await res.json() as AccountWithType[]
+      const all = (await res.json()) as AccountWithType[]
       return all.find((a) => a.id === id)!
     }
 
@@ -1015,7 +1099,7 @@ describe('accounts', () => {
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       })
-      return (await res.json() as Account).id
+      return ((await res.json()) as Account).id
     }
 
     async function patch(id: string, body: Record<string, unknown>) {
@@ -1033,7 +1117,7 @@ describe('accounts', () => {
     }
     async function getOne(id: string) {
       const res = await app.request(`/api/accounts/${id}`, { headers: { Cookie: cookie } })
-      return await res.json() as AccountDetail
+      return (await res.json()) as AccountDetail
     }
 
     it('GET /:id surfaces resolvedType and the pure inferredType', async () => {
@@ -1041,7 +1125,7 @@ describe('accounts', () => {
       const id = await create({ path: 'expenses:weird', type: 'asset' })
       const acct = await getOne(id)
       expect(acct.type).toBe('asset')
-      expect(acct.resolvedType).toBe('asset')   // stored override wins
+      expect(acct.resolvedType).toBe('asset') // stored override wins
       expect(acct.inferredType).toBe('expense') // what it would be without the override
     })
 
@@ -1083,14 +1167,14 @@ describe('accounts', () => {
       expect((await getOne(id)).type).toBeNull()
     })
 
-    it('PATCH does not touch another user\'s account', async () => {
+    it("PATCH does not touch another user's account", async () => {
       const other = await createTestUser('other2@example.com')
       const otherRes = await app.request('/api/accounts', {
         method: 'POST',
         headers: { Cookie: other, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path: 'assets:chequing' }),
       })
-      const otherId = (await otherRes.json() as Account).id
+      const otherId = ((await otherRes.json()) as Account).id
       const res = await patch(otherId, { type: 'liability' })
       expect(res.status).toBe(404)
     })
@@ -1105,7 +1189,7 @@ describe('accounts', () => {
         headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
       })
-      return (await res.json() as Account).id
+      return ((await res.json()) as Account).id
     }
 
     // Creates a balanced two-posting transaction on the given date and returns its id.
@@ -1119,21 +1203,23 @@ describe('accounts', () => {
         headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date,
-          postings: postingInputs.map(p => ({ currency: 'CAD', ...p })),
+          postings: postingInputs.map((p) => ({ currency: 'CAD', ...p })),
         }),
       })
       if (res.status !== 201) throw new Error(`createTransaction failed: ${res.status}`)
-      return (await res.json() as { id: string }).id
+      return ((await res.json()) as { id: string }).id
     }
 
     async function fetchCounts(useCookie = cookie) {
-      const res = await app.request('/api/accounts/posting-counts', { headers: { Cookie: useCookie } })
+      const res = await app.request('/api/accounts/posting-counts', {
+        headers: { Cookie: useCookie },
+      })
       expect(res.status).toBe(200)
-      return await res.json() as CountRow[]
+      return (await res.json()) as CountRow[]
     }
 
     async function rowFor(accountId: string, useCookie = cookie) {
-      return (await fetchCounts(useCookie)).find(r => r.accountId === accountId)
+      return (await fetchCounts(useCookie)).find((r) => r.accountId === accountId)
     }
 
     it('returns the posting count and the most recent transaction date together', async () => {
@@ -1186,12 +1272,17 @@ describe('accounts', () => {
         { accountId: chequing, amount: '-25.00' },
         { accountId: food, amount: '25.00' },
       ])
-      await db.update(postingsTable)
+      await db
+        .update(postingsTable)
         .set({ deletedAt: new Date() })
         .where(and(eq(postingsTable.transactionId, recent), eq(postingsTable.accountId, chequing)))
 
       // The chequing leg of the September transaction is gone; the food leg is not.
-      expect(await rowFor(chequing)).toEqual({ accountId: chequing, count: 1, lastActivity: '2024-01-15' })
+      expect(await rowFor(chequing)).toEqual({
+        accountId: chequing,
+        count: 1,
+        lastActivity: '2024-01-15',
+      })
       expect((await rowFor(food))?.count).toBe(2)
     })
 
@@ -1206,38 +1297,54 @@ describe('accounts', () => {
         { accountId: chequing, amount: '-25.00' },
         { accountId: food, amount: '25.00' },
       ])
-      await db.update(transactionsTable)
+      await db
+        .update(transactionsTable)
         .set({ deletedAt: new Date() })
         .where(eq(transactionsTable.id, recent))
 
-      expect(await rowFor(chequing)).toEqual({ accountId: chequing, count: 1, lastActivity: '2024-01-15' })
+      expect(await rowFor(chequing)).toEqual({
+        accountId: chequing,
+        count: 1,
+        lastActivity: '2024-01-15',
+      })
     })
 
     it('omits soft-deleted accounts entirely', async () => {
       const closed = await createAccount('assets:closed')
-      await db.update(accountsTable).set({ deletedAt: new Date() }).where(eq(accountsTable.id, closed))
+      await db
+        .update(accountsTable)
+        .set({ deletedAt: new Date() })
+        .where(eq(accountsTable.id, closed))
       expect(await rowFor(closed)).toBeUndefined()
     })
 
-    it('never counts another user\'s postings', async () => {
+    it("never counts another user's postings", async () => {
       const other = await createTestUser('counts-other@example.com')
       const mine = await createAccount('assets:chequing')
       const theirs = await createAccount('assets:chequing', other)
       const theirFood = await createAccount('expenses:food', other)
-      await createTransaction('2024-05-05', [
-        { accountId: theirs, amount: '-10.00' },
-        { accountId: theirFood, amount: '10.00' },
-      ], other)
+      await createTransaction(
+        '2024-05-05',
+        [
+          { accountId: theirs, amount: '-10.00' },
+          { accountId: theirFood, amount: '10.00' },
+        ],
+        other,
+      )
 
       // My listing sees neither their account nor their activity.
       const mineRows = await fetchCounts()
-      expect(mineRows.find(r => r.accountId === theirs)).toBeUndefined()
-      expect(mineRows.find(r => r.accountId === mine)).toEqual({
-        accountId: mine, count: 0, lastActivity: null,
+      expect(mineRows.find((r) => r.accountId === theirs)).toBeUndefined()
+      expect(mineRows.find((r) => r.accountId === mine)).toEqual({
+        accountId: mine,
+        count: 0,
+        lastActivity: null,
       })
       // Theirs is intact from their side.
       expect(await rowFor(theirs, other)).toEqual({
-        accountId: theirs, count: 1, lastActivity: '2024-05-05',
+        accountId: theirs,
+        count: 1,
+        lastActivity: '2024-05-05',
       })
     })
   })
@@ -1248,7 +1355,7 @@ describe('accounts', () => {
         headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ path }),
       })
-      return (await res.json() as Account).id
+      return ((await res.json()) as Account).id
     }
 
     async function createTransaction(
@@ -1260,11 +1367,11 @@ describe('accounts', () => {
         headers: { Cookie: useCookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({
           date: '2024-03-03',
-          postings: postingInputs.map(p => ({ currency: 'CAD', ...p })),
+          postings: postingInputs.map((p) => ({ currency: 'CAD', ...p })),
         }),
       })
       if (res.status !== 201) throw new Error(`createTransaction failed: ${res.status}`)
-      return (await res.json() as { id: string }).id
+      return ((await res.json()) as { id: string }).id
     }
 
     async function del(id: string, useCookie = cookie) {
@@ -1276,7 +1383,7 @@ describe('accounts', () => {
 
     async function pathsFor(useCookie = cookie) {
       const res = await app.request('/api/accounts', { headers: { Cookie: useCookie } })
-      return (await res.json() as Account[]).map(a => a.path)
+      return ((await res.json()) as Account[]).map((a) => a.path)
     }
 
     it('deletes an account nothing depends on', async () => {
@@ -1332,7 +1439,10 @@ describe('accounts', () => {
 
       const res = await del(offset)
       expect(res.status).toBe(409)
-      expect(await res.json()).toEqual({ error: 'ACCOUNT_IS_A_DEFAULT', detail: { roles: ['offset'] } })
+      expect(await res.json()).toEqual({
+        error: 'ACCOUNT_IS_A_DEFAULT',
+        detail: { roles: ['offset'] },
+      })
 
       // Re-pointing the setting releases it.
       await app.request('/api/user-settings', {
@@ -1358,10 +1468,10 @@ describe('accounts', () => {
 
       const res = await del(row!.id)
       expect(res.status).toBe(409)
-      expect((await res.json() as { error: string }).error).toBe('RECEIVABLE_NOT_DELETABLE')
+      expect(((await res.json()) as { error: string }).error).toBe('RECEIVABLE_NOT_DELETABLE')
     })
 
-    it('404s on another user\'s account rather than reporting success', async () => {
+    it("404s on another user's account rather than reporting success", async () => {
       const other = await createTestUser('other-delete@example.com')
       const theirs = await createAccount('assets:theirs', other)
 

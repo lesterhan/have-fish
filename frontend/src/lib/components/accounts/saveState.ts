@@ -76,8 +76,7 @@ export class SaveTracker {
     this.#emit = options.onchange
     this.#setTimer = options.setTimer ?? ((fn, ms) => setTimeout(fn, ms))
     this.#clearTimer =
-      options.clearTimer ??
-      ((h) => clearTimeout(h as ReturnType<typeof setTimeout>))
+      options.clearTimer ?? ((h) => clearTimeout(h as ReturnType<typeof setTimeout>))
     this.#lingerMs = options.lingerMs ?? SAVED_LINGER_MS
   }
 

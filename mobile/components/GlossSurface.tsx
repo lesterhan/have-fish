@@ -1,7 +1,7 @@
 import { type ReactNode } from 'react'
-import { View, type StyleProp, type ViewStyle } from 'react-native'
-import { theme } from '@/lib/theme'
+import { type StyleProp, View, type ViewStyle } from 'react-native'
 import { darken } from '@/lib/color'
+import { theme } from '@/lib/theme'
 import { GlossLayers } from './GlossLayers'
 
 interface Props {

@@ -1,7 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, it } from 'bun:test'
-import { groupSubtitle, resolveActiveGroupId } from './group-store'
 import type { ExpenseGroup } from '@/lib/api'
+import { groupSubtitle, resolveActiveGroupId } from './group-store'
 
 function group(id: string, over: Partial<ExpenseGroup> = {}): ExpenseGroup {
   return {

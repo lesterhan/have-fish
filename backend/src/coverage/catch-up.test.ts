@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'bun:test'
-import { assembleAccount, sortAccounts, summarize, type CatchUpAccountInput } from './catch-up'
-import { DEFAULT_CONFIG, type CoverageConfig } from './horizon'
+import { describe, expect, it } from 'bun:test'
+import { assembleAccount, type CatchUpAccountInput, sortAccounts, summarize } from './catch-up'
+import { type CoverageConfig, DEFAULT_CONFIG } from './horizon'
 
 const RANGE: CoverageConfig = DEFAULT_CONFIG
 const CYCLE_25: CoverageConfig = { exportMode: 'cycle', cycleDay: 25, releaseLag: 0, tracked: true }
@@ -100,7 +100,10 @@ describe('assembleAccount', () => {
     })
 
     it('reports horizonReason today for a range account', () => {
-      const result = assembleAccount(input({ intervals: [iv('2025-06-01', '2025-06-30')] }), '2025-07-14')
+      const result = assembleAccount(
+        input({ intervals: [iv('2025-06-01', '2025-06-30')] }),
+        '2025-07-14',
+      )
 
       expect(result.horizonReason).toBe('today')
       expect(result.nextHorizonDate).toBeNull()
@@ -149,10 +152,10 @@ describe('assembleAccount', () => {
         input({
           intervals: [iv('2025-06-01', '2025-06-30')],
           txnCountsByDate: {
-            '2025-06-15': 3,  // inside coverage, not the gap
+            '2025-06-15': 3, // inside coverage, not the gap
             '2025-07-04': 1,
             '2025-07-09': 2,
-            '2025-07-20': 1,  // after the horizon
+            '2025-07-20': 1, // after the horizon
           },
         }),
         '2025-07-14',
@@ -163,7 +166,10 @@ describe('assembleAccount', () => {
 
     it('is empty when there is no gap', () => {
       const result = assembleAccount(
-        input({ intervals: [iv('2025-06-01', '2025-07-14')], txnCountsByDate: { '2025-07-02': 1 } }),
+        input({
+          intervals: [iv('2025-06-01', '2025-07-14')],
+          txnCountsByDate: { '2025-07-02': 1 },
+        }),
         '2025-07-14',
       )
 
@@ -367,7 +373,12 @@ describe('sortAccounts', () => {
 
   it('puts dormant accounts last regardless of gap size', () => {
     const sorted = sortAccounts([
-      acct({ accountId: 'dormant', state: 'behind', dormant: true, gap: { from: 'a', through: 'b', days: 1 } }),
+      acct({
+        accountId: 'dormant',
+        state: 'behind',
+        dormant: true,
+        gap: { from: 'a', through: 'b', days: 1 },
+      }),
       acct({ accountId: 'live', state: 'behind', gap: { from: 'a', through: 'b', days: 60 } }),
     ])
 
@@ -430,16 +441,17 @@ describe('summarize', () => {
   })
 
   it('is all zeroes for no tracked accounts', () => {
-    expect(summarize([])).toMatchObject({ tracked: 0, accountsToCatchUp: 0, progress: { current: 0, tracked: 0 } })
+    expect(summarize([])).toMatchObject({
+      tracked: 0,
+      accountsToCatchUp: 0,
+      progress: { current: 0, tracked: 0 },
+    })
   })
 
   // The dashboard counts accounts, never days — an account count is actionable where a
   // day count is only guilt.
   it('counts dormant accounts separately from the work total', () => {
-    const summary = summarize([
-      acct({ state: 'behind', dormant: true }),
-      acct({ state: 'behind' }),
-    ])
+    const summary = summarize([acct({ state: 'behind', dormant: true }), acct({ state: 'behind' })])
 
     expect(summary.dormant).toBe(1)
     expect(summary.accountsToCatchUp).toBe(2)

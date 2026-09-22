@@ -1,7 +1,7 @@
 import type { StoredAccountType } from '$lib/api'
+import { accountsCopy } from '../../copy/accounts'
 // Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
 import { formatCents, formatCentsAbs, toCents } from '../../money'
-import { accountsCopy } from '../../copy/accounts'
 
 /**
  * The label and rendered figure for an account balance.
@@ -43,8 +43,7 @@ export function balanceLabel(
 
   if (resolvedType === 'liability' && cents !== 0) {
     // A liability in credit is the overpaid card — "OWING −412.08" would be nonsense.
-    const label =
-      cents < 0 ? accountsCopy.balance.owing : accountsCopy.balance.inCredit
+    const label = cents < 0 ? accountsCopy.balance.owing : accountsCopy.balance.inCredit
     return {
       label: `${label} · ${cur}`,
       display: formatCentsAbs(cents),

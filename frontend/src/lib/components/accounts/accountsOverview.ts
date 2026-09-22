@@ -11,24 +11,19 @@
 
 // Relative, not `$lib`: this module is unit-tested directly, and a value import through the
 // alias has no .svelte-kit to resolve against in CI. See lib-imports.test.ts.
-import { toClassifierType, type StoredAccountType } from '../../api'
+import { type StoredAccountType, toClassifierType } from '../../api'
 import { accountsCopy } from '../../copy/accounts'
+import { type Converted, convertBalances, type Money, type Rates } from '../../money'
 import {
-  convertBalances,
-  type Converted,
-  type Money,
-  type Rates,
-} from '../../money'
-import {
-  SURFACE_LABEL,
-  bucketOf,
   accountDisplayName,
+  bucketOf,
   institutionOf,
-  rootFor,
-  surfaceOf,
   type PositionBucket,
   type Roots,
+  rootFor,
+  SURFACE_LABEL,
   type Surface,
+  surfaceOf,
 } from './accountPaths'
 
 // ── Rows ────────────────────────────────────────────────────
@@ -127,11 +122,8 @@ function currenciesOf(row: Row): string[] {
  * buckets, and neither should push real accounts down the page.
  */
 function sortGroups(groups: Group[]): Group[] {
-  const trailing = (g: Group) =>
-    g.key === 'unfiled' || g.key === 'currency:' ? 1 : 0
-  return groups.sort(
-    (a, b) => trailing(a) - trailing(b) || a.label.localeCompare(b.label),
-  )
+  const trailing = (g: Group) => (g.key === 'unfiled' || g.key === 'currency:' ? 1 : 0)
+  return groups.sort((a, b) => trailing(a) - trailing(b) || a.label.localeCompare(b.label))
 }
 
 function sortRows(rows: Row[]): Row[] {
@@ -172,12 +164,7 @@ export function groupRows(rows: readonly Row[], grouping: Grouping): Group[] {
       case 'type': {
         const resolved = row.account.resolvedType
         const key = resolved ? toClassifierType(resolved) : row.surface
-        push(
-          map,
-          `type:${key}`,
-          TYPE_LABEL[key] ?? SURFACE_LABEL[row.surface],
-          row,
-        )
+        push(map, `type:${key}`, TYPE_LABEL[key] ?? SURFACE_LABEL[row.surface], row)
         break
       }
       case 'currency': {
@@ -192,9 +179,7 @@ export function groupRows(rows: readonly Row[], grouping: Grouping): Group[] {
         for (const currency of currencies) {
           push(map, `currency:${currency}`, currency, {
             ...row,
-            balances: row.account.balances.filter(
-              (b) => b.currency === currency,
-            ),
+            balances: row.account.balances.filter((b) => b.currency === currency),
           })
         }
         break
@@ -225,10 +210,7 @@ export function groupCurrency(group: Group): string | null {
 // ── Roll-ups ────────────────────────────────────────────────
 
 /** Every currency appearing in these rows except the preferred one — what needs a rate. */
-export function currenciesNeedingRates(
-  rows: readonly Row[],
-  preferred: string,
-): string[] {
+export function currenciesNeedingRates(rows: readonly Row[], preferred: string): string[] {
   const seen = new Set<string>()
   for (const row of rows) {
     for (const b of row.account.balances) {
@@ -242,11 +224,7 @@ export function currenciesNeedingRates(
  * Sum the balances these rows *display* — which is not the same as the balances their accounts
  * hold, since currency grouping narrows a row to one currency.
  */
-export function convertRows(
-  rows: readonly Row[],
-  rates: Rates,
-  preferred: string,
-): Converted {
+export function convertRows(rows: readonly Row[], rates: Rates, preferred: string): Converted {
   return convertBalances(
     rows.flatMap((r) => r.balances),
     rates,

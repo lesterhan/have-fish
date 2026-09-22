@@ -27,12 +27,22 @@ type BalanceSettlement = { fromUserId: string; toUserId: string; amount: string;
 
 // Greedy creditor/debtor matching — produces a minimal transfer set.
 // Positive net = creditor (owed money), negative net = debtor (owes money).
-export function simplifyDebts(
-  nets: { userId: string; userName: string | null; net: number }[],
-): { fromUserId: string; fromUserName: string | null; toUserId: string; toUserName: string | null; amount: number }[] {
+export function simplifyDebts(nets: { userId: string; userName: string | null; net: number }[]): {
+  fromUserId: string
+  fromUserName: string | null
+  toUserId: string
+  toUserName: string | null
+  amount: number
+}[] {
   const creditors = nets.filter((n) => n.net > 0.005).map((n) => ({ ...n, remaining: n.net }))
   const debtors = nets.filter((n) => n.net < -0.005).map((n) => ({ ...n, remaining: -n.net }))
-  const transfers: { fromUserId: string; fromUserName: string | null; toUserId: string; toUserName: string | null; amount: number }[] = []
+  const transfers: {
+    fromUserId: string
+    fromUserName: string | null
+    toUserId: string
+    toUserName: string | null
+    amount: number
+  }[] = []
 
   let ci = 0
   let di = 0
@@ -41,7 +51,13 @@ export function simplifyDebts(
     const d = debtors[di]
     const amount = Math.min(c.remaining, d.remaining)
     if (amount > 0.005) {
-      transfers.push({ fromUserId: d.userId, fromUserName: d.userName, toUserId: c.userId, toUserName: c.userName, amount })
+      transfers.push({
+        fromUserId: d.userId,
+        fromUserName: d.userName,
+        toUserId: c.userId,
+        toUserName: c.userName,
+        amount,
+      })
     }
     c.remaining = Math.round((c.remaining - amount) * 100) / 100
     d.remaining = Math.round((d.remaining - amount) * 100) / 100
@@ -99,7 +115,11 @@ export function computeCurrencyBalances(
     const transfers = simplifyDebts(netList)
     result.push({
       currency,
-      netPositions: netList.map((n) => ({ userId: n.userId, userName: n.userName, amount: n.net.toFixed(2) })),
+      netPositions: netList.map((n) => ({
+        userId: n.userId,
+        userName: n.userName,
+        amount: n.net.toFixed(2),
+      })),
       transfers: transfers.map((t) => ({
         fromUserId: t.fromUserId,
         fromUserName: t.fromUserName,

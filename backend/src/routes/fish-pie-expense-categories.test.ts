@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { and, eq, isNull } from 'drizzle-orm'
 import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { transactions, postings, accounts, groupExpenses } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
+import { accounts, groupExpenses, postings, transactions } from '../db/schema'
+import { clearDatabase, createTestUser } from '../test-utils'
 
 // Exercises story 2: categoryId on expenses — account resolution, weight resolution,
 // import with/without category, and PATCH recategorization.
@@ -40,7 +40,12 @@ async function createCategory(groupId: string, cookie: string, name: string): Pr
   return ((await res.json()) as any).id
 }
 
-function setMapping(groupId: string, categoryId: string, cookie: string, body: Record<string, unknown>) {
+function setMapping(
+  groupId: string,
+  categoryId: string,
+  cookie: string,
+  body: Record<string, unknown>,
+) {
   return app.request(`/api/fish-pie/groups/${groupId}/categories/${categoryId}/my-mapping`, {
     method: 'PUT',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
@@ -48,7 +53,12 @@ function setMapping(groupId: string, categoryId: string, cookie: string, body: R
   })
 }
 
-async function inviteAndAccept(groupId: string, ownerCookie: string, email: string, memberCookie: string) {
+async function inviteAndAccept(
+  groupId: string,
+  ownerCookie: string,
+  email: string,
+  memberCookie: string,
+) {
   const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
     method: 'POST',
     headers: { Cookie: ownerCookie, 'Content-Type': 'application/json' },
@@ -93,8 +103,12 @@ describe('fish-pie expense categories', () => {
       const otherGroup = await createGroup(cookie, 'Other')
       const foreignCat = await createCategory(otherGroup, cookie, 'Food')
       const res = await createExpense(groupId, cookie, {
-        description: 'Dinner', amount: '40.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: foreignCat,
+        description: 'Dinner',
+        amount: '40.00',
+        currency: 'CAD',
+        date: '2026-05-01',
+        paymentAccountId,
+        categoryId: foreignCat,
       })
       expect(res.status).toBe(400)
     })
@@ -107,8 +121,12 @@ describe('fish-pie expense categories', () => {
         body: JSON.stringify({ archived: true }),
       })
       const res = await createExpense(groupId, cookie, {
-        description: 'Dinner', amount: '40.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: catId,
+        description: 'Dinner',
+        amount: '40.00',
+        currency: 'CAD',
+        date: '2026-05-01',
+        paymentAccountId,
+        categoryId: catId,
       })
       expect(res.status).toBe(400)
     })
@@ -126,15 +144,24 @@ describe('fish-pie expense categories', () => {
       const catId = await createCategory(groupId, cookie, 'Food')
       await setMapping(groupId, catId, cookie, { accountId: catAcct })
 
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Dinner', amount: '50.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: catId,
-      })).json()) as any
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Dinner',
+          amount: '50.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+          categoryId: catId,
+        })
+      ).json()) as any
       expect(expense.categoryId).toBe(catId)
       expect(expense.categoryName).toBe('Food')
 
       // Sole-member payer tx: expense leg posts to the category-mapped account
-      const [tx] = await db.select().from(transactions).where(eq(transactions.groupExpenseId, expense.id))
+      const [tx] = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.groupExpenseId, expense.id))
       const ps = await db.select().from(postings).where(eq(postings.transactionId, tx.id))
       const credit = ps.find((p) => parseFloat(p.amount) > 0)!
       expect(await accountPath(credit.accountId)).toBe('expenses:food')
@@ -149,11 +176,20 @@ describe('fish-pie expense categories', () => {
       })
       const catId = await createCategory(groupId, cookie, 'Food')
 
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Dinner', amount: '50.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: catId,
-      })).json()) as any
-      const [tx] = await db.select().from(transactions).where(eq(transactions.groupExpenseId, expense.id))
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Dinner',
+          amount: '50.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+          categoryId: catId,
+        })
+      ).json()) as any
+      const [tx] = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.groupExpenseId, expense.id))
       const ps = await db.select().from(postings).where(eq(postings.transactionId, tx.id))
       const credit = ps.find((p) => parseFloat(p.amount) > 0)!
       expect(await accountPath(credit.accountId)).toBe('expenses:misc')
@@ -161,11 +197,20 @@ describe('fish-pie expense categories', () => {
 
     it('falls back to uncategorized when neither mapping nor default exists', async () => {
       const catId = await createCategory(groupId, cookie, 'Food')
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Dinner', amount: '50.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: catId,
-      })).json()) as any
-      const [tx] = await db.select().from(transactions).where(eq(transactions.groupExpenseId, expense.id))
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Dinner',
+          amount: '50.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+          categoryId: catId,
+        })
+      ).json()) as any
+      const [tx] = await db
+        .select()
+        .from(transactions)
+        .where(eq(transactions.groupExpenseId, expense.id))
       const ps = await db.select().from(postings).where(eq(postings.transactionId, tx.id))
       const credit = ps.find((p) => parseFloat(p.amount) > 0)!
       expect(await accountPath(credit.accountId)).toBe('uncategorized')
@@ -194,12 +239,21 @@ describe('fish-pie expense categories', () => {
 
     it('uses category weights when every member has one', async () => {
       // Shared category weights 60/40 (group weights are the default 1/1)
-      await putWeights([{ userId, weight: 60 }, { userId: userBId, weight: 40 }])
+      await putWeights([
+        { userId, weight: 60 },
+        { userId: userBId, weight: 40 },
+      ])
 
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Rent', amount: '100.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: catId,
-      })).json()) as any
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Rent',
+          amount: '100.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+          categoryId: catId,
+        })
+      ).json()) as any
 
       const splitA = expense.splits.find((s: any) => s.userId === userId)
       const splitB = expense.splits.find((s: any) => s.userId === userBId)
@@ -214,7 +268,10 @@ describe('fish-pie expense categories', () => {
 
     it('falls back to group weights when a member joins after weights were set', async () => {
       // Complete 60/40 vector for the original two members…
-      const ok = await putWeights([{ userId, weight: 60 }, { userId: userBId, weight: 40 }])
+      const ok = await putWeights([
+        { userId, weight: 60 },
+        { userId: userBId, weight: 40 },
+      ])
       expect(ok.status).toBe(200)
 
       // …then a third member joins, making the saved vector incomplete.
@@ -222,10 +279,16 @@ describe('fish-pie expense categories', () => {
       const userCId = await getUserId(cookieC)
       await inviteAndAccept(groupId, cookie, 'c@test.com', cookieC)
 
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Rent', amount: '90.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: catId,
-      })).json()) as any
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Rent',
+          amount: '90.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+          categoryId: catId,
+        })
+      ).json()) as any
 
       // group weights are 1/1/1 → even 30/30/30 split, not the stale 60/40
       const amounts = expense.splits.map((s: any) => s.amount).sort()
@@ -234,19 +297,35 @@ describe('fish-pie expense categories', () => {
     })
 
     it('explicit per-expense splits override category weights (on PATCH)', async () => {
-      await putWeights([{ userId, weight: 60 }, { userId: userBId, weight: 40 }])
+      await putWeights([
+        { userId, weight: 60 },
+        { userId: userBId, weight: 40 },
+      ])
 
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Rent', amount: '100.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: catId,
-      })).json()) as any
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Rent',
+          amount: '100.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+          categoryId: catId,
+        })
+      ).json()) as any
 
       // PATCH with explicit splits 1/1 should override the 60/40 category weights
-      const patched = (await (await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
-        method: 'PATCH',
-        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ splits: [{ userId, shareWeight: 1 }, { userId: userBId, shareWeight: 1 }] }),
-      })).json()) as any
+      const patched = (await (
+        await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+          method: 'PATCH',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            splits: [
+              { userId, shareWeight: 1 },
+              { userId: userBId, shareWeight: 1 },
+            ],
+          }),
+        })
+      ).json()) as any
 
       const splitA = patched.splits.find((s: any) => s.userId === userId)
       const splitB = patched.splits.find((s: any) => s.userId === userBId)
@@ -264,17 +343,25 @@ describe('fish-pie expense categories', () => {
       await setMapping(groupId, food, cookie, { accountId: foodAcct })
       await setMapping(groupId, shows, cookie, { accountId: showsAcct })
 
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Outing', amount: '50.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: food,
-      })).json()) as any
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Outing',
+          amount: '50.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+          categoryId: food,
+        })
+      ).json()) as any
 
       // recategorize Food → Shows
-      const patched = (await (await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
-        method: 'PATCH',
-        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categoryId: shows }),
-      })).json()) as any
+      const patched = (await (
+        await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+          method: 'PATCH',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryId: shows }),
+        })
+      ).json()) as any
       expect(patched.categoryId).toBe(shows)
       expect(patched.categoryName).toBe('Shows')
 
@@ -284,33 +371,49 @@ describe('fish-pie expense categories', () => {
         .from(transactions)
         .where(and(eq(transactions.groupExpenseId, expense.id), isNull(transactions.deletedAt)))
       expect(txs).toHaveLength(1)
-      const ps = await db.select().from(postings).where(and(eq(postings.transactionId, txs[0].id), isNull(postings.deletedAt)))
+      const ps = await db
+        .select()
+        .from(postings)
+        .where(and(eq(postings.transactionId, txs[0].id), isNull(postings.deletedAt)))
       const credit = ps.find((p) => parseFloat(p.amount) > 0)!
       expect(await accountPath(credit.accountId)).toBe('expenses:shows')
     })
 
     it('clears the category when categoryId is explicitly null', async () => {
       const food = await createCategory(groupId, cookie, 'Food')
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Outing', amount: '50.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId, categoryId: food,
-      })).json()) as any
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Outing',
+          amount: '50.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+          categoryId: food,
+        })
+      ).json()) as any
 
-      const patched = (await (await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
-        method: 'PATCH',
-        headers: { Cookie: cookie, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ categoryId: null }),
-      })).json()) as any
+      const patched = (await (
+        await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+          method: 'PATCH',
+          headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ categoryId: null }),
+        })
+      ).json()) as any
       expect(patched.categoryId).toBeNull()
       expect(patched.categoryName).toBeNull()
     })
 
     it('tolerates assigning an archived category on edit', async () => {
       const food = await createCategory(groupId, cookie, 'Food')
-      const expense = (await (await createExpense(groupId, cookie, {
-        description: 'Outing', amount: '50.00', currency: 'CAD', date: '2026-05-01',
-        paymentAccountId,
-      })).json()) as any
+      const expense = (await (
+        await createExpense(groupId, cookie, {
+          description: 'Outing',
+          amount: '50.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+          paymentAccountId,
+        })
+      ).json()) as any
       await app.request(`/api/fish-pie/groups/${groupId}/categories/${food}`, {
         method: 'PATCH',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
@@ -339,14 +442,19 @@ describe('fish-pie expense categories', () => {
         body: JSON.stringify({
           accountId: sourceAcct,
           defaultCurrency: 'CAD',
-          transactions: [{ isTransfer: false, date: '2026-05-02', amount: '-30.00', description: 'Lunch' }],
+          transactions: [
+            { isTransfer: false, date: '2026-05-02', amount: '-30.00', description: 'Lunch' },
+          ],
           groupSplits: [{ rowIndex: 0, groupId, categoryId: catId }],
         }),
       })
       expect(res.status).toBe(201)
 
       // The created expense carries the category
-      const [expense] = await db.select().from(groupExpenses).where(eq(groupExpenses.groupId, groupId))
+      const [expense] = await db
+        .select()
+        .from(groupExpenses)
+        .where(eq(groupExpenses.groupId, groupId))
       expect(expense.categoryId).toBe(catId)
 
       // The import tx has a posting to the category-mapped expense account
@@ -373,13 +481,18 @@ describe('fish-pie expense categories', () => {
         body: JSON.stringify({
           accountId: sourceAcct,
           defaultCurrency: 'CAD',
-          transactions: [{ isTransfer: false, date: '2026-05-02', amount: '-30.00', description: 'Lunch' }],
+          transactions: [
+            { isTransfer: false, date: '2026-05-02', amount: '-30.00', description: 'Lunch' },
+          ],
           groupSplits: [{ rowIndex: 0, groupId }],
         }),
       })
       expect(res.status).toBe(201)
 
-      const [expense] = await db.select().from(groupExpenses).where(eq(groupExpenses.groupId, groupId))
+      const [expense] = await db
+        .select()
+        .from(groupExpenses)
+        .where(eq(groupExpenses.groupId, groupId))
       expect(expense.categoryId).toBeNull()
       const ps = await db
         .select({ path: accounts.path })
@@ -403,7 +516,9 @@ describe('fish-pie expense categories', () => {
         body: JSON.stringify({
           accountId: sourceAcct,
           defaultCurrency: 'CAD',
-          transactions: [{ isTransfer: false, date: '2026-05-02', amount: '-30.00', description: 'Lunch' }],
+          transactions: [
+            { isTransfer: false, date: '2026-05-02', amount: '-30.00', description: 'Lunch' },
+          ],
           groupSplits: [{ rowIndex: 0, groupId, categoryId: catId }],
         }),
       })

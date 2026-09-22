@@ -12,7 +12,7 @@
  * else to stop the category leaking back out.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { ERROR_STATUS } from './errors'
@@ -64,7 +64,10 @@ function stripComments(ts: string): string {
       let end = ts.length
       for (let j = i + 1; j < ts.length; j++) {
         if (ts[j] === '\\') j++
-        else if (ts[j] === quote) { end = j; break }
+        else if (ts[j] === quote) {
+          end = j
+          break
+        }
       }
       out += ts.slice(i, end + 1)
       i = end
@@ -101,9 +104,7 @@ const WRITTEN_ERROR = /\berror:\s*(?:'[^'\\]*'|"[^"\\]*"|`[^`\\]*`)/g
 
 export function writtenErrorsIn(source: string): string[] {
   WRITTEN_ERROR.lastIndex = 0
-  return [...stripComments(source).matchAll(WRITTEN_ERROR)].map((m) =>
-    m[0].replace(/\s+/g, ' '),
-  )
+  return [...stripComments(source).matchAll(WRITTEN_ERROR)].map((m) => m[0].replace(/\s+/g, ' '))
 }
 
 describe('the routes write no sentences', () => {

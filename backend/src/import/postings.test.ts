@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { buildCrossCurrencySpendPostings } from './postings'
 
 // Pure-function tests for the cross-currency SPEND builder — the canonical Wise example:
@@ -43,7 +43,11 @@ describe('buildCrossCurrencySpendPostings', () => {
   })
 
   it('bridges both currency sides through equity:conversions, never the expense account', () => {
-    const specs = buildCrossCurrencySpendPostings({ ...base, feeAmount: '0.05', feeAccountId: 'fee' })
+    const specs = buildCrossCurrencySpendPostings({
+      ...base,
+      feeAmount: '0.05',
+      feeAccountId: 'fee',
+    })
 
     // The conversion account carries the bridge on BOTH sides
     expect(specs).toContainEqual(
@@ -57,9 +61,7 @@ describe('buildCrossCurrencySpendPostings', () => {
     // never as a bridge leg in the source currency (that was the bug).
     const expenseLegs = specs.filter((p) => p.accountId === 'coffee')
     expect(expenseLegs).toHaveLength(1)
-    expect(expenseLegs[0]).toEqual(
-      expect.objectContaining({ amount: '360.00', currency: 'CZK' }),
-    )
+    expect(expenseLegs[0]).toEqual(expect.objectContaining({ amount: '360.00', currency: 'CZK' }))
     expect(specs.some((p) => p.accountId === 'coffee' && p.currency === 'USD')).toBe(false)
   })
 
@@ -67,10 +69,12 @@ describe('buildCrossCurrencySpendPostings', () => {
     const specs = buildCrossCurrencySpendPostings(base)
     const sourceLegs = specs.filter((p) => p.accountId === 'usd')
     expect(sourceLegs).toHaveLength(1)
-    expect(sourceLegs[0]).toEqual(
-      expect.objectContaining({ amount: '-17.29', currency: 'USD' }),
-    )
+    expect(sourceLegs[0]).toEqual(expect.objectContaining({ amount: '-17.29', currency: 'USD' }))
     // No leg credits a target-currency *asset* — the target money is consumed by the spend.
-    expect(specs.some((p) => p.currency === 'CZK' && parseFloat(p.amount) > 0 && p.accountId !== 'coffee')).toBe(false)
+    expect(
+      specs.some(
+        (p) => p.currency === 'CZK' && parseFloat(p.amount) > 0 && p.accountId !== 'coffee',
+      ),
+    ).toBe(false)
   })
 })

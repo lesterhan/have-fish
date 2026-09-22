@@ -27,10 +27,7 @@ export type SettleLine = {
 }
 
 // Every debt the current user owes, flattened across the per-currency balances.
-export function owedDebts(
-  balances: CurrencyBalance[],
-  currentUserId: string,
-): OwedDebt[] {
+export function owedDebts(balances: CurrencyBalance[], currentUserId: string): OwedDebt[] {
   const out: OwedDebt[] = []
   for (const cb of balances) {
     for (const t of cb.transfers) {
@@ -49,10 +46,7 @@ export function owedDebts(
 
 // Initial line state: include everything; convert lines whose currency differs from
 // the target (one-click consolidation), leave same-currency lines native.
-export function initLines(
-  debts: OwedDebt[],
-  targetCurrency: string,
-): SettleLine[] {
+export function initLines(debts: OwedDebt[], targetCurrency: string): SettleLine[] {
   return debts.map((d) => ({
     toUserId: d.toUserId,
     toUserName: d.toUserName,
@@ -73,10 +67,7 @@ export function isConverted(line: SettleLine, targetCurrency: string): boolean {
 }
 
 // Convert a debt amount at a rate, rounded to 2dp. Returns '' when the rate is missing.
-export function convertedAmount(
-  debtAmount: string,
-  rate: string | null,
-): string {
+export function convertedAmount(debtAmount: string, rate: string | null): string {
   if (!rate) return ''
   const v = parseFloat(debtAmount) * parseFloat(rate)
   if (!Number.isFinite(v)) return ''
@@ -85,10 +76,7 @@ export function convertedAmount(
 
 // True when there is at least one included line and every included converted line has
 // a positive settled amount — i.e. the batch is safe to submit.
-export function linesReady(
-  lines: SettleLine[],
-  targetCurrency: string,
-): boolean {
+export function linesReady(lines: SettleLine[], targetCurrency: string): boolean {
   const included = lines.filter((l) => l.include)
   if (included.length === 0) return false
   return included.every((l) =>

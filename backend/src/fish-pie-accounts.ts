@@ -1,11 +1,15 @@
-import { db } from './db'
-import { accounts } from './db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { PgTransaction } from 'drizzle-orm/pg-core'
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
+import { db } from './db'
+import { accounts } from './db/schema'
 
-type Tx = PgTransaction<PostgresJsQueryResultHKT, typeof import('./db/schema'), ExtractTablesWithRelations<typeof import('./db/schema')>>
+type Tx = PgTransaction<
+  PostgresJsQueryResultHKT,
+  typeof import('./db/schema'),
+  ExtractTablesWithRelations<typeof import('./db/schema')>
+>
 
 export function slugify(name: string): string {
   return name
@@ -60,10 +64,7 @@ export async function ensureSharedAccount(
 
 // Find or create an uncategorized account for a user.
 // Used when a member has no defaultExpenseAccountId configured.
-export async function ensureUncategorizedAccount(
-  userId: string,
-  tx?: Tx,
-): Promise<string> {
+export async function ensureUncategorizedAccount(userId: string, tx?: Tx): Promise<string> {
   const path = 'uncategorized'
   const client = tx ?? db
 

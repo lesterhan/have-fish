@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { errorMessage } from './errors'
 
 describe('errorMessage', () => {
@@ -18,9 +18,7 @@ describe('errorMessage', () => {
   it('falls back on a body the API did not author', () => {
     expect(errorMessage(null, 'Failed to send invite')).toBe('Failed to send invite')
     expect(errorMessage({}, 'Failed to send invite')).toBe('Failed to send invite')
-    expect(errorMessage('<html>502</html>', 'Failed to send invite')).toBe(
-      'Failed to send invite',
-    )
+    expect(errorMessage('<html>502</html>', 'Failed to send invite')).toBe('Failed to send invite')
     expect(errorMessage({ error: '' }, 'Failed to send invite')).toBe('Failed to send invite')
   })
 })

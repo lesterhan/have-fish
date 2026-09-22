@@ -44,19 +44,9 @@ function withNetworkSecurityConfigFile(config) {
   return withDangerousMod(config, [
     'android',
     (cfg) => {
-      const dir = path.join(
-        cfg.modRequest.platformProjectRoot,
-        'app',
-        'src',
-        'main',
-        'res',
-        'xml',
-      )
+      const dir = path.join(cfg.modRequest.platformProjectRoot, 'app', 'src', 'main', 'res', 'xml')
       fs.mkdirSync(dir, { recursive: true })
-      fs.writeFileSync(
-        path.join(dir, 'network_security_config.xml'),
-        NETWORK_SECURITY_CONFIG,
-      )
+      fs.writeFileSync(path.join(dir, 'network_security_config.xml'), NETWORK_SECURITY_CONFIG)
       return cfg
     },
   ])
@@ -70,8 +60,7 @@ function withManifestReference(config) {
         'withTailscaleCleartext: no <application> in AndroidManifest — Expo template changed, plugin needs updating',
       )
     }
-    application.$['android:networkSecurityConfig'] =
-      '@xml/network_security_config'
+    application.$['android:networkSecurityConfig'] = '@xml/network_security_config'
     return cfg
   })
 }

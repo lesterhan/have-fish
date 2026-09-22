@@ -1,10 +1,10 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
   comparisonBlocker,
   isFloor,
-  monthNote,
   type MonthCoverage,
   type MonthGap,
+  monthNote,
 } from './monthCoverage'
 
 const TODAY = '2026-09-04'
@@ -31,9 +31,7 @@ function gap(path: string, coveredThrough: string | null): MonthGap {
   return { accountId: path, path, name: null, coveredThrough }
 }
 
-function month(
-  over: Partial<MonthCoverage> & { month: string },
-): MonthCoverage {
+function month(over: Partial<MonthCoverage> & { month: string }): MonthCoverage {
   const [y, m] = over.month.split('-').map(Number)
   const end = `${over.month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`
   return {
@@ -75,17 +73,13 @@ describe('isFloor', () => {
 
   // Nothing live contributes, so there is nothing the total could be short of.
   it('is false when there are no contributors', () => {
-    expect(
-      isFloor(month({ month: '2026-08', state: 'uncovered', contributors: 0 })),
-    ).toBe(false)
+    expect(isFloor(month({ month: '2026-08', state: 'uncovered', contributors: 0 }))).toBe(false)
   })
 })
 
 describe('monthNote', () => {
   it('says nothing when there are no contributors', () => {
-    expect(
-      monthNote(month({ month: '2026-08', contributors: 0 }), TODAY),
-    ).toBeNull()
+    expect(monthNote(month({ month: '2026-08', contributors: 0 }), TODAY)).toBeNull()
   })
 
   // The month label is already the date, so a past complete month needs no second one.
@@ -127,10 +121,7 @@ describe('monthNote', () => {
 
   it('agrees its verb with a single unrecorded account', () => {
     const result = monthNote(
-      partial('2026-08', null, [
-        gap('assets:a', null),
-        gap('assets:b', '2026-08-20'),
-      ]),
+      partial('2026-08', null, [gap('assets:a', null), gap('assets:b', '2026-08-20')]),
       TODAY,
     )
 
@@ -154,9 +145,7 @@ describe('monthNote', () => {
     )
 
     expect(result?.detail).toContain('assets:chequing stops at Aug 10')
-    expect(result?.detail).toContain(
-      'liabilities:visa is not recorded from the 1st',
-    )
+    expect(result?.detail).toContain('liabilities:visa is not recorded from the 1st')
   })
 
   it('prefers an account name over its path', () => {
@@ -167,26 +156,22 @@ describe('monthNote', () => {
       coveredThrough: null,
     }
 
-    expect(
-      monthNote(partial('2026-08', '2026-08-10', [named]), TODAY)?.detail,
-    ).toContain('Everyday is not recorded from the 1st')
+    expect(monthNote(partial('2026-08', '2026-08-10', [named]), TODAY)?.detail).toContain(
+      'Everyday is not recorded from the 1st',
+    )
   })
 
   // A title attribute listing eleven account paths is a wall, not an explanation.
   it('caps the named accounts and counts the rest', () => {
     const gaps = ['a', 'b', 'c', 'd', 'e'].map((p) => gap(`assets:${p}`, null))
 
-    expect(monthNote(partial('2026-08', null, gaps), TODAY)?.detail).toContain(
-      'and 2 more',
-    )
+    expect(monthNote(partial('2026-08', null, gaps), TODAY)?.detail).toContain('and 2 more')
   })
 })
 
 describe('comparisonBlocker', () => {
   it('lets the comparison through when both sides are fully recorded', () => {
-    expect(
-      comparisonBlocker(complete('2026-08'), [complete('2026-07')], labelOf),
-    ).toBeNull()
+    expect(comparisonBlocker(complete('2026-08'), [complete('2026-07')], labelOf)).toBeNull()
   })
 
   it('blocks on the month being looked at', () => {
@@ -200,11 +185,7 @@ describe('comparisonBlocker', () => {
   })
 
   it('says so plainly when the month being looked at is not recorded at all', () => {
-    const result = comparisonBlocker(
-      uncovered('2026-08'),
-      [complete('2026-07')],
-      labelOf,
-    )
+    const result = comparisonBlocker(uncovered('2026-08'), [complete('2026-07')], labelOf)
 
     expect(result?.text).toBe('August 2026 has not been recorded')
   })
@@ -238,9 +219,7 @@ describe('comparisonBlocker', () => {
       labelOf,
     )
 
-    expect(result?.text).toBe(
-      '2 of the months compared are only partly recorded',
-    )
+    expect(result?.text).toBe('2 of the months compared are only partly recorded')
     expect(result?.detail).toContain('July 2026, June 2026')
   })
 

@@ -1,12 +1,7 @@
 /// <reference types="bun" />
-import { describe, it, expect } from 'bun:test'
-import {
-  leafName,
-  suggestAccountId,
-  weightsToPct,
-  pctToVector,
-} from './fish-pie-categories'
+import { describe, expect, it } from 'bun:test'
 import type { Account } from './api'
+import { leafName, pctToVector, suggestAccountId, weightsToPct } from './fish-pie-categories'
 
 const acct = (id: string, path: string): Account => ({ id, path }) as Account
 

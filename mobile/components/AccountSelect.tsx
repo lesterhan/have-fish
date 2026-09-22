@@ -1,21 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
+import { FlatList, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
 import {
-  FlatList,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native'
-import { createAccount, type Account } from '@/lib/api'
-import {
-  ROOTS,
   accountLeaf,
   createSuggestion,
   filterAccounts,
+  ROOTS,
   type Root,
 } from '@/lib/account-search'
+import { type Account, createAccount } from '@/lib/api'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { BottomSheet } from './BottomSheet'
@@ -146,7 +138,11 @@ export function AccountSelect({
       {trigger === 'builtin' && (
         <>
           {label != null && <Text style={styles.label}>{label}</Text>}
-          <Pressable style={styles.trigger} onPress={() => setOpen(true)} onPressIn={haptics.selection}>
+          <Pressable
+            style={styles.trigger}
+            onPress={() => setOpen(true)}
+            onPressIn={haptics.selection}
+          >
             <Text
               style={[styles.triggerText, !selected && styles.triggerPlaceholder]}
               numberOfLines={1}
@@ -332,7 +328,12 @@ const styles = StyleSheet.create({
     color: theme.color.ink,
     fontWeight: theme.weight.medium,
   },
-  rowPath: { fontFamily: theme.font.mono, fontSize: theme.text.xs, color: theme.color.ink2, marginTop: 2 },
+  rowPath: {
+    fontFamily: theme.font.mono,
+    fontSize: theme.text.xs,
+    color: theme.color.ink2,
+    marginTop: 2,
+  },
   check: { fontSize: theme.text.base, color: theme.color.accent, marginLeft: theme.sp.xs },
   createRow: {
     flexDirection: 'row',

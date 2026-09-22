@@ -60,10 +60,7 @@ export type IncomingBatch = {
   rows: GroupSettlement[]
 }
 
-export function incomingBatches(
-  settlements: GroupSettlement[],
-  myUserId: string,
-): IncomingBatch[] {
+export function incomingBatches(settlements: GroupSettlement[], myUserId: string): IncomingBatch[] {
   const groups = new Map<string, IncomingBatch>()
   for (const s of pendingIncoming(settlements, myUserId)) {
     const key = s.batchId ?? `single:${s.id}`
@@ -96,7 +93,10 @@ export function receiptLines(rows: GroupSettlement[]): { currency: string; amoun
     if (!Number.isFinite(amount)) continue
     totals.set(currency, (totals.get(currency) ?? 0) + amount)
   }
-  return [...totals.entries()].map(([currency, amount]) => ({ currency, amount: amount.toFixed(2) }))
+  return [...totals.entries()].map(([currency, amount]) => ({
+    currency,
+    amount: amount.toFixed(2),
+  }))
 }
 
 export function settleAction(

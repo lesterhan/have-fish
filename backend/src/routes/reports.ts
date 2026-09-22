@@ -1,11 +1,11 @@
+import { and, eq, gte, isNull, like, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db'
-import { transactions, postings, accounts, userSettings, fxRates } from '../db/schema'
-import { eq, isNull, and, gte, lte, like } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
-import { loadClassifySettings } from '../postings/classify-service'
+import { db } from '../db'
+import { accounts, fxRates, postings, transactions, userSettings } from '../db/schema'
 import { fail } from '../errors'
+import { loadClassifySettings } from '../postings/classify-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -66,18 +66,20 @@ app.get('/spending-summary', async (c) => {
     .from(postings)
     .innerJoin(accounts, eq(postings.accountId, accounts.id))
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-      isNull(accounts.deletedAt),
-      // When a prefix is given, filter to that subtree; otherwise filter to all expenses
-      escapedPrefix
-        ? like(accounts.path, `${escapedPrefix}:%`)
-        : like(accounts.path, `${expensesRoot}:%`),
-      from ? gte(transactions.date, new Date(from)) : undefined,
-      to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
-    ))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+        isNull(accounts.deletedAt),
+        // When a prefix is given, filter to that subtree; otherwise filter to all expenses
+        escapedPrefix
+          ? like(accounts.path, `${escapedPrefix}:%`)
+          : like(accounts.path, `${expensesRoot}:%`),
+        from ? gte(transactions.date, new Date(from)) : undefined,
+        to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
+      ),
+    )
 
   const excluded = await spendExcludedAccountIds(userId)
   const rows = allRows.filter((r) => !excluded.has(r.accountId))
@@ -96,8 +98,10 @@ app.get('/spending-summary', async (c) => {
 
     // Determine the category bucket this row falls into
     const category = prefix
-      ? segments.slice(0, prefixDepth + 1).join(':')   // one level deeper than prefix
-      : segments.length >= 2 ? `${segments[0]}:${segments[1]}` : segments[0]
+      ? segments.slice(0, prefixDepth + 1).join(':') // one level deeper than prefix
+      : segments.length >= 2
+        ? `${segments[0]}:${segments[1]}`
+        : segments[0]
 
     totalByCurrency[currency] = (totalByCurrency[currency] ?? 0) + amount
     categoryMap[category] ??= {}
@@ -114,14 +118,14 @@ app.get('/spending-summary', async (c) => {
   const categories = Object.entries(categoryMap).map(([category, byCurrency]) => ({
     category,
     total: Object.fromEntries(
-      Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)])
+      Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)]),
     ),
     childCount: directChildSets[category]?.size ?? 0,
   }))
 
   return c.json({
     total: Object.fromEntries(
-      Object.entries(totalByCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)])
+      Object.entries(totalByCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)]),
     ),
     categories,
   })
@@ -145,7 +149,9 @@ app.get('/monthly-spend', async (c) => {
   // Build the window: from the first day of (months) ago to end of current month
   const now = new Date()
   const windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1))
-  const windowEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999))
+  const windowEnd = new Date(
+    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
+  )
 
   const expensesRoot = await getExpensesRoot(userId)
 
@@ -159,15 +165,17 @@ app.get('/monthly-spend', async (c) => {
     .from(postings)
     .innerJoin(accounts, eq(postings.accountId, accounts.id))
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-      isNull(accounts.deletedAt),
-      like(accounts.path, `${expensesRoot}:%`),
-      gte(transactions.date, windowStart),
-      lte(transactions.date, windowEnd),
-    ))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+        isNull(accounts.deletedAt),
+        like(accounts.path, `${expensesRoot}:%`),
+        gte(transactions.date, windowStart),
+        lte(transactions.date, windowEnd),
+      ),
+    )
 
   const excluded = await spendExcludedAccountIds(userId)
   const rows = allRows.filter((r) => !excluded.has(r.accountId))
@@ -191,7 +199,7 @@ app.get('/monthly-spend', async (c) => {
   const result = Object.entries(monthMap).map(([month, byCurrency]) => ({
     month,
     total: Object.fromEntries(
-      Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)])
+      Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)]),
     ),
   }))
 
@@ -212,7 +220,8 @@ app.get('/spending-fx-pairs', async (c) => {
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
   if (!from || !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
   if (!to || !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
-  if (!targetCurrency || !isValidCurrency(targetCurrency)) return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
+  if (!targetCurrency || !isValidCurrency(targetCurrency))
+    return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
 
   const expensesRoot = await getExpensesRoot(userId)
 
@@ -221,15 +230,17 @@ app.get('/spending-fx-pairs', async (c) => {
     .from(postings)
     .innerJoin(accounts, eq(postings.accountId, accounts.id))
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-      isNull(accounts.deletedAt),
-      like(accounts.path, `${expensesRoot}:%`),
-      gte(transactions.date, new Date(from)),
-      lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
-    ))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+        isNull(accounts.deletedAt),
+        like(accounts.path, `${expensesRoot}:%`),
+        gte(transactions.date, new Date(from)),
+        lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
+      ),
+    )
 
   const excluded = await spendExcludedAccountIds(userId)
   const rows = allRows.filter((r) => !excluded.has(r.accountId))
@@ -253,14 +264,16 @@ app.get('/spending-fx-pairs', async (c) => {
       const [cached] = await db
         .select({ id: fxRates.id })
         .from(fxRates)
-        .where(and(
-          eq(fxRates.date, date),
-          eq(fxRates.baseCurrency, fromCurrency),
-          eq(fxRates.quoteCurrency, targetCurrency),
-        ))
+        .where(
+          and(
+            eq(fxRates.date, date),
+            eq(fxRates.baseCurrency, fromCurrency),
+            eq(fxRates.quoteCurrency, targetCurrency),
+          ),
+        )
         .limit(1)
       return { date, from: fromCurrency, to: targetCurrency, cached: !!cached }
-    })
+    }),
   )
 
   return c.json({ pairs })
@@ -280,24 +293,32 @@ app.get('/spending-converted', async (c) => {
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
   if (!from || !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
   if (!to || !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
-  if (!targetCurrency || !isValidCurrency(targetCurrency)) return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
+  if (!targetCurrency || !isValidCurrency(targetCurrency))
+    return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
 
   const expensesRoot = await getExpensesRoot(userId)
 
   const allRows = await db
-    .select({ accountId: postings.accountId, date: transactions.date, amount: postings.amount, currency: postings.currency })
+    .select({
+      accountId: postings.accountId,
+      date: transactions.date,
+      amount: postings.amount,
+      currency: postings.currency,
+    })
     .from(postings)
     .innerJoin(accounts, eq(postings.accountId, accounts.id))
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-      isNull(accounts.deletedAt),
-      like(accounts.path, `${expensesRoot}:%`),
-      gte(transactions.date, new Date(from)),
-      lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
-    ))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+        isNull(accounts.deletedAt),
+        like(accounts.path, `${expensesRoot}:%`),
+        gte(transactions.date, new Date(from)),
+        lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
+      ),
+    )
 
   const excluded = await spendExcludedAccountIds(userId)
   const rows = allRows.filter((r) => !excluded.has(r.accountId))
@@ -312,11 +333,13 @@ app.get('/spending-converted', async (c) => {
       const [cached] = await db
         .select({ rate: fxRates.rate })
         .from(fxRates)
-        .where(and(
-          eq(fxRates.date, dateStr),
-          eq(fxRates.baseCurrency, row.currency),
-          eq(fxRates.quoteCurrency, targetCurrency),
-        ))
+        .where(
+          and(
+            eq(fxRates.date, dateStr),
+            eq(fxRates.baseCurrency, row.currency),
+            eq(fxRates.quoteCurrency, targetCurrency),
+          ),
+        )
         .limit(1)
       rateCache.set(key, cached?.rate ?? null)
     }

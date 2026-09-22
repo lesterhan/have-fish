@@ -1,8 +1,8 @@
+import { and, count, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import type { AppVariables } from '../app'
 import { db } from '../db'
 import { accounts, postings, transactions } from '../db/schema'
-import { and, count, eq, isNull } from 'drizzle-orm'
-import type { AppVariables } from '../app'
 import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -24,7 +24,9 @@ app.patch('/:id', async (c) => {
     const [targetAccount] = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+      .where(
+        and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
+      )
     if (!targetAccount) return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
@@ -32,7 +34,14 @@ app.patch('/:id', async (c) => {
     .select({ id: postings.id })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(eq(postings.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt), isNull(postings.deletedAt)))
+    .where(
+      and(
+        eq(postings.id, id),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+      ),
+    )
 
   if (!posting) return fail(c, 'POSTING_NOT_FOUND')
 
@@ -41,11 +50,7 @@ app.patch('/:id', async (c) => {
   if (amount !== undefined) updates.amount = String(amount)
   if (currency) updates.currency = currency
 
-  const [updated] = await db
-    .update(postings)
-    .set(updates)
-    .where(eq(postings.id, id))
-    .returning()
+  const [updated] = await db.update(postings).set(updates).where(eq(postings.id, id)).returning()
 
   return c.json(updated)
 })
@@ -59,13 +64,21 @@ app.post('/', async (c) => {
 
   const { transactionId, accountId, amount, currency } = body
   if (!transactionId || !accountId || amount === undefined || !currency) {
-    return fail(c, 'FIELDS_REQUIRED', { fields: ['transactionId', 'accountId', 'amount', 'currency'] })
+    return fail(c, 'FIELDS_REQUIRED', {
+      fields: ['transactionId', 'accountId', 'amount', 'currency'],
+    })
   }
 
   const [tx] = await db
     .select({ id: transactions.id })
     .from(transactions)
-    .where(and(eq(transactions.id, transactionId), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .where(
+      and(
+        eq(transactions.id, transactionId),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+      ),
+    )
 
   if (!tx) return fail(c, 'TRANSACTION_NOT_FOUND')
 
@@ -94,7 +107,14 @@ app.delete('/:id', async (c) => {
     .select({ id: postings.id, transactionId: postings.transactionId })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(eq(postings.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt), isNull(postings.deletedAt)))
+    .where(
+      and(
+        eq(postings.id, id),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+      ),
+    )
 
   if (!posting) return fail(c, 'POSTING_NOT_FOUND')
 

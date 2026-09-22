@@ -1,17 +1,17 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { UserSettings } from '../../api'
 import {
-  DEFAULT_ROOTS,
   accountDisplayName,
   bucketOf,
+  DEFAULT_ROOTS,
   institutionOf,
   isUnderRoot,
+  type Roots,
   rootFor,
   rootsFrom,
   shortPath,
   surfaceOf,
-  type Roots,
 } from './accountPaths'
-import type { UserSettings } from '../../api'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -142,23 +142,16 @@ describe('rootFor', () => {
 
 describe('accountDisplayName', () => {
   it('prefers the name', () => {
-    expect(
-      accountDisplayName(
-        { path: 'assets:wise:cad', name: 'Wise CAD' },
-        'assets',
-      ),
-    ).toBe('Wise CAD')
+    expect(accountDisplayName({ path: 'assets:wise:cad', name: 'Wise CAD' }, 'assets')).toBe(
+      'Wise CAD',
+    )
   })
 
   it('falls back to the path with its root stripped', () => {
-    expect(accountDisplayName({ path: 'assets:wise:cad' }, 'assets')).toBe(
-      'wise:cad',
-    )
+    expect(accountDisplayName({ path: 'assets:wise:cad' }, 'assets')).toBe('wise:cad')
   })
 
   it('keeps an unfiled path whole, since it has no root to strip', () => {
-    expect(accountDisplayName({ path: '储蓄:中国银行' }, '')).toBe(
-      '储蓄:中国银行',
-    )
+    expect(accountDisplayName({ path: '储蓄:中国银行' }, '')).toBe('储蓄:中国银行')
   })
 })

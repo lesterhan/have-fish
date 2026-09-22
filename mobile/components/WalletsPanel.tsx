@@ -1,11 +1,19 @@
-import { useState } from 'react'
-import { ActivityIndicator, Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { useState } from 'react'
+import {
+  ActivityIndicator,
+  Pressable,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native'
 import { formatAmount, type WalletView } from '@/lib/cash-accounts'
-import { useShellMode } from '@/lib/shell-mode-context'
-import { useWallets } from '@/lib/wallet-context'
 import * as haptics from '@/lib/haptics'
+import { useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
+import { useWallets } from '@/lib/wallet-context'
 import { GlossButton } from './GlossButton'
 import { GlossSurface } from './GlossSurface'
 import { TopUpSheet } from './TopUpSheet'
@@ -79,11 +87,7 @@ export function WalletsPanel() {
       <WalletCreateSheet visible={createOpen} onClose={() => setCreateOpen(false)} first={empty} />
 
       {topUpWallet != null && (
-        <TopUpSheet
-          visible
-          wallet={topUpWallet}
-          onClose={() => setTopUpId(null)}
-        />
+        <TopUpSheet visible wallet={topUpWallet} onClose={() => setTopUpId(null)} />
       )}
     </>
   )
@@ -104,7 +108,11 @@ function WalletCard({
   const negative = parseFloat(wallet.amount) < 0
 
   return (
-    <Pressable onPress={onPress} accessibilityRole="button" accessibilityState={{ selected: active }}>
+    <Pressable
+      onPress={onPress}
+      accessibilityRole="button"
+      accessibilityState={{ selected: active }}
+    >
       <GlossSurface
         base={active ? accent.soft : theme.color.surface}
         style={[styles.card, active && { borderColor: accent.line }]}
@@ -113,9 +121,7 @@ function WalletCard({
           <Text style={[styles.cardLabel, active && { color: accent.ink }]} numberOfLines={1}>
             {wallet.label}
           </Text>
-          {active && (
-            <Ionicons name="checkmark-circle" size={18} color={accent.accent} />
-          )}
+          {active && <Ionicons name="checkmark-circle" size={18} color={accent.accent} />}
         </View>
 
         <View style={styles.amountRow}>
@@ -175,7 +181,12 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   card: { padding: theme.sp.md, gap: 2 },
-  cardHead: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: theme.sp.xs },
+  cardHead: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: theme.sp.xs,
+  },
   cardLabel: {
     fontSize: theme.text.base,
     fontWeight: theme.weight.medium,

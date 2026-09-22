@@ -9,10 +9,10 @@
  * different fact than the one the row is asking about.
  */
 
+import type { Posting, Transaction } from '../../api'
+import { accountsCopy } from '../../copy/accounts'
 import { toCents } from '../../money'
 import { isUnderRoot, shortPath } from './accountPaths'
-import { accountsCopy } from '../../copy/accounts'
-import type { Posting, Transaction } from '../../api'
 
 /** How many entries the drawer shows. Enough to recognise the account, short enough to scan. */
 export const RECENT_ENTRIES = 5
@@ -37,8 +37,7 @@ export interface EntryLine {
  * By id for a real account, by path prefix for a category — a tree row stands for its whole
  * subtree, and a virtual segment has no id to match on at all.
  */
-export type EntryMatch =
-  { kind: 'account'; accountId: string } | { kind: 'subtree'; path: string }
+export type EntryMatch = { kind: 'account'; accountId: string } | { kind: 'subtree'; path: string }
 
 function matches(posting: Posting, match: EntryMatch): boolean {
   return match.kind === 'account'
@@ -51,10 +50,7 @@ function dayOf(date: string): string {
   return date.slice(0, 10)
 }
 
-function counterpartyOf(
-  others: readonly Posting[],
-  root: string,
-): string | null {
+function counterpartyOf(others: readonly Posting[], root: string): string | null {
   const paths = [...new Set(others.map((p) => p.accountPath))]
   if (paths.length === 0) return null
   if (paths.length > 1) return accountsCopy.drawer.split

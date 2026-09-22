@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import type { GroupMember } from '@/lib/api'
-import { pctToVector, weightsToPct, type WeightVector } from '@/lib/settings-view'
+import { pctToVector, type WeightVector, weightsToPct } from '@/lib/settings-view'
 import { theme } from '@/lib/theme'
 import { BottomSheet } from './BottomSheet'
 import { GlossButton } from './GlossButton'
@@ -31,7 +31,16 @@ interface Props {
  * sheet shows a "manage on the web app" note instead of inventing a multi-member
  * control — same stance as the web UI.
  */
-export function SplitSheet({ visible, title, hint, members, initial, onClose, onSave, onClear }: Props) {
+export function SplitSheet({
+  visible,
+  title,
+  hint,
+  members,
+  initial,
+  onClose,
+  onSave,
+  onClear,
+}: Props) {
   const twoMember = members.length === 2
   const [pct, setPct] = useState(50)
   const [busy, setBusy] = useState(false)
@@ -90,7 +99,9 @@ export function SplitSheet({ visible, title, hint, members, initial, onClose, on
           <GlossButton
             label="Save split"
             disabled={busy}
-            onPress={() => run(() => onSave(pctToVector(pct, members[0].userId, members[1].userId)))}
+            onPress={() =>
+              run(() => onSave(pctToVector(pct, members[0].userId, members[1].userId)))
+            }
             style={styles.save}
           />
           {onClear != null && (
@@ -109,9 +120,26 @@ export function SplitSheet({ visible, title, hint, members, initial, onClose, on
 }
 
 const styles = StyleSheet.create({
-  hint: { fontFamily: theme.font.mono, fontSize: 11, lineHeight: 16, color: theme.color.ink3, marginBottom: theme.sp.sm },
-  note: { fontFamily: theme.font.mono, fontSize: 12, lineHeight: 18, color: theme.color.ink2, paddingVertical: theme.sp.sm },
-  legend: { flexDirection: 'row', justifyContent: 'space-between', gap: theme.sp.sm, marginBottom: theme.sp.xs },
+  hint: {
+    fontFamily: theme.font.mono,
+    fontSize: 11,
+    lineHeight: 16,
+    color: theme.color.ink3,
+    marginBottom: theme.sp.sm,
+  },
+  note: {
+    fontFamily: theme.font.mono,
+    fontSize: 12,
+    lineHeight: 18,
+    color: theme.color.ink2,
+    paddingVertical: theme.sp.sm,
+  },
+  legend: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: theme.sp.sm,
+    marginBottom: theme.sp.xs,
+  },
   legendName: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
   legendRight: { textAlign: 'right' },
   legendPct: { fontFamily: theme.font.monoBold, color: theme.color.accentInk },

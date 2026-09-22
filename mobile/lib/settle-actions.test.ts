@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import type { CurrencyBalance, GroupSettlement } from './api'
+import type { SettleLine } from './fish-pie-settle'
 import {
   incomingBatches,
   needsConversionAccount,
@@ -9,7 +10,6 @@ import {
   receiptLines,
   settleAction,
 } from './settle-actions'
-import type { SettleLine } from './fish-pie-settle'
 
 const transfer = (from: string, to: string, amount: string, currency: string) => ({
   fromUserId: from,
@@ -95,7 +95,9 @@ describe('settleAction', () => {
   it('ignores a completed or incoming or deleted settlement for the pending state', () => {
     const balances = [cad(transfer('me', 'partner', '500.00', 'CAD'))]
     expect(settleAction(balances, [settlement({ status: 'completed' })], 'me').kind).toBe('settle')
-    expect(settleAction(balances, [settlement({ fromUserId: 'partner' })], 'me').kind).toBe('settle')
+    expect(settleAction(balances, [settlement({ fromUserId: 'partner' })], 'me').kind).toBe(
+      'settle',
+    )
     expect(
       settleAction(balances, [settlement({ deletedAt: '2026-06-19T00:00:00Z' })], 'me').kind,
     ).toBe('settle')
@@ -108,7 +110,12 @@ describe('pendingOutgoing', () => {
       settlement({ id: 'a', status: 'pending', fromUserId: 'me' }),
       settlement({ id: 'b', status: 'completed', fromUserId: 'me' }),
       settlement({ id: 'c', status: 'pending', fromUserId: 'partner' }),
-      settlement({ id: 'd', status: 'pending', fromUserId: 'me', deletedAt: '2026-06-19T00:00:00Z' }),
+      settlement({
+        id: 'd',
+        status: 'pending',
+        fromUserId: 'me',
+        deletedAt: '2026-06-19T00:00:00Z',
+      }),
     ]
     expect(pendingOutgoing(rows, 'me').map((r) => r.id)).toEqual(['a'])
   })
@@ -129,8 +136,22 @@ describe('pendingIncoming', () => {
 describe('incomingBatches', () => {
   it('groups rows sharing a batchId into one confirmable batch', () => {
     const rows = [
-      settlement({ id: 'a', batchId: 'b1', toUserId: 'me', fromUserName: 'Partner', settledCurrency: 'CAD', settledAmount: '500.00' }),
-      settlement({ id: 'b', batchId: 'b1', toUserId: 'me', fromUserName: 'Partner', settledCurrency: 'CAD', settledAmount: '80.00' }),
+      settlement({
+        id: 'a',
+        batchId: 'b1',
+        toUserId: 'me',
+        fromUserName: 'Partner',
+        settledCurrency: 'CAD',
+        settledAmount: '500.00',
+      }),
+      settlement({
+        id: 'b',
+        batchId: 'b1',
+        toUserId: 'me',
+        fromUserName: 'Partner',
+        settledCurrency: 'CAD',
+        settledAmount: '80.00',
+      }),
     ]
     const batches = incomingBatches(rows, 'me')
     expect(batches).toHaveLength(1)
@@ -154,23 +175,33 @@ describe('incomingBatches', () => {
 describe('receiptLines', () => {
   it('sums cash by settled currency, preferring settled over debt fields', () => {
     const rows = [
-      settlement({ settledCurrency: 'CAD', settledAmount: '500.00', currency: 'CAD', amount: '500.00' }),
-      settlement({ settledCurrency: 'CAD', settledAmount: '80.00', currency: 'EUR', amount: '50.00' }),
+      settlement({
+        settledCurrency: 'CAD',
+        settledAmount: '500.00',
+        currency: 'CAD',
+        amount: '500.00',
+      }),
+      settlement({
+        settledCurrency: 'CAD',
+        settledAmount: '80.00',
+        currency: 'EUR',
+        amount: '50.00',
+      }),
     ]
     expect(receiptLines(rows)).toEqual([{ currency: 'CAD', amount: '580.00' }])
   })
 
   it('falls back to debt amount/currency for native or legacy rows', () => {
-    const rows = [settlement({ settledCurrency: null, settledAmount: null, currency: 'EUR', amount: '50.00' })]
+    const rows = [
+      settlement({ settledCurrency: null, settledAmount: null, currency: 'EUR', amount: '50.00' }),
+    ]
     expect(receiptLines(rows)).toEqual([{ currency: 'EUR', amount: '50.00' }])
   })
 })
 
 describe('needsConversionAccount', () => {
   it('is false when a conversion account is set', () => {
-    expect(
-      needsConversionAccount([line({ convert: true })], 'CAD', 'acct-1'),
-    ).toBe(false)
+    expect(needsConversionAccount([line({ convert: true })], 'CAD', 'acct-1')).toBe(false)
   })
 
   it('is true when an included converted line lacks a conversion account', () => {
@@ -178,7 +209,9 @@ describe('needsConversionAccount', () => {
   })
 
   it('is false when the only converted line is excluded', () => {
-    expect(needsConversionAccount([line({ convert: true, include: false })], 'CAD', null)).toBe(false)
+    expect(needsConversionAccount([line({ convert: true, include: false })], 'CAD', null)).toBe(
+      false,
+    )
   })
 
   it('is false for a native-only batch with no conversion account', () => {

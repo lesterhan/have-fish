@@ -209,9 +209,7 @@ export function buildCashPostings(args: {
 export function mergeRowsByAccount(rows: SplitRow[]): SplitRow[] {
   const merged: SplitRow[] = []
   for (const row of rows) {
-    const existing = row.accountId
-      ? merged.find((m) => m.accountId === row.accountId)
-      : undefined
+    const existing = row.accountId ? merged.find((m) => m.accountId === row.accountId) : undefined
     if (!existing) {
       merged.push({ ...row })
       continue

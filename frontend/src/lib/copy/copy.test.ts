@@ -34,7 +34,7 @@
  * graveyard.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { sourceFilesUnder } from '../../testing/source-scan'
@@ -86,8 +86,7 @@ function convertedFiles(): string[] {
   for (const entry of CONVERTED) {
     const full = join(SRC, entry)
     const stat = statSync(full) // throws if a story removed a file without updating the list
-    if (stat.isDirectory())
-      out.push(...sourceFilesUnder(full, ['.svelte', '.ts']))
+    if (stat.isDirectory()) out.push(...sourceFilesUnder(full, ['.svelte', '.ts']))
     else out.push(full)
   }
   return out.filter((f) => !f.endsWith('.test.ts')).sort()
@@ -138,9 +137,7 @@ function stripBlocks(source: string): string {
 /** The `<script>` bodies, joined, with comments removed. */
 function scriptBodies(source: string): string {
   return stripComments(
-    [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)]
-      .map((m) => m[1])
-      .join('\n'),
+    [...source.matchAll(/<script\b[^>]*>([\s\S]*?)<\/script>/g)].map((m) => m[1]).join('\n'),
   )
 }
 
@@ -272,9 +269,7 @@ const KEY_NAMES = new Set([
 /** Label-shaped string literals inside one `{…}` expression, quotes included. */
 function mustacheLabels(mustache: string): string[] {
   const found: string[] = []
-  for (const [whole, single, double] of mustache.matchAll(
-    /'([^'\\]*)'|"([^"\\]*)"/g,
-  )) {
+  for (const [whole, single, double] of mustache.matchAll(/'([^'\\]*)'|"([^"\\]*)"/g)) {
     const value = single ?? double
     if (value !== undefined && looksLikeLabel(value)) found.push(whole)
   }
@@ -390,9 +385,7 @@ function proseStrings(js: string): string[] {
   const found: string[] = []
   for (const line of js.split('\n')) {
     if (line.includes('console.') || line.includes('new Error(')) continue
-    for (const [, single, double] of line.matchAll(
-      /'([^'\\]*)'|"([^"\\]*)"/g,
-    )) {
+    for (const [, single, double] of line.matchAll(/'([^'\\]*)'|"([^"\\]*)"/g)) {
       const value = single ?? double
       if (value !== undefined && isProse(value)) {
         found.push(single !== undefined ? `'${value}'` : `"${value}"`)
@@ -442,9 +435,9 @@ describe('extracted surfaces stay extracted', () => {
   })
 
   it('carries no stale entry in ALLOWED', () => {
-    const stale = ALLOWED.filter(
-      (a) => !used.has(`${a.file}\u0000${a.text}`),
-    ).map((a) => `${a.file}: ${a.text}`)
+    const stale = ALLOWED.filter((a) => !used.has(`${a.file}\u0000${a.text}`)).map(
+      (a) => `${a.file}: ${a.text}`,
+    )
 
     expect(
       stale,
@@ -482,8 +475,7 @@ describe('extracted surfaces stay extracted', () => {
  * (`'entry' : 'entries'`) is not matched — that is a value and its unit in a table cell as
  * often as it is prose, and the surface stories judge those case by case.
  */
-const SPLICE =
-  /\?\s*(?:'([^'\\]*)'|"([^"\\]*)")\s*:\s*(?:'([^'\\]*)'|"([^"\\]*)")/g
+const SPLICE = /\?\s*(?:'([^'\\]*)'|"([^"\\]*)")\s*:\s*(?:'([^'\\]*)'|"([^"\\]*)")/g
 
 /** The endings English glues on. Empty counts: it is the other half of every `'' : 's'`. */
 const INFLECTION = new Set(['', 's', 'es', 'y', 'ies', "'s", 'en'])
@@ -543,19 +535,13 @@ describe('the plural splice', () => {
 describe('markupStrings', () => {
   it('catches text nodes', () => {
     expect(markupStrings('<span>Sign in</span>')).toEqual(['Sign in'])
-    expect(markupStrings('<p>\n  Passwords do not match\n</p>')).toEqual([
-      'Passwords do not match',
-    ])
+    expect(markupStrings('<p>\n  Passwords do not match\n</p>')).toEqual(['Passwords do not match'])
   })
 
   it('catches user-facing attributes', () => {
-    expect(markupStrings('<input placeholder="Your name" />')).toEqual([
-      'placeholder="Your name"',
-    ])
+    expect(markupStrings('<input placeholder="Your name" />')).toEqual(['placeholder="Your name"'])
     // The component props are the half the first version of this file was blind to.
-    expect(markupStrings('<Button tooltip="Go deeper" />')).toEqual([
-      'tooltip="Go deeper"',
-    ])
+    expect(markupStrings('<Button tooltip="Go deeper" />')).toEqual(['tooltip="Go deeper"'])
     expect(markupStrings('<SettingRow hint="Blank falls back." />')).toEqual([
       'hint="Blank falls back."',
     ])
@@ -565,69 +551,46 @@ describe('markupStrings', () => {
     expect(markupStrings('<button aria-label="Close panel" />')).toEqual([
       'aria-label="Close panel"',
     ])
-    expect(markupStrings('<input title="Total {n}" />')).toEqual([
-      'title="Total"',
-    ])
+    expect(markupStrings('<input title="Total {n}" />')).toEqual(['title="Total"'])
   })
 
   it('leaves wiring attributes alone', () => {
     expect(markupStrings('<label for="email" />')).toEqual([])
     expect(markupStrings('<Icon name="lock" />')).toEqual([])
-    expect(markupStrings('<a href="/signup" class="switch-link" />')).toEqual(
-      [],
-    )
-    expect(
-      markupStrings(
-        '<TextInput type="password" autocomplete="new-password" />',
-      ),
-    ).toEqual([])
+    expect(markupStrings('<a href="/signup" class="switch-link" />')).toEqual([])
+    expect(markupStrings('<TextInput type="password" autocomplete="new-password" />')).toEqual([])
   })
 
   it('catches labels hiding inside expressions', () => {
-    expect(markupStrings("<a use:tooltip={'Accounts'} />")).toEqual([
-      "'Accounts'",
+    expect(markupStrings("<a use:tooltip={'Accounts'} />")).toEqual(["'Accounts'"])
+    expect(markupStrings("<span>{dark ? 'Light Theme' : 'Dark Theme'}</span>")).toEqual([
+      "'Light Theme'",
+      "'Dark Theme'",
     ])
     expect(
-      markupStrings("<span>{dark ? 'Light Theme' : 'Dark Theme'}</span>"),
-    ).toEqual(["'Light Theme'", "'Dark Theme'"])
-    expect(
-      markupStrings(
-        "<button aria-label={open ? 'Compress sidebar' : 'Expand sidebar'} />",
-      ),
+      markupStrings("<button aria-label={open ? 'Compress sidebar' : 'Expand sidebar'} />"),
     ).toEqual(["'Compress sidebar'", "'Expand sidebar'"])
   })
 
   it('leaves the expressions that are wiring alone', () => {
-    expect(
-      markupStrings("<input onkeydown={(e) => e.key === 'Enter' && go()} />"),
-    ).toEqual([])
+    expect(markupStrings("<input onkeydown={(e) => e.key === 'Enter' && go()} />")).toEqual([])
     expect(markupStrings("<div class={active ? 'on' : 'off'} />")).toEqual([])
     expect(markupStrings("<Icon name={dark ? 'sun' : 'moon'} />")).toEqual([])
-    expect(markupStrings("<a class:active={path === '/accounts'} />")).toEqual(
-      [],
-    )
+    expect(markupStrings("<a class:active={path === '/accounts'} />")).toEqual([])
     expect(markupStrings("<CurrencyPill code={'CAD'} />")).toEqual([])
     expect(markupStrings("{#if unit === 'USD'}<b>{unit}</b>{/if}")).toEqual([])
-    expect(
-      markupStrings(
-        "<time>{d.toLocaleDateString(l, { day: '2-digit' })}</time>",
-      ),
-    ).toEqual([])
+    expect(markupStrings("<time>{d.toLocaleDateString(l, { day: '2-digit' })}</time>")).toEqual([])
   })
 
   it('leaves interpolated copy alone', () => {
     expect(markupStrings('<span>{copy.auth.signIn.title}</span>')).toEqual([])
-    expect(
-      markupStrings('<input placeholder={copy.auth.signUp.nameHint} />'),
-    ).toEqual([])
+    expect(markupStrings('<input placeholder={copy.auth.signUp.nameHint} />')).toEqual([])
     expect(markupStrings('<input placeholder="{label}" />')).toEqual([])
   })
 
   it('sees through Svelte blocks', () => {
     expect(markupStrings('{#if error}<p>{error}</p>{/if}')).toEqual([])
-    expect(
-      markupStrings('{#each rows as row}<td>{row.name}</td>{/each}'),
-    ).toEqual([])
+    expect(markupStrings('{#each rows as row}<td>{row.name}</td>{/each}')).toEqual([])
     expect(markupStrings("{#if n > 1}{'a'}{:else}{'b'}{/if}")).toEqual([])
     expect(markupStrings('{@render children?.()}')).toEqual([])
   })
@@ -657,52 +620,30 @@ describe('moduleStrings', () => {
   it('leaves wiring and comments alone', () => {
     expect(moduleStrings("import { toCents } from '../../money'")).toEqual([])
     expect(moduleStrings("const m = { method: 'POST' }")).toEqual([])
-    expect(
-      moduleStrings('// the "see everything" escape hatch\nconst a = 1'),
-    ).toEqual([])
+    expect(moduleStrings('// the "see everything" escape hatch\nconst a = 1')).toEqual([])
   })
 })
 
 describe('scriptStrings', () => {
   it('catches prose', () => {
-    expect(scriptStrings("<script>error = 'Sign in failed'</script>")).toEqual([
-      "'Sign in failed'",
+    expect(scriptStrings("<script>error = 'Sign in failed'</script>")).toEqual(["'Sign in failed'"])
+    expect(scriptStrings('<script>const m = "Passwords do not match"</script>')).toEqual([
+      '"Passwords do not match"',
     ])
-    expect(
-      scriptStrings('<script>const m = "Passwords do not match"</script>'),
-    ).toEqual(['"Passwords do not match"'])
   })
 
   it('leaves the strings that are not copy alone', () => {
+    expect(scriptStrings("<script>import { copy } from '$lib/copy'</script>")).toEqual([])
+    expect(scriptStrings("<script>fetch('/api/accounts', { method: 'POST' })</script>")).toEqual([])
+    expect(scriptStrings("<script>const f = { month: '2-digit' }</script>")).toEqual([])
+    expect(scriptStrings("<script>el.setAttribute('data-theme', 'dark')</script>")).toEqual([])
     expect(
-      scriptStrings("<script>import { copy } from '$lib/copy'</script>"),
+      scriptStrings(`<script>const F = 'a[href], button:not([disabled]), [tabindex]'</script>`),
     ).toEqual([])
-    expect(
-      scriptStrings(
-        "<script>fetch('/api/accounts', { method: 'POST' })</script>",
-      ),
-    ).toEqual([])
-    expect(
-      scriptStrings("<script>const f = { month: '2-digit' }</script>"),
-    ).toEqual([])
-    expect(
-      scriptStrings("<script>el.setAttribute('data-theme', 'dark')</script>"),
-    ).toEqual([])
-    expect(
-      scriptStrings(
-        `<script>const F = 'a[href], button:not([disabled]), [tabindex]'</script>`,
-      ),
-    ).toEqual([])
-    expect(
-      scriptStrings(
-        "<script>console.warn('could not load the thing')</script>",
-      ),
-    ).toEqual([])
-    expect(
-      scriptStrings(
-        "<script>throw new Error('this should never happen')</script>",
-      ),
-    ).toEqual([])
+    expect(scriptStrings("<script>console.warn('could not load the thing')</script>")).toEqual([])
+    expect(scriptStrings("<script>throw new Error('this should never happen')</script>")).toEqual(
+      [],
+    )
   })
 
   it('does not read the markup', () => {
@@ -710,17 +651,11 @@ describe('scriptStrings', () => {
   })
 
   it('does not read the comments', () => {
-    expect(
-      scriptStrings('<script>// the "see everything" escape hatch\n</script>'),
-    ).toEqual([])
-    expect(
-      scriptStrings('<script>/* a note\n   about "going deeper" */\n</script>'),
-    ).toEqual([])
+    expect(scriptStrings('<script>// the "see everything" escape hatch\n</script>')).toEqual([])
+    expect(scriptStrings('<script>/* a note\n   about "going deeper" */\n</script>')).toEqual([])
     // A `//` inside a string must not swallow the rest of the line.
     expect(
-      scriptStrings(
-        `<script>const u = 'https://x'; const m = 'Sign in failed'</script>`,
-      ),
+      scriptStrings(`<script>const u = 'https://x'; const m = 'Sign in failed'</script>`),
     ).toEqual(["'Sign in failed'"])
   })
 })

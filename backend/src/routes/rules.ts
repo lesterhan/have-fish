@@ -1,20 +1,20 @@
+import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import type { AppVariables } from '../app'
 import { db } from '../db'
 import {
-  importRules,
   accounts,
-  transactions,
-  postings,
-  userSettings,
-  expenseGroups,
   expenseGroupMembers,
+  expenseGroups,
   groupCategories,
+  importRules,
+  postings,
+  transactions,
+  userSettings,
 } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
-import type { AppVariables } from '../app'
-import { cleanDescription, merchantKey } from '../import/merchant'
-import { fail, failWith, errorBody } from '../errors'
 import type { ErrorBody } from '../errors'
+import { errorBody, fail, failWith } from '../errors'
+import { cleanDescription, merchantKey } from '../import/merchant'
 
 // Re-exported for callers that imported it from here before it moved to import/merchant.ts.
 export { cleanDescription }
@@ -44,19 +44,27 @@ async function resolveTarget(
   }
 
   if (hasAccount) {
-    if (typeof body.accountId !== 'string') return { failure: errorBody('FIELD_NOT_UUID', { field: 'accountId' }) }
+    if (typeof body.accountId !== 'string')
+      return { failure: errorBody('FIELD_NOT_UUID', { field: 'accountId' }) }
     if (body.categoryId != null) {
       return { failure: errorBody('RULE_CATEGORY_WITHOUT_GROUP') }
     }
     const [owned] = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(and(eq(accounts.id, body.accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+      .where(
+        and(
+          eq(accounts.id, body.accountId),
+          eq(accounts.userId, userId),
+          isNull(accounts.deletedAt),
+        ),
+      )
     if (!owned) return { failure: errorBody('ACCOUNT_NOT_FOUND') }
     return { columns: { accountId: body.accountId, groupId: null, categoryId: null } }
   }
 
-  if (typeof body.groupId !== 'string') return { failure: errorBody('FIELD_NOT_UUID', { field: 'groupId' }) }
+  if (typeof body.groupId !== 'string')
+    return { failure: errorBody('FIELD_NOT_UUID', { field: 'groupId' }) }
 
   // The rule may only target a group the user is actually in — otherwise an import
   // could post into a stranger's shared ledger.
@@ -76,7 +84,8 @@ async function resolveTarget(
   if (body.categoryId == null) {
     return { columns: { accountId: null, groupId: body.groupId, categoryId: null } }
   }
-  if (typeof body.categoryId !== 'string') return { failure: errorBody('FIELD_NOT_UUID', { field: 'categoryId' }) }
+  if (typeof body.categoryId !== 'string')
+    return { failure: errorBody('FIELD_NOT_UUID', { field: 'categoryId' }) }
 
   // A category is only meaningful inside its own group, and an archived one would
   // produce expenses the user can no longer categorize by hand.
@@ -135,7 +144,8 @@ app.post('/', async (c) => {
   const body = await c.req.json()
   const { pattern } = body
 
-  if (!pattern || typeof pattern !== 'string') return fail(c, 'FIELD_REQUIRED', { field: 'pattern' })
+  if (!pattern || typeof pattern !== 'string')
+    return fail(c, 'FIELD_REQUIRED', { field: 'pattern' })
 
   const target = await resolveTarget(userId, body)
   if ('failure' in target) return failWith(c, target.failure)
@@ -174,12 +184,18 @@ app.post('/mine', async (c) => {
       accountPath: accounts.path,
     })
     .from(transactions)
-    .innerJoin(postings, and(eq(postings.transactionId, transactions.id), isNull(postings.deletedAt)))
+    .innerJoin(
+      postings,
+      and(eq(postings.transactionId, transactions.id), isNull(postings.deletedAt)),
+    )
     .innerJoin(accounts, eq(accounts.id, postings.accountId))
     .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
 
   // Group postings by transaction id
-  const byTx = new Map<string, { description: string | null; postings: { accountId: string; accountPath: string }[] }>()
+  const byTx = new Map<
+    string,
+    { description: string | null; postings: { accountId: string; accountPath: string }[] }
+  >()
   for (const row of rows) {
     if (!byTx.has(row.txId)) byTx.set(row.txId, { description: row.description, postings: [] })
     byTx.get(row.txId)!.postings.push({ accountId: row.accountId, accountPath: row.accountPath })
@@ -254,7 +270,8 @@ app.patch('/:id', async (c) => {
   const patch: Record<string, unknown> = {}
 
   if ('pattern' in body) {
-    if (!body.pattern || typeof body.pattern !== 'string') return fail(c, 'FIELD_EMPTY', { field: 'pattern' })
+    if (!body.pattern || typeof body.pattern !== 'string')
+      return fail(c, 'FIELD_EMPTY', { field: 'pattern' })
     patch.pattern = body.pattern
   }
 
@@ -271,7 +288,13 @@ app.patch('/:id', async (c) => {
   const [updated] = await db
     .update(importRules)
     .set(patch)
-    .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
+    .where(
+      and(
+        eq(importRules.id, c.req.param('id')),
+        eq(importRules.userId, userId),
+        isNull(importRules.deletedAt),
+      ),
+    )
     .returning()
 
   if (!updated) return fail(c, 'RULE_NOT_FOUND')
@@ -285,7 +308,13 @@ app.delete('/:id', async (c) => {
   await db
     .update(importRules)
     .set({ deletedAt: new Date() })
-    .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
+    .where(
+      and(
+        eq(importRules.id, c.req.param('id')),
+        eq(importRules.userId, userId),
+        isNull(importRules.deletedAt),
+      ),
+    )
   return c.body(null, 204)
 })
 
@@ -297,7 +326,13 @@ app.post('/:id/approve', async (c) => {
   const [updated] = await db
     .update(importRules)
     .set({ status: 'active', updatedAt: new Date() })
-    .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
+    .where(
+      and(
+        eq(importRules.id, c.req.param('id')),
+        eq(importRules.userId, userId),
+        isNull(importRules.deletedAt),
+      ),
+    )
     .returning()
 
   if (!updated) return fail(c, 'RULE_NOT_FOUND')

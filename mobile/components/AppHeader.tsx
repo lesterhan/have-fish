@@ -1,13 +1,13 @@
+import { Ionicons } from '@expo/vector-icons'
+import { useRouter } from 'expo-router'
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
-import { useGroups } from '@/lib/group-context'
-import { useShellMode } from '@/lib/shell-mode-context'
-import { useWallets } from '@/lib/wallet-context'
 import { formatAmount } from '@/lib/cash-accounts'
+import { useGroups } from '@/lib/group-context'
 import { groupSubtitle } from '@/lib/group-store'
+import { useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
+import { useWallets } from '@/lib/wallet-context'
 import { GlossSurface } from './GlossSurface'
 import { GroupsSheet } from './GroupsSheet'
 import { ModeSwitch } from './ModeSwitch'
@@ -50,8 +50,7 @@ function PieTitle() {
 
   // When the fetch failed and we have no group, the list is empty only because
   // the server was unreachable — say "Offline", not "No groups".
-  const title =
-    group?.name ?? (error ? 'Offline' : groups.length === 0 ? 'No groups' : 'Loading…')
+  const title = group?.name ?? (error ? 'Offline' : groups.length === 0 ? 'No groups' : 'Loading…')
 
   return (
     <>

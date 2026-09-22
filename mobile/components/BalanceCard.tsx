@@ -1,7 +1,6 @@
 import { type ReactNode } from 'react'
-import { View, Text, StyleSheet } from 'react-native'
+import { StyleSheet, Text, View } from 'react-native'
 import type { CurrencyBalance, GroupMember } from '@/lib/api'
-import { theme } from '@/lib/theme'
 import {
   currencySymbol,
   formatAmount,
@@ -9,8 +8,9 @@ import {
   isAllSettled,
   visibleBalances,
 } from '@/lib/balances-view'
-import { GlossSurface } from './GlossSurface'
+import { theme } from '@/lib/theme'
 import { Avatar } from './Avatar'
+import { GlossSurface } from './GlossSurface'
 import { Label } from './Label'
 
 interface Props {
@@ -79,21 +79,21 @@ function CurrencyCard({ balance }: { balance: CurrencyBalance }) {
           can round to no transfer (sub-cent), and an empty "TO SETTLE" reads as
           a bug. */}
       {balance.transfers.length > 0 && (
-      <View style={styles.settleBlock}>
-        <Label style={styles.settleLabel}>To settle</Label>
-        {balance.transfers.map((t, i) => (
-          <View key={i} style={styles.settleRow}>
-            <Text style={styles.settleSentence}>
-              <Text style={styles.bold}>{t.fromUserName ?? t.fromUserId}</Text>
-              {' owes '}
-              <Text style={styles.bold}>{t.toUserName ?? t.toUserId}</Text>
-            </Text>
-            <Text style={styles.pill}>
-              {formatAmount(t.amount)} {t.currency}
-            </Text>
-          </View>
-        ))}
-      </View>
+        <View style={styles.settleBlock}>
+          <Label style={styles.settleLabel}>To settle</Label>
+          {balance.transfers.map((t, i) => (
+            <View key={i} style={styles.settleRow}>
+              <Text style={styles.settleSentence}>
+                <Text style={styles.bold}>{t.fromUserName ?? t.fromUserId}</Text>
+                {' owes '}
+                <Text style={styles.bold}>{t.toUserName ?? t.toUserId}</Text>
+              </Text>
+              <Text style={styles.pill}>
+                {formatAmount(t.amount)} {t.currency}
+              </Text>
+            </View>
+          ))}
+        </View>
       )}
     </GlossSurface>
   )

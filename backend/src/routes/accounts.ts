@@ -1,13 +1,21 @@
+import { and, eq, inArray, isNull, like, lte, not, or, type SQL, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
+import type { AppVariables } from '../app'
+import { isValidCurrency } from '../currencies'
 import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
-import { eq, isNull, and, like, or, not, inArray, lte, sql, type SQL } from 'drizzle-orm'
-import type { AppVariables } from '../app'
-import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
-import { isClearingAccountPath } from '../fish-pie-accounts'
-import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, STORED_ACCOUNT_TYPES, DEFAULT_ROOTS, type AccountTypeRoots, type StoredAccountType } from '../postings/account-type'
-import { isValidCurrency } from '../currencies'
 import { fail } from '../errors'
+import { isClearingAccountPath } from '../fish-pie-accounts'
+import {
+  type AccountTypeRoots,
+  DEFAULT_ROOTS,
+  isStoredAccountType,
+  resolveAccountType,
+  resolveStoredOrInferredType,
+  STORED_ACCOUNT_TYPES,
+  type StoredAccountType,
+} from '../postings/account-type'
+import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -186,13 +194,15 @@ app.get('/balances', async (c) => {
     })
     .from(accounts)
     .leftJoin(postings, and(eq(postings.accountId, accounts.id), isNull(postings.deletedAt)))
-    .where(and(
-      eq(accounts.userId, userId),
-      isNull(accounts.deletedAt),
-      typeFilter
-        ? typeFilterCondition(typeFilter, roots)
-        : balanceBearingCondition(roots, includeUnfiled),
-    ))
+    .where(
+      and(
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+        typeFilter
+          ? typeFilterCondition(typeFilter, roots)
+          : balanceBearingCondition(roots, includeUnfiled),
+      ),
+    )
     .groupBy(
       accounts.id,
       accounts.path,
@@ -219,7 +229,10 @@ app.get('/balances', async (c) => {
   for (const row of rows) {
     if (excluded.has(row.id)) continue
     if (!grouped.has(row.id)) {
-      const resolvedType = resolveStoredOrInferredType({ path: row.path, type: row.storedType }, roots)
+      const resolvedType = resolveStoredOrInferredType(
+        { path: row.path, type: row.storedType },
+        roots,
+      )
       if (typeFilter && (resolvedType === null || !typeFilter.has(resolvedType))) {
         excluded.add(row.id)
         continue
@@ -264,7 +277,10 @@ app.get('/posting-counts', async (c) => {
     })
     .from(accounts)
     .leftJoin(postings, and(eq(postings.accountId, accounts.id), isNull(postings.deletedAt)))
-    .leftJoin(transactions, and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)))
+    .leftJoin(
+      transactions,
+      and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)),
+    )
     .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
     .groupBy(accounts.id)
   return c.json(rows)
@@ -298,18 +314,20 @@ app.get('/:id/balance', async (c) => {
     })
     .from(postings)
     .innerJoin(transactions, eq(transactions.id, postings.transactionId))
-    .where(and(
-      eq(postings.accountId, accountId),
-      isNull(postings.deletedAt),
-      isNull(transactions.deletedAt),
-      lte(transactions.date, asOf),
-    ))
+    .where(
+      and(
+        eq(postings.accountId, accountId),
+        isNull(postings.deletedAt),
+        isNull(transactions.deletedAt),
+        lte(transactions.date, asOf),
+      ),
+    )
     .groupBy(postings.currency)
 
   return c.json({
     accountId,
     date: dateParam,
-    balances: rows.map(r => ({ currency: r.currency, amount: r.amount ?? '0.00' })),
+    balances: rows.map((r) => ({ currency: r.currency, amount: r.amount ?? '0.00' })),
   })
 })
 
@@ -379,9 +397,7 @@ app.get('/action-required-summary', async (c) => {
     for (const txId of txIds) add(accountId, txId)
   }
 
-  return c.json(
-    [...byAccount].map(([accountId, txIds]) => ({ accountId, count: txIds.size })),
-  )
+  return c.json([...byAccount].map(([accountId, txIds]) => ({ accountId, count: txIds.size })))
 })
 
 // GET /api/accounts/:id/action-required
@@ -431,7 +447,13 @@ app.get('/:id', async (c) => {
   const [found] = await db
     .select()
     .from(accounts)
-    .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .where(
+      and(
+        eq(accounts.id, c.req.param('id')),
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+      ),
+    )
   if (!found) return fail(c, 'ACCOUNT_NOT_FOUND')
   const roots = await loadAccountTypeRoots(userId)
   return c.json(withResolvedTypes(found, roots))
@@ -440,7 +462,10 @@ app.get('/:id', async (c) => {
 // Enriches an account row with both the effective type (stored override else inference) and
 // the pure inferred type, so the settings UI can show "Auto (inferred: X)" alongside an
 // explicit override. Used by the single-account GET and PATCH so both return the same shape.
-function withResolvedTypes<T extends { path: string; type: string | null }>(account: T, roots: AccountTypeRoots) {
+function withResolvedTypes<T extends { path: string; type: string | null }>(
+  account: T,
+  roots: AccountTypeRoots,
+) {
   return {
     ...account,
     resolvedType: resolveStoredOrInferredType(account, roots),
@@ -474,7 +499,7 @@ function readCurrency(value: unknown): CurrencyRead {
 // currency this route would refuse on update.
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
   if (!body) return fail(c, 'INVALID_JSON_BODY')
 
   const path = body.path
@@ -504,7 +529,8 @@ app.post('/', async (c) => {
 
   if ('defaultCurrency' in body) {
     const currency = readCurrency(body.defaultCurrency)
-    if (!currency.ok) return fail(c, 'UNSUPPORTED_CURRENCY', { currency: String(body.defaultCurrency) })
+    if (!currency.ok)
+      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: String(body.defaultCurrency) })
     values.defaultCurrency = currency.value
   }
 
@@ -591,7 +617,8 @@ app.patch('/:id', async (c) => {
   }
   if ('defaultCurrency' in body) {
     const currency = readCurrency(body.defaultCurrency)
-    if (!currency.ok) return fail(c, 'UNSUPPORTED_CURRENCY', { currency: String(body.defaultCurrency) })
+    if (!currency.ok)
+      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: String(body.defaultCurrency) })
     updates.defaultCurrency = currency.value
   }
   // `type` is the hledger type override. null clears it (back to inference); any other value
@@ -606,7 +633,13 @@ app.patch('/:id', async (c) => {
   const [updated] = await db
     .update(accounts)
     .set(updates)
-    .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .where(
+      and(
+        eq(accounts.id, c.req.param('id')),
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+      ),
+    )
     .returning()
   if (!updated) return fail(c, 'ACCOUNT_NOT_FOUND')
   const roots = await loadAccountTypeRoots(userId)
@@ -644,7 +677,10 @@ app.delete('/:id', async (c) => {
   const [{ entries } = { entries: 0 }] = await db
     .select({ entries: sql<number>`COUNT(${transactions.id})::int` })
     .from(postings)
-    .innerJoin(transactions, and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)))
+    .innerJoin(
+      transactions,
+      and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)),
+    )
     .where(and(eq(postings.accountId, id), isNull(postings.deletedAt)))
   if (entries > 0) {
     return fail(c, 'ACCOUNT_HAS_ENTRIES', { entries })

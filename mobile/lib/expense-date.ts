@@ -43,7 +43,11 @@ export function clampISO(iso: string, now: Date = new Date()): string {
  * A picked date is clamped to today as a defence-in-depth backstop for the
  * picker's `maximumDate`.
  */
-export function resolveDate(mode: DateMode, pickISO: string | null, now: Date = new Date()): string {
+export function resolveDate(
+  mode: DateMode,
+  pickISO: string | null,
+  now: Date = new Date(),
+): string {
   switch (mode) {
     case 'yesterday':
       return yesterdayISO(now)
@@ -67,8 +71,18 @@ export function dateLabel(iso: string, now: Date = new Date()): string {
 }
 
 const MONTHS = [
-  'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
-  'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec',
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ] as const
 
 /**

@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import { mergeCoverage } from './intervals'
 import {
   classifyMonth,
   classifyMonths,
+  type MonthCoverageInput,
   monthBounds,
   monthsBetween,
-  type MonthCoverageInput,
 } from './months'
-import { mergeCoverage } from './intervals'
 
 const TODAY = '2026-09-04'
 
@@ -113,7 +113,12 @@ describe('classifyMonth', () => {
   // a leading edge in September and says nothing about whether July is recorded.
   it('sees a hole that the leading edge hides', () => {
     const result = classifyMonth(
-      [account('a', [['2026-01-01', '2026-06-30'], ['2026-08-01', '2026-09-04']])],
+      [
+        account('a', [
+          ['2026-01-01', '2026-06-30'],
+          ['2026-08-01', '2026-09-04'],
+        ]),
+      ],
       '2026-07',
       TODAY,
     )

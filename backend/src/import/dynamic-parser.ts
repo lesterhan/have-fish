@@ -1,4 +1,12 @@
-import type { ColumnMapping, ParsedTransaction, RegularParsedTransaction, TransferParsedTransaction, SameCurrencyTransferParsedTransaction, ParseError, ParseResult } from './types'
+import type {
+  ColumnMapping,
+  ParsedTransaction,
+  ParseError,
+  ParseResult,
+  RegularParsedTransaction,
+  SameCurrencyTransferParsedTransaction,
+  TransferParsedTransaction,
+} from './types'
 
 // Builds a row-parsing function from a stored ColumnMapping.
 //
@@ -10,7 +18,9 @@ import type { ColumnMapping, ParsedTransaction, RegularParsedTransaction, Transf
 // the row is emitted as a TransferParsedTransaction instead of a regular one.
 //
 // Rows that fail validation are collected as ParseErrors.
-export function buildParser(columnMapping: ColumnMapping): (rows: Record<string, string>[]) => ParseResult {
+export function buildParser(
+  columnMapping: ColumnMapping,
+): (rows: Record<string, string>[]) => ParseResult {
   // Pre-compute whether this mapping has transfer columns configured
   const hasTransferColumns = !!(
     columnMapping.sourceAmount &&
@@ -34,7 +44,9 @@ export function buildParser(columnMapping: ColumnMapping): (rows: Record<string,
         return
       }
 
-      const description = columnMapping.description ? (row[columnMapping.description] ?? undefined) : undefined
+      const description = columnMapping.description
+        ? (row[columnMapping.description] ?? undefined)
+        : undefined
 
       // --- currency transfer row ---
       if (hasTransferColumns) {
@@ -62,7 +74,7 @@ export function buildParser(columnMapping: ColumnMapping): (rows: Record<string,
             description,
             sourceAmount: (-Math.abs(sourceAmountVal)).toFixed(2), // always negative (leaving source)
             sourceCurrency,
-            targetAmount: Math.abs(targetAmountVal).toFixed(2),    // always positive (arriving at target)
+            targetAmount: Math.abs(targetAmountVal).toFixed(2), // always positive (arriving at target)
             targetCurrency,
           }
 
@@ -71,7 +83,9 @@ export function buildParser(columnMapping: ColumnMapping): (rows: Record<string,
             const feeVal = parseFloat(rawFee)
             if (rawFee && !isNaN(feeVal)) {
               tx.feeAmount = Math.abs(feeVal).toFixed(2) // fee is always a positive expense amount
-              tx.feeCurrency = columnMapping.feeCurrency ? (row[columnMapping.feeCurrency]?.trim() ?? sourceCurrency) : sourceCurrency
+              tx.feeCurrency = columnMapping.feeCurrency
+                ? (row[columnMapping.feeCurrency]?.trim() ?? sourceCurrency)
+                : sourceCurrency
             }
           }
 
@@ -80,7 +94,12 @@ export function buildParser(columnMapping: ColumnMapping): (rows: Record<string,
         }
 
         // Same-currency row with a non-zero fee → same-currency transfer (3 postings)
-        if (sourceCurrency && targetCurrency && sourceCurrency === targetCurrency && columnMapping.feeAmount) {
+        if (
+          sourceCurrency &&
+          targetCurrency &&
+          sourceCurrency === targetCurrency &&
+          columnMapping.feeAmount
+        ) {
           const rawFee = row[columnMapping.feeAmount]
           const feeVal = parseFloat(rawFee)
           if (rawFee && !isNaN(feeVal) && feeVal !== 0) {

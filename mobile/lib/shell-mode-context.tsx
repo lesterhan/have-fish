@@ -1,20 +1,20 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
-  DEFAULT_SHELL_MODE,
-  SHELL_MODE_KEY,
   accentFor,
-  restoreShellMode,
+  DEFAULT_SHELL_MODE,
   type ModeAccent,
+  restoreShellMode,
+  SHELL_MODE_KEY,
   type ShellMode,
 } from './shell-mode'
 

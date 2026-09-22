@@ -48,7 +48,11 @@ describe('parseServerUrl', () => {
   })
 
   it('treats a non-numeric trailing segment as part of the host, not a port', () => {
-    expect(parseServerUrl('myserver:abc')).toEqual({ scheme: 'https', host: 'myserver:abc', port: '' })
+    expect(parseServerUrl('myserver:abc')).toEqual({
+      scheme: 'https',
+      host: 'myserver:abc',
+      port: '',
+    })
   })
 
   it('trims surrounding whitespace', () => {

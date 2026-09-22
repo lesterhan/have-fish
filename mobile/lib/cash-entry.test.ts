@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
   blockerMessage,
   buildCashPostings,
@@ -9,11 +9,11 @@ import {
   remainder,
   remainderCents,
   rowsTotalCents,
+  type SplitRow,
   seedAmountForNewRow,
   submitBlocker,
   syncSingleRow,
   toCents,
-  type SplitRow,
 } from './cash-entry'
 
 function row(accountId: string | null, amount: string, id = accountId ?? 'row'): SplitRow {
@@ -151,9 +151,9 @@ describe('submitBlocker', () => {
     expect(submitBlocker({ walletId: null, total: '', rows: [] })).toBe('no-wallet')
     expect(submitBlocker({ walletId: wallet, total: '', rows: [] })).toBe('no-amount')
     expect(submitBlocker({ walletId: wallet, total: '10.00', rows: [] })).toBe('no-account')
-    expect(
-      submitBlocker({ walletId: wallet, total: '10.00', rows: [row(null, '10.00')] }),
-    ).toBe('no-account')
+    expect(submitBlocker({ walletId: wallet, total: '10.00', rows: [row(null, '10.00')] })).toBe(
+      'no-account',
+    )
   })
 
   it('rejects a zero or negative total', () => {
@@ -163,15 +163,15 @@ describe('submitBlocker', () => {
   })
 
   it('blocks while money is unassigned', () => {
-    expect(
-      submitBlocker({ walletId: wallet, total: '180.00', rows: [row('a', '90.00')] }),
-    ).toBe('unallocated')
+    expect(submitBlocker({ walletId: wallet, total: '180.00', rows: [row('a', '90.00')] })).toBe(
+      'unallocated',
+    )
   })
 
   it('blocks when the rows overshoot the total', () => {
-    expect(
-      submitBlocker({ walletId: wallet, total: '100.00', rows: [row('a', '120.00')] }),
-    ).toBe('over-allocated')
+    expect(submitBlocker({ walletId: wallet, total: '100.00', rows: [row('a', '120.00')] })).toBe(
+      'over-allocated',
+    )
   })
 
   it('blocks on a one-cent discrepancy', () => {
@@ -193,7 +193,13 @@ describe('blockerMessage', () => {
   })
 
   it('has copy for every blocker', () => {
-    for (const blocker of ['no-wallet', 'no-amount', 'no-account', 'unallocated', 'over-allocated'] as const) {
+    for (const blocker of [
+      'no-wallet',
+      'no-amount',
+      'no-account',
+      'unallocated',
+      'over-allocated',
+    ] as const) {
       expect(blockerMessage(blocker, '1.00').length).toBeGreaterThan(0)
     }
   })
@@ -259,9 +265,9 @@ describe('buildCashPostings', () => {
   })
 
   it('refuses a row with no amount', () => {
-    expect(() =>
-      buildCashPostings({ ...base, total: '10.00', rows: [row('a', '')] }),
-    ).toThrow(/needs an amount/)
+    expect(() => buildCashPostings({ ...base, total: '10.00', rows: [row('a', '')] })).toThrow(
+      /needs an amount/,
+    )
   })
 
   it('refuses a zero total', () => {

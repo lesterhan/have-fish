@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sourceFilesUnder } from '../testing/source-scan'
@@ -56,9 +56,7 @@ const VALUE_IMPORT =
 
 function offendersIn(source: string): string[] {
   VALUE_IMPORT.lastIndex = 0
-  return [...source.matchAll(VALUE_IMPORT)].map((m) =>
-    m[0].trim().replace(/\s+/g, ' '),
-  )
+  return [...source.matchAll(VALUE_IMPORT)].map((m) => m[0].trim().replace(/\s+/g, ' '))
 }
 
 describe('$lib imports in testable modules', () => {
@@ -82,14 +80,10 @@ describe('$lib imports in testable modules', () => {
   it('catches the shapes it is meant to catch', () => {
     // A regex that silently stops matching would otherwise pass the check above by
     // finding nothing at all.
-    expect(offendersIn(`import { MONTH_NAMES } from '$lib/date'`)).toHaveLength(
-      1,
-    )
+    expect(offendersIn(`import { MONTH_NAMES } from '$lib/date'`)).toHaveLength(1)
     expect(offendersIn(`import def from "$lib/api"`)).toHaveLength(1)
     expect(offendersIn(`export { thing } from '$lib/util'`)).toHaveLength(1)
-    expect(offendersIn(`import {\n  a,\n  b,\n} from '$lib/api'`)).toHaveLength(
-      1,
-    )
+    expect(offendersIn(`import {\n  a,\n  b,\n} from '$lib/api'`)).toHaveLength(1)
   })
 
   it('leaves the erased forms alone', () => {
@@ -97,9 +91,7 @@ describe('$lib imports in testable modules', () => {
     expect(offendersIn(`export type { Account } from '$lib/api'`)).toEqual([])
     expect(offendersIn(`import { MONTH_NAMES } from '../../date'`)).toEqual([])
     // A type-position dynamic import, as in api.ts's UserPreferences.
-    expect(
-      offendersIn(`  accentColor?: import('$lib/accent').AccentKey`),
-    ).toEqual([])
+    expect(offendersIn(`  accentColor?: import('$lib/accent').AccentKey`)).toEqual([])
   })
 
   it('exempts the files Vite loads and bun does not', () => {
@@ -117,13 +109,7 @@ describe('$lib imports in testable modules', () => {
       expect(VITE_LOADED.test(name)).toBe(true)
     }
 
-    for (const name of [
-      'accent.ts',
-      'oklch.ts',
-      'pageHelpers.ts',
-      'server.ts',
-      'layout.ts',
-    ]) {
+    for (const name of ['accent.ts', 'oklch.ts', 'pageHelpers.ts', 'server.ts', 'layout.ts']) {
       expect(VITE_LOADED.test(name)).toBe(false)
     }
   })

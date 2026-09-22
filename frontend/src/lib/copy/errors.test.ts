@@ -15,10 +15,10 @@
  * indistinguishable from a typo in a key that *is* live.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { errorsCopy, errorMessage } from './errors'
+import { errorMessage, errorsCopy } from './errors'
 
 /** `backend/src/errors.ts`, from `frontend/src/lib/copy`. */
 const REGISTRY = join(import.meta.dir, '..', '..', '..', '..', 'backend', 'src', 'errors.ts')
@@ -72,9 +72,7 @@ describe('every backend error code has words', () => {
 
 describe('errorMessage', () => {
   it('renders a plain code', () => {
-    expect(errorMessage({ error: 'ACCOUNT_NOT_FOUND' }, 'x')).toBe(
-      errorsCopy.ACCOUNT_NOT_FOUND,
-    )
+    expect(errorMessage({ error: 'ACCOUNT_NOT_FOUND' }, 'x')).toBe(errorsCopy.ACCOUNT_NOT_FOUND)
   })
 
   it('renders a code that takes detail', () => {

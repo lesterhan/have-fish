@@ -1,6 +1,6 @@
 /// <reference types="bun" />
-import { describe, it, expect } from 'bun:test'
-import { toISODate, parseCustomDateRange } from './date'
+import { describe, expect, it } from 'bun:test'
+import { parseCustomDateRange, toISODate } from './date'
 
 // Sanity check: toISODate formats a known date correctly.
 describe('toISODate', () => {
@@ -124,12 +124,14 @@ describe('parseCustomDateRange', () => {
     const fromDate = new Date('2021-12-23')
     const toDate = new Date('2022-05-15')
 
-    expect(
-      parseCustomDateRange(`${toISODate(fromDate)}-${toISODate(toDate)}`),
-    ).toEqual({ from: toISODate(fromDate), to: toISODate(toDate) })
+    expect(parseCustomDateRange(`${toISODate(fromDate)}-${toISODate(toDate)}`)).toEqual({
+      from: toISODate(fromDate),
+      to: toISODate(toDate),
+    })
 
-    expect(
-      parseCustomDateRange(`${toISODate(fromDate)} to ${toISODate(toDate)}`),
-    ).toEqual({ from: toISODate(fromDate), to: toISODate(toDate) })
+    expect(parseCustomDateRange(`${toISODate(fromDate)} to ${toISODate(toDate)}`)).toEqual({
+      from: toISODate(fromDate),
+      to: toISODate(toDate),
+    })
   })
 })

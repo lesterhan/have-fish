@@ -1,8 +1,12 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { Roots } from './accountPaths'
 import {
   affectedPaths,
   branchPaths,
   buildCategoryTree,
+  type CategoryAccount,
+  type CategoryNode,
+  type CategoryStat,
   categorySections,
   emptyRows,
   filterNodes,
@@ -15,11 +19,7 @@ import {
   realRows,
   renameTarget,
   segmentError,
-  type CategoryAccount,
-  type CategoryNode,
-  type CategoryStat,
 } from './categoryTree'
-import type { Roots } from './accountPaths'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -33,9 +33,7 @@ function accts(...paths: string[]): CategoryAccount[] {
   return paths.map((path) => ({ id: `id:${path}`, path }))
 }
 
-function stats(
-  entries: Record<string, [number, string | null]>,
-): Map<string, CategoryStat> {
+function stats(entries: Record<string, [number, string | null]>): Map<string, CategoryStat> {
   return new Map(
     Object.entries(entries).map(([path, [count, lastActivity]]) => [
       `id:${path}`,
@@ -66,15 +64,9 @@ describe('buildCategoryTree', () => {
   it('creates virtual nodes for segments nothing was filed at', () => {
     const tree = buildCategoryTree(accts('expenses:food:groceries'), NONE)
 
-    expect(render(tree)).toEqual([
-      'expenses(0)',
-      '  food(0)',
-      '    groceries(0)',
-    ])
+    expect(render(tree)).toEqual(['expenses(0)', '  food(0)', '    groceries(0)'])
     expect(find(tree, 'expenses').accountId).toBeNull()
-    expect(find(tree, 'expenses:food:groceries').accountId).toBe(
-      'id:expenses:food:groceries',
-    )
+    expect(find(tree, 'expenses:food:groceries').accountId).toBe('id:expenses:food:groceries')
   })
 
   it('rolls entry counts up the subtree while keeping each row own count', () => {
@@ -87,12 +79,7 @@ describe('buildCategoryTree', () => {
       }),
     )
 
-    expect(render(tree)).toEqual([
-      'expenses(54)',
-      '  food(42)',
-      '    groceries(40)',
-      '  rent(12)',
-    ])
+    expect(render(tree)).toEqual(['expenses(54)', '  food(42)', '    groceries(40)', '  rent(12)'])
     expect(find(tree, 'expenses:food').ownEntries).toBe(2)
     expect(find(tree, 'expenses').ownEntries).toBe(0)
   })
@@ -113,10 +100,7 @@ describe('buildCategoryTree', () => {
   })
 
   it('sorts every level alphabetically', () => {
-    const tree = buildCategoryTree(
-      accts('income:salary', 'expenses:rent', 'expenses:food'),
-      NONE,
-    )
+    const tree = buildCategoryTree(accts('income:salary', 'expenses:rent', 'expenses:food'), NONE)
     expect(render(tree)).toEqual([
       'expenses(0)',
       '  food(0)',
@@ -170,14 +154,8 @@ describe('categorySections', () => {
 
   it('keeps expenses, income and unfiled, and leaves the Accounts tab alone', () => {
     const sections = categorySections(accounts, NONE, ROOTS)
-    expect(sections.map((s) => s.key)).toEqual([
-      'expenses',
-      'income',
-      'unfiled',
-    ])
-    expect(sections.flatMap((s) => render(s.nodes))).not.toContain(
-      'chequing(0)',
-    )
+    expect(sections.map((s) => s.key)).toEqual(['expenses', 'income', 'unfiled'])
+    expect(sections.flatMap((s) => render(s.nodes))).not.toContain('chequing(0)')
   })
 
   it('unwraps the configured root so the section lists its categories directly', () => {
@@ -187,21 +165,13 @@ describe('categorySections', () => {
 
   it('keeps the root row when an account exists at exactly the root path', () => {
     // Losing a row is the one thing this page must never do, so a real `expenses` row stays.
-    const sections = categorySections(
-      accts('expenses', 'expenses:food'),
-      NONE,
-      ROOTS,
-    )
+    const sections = categorySections(accts('expenses', 'expenses:food'), NONE, ROOTS)
     expect(render(sections[0]!.nodes)).toEqual(['expenses(0)', '  food(0)'])
   })
 
   it('honours renamed roots', () => {
     const renamed: Roots = { ...ROOTS, expenses: 'spending' }
-    const sections = categorySections(
-      accts('spending:food', 'expenses:food'),
-      NONE,
-      renamed,
-    )
+    const sections = categorySections(accts('spending:food', 'expenses:food'), NONE, renamed)
     expect(sections.map((s) => s.key)).toEqual(['expenses', 'unfiled'])
     // With the root renamed, the old `expenses:*` path is what has nowhere else to go.
     expect(render(sections[0]!.nodes)).toEqual(['food(0)'])
@@ -209,9 +179,9 @@ describe('categorySections', () => {
   })
 
   it('drops a section with nothing in it rather than showing an empty card', () => {
-    expect(
-      categorySections(accts('expenses:food'), NONE, ROOTS).map((s) => s.key),
-    ).toEqual(['expenses'])
+    expect(categorySections(accts('expenses:food'), NONE, ROOTS).map((s) => s.key)).toEqual([
+      'expenses',
+    ])
   })
 
   it('totals entries across the whole section', () => {
@@ -237,11 +207,7 @@ describe('filterNodes', () => {
 
   it('keeps a match together with the ancestors that give it context', () => {
     const kept = filterNodes(tree, (n) => n.segment === 'groceries')
-    expect(render(kept)).toEqual([
-      'expenses(40)',
-      '  food(40)',
-      '    groceries(40)',
-    ])
+    expect(render(kept)).toEqual(['expenses(40)', '  food(40)', '    groceries(40)'])
   })
 
   it('keeps everything beneath a matched branch', () => {
@@ -272,18 +238,10 @@ describe('filterNodes', () => {
 describe('emptyRows', () => {
   it('finds every deletable row anywhere in the forest', () => {
     const tree = buildCategoryTree(
-      accts(
-        'expenses:food',
-        'expenses:food:groceries',
-        'expenses:food:dining',
-        'expenses:unused',
-      ),
+      accts('expenses:food', 'expenses:food:groceries', 'expenses:food:dining', 'expenses:unused'),
       stats({ 'expenses:food:groceries': [40, '2026-05-05'] }),
     )
-    expect(emptyRows(tree).map((n) => n.path)).toEqual([
-      'expenses:food:dining',
-      'expenses:unused',
-    ])
+    expect(emptyRows(tree).map((n) => n.path)).toEqual(['expenses:food:dining', 'expenses:unused'])
   })
 
   it('is empty when everything is in use', () => {
@@ -296,10 +254,7 @@ describe('emptyRows', () => {
 })
 
 describe('flattenNodes', () => {
-  const tree = buildCategoryTree(
-    accts('expenses:food:groceries', 'expenses:rent'),
-    NONE,
-  )
+  const tree = buildCategoryTree(accts('expenses:food:groceries', 'expenses:rent'), NONE)
 
   it('walks depth-first, carrying the depth a table cannot nest', () => {
     const rows = flattenNodes(tree, () => false)
@@ -313,11 +268,7 @@ describe('flattenNodes', () => {
 
   it('stops at a collapsed branch but still emits the branch itself', () => {
     const rows = flattenNodes(tree, (path) => path === 'expenses:food')
-    expect(rows.map((r) => r.node.segment)).toEqual([
-      'expenses',
-      'food',
-      'rent',
-    ])
+    expect(rows.map((r) => r.node.segment)).toEqual(['expenses', 'food', 'rent'])
     expect(rows.find((r) => r.node.segment === 'food')).toMatchObject({
       hasChildren: true,
       collapsed: true,
@@ -326,9 +277,7 @@ describe('flattenNodes', () => {
 
   it('never marks a leaf collapsed, however the predicate answers', () => {
     const rows = flattenNodes(tree, () => true)
-    expect(rows.find((r) => r.node.segment === 'expenses')!.collapsed).toBe(
-      true,
-    )
+    expect(rows.find((r) => r.node.segment === 'expenses')!.collapsed).toBe(true)
     expect(rows).toHaveLength(1)
   })
 })
@@ -391,21 +340,13 @@ describe('foldAll', () => {
 
 describe('branchPaths', () => {
   it('names every path with children, so collapse-all can reach them', () => {
-    const tree = buildCategoryTree(
-      accts('expenses:food:groceries', 'expenses:rent'),
-      NONE,
-    )
+    const tree = buildCategoryTree(accts('expenses:food:groceries', 'expenses:rent'), NONE)
     expect(branchPaths(tree)).toEqual(['expenses', 'expenses:food'])
   })
 })
 
 describe('rename arithmetic', () => {
-  const paths = [
-    'expenses:food',
-    'expenses:food:groceries',
-    'expenses:foodstuffs',
-    'expenses:rent',
-  ]
+  const paths = ['expenses:food', 'expenses:food:groceries', 'expenses:foodstuffs', 'expenses:rent']
 
   it('parentPrefix drops the last segment, and is empty at the top', () => {
     expect(parentPrefix('expenses:food:groceries')).toBe('expenses:food')
@@ -426,15 +367,13 @@ describe('rename arithmetic', () => {
   })
 
   it('affectedPaths covers a virtual node, which has descendants but no row', () => {
-    expect(affectedPaths(['expenses:food:groceries'], 'expenses:food')).toEqual(
-      ['expenses:food:groceries'],
-    )
+    expect(affectedPaths(['expenses:food:groceries'], 'expenses:food')).toEqual([
+      'expenses:food:groceries',
+    ])
   })
 
   it('findCollision names the path already sitting at the target', () => {
-    expect(findCollision(paths, 'expenses:food', 'expenses:rent')).toBe(
-      'expenses:rent',
-    )
+    expect(findCollision(paths, 'expenses:food', 'expenses:rent')).toBe('expenses:rent')
   })
 
   it('findCollision catches a descendant landing on an existing row', () => {
@@ -449,9 +388,7 @@ describe('rename arithmetic', () => {
   })
 
   it('segmentError rejects a colon, which would re-parent rather than rename', () => {
-    expect(segmentError('food:drink', 'food')).toBe(
-      'A name cannot contain a colon',
-    )
+    expect(segmentError('food:drink', 'food')).toBe('A name cannot contain a colon')
     expect(segmentError('  ', 'food')).toBe('A name cannot be empty')
     expect(segmentError('dining', 'food')).toBeNull()
   })
@@ -473,9 +410,7 @@ describe('pathError', () => {
   })
 
   it('rejects a path you already have', () => {
-    expect(pathError('expenses:food', existing)).toBe(
-      'That account already exists',
-    )
+    expect(pathError('expenses:food', existing)).toBe('That account already exists')
   })
 
   it('accepts a new well-formed path, trimmed', () => {

@@ -1,16 +1,41 @@
+import { and, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { transactions, postings, csvParsers, importRules, accounts, groupSettlements, expenseGroups, groupCategories, user } from '../db/schema'
-import { eq, isNull, and, gte, lte, or, inArray } from 'drizzle-orm'
-import { parseCsv, normalizeHeader, detectDelimiter, SUPPORTED_DELIMITERS } from '../import/csv-parser'
-import { buildParser } from '../import/dynamic-parser'
-import type { ParsedTransaction, ColumnMapping } from '../import/types'
-import { buildRegularPostings, buildFishPiePostings, buildFishPieCrossCurrencyPostings, buildFishPieSameCurrencyPostings, buildCrossCurrencySpendPostings } from '../import/postings'
-import { createGroupExpenseInTx, fetchGroupWithMembers, resolvePayerImportContext } from '../fish-pie-expense-service'
-import { ensureSharedAccount } from '../fish-pie-accounts'
-import { merchantKey } from '../import/merchant'
+import {
+  accounts,
+  csvParsers,
+  expenseGroups,
+  groupCategories,
+  groupSettlements,
+  importRules,
+  postings,
+  transactions,
+  user,
+} from '../db/schema'
 import { fail } from '../errors'
+import { ensureSharedAccount } from '../fish-pie-accounts'
+import {
+  createGroupExpenseInTx,
+  fetchGroupWithMembers,
+  resolvePayerImportContext,
+} from '../fish-pie-expense-service'
+import {
+  detectDelimiter,
+  normalizeHeader,
+  parseCsv,
+  SUPPORTED_DELIMITERS,
+} from '../import/csv-parser'
+import { buildParser } from '../import/dynamic-parser'
+import { merchantKey } from '../import/merchant'
+import {
+  buildCrossCurrencySpendPostings,
+  buildFishPieCrossCurrencyPostings,
+  buildFishPiePostings,
+  buildFishPieSameCurrencyPostings,
+  buildRegularPostings,
+} from '../import/postings'
+import type { ColumnMapping, ParsedTransaction } from '../import/types'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -31,7 +56,8 @@ app.post('/preview', async (c) => {
   const defaultCurrency = form.get('defaultCurrency')
 
   if (!file || typeof file === 'string') return fail(c, 'FIELD_REQUIRED', { field: 'file' })
-  if (!defaultCurrency || typeof defaultCurrency !== 'string') return fail(c, 'FIELD_REQUIRED', { field: 'defaultCurrency' })
+  if (!defaultCurrency || typeof defaultCurrency !== 'string')
+    return fail(c, 'FIELD_REQUIRED', { field: 'defaultCurrency' })
 
   const csv = await file.text()
 
@@ -83,7 +109,13 @@ app.post('/preview', async (c) => {
       categoryId: importRules.categoryId,
     })
     .from(importRules)
-    .where(and(eq(importRules.userId, userId), eq(importRules.status, 'active'), isNull(importRules.deletedAt)))
+    .where(
+      and(
+        eq(importRules.userId, userId),
+        eq(importRules.status, 'active'),
+        isNull(importRules.deletedAt),
+      ),
+    )
 
   const matchRule = (description: string) =>
     activeRules.find((r) => description.toLowerCase().includes(r.pattern.toLowerCase()))
@@ -93,7 +125,10 @@ app.post('/preview', async (c) => {
   // expense account — but a split rule suggests the same group/category either way,
   // since both commit through the Fish Pie posting builders.
   type MatchedRule = NonNullable<ReturnType<typeof matchRule>>
-  const suggestionFor = (match: MatchedRule, accountField: 'suggestedOffsetAccountId' | 'suggestedExpenseAccountId') => ({
+  const suggestionFor = (
+    match: MatchedRule,
+    accountField: 'suggestedOffsetAccountId' | 'suggestedExpenseAccountId',
+  ) => ({
     ...(match.accountId
       ? { [accountField]: match.accountId }
       : { suggestedGroupId: match.groupId, suggestedCategoryId: match.categoryId }),
@@ -192,7 +227,9 @@ app.post('/check-duplicates', async (c) => {
     const owned = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+      .where(
+        and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
+      )
       .limit(1)
     if (owned.length === 0) continue
 
@@ -272,8 +309,16 @@ app.post('/check-duplicates', async (c) => {
 
     const settlementByTxId = new Map<string, { groupId: string; groupName: string }>()
     for (const row of settlementRows) {
-      if (row.payerTransactionId) settlementByTxId.set(row.payerTransactionId, { groupId: row.groupId, groupName: row.groupName })
-      if (row.receiverTransactionId) settlementByTxId.set(row.receiverTransactionId, { groupId: row.groupId, groupName: row.groupName })
+      if (row.payerTransactionId)
+        settlementByTxId.set(row.payerTransactionId, {
+          groupId: row.groupId,
+          groupName: row.groupName,
+        })
+      if (row.receiverTransactionId)
+        settlementByTxId.set(row.receiverTransactionId, {
+          groupId: row.groupId,
+          groupName: row.groupName,
+        })
     }
 
     for (const entry of result) {
@@ -315,8 +360,10 @@ app.post('/commit', async (c) => {
   const body = await c.req.json()
   const { accountId, defaultCurrency, transactions: parsed, groupSplits } = body
 
-  if (!defaultCurrency || typeof defaultCurrency !== 'string') return fail(c, 'FIELD_REQUIRED', { field: 'defaultCurrency' })
-  if (!Array.isArray(parsed) || parsed.length === 0) return fail(c, 'FIELD_EMPTY', { field: 'transactions' })
+  if (!defaultCurrency || typeof defaultCurrency !== 'string')
+    return fail(c, 'FIELD_REQUIRED', { field: 'defaultCurrency' })
+  if (!Array.isArray(parsed) || parsed.length === 0)
+    return fail(c, 'FIELD_EMPTY', { field: 'transactions' })
 
   // Validate groupSplits and verify membership up front (fail fast before any DB writes)
   type GroupSplit = { rowIndex: number; groupId: string; categoryId?: string | null }
@@ -343,8 +390,14 @@ app.post('/commit', async (c) => {
       const [cat] = await db
         .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
         .from(groupCategories)
-        .where(and(eq(groupCategories.id, split.categoryId), eq(groupCategories.groupId, split.groupId)))
-      if (!cat) return fail(c, 'CATEGORY_NOT_IN_GROUP', { categoryId: split.categoryId, groupId: split.groupId })
+        .where(
+          and(eq(groupCategories.id, split.categoryId), eq(groupCategories.groupId, split.groupId)),
+        )
+      if (!cat)
+        return fail(c, 'CATEGORY_NOT_IN_GROUP', {
+          categoryId: split.categoryId,
+          groupId: split.groupId,
+        })
       if (cat.archivedAt) return fail(c, 'CATEGORY_ARCHIVED', { categoryId: split.categoryId })
     }
   }
@@ -353,26 +406,75 @@ app.post('/commit', async (c) => {
   // Per-row validation — requirements differ by row type
   for (const [rowIdx, t] of (parsed as Record<string, unknown>[]).entries()) {
     if (t.isTransfer === 'cross-currency-spend') {
-      if (!t.sourceAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'cross-currency-spend', field: 'sourceAccountId' })
-      if (!t.expenseAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'cross-currency-spend', field: 'expenseAccountId' })
-      if (!t.conversionAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'cross-currency-spend', field: 'conversionAccountId' })
-      if (t.feeAmount && !t.feeAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'cross-currency-spend', field: 'feeAccountId' })
+      if (!t.sourceAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'cross-currency-spend',
+          field: 'sourceAccountId',
+        })
+      if (!t.expenseAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'cross-currency-spend',
+          field: 'expenseAccountId',
+        })
+      if (!t.conversionAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'cross-currency-spend',
+          field: 'conversionAccountId',
+        })
+      if (t.feeAmount && !t.feeAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'cross-currency-spend',
+          field: 'feeAccountId',
+        })
     } else if (t.isTransfer === true) {
-      if (!t.sourceAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'sourceAccountId' })
+      if (!t.sourceAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'transfer',
+          field: 'sourceAccountId',
+        })
       // A Fish Pie split routes through buildFishPieCrossCurrencyPostings, which splits the
       // target leg into the group + payer-expense accounts and never uses targetAccountId —
       // so a shared cross-currency spend has no target asset to require.
-      if (!t.targetAccountId && !splitByRowIndex.has(rowIdx)) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'targetAccountId' })
-      if (!t.conversionAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'conversionAccountId' })
-      if (!t.feeAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'feeAccountId' })
+      if (!t.targetAccountId && !splitByRowIndex.has(rowIdx))
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'transfer',
+          field: 'targetAccountId',
+        })
+      if (!t.conversionAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'transfer',
+          field: 'conversionAccountId',
+        })
+      if (!t.feeAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'transfer', field: 'feeAccountId' })
     } else if (t.isTransfer === 'same-currency') {
-      if (!t.targetAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'same-currency-transfer', field: 'targetAccountId' })
-      if (!t.sourceAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'same-currency-transfer', field: 'sourceAccountId' })
-      if (!t.feeAccountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'same-currency-transfer', field: 'feeAccountId' })
+      if (!t.targetAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'same-currency-transfer',
+          field: 'targetAccountId',
+        })
+      if (!t.sourceAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'same-currency-transfer',
+          field: 'sourceAccountId',
+        })
+      if (!t.feeAccountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'same-currency-transfer',
+          field: 'feeAccountId',
+        })
     } else {
       // Fish Pie rows don't need offsetAccountId — the backend derives it from ensureSharedAccount
-      if (!t.offsetAccountId && !splitByRowIndex.has(rowIdx)) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'regular', field: 'offsetAccountId' })
-      if (!t.sourceAccountId && !accountId) return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', { rowKind: 'regular', field: 'sourceAccountId' })
+      if (!t.offsetAccountId && !splitByRowIndex.has(rowIdx))
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'regular',
+          field: 'offsetAccountId',
+        })
+      if (!t.sourceAccountId && !accountId)
+        return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
+          rowKind: 'regular',
+          field: 'sourceAccountId',
+        })
     }
   }
 
@@ -390,11 +492,11 @@ app.post('/commit', async (c) => {
     isTransfer: true
     date: string
     description?: string
-    sourceAmount: string   // negative (leaving source)
+    sourceAmount: string // negative (leaving source)
     sourceCurrency: string
-    targetAmount: string   // positive (arriving at target)
+    targetAmount: string // positive (arriving at target)
     targetCurrency: string
-    feeAmount?: string     // positive
+    feeAmount?: string // positive
     feeCurrency?: string
     sourceAccountId: string
     targetAccountId: string
@@ -406,14 +508,14 @@ app.post('/commit', async (c) => {
     isTransfer: 'cross-currency-spend'
     date: string
     description?: string
-    sourceAmount: string   // negative, gross incl. fee (leaving source)
+    sourceAmount: string // negative, gross incl. fee (leaving source)
     sourceCurrency: string
-    targetAmount: string   // positive (the spend, in targetCurrency)
+    targetAmount: string // positive (the spend, in targetCurrency)
     targetCurrency: string
-    feeAmount?: string     // positive
+    feeAmount?: string // positive
     feeCurrency?: string
     sourceAccountId: string
-    expenseAccountId: string   // the spend account
+    expenseAccountId: string // the spend account
     conversionAccountId: string
     feeAccountId?: string
   }
@@ -422,18 +524,20 @@ app.post('/commit', async (c) => {
     isTransfer: 'same-currency'
     date: string
     description?: string
-    amount: string    // net amount received (positive)
+    amount: string // net amount received (positive)
     feeAmount: string // fee charged (positive)
     currency: string
-    targetAccountId: string   // the account that received the money
-    sourceAccountId: string   // where the money came from
+    targetAccountId: string // the account that received the money
+    sourceAccountId: string // where the money came from
     feeAccountId: string
   }
 
   let fishPieExpenses = 0
 
   await db.transaction(async (tx) => {
-    for (const [rowIndex, t] of (parsed as (RegularRow | TransferRow | SameCurrencyTransferRow | CrossCurrencySpendRow)[]).entries()) {
+    for (const [rowIndex, t] of (
+      parsed as (RegularRow | TransferRow | SameCurrencyTransferRow | CrossCurrencySpendRow)[]
+    ).entries()) {
       const [newTx] = await tx
         .insert(transactions)
         .values({ userId, date: new Date(t.date), description: t.description })
@@ -444,7 +548,7 @@ app.post('/commit', async (c) => {
         // from another-currency account via on-the-fly conversion. equity:conversions
         // bridges both sides; the spend lands in an expense account (never the bridge),
         // and no phantom asset balance is created. See buildCrossCurrencySpendPostings.
-        const srcAmount = parseFloat(t.sourceAmount)  // negative
+        const srcAmount = parseFloat(t.sourceAmount) // negative
         const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0
         const conversionSrcAmount = (-(srcAmount + feeVal)).toFixed(2)
 
@@ -479,9 +583,9 @@ app.post('/commit', async (c) => {
         //
         // Per-currency totals balance to zero.
 
-        const srcAmount = parseFloat(t.sourceAmount)  // negative
-        const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0  // positive or 0
-        const tgtAmount = parseFloat(t.targetAmount)  // positive
+        const srcAmount = parseFloat(t.sourceAmount) // negative
+        const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0 // positive or 0
+        const tgtAmount = parseFloat(t.targetAmount) // positive
         const feeCurrency = t.feeCurrency ?? t.sourceCurrency
         const conversionSrcAmount = (-(srcAmount + feeVal)).toFixed(2)
 
@@ -530,12 +634,37 @@ app.post('/commit', async (c) => {
           })
           fishPieExpenses++
         } else {
-          type PostingRow = { transactionId: string; accountId: string; amount: string; currency: string }
+          type PostingRow = {
+            transactionId: string
+            accountId: string
+            amount: string
+            currency: string
+          }
           const postingRows: PostingRow[] = [
-            { transactionId: newTx.id, accountId: t.sourceAccountId,     amount: t.sourceAmount,         currency: t.sourceCurrency },
-            { transactionId: newTx.id, accountId: t.conversionAccountId, amount: conversionSrcAmount,     currency: t.sourceCurrency },
-            { transactionId: newTx.id, accountId: t.conversionAccountId, amount: (-tgtAmount).toFixed(2), currency: t.targetCurrency },
-            { transactionId: newTx.id, accountId: t.targetAccountId,     amount: t.targetAmount,          currency: t.targetCurrency },
+            {
+              transactionId: newTx.id,
+              accountId: t.sourceAccountId,
+              amount: t.sourceAmount,
+              currency: t.sourceCurrency,
+            },
+            {
+              transactionId: newTx.id,
+              accountId: t.conversionAccountId,
+              amount: conversionSrcAmount,
+              currency: t.sourceCurrency,
+            },
+            {
+              transactionId: newTx.id,
+              accountId: t.conversionAccountId,
+              amount: (-tgtAmount).toFixed(2),
+              currency: t.targetCurrency,
+            },
+            {
+              transactionId: newTx.id,
+              accountId: t.targetAccountId,
+              amount: t.targetAmount,
+              currency: t.targetCurrency,
+            },
           ]
 
           if (t.feeAmount && feeVal !== 0) {
@@ -601,9 +730,24 @@ app.post('/commit', async (c) => {
         } else {
           const gross = (parseFloat(t.amount) + parseFloat(t.feeAmount)).toFixed(2)
           await tx.insert(postings).values([
-            { transactionId: newTx.id, accountId: t.targetAccountId, amount: t.amount,   currency: t.currency },
-            { transactionId: newTx.id, accountId: t.feeAccountId,    amount: t.feeAmount, currency: t.currency },
-            { transactionId: newTx.id, accountId: t.sourceAccountId, amount: `-${gross}`, currency: t.currency },
+            {
+              transactionId: newTx.id,
+              accountId: t.targetAccountId,
+              amount: t.amount,
+              currency: t.currency,
+            },
+            {
+              transactionId: newTx.id,
+              accountId: t.feeAccountId,
+              amount: t.feeAmount,
+              currency: t.currency,
+            },
+            {
+              transactionId: newTx.id,
+              accountId: t.sourceAccountId,
+              amount: `-${gross}`,
+              currency: t.currency,
+            },
           ])
         }
       } else {

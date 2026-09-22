@@ -1,5 +1,10 @@
-import { describe, it, expect } from 'bun:test'
-import { detectMalformedFxSpend, planFxSpendRepair, type HealPosting, type HealSettings } from './heal'
+import { describe, expect, it } from 'bun:test'
+import {
+  detectMalformedFxSpend,
+  type HealPosting,
+  type HealSettings,
+  planFxSpendRepair,
+} from './heal'
 
 const settings: HealSettings = {
   expensesRootPath: 'expenses',
@@ -10,11 +15,35 @@ const settings: HealSettings = {
 
 // The canonical malformed shape: coffee for 360 CZK funded from USD, no CZK held.
 const malformed: HealPosting[] = [
-  { id: 'p1', accountId: 'usd',    accountPath: 'assets:bank:savings:usd', amount: '-17.29', currency: 'USD' },
-  { id: 'p2', accountId: 'coffee', accountPath: 'expenses:food:coffee',    amount: '17.24',  currency: 'USD' },
-  { id: 'p3', accountId: 'fee',    accountPath: 'expenses:banking',        amount: '0.05',   currency: 'USD' },
-  { id: 'p4', accountId: 'coffee', accountPath: 'expenses:food:coffee',    amount: '-360.00', currency: 'CZK' },
-  { id: 'p5', accountId: 'czk',    accountPath: 'assets:bank:savings:czk', amount: '360.00',  currency: 'CZK' },
+  {
+    id: 'p1',
+    accountId: 'usd',
+    accountPath: 'assets:bank:savings:usd',
+    amount: '-17.29',
+    currency: 'USD',
+  },
+  {
+    id: 'p2',
+    accountId: 'coffee',
+    accountPath: 'expenses:food:coffee',
+    amount: '17.24',
+    currency: 'USD',
+  },
+  { id: 'p3', accountId: 'fee', accountPath: 'expenses:banking', amount: '0.05', currency: 'USD' },
+  {
+    id: 'p4',
+    accountId: 'coffee',
+    accountPath: 'expenses:food:coffee',
+    amount: '-360.00',
+    currency: 'CZK',
+  },
+  {
+    id: 'p5',
+    accountId: 'czk',
+    accountPath: 'assets:bank:savings:czk',
+    amount: '360.00',
+    currency: 'CZK',
+  },
 ]
 
 describe('detectMalformedFxSpend', () => {
@@ -24,37 +53,109 @@ describe('detectMalformedFxSpend', () => {
     expect(finding!.expenseAccountId).toBe('coffee')
     expect(finding!.sourceBridgePostingId).toBe('p2') // +17.24 USD
     expect(finding!.targetBridgePostingId).toBe('p4') // -360 CZK
-    expect(finding!.phantomPostingId).toBe('p5')      // +360 CZK on the asset
+    expect(finding!.phantomPostingId).toBe('p5') // +360 CZK on the asset
     expect(finding!.sourceCurrency).toBe('USD')
     expect(finding!.targetCurrency).toBe('CZK')
   })
 
   it('does not flag a healthy cross-currency spend (has an equity bridge)', () => {
     const healthy: HealPosting[] = [
-      { id: 'p1', accountId: 'usd',    accountPath: 'assets:bank:savings:usd', amount: '-17.29', currency: 'USD' },
-      { id: 'p2', accountId: 'equity', accountPath: 'equity:conversions',      amount: '17.24',  currency: 'USD' },
-      { id: 'p3', accountId: 'fee',    accountPath: 'expenses:banking',        amount: '0.05',   currency: 'USD' },
-      { id: 'p4', accountId: 'equity', accountPath: 'equity:conversions',      amount: '-360.00', currency: 'CZK' },
-      { id: 'p5', accountId: 'coffee', accountPath: 'expenses:food:coffee',    amount: '360.00',  currency: 'CZK' },
+      {
+        id: 'p1',
+        accountId: 'usd',
+        accountPath: 'assets:bank:savings:usd',
+        amount: '-17.29',
+        currency: 'USD',
+      },
+      {
+        id: 'p2',
+        accountId: 'equity',
+        accountPath: 'equity:conversions',
+        amount: '17.24',
+        currency: 'USD',
+      },
+      {
+        id: 'p3',
+        accountId: 'fee',
+        accountPath: 'expenses:banking',
+        amount: '0.05',
+        currency: 'USD',
+      },
+      {
+        id: 'p4',
+        accountId: 'equity',
+        accountPath: 'equity:conversions',
+        amount: '-360.00',
+        currency: 'CZK',
+      },
+      {
+        id: 'p5',
+        accountId: 'coffee',
+        accountPath: 'expenses:food:coffee',
+        amount: '360.00',
+        currency: 'CZK',
+      },
     ]
     expect(detectMalformedFxSpend(healthy, settings)).toBeNull()
   })
 
   it('does not flag a genuine convert-and-hold (asset→asset, equity bridge, no double expense)', () => {
     const convert: HealPosting[] = [
-      { id: 'p1', accountId: 'fee',    accountPath: 'expenses:banking:fee:wise', amount: '2.34',     currency: 'EUR' },
-      { id: 'p2', accountId: 'eur',    accountPath: 'assets:wise:eur',           amount: '-497.66',  currency: 'EUR' },
-      { id: 'p3', accountId: 'equity', accountPath: 'equity:conversions',        amount: '495.32',   currency: 'EUR' },
-      { id: 'p4', accountId: 'equity', accountPath: 'equity:conversions',        amount: '-3949.90', currency: 'CNY' },
-      { id: 'p5', accountId: 'cny',    accountPath: 'assets:wise:cny',           amount: '3949.90',  currency: 'CNY' },
+      {
+        id: 'p1',
+        accountId: 'fee',
+        accountPath: 'expenses:banking:fee:wise',
+        amount: '2.34',
+        currency: 'EUR',
+      },
+      {
+        id: 'p2',
+        accountId: 'eur',
+        accountPath: 'assets:wise:eur',
+        amount: '-497.66',
+        currency: 'EUR',
+      },
+      {
+        id: 'p3',
+        accountId: 'equity',
+        accountPath: 'equity:conversions',
+        amount: '495.32',
+        currency: 'EUR',
+      },
+      {
+        id: 'p4',
+        accountId: 'equity',
+        accountPath: 'equity:conversions',
+        amount: '-3949.90',
+        currency: 'CNY',
+      },
+      {
+        id: 'p5',
+        accountId: 'cny',
+        accountPath: 'assets:wise:cny',
+        amount: '3949.90',
+        currency: 'CNY',
+      },
     ]
     expect(detectMalformedFxSpend(convert, settings)).toBeNull()
   })
 
   it('does not flag a plain single-currency expense', () => {
     const plain: HealPosting[] = [
-      { id: 'p1', accountId: 'chq',    accountPath: 'assets:bank:chequing',  amount: '-45.20', currency: 'CAD' },
-      { id: 'p2', accountId: 'food',   accountPath: 'expenses:food:groceries', amount: '45.20', currency: 'CAD' },
+      {
+        id: 'p1',
+        accountId: 'chq',
+        accountPath: 'assets:bank:chequing',
+        amount: '-45.20',
+        currency: 'CAD',
+      },
+      {
+        id: 'p2',
+        accountId: 'food',
+        accountPath: 'expenses:food:groceries',
+        amount: '45.20',
+        currency: 'CAD',
+      },
     ]
     expect(detectMalformedFxSpend(plain, settings)).toBeNull()
   })
@@ -78,10 +179,34 @@ describe('detectMalformedFxSpend', () => {
   it('does not flag when the expense account appears in only one currency', () => {
     // expense leg is single-currency; the +360 is just a sibling asset move — not the bug.
     const single: HealPosting[] = [
-      { id: 'p1', accountId: 'usd',    accountPath: 'assets:bank:savings:usd', amount: '-17.29', currency: 'USD' },
-      { id: 'p2', accountId: 'coffee', accountPath: 'expenses:food:coffee',    amount: '17.29',  currency: 'USD' },
-      { id: 'p3', accountId: 'czk',    accountPath: 'assets:bank:savings:czk', amount: '360.00', currency: 'CZK' },
-      { id: 'p4', accountId: 'czk2',   accountPath: 'assets:other:czk',        amount: '-360.00', currency: 'CZK' },
+      {
+        id: 'p1',
+        accountId: 'usd',
+        accountPath: 'assets:bank:savings:usd',
+        amount: '-17.29',
+        currency: 'USD',
+      },
+      {
+        id: 'p2',
+        accountId: 'coffee',
+        accountPath: 'expenses:food:coffee',
+        amount: '17.29',
+        currency: 'USD',
+      },
+      {
+        id: 'p3',
+        accountId: 'czk',
+        accountPath: 'assets:bank:savings:czk',
+        amount: '360.00',
+        currency: 'CZK',
+      },
+      {
+        id: 'p4',
+        accountId: 'czk2',
+        accountPath: 'assets:other:czk',
+        amount: '-360.00',
+        currency: 'CZK',
+      },
     ]
     expect(detectMalformedFxSpend(single, settings)).toBeNull()
   })
@@ -113,7 +238,11 @@ describe('planFxSpendRepair', () => {
     const repaired = malformed.map((p) => {
       const toAccountId = byId.get(p.id)
       if (!toAccountId) return p
-      return { ...p, accountId: toAccountId, accountPath: pathByAccount[toAccountId] ?? p.accountPath }
+      return {
+        ...p,
+        accountId: toAccountId,
+        accountPath: pathByAccount[toAccountId] ?? p.accountPath,
+      }
     })
     const sumBy = (ccy: string) =>
       repaired.filter((p) => p.currency === ccy).reduce((a, p) => a + parseFloat(p.amount), 0)

@@ -1,17 +1,21 @@
+import { Ionicons } from '@expo/vector-icons'
+import { useFocusEffect, useRouter } from 'expo-router'
 import { useCallback, useEffect, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useFocusEffect, useRouter } from 'expo-router'
-import { Ionicons } from '@expo/vector-icons'
+import { GlossButton } from '@/components/GlossButton'
+import { GroupsSheet } from '@/components/GroupsSheet'
+import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
+import { SplitSheet } from '@/components/SplitSheet'
 import {
+  type Account,
   fetchAccounts,
+  type GroupCategory,
   updateCategoryWeights,
   updateMemberWeight,
-  type Account,
-  type GroupCategory,
 } from '@/lib/api'
 import { getEmail } from '@/lib/auth'
-import { resolveMyUserId } from '@/lib/group-entry'
 import { useGroups } from '@/lib/group-context'
+import { resolveMyUserId } from '@/lib/group-entry'
 import {
   accountRows,
   activeCategories,
@@ -25,10 +29,6 @@ import {
   type WeightVector,
 } from '@/lib/settings-view'
 import { theme } from '@/lib/theme'
-import { GlossButton } from '@/components/GlossButton'
-import { GroupsSheet } from '@/components/GroupsSheet'
-import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
-import { SplitSheet } from '@/components/SplitSheet'
 
 /** Which split the bottom sheet is currently editing. */
 type Editing = { kind: 'baseline' } | { kind: 'category'; category: GroupCategory } | null
@@ -52,7 +52,9 @@ export default function GroupSettingsScreen() {
   // web-side mapping change shows up next time the screen is opened.
   useFocusEffect(
     useCallback(() => {
-      fetchAccounts().then(setAccounts).catch(() => setAccounts([]))
+      fetchAccounts()
+        .then(setAccounts)
+        .catch(() => setAccounts([]))
     }, []),
   )
 
@@ -112,7 +114,10 @@ export default function GroupSettingsScreen() {
           })()}
 
           {/* Baseline split — opens the slider sheet */}
-          <SettingsCard title="Split" caption="The default split. Categories can override it below.">
+          <SettingsCard
+            title="Split"
+            caption="The default split. Categories can override it below."
+          >
             <Pressable style={styles.linkRow} onPress={() => setEditing({ kind: 'baseline' })}>
               <Text style={styles.linkValue} numberOfLines={1}>
                 {splitSummary(splitRows(group.members))}
@@ -145,7 +150,9 @@ export default function GroupSettingsScreen() {
                         </Text>
                       ))}
                     </Text>
-                    <Text style={[styles.badge, inherited ? styles.badgeMuted : styles.badgeCustom]}>
+                    <Text
+                      style={[styles.badge, inherited ? styles.badgeMuted : styles.badgeCustom]}
+                    >
                       {inherited ? 'Baseline' : 'Custom'}
                     </Text>
                     <Ionicons name="chevron-forward" size={16} color={theme.color.ink3} />
@@ -159,7 +166,11 @@ export default function GroupSettingsScreen() {
           {accountRows(group.categories, accounts).length > 0 && (
             <SettingsCard title="Categories · posting accounts">
               {accountRows(group.categories, accounts).map((r) => (
-                <SettingsRow key={r.categoryId} label={r.name} value={r.accountPath ?? 'Set on web'} />
+                <SettingsRow
+                  key={r.categoryId}
+                  label={r.name}
+                  value={r.accountPath ?? 'Set on web'}
+                />
               ))}
             </SettingsCard>
           )}
@@ -181,13 +192,17 @@ export default function GroupSettingsScreen() {
             : 'The default split applied when a category has no override.'
         }
         members={members}
-        initial={editingCategory ? categoryVector(editingCategory, members) : baselineVector(members)}
+        initial={
+          editingCategory ? categoryVector(editingCategory, members) : baselineVector(members)
+        }
         onClose={() => setEditing(null)}
         onSave={(weights) =>
           editingCategory ? saveCategory(editingCategory.id, weights) : saveBaseline(weights)
         }
         onClear={
-          editingCategory && !categoryInherits ? () => saveCategory(editingCategory.id, []) : undefined
+          editingCategory && !categoryInherits
+            ? () => saveCategory(editingCategory.id, [])
+            : undefined
         }
       />
     </View>
@@ -213,11 +228,26 @@ const styles = StyleSheet.create({
   emptyText: { fontFamily: theme.font.mono, fontSize: 12, color: theme.color.ink3 },
   content: { padding: theme.sp.md, gap: theme.sp.md, paddingBottom: theme.sp.xl },
 
-  linkRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.sm, paddingVertical: theme.sp[13], minHeight: 44 },
+  linkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.sp.sm,
+    paddingVertical: theme.sp[13],
+    minHeight: 44,
+  },
   linkLabel: { flex: 1, fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
   linkValue: { flex: 1, fontFamily: theme.font.mono, fontSize: 13, color: theme.color.ink2 },
-  splitValue: { flexShrink: 0, fontFamily: theme.font.monoSemibold, fontSize: 12, color: theme.color.ink2 },
-  splitMine: { fontFamily: theme.font.monoBold, color: theme.color.accentInk, textDecorationLine: 'underline' },
+  splitValue: {
+    flexShrink: 0,
+    fontFamily: theme.font.monoSemibold,
+    fontSize: 12,
+    color: theme.color.ink2,
+  },
+  splitMine: {
+    fontFamily: theme.font.monoBold,
+    color: theme.color.accentInk,
+    textDecorationLine: 'underline',
+  },
   badge: {
     fontFamily: theme.font.monoBold,
     fontSize: 9.5,

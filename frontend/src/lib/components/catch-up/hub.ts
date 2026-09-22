@@ -134,10 +134,7 @@ export function donePanelCopy(groups: HubGroups): {
 // the right place: a successful import removes that account from the queue entirely, so an
 // index would silently point at whatever slid into the slot. By id, a finished account falls
 // through to the next one and an unfinished one is still there waiting.
-export function resolveFocus(
-  queue: CatchUpAccount[],
-  rememberedId: string | null,
-): number {
+export function resolveFocus(queue: CatchUpAccount[], rememberedId: string | null): number {
   if (queue.length === 0) return -1
   if (!rememberedId) return 0
   const index = queue.findIndex((a) => a.accountId === rememberedId)

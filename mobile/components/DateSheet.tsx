@@ -1,16 +1,8 @@
+import { Ionicons } from '@expo/vector-icons'
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker'
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from '@react-native-community/datetimepicker'
-import {
-  type DateMode,
-  resolveDate,
-  toISODate,
-  todayISO,
-  yesterdayISO,
-} from '@/lib/expense-date'
+import { type DateMode, resolveDate, todayISO, toISODate, yesterdayISO } from '@/lib/expense-date'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { BottomSheet } from './BottomSheet'

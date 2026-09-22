@@ -2,13 +2,13 @@
 import { describe, expect, it } from 'bun:test'
 import type { CurrencyBalance } from './api'
 import {
-  MINUS,
   balanceMagnitude,
   currencySymbol,
   formatAmount,
   formatSigned,
   isAllSettled,
   isZeroNet,
+  MINUS,
   visibleBalances,
 } from './balances-view'
 

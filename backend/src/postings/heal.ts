@@ -131,7 +131,10 @@ export function detectMalformedFxSpend(
 
 // Builds the repoint plan that turns a malformed finding into the correct shape.
 // Pure: only accountIds change, so the per-currency balance is unaffected.
-export function planFxSpendRepair(finding: MalformedFinding, conversionAccountId: string): Repoint[] {
+export function planFxSpendRepair(
+  finding: MalformedFinding,
+  conversionAccountId: string,
+): Repoint[] {
   return [
     { postingId: finding.sourceBridgePostingId, toAccountId: conversionAccountId },
     { postingId: finding.targetBridgePostingId, toAccountId: conversionAccountId },

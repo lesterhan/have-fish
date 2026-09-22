@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { statusLine } from './statusLine'
 
 const iv = (fromDate: string, throughDate: string) => ({
@@ -71,10 +71,7 @@ describe('statusLine', () => {
 
   it('reads the newest interval, which is the one at the head of the list', () => {
     const r = statusLine({
-      intervals: [
-        iv('2026-07-01', '2026-07-31'),
-        iv('2026-05-01', '2026-05-31'),
-      ],
+      intervals: [iv('2026-07-01', '2026-07-31'), iv('2026-05-01', '2026-05-31')],
       horizon: '2026-08-27',
       nextHorizon: null,
     })

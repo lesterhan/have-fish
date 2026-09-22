@@ -1,16 +1,16 @@
-import { describe, it, expect } from 'bun:test'
-import {
-  buildClusters,
-  initialClusterState,
-  clusterTarget,
-  applyTarget,
-  membersToWrite,
-  userEditedCount,
-  REMEMBER_THRESHOLD,
-  type ClusterState,
-} from './clustering'
-import type { RowState, RowSource } from './row-state'
+import { describe, expect, it } from 'bun:test'
 import type { ParsedTransaction } from '$lib/api'
+import {
+  applyTarget,
+  buildClusters,
+  type ClusterState,
+  clusterTarget,
+  initialClusterState,
+  membersToWrite,
+  REMEMBER_THRESHOLD,
+  userEditedCount,
+} from './clustering'
+import type { RowSource, RowState } from './row-state'
 
 function tx(
   merchantKey: string | undefined,
@@ -68,18 +68,12 @@ describe('buildClusters', () => {
   })
 
   it('leaves singletons out — there is no bulk in a bulk assign of one', () => {
-    const txs = [
-      tx('LOBLAWS', '2026-06-01', '-40.00'),
-      tx('BILLA', '2026-06-02', '-9.00'),
-    ]
+    const txs = [tx('LOBLAWS', '2026-06-01', '-40.00'), tx('BILLA', '2026-06-02', '-9.00')]
     expect(buildClusters(txs, 'CAD')).toHaveLength(0)
   })
 
   it('ignores rows with no merchant stem', () => {
-    const txs = [
-      tx(undefined, '2026-06-01', '-1.00'),
-      tx(undefined, '2026-06-02', '-2.00'),
-    ]
+    const txs = [tx(undefined, '2026-06-01', '-1.00'), tx(undefined, '2026-06-02', '-2.00')]
     expect(buildClusters(txs, 'CAD')).toHaveLength(0)
   })
 
@@ -93,18 +87,11 @@ describe('buildClusters', () => {
       tx('LOBLAWS', '2026-06-02', '-1.00'),
       tx('LOBLAWS', '2026-06-03', '-1.00'),
     ]
-    expect(buildClusters(txs, 'CAD').map((c) => c.key)).toEqual([
-      'LOBLAWS',
-      'ALDI',
-      'BILLA',
-    ])
+    expect(buildClusters(txs, 'CAD').map((c) => c.key)).toEqual(['LOBLAWS', 'ALDI', 'BILLA'])
   })
 
   it('reports the date range and summed spend', () => {
-    const txs = [
-      tx('LOBLAWS', '2026-06-27', '-12.50'),
-      tx('LOBLAWS', '2026-06-03', '-40.00'),
-    ]
+    const txs = [tx('LOBLAWS', '2026-06-27', '-12.50'), tx('LOBLAWS', '2026-06-03', '-40.00')]
     const [cluster] = buildClusters(txs, 'CAD')
     expect(cluster.firstDate).toBe('2026-06-03')
     expect(cluster.lastDate).toBe('2026-06-27')
@@ -134,10 +121,7 @@ describe('buildClusters', () => {
       targetAmount: '360.00',
       targetCurrency: 'CZK',
     } as ParsedTransaction
-    const clusters = buildClusters(
-      [transfer, { ...transfer, date: '2026-06-02' }],
-      'CAD',
-    )
+    const clusters = buildClusters([transfer, { ...transfer, date: '2026-06-02' }], 'CAD')
     expect(clusters[0].total).toBeCloseTo(720, 2)
     expect(clusters[0].currency).toBe('CZK')
   })
@@ -155,10 +139,7 @@ describe('buildClusters', () => {
   })
 
   it('leaves matchedRulePattern null when no rule fired', () => {
-    const txs = [
-      tx('LOBLAWS', '2026-06-01', '-1.00'),
-      tx('LOBLAWS', '2026-06-02', '-1.00'),
-    ]
+    const txs = [tx('LOBLAWS', '2026-06-01', '-1.00'), tx('LOBLAWS', '2026-06-02', '-1.00')]
     expect(buildClusters(txs, 'CAD')[0].matchedRulePattern).toBeNull()
   })
 })
@@ -196,9 +177,7 @@ describe('initialClusterState', () => {
 
 describe('clusterTarget', () => {
   it('prefers a split when one is set', () => {
-    expect(
-      clusterTarget(state({ accountId: 'a', groupId: 'g', categoryId: 'c' })),
-    ).toEqual({
+    expect(clusterTarget(state({ accountId: 'a', groupId: 'g', categoryId: 'c' }))).toEqual({
       kind: 'split',
       groupId: 'g',
       categoryId: 'c',
@@ -238,12 +217,7 @@ describe('applyTarget', () => {
       targetAmount: '1',
       targetCurrency: 'CZK',
     } as ParsedTransaction
-    const result = applyTarget(
-      transfer,
-      row(),
-      { kind: 'account', accountId: 'acct' },
-      'cluster',
-    )
+    const result = applyTarget(transfer, row(), { kind: 'account', accountId: 'acct' }, 'cluster')
     expect(result.expenseAccountId).toBe('acct')
     expect(result.offsetAccountId).toBe('')
   })
@@ -300,9 +274,7 @@ describe('membersToWrite', () => {
 
   it('respects members peeled out of the assign', () => {
     const rows = [row(), row(), row()]
-    expect(
-      membersToWrite(cluster, state({ excluded: [1] }), rows, false),
-    ).toEqual([0, 2])
+    expect(membersToWrite(cluster, state({ excluded: [1] }), rows, false)).toEqual([0, 2])
   })
 
   it('never writes a skipped row, even when overriding', () => {
@@ -319,27 +291,18 @@ describe('membersToWrite', () => {
 
 describe('userEditedCount', () => {
   const cluster = buildClusters(
-    [
-      tx('LOBLAWS', '2026-06-01', '-1.00'),
-      tx('LOBLAWS', '2026-06-02', '-1.00'),
-    ],
+    [tx('LOBLAWS', '2026-06-01', '-1.00'), tx('LOBLAWS', '2026-06-02', '-1.00')],
     'CAD',
   )[0]
 
   it('counts the hand-edited members an override would claim', () => {
     expect(userEditedCount(cluster, state(), [row('user'), row()])).toBe(1)
-    expect(userEditedCount(cluster, state(), [row('user'), row('user')])).toBe(
-      2,
-    )
+    expect(userEditedCount(cluster, state(), [row('user'), row('user')])).toBe(2)
     expect(userEditedCount(cluster, state(), [row(), row()])).toBe(0)
   })
 
   it('ignores excluded and skipped members', () => {
-    expect(
-      userEditedCount(cluster, state({ excluded: [0] }), [row('user'), row()]),
-    ).toBe(0)
-    expect(userEditedCount(cluster, state(), [row('user', true), row()])).toBe(
-      0,
-    )
+    expect(userEditedCount(cluster, state({ excluded: [0] }), [row('user'), row()])).toBe(0)
+    expect(userEditedCount(cluster, state(), [row('user', true), row()])).toBe(0)
   })
 })

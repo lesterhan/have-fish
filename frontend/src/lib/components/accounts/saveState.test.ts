@@ -1,10 +1,5 @@
-import { describe, it, expect } from 'bun:test'
-import {
-  SaveTracker,
-  saveErrorMessage,
-  SAVED_LINGER_MS,
-  type SaveState,
-} from './saveState'
+import { describe, expect, it } from 'bun:test'
+import { SAVED_LINGER_MS, type SaveState, SaveTracker, saveErrorMessage } from './saveState'
 
 /**
  * A hand-cranked clock. The tracker's linger timer is the one piece of behaviour that is
@@ -271,25 +266,19 @@ describe('SaveTracker', () => {
 
 describe('saveErrorMessage', () => {
   it('prefers the message the API threw', () => {
-    expect(
-      saveErrorMessage(new Error('Failed to update account'), 'nope'),
-    ).toBe('Failed to update account')
+    expect(saveErrorMessage(new Error('Failed to update account'), 'nope')).toBe(
+      'Failed to update account',
+    )
   })
 
   it('falls back for a non-Error, an empty message, and a blank one', () => {
     expect(saveErrorMessage('boom', 'Could not save')).toBe('Could not save')
-    expect(saveErrorMessage(new Error(''), 'Could not save')).toBe(
-      'Could not save',
-    )
-    expect(saveErrorMessage(new Error('   '), 'Could not save')).toBe(
-      'Could not save',
-    )
+    expect(saveErrorMessage(new Error(''), 'Could not save')).toBe('Could not save')
+    expect(saveErrorMessage(new Error('   '), 'Could not save')).toBe('Could not save')
     expect(saveErrorMessage(undefined, 'Could not save')).toBe('Could not save')
   })
 
   it('trims the message it does use', () => {
-    expect(saveErrorMessage(new Error('  Name taken\n'), 'nope')).toBe(
-      'Name taken',
-    )
+    expect(saveErrorMessage(new Error('  Name taken\n'), 'nope')).toBe('Name taken')
   })
 })

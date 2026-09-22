@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  ROOTS,
+  type AccountLike,
   accountLeaf,
   createSuggestion,
   filterAccounts,
   fuzzyMatch,
+  ROOTS,
   resolveCreatePath,
   rootOf,
-  type AccountLike,
 } from './account-search'
 
 const acct = (path: string, name?: string | null, id = path): AccountLike => ({ id, path, name })

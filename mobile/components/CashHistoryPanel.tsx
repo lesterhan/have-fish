@@ -1,17 +1,12 @@
+import { useFocusEffect } from 'expo-router'
 import { useCallback, useState } from 'react'
 import { ActivityIndicator, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native'
-import { useFocusEffect } from 'expo-router'
 import { fetchTransactions, type Transaction } from '@/lib/api'
 import { formatAmount } from '@/lib/cash-accounts'
-import {
-  cashHistoryRows,
-  dayHeading,
-  groupByDay,
-  type CashHistoryRow,
-} from '@/lib/cash-history'
+import { type CashHistoryRow, cashHistoryRows, dayHeading, groupByDay } from '@/lib/cash-history'
 import { useShellMode } from '@/lib/shell-mode-context'
-import { useWallets } from '@/lib/wallet-context'
 import { theme } from '@/lib/theme'
+import { useWallets } from '@/lib/wallet-context'
 import { GlossSurface } from './GlossSurface'
 
 /**
@@ -124,7 +119,9 @@ function HistoryRow({ row, first }: { row: CashHistoryRow; first: boolean }) {
           {/* Without this a cash-funded group expense reads as three anonymous
               legs; the group's name is what makes it legible. */}
           {row.groupName != null && (
-            <View style={[styles.badge, { backgroundColor: accent.soft, borderColor: accent.line }]}>
+            <View
+              style={[styles.badge, { backgroundColor: accent.soft, borderColor: accent.line }]}
+            >
               <Text style={[styles.badgeText, { color: accent.ink }]} numberOfLines={1}>
                 {row.groupName}
               </Text>

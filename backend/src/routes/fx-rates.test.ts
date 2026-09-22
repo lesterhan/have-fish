@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, spyOn } from 'bun:test'
+import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 
@@ -14,7 +14,7 @@ describe('fx-rates', () => {
 
   it('GET /api/fx-rates fetches from frankfurter.app and caches the result', async () => {
     const fetchSpy = spyOn(global, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ rates: { CAD: 1.473200 } }), { status: 200 }),
+      new Response(JSON.stringify({ rates: { CAD: 1.4732 } }), { status: 200 }),
     )
 
     const res = await app.request('/api/fx-rates?date=2024-01-15&from=EUR&to=CAD', {
@@ -22,7 +22,7 @@ describe('fx-rates', () => {
     })
 
     expect(res.status).toBe(200)
-    const body = await res.json() as { date: string; from: string; to: string; rate: string }
+    const body = (await res.json()) as { date: string; from: string; to: string; rate: string }
     expect(body.date).toBe('2024-01-15')
     expect(body.from).toBe('EUR')
     expect(body.to).toBe('CAD')
@@ -91,7 +91,12 @@ describe('fx-rates', () => {
       })
 
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { from: string; to: string; rate: string; asOfDate: string }
+      const body = (await res.json()) as {
+        from: string
+        to: string
+        rate: string
+        asOfDate: string
+      }
       expect(body.from).toBe('EUR')
       expect(body.to).toBe('CAD')
       expect(parseFloat(body.rate)).toBeCloseTo(1.4732)

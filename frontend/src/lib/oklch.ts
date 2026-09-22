@@ -25,8 +25,7 @@ function toLinear(channel: number): number {
 }
 
 function fromLinear(value: number): number {
-  const c =
-    value <= 0.0031308 ? value * 12.92 : 1.055 * value ** (1 / 2.4) - 0.055
+  const c = value <= 0.0031308 ? value * 12.92 : 1.055 * value ** (1 / 2.4) - 0.055
   return c * 255
 }
 
@@ -43,12 +42,8 @@ export function hexToOklch(hex: string): Oklch {
   const [r, g, b] = parseHex(hex).map(toLinear) as [number, number, number]
 
   const long = Math.cbrt(0.4122214708 * r + 0.5363325363 * g + 0.0514459929 * b)
-  const medium = Math.cbrt(
-    0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b,
-  )
-  const short = Math.cbrt(
-    0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b,
-  )
+  const medium = Math.cbrt(0.2119034982 * r + 0.6806995451 * g + 0.1073969566 * b)
+  const short = Math.cbrt(0.0883024619 * r + 0.2817188376 * g + 0.6299787005 * b)
 
   const l = 0.2104542553 * long + 0.793617785 * medium - 0.0040720468 * short
   const a = 1.9779984951 * long - 2.428592205 * medium + 0.4505937099 * short
@@ -87,8 +82,7 @@ const IN_GAMUT_EPSILON = 1e-6
 
 function isInGamut(colour: Oklch): boolean {
   return toLinearRgb(colour).every(
-    (channel) =>
-      channel >= -IN_GAMUT_EPSILON && channel <= 1 + IN_GAMUT_EPSILON,
+    (channel) => channel >= -IN_GAMUT_EPSILON && channel <= 1 + IN_GAMUT_EPSILON,
   )
 }
 
@@ -132,10 +126,7 @@ export function luminance(hex: string): number {
 
 /** WCAG contrast ratio, 1 to 21. The unit ink is specified in. */
 export function contrastRatio(a: string, b: string): number {
-  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [
-    number,
-    number,
-  ]
+  const [high, low] = [luminance(a), luminance(b)].sort((x, y) => y - x) as [number, number]
   return (high + 0.05) / (low + 0.05)
 }
 

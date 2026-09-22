@@ -132,8 +132,7 @@ const IMPORT_ROW_ACCOUNTS: Record<string, Record<string, string>> = {
   },
   regular: {
     offsetAccountId: 'Every row needs an offset account — the other side of the entry.',
-    sourceAccountId:
-      'This row needs an account of its own, or one chosen for the whole import.',
+    sourceAccountId: 'This row needs an account of its own, or one chosen for the whole import.',
   },
 }
 
@@ -154,8 +153,7 @@ export const errorsCopy = {
     `${nameOf(field)} must be a date, written YYYY-MM-DD.`,
   FIELD_NOT_MONTH: ({ field }: { field: string }) =>
     `${nameOf(field)} must be a month, written YYYY-MM.`,
-  FIELD_NOT_INTEGER: ({ field }: { field: string }) =>
-    `${nameOf(field)} must be a whole number.`,
+  FIELD_NOT_INTEGER: ({ field }: { field: string }) => `${nameOf(field)} must be a whole number.`,
   FIELD_NOT_POSITIVE_INTEGER: ({ field }: { field: string }) =>
     `${nameOf(field)} must be a whole number above zero.`,
   FIELD_NOT_POSITIVE_NUMBER: ({ field }: { field: string }) =>

@@ -1,5 +1,5 @@
 /// <reference types="bun" />
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { buildTree, type TreeAccount } from './accountTree'
 
 const ACCOUNTS: TreeAccount[] = [
@@ -22,9 +22,7 @@ describe('buildTree — structure', () => {
     expect(tree.nodeAt('expenses:food')!.isAccount).toBe(false)
     expect(tree.nodeAt('expenses:food:coffee')!.isAccount).toBe(true)
     // coffee is both an account AND a parent (has :starbucks under it).
-    expect(tree.nodeAt('expenses:food:coffee')!.children.has('starbucks')).toBe(
-      true,
-    )
+    expect(tree.nodeAt('expenses:food:coffee')!.children.has('starbucks')).toBe(true)
   })
 
   it('returns null for a path that does not exist', () => {
@@ -54,10 +52,7 @@ describe('buildTree — frequency', () => {
   it('sorts children by subtree freq descending', () => {
     const tree = buildTree(ACCOUNTS)
     // assets subtree 142 vs expenses subtree 263 → expenses first.
-    expect(tree.childrenOf('').map((n) => n.name)).toEqual([
-      'expenses',
-      'assets',
-    ])
+    expect(tree.childrenOf('').map((n) => n.name)).toEqual(['expenses', 'assets'])
   })
 })
 

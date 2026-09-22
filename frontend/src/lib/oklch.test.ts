@@ -7,14 +7,8 @@
  * hue at a lower chroma rather than a different hue.
  */
 
-import { describe, it, expect } from 'bun:test'
-import {
-  contrastRatio,
-  deltaL,
-  hexToOklch,
-  luminance,
-  oklchToHex,
-} from './oklch'
+import { describe, expect, it } from 'bun:test'
+import { contrastRatio, deltaL, hexToOklch, luminance, oklchToHex } from './oklch'
 
 describe('conversion', () => {
   it('puts lightness on the 0-1 scale everyone quotes it on', () => {
@@ -74,10 +68,7 @@ describe('the two contrast measures disagree, which is the point', () => {
   })
 
   it('does not care which way round the pair is given', () => {
-    expect(contrastRatio('#191710', '#8a867d')).toBeCloseTo(
-      contrastRatio('#8a867d', '#191710'),
-      10,
-    )
+    expect(contrastRatio('#191710', '#8a867d')).toBeCloseTo(contrastRatio('#8a867d', '#191710'), 10)
   })
 
   it('shows why a ratio cannot be the unit of a surface ladder', () => {

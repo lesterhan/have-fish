@@ -27,16 +27,13 @@
  * bar, not rebuilding it.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { rulesIn, svelteFilesUnder } from '../testing/source-scan'
 
-const BASE = readFileSync(
-  fileURLToPath(new URL('./base.css', import.meta.url)),
-  'utf8',
-)
+const BASE = readFileSync(fileURLToPath(new URL('./base.css', import.meta.url)), 'utf8')
 
 /** `frontend/src`, from `frontend/src/styles`. */
 const SRC = join(import.meta.dir, '..')
@@ -68,9 +65,7 @@ describe('the section bar is defined once', () => {
   it('no component paints its own', () => {
     expect(
       offenders,
-      offenders.length
-        ? `Add the \`section-bar\` class instead:\n  ${offenders.join('\n  ')}`
-        : '',
+      offenders.length ? `Add the \`section-bar\` class instead:\n  ${offenders.join('\n  ')}` : '',
     ).toEqual([])
   })
 })

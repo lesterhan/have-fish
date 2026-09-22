@@ -25,11 +25,23 @@ export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense
 export type StoredAccountType = AccountType | 'cash' | 'conversion'
 
 // The five inferable types — for validating an inferred value.
-export const ACCOUNT_TYPES: readonly AccountType[] = ['asset', 'liability', 'equity', 'income', 'expense']
+export const ACCOUNT_TYPES: readonly AccountType[] = [
+  'asset',
+  'liability',
+  'equity',
+  'income',
+  'expense',
+]
 
 // The seven valid stored-override values — for validating the stored column or API input.
 export const STORED_ACCOUNT_TYPES: readonly StoredAccountType[] = [
-  'asset', 'cash', 'liability', 'equity', 'income', 'expense', 'conversion',
+  'asset',
+  'cash',
+  'liability',
+  'equity',
+  'income',
+  'expense',
+  'conversion',
 ]
 
 // Type guard for one of the five inferable types.

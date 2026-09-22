@@ -1,16 +1,16 @@
 import { useState } from 'react'
 import {
   Pressable,
+  type StyleProp,
   StyleSheet,
   Text,
-  View,
-  type StyleProp,
   type TextStyle,
+  View,
   type ViewStyle,
 } from 'react-native'
-import { theme } from '@/lib/theme'
 import { alpha } from '@/lib/color'
 import * as haptics from '@/lib/haptics'
+import { theme } from '@/lib/theme'
 import { GlossLayers } from './GlossLayers'
 
 type Variant = 'accent' | 'neutral'
@@ -62,11 +62,7 @@ export function GlossButton({
 
   const isFilled = tone === 'accent' || tone === 'success'
   const textColor =
-    tone === 'disabled'
-      ? theme.color.ink3
-      : isFilled
-        ? theme.color.textOnAccent
-        : theme.color.ink
+    tone === 'disabled' ? theme.color.ink3 : isFilled ? theme.color.textOnAccent : theme.color.ink
 
   return (
     <Pressable
@@ -94,12 +90,7 @@ export function GlossButton({
       {tone === 'neutral' && <GlossLayers base={theme.color.surface2} radius={radius} />}
 
       <Text
-        style={[
-          styles.label,
-          { color: textColor },
-          isFilled && styles.labelShadow,
-          textStyle,
-        ]}
+        style={[styles.label, { color: textColor }, isFilled && styles.labelShadow, textStyle]}
         numberOfLines={1}
       >
         {label}
@@ -124,8 +115,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: theme.sp.md,
   },
   // Solid base behind the gradient so Android renders the elevation shadow.
-  accentBorder: { borderWidth: 1, borderColor: theme.color.accentGlossBorder, backgroundColor: theme.color.accent },
-  neutralBorder: { borderWidth: 1, borderColor: theme.color.line, backgroundColor: theme.color.surface2 },
+  accentBorder: {
+    borderWidth: 1,
+    borderColor: theme.color.accentGlossBorder,
+    backgroundColor: theme.color.accent,
+  },
+  neutralBorder: {
+    borderWidth: 1,
+    borderColor: theme.color.line,
+    backgroundColor: theme.color.surface2,
+  },
   successFill: { backgroundColor: theme.color.green },
   disabledFill: { backgroundColor: theme.color.surface2 },
   pressed: { transform: [{ translateY: 1 }] },

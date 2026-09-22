@@ -265,10 +265,7 @@ export type ErrorBody<C extends ErrorCode = ErrorCode> = C extends ErrorCode
  * they hold a `Context`, and for `import.ts`, which reports a row's failure inside a result
  * rather than as a response.
  */
-export function errorBody<C extends ErrorCode>(
-  code: C,
-  ...detail: DetailArgs<C>
-): ErrorBody<C> {
+export function errorBody<C extends ErrorCode>(code: C, ...detail: DetailArgs<C>): ErrorBody<C> {
   return (detail.length ? { error: code, detail: detail[0] } : { error: code }) as ErrorBody<C>
 }
 
@@ -280,11 +277,7 @@ export function errorBody<C extends ErrorCode>(
  * if (!body.name) return fail(c, 'FIELD_REQUIRED', { field: 'name' })
  * ```
  */
-export function fail<C extends ErrorCode>(
-  c: Context,
-  code: C,
-  ...detail: DetailArgs<C>
-) {
+export function fail<C extends ErrorCode>(c: Context, code: C, ...detail: DetailArgs<C>) {
   return failWith(c, errorBody(code, ...detail) as ErrorBody)
 }
 

@@ -1,11 +1,11 @@
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db'
-import { expenseGroups, expenseGroupMembers, accounts, user } from '../db/schema'
-import { eq, isNull, and, inArray } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { db } from '../db'
+import { accounts, expenseGroupMembers, expenseGroups, user } from '../db/schema'
+import { fail } from '../errors'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 import { fetchCategoriesForGroups } from './fish-pie-categories'
-import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -38,9 +38,7 @@ app.post('/', async (c) => {
       .insert(expenseGroups)
       .values({ name: body.name!.trim(), createdBy: userId })
       .returning()
-    await tx
-      .insert(expenseGroupMembers)
-      .values({ groupId: g.id, userId, shareWeight: 1 })
+    await tx.insert(expenseGroupMembers).values({ groupId: g.id, userId, shareWeight: 1 })
     await ensureSharedAccount(userId, g, tx)
     return g
   })
@@ -70,11 +68,13 @@ app.get('/', async (c) => {
   const members = await fetchMembersForGroups(groupIds)
   const categories = await fetchCategoriesForGroups(groupIds, userId)
 
-  return c.json(groups.map((g) => ({
-    ...g,
-    members: members.filter((m) => m.groupId === g.id),
-    categories: categories.filter((cat) => cat.groupId === g.id),
-  })))
+  return c.json(
+    groups.map((g) => ({
+      ...g,
+      members: members.filter((m) => m.groupId === g.id),
+      categories: categories.filter((cat) => cat.groupId === g.id),
+    })),
+  )
 })
 
 app.get('/:id', async (c) => {
@@ -166,10 +166,14 @@ app.patch('/:id/members/me', async (c) => {
     return id
   }
 
-  const expenseAccountId = hasExpense ? await validateAccount(body.defaultExpenseAccountId) : undefined
+  const expenseAccountId = hasExpense
+    ? await validateAccount(body.defaultExpenseAccountId)
+    : undefined
   if (expenseAccountId === 'invalid') return fail(c, 'ACCOUNT_NOT_YOURS')
 
-  const paymentAccountId = hasPayment ? await validateAccount(body.defaultPaymentAccountId) : undefined
+  const paymentAccountId = hasPayment
+    ? await validateAccount(body.defaultPaymentAccountId)
+    : undefined
   if (paymentAccountId === 'invalid') return fail(c, 'ACCOUNT_NOT_YOURS')
 
   const patch: Partial<typeof expenseGroupMembers.$inferInsert> = {}
@@ -211,7 +215,9 @@ app.patch('/:id/members/:userId', async (c) => {
   const [updated] = await db
     .update(expenseGroupMembers)
     .set({ shareWeight: weight })
-    .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, targetUserId)))
+    .where(
+      and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, targetUserId)),
+    )
     .returning()
 
   if (!updated) return fail(c, 'MEMBER_NOT_FOUND')
@@ -230,10 +236,7 @@ app.delete('/:id', async (c) => {
   if (!group) return fail(c, 'GROUP_NOT_FOUND')
   if (group.createdBy !== userId) return fail(c, 'NOT_THE_GROUP_CREATOR')
 
-  await db
-    .update(expenseGroups)
-    .set({ deletedAt: new Date() })
-    .where(eq(expenseGroups.id, groupId))
+  await db.update(expenseGroups).set({ deletedAt: new Date() }).where(eq(expenseGroups.id, groupId))
 
   return new Response(null, { status: 204 })
 })

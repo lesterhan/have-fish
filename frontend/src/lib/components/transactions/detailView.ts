@@ -4,7 +4,7 @@
 // string — lives here as a pure function the unit tests can pin. The .svelte file stays a
 // dumb walk over the narration model (narration.ts) and these helpers.
 
-import type { NarratedTransaction, Chip, Branch } from './narration'
+import type { Branch, Chip, NarratedTransaction } from './narration'
 
 // --- header tag ---------------------------------------------------------------------------
 
@@ -15,10 +15,7 @@ export type HeaderTag =
   | { kind: 'fishpie'; category: string; group: string }
   | { kind: 'simple'; label: string }
 
-export function headerTag(
-  n: NarratedTransaction,
-  groupName: string | null,
-): HeaderTag | null {
+export function headerTag(n: NarratedTransaction, groupName: string | null): HeaderTag | null {
   if (n.archetype === 'split') {
     return {
       kind: 'fishpie',

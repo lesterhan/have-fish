@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 
@@ -30,11 +30,11 @@ async function seedMalformed(cookie: string, accts: Record<string, { id: string 
       date: '2026-05-31',
       description: 'You Are My Cup Of',
       postings: [
-        { accountId: accts.usd.id,    amount: '-17.29',  currency: 'USD' },
-        { accountId: accts.coffee.id, amount: '17.24',   currency: 'USD' },
-        { accountId: accts.fee.id,    amount: '0.05',    currency: 'USD' },
+        { accountId: accts.usd.id, amount: '-17.29', currency: 'USD' },
+        { accountId: accts.coffee.id, amount: '17.24', currency: 'USD' },
+        { accountId: accts.fee.id, amount: '0.05', currency: 'USD' },
         { accountId: accts.coffee.id, amount: '-360.00', currency: 'CZK' },
-        { accountId: accts.czk.id,    amount: '360.00',  currency: 'CZK' },
+        { accountId: accts.czk.id, amount: '360.00', currency: 'CZK' },
       ],
     }),
   })
@@ -49,10 +49,10 @@ describe('cross-currency spend healing', () => {
     await clearDatabase()
     cookie = await createTestUser()
     accts = {
-      usd:    await createAccount(cookie, 'assets:bank:savings:usd'),
+      usd: await createAccount(cookie, 'assets:bank:savings:usd'),
       coffee: await createAccount(cookie, 'expenses:food:coffee'),
-      fee:    await createAccount(cookie, 'expenses:banking'),
-      czk:    await createAccount(cookie, 'assets:bank:savings:czk'),
+      fee: await createAccount(cookie, 'expenses:banking'),
+      czk: await createAccount(cookie, 'assets:bank:savings:czk'),
       equity: await createAccount(cookie, 'equity:conversions'),
     }
   })
@@ -61,7 +61,9 @@ describe('cross-currency spend healing', () => {
     await setConversionAccount(cookie, accts.equity.id)
     await seedMalformed(cookie, accts)
 
-    const res = await app.request('/api/transactions/malformed-fx-spend', { headers: { Cookie: cookie } })
+    const res = await app.request('/api/transactions/malformed-fx-spend', {
+      headers: { Cookie: cookie },
+    })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.conversionAccountConfigured).toBe(true)
@@ -72,10 +74,14 @@ describe('cross-currency spend healing', () => {
     expect(cand.before).toBeArrayOfSize(5)
 
     // After: coffee is a single +360 CZK leg; equity:conversions bridges both sides.
-    const coffeeAfter = cand.after.filter((p: { accountId: string }) => p.accountId === accts.coffee.id)
+    const coffeeAfter = cand.after.filter(
+      (p: { accountId: string }) => p.accountId === accts.coffee.id,
+    )
     expect(coffeeAfter).toBeArrayOfSize(1)
     expect(coffeeAfter[0]).toEqual(expect.objectContaining({ amount: '360.00', currency: 'CZK' }))
-    const equityAfter = cand.after.filter((p: { accountId: string }) => p.accountId === accts.equity.id)
+    const equityAfter = cand.after.filter(
+      (p: { accountId: string }) => p.accountId === accts.equity.id,
+    )
     expect(equityAfter).toBeArrayOfSize(2)
   })
 
@@ -107,20 +113,25 @@ describe('cross-currency spend healing', () => {
     expect(equity).toBeArrayOfSize(2)
 
     // Still balances per currency
-    const usdSum = ps.filter((p: { currency: string }) => p.currency === 'USD')
+    const usdSum = ps
+      .filter((p: { currency: string }) => p.currency === 'USD')
       .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
-    const czkSum = ps.filter((p: { currency: string }) => p.currency === 'CZK')
+    const czkSum = ps
+      .filter((p: { currency: string }) => p.currency === 'CZK')
       .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
     expect(Math.abs(usdSum)).toBeLessThan(0.001)
     expect(Math.abs(czkSum)).toBeLessThan(0.001)
 
     // No longer listed as malformed
-    const listRes = await app.request('/api/transactions/malformed-fx-spend', { headers: { Cookie: cookie } })
+    const listRes = await app.request('/api/transactions/malformed-fx-spend', {
+      headers: { Cookie: cookie },
+    })
     expect((await listRes.json()).candidates).toBeArrayOfSize(0)
 
     // Healing again is rejected (not malformed anymore)
     const again = await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
-      method: 'POST', headers: { Cookie: cookie },
+      method: 'POST',
+      headers: { Cookie: cookie },
     })
     expect(again.status).toBe(409)
   })
@@ -131,14 +142,17 @@ describe('cross-currency spend healing', () => {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        date: '2026-05-31', description: 'Groceries',
+        date: '2026-05-31',
+        description: 'Groceries',
         postings: [
           { accountId: accts.usd.id, amount: '-45.20', currency: 'USD' },
           { accountId: accts.coffee.id, amount: '45.20', currency: 'USD' },
         ],
       }),
     })
-    const res = await app.request('/api/transactions/malformed-fx-spend', { headers: { Cookie: cookie } })
+    const res = await app.request('/api/transactions/malformed-fx-spend', {
+      headers: { Cookie: cookie },
+    })
     expect((await res.json()).candidates).toBeArrayOfSize(0)
   })
 
@@ -151,14 +165,17 @@ describe('cross-currency spend healing', () => {
     })
     const tx = await seedMalformed(cookie, accts)
 
-    const listRes = await app.request('/api/transactions/malformed-fx-spend', { headers: { Cookie: cookie } })
+    const listRes = await app.request('/api/transactions/malformed-fx-spend', {
+      headers: { Cookie: cookie },
+    })
     const body = await listRes.json()
     expect(body.conversionAccountConfigured).toBe(false)
     expect(body.candidates).toBeArrayOfSize(1)
     expect(body.candidates[0].canHeal).toBe(false)
 
     const healRes = await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
-      method: 'POST', headers: { Cookie: cookie },
+      method: 'POST',
+      headers: { Cookie: cookie },
     })
     expect(healRes.status).toBe(400)
     expect((await healRes.json()).error).toBe('CONVERSION_ACCOUNT_REQUIRED')
@@ -169,24 +186,35 @@ describe('cross-currency spend healing', () => {
     const tx = await seedMalformed(cookie, accts)
 
     // Summary attaches the txn to the balance accounts it touches (USD + CZK savings).
-    const summaryRes = await app.request('/api/accounts/action-required-summary', { headers: { Cookie: cookie } })
+    const summaryRes = await app.request('/api/accounts/action-required-summary', {
+      headers: { Cookie: cookie },
+    })
     const summary = await summaryRes.json()
     const usdEntry = summary.find((e: { accountId: string }) => e.accountId === accts.usd.id)
     const czkEntry = summary.find((e: { accountId: string }) => e.accountId === accts.czk.id)
     expect(usdEntry?.count).toBe(1)
     expect(czkEntry?.count).toBe(1)
     // Not attached to the expense/equity accounts.
-    expect(summary.find((e: { accountId: string }) => e.accountId === accts.coffee.id)).toBeUndefined()
+    expect(
+      summary.find((e: { accountId: string }) => e.accountId === accts.coffee.id),
+    ).toBeUndefined()
 
     // Per-account endpoint flags which ids are malformed (so the row can offer Repair).
-    const perAcct = await app.request(`/api/accounts/${accts.usd.id}/action-required`, { headers: { Cookie: cookie } })
+    const perAcct = await app.request(`/api/accounts/${accts.usd.id}/action-required`, {
+      headers: { Cookie: cookie },
+    })
     const body = await perAcct.json()
     expect(body.transactionIds).toContain(tx.id)
     expect(body.malformedTransactionIds).toEqual([tx.id])
 
     // After healing, the account is clear again.
-    await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, { method: 'POST', headers: { Cookie: cookie } })
-    const after = await (await app.request('/api/accounts/action-required-summary', { headers: { Cookie: cookie } })).json()
+    await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
+    const after = await (
+      await app.request('/api/accounts/action-required-summary', { headers: { Cookie: cookie } })
+    ).json()
     expect(after.find((e: { accountId: string }) => e.accountId === accts.usd.id)).toBeUndefined()
   })
 
@@ -196,7 +224,8 @@ describe('cross-currency spend healing', () => {
 
     const otherCookie = await createTestUser('other@example.com')
     const res = await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
-      method: 'POST', headers: { Cookie: otherCookie },
+      method: 'POST',
+      headers: { Cookie: otherCookie },
     })
     expect(res.status).toBe(404)
   })

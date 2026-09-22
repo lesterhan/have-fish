@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
-import { db } from '../db'
-import { accounts, transactions, postings, importRules } from '../db/schema'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
+import { app } from '../app'
+import { db } from '../db'
+import { accounts, importRules, postings, transactions } from '../db/schema'
+import { clearDatabase, createTestUser } from '../test-utils'
 
 async function createAccount(userId: string, path: string) {
   const [acct] = await db.insert(accounts).values({ userId, path }).returning()
@@ -16,7 +16,10 @@ async function seedTransaction(
   sourceAccountId: string,
   expenseAccountId: string,
 ) {
-  const [tx] = await db.insert(transactions).values({ userId, date: new Date(), description }).returning()
+  const [tx] = await db
+    .insert(transactions)
+    .values({ userId, date: new Date(), description })
+    .returning()
   await db.insert(postings).values([
     { transactionId: tx.id, accountId: sourceAccountId, amount: '-10.00', currency: 'CAD' },
     { transactionId: tx.id, accountId: expenseAccountId, amount: '10.00', currency: 'CAD' },
@@ -31,7 +34,10 @@ async function seedMultiPostingTransaction(
   description: string,
   legs: { accountId: string; amount: string; currency: string }[],
 ) {
-  const [tx] = await db.insert(transactions).values({ userId, date: new Date(), description }).returning()
+  const [tx] = await db
+    .insert(transactions)
+    .values({ userId, date: new Date(), description })
+    .returning()
   await db.insert(postings).values(legs.map((l) => ({ transactionId: tx.id, ...l })))
   return tx
 }
@@ -88,7 +94,10 @@ describe('rules', () => {
       ])
     }
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await app.request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect(mineRes.status).toBe(200)
     expect((await mineRes.json()).created).toBe(1)
 
@@ -114,7 +123,10 @@ describe('rules', () => {
       ])
     }
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await app.request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(1)
 
     const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
@@ -132,7 +144,10 @@ describe('rules', () => {
     await seedTransaction(userId, 'LOBLAWS #119', chequing.id, groceries.id)
     await seedTransaction(userId, 'LOBLAWS #007', chequing.id, groceries.id)
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await app.request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(1)
 
     const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
@@ -148,7 +163,10 @@ describe('rules', () => {
     await seedTransaction(userId, 'TTC FARE', chequing.id, transit.id)
     await seedTransaction(userId, 'TTC FARE', chequing.id, transit.id)
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await app.request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(1)
   })
 
@@ -158,7 +176,10 @@ describe('rules', () => {
 
     await seedTransaction(userId, 'ONE OFF SHOP', chequing.id, groceries.id)
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await app.request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(0)
   })
 
@@ -186,7 +207,10 @@ describe('rules', () => {
     expect(denied.status).toBe('denied')
 
     // Mining again must NOT re-create the suggestion — the denied pattern stays suppressed.
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await app.request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(0)
 
     rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
@@ -230,7 +254,13 @@ describe('rules', () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
     const [suggested] = await db
       .insert(importRules)
-      .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'suggested', matchCount: 3 })
+      .values({
+        userId,
+        pattern: 'LOBLAWS',
+        accountId: acct.id,
+        status: 'suggested',
+        matchCount: 3,
+      })
       .returning()
 
     const res = await app.request(`/api/rules/${suggested.id}/revive`, {
@@ -303,7 +333,9 @@ describe('rules — split targets', () => {
   beforeEach(async () => {
     await clearDatabase()
     cookie = await createTestUser()
-    const session = await (await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })).json()
+    const session = await (
+      await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+    ).json()
     userId = session.user.id
     groupId = await createGroup(cookie)
   })
@@ -367,7 +399,11 @@ describe('rules — split targets', () => {
   it('rejects a categoryId sent alongside an accountId', async () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
     const category = await createCategory(cookie, groupId, 'Groceries')
-    const res = await postRule(cookie, { pattern: 'BILLA', accountId: acct.id, categoryId: category.id })
+    const res = await postRule(cookie, {
+      pattern: 'BILLA',
+      accountId: acct.id,
+      categoryId: category.id,
+    })
     expect(res.status).toBe(400)
   })
 
@@ -381,7 +417,9 @@ describe('rules — split targets', () => {
 
   it('rejects an account belonging to another user', async () => {
     const otherCookie = await createTestUser('other@example.com')
-    const otherSession = await (await app.request('/api/auth/get-session', { headers: { Cookie: otherCookie } })).json()
+    const otherSession = await (
+      await app.request('/api/auth/get-session', { headers: { Cookie: otherCookie } })
+    ).json()
     const theirAccount = await createAccount(otherSession.user.id, 'expenses:theirs')
 
     const res = await postRule(cookie, { pattern: 'BILLA', accountId: theirAccount.id })
@@ -428,7 +466,9 @@ describe('rules — split targets', () => {
 
   it('patching a group rule to an account target clears the group and category', async () => {
     const category = await createCategory(cookie, groupId, 'Groceries')
-    const created = await (await postRule(cookie, { pattern: 'BILLA', groupId, categoryId: category.id })).json()
+    const created = await (
+      await postRule(cookie, { pattern: 'BILLA', groupId, categoryId: category.id })
+    ).json()
     const acct = await createAccount(userId, 'expenses:food:groceries')
 
     const res = await app.request(`/api/rules/${created.id}`, {
@@ -511,7 +551,9 @@ describe('rules — split targets', () => {
 
       await db.insert(importRules).values({ userId, pattern: 'LOBLAWS', accountId: acct.id })
       await db.insert(importRules).values({ userId, pattern: 'BILLA', groupId })
-      await db.insert(importRules).values({ userId, pattern: 'HOFER', groupId, categoryId: category.id })
+      await db
+        .insert(importRules)
+        .values({ userId, pattern: 'HOFER', groupId, categoryId: category.id })
 
       const rules = await listRules(cookie)
       expect(rules).toBeArrayOfSize(3)
@@ -532,10 +574,18 @@ describe('rules — split targets', () => {
     })
 
     const form = new FormData()
-    form.append('file', new Blob(['Date,Amount,Description\n2026-02-01,-42.50,Coffee'], { type: 'text/csv' }), 'e.csv')
+    form.append(
+      'file',
+      new Blob(['Date,Amount,Description\n2026-02-01,-42.50,Coffee'], { type: 'text/csv' }),
+      'e.csv',
+    )
     form.append('defaultCurrency', 'CAD')
 
-    const res = await app.request('/api/import/preview', { method: 'POST', headers: { Cookie: cookie }, body: form })
+    const res = await app.request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: form,
+    })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.transactions[0].suggestedGroupId).toBe(groupId)

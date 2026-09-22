@@ -5,11 +5,7 @@ import { theme } from '@/lib/theme'
 import { GlossLayers } from './GlossLayers'
 
 /** A numpad key: a digit, the decimal point, or backspace. */
-export type NumpadKey =
-  | '1' | '2' | '3'
-  | '4' | '5' | '6'
-  | '7' | '8' | '9'
-  | '.' | '0' | '⌫'
+export type NumpadKey = '1' | '2' | '3' | '4' | '5' | '6' | '7' | '8' | '9' | '.' | '0' | '⌫'
 
 const ROWS: NumpadKey[][] = [
   ['1', '2', '3'],

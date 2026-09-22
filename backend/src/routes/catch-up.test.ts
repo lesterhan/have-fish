@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { eq } from 'drizzle-orm'
 import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
-import { eq } from 'drizzle-orm'
+import { clearDatabase, createTestUser } from '../test-utils'
 
 const today = () => new Date().toISOString().substring(0, 10)
 
@@ -14,7 +14,10 @@ function daysAgo(n: number): string {
 }
 
 async function createAccount(userId: string, path: string, extra: { type?: string } = {}) {
-  const [acct] = await db.insert(accounts).values({ userId, path, ...extra }).returning()
+  const [acct] = await db
+    .insert(accounts)
+    .values({ userId, path, ...extra })
+    .returning()
   return acct
 }
 
@@ -72,7 +75,9 @@ describe('catch-up', () => {
 
       const { body } = await getCatchUp(cookie)
 
-      expect(body.accounts.map((a: any) => a.accountId).sort()).toEqual([chequing.id, visa.id].sort())
+      expect(body.accounts.map((a: any) => a.accountId).sort()).toEqual(
+        [chequing.id, visa.id].sort(),
+      )
     })
 
     // Expense and income accounts are derived from postings, never imported — there is
@@ -132,7 +137,8 @@ describe('catch-up', () => {
     it('excludes hidden accounts', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       const hidden = await createAccount(userId, 'assets:hidden')
-      await db.update(userSettings)
+      await db
+        .update(userSettings)
         .set({ preferences: { hiddenAccountIds: [hidden.id] } })
         .where(eq(userSettings.userId, userId))
 
@@ -146,7 +152,8 @@ describe('catch-up', () => {
     it('excludes illiquid accounts', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       const fhsa = await createAccount(userId, 'assets:fhsa')
-      await db.update(userSettings)
+      await db
+        .update(userSettings)
         .set({ preferences: { illiquidAccountIds: [fhsa.id] } })
         .where(eq(userSettings.userId, userId))
 
@@ -180,8 +187,9 @@ describe('catch-up', () => {
       expect(body.accounts.map((a: any) => a.accountId)).toEqual([savings.id])
     })
 
-    it('respects a user\'s renamed asset root', async () => {
-      await db.update(userSettings)
+    it("respects a user's renamed asset root", async () => {
+      await db
+        .update(userSettings)
         .set({ defaultAssetsRootPath: 'stuff' })
         .where(eq(userSettings.userId, userId))
       const acct = await createAccount(userId, 'stuff:chequing')
@@ -191,7 +199,7 @@ describe('catch-up', () => {
       expect(body.accounts.map((a: any) => a.accountId)).toEqual([acct.id])
     })
 
-    it('never shows another user\'s accounts', async () => {
+    it("never shows another user's accounts", async () => {
       const otherCookie = await createTestUser('other@example.com')
       await createAccount(await userIdFor(otherCookie), 'assets:theirs')
       const mine = await createAccount(userId, 'assets:mine')
@@ -214,7 +222,11 @@ describe('catch-up', () => {
 
       const { body } = await getCatchUp(cookie)
 
-      expect(find(body, chequing.id)).toMatchObject({ state: 'unset', gap: null, coveredThrough: null })
+      expect(find(body, chequing.id)).toMatchObject({
+        state: 'unset',
+        gap: null,
+        coveredThrough: null,
+      })
     })
 
     it('reads current for an account covered through today', async () => {
@@ -223,7 +235,11 @@ describe('catch-up', () => {
 
       const { body } = await getCatchUp(cookie)
 
-      expect(find(body, chequing.id)).toMatchObject({ state: 'current', gap: null, horizonReason: 'today' })
+      expect(find(body, chequing.id)).toMatchObject({
+        state: 'current',
+        gap: null,
+        horizonReason: 'today',
+      })
     })
 
     it('reads behind with a leading-edge gap', async () => {
@@ -276,7 +292,10 @@ describe('catch-up', () => {
       await cover(cookie, visa.id, daysAgo(120), horizon)
 
       const after = await getCatchUp(cookie)
-      expect(find(after.body, visa.id)).toMatchObject({ state: 'current', horizonReason: 'statement' })
+      expect(find(after.body, visa.id)).toMatchObject({
+        state: 'current',
+        horizonReason: 'statement',
+      })
       expect(find(after.body, visa.id).nextHorizonDate).toBeString()
     })
   })
@@ -285,16 +304,16 @@ describe('catch-up', () => {
     it('reports the dates that already have transactions', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       await cover(cookie, chequing.id, daysAgo(60), daysAgo(20))
-      await seedTxn(userId, chequing.id, daysAgo(30), groceries.id)  // inside coverage
-      await seedTxn(userId, chequing.id, daysAgo(15), groceries.id)  // inside the gap
-      await seedTxn(userId, chequing.id, daysAgo(4), groceries.id)   // inside the gap
+      await seedTxn(userId, chequing.id, daysAgo(30), groceries.id) // inside coverage
+      await seedTxn(userId, chequing.id, daysAgo(15), groceries.id) // inside the gap
+      await seedTxn(userId, chequing.id, daysAgo(4), groceries.id) // inside the gap
 
       const { body } = await getCatchUp(cookie)
 
       expect(find(body, chequing.id).txnDatesInGap).toEqual([daysAgo(15), daysAgo(4)])
     })
 
-    it('does not attribute another account\'s transactions to this one', async () => {
+    it("does not attribute another account's transactions to this one", async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       const visa = await createAccount(userId, 'liabilities:visa')
       await cover(cookie, chequing.id, daysAgo(60), daysAgo(20))
@@ -359,7 +378,9 @@ describe('catch-up', () => {
       const { body } = await getCatchUp(cookie)
 
       expect(body.accounts.map((a: any) => a.path)).toEqual([
-        'assets:small-gap', 'assets:big-gap', 'assets:quiet',
+        'assets:small-gap',
+        'assets:big-gap',
+        'assets:quiet',
       ])
       expect(find(body, quiet.id).dormant).toBe(true)
       expect(find(body, small.id).dormant).toBe(false)
@@ -386,7 +407,9 @@ describe('catch-up', () => {
       const { body } = await getCatchUp(cookie)
 
       expect(find(body, chequing.id).strip).toMatchObject({
-        from: daysAgo(89), to: today(), days: 90,
+        from: daysAgo(89),
+        to: today(),
+        days: 90,
       })
     })
 
@@ -426,8 +449,8 @@ describe('catch-up', () => {
     it('reports transaction dates across the whole window', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       await cover(cookie, chequing.id, daysAgo(60), daysAgo(20))
-      await seedTxn(userId, chequing.id, daysAgo(40), groceries.id)  // covered
-      await seedTxn(userId, chequing.id, daysAgo(5), groceries.id)   // in the gap
+      await seedTxn(userId, chequing.id, daysAgo(40), groceries.id) // covered
+      await seedTxn(userId, chequing.id, daysAgo(5), groceries.id) // in the gap
       await seedTxn(userId, chequing.id, daysAgo(200), groceries.id) // outside the window
 
       const account = find((await getCatchUp(cookie)).body, chequing.id)
@@ -485,14 +508,17 @@ describe('catch-up', () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       const old = await seedTxn(userId, chequing.id, daysAgo(400), groceries.id)
       await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
-      await db.update(transactions).set({ deletedAt: new Date() }).where(eq(transactions.id, old.id))
+      await db
+        .update(transactions)
+        .set({ deletedAt: new Date() })
+        .where(eq(transactions.id, old.id))
 
       const { body } = await getCatchUp(cookie)
 
       expect(find(body, chequing.id).firstTxnDate).toBe(daysAgo(10))
     })
 
-    it('does not borrow another account\'s history', async () => {
+    it("does not borrow another account's history", async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       const visa = await createAccount(userId, 'liabilities:visa')
       await seedTxn(userId, visa.id, daysAgo(90), groceries.id)
@@ -516,7 +542,10 @@ describe('catch-up', () => {
       const { body } = await getCatchUp(cookie)
 
       expect(body.summary).toMatchObject({
-        current: 1, behind: 1, unset: 1, tracked: 3,
+        current: 1,
+        behind: 1,
+        unset: 1,
+        tracked: 3,
         accountsToCatchUp: 1,
         progress: { current: 1, tracked: 3 },
       })

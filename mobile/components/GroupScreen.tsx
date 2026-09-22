@@ -1,16 +1,16 @@
-import { useCallback, type ReactNode } from 'react'
+import { useFocusEffect } from 'expo-router'
+import { type ReactNode, useCallback } from 'react'
 import {
   ActivityIndicator,
   ScrollView,
+  type StyleProp,
   StyleSheet,
   Text,
   View,
-  type StyleProp,
   type ViewStyle,
 } from 'react-native'
-import { useFocusEffect } from 'expo-router'
-import { useGroups, type GroupData } from '@/lib/group-context'
 import type { ExpenseGroup } from '@/lib/api'
+import { type GroupData, useGroups } from '@/lib/group-context'
 import { theme } from '@/lib/theme'
 import { Button } from './Button'
 
@@ -90,6 +90,11 @@ const styles = StyleSheet.create({
     padding: theme.sp.lg,
   },
   empty: { color: theme.color.ink3, textAlign: 'center' },
-  detail: { color: theme.color.ink3, textAlign: 'center', fontSize: theme.text.sm, marginTop: theme.sp.xs },
+  detail: {
+    color: theme.color.ink3,
+    textAlign: 'center',
+    fontSize: theme.text.sm,
+    marginTop: theme.sp.xs,
+  },
   retry: { marginTop: theme.sp.md },
 })
