@@ -162,6 +162,11 @@ product and a separate decision, deferred until a Fish Pie group exists that is 
 household. Until then Fish Pie runs on the hosted edition exactly as it does today — see
 D9.
 
+**Amended 2026-09-22:** the hosted edition is retired (D9), so Fish Pie moves to its own
+service rather than staying where it is. The relay's scope is unchanged by that — it still
+replicates the personal ledger only, and group replication remains a separate product and
+a separate decision.
+
 ### D6 — Encryption: plaintext locally, end-to-end encrypted on the relay
 **2026-09-11. Resolves Q2; narrows LQ2.**
 
@@ -242,6 +247,46 @@ choosing. **The choice is deferred to Probe 1 (D8) and is owed explicitly** — 
 decision to be made with measurements in hand, not a default to be inherited. Whichever
 way it lands, it gets written down here as a decision rather than discovered later as an
 accident.
+
+**Amended 2026-09-22: the hosted edition is retired.** `F5`'s reasoning was that the
+hosted edition is permanent *because Fish Pie has nowhere else to live*. Give Fish Pie its
+own service and that reason disappears. The shape becomes a local app plus two paid
+services:
+
+```
+local app (free, MIT) ──sync──▶ relay (paid, blind)
+      │
+      └────Fish Pie────▶ fish-pie service (paid)
+```
+
+Fish Pie is therefore gated on connecting to the **Fish Pie service** — not on the relay,
+which never carries it, and not on the hosted edition, which ceases to exist. The dialect
+question the previous amendment opened is narrowed rather than answered: the local app is
+SQLite (D8) and each service picks its own storage independently, so there is no
+dual-dialect matrix to maintain inside one codebase.
+
+Four consequences:
+
+1. **`HAVEFISH_MODE=server` may have no remaining user.** D7's seam existed to host one
+   implementation in two places. With the hosted edition retired there may be only one
+   mode left, and keeping a seam nothing uses is its own kind of cost. Re-examined in `#380`.
+2. **The public repository becomes the local application alone** (`#380`). That is what
+   makes "usable with no knowledge of any servers" true of the source tree and not only of
+   the README. Fish Pie and mobile move to their own repositories, both still MIT — a repo
+   split does not make published code proprietary, and is not attempting to.
+3. **This is also a security decision.** The plan is now to leave the tailnet and run a
+   free public pilot before charging anyone (`#379`). The tailnet has been the de facto
+   perimeter from the beginning, so the application's own authorization boundaries have
+   never been tested against someone who can reach them. Under the old shape the public box
+   would hold full personal ledgers; under this one it holds shared expenses only, and the
+   personal ledger never leaves the machine. Once the relay exists the ledger reaches a
+   server again — as ciphertext, which is the other half of the same argument.
+4. **Gate G5's wording expires.** The audit phrases it as "a group exists whose members are
+   not all on your tailnet". Leaving the tailnet makes that condition meaningless, and the
+   gate needs restating in terms of what it was actually protecting — a group that is not
+   one household. Tracked in `#374`.
+
+Decision recorded in `#372`.
 
 ### D10 — Export scope, and why export is **not** the sync format
 **2026-09-11.**
