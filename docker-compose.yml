@@ -1,6 +1,7 @@
 services:
   postgres:
     image: postgres:16-alpine
+    restart: unless-stopped
     environment:
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
@@ -15,6 +16,7 @@ services:
 
   backend:
     image: ghcr.io/lesterhan/have-fish-backend:latest
+    restart: unless-stopped
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -34,6 +36,7 @@ services:
 
   frontend:
     image: ghcr.io/lesterhan/have-fish-frontend:latest
+    restart: unless-stopped
     build:
       context: ./frontend
       dockerfile: Dockerfile
