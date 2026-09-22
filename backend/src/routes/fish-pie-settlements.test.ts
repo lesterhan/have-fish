@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { and, eq, isNull } from 'drizzle-orm'
 import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { transactions, postings, accounts, groupSettlements } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
+import { accounts, groupSettlements, postings, transactions } from '../db/schema'
+import { clearDatabase, createTestUser } from '../test-utils'
 
 describe('fish-pie settlements', () => {
   let cookieA: string
@@ -107,7 +107,13 @@ describe('fish-pie settlements', () => {
     const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
       method: 'POST',
       headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ fromUserId: userBId, toUserId: userAId, amount: '30.00', currency: 'CAD', date: '2026-04-28' }),
+      body: JSON.stringify({
+        fromUserId: userBId,
+        toUserId: userAId,
+        amount: '30.00',
+        currency: 'CAD',
+        date: '2026-04-28',
+      }),
     })
     expect(res.status).toBe(400)
   })
@@ -150,7 +156,13 @@ describe('fish-pie settlements', () => {
     await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-04-27', paidByUserId: userAId }),
+      body: JSON.stringify({
+        description: 'Dinner',
+        amount: '100.00',
+        currency: 'CAD',
+        date: '2026-04-27',
+        paidByUserId: userAId,
+      }),
     })
 
     const balBefore = await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
@@ -194,11 +206,14 @@ describe('fish-pie settlements', () => {
     })
 
     it('receiver can confirm and gets a ledger transaction', async () => {
-      const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`, {
-        method: 'POST',
-        headers: { Cookie: cookieA, 'Content-Type': 'application/json' }, // userA is toUserId
-        body: JSON.stringify({ receiverAccountId: accountAId }),
-      })
+      const res = await app.request(
+        `/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`,
+        {
+          method: 'POST',
+          headers: { Cookie: cookieA, 'Content-Type': 'application/json' }, // userA is toUserId
+          body: JSON.stringify({ receiverAccountId: accountAId }),
+        },
+      )
       expect(res.status).toBe(200)
       const s = (await res.json()) as any
       expect(s.status).toBe('completed')
@@ -210,16 +225,19 @@ describe('fish-pie settlements', () => {
         .where(and(eq(postings.transactionId, s.receiverTransactionId), isNull(postings.deletedAt)))
       expect(postingRows).toHaveLength(2)
       const amounts = postingRows.map((p) => parseFloat(p.amount))
-      expect(amounts.find((a) => a > 0)).toBeCloseTo(30, 1)  // cash in
+      expect(amounts.find((a) => a > 0)).toBeCloseTo(30, 1) // cash in
       expect(amounts.find((a) => a < 0)).toBeCloseTo(-30, 1) // shared debit
     })
 
     it('non-receiver cannot confirm', async () => {
-      const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`, {
-        method: 'POST',
-        headers: { Cookie: cookieB, 'Content-Type': 'application/json' }, // userB is fromUserId, not receiver
-        body: JSON.stringify({ receiverAccountId: accountBId }),
-      })
+      const res = await app.request(
+        `/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`,
+        {
+          method: 'POST',
+          headers: { Cookie: cookieB, 'Content-Type': 'application/json' }, // userB is fromUserId, not receiver
+          body: JSON.stringify({ receiverAccountId: accountBId }),
+        },
+      )
       expect(res.status).toBe(403)
     })
 
@@ -229,11 +247,14 @@ describe('fish-pie settlements', () => {
         headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
         body: JSON.stringify({ receiverAccountId: accountAId }),
       })
-      const res2 = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`, {
-        method: 'POST',
-        headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiverAccountId: accountAId }),
-      })
+      const res2 = await app.request(
+        `/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`,
+        {
+          method: 'POST',
+          headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receiverAccountId: accountAId }),
+        },
+      )
       expect(res2.status).toBe(409)
     })
 
@@ -241,7 +262,13 @@ describe('fish-pie settlements', () => {
       await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
         method: 'POST',
         headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: 'Dinner', amount: '60.00', currency: 'CAD', date: '2026-04-27', paidByUserId: userAId }),
+        body: JSON.stringify({
+          description: 'Dinner',
+          amount: '60.00',
+          currency: 'CAD',
+          date: '2026-04-27',
+          paidByUserId: userAId,
+        }),
       })
 
       const balBefore = await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
@@ -265,17 +292,23 @@ describe('fish-pie settlements', () => {
     })
 
     it('DELETE removes settlement and soft-deletes linked transactions', async () => {
-      const confirmRes = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`, {
-        method: 'POST',
-        headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiverAccountId: accountAId }),
-      })
+      const confirmRes = await app.request(
+        `/api/fish-pie/groups/${groupId}/settlements/${settlementId}/confirm`,
+        {
+          method: 'POST',
+          headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receiverAccountId: accountAId }),
+        },
+      )
       const confirmed = (await confirmRes.json()) as any
 
-      const delRes = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlementId}`, {
-        method: 'DELETE',
-        headers: { Cookie: cookieA },
-      })
+      const delRes = await app.request(
+        `/api/fish-pie/groups/${groupId}/settlements/${settlementId}`,
+        {
+          method: 'DELETE',
+          headers: { Cookie: cookieA },
+        },
+      )
       expect(delRes.status).toBe(204)
 
       // Both linked transactions should now be soft-deleted
@@ -291,7 +324,13 @@ describe('fish-pie settlements', () => {
     const expRes = await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-04-27', paymentAccountId: accountAId }),
+      body: JSON.stringify({
+        description: 'Dinner',
+        amount: '100.00',
+        currency: 'CAD',
+        date: '2026-04-27',
+        paymentAccountId: accountAId,
+      }),
     })
     expect(expRes.status).toBe(201)
 
@@ -299,18 +338,27 @@ describe('fish-pie settlements', () => {
     const setRes = await proposeSettlement('50.00')
     expect(setRes.status).toBe(201)
     const settlement = (await setRes.json()) as any
-    const confRes = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlement.id}/confirm`, {
-      method: 'POST',
-      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ receiverAccountId: accountAId }),
-    })
+    const confRes = await app.request(
+      `/api/fish-pie/groups/${groupId}/settlements/${settlement.id}/confirm`,
+      {
+        method: 'POST',
+        headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ receiverAccountId: accountAId }),
+      },
+    )
     expect(confRes.status).toBe(200)
 
     async function clearingBalance(ownerId: string): Promise<number> {
       const [acct] = await db
         .select({ id: accounts.id })
         .from(accounts)
-        .where(and(eq(accounts.userId, ownerId), eq(accounts.path, 'assets:receivable:trip'), isNull(accounts.deletedAt)))
+        .where(
+          and(
+            eq(accounts.userId, ownerId),
+            eq(accounts.path, 'assets:receivable:trip'),
+            isNull(accounts.deletedAt),
+          ),
+        )
       const ps = await db
         .select({ amount: postings.amount })
         .from(postings)
@@ -348,7 +396,15 @@ describe('fish-pie settlements', () => {
       const res = await batch({
         payerAccountId: accountBId,
         date: '2026-04-28',
-        lines: [{ toUserId: userAId, debtAmount: '30.00', debtCurrency: 'CAD', settledAmount: '30.00', settledCurrency: 'CAD' }],
+        lines: [
+          {
+            toUserId: userAId,
+            debtAmount: '30.00',
+            debtCurrency: 'CAD',
+            settledAmount: '30.00',
+            settledCurrency: 'CAD',
+          },
+        ],
       })
       expect(res.status).toBe(201)
       const { batchId, settlements } = (await res.json()) as any
@@ -378,7 +434,16 @@ describe('fish-pie settlements', () => {
       const res = await batch({
         payerAccountId: accountBId,
         date: '2026-04-28',
-        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' }],
+        lines: [
+          {
+            toUserId: userAId,
+            debtAmount: '50.00',
+            debtCurrency: 'EUR',
+            settledAmount: '80.00',
+            settledCurrency: 'CAD',
+            fxRate: '1.60',
+          },
+        ],
       })
       expect(res.status).toBe(201)
       const { settlements } = (await res.json()) as any
@@ -396,7 +461,13 @@ describe('fish-pie settlements', () => {
       const cash = await db
         .select({ amount: postings.amount, currency: postings.currency })
         .from(postings)
-        .where(and(eq(postings.transactionId, s.payerTransactionId), eq(postings.accountId, accountBId), isNull(postings.deletedAt)))
+        .where(
+          and(
+            eq(postings.transactionId, s.payerTransactionId),
+            eq(postings.accountId, accountBId),
+            isNull(postings.deletedAt),
+          ),
+        )
       expect(cash).toHaveLength(1)
       expect(parseFloat(cash[0].amount)).toBeCloseTo(-80, 2)
       expect(cash[0].currency).toBe('CAD')
@@ -409,8 +480,21 @@ describe('fish-pie settlements', () => {
         date: '2026-04-28',
         note: 'trip settle',
         lines: [
-          { toUserId: userAId, debtAmount: '500.00', debtCurrency: 'CAD', settledAmount: '500.00', settledCurrency: 'CAD' },
-          { toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' },
+          {
+            toUserId: userAId,
+            debtAmount: '500.00',
+            debtCurrency: 'CAD',
+            settledAmount: '500.00',
+            settledCurrency: 'CAD',
+          },
+          {
+            toUserId: userAId,
+            debtAmount: '50.00',
+            debtCurrency: 'EUR',
+            settledAmount: '80.00',
+            settledCurrency: 'CAD',
+            fxRate: '1.60',
+          },
         ],
       })
       expect(res.status).toBe(201)
@@ -429,7 +513,13 @@ describe('fish-pie settlements', () => {
       const cash = await db
         .select({ amount: postings.amount, currency: postings.currency })
         .from(postings)
-        .where(and(eq(postings.transactionId, txId), eq(postings.accountId, accountBId), isNull(postings.deletedAt)))
+        .where(
+          and(
+            eq(postings.transactionId, txId),
+            eq(postings.accountId, accountBId),
+            isNull(postings.deletedAt),
+          ),
+        )
       expect(cash).toHaveLength(1)
       expect(parseFloat(cash[0].amount)).toBeCloseTo(-580, 2)
     })
@@ -439,21 +529,45 @@ describe('fish-pie settlements', () => {
       await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
         method: 'POST',
         headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: 'dinner', amount: '100.00', currency: 'EUR', date: '2026-04-20', paidByUserId: userAId, paymentAccountId: accountAId }),
+        body: JSON.stringify({
+          description: 'dinner',
+          amount: '100.00',
+          currency: 'EUR',
+          date: '2026-04-20',
+          paidByUserId: userAId,
+          paymentAccountId: accountAId,
+        }),
       })
 
-      const before = (await (await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })).json()) as any[]
+      const before = (await (
+        await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
+          headers: { Cookie: cookieB },
+        })
+      ).json()) as any[]
       const owed = before.find((b) => b.currency === 'EUR').transfers[0]
       expect(owed.fromUserId).toBe(userBId)
 
       const res = await batch({
         payerAccountId: accountBId,
         date: '2026-04-28',
-        lines: [{ toUserId: userAId, debtAmount: owed.amount, debtCurrency: 'EUR', settledAmount: (parseFloat(owed.amount) * 1.6).toFixed(2), settledCurrency: 'CAD', fxRate: '1.60' }],
+        lines: [
+          {
+            toUserId: userAId,
+            debtAmount: owed.amount,
+            debtCurrency: 'EUR',
+            settledAmount: (parseFloat(owed.amount) * 1.6).toFixed(2),
+            settledCurrency: 'CAD',
+            fxRate: '1.60',
+          },
+        ],
       })
       expect(res.status).toBe(201)
 
-      const after = await (await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })).json()
+      const after = await (
+        await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
+          headers: { Cookie: cookieB },
+        })
+      ).json()
       // Pending settlement is excluded from balances (only completed ones net).
       expect(after).toEqual(before)
     })
@@ -468,7 +582,16 @@ describe('fish-pie settlements', () => {
       const res = await batch({
         payerAccountId: accountBId,
         date: '2026-04-28',
-        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' }],
+        lines: [
+          {
+            toUserId: userAId,
+            debtAmount: '50.00',
+            debtCurrency: 'EUR',
+            settledAmount: '80.00',
+            settledCurrency: 'CAD',
+            fxRate: '1.60',
+          },
+        ],
       })
       expect(res.status).toBe(400)
     })
@@ -477,7 +600,15 @@ describe('fish-pie settlements', () => {
       const res = await batch({
         payerAccountId: accountBId,
         date: '2026-04-28',
-        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'CAD', settledAmount: '60.00', settledCurrency: 'CAD' }],
+        lines: [
+          {
+            toUserId: userAId,
+            debtAmount: '50.00',
+            debtCurrency: 'CAD',
+            settledAmount: '60.00',
+            settledCurrency: 'CAD',
+          },
+        ],
       })
       expect(res.status).toBe(400)
     })
@@ -491,7 +622,15 @@ describe('fish-pie settlements', () => {
       const res = await batch({
         payerAccountId: accountBId,
         date: '2026-04-28',
-        lines: [{ toUserId: userBId, debtAmount: '50.00', debtCurrency: 'CAD', settledAmount: '50.00', settledCurrency: 'CAD' }],
+        lines: [
+          {
+            toUserId: userBId,
+            debtAmount: '50.00',
+            debtCurrency: 'CAD',
+            settledAmount: '50.00',
+            settledCurrency: 'CAD',
+          },
+        ],
       })
       expect(res.status).toBe(400)
     })
@@ -500,7 +639,15 @@ describe('fish-pie settlements', () => {
       const res = await batch({
         payerAccountId: accountAId, // A's account, but B is calling
         date: '2026-04-28',
-        lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'CAD', settledAmount: '50.00', settledCurrency: 'CAD' }],
+        lines: [
+          {
+            toUserId: userAId,
+            debtAmount: '50.00',
+            debtCurrency: 'CAD',
+            settledAmount: '50.00',
+            settledCurrency: 'CAD',
+          },
+        ],
       })
       expect(res.status).toBe(400)
     })
@@ -517,7 +664,15 @@ describe('fish-pie settlements', () => {
         {
           payerAccountId: accCId,
           date: '2026-04-28',
-          lines: [{ toUserId: userAId, debtAmount: '50.00', debtCurrency: 'CAD', settledAmount: '50.00', settledCurrency: 'CAD' }],
+          lines: [
+            {
+              toUserId: userAId,
+              debtAmount: '50.00',
+              debtCurrency: 'CAD',
+              settledAmount: '50.00',
+              settledCurrency: 'CAD',
+            },
+          ],
         },
         cookieC,
       )
@@ -530,8 +685,21 @@ describe('fish-pie settlements', () => {
         payerAccountId: accountBId,
         date: '2026-04-28',
         lines: [
-          { toUserId: userAId, debtAmount: '500.00', debtCurrency: 'CAD', settledAmount: '500.00', settledCurrency: 'CAD' },
-          { toUserId: userAId, debtAmount: '50.00', debtCurrency: 'EUR', settledAmount: '80.00', settledCurrency: 'CAD', fxRate: '1.60' },
+          {
+            toUserId: userAId,
+            debtAmount: '500.00',
+            debtCurrency: 'CAD',
+            settledAmount: '500.00',
+            settledCurrency: 'CAD',
+          },
+          {
+            toUserId: userAId,
+            debtAmount: '50.00',
+            debtCurrency: 'EUR',
+            settledAmount: '80.00',
+            settledCurrency: 'CAD',
+            fxRate: '1.60',
+          },
         ],
       })
       return (await res.json()) as { batchId: string; settlements: any[] }
@@ -564,7 +732,13 @@ describe('fish-pie settlements', () => {
       const cash = await db
         .select({ amount: postings.amount, currency: postings.currency })
         .from(postings)
-        .where(and(eq(postings.transactionId, rxId), eq(postings.accountId, accountAId), isNull(postings.deletedAt)))
+        .where(
+          and(
+            eq(postings.transactionId, rxId),
+            eq(postings.accountId, accountAId),
+            isNull(postings.deletedAt),
+          ),
+        )
       expect(cash).toHaveLength(1)
       expect(parseFloat(cash[0].amount)).toBeCloseTo(580, 2)
       expect(cash[0].currency).toBe('CAD')
@@ -586,11 +760,14 @@ describe('fish-pie settlements', () => {
 
     it('the single confirm endpoint rejects a batch row', async () => {
       const { settlements } = await mixedBatch()
-      const res = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlements[0].id}/confirm`, {
-        method: 'POST',
-        headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ receiverAccountId: accountAId }),
-      })
+      const res = await app.request(
+        `/api/fish-pie/groups/${groupId}/settlements/${settlements[0].id}/confirm`,
+        {
+          method: 'POST',
+          headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ receiverAccountId: accountAId }),
+        },
+      )
       expect(res.status).toBe(409)
     })
 
@@ -600,11 +777,20 @@ describe('fish-pie settlements', () => {
       await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
         method: 'POST',
         headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ description: 'dinner', amount: '100.00', currency: 'EUR', date: '2026-04-20', paidByUserId: userAId, paymentAccountId: accountAId }),
+        body: JSON.stringify({
+          description: 'dinner',
+          amount: '100.00',
+          currency: 'EUR',
+          date: '2026-04-20',
+          paidByUserId: userAId,
+          paymentAccountId: accountAId,
+        }),
       })
 
       const beforeBalances = (await (
-        await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })
+        await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
+          headers: { Cookie: cookieB },
+        })
       ).json()) as any[]
       const owed = beforeBalances.find((b) => b.currency === 'EUR').transfers[0]
       expect(owed.fromUserId).toBe(userBId)
@@ -615,14 +801,25 @@ describe('fish-pie settlements', () => {
         await batch({
           payerAccountId: accountBId,
           date: '2026-04-28',
-          lines: [{ toUserId: userAId, debtAmount: owedAmount, debtCurrency: 'EUR', settledAmount: settledCad, settledCurrency: 'CAD', fxRate: '1.60' }],
+          lines: [
+            {
+              toUserId: userAId,
+              debtAmount: owedAmount,
+              debtCurrency: 'EUR',
+              settledAmount: settledCad,
+              settledCurrency: 'CAD',
+              fxRate: '1.60',
+            },
+          ],
         })
       ).json()) as any
 
       expect((await confirmBatch(batchId, accountAId)).status).toBe(200)
 
       const balances = (await (
-        await app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieB } })
+        await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
+          headers: { Cookie: cookieB },
+        })
       ).json()) as any[]
       // EUR debt is settled, so it nets zero — no outstanding EUR transfers remain.
       const eur = balances.find((b) => b.currency === 'EUR')
@@ -633,14 +830,20 @@ describe('fish-pie settlements', () => {
       const { batchId, settlements } = await mixedBatch()
       const payerTxId = settlements[0].payerTransactionId
       await confirmBatch(batchId, accountAId)
-      const [confirmed] = await db.select().from(groupSettlements).where(eq(groupSettlements.id, settlements[0].id))
+      const [confirmed] = await db
+        .select()
+        .from(groupSettlements)
+        .where(eq(groupSettlements.id, settlements[0].id))
       const receiverTxId = confirmed.receiverTransactionId!
 
       // Delete via a single row id — cascades to the whole batch.
-      const del = await app.request(`/api/fish-pie/groups/${groupId}/settlements/${settlements[1].id}`, {
-        method: 'DELETE',
-        headers: { Cookie: cookieB },
-      })
+      const del = await app.request(
+        `/api/fish-pie/groups/${groupId}/settlements/${settlements[1].id}`,
+        {
+          method: 'DELETE',
+          headers: { Cookie: cookieB },
+        },
+      )
       expect(del.status).toBe(204)
 
       // All rows soft-deleted.
@@ -662,7 +865,11 @@ describe('fish-pie settlements', () => {
       }
 
       // GET no longer lists the batch.
-      const list = (await (await app.request(`/api/fish-pie/groups/${groupId}/settlements`, { headers: { Cookie: cookieB } })).json()) as any[]
+      const list = (await (
+        await app.request(`/api/fish-pie/groups/${groupId}/settlements`, {
+          headers: { Cookie: cookieB },
+        })
+      ).json()) as any[]
       expect(list.filter((s) => s.batchId === batchId)).toHaveLength(0)
     })
   })

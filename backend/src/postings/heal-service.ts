@@ -1,14 +1,14 @@
+import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { postings, accounts, transactions, userSettings } from '../db/schema'
-import { eq, and, isNull, inArray, sql } from 'drizzle-orm'
-import { errorBody } from '../errors'
+import { accounts, postings, transactions, userSettings } from '../db/schema'
 import type { ErrorBody } from '../errors'
+import { errorBody } from '../errors'
 import {
   detectMalformedFxSpend,
-  planFxSpendRepair,
   type HealPosting,
   type HealSettings,
   type MalformedFinding,
+  planFxSpendRepair,
 } from './heal'
 
 export type HealContext = {
@@ -43,7 +43,13 @@ export async function loadHealContext(userId: string): Promise<HealContext> {
     const [acc] = await db
       .select({ path: accounts.path })
       .from(accounts)
-      .where(and(eq(accounts.id, s.conversionAccountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+      .where(
+        and(
+          eq(accounts.id, s.conversionAccountId),
+          eq(accounts.userId, userId),
+          isNull(accounts.deletedAt),
+        ),
+      )
     conversionAccountPath = acc?.path ?? null
   }
 
@@ -51,7 +57,10 @@ export async function loadHealContext(userId: string): Promise<HealContext> {
 }
 
 // Fetches a transaction's live postings joined to their account paths, in the user's scope.
-async function fetchPostingsWithPaths(userId: string, txIds: string[]): Promise<Map<string, HealPosting[]>> {
+async function fetchPostingsWithPaths(
+  userId: string,
+  txIds: string[],
+): Promise<Map<string, HealPosting[]>> {
   if (txIds.length === 0) return new Map()
   const rows = await db
     .select({
@@ -65,17 +74,25 @@ async function fetchPostingsWithPaths(userId: string, txIds: string[]): Promise<
     .from(postings)
     .innerJoin(accounts, eq(accounts.id, postings.accountId))
     .innerJoin(transactions, eq(transactions.id, postings.transactionId))
-    .where(and(
-      inArray(postings.transactionId, txIds),
-      isNull(postings.deletedAt),
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-    ))
+    .where(
+      and(
+        inArray(postings.transactionId, txIds),
+        isNull(postings.deletedAt),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+      ),
+    )
 
   const byTx = new Map<string, HealPosting[]>()
   for (const r of rows) {
     const list = byTx.get(r.transactionId) ?? []
-    list.push({ id: r.id, accountId: r.accountId, accountPath: r.accountPath, amount: r.amount, currency: r.currency })
+    list.push({
+      id: r.id,
+      accountId: r.accountId,
+      accountPath: r.accountPath,
+      amount: r.amount,
+      currency: r.currency,
+    })
     byTx.set(r.transactionId, list)
   }
   return byTx
@@ -91,7 +108,10 @@ export type MalformedCandidate = {
 // Pre-filters to transactions whose postings span more than one currency — the only ones
 // that can be a cross-currency spend — so the bulk of plain single-currency entries are
 // never path-joined. This runs on every attention-indicator load, so the filter matters.
-export async function findMalformedFxSpends(userId: string, ctx: HealContext): Promise<MalformedCandidate[]> {
+export async function findMalformedFxSpends(
+  userId: string,
+  ctx: HealContext,
+): Promise<MalformedCandidate[]> {
   const multiCurrencyRows = await db.execute(sql`
     SELECT p.transaction_id
     FROM postings p
@@ -102,13 +122,21 @@ export async function findMalformedFxSpends(userId: string, ctx: HealContext): P
     GROUP BY p.transaction_id
     HAVING COUNT(DISTINCT p.currency) > 1
   `)
-  const txIds = (multiCurrencyRows as unknown as { transaction_id: string }[]).map((r) => r.transaction_id)
+  const txIds = (multiCurrencyRows as unknown as { transaction_id: string }[]).map(
+    (r) => r.transaction_id,
+  )
   if (txIds.length === 0) return []
 
   const txRows = await db
     .select()
     .from(transactions)
-    .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt), inArray(transactions.id, txIds)))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        inArray(transactions.id, txIds),
+      ),
+    )
 
   if (txRows.length === 0) return []
   const byTx = await fetchPostingsWithPaths(userId, txIds)
@@ -133,8 +161,10 @@ export async function malformedFxSpendsByAccount(
   const candidates = await findMalformedFxSpends(userId, ctx)
   const { assetsRootPath, liabilitiesRootPath } = ctx.settings
   const isBalance = (path: string) =>
-    path === assetsRootPath || path.startsWith(`${assetsRootPath}:`) ||
-    path === liabilitiesRootPath || path.startsWith(`${liabilitiesRootPath}:`)
+    path === assetsRootPath ||
+    path.startsWith(`${assetsRootPath}:`) ||
+    path === liabilitiesRootPath ||
+    path.startsWith(`${liabilitiesRootPath}:`)
 
   const byAccount = new Map<string, Set<string>>()
   const allTxIds = new Set<string>()
@@ -150,17 +180,25 @@ export async function malformedFxSpendsByAccount(
   return { byAccount, allTxIds }
 }
 
-export type HealResult =
-  | { ok: true; postings: HealPosting[] }
-  | { ok: false; failure: ErrorBody }
+export type HealResult = { ok: true; postings: HealPosting[] } | { ok: false; failure: ErrorBody }
 
 // Applies the repair to a single transaction. Pure account repoint — amounts never change,
 // so the per-currency balance is preserved (re-validated defensively before commit).
-export async function healFxSpend(userId: string, txId: string, ctx: HealContext): Promise<HealResult> {
+export async function healFxSpend(
+  userId: string,
+  txId: string,
+  ctx: HealContext,
+): Promise<HealResult> {
   const [tx] = await db
     .select({ id: transactions.id })
     .from(transactions)
-    .where(and(eq(transactions.id, txId), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .where(
+      and(
+        eq(transactions.id, txId),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+      ),
+    )
   if (!tx) return { ok: false, failure: errorBody('TRANSACTION_NOT_FOUND') }
 
   const ps = (await fetchPostingsWithPaths(userId, [txId])).get(txId) ?? []
@@ -184,7 +222,10 @@ export async function healFxSpend(userId: string, txId: string, ctx: HealContext
 
   await db.transaction(async (dbTx) => {
     for (const r of repoints) {
-      await dbTx.update(postings).set({ accountId: r.toAccountId }).where(eq(postings.id, r.postingId))
+      await dbTx
+        .update(postings)
+        .set({ accountId: r.toAccountId })
+        .where(eq(postings.id, r.postingId))
     }
   })
 

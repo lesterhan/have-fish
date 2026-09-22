@@ -9,7 +9,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { accountCoverage, userSettings } from '../db/schema'
-import { addDays, daysBetween, type CoverageInterval } from './intervals'
+import { addDays, type CoverageInterval, daysBetween } from './intervals'
 
 // How data comes out of the institution.
 //   'range'  — any date range, any time (Wise, most chequing accounts). Horizon is today.
@@ -139,7 +139,9 @@ export function nextHorizon(config: CoverageConfig, today: string): string | nul
 // interval's throughDate and when the row was created — but that measures how long the user
 // took to get around to importing, which is precisely the thing this whole feature exists
 // because it is unpredictable. It stays 0 until the user says otherwise.
-export function inferCycleFromIntervals(intervals: CoverageInterval[]): CoverageConfigOverride | null {
+export function inferCycleFromIntervals(
+  intervals: CoverageInterval[],
+): CoverageConfigOverride | null {
   if (intervals.length < MIN_INTERVALS_TO_INFER) return null
 
   // Most recent first, so a bank that changed its cycle day is judged on its current one.
@@ -239,7 +241,10 @@ export async function readCatchUpOverrides(
 }
 
 // The live coverage assertions for one account, oldest first.
-export async function readIntervals(userId: string, accountId: string): Promise<CoverageInterval[]> {
+export async function readIntervals(
+  userId: string,
+  accountId: string,
+): Promise<CoverageInterval[]> {
   return db
     .select({ fromDate: accountCoverage.fromDate, throughDate: accountCoverage.throughDate })
     .from(accountCoverage)

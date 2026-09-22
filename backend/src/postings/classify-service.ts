@@ -1,8 +1,8 @@
+import { and, eq, isNotNull, isNull } from 'drizzle-orm'
 import { db } from '../db'
-import { userSettings, csvParsers } from '../db/schema'
-import { eq, and, isNull, isNotNull } from 'drizzle-orm'
+import { csvParsers, userSettings } from '../db/schema'
 import { CLEARING_PREFIX } from '../fish-pie-accounts'
-import { DEFAULT_ROOTS, type AccountTypeRoots } from './account-type'
+import { type AccountTypeRoots, DEFAULT_ROOTS } from './account-type'
 import type { ClassifySettings } from './roles'
 
 // Assembles the per-user ClassifySettings the role classifier needs: the configured root
@@ -33,11 +33,13 @@ export async function loadClassifySettings(userId: string): Promise<ClassifySett
   const feeRows = await db
     .selectDistinct({ id: csvParsers.defaultFeeAccountId })
     .from(csvParsers)
-    .where(and(
-      eq(csvParsers.userId, userId),
-      isNull(csvParsers.deletedAt),
-      isNotNull(csvParsers.defaultFeeAccountId),
-    ))
+    .where(
+      and(
+        eq(csvParsers.userId, userId),
+        isNull(csvParsers.deletedAt),
+        isNotNull(csvParsers.defaultFeeAccountId),
+      ),
+    )
   const feeAccountIds = new Set(feeRows.map((r) => r.id).filter((id): id is string => id !== null))
 
   const conversionAccountIds = new Set<string>()

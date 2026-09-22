@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { Posting, PostingRole, Transaction } from '$lib/api'
 import {
+  hasSubjectInCurrency,
   headlineSubject,
   rowSource,
   stripRoot,
-  hasSubjectInCurrency,
   txSubjectTotal,
 } from './spendingRow'
-import type { Transaction, Posting, PostingRole } from '$lib/api'
 
 // Terse posting fixture; id derived from accountPath + amount unless overridden.
 function p(
@@ -14,7 +14,7 @@ function p(
   amount: string,
   currency: string,
   role: PostingRole,
-  id = accountPath + ':' + amount,
+  id = `${accountPath}:${amount}`,
 ): Posting {
   return {
     id,

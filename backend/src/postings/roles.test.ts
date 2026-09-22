@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'bun:test'
-import { classifyPosting, classifyPostings, isExpenseSubject, type ClassifySettings } from './roles'
+import { describe, expect, it } from 'bun:test'
 import { DEFAULT_ROOTS } from './account-type'
+import { type ClassifySettings, classifyPosting, classifyPostings, isExpenseSubject } from './roles'
 
 const FEE = 'fee-account-id'
 const CONV = 'conversion-account-id'

@@ -1,14 +1,13 @@
+import { and, desc, eq, gte, inArray, isNull, like, lte, or } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db'
-import { transactions, postings, groupExpenses, expenseGroups } from '../db/schema'
-import { eq, isNull, and, inArray, gte, lte, or, like, desc } from 'drizzle-orm'
-import { accounts } from '../db/schema'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
-import { loadHealContext, findMalformedFxSpends, healFxSpend } from '../postings/heal-service'
-import { loadClassifySettings } from '../postings/classify-service'
-import { classifyPostings, type PostingRole } from '../postings/roles'
+import { db } from '../db'
+import { accounts, expenseGroups, groupExpenses, postings, transactions } from '../db/schema'
 import { fail, failWith } from '../errors'
+import { loadClassifySettings } from '../postings/classify-service'
+import { findMalformedFxSpends, healFxSpend, loadHealContext } from '../postings/heal-service'
+import { classifyPostings, type PostingRole } from '../postings/roles'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -47,7 +46,9 @@ async function accountsOwnedBy(userId: string, accountIds: string[]): Promise<bo
   const owned = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(inArray(accounts.id, unique), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .where(
+      and(inArray(accounts.id, unique), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
+    )
   return owned.length === unique.length
 }
 
@@ -68,10 +69,18 @@ app.get('/malformed-fx-spend', async (c) => {
     const after = ps.map((p) => {
       if (!canHeal) return p
       if (p.id === finding.sourceBridgePostingId || p.id === finding.targetBridgePostingId) {
-        return { ...p, accountId: ctx.conversionAccountId!, accountPath: ctx.conversionAccountPath ?? p.accountPath }
+        return {
+          ...p,
+          accountId: ctx.conversionAccountId!,
+          accountPath: ctx.conversionAccountPath ?? p.accountPath,
+        }
       }
       if (p.id === finding.phantomPostingId) {
-        return { ...p, accountId: finding.expenseAccountId, accountPath: finding.expenseAccountPath }
+        return {
+          ...p,
+          accountId: finding.expenseAccountId,
+          accountPath: finding.expenseAccountPath,
+        }
       }
       return p
     })
@@ -108,12 +117,14 @@ app.get('/', async (c) => {
   let txRows = await db
     .select()
     .from(transactions)
-    .where(and(
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      from ? gte(transactions.date, new Date(from)) : undefined,
-      to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
-    ))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        from ? gte(transactions.date, new Date(from)) : undefined,
+        to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
+      ),
+    )
     .orderBy(desc(transactions.date))
 
   if (accountId) {
@@ -135,14 +146,13 @@ app.get('/', async (c) => {
     const matchingAccounts = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(and(
-        eq(accounts.userId, userId),
-        isNull(accounts.deletedAt),
-        or(
-          eq(accounts.path, accountPath),
-          like(accounts.path, `${escaped}:%`),
+      .where(
+        and(
+          eq(accounts.userId, userId),
+          isNull(accounts.deletedAt),
+          or(eq(accounts.path, accountPath), like(accounts.path, `${escaped}:%`)),
         ),
-      ))
+      )
     const accountIds = matchingAccounts.map((a) => a.id)
     if (accountIds.length === 0) return c.json([])
     const postingRows = await db
@@ -184,7 +194,9 @@ app.get('/', async (c) => {
   // Group postings by transactionId and embed into each transaction, with role attached
   type EmbeddedPosting = (typeof postingRows)[number] & { role: PostingRole }
   const postingsByTx = postingRows.reduce<Record<string, EmbeddedPosting[]>>((acc, p) => {
-    ; (acc[p.transactionId] ??= []).push({ ...p, role: roleById.get(p.id)! })
+    const forTx = acc[p.transactionId] ?? []
+    forTx.push({ ...p, role: roleById.get(p.id)! })
+    acc[p.transactionId] = forTx
     return acc
   }, {})
 
@@ -268,12 +280,14 @@ app.post('/', async (c) => {
 
     const newPostings = await tx
       .insert(postings)
-      .values(postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
-        transactionId: newTx.id,
-        accountId: p.accountId,
-        amount: p.amount,
-        currency: p.currency,
-      })))
+      .values(
+        postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
+          transactionId: newTx.id,
+          accountId: p.accountId,
+          amount: p.amount,
+          currency: p.currency,
+        })),
+      )
       .returning()
 
     return { ...newTx, postings: newPostings }
@@ -335,12 +349,14 @@ app.post('/bulk', async (c) => {
         .returning()
       const newPostings = await tx
         .insert(postings)
-        .values(postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
-          transactionId: newTx.id,
-          accountId: p.accountId,
-          amount: p.amount,
-          currency: p.currency,
-        })))
+        .values(
+          postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
+            transactionId: newTx.id,
+            accountId: p.accountId,
+            amount: p.amount,
+            currency: p.currency,
+          })),
+        )
         .returning()
       results.push({ ...newTx, postings: newPostings })
     }
@@ -348,14 +364,20 @@ app.post('/bulk', async (c) => {
   })
 
   // Enrich every posting across all created transactions in one pass, then regroup.
-  const enriched = await enrichPostings(userId, created.flatMap((t) => t.postings))
+  const enriched = await enrichPostings(
+    userId,
+    created.flatMap((t) => t.postings),
+  )
   const byTx = new Map<string, typeof enriched>()
   for (const p of enriched) {
     const list = byTx.get(p.transactionId)
     if (list) list.push(p)
     else byTx.set(p.transactionId, [p])
   }
-  return c.json(created.map((t) => ({ ...t, postings: byTx.get(t.id) ?? [] })), 201)
+  return c.json(
+    created.map((t) => ({ ...t, postings: byTx.get(t.id) ?? [] })),
+    201,
+  )
 })
 
 // PATCH /api/transactions/:id
@@ -381,7 +403,9 @@ app.patch('/:id', async (c) => {
   const [updated] = await db
     .update(transactions)
     .set(updates)
-    .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .where(
+      and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)),
+    )
     .returning()
 
   if (!updated) return fail(c, 'TRANSACTION_NOT_FOUND')
@@ -429,7 +453,9 @@ app.post('/:id/postings', async (c) => {
   const [tx] = await db
     .select()
     .from(transactions)
-    .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .where(
+      and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)),
+    )
 
   if (!tx) return fail(c, 'TRANSACTION_NOT_FOUND')
 
@@ -444,12 +470,14 @@ app.post('/:id/postings', async (c) => {
     await dbTx.delete(postings).where(eq(postings.transactionId, id))
     const newPostings = await dbTx
       .insert(postings)
-      .values(postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
-        transactionId: id,
-        accountId: p.accountId,
-        amount: p.amount,
-        currency: p.currency,
-      })))
+      .values(
+        postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
+          transactionId: id,
+          accountId: p.accountId,
+          amount: p.amount,
+          currency: p.currency,
+        })),
+      )
       .returning()
     return { ...tx, postings: newPostings }
   })
@@ -484,7 +512,13 @@ app.delete('/:id', async (c) => {
     await tx
       .update(transactions)
       .set({ deletedAt: new Date() })
-      .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+      .where(
+        and(
+          eq(transactions.id, id),
+          eq(transactions.userId, userId),
+          isNull(transactions.deletedAt),
+        ),
+      )
   })
   return c.body(null, 204)
 })

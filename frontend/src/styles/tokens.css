@@ -236,11 +236,7 @@
   --color-accent-hi: #5290cf; /* highlight / icon tint */
   --color-accent-chip-bg: #d8e8fa; /* accent chip background */
   --color-accent-chip-fg: #124a7b; /* accent chip text */
-  --color-titlebar-accent: linear-gradient(
-    180deg,
-    #5290cf,
-    #2d6ca8
-  ); /* title bar pill */
+  --color-titlebar-accent: linear-gradient(180deg, #5290cf, #2d6ca8); /* title bar pill */
   --color-accent-fg: #fcfeff; /* the ONLY text-on-accent token — near-black in dark */
   --color-dropdown-active: #2d6ca8;
 
@@ -284,8 +280,7 @@
   --color-transfer-out: #4f64ab; /* slate blue — money leaving */
 
   /* Modal window — real drop shadow */
-  --shadow-modal:
-    0 20px 60px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.15);
+  --shadow-modal: 0 20px 60px rgba(0, 0, 0, 0.25), 0 4px 16px rgba(0, 0, 0, 0.15);
 
   /* Small floating panel / dropdown chrome */
   --shadow-window: 0 4px 12px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.1);
@@ -294,10 +289,8 @@
    * control: raised surface for standard buttons and chips
    * inset:   recessed trough for tracks, inset lists, and the pressed state
    */
-  --shadow-control:
-    0 1px 2px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.65);
-  --shadow-inset:
-    inset 0 1px 3px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(0, 0, 0, 0.07);
+  --shadow-control: 0 1px 2px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.65);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.18), inset 0 0 0 1px rgba(0, 0, 0, 0.07);
 
   /* --- Card surface (grouped panel) ---
    * A flat panel that floats on a soft drop shadow with a faint glossy top
@@ -310,10 +303,8 @@
   --card-bg: var(--color-window);
   --card-border-color: var(--color-rule);
   --card-radius: var(--radius-lg);
-  --card-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
-  --card-shadow-hover:
-    0 2px 6px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), inset 0 1px 0 rgba(255, 255, 255, 0.6);
+  --card-shadow-hover: 0 2px 6px rgba(0, 0, 0, 0.16), inset 0 1px 0 rgba(255, 255, 255, 0.6);
 
   /* --- Shape --- */
   --radius-sm: 3px; /* small elements: currency pills, role badges */
@@ -390,10 +381,8 @@
   --color-btn-gradient-hi: #3f3b33; /* replaces the near-white top for dark gradient buttons */
 
   /* --- Control shadows (dark: heavier opacity, barely-there gloss) --- */
-  --shadow-control:
-    0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
-  --shadow-inset:
-    inset 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
+  --shadow-control: 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  --shadow-inset: inset 0 1px 3px rgba(0, 0, 0, 0.4), inset 0 0 0 1px rgba(0, 0, 0, 0.2);
   --shadow-window: 0 4px 14px rgba(0, 0, 0, 0.5), 0 1px 4px rgba(0, 0, 0, 0.3);
 
   /* --- Text --- */
@@ -438,12 +427,9 @@
   --color-transfer-out: #8199e5;
 
   /* --- Card surface (dark: stronger lift, barely-there gloss) --- */
-  --card-shadow:
-    0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
-  --card-shadow-hover:
-    0 2px 7px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --card-shadow: 0 1px 3px rgba(0, 0, 0, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --card-shadow-hover: 0 2px 7px rgba(0, 0, 0, 0.45), inset 0 1px 0 rgba(255, 255, 255, 0.05);
 
   /* Modal window shadow (dark: deeper) */
-  --shadow-modal:
-    0 24px 70px rgba(0, 0, 0, 0.55), 0 4px 18px rgba(0, 0, 0, 0.45);
+  --shadow-modal: 0 24px 70px rgba(0, 0, 0, 0.55), 0 4px 18px rgba(0, 0, 0, 0.45);
 }

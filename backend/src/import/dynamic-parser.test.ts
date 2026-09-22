@@ -1,8 +1,13 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { buildParser } from './dynamic-parser'
 
 describe('buildParser', () => {
-  const parse = buildParser({ date: 'date', amount: 'amount', description: 'description', currency: 'currency' })
+  const parse = buildParser({
+    date: 'date',
+    amount: 'amount',
+    description: 'description',
+    currency: 'currency',
+  })
 
   it('maps CSV rows to ParsedTransactions using the column mapping', () => {
     const result = parse([
@@ -68,14 +73,18 @@ describe('buildParser', () => {
 
   it('omits optional fields when not in the mapping', () => {
     const parseMinimal = buildParser({ date: 'date', amount: 'amount' })
-    const result = parseMinimal([{ date: '2026-02-15', amount: '5.00', description: 'ignored', currency: 'USD' }])
+    const result = parseMinimal([
+      { date: '2026-02-15', amount: '5.00', description: 'ignored', currency: 'USD' },
+    ])
     expect(result.errors).toHaveLength(0)
     expect(result.transactions[0].description).toBeUndefined()
     expect(result.transactions[0].currency).toBeUndefined()
   })
 
   it('regular rows have isTransfer: false', () => {
-    const result = parse([{ date: '2026-02-15', amount: '-42.50', description: 'Coffee', currency: 'CAD' }])
+    const result = parse([
+      { date: '2026-02-15', amount: '-42.50', description: 'Coffee', currency: 'CAD' },
+    ])
     expect(result.transactions[0].isTransfer).toBe(false)
   })
 })
@@ -89,9 +98,7 @@ describe('buildParser — direction sign', () => {
   })
 
   it('negates the amount when the sign column matches signNegativeValue (case-insensitive)', () => {
-    const result = parseWithSign([
-      { date: '2026-03-08', amount: '2.60', direction: 'OUT' },
-    ])
+    const result = parseWithSign([{ date: '2026-03-08', amount: '2.60', direction: 'OUT' }])
     expect(result.errors).toHaveLength(0)
     expect(result.transactions[0].amount).toBe('-2.60')
   })
@@ -109,14 +116,16 @@ describe('buildParser — same-currency transfer detection', () => {
   })
 
   it('emits a same-currency transfer when currencies match and fee is non-zero', () => {
-    const result = parseSameCurrency([{
-      date: '2026-03-31',
-      sourceamount: '199.69',
-      sourcecurrency: 'CAD',
-      targetamount: '199.69',
-      targetcurrency: 'CAD',
-      feeamount: '0.62',
-    }])
+    const result = parseSameCurrency([
+      {
+        date: '2026-03-31',
+        sourceamount: '199.69',
+        sourcecurrency: 'CAD',
+        targetamount: '199.69',
+        targetcurrency: 'CAD',
+        feeamount: '0.62',
+      },
+    ])
 
     expect(result.errors).toHaveLength(0)
     expect(result.transactions).toHaveLength(1)
@@ -143,15 +152,17 @@ describe('buildParser — transfer detection', () => {
   })
 
   it('emits a TransferParsedTransaction when sourceCurrency ≠ targetCurrency', () => {
-    const result = parseTransfer([{
-      date: '2026-03-01',
-      sourceamount: '200.00',
-      sourcecurrency: 'CAD',
-      targetamount: '107.90',
-      targetcurrency: 'GBP',
-      feeamount: '0.96',
-      feecurrency: 'CAD',
-    }])
+    const result = parseTransfer([
+      {
+        date: '2026-03-01',
+        sourceamount: '200.00',
+        sourcecurrency: 'CAD',
+        targetamount: '107.90',
+        targetcurrency: 'GBP',
+        feeamount: '0.96',
+        feecurrency: 'CAD',
+      },
+    ])
 
     expect(result.errors).toHaveLength(0)
     expect(result.transactions).toHaveLength(1)

@@ -1,6 +1,6 @@
 import type { Account, ExpenseGroup, ParsedTransaction } from '$lib/api'
-import type { RowState } from './row-state'
 import { rowMissingAccounts } from './import-helpers'
+import type { RowState } from './row-state'
 
 // The Confirm step's manifest — the last look before anything is written to the ledger.
 //
@@ -105,10 +105,7 @@ function amountOf(
   }
 }
 
-function labelFor(
-  dest: ReturnType<typeof destinationOf>,
-  ctx: ManifestContext,
-): string {
+function labelFor(dest: ReturnType<typeof destinationOf>, ctx: ManifestContext): string {
   if (dest.groupId) {
     const group = ctx.groups.find((g) => g.id === dest.groupId)
     const category = dest.categoryId
@@ -117,10 +114,7 @@ function labelFor(
     const name = group?.name ?? 'Fish Pie group'
     return category ? `${name} · ${category.name}` : name
   }
-  return (
-    ctx.accounts.find((a) => a.id === dest.accountId)?.path ??
-    'No account assigned'
-  )
+  return ctx.accounts.find((a) => a.id === dest.accountId)?.path ?? 'No account assigned'
 }
 
 export function buildManifest(
@@ -193,8 +187,7 @@ export function buildManifest(
     parseErrors,
     rulesCreated: ctx.rulesCreated,
     accountsCreated: ctx.accountsCreated,
-    dateRange:
-      dates.length > 0 ? { from: dates[0], to: dates[dates.length - 1] } : null,
+    dateRange: dates.length > 0 ? { from: dates[0], to: dates[dates.length - 1] } : null,
     incomplete,
   }
 }

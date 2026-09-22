@@ -61,8 +61,7 @@ export const accountsCopy = {
   conversion: {
     missingRate: (currencies: string) =>
       `Balances in ${currencies} are not included — no exchange rate available`,
-    notConverted: (currencies: string) =>
-      `Also holds ${currencies} — convert to fold them in`,
+    notConverted: (currencies: string) => `Also holds ${currencies} — convert to fold them in`,
     noRates: (currency: string) =>
       `No exchange rates available right now — still showing ${currency} balances.`,
     /** The cell for a row whose own currency has no rate. */
@@ -227,8 +226,7 @@ export const accountsCopy = {
       conversion: 'Cross-currency transactions clear through here',
       adjustments: 'Reconciliation writes its adjustments here',
     },
-    systemManaged:
-      'Fish Pie manages this account — it is re-created on import.',
+    systemManaged: 'Fish Pie manages this account — it is re-created on import.',
     rolesInUse: (roles: string, n: number) =>
       plural(
         n,
@@ -393,8 +391,7 @@ export const accountsCopy = {
     },
     emptyCount: (n: number) => plural(n, '1 empty', `${n} empty`),
     showAll: 'Show every category again',
-    showEmptyOnly:
-      'Show only categories with no entries — the ones that can be deleted',
+    showEmptyOnly: 'Show only categories with no entries — the ones that can be deleted',
 
     addPlaceholder: 'expenses:travel:flights',
     addLabel: 'New category path',
@@ -421,8 +418,7 @@ export const accountsCopy = {
 
     /** A path with no account of its own — it exists because something beneath it does. */
     virtual: 'category',
-    virtualHint:
-      'No account was filed at this path — it exists because something beneath it does',
+    virtualHint: 'No account was filed at this path — it exists because something beneath it does',
     /** No entries and nothing beneath it: the only kind that can be deleted. */
     emptyFlag: 'empty',
 
@@ -433,14 +429,12 @@ export const accountsCopy = {
     cancelRename: 'Cancel rename',
     renamed: (path: string) => `Renamed to ${path}`,
     renameFailed: 'Rename failed',
-    collision: (path: string) =>
-      `“${path}” already exists — merging isn't supported yet`,
+    collision: (path: string) => `“${path}” already exists — merging isn't supported yet`,
 
     delete: (path: string) => `Delete ${path}`,
     deleteHint: 'Delete this category',
     deleteNothingHint: 'Nothing was filed here, so there is nothing to delete',
-    deleteBlockedHint:
-      'Only a category with no entries and nothing beneath it can be deleted',
+    deleteBlockedHint: 'Only a category with no entries and nothing beneath it can be deleted',
     deleted: (path: string) => `Deleted ${path}`,
     deleteFailed: 'Could not delete that category',
 
@@ -464,8 +458,7 @@ export const accountsCopy = {
        * be spliced into the middle — "Delete `x`? It has no entries" — which is one
        * sentence that cannot be held in one message.
        */
-      question:
-        'Delete this category? It has no entries and nothing filed beneath it.',
+      question: 'Delete this category? It has no entries and nothing filed beneath it.',
     },
 
     /** Typed into the quick-add box or the rename field, answered as you type. */
@@ -485,8 +478,7 @@ export const accountsCopy = {
     offsetPlaceholder: 'expenses:…',
     addRow: '+ Add row',
     saving: 'Saving…',
-    save: (n: number) =>
-      plural(n, 'Save 1 transaction', `Save ${n} transactions`),
+    save: (n: number) => plural(n, 'Save 1 transaction', `Save ${n} transactions`),
     failed: 'Failed to save transactions.',
   },
 
@@ -499,22 +491,18 @@ export const accountsCopy = {
     balanced: 'Ledger is balanced.',
     posted: 'Adjustment posted.',
     /** `date` is already formatted — the modal reconciles to a day, not to a timestamp. */
-    markedComplete: (date: string) =>
-      `Marks this account complete through ${date}.`,
+    markedComplete: (date: string) => `Marks this account complete through ${date}.`,
     willMarkComplete: (date: string) =>
       `Posting the adjustment also marks this account complete through ${date}.`,
-    noAdjustmentsAccount:
-      'No adjustments account configured — set one in Settings before posting.',
+    noAdjustmentsAccount: 'No adjustments account configured — set one in Settings before posting.',
     checking: 'Checking…',
     check: 'Check balance',
     posting: 'Posting…',
     post: 'Post adjustment',
     checkFailed: 'Failed to fetch balance.',
-    noAdjustmentsAccountSet:
-      'No adjustments account set. Configure one in Settings.',
+    noAdjustmentsAccountSet: 'No adjustments account set. Configure one in Settings.',
     postFailed: 'Failed to post adjustment.',
     /** Written into the ledger, so the user reads it again on export. */
-    adjustmentDescription: (account: string) =>
-      `Reconciliation adjustment — ${account}`,
+    adjustmentDescription: (account: string) => `Reconciliation adjustment — ${account}`,
   },
 } as const

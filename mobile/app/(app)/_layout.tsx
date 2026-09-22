@@ -1,13 +1,13 @@
-import { View, StyleSheet } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Tabs } from 'expo-router'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { GroupProvider } from '@/lib/group-context'
-import { ShellModeProvider, useShellMode } from '@/lib/shell-mode-context'
-import { WalletProvider } from '@/lib/wallet-context'
-import { tabHref } from '@/lib/shell-mode'
+import { Tabs } from 'expo-router'
+import { StyleSheet, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { AppHeader } from '@/components/AppHeader'
+import { GroupProvider } from '@/lib/group-context'
+import { tabHref } from '@/lib/shell-mode'
+import { ShellModeProvider, useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
+import { WalletProvider } from '@/lib/wallet-context'
 
 /**
  * Authenticated shell (Companion). Two ledgers live here — Fish Pie (shared
@@ -105,9 +105,7 @@ function ShellTabs() {
         options={{
           title: 'Wallets',
           href: tabHref('cash', mode),
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="wallet-outline" size={22} color={color} />
-          ),
+          tabBarIcon: ({ color }) => <Ionicons name="wallet-outline" size={22} color={color} />,
         }}
       />
       <Tabs.Screen

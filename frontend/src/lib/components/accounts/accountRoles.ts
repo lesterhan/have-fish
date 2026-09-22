@@ -15,7 +15,7 @@
 import type { UserSettings } from '../../api'
 // Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
 import { accountsCopy } from '../../copy/accounts'
-import { RECEIVABLE_SEGMENT, isUnderRoot, type Roots } from './accountPaths'
+import { isUnderRoot, RECEIVABLE_SEGMENT, type Roots } from './accountPaths'
 
 export type AccountRole = 'offset' | 'conversion' | 'adjustments'
 
@@ -23,8 +23,7 @@ export type AccountRole = 'offset' | 'conversion' | 'adjustments'
 export const ROLE_LABEL: Record<AccountRole, string> = accountsCopy.flags.roles
 
 /** What breaks if the pointer is left dangling — the tooltip on the chip. */
-export const ROLE_DESCRIPTION: Record<AccountRole, string> =
-  accountsCopy.flags.roleHints
+export const ROLE_DESCRIPTION: Record<AccountRole, string> = accountsCopy.flags.roleHints
 
 /** Every role this account currently fills, in a stable order. */
 export function rolesOf(
@@ -34,10 +33,8 @@ export function rolesOf(
   if (!settings) return []
   const roles: AccountRole[] = []
   if (settings.defaultOffsetAccountId === accountId) roles.push('offset')
-  if (settings.defaultConversionAccountId === accountId)
-    roles.push('conversion')
-  if (settings.defaultAdjustmentsAccountId === accountId)
-    roles.push('adjustments')
+  if (settings.defaultConversionAccountId === accountId) roles.push('conversion')
+  if (settings.defaultAdjustmentsAccountId === accountId) roles.push('adjustments')
   return roles
 }
 
@@ -53,8 +50,7 @@ export function isSystemManaged(path: string, roots: Roots): boolean {
  * your offset account" and "Fish Pie manages this" call for different fixes, and a disabled
  * control with no explanation is the thing that makes people click it repeatedly.
  */
-export type Protection =
-  { kind: 'role'; roles: AccountRole[] } | { kind: 'system' }
+export type Protection = { kind: 'role'; roles: AccountRole[] } | { kind: 'system' }
 
 export function protectionFor(
   account: { id: string; path: string },

@@ -1,10 +1,6 @@
-import { describe, it, expect } from 'bun:test'
-import {
-  describeProposal,
-  isValidProposal,
-  proposeStartingLines,
-} from './bootstrap'
+import { describe, expect, it } from 'bun:test'
 import type { CatchUpAccount } from '$lib/api'
+import { describeProposal, isValidProposal, proposeStartingLines } from './bootstrap'
 
 function account(over: Partial<CatchUpAccount> = {}): CatchUpAccount {
   return {
@@ -109,9 +105,7 @@ describe('proposeStartingLines', () => {
   })
 
   it('returns nothing when every account has a starting line', () => {
-    expect(
-      proposeStartingLines([account({ state: 'current' })], '2025-07-14'),
-    ).toEqual([])
+    expect(proposeStartingLines([account({ state: 'current' })], '2025-07-14')).toEqual([])
   })
 
   it('returns nothing for no accounts', () => {
@@ -136,10 +130,7 @@ describe('proposeStartingLines', () => {
   })
 
   it('carries the display name through', () => {
-    const proposals = proposeStartingLines(
-      [account({ name: 'Everyday Chequing' })],
-      '2025-07-14',
-    )
+    const proposals = proposeStartingLines([account({ name: 'Everyday Chequing' })], '2025-07-14')
 
     expect(proposals[0].name).toBe('Everyday Chequing')
   })
@@ -147,37 +138,25 @@ describe('proposeStartingLines', () => {
 
 describe('isValidProposal', () => {
   it('accepts a well-formed range', () => {
-    expect(
-      isValidProposal({ fromDate: '2025-01-01', throughDate: '2025-07-14' }),
-    ).toBe(true)
+    expect(isValidProposal({ fromDate: '2025-01-01', throughDate: '2025-07-14' })).toBe(true)
   })
 
   it('accepts a single day', () => {
-    expect(
-      isValidProposal({ fromDate: '2025-07-14', throughDate: '2025-07-14' }),
-    ).toBe(true)
+    expect(isValidProposal({ fromDate: '2025-07-14', throughDate: '2025-07-14' })).toBe(true)
   })
 
   it('rejects an inverted range', () => {
-    expect(
-      isValidProposal({ fromDate: '2025-07-14', throughDate: '2025-01-01' }),
-    ).toBe(false)
+    expect(isValidProposal({ fromDate: '2025-07-14', throughDate: '2025-01-01' })).toBe(false)
   })
 
   it('rejects a malformed or empty date', () => {
-    expect(isValidProposal({ fromDate: '', throughDate: '2025-07-14' })).toBe(
-      false,
-    )
-    expect(
-      isValidProposal({ fromDate: '14/07/2025', throughDate: '2025-07-14' }),
-    ).toBe(false)
+    expect(isValidProposal({ fromDate: '', throughDate: '2025-07-14' })).toBe(false)
+    expect(isValidProposal({ fromDate: '14/07/2025', throughDate: '2025-07-14' })).toBe(false)
   })
 })
 
 describe('describeProposal', () => {
-  const proposal = (
-    over: Partial<ReturnType<typeof proposeStartingLines>[number]>,
-  ) => ({
+  const proposal = (over: Partial<ReturnType<typeof proposeStartingLines>[number]>) => ({
     accountId: 'a',
     path: 'assets:chequing',
     name: null,
@@ -189,9 +168,7 @@ describe('describeProposal', () => {
   })
 
   it('describes a span', () => {
-    expect(describeProposal(proposal({}))).toBe(
-      'Marks 2025-01-01 through 2025-06-30 as covered',
-    )
+    expect(describeProposal(proposal({}))).toBe('Marks 2025-01-01 through 2025-06-30 as covered')
   })
 
   it('describes a single day', () => {

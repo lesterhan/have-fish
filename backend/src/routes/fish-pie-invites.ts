@@ -1,10 +1,10 @@
+import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import type { AppVariables } from '../app'
 import { db } from '../db'
 import { expenseGroupInvites, expenseGroupMembers, expenseGroups, user } from '../db/schema'
-import { eq, and, isNull } from 'drizzle-orm'
-import type { AppVariables } from '../app'
-import { ensureSharedAccount } from '../fish-pie-accounts'
 import { fail } from '../errors'
+import { ensureSharedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -95,7 +95,7 @@ app.delete('/groups/:id/invites/:inviteId', async (c) => {
     .select()
     .from(expenseGroupInvites)
     .where(and(eq(expenseGroupInvites.id, inviteId), eq(expenseGroupInvites.groupId, groupId)))
-  if (!invite || invite.status !== 'pending') return fail(c, 'INVITE_NOT_FOUND')
+  if (invite?.status !== 'pending') return fail(c, 'INVITE_NOT_FOUND')
 
   const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, groupId))
   const isInviter = invite.invitedByUserId === userId
@@ -165,9 +165,7 @@ app.post('/invites/:inviteId/accept', async (c) => {
   const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, invite.groupId))
 
   await db.transaction(async (tx) => {
-    await tx
-      .insert(expenseGroupMembers)
-      .values({ groupId: invite.groupId, userId, shareWeight: 1 })
+    await tx.insert(expenseGroupMembers).values({ groupId: invite.groupId, userId, shareWeight: 1 })
     await tx
       .update(expenseGroupInvites)
       .set({ status: 'accepted', resolvedAt: new Date() })

@@ -9,7 +9,7 @@
 // the sentence type and the date formatter, and the test file for this half has been called
 // `monthCoverage.test.ts` since it was written — naming a module that did not exist.
 
-import { formatCompletenessDate, type CompletenessNote } from './coverage'
+import { type CompletenessNote, formatCompletenessDate } from './coverage'
 
 export type MonthCoverageState = 'complete' | 'partial' | 'uncovered'
 
@@ -56,15 +56,11 @@ function listGaps(gaps: readonly MonthGap[], today: string): string {
   return rest > 0 ? `${shown.join('; ')}; and ${rest} more` : shown.join('; ')
 }
 
-const unrecorded = (n: number) =>
-  `${n} ${n === 1 ? 'account' : 'accounts'} unrecorded`
+const unrecorded = (n: number) => `${n} ${n === 1 ? 'account' : 'accounts'} unrecorded`
 
 // What the month's own total is worth, said under the figure. Null when there is nothing to
 // say — no live contributors, or a month nobody has lived through yet.
-export function monthNote(
-  m: MonthCoverage,
-  today: string,
-): CompletenessNote | null {
+export function monthNote(m: MonthCoverage, today: string): CompletenessNote | null {
   if (m.contributors === 0) return null
 
   if (m.state === 'complete') {

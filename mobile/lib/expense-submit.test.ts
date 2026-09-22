@@ -1,12 +1,12 @@
 /// <reference types="bun-types" />
 import { describe, expect, it } from 'bun:test'
 import {
-  DEFAULT_DESCRIPTION,
-  ExpenseQueuedError,
   buildExpenseBody,
   canSubmit,
-  submitOutcome,
+  DEFAULT_DESCRIPTION,
   type ExpenseDraft,
+  ExpenseQueuedError,
+  submitOutcome,
 } from './expense-submit'
 
 const draft = (over: Partial<ExpenseDraft> = {}): ExpenseDraft => ({
@@ -62,7 +62,13 @@ describe('buildExpenseBody', () => {
 
   it('passes the remaining fields through verbatim', () => {
     const body = buildExpenseBody(
-      draft({ currency: 'JPY', date: '2026-01-02', paidByUserId: 'u9', paymentAccountId: 'a9', categoryId: 'c3' }),
+      draft({
+        currency: 'JPY',
+        date: '2026-01-02',
+        paidByUserId: 'u9',
+        paymentAccountId: 'a9',
+        categoryId: 'c3',
+      }),
     )
     expect(body).toEqual({
       description: 'Lunch',

@@ -1,22 +1,22 @@
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import type { AppVariables } from '../app'
 import { db } from '../db'
 import {
-  expenseGroups,
+  accounts,
   expenseGroupMembers,
-  groupExpenses,
-  groupSettlements,
+  expenseGroups,
   groupCategories,
   groupCategoryMemberAccounts,
   groupCategoryWeights,
-  accounts,
+  groupExpenses,
+  groupSettlements,
   postings,
 } from '../db/schema'
-import { eq, and, isNull, inArray } from 'drizzle-orm'
-import type { AppVariables } from '../app'
-import { ensureSharedAccount, slugify, CLEARING_PREFIX } from '../fish-pie-accounts'
+import { fail } from '../errors'
+import { CLEARING_PREFIX, ensureSharedAccount, slugify } from '../fish-pie-accounts'
 import { fetchCategoriesForGroups } from './fish-pie-categories'
 import { fetchMembersForGroups } from './fish-pie-groups'
-import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -64,7 +64,11 @@ app.post('/merge', async (c) => {
   }
 
   // Identical, non-empty member sets across all groups.
-  const memberSetKey = (gid: string) => (membersByGroup.get(gid) ?? []).map((m) => m.userId).sort().join(',')
+  const memberSetKey = (gid: string) =>
+    (membersByGroup.get(gid) ?? [])
+      .map((m) => m.userId)
+      .sort()
+      .join(',')
   const keys = new Set(groupIds.map(memberSetKey))
   if (keys.size !== 1) return fail(c, 'MERGE_MEMBERS_DIFFER')
 
@@ -80,7 +84,11 @@ app.post('/merge', async (c) => {
     const firstGroup = sourceGroupById.get(firstGroupId)!
     const [created] = await tx
       .insert(expenseGroups)
-      .values({ name: body.name!.trim(), createdBy: userId, defaultCurrency: firstGroup.defaultCurrency ?? null })
+      .values({
+        name: body.name!.trim(),
+        createdBy: userId,
+        defaultCurrency: firstGroup.defaultCurrency ?? null,
+      })
       .returning()
 
     const firstMemberByUser = new Map(firstGroupMembers.map((m) => [m.userId, m]))
@@ -119,12 +127,18 @@ app.post('/merge', async (c) => {
 
       const mappingRows = srcMembers
         .filter((m) => m.defaultExpenseAccountId)
-        .map((m) => ({ categoryId: cat.id, userId: m.userId, accountId: m.defaultExpenseAccountId! }))
+        .map((m) => ({
+          categoryId: cat.id,
+          userId: m.userId,
+          accountId: m.defaultExpenseAccountId!,
+        }))
       if (mappingRows.length > 0) await tx.insert(groupCategoryMemberAccounts).values(mappingRows)
 
-      await tx.insert(groupCategoryWeights).values(
-        srcMembers.map((m) => ({ categoryId: cat.id, userId: m.userId, weight: m.shareWeight })),
-      )
+      await tx
+        .insert(groupCategoryWeights)
+        .values(
+          srcMembers.map((m) => ({ categoryId: cat.id, userId: m.userId, weight: m.shareWeight })),
+        )
     }
 
     // 4. Re-point each source group's expenses onto the merged group + its category.
@@ -136,7 +150,10 @@ app.post('/merge', async (c) => {
     }
 
     // 5. Re-point settlements onto the merged group.
-    await tx.update(groupSettlements).set({ groupId: created.id }).where(inArray(groupSettlements.groupId, groupIds))
+    await tx
+      .update(groupSettlements)
+      .set({ groupId: created.id })
+      .where(inArray(groupSettlements.groupId, groupIds))
 
     // 6. Collapse old per-source-group clearing accounts into each member's single new
     //    clearing account, then soft-delete the old accounts.
@@ -147,7 +164,13 @@ app.post('/merge', async (c) => {
     const oldClearingAccounts = await tx
       .select({ id: accounts.id, userId: accounts.userId })
       .from(accounts)
-      .where(and(inArray(accounts.userId, memberUserIds), inArray(accounts.path, oldClearingPaths), isNull(accounts.deletedAt)))
+      .where(
+        and(
+          inArray(accounts.userId, memberUserIds),
+          inArray(accounts.path, oldClearingPaths),
+          isNull(accounts.deletedAt),
+        ),
+      )
 
     const toDelete: string[] = []
     for (const acct of oldClearingAccounts) {
@@ -164,7 +187,10 @@ app.post('/merge', async (c) => {
     }
 
     // 7. Soft-delete the source groups.
-    await tx.update(expenseGroups).set({ deletedAt: new Date() }).where(inArray(expenseGroups.id, groupIds))
+    await tx
+      .update(expenseGroups)
+      .set({ deletedAt: new Date() })
+      .where(inArray(expenseGroups.id, groupIds))
 
     return created
   })

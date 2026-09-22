@@ -10,10 +10,14 @@ import { and, eq, gte, isNull, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
 import { isClearingAccountPath } from '../fish-pie-accounts'
-import { resolveStoredOrInferredType, toClassifierType, DEFAULT_ROOTS } from '../postings/account-type'
-import { addDays, mergeCoverage, type CoverageInterval } from './intervals'
-import { inferCycleFromIntervals, mergeConfig, type CoverageConfigOverride } from './horizon'
+import {
+  DEFAULT_ROOTS,
+  resolveStoredOrInferredType,
+  toClassifierType,
+} from '../postings/account-type'
 import { assembleAccount, type CatchUpAccount, type CatchUpAccountInput } from './catch-up'
+import { type CoverageConfigOverride, inferCycleFromIntervals, mergeConfig } from './horizon'
+import { addDays, type CoverageInterval, mergeCoverage } from './intervals'
 
 // Matches RATE_WINDOW_DAYS in catch-up.ts — the transaction query must reach back at least as
 // far as the rate window, or the rate would be measured against missing rows.
@@ -26,7 +30,9 @@ export function todayUtc(): string {
 }
 
 function idSet(value: unknown): Set<string> {
-  return Array.isArray(value) ? new Set(value.filter((v): v is string => typeof v === 'string')) : new Set()
+  return Array.isArray(value)
+    ? new Set(value.filter((v): v is string => typeof v === 'string'))
+    : new Set()
 }
 
 export type LoadOptions = {
@@ -87,7 +93,9 @@ export async function loadCoverageContext(
   // it now means the coach respects the flag the day that feature lands, with no rework.
   const illiquid = idSet(preferences.illiquidAccountIds)
   const catchUpOverrides = (
-    typeof preferences.catchUp === 'object' && preferences.catchUp !== null && !Array.isArray(preferences.catchUp)
+    typeof preferences.catchUp === 'object' &&
+    preferences.catchUp !== null &&
+    !Array.isArray(preferences.catchUp)
       ? preferences.catchUp
       : {}
   ) as Record<string, CoverageConfigOverride>
@@ -159,12 +167,14 @@ export async function loadCoverageContext(
     })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-      gte(transactions.date, new Date(`${since}T00:00:00Z`)),
-    ))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+        gte(transactions.date, new Date(`${since}T00:00:00Z`)),
+      ),
+    )
     .groupBy(postings.accountId, sql`${transactions.date}::date`)
 
   // The full history span, deliberately unbounded by the lookback above: bootstrap proposes
@@ -179,15 +189,19 @@ export async function loadCoverageContext(
         })
         .from(postings)
         .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-        .where(and(
-          eq(transactions.userId, userId),
-          isNull(transactions.deletedAt),
-          isNull(postings.deletedAt),
-        ))
+        .where(
+          and(
+            eq(transactions.userId, userId),
+            isNull(transactions.deletedAt),
+            isNull(postings.deletedAt),
+          ),
+        )
         .groupBy(postings.accountId)
     : []
 
-  const spanByAccount = new Map(spanRows.map((r) => [r.accountId, { first: r.first, last: r.last }]))
+  const spanByAccount = new Map(
+    spanRows.map((r) => [r.accountId, { first: r.first, last: r.last }]),
+  )
 
   const countsByAccount = new Map<string, Record<string, number>>()
   for (const row of txnRows) {

@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'bun:test'
-import { narrateTransaction } from './narrate'
+import { describe, expect, it } from 'bun:test'
 import type { Posting, PostingRole } from '$lib/api'
+import { narrateTransaction } from './narrate'
 
 // Build a posting with sensible defaults; id derived from accountPath for terse fixtures.
 function p(
@@ -8,7 +8,7 @@ function p(
   amount: string,
   currency: string,
   role: PostingRole,
-  id = accountPath + ':' + amount,
+  id = `${accountPath}:${amount}`,
 ): Posting {
   return {
     id,
@@ -68,9 +68,7 @@ describe('narrateTransaction', () => {
       to: { amount: '50.00', currency: 'EUR' },
     })
     // The fee shows; the conversion (equity) leg never appears as a line.
-    expect(n.movement.fees.map((f) => f.accountPath)).toEqual([
-      'expenses:banking:fee',
-    ])
+    expect(n.movement.fees.map((f) => f.accountPath)).toEqual(['expenses:banking:fee'])
     expect(
       [n.subjects, n.shares, [n.movement.source], n.movement.fees]
         .flat()
@@ -86,9 +84,7 @@ describe('narrateTransaction', () => {
     ])
     expect(n.simple).toBe(false) // 3 legs + a share → narrated, not simple
     expect(n.subjects.map((s) => s.accountPath)).toEqual(['expenses:food'])
-    expect(n.shares.map((s) => s.accountPath)).toEqual([
-      'assets:receivable:roommates',
-    ])
+    expect(n.shares.map((s) => s.accountPath)).toEqual(['assets:receivable:roommates'])
     expect(n.movement.source?.accountPath).toBe('liabilities:visa')
     expect(n.movement.flow).toBeNull()
   })

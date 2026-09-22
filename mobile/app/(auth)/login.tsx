@@ -1,3 +1,4 @@
+import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import {
   KeyboardAvoidingView,
@@ -9,17 +10,13 @@ import {
   TextInput,
   View,
 } from 'react-native'
-import { useRouter } from 'expo-router'
-import { addServer, getServers, removeServer, setBaseUrl, setSession, signIn } from '@/lib/auth'
-import {
-  composeServerUrl,
-  parseServerUrl,
-  type Scheme,
-} from '@/lib/server-url'
 import { GlossButton } from '@/components/GlossButton'
 import { GlossSurface } from '@/components/GlossSurface'
 import { ServerAddressFields } from '@/components/ServerAddressFields'
+import { addServer, getServers, removeServer, setBaseUrl, setSession, signIn } from '@/lib/auth'
+import { composeServerUrl, parseServerUrl, type Scheme } from '@/lib/server-url'
 import { theme } from '@/lib/theme'
+import { thrownMessage } from '../../lib/errors'
 
 /**
  * Login screen — first launch (and every re-login) asks for the self-hosted
@@ -44,7 +41,9 @@ export default function LoginScreen() {
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    getServers().then(setServers)
+    getServers()
+      .then(setServers)
+      .catch(() => setServers([]))
   }, [])
 
   function pickServer(url: string) {
@@ -81,8 +80,8 @@ export default function LoginScreen() {
       await setSession(cookie, trimmedEmail)
       await addServer(url)
       router.replace('/(app)')
-    } catch (e: any) {
-      setError(e?.message ?? 'Login failed')
+    } catch (e) {
+      setError(thrownMessage(e, 'Login failed'))
     } finally {
       setLoading(false)
     }
@@ -213,7 +212,12 @@ const styles = StyleSheet.create({
     marginBottom: theme.sp.xs,
   },
   recents: { marginBottom: theme.sp.md },
-  recentRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.xs, marginBottom: theme.sp.xs },
+  recentRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.sp.xs,
+    marginBottom: theme.sp.xs,
+  },
   recentPick: { flex: 1 },
   recentChip: { paddingHorizontal: theme.sp.sm, paddingVertical: theme.sp[10] },
   recentText: { fontFamily: theme.font.mono, fontSize: theme.text.sm, color: theme.color.ink2 },

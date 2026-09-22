@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { sql, eq } from 'drizzle-orm'
+import { eq, sql } from 'drizzle-orm'
 import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { transactions, postings, accounts, groupExpenses } from './schema'
+import { clearDatabase, createTestUser } from '../test-utils'
+import { accounts, groupExpenses, postings, transactions } from './schema'
 
 // Migration 0029 flips the postings of active non-payer member transactions
 // (BUG-005). The drizzle journal runs it exactly once at deploy time; this test
@@ -62,7 +62,14 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
     // Expense paid by A — pre-fix posting shapes inserted by hand.
     const [expense] = await db
       .insert(groupExpenses)
-      .values({ groupId, paidByUserId: userAId, description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-05-01' })
+      .values({
+        groupId,
+        paidByUserId: userAId,
+        description: 'Dinner',
+        amount: '100.00',
+        currency: 'CAD',
+        date: '2026-05-01',
+      })
       .returning()
 
     // 1. B's member tx, old (inverted) signs → MUST flip
@@ -90,12 +97,36 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
     //    userId != paidByUserId but deleted → untouched
     const [stalePayerTx] = await db
       .insert(transactions)
-      .values({ userId: userBId, date: txDate, description: 'Dinner (old payer)', groupExpenseId: expense.id, deletedAt: new Date() })
+      .values({
+        userId: userBId,
+        date: txDate,
+        description: 'Dinner (old payer)',
+        groupExpenseId: expense.id,
+        deletedAt: new Date(),
+      })
       .returning()
     await db.insert(postings).values([
-      { transactionId: stalePayerTx.id, accountId: chequingB.id, amount: '-100.00', currency: 'CAD', deletedAt: new Date() },
-      { transactionId: stalePayerTx.id, accountId: clearingB.id, amount: '50.00', currency: 'CAD', deletedAt: new Date() },
-      { transactionId: stalePayerTx.id, accountId: foodB.id, amount: '50.00', currency: 'CAD', deletedAt: new Date() },
+      {
+        transactionId: stalePayerTx.id,
+        accountId: chequingB.id,
+        amount: '-100.00',
+        currency: 'CAD',
+        deletedAt: new Date(),
+      },
+      {
+        transactionId: stalePayerTx.id,
+        accountId: clearingB.id,
+        amount: '50.00',
+        currency: 'CAD',
+        deletedAt: new Date(),
+      },
+      {
+        transactionId: stalePayerTx.id,
+        accountId: foodB.id,
+        amount: '50.00',
+        currency: 'CAD',
+        deletedAt: new Date(),
+      },
     ])
 
     // 4. Settlement-style tx (no groupExpenseId) → untouched
@@ -104,7 +135,12 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
       .values({ userId: userBId, date: txDate, description: 'Settlement to Trip' })
       .returning()
     await db.insert(postings).values([
-      { transactionId: settlementTx.id, accountId: chequingB.id, amount: '-50.00', currency: 'CAD' },
+      {
+        transactionId: settlementTx.id,
+        accountId: chequingB.id,
+        amount: '-50.00',
+        currency: 'CAD',
+      },
       { transactionId: settlementTx.id, accountId: clearingB.id, amount: '50.00', currency: 'CAD' },
     ])
 

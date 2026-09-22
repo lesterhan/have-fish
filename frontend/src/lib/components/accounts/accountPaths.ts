@@ -38,8 +38,7 @@ export const DEFAULT_ROOTS: Roots = {
 export function rootsFrom(settings: UserSettings | null | undefined): Roots {
   return {
     assets: settings?.defaultAssetsRootPath ?? DEFAULT_ROOTS.assets,
-    liabilities:
-      settings?.defaultLiabilitiesRootPath ?? DEFAULT_ROOTS.liabilities,
+    liabilities: settings?.defaultLiabilitiesRootPath ?? DEFAULT_ROOTS.liabilities,
     equity: settings?.defaultEquityRootPath ?? DEFAULT_ROOTS.equity,
     expenses: settings?.defaultExpensesRootPath ?? DEFAULT_ROOTS.expenses,
     income: settings?.defaultIncomeRootPath ?? DEFAULT_ROOTS.income,
@@ -68,8 +67,7 @@ export function isUnderRoot(path: string, root: string): boolean {
  * used to be the surface that showed literally every path, so without this bucket a mis-pathed
  * account would simply vanish from the app.
  */
-export type Surface =
-  'assets' | 'liabilities' | 'equity' | 'expenses' | 'income' | 'unfiled'
+export type Surface = 'assets' | 'liabilities' | 'equity' | 'expenses' | 'income' | 'unfiled'
 
 /**
  * The heading each surface gets. A mapping from the taxonomy to the words, which is why it
@@ -82,12 +80,7 @@ export const SURFACE_LABEL: Record<Surface, string> = {
 }
 
 /** Surfaces the Accounts tab renders. Expenses and income belong to Categories. */
-export const ACCOUNT_SURFACES: readonly Surface[] = [
-  'assets',
-  'liabilities',
-  'equity',
-  'unfiled',
-]
+export const ACCOUNT_SURFACES: readonly Surface[] = ['assets', 'liabilities', 'equity', 'unfiled']
 
 export function surfaceOf(path: string, roots: Roots): Surface {
   if (isUnderRoot(path, roots.assets)) return 'assets'
@@ -121,9 +114,7 @@ export const RECEIVABLE_SEGMENT = 'receivable'
 export function bucketOf(path: string, roots: Roots): PositionBucket | null {
   switch (surfaceOf(path, roots)) {
     case 'assets':
-      return isUnderRoot(path, `${roots.assets}${SEP}${RECEIVABLE_SEGMENT}`)
-        ? 'owed'
-        : 'cash'
+      return isUnderRoot(path, `${roots.assets}${SEP}${RECEIVABLE_SEGMENT}`) ? 'owed' : 'cash'
     case 'liabilities':
       return 'owing'
     case 'equity':
@@ -137,9 +128,7 @@ export function bucketOf(path: string, roots: Roots): PositionBucket | null {
 
 /** `assets:wise:cad` under root `assets` → `wise:cad`. A path not under the root is kept whole. */
 export function shortPath(path: string, root: string): string {
-  return root && path.startsWith(root + SEP)
-    ? path.slice(root.length + 1)
-    : path
+  return root && path.startsWith(root + SEP) ? path.slice(root.length + 1) : path
 }
 
 /** What to call an account on screen: its name when it has one, else its path minus the root. */

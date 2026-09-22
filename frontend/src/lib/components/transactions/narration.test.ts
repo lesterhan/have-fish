@@ -1,6 +1,6 @@
-import { describe, it, expect } from 'bun:test'
-import { narrateTransaction, prettifyPath, accountLabel } from './narration'
+import { describe, expect, it } from 'bun:test'
 import type { Posting, PostingRole } from '$lib/api'
+import { accountLabel, narrateTransaction, prettifyPath } from './narration'
 
 // Terse posting fixture. id derived from path+amount; accountName optional so the label
 // resolver can be exercised. accountId == path so any id-based assertions read clearly.
@@ -12,7 +12,7 @@ function p(
   accountName: string | null = null,
 ): Posting {
   return {
-    id: accountPath + ':' + amount,
+    id: `${accountPath}:${amount}`,
     accountId: accountPath,
     accountPath,
     accountName,
@@ -140,24 +140,14 @@ describe('hero', () => {
 
 describe('source', () => {
   it('outflow → the asset the money left (most-negative transfer)', () => {
-    expect(narrateTransaction(simpleSpend()).source?.accountPath).toBe(
-      'assets:chequing',
-    )
-    expect(narrateTransaction(multiCcySpend()).source?.accountPath).toBe(
-      'assets:usd',
-    )
-    expect(narrateTransaction(splitSpend()).source?.accountPath).toBe(
-      'liabilities:visa',
-    )
+    expect(narrateTransaction(simpleSpend()).source?.accountPath).toBe('assets:chequing')
+    expect(narrateTransaction(multiCcySpend()).source?.accountPath).toBe('assets:usd')
+    expect(narrateTransaction(splitSpend()).source?.accountPath).toBe('liabilities:visa')
   })
 
   it('inflow → the asset the money landed in (most-positive transfer)', () => {
-    expect(narrateTransaction(income()).source?.accountPath).toBe(
-      'assets:chequing',
-    )
-    expect(narrateTransaction(refund()).source?.accountPath).toBe(
-      'assets:chequing',
-    )
+    expect(narrateTransaction(income()).source?.accountPath).toBe('assets:chequing')
+    expect(narrateTransaction(refund()).source?.accountPath).toBe('assets:chequing')
   })
 
   it('null when there is no transfer leg', () => {
@@ -191,9 +181,7 @@ describe('branches + chips', () => {
       p('expenses:food:restaurant', '287.95', 'CZK', 'subject'),
       p('assets:receivable:quotidien', '-287.95', 'CZK', 'share'),
     ]).branches
-    expect(b.find((x) => x.path === 'assets:receivable:quotidien')?.chip).toBe(
-      'you-owe',
-    )
+    expect(b.find((x) => x.path === 'assets:receivable:quotidien')?.chip).toBe('you-owe')
   })
 
   it('payable share → `you-owe`', () => {
@@ -202,9 +190,7 @@ describe('branches + chips', () => {
       p('expenses:food', '-150.00', 'CAD', 'subject'),
       p('liabilities:payable:alex', '50.00', 'CAD', 'share'),
     ]).branches
-    expect(b.find((x) => x.path === 'liabilities:payable:alex')?.chip).toBe(
-      'you-owe',
-    )
+    expect(b.find((x) => x.path === 'liabilities:payable:alex')?.chip).toBe('you-owe')
   })
 
   it('multi-currency → `the-spend` + `fx-fee`; conversion bridges never appear', () => {
@@ -218,9 +204,7 @@ describe('branches + chips', () => {
 
   it('inflow → the subject branch carries the green `deposit` chip', () => {
     const b = narrateTransaction(income()).branches
-    expect(b.map((x) => [x.path, x.chip])).toEqual([
-      ['income:salary', 'deposit'],
-    ])
+    expect(b.map((x) => [x.path, x.chip])).toEqual([['income:salary', 'deposit']])
   })
 })
 
@@ -263,14 +247,7 @@ describe('conversion', () => {
 
 describe('balances', () => {
   it('ok on every canonical (balanced) shape', () => {
-    for (const shape of [
-      simpleSpend,
-      splitSpend,
-      multiCcySpend,
-      multiCcyWithFee,
-      income,
-      refund,
-    ]) {
+    for (const shape of [simpleSpend, splitSpend, multiCcySpend, multiCcyWithFee, income, refund]) {
       expect(narrateTransaction(shape()).balances.ok).toBe(true)
     }
   })
@@ -331,9 +308,7 @@ describe('prettifyPath', () => {
     expect(prettifyPath('expenses:housing:rent')).toBe('Housing · Rent')
     expect(prettifyPath('expenses:food')).toBe('Food')
     expect(prettifyPath('assets:wise:cad')).toBe('Wise · Cad')
-    expect(prettifyPath('assets:receivable:roommates')).toBe(
-      'Receivable · Roommates',
-    )
+    expect(prettifyPath('assets:receivable:roommates')).toBe('Receivable · Roommates')
   })
 
   it('title-cases hyphenated segments word-by-word', () => {
@@ -360,11 +335,11 @@ describe('accountLabel', () => {
   })
 
   it('falls back to the prettified path when name is null or blank', () => {
-    expect(
-      accountLabel({ accountName: null, accountPath: 'expenses:food:cafe' }),
-    ).toBe('Food · Cafe')
-    expect(
-      accountLabel({ accountName: '   ', accountPath: 'expenses:food:cafe' }),
-    ).toBe('Food · Cafe')
+    expect(accountLabel({ accountName: null, accountPath: 'expenses:food:cafe' })).toBe(
+      'Food · Cafe',
+    )
+    expect(accountLabel({ accountName: '   ', accountPath: 'expenses:food:cafe' })).toBe(
+      'Food · Cafe',
+    )
   })
 })

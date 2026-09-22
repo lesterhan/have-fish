@@ -94,7 +94,11 @@ const BADGE_FG: Record<SettlementBadge, { color: string }> = {
 }
 
 const styles = StyleSheet.create({
-  sectionHead: { paddingHorizontal: theme.sp.md, paddingTop: theme.sp.xs, paddingBottom: theme.sp[4] },
+  sectionHead: {
+    paddingHorizontal: theme.sp.md,
+    paddingTop: theme.sp.xs,
+    paddingBottom: theme.sp[4],
+  },
   settlementsHead: { paddingTop: theme.sp.md },
   empty: {
     fontFamily: theme.font.mono,

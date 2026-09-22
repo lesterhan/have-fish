@@ -1,23 +1,25 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, TextInput, View } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { createExpense, fetchAccounts, type Account, type ExpenseGroup } from '@/lib/api'
-import { getEmail } from '@/lib/auth'
 import { appendDigit, appendDot, backspace } from '@/lib/amount-input'
+import { type Account, createExpense, type ExpenseGroup, fetchAccounts } from '@/lib/api'
+import { getEmail } from '@/lib/auth'
 import {
-  RECENT_CURRENCIES_KEY,
   isSupportedCurrency,
   lastCurrencyKey,
   pushRecent,
+  RECENT_CURRENCIES_KEY,
 } from '@/lib/currency'
 import { randomPlaceholder } from '@/lib/description-placeholder'
 import { type DateMode, dateLabel, resolveDate } from '@/lib/expense-date'
+import { buildExpenseBody, canSubmit, submitOutcome } from '@/lib/expense-submit'
 import {
   activeCategories,
   defaultPayerId,
   lastCategoryKey,
   resolveMyUserId,
 } from '@/lib/group-entry'
+import * as haptics from '@/lib/haptics'
 import {
   accountChipLabel,
   nextPayerOnTap,
@@ -25,8 +27,6 @@ import {
   seedAccountForPayer,
   shouldOpenPayerSheet,
 } from '@/lib/payment-row'
-import { buildExpenseBody, canSubmit, submitOutcome } from '@/lib/expense-submit'
-import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { AccountSelect } from './AccountSelect'
 import { AmountHero } from './AmountHero'
@@ -36,8 +36,8 @@ import { DateSheet } from './DateSheet'
 import { GlossButton } from './GlossButton'
 import { Label } from './Label'
 import { Numpad, type NumpadKey } from './Numpad'
-import { PaymentRow } from './PaymentRow'
 import { PayerSheet } from './PayerSheet'
+import { PaymentRow } from './PaymentRow'
 
 /** How long the green "✓ Added" / "✓ Queued" confirmation lingers (ms). */
 const FLASH_MS = 1300
@@ -103,9 +103,12 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
       ? null
       : '…'
 
-  useEffect(() => () => {
-    if (flashTimer.current) clearTimeout(flashTimer.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current)
+    },
+    [],
+  )
 
   // Load the caller's accounts once (for the payment-account picker's label
   // resolution). Tolerate offline — an empty list still lets the sheet's inline
@@ -126,10 +129,12 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
   // its default — never leaving the previous group's currency stuck in state.
   useEffect(() => {
     let cancelled = false
-    AsyncStorage.getItem(lastCurrencyKey(group.id)).then((saved) => {
-      if (cancelled) return
-      setCurrency(saved ?? group.defaultCurrency ?? 'CAD')
-    })
+    AsyncStorage.getItem(lastCurrencyKey(group.id))
+      .then((saved) => {
+        if (cancelled) return
+        setCurrency(saved ?? group.defaultCurrency ?? 'CAD')
+      })
+      .catch(() => {})
     return () => {
       cancelled = true
     }
@@ -160,7 +165,8 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
     AsyncStorage.getItem(lastCategoryKey(group.id))
       .then((saved) => {
         if (cancelled) return
-        const valid = saved != null && group.categories.some((c) => c.id === saved && c.archivedAt == null)
+        const valid =
+          saved != null && group.categories.some((c) => c.id === saved && c.archivedAt == null)
         setCategoryId(valid ? saved : null)
       })
       .catch(() => {})
@@ -171,17 +177,21 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
   }, [group.id])
 
   useEffect(() => {
-    AsyncStorage.getItem(RECENT_CURRENCIES_KEY).then((raw) => {
-      if (!raw) return
-      try {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) {
-          setRecents(parsed.filter((c): c is string => typeof c === 'string' && isSupportedCurrency(c)))
+    AsyncStorage.getItem(RECENT_CURRENCIES_KEY)
+      .then((raw) => {
+        if (!raw) return
+        try {
+          const parsed = JSON.parse(raw)
+          if (Array.isArray(parsed)) {
+            setRecents(
+              parsed.filter((c): c is string => typeof c === 'string' && isSupportedCurrency(c)),
+            )
+          }
+        } catch {
+          // Corrupt value — ignore and start fresh.
         }
-      } catch {
-        // Corrupt value — ignore and start fresh.
-      }
-    })
+      })
+      .catch(() => {})
   }, [])
 
   function selectCurrency(code: string) {
@@ -339,7 +349,13 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
       {status === 'error' && errorMsg != null && <Text style={styles.error}>{errorMsg}</Text>}
 
       <GlossButton
-        label={status === 'added' ? '✓ Added' : status === 'queued' ? '✓ Queued — will sync' : 'Add Expense'}
+        label={
+          status === 'added'
+            ? '✓ Added'
+            : status === 'queued'
+              ? '✓ Queued — will sync'
+              : 'Add Expense'
+        }
         success={status === 'added' || status === 'queued'}
         disabled={status === 'saving' || !canSubmit(amount, paymentAccountId)}
         onPress={handleSubmit}

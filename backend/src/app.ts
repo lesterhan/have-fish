@@ -2,26 +2,26 @@ import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { logger } from 'hono/logger'
 import { auth } from './auth'
+import { fail } from './errors'
 import accountsRoute from './routes/accounts'
-import transactionsRoute from './routes/transactions'
-import postingsRoute from './routes/postings'
+import catchUpRoute from './routes/catch-up'
+import coverageRoute, { accountCoverageRoute } from './routes/coverage'
+import fishPieBalancesRoute from './routes/fish-pie-balances'
+import fishPieCategoriesRoute from './routes/fish-pie-categories'
+import fishPieExpensesRoute from './routes/fish-pie-expenses'
+import fishPieGroupsRoute from './routes/fish-pie-groups'
+import fishPieInvitesRoute from './routes/fish-pie-invites'
+import fishPieMergeRoute from './routes/fish-pie-merge'
+import fishPieOverviewRoute from './routes/fish-pie-overview'
+import fishPieSettlementsRoute from './routes/fish-pie-settlements'
+import fxRatesRoute from './routes/fx-rates'
 import importRoute from './routes/import'
 import parsersRoute from './routes/parsers'
-import userSettingsRoute from './routes/user-settings'
+import postingsRoute from './routes/postings'
 import reportsRoute from './routes/reports'
-import fxRatesRoute from './routes/fx-rates'
 import rulesRoute from './routes/rules'
-import fishPieGroupsRoute from './routes/fish-pie-groups'
-import fishPieOverviewRoute from './routes/fish-pie-overview'
-import fishPieCategoriesRoute from './routes/fish-pie-categories'
-import fishPieMergeRoute from './routes/fish-pie-merge'
-import fishPieInvitesRoute from './routes/fish-pie-invites'
-import fishPieExpensesRoute from './routes/fish-pie-expenses'
-import fishPieBalancesRoute from './routes/fish-pie-balances'
-import fishPieSettlementsRoute from './routes/fish-pie-settlements'
-import coverageRoute, { accountCoverageRoute } from './routes/coverage'
-import catchUpRoute from './routes/catch-up'
-import { fail } from './errors'
+import transactionsRoute from './routes/transactions'
+import userSettingsRoute from './routes/user-settings'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -31,10 +31,13 @@ export type AppVariables = {
 
 export const app = new Hono<{ Variables: AppVariables }>()
 
-app.use('*', cors({
-  origin: process.env.FRONTEND_URL ?? 'http://localhost:8888',
-  credentials: true,
-}))
+app.use(
+  '*',
+  cors({
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:8888',
+    credentials: true,
+  }),
+)
 app.use('*', logger())
 
 app.get('/health', (c) => c.json({ status: 'ok' }))

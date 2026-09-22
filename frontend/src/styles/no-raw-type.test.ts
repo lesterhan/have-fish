@@ -41,7 +41,7 @@
  * for deleting the declaration, not for keeping it.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { rulesIn, stripNoise, svelteFilesUnder } from '../testing/source-scan'
@@ -74,16 +74,10 @@ const EXEMPT: Record<string, { declaration: string; because: string }[]> = {
 }
 
 /** Properties that must always be a token. `inherit`/`normal` is a refusal, not a value. */
-const TOKEN_ONLY = [
-  'font-size',
-  'font-weight',
-  'letter-spacing',
-  'line-height',
-] as const
+const TOKEN_ONLY = ['font-size', 'font-weight', 'letter-spacing', 'line-height'] as const
 
 /** Properties where a raw `px` anywhere in the value — shorthand or `calc()` — is a bug. */
-const NO_RAW_PX =
-  /(?:padding|margin|gap|row-gap|column-gap)(?:-(?:top|right|bottom|left))?/
+const NO_RAW_PX = /(?:padding|margin|gap|row-gap|column-gap)(?:-(?:top|right|bottom|left))?/
 
 const KEYWORD = /^(inherit|initial|unset|normal|revert)$/
 
@@ -136,9 +130,7 @@ describe('type and space stay on the ladder', () => {
     const found = offenders()
     expect(
       found,
-      found.length
-        ? `Use a token, or argue for an EXEMPT entry:\n  ${found.join('\n  ')}`
-        : '',
+      found.length ? `Use a token, or argue for an EXEMPT entry:\n  ${found.join('\n  ')}` : '',
     ).toEqual([])
   })
 

@@ -1,6 +1,22 @@
-import { db } from './db'
-import { user, accounts, transactions, postings, csvParsers, userSettings, fxRates, importRules, accountCoverage, expenseGroupMembers, expenseGroups, expenseGroupInvites, groupExpenses, groupExpenseSplits, groupSettlements } from './db/schema'
 import { app } from './app'
+import { db } from './db'
+import {
+  accountCoverage,
+  accounts,
+  csvParsers,
+  expenseGroupInvites,
+  expenseGroupMembers,
+  expenseGroups,
+  fxRates,
+  groupExpenseSplits,
+  groupExpenses,
+  groupSettlements,
+  importRules,
+  postings,
+  transactions,
+  user,
+  userSettings,
+} from './db/schema'
 
 // Wipe all rows in dependency order (postings → transactions → userSettings → csvParsers → accounts → users)
 // fxRates is global (not per-user) but still cleared to keep tests hermetic.

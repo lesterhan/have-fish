@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 
@@ -17,7 +17,7 @@ describe('fish-pie groups', () => {
       body: JSON.stringify({ name: 'Trip to Tokyo' }),
     })
     expect(res.status).toBe(201)
-    const group = await res.json() as any
+    const group = (await res.json()) as any
     expect(group.name).toBe('Trip to Tokyo')
     expect(group.members).toHaveLength(1)
     expect(group.members[0].shareWeight).toBe(1)

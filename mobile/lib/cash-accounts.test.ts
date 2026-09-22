@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { AccountBalance } from './api'
 import {
   balanceIn,
   cashAccounts,
@@ -10,12 +11,8 @@ import {
   walletLabel,
   walletViews,
 } from './cash-accounts'
-import type { AccountBalance } from './api'
 
-function bal(
-  path: string,
-  opts: Partial<AccountBalance> = {},
-): AccountBalance {
+function bal(path: string, opts: Partial<AccountBalance> = {}): AccountBalance {
   return {
     id: opts.id ?? path,
     path,
@@ -56,10 +53,7 @@ describe('cashAccounts', () => {
       bal('assets:cash:usd'), // path looks the part, not tagged
       wallet('assets:cash:cny'),
     ]
-    expect(cashAccounts(list).map((a) => a.path)).toEqual([
-      'assets:cash:cad',
-      'assets:cash:cny',
-    ])
+    expect(cashAccounts(list).map((a) => a.path)).toEqual(['assets:cash:cad', 'assets:cash:cny'])
   })
 
   it('orders by path so per-currency siblings group and the order is stable', () => {
@@ -202,8 +196,9 @@ describe('walletViews', () => {
   })
 
   it('ignores untagged accounts', () => {
-    expect(walletViews([bal('assets:chequing', { balances: [{ currency: 'CAD', amount: '9.00' }] })]))
-      .toEqual([])
+    expect(
+      walletViews([bal('assets:chequing', { balances: [{ currency: 'CAD', amount: '9.00' }] })]),
+    ).toEqual([])
   })
 })
 

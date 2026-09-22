@@ -1,20 +1,20 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { Posting, PostingRole } from '$lib/api'
 import {
-  headerTag,
+  branchAmount,
   chipLabel,
   chipTone,
-  heroDisplay,
-  branchAmount,
-  orderedBranches,
-  convertedNote,
-  conversionRows,
   conversionHint,
-  signedAmount,
-  postingRows,
+  conversionRows,
+  convertedNote,
   formatTxDate,
+  headerTag,
+  heroDisplay,
+  orderedBranches,
+  postingRows,
+  signedAmount,
 } from './detailView'
 import { narrateTransaction } from './narration'
-import type { Posting, PostingRole } from '$lib/api'
 
 function p(
   accountPath: string,
@@ -24,7 +24,7 @@ function p(
   accountName: string | null = null,
 ): Posting {
   return {
-    id: accountPath + ':' + amount,
+    id: `${accountPath}:${amount}`,
     accountId: accountPath,
     accountPath,
     accountName,
@@ -247,9 +247,7 @@ describe('branchAmount', () => {
 
 describe('convertedNote', () => {
   it('multi-currency: paid amount @ rate', () => {
-    expect(convertedNote(narrate(multiCcySpend))).toBe(
-      '17.24 USD @ 20.88 CZK/USD',
-    )
+    expect(convertedNote(narrate(multiCcySpend))).toBe('17.24 USD @ 20.88 CZK/USD')
   })
 
   it('null on a same-currency spend', () => {

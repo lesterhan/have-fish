@@ -17,8 +17,8 @@
 // Release builds are untouched by both.
 
 const { withAppBuildGradle, withDangerousMod } = require('@expo/config-plugins')
-const fs = require('fs')
-const path = require('path')
+const fs = require('node:fs')
+const path = require('node:path')
 
 const SUFFIX_LINE = "            applicationIdSuffix '.dev'\n"
 
@@ -49,7 +49,7 @@ function withDebugSuffix(config) {
   return withAppBuildGradle(config, (cfg) => {
     if (cfg.modResults.language !== 'groovy') {
       throw new Error(
-        'withDebugAppIdSuffix: expected groovy build.gradle, got ' + cfg.modResults.language,
+        `withDebugAppIdSuffix: expected groovy build.gradle, got ${cfg.modResults.language}`,
       )
     }
     cfg.modResults.contents = patchDebugBuildType(cfg.modResults.contents)

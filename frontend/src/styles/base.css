@@ -96,7 +96,7 @@ h3 {
   width: 1px;
   height: 1px;
   padding: 0;
-  margin: -var(--sp-hair);
+  margin: calc(-1 * var(--sp-hair));
   overflow: hidden;
   clip: rect(0, 0, 0, 0);
   white-space: nowrap;
@@ -120,8 +120,7 @@ h3 {
    and the bar has to round with it or it squares off the corners it sits in. */
 .section-bar--card {
   border-top: none;
-  border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px) 0
-    0;
+  border-radius: calc(var(--card-radius) - 1px) calc(var(--card-radius) - 1px) 0 0;
 }
 
 /* The label in that bar. Uppercase by transform, not by shouting in the markup: three

@@ -1,8 +1,8 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { useRouter } from 'expo-router'
-import { useShellMode } from '@/lib/shell-mode-context'
-import { SHELL_MODES, accentFor, homeRouteFor, modeLabel, type ShellMode } from '@/lib/shell-mode'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import * as haptics from '@/lib/haptics'
+import { accentFor, homeRouteFor, modeLabel, SHELL_MODES, type ShellMode } from '@/lib/shell-mode'
+import { useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
 import { GlossLayers } from './GlossLayers'
 
@@ -48,9 +48,7 @@ export function ModeSwitch() {
             accessibilityLabel={`${modeLabel(m)} ledger`}
             style={[
               styles.segment,
-              active
-                ? { backgroundColor: accent.soft, borderColor: accent.line }
-                : styles.inactive,
+              active ? { backgroundColor: accent.soft, borderColor: accent.line } : styles.inactive,
             ]}
           >
             {active && <GlossLayers base={accent.soft} radius={theme.radius.chip} />}

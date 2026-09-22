@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import type { PostingRole, Transaction } from './api'
 import {
   cashHistoryRows,
@@ -23,7 +23,12 @@ function posting(
 }
 
 /** A plain cash purchase: wallet out, one expense in. */
-function purchase(id: string, date: string, amount: string, category = 'expenses:food'): Transaction {
+function purchase(
+  id: string,
+  date: string,
+  amount: string,
+  category = 'expenses:food',
+): Transaction {
   return {
     id,
     date,
@@ -270,14 +275,23 @@ describe('cashHistoryRows', () => {
       ],
     }
     expect(
-      cashHistoryRows({ transactions: [bare], walletId: WALLET, currency: 'CAD', currentBalance: '0.00' })[0]
-        .description,
+      cashHistoryRows({
+        transactions: [bare],
+        walletId: WALLET,
+        currency: 'CAD',
+        currentBalance: '0.00',
+      })[0].description,
     ).toBe('Cash')
   })
 
   it('handles an empty feed', () => {
     expect(
-      cashHistoryRows({ transactions: [], walletId: WALLET, currency: 'CAD', currentBalance: '0.00' }),
+      cashHistoryRows({
+        transactions: [],
+        walletId: WALLET,
+        currency: 'CAD',
+        currentBalance: '0.00',
+      }),
     ).toEqual([])
   })
 })

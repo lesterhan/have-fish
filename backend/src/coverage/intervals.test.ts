@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { addDays, mergeCoverage } from './intervals'
 
 // Shorthand so the cases below read as ranges rather than object literals.
@@ -37,7 +37,9 @@ describe('mergeCoverage', () => {
   })
 
   it('returns a single interval untouched', () => {
-    expect(mergeCoverage([iv('2025-07-01', '2025-07-31')])).toEqual([iv('2025-07-01', '2025-07-31')])
+    expect(mergeCoverage([iv('2025-07-01', '2025-07-31')])).toEqual([
+      iv('2025-07-01', '2025-07-31'),
+    ])
   })
 
   it('merges overlapping intervals', () => {
@@ -100,10 +102,7 @@ describe('mergeCoverage', () => {
   // Out-of-order imports are the norm: August lands before July does. The merged view has to
   // show the July hole rather than smoothing it over.
   it('reports the hole left by an out-of-order import', () => {
-    const merged = mergeCoverage([
-      iv('2025-08-01', '2025-08-31'),
-      iv('2025-05-01', '2025-06-30'),
-    ])
+    const merged = mergeCoverage([iv('2025-08-01', '2025-08-31'), iv('2025-05-01', '2025-06-30')])
     expect(merged).toEqual([iv('2025-05-01', '2025-06-30'), iv('2025-08-01', '2025-08-31')])
   })
 

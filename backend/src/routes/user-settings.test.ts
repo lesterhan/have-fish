@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 
@@ -13,7 +13,7 @@ describe('user-settings', () => {
   it('GET seeds a row with the default income root path', async () => {
     const res = await app.request('/api/user-settings', { headers: { Cookie: cookie } })
     expect(res.status).toBe(200)
-    const body = await res.json() as { defaultIncomeRootPath: string }
+    const body = (await res.json()) as { defaultIncomeRootPath: string }
     expect(body.defaultIncomeRootPath).toBe('income')
   })
 
@@ -24,7 +24,7 @@ describe('user-settings', () => {
       body: JSON.stringify({ defaultIncomeRootPath: 'earnings' }),
     })
     expect(res.status).toBe(200)
-    const body = await res.json() as { defaultIncomeRootPath: string }
+    const body = (await res.json()) as { defaultIncomeRootPath: string }
     expect(body.defaultIncomeRootPath).toBe('earnings')
   })
 

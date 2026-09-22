@@ -1,9 +1,9 @@
-import { Hono } from 'hono'
-import { db } from '../db'
-import { fxRates } from '../db/schema'
 import { and, eq } from 'drizzle-orm'
+import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
+import { db } from '../db'
+import { fxRates } from '../db/schema'
 import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -37,7 +37,7 @@ export async function getOrFetchRate(
   const res = await fetch(url)
   if (!res.ok) return null
 
-  const json = await res.json() as { rates?: Record<string, number> }
+  const json = (await res.json()) as { rates?: Record<string, number> }
   const rateValue = json.rates?.[quoteCurrency]
   if (rateValue == null) return null
 

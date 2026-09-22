@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 
@@ -38,7 +38,11 @@ describe('parsers', () => {
       expect(body).toBeArrayOfSize(1)
       expect(body[0].name).toBe('Big Bank Chequing')
       expect(body[0].normalizedHeader).toBe('amount|date|description')
-      expect(body[0].columnMapping).toEqual({ date: 'date', amount: 'amount', description: 'description' })
+      expect(body[0].columnMapping).toEqual({
+        date: 'date',
+        amount: 'amount',
+        description: 'description',
+      })
     })
 
     it('does not return parsers belonging to another user', async () => {
@@ -111,7 +115,9 @@ describe('parsers', () => {
         headers: { Cookie: cookie },
       })
 
-      const otherParsers = await (await app.request('/api/parsers', { headers: { Cookie: otherCookie } })).json()
+      const otherParsers = await (
+        await app.request('/api/parsers', { headers: { Cookie: otherCookie } })
+      ).json()
       expect(otherParsers).toBeArrayOfSize(1)
     })
   })

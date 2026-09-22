@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { eq } from 'drizzle-orm'
 import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
 import { accounts, userSettings } from '../db/schema'
-import { eq } from 'drizzle-orm'
+import { clearDatabase, createTestUser } from '../test-utils'
 import { effectiveConfig, readCatchUpOverrides } from './horizon'
 
 async function createAccount(userId: string, path: string) {
@@ -24,7 +24,12 @@ async function patchConfig(cookie: string, accountId: string, body: Record<strin
   })
 }
 
-async function postCoverage(cookie: string, accountId: string, fromDate: string, throughDate: string) {
+async function postCoverage(
+  cookie: string,
+  accountId: string,
+  fromDate: string,
+  throughDate: string,
+) {
   return app.request('/api/coverage', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
@@ -62,7 +67,10 @@ describe('coverage config', () => {
       const res = await app.request(`/api/accounts/${accountId}/coverage`, {
         headers: { Cookie: cookie },
       })
-      return await res.json() as { config: Record<string, unknown>; override: Record<string, unknown> }
+      return (await res.json()) as {
+        config: Record<string, unknown>
+        override: Record<string, unknown>
+      }
     }
 
     it('is empty when nothing has been pinned', async () => {
@@ -79,7 +87,12 @@ describe('coverage config', () => {
 
       expect(override).toEqual({ exportMode: 'cycle', cycleDay: 25 })
       // releaseLag and tracked are still defaults, so they must not appear as pins.
-      expect(config).toMatchObject({ exportMode: 'cycle', cycleDay: 25, releaseLag: 0, tracked: true })
+      expect(config).toMatchObject({
+        exportMode: 'cycle',
+        cycleDay: 25,
+        releaseLag: 0,
+        tracked: true,
+      })
     })
 
     it('distinguishes an inferred value from a pinned one of the same number', async () => {
@@ -106,7 +119,7 @@ describe('coverage config', () => {
       const res = await app.request(`/api/accounts/${acct.id}/coverage`, {
         headers: { Cookie: cookie },
       })
-      const body = await res.json() as {
+      const body = (await res.json()) as {
         config: Record<string, unknown>
         inferred: Record<string, unknown> | null
       }
@@ -155,18 +168,24 @@ describe('coverage config', () => {
       const acct = await createAccount(userId, 'assets:chequing')
 
       expect(await effectiveConfig(userId, acct.id)).toEqual({
-        exportMode: 'range', cycleDay: null, releaseLag: 0, tracked: true,
+        exportMode: 'range',
+        cycleDay: null,
+        releaseLag: 0,
+        tracked: true,
       })
     })
 
-    it('picks up an inferred cycle from the account\'s own statements', async () => {
+    it("picks up an inferred cycle from the account's own statements", async () => {
       const visa = await createAccount(userId, 'liabilities:visa')
       await seedMonthlyStatements(cookie, visa.id)
 
-      expect(await effectiveConfig(userId, visa.id)).toMatchObject({ exportMode: 'cycle', cycleDay: 25 })
+      expect(await effectiveConfig(userId, visa.id)).toMatchObject({
+        exportMode: 'cycle',
+        cycleDay: 25,
+      })
     })
 
-    it('does not infer from another account\'s statements', async () => {
+    it("does not infer from another account's statements", async () => {
       const visa = await createAccount(userId, 'liabilities:visa')
       const chequing = await createAccount(userId, 'assets:chequing')
       await seedMonthlyStatements(cookie, visa.id)
@@ -182,10 +201,16 @@ describe('coverage config', () => {
 
       expect(await effectiveConfig(userId, visa.id)).toMatchObject({ cycleDay: 25 })
 
-      await app.request(`/api/coverage/${first.id}`, { method: 'DELETE', headers: { Cookie: cookie } })
+      await app.request(`/api/coverage/${first.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
 
       // Down to two intervals — back below the threshold inference will act on.
-      expect(await effectiveConfig(userId, visa.id)).toMatchObject({ exportMode: 'range', cycleDay: null })
+      expect(await effectiveConfig(userId, visa.id)).toMatchObject({
+        exportMode: 'range',
+        cycleDay: null,
+      })
     })
 
     it('lets a stored override beat inference', async () => {
@@ -193,7 +218,10 @@ describe('coverage config', () => {
       await seedMonthlyStatements(cookie, visa.id)
       await patchConfig(cookie, visa.id, { cycleDay: 18 })
 
-      expect(await effectiveConfig(userId, visa.id)).toMatchObject({ exportMode: 'cycle', cycleDay: 18 })
+      expect(await effectiveConfig(userId, visa.id)).toMatchObject({
+        exportMode: 'cycle',
+        cycleDay: 18,
+      })
     })
   })
 
@@ -206,22 +234,31 @@ describe('coverage config', () => {
     // must not become garbage config.
     it('drops values it does not recognise', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await db.update(userSettings).set({
-        preferences: {
-          catchUp: {
-            [acct.id]: { exportMode: 'telepathy', cycleDay: 99, releaseLag: -4, tracked: 'yes' },
+      await db
+        .update(userSettings)
+        .set({
+          preferences: {
+            catchUp: {
+              [acct.id]: { exportMode: 'telepathy', cycleDay: 99, releaseLag: -4, tracked: 'yes' },
+            },
           },
-        },
-      }).where(eq(userSettings.userId, userId))
+        })
+        .where(eq(userSettings.userId, userId))
 
       expect(await readCatchUpOverrides(userId)).toEqual({ [acct.id]: {} })
       expect(await effectiveConfig(userId, acct.id)).toEqual({
-        exportMode: 'range', cycleDay: null, releaseLag: 0, tracked: true,
+        exportMode: 'range',
+        cycleDay: null,
+        releaseLag: 0,
+        tracked: true,
       })
     })
 
     it('ignores a catchUp key that is not an object', async () => {
-      await db.update(userSettings).set({ preferences: { catchUp: 'nonsense' } }).where(eq(userSettings.userId, userId))
+      await db
+        .update(userSettings)
+        .set({ preferences: { catchUp: 'nonsense' } })
+        .where(eq(userSettings.userId, userId))
 
       expect(await readCatchUpOverrides(userId)).toEqual({})
     })
@@ -293,7 +330,7 @@ describe('coverage config', () => {
 
     // The settings route merges preferences shallowly, which would wipe every other account's
     // config. This route must not.
-    it('leaves other accounts\' config untouched', async () => {
+    it("leaves other accounts' config untouched", async () => {
       const visa = await createAccount(userId, 'liabilities:visa')
       const chequing = await createAccount(userId, 'assets:chequing')
 
@@ -380,7 +417,7 @@ describe('coverage config', () => {
       expect((await patchConfig(cookie, acct.id, { colour: 'blue' })).status).toBe(400)
     })
 
-    it('refuses to configure another user\'s account', async () => {
+    it("refuses to configure another user's account", async () => {
       const otherCookie = await createTestUser('other@example.com')
       const theirAccount = await createAccount(await userIdFor(otherCookie), 'assets:theirs')
 
@@ -410,7 +447,9 @@ describe('coverage config', () => {
       const visa = await createAccount(userId, 'liabilities:visa')
       await seedMonthlyStatements(cookie, visa.id)
 
-      const body = await (await app.request(`/api/accounts/${visa.id}/coverage`, { headers: { Cookie: cookie } })).json()
+      const body = await (
+        await app.request(`/api/accounts/${visa.id}/coverage`, { headers: { Cookie: cookie } })
+      ).json()
 
       expect(body.config).toMatchObject({ exportMode: 'cycle', cycleDay: 25 })
       // Whatever today is, a cycle-25 account's horizon is a 25th at or before it.
@@ -422,11 +461,18 @@ describe('coverage config', () => {
     it('reports today as the horizon for a range account', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
 
-      const body = await (await app.request(`/api/accounts/${acct.id}/coverage`, { headers: { Cookie: cookie } })).json()
+      const body = await (
+        await app.request(`/api/accounts/${acct.id}/coverage`, { headers: { Cookie: cookie } })
+      ).json()
 
       expect(body.horizon).toBe(new Date().toISOString().substring(0, 10))
       expect(body.nextHorizon).toBeNull()
-      expect(body.config).toEqual({ exportMode: 'range', cycleDay: null, releaseLag: 0, tracked: true })
+      expect(body.config).toEqual({
+        exportMode: 'range',
+        cycleDay: null,
+        releaseLag: 0,
+        tracked: true,
+      })
     })
   })
 })

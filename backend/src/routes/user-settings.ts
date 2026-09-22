@@ -1,9 +1,9 @@
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db'
-import { userSettings, accounts } from '../db/schema'
-import { eq, and, isNull, sql } from 'drizzle-orm'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
+import { db } from '../db'
+import { accounts, userSettings } from '../db/schema'
 import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -14,16 +14,10 @@ const app = new Hono<{ Variables: AppVariables }>()
 app.get('/', async (c) => {
   const userId = c.get('userId')
 
-  let [settings] = await db
-    .select()
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+  let [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId))
 
   if (!settings) {
-    ;[settings] = await db
-      .insert(userSettings)
-      .values({ userId })
-      .returning()
+    ;[settings] = await db.insert(userSettings).values({ userId }).returning()
   }
 
   return c.json(settings)
@@ -48,7 +42,11 @@ app.patch('/', async (c) => {
   const patch: Partial<typeof userSettings.$inferInsert> = {}
 
   // Account UUID fields — must reference an account owned by this user
-  for (const field of ['defaultOffsetAccountId', 'defaultConversionAccountId', 'defaultAdjustmentsAccountId'] as const) {
+  for (const field of [
+    'defaultOffsetAccountId',
+    'defaultConversionAccountId',
+    'defaultAdjustmentsAccountId',
+  ] as const) {
     if (!(field in body)) continue
     const value = body[field]
 
@@ -73,7 +71,13 @@ app.patch('/', async (c) => {
   }
 
   // Plain text fields
-  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath', 'defaultExpensesRootPath', 'defaultEquityRootPath', 'defaultIncomeRootPath'] as const) {
+  for (const field of [
+    'defaultAssetsRootPath',
+    'defaultLiabilitiesRootPath',
+    'defaultExpensesRootPath',
+    'defaultEquityRootPath',
+    'defaultIncomeRootPath',
+  ] as const) {
     if (!(field in body)) continue
     const value = body[field]
     if (typeof value !== 'string' || !value.trim()) {
@@ -98,7 +102,11 @@ app.patch('/', async (c) => {
   // patching one key never wipes unrelated keys set by other features.
   let preferencePatch: ReturnType<typeof sql> | undefined
   if ('preferences' in body) {
-    if (typeof body.preferences !== 'object' || body.preferences === null || Array.isArray(body.preferences)) {
+    if (
+      typeof body.preferences !== 'object' ||
+      body.preferences === null ||
+      Array.isArray(body.preferences)
+    ) {
       return fail(c, 'FIELD_NOT_OBJECT', { field: 'preferences' })
     }
     preferencePatch = sql`COALESCE(${userSettings.preferences}, '{}') || ${JSON.stringify(body.preferences)}::jsonb`

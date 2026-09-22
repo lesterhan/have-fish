@@ -74,10 +74,7 @@ describe('historyView — expenses', () => {
   })
 
   it('omits the category tag when uncategorized', () => {
-    const { expenses } = historyView(
-      [expense({ categoryId: null, categoryName: null })],
-      [],
-    )
+    const { expenses } = historyView([expense({ categoryId: null, categoryName: null })], [])
     expect(expenses[0].category).toBeNull()
   })
 
@@ -87,10 +84,7 @@ describe('historyView — expenses', () => {
   })
 
   it('preserves order (newest-first from the API)', () => {
-    const { expenses, expenseCount } = historyView(
-      [expense({ id: 'a' }), expense({ id: 'b' })],
-      [],
-    )
+    const { expenses, expenseCount } = historyView([expense({ id: 'a' }), expense({ id: 'b' })], [])
     expect(expenses.map((e) => e.id)).toEqual(['a', 'b'])
     expect(expenseCount).toBe(2)
   })
@@ -118,10 +112,7 @@ describe('historyView — settlements', () => {
   })
 
   it('falls back to Unknown for missing direction names', () => {
-    const { settlements } = historyView(
-      [],
-      [settlement({ fromUserName: null, toUserName: null })],
-    )
+    const { settlements } = historyView([], [settlement({ fromUserName: null, toUserName: null })])
     expect(settlements[0].from).toBe('Unknown')
     expect(settlements[0].to).toBe('Unknown')
   })

@@ -68,7 +68,7 @@ export function normalizeHeader(columns: string[]): string {
       c
         .toLowerCase()
         .replace(/\s/g, '')
-        .replace(/\(.*\)/g, '')
+        .replace(/\(.*\)/g, ''),
     )
     .sort()
     .join('|')

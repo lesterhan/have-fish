@@ -31,9 +31,7 @@ export function parseDateParts(isoDate: string) {
 
 // Sort postings by amount to identify the debit (from) and credit (to) sides.
 export function summarize(postings: Posting[]) {
-  const sorted = [...postings].sort(
-    (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-  )
+  const sorted = [...postings].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))
   return {
     from: sorted[0],
     to: sorted[sorted.length - 1],
@@ -44,16 +42,9 @@ export function summarize(postings: Posting[]) {
 // For cross-currency transfers: identify source (largest outflow) and target
 // (largest inflow in a different currency). Excludes conversion-account entries
 // which can dwarf real amounts and skew the sort.
-export function classifyTransfer(
-  postings: Posting[],
-  defaultConversionAccountId?: string | null,
-) {
-  const nonConversion = postings.filter(
-    (p) => p.accountId !== defaultConversionAccountId,
-  )
-  const sorted = [...nonConversion].sort(
-    (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-  )
+export function classifyTransfer(postings: Posting[], defaultConversionAccountId?: string | null) {
+  const nonConversion = postings.filter((p) => p.accountId !== defaultConversionAccountId)
+  const sorted = [...nonConversion].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))
   const source = sorted[0]
   const target = source
     ? [...nonConversion]
@@ -61,9 +52,7 @@ export function classifyTransfer(
         .sort((a, b) => parseFloat(b.amount) - parseFloat(a.amount))[0]
     : undefined
   const internalIds = new Set([source?.id, target?.id])
-  const fees = nonConversion.filter(
-    (p) => !internalIds.has(p.id) && parseFloat(p.amount) > 0,
-  )
+  const fees = nonConversion.filter((p) => !internalIds.has(p.id) && parseFloat(p.amount) > 0)
   return { source, target, fees }
 }
 

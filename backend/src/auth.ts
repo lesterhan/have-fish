@@ -48,14 +48,12 @@ export const auth = betterAuth({
             ])
             .returning()
 
-          await db
-            .insert(userSettings)
-            .values({
-              userId: user.id,
-              defaultOffsetAccountId: offsetAccount.id,
-              defaultConversionAccountId: conversionAccount.id,
-              defaultAdjustmentsAccountId: adjustmentsAccount.id,
-            })
+          await db.insert(userSettings).values({
+            userId: user.id,
+            defaultOffsetAccountId: offsetAccount.id,
+            defaultConversionAccountId: conversionAccount.id,
+            defaultAdjustmentsAccountId: adjustmentsAccount.id,
+          })
         },
       },
     },

@@ -1,5 +1,5 @@
-import { HistoryPanel } from '@/components/HistoryPanel'
 import { GroupScreen } from '@/components/GroupScreen'
+import { HistoryPanel } from '@/components/HistoryPanel'
 import { theme } from '@/lib/theme'
 
 /**
@@ -10,13 +10,8 @@ import { theme } from '@/lib/theme'
  */
 export default function HistoryScreen() {
   return (
-    <GroupScreen
-      refreshOnFocus
-      contentStyle={{ padding: 0, paddingBottom: theme.sp.md }}
-    >
-      {({ data }) => (
-        <HistoryPanel expenses={data.expenses} settlements={data.settlements} />
-      )}
+    <GroupScreen refreshOnFocus contentStyle={{ padding: 0, paddingBottom: theme.sp.md }}>
+      {({ data }) => <HistoryPanel expenses={data.expenses} settlements={data.settlements} />}
     </GroupScreen>
   )
 }

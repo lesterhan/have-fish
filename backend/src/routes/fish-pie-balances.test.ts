@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { app } from '../app'
 import { clearDatabase, createTestUser } from '../test-utils'
 
@@ -36,7 +36,10 @@ describe('fish-pie balances', () => {
     groupId = ((await groupRes.json()) as any).id
 
     // Invite and accept Bob and Carol
-    for (const [email, cookie] of [['b@test.com', cookieB], ['c@test.com', cookieC]]) {
+    for (const [email, cookie] of [
+      ['b@test.com', cookieB],
+      ['c@test.com', cookieC],
+    ]) {
       const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
         method: 'POST',
         headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
@@ -64,7 +67,14 @@ describe('fish-pie balances', () => {
     await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ description: 'Hotel', amount: '90.00', currency: 'CAD', date: '2026-04-28', paidByUserId: userAId, paymentAccountId }),
+      body: JSON.stringify({
+        description: 'Hotel',
+        amount: '90.00',
+        currency: 'CAD',
+        date: '2026-04-28',
+        paidByUserId: userAId,
+        paymentAccountId,
+      }),
     })
 
     const res = await app.request(`/api/fish-pie/groups/${groupId}/balances`, {

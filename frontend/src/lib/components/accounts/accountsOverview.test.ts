@@ -1,4 +1,12 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import {
+  type AccountCoverageStatus,
+  completeness,
+  completenessNote,
+  coverageFor,
+} from '../../coverage'
+import type { Money } from '../../money'
+import type { Roots } from './accountPaths'
 import {
   buildRows,
   convertRows,
@@ -6,18 +14,10 @@ import {
   daysBetween,
   groupCurrency,
   groupRows,
+  type OverviewAccount,
   positionAccountIds,
   positionTotals,
-  type OverviewAccount,
 } from './accountsOverview'
-import type { Roots } from './accountPaths'
-import type { Money } from '../../money'
-import {
-  completeness,
-  completenessNote,
-  coverageFor,
-  type AccountCoverageStatus,
-} from '../../coverage'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -63,16 +63,8 @@ describe('buildRows', () => {
   // Naming itself belongs to accountPaths and is tested there. What matters here is that each
   // row is handed *its own* surface's root, so a liability is not shortened against `assets`.
   it('strips each row against the root of its own surface', () => {
-    const rows = rowsFor([
-      acct('assets:wise:cad'),
-      acct('liabilities:amex'),
-      acct('储蓄:中国银行'),
-    ])
-    expect(rows.map((r) => r.displayName)).toEqual([
-      'wise:cad',
-      'amex',
-      '储蓄:中国银行',
-    ])
+    const rows = rowsFor([acct('assets:wise:cad'), acct('liabilities:amex'), acct('储蓄:中国银行')])
+    expect(rows.map((r) => r.displayName)).toEqual(['wise:cad', 'amex', '储蓄:中国银行'])
     expect(rows[2]!.surface).toBe('unfiled')
   })
 
@@ -101,10 +93,7 @@ describe('groupRows', () => {
       'institution',
     )
     expect(groups.map((g) => g.label)).toEqual(['Wealthsimple', 'Wise'])
-    expect(groups[1]!.rows.map((r) => r.displayName)).toEqual([
-      'wise:cad',
-      'wise:usd',
-    ])
+    expect(groups[1]!.rows.map((r) => r.displayName)).toEqual(['wise:cad', 'wise:usd'])
   })
 
   it('files a standalone account under its surface rather than its own institution', () => {
@@ -117,15 +106,8 @@ describe('groupRows', () => {
       ]),
       'institution',
     )
-    expect(groups.map((g) => g.label)).toEqual([
-      'Assets',
-      'Liabilities',
-      'Wise',
-    ])
-    expect(groups[0]!.rows.map((r) => r.displayName)).toEqual([
-      'chequing',
-      'savings',
-    ])
+    expect(groups.map((g) => g.label)).toEqual(['Assets', 'Liabilities', 'Wise'])
+    expect(groups[0]!.rows.map((r) => r.displayName)).toEqual(['chequing', 'savings'])
   })
 
   it('groups by resolved type, not by path root', () => {
@@ -173,9 +155,7 @@ describe('groupRows', () => {
     expect(groups[0]!.rows).toHaveLength(2)
     expect(groups[1]!.rows).toHaveLength(1)
     // The USD group shows the USD leg alone, so its total is an exact native sum.
-    expect(groups[1]!.rows[0]!.balances).toEqual([
-      { currency: 'USD', amount: '50.00' },
-    ])
+    expect(groups[1]!.rows[0]!.balances).toEqual([{ currency: 'USD', amount: '50.00' }])
   })
 
   it('sends an account with no balances to its own group, sorted last', () => {
@@ -190,21 +170,13 @@ describe('groupRows', () => {
   })
 
   it('puts everything in one group when flat', () => {
-    const groups = groupRows(
-      rowsFor([acct('assets:wise:cad'), acct('liabilities:visa')]),
-      'flat',
-    )
+    const groups = groupRows(rowsFor([acct('assets:wise:cad'), acct('liabilities:visa')]), 'flat')
     expect(groups).toHaveLength(1)
     expect(groups[0]!.rows).toHaveLength(2)
   })
 
   it('keeps unfiled accounts in their own group under every grouping, sorted last', () => {
-    for (const grouping of [
-      'institution',
-      'type',
-      'currency',
-      'flat',
-    ] as const) {
+    for (const grouping of ['institution', 'type', 'currency', 'flat'] as const) {
       const groups = groupRows(
         rowsFor([
           acct('储蓄:中国银行', [{ currency: 'CNY', amount: '1.00' }]),
@@ -225,10 +197,7 @@ describe('groupRows', () => {
       ]),
       'institution',
     )
-    expect(groups[0]!.rows.map((r) => r.displayName)).toEqual([
-      'Apple',
-      'Zebra',
-    ])
+    expect(groups[0]!.rows.map((r) => r.displayName)).toEqual(['Apple', 'Zebra'])
   })
 })
 
@@ -242,10 +211,7 @@ describe('groupCurrency', () => {
   })
 
   it('is null for a group that is not a single currency', () => {
-    const institution = groupRows(
-      rowsFor([acct('assets:wise:cad')]),
-      'institution',
-    )
+    const institution = groupRows(rowsFor([acct('assets:wise:cad')]), 'institution')
     expect(groupCurrency(institution[0]!)).toBeNull()
 
     // No-balance and Unfiled both hold rows of mixed or absent currency.
@@ -317,9 +283,7 @@ describe('convertRows', () => {
       'currency',
     )
     const usd = groups.find((g) => g.label === 'USD')!
-    expect(convertRows(usd.rows, new Map([['USD', 1.4]]), 'CAD').cents).toBe(
-      14000,
-    )
+    expect(convertRows(usd.rows, new Map([['USD', 1.4]]), 'CAD').cents).toBe(14000)
   })
 })
 
@@ -348,10 +312,7 @@ describe('positionTotals', () => {
   it('keeps expenses and unfiled money out of every bucket', () => {
     const totals = positionTotals(rows, ROOTS, rates, 'CAD')
     const sum =
-      totals.cash.cents +
-      totals.owed.cents +
-      totals.investments.cents +
-      totals.owing.cents
+      totals.cash.cents + totals.owed.cents + totals.investments.cents + totals.owing.cents
     expect(sum).toBe(100000 + 14000 + 2500 + 500000 - 30000)
   })
 
@@ -428,10 +389,7 @@ describe('dating a position tile', () => {
     bucket: 'cash' | 'investments' | 'owed' | 'owing',
   ) {
     const ids = positionAccountIds(rows, ROOTS)
-    return completenessNote(
-      completeness(coverageFor(coverage, ids[bucket])),
-      TODAY,
-    )
+    return completenessNote(completeness(coverageFor(coverage, ids[bucket])), TODAY)
   }
 
   it('reads as complete through today when every contributor is current', () => {

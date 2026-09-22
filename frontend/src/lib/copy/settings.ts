@@ -84,11 +84,9 @@ export const settingsCopy = {
   /** The quiet footer. The alarm is in the confirmation, not in the link that opens it. */
   danger: {
     open: 'Delete my account…',
-    description:
-      'Permanently removes your account and all associated data. This cannot be undone.',
+    description: 'Permanently removes your account and all associated data. This cannot be undone.',
     title: 'Delete account',
-    warning:
-      'This will permanently delete your user account and all data. This cannot be undone.',
+    warning: 'This will permanently delete your user account and all data. This cannot be undone.',
     confirm: 'Delete account',
   },
 } as const

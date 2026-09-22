@@ -1,7 +1,7 @@
-import { describe, it, expect, beforeAll, afterAll } from 'bun:test'
-import { mkdtempSync, mkdirSync, writeFileSync, rmSync } from 'node:fs'
-import { join } from 'node:path'
+import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import type { Hono } from 'hono'
 import { createServer, hasFrontend } from './server'
 
@@ -18,8 +18,7 @@ function buildDir(): string {
   return dir
 }
 
-const get = (server: Hono, path: string) =>
-  server.fetch(new Request(`http://localhost${path}`))
+const get = (server: Hono, path: string) => server.fetch(new Request(`http://localhost${path}`))
 
 describe('with a frontend build present', () => {
   let dir: string

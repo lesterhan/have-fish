@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
-  DEFAULT_SHELL_MODE,
-  SHELL_MODES,
   accentFor,
+  DEFAULT_SHELL_MODE,
   homeRouteFor,
   isShellMode,
   modeLabel,
   otherMode,
   resolveShellMode,
   restoreShellMode,
+  SHELL_MODES,
   tabHref,
 } from './shell-mode'
 

@@ -1,17 +1,17 @@
+import { and, asc, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import type { AppVariables } from '../app'
 import { db } from '../db'
 import {
-  expenseGroups,
+  accounts,
   expenseGroupMembers,
+  expenseGroups,
   groupCategories,
   groupCategoryMemberAccounts,
   groupCategoryWeights,
-  accounts,
 } from '../db/schema'
-import { eq, and, isNull, inArray, asc } from 'drizzle-orm'
-import type { AppVariables } from '../app'
-import { fail, failWith, errorBody } from '../errors'
 import type { ErrorBody } from '../errors'
+import { errorBody, fail, failWith } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -53,9 +53,17 @@ export async function fetchCategoriesForGroups(
     db
       .select()
       .from(groupCategoryMemberAccounts)
-      .where(and(inArray(groupCategoryMemberAccounts.categoryId, categoryIds), eq(groupCategoryMemberAccounts.userId, userId))),
+      .where(
+        and(
+          inArray(groupCategoryMemberAccounts.categoryId, categoryIds),
+          eq(groupCategoryMemberAccounts.userId, userId),
+        ),
+      ),
     // The full shared weight vector for each category
-    db.select().from(groupCategoryWeights).where(inArray(groupCategoryWeights.categoryId, categoryIds)),
+    db
+      .select()
+      .from(groupCategoryWeights)
+      .where(inArray(groupCategoryWeights.categoryId, categoryIds)),
   ])
 
   const mappingByCategory = new Map(mappings.map((m) => [m.categoryId, m]))
@@ -143,15 +151,18 @@ app.post('/:groupId/categories', async (c) => {
     .values({ groupId, name: body.name.trim(), sortOrder })
     .returning()
 
-  return c.json({
-    id: created.id,
-    groupId: created.groupId,
-    name: created.name,
-    sortOrder: created.sortOrder,
-    archivedAt: created.archivedAt,
-    myMapping: null,
-    weights: [],
-  }, 201)
+  return c.json(
+    {
+      id: created.id,
+      groupId: created.groupId,
+      name: created.name,
+      sortOrder: created.sortOrder,
+      archivedAt: created.archivedAt,
+      myMapping: null,
+      weights: [],
+    },
+    201,
+  )
 })
 
 app.patch('/:groupId/categories/:id', async (c) => {
@@ -213,7 +224,9 @@ app.put('/:groupId/categories/:id/my-mapping', async (c) => {
   const [acct] = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.id, body.accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .where(
+      and(eq(accounts.id, body.accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
+    )
   if (!acct) return fail(c, 'ACCOUNT_NOT_YOURS')
 
   const [mapping] = await db
@@ -281,9 +294,9 @@ app.put('/:groupId/categories/:id/weights', async (c) => {
   await db.transaction(async (tx) => {
     await tx.delete(groupCategoryWeights).where(eq(groupCategoryWeights.categoryId, categoryId))
     if (body.weights!.length > 0) {
-      await tx.insert(groupCategoryWeights).values(
-        body.weights!.map((w) => ({ categoryId, userId: w.userId, weight: w.weight })),
-      )
+      await tx
+        .insert(groupCategoryWeights)
+        .values(body.weights!.map((w) => ({ categoryId, userId: w.userId, weight: w.weight })))
     }
   })
 

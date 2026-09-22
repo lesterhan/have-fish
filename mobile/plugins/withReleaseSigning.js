@@ -39,7 +39,7 @@ function patchSigningConfigs(contents) {
   }
   // Insert a `release` block immediately after the `debug { ... }` entry inside
   // `signingConfigs { ... }`. Anchor on the closing brace of the debug block.
-  const anchor = /(signingConfigs \{\s*\n\s*debug \{[\s\S]*?\n        \}\n)/
+  const anchor = /(signingConfigs \{\s*\n\s*debug \{[\s\S]*?\n {8}\}\n)/
   if (!anchor.test(contents)) {
     throw new Error(
       'withReleaseSigning: could not find signingConfigs.debug anchor in build.gradle — Expo template changed, plugin needs updating',
@@ -96,7 +96,7 @@ module.exports = function withReleaseSigning(config) {
   return withAppBuildGradle(config, (cfg) => {
     if (cfg.modResults.language !== 'groovy') {
       throw new Error(
-        'withReleaseSigning: expected groovy build.gradle, got ' + cfg.modResults.language,
+        `withReleaseSigning: expected groovy build.gradle, got ${cfg.modResults.language}`,
       )
     }
     let contents = cfg.modResults.contents

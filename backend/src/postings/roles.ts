@@ -17,7 +17,7 @@
 // to malformed shapes — it never crashes, though it cannot detect that a malformed leg is a
 // disguised bridge (that's the heal epic's job).
 
-import { resolveAccountType, type AccountTypeRoots } from './account-type'
+import { type AccountTypeRoots, resolveAccountType } from './account-type'
 
 export type PostingRole = 'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
 

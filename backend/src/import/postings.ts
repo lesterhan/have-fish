@@ -31,13 +31,13 @@ export function buildRegularPostings(opts: {
 export function buildFishPieCrossCurrencyPostings(opts: {
   transactionId: string
   sourceAccountId: string
-  sourceAmount: string        // negative, e.g. "-15.20"
+  sourceAmount: string // negative, e.g. "-15.20"
   sourceCurrency: string
   conversionAccountId: string
   conversionSrcAmount: string // positive net without fee, e.g. "15.00"
-  targetAmount: string        // positive, e.g. "10.00"
+  targetAmount: string // positive, e.g. "10.00"
   targetCurrency: string
-  feeAmount?: string          // positive, e.g. "0.20"
+  feeAmount?: string // positive, e.g. "0.20"
   feeCurrency?: string
   feeAccountId?: string
   groupAccountId: string
@@ -45,10 +45,20 @@ export function buildFishPieCrossCurrencyPostings(opts: {
   payerShareRatio: number
 }): PostingSpec[] {
   const {
-    transactionId, sourceAccountId, sourceAmount, sourceCurrency,
-    conversionAccountId, conversionSrcAmount, targetAmount, targetCurrency,
-    feeAmount, feeCurrency, feeAccountId,
-    groupAccountId, expenseAccountId, payerShareRatio,
+    transactionId,
+    sourceAccountId,
+    sourceAmount,
+    sourceCurrency,
+    conversionAccountId,
+    conversionSrcAmount,
+    targetAmount,
+    targetCurrency,
+    feeAmount,
+    feeCurrency,
+    feeAccountId,
+    groupAccountId,
+    expenseAccountId,
+    payerShareRatio,
   } = opts
   const tgt = parseFloat(targetAmount)
   const payerShare = (tgt * payerShareRatio).toFixed(2)
@@ -56,8 +66,18 @@ export function buildFishPieCrossCurrencyPostings(opts: {
 
   const specs: PostingSpec[] = [
     { transactionId, accountId: sourceAccountId, amount: sourceAmount, currency: sourceCurrency },
-    { transactionId, accountId: conversionAccountId, amount: conversionSrcAmount, currency: sourceCurrency },
-    { transactionId, accountId: conversionAccountId, amount: (-tgt).toFixed(2), currency: targetCurrency },
+    {
+      transactionId,
+      accountId: conversionAccountId,
+      amount: conversionSrcAmount,
+      currency: sourceCurrency,
+    },
+    {
+      transactionId,
+      accountId: conversionAccountId,
+      amount: (-tgt).toFixed(2),
+      currency: targetCurrency,
+    },
     { transactionId, accountId: groupAccountId, amount: othersShare, currency: targetCurrency },
     { transactionId, accountId: expenseAccountId, amount: payerShare, currency: targetCurrency },
   ]
@@ -92,29 +112,53 @@ export function buildFishPieCrossCurrencyPostings(opts: {
 export function buildCrossCurrencySpendPostings(opts: {
   transactionId: string
   sourceAccountId: string
-  sourceAmount: string        // negative, gross incl. fee, e.g. "-17.29"
+  sourceAmount: string // negative, gross incl. fee, e.g. "-17.29"
   sourceCurrency: string
   conversionAccountId: string
   conversionSrcAmount: string // positive net, = −(sourceAmount + fee), e.g. "17.24"
-  targetAmount: string        // positive, e.g. "360.00"
+  targetAmount: string // positive, e.g. "360.00"
   targetCurrency: string
-  expenseAccountId: string    // the spend lands here, in targetCurrency
-  feeAmount?: string          // positive, e.g. "0.05"
+  expenseAccountId: string // the spend lands here, in targetCurrency
+  feeAmount?: string // positive, e.g. "0.05"
   feeCurrency?: string
   feeAccountId?: string
 }): PostingSpec[] {
   const {
-    transactionId, sourceAccountId, sourceAmount, sourceCurrency,
-    conversionAccountId, conversionSrcAmount, targetAmount, targetCurrency,
-    expenseAccountId, feeAmount, feeCurrency, feeAccountId,
+    transactionId,
+    sourceAccountId,
+    sourceAmount,
+    sourceCurrency,
+    conversionAccountId,
+    conversionSrcAmount,
+    targetAmount,
+    targetCurrency,
+    expenseAccountId,
+    feeAmount,
+    feeCurrency,
+    feeAccountId,
   } = opts
   const tgt = parseFloat(targetAmount)
 
   const specs: PostingSpec[] = [
     { transactionId, accountId: sourceAccountId, amount: sourceAmount, currency: sourceCurrency },
-    { transactionId, accountId: conversionAccountId, amount: conversionSrcAmount, currency: sourceCurrency },
-    { transactionId, accountId: conversionAccountId, amount: (-tgt).toFixed(2), currency: targetCurrency },
-    { transactionId, accountId: expenseAccountId, amount: tgt.toFixed(2), currency: targetCurrency },
+    {
+      transactionId,
+      accountId: conversionAccountId,
+      amount: conversionSrcAmount,
+      currency: sourceCurrency,
+    },
+    {
+      transactionId,
+      accountId: conversionAccountId,
+      amount: (-tgt).toFixed(2),
+      currency: targetCurrency,
+    },
+    {
+      transactionId,
+      accountId: expenseAccountId,
+      amount: tgt.toFixed(2),
+      currency: targetCurrency,
+    },
   ]
 
   if (feeAmount && feeAccountId) {
@@ -138,16 +182,25 @@ export function buildCrossCurrencySpendPostings(opts: {
 export function buildFishPieSameCurrencyPostings(opts: {
   transactionId: string
   sourceAccountId: string
-  amount: string     // net (positive), e.g. "99.38"
-  feeAmount: string  // fee (positive), e.g. "0.62"
+  amount: string // net (positive), e.g. "99.38"
+  feeAmount: string // fee (positive), e.g. "0.62"
   currency: string
   feeAccountId: string
   groupAccountId: string
   expenseAccountId: string
   payerShareRatio: number
 }): PostingSpec[] {
-  const { transactionId, sourceAccountId, amount, feeAmount, currency,
-    feeAccountId, groupAccountId, expenseAccountId, payerShareRatio } = opts
+  const {
+    transactionId,
+    sourceAccountId,
+    amount,
+    feeAmount,
+    currency,
+    feeAccountId,
+    groupAccountId,
+    expenseAccountId,
+    payerShareRatio,
+  } = opts
   const net = parseFloat(amount)
   const payerShare = (net * payerShareRatio).toFixed(2)
   const othersShare = (net - parseFloat(payerShare)).toFixed(2)
@@ -181,7 +234,15 @@ export function buildFishPiePostings(opts: {
   payerShareRatio: number
   currency: string
 }): PostingSpec[] {
-  const { transactionId, sourceAccountId, amount, groupAccountId, expenseAccountId, payerShareRatio, currency } = opts
+  const {
+    transactionId,
+    sourceAccountId,
+    amount,
+    groupAccountId,
+    expenseAccountId,
+    payerShareRatio,
+    currency,
+  } = opts
   const negated = -parseFloat(amount)
   const payerShare = (negated * payerShareRatio).toFixed(2)
   // othersShare is negated minus payerShare (remainder) so the three postings always sum to zero.

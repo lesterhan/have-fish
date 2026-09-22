@@ -1,6 +1,6 @@
 /// <reference types="bun" />
-import { describe, it, expect } from 'bun:test'
-import { rank, scoreOne, type ScorableAccount } from './accountScorer'
+import { describe, expect, it } from 'bun:test'
+import { rank, type ScorableAccount, scoreOne } from './accountScorer'
 
 // A plausible personal-finance ledger. `freq` drives the gentle tie-break,
 // so the expected rankings below are deterministic.
@@ -65,10 +65,7 @@ describe('rank — expected rankings', () => {
     ])
     // The whole point: no home:* ever ranks above a housing:* result.
     const firstHome = top.findIndex((p) => p.startsWith('expenses:home:'))
-    const lastHousing = top.reduce(
-      (acc, p, i) => (p.startsWith('expenses:housing:') ? i : acc),
-      -1,
-    )
+    const lastHousing = top.reduce((acc, p, i) => (p.startsWith('expenses:housing:') ? i : acc), -1)
     expect(firstHome).toBeGreaterThan(lastHousing)
   })
 

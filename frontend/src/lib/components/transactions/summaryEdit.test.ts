@@ -1,12 +1,12 @@
-import { describe, it, expect } from 'bun:test'
-import {
-  canSummaryEdit,
-  recategorizableLegs,
-  initialSubjectDrafts,
-  hasAccountChange,
-  buildRecategorizePayload,
-} from './summaryEdit'
+import { describe, expect, it } from 'bun:test'
 import type { Posting, PostingRole } from '$lib/api'
+import {
+  buildRecategorizePayload,
+  canSummaryEdit,
+  hasAccountChange,
+  initialSubjectDrafts,
+  recategorizableLegs,
+} from './summaryEdit'
 
 // Build a posting; id derived from accountPath so fixtures stay terse. accountId == path
 // here so payload assertions read clearly.
@@ -15,7 +15,7 @@ function p(
   amount: string,
   currency: string,
   role: PostingRole,
-  id = accountPath + ':' + amount,
+  id = `${accountPath}:${amount}`,
 ): Posting {
   return {
     id,
@@ -110,9 +110,7 @@ describe('hasAccountChange', () => {
 
   it('false for a blank draft (treated as unchanged)', () => {
     expect(
-      hasAccountChange(tx, [
-        { postingId: 'expenses:food:cafe:50.00', accountId: '   ' },
-      ]),
+      hasAccountChange(tx, [{ postingId: 'expenses:food:cafe:50.00', accountId: '   ' }]),
     ).toBe(false)
   })
 })
@@ -158,9 +156,7 @@ describe('buildRecategorizePayload', () => {
       // Attempt to repoint the fee leg — not a subject, must be ignored.
       { postingId: 'expenses:banking:fee:0.05', accountId: 'assets:hacked' },
     ])
-    expect(payload.find((l) => l.amount === '0.05')?.accountId).toBe(
-      'expenses:banking:fee',
-    )
+    expect(payload.find((l) => l.amount === '0.05')?.accountId).toBe('expenses:banking:fee')
   })
 
   it('blank draft falls back to the current account', () => {

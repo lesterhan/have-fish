@@ -1,5 +1,5 @@
 /// <reference types="bun" />
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { accountIndex, type IndexedAccount } from './accountIndex'
 
 const ACCOUNTS: IndexedAccount[] = [
@@ -73,8 +73,6 @@ describe('accountIndex — memoization', () => {
     const a = [...ACCOUNTS]
     const b = [...ACCOUNTS]
     expect(accountIndex(a)).not.toBe(accountIndex(b))
-    expect(accountIndex(b).byId.get('a1')?.path).toBe(
-      accountIndex(a).byId.get('a1')?.path,
-    )
+    expect(accountIndex(b).byId.get('a1')?.path).toBe(accountIndex(a).byId.get('a1')?.path)
   })
 })

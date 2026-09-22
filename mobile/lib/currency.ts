@@ -13,10 +13,39 @@
 
 /** Full supported list, in display order. Mirrors the web `SUPPORTED_CURRENCIES`. */
 export const ALL_CURRENCIES = [
-  'CAD', 'EUR', 'GBP', 'USD', 'AUD', 'NZD', 'CHF', 'JPY', 'CNY', 'HKD',
-  'SGD', 'INR', 'KRW', 'MXN', 'BRL', 'ZAR', 'NOK', 'SEK', 'DKK', 'CZK',
-  'PLN', 'HUF', 'RON', 'BGN', 'ISK', 'TRY', 'MYR', 'IDR', 'THB', 'PHP',
-  'ILS', 'NTD', 'HRK',
+  'CAD',
+  'EUR',
+  'GBP',
+  'USD',
+  'AUD',
+  'NZD',
+  'CHF',
+  'JPY',
+  'CNY',
+  'HKD',
+  'SGD',
+  'INR',
+  'KRW',
+  'MXN',
+  'BRL',
+  'ZAR',
+  'NOK',
+  'SEK',
+  'DKK',
+  'CZK',
+  'PLN',
+  'HUF',
+  'RON',
+  'BGN',
+  'ISK',
+  'TRY',
+  'MYR',
+  'IDR',
+  'THB',
+  'PHP',
+  'ILS',
+  'NTD',
+  'HRK',
 ] as const
 
 export type CurrencyCode = (typeof ALL_CURRENCIES)[number]
@@ -27,12 +56,39 @@ export const RECENT_VISIBLE = 3
 export const RECENT_CAP = 8
 
 const FLAGS: Record<string, string> = {
-  CAD: '🇨🇦', EUR: '🇪🇺', GBP: '🇬🇧', USD: '🇺🇸', AUD: '🇦🇺', NZD: '🇳🇿',
-  CHF: '🇨🇭', JPY: '🇯🇵', CNY: '🇨🇳', HKD: '🇭🇰', SGD: '🇸🇬', INR: '🇮🇳',
-  KRW: '🇰🇷', MXN: '🇲🇽', BRL: '🇧🇷', ZAR: '🇿🇦', NOK: '🇳🇴', SEK: '🇸🇪',
-  DKK: '🇩🇰', CZK: '🇨🇿', PLN: '🇵🇱', HUF: '🇭🇺', RON: '🇷🇴', BGN: '🇧🇬',
-  ISK: '🇮🇸', TRY: '🇹🇷', MYR: '🇲🇾', IDR: '🇮🇩', THB: '🇹🇭', PHP: '🇵🇭',
-  ILS: '🇮🇱', NTD: '🇹🇼', HRK: '🇭🇷',
+  CAD: '🇨🇦',
+  EUR: '🇪🇺',
+  GBP: '🇬🇧',
+  USD: '🇺🇸',
+  AUD: '🇦🇺',
+  NZD: '🇳🇿',
+  CHF: '🇨🇭',
+  JPY: '🇯🇵',
+  CNY: '🇨🇳',
+  HKD: '🇭🇰',
+  SGD: '🇸🇬',
+  INR: '🇮🇳',
+  KRW: '🇰🇷',
+  MXN: '🇲🇽',
+  BRL: '🇧🇷',
+  ZAR: '🇿🇦',
+  NOK: '🇳🇴',
+  SEK: '🇸🇪',
+  DKK: '🇩🇰',
+  CZK: '🇨🇿',
+  PLN: '🇵🇱',
+  HUF: '🇭🇺',
+  RON: '🇷🇴',
+  BGN: '🇧🇬',
+  ISK: '🇮🇸',
+  TRY: '🇹🇷',
+  MYR: '🇲🇾',
+  IDR: '🇮🇩',
+  THB: '🇹🇭',
+  PHP: '🇵🇭',
+  ILS: '🇮🇱',
+  NTD: '🇹🇼',
+  HRK: '🇭🇷',
 }
 
 /** Flag emoji for a currency code, or empty string when unknown. */
@@ -64,7 +120,11 @@ export function pushRecent(recents: readonly string[], code: string, cap = RECEN
  * recents, deduped and capped to {@link RECENT_VISIBLE}. Guarantees the active
  * currency always appears even on a cold start with no history.
  */
-export function topRecents(selected: string, recents: readonly string[], n = RECENT_VISIBLE): string[] {
+export function topRecents(
+  selected: string,
+  recents: readonly string[],
+  n = RECENT_VISIBLE,
+): string[] {
   return [selected, ...recents.filter((c) => c !== selected)].slice(0, n)
 }
 

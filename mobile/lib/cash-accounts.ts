@@ -78,7 +78,10 @@ export function walletCurrency(account: {
  * '0.00' when the account has no postings in it — a wallet that has never been
  * spent from holds zero, which is a real answer, not a missing one.
  */
-export function balanceIn(balances: { currency: string; amount: string }[], currency: string): string {
+export function balanceIn(
+  balances: { currency: string; amount: string }[],
+  currency: string,
+): string {
   return balances.find((b) => b.currency === currency)?.amount ?? '0.00'
 }
 

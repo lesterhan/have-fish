@@ -13,17 +13,14 @@
  * the app's two sources of colour are measured against each other.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
 import { ACCENTS, type AccentKey } from './accent'
 import { contrastRatio, deltaL, hexToOklch } from './oklch'
 
-const TOKENS = readFileSync(
-  fileURLToPath(new URL('../styles/tokens.css', import.meta.url)),
-  'utf8',
-)
+const TOKENS = readFileSync(fileURLToPath(new URL('../styles/tokens.css', import.meta.url)), 'utf8')
 
 /** One token's value out of one theme block. Small on purpose — this needs two values. */
 function tokenValue(selector: string, name: string): string {
@@ -41,9 +38,7 @@ const WINDOW = {
 }
 
 /** Every accent variable the token file declares, paired with the field that supplies it. */
-const FALLBACK_TOKENS: Array<
-  [string, keyof (typeof ACCENTS)['aqua']['light']]
-> = [
+const FALLBACK_TOKENS: Array<[string, keyof (typeof ACCENTS)['aqua']['light']]> = [
   ['--color-accent', 'hex'],
   ['--color-accent-hi', 'hi'],
   ['--color-accent-chip-bg', 'chipBg'],
@@ -70,22 +65,18 @@ describe('every accent is legible on the page it is used on', () => {
   for (const key of KEYS) {
     for (const theme of THEMES) {
       it(`${key} in ${theme}`, () => {
-        expect(
-          contrastRatio(ACCENTS[key][theme].hex, WINDOW[theme]),
-        ).toBeGreaterThanOrEqual(MIN_TEXT_RATIO)
+        expect(contrastRatio(ACCENTS[key][theme].hex, WINDOW[theme])).toBeGreaterThanOrEqual(
+          MIN_TEXT_RATIO,
+        )
       })
     }
   }
 
   it('and no accent is meaningfully louder than any other', () => {
     const ratios = KEYS.flatMap((key) =>
-      THEMES.map((theme) =>
-        contrastRatio(ACCENTS[key][theme].hex, WINDOW[theme]),
-      ),
+      THEMES.map((theme) => contrastRatio(ACCENTS[key][theme].hex, WINDOW[theme])),
     )
-    expect(Math.max(...ratios) / Math.min(...ratios)).toBeLessThanOrEqual(
-      MAX_SPREAD,
-    )
+    expect(Math.max(...ratios) / Math.min(...ratios)).toBeLessThanOrEqual(MAX_SPREAD)
   })
 })
 
@@ -124,17 +115,13 @@ describe('the derived roles hold up', () => {
       const accent = ACCENTS[key][theme]
 
       it(`${key} ${theme}: chip text reads on chip background`, () => {
-        expect(
-          contrastRatio(accent.chipFg, accent.chipBg),
-        ).toBeGreaterThanOrEqual(MIN_TEXT_RATIO)
+        expect(contrastRatio(accent.chipFg, accent.chipBg)).toBeGreaterThanOrEqual(MIN_TEXT_RATIO)
       })
 
       it(`${key} ${theme}: text on an accent fill reads`, () => {
         // The selected sidebar item, the primary button. `fg` is the only text-on-accent
         // token there is, so if it fails here it fails everywhere at once.
-        expect(contrastRatio(accent.fg, accent.hex)).toBeGreaterThanOrEqual(
-          MIN_TEXT_RATIO,
-        )
+        expect(contrastRatio(accent.fg, accent.hex)).toBeGreaterThanOrEqual(MIN_TEXT_RATIO)
       })
 
       it(`${key} ${theme}: the highlight is above the accent, not beside it`, () => {
@@ -143,9 +130,7 @@ describe('the derived roles hold up', () => {
         const step = deltaL(accent.hi, accent.hex)
         expect(step).toBeGreaterThan(0.06)
         expect(step).toBeLessThan(0.2)
-        expect(hexToOklch(accent.hi).l).toBeGreaterThan(
-          hexToOklch(accent.hex).l,
-        )
+        expect(hexToOklch(accent.hi).l).toBeGreaterThan(hexToOklch(accent.hex).l)
       })
     }
   }
@@ -181,23 +166,17 @@ describe("tokens.css's fallback is the accent it claims to be", () => {
   for (const theme of THEMES) {
     for (const [name, field] of FALLBACK_TOKENS) {
       it(`${theme}: ${name}`, () => {
-        expect(tokenValue(SELECTOR[theme], name)).toBe(
-          ACCENTS.aqua[theme][field],
-        )
+        expect(tokenValue(SELECTOR[theme], name)).toBe(ACCENTS.aqua[theme][field])
       })
     }
 
     it(`${theme}: --color-titlebar-accent`, () => {
       // Written with the spaces prettier puts in; compared on the colours, which is the part
       // that has to match.
-      const declared = tokenValue(
-        SELECTOR[theme],
-        '--color-titlebar-accent',
-      ).match(/#[0-9a-f]{6}/gi)
-      expect(declared).toEqual([
-        ACCENTS.aqua[theme].hi,
-        ACCENTS.aqua[theme].hex,
-      ])
+      const declared = tokenValue(SELECTOR[theme], '--color-titlebar-accent').match(
+        /#[0-9a-f]{6}/gi,
+      )
+      expect(declared).toEqual([ACCENTS.aqua[theme].hi, ACCENTS.aqua[theme].hex])
     })
   }
 })

@@ -1,13 +1,8 @@
-import { Hono } from 'hono'
-import { db } from '../db'
-import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
 import { and, between, desc, eq, isNull, sql } from 'drizzle-orm'
+import { Hono } from 'hono'
 import type { AppVariables } from '../app'
-import { addDays, mergeCoverage } from '../coverage/intervals'
-import { loadCoverageAccounts, loadCoverageContext, todayUtc } from '../coverage/load'
-import { classifyMonths, monthsBetween } from '../coverage/months'
-import { fail } from '../errors'
 import {
+  type CoverageConfigOverride,
   horizon,
   inferCycleFromIntervals,
   isCycleDay,
@@ -17,8 +12,13 @@ import {
   readCatchUpOverrides,
   readIntervals,
   resolveConfig,
-  type CoverageConfigOverride,
 } from '../coverage/horizon'
+import { addDays, mergeCoverage } from '../coverage/intervals'
+import { loadCoverageAccounts, loadCoverageContext, todayUtc } from '../coverage/load'
+import { classifyMonths, monthsBetween } from '../coverage/months'
+import { db } from '../db'
+import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
+import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -103,17 +103,15 @@ async function readCoverage(userId: string, accountId: string, windowDays: numbe
     .selectDistinct({ date: sql<string>`to_char(${transactions.date}::date, 'YYYY-MM-DD')` })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(postings.accountId, accountId),
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-      between(
-        sql`${transactions.date}::date`,
-        sql`${windowFrom}::date`,
-        sql`${today}::date`,
+    .where(
+      and(
+        eq(postings.accountId, accountId),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+        between(sql`${transactions.date}::date`, sql`${windowFrom}::date`, sql`${today}::date`),
       ),
-    ))
+    )
 
   return {
     accountId,
@@ -238,7 +236,7 @@ app.get('/months', async (c) => {
 // 404: account not found or not owned by the caller
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
   if (!body) return fail(c, 'INVALID_JSON_BODY')
 
   const { accountId, fromDate, throughDate, source, note } = body
@@ -314,7 +312,7 @@ app.patch('/config/:accountId', async (c) => {
 
   if (!isUuid(accountId)) return fail(c, 'ACCOUNT_NOT_FOUND')
 
-  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
   if (!body) return fail(c, 'INVALID_JSON_BODY')
 
   // Distinguishes "clear this override" (explicit null) from "leave it alone" (key absent).
@@ -323,7 +321,8 @@ app.patch('/config/:accountId', async (c) => {
 
   if ('exportMode' in body) {
     if (body.exportMode === null) cleared.add('exportMode')
-    else if (body.exportMode === 'range' || body.exportMode === 'cycle') patch.exportMode = body.exportMode
+    else if (body.exportMode === 'range' || body.exportMode === 'cycle')
+      patch.exportMode = body.exportMode
     else return fail(c, 'FIELD_NOT_IN_SET', { field: 'exportMode', allowed: ['range', 'cycle'] })
   }
   if ('cycleDay' in body) {
@@ -386,11 +385,12 @@ app.patch('/config/:accountId', async (c) => {
 async function writeOverride(userId: string, accountId: string, override: CoverageConfigOverride) {
   const existing = sql`COALESCE(${userSettings.preferences}, '{}'::jsonb)`
 
-  const next = Object.keys(override).length === 0
-    // Nothing pinned any more — drop the key entirely so the blob doesn't accumulate empty
-    // objects for every account the user has ever poked at.
-    ? sql`${existing} #- ARRAY['catchUp', ${accountId}]::text[]`
-    : sql`jsonb_set(
+  const next =
+    Object.keys(override).length === 0
+      ? // Nothing pinned any more — drop the key entirely so the blob doesn't accumulate empty
+        // objects for every account the user has ever poked at.
+        sql`${existing} #- ARRAY['catchUp', ${accountId}]::text[]`
+      : sql`jsonb_set(
         jsonb_set(${existing}, '{catchUp}'::text[], COALESCE(${existing}->'catchUp', '{}'::jsonb), true),
         ARRAY['catchUp', ${accountId}]::text[],
         ${JSON.stringify(override)}::jsonb,
@@ -422,7 +422,7 @@ async function writeOverride(userId: string, accountId: string, override: Covera
 // 404: account not found or not owned by the caller
 app.post('/reconcile', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
+  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
   if (!body) return fail(c, 'INVALID_JSON_BODY')
 
   const { accountId, throughDate } = body
@@ -443,11 +443,12 @@ app.post('/reconcile', async (c) => {
     return c.json({ created: false, reason: 'already covered', coveredThrough })
   }
 
-  const fromDate = coveredThrough !== null
-    ? addDays(coveredThrough, 1)
-    // No coverage at all: start at the account's first transaction, since everything before it
-    // is vacuously complete. With no transactions either, the reconcile speaks only for D.
-    : ((await firstTransactionDate(userId, accountId)) ?? throughDate)
+  const fromDate =
+    coveredThrough !== null
+      ? addDays(coveredThrough, 1)
+      : // No coverage at all: start at the account's first transaction, since everything before it
+        // is vacuously complete. With no transactions either, the reconcile speaks only for D.
+        ((await firstTransactionDate(userId, accountId)) ?? throughDate)
 
   const [created] = await db
     .insert(accountCoverage)
@@ -471,12 +472,14 @@ async function firstTransactionDate(userId: string, accountId: string): Promise<
     .select({ first: sql<string | null>`to_char(MIN(${transactions.date})::date, 'YYYY-MM-DD')` })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(postings.accountId, accountId),
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-    ))
+    .where(
+      and(
+        eq(postings.accountId, accountId),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+      ),
+    )
 
   return row?.first ?? null
 }

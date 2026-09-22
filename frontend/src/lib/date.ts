@@ -26,28 +26,20 @@ export function toISODate(date: Date): string {
  */
 function isValidDate(isoDate: string): boolean {
   const d = new Date(isoDate)
-  return !isNaN(d.getTime())
+  return !Number.isNaN(d.getTime())
 }
 
-export function parseCustomDateRange(
-  input: string,
-): { from: string; to: string } | null {
+export function parseCustomDateRange(input: string): { from: string; to: string } | null {
   const s = input.trim().toLowerCase()
   const today = new Date()
 
   const relative = s
     .replace(/^past\s+/, '')
-    .match(
-      /^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|mo|mos|mon|mons|month|months)$/,
-    )
+    .match(/^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|mo|mos|mon|mons|month|months)$/)
   if (relative) {
-    const num = parseInt(relative[1])
+    const num = parseInt(relative[1], 10)
     const unit = relative[2]
-    const days = unit.startsWith('w')
-      ? num * 7
-      : unit.startsWith('mo')
-        ? num * 31
-        : num // d/day/days
+    const days = unit.startsWith('w') ? num * 7 : unit.startsWith('mo') ? num * 31 : num // d/day/days
     const from = new Date(today)
     from.setDate(today.getDate() - days)
     return { from: toISODate(from), to: toISODate(today) }

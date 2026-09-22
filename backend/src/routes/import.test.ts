@@ -1,9 +1,16 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
-import { groupExpenses, groupExpenseSplits, transactions, postings, accounts, importRules } from '../db/schema'
-import { eq, isNull, and, inArray } from 'drizzle-orm'
+import {
+  accounts,
+  groupExpenseSplits,
+  groupExpenses,
+  importRules,
+  postings,
+  transactions,
+} from '../db/schema'
+import { clearDatabase, createTestUser } from '../test-utils'
 
 // Minimal CSV that matches the parser we create in tests.
 // Headers: Date, Amount, Description — normalised fingerprint: amount|date|description
@@ -120,7 +127,9 @@ describe('POST /api/import/preview', () => {
       body: csvForm(TEST_CSV),
     })
     let body = await res.json()
-    const coffeeRow = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    const coffeeRow = body.transactions.find(
+      (t: { description: string }) => t.description === 'Coffee',
+    )
     expect(coffeeRow.suggestedOffsetAccountId).toBe(coffeeShop.id)
 
     // Flip it to denied — it must no longer be applied.
@@ -132,7 +141,9 @@ describe('POST /api/import/preview', () => {
       body: csvForm(TEST_CSV),
     })
     body = await res.json()
-    const coffeeRowAfter = body.transactions.find((t: { description: string }) => t.description === 'Coffee')
+    const coffeeRowAfter = body.transactions.find(
+      (t: { description: string }) => t.description === 'Coffee',
+    )
     expect(coffeeRowAfter.suggestedOffsetAccountId).toBeFalsy()
   })
 
@@ -176,7 +187,12 @@ describe('POST /api/import/preview', () => {
     })
     const body = await res.json()
 
-    type Row = { description: string; merchantKey?: string; matchedRulePattern?: string; suggestedOffsetAccountId?: string }
+    type Row = {
+      description: string
+      merchantKey?: string
+      matchedRulePattern?: string
+      suggestedOffsetAccountId?: string
+    }
     const matched = body.transactions.filter((t: Row) => t.matchedRulePattern)
     expect(matched).toBeArrayOfSize(3)
     for (const row of matched as Row[]) {
@@ -324,7 +340,8 @@ describe('POST /api/import/preview', () => {
   // description is the user's own name ('Test User', from createTestUser).
   const MULTI_PARSER = {
     name: 'Multi Bank',
-    normalizedHeader: 'date|description|fee|sourceamount|sourcecurrency|targetamount|targetcurrency',
+    normalizedHeader:
+      'date|description|fee|sourceamount|sourcecurrency|targetamount|targetcurrency',
     isMultiCurrency: true,
     columnMapping: {
       date: 'date',
@@ -367,11 +384,15 @@ describe('POST /api/import/preview', () => {
     expect(res.status).toBe(200)
     const body = await res.json()
 
-    const spendRow = body.transactions.find((t: { description: string }) => t.description === 'Prague Coffee House')
+    const spendRow = body.transactions.find(
+      (t: { description: string }) => t.description === 'Prague Coffee House',
+    )
     expect(spendRow.isTransfer).toBe(true)
     expect(spendRow.suggestedKind).toBe('spend')
 
-    const convertRow = body.transactions.find((t: { description: string }) => t.description === 'Test User')
+    const convertRow = body.transactions.find(
+      (t: { description: string }) => t.description === 'Test User',
+    )
     expect(convertRow.isTransfer).toBe(true)
     expect(convertRow.suggestedKind).toBe('transfer')
     // A convert-and-park has no expense suggestion.
@@ -394,12 +415,16 @@ describe('POST /api/import/preview', () => {
     })
     const body = await res.json()
 
-    const spendRow = body.transactions.find((t: { description: string }) => t.description === 'Prague Coffee House')
+    const spendRow = body.transactions.find(
+      (t: { description: string }) => t.description === 'Prague Coffee House',
+    )
     expect(spendRow.suggestedKind).toBe('spend')
     expect(spendRow.suggestedExpenseAccountId).toBe(coffeeAcc.id)
 
     // The name-match convert row must not pick up an expense suggestion even if a rule matches.
-    const convertRow = body.transactions.find((t: { description: string }) => t.description === 'Test User')
+    const convertRow = body.transactions.find(
+      (t: { description: string }) => t.description === 'Test User',
+    )
     expect(convertRow.suggestedKind).toBe('transfer')
     expect(convertRow.suggestedExpenseAccountId).toBeFalsy()
   })
@@ -420,13 +445,17 @@ describe('POST /api/import/preview', () => {
     })
     const body = await res.json()
 
-    const spendRow = body.transactions.find((t: { description: string }) => t.description === 'Prague Coffee House')
+    const spendRow = body.transactions.find(
+      (t: { description: string }) => t.description === 'Prague Coffee House',
+    )
     expect(spendRow.merchantKey).toBe('Prague Coffee House')
     expect(spendRow.matchedRulePattern).toBe('Coffee')
 
     // A convert-and-park still gets a stem — it is a row like any other for grouping —
     // but no rule fired for it, so nothing to attribute.
-    const convertRow = body.transactions.find((t: { description: string }) => t.description === 'Test User')
+    const convertRow = body.transactions.find(
+      (t: { description: string }) => t.description === 'Test User',
+    )
     expect(convertRow.merchantKey).toBe('Test User')
     expect(convertRow.matchedRulePattern).toBeUndefined()
   })
@@ -443,7 +472,9 @@ describe('POST /api/import/preview', () => {
     })
     const body = await res.json()
 
-    const spendRow = body.transactions.find((t: { description: string }) => t.description === 'Prague Coffee House')
+    const spendRow = body.transactions.find(
+      (t: { description: string }) => t.description === 'Prague Coffee House',
+    )
     expect(spendRow.suggestedKind).toBe('spend')
     expect(spendRow.suggestedGroupId).toBe(groupId)
     expect(spendRow.suggestedCategoryId).toBe(categoryId)
@@ -485,7 +516,13 @@ describe('POST /api/import/check-duplicates', () => {
         accountId: source.id,
         defaultCurrency: 'USD',
         transactions: [
-          { isTransfer: false, date: new Date('2026-02-01').toISOString(), amount: '-42.50', currency: 'USD', offsetAccountId: offset.id },
+          {
+            isTransfer: false,
+            date: new Date('2026-02-01').toISOString(),
+            amount: '-42.50',
+            currency: 'USD',
+            offsetAccountId: offset.id,
+          },
         ],
       }),
     })
@@ -516,7 +553,13 @@ describe('POST /api/import/check-duplicates', () => {
         accountId: usd.id,
         defaultCurrency: 'USD',
         transactions: [
-          { isTransfer: false, date: new Date('2026-02-01').toISOString(), amount: '-42.50', currency: 'USD', offsetAccountId: offset.id },
+          {
+            isTransfer: false,
+            date: new Date('2026-02-01').toISOString(),
+            amount: '-42.50',
+            currency: 'USD',
+            offsetAccountId: offset.id,
+          },
         ],
       }),
     })
@@ -559,7 +602,13 @@ describe('POST /api/import/check-duplicates', () => {
         accountId: otherAccount.id,
         defaultCurrency: 'USD',
         transactions: [
-          { isTransfer: false, date: new Date('2026-02-01').toISOString(), amount: '-42.50', currency: 'USD', offsetAccountId: otherOffset.id },
+          {
+            isTransfer: false,
+            date: new Date('2026-02-01').toISOString(),
+            amount: '-42.50',
+            currency: 'USD',
+            offsetAccountId: otherOffset.id,
+          },
         ],
       }),
     })
@@ -592,8 +641,20 @@ describe('POST /api/import/commit', () => {
     const offset = await createAccount(cookie, 'expenses:uncategorized')
 
     const parsed = [
-      { date: new Date('2026-02-01').toISOString(), amount: '-50.00', description: 'Coffee', currency: 'CAD', offsetAccountId: offset.id },
-      { date: new Date('2026-02-02').toISOString(), amount: '100.00', description: 'Tax refund', currency: 'CAD', offsetAccountId: offset.id },
+      {
+        date: new Date('2026-02-01').toISOString(),
+        amount: '-50.00',
+        description: 'Coffee',
+        currency: 'CAD',
+        offsetAccountId: offset.id,
+      },
+      {
+        date: new Date('2026-02-02').toISOString(),
+        amount: '100.00',
+        description: 'Tax refund',
+        currency: 'CAD',
+        offsetAccountId: offset.id,
+      },
     ]
 
     const res = await app.request('/api/import/commit', {
@@ -612,23 +673,28 @@ describe('POST /api/import/commit', () => {
     // Each transaction must have exactly 2 postings that balance to zero
     for (const tx of txs) {
       expect(tx.postings).toBeArrayOfSize(2)
-      const sum = tx.postings.reduce((acc: number, p: { amount: string }) => acc + parseFloat(p.amount), 0)
+      const sum = tx.postings.reduce(
+        (acc: number, p: { amount: string }) => acc + parseFloat(p.amount),
+        0,
+      )
       expect(Math.abs(sum)).toBeLessThan(0.001)
     }
 
     // Spot-check: source gets -50, offset gets +50
     const coffee = txs.find((tx: { description: string }) => tx.description === 'Coffee')
-    expect(coffee.postings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ accountId: source.id, amount: '-50.00', currency: 'CAD' }),
-      expect.objectContaining({ accountId: offset.id, amount: '50.00', currency: 'CAD' }),
-    ]))
+    expect(coffee.postings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accountId: source.id, amount: '-50.00', currency: 'CAD' }),
+        expect.objectContaining({ accountId: offset.id, amount: '50.00', currency: 'CAD' }),
+      ]),
+    )
   })
 
   it('writes 5 postings for a transfer row and balances per currency', async () => {
-    const sourceAcc    = await createAccount(cookie, 'assets:wise:cad')
-    const targetAcc    = await createAccount(cookie, 'assets:wise:gbp')
+    const sourceAcc = await createAccount(cookie, 'assets:wise:cad')
+    const targetAcc = await createAccount(cookie, 'assets:wise:gbp')
     const conversionAcc = await createAccount(cookie, 'equity:conversion')
-    const feeAcc       = await createAccount(cookie, 'expenses:fees:wise')
+    const feeAcc = await createAccount(cookie, 'expenses:fees:wise')
 
     const transfer = {
       isTransfer: true,
@@ -675,10 +741,10 @@ describe('POST /api/import/commit', () => {
   })
 
   it('cross-currency spend: spend lands in expense account, bridged by equity, no phantom asset', async () => {
-    const sourceAcc     = await createAccount(cookie, 'assets:bank:savings:usd')
+    const sourceAcc = await createAccount(cookie, 'assets:bank:savings:usd')
     const conversionAcc = await createAccount(cookie, 'equity:conversions')
-    const feeAcc        = await createAccount(cookie, 'expenses:banking')
-    const coffeeAcc     = await createAccount(cookie, 'expenses:food:coffee')
+    const feeAcc = await createAccount(cookie, 'expenses:banking')
+    const coffeeAcc = await createAccount(cookie, 'expenses:food:coffee')
 
     const row = {
       isTransfer: 'cross-currency-spend',
@@ -712,9 +778,11 @@ describe('POST /api/import/commit', () => {
     expect(t.postings).toBeArrayOfSize(5)
 
     // Both currencies balance to zero
-    const usdSum = t.postings.filter((p: { currency: string }) => p.currency === 'USD')
+    const usdSum = t.postings
+      .filter((p: { currency: string }) => p.currency === 'USD')
       .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
-    const czkSum = t.postings.filter((p: { currency: string }) => p.currency === 'CZK')
+    const czkSum = t.postings
+      .filter((p: { currency: string }) => p.currency === 'CZK')
       .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
     expect(Math.abs(usdSum)).toBeLessThan(0.001)
     expect(Math.abs(czkSum)).toBeLessThan(0.001)
@@ -725,10 +793,16 @@ describe('POST /api/import/commit', () => {
     expect(coffeeLegs[0]).toEqual(expect.objectContaining({ amount: '360.00', currency: 'CZK' }))
 
     // equity:conversions bridges both sides (the bug used the expense account here)
-    expect(t.postings).toEqual(expect.arrayContaining([
-      expect.objectContaining({ accountId: conversionAcc.id, amount: '17.24', currency: 'USD' }),
-      expect.objectContaining({ accountId: conversionAcc.id, amount: '-360.00', currency: 'CZK' }),
-    ]))
+    expect(t.postings).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ accountId: conversionAcc.id, amount: '17.24', currency: 'USD' }),
+        expect.objectContaining({
+          accountId: conversionAcc.id,
+          amount: '-360.00',
+          currency: 'CZK',
+        }),
+      ]),
+    )
 
     // No phantom CZK asset balance — the source asset only has the USD outflow
     const sourceLegs = t.postings.filter((p: { accountId: string }) => p.accountId === sourceAcc.id)
@@ -737,9 +811,9 @@ describe('POST /api/import/commit', () => {
   })
 
   it('cross-currency spend without a fee: 4 postings, balanced', async () => {
-    const sourceAcc     = await createAccount(cookie, 'assets:bank:savings:usd')
+    const sourceAcc = await createAccount(cookie, 'assets:bank:savings:usd')
     const conversionAcc = await createAccount(cookie, 'equity:conversions')
-    const coffeeAcc     = await createAccount(cookie, 'expenses:food:coffee')
+    const coffeeAcc = await createAccount(cookie, 'expenses:food:coffee')
 
     const row = {
       isTransfer: 'cross-currency-spend',
@@ -764,33 +838,41 @@ describe('POST /api/import/commit', () => {
     const txRes = await app.request('/api/transactions', { headers: { Cookie: cookie } })
     const t = (await txRes.json())[0]
     expect(t.postings).toBeArrayOfSize(4)
-    const usdSum = t.postings.filter((p: { currency: string }) => p.currency === 'USD')
+    const usdSum = t.postings
+      .filter((p: { currency: string }) => p.currency === 'USD')
       .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
-    const czkSum = t.postings.filter((p: { currency: string }) => p.currency === 'CZK')
+    const czkSum = t.postings
+      .filter((p: { currency: string }) => p.currency === 'CZK')
       .reduce((a: number, p: { amount: string }) => a + parseFloat(p.amount), 0)
     expect(Math.abs(usdSum)).toBeLessThan(0.001)
     expect(Math.abs(czkSum)).toBeLessThan(0.001)
   })
 
   it('rejects a cross-currency spend with a fee but no feeAccountId', async () => {
-    const sourceAcc     = await createAccount(cookie, 'assets:bank:savings:usd')
+    const sourceAcc = await createAccount(cookie, 'assets:bank:savings:usd')
     const conversionAcc = await createAccount(cookie, 'equity:conversions')
-    const coffeeAcc     = await createAccount(cookie, 'expenses:food:coffee')
+    const coffeeAcc = await createAccount(cookie, 'expenses:food:coffee')
 
     const res = await app.request('/api/import/commit', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        accountId: '', defaultCurrency: 'USD', transactions: [{
-          isTransfer: 'cross-currency-spend',
-          date: new Date('2026-05-31').toISOString(),
-          sourceAmount: '-17.29', sourceCurrency: 'USD',
-          targetAmount: '360.00', targetCurrency: 'CZK',
-          feeAmount: '0.05',
-          sourceAccountId: sourceAcc.id,
-          expenseAccountId: coffeeAcc.id,
-          conversionAccountId: conversionAcc.id,
-        }],
+        accountId: '',
+        defaultCurrency: 'USD',
+        transactions: [
+          {
+            isTransfer: 'cross-currency-spend',
+            date: new Date('2026-05-31').toISOString(),
+            sourceAmount: '-17.29',
+            sourceCurrency: 'USD',
+            targetAmount: '360.00',
+            targetCurrency: 'CZK',
+            feeAmount: '0.05',
+            sourceAccountId: sourceAcc.id,
+            expenseAccountId: coffeeAcc.id,
+            conversionAccountId: conversionAcc.id,
+          },
+        ],
       }),
     })
 
@@ -930,7 +1012,11 @@ describe('POST /api/import/commit — group splits', () => {
         defaultCurrency: 'CAD',
         transactions: [regularRow('Coffee', suggested.amount)],
         groupSplits: [
-          { rowIndex: 0, groupId: suggested.suggestedGroupId, categoryId: suggested.suggestedCategoryId },
+          {
+            rowIndex: 0,
+            groupId: suggested.suggestedGroupId,
+            categoryId: suggested.suggestedCategoryId,
+          },
         ],
       }),
     })
@@ -959,12 +1045,9 @@ describe('POST /api/import/commit — group splits', () => {
     })
 
     expect(res.status).toBe(201)
-    expect((await res.json() as any).fishPieExpenses).toBe(0)
+    expect(((await res.json()) as any).fishPieExpenses).toBe(0)
 
-    const expenses = await db
-      .select()
-      .from(groupExpenses)
-      .where(eq(groupExpenses.groupId, groupId))
+    const expenses = await db.select().from(groupExpenses).where(eq(groupExpenses.groupId, groupId))
     expect(expenses).toHaveLength(0)
   })
 
@@ -1031,7 +1114,7 @@ describe('POST /api/import/commit — group splits', () => {
       }),
     })
     expect(res.status).toBe(201)
-    expect((await res.json() as any).fishPieExpenses).toBe(1)
+    expect(((await res.json()) as any).fishPieExpenses).toBe(1)
   })
 
   it('uses the shared clearing account as the import offset for Fish Pie rows', async () => {
@@ -1059,11 +1142,17 @@ describe('POST /api/import/commit — group splits', () => {
 
     // The offset posting must go to assets:receivable:housing, not to the user-supplied offsetAccountId
     // and not to uncategorized. This prevents double-counting the payer's share.
-    const txPostings = await db.select().from(postings).where(eq(postings.transactionId, importTx!.id))
+    const txPostings = await db
+      .select()
+      .from(postings)
+      .where(eq(postings.transactionId, importTx!.id))
     const offsetPosting = txPostings.find((p) => p.accountId !== sourceId)
     expect(offsetPosting).toBeTruthy()
 
-    const [offsetAccount] = await db.select().from(accounts).where(eq(accounts.id, offsetPosting!.accountId))
+    const [offsetAccount] = await db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.id, offsetPosting!.accountId))
     expect(offsetAccount.path).toBe('assets:receivable:housing')
   })
 
@@ -1086,13 +1175,15 @@ describe('POST /api/import/commit — group splits', () => {
       body: JSON.stringify({
         accountId: cardId,
         defaultCurrency: 'CAD',
-        transactions: [{
-          isTransfer: false,
-          date: new Date('2026-05-01').toISOString(),
-          description: 'Tim Hortons',
-          amount: '100.00',   // positive = credit card charge convention
-          sourceAccountId: cardId,
-        }],
+        transactions: [
+          {
+            isTransfer: false,
+            date: new Date('2026-05-01').toISOString(),
+            description: 'Tim Hortons',
+            amount: '100.00', // positive = credit card charge convention
+            sourceAccountId: cardId,
+          },
+        ],
         groupSplits: [{ rowIndex: 0, groupId }],
       }),
     })
@@ -1153,7 +1244,13 @@ describe('POST /api/import/commit — group splits', () => {
     const [groupAccount] = await db
       .select()
       .from(accounts)
-      .where(and(eq(accounts.userId, userAId), eq(accounts.path, 'assets:receivable:housing'), isNull(accounts.deletedAt)))
+      .where(
+        and(
+          eq(accounts.userId, userAId),
+          eq(accounts.path, 'assets:receivable:housing'),
+          isNull(accounts.deletedAt),
+        ),
+      )
     const groupPosting = txPostings.find((p) => p.accountId === groupAccount.id)
     expect(groupPosting).toBeTruthy()
     expect(parseFloat(groupPosting!.amount)).toBeCloseTo(600, 1)
@@ -1216,27 +1313,29 @@ describe('POST /api/import/commit — group splits', () => {
       body: JSON.stringify({
         accountId: '',
         defaultCurrency: 'CAD',
-        transactions: [{
-          isTransfer: true,
-          date: new Date('2026-05-10').toISOString(),
-          description: 'Dinner in Paris',
-          sourceAmount: '-15.20',
-          sourceCurrency: 'CAD',
-          targetAmount: '10.00',
-          targetCurrency: 'EUR',
-          feeAmount: '0.20',
-          feeCurrency: 'CAD',
-          sourceAccountId: cadAccountId,
-          targetAccountId: eurAccountId,  // sent but ignored — group/expense replace it
-          conversionAccountId: convAccountId,
-          feeAccountId: feeAccountId,
-        }],
+        transactions: [
+          {
+            isTransfer: true,
+            date: new Date('2026-05-10').toISOString(),
+            description: 'Dinner in Paris',
+            sourceAmount: '-15.20',
+            sourceCurrency: 'CAD',
+            targetAmount: '10.00',
+            targetCurrency: 'EUR',
+            feeAmount: '0.20',
+            feeCurrency: 'CAD',
+            sourceAccountId: cadAccountId,
+            targetAccountId: eurAccountId, // sent but ignored — group/expense replace it
+            conversionAccountId: convAccountId,
+            feeAccountId: feeAccountId,
+          },
+        ],
         groupSplits: [{ rowIndex: 0, groupId }],
       }),
     })
 
     expect(res.status).toBe(201)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     expect(body.fishPieExpenses).toBe(1)
 
     // Group expense created in target currency (EUR) for net amount only
@@ -1263,23 +1362,27 @@ describe('POST /api/import/commit — group splits', () => {
     expect(txPostings).toHaveLength(6)
 
     // Both currencies balance to zero
-    const cadSum = txPostings.filter(p => p.currency === 'CAD').reduce((s, p) => s + parseFloat(p.amount), 0)
-    const eurSum = txPostings.filter(p => p.currency === 'EUR').reduce((s, p) => s + parseFloat(p.amount), 0)
+    const cadSum = txPostings
+      .filter((p) => p.currency === 'CAD')
+      .reduce((s, p) => s + parseFloat(p.amount), 0)
+    const eurSum = txPostings
+      .filter((p) => p.currency === 'EUR')
+      .reduce((s, p) => s + parseFloat(p.amount), 0)
     expect(Math.abs(cadSum)).toBeLessThan(0.01)
     expect(Math.abs(eurSum)).toBeLessThan(0.01)
 
     // Fee posting untouched: 0.20 CAD to feeAccount
-    const feePosting = txPostings.find(p => p.accountId === feeAccountId)
+    const feePosting = txPostings.find((p) => p.accountId === feeAccountId)
     expect(feePosting).toBeTruthy()
     expect(feePosting!.amount).toBe('0.20')
     expect(feePosting!.currency).toBe('CAD')
 
     // Target (eurAccount) did NOT receive net — group/expense replaced it
-    const targetPosting = txPostings.find(p => p.accountId === eurAccountId)
+    const targetPosting = txPostings.find((p) => p.accountId === eurAccountId)
     expect(targetPosting).toBeUndefined()
 
     // EUR postings go to group clearing + payer expense (50/50 split)
-    const eurPostings = txPostings.filter(p => p.currency === 'EUR' && parseFloat(p.amount) > 0)
+    const eurPostings = txPostings.filter((p) => p.currency === 'EUR' && parseFloat(p.amount) > 0)
     expect(eurPostings).toHaveLength(2)
     const eurPositiveSum = eurPostings.reduce((s, p) => s + parseFloat(p.amount), 0)
     expect(eurPositiveSum).toBeCloseTo(10, 2)
@@ -1305,27 +1408,29 @@ describe('POST /api/import/commit — group splits', () => {
       body: JSON.stringify({
         accountId: '',
         defaultCurrency: 'USD',
-        transactions: [{
-          isTransfer: true,
-          date: new Date('2026-05-31').toISOString(),
-          description: 'Shared coffee',
-          sourceAmount: '-17.29',
-          sourceCurrency: 'USD',
-          targetAmount: '360.00',
-          targetCurrency: 'CZK',
-          feeAmount: '0.05',
-          feeCurrency: 'USD',
-          sourceAccountId: usdAccountId,
-          targetAccountId: '',  // no target asset — the spend lands in the expense + group
-          conversionAccountId: convAccountId,
-          feeAccountId: feeAccountId,
-        }],
+        transactions: [
+          {
+            isTransfer: true,
+            date: new Date('2026-05-31').toISOString(),
+            description: 'Shared coffee',
+            sourceAmount: '-17.29',
+            sourceCurrency: 'USD',
+            targetAmount: '360.00',
+            targetCurrency: 'CZK',
+            feeAmount: '0.05',
+            feeCurrency: 'USD',
+            sourceAccountId: usdAccountId,
+            targetAccountId: '', // no target asset — the spend lands in the expense + group
+            conversionAccountId: convAccountId,
+            feeAccountId: feeAccountId,
+          },
+        ],
         groupSplits: [{ rowIndex: 0, groupId }],
       }),
     })
 
     expect(res.status).toBe(201)
-    expect((await res.json() as any).fishPieExpenses).toBe(1)
+    expect(((await res.json()) as any).fishPieExpenses).toBe(1)
 
     const userATxs = await db.select().from(transactions).where(eq(transactions.userId, userAId))
     // The import tx is now forward-linked like member txs; identify it by its origin marker.
@@ -1340,16 +1445,20 @@ describe('POST /api/import/commit — group splits', () => {
       .where(and(eq(postings.transactionId, importTx.id), isNull(postings.deletedAt)))
 
     // Both currencies balance to zero
-    const usdSum = txPostings.filter(p => p.currency === 'USD').reduce((s, p) => s + parseFloat(p.amount), 0)
-    const czkSum = txPostings.filter(p => p.currency === 'CZK').reduce((s, p) => s + parseFloat(p.amount), 0)
+    const usdSum = txPostings
+      .filter((p) => p.currency === 'USD')
+      .reduce((s, p) => s + parseFloat(p.amount), 0)
+    const czkSum = txPostings
+      .filter((p) => p.currency === 'CZK')
+      .reduce((s, p) => s + parseFloat(p.amount), 0)
     expect(Math.abs(usdSum)).toBeLessThan(0.01)
     expect(Math.abs(czkSum)).toBeLessThan(0.01)
 
     // No phantom asset: the only USD asset leg is the funding account, negative (money out).
-    const usdAssetPosting = txPostings.find(p => p.accountId === usdAccountId)
+    const usdAssetPosting = txPostings.find((p) => p.accountId === usdAccountId)
     expect(parseFloat(usdAssetPosting!.amount)).toBeLessThan(0)
     // The CZK spend is split across group clearing + payer expense, never an asset.
-    const czkPositive = txPostings.filter(p => p.currency === 'CZK' && parseFloat(p.amount) > 0)
+    const czkPositive = txPostings.filter((p) => p.currency === 'CZK' && parseFloat(p.amount) > 0)
     expect(czkPositive).toHaveLength(2)
     expect(czkPositive.reduce((s, p) => s + parseFloat(p.amount), 0)).toBeCloseTo(360, 2)
   })
@@ -1372,23 +1481,25 @@ describe('POST /api/import/commit — group splits', () => {
       body: JSON.stringify({
         accountId: '',
         defaultCurrency: 'CAD',
-        transactions: [{
-          isTransfer: 'same-currency',
-          date: new Date('2026-05-10').toISOString(),
-          description: 'Shared expense transfer',
-          amount: '99.38',
-          feeAmount: '0.62',
-          currency: 'CAD',
-          targetAccountId: targetAccId,  // sent but ignored for fish pie
-          sourceAccountId: externalBankId,
-          feeAccountId: feeAccId,
-        }],
+        transactions: [
+          {
+            isTransfer: 'same-currency',
+            date: new Date('2026-05-10').toISOString(),
+            description: 'Shared expense transfer',
+            amount: '99.38',
+            feeAmount: '0.62',
+            currency: 'CAD',
+            targetAccountId: targetAccId, // sent but ignored for fish pie
+            sourceAccountId: externalBankId,
+            feeAccountId: feeAccId,
+          },
+        ],
         groupSplits: [{ rowIndex: 0, groupId }],
       }),
     })
 
     expect(res.status).toBe(201)
-    const body = await res.json() as any
+    const body = (await res.json()) as any
     expect(body.fishPieExpenses).toBe(1)
 
     // Group expense in CAD for net amount only (not gross)
@@ -1419,16 +1530,16 @@ describe('POST /api/import/commit — group splits', () => {
     expect(Math.abs(sum)).toBeLessThan(0.01)
 
     // Fee posting untouched: 0.62 CAD to feeAccount
-    const feePosting = txPostings.find(p => p.accountId === feeAccId)
+    const feePosting = txPostings.find((p) => p.accountId === feeAccId)
     expect(feePosting).toBeTruthy()
     expect(feePosting!.amount).toBe('0.62')
 
     // Target account did NOT receive net — group/expense replaced it
-    const targetPosting = txPostings.find(p => p.accountId === targetAccId)
+    const targetPosting = txPostings.find((p) => p.accountId === targetAccId)
     expect(targetPosting).toBeUndefined()
 
     // Source account loses gross (net + fee)
-    const sourcePosting = txPostings.find(p => p.accountId === externalBankId)
+    const sourcePosting = txPostings.find((p) => p.accountId === externalBankId)
     expect(sourcePosting).toBeTruthy()
     expect(parseFloat(sourcePosting!.amount)).toBeCloseTo(-100, 2)
   })

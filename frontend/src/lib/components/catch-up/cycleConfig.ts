@@ -76,26 +76,18 @@ export function ordinal(n: number): string {
  * the same reason the account type row reads "Auto (inferred: Asset)".
  */
 export function cycleDayLabel(inferredDay: number | null | undefined): string {
-  return inferredDay == null
-    ? 'Automatic (none found)'
-    : `Automatic (${ordinal(inferredDay)})`
+  return inferredDay == null ? 'Automatic (none found)' : `Automatic (${ordinal(inferredDay)})`
 }
 
-export function releaseLagLabel(
-  inferredLag: number | null | undefined,
-): string {
+export function releaseLagLabel(inferredLag: number | null | undefined): string {
   const lag = inferredLag ?? DEFAULT_RELEASE_LAG
   if (lag === 0) return 'Automatic (same day)'
   return `Automatic (${lag} ${lag === 1 ? 'day' : 'days'})`
 }
 
-export function exportModeLabel(
-  inferredMode: CoverageExportMode | null | undefined,
-): string {
+export function exportModeLabel(inferredMode: CoverageExportMode | null | undefined): string {
   const mode = inferredMode ?? DEFAULT_MODE
-  return mode === 'cycle'
-    ? 'Automatic (statement cycle)'
-    : 'Automatic (any date range)'
+  return mode === 'cycle' ? 'Automatic (statement cycle)' : 'Automatic (any date range)'
 }
 
 /**
@@ -113,8 +105,7 @@ export function planCycleCommit(
   draft: { mode: ModeChoice; day: DayChoice },
   inferred: Inference,
 ): CycleCommit {
-  const effectiveMode =
-    draft.mode === AUTOMATIC ? (inferred.mode ?? DEFAULT_MODE) : draft.mode
+  const effectiveMode = draft.mode === AUTOMATIC ? (inferred.mode ?? DEFAULT_MODE) : draft.mode
   const effectiveDay = draft.day === AUTOMATIC ? inferred.day : draft.day
 
   if (effectiveMode === 'cycle' && effectiveDay == null) {

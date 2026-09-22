@@ -1,11 +1,11 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { ParsedTransaction } from '$lib/api'
 import {
+  accountIdForCurrency,
   currenciesInPreview,
   seedCurrencyAccounts,
   suggestedPathForCurrency,
-  accountIdForCurrency,
 } from './import-helpers'
-import type { ParsedTransaction } from '$lib/api'
 
 const ACCOUNTS = [
   { id: 'a-cad', path: 'assets:wise:cad' },
@@ -45,22 +45,16 @@ describe('currenciesInPreview', () => {
   })
 
   it('normalizes case so cad and CAD are one currency', () => {
-    expect(
-      currenciesInPreview([regular('cad'), regular('CAD')], 'CAD'),
-    ).toEqual(['CAD'])
+    expect(currenciesInPreview([regular('cad'), regular('CAD')], 'CAD')).toEqual(['CAD'])
   })
 
   it('requires both sides of a convert-and-park', () => {
-    expect(
-      currenciesInPreview([transfer('CAD', 'EUR', 'transfer')], 'CAD'),
-    ).toEqual(['CAD', 'EUR'])
+    expect(currenciesInPreview([transfer('CAD', 'EUR', 'transfer')], 'CAD')).toEqual(['CAD', 'EUR'])
   })
 
   it('requires only the funding side of a cross-currency spend', () => {
     // The money never lands in a CZK account — it goes straight to an expense.
-    expect(
-      currenciesInPreview([transfer('USD', 'CZK', 'spend')], 'CAD'),
-    ).toEqual(['USD'])
+    expect(currenciesInPreview([transfer('USD', 'CZK', 'spend')], 'CAD')).toEqual(['USD'])
   })
 
   it('includes a same-currency transfer’s currency', () => {
@@ -77,14 +71,8 @@ describe('currenciesInPreview', () => {
   it('ignores row-level edits by reading only the preview’s own suggestion', () => {
     // Same two rows, differing only in what the preview suggested. The required set must
     // follow the preview, so flipping a row later cannot re-gate a finished step.
-    const asSpend = currenciesInPreview(
-      [transfer('USD', 'CZK', 'spend')],
-      'CAD',
-    )
-    const asTransfer = currenciesInPreview(
-      [transfer('USD', 'CZK', 'transfer')],
-      'CAD',
-    )
+    const asSpend = currenciesInPreview([transfer('USD', 'CZK', 'spend')], 'CAD')
+    const asTransfer = currenciesInPreview([transfer('USD', 'CZK', 'transfer')], 'CAD')
     expect(asSpend).toEqual(['USD'])
     expect(asTransfer).toEqual(['USD', 'CZK'])
   })
@@ -129,9 +117,7 @@ describe('seedCurrencyAccounts', () => {
 
 describe('suggestedPathForCurrency', () => {
   it('lowercases the currency under the root', () => {
-    expect(suggestedPathForCurrency('assets:wise', 'EUR')).toBe(
-      'assets:wise:eur',
-    )
+    expect(suggestedPathForCurrency('assets:wise', 'EUR')).toBe('assets:wise:eur')
   })
 
   it('returns an empty string without a root', () => {

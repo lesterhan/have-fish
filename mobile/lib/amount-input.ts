@@ -43,7 +43,7 @@ export function appendDot(amount: string): string {
   if (amount.includes('.')) return amount
   if (amount === '') return '0.'
   if (amount.length >= MAX_LENGTH) return amount
-  return amount + '.'
+  return `${amount}.`
 }
 
 /** Drop the last character. Backspacing to empty leaves `""` (renders `0.00`). */

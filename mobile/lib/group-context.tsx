@@ -1,26 +1,27 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
   createContext,
+  type ReactNode,
   useCallback,
   useContext,
   useEffect,
   useMemo,
   useRef,
   useState,
-  type ReactNode,
 } from 'react'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
-  fetchGroups,
-  fetchGroup,
-  fetchExpenses,
-  fetchBalances,
-  fetchSettlements,
-  type ExpenseGroup,
-  type GroupExpense,
   type CurrencyBalance,
+  type ExpenseGroup,
+  fetchBalances,
+  fetchExpenses,
+  fetchGroup,
+  fetchGroups,
+  fetchSettlements,
+  type GroupExpense,
   type GroupSettlement,
 } from '@/lib/api'
 import { LAST_GROUP_KEY, resolveActiveGroupId } from '@/lib/group-store'
+import { thrownMessage } from './errors'
 
 export interface GroupData {
   expenses: GroupExpense[]
@@ -92,8 +93,8 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       setGroup(g)
       setData({ expenses, balances, settlements })
       setError(null)
-    } catch (e: any) {
-      if (activeIdRef.current === id) setError(e?.message ?? 'Failed to load group')
+    } catch (e) {
+      if (activeIdRef.current === id) setError(thrownMessage(e, 'Failed to load group'))
     } finally {
       if (activeIdRef.current === id) setLoadingData(false)
     }
@@ -108,15 +109,15 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       const next = resolveActiveGroupId(activeIdRef.current ?? stored, list)
       if (next) {
         applyActiveId(next)
-        loadDataFor(next)
+        void loadDataFor(next)
       } else {
         applyActiveId(null)
         setGroup(null)
         setData(EMPTY_DATA)
       }
       setError(null)
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to load groups')
+    } catch (e) {
+      setError(thrownMessage(e, 'Failed to load groups'))
     } finally {
       setLoadingGroups(false)
     }
@@ -130,7 +131,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
       setGroup(groups.find((g) => g.id === id) ?? null)
       setData(EMPTY_DATA)
       AsyncStorage.setItem(LAST_GROUP_KEY, id).catch(() => null)
-      loadDataFor(id)
+      void loadDataFor(id)
     },
     [groups, applyActiveId, loadDataFor],
   )
@@ -146,7 +147,7 @@ export function GroupProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (initialized.current) return
     initialized.current = true
-    reloadGroups()
+    void reloadGroups()
   }, [reloadGroups])
 
   const value = useMemo<GroupContextValue>(

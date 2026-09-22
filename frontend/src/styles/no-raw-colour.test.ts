@@ -37,7 +37,7 @@
  * chroma per accent, at which point it stopped declaring any colour at all.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { sourceFilesUnder, stripNoise } from '../testing/source-scan'
@@ -153,9 +153,7 @@ function rawColoursIn(source: string): string[] {
 
   for (const [, , property, value] of clean.matchAll(DECLARATION)) {
     // `black` and `white` inside a color-mix are shading a token, not naming a colour.
-    const declaration = value!
-      .toLowerCase()
-      .replace(/%\s*,\s*(black|white)\s*\)/g, '%)')
+    const declaration = value!.toLowerCase().replace(/%\s*,\s*(black|white)\s*\)/g, '%)')
     for (const word of declaration.split(/[^a-z-]+/)) {
       if (NAMED.has(word)) found.push(`${property}: ${word}`)
     }
@@ -174,32 +172,20 @@ describe('the detectors themselves', () => {
   it('catches a hex hidden in an inline style attribute', () => {
     // The CurrencyPill bug: an inline style beats the class, so the token underneath it was
     // never reached and no other check in the repo could see the value.
-    expect(rawColoursIn('<span style="background:#f0d8d8">CAD</span>')).toEqual(
-      ['#f0d8d8'],
-    )
+    expect(rawColoursIn('<span style="background:#f0d8d8">CAD</span>')).toEqual(['#f0d8d8'])
   })
 
   it('catches a named colour', () => {
-    expect(rawColoursIn('.a { background: white; }')).toEqual([
-      'background: white',
-    ])
+    expect(rawColoursIn('.a { background: white; }')).toEqual(['background: white'])
   })
 
   it('catches an rgb() that carries a hue', () => {
-    expect(rawColoursIn('.a { color: rgb(200, 40, 40); }')).toEqual([
-      'rgb(200, 40, 40)',
-    ])
+    expect(rawColoursIn('.a { color: rgb(200, 40, 40); }')).toEqual(['rgb(200, 40, 40)'])
   })
 
   it('leaves translucent neutrals alone — they are shadow and gloss, not colour', () => {
-    expect(
-      rawColoursIn('.a { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }'),
-    ).toEqual([])
-    expect(
-      rawColoursIn(
-        '.a { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65); }',
-      ),
-    ).toEqual([])
+    expect(rawColoursIn('.a { box-shadow: 0 1px 2px rgba(0, 0, 0, 0.12); }')).toEqual([])
+    expect(rawColoursIn('.a { box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.65); }')).toEqual([])
   })
 
   it('leaves a tint derived from a token alone', () => {
@@ -212,9 +198,7 @@ describe('the detectors themselves', () => {
 
   it('leaves black and white alone when they are shading a token', () => {
     expect(
-      rawColoursIn(
-        '.a { background: color-mix(in srgb, var(--color-accent) 80%, black); }',
-      ),
+      rawColoursIn('.a { background: color-mix(in srgb, var(--color-accent) 80%, black); }'),
     ).toEqual([])
   })
 
@@ -225,28 +209,22 @@ describe('the detectors themselves', () => {
   it('does not read a comment as a declaration', () => {
     // Several comments in this codebase quote the exact hexes of the bug they document.
     expect(
-      rawColoursIn(
-        '/* it ran from #3b4252 down to #20242d */ .a { color: var(--x); }',
-      ),
+      rawColoursIn('/* it ran from #3b4252 down to #20242d */ .a { color: var(--x); }'),
     ).toEqual([])
   })
 })
 
 describe('colour lives in tokens.css and nowhere else', () => {
-  const allowed = new Map(
-    ALLOWED.map((entry) => [`${entry.file}::${entry.value}`, entry]),
-  )
+  const allowed = new Map(ALLOWED.map((entry) => [`${entry.file}::${entry.value}`, entry]))
   const used = new Set<string>()
 
   for (const file of FILES) {
-    const found = rawColoursIn(readFileSync(join(SRC, file), 'utf8')).filter(
-      (value) => {
-        const key = `${file}::${value}`
-        if (!allowed.has(key)) return true
-        used.add(key)
-        return false
-      },
-    )
+    const found = rawColoursIn(readFileSync(join(SRC, file), 'utf8')).filter((value) => {
+      const key = `${file}::${value}`
+      if (!allowed.has(key)) return true
+      used.add(key)
+      return false
+    })
 
     if (found.length === 0) continue
     it(`${file} declares no colour of its own`, () => {

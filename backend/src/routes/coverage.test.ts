@@ -1,9 +1,9 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
+import { eq } from 'drizzle-orm'
 import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
 import { db } from '../db'
 import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
-import { eq } from 'drizzle-orm'
+import { clearDatabase, createTestUser } from '../test-utils'
 
 async function createAccount(userId: string, path: string) {
   const [acct] = await db.insert(accounts).values({ userId, path }).returning()
@@ -17,10 +17,7 @@ async function userIdFor(cookie: string) {
 }
 
 // Posts an assertion through the API so writes go via the same validation the app uses.
-async function postCoverage(
-  cookie: string,
-  body: Record<string, unknown>,
-) {
+async function postCoverage(cookie: string, body: Record<string, unknown>) {
   return app.request('/api/coverage', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
@@ -220,7 +217,7 @@ describe('coverage', () => {
 
     // Coverage is an assertion about someone's ledger — writing one into a stranger's
     // account would silently tell them they were caught up when they were not.
-    it('refuses to write coverage against another user\'s account', async () => {
+    it("refuses to write coverage against another user's account", async () => {
       const otherCookie = await createTestUser('other@example.com')
       const otherUserId = await userIdFor(otherCookie)
       const theirAccount = await createAccount(otherUserId, 'assets:their-chequing')
@@ -234,7 +231,10 @@ describe('coverage', () => {
 
       expect(res.status).toBe(404)
 
-      const rows = await db.select().from(accountCoverage).where(eq(accountCoverage.accountId, theirAccount.id))
+      const rows = await db
+        .select()
+        .from(accountCoverage)
+        .where(eq(accountCoverage.accountId, theirAccount.id))
       expect(rows).toHaveLength(0)
     })
 
@@ -256,7 +256,12 @@ describe('coverage', () => {
       const res = await app.request('/api/coverage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: '00000000-0000-4000-8000-000000000000', fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'manual' }),
+        body: JSON.stringify({
+          accountId: '00000000-0000-4000-8000-000000000000',
+          fromDate: '2025-07-01',
+          throughDate: '2025-07-31',
+          source: 'manual',
+        }),
       })
 
       expect(res.status).toBe(401)
@@ -275,8 +280,18 @@ describe('coverage', () => {
 
     it('returns merged spans newest first', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-06-01', throughDate: '2025-06-30', source: 'import' })
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-09-01', throughDate: '2025-09-30', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-06-01',
+        throughDate: '2025-06-30',
+        source: 'import',
+      })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-09-01',
+        throughDate: '2025-09-30',
+        source: 'import',
+      })
 
       const { intervals } = await (await getCoverage(cookie, acct.id)).json()
 
@@ -289,8 +304,18 @@ describe('coverage', () => {
     // Two consecutive monthly statements are one unbroken span, not two with a hole between.
     it('merges consecutive monthly statements into one span', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-06-01', throughDate: '2025-06-30', source: 'import' })
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-06-01',
+        throughDate: '2025-06-30',
+        source: 'import',
+      })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-07-01',
+        throughDate: '2025-07-31',
+        source: 'import',
+      })
 
       const { intervals } = await (await getCoverage(cookie, acct.id)).json()
 
@@ -299,8 +324,18 @@ describe('coverage', () => {
 
     it('merges an overlapping re-import without duplicating the span', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import' })
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-07-15', throughDate: '2025-08-15', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-07-01',
+        throughDate: '2025-07-31',
+        source: 'import',
+      })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-07-15',
+        throughDate: '2025-08-15',
+        source: 'import',
+      })
 
       const { intervals } = await (await getCoverage(cookie, acct.id)).json()
 
@@ -309,8 +344,19 @@ describe('coverage', () => {
 
     it('keeps the raw assertions alongside the merged spans', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-06-01', throughDate: '2025-06-30', source: 'import', note: 'june.csv' })
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'reconcile' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-06-01',
+        throughDate: '2025-06-30',
+        source: 'import',
+        note: 'june.csv',
+      })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-07-01',
+        throughDate: '2025-07-31',
+        source: 'reconcile',
+      })
 
       const { intervals, assertions } = await (await getCoverage(cookie, acct.id)).json()
 
@@ -324,18 +370,28 @@ describe('coverage', () => {
     it('scopes coverage to the account it was asserted against', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       const visa = await createAccount(userId, 'liabilities:visa')
-      await postCoverage(cookie, { accountId: chequing.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: chequing.id,
+        fromDate: '2025-07-01',
+        throughDate: '2025-07-31',
+        source: 'import',
+      })
 
       const { intervals } = await (await getCoverage(cookie, visa.id)).json()
 
       expect(intervals).toEqual([])
     })
 
-    it('refuses to read another user\'s coverage', async () => {
+    it("refuses to read another user's coverage", async () => {
       const otherCookie = await createTestUser('other@example.com')
       const otherUserId = await userIdFor(otherCookie)
       const theirAccount = await createAccount(otherUserId, 'assets:their-chequing')
-      await postCoverage(otherCookie, { accountId: theirAccount.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import' })
+      await postCoverage(otherCookie, {
+        accountId: theirAccount.id,
+        fromDate: '2025-07-01',
+        throughDate: '2025-07-31',
+        source: 'import',
+      })
 
       const res = await getCoverage(cookie, theirAccount.id)
 
@@ -368,7 +424,9 @@ describe('coverage', () => {
       it('honours an explicit day count', async () => {
         const acct = await createAccount(userId, 'assets:chequing')
 
-        const res = await app.request(`/api/accounts/${acct.id}/coverage?days=30`, { headers: { Cookie: cookie } })
+        const res = await app.request(`/api/accounts/${acct.id}/coverage?days=30`, {
+          headers: { Cookie: cookie },
+        })
 
         expect((await res.json()).window).toEqual({ from: daysAgo(29), to: daysAgo(0), days: 30 })
       })
@@ -376,7 +434,9 @@ describe('coverage', () => {
       it('clamps an oversized window rather than drawing an unreadable strip', async () => {
         const acct = await createAccount(userId, 'assets:chequing')
 
-        const res = await app.request(`/api/accounts/${acct.id}/coverage?days=99999`, { headers: { Cookie: cookie } })
+        const res = await app.request(`/api/accounts/${acct.id}/coverage?days=99999`, {
+          headers: { Cookie: cookie },
+        })
 
         expect((await res.json()).window.days).toBe(730)
       })
@@ -386,7 +446,9 @@ describe('coverage', () => {
         const acct = await createAccount(userId, 'assets:chequing')
 
         for (const days of ['banana', '0', '-5', '12.5', '']) {
-          const res = await app.request(`/api/accounts/${acct.id}/coverage?days=${days}`, { headers: { Cookie: cookie } })
+          const res = await app.request(`/api/accounts/${acct.id}/coverage?days=${days}`, {
+            headers: { Cookie: cookie },
+          })
           expect((await res.json()).window.days).toBe(90)
         }
       })
@@ -439,7 +501,7 @@ describe('coverage', () => {
         expect(txnDates).toEqual([daysAgo(89), daysAgo(0)])
       })
 
-      it('ignores another account\'s transactions', async () => {
+      it("ignores another account's transactions", async () => {
         const acct = await createAccount(userId, 'assets:chequing')
         const other = await createAccount(userId, 'liabilities:visa')
         const groceries = await createAccount(userId, 'expenses:groceries')
@@ -454,7 +516,10 @@ describe('coverage', () => {
         const acct = await createAccount(userId, 'assets:chequing')
         const groceries = await createAccount(userId, 'expenses:groceries')
         const tx = await seedTxn(userId, acct.id, daysAgo(10), groceries.id)
-        await db.update(transactions).set({ deletedAt: new Date() }).where(eq(transactions.id, tx.id))
+        await db
+          .update(transactions)
+          .set({ deletedAt: new Date() })
+          .where(eq(transactions.id, tx.id))
 
         const { txnDates } = await (await getCoverage(cookie, acct.id)).json()
 
@@ -476,7 +541,12 @@ describe('coverage', () => {
     // That evidence is exactly what this records.
     it('continues coverage from where it left off', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-06-30', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-05-01',
+        throughDate: '2025-06-30',
+        source: 'import',
+      })
 
       const res = await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
 
@@ -492,7 +562,12 @@ describe('coverage', () => {
 
     it('leaves no seam between the old span and the new one', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-06-30', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-05-01',
+        throughDate: '2025-06-30',
+        source: 'import',
+      })
       await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
 
       const { intervals } = await (await getCoverage(cookie, acct.id)).json()
@@ -507,7 +582,9 @@ describe('coverage', () => {
       await seedTxn(userId, acct.id, '2025-03-14', groceries.id)
       await seedTxn(userId, acct.id, '2025-06-02', groceries.id)
 
-      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+      const body = await (
+        await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+      ).json()
 
       expect(body.interval).toMatchObject({ fromDate: '2025-03-14', throughDate: '2025-07-31' })
     })
@@ -515,7 +592,9 @@ describe('coverage', () => {
     it('speaks only for the reconcile date when the account has no history at all', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
 
-      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+      const body = await (
+        await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+      ).json()
 
       expect(body.interval).toMatchObject({ fromDate: '2025-07-31', throughDate: '2025-07-31' })
     })
@@ -527,17 +606,31 @@ describe('coverage', () => {
       const groceries = await createAccount(userId, 'expenses:groceries')
       await seedTxn(userId, acct.id, '2025-09-01', groceries.id)
 
-      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+      const body = await (
+        await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+      ).json()
 
       expect(body.interval).toMatchObject({ fromDate: '2025-07-31', throughDate: '2025-07-31' })
     })
 
     it('walks over an older hole rather than trying to fill it', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-01-01', throughDate: '2025-01-31', source: 'import' })
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-06-30', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-01-01',
+        throughDate: '2025-01-31',
+        source: 'import',
+      })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-05-01',
+        throughDate: '2025-06-30',
+        source: 'import',
+      })
 
-      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+      const body = await (
+        await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+      ).json()
 
       expect(body.interval).toMatchObject({ fromDate: '2025-07-01' })
 
@@ -550,7 +643,12 @@ describe('coverage', () => {
 
     it('writes nothing when coverage already reaches past the date', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-08-31', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-05-01',
+        throughDate: '2025-08-31',
+        source: 'import',
+      })
 
       const res = await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
 
@@ -563,20 +661,29 @@ describe('coverage', () => {
 
     it('writes nothing when coverage already reaches exactly the date', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-05-01', throughDate: '2025-07-31', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-05-01',
+        throughDate: '2025-07-31',
+        source: 'import',
+      })
 
-      expect((await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()).created)
-        .toBe(false)
+      expect(
+        (await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json())
+          .created,
+      ).toBe(false)
     })
 
-    it('ignores another account\'s transactions when picking the start', async () => {
+    it("ignores another account's transactions when picking the start", async () => {
       const acct = await createAccount(userId, 'assets:chequing')
       const other = await createAccount(userId, 'liabilities:visa')
       const groceries = await createAccount(userId, 'expenses:groceries')
       await seedTxn(userId, other.id, '2025-01-05', groceries.id)
       await seedTxn(userId, acct.id, '2025-06-02', groceries.id)
 
-      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+      const body = await (
+        await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+      ).json()
 
       expect(body.interval.fromDate).toBe('2025-06-02')
     })
@@ -586,14 +693,19 @@ describe('coverage', () => {
       const groceries = await createAccount(userId, 'expenses:groceries')
       const old = await seedTxn(userId, acct.id, '2025-01-05', groceries.id)
       await seedTxn(userId, acct.id, '2025-06-02', groceries.id)
-      await db.update(transactions).set({ deletedAt: new Date() }).where(eq(transactions.id, old.id))
+      await db
+        .update(transactions)
+        .set({ deletedAt: new Date() })
+        .where(eq(transactions.id, old.id))
 
-      const body = await (await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })).json()
+      const body = await (
+        await reconcile(cookie, { accountId: acct.id, throughDate: '2025-07-31' })
+      ).json()
 
       expect(body.interval.fromDate).toBe('2025-06-02')
     })
 
-    it('refuses to reconcile another user\'s account', async () => {
+    it("refuses to reconcile another user's account", async () => {
       const otherCookie = await createTestUser('other@example.com')
       const theirUserId = await (async () => {
         const r = await app.request('/api/auth/get-session', { headers: { Cookie: otherCookie } })
@@ -604,14 +716,19 @@ describe('coverage', () => {
       const res = await reconcile(cookie, { accountId: theirAccount.id, throughDate: '2025-07-31' })
 
       expect(res.status).toBe(404)
-      const rows = await db.select().from(accountCoverage).where(eq(accountCoverage.accountId, theirAccount.id))
+      const rows = await db
+        .select()
+        .from(accountCoverage)
+        .where(eq(accountCoverage.accountId, theirAccount.id))
       expect(rows).toHaveLength(0)
     })
 
     it('rejects a malformed date', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
 
-      expect((await reconcile(cookie, { accountId: acct.id, throughDate: '31/07/2025' })).status).toBe(400)
+      expect(
+        (await reconcile(cookie, { accountId: acct.id, throughDate: '31/07/2025' })).status,
+      ).toBe(400)
       expect((await reconcile(cookie, { accountId: acct.id })).status).toBe(400)
     })
 
@@ -619,7 +736,10 @@ describe('coverage', () => {
       const res = await app.request('/api/coverage/reconcile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ accountId: '00000000-0000-4000-8000-000000000000', throughDate: '2025-07-31' }),
+        body: JSON.stringify({
+          accountId: '00000000-0000-4000-8000-000000000000',
+          throughDate: '2025-07-31',
+        }),
       })
 
       expect(res.status).toBe(401)
@@ -644,26 +764,36 @@ describe('coverage', () => {
       // Behind: covered to a month ago, still transacting.
       const chequing = await createAccount(userId, 'assets:chequing')
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: daysAgo(400), throughDate: daysAgo(30), source: 'import',
+        accountId: chequing.id,
+        fromDate: daysAgo(400),
+        throughDate: daysAgo(30),
+        source: 'import',
       })
       await seedTxn(userId, chequing.id, daysAgo(35), groceries.id)
       // Current: covered right up to today.
       const wise = await createAccount(userId, 'assets:wise')
       await postCoverage(cookie, {
-        accountId: wise.id, fromDate: daysAgo(90), throughDate: daysAgo(0), source: 'import',
+        accountId: wise.id,
+        fromDate: daysAgo(90),
+        throughDate: daysAgo(0),
+        source: 'import',
       })
       await seedTxn(userId, wise.id, daysAgo(5), groceries.id)
       // Dormant: a long confirmed-empty stretch and nothing since.
       const oldSavings = await createAccount(userId, 'assets:old-savings')
       await postCoverage(cookie, {
-        accountId: oldSavings.id, fromDate: daysAgo(300), throughDate: daysAgo(60), source: 'empty',
+        accountId: oldSavings.id,
+        fromDate: daysAgo(300),
+        throughDate: daysAgo(60),
+        source: 'empty',
       })
       // Unset: never asserted at all.
       await createAccount(userId, 'assets:cash')
       // Neither of these is a contributor, and neither endpoint should list them.
       await createAccount(userId, 'assets:receivable:trip')
       const hidden = await createAccount(userId, 'assets:hidden')
-      await db.update(userSettings)
+      await db
+        .update(userSettings)
         .set({ preferences: { hiddenAccountIds: [hidden.id] } })
         .where(eq(userSettings.userId, userId))
 
@@ -673,7 +803,10 @@ describe('coverage', () => {
       expect(status).toBe(200)
       expect(body.today).toBe(coach.today)
       const shrink = (a: any) => ({
-        accountId: a.accountId, state: a.state, coveredThrough: a.coveredThrough, dormant: a.dormant,
+        accountId: a.accountId,
+        state: a.state,
+        coveredThrough: a.coveredThrough,
+        dormant: a.dormant,
       })
       const byId = (rows: any[]) => [...rows].sort((a, b) => a.accountId.localeCompare(b.accountId))
       expect(byId(body.accounts)).toEqual(byId(coach.accounts.map(shrink)))
@@ -687,7 +820,10 @@ describe('coverage', () => {
       const groceries = await createAccount(userId, 'expenses:groceries')
       const chequing = await createAccount(userId, 'assets:chequing')
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: daysAgo(120), throughDate: daysAgo(74), source: 'import',
+        accountId: chequing.id,
+        fromDate: daysAgo(120),
+        throughDate: daysAgo(74),
+        source: 'import',
       })
       // Without activity inside the covered span the account reads dormant, which is correct
       // and not what this test is about.
@@ -715,17 +851,23 @@ describe('coverage', () => {
     it('ships none of the strip and interval weight the coach payload carries', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: daysAgo(120), throughDate: daysAgo(74), source: 'import',
+        accountId: chequing.id,
+        fromDate: daysAgo(120),
+        throughDate: daysAgo(74),
+        source: 'import',
       })
 
       const { body } = await projection()
 
       expect(Object.keys(body.accounts[0]).sort()).toEqual([
-        'accountId', 'coveredThrough', 'dormant', 'state',
+        'accountId',
+        'coveredThrough',
+        'dormant',
+        'state',
       ])
     })
 
-    it('sees only the caller\'s own accounts', async () => {
+    it("sees only the caller's own accounts", async () => {
       await createAccount(userId, 'assets:chequing')
       const otherCookie = await createTestUser('other@example.com')
       const otherId = await userIdFor(otherCookie)
@@ -760,7 +902,10 @@ describe('coverage', () => {
       const visa = await createAccount(userId, 'liabilities:visa')
       for (const id of [chequing.id, visa.id]) {
         await postCoverage(cookie, {
-          accountId: id, fromDate: daysAgo(400), throughDate: today(), source: 'import',
+          accountId: id,
+          fromDate: daysAgo(400),
+          throughDate: today(),
+          source: 'import',
         })
         // Activity inside the covered span, or the account reads dormant and drops out of the
         // reckoning entirely — which is correct behaviour and not what this test is about.
@@ -779,10 +924,16 @@ describe('coverage', () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       const visa = await createAccount(userId, 'liabilities:visa')
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: daysAgo(400), throughDate: daysAgo(1), source: 'import',
+        accountId: chequing.id,
+        fromDate: daysAgo(400),
+        throughDate: daysAgo(1),
+        source: 'import',
       })
       await postCoverage(cookie, {
-        accountId: visa.id, fromDate: daysAgo(400), throughDate: daysAgo(90), source: 'import',
+        accountId: visa.id,
+        fromDate: daysAgo(400),
+        throughDate: daysAgo(90),
+        source: 'import',
       })
       await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
       await seedTxn(userId, visa.id, daysAgo(120), groceries.id)
@@ -807,10 +958,16 @@ describe('coverage', () => {
       const holeStart = `${hole}-01`
       const holeEnd = `${hole}-${new Date(Date.UTC(+hole.slice(0, 4), +hole.slice(5, 7), 0)).getUTCDate()}`
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: daysAgo(400), throughDate: addDays(holeStart, -1), source: 'import',
+        accountId: chequing.id,
+        fromDate: daysAgo(400),
+        throughDate: addDays(holeStart, -1),
+        source: 'import',
       })
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: addDays(holeEnd, 1), throughDate: today(), source: 'import',
+        accountId: chequing.id,
+        fromDate: addDays(holeEnd, 1),
+        throughDate: today(),
+        source: 'import',
       })
       await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
 
@@ -825,13 +982,19 @@ describe('coverage', () => {
       const groceries = await createAccount(userId, 'expenses:groceries')
       const chequing = await createAccount(userId, 'assets:chequing')
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: daysAgo(400), throughDate: today(), source: 'import',
+        accountId: chequing.id,
+        fromDate: daysAgo(400),
+        throughDate: today(),
+        source: 'import',
       })
       await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
       // Long confirmed-empty history and nothing since: dormant.
       const oldSavings = await createAccount(userId, 'assets:old-savings')
       await postCoverage(cookie, {
-        accountId: oldSavings.id, fromDate: daysAgo(300), throughDate: daysAgo(200), source: 'empty',
+        accountId: oldSavings.id,
+        fromDate: daysAgo(300),
+        throughDate: daysAgo(200),
+        source: 'empty',
       })
 
       const { body } = await months(monthOf(daysAgo(30)), monthOf(daysAgo(30)))
@@ -843,7 +1006,10 @@ describe('coverage', () => {
     it('measures the month in progress against today rather than its end', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: daysAgo(400), throughDate: today(), source: 'import',
+        accountId: chequing.id,
+        fromDate: daysAgo(400),
+        throughDate: today(),
+        source: 'import',
       })
 
       const { body } = await months(monthOf(today()), monthOf(today()))
@@ -882,7 +1048,10 @@ describe('coverage', () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       await createAccount(userId, 'assets:cash')
       await postCoverage(cookie, {
-        accountId: chequing.id, fromDate: daysAgo(400), throughDate: today(), source: 'import',
+        accountId: chequing.id,
+        fromDate: daysAgo(400),
+        throughDate: today(),
+        source: 'import',
       })
 
       const { body } = await months('2026-06', '2026-06')
@@ -918,11 +1087,19 @@ describe('coverage', () => {
   describe('DELETE /api/coverage/:id', () => {
     it('soft deletes an assertion and drops it from the merged result', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      const created = await (await postCoverage(cookie, {
-        accountId: acct.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import',
-      })).json()
+      const created = await (
+        await postCoverage(cookie, {
+          accountId: acct.id,
+          fromDate: '2025-07-01',
+          throughDate: '2025-07-31',
+          source: 'import',
+        })
+      ).json()
 
-      const res = await app.request(`/api/coverage/${created.id}`, { method: 'DELETE', headers: { Cookie: cookie } })
+      const res = await app.request(`/api/coverage/${created.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
       expect(res.status).toBe(204)
 
       const { intervals, assertions } = await (await getCoverage(cookie, acct.id)).json()
@@ -930,7 +1107,10 @@ describe('coverage', () => {
       expect(assertions).toEqual([])
 
       // The row survives — a withdrawn assertion is still a thing that was once asserted.
-      const [row] = await db.select().from(accountCoverage).where(eq(accountCoverage.id, created.id))
+      const [row] = await db
+        .select()
+        .from(accountCoverage)
+        .where(eq(accountCoverage.id, created.id))
       expect(row).toBeDefined()
       expect(row.deletedAt).not.toBeNull()
     })
@@ -938,16 +1118,34 @@ describe('coverage', () => {
     // Deleting the bridging assertion must reopen the gap it was covering.
     it('reopens a span when the interval joining it is withdrawn', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-06-01', throughDate: '2025-06-30', source: 'import' })
-      const july = await (await postCoverage(cookie, {
-        accountId: acct.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import',
-      })).json()
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-08-01', throughDate: '2025-08-31', source: 'import' })
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-06-01',
+        throughDate: '2025-06-30',
+        source: 'import',
+      })
+      const july = await (
+        await postCoverage(cookie, {
+          accountId: acct.id,
+          fromDate: '2025-07-01',
+          throughDate: '2025-07-31',
+          source: 'import',
+        })
+      ).json()
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-08-01',
+        throughDate: '2025-08-31',
+        source: 'import',
+      })
 
       const before = await (await getCoverage(cookie, acct.id)).json()
       expect(before.intervals).toEqual([{ fromDate: '2025-06-01', throughDate: '2025-08-31' }])
 
-      await app.request(`/api/coverage/${july.id}`, { method: 'DELETE', headers: { Cookie: cookie } })
+      await app.request(`/api/coverage/${july.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
 
       const after = await (await getCoverage(cookie, acct.id)).json()
       expect(after.intervals).toEqual([
@@ -960,26 +1158,47 @@ describe('coverage', () => {
     // claim is not the same as withdrawing the fact.
     it('leaves coverage intact when a duplicate assertion still stands', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      const first = await (await postCoverage(cookie, {
-        accountId: acct.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import',
-      })).json()
-      await postCoverage(cookie, { accountId: acct.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'reconcile' })
+      const first = await (
+        await postCoverage(cookie, {
+          accountId: acct.id,
+          fromDate: '2025-07-01',
+          throughDate: '2025-07-31',
+          source: 'import',
+        })
+      ).json()
+      await postCoverage(cookie, {
+        accountId: acct.id,
+        fromDate: '2025-07-01',
+        throughDate: '2025-07-31',
+        source: 'reconcile',
+      })
 
-      await app.request(`/api/coverage/${first.id}`, { method: 'DELETE', headers: { Cookie: cookie } })
+      await app.request(`/api/coverage/${first.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
 
       const { intervals } = await (await getCoverage(cookie, acct.id)).json()
       expect(intervals).toEqual([{ fromDate: '2025-07-01', throughDate: '2025-07-31' }])
     })
 
-    it('refuses to delete another user\'s assertion', async () => {
+    it("refuses to delete another user's assertion", async () => {
       const otherCookie = await createTestUser('other@example.com')
       const otherUserId = await userIdFor(otherCookie)
       const theirAccount = await createAccount(otherUserId, 'assets:their-chequing')
-      const theirs = await (await postCoverage(otherCookie, {
-        accountId: theirAccount.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import',
-      })).json()
+      const theirs = await (
+        await postCoverage(otherCookie, {
+          accountId: theirAccount.id,
+          fromDate: '2025-07-01',
+          throughDate: '2025-07-31',
+          source: 'import',
+        })
+      ).json()
 
-      await app.request(`/api/coverage/${theirs.id}`, { method: 'DELETE', headers: { Cookie: cookie } })
+      await app.request(`/api/coverage/${theirs.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
 
       const [row] = await db.select().from(accountCoverage).where(eq(accountCoverage.id, theirs.id))
       expect(row.deletedAt).toBeNull()
@@ -987,24 +1206,40 @@ describe('coverage', () => {
 
     it('is idempotent', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      const created = await (await postCoverage(cookie, {
-        accountId: acct.id, fromDate: '2025-07-01', throughDate: '2025-07-31', source: 'import',
-      })).json()
+      const created = await (
+        await postCoverage(cookie, {
+          accountId: acct.id,
+          fromDate: '2025-07-01',
+          throughDate: '2025-07-31',
+          source: 'import',
+        })
+      ).json()
 
-      await app.request(`/api/coverage/${created.id}`, { method: 'DELETE', headers: { Cookie: cookie } })
-      const second = await app.request(`/api/coverage/${created.id}`, { method: 'DELETE', headers: { Cookie: cookie } })
+      await app.request(`/api/coverage/${created.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
+      const second = await app.request(`/api/coverage/${created.id}`, {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
 
       expect(second.status).toBe(204)
     })
 
     it('returns 204 rather than 500 for a malformed id', async () => {
-      const res = await app.request('/api/coverage/not-a-uuid', { method: 'DELETE', headers: { Cookie: cookie } })
+      const res = await app.request('/api/coverage/not-a-uuid', {
+        method: 'DELETE',
+        headers: { Cookie: cookie },
+      })
 
       expect(res.status).toBe(204)
     })
 
     it('requires authentication', async () => {
-      const res = await app.request('/api/coverage/00000000-0000-4000-8000-000000000000', { method: 'DELETE' })
+      const res = await app.request('/api/coverage/00000000-0000-4000-8000-000000000000', {
+        method: 'DELETE',
+      })
 
       expect(res.status).toBe(401)
     })

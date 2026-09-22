@@ -19,11 +19,11 @@ export const DESCRIPTION_PLACEHOLDERS = [
   'Log the damage',
   '买单',
   'Coffee, presumably',
-  'Je demande l\'addition',
+  "Je demande l'addition",
   'T’as mangé quoi?',
   'C’tait combien?',
   'Encore un café?',
-  'Encore un p\'tit croissant?',
+  "Encore un p'tit croissant?",
   'Note ça là',
 ] as const
 

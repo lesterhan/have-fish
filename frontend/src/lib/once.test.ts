@@ -1,4 +1,4 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { once } from './once'
 
 // No module mocking here on purpose. The previous version of these tests patched the
@@ -13,7 +13,12 @@ function spy<T>(answer: () => Promise<T>) {
     calls += 1
     return answer()
   }
-  return { fn, get calls() { return calls } }
+  return {
+    fn,
+    get calls() {
+      return calls
+    },
+  }
 }
 
 describe('once', () => {
