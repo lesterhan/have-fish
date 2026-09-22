@@ -2,9 +2,20 @@
 
 Running have-fish on a server: surviving a reboot, and backups.
 
+## What runs
+
+Two containers: `postgres`, and `backend` — which despite the name serves both the API and
+the web app, from one process on one port. Published on **8888**; inside the container it
+listens on 8887. There is no separate frontend container and no proxy between them.
+
+```bash
+docker compose ps                        # both should be Up
+curl -fsS http://localhost:8888/health   # {"status":"ok"}
+```
+
 ## Surviving a reboot
 
-All three services carry `restart: unless-stopped` in `docker-compose.yml`. That covers a
+Both services carry `restart: unless-stopped` in `docker-compose.yml`. That covers a
 crashed container and a restarted daemon, and it stops short of fighting you: a container
 you deliberately `stop` stays stopped, including across a reboot. `always` would override
 that, which is the wrong trade for a machine you also maintain.
@@ -25,7 +36,7 @@ systemctl --user enable --now podman-restart.service
 loginctl enable-linger "$USER"     # or the session manager tears it all down at logout
 ```
 
-### Why all three services need a policy, not just Postgres
+### Why the backend needs a policy too, not just Postgres
 
 `depends_on` does not survive a reboot. `condition: service_healthy` is honoured by
 `compose up` and ignored when the engine starts containers on boot — they come up in no
@@ -44,9 +55,9 @@ sleep 5 && docker compose ps             # expect: running again
 ```
 
 ```bash
-sudo systemctl restart docker            # restarts the engine; all three should return
+sudo systemctl restart docker            # restarts the engine; both should return
 sleep 20 && docker compose ps
-curl -fsS http://localhost:8887/health
+curl -fsS http://localhost:8888/health
 ```
 
 The daemon restart is the useful one — it is the same code path a boot takes, minus the

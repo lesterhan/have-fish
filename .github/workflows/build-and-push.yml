@@ -22,21 +22,17 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push backend
-        uses: docker/build-push-action@v6
-        with:
-          context: ./backend
-          push: true
-          tags: ghcr.io/lesterhan/have-fish-backend:latest
-
       - name: Set version
         run: echo "VERSION=$(date -u '+%Y-%m-%d').${GITHUB_SHA::8}.$(date -u '+%H%M')" >> $GITHUB_ENV
 
-      - name: Build and push frontend
+      # One image now: the backend serves the frontend's build, so the context is the
+      # repository root and a single Dockerfile assembles both halves. The
+      # have-fish-frontend image is no longer produced; nothing pulls it.
+      - name: Build and push
         uses: docker/build-push-action@v6
         with:
-          context: ./frontend
+          context: .
           push: true
-          tags: ghcr.io/lesterhan/have-fish-frontend:latest
+          tags: ghcr.io/lesterhan/have-fish-backend:latest
           build-args: PUBLIC_VERSION=${{ env.VERSION }}
 

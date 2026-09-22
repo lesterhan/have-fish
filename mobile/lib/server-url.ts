@@ -17,7 +17,7 @@ export interface ServerParts {
 }
 
 /** The app's standard backend port — shown as the port-field placeholder hint. */
-export const DEFAULT_PORT = '8887'
+export const DEFAULT_PORT = '8888'
 
 /** Cap on the remembered-server list (mirrors the currency recents cap). */
 export const SERVERS_CAP = 8

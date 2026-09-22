@@ -438,13 +438,19 @@ the wrong table and should be read with this correction in hand.
 
 ## Two obstacles the research did not have
 
-**The frontend is served from the server, with an auth round trip per page.**
-`frontend/src/hooks.server.ts` proxies `/api/*` **and** calls `/api/auth/get-session`
-before rendering anything, so every page view costs a round trip before a byte of UI
-appears — and offline it is a blank screen. Mitigating fact: that hook is the *only*
-server-side code in the frontend (no `+server.ts` handlers, two load functions total), so
-`adapter-node` → `adapter-static` per `L01` removes it cleanly. This is a latency win on
-its own, today, independent of everything else.
+**~~The frontend is served from the server, with an auth round trip per page.~~**
+**Resolved 2026-09-22 (#275).** `hooks.server.ts` proxied `/api/*` **and** called
+`/api/auth/get-session` before rendering anything, so every page view cost a round trip
+before a byte of UI appeared — and offline it was a blank screen. It turned out to be
+smaller than it looked: the hook fed two redirect gates and nothing else, and the chrome
+already had its own client-side session through Better Auth's `useSession()`. So the
+client already knew what the server was re-deriving on every request.
+
+The frontend is now `adapter-static` with the guards in the browser, and the backend
+serves the build from one origin — no proxy hop, no CORS in production, one container
+instead of two. That last part is also the shape D7 needs: one process binding a port and
+handing out the same assets is what the local binary does, so P2.3 inherits it rather than
+rebuilding it.
 
 **`updatedAt` is missing almost everywhere.** It exists only on `userSettings` and
 `importRules`, plus the Better Auth tables. `accounts`, `transactions`, `postings`,
@@ -471,8 +477,9 @@ shared-expense rule block an entire bank statement.
    settlement batches. *Not* on `postings` or splits, whose identity is not stable across
    an edit (`F2`, and the correction under "Code evidence" above). Still one small PR, but
    design the sync unit before writing it, or it lands on the wrong tables.
-4. **Static frontend build target.** Removes the per-page auth round trip; a latency win
-   today with or without the rest.
+4. ~~**Static frontend build target.**~~ **Done 2026-09-22** (#275). Removed the per-page
+   auth round trip, and collapsed the two containers into one — a latency win today, and
+   the serving shape P2.3 needs.
 5. **The spike, as two cheap probes.** Linux only — that alone deletes the entire code
    signing problem (`L05` §2, ~US$320/yr): no Apple Developer account, no Authenticode,
    no notarization. Distribution is a file and `chmod +x`.
