@@ -5,6 +5,28 @@ on:
     branches: [main]
 
 jobs:
+  # One formatter and one linter for every half of the repo, configured in `biome.jsonc`
+  # at the root. This job is deliberately the cheapest in the file — no database, no
+  # install beyond one binary — so a formatting or lint break is reported in seconds
+  # rather than behind a four-minute test run.
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Biome
+        run: bun install
+
+      # `check` is formatter + linter + import sorting in one pass. Warnings do not fail
+      # the job; errors do.
+      - name: Format and lint
+        run: bun run check
+
   backend:
     runs-on: ubuntu-latest
 

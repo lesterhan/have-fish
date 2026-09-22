@@ -21,6 +21,7 @@ Three guiding principles that should inform every feature decision:
 - **Database**: PostgreSQL via Drizzle ORM
 - **Auth**: Better Auth (email + password)
 - **Deployment**: Docker/Podman Compose
+- **Formatting and linting**: Biome, configured once in `biome.jsonc` at the root
 
 ## Project Structure
 
@@ -81,10 +82,39 @@ bun run android       # run on connected device / emulator (needs Android SDK)
 # published as GitHub Releases for Obtainium. Cut a v* tag to trigger a build.
 # See mobile/README.md for the local prebuild + gradle assembleRelease flow.
 
+# Formatting and linting (from the project root)
+bun run check         # format check + lint + import order, the same gate CI runs
+bun run check:fix     # apply every safe fix
+bun run format        # formatting only
+# The same thing from inside backend/, frontend/ or mobile/, scoped to that half.
+# `check` is already taken there by the type checker, so the script is called `lint`:
+bun run lint
+
 # Infrastructure (run from project root)
 podman compose up postgres -d     # start just Postgres locally
 podman compose up --build         # start full stack
 ```
+
+One formatter and one linter span the whole repository: **Biome**, configured in
+`biome.jsonc` at the root. Running it from `backend/`, `frontend/` or `mobile/` picks up the
+same root config and only that half’s files, so there is one answer to what the code
+should look like and one command that gives it. CI runs `bun run check` on every pull request; warnings do not fail the
+job, errors do.
+
+The one exception is `.svelte` files, which Biome cannot format — **Prettier** still owns
+those and nothing else. `frontend/`'s `format` script runs Prettier over the components
+and Biome over everything beside them.
+
+Two settings are deliberately not Biome's defaults, and both are there so the tool agrees
+with the code that already exists rather than rewriting it: single quotes and no
+semicolons in TypeScript, single quotes in CSS too (the frontend's Prettier config has
+said so since the beginning, and the token tests read `tokens.css` as text), and a
+100-column line (the default 80 would rewrap roughly a tenth of the repository to no
+purpose).
+
+`.git-blame-ignore-revs` holds the one-time reformatting commit. Configure git to skip it
+with `git config blame.ignoreRevsFile .git-blame-ignore-revs`; GitHub reads the file
+automatically.
 
 ## Development Workflow
 
