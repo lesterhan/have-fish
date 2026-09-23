@@ -133,7 +133,7 @@ export function shortPath(path: string, root: string): string {
 
 /** What to call an account on screen: its name when it has one, else its path minus the root. */
 export function accountDisplayName(
-  account: { path: string; name?: string | null },
+  account: { path: string; name?: string | null | undefined },
   root: string,
 ): string {
   return account.name ?? shortPath(account.path, root)

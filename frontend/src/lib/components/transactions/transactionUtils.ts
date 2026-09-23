@@ -21,6 +21,11 @@ export function focusOnMount(node: HTMLInputElement) {
 // Parse YYYY-MM-DD as local midnight to avoid UTC timezone shift.
 export function parseDateParts(isoDate: string) {
   const [y, m, d] = isoDate.substring(0, 10).split('-').map(Number)
+  // Callers pass a date this app or the API produced. Saying so is what lets the three
+  // numbers below be numbers, and names the input when one day they are not.
+  if (y === undefined || m === undefined || d === undefined) {
+    throw new Error(`not a YYYY-MM-DD date: "${isoDate}"`)
+  }
   const date = new Date(y, m - 1, d)
   return {
     dow: date.toLocaleDateString('en', { weekday: 'short' }),
@@ -30,6 +35,14 @@ export function parseDateParts(isoDate: string) {
 }
 
 // Sort postings by amount to identify the debit (from) and credit (to) sides.
+/**
+ * The two ends of a transaction: the largest outflow and the largest inflow.
+ *
+ * Both are optional because a posting list *can* be empty — the API cannot return one
+ * (`TOO_FEW_POSTINGS` is a 400), but the type says what the function can actually
+ * promise. Callers reach them with `?.`, so a row that somehow arrived empty renders as
+ * a blank line rather than taking the page down with it.
+ */
 export function summarize(postings: Posting[]) {
   const sorted = [...postings].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))
   return {
@@ -56,8 +69,16 @@ export function classifyTransfer(postings: Posting[], defaultConversionAccountId
   return { source, target, fees }
 }
 
-// Format an amount string as an absolute value with 2 decimal places.
-export function fmt(amount: string): string {
+/**
+ * An amount as an absolute value with two decimal places; blank when there is no amount.
+ *
+ * The absent case is real, not defensive: the row markup reads `from?.amount` off a
+ * `summarize()` that promises neither end, and `parseFloat(undefined)` reached the screen
+ * as the literal string "NaN". Blank is what a row means to show for a posting it does
+ * not have.
+ */
+export function fmt(amount: string | null | undefined): string {
+  if (amount == null) return ''
   return Math.abs(parseFloat(amount)).toFixed(2)
 }
 

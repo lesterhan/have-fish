@@ -1,3 +1,4 @@
+import { at } from '../lib/at'
 /**
  * Contrast contracts that the token file has to keep.
  *
@@ -60,7 +61,8 @@ function themeBlock(selector: string): Map<string, string> {
 
   const declarations = new Map<string, string>()
   for (const [, name, value] of body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-    declarations.set(name, value.trim())
+    // Both groups are mandatory in the pattern; the guard is for the day it is not.
+    if (name !== undefined && value !== undefined) declarations.set(name, value.trim())
   }
   return declarations
 }
@@ -164,7 +166,7 @@ describe('the tooltip is readable in both themes', () => {
 function caseColour(theme: Map<string, string>): string {
   const hexes = token(theme, '--color-titlebar-bg').match(/#[0-9a-f]{6}/gi)
   if (!hexes?.length) throw new Error('the titlebar gradient declares no stop to measure')
-  return hexes.at(-1)!
+  return at(hexes, hexes.length - 1)
 }
 
 /**

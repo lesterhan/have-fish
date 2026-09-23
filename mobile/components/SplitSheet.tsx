@@ -19,7 +19,7 @@ interface Props {
   /** Persist the chosen two-member vector. */
   onSave: (weights: WeightVector) => Promise<void>
   /** When set, shows a "Use baseline" action (clears a category override). */
-  onClear?: () => Promise<void>
+  onClear?: (() => Promise<void>) | undefined
 }
 
 /**
@@ -41,7 +41,11 @@ export function SplitSheet({
   onSave,
   onClear,
 }: Props) {
-  const twoMember = members.length === 2
+  // `pair` is the same statement `members.length === 2` was making, in a form the compiler
+  // follows into the branch that needs it — the four reads below used to restate it.
+  const [first, second] = members
+  const pair =
+    first !== undefined && second !== undefined && members.length === 2 ? { first, second } : null
   const [pct, setPct] = useState(50)
   const [busy, setBusy] = useState(false)
   const seeded = useRef(false)
@@ -55,11 +59,16 @@ export function SplitSheet({
       seeded.current = false
       return
     }
-    if (seeded.current || !twoMember) return
+    if (seeded.current) return
+    // Read the pair inside rather than closing over the one built for rendering: that one
+    // is a fresh object every render, so depending on it would re-run this effect — and
+    // this effect sets state.
+    const [a, b] = members
+    if (a === undefined || b === undefined || members.length !== 2) return
     seeded.current = true
-    const value = weightsToPct(initial, members[0].userId, members[1].userId) ?? 50
+    const value = weightsToPct(initial, a.userId, b.userId) ?? 50
     setPct(Math.min(95, Math.max(5, Math.round(value / 5) * 5)))
-  }, [visible, twoMember, initial, members])
+  }, [visible, initial, members])
 
   async function run(action: () => Promise<void>) {
     if (busy) return
@@ -76,7 +85,7 @@ export function SplitSheet({
     <BottomSheet visible={visible} onClose={onClose} title={title}>
       {hint != null && <Text style={styles.hint}>{hint}</Text>}
 
-      {!twoMember ? (
+      {pair === null ? (
         <Text style={styles.note}>
           Splits across {members.length === 1 ? 'a single member' : `${members.length} members`} are
           managed on the web app.
@@ -85,10 +94,10 @@ export function SplitSheet({
         <>
           <View style={styles.legend}>
             <Text style={styles.legendName} numberOfLines={1}>
-              {members[0].userName} <Text style={styles.legendPct}>{Math.round(pct)}%</Text>
+              {pair.first.userName} <Text style={styles.legendPct}>{Math.round(pct)}%</Text>
             </Text>
             <Text style={[styles.legendName, styles.legendRight]} numberOfLines={1}>
-              <Text style={styles.legendPct}>{100 - Math.round(pct)}%</Text> {members[1].userName}
+              <Text style={styles.legendPct}>{100 - Math.round(pct)}%</Text> {pair.second.userName}
             </Text>
           </View>
 
@@ -100,7 +109,7 @@ export function SplitSheet({
             label="Save split"
             disabled={busy}
             onPress={() =>
-              run(() => onSave(pctToVector(pct, members[0].userId, members[1].userId)))
+              run(() => onSave(pctToVector(pct, pair.first.userId, pair.second.userId)))
             }
             style={styles.save}
           />

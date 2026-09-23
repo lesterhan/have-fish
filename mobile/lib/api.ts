@@ -18,7 +18,7 @@ type QueuedRequest = {
   id: string
   path: string
   method: string
-  body?: string
+  body?: string | undefined
   queuedAt: string
 }
 
@@ -67,9 +67,11 @@ export async function flushOfflineQueue(): Promise<{ flushed: number; failed: nu
 
   for (const req of queue) {
     try {
+      // `body` is spread rather than assigned: `RequestInit` distinguishes an absent key
+      // from one holding `undefined`, and a queued GET has no body at all.
       const res = await apiFetch(req.path, {
         method: req.method,
-        body: req.body,
+        ...(req.body === undefined ? {} : { body: req.body }),
       })
       if (res.ok) {
         flushed++
@@ -673,7 +675,7 @@ export type BatchSettlementLine = {
   debtCurrency: string
   settledAmount: string
   settledCurrency: string
-  fxRate?: string
+  fxRate?: string | undefined
 }
 
 // Create a pending batch — one combined payer transaction, one settlement row per
@@ -682,7 +684,12 @@ export type BatchSettlementLine = {
 // account (enforced server-side).
 export async function createBatchSettlement(
   groupId: string,
-  body: { payerAccountId: string; date: string; note?: string; lines: BatchSettlementLine[] },
+  body: {
+    payerAccountId: string
+    date: string
+    note?: string | undefined
+    lines: BatchSettlementLine[]
+  },
 ): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
   const res = await apiFetch(`/api/fish-pie/groups/${groupId}/settlements/batch`, {
     method: 'POST',

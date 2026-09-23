@@ -24,11 +24,11 @@
     accountId: string | null
     settings: UserSettings | null | undefined
     /** From `protectionFor` — only the system kind shows a chip; roles have their own. */
-    protection?: Protection | null
+    protection?: Protection | null | undefined
     /** Chips before the roles, for what the row *is* rather than what points at it. */
-    lead?: Snippet
+    lead?: Snippet | undefined
     /** Chips after — the host's own state, e.g. pinned, hidden, empty. */
-    children?: Snippet
+    children?: Snippet | undefined
   }
 
   let {

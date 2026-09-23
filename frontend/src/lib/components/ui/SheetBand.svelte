@@ -17,19 +17,19 @@
   interface Props {
     label: string
     /** Rows in the group. */
-    count?: number
+    count?: number | undefined
     /** Right-aligned figure — the group's total. */
-    total?: string
+    total?: string | undefined
     /** Small suffix on the total: a currency code, or "entries". */
-    unit?: string
+    unit?: string | undefined
     /** Quiet aside after the total — what the figure is leaving out. */
-    note?: string
+    note?: string | undefined
     /** Tooltip for the note, which is deliberately short enough to need one. */
-    noteTitle?: string
-    collapsed?: boolean
-    ontoggle?: () => void
+    noteTitle?: string | undefined
+    collapsed?: boolean | undefined
+    ontoggle?: (() => void) | undefined
     /** A group-level control, after the total. */
-    trailing?: Snippet
+    trailing?: Snippet | undefined
   }
 
   let {

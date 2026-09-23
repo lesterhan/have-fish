@@ -55,7 +55,8 @@ export function nextUnreviewedIndex(rows: StatusInput[], from: number): number {
   if (rows.length === 0) return -1
   for (let offset = 1; offset <= rows.length; offset++) {
     const i = (from + offset + rows.length) % rows.length
-    if (rowStatus(rows[i]) === 'needs-review') return i
+    const row = rows[i]
+    if (row !== undefined && rowStatus(row) === 'needs-review') return i
   }
   return -1
 }

@@ -7,7 +7,7 @@
     open: boolean
     candidates: MalformedFxSpend[]
     conversionAccountConfigured: boolean
-    onhealed?: (transactionId: string) => void
+    onhealed?: ((transactionId: string) => void) | undefined
   }
 
   let {

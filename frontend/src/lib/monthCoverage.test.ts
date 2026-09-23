@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from './at'
 import {
   comparisonBlocker,
   isFloor,
@@ -24,7 +25,8 @@ const MONTHS = [
 ]
 const labelOf = (key: string) => {
   const [y, m] = key.split('-').map(Number)
-  return `${MONTHS[m - 1]} ${y}`
+  if (y === undefined || m === undefined) throw new Error(`not a YYYY-MM key: "${key}"`)
+  return `${at(MONTHS, m - 1)} ${y}`
 }
 
 function gap(path: string, coveredThrough: string | null): MonthGap {
@@ -33,6 +35,7 @@ function gap(path: string, coveredThrough: string | null): MonthGap {
 
 function month(over: Partial<MonthCoverage> & { month: string }): MonthCoverage {
   const [y, m] = over.month.split('-').map(Number)
+  if (y === undefined || m === undefined) throw new Error(`not a YYYY-MM month: "${over.month}"`)
   const end = `${over.month}-${String(new Date(Date.UTC(y, m, 0)).getUTCDate()).padStart(2, '0')}`
   return {
     state: 'complete',

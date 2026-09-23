@@ -19,7 +19,7 @@
     /** Every account, categories included: this answers "where is X", and X may be a category. */
     accounts: SidebarAccount[]
     /** Shown before anything is typed — the sidebar passes its pinned and recent rows. */
-    initial?: SidebarRow[]
+    initial?: SidebarRow[] | undefined
     /** Bound so the host can open it from its own shortcut or a button. */
     open: boolean
   }

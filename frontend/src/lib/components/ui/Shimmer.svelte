@@ -1,7 +1,7 @@
 <script lang="ts">
   interface Props {
-    width?: string
-    height?: string
+    width?: string | undefined
+    height?: string | undefined
   }
 
   let { width = '100%', height = '1em' }: Props = $props()

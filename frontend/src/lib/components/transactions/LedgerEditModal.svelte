@@ -5,6 +5,7 @@
 </script>
 
 <script lang="ts">
+  import { at } from '$lib/at'
   import Modal from '$lib/components/ui/Modal.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -49,17 +50,19 @@
   interface Props {
     tx: Transaction
     accounts: Account[]
-    defaultOffsetAccountId?: string | null
+    defaultOffsetAccountId?: string | null | undefined
     open: boolean
     onclose: () => void
-    onaccountcreated?: (account: Account) => void
-    onsaved?: (updates: {
-      date: string
-      description: string | null
-      postings: Posting[]
-    }) => void
-    ondeleted?: () => void
-    onremovedFromGroup?: () => void
+    onaccountcreated?: ((account: Account) => void) | undefined
+    onsaved?:
+      | ((updates: {
+          date: string
+          description: string | null
+          postings: Posting[]
+        }) => void)
+      | undefined
+    ondeleted?: (() => void) | undefined
+    onremovedFromGroup?: (() => void) | undefined
   }
 
   let {
@@ -196,28 +199,29 @@
   }
 
   // --- Posting row callbacks ---
+  // Each of these took the row's index and then read it back out of the array, which asked
+  // the same question twice. `find` answers it once, and the row it hands back is the same
+  // reactive proxy the array holds, so assigning through it still updates the modal.
   function commitAccount(id: string, accountId: string) {
-    const idx = localPostings.findIndex((p) => p.id === id)
-    if (idx >= 0) {
-      localPostings[idx].accountId = accountId
-      localPostings[idx].autofocusAccount = false
-    }
+    const posting = localPostings.find((p) => p.id === id)
+    if (!posting) return
+    posting.accountId = accountId
+    posting.autofocusAccount = false
   }
 
   function commitAmount(id: string, amount: string) {
-    const idx = localPostings.findIndex((p) => p.id === id)
-    if (idx >= 0) localPostings[idx].amount = amount
+    const posting = localPostings.find((p) => p.id === id)
+    if (posting) posting.amount = amount
   }
 
   function commitCurrency(id: string, currency: string) {
-    const idx = localPostings.findIndex((p) => p.id === id)
-    if (idx >= 0) localPostings[idx].currency = currency
+    const posting = localPostings.find((p) => p.id === id)
+    if (posting) posting.currency = currency
   }
 
   function toggleDelete(id: string) {
-    const idx = localPostings.findIndex((p) => p.id === id)
-    if (idx >= 0)
-      localPostings[idx].markedForDelete = !localPostings[idx].markedForDelete
+    const posting = localPostings.find((p) => p.id === id)
+    if (posting) posting.markedForDelete = !posting.markedForDelete
   }
 
   // --- Add posting ---
@@ -314,7 +318,7 @@
         .map((p) =>
           p.isNew
             ? {
-                id: createdResults[newIdx++].id,
+                id: at(createdResults, newIdx++).id,
                 accountId: p.accountId,
                 amount: p.amount,
                 currency: p.currency,

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Posting, PostingRole, Transaction } from '$lib/api'
+import { at } from '../../at'
 import {
   buildSavePlan,
   canSummaryEdit,
@@ -130,7 +131,7 @@ describe('setSubjectAccount', () => {
       },
     ])
     // original array not mutated
-    expect(draft.subjects[0].accountId).toBe('expenses:food')
+    expect(at(draft.subjects).accountId).toBe('expenses:food')
   })
 })
 

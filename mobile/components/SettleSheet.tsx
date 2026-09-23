@@ -137,7 +137,9 @@ export function SettleSheet({
   }
 
   function toggleConvert(i: number) {
-    if (lines[i].debtCurrency === target) return // can't convert to the same currency
+    // `i` comes from rendering `lines`, so the row is there; saying so keeps the
+    // same-currency guard below readable.
+    if (lines[i]?.debtCurrency === target) return // can't convert to the same currency
     const next = lines.map((l, idx) =>
       idx === i
         ? { ...l, convert: !l.convert, fxRate: null, asOfDate: null, settledAmount: '' }

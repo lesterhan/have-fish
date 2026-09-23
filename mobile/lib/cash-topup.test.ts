@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from './at'
 import {
   buildTopUpPostings,
   canSubmitTopUp,
@@ -233,7 +234,7 @@ describe('buildTopUpPostings — guards', () => {
 
   it('credits the source and debits the wallet', () => {
     const postings = buildTopUpPostings(crossCurrency)
-    expect(parseFloat(postings[0].amount)).toBeLessThan(0)
-    expect(parseFloat(postings[postings.length - 1].amount)).toBeGreaterThan(0)
+    expect(parseFloat(at(postings).amount)).toBeLessThan(0)
+    expect(parseFloat(at(postings, postings.length - 1).amount)).toBeGreaterThan(0)
   })
 })

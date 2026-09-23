@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { ParsedTransaction } from '$lib/api'
+import { at } from '../../at'
 import {
   applyTarget,
   buildClusters,
@@ -63,8 +64,8 @@ describe('buildClusters', () => {
     ]
     const clusters = buildClusters(txs, 'CAD')
     expect(clusters).toHaveLength(1)
-    expect(clusters[0].key).toBe('LOBLAWS')
-    expect(clusters[0].indices).toEqual([2, 0]) // date order, not file order
+    expect(at(clusters).key).toBe('LOBLAWS')
+    expect(at(clusters).indices).toEqual([2, 0]) // date order, not file order
   })
 
   it('leaves singletons out — there is no bulk in a bulk assign of one', () => {
@@ -92,7 +93,7 @@ describe('buildClusters', () => {
 
   it('reports the date range and summed spend', () => {
     const txs = [tx('LOBLAWS', '2026-06-27', '-12.50'), tx('LOBLAWS', '2026-06-03', '-40.00')]
-    const [cluster] = buildClusters(txs, 'CAD')
+    const cluster = at(buildClusters(txs, 'CAD'))
     expect(cluster.firstDate).toBe('2026-06-03')
     expect(cluster.lastDate).toBe('2026-06-27')
     expect(cluster.total).toBeCloseTo(52.5, 2)
@@ -105,7 +106,7 @@ describe('buildClusters', () => {
       tx('LOBLAWS', '2026-06-01', '-40.00', { currency: 'CAD' }),
       tx('LOBLAWS', '2026-06-02', '-40.00', { currency: 'EUR' }),
     ]
-    const [cluster] = buildClusters(txs, 'CAD')
+    const cluster = at(buildClusters(txs, 'CAD'))
     expect(cluster.total).toBeNull()
     expect(cluster.currency).toBeNull()
   })
@@ -122,8 +123,8 @@ describe('buildClusters', () => {
       targetCurrency: 'CZK',
     } as ParsedTransaction
     const clusters = buildClusters([transfer, { ...transfer, date: '2026-06-02' }], 'CAD')
-    expect(clusters[0].total).toBeCloseTo(720, 2)
-    expect(clusters[0].currency).toBe('CZK')
+    expect(at(clusters).total).toBeCloseTo(720, 2)
+    expect(at(clusters).currency).toBe('CZK')
   })
 
   it('surfaces the rule already covering a cluster', () => {
@@ -135,27 +136,30 @@ describe('buildClusters', () => {
         matchedRulePattern: 'starbucks',
       }),
     ]
-    expect(buildClusters(txs, 'CAD')[0].matchedRulePattern).toBe('starbucks')
+    expect(at(buildClusters(txs, 'CAD')).matchedRulePattern).toBe('starbucks')
   })
 
   it('leaves matchedRulePattern null when no rule fired', () => {
     const txs = [tx('LOBLAWS', '2026-06-01', '-1.00'), tx('LOBLAWS', '2026-06-02', '-1.00')]
-    expect(buildClusters(txs, 'CAD')[0].matchedRulePattern).toBeNull()
+    expect(at(buildClusters(txs, 'CAD')).matchedRulePattern).toBeNull()
   })
 })
 
 describe('initialClusterState', () => {
   it('defaults remember on for a habit and off for a pair', () => {
-    const pair = buildClusters(
-      [tx('BILLA', '2026-06-01', '-1.00'), tx('BILLA', '2026-06-02', '-1.00')],
-      'CAD',
-    )[0]
+    const pair = at(
+      buildClusters(
+        [tx('BILLA', '2026-06-01', '-1.00'), tx('BILLA', '2026-06-02', '-1.00')],
+        'CAD',
+      ),
+    )
     const habit = buildClusters(
       Array.from({ length: REMEMBER_THRESHOLD }, (_, i) =>
         tx('LOBLAWS', `2026-06-0${i + 1}`, '-1.00'),
       ),
       'CAD',
     )[0]
+    if (pair === undefined || habit === undefined) throw new Error('expected both clusters')
     expect(initialClusterState(pair).remember).toBe(false)
     expect(initialClusterState(habit).remember).toBe(true)
   })
@@ -171,6 +175,7 @@ describe('initialClusterState', () => {
       ),
       'CAD',
     )[0]
+    if (covered === undefined) throw new Error('expected a cluster')
     expect(initialClusterState(covered).remember).toBe(false)
   })
 })
@@ -247,14 +252,16 @@ describe('applyTarget', () => {
 })
 
 describe('membersToWrite', () => {
-  const cluster = buildClusters(
-    [
-      tx('LOBLAWS', '2026-06-01', '-1.00'),
-      tx('LOBLAWS', '2026-06-02', '-1.00'),
-      tx('LOBLAWS', '2026-06-03', '-1.00'),
-    ],
-    'CAD',
-  )[0]
+  const cluster = at(
+    buildClusters(
+      [
+        tx('LOBLAWS', '2026-06-01', '-1.00'),
+        tx('LOBLAWS', '2026-06-02', '-1.00'),
+        tx('LOBLAWS', '2026-06-03', '-1.00'),
+      ],
+      'CAD',
+    ),
+  )
 
   it('writes every untouched member', () => {
     const rows = [row(), row(), row()]
@@ -290,10 +297,12 @@ describe('membersToWrite', () => {
 })
 
 describe('userEditedCount', () => {
-  const cluster = buildClusters(
-    [tx('LOBLAWS', '2026-06-01', '-1.00'), tx('LOBLAWS', '2026-06-02', '-1.00')],
-    'CAD',
-  )[0]
+  const cluster = at(
+    buildClusters(
+      [tx('LOBLAWS', '2026-06-01', '-1.00'), tx('LOBLAWS', '2026-06-02', '-1.00')],
+      'CAD',
+    ),
+  )
 
   it('counts the hand-edited members an override would claim', () => {
     expect(userEditedCount(cluster, state(), [row('user'), row()])).toBe(1)

@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, it } from 'bun:test'
 import type { Account, ExpenseGroup, GroupCategory, GroupMember } from './api'
+import { at } from './at'
 import {
   accountRows,
   activeCategories,
@@ -102,7 +103,7 @@ describe('splitRows', () => {
   })
 
   it('renders a single member as 100%', () => {
-    expect(splitRows([member({ shareWeight: 5 })])[0].percent).toBe(100)
+    expect(at(splitRows([member({ shareWeight: 5 })])).percent).toBe(100)
   })
 })
 
@@ -135,7 +136,7 @@ describe('accountRows', () => {
 
   it('degrades to null when the mapping is absent', () => {
     const rows = accountRows([category({ myMapping: null })], [account()])
-    expect(rows[0].accountPath).toBeNull()
+    expect(at(rows).accountPath).toBeNull()
   })
 
   it('degrades to null when the mapped account is missing', () => {
@@ -143,7 +144,7 @@ describe('accountRows', () => {
       [category({ myMapping: { accountId: 'gone' } })],
       [account({ id: 'a1' })],
     )
-    expect(rows[0].accountPath).toBeNull()
+    expect(at(rows).accountPath).toBeNull()
   })
 })
 

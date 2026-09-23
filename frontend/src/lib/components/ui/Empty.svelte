@@ -40,13 +40,13 @@
      * rung: `gutter` is the house gutter most lists sit on, `wide` a card's roomier edge,
      * `none` for a panel that insets its own content already.
      */
-    inset?: 'gutter' | 'wide' | 'none'
+    inset?: 'gutter' | 'wide' | 'none' | undefined
     /** The whole-route shape: centred, headed, and sized to the page. */
-    page?: boolean
+    page?: boolean | undefined
     /** `page` only — the heading above the explanation. */
-    title?: string
+    title?: string | undefined
     /** `page` only — an icon above the heading. */
-    icon?: string
+    icon?: string | undefined
   }
 
   let {

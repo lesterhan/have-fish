@@ -1,3 +1,17 @@
+// ════════════════════════════════════════════════════════════
+//  API TYPES
+//
+//  Every optional member here is written `?: T | undefined` rather than `?: T`, which
+//  under `exactOptionalPropertyTypes` are different types: the first admits a key that is
+//  present and undefined, the second only an absent one.
+//
+//  JSON cannot tell those apart. `JSON.stringify` drops an undefined value entirely, and a
+//  key a response omits reads back as undefined — so on this boundary the distinction the
+//  flag draws does not exist, and the narrower form only forces callers to delete keys
+//  they were about to send as nothing. Inside the app the narrow `?: T` still means what
+//  it says; it is this module that talks to the wire.
+// ════════════════════════════════════════════════════════════
+
 import { errorMessage } from './copy/errors'
 import type { AccountCoverageStatus, CoverageState } from './coverage'
 import { bumpCoverage } from './coverageRefresh'
@@ -48,18 +62,18 @@ export function toClassifierType(type: StoredAccountType): AccountType {
 export type Account = {
   id: string
   path: string
-  name?: string | null
-  defaultCurrency?: string | null
+  name?: string | null | undefined
+  defaultCurrency?: string | null | undefined
   // Stored hledger type override; null = infer from the path root.
-  type?: StoredAccountType | null
+  type?: StoredAccountType | null | undefined
   // Effective type (stored override else path inference). Surfaced by GET /api/accounts
   // and GET /api/accounts/:id; null when an atypical root has no override.
-  resolvedType?: StoredAccountType | null
+  resolvedType?: StoredAccountType | null | undefined
   // Pure path-inferred type, ignoring any override. Surfaced only by GET /api/accounts/:id —
   // lets the settings UI show "Auto (inferred: X)". Null for atypical roots.
-  inferredType?: AccountType | null
-  createdAt?: string
-  deletedAt?: string | null
+  inferredType?: AccountType | null | undefined
+  createdAt?: string | undefined
+  deletedAt?: string | null | undefined
 }
 
 export async function fetchAccount(id: string): Promise<Account> {
@@ -73,9 +87,9 @@ export async function fetchAccount(id: string): Promise<Account> {
 export async function updateAccount(
   id: string,
   updates: {
-    name?: string | null
-    defaultCurrency?: string | null
-    type?: StoredAccountType | null
+    name?: string | null | undefined
+    defaultCurrency?: string | null | undefined
+    type?: StoredAccountType | null | undefined
   },
 ): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
@@ -118,7 +132,7 @@ export async function fetchAccounts(): Promise<Account[]> {
 // derived from the currency — so it sets it rather than leaving the column null.
 export async function createAccount(body: {
   path: string
-  defaultCurrency?: string
+  defaultCurrency?: string | undefined
 }): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts`, {
     method: 'POST',
@@ -195,8 +209,8 @@ export type PossibleDuplicate = {
   date: string
   amount: string
   currency: string
-  fishPieGroupId?: string
-  fishPieGroupName?: string
+  fishPieGroupId?: string | undefined
+  fishPieGroupName?: string | undefined
 } | null
 
 // Preview enrichment shared by every row kind that carries a description.
@@ -212,49 +226,49 @@ export type PossibleDuplicate = {
 // suggestedCategoryId is null on an uncategorized split rule, so its presence is not a
 // reliable test — check suggestedGroupId.
 type MerchantFields = {
-  merchantKey?: string
-  matchedRulePattern?: string
-  suggestedGroupId?: string
-  suggestedCategoryId?: string | null
+  merchantKey?: string | undefined
+  matchedRulePattern?: string | undefined
+  suggestedGroupId?: string | undefined
+  suggestedCategoryId?: string | null | undefined
 }
 
 export type RegularParsedTransaction = MerchantFields & {
   isTransfer: false
   date: string
   amount: string
-  description?: string
-  currency?: string
-  possibleDuplicate?: PossibleDuplicate
-  suggestedOffsetAccountId?: string
+  description?: string | undefined
+  currency?: string | undefined
+  possibleDuplicate?: PossibleDuplicate | undefined
+  suggestedOffsetAccountId?: string | undefined
 }
 
 export type TransferParsedTransaction = MerchantFields & {
   isTransfer: true
   date: string
-  description?: string
+  description?: string | undefined
   sourceAmount: string
   sourceCurrency: string
   targetAmount: string
   targetCurrency: string
-  feeAmount?: string
-  feeCurrency?: string
-  possibleDuplicate?: PossibleDuplicate
+  feeAmount?: string | undefined
+  feeCurrency?: string | undefined
+  possibleDuplicate?: PossibleDuplicate | undefined
   // Preview enrichment: how the wizard should treat this cross-currency row by default.
   // 'spend' = a card purchase in a currency the user doesn't hold (the common case);
   // 'transfer' = a convert-and-park (counterparty is the user). The user can flip it.
-  suggestedKind?: 'spend' | 'transfer'
+  suggestedKind?: 'spend' | 'transfer' | undefined
   // For a defaulted spend, the expense account inferred from the import rules.
-  suggestedExpenseAccountId?: string
+  suggestedExpenseAccountId?: string | undefined
 }
 
 export type SameCurrencyTransferParsedTransaction = MerchantFields & {
   isTransfer: 'same-currency'
   date: string
-  description?: string
+  description?: string | undefined
   amount: string // net amount received (positive)
   feeAmount: string // fee charged (positive)
   currency: string
-  possibleDuplicate?: PossibleDuplicate
+  possibleDuplicate?: PossibleDuplicate | undefined
 }
 
 export type ParsedTransaction =
@@ -265,7 +279,7 @@ export type ParsedTransaction =
 // Commit payloads — ParsedTransaction plus the account IDs resolved during preview.
 export type RegularCommitTransaction = RegularParsedTransaction & {
   offsetAccountId: string
-  sourceAccountId?: string // set for regular rows in a multi-currency parser
+  sourceAccountId?: string | undefined // set for regular rows in a multi-currency parser
 }
 
 export type TransferCommitTransaction = TransferParsedTransaction & {
@@ -287,17 +301,17 @@ export type SameCurrencyTransferCommitTransaction = SameCurrencyTransferParsedTr
 export type CrossCurrencySpendCommitTransaction = {
   isTransfer: 'cross-currency-spend'
   date: string
-  description?: string
+  description?: string | undefined
   sourceAmount: string // negative, gross incl. fee (leaving source)
   sourceCurrency: string
   targetAmount: string // positive (the spend, in targetCurrency)
   targetCurrency: string
-  feeAmount?: string
-  feeCurrency?: string
+  feeAmount?: string | undefined
+  feeCurrency?: string | undefined
   sourceAccountId: string
   expenseAccountId: string
   conversionAccountId: string
-  feeAccountId?: string
+  feeAccountId?: string | undefined
 }
 
 export type CommitTransaction =
@@ -351,11 +365,13 @@ export async function importCommit(body: {
   accountId: string // empty string for multi-currency imports (source is per-row)
   defaultCurrency: string
   transactions: CommitTransaction[]
-  groupSplits?: {
-    rowIndex: number
-    groupId: string
-    categoryId?: string | null
-  }[]
+  groupSplits?:
+    | {
+        rowIndex: number
+        groupId: string
+        categoryId?: string | null | undefined
+      }[]
+    | undefined
 }): Promise<{ created: number; fishPieExpenses: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
@@ -396,17 +412,17 @@ export async function exportJournal(opts: { from?: string; to?: string } = {}): 
 export type ColumnMapping = {
   date: string
   amount: string
-  description?: string | null
-  currency?: string | null
+  description?: string | null | undefined
+  currency?: string | null | undefined
   // Multi-currency transfer fields
-  sourceAmount?: string | null
-  sourceCurrency?: string | null
-  targetAmount?: string | null
-  targetCurrency?: string | null
-  feeAmount?: string | null
-  feeCurrency?: string | null
-  signColumn?: string | null
-  signNegativeValue?: string | null
+  sourceAmount?: string | null | undefined
+  sourceCurrency?: string | null | undefined
+  targetAmount?: string | null | undefined
+  targetCurrency?: string | null | undefined
+  feeAmount?: string | null | undefined
+  feeCurrency?: string | null | undefined
+  signColumn?: string | null | undefined
+  signNegativeValue?: string | null | undefined
 }
 
 export type CsvParser = {
@@ -448,9 +464,9 @@ export async function createParser(body: {
   name: string
   normalizedHeader: string
   columnMapping: ColumnMapping
-  defaultAccountId?: string | null
-  isMultiCurrency?: boolean
-  defaultFeeAccountId?: string | null
+  defaultAccountId?: string | null | undefined
+  isMultiCurrency?: boolean | undefined
+  defaultFeeAccountId?: string | null | undefined
 }): Promise<CsvParser> {
   const res = await fetch(`${BASE}/api/parsers`, {
     method: 'POST',
@@ -470,17 +486,17 @@ export async function deleteParser(id: string): Promise<void> {
 }
 
 export type UserPreferences = {
-  hiddenAccountIds?: string[]
+  hiddenAccountIds?: string[] | undefined
   /** Accounts pinned to the sidebar, in the order they were pinned. */
-  pinnedAccountIds?: string[]
-  accentColor?: import('$lib/accent').AccentKey
-  recentCurrencies?: string[]
-  recentGroups?: string[]
+  pinnedAccountIds?: string[] | undefined
+  accentColor?: import('$lib/accent').AccentKey | undefined
+  recentCurrencies?: string[] | undefined
+  recentGroups?: string[] | undefined
   // Sticky last-used category per fish-pie group, keyed by groupId → categoryId.
-  lastCategoryByGroup?: Record<string, string>
+  lastCategoryByGroup?: Record<string, string> | undefined
   // Recently used import split targets, most-recent first. Each entry is
   // `${groupId}:${categoryId}` (empty categoryId = no category).
-  recentFishPieSplits?: string[]
+  recentFishPieSplits?: string[] | undefined
 }
 
 export type UserSettings = {
@@ -546,12 +562,12 @@ export async function updateUserSettings(
 export type AccountBalance = {
   id: string
   path: string
-  name?: string | null
+  name?: string | null | undefined
   // Same meaning as on `Account`: the raw stored override, and the effective
   // stored-wins-else-inferred answer. For the coarse asset/liability/equity bucket,
   // run `resolvedType` through `toClassifierType`.
-  type?: StoredAccountType | null
-  resolvedType?: StoredAccountType | null
+  type?: StoredAccountType | null | undefined
+  resolvedType?: StoredAccountType | null | undefined
   balances: { currency: string; amount: string }[]
 }
 
@@ -677,7 +693,7 @@ export type SpendingSummary = {
 export async function fetchSpendingSummary(
   from: string,
   to: string,
-  prefix?: string,
+  prefix?: string | undefined,
 ): Promise<SpendingSummary> {
   const params = new URLSearchParams({ from, to })
   if (prefix) params.set('prefix', prefix)
@@ -777,7 +793,7 @@ export type Transaction = {
 
 export async function createTransaction(body: {
   date: string
-  description?: string
+  description?: string | undefined
   postings: { accountId: string; amount: string; currency: string }[]
 }): Promise<Transaction> {
   const res = await fetch(`${BASE}/api/transactions`, {
@@ -796,7 +812,7 @@ export async function createTransaction(body: {
 export async function createTransactionsBulk(
   txns: {
     date: string
-    description?: string
+    description?: string | undefined
     postings: { accountId: string; amount: string; currency: string }[]
   }[],
 ): Promise<Transaction[]> {
@@ -972,10 +988,10 @@ export async function fetchActionRequired(accountId: string): Promise<{
 }
 
 export async function fetchTransactions(params?: {
-  from?: string
-  to?: string
-  accountId?: string
-  accountPath?: string
+  from?: string | undefined
+  to?: string | undefined
+  accountId?: string | undefined
+  accountPath?: string | undefined
 }): Promise<Transaction[]> {
   const query = new URLSearchParams()
   if (params?.from) query.set('from', params.from)
@@ -1185,8 +1201,8 @@ export type GroupInvite = {
   status: string
   createdAt: string
   resolvedAt: string | null
-  groupName?: string
-  inviterName?: string
+  groupName?: string | undefined
+  inviterName?: string | undefined
 }
 
 export async function fetchGroupInvites(groupId: string): Promise<GroupInvite[]> {
@@ -1299,9 +1315,9 @@ export async function createExpense(
     amount: string
     currency: string
     date: string
-    paidByUserId?: string
+    paidByUserId?: string | undefined
     paymentAccountId: string
-    categoryId?: string | null
+    categoryId?: string | null | undefined
   },
 ): Promise<GroupExpense> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
@@ -1320,13 +1336,13 @@ export async function updateExpense(
   groupId: string,
   expenseId: string,
   body: {
-    description?: string
-    amount?: string
-    currency?: string
-    date?: string
-    paidByUserId?: string
-    splits?: { userId: string; shareWeight: number }[]
-    categoryId?: string | null
+    description?: string | undefined
+    amount?: string | undefined
+    currency?: string | undefined
+    date?: string | undefined
+    paidByUserId?: string | undefined
+    splits?: { userId: string; shareWeight: number }[] | undefined
+    categoryId?: string | null | undefined
   },
 ): Promise<GroupExpense> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
@@ -1439,7 +1455,7 @@ export async function createSettlement(
     amount: string
     currency: string
     date: string
-    note?: string
+    note?: string | undefined
     payerAccountId: string
   },
 ): Promise<GroupSettlement> {
@@ -1491,7 +1507,7 @@ export type BatchSettlementLine = {
   debtCurrency: string
   settledAmount: string
   settledCurrency: string
-  fxRate?: string
+  fxRate?: string | undefined
 }
 
 export async function createSettlementBatch(
@@ -1499,7 +1515,7 @@ export async function createSettlementBatch(
   body: {
     payerAccountId: string
     date: string
-    note?: string
+    note?: string | undefined
     lines: BatchSettlementLine[]
   },
 ): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
@@ -1680,7 +1696,7 @@ export type AccountCoverage = {
 
 export async function fetchAccountCoverage(
   accountId: string,
-  days?: number,
+  days?: number | undefined,
 ): Promise<AccountCoverage> {
   const query = days ? `?days=${days}` : ''
   const res = await fetch(`${BASE}/api/accounts/${accountId}/coverage${query}`, {
@@ -1695,7 +1711,7 @@ export async function createCoverage(body: {
   fromDate: string
   throughDate: string
   source: CoverageSource
-  note?: string
+  note?: string | undefined
 }): Promise<CoverageAssertion> {
   const res = await fetch(`${BASE}/api/coverage`, {
     method: 'POST',

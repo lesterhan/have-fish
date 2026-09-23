@@ -13,7 +13,7 @@
   interface Props {
     type: 'asset' | 'liability' | 'equity'
     open: boolean
-    onSuccess?: () => void
+    onSuccess?: (() => void) | undefined
   }
 
   let { type, open = $bindable(), onSuccess }: Props = $props()
@@ -264,7 +264,10 @@
         if (!txRes.ok) {
           const err = await txRes.json().catch(() => ({}))
           throw new Error(
-            errorMessage(err, 'Account created but failed to post starting balance.'),
+            errorMessage(
+              err,
+              'Account created but failed to post starting balance.',
+            ),
           )
         }
       }

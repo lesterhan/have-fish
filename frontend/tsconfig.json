@@ -2,6 +2,27 @@
   "extends": "./.svelte-kit/tsconfig.json",
   "compilerOptions": {
     "strict": true,
+    // The same flags `strict` does not imply that `backend/tsconfig.json` turns on, so a
+    // pattern that is a compile error in one half is a compile error in all three.
+    //
+    // Indexing an array or a record yields `T | undefined` rather than `T`. This is the one
+    // that found bugs rather than paperwork: `summarize()` promises neither end of a
+    // transaction and the row markup read `from?.amount` straight into `parseFloat`, which
+    // reached the screen as the string "NaN"; the Fish Pie split slider is a two-member
+    // control that rendered for a group of any size and printed a blank second name.
+    "noUncheckedIndexedAccess": true,
+    // `{ a?: string }` stops accepting `{ a: undefined }` — "absent" and "present and
+    // undefined" become different types. Two boundaries here cannot tell them apart, so
+    // both write the wide `?: T | undefined` form and say so: `api.ts`, because
+    // `JSON.stringify` drops an undefined value and an omitted key reads back as one, and
+    // every component's `Props`, because `$props()` fires a default for either.
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    // `verbatimModuleSyntax` is deliberately absent, and is the one flag the backend has
+    // that this half does not. SvelteKit's generated `.svelte-kit/tsconfig.json` sets its
+    // own module options, and this file extends it; changing that is its own change with
+    // its own blast radius, not a line in a strictness sweep.
     "skipLibCheck": true
   }
 }

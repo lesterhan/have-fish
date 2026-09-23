@@ -80,6 +80,17 @@ export function tabHref(owner: ShellMode, active: ShellMode): null | undefined {
 }
 
 /**
+ * The same answer as `tabHref`, as the object to spread into a screen's `options`.
+ *
+ * Expo Router hides a tab with `href: null` and shows it when the key is absent. Under
+ * `exactOptionalPropertyTypes` those are different things — `href: undefined` is neither —
+ * so the key has to be built rather than assigned.
+ */
+export function tabHrefOption(owner: ShellMode, active: ShellMode): { href?: null } {
+  return tabHref(owner, active) === null ? { href: null } : {}
+}
+
+/**
  * Where to land when switching into `mode`. A switch hides the tab you were
  * standing on, so the shell has to move somewhere valid; each mode's first tab
  * is its entry point (Add for Fish Pie, Spend for Cash).

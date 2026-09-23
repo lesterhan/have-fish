@@ -58,7 +58,7 @@ function NumpadButton({
 }: {
   value: NumpadKey
   onPress: () => void
-  onLongPress?: () => void
+  onLongPress?: (() => void) | undefined
 }) {
   const [pressed, setPressed] = useState(false)
   return (

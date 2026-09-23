@@ -15,7 +15,7 @@
    */
   interface Props {
     code: string
-    size?: 'xs' | 'sm'
+    size?: 'xs' | 'sm' | undefined
   }
 
   let { code, size = 'sm' }: Props = $props()

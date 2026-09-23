@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from '../../at'
 import {
   ariaSummary,
   buildStrip,
@@ -23,15 +24,15 @@ function strip(over: Partial<Parameters<typeof buildStrip>[0]> = {}) {
   })
 }
 
-const at = (days: CoverageDay[], date: string) => days.find((d) => d.date === date)!
+const onDay = (days: CoverageDay[], date: string) => days.find((d) => d.date === date)!
 
 describe('buildStrip', () => {
   it('emits one cell per day, inclusive of both ends', () => {
     const days = strip()
 
     expect(days).toHaveLength(10)
-    expect(days[0].date).toBe('2025-07-01')
-    expect(days[9].date).toBe('2025-07-10')
+    expect(at(days, 0).date).toBe('2025-07-01')
+    expect(at(days, 9).date).toBe('2025-07-10')
   })
 
   it('emits a single cell for a one-day window', () => {
@@ -63,17 +64,17 @@ describe('buildStrip', () => {
     it('marks days inside an interval covered', () => {
       const days = strip({ intervals: [iv('2025-07-01', '2025-07-04')] })
 
-      expect(at(days, '2025-07-01').state).toBe('covered')
-      expect(at(days, '2025-07-04').state).toBe('covered')
-      expect(at(days, '2025-07-05').state).toBe('uncovered')
+      expect(onDay(days, '2025-07-01').state).toBe('covered')
+      expect(onDay(days, '2025-07-04').state).toBe('covered')
+      expect(onDay(days, '2025-07-05').state).toBe('uncovered')
     })
 
     it('marks days past the horizon as not yet available, not as a gap', () => {
       const days = strip({ horizon: '2025-07-06' })
 
-      expect(at(days, '2025-07-06').state).toBe('uncovered')
-      expect(at(days, '2025-07-07').state).toBe('beyond-horizon')
-      expect(at(days, '2025-07-10').state).toBe('beyond-horizon')
+      expect(onDay(days, '2025-07-06').state).toBe('uncovered')
+      expect(onDay(days, '2025-07-07').state).toBe('beyond-horizon')
+      expect(onDay(days, '2025-07-10').state).toBe('beyond-horizon')
     })
 
     // The mixed state this whole feature exists for: a split entered from the phone sitting
@@ -84,15 +85,15 @@ describe('buildStrip', () => {
         txnDates: ['2025-07-02', '2025-07-08'],
       })
 
-      expect(at(days, '2025-07-02')).toMatchObject({
+      expect(onDay(days, '2025-07-02')).toMatchObject({
         state: 'covered',
         hasTxn: true,
       })
-      expect(at(days, '2025-07-08')).toMatchObject({
+      expect(onDay(days, '2025-07-08')).toMatchObject({
         state: 'uncovered',
         hasTxn: true,
       })
-      expect(at(days, '2025-07-09').hasTxn).toBe(false)
+      expect(onDay(days, '2025-07-09').hasTxn).toBe(false)
     })
 
     // Contradicting a fact the user already recorded would be worse than the redundancy.
@@ -102,7 +103,7 @@ describe('buildStrip', () => {
         horizon: '2025-07-05',
       })
 
-      expect(at(days, '2025-07-08').state).toBe('covered')
+      expect(onDay(days, '2025-07-08').state).toBe('covered')
     })
 
     it('handles the horizon landing on the last cell', () => {
@@ -159,7 +160,7 @@ describe('buildStrip', () => {
 
   describe('month labels', () => {
     it('labels the first cell of the window', () => {
-      expect(strip()[0].monthLabel).toBe('Jul')
+      expect(at(strip(), 0).monthLabel).toBe('Jul')
     })
 
     it('labels the first day of each month and nothing else', () => {

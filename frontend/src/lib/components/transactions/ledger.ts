@@ -22,7 +22,7 @@ import { type AmountTone, amountTone, OWN_MONEY } from './amountTone'
 export interface TypedAccount {
   id: string
   path: string
-  resolvedType?: StoredAccountType | null
+  resolvedType?: StoredAccountType | null | undefined
 }
 
 /**

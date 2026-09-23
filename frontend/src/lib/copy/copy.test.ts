@@ -339,6 +339,9 @@ function scanTag(markup: string, from: number, found: string[]): number {
     }
 
     const [, name, quote] = attr
+    // Neither group is optional in the pattern, so this is the pattern changing under the
+    // reader rather than an input the scanner has to handle.
+    if (name === undefined || quote === undefined) return markup.length
     const valueStart = i + attr[0].length
     const valueEnd = markup.indexOf(quote, valueStart)
     if (valueEnd === -1) return markup.length

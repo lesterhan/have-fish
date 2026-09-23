@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { at } from '$lib/at'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import { plural } from '$lib/copy'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -50,7 +51,14 @@
   let splitOpenFor = $state<string | null>(null)
   let splitAnchorEl = $state<HTMLElement | null>(null)
 
-  const stateFor = (key: string) => clusterStates.find((c) => c.key === key)!
+  // Every cluster has a state: `clusterStates` is built from `clusters` and replaced with
+  // it. Saying so here fails naming the key, where the `!` this replaced failed later and
+  // somewhere else.
+  const stateFor = (key: string) => {
+    const state = clusterStates.find((c) => c.key === key)
+    if (!state) throw new Error(`no cluster state for "${key}"`)
+    return state
+  }
 
   // Clusters with a target chosen — the ones Apply would write.
   let targeted = $derived(
@@ -200,9 +208,7 @@
               <AccountPicker
                 {accounts}
                 bind:value={
-                  clusterStates[
-                    clusterStates.findIndex((c) => c.key === cluster.key)
-                  ].accountId
+                  () => state.accountId, (next) => (state.accountId = next)
                 }
                 placeholder={matched ? 'Override…' : 'expenses:groceries…'}
                 oncreate={onaccountcreated}
@@ -241,6 +247,7 @@
         {#if expanded === cluster.key}
           <ul class="members">
             {#each cluster.indices as i (i)}
+              {@const tx = at(transactions, i)}
               {@const excluded = state.excluded.includes(i)}
               <li class="member" class:excluded>
                 <label class="member-label">
@@ -249,14 +256,9 @@
                     checked={!excluded}
                     onchange={() => toggleExcluded(cluster.key, i)}
                   />
-                  <span class="member-date"
-                    >{shortDate(transactions[i].date)}</span
-                  >
-                  <span class="member-desc"
-                    >{transactions[i].description ?? '—'}</span
-                  >
-                  <span class="member-amount">{rowAmount(transactions[i])}</span
-                  >
+                  <span class="member-date">{shortDate(tx.date)}</span>
+                  <span class="member-desc">{tx.description ?? '—'}</span>
+                  <span class="member-amount">{rowAmount(tx)}</span>
                 </label>
                 {#if rowStates[i]?.source === 'user'}
                   <span class="member-flag">edited by hand</span>

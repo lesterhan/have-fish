@@ -6,7 +6,7 @@
   interface Props {
     title: string
     open: boolean
-    onclose?: () => void
+    onclose?: (() => void) | undefined
     children: Snippet
   }
 
@@ -101,13 +101,13 @@
         // Shift+Tab: if we're on the first element, wrap to last
         if (document.activeElement === first) {
           e.preventDefault()
-          last.focus()
+          last?.focus()
         }
       } else {
         // Tab: if we're on the last element, wrap to first
         if (document.activeElement === last) {
           e.preventDefault()
-          first.focus()
+          first?.focus()
         }
       }
     }

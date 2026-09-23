@@ -1,4 +1,5 @@
 import type { ParsedTransaction } from '$lib/api'
+import { at } from '../../at'
 import type { RowSource, RowState } from './row-state'
 
 // Merchant clusters for the Sort step.
@@ -73,22 +74,22 @@ export function buildClusters(
     if (indices.length < 2) continue
 
     const ordered = [...indices].sort((a, b) =>
-      (transactions[a].date ?? '').localeCompare(transactions[b].date ?? ''),
+      (at(transactions, a).date ?? '').localeCompare(at(transactions, b).date ?? ''),
     )
 
-    const amounts = ordered.map((i) => spendFacing(transactions[i], defaultCurrency))
+    const amounts = ordered.map((i) => spendFacing(at(transactions, i), defaultCurrency))
     const currencies = new Set(amounts.map((a) => a.currency))
     const singleCurrency = currencies.size === 1 ? [...currencies][0] : null
 
     clusters.push({
       key,
       indices: ordered,
-      firstDate: (transactions[ordered[0]].date ?? '').slice(0, 10),
-      lastDate: (transactions[ordered[ordered.length - 1]].date ?? '').slice(0, 10),
+      firstDate: (at(transactions, at(ordered)).date ?? '').slice(0, 10),
+      lastDate: (at(transactions, at(ordered, ordered.length - 1)).date ?? '').slice(0, 10),
       total: singleCurrency ? amounts.reduce((sum, a) => sum + a.amount, 0) : null,
-      currency: singleCurrency,
+      currency: singleCurrency ?? null,
       matchedRulePattern:
-        ordered.map((i) => transactions[i].matchedRulePattern).find(Boolean) ?? null,
+        ordered.map((i) => at(transactions, i).matchedRulePattern).find(Boolean) ?? null,
     })
   }
 

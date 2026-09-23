@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from './at'
 import {
   clearSession,
   defaultCoverageRange,
@@ -88,7 +89,7 @@ describe('session round-trip', () => {
     const session = makeSession()
 
     saveSession(session, NOW, storage)
-    const [restored] = loadSessions(NOW, storage)
+    const restored = at(loadSessions(NOW, storage))
 
     expect(restored).toEqual(session)
   })
@@ -98,7 +99,7 @@ describe('session round-trip', () => {
     const storage = fakeStorage()
     saveSession(makeSession({ currencyAccounts: { CAD: 'a-cad', RMB: 'a-cny' } }), NOW, storage)
 
-    const [restored] = loadSessions(NOW, storage)
+    const restored = at(loadSessions(NOW, storage))
     expect(restored.currencyAccounts).toEqual({ CAD: 'a-cad', RMB: 'a-cny' })
   })
 
@@ -121,11 +122,11 @@ describe('session round-trip', () => {
     })
 
     saveSession(session, NOW, storage)
-    const [restored] = loadSessions(NOW, storage)
+    const restored = at(loadSessions(NOW, storage))
 
-    expect(restored.rowStates[0].groupId).toBe('group-1')
-    expect(restored.rowStates[0].skipped).toBe(true)
-    expect(restored.rowStates[0].source).toBe('user')
+    expect(at(restored.rowStates).groupId).toBe('group-1')
+    expect(at(restored.rowStates).skipped).toBe(true)
+    expect(at(restored.rowStates).source).toBe('user')
   })
 
   it('replaces the session for the same file rather than duplicating it', () => {
@@ -135,7 +136,7 @@ describe('session round-trip', () => {
 
     const sessions = loadSessions(NOW + 1000, storage)
     expect(sessions).toHaveLength(1)
-    expect(sessions[0].step).toBe('review')
+    expect(at(sessions).step).toBe('review')
   })
 
   it('keeps sessions for different files side by side', () => {
@@ -157,7 +158,7 @@ describe('clearing', () => {
 
     const remaining = loadSessions(NOW, storage)
     expect(remaining).toHaveLength(1)
-    expect(remaining[0].fileHash).toBe('bbb')
+    expect(at(remaining).fileHash).toBe('bbb')
   })
 
   it('removes the storage entry entirely once the last session is cleared', () => {
@@ -247,7 +248,7 @@ describe('pruning', () => {
     const pruned = pruneSessions(many, NOW)
 
     expect(pruned).toHaveLength(MAX_SESSIONS)
-    expect(pruned[0].fileHash).toBe('hash-0')
+    expect(at(pruned).fileHash).toBe('hash-0')
   })
 
   it('ignores a stored value that is not an array', () => {
@@ -288,7 +289,7 @@ describe('resilience', () => {
 
     const sessions = loadSessions(NOW, storage)
     expect(sessions).toHaveLength(1)
-    expect(sessions[0].fileHash).toBe('aaa')
+    expect(at(sessions).fileHash).toBe('aaa')
   })
 
   it('writes under the documented storage key', () => {

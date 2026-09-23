@@ -14,17 +14,17 @@
   import CurrencyPill from '../ui/CurrencyPill.svelte'
   import Chip from '$lib/components/ui/Chip.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
-  import { initials } from './utils'
+  import { initials, memberPair } from './utils'
   import Empty from '../ui/Empty.svelte'
 
   interface UpdateExpenseData {
-    description?: string
-    amount?: string
-    currency?: string
-    date?: string
-    paidByUserId?: string
-    splits?: { userId: string; shareWeight: number }[]
-    categoryId?: string | null
+    description?: string | undefined
+    amount?: string | undefined
+    currency?: string | undefined
+    date?: string | undefined
+    paidByUserId?: string | undefined
+    splits?: { userId: string; shareWeight: number }[] | undefined
+    categoryId?: string | null | undefined
   }
 
   interface Props {
@@ -62,6 +62,9 @@
     onUpdateExpense,
     onConfirmSettlement,
   }: Props = $props()
+
+  // The two-way split slider is a two-member control; `pair` is when it applies.
+  const pair = $derived(memberPair(members))
 
   let panelTab = $state<'expenses' | 'settlements'>('expenses')
   let expandedExpenseId = $state<string | null>(null)
@@ -125,10 +128,10 @@
   }
 
   function computeInitialSlider(expense: GroupExpense): number {
-    if (members.length !== 2) return 50
+    if (!pair) return 50
     const total = expense.splits.reduce((s, sp) => s + parseFloat(sp.amount), 0)
     if (total === 0) return 50
-    const first = expense.splits.find((s) => s.userId === members[0].userId)
+    const first = expense.splits.find((s) => s.userId === pair.first.userId)
     return first ? Math.round((parseFloat(first.amount) / total) * 100) : 50
   }
 
@@ -174,19 +177,18 @@
     editError = ''
     editSubmitting = true
     try {
-      const splits =
-        members.length === 2
-          ? [
-              {
-                userId: members[0].userId,
-                shareWeight: Math.max(1, Math.round(editSliderPct)),
-              },
-              {
-                userId: members[1].userId,
-                shareWeight: Math.max(1, 100 - Math.round(editSliderPct)),
-              },
-            ]
-          : undefined
+      const splits = pair
+        ? [
+            {
+              userId: pair.first.userId,
+              shareWeight: Math.max(1, Math.round(editSliderPct)),
+            },
+            {
+              userId: pair.second.userId,
+              shareWeight: Math.max(1, 100 - Math.round(editSliderPct)),
+            },
+          ]
+        : undefined
       await onUpdateExpense(expenseEditId, {
         description: editDesc.trim(),
         amount: editAmount,
@@ -427,18 +429,18 @@
                         {/each}
                       </div>
                     </div>
-                    {#if members.length === 2}
+                    {#if pair}
                       <div class="edit-field">
                         <span class="field-label">Split</span>
                         <div class="split-slider-labels">
-                          <span class="split-name">{members[0].userName}</span>
+                          <span class="split-name">{pair.first.userName}</span>
                           <span class="split-pcts">
                             <strong>{Math.round(editSliderPct)}%</strong>
                             <span class="split-divider">/</span>
                             <strong>{Math.round(100 - editSliderPct)}%</strong>
                           </span>
                           <span class="split-name split-name--right"
-                            >{members[1].userName}</span
+                            >{pair.second.userName}</span
                           >
                         </div>
                         <input

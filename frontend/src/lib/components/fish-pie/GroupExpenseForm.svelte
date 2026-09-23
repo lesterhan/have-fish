@@ -13,7 +13,7 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
-  import { initials } from './utils'
+  import { initials, memberPair } from './utils'
   import { toast } from '$lib/toast.svelte'
 
   interface CreateExpenseData {
@@ -99,14 +99,19 @@
     activeCategories.find((c) => c.id === categoryId) ?? null,
   )
 
+  // The two-way split slider is a two-member control, so it exists only when the group has
+  // two members. It used to render unconditionally, which printed a blank second name for a
+  // group of one or three.
+  const pair = $derived(memberPair(members))
+
   // The split percentage this category dictates, when it carries a complete weight
   // vector. Null means "fall back to the group default" — slider stays editable.
   const categoryPct = $derived(
-    selectedCategory && members.length === 2
+    selectedCategory && pair
       ? weightsToPct(
           selectedCategory.weights,
-          members[0].userId,
-          members[1].userId,
+          pair.first.userId,
+          pair.second.userId,
         )
       : null,
   )
@@ -321,47 +326,49 @@
     </div>
   </div>
 
-  <div class="share-slider-wrap">
-    <div class="share-slider-labels">
-      <span class="share-slider-name">{members[0].userName}</span>
-      <span class="share-slider-pcts">
-        <span>{Math.round(shareSliderPct)}%</span>
-        <span class="share-slider-divider">/</span>
-        <span>{Math.round(100 - shareSliderPct)}%</span>
-      </span>
-      <span class="share-slider-name share-slider-name--right"
-        >{members[1].userName}</span
-      >
+  {#if pair}
+    <div class="share-slider-wrap">
+      <div class="share-slider-labels">
+        <span class="share-slider-name">{pair.first.userName}</span>
+        <span class="share-slider-pcts">
+          <span>{Math.round(shareSliderPct)}%</span>
+          <span class="share-slider-divider">/</span>
+          <span>{Math.round(100 - shareSliderPct)}%</span>
+        </span>
+        <span class="share-slider-name share-slider-name--right"
+          >{pair.second.userName}</span
+        >
+      </div>
+      <div class="share-slider-row">
+        <button
+          class="slider-lock-btn"
+          class:unlocked={!sliderLocked}
+          onclick={() => (sliderLocked = !sliderLocked)}
+          title={sliderLocked ? 'Unlock to edit split' : 'Lock split'}
+          aria-label={sliderLocked ? 'Unlock split ratio' : 'Lock split ratio'}
+          disabled={splitFromCategory}
+        >
+          <Icon name={sliderLocked ? 'lock' : 'unlock'} size={11} />
+        </button>
+        <input
+          type="range"
+          class="share-slider-track"
+          class:slider-disabled={sliderLocked || splitFromCategory}
+          min="1"
+          max="99"
+          step="1"
+          bind:value={shareSliderPct}
+          onchange={handleSliderChange}
+          disabled={sliderLocked || splitFromCategory}
+        />
+      </div>
+      {#if splitFromCategory}
+        <span class="split-source-hint">
+          Split set by {selectedCategory?.name} · edit in settings
+        </span>
+      {/if}
     </div>
-    <div class="share-slider-row">
-      <button
-        class="slider-lock-btn"
-        class:unlocked={!sliderLocked}
-        onclick={() => (sliderLocked = !sliderLocked)}
-        title={sliderLocked ? 'Unlock to edit split' : 'Lock split'}
-        aria-label={sliderLocked ? 'Unlock split ratio' : 'Lock split ratio'}
-        disabled={splitFromCategory}
-      >
-        <Icon name={sliderLocked ? 'lock' : 'unlock'} size={11} />
-      </button>
-      <input
-        type="range"
-        class="share-slider-track"
-        class:slider-disabled={sliderLocked || splitFromCategory}
-        min="1"
-        max="99"
-        step="1"
-        bind:value={shareSliderPct}
-        onchange={handleSliderChange}
-        disabled={sliderLocked || splitFromCategory}
-      />
-    </div>
-    {#if splitFromCategory}
-      <span class="split-source-hint">
-        Split set by {selectedCategory?.name} · edit in settings
-      </span>
-    {/if}
-  </div>
+  {/if}
 
   <div class="add-cta">
     <!-- The form's one command (DESIGN.md §5). -->

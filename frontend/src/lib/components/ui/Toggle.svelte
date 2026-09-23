@@ -1,13 +1,13 @@
 <script lang="ts">
   interface Props {
-    checked?: boolean
-    label?: string
-    disabled?: boolean
+    checked?: boolean | undefined
+    label?: string | undefined
+    disabled?: boolean | undefined
     /** For callers whose visible label lives outside the toggle — e.g. a settings row. */
     'aria-labelledby'?: string
     // For callers whose stored value isn't the toggle's own boolean — e.g. a tri-state
     // override that records "same as derived" as null.
-    onchange?: (checked: boolean) => void
+    onchange?: ((checked: boolean) => void) | undefined
   }
 
   let {

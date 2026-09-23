@@ -6,10 +6,10 @@
   interface Props {
     amount: string
     currency: string
-    flowDirection?: 'in' | 'out' | null
-    inline?: boolean
+    flowDirection?: 'in' | 'out' | null | undefined
+    inline?: boolean | undefined
     /** Bold the figure — for the one amount a row is actually about. */
-    emphasis?: boolean
+    emphasis?: boolean | undefined
     /**
      * Which of the three ledger meanings this figure carries (DESIGN.md §5). It lives here
      * rather than on each caller's cell because the rule is one rule: the account page used
@@ -20,7 +20,7 @@
      * that comes from `flowDirection` below. Money moving between your own accounts is not
      * a gain and must never read as green.
      */
-    tone?: AmountTone
+    tone?: AmountTone | undefined
   }
 
   let {

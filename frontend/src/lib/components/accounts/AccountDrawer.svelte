@@ -32,11 +32,11 @@
     /** Present for a real account row; null for a virtual path segment. */
     accountId: string | null
     /** Counterparty paths are shortened against this, so the common root is not repeated. */
-    root?: string
+    root?: string | undefined
     /** From `actionRequiredStore`; null while the summary is still loading. */
-    attention?: number | null
+    attention?: number | null | undefined
     /** Offer the import hand-off. Off for categories, which a statement is never about. */
-    canImport?: boolean
+    canImport?: boolean | undefined
   }
 
   let {

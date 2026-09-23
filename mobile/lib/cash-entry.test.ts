@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from './at'
 import {
   blockerMessage,
   buildCashPostings,
@@ -112,11 +113,11 @@ describe('syncSingleRow', () => {
   })
 
   it('normalises a partly typed hero amount', () => {
-    expect(syncSingleRow([row('a', '')], '12.')[0].amount).toBe('12.00')
+    expect(at(syncSingleRow([row('a', '')], '12.')).amount).toBe('12.00')
   })
 
   it('clears the row when the hero is cleared', () => {
-    expect(syncSingleRow([row('a', '10.00')], '')[0].amount).toBe('')
+    expect(at(syncSingleRow([row('a', '10.00')], '')).amount).toBe('')
   })
 
   it('leaves explicit amounts alone once there are two rows', () => {
@@ -230,7 +231,7 @@ describe('buildCashPostings', () => {
 
   it('credits the wallet and debits the expenses', () => {
     const postings = buildCashPostings({ ...base, total: '10.00', rows: [row('food', '10.00')] })
-    expect(parseFloat(postings[0].amount)).toBeLessThan(0)
+    expect(parseFloat(at(postings).amount)).toBeLessThan(0)
     expect(postings.slice(1).every((p) => parseFloat(p.amount) > 0)).toBe(true)
   })
 

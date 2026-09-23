@@ -25,7 +25,7 @@
     /** Authoritative — the tray only ever offers what the host will actually act on. */
     count: number
     /** Names what was selected, for the region label and the count. */
-    noun?: string
+    noun?: string | undefined
     onclear: () => void
     /** The bulk actions themselves. The tray owns placement, the host owns the verbs. */
     children: Snippet

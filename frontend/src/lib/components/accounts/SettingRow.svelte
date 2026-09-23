@@ -9,22 +9,22 @@
     /** The setting's name, in sentence case. */
     label: string
     /** One line under the label for anything the control cannot say itself. */
-    hint?: string
+    hint?: string | undefined
     /**
      * The id of a labelable control inside the row — an input or a select. Given one, the
      * label becomes a real `<label for>`. Controls that label themselves (Toggle wraps its
      * own) leave this off and use the `labelId` the snippet is handed instead.
      */
-    controlId?: string
-    state?: SaveState
+    controlId?: string | undefined
+    state?: SaveState | undefined
     /**
      * A neutral line where the save status goes, shown only while idle. For "this choice is
      * not finished yet" — which is not an error, and must not borrow the error's red, warning
      * icon and Retry button to say so.
      */
-    note?: string
+    note?: string | undefined
     /** Rendered as a Retry affordance beside an error. Omitted, the error is read-only. */
-    onretry?: () => void
+    onretry?: (() => void) | undefined
     /** The control. Receives the label element's id for `aria-labelledby`. */
     children: Snippet<[string]>
   }

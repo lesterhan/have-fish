@@ -1,3 +1,4 @@
+import { at } from '../lib/at'
 /**
  * The scanner the guards are built on, checked on its own.
  *
@@ -30,11 +31,11 @@ describe('reading a style block', () => {
   it('reads the first rule in the block', () => {
     // Slicing from `<style` rather than past its `>` made the first rule's selector begin
     // with `<`, which the parser skips — so every file's first rule was invisible.
-    expect(rulesIn('<style>\n  .a { color: red; }\n</style>')[0]?.selector).toBe('.a')
+    expect(at(rulesIn('<style>\n  .a { color: red; }\n</style>'))?.selector).toBe('.a')
   })
 
   it('collapses a wrapped selector onto one line', () => {
-    expect(rulesIn('<style>\n  .a,\n  .b {\n    color: red;\n  }\n</style>')[0]?.selector).toBe(
+    expect(at(rulesIn('<style>\n  .a,\n  .b {\n    color: red;\n  }\n</style>'))?.selector).toBe(
       '.a, .b',
     )
   })

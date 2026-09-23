@@ -4,7 +4,7 @@
 
   interface Props {
     account: Account
-    balances?: { currency: string; amount: string }[]
+    balances?: { currency: string; amount: string }[] | undefined
   }
 
   let { account, balances }: Props = $props()

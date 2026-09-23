@@ -178,6 +178,8 @@ export function buildManifest(
     .sort((a, b) => b.count - a.count || a.label.localeCompare(b.label))
 
   dates.sort()
+  const first = dates[0]
+  const last = dates[dates.length - 1]
 
   return {
     committedCount,
@@ -187,7 +189,7 @@ export function buildManifest(
     parseErrors,
     rulesCreated: ctx.rulesCreated,
     accountsCreated: ctx.accountsCreated,
-    dateRange: dates.length > 0 ? { from: dates[0], to: dates[dates.length - 1] } : null,
+    dateRange: first !== undefined && last !== undefined ? { from: first, to: last } : null,
     incomplete,
   }
 }

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Posting, PostingRole } from '$lib/api'
+import { at } from '../../at'
 import { type BlurbParts, blurbFor, blurbTemplates, blurbText } from './blurb'
 import { narrateTransaction } from './narration'
 
@@ -61,7 +62,7 @@ describe('simple spend blurb', () => {
       p('assets:chequing', '-12.34', 'CAD', 'transfer'),
       p('expenses:food:cafe', '12.34', 'CAD', 'subject'),
     ])
-    expect(emph(other)[0]).toBe('12.34')
+    expect(at(emph(other))).toBe('12.34')
   })
 })
 

@@ -16,9 +16,9 @@
   interface Props {
     parser: CsvParser
     accounts: Account[]
-    onSuccess?: (updated: CsvParser) => void
-    onCancel?: () => void
-    onAccountCreated?: (account: Account) => void
+    onSuccess?: ((updated: CsvParser) => void) | undefined
+    onCancel?: (() => void) | undefined
+    onAccountCreated?: ((account: Account) => void) | undefined
   }
 
   let { parser, accounts, onSuccess, onCancel, onAccountCreated }: Props =

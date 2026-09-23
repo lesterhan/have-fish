@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { AccountBalance } from './api'
+import { at } from './at'
 import {
   balanceIn,
   cashAccounts,
@@ -167,7 +168,7 @@ describe('walletViews', () => {
 
   it('shows a freshly created wallet at zero rather than hiding it', () => {
     const views = walletViews([wallet('assets:cash:jpy', { id: 'w2', defaultCurrency: 'JPY' })])
-    expect(views[0].amount).toBe('0.00')
+    expect(at(views).amount).toBe('0.00')
   })
 
   it('surfaces currencies beyond the wallet own as extra', () => {
@@ -182,17 +183,17 @@ describe('walletViews', () => {
         ],
       }),
     ])
-    expect(views[0].amount).toBe('100.00')
-    expect(views[0].extra).toEqual([{ currency: 'USD', amount: '20.00' }])
+    expect(at(views).amount).toBe('100.00')
+    expect(at(views).extra).toEqual([{ currency: 'USD', amount: '20.00' }])
   })
 
   it('falls back to the first balance when the currency is unknowable', () => {
     const views = walletViews([
       wallet('储蓄:现金', { balances: [{ currency: 'CNY', amount: '80.00' }] }),
     ])
-    expect(views[0].currency).toBeNull()
-    expect(views[0].amount).toBe('80.00')
-    expect(views[0].extra).toEqual([])
+    expect(at(views).currency).toBeNull()
+    expect(at(views).amount).toBe('80.00')
+    expect(at(views).extra).toEqual([])
   })
 
   it('ignores untagged accounts', () => {

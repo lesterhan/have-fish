@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from '../../at'
 import type { Roots } from './accountPaths'
 import {
   affectedPaths,
@@ -159,7 +160,7 @@ describe('categorySections', () => {
   })
 
   it('unwraps the configured root so the section lists its categories directly', () => {
-    const [expenses] = categorySections(accounts, NONE, ROOTS)
+    const expenses = at(categorySections(accounts, NONE, ROOTS))
     expect(render(expenses!.nodes)).toEqual(['food(0)', 'rent(0)'])
   })
 

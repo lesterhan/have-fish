@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, it } from 'bun:test'
 import type { GroupExpense, GroupSettlement } from './api'
+import { at } from './at'
 import { historyView } from './history-view'
 
 function expense(over: Partial<GroupExpense> = {}): GroupExpense {
@@ -65,22 +66,22 @@ describe('historyView — expenses', () => {
 
   it('formats the amount with grouping and 2 decimals', () => {
     const { expenses } = historyView([expense({ amount: '1234.5' })], [])
-    expect(expenses[0].amount).toBe('1,234.50')
+    expect(at(expenses).amount).toBe('1,234.50')
   })
 
   it('uppercases the category tag', () => {
     const { expenses } = historyView([expense({ categoryName: 'dining out' })], [])
-    expect(expenses[0].category).toBe('DINING OUT')
+    expect(at(expenses).category).toBe('DINING OUT')
   })
 
   it('omits the category tag when uncategorized', () => {
     const { expenses } = historyView([expense({ categoryId: null, categoryName: null })], [])
-    expect(expenses[0].category).toBeNull()
+    expect(at(expenses).category).toBeNull()
   })
 
   it('falls back to Unknown when the payer name is missing', () => {
     const { expenses } = historyView([expense({ payerName: null })], [])
-    expect(expenses[0].payer).toBe('Unknown')
+    expect(at(expenses).payer).toBe('Unknown')
   })
 
   it('preserves order (newest-first from the API)', () => {
@@ -107,14 +108,14 @@ describe('historyView — settlements', () => {
 
   it('maps a pending settlement to a pending badge', () => {
     const { settlements } = historyView([], [settlement({ status: 'pending' })])
-    expect(settlements[0].status).toBe('pending')
-    expect(settlements[0].statusLabel).toBe('PENDING')
+    expect(at(settlements).status).toBe('pending')
+    expect(at(settlements).statusLabel).toBe('PENDING')
   })
 
   it('falls back to Unknown for missing direction names', () => {
     const { settlements } = historyView([], [settlement({ fromUserName: null, toUserName: null })])
-    expect(settlements[0].from).toBe('Unknown')
-    expect(settlements[0].to).toBe('Unknown')
+    expect(at(settlements).from).toBe('Unknown')
+    expect(at(settlements).to).toBe('Unknown')
   })
 })
 

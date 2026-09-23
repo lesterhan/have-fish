@@ -12,9 +12,9 @@
 
   interface Props {
     items: MoreMenuItem[]
-    tooltip?: string
+    tooltip?: string | undefined
     /** Which edge the popover hangs from. */
-    align?: 'left' | 'right'
+    align?: 'left' | 'right' | undefined
   }
 
   let {

@@ -36,7 +36,9 @@ export function parseServerUrl(raw: string): ServerParts {
   let scheme: Scheme = 'https'
   const schemeMatch = rest.match(/^(https?):\/\//i)
   if (schemeMatch) {
-    scheme = schemeMatch[1].toLowerCase() as Scheme
+    // Group 1 is not optional in the pattern, so `?? scheme` keeps the default rather
+    // than describing a case the regex cannot produce.
+    scheme = (schemeMatch[1] ?? scheme).toLowerCase() as Scheme
     rest = rest.slice(schemeMatch[0].length)
   }
 

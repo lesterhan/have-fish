@@ -7,10 +7,10 @@
   // (row vs column, padded vs self-padding headers).
   interface Props {
     // Top-light gradient + hover elevation — for selectable / interactive cards.
-    gloss?: boolean
+    gloss?: boolean | undefined
     // Flattened + dimmed — e.g. a deselected/excluded card.
-    muted?: boolean
-    class?: string
+    muted?: boolean | undefined
+    class?: string | undefined
     children: Snippet
     [key: string]: unknown
   }

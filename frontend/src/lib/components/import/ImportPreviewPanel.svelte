@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { at } from '$lib/at'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import { plural } from '$lib/copy'
   import type { Account, ImportPreviewResult, ExpenseGroup } from '$lib/api'
@@ -142,7 +143,7 @@
   let unfinished = $derived(
     rowStates.filter(
       (row, i) =>
-        !row.skipped && rowMissingAccounts(preview.transactions[i], row),
+        !row.skipped && rowMissingAccounts(at(preview.transactions, i), row),
     ).length,
   )
 </script>
@@ -245,7 +246,7 @@
             </tr>
           {/if}
           {#each visibleIndices as i (i)}
-            {@const tx = preview.transactions[i]}
+            {@const tx = at(preview.transactions, i)}
             {#if dayStarts.has(i)}
               <tr class="day-header">
                 <th class="day-cell" colspan={columnCount} scope="colgroup">
@@ -257,7 +258,9 @@
               <ImportRowRegular
                 {tx}
                 {minority}
-                bind:rowState={rowStates[i]}
+                bind:rowState={
+                  () => at(rowStates, i), (next) => (rowStates[i] = next)
+                }
                 {accounts}
                 {groups}
                 {currentUserId}
@@ -269,7 +272,7 @@
                 onsplitopen={() => (splitSelectOpenIndex = i)}
                 onclosesplit={() => (splitSelectOpenIndex = null)}
                 {onaccountcreated}
-                status={rowStatus(rowStates[i])}
+                status={rowStatus(at(rowStates, i))}
                 index={i}
                 canSaveRule={!!tx.merchantKey}
                 onedited={() => onrowedited(i)}
@@ -278,7 +281,9 @@
             {:else}
               <ImportRowTransfer
                 {tx}
-                bind:rowState={rowStates[i]}
+                bind:rowState={
+                  () => at(rowStates, i), (next) => (rowStates[i] = next)
+                }
                 {accounts}
                 {groups}
                 {currentUserId}
@@ -287,7 +292,7 @@
                 onsplitopen={() => (splitSelectOpenIndex = i)}
                 onclosesplit={() => (splitSelectOpenIndex = null)}
                 {onaccountcreated}
-                status={rowStatus(rowStates[i])}
+                status={rowStatus(at(rowStates, i))}
                 index={i}
                 canSaveRule={!!tx.merchantKey}
                 onedited={() => onrowedited(i)}

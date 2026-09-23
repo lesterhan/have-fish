@@ -28,10 +28,10 @@
     posting: LocalPosting
     accounts: Account[]
     accountPaths: Record<string, string>
-    origPosting?: OrigPosting
+    origPosting?: OrigPosting | undefined
     canDelete: boolean
-    autofocusAccount?: boolean
-    onaccountcreated?: (account: Account) => void
+    autofocusAccount?: boolean | undefined
+    onaccountcreated?: ((account: Account) => void) | undefined
     oncommitaccount: (id: string, accountId: string) => void
     oncommitamount: (id: string, amount: string) => void
     oncommitcurrency: (id: string, currency: string) => void
