@@ -170,6 +170,21 @@ describe('categorySections', () => {
     expect(render(sections[0]!.nodes)).toEqual(['expenses(0)', '  food(0)'])
   })
 
+  // ── BUG-007 ───────────────────────────────────────────────
+  it('files a tagged account by its type, so an unrooted category lands in Expenses', () => {
+    const tagged: CategoryAccount[] = [
+      { id: 'rent', path: '花钱:房租', resolvedType: 'expense' },
+      { id: 'wallet', path: '储蓄:现金', resolvedType: 'cash' },
+      { id: 'stray', path: '储蓄:中国银行' },
+    ]
+    const sections = categorySections(tagged, NONE, ROOTS)
+    // The wallet is an asset now and belongs to the Accounts tab; only the untagged path is
+    // still unfiled, which is what the bucket was always for.
+    expect(sections.map((s) => s.key)).toEqual(['expenses', 'unfiled'])
+    expect(render(sections[0]!.nodes)).toEqual(['花钱(0)', '  房租(0)'])
+    expect(render(sections[1]!.nodes)).toEqual(['储蓄(0)', '  中国银行(0)'])
+  })
+
   it('honours renamed roots', () => {
     const renamed: Roots = { ...ROOTS, expenses: 'spending' }
     const sections = categorySections(accts('spending:food', 'expenses:food'), NONE, renamed)

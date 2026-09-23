@@ -78,7 +78,7 @@ export function buildRows(
   today: string,
 ): Row[] {
   return accounts.map((account) => {
-    const surface = surfaceOf(account.path, roots)
+    const surface = surfaceOf(account, roots)
     const lastActivity = lastActivityById.get(account.id) ?? null
     return {
       account,
@@ -260,7 +260,7 @@ export function positionAccountIds(
     owing: [],
   }
   for (const row of rows) {
-    const bucket = bucketOf(row.account.path, roots)
+    const bucket = bucketOf(row.account, roots)
     if (bucket) ids[bucket].push(row.account.id)
   }
   return ids
@@ -279,7 +279,7 @@ export function positionTotals(
     owing: [],
   }
   for (const row of rows) {
-    const bucket = bucketOf(row.account.path, roots)
+    const bucket = bucketOf(row.account, roots)
     if (bucket) buckets[bucket].push(row)
   }
   return {

@@ -13,6 +13,7 @@
  */
 
 // Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
+import type { StoredAccountType } from '../../api'
 import { accountsCopy } from '../../copy/accounts'
 import { isUnderRoot, type Roots, SURFACE_LABEL, type Surface, surfaceOf } from './accountPaths'
 
@@ -22,6 +23,8 @@ const SEP = ':'
 export interface CategoryAccount {
   id: string
   path: string
+  /** Stored-wins-else-inferred type. Decides the section; see `surfaceOf`. */
+  resolvedType?: StoredAccountType | null | undefined
 }
 
 /** Per-account usage, straight from `GET /api/accounts/posting-counts`. */
@@ -159,7 +162,7 @@ export function categorySections(
 ): CategorySection[] {
   const sections: CategorySection[] = []
   for (const key of CATEGORY_SURFACES) {
-    const mine = accounts.filter((a) => surfaceOf(a.path, roots) === key)
+    const mine = accounts.filter((a) => surfaceOf(a, roots) === key)
     if (mine.length === 0) continue
     const forest = buildCategoryTree(mine, stats)
     const root = key === 'unfiled' ? '' : roots[key]

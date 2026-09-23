@@ -9,7 +9,12 @@
  * disagreeing about whether an account sitting at the bare root counts.
  */
 
-import type { UserSettings } from '../../api'
+import {
+  type AccountType,
+  type StoredAccountType,
+  toClassifierType,
+  type UserSettings,
+} from '../../api'
 // Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
 import { accountsCopy } from '../../copy/accounts'
 
@@ -63,9 +68,10 @@ export function isUnderRoot(path: string, root: string): boolean {
 /**
  * Which part of the app owns an account.
  *
- * `unfiled` is the safety net: an account outside *every* configured root. The Settings list
- * used to be the surface that showed literally every path, so without this bucket a mis-pathed
- * account would simply vanish from the app.
+ * `unfiled` is the safety net: an account the app has no answer for — outside *every*
+ * configured root and carrying no type override. The Settings list used to be the surface that
+ * showed literally every path, so without this bucket a mis-pathed account would simply vanish
+ * from the app. Tagging one is how it leaves the bucket.
  */
 export type Surface = 'assets' | 'liabilities' | 'equity' | 'expenses' | 'income' | 'unfiled'
 
@@ -82,13 +88,60 @@ export const SURFACE_LABEL: Record<Surface, string> = {
 /** Surfaces the Accounts tab renders. Expenses and income belong to Categories. */
 export const ACCOUNT_SURFACES: readonly Surface[] = ['assets', 'liabilities', 'equity', 'unfiled']
 
-export function surfaceOf(path: string, roots: Roots): Surface {
+/**
+ * The minimal shape every surface question is really asked about.
+ *
+ * `resolvedType` is what `GET /api/accounts` and `GET /api/accounts/balances` both report:
+ * the stored override, else what the path root infers. Optional because a caller may be
+ * holding a payload that predates the field; absent means "ask the path", which is exactly
+ * what this module did before the field existed.
+ */
+export interface TypedAccount {
+  path: string
+  resolvedType?: StoredAccountType | null | undefined
+}
+
+/** Which surface each coarse type belongs to. The one place the two vocabularies meet. */
+const SURFACE_FOR_TYPE: Record<AccountType, Surface> = {
+  asset: 'assets',
+  liability: 'liabilities',
+  equity: 'equity',
+  expense: 'expenses',
+  income: 'income',
+}
+
+/**
+ * What the path alone says. `unfiled` when it is under no configured root.
+ *
+ * This is the *fallback*, not the answer: an account carrying a type override is that type
+ * wherever it sits, and `surfaceOf` is the function that knows it. Reach for this one only
+ * when there is genuinely no account to ask — a bare path from a picker, a posting's path.
+ */
+export function surfaceOfPath(path: string, roots: Roots): Surface {
   if (isUnderRoot(path, roots.assets)) return 'assets'
   if (isUnderRoot(path, roots.liabilities)) return 'liabilities'
   if (isUnderRoot(path, roots.equity)) return 'equity'
   if (isUnderRoot(path, roots.expenses)) return 'expenses'
   if (isUnderRoot(path, roots.income)) return 'income'
   return 'unfiled'
+}
+
+/**
+ * Which part of the app owns an account: its resolved type when it has one, else its path.
+ *
+ * The override wins, and it wins in both directions. A wallet at `储蓄:现金` tagged Cash is
+ * an asset and belongs on the Accounts tab — the bug this exists to fix, where the one field
+ * whose whole purpose is to classify an atypical path changed nothing about where the account
+ * appeared. An account under the assets root tagged Expense is a category, and counting it as
+ * money because of where it sits is the same mistake read backwards.
+ *
+ * Cash collapses to Asset and Conversion to Equity through `toClassifierType`, so the two
+ * hledger subtypes land with their parents rather than inventing surfaces of their own.
+ */
+export function surfaceOf(account: TypedAccount, roots: Roots): Surface {
+  const resolved = account.resolvedType
+  if (resolved) return SURFACE_FOR_TYPE[toClassifierType(resolved)]
+  return surfaceOfPath(account.path, roots)
 }
 
 /** The configured root for a surface, or `''` for unfiled, which has none. */
@@ -110,11 +163,19 @@ export type PositionBucket = 'cash' | 'investments' | 'owed' | 'owing'
 /** The receivable subtree under the assets root — Fish Pie's system-managed accounts. */
 export const RECEIVABLE_SEGMENT = 'receivable'
 
-/** Null for anything unfiled or non-balance-bearing: it feeds no bucket. */
-export function bucketOf(path: string, roots: Roots): PositionBucket | null {
-  switch (surfaceOf(path, roots)) {
+/**
+ * Null for anything unfiled or non-balance-bearing: it feeds no bucket.
+ *
+ * Owed is still read from the path, and deliberately: `assets:receivable:*` is a subtree Fish
+ * Pie mints itself, not a type anyone tags. An asset that got here through an override has no
+ * such subtree to sit in, and counts as spendable.
+ */
+export function bucketOf(account: TypedAccount, roots: Roots): PositionBucket | null {
+  switch (surfaceOf(account, roots)) {
     case 'assets':
-      return isUnderRoot(path, `${roots.assets}${SEP}${RECEIVABLE_SEGMENT}`) ? 'owed' : 'cash'
+      return isUnderRoot(account.path, `${roots.assets}${SEP}${RECEIVABLE_SEGMENT}`)
+        ? 'owed'
+        : 'cash'
     case 'liabilities':
       return 'owing'
     case 'equity':

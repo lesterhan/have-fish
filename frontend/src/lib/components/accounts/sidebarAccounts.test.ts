@@ -129,3 +129,25 @@ describe('recentRows', () => {
     expect(recentRows(accounts, new Map(), ROOTS, NONE)).toEqual([])
   })
 })
+
+// ── BUG-007 ─────────────────────────────────────────────────
+describe('a tagged account outside every root', () => {
+  const wallet: SidebarAccount = { id: 'w', path: '储蓄:现金', resolvedType: 'cash' }
+  const category: SidebarAccount = { id: 'g', path: '花钱:房租', resolvedType: 'expense' }
+  const activity = new Map([
+    ['w', '2026-08-28'],
+    ['g', '2026-08-28'],
+  ])
+
+  it('is somewhere you go, because its type says asset', () => {
+    expect(recentRows([wallet], activity, ROOTS, NONE).map((r) => r.id)).toEqual(['w'])
+  })
+
+  it('is not, when its type says category', () => {
+    // `recentRows` is scoped to balance-bearing accounts on purpose: "recent" in a nav means
+    // somewhere you go, not a category a posting landed in. A tag is what decides that now,
+    // so an unrooted path tagged Expense stops qualifying — which is the change, not a
+    // regression of the unfiled rule above.
+    expect(recentRows([category], activity, ROOTS, NONE)).toEqual([])
+  })
+})

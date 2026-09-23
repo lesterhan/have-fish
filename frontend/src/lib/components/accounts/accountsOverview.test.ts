@@ -466,3 +466,45 @@ describe('dating a position tile', () => {
     expect(noteFor(coverage, 'cash')?.text).toBe('complete through today')
   })
 })
+
+// ── BUG-007 ─────────────────────────────────────────────────
+//
+// A wallet at an atypically-named root, tagged Cash on its own settings page, is money you
+// hold. The page used to read the path root instead of the resolved type, so the account
+// arrived, landed in Unfiled, and contributed nothing to the position row — the one number
+// on the page that claims to say what you have.
+describe('a tagged account outside every root', () => {
+  const wallet = acct('储蓄:现金', [{ currency: 'CNY', amount: '900.00' }], {
+    resolvedType: 'cash',
+  })
+
+  it('takes its surface from the type, not the path', () => {
+    expect(at(rowsFor([wallet])).surface).toBe('assets')
+  })
+
+  it('groups with the assets, not under Unfiled', () => {
+    const groups = groupRows(rowsFor([wallet, acct('assets:chequing')]), 'institution')
+    expect(groups.map((g) => g.key)).not.toContain('unfiled')
+  })
+
+  it('counts towards what you can spend', () => {
+    const rows = rowsFor([wallet])
+    expect(positionAccountIds(rows, ROOTS).cash).toEqual(['储蓄:现金'])
+    const totals = positionTotals(rows, ROOTS, new Map(), 'CNY')
+    expect(totals.cash.cents).toBe(90_000)
+  })
+
+  it('is still Unfiled when it carries no type at all', () => {
+    const untagged = acct('储蓄:中国银行')
+    expect(at(rowsFor([untagged])).surface).toBe('unfiled')
+    expect(positionAccountIds(rowsFor([untagged]), ROOTS).cash).toEqual([])
+  })
+
+  it('leaves the position row when it is tagged as a category', () => {
+    // The override in the other direction: a mis-pathed category under the assets root is
+    // not money, however its path reads.
+    const rows = rowsFor([acct('assets:groceries', [], { resolvedType: 'expense' })])
+    expect(at(rows).surface).toBe('expenses')
+    expect(positionAccountIds(rows, ROOTS).cash).toEqual([])
+  })
+})

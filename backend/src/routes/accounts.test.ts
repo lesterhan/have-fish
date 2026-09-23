@@ -182,6 +182,102 @@ describe('accounts', () => {
       expect(wallet.type).toBe('cash')
     })
 
+    // BUG-007: the default selection used to pick accounts by path root, which meant the
+    // stored type override — the one field whose whole purpose is to classify a path that
+    // inference cannot — changed nothing about whether the account appeared. A wallet at an
+    // atypically-named root, tagged Cash on its own settings page, was money the balances
+    // views did not know you had.
+    describe('default selection follows the stored type override', () => {
+      async function paths() {
+        const res = await request('/api/accounts/balances', { headers: { Cookie: cookie } })
+        return ((await res.json()) as { path: string }[]).map((a) => a.path)
+      }
+
+      it('includes a tagged wallet whose path sits under no configured root', async () => {
+        const walletId = await createAccount('储蓄:现金')
+        await setType(walletId, 'cash')
+        expect(await paths()).toContain('储蓄:现金')
+      })
+
+      it('carries its balance, not just its row', async () => {
+        const walletId = await createAccount('储蓄:现金')
+        await setType(walletId, 'cash')
+        const food = await createAccount('expenses:food')
+        await createTransaction([
+          { accountId: walletId, amount: '-900.00', currency: 'CNY' },
+          { accountId: food, amount: '900.00', currency: 'CNY' },
+        ])
+
+        const res = await request('/api/accounts/balances', { headers: { Cookie: cookie } })
+        const body = (await res.json()) as { path: string; balances: unknown[] }[]
+        const wallet = body.find((a) => a.path === '储蓄:现金')
+        expect(wallet?.balances).toEqual([{ currency: 'CNY', amount: '-900.00' }])
+      })
+
+      it.each([
+        ['asset', '储蓄:中国银行'],
+        ['cash', '储蓄:现金'],
+        ['liability', '欠款:信用卡'],
+        ['equity', '投资:股票'],
+        ['conversion', '换汇:中转'],
+      ])('includes an unrooted account tagged %s', async (type, path) => {
+        const id = await createAccount(path)
+        await setType(id, type)
+        expect(await paths()).toContain(path)
+      })
+
+      it.each([
+        ['expense', '花钱:房租'],
+        ['income', '收入:工资'],
+      ])(
+        'still excludes an unrooted account tagged %s, which is a category',
+        async (type, path) => {
+          const id = await createAccount(path)
+          await setType(id, type)
+          expect(await paths()).not.toContain(path)
+        },
+      )
+
+      it('excludes an account under the assets root that is tagged an expense', async () => {
+        // The override wins in both directions, or it is not an override. A path under the
+        // assets root tagged Expense is a mis-pathed category, and counting it as money
+        // because of where it sits is the same bug read backwards.
+        const id = await createAccount('assets:groceries')
+        await setType(id, 'expense')
+        expect(await paths()).not.toContain('assets:groceries')
+      })
+
+      it('puts an account back when its override is cleared and the path infers', async () => {
+        const id = await createAccount('assets:groceries')
+        await setType(id, 'expense')
+        await setType(id, null)
+        expect(await paths()).toContain('assets:groceries')
+      })
+
+      it('drops an account when its override is cleared and the path infers nothing', async () => {
+        const id = await createAccount('储蓄:现金')
+        await setType(id, 'cash')
+        await setType(id, null)
+        expect(await paths()).not.toContain('储蓄:现金')
+      })
+
+      it("never returns another user's tagged unrooted account", async () => {
+        const other = await createTestUser('override-other@example.com')
+        const res = await request('/api/accounts', {
+          method: 'POST',
+          headers: { Cookie: other, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ path: 'theirs:wallet' }),
+        })
+        const theirs = ((await res.json()) as Account).id
+        await request(`/api/accounts/${theirs}`, {
+          method: 'PATCH',
+          headers: { Cookie: other, 'Content-Type': 'application/json' },
+          body: JSON.stringify({ type: 'cash' }),
+        })
+        expect(await paths()).not.toContain('theirs:wallet')
+      })
+    })
+
     describe('?include=unfiled', () => {
       async function balances(qs = '') {
         const res = await request(`/api/accounts/balances${qs}`, {
@@ -222,6 +318,20 @@ describe('accounts', () => {
         const all = await paths('?include=unfiled')
         expect(all).not.toContain('expenses:food')
         expect(all).not.toContain('income:salary')
+      })
+
+      it('excludes an unrooted account tagged as a category, which is no longer unfiled', async () => {
+        // Unfiled means the app has no answer. Tagging the account is an answer, and this
+        // one says Categories — so it leaves the Unfiled group rather than sitting in it
+        // next to the paths nobody has classified.
+        const id = await createAccount('花钱:房租')
+        await setType(id, 'expense')
+        expect(await paths('?include=unfiled')).not.toContain('花钱:房租')
+      })
+
+      it('keeps an unrooted account that carries no override at all', async () => {
+        await createAccount('储蓄:中国银行')
+        expect(await paths('?include=unfiled')).toContain('储蓄:中国银行')
       })
 
       it('treats a path outside the *configured* roots as unfiled, not the default ones', async () => {
@@ -283,15 +393,15 @@ describe('accounts', () => {
 
       it('includes a tagged account whose path sits outside every configured root', async () => {
         // The whole point of the stored override: an atypically-named root that path
-        // inference cannot classify. The unfiltered endpoint selects by path root, so
-        // this account is invisible there — the filter must find it by stored type.
+        // inference cannot classify. Both the filter and the default selection find it,
+        // because both ask the resolved type.
         const walletId = await createAccount('储蓄:现金')
         await setType(walletId, 'cash')
 
         const unfiltered = await request('/api/accounts/balances', {
           headers: { Cookie: cookie },
         })
-        expect(((await unfiltered.json()) as { path: string }[]).map((b) => b.path)).not.toContain(
+        expect(((await unfiltered.json()) as { path: string }[]).map((b) => b.path)).toContain(
           '储蓄:现金',
         )
 
