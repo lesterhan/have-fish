@@ -15,6 +15,7 @@ import {
   resolveStoredOrInferredType,
   STORED_ACCOUNT_TYPES,
   type StoredAccountType,
+  toClassifierType,
 } from '../postings/account-type'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { as, asField, asInput, defined, parseBody } from '../validation'
@@ -63,6 +64,15 @@ app.get('/', async (c) => {
   return c.json(withType)
 })
 
+// `or()` and `and()` type their result as possibly-undefined because they accept zero
+// conditions. Every call below passes at least one, and a condition silently dropped here
+// would widen the selection to the whole ledger, so say what went missing rather than
+// assert it away.
+function required(condition: SQL | undefined, what: string): SQL {
+  if (!condition) throw new Error(`empty SQL condition: ${what}`)
+  return condition
+}
+
 // SQL narrowing for `GET /balances?types=`. The authoritative verdict is still
 // `resolveStoredOrInferredType` in the JS pass below; this only keeps the query from
 // aggregating postings for the whole ledger (the LEFT JOIN + GROUP BY is the expensive
@@ -73,10 +83,21 @@ app.get('/', async (c) => {
 // because it carries no usable override and its PATH infers to it. `cash` and `conversion`
 // are override-only, so they contribute no path branch at all — which is what makes
 // `?types=cash` a cheap indexed lookup rather than a full scan.
+
 // "At or under this root". The exact-path branch is not decoration: an account created at the
 // bare root (`assets`) is legal, and a `LIKE 'assets:%'` alone would leave it invisible.
 function underRootCondition(root: string): SQL {
-  return or(eq(accounts.path, root), like(accounts.path, `${root}:%`))!
+  return required(or(eq(accounts.path, root), like(accounts.path, `${root}:%`)), `under ${root}`)
+}
+
+// Inference applies only when the stored column holds nothing usable. A value outside the
+// valid set (shouldn't happen — validated on write) also falls back to inference, so treat it
+// like null rather than letting the account drop out of the query.
+function noUsableOverrideCondition(): SQL {
+  return required(
+    or(isNull(accounts.type), not(inArray(accounts.type, [...STORED_ACCOUNT_TYPES]))),
+    'no usable override',
+  )
 }
 
 function typeFilterCondition(types: Set<StoredAccountType>, roots: AccountTypeRoots) {
@@ -93,47 +114,65 @@ function typeFilterCondition(types: Set<StoredAccountType>, roots: AccountTypeRo
   const wantedRoots = [...types].map((t) => inferableRoots[t]).filter((r): r is string => !!r)
 
   if (wantedRoots.length > 0) {
-    // Inference applies only when the stored column holds nothing usable. A value outside
-    // the valid set (shouldn't happen — validated on write) also falls back to inference,
-    // so treat it like null here rather than letting the account drop out of the query.
-    const noUsableOverride = or(
-      isNull(accounts.type),
-      not(inArray(accounts.type, [...STORED_ACCOUNT_TYPES])),
+    const underWantedRoot = wantedRoots.map(underRootCondition)
+    branches.push(
+      required(
+        and(noUsableOverrideCondition(), or(...underWantedRoot)),
+        'inferred branch of the type filter',
+      ),
     )
-    const underWantedRoot = wantedRoots.flatMap((root) => [
-      eq(accounts.path, root),
-      like(accounts.path, `${root}:%`),
-    ])
-    branches.push(and(noUsableOverride, or(...underWantedRoot))!)
   }
 
-  return or(...branches)
+  return required(or(...branches), 'type filter')
 }
 
-// The default selection for GET /balances: the three balance-bearing roots, optionally plus
-// everything that belongs to no configured root at all. Expenses and income are excluded
+// Does this resolved type describe money you hold or owe, as opposed to a category money
+// moved through? Asked as the coarse bucket rather than as a list of the five, so Cash lands
+// with Asset and Conversion with Equity because `toClassifierType` says so.
+function isBalanceBearing(type: StoredAccountType | null): boolean {
+  if (type === null) return false
+  const bucket = toClassifierType(type)
+  return bucket === 'asset' || bucket === 'liability' || bucket === 'equity'
+}
+
+// The same question as a set, for the SQL prefilter. Derived rather than written out: two
+// lists that must agree are one list that will eventually not.
+const BALANCE_BEARING_TYPES = new Set(STORED_ACCOUNT_TYPES.filter(isBalanceBearing))
+
+// The default selection for GET /balances: everything whose RESOLVED type is balance-bearing,
+// optionally plus everything the app has no type for at all. Expenses and income are excluded
 // either way — they are categories, and the Categories tab owns them.
+//
+// Resolved, not path-inferred: a wallet at `储蓄:现金` tagged Cash is money you hold, and
+// selecting by path root alone left it on no balances surface at all — visible only to a
+// caller that passed `?types=cash`, which is the one query the bug report could not make from
+// the UI. The stored override is the account's answer about itself; a view that asks the path
+// instead is asking the wrong source.
 function balanceBearingCondition(roots: AccountTypeRoots, includeUnfiled: boolean): SQL {
-  const balanceBearing = or(
-    underRootCondition(roots.assetsRootPath),
-    underRootCondition(roots.liabilitiesRootPath),
-    underRootCondition(roots.equityRootPath),
-  )!
+  const balanceBearing = typeFilterCondition(BALANCE_BEARING_TYPES, roots)
   if (!includeUnfiled) return balanceBearing
 
-  const anyRoot = or(
-    balanceBearing,
-    underRootCondition(roots.expensesRootPath),
-    underRootCondition(roots.incomeRootPath),
-  )!
-  return or(balanceBearing, not(anyRoot))!
+  // Unfiled is now what it always meant: the app has no answer for this account. No usable
+  // override, and no configured root to infer one from. An unrooted path that *is* tagged is
+  // no longer unfiled — it is whatever it says it is, and lands in that group instead.
+  const anyRoot = required(
+    or(
+      underRootCondition(roots.assetsRootPath),
+      underRootCondition(roots.liabilitiesRootPath),
+      underRootCondition(roots.equityRootPath),
+      underRootCondition(roots.expensesRootPath),
+      underRootCondition(roots.incomeRootPath),
+    ),
+    'any configured root',
+  )
+  const unfiled = required(and(noUsableOverrideCondition(), not(anyRoot)), 'unfiled')
+  return required(or(balanceBearing, unfiled), 'balance-bearing selection')
 }
 
 // GET /api/accounts/balances[?types=cash,asset][?include=unfiled]
 // Returns all asset, liability, and equity accounts with their per-currency balances and type.
-// "Asset accounts"     = paths starting with defaultAssetsRootPath
-// "Liability accounts" = paths starting with defaultLiabilitiesRootPath
-// "Equity accounts"    = paths starting with defaultEquityRootPath
+// Membership is by RESOLVED type — the stored override, else what the path root infers — so
+// an account is on this endpoint because of what it says it is, not because of where it sits.
 // Balance = SUM of all posting amounts for that account, grouped by currency.
 // Accounts with no postings are included with an empty balances array.
 //
@@ -146,16 +185,15 @@ function balanceBearingCondition(roots: AccountTypeRoots, includeUnfiled: boolea
 app.get('/balances', async (c) => {
   const userId = c.get('userId')
 
-  // Optional `?types=` filter. When absent, the endpoint keeps its original behaviour:
-  // select by PATH ROOT (assets/liabilities/equity) and report the coarse three-way `type`.
-  // When present, select by RESOLVED type instead (stored override wins over inference), so
-  // a wallet tagged Cash under an atypically-named root — the very case the override exists
-  // for — is found. The web dashboard and balances page pass no filter and are unaffected.
+  // Optional `?types=` filter. Both modes select by RESOLVED type (stored override wins over
+  // inference); the filter only narrows which resolved types count. Absent, that is the five
+  // balance-bearing ones; present, it is exactly what was asked for — which is how a caller
+  // asks for Cash alone without also asking what a cash wallet's path looks like.
   const typesParam = c.req.query('types')
-  // `?include=unfiled` adds the accounts that sit outside *every* configured root. They are
-  // balance-bearing accounts with a mis-typed or unconventional path, and without this they
-  // appear on no surface at all — the Accounts page groups them under "Unfiled" so a stray
-  // path is visibly stray rather than silently missing.
+  // `?include=unfiled` adds the accounts the app has no type for: outside every configured
+  // root AND carrying no override. Without this they appear on no surface at all — the
+  // Accounts page groups them under "Unfiled" so a stray path is visibly stray rather than
+  // silently missing. Tagging such an account is how it leaves that group.
   const includeParam = c.req.query('include')
   if (includeParam !== undefined && includeParam !== 'unfiled') {
     return fail(c, 'ACCOUNT_INCLUDE_INVALID', { value: includeParam })
@@ -226,6 +264,16 @@ app.get('/balances', async (c) => {
     defaultCurrency: string | null
     balances: { currency: string; amount: string }[]
   }
+  // The SQL above is a prefilter and is allowed to be over-inclusive; this is the verdict.
+  // It runs in every mode, not just under `?types=`: the default selection reads the same
+  // resolved type, so an account under the assets root that is tagged Expense is excluded
+  // here rather than counted as money because of where it happens to sit.
+  const keep = (resolvedType: StoredAccountType | null): boolean => {
+    if (typeFilter) return resolvedType !== null && typeFilter.has(resolvedType)
+    if (isBalanceBearing(resolvedType)) return true
+    return includeUnfiled && resolvedType === null
+  }
+
   const grouped = new Map<string, Row>()
   const excluded = new Set<string>()
   for (const row of rows) {
@@ -235,7 +283,7 @@ app.get('/balances', async (c) => {
         { path: row.path, type: row.storedType },
         roots,
       )
-      if (typeFilter && (resolvedType === null || !typeFilter.has(resolvedType))) {
+      if (!keep(resolvedType)) {
         excluded.add(row.id)
         continue
       }
