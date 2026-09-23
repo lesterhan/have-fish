@@ -1,3 +1,4 @@
+import { log } from './logging'
 import { createServer, hasFrontend } from './server'
 
 // Where the built frontend lives. In the image it sits beside the backend source; a plain
@@ -6,7 +7,7 @@ import { createServer, hasFrontend } from './server'
 const STATIC_ROOT = process.env.HAVEFISH_STATIC_ROOT ?? './public'
 
 if (!(await hasFrontend(STATIC_ROOT))) {
-  console.log(`no frontend build at ${STATIC_ROOT}; serving the API only`)
+  log.info({ staticRoot: STATIC_ROOT }, 'no frontend build found; serving the API only')
 }
 
 export default {
