@@ -1,13 +1,11 @@
 <script lang="ts">
   import Icon from '$lib/components/ui/Icon.svelte'
   import { type Account, type Transaction } from '$lib/api'
-  import { settingsStore } from '$lib/settings.svelte'
-  import { isUnderRoot } from '$lib/components/accounts/accountPaths'
   import { pathResolver } from '$lib/components/accounts/accountIndex'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { summarize, classifyTransfer, fmt } from './transactionUtils'
-  import { ledgerTone, typeResolver } from './ledger'
+  import { isTransferRow, ledgerTone, typeResolver } from './ledger'
 
   interface Props {
     tx: Transaction
@@ -38,6 +36,8 @@
   // Indexed rather than rebuilt: an id→path object per row is O(rows × accounts) over an
   // array every row shares, which is what `pathResolver` exists to avoid.
   let pathOf = $derived(pathResolver(accounts))
+  // Hoisted above `isTransfer`, which reads it. Same resolver the tone column uses below.
+  let typeOf = $derived(typeResolver(accounts))
 
   // What to print for the account a posting names: its path, the bare id when the list has
   // no path for it, and nothing at all when the transaction has no such posting.
@@ -52,13 +52,9 @@
 
   let { from, to, rest } = $derived(summarize(tx.postings))
 
-  let isTransfer = $derived.by(() => {
-    const settings = settingsStore.value
-    if (!settings) return false
-    const expRoot = settings.defaultExpensesRootPath
-    const toPath = pathOf(to?.accountId) ?? ''
-    return !isUnderRoot(toPath, expRoot)
-  })
+  // Move or spend, from the counterpart's resolved type. See `isTransferRow`: the old test
+  // read the path against the expenses root and missed a category under an atypical root.
+  let isTransfer = $derived(isTransferRow(to, typeOf))
 
   let transfer = $derived(
     classifyTransfer(tx.postings, defaultConversionAccountId),
@@ -90,8 +86,6 @@
   // Amount colour is by exception here — see `ledger.ts`. Which posting to ask about and
   // what its sign means are both the helper's business now, so this page and the global
   // transactions list reach the same answer for the same row.
-  let typeOf = $derived(typeResolver(accounts))
-
   let tone = $derived(ledgerTone(tx.postings, typeOf, currentAccountId))
 
   // MoneyDisplay's flow classes paint --color-transfer-* directly, which would outrank the

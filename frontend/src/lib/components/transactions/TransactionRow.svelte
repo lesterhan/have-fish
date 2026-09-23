@@ -1,11 +1,9 @@
 <script lang="ts">
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import { type Account, type Transaction } from '$lib/api'
-  import { settingsStore } from '$lib/settings.svelte'
   import { pathResolver } from '$lib/components/accounts/accountIndex'
-  import { isUnderRoot } from '$lib/components/accounts/accountPaths'
   import { summarize, classifyTransfer, fmt } from './transactionUtils'
-  import { ledgerTone, typeResolver } from './ledger'
+  import { isTransferRow, ledgerTone, typeResolver } from './ledger'
 
   interface Props {
     tx: Transaction
@@ -51,18 +49,15 @@
     new Set(tx.postings.map((p) => p.currency)).size > 1,
   )
 
-  let isTransfer = $derived.by(() => {
-    const settings = settingsStore.value
-    if (!settings) return false
-    const expRoot = settings.defaultExpensesRootPath
-    const toPath = pathOf(to?.accountId) ?? ''
-    return !isUnderRoot(toPath, expRoot)
-  })
-
   let transfer = $derived(
     classifyTransfer(tx.postings, defaultConversionAccountId),
   )
   let { from, to, rest } = $derived(summarize(tx.postings))
+
+  // Move or spend, from the counterpart's resolved type. This used to ask whether its path
+  // sat under the expenses root, which needed settings loaded and still missed a category
+  // under an atypical root (#405); the type is on the account and needs neither.
+  let isTransfer = $derived(isTransferRow(to, typeOf))
 
   // When viewing a specific account page, identify which side of the transaction
   // is the current account so we can suppress it and show only the other side.

@@ -3,6 +3,7 @@ import type { Posting, StoredAccountType, Transaction } from '$lib/api'
 import {
   dayNet,
   groupByDay,
+  isTransferRow,
   ledgerTone,
   subjectPosting,
   type TypedAccount,
@@ -228,5 +229,43 @@ describe('typeResolver', () => {
       const scanned = accounts.find((a) => a.id === id)?.resolvedType ?? null
       expect(indexed(id)).toBe(scanned)
     }
+  })
+})
+
+// ── isTransferRow ───────────────────────────────────────────
+describe('isTransferRow', () => {
+  it('is a spend when the counterpart is an expense', () => {
+    expect(isTransferRow({ accountId: 'groceries' }, typeOf)).toBe(false)
+  })
+
+  it('is a move when the counterpart is your own money', () => {
+    expect(isTransferRow({ accountId: 'chequing' }, typeOf)).toBe(true)
+    expect(isTransferRow({ accountId: 'card' }, typeOf)).toBe(true)
+  })
+
+  it('is a move when the counterpart is income, which is not a spend', () => {
+    expect(isTransferRow({ accountId: 'salary' }, typeOf)).toBe(true)
+  })
+
+  // #405: the reason this reads a type rather than a path. `花钱:房租` is under no configured
+  // root, so the old `isUnderRoot(path, expensesRoot)` test called a real spend a transfer —
+  // and the account's Type field, set for exactly this, changed nothing.
+  it('reads the tag, so a category under an atypical root is still a spend', () => {
+    const tagged = (id: string) => (id === 'rent' ? ('expense' as StoredAccountType) : null)
+    expect(isTransferRow({ accountId: 'rent' }, tagged)).toBe(false)
+  })
+
+  it('collapses Cash and Conversion onto their parents', () => {
+    const tagged = (id: string) => (id === 'wallet' ? 'cash' : 'conversion') as StoredAccountType
+    expect(isTransferRow({ accountId: 'wallet' }, tagged)).toBe(true)
+    expect(isTransferRow({ accountId: 'bridge' }, tagged)).toBe(true)
+  })
+
+  it('claims nothing when there is no counterpart, or none the list knows', () => {
+    // False, not true: the flag only paints a ⇄ on the row, and a row nobody could classify
+    // should carry no marker rather than the wrong one.
+    expect(isTransferRow(null, typeOf)).toBe(false)
+    expect(isTransferRow(undefined, typeOf)).toBe(false)
+    expect(isTransferRow({ accountId: 'nobody' }, typeOf)).toBe(false)
   })
 })
