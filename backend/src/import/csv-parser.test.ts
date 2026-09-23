@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from '../test-utils'
 import { detectDelimiter, normalizeHeader, parseCsv } from './csv-parser'
 
 describe('detectDelimiter', () => {
@@ -57,10 +58,10 @@ describe('parseCsv', () => {
 
   it('produces a fingerprint that matches across delimiters', () => {
     const comma = normalizeHeader(
-      Object.keys(parseCsv('Date,Amount,Description\n2026-01-01,10,x')[0]),
+      Object.keys(at(parseCsv('Date,Amount,Description\n2026-01-01,10,x'))),
     )
     const semi = normalizeHeader(
-      Object.keys(parseCsv('Date;Amount;Description\n2026-01-01;10;x')[0]),
+      Object.keys(at(parseCsv('Date;Amount;Description\n2026-01-01;10;x'))),
     )
     expect(comma).toBe(semi)
   })

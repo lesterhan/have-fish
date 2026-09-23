@@ -1,22 +1,21 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
-import { app } from '../app'
 import { db } from '../db'
 import { csvParsers, userSettings } from '../db/schema'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { at, clearDatabase, createTestUser, request } from '../test-utils'
 
 // Resolves a user's id from a session cookie via the /api/accounts/me-less path:
 // we read it off any created account instead. Simpler: createAccount returns ids, and
 // userId is needed only to seed a parser/settings row — fetch it from the settings row.
 async function getUserId(cookie: string): Promise<string> {
-  const res = await app.request('/api/user-settings', { headers: { Cookie: cookie } })
+  const res = await request('/api/user-settings', { headers: { Cookie: cookie } })
   const body = (await res.json()) as { userId: string }
   return body.userId
 }
 
 // Helper: create an account via the API and return its id
 async function createAccount(cookie: string, path: string): Promise<string> {
-  const res = await app.request('/api/accounts', {
+  const res = await request('/api/accounts', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({ path }),
@@ -32,7 +31,7 @@ async function createTransaction(
   description: string,
   postings: { accountId: string; amount: string; currency: string }[],
 ): Promise<void> {
-  await app.request('/api/transactions', {
+  await request('/api/transactions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({ date, description, postings }),
@@ -48,7 +47,7 @@ describe('reports', () => {
   })
 
   it('GET /api/reports/spending-summary returns empty totals when there are no transactions', async () => {
-    const res = await app.request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
+    const res = await request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(200)
@@ -75,19 +74,16 @@ describe('reports', () => {
     type Category = { category: string; total: Record<string, string>; childCount: number }
 
     // Top-level: expenses:food groups both subcategories, childCount should be 2
-    const topRes = await app.request(
-      '/api/reports/spending-summary?from=2025-01-01&to=2025-01-31',
-      {
-        headers: { Cookie: cookie },
-      },
-    )
+    const topRes = await request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
+      headers: { Cookie: cookie },
+    })
     expect(topRes.status).toBe(200)
     const top = (await topRes.json()) as { categories: Category[] }
     const foodCat = top.categories.find((c) => c.category === 'expenses:food')
     expect(foodCat?.childCount).toBe(2)
 
     // Drill-down: prefix=expenses:food returns the two subcategories as leaf nodes
-    const drillRes = await app.request(
+    const drillRes = await request(
       '/api/reports/spending-summary?from=2025-01-01&to=2025-01-31&prefix=expenses:food',
       {
         headers: { Cookie: cookie },
@@ -119,7 +115,7 @@ describe('reports', () => {
 
     type Category = { category: string; total: Record<string, string>; childCount: number }
 
-    const res = await app.request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
+    const res = await request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(200)
@@ -171,7 +167,7 @@ describe('reports', () => {
     ])
 
     type Category = { category: string; total: Record<string, string>; childCount: number }
-    const res = await app.request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
+    const res = await request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(200)
@@ -185,7 +181,7 @@ describe('reports', () => {
   })
 
   it('GET /api/reports/monthly-spend returns one entry per month with empty totals when there are no transactions', async () => {
-    const res = await app.request('/api/reports/monthly-spend?months=3', {
+    const res = await request('/api/reports/monthly-spend?months=3', {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(200)
@@ -194,7 +190,7 @@ describe('reports', () => {
     // All entries should have empty totals
     expect(body.every((entry) => Object.keys(entry.total).length === 0)).toBe(true)
     // Months should be in ascending order
-    expect(body[0].month < body[1].month).toBe(true)
-    expect(body[1].month < body[2].month).toBe(true)
+    expect(at(body).month < at(body, 1).month).toBe(true)
+    expect(at(body, 1).month < at(body, 2).month).toBe(true)
   })
 })

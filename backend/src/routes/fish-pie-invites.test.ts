@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../test-utils'
 
 describe('fish-pie invites', () => {
   let cookieA: string
@@ -13,7 +12,7 @@ describe('fish-pie invites', () => {
 
   it('POST /api/fish-pie/groups/:id/invites sends an invite', async () => {
     // A creates a group
-    const groupRes = await app.request('/api/fish-pie/groups', {
+    const groupRes = await request('/api/fish-pie/groups', {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Trip' }),
@@ -21,7 +20,7 @@ describe('fish-pie invites', () => {
     const group = (await groupRes.json()) as any
 
     // A invites B
-    const res = await app.request(`/api/fish-pie/groups/${group.id}/invites`, {
+    const res = await request(`/api/fish-pie/groups/${group.id}/invites`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'b@example.com' }),

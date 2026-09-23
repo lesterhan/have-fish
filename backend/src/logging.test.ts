@@ -208,7 +208,7 @@ describe('the route a turned-away request names', () => {
   function guarded(logger: ReturnType<typeof capturing>['logger']) {
     const app = new Hono()
     app.use('*', requestLogger(logger))
-    app.use('/api/*', (c) => c.json({ error: 'UNAUTHORIZED' }, 401))
+    app.use('/api/*', async (c) => c.json({ error: 'UNAUTHORIZED' }, 401))
     app.get('/api/accounts/:id', (c) => c.json({}))
     return app
   }

@@ -1,23 +1,25 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
-import { app } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import { accounts, userSettings } from '../db/schema'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../test-utils'
 import { effectiveConfig, readCatchUpOverrides } from './horizon'
 
 async function createAccount(userId: string, path: string) {
-  const [acct] = await db.insert(accounts).values({ userId, path }).returning()
-  return acct
+  return returnedRow(
+    await db.insert(accounts).values({ userId, path }).returning(),
+    'insert accounts',
+  )
 }
 
 async function userIdFor(cookie: string) {
-  const res = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+  const res = await request('/api/auth/get-session', { headers: { Cookie: cookie } })
   return (await res.json()).user.id as string
 }
 
 async function patchConfig(cookie: string, accountId: string, body: Record<string, unknown>) {
-  return app.request(`/api/coverage/config/${accountId}`, {
+  return request(`/api/coverage/config/${accountId}`, {
     method: 'PATCH',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify(body),
@@ -30,7 +32,7 @@ async function postCoverage(
   fromDate: string,
   throughDate: string,
 ) {
-  return app.request('/api/coverage', {
+  return request('/api/coverage', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({ accountId, fromDate, throughDate, source: 'import' }),
@@ -64,7 +66,7 @@ describe('coverage config', () => {
   // The raw override travels alongside so a UI can tell the two apart.
   describe('GET /api/accounts/:id/coverage exposes the raw override', () => {
     async function getCoverage(accountId: string) {
-      const res = await app.request(`/api/accounts/${accountId}/coverage`, {
+      const res = await request(`/api/accounts/${accountId}/coverage`, {
         headers: { Cookie: cookie },
       })
       return (await res.json()) as {
@@ -116,7 +118,7 @@ describe('coverage config', () => {
       await seedMonthlyStatements(cookie, acct.id)
       await patchConfig(cookie, acct.id, { cycleDay: 3 })
 
-      const res = await app.request(`/api/accounts/${acct.id}/coverage`, {
+      const res = await request(`/api/accounts/${acct.id}/coverage`, {
         headers: { Cookie: cookie },
       })
       const body = (await res.json()) as {
@@ -133,7 +135,7 @@ describe('coverage config', () => {
     it('is null when there is not enough history to infer anything', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
 
-      const res = await app.request(`/api/accounts/${acct.id}/coverage`, {
+      const res = await request(`/api/accounts/${acct.id}/coverage`, {
         headers: { Cookie: cookie },
       })
       expect((await res.json()).inferred).toBeNull()
@@ -156,7 +158,7 @@ describe('coverage config', () => {
       const otherUserId = await userIdFor(otherCookie)
       const otherAcct = await createAccount(otherUserId, 'liabilities:visa')
 
-      const res = await app.request(`/api/accounts/${otherAcct.id}/coverage`, {
+      const res = await request(`/api/accounts/${otherAcct.id}/coverage`, {
         headers: { Cookie: otherCookie },
       })
       expect((await res.json()).override).toEqual({})
@@ -201,7 +203,7 @@ describe('coverage config', () => {
 
       expect(await effectiveConfig(userId, visa.id)).toMatchObject({ cycleDay: 25 })
 
-      await app.request(`/api/coverage/${first.id}`, {
+      await request(`/api/coverage/${first.id}`, {
         method: 'DELETE',
         headers: { Cookie: cookie },
       })
@@ -344,7 +346,7 @@ describe('coverage config', () => {
 
     it('leaves unrelated preference keys untouched', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
-      await app.request('/api/user-settings', {
+      await request('/api/user-settings', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Cookie: cookie },
         body: JSON.stringify({ preferences: { hiddenAccountIds: ['abc'], theme: 'graphite' } }),
@@ -432,7 +434,7 @@ describe('coverage config', () => {
     })
 
     it('requires authentication', async () => {
-      const res = await app.request('/api/coverage/config/00000000-0000-4000-8000-000000000000', {
+      const res = await request('/api/coverage/config/00000000-0000-4000-8000-000000000000', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tracked: false }),
@@ -448,7 +450,7 @@ describe('coverage config', () => {
       await seedMonthlyStatements(cookie, visa.id)
 
       const body = await (
-        await app.request(`/api/accounts/${visa.id}/coverage`, { headers: { Cookie: cookie } })
+        await request(`/api/accounts/${visa.id}/coverage`, { headers: { Cookie: cookie } })
       ).json()
 
       expect(body.config).toMatchObject({ exportMode: 'cycle', cycleDay: 25 })
@@ -462,7 +464,7 @@ describe('coverage config', () => {
       const acct = await createAccount(userId, 'assets:chequing')
 
       const body = await (
-        await app.request(`/api/accounts/${acct.id}/coverage`, { headers: { Cookie: cookie } })
+        await request(`/api/accounts/${acct.id}/coverage`, { headers: { Cookie: cookie } })
       ).json()
 
       expect(body.horizon).toBe(new Date().toISOString().substring(0, 10))

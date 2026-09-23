@@ -1,17 +1,16 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { and, eq, isNull } from 'drizzle-orm'
-import { app } from '../app'
 import { db } from '../db'
 import { accounts, expenseGroups, groupExpenses, groupSettlements, postings } from '../db/schema'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { at, clearDatabase, createTestUser, request } from '../test-utils'
 
 async function getUserId(cookie: string): Promise<string> {
-  const res = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+  const res = await request('/api/auth/get-session', { headers: { Cookie: cookie } })
   return ((await res.json()) as any).user.id
 }
 
 async function createGroup(cookie: string, name: string): Promise<string> {
-  const res = await app.request('/api/fish-pie/groups', {
+  const res = await request('/api/fish-pie/groups', {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
@@ -20,7 +19,7 @@ async function createGroup(cookie: string, name: string): Promise<string> {
 }
 
 async function createAccount(cookie: string, path: string): Promise<string> {
-  const res = await app.request('/api/accounts', {
+  const res = await request('/api/accounts', {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ path, name: path }),
@@ -34,20 +33,20 @@ async function inviteAndAccept(
   email: string,
   memberCookie: string,
 ) {
-  const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+  const invRes = await request(`/api/fish-pie/groups/${groupId}/invites`, {
     method: 'POST',
     headers: { Cookie: ownerCookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   })
   const inviteId = ((await invRes.json()) as any).id
-  await app.request(`/api/fish-pie/invites/${inviteId}/accept`, {
+  await request(`/api/fish-pie/invites/${inviteId}/accept`, {
     method: 'POST',
     headers: { Cookie: memberCookie },
   })
 }
 
 function setWeight(groupId: string, cookie: string, targetUserId: string, shareWeight: number) {
-  return app.request(`/api/fish-pie/groups/${groupId}/members/${targetUserId}`, {
+  return request(`/api/fish-pie/groups/${groupId}/members/${targetUserId}`, {
     method: 'PATCH',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ shareWeight }),
@@ -55,7 +54,7 @@ function setWeight(groupId: string, cookie: string, targetUserId: string, shareW
 }
 
 function setMyExpenseAccount(groupId: string, cookie: string, accountId: string) {
-  return app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+  return request(`/api/fish-pie/groups/${groupId}/members/me`, {
     method: 'PATCH',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ defaultExpenseAccountId: accountId }),
@@ -63,7 +62,7 @@ function setMyExpenseAccount(groupId: string, cookie: string, accountId: string)
 }
 
 function createExpense(groupId: string, cookie: string, body: Record<string, unknown>) {
-  return app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+  return request(`/api/fish-pie/groups/${groupId}/expenses`, {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -71,7 +70,7 @@ function createExpense(groupId: string, cookie: string, body: Record<string, unk
 }
 
 function merge(cookie: string, body: Record<string, unknown>) {
-  return app.request('/api/fish-pie/groups/merge', {
+  return request('/api/fish-pie/groups/merge', {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -79,7 +78,7 @@ function merge(cookie: string, body: Record<string, unknown>) {
 }
 
 async function balances(groupId: string, cookie: string) {
-  const res = await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
+  const res = await request(`/api/fish-pie/groups/${groupId}/balances`, {
     headers: { Cookie: cookie },
   })
   return (await res.json()) as any[]
@@ -224,16 +223,18 @@ describe('fish-pie merge', () => {
       expect(oldHousing).toHaveLength(0)
 
       // B's new clearing account holds the collapsed debt: -40 (Housing) + -30 (Food) = -70
-      const [newClearing] = await db
-        .select()
-        .from(accounts)
-        .where(
-          and(
-            eq(accounts.userId, userBId),
-            eq(accounts.path, 'assets:receivable:household'),
-            isNull(accounts.deletedAt),
+      const newClearing = at(
+        await db
+          .select()
+          .from(accounts)
+          .where(
+            and(
+              eq(accounts.userId, userBId),
+              eq(accounts.path, 'assets:receivable:household'),
+              isNull(accounts.deletedAt),
+            ),
           ),
-        )
+      )
       expect(newClearing).toBeDefined()
       const ps = await db
         .select({ amount: postings.amount })
@@ -247,7 +248,7 @@ describe('fish-pie merge', () => {
       const { housing, food } = await twoGroupsWithExpenses()
       // B settles 40 to A in the Housing group before merging
       const payB = await createAccount(cookieB, 'assets:cash')
-      const settleRes = await app.request(`/api/fish-pie/groups/${housing}/settlements`, {
+      const settleRes = await request(`/api/fish-pie/groups/${housing}/settlements`, {
         method: 'POST',
         headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
         body: JSON.stringify({

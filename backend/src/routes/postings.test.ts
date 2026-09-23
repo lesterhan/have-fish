@@ -1,46 +1,37 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../test-utils'
 
 // Shared setup: two accounts, one transaction with two postings
 async function setup(headers: Record<string, string>) {
   const [accA, accB, accC] = await Promise.all([
-    app
-      .request('/api/accounts', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
-      })
-      .then((r) => r.json()),
-    app
-      .request('/api/accounts', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
-      })
-      .then((r) => r.json()),
-    app
-      .request('/api/accounts', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ path: 'expenses:transport', type: 'expense', currency: 'CAD' }),
-      })
-      .then((r) => r.json()),
-  ])
-  const tx = await app
-    .request('/api/transactions', {
+    request('/api/accounts', {
       method: 'POST',
       headers,
-      body: JSON.stringify({
-        date: '2026-03-01',
-        description: 'Lunch',
-        postings: [
-          { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
-          { accountId: accB.id, amount: '10.00', currency: 'CAD' },
-        ],
-      }),
-    })
-    .then((r) => r.json())
+      body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
+    }).then((r) => r.json()),
+    request('/api/accounts', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
+    }).then((r) => r.json()),
+    request('/api/accounts', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ path: 'expenses:transport', type: 'expense', currency: 'CAD' }),
+    }).then((r) => r.json()),
+  ])
+  const tx = await request('/api/transactions', {
+    method: 'POST',
+    headers,
+    body: JSON.stringify({
+      date: '2026-03-01',
+      description: 'Lunch',
+      postings: [
+        { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
+        { accountId: accB.id, amount: '10.00', currency: 'CAD' },
+      ],
+    }),
+  }).then((r) => r.json())
   return { accA, accB, accC, tx, postingA: tx.postings[0], postingB: tx.postings[1] }
 }
 
@@ -60,7 +51,7 @@ describe('PATCH /api/postings/:id', () => {
   })
 
   it('updates accountId of a posting', async () => {
-    const res = await app.request(`/api/postings/${postingId}`, {
+    const res = await request(`/api/postings/${postingId}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ accountId: altAccountId }),
@@ -70,7 +61,7 @@ describe('PATCH /api/postings/:id', () => {
   })
 
   it('updates amount and currency of a posting', async () => {
-    const res = await app.request(`/api/postings/${postingId}`, {
+    const res = await request(`/api/postings/${postingId}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ amount: '-25.00', currency: 'USD' }),
@@ -82,7 +73,7 @@ describe('PATCH /api/postings/:id', () => {
   })
 
   it('returns 400 when no fields provided', async () => {
-    const res = await app.request(`/api/postings/${postingId}`, {
+    const res = await request(`/api/postings/${postingId}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({}),
@@ -92,14 +83,12 @@ describe('PATCH /api/postings/:id', () => {
 
   it('returns 404 when account does not belong to the user', async () => {
     const otherCookie = await createTestUser('other@example.com', 'password123')
-    const otherAccount = await app
-      .request('/api/accounts', {
-        method: 'POST',
-        headers: { ...headers, Cookie: otherCookie },
-        body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
-      })
-      .then((r) => r.json())
-    const res = await app.request(`/api/postings/${postingId}`, {
+    const otherAccount = await request('/api/accounts', {
+      method: 'POST',
+      headers: { ...headers, Cookie: otherCookie },
+      body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
+    }).then((r) => r.json())
+    const res = await request(`/api/postings/${postingId}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ accountId: otherAccount.id }),
@@ -108,7 +97,7 @@ describe('PATCH /api/postings/:id', () => {
   })
 
   it('returns 404 for unknown posting id', async () => {
-    const res = await app.request('/api/postings/00000000-0000-0000-0000-000000000000', {
+    const res = await request('/api/postings/00000000-0000-0000-0000-000000000000', {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ accountId: altAccountId }),
@@ -118,7 +107,7 @@ describe('PATCH /api/postings/:id', () => {
 
   it("returns 404 for a posting belonging to another user's transaction", async () => {
     const otherCookie = await createTestUser('other@example.com', 'password123')
-    const res = await app.request(`/api/postings/${postingId}`, {
+    const res = await request(`/api/postings/${postingId}`, {
       method: 'PATCH',
       headers: { ...headers, Cookie: otherCookie },
       body: JSON.stringify({ accountId: altAccountId }),
@@ -139,7 +128,7 @@ describe('POST /api/postings', () => {
 
   it('creates a posting on an existing transaction', async () => {
     const { accC, tx } = await setup(headers)
-    const res = await app.request('/api/postings', {
+    const res = await request('/api/postings', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -157,7 +146,7 @@ describe('POST /api/postings', () => {
 
   it('returns 404 for unknown transaction', async () => {
     const { accC } = await setup(headers)
-    const res = await app.request('/api/postings', {
+    const res = await request('/api/postings', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -184,7 +173,7 @@ describe('DELETE /api/postings/:id', () => {
   it('soft-deletes a posting when 3+ active postings exist', async () => {
     const { accC, tx, postingA } = await setup(headers)
     // Add a third posting so we can delete one
-    await app.request('/api/postings', {
+    await request('/api/postings', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -194,19 +183,19 @@ describe('DELETE /api/postings/:id', () => {
         currency: 'CAD',
       }),
     })
-    const res = await app.request(`/api/postings/${postingA.id}`, { method: 'DELETE', headers })
+    const res = await request(`/api/postings/${postingA.id}`, { method: 'DELETE', headers })
     expect(res.status).toBe(200)
     expect((await res.json()).deletedAt).not.toBeNull()
   })
 
   it('returns 400 when only 2 postings remain', async () => {
     const { postingA } = await setup(headers)
-    const res = await app.request(`/api/postings/${postingA.id}`, { method: 'DELETE', headers })
+    const res = await request(`/api/postings/${postingA.id}`, { method: 'DELETE', headers })
     expect(res.status).toBe(400)
   })
 
   it('returns 404 for unknown posting', async () => {
-    const res = await app.request('/api/postings/00000000-0000-0000-0000-000000000000', {
+    const res = await request('/api/postings/00000000-0000-0000-0000-000000000000', {
       method: 'DELETE',
       headers,
     })

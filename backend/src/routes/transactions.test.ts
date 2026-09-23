@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
-import { app } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import {
   accounts,
   expenseGroupMembers,
@@ -9,7 +9,7 @@ import {
   groupExpenses,
   transactions,
 } from '../db/schema'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { at, clearDatabase, createTestUser, request } from '../test-utils'
 
 describe('transactions', () => {
   let cookie: string
@@ -20,7 +20,7 @@ describe('transactions', () => {
   })
 
   it('GET /api/transactions returns an empty array when there are no transactions', async () => {
-    const res = await app.request('/api/transactions', {
+    const res = await request('/api/transactions', {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(200)
@@ -34,37 +34,29 @@ describe('transactions', () => {
     // than trusting that N-posting support still behaves.
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [wallet, food, household, electronics] = (await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:cash:cad', defaultCurrency: 'CAD' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:food' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:household' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:electronics' }),
-        })
-        .then((r) => r.json()),
-    ])) as { id: string }[]
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:cash:cad', defaultCurrency: 'CAD' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:food' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:household' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:electronics' }),
+      }).then((r) => r.json()),
+    ])) as [{ id: string }, { id: string }, { id: string }, { id: string }]
 
-    const res = await app.request('/api/transactions', {
+    const res = await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -84,7 +76,7 @@ describe('transactions', () => {
     expect(created.postings).toHaveLength(4)
 
     // One payment, three categories — and the wallet is down the full amount.
-    const balanceRes = await app.request('/api/accounts/balances?types=cash', {
+    const balanceRes = await request('/api/accounts/balances?types=cash', {
       headers: { Cookie: cookie },
     })
     const balances = (await balanceRes.json()) as {
@@ -93,17 +85,17 @@ describe('transactions', () => {
     }[]
     expect(balances).toEqual([]) // untagged: not a wallet yet
 
-    await app.request(`/api/accounts/${wallet.id}`, {
+    await request(`/api/accounts/${wallet.id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ type: 'cash' }),
     })
-    const tagged = await app.request('/api/accounts/balances?types=cash', {
+    const tagged = await request('/api/accounts/balances?types=cash', {
       headers: { Cookie: cookie },
     })
-    const walletRow = (
-      (await tagged.json()) as { balances: { currency: string; amount: string }[] }[]
-    )[0]
+    const walletRow = at(
+      (await tagged.json()) as { balances: { currency: string; amount: string }[] }[],
+    )
     expect(walletRow.balances).toEqual([{ currency: 'CAD', amount: '-180.00' }])
   })
 
@@ -113,37 +105,29 @@ describe('transactions', () => {
     // zero on its own — that is exactly what the bridge is for.
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, wallet, conversion, fees] = (await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:chequing', defaultCurrency: 'CAD' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:cash:cny', defaultCurrency: 'CNY' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'equity:conversion' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:fees:atm' }),
-        })
-        .then((r) => r.json()),
-    ])) as { id: string }[]
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:chequing', defaultCurrency: 'CAD' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:cash:cny', defaultCurrency: 'CNY' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'equity:conversion' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:fees:atm' }),
+      }).then((r) => r.json()),
+    ])) as [{ id: string }, { id: string }, { id: string }, { id: string }]
 
-    const res = await app.request('/api/transactions', {
+    const res = await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -163,15 +147,15 @@ describe('transactions', () => {
     const created = (await res.json()) as { postings: { amount: string; currency: string }[] }
     expect(created.postings).toHaveLength(5)
 
-    await app.request(`/api/accounts/${wallet.id}`, {
+    await request(`/api/accounts/${wallet.id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ type: 'cash' }),
     })
-    const balances = (await app
-      .request('/api/accounts/balances?types=cash', { headers: { Cookie: cookie } })
-      .then((r) => r.json())) as { balances: { currency: string; amount: string }[] }[]
-    expect(balances[0].balances).toEqual([{ currency: 'CNY', amount: '1000.00' }])
+    const balances = (await request('/api/accounts/balances?types=cash', {
+      headers: { Cookie: cookie },
+    }).then((r) => r.json())) as { balances: { currency: string; amount: string }[] }[]
+    expect(at(balances).balances).toEqual([{ currency: 'CNY', amount: '1000.00' }])
   })
 
   it('rejects a cross-currency movement that skips the conversion bridge', async () => {
@@ -180,23 +164,19 @@ describe('transactions', () => {
     // configured, rather than posting something the server would reject anyway.
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, wallet] = (await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:chequing' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:cash:cny' }),
-        })
-        .then((r) => r.json()),
-    ])) as { id: string }[]
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:cash:cny' }),
+      }).then((r) => r.json()),
+    ])) as [{ id: string }, { id: string }]
 
-    const res = await app.request('/api/transactions', {
+    const res = await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -218,23 +198,19 @@ describe('transactions', () => {
     // an unbalanced transaction into the ledger.
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [wallet, food] = (await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:cash:cad' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:food' }),
-        })
-        .then((r) => r.json()),
-    ])) as { id: string }[]
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:cash:cad' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:food' }),
+      }).then((r) => r.json()),
+    ])) as [{ id: string }, { id: string }]
 
-    const res = await app.request('/api/transactions', {
+    const res = await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -253,22 +229,18 @@ describe('transactions', () => {
   it('GET /api/transactions attaches accountPath and a derived role to each posting', async () => {
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, food] = await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:chequing' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:food' }),
-        })
-        .then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:food' }),
+      }).then((r) => r.json()),
     ])
-    await app.request('/api/transactions', {
+    await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -281,16 +253,16 @@ describe('transactions', () => {
       }),
     })
 
-    const res = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+    const res = await request('/api/transactions', { headers: { Cookie: cookie } })
     expect(res.status).toBe(200)
     type P = { accountId: string; accountPath: string; role: string }
     const body = (await res.json()) as { postings: P[] }[]
-    const ps = body[0].postings
+    const ps = at(body).postings
     const byAccount = Object.fromEntries(ps.map((p) => [p.accountId, p]))
-    expect(byAccount[chequing.id].accountPath).toBe('assets:chequing')
-    expect(byAccount[chequing.id].role).toBe('transfer')
-    expect(byAccount[food.id].accountPath).toBe('expenses:food')
-    expect(byAccount[food.id].role).toBe('subject')
+    expect(at(byAccount, chequing.id).accountPath).toBe('assets:chequing')
+    expect(at(byAccount, chequing.id).role).toBe('transfer')
+    expect(at(byAccount, food.id).accountPath).toBe('expenses:food')
+    expect(at(byAccount, food.id).role).toBe('subject')
   })
 
   it('GET /api/transactions exposes each posting accountName (null when unset, the name when set)', async () => {
@@ -298,28 +270,24 @@ describe('transactions', () => {
     // null until the user names the account, then carries the name they set.
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, food] = await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:chequing' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:food' }),
-        })
-        .then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:food' }),
+      }).then((r) => r.json()),
     ])
     // Name only one of the two accounts.
-    await app.request(`/api/accounts/${food.id}`, {
+    await request(`/api/accounts/${food.id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ name: 'Eating Out' }),
     })
-    await app.request('/api/transactions', {
+    await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -332,12 +300,12 @@ describe('transactions', () => {
       }),
     })
 
-    const res = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+    const res = await request('/api/transactions', { headers: { Cookie: cookie } })
     type P = { accountId: string; accountName: string | null }
     const body = (await res.json()) as { postings: P[] }[]
-    const byAccount = Object.fromEntries(body[0].postings.map((p) => [p.accountId, p]))
-    expect(byAccount[food.id].accountName).toBe('Eating Out')
-    expect(byAccount[chequing.id].accountName).toBeNull()
+    const byAccount = Object.fromEntries(at(body).postings.map((p) => [p.accountId, p]))
+    expect(at(byAccount, food.id).accountName).toBe('Eating Out')
+    expect(at(byAccount, chequing.id).accountName).toBeNull()
   })
 
   it('POST /api/transactions returns postings enriched with accountName', async () => {
@@ -345,27 +313,23 @@ describe('transactions', () => {
     // freshly-created row narrates without a refetch.
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, food] = await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:chequing' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:food' }),
-        })
-        .then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:food' }),
+      }).then((r) => r.json()),
     ])
-    await app.request(`/api/accounts/${food.id}`, {
+    await request(`/api/accounts/${food.id}`, {
       method: 'PATCH',
       headers,
       body: JSON.stringify({ name: 'Eating Out' }),
     })
-    const res = await app.request('/api/transactions', {
+    const res = await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -381,8 +345,8 @@ describe('transactions', () => {
     type P = { accountId: string; accountName: string | null }
     const body = (await res.json()) as { postings: P[] }
     const byAccount = Object.fromEntries(body.postings.map((p) => [p.accountId, p]))
-    expect(byAccount[food.id].accountName).toBe('Eating Out')
-    expect(byAccount[chequing.id].accountName).toBeNull()
+    expect(at(byAccount, food.id).accountName).toBe('Eating Out')
+    expect(at(byAccount, chequing.id).accountName).toBeNull()
   })
 
   it('POST /api/transactions returns postings enriched with accountPath and role', async () => {
@@ -390,22 +354,18 @@ describe('transactions', () => {
     // narrated (TransactionDetail) without a refetch.
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, food] = await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:chequing' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:food' }),
-        })
-        .then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:food' }),
+      }).then((r) => r.json()),
     ])
-    const res = await app.request('/api/transactions', {
+    const res = await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -421,31 +381,27 @@ describe('transactions', () => {
     type P = { accountId: string; accountPath: string; role: string }
     const body = (await res.json()) as { postings: P[] }
     const byAccount = Object.fromEntries(body.postings.map((p) => [p.accountId, p]))
-    expect(byAccount[chequing.id].accountPath).toBe('assets:chequing')
-    expect(byAccount[chequing.id].role).toBe('transfer')
-    expect(byAccount[food.id].accountPath).toBe('expenses:food')
-    expect(byAccount[food.id].role).toBe('subject')
+    expect(at(byAccount, chequing.id).accountPath).toBe('assets:chequing')
+    expect(at(byAccount, chequing.id).role).toBe('transfer')
+    expect(at(byAccount, food.id).accountPath).toBe('expenses:food')
+    expect(at(byAccount, food.id).role).toBe('subject')
   })
 
   it('POST /api/transactions/bulk returns each transaction with enriched postings', async () => {
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, food] = await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:chequing' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:food' }),
-        })
-        .then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:food' }),
+      }).then((r) => r.json()),
     ])
-    const res = await app.request('/api/transactions/bulk', {
+    const res = await request('/api/transactions/bulk', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -476,9 +432,9 @@ describe('transactions', () => {
     // Roles must be attached per-transaction, not bled across the flattened batch.
     for (const tx of body) {
       const byAccount = Object.fromEntries(tx.postings.map((p) => [p.accountId, p]))
-      expect(byAccount[chequing.id].role).toBe('transfer')
-      expect(byAccount[food.id].role).toBe('subject')
-      expect(byAccount[food.id].accountPath).toBe('expenses:food')
+      expect(at(byAccount, chequing.id).role).toBe('transfer')
+      expect(at(byAccount, food.id).role).toBe('subject')
+      expect(at(byAccount, food.id).accountPath).toBe('expenses:food')
     }
   })
 
@@ -487,24 +443,20 @@ describe('transactions', () => {
     // the path of — an account they don't own.
     const otherCookie = await createTestUser('other@example.com')
     const otherHeaders = { Cookie: otherCookie, 'Content-Type': 'application/json' }
-    const foreign = await app
-      .request('/api/accounts', {
-        method: 'POST',
-        headers: otherHeaders,
-        body: JSON.stringify({ path: 'assets:secret' }),
-      })
-      .then((r) => r.json())
+    const foreign = await request('/api/accounts', {
+      method: 'POST',
+      headers: otherHeaders,
+      body: JSON.stringify({ path: 'assets:secret' }),
+    }).then((r) => r.json())
 
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
-    const mine = await app
-      .request('/api/accounts', {
-        method: 'POST',
-        headers,
-        body: JSON.stringify({ path: 'expenses:food' }),
-      })
-      .then((r) => r.json())
+    const mine = await request('/api/accounts', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({ path: 'expenses:food' }),
+    }).then((r) => r.json())
 
-    const res = await app.request('/api/transactions', {
+    const res = await request('/api/transactions', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -520,42 +472,36 @@ describe('transactions', () => {
     expect((await res.json()).error).toBe('ACCOUNTS_NOT_FOUND')
 
     // Nothing was created.
-    const list = await app
-      .request('/api/transactions', { headers: { Cookie: cookie } })
-      .then((r) => r.json())
+    const list = await request('/api/transactions', { headers: { Cookie: cookie } }).then((r) =>
+      r.json(),
+    )
     expect(list).toHaveLength(0)
   })
 
   it('POST /api/transactions/bulk rejects a foreign account in any transaction', async () => {
     const otherCookie = await createTestUser('other@example.com')
     const otherHeaders = { Cookie: otherCookie, 'Content-Type': 'application/json' }
-    const foreign = await app
-      .request('/api/accounts', {
-        method: 'POST',
-        headers: otherHeaders,
-        body: JSON.stringify({ path: 'assets:secret' }),
-      })
-      .then((r) => r.json())
+    const foreign = await request('/api/accounts', {
+      method: 'POST',
+      headers: otherHeaders,
+      body: JSON.stringify({ path: 'assets:secret' }),
+    }).then((r) => r.json())
 
     const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
     const [chequing, food] = await Promise.all([
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'assets:chequing' }),
-        })
-        .then((r) => r.json()),
-      app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({ path: 'expenses:food' }),
-        })
-        .then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'assets:chequing' }),
+      }).then((r) => r.json()),
+      request('/api/accounts', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({ path: 'expenses:food' }),
+      }).then((r) => r.json()),
     ])
 
-    const res = await app.request('/api/transactions/bulk', {
+    const res = await request('/api/transactions/bulk', {
       method: 'POST',
       headers,
       body: JSON.stringify({
@@ -581,9 +527,9 @@ describe('transactions', () => {
     })
     expect(res.status).toBe(404)
     // Atomic: the valid transaction in the same batch must not have been created either.
-    const list = await app
-      .request('/api/transactions', { headers: { Cookie: cookie } })
-      .then((r) => r.json())
+    const list = await request('/api/transactions', { headers: { Cookie: cookie } }).then((r) =>
+      r.json(),
+    )
     expect(list).toHaveLength(0)
   })
 
@@ -594,40 +540,34 @@ describe('transactions', () => {
     beforeEach(async () => {
       headers.Cookie = cookie
       const [accA, accB] = await Promise.all([
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
-          })
-          .then((r) => r.json()),
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
-          })
-          .then((r) => r.json()),
-      ])
-      const tx = await app
-        .request('/api/transactions', {
+        request('/api/accounts', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            date: '2026-03-01',
-            description: 'Lunch',
-            postings: [
-              { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
-              { accountId: accB.id, amount: '10.00', currency: 'CAD' },
-            ],
-          }),
-        })
-        .then((r) => r.json())
+          body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
+        }).then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
+        }).then((r) => r.json()),
+      ])
+      const tx = await request('/api/transactions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          date: '2026-03-01',
+          description: 'Lunch',
+          postings: [
+            { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
+            { accountId: accB.id, amount: '10.00', currency: 'CAD' },
+          ],
+        }),
+      }).then((r) => r.json())
       txId = tx.id
     })
 
     it('updates description', async () => {
-      const res = await app.request(`/api/transactions/${txId}`, {
+      const res = await request(`/api/transactions/${txId}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ description: 'Dinner' }),
@@ -637,7 +577,7 @@ describe('transactions', () => {
     })
 
     it('updates date', async () => {
-      const res = await app.request(`/api/transactions/${txId}`, {
+      const res = await request(`/api/transactions/${txId}`, {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ date: '2026-04-01' }),
@@ -647,7 +587,7 @@ describe('transactions', () => {
     })
 
     it('returns 404 for unknown id', async () => {
-      const res = await app.request('/api/transactions/00000000-0000-0000-0000-000000000000', {
+      const res = await request('/api/transactions/00000000-0000-0000-0000-000000000000', {
         method: 'PATCH',
         headers,
         body: JSON.stringify({ description: 'x' }),
@@ -657,7 +597,7 @@ describe('transactions', () => {
 
     it("returns 404 for another user's transaction", async () => {
       const otherCookie = await createTestUser('other@example.com', 'password123')
-      const res = await app.request(`/api/transactions/${txId}`, {
+      const res = await request(`/api/transactions/${txId}`, {
         method: 'PATCH',
         headers: { ...headers, Cookie: otherCookie },
         body: JSON.stringify({ description: 'x' }),
@@ -674,48 +614,40 @@ describe('transactions', () => {
     beforeEach(async () => {
       headers.Cookie = cookie
       ;[accA, accB, accC] = await Promise.all([
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
-          })
-          .then((r) => r.json()),
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
-          })
-          .then((r) => r.json()),
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'expenses:transport', type: 'expense', currency: 'CAD' }),
-          })
-          .then((r) => r.json()),
-      ])
-      const tx = await app
-        .request('/api/transactions', {
+        request('/api/accounts', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            date: '2026-03-01',
-            description: 'Test',
-            postings: [
-              { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
-              { accountId: accB.id, amount: '10.00', currency: 'CAD' },
-            ],
-          }),
-        })
-        .then((r) => r.json())
+          body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
+        }).then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
+        }).then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ path: 'expenses:transport', type: 'expense', currency: 'CAD' }),
+        }).then((r) => r.json()),
+      ])
+      const tx = await request('/api/transactions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          date: '2026-03-01',
+          description: 'Test',
+          postings: [
+            { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
+            { accountId: accB.id, amount: '10.00', currency: 'CAD' },
+          ],
+        }),
+      }).then((r) => r.json())
       txId = tx.id
     })
 
     it('replaces all postings on a transaction', async () => {
       // Split the expense across two accounts — old postings are fully replaced
-      const res = await app.request(`/api/transactions/${txId}/postings`, {
+      const res = await request(`/api/transactions/${txId}/postings`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -741,7 +673,7 @@ describe('transactions', () => {
     it('recategorizes the subject leg (same amounts) without unbalancing', async () => {
       // Smart edit repoints only the expense leg's account (food → transport). Amounts are
       // unchanged, so the entry still balances; the backend re-validates regardless.
-      const res = await app.request(`/api/transactions/${txId}/postings`, {
+      const res = await request(`/api/transactions/${txId}/postings`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -763,7 +695,7 @@ describe('transactions', () => {
     })
 
     it('returns 400 when postings do not balance', async () => {
-      const res = await app.request(`/api/transactions/${txId}/postings`, {
+      const res = await request(`/api/transactions/${txId}/postings`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -777,7 +709,7 @@ describe('transactions', () => {
     })
 
     it('returns 400 when fewer than 2 postings are provided', async () => {
-      const res = await app.request(`/api/transactions/${txId}/postings`, {
+      const res = await request(`/api/transactions/${txId}/postings`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -788,33 +720,28 @@ describe('transactions', () => {
     })
 
     it('returns 404 for unknown transaction id', async () => {
-      const res = await app.request(
-        '/api/transactions/00000000-0000-0000-0000-000000000000/postings',
-        {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            postings: [
-              { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
-              { accountId: accB.id, amount: '10.00', currency: 'CAD' },
-            ],
-          }),
-        },
-      )
+      const res = await request('/api/transactions/00000000-0000-0000-0000-000000000000/postings', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          postings: [
+            { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
+            { accountId: accB.id, amount: '10.00', currency: 'CAD' },
+          ],
+        }),
+      })
       expect(res.status).toBe(404)
     })
 
     it('returns 404 when an account belongs to another user', async () => {
       const otherCookie = await createTestUser('other@example.com', 'password123')
       const otherHeaders = { ...headers, Cookie: otherCookie }
-      const otherAcc = await app
-        .request('/api/accounts', {
-          method: 'POST',
-          headers: otherHeaders,
-          body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
-        })
-        .then((r) => r.json())
-      const res = await app.request(`/api/transactions/${txId}/postings`, {
+      const otherAcc = await request('/api/accounts', {
+        method: 'POST',
+        headers: otherHeaders,
+        body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
+      }).then((r) => r.json())
+      const res = await request(`/api/transactions/${txId}/postings`, {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -829,7 +756,7 @@ describe('transactions', () => {
 
     it("returns 404 for another user's transaction", async () => {
       const otherCookie = await createTestUser('other@example.com', 'password123')
-      const res = await app.request(`/api/transactions/${txId}/postings`, {
+      const res = await request(`/api/transactions/${txId}/postings`, {
         method: 'POST',
         headers: { ...headers, Cookie: otherCookie },
         body: JSON.stringify({
@@ -850,20 +777,16 @@ describe('transactions', () => {
       const headersJson = { Cookie: cookie, 'Content-Type': 'application/json' }
 
       const [accA, accB] = await Promise.all([
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers: headersJson,
-            body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
-          })
-          .then((r) => r.json()),
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers: headersJson,
-            body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
-          })
-          .then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers: headersJson,
+          body: JSON.stringify({ path: 'assets:chequing', type: 'asset', currency: 'CAD' }),
+        }).then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers: headersJson,
+          body: JSON.stringify({ path: 'expenses:food', type: 'expense', currency: 'CAD' }),
+        }).then((r) => r.json()),
       ])
 
       const posting = (accountId: string, amount: string) => ({
@@ -873,7 +796,7 @@ describe('transactions', () => {
       })
 
       await Promise.all([
-        app.request('/api/transactions', {
+        request('/api/transactions', {
           method: 'POST',
           headers: headersJson,
           body: JSON.stringify({
@@ -882,7 +805,7 @@ describe('transactions', () => {
             postings: [posting(accA.id, '-10.00'), posting(accB.id, '10.00')],
           }),
         }),
-        app.request('/api/transactions', {
+        request('/api/transactions', {
           method: 'POST',
           headers: headersJson,
           body: JSON.stringify({
@@ -895,7 +818,7 @@ describe('transactions', () => {
     })
 
     it('returns only transactions within the given date range', async () => {
-      const res = await app.request('/api/transactions?from=2026-01-01&to=2026-01-31', {
+      const res = await request('/api/transactions?from=2026-01-01&to=2026-01-31', {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(200)
@@ -905,7 +828,7 @@ describe('transactions', () => {
     })
 
     it('returns transactions on or after ?from', async () => {
-      const res = await app.request('/api/transactions?from=2026-02-01', {
+      const res = await request('/api/transactions?from=2026-02-01', {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(200)
@@ -915,7 +838,7 @@ describe('transactions', () => {
     })
 
     it('returns transactions on or before ?to', async () => {
-      const res = await app.request('/api/transactions?to=2026-01-31', {
+      const res = await request('/api/transactions?to=2026-01-31', {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(200)
@@ -925,7 +848,7 @@ describe('transactions', () => {
     })
 
     it('returns empty array when date range matches nothing', async () => {
-      const res = await app.request('/api/transactions?from=2025-01-01&to=2025-12-31', {
+      const res = await request('/api/transactions?from=2025-01-01&to=2025-12-31', {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(200)
@@ -933,7 +856,7 @@ describe('transactions', () => {
     })
 
     it('returns all transactions when no date params are given', async () => {
-      const res = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+      const res = await request('/api/transactions', { headers: { Cookie: cookie } })
       expect(res.status).toBe(200)
       expect(await res.json()).toHaveLength(2)
     })
@@ -946,25 +869,21 @@ describe('transactions', () => {
     beforeEach(async () => {
       headers.Cookie = cookie
       ;[accA, accB] = await Promise.all([
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'assets:chequing' }),
-          })
-          .then((r) => r.json()),
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'expenses:food' }),
-          })
-          .then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ path: 'assets:chequing' }),
+        }).then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ path: 'expenses:food' }),
+        }).then((r) => r.json()),
       ])
     })
 
     it('creates all transactions and returns them', async () => {
-      const res = await app.request('/api/transactions/bulk', {
+      const res = await request('/api/transactions/bulk', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -996,7 +915,7 @@ describe('transactions', () => {
     })
 
     it('rolls back the whole batch when one transaction has imbalanced postings', async () => {
-      const res = await app.request('/api/transactions/bulk', {
+      const res = await request('/api/transactions/bulk', {
         method: 'POST',
         headers,
         body: JSON.stringify({
@@ -1020,9 +939,9 @@ describe('transactions', () => {
       })
       expect(res.status).toBe(400)
       // Confirm nothing was persisted
-      const txns = await app
-        .request('/api/transactions', { headers: { Cookie: cookie } })
-        .then((r) => r.json())
+      const txns = await request('/api/transactions', { headers: { Cookie: cookie } }).then((r) =>
+        r.json(),
+      )
       expect(txns).toHaveLength(0)
     })
   })
@@ -1033,14 +952,14 @@ describe('transactions', () => {
 
     beforeEach(async () => {
       userId = (
-        (await app
-          .request('/api/auth/get-session', { headers: { Cookie: cookie } })
-          .then((r) => r.json())) as any
+        (await request('/api/auth/get-session', { headers: { Cookie: cookie } }).then((r) =>
+          r.json(),
+        )) as any
       ).user.id
-      const [group] = await db
-        .insert(expenseGroups)
-        .values({ name: 'Quotidien', createdBy: userId })
-        .returning()
+      const group = returnedRow(
+        await db.insert(expenseGroups).values({ name: 'Quotidien', createdBy: userId }).returning(),
+        'insert expenseGroups',
+      )
       groupId = group.id
       await db.insert(expenseGroupMembers).values({ groupId, userId, shareWeight: 1 })
     })
@@ -1051,58 +970,55 @@ describe('transactions', () => {
     it('resolves groupExpenseId + groupName for the origin import transaction (forward link)', async () => {
       const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
       const [wise, food] = await Promise.all([
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'assets:wise:czk' }),
-          })
-          .then((r) => r.json()),
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'expenses:food:groceries' }),
-          })
-          .then((r) => r.json()),
-      ])
-      const created = (await app
-        .request('/api/transactions', {
+        request('/api/accounts', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            date: '2026-06-23',
-            description: 'Albert',
-            postings: [
-              { accountId: wise.id, amount: '-717.80', currency: 'CZK' },
-              { accountId: food.id, amount: '717.80', currency: 'CZK' },
-            ],
-          }),
-        })
-        .then((r) => r.json())) as any
+          body: JSON.stringify({ path: 'assets:wise:czk' }),
+        }).then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ path: 'expenses:food:groceries' }),
+        }).then((r) => r.json()),
+      ])
+      const created = (await request('/api/transactions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          date: '2026-06-23',
+          description: 'Albert',
+          postings: [
+            { accountId: wise.id, amount: '-717.80', currency: 'CZK' },
+            { accountId: food.id, amount: '717.80', currency: 'CZK' },
+          ],
+        }),
+      }).then((r) => r.json())) as any
 
       // Mirror what createGroupExpenseInTx writes for an import-linked expense: the back-pointer
       // (origin marker) AND the total forward link on the same transaction.
-      const [expense] = await db
-        .insert(groupExpenses)
-        .values({
-          groupId,
-          paidByUserId: userId,
-          description: 'Albert',
-          amount: '717.80',
-          currency: 'CZK',
-          date: '2026-06-23',
-          transactionId: created.id,
-        })
-        .returning()
+      const expense = returnedRow(
+        await db
+          .insert(groupExpenses)
+          .values({
+            groupId,
+            paidByUserId: userId,
+            description: 'Albert',
+            amount: '717.80',
+            currency: 'CZK',
+            date: '2026-06-23',
+            transactionId: created.id,
+          })
+          .returning(),
+        'insert groupExpenses',
+      )
       await db
         .update(transactions)
         .set({ groupExpenseId: expense.id })
         .where(eq(transactions.id, created.id))
 
-      const data = (await app
-        .request('/api/transactions', { headers: { Cookie: cookie } })
-        .then((r) => r.json())) as any[]
+      const data = (await request('/api/transactions', { headers: { Cookie: cookie } }).then((r) =>
+        r.json(),
+      )) as any[]
       const tx = data.find((t) => t.id === created.id)
       expect(tx.groupExpenseId).toBe(expense.id)
       expect(tx.groupName).toBe('Quotidien')
@@ -1114,49 +1030,49 @@ describe('transactions', () => {
       // The receivable account is seeded directly, the way fish-pie-accounts spawns it. The
       // create route refuses that namespace by hand — it is system-managed, same reason the
       // rename route refuses to move an account into it.
-      const [[recv], food] = await Promise.all([
+      const [recvRows, food] = await Promise.all([
         db.insert(accounts).values({ userId, path: 'assets:receivable:quotidien' }).returning(),
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'expenses:food:restaurant' }),
-          })
-          .then((r) => r.json()),
-      ])
-      const [expense] = await db
-        .insert(groupExpenses)
-        .values({
-          groupId,
-          paidByUserId: userId,
-          description: 'Ugo Delivery',
-          amount: '287.95',
-          currency: 'CZK',
-          date: '2026-06-22',
-        })
-        .returning()
-      const created = (await app
-        .request('/api/transactions', {
+        request('/api/accounts', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            date: '2026-06-22',
+          body: JSON.stringify({ path: 'expenses:food:restaurant' }),
+        }).then((r) => r.json()),
+      ])
+      const recv = at(recvRows)
+      const expense = returnedRow(
+        await db
+          .insert(groupExpenses)
+          .values({
+            groupId,
+            paidByUserId: userId,
             description: 'Ugo Delivery',
-            postings: [
-              { accountId: food.id, amount: '287.95', currency: 'CZK' },
-              { accountId: recv.id, amount: '-287.95', currency: 'CZK' },
-            ],
-          }),
-        })
-        .then((r) => r.json())) as any
+            amount: '287.95',
+            currency: 'CZK',
+            date: '2026-06-22',
+          })
+          .returning(),
+        'insert groupExpenses',
+      )
+      const created = (await request('/api/transactions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          date: '2026-06-22',
+          description: 'Ugo Delivery',
+          postings: [
+            { accountId: food.id, amount: '287.95', currency: 'CZK' },
+            { accountId: recv.id, amount: '-287.95', currency: 'CZK' },
+          ],
+        }),
+      }).then((r) => r.json())) as any
       await db
         .update(transactions)
         .set({ groupExpenseId: expense.id })
         .where(eq(transactions.id, created.id))
 
-      const data = (await app
-        .request('/api/transactions', { headers: { Cookie: cookie } })
-        .then((r) => r.json())) as any[]
+      const data = (await request('/api/transactions', { headers: { Cookie: cookie } }).then((r) =>
+        r.json(),
+      )) as any[]
       const tx = data.find((t) => t.id === created.id)
       expect(tx.groupExpenseId).toBe(expense.id)
       expect(tx.groupName).toBe('Quotidien')
@@ -1165,39 +1081,33 @@ describe('transactions', () => {
     it('leaves groupExpenseId + groupName null for an ordinary transaction', async () => {
       const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
       const [chequing, food] = await Promise.all([
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'assets:chequing' }),
-          })
-          .then((r) => r.json()),
-        app
-          .request('/api/accounts', {
-            method: 'POST',
-            headers,
-            body: JSON.stringify({ path: 'expenses:food' }),
-          })
-          .then((r) => r.json()),
-      ])
-      const created = (await app
-        .request('/api/transactions', {
+        request('/api/accounts', {
           method: 'POST',
           headers,
-          body: JSON.stringify({
-            date: '2026-06-20',
-            description: 'Solo lunch',
-            postings: [
-              { accountId: chequing.id, amount: '-12.00', currency: 'CAD' },
-              { accountId: food.id, amount: '12.00', currency: 'CAD' },
-            ],
-          }),
-        })
-        .then((r) => r.json())) as any
+          body: JSON.stringify({ path: 'assets:chequing' }),
+        }).then((r) => r.json()),
+        request('/api/accounts', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ path: 'expenses:food' }),
+        }).then((r) => r.json()),
+      ])
+      const created = (await request('/api/transactions', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          date: '2026-06-20',
+          description: 'Solo lunch',
+          postings: [
+            { accountId: chequing.id, amount: '-12.00', currency: 'CAD' },
+            { accountId: food.id, amount: '12.00', currency: 'CAD' },
+          ],
+        }),
+      }).then((r) => r.json())) as any
 
-      const data = (await app
-        .request('/api/transactions', { headers: { Cookie: cookie } })
-        .then((r) => r.json())) as any[]
+      const data = (await request('/api/transactions', { headers: { Cookie: cookie } }).then((r) =>
+        r.json(),
+      )) as any[]
       const tx = data.find((t) => t.id === created.id)
       expect(tx.groupExpenseId).toBeNull()
       expect(tx.groupName).toBeNull()

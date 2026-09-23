@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from '../test-utils'
 import { mergeCoverage } from './intervals'
 import {
   classifyMonth,
@@ -133,7 +134,7 @@ describe('classifyMonth', () => {
     expect(result.state).toBe('partial')
     // The prefix from the first of the month, not the island — Aug 1-9 is missing.
     expect(result.completeThrough).toBeNull()
-    expect(result.gaps[0].coveredThrough).toBeNull()
+    expect(at(result.gaps).coveredThrough).toBeNull()
   })
 
   it('calls it uncovered when nothing touches the month at all', () => {
@@ -147,7 +148,7 @@ describe('classifyMonth', () => {
     const result = classifyMonth([account('a', [])], '2026-08', TODAY)
 
     expect(result.state).toBe('uncovered')
-    expect(result.gaps[0].coveredThrough).toBeNull()
+    expect(at(result.gaps).coveredThrough).toBeNull()
   })
 
   // Same rule as a rollup's as-of: an account confirmed empty has nothing to contribute, so
@@ -197,10 +198,10 @@ describe('classifyMonths', () => {
   it('classifies each month independently', () => {
     const accounts = [account('a', [['2026-06-01', '2026-07-15']])]
 
-    const [june, july, august] = classifyMonths(accounts, ['2026-06', '2026-07', '2026-08'], TODAY)
+    const months = classifyMonths(accounts, ['2026-06', '2026-07', '2026-08'], TODAY)
 
-    expect(june.state).toBe('complete')
-    expect(july.state).toBe('partial')
-    expect(august.state).toBe('uncovered')
+    expect(at(months, 0).state).toBe('complete')
+    expect(at(months, 1).state).toBe('partial')
+    expect(at(months, 2).state).toBe('uncovered')
   })
 })

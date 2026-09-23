@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../test-utils'
 
 describe('fish-pie balances', () => {
   let cookieA: string
@@ -20,15 +19,15 @@ describe('fish-pie balances', () => {
     cookieC = await createTestUser('c@test.com', 'passwordC')
 
     // Get user IDs from session
-    const sessionA = await app.request('/api/auth/get-session', { headers: { Cookie: cookieA } })
-    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
-    const sessionC = await app.request('/api/auth/get-session', { headers: { Cookie: cookieC } })
+    const sessionA = await request('/api/auth/get-session', { headers: { Cookie: cookieA } })
+    const sessionB = await request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    const sessionC = await request('/api/auth/get-session', { headers: { Cookie: cookieC } })
     userAId = ((await sessionA.json()) as any).user.id
     userBId = ((await sessionB.json()) as any).user.id
     userCId = ((await sessionC.json()) as any).user.id
 
     // Alice creates group
-    const groupRes = await app.request('/api/fish-pie/groups', {
+    const groupRes = await request('/api/fish-pie/groups', {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Trip' }),
@@ -39,20 +38,20 @@ describe('fish-pie balances', () => {
     for (const [email, cookie] of [
       ['b@test.com', cookieB],
       ['c@test.com', cookieC],
-    ]) {
-      const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+    ] as const) {
+      const invRes = await request(`/api/fish-pie/groups/${groupId}/invites`, {
         method: 'POST',
         headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
         body: JSON.stringify({ email }),
       })
       const inviteId = ((await invRes.json()) as any).id
-      await app.request(`/api/fish-pie/invites/${inviteId}/accept`, {
+      await request(`/api/fish-pie/invites/${inviteId}/accept`, {
         method: 'POST',
         headers: { Cookie: cookie },
       })
     }
 
-    const acctRes = await app.request('/api/accounts', {
+    const acctRes = await request('/api/accounts', {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: 'liabilities:visa', name: 'Visa' }),
@@ -64,7 +63,7 @@ describe('fish-pie balances', () => {
     // Alice pays CAD 90 for all three (equal split = 30 each)
     // Alice net: +90 - 30 = +60, Bob net: -30, Carol net: -30
     // Transfers: Bob → Alice 30, Carol → Alice 30
-    await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+    await request(`/api/fish-pie/groups/${groupId}/expenses`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -77,7 +76,7 @@ describe('fish-pie balances', () => {
       }),
     })
 
-    const res = await app.request(`/api/fish-pie/groups/${groupId}/balances`, {
+    const res = await request(`/api/fish-pie/groups/${groupId}/balances`, {
       headers: { Cookie: cookieA },
     })
     expect(res.status).toBe(200)

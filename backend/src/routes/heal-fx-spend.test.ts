@@ -1,9 +1,20 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../test-utils'
+
+/**
+ * The five accounts every test here seeds, named rather than open.
+ *
+ * A `Record<string, …>` types `accts.usd` as possibly absent, which is true of an open
+ * record and not of this one. Naming the keys is what lets the tests below read
+ * `accts.coffee.id` and be right about it.
+ */
+type SeedAccounts = Record<
+  'usd' | 'coffee' | 'fee' | 'czk' | 'equity',
+  { id: string; path: string }
+>
 
 async function createAccount(cookie: string, path: string) {
-  const res = await app.request('/api/accounts', {
+  const res = await request('/api/accounts', {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ path }),
@@ -12,7 +23,7 @@ async function createAccount(cookie: string, path: string) {
 }
 
 async function setConversionAccount(cookie: string, accountId: string) {
-  return app.request('/api/user-settings', {
+  return request('/api/user-settings', {
     method: 'PATCH',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ defaultConversionAccountId: accountId }),
@@ -22,8 +33,8 @@ async function setConversionAccount(cookie: string, accountId: string) {
 // Seeds the canonical malformed cross-currency spend (coffee 360 CZK funded from USD with
 // the expense account reused as the FX bridge + a phantom CZK holding). It balances per
 // currency, so it commits through the normal transactions endpoint.
-async function seedMalformed(cookie: string, accts: Record<string, { id: string }>) {
-  const res = await app.request('/api/transactions', {
+async function seedMalformed(cookie: string, accts: SeedAccounts) {
+  const res = await request('/api/transactions', {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({
@@ -43,7 +54,7 @@ async function seedMalformed(cookie: string, accts: Record<string, { id: string 
 
 describe('cross-currency spend healing', () => {
   let cookie: string
-  let accts: Record<string, { id: string; path: string }>
+  let accts: SeedAccounts
 
   beforeEach(async () => {
     await clearDatabase()
@@ -61,7 +72,7 @@ describe('cross-currency spend healing', () => {
     await setConversionAccount(cookie, accts.equity.id)
     await seedMalformed(cookie, accts)
 
-    const res = await app.request('/api/transactions/malformed-fx-spend', {
+    const res = await request('/api/transactions/malformed-fx-spend', {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(200)
@@ -89,14 +100,14 @@ describe('cross-currency spend healing', () => {
     await setConversionAccount(cookie, accts.equity.id)
     const tx = await seedMalformed(cookie, accts)
 
-    const healRes = await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
+    const healRes = await request(`/api/transactions/${tx.id}/heal-fx-spend`, {
       method: 'POST',
       headers: { Cookie: cookie },
     })
     expect(healRes.status).toBe(200)
 
     // Verify persisted shape via the transactions list
-    const txRes = await app.request('/api/transactions', { headers: { Cookie: cookie } })
+    const txRes = await request('/api/transactions', { headers: { Cookie: cookie } })
     const persisted = (await txRes.json()).find((t: { id: string }) => t.id === tx.id)
     const ps = persisted.postings
 
@@ -123,13 +134,13 @@ describe('cross-currency spend healing', () => {
     expect(Math.abs(czkSum)).toBeLessThan(0.001)
 
     // No longer listed as malformed
-    const listRes = await app.request('/api/transactions/malformed-fx-spend', {
+    const listRes = await request('/api/transactions/malformed-fx-spend', {
       headers: { Cookie: cookie },
     })
     expect((await listRes.json()).candidates).toBeArrayOfSize(0)
 
     // Healing again is rejected (not malformed anymore)
-    const again = await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
+    const again = await request(`/api/transactions/${tx.id}/heal-fx-spend`, {
       method: 'POST',
       headers: { Cookie: cookie },
     })
@@ -138,7 +149,7 @@ describe('cross-currency spend healing', () => {
 
   it('does not flag a healthy plain transaction', async () => {
     await setConversionAccount(cookie, accts.equity.id)
-    await app.request('/api/transactions', {
+    await request('/api/transactions', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -150,7 +161,7 @@ describe('cross-currency spend healing', () => {
         ],
       }),
     })
-    const res = await app.request('/api/transactions/malformed-fx-spend', {
+    const res = await request('/api/transactions/malformed-fx-spend', {
       headers: { Cookie: cookie },
     })
     expect((await res.json()).candidates).toBeArrayOfSize(0)
@@ -158,14 +169,14 @@ describe('cross-currency spend healing', () => {
 
   it('reports canHeal=false and rejects healing when no conversion account is configured', async () => {
     // Sign-up seeds a conversion account by default; clear it to exercise the unconfigured path.
-    await app.request('/api/user-settings', {
+    await request('/api/user-settings', {
       method: 'PATCH',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ defaultConversionAccountId: null }),
     })
     const tx = await seedMalformed(cookie, accts)
 
-    const listRes = await app.request('/api/transactions/malformed-fx-spend', {
+    const listRes = await request('/api/transactions/malformed-fx-spend', {
       headers: { Cookie: cookie },
     })
     const body = await listRes.json()
@@ -173,7 +184,7 @@ describe('cross-currency spend healing', () => {
     expect(body.candidates).toBeArrayOfSize(1)
     expect(body.candidates[0].canHeal).toBe(false)
 
-    const healRes = await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
+    const healRes = await request(`/api/transactions/${tx.id}/heal-fx-spend`, {
       method: 'POST',
       headers: { Cookie: cookie },
     })
@@ -186,7 +197,7 @@ describe('cross-currency spend healing', () => {
     const tx = await seedMalformed(cookie, accts)
 
     // Summary attaches the txn to the balance accounts it touches (USD + CZK savings).
-    const summaryRes = await app.request('/api/accounts/action-required-summary', {
+    const summaryRes = await request('/api/accounts/action-required-summary', {
       headers: { Cookie: cookie },
     })
     const summary = await summaryRes.json()
@@ -200,7 +211,7 @@ describe('cross-currency spend healing', () => {
     ).toBeUndefined()
 
     // Per-account endpoint flags which ids are malformed (so the row can offer Repair).
-    const perAcct = await app.request(`/api/accounts/${accts.usd.id}/action-required`, {
+    const perAcct = await request(`/api/accounts/${accts.usd.id}/action-required`, {
       headers: { Cookie: cookie },
     })
     const body = await perAcct.json()
@@ -208,12 +219,12 @@ describe('cross-currency spend healing', () => {
     expect(body.malformedTransactionIds).toEqual([tx.id])
 
     // After healing, the account is clear again.
-    await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
+    await request(`/api/transactions/${tx.id}/heal-fx-spend`, {
       method: 'POST',
       headers: { Cookie: cookie },
     })
     const after = await (
-      await app.request('/api/accounts/action-required-summary', { headers: { Cookie: cookie } })
+      await request('/api/accounts/action-required-summary', { headers: { Cookie: cookie } })
     ).json()
     expect(after.find((e: { accountId: string }) => e.accountId === accts.usd.id)).toBeUndefined()
   })
@@ -223,7 +234,7 @@ describe('cross-currency spend healing', () => {
     const tx = await seedMalformed(cookie, accts)
 
     const otherCookie = await createTestUser('other@example.com')
-    const res = await app.request(`/api/transactions/${tx.id}/heal-fx-spend`, {
+    const res = await request(`/api/transactions/${tx.id}/heal-fx-spend`, {
       method: 'POST',
       headers: { Cookie: otherCookie },
     })
