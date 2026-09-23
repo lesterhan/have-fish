@@ -27,11 +27,10 @@ import pino from 'pino'
  * asked for. The pattern is what aggregates across requests, and it is also what keeps the
  * ids in a URL out of the log — a smaller leak than a body, and free to close.
  *
- * `rowCount` and `byteSize` are the two numbers the relay's rule names, and they are here
- * because this type is the contract that repository will share. Nothing in have-fish sets
- * `rowCount` yet; `byteSize` appears when the runtime declared a `content-length`. A field
- * arrives in this type in the diff that starts populating it, which is the review this
- * issue exists to make possible.
+ * `byteSize` appears when the runtime declared a `content-length`. The relay's rule names
+ * a `rowCount` beside it; it is not here, because a field nothing sets is a comment rather
+ * than an allowlist entry. A field arrives in this type in the diff that starts populating
+ * it, and that diff is the review this type exists to make possible.
  */
 export type RequestLog = {
   /** Who asked. `null` before sign-in, and for `/health`. */
@@ -40,7 +39,6 @@ export type RequestLog = {
   method: string
   status: number
   durationMs: number
-  rowCount?: number | undefined
   byteSize?: number | undefined
 }
 
@@ -106,8 +104,8 @@ export const log = createLogger()
  * without naming it below stops this function type-checking.
  */
 function allowedFieldsOnly(entry: RequestLog): RequestLog {
-  const { userId, route, method, status, durationMs, rowCount, byteSize } = entry
-  return { userId, route, method, status, durationMs, rowCount, byteSize }
+  const { userId, route, method, status, durationMs, byteSize } = entry
+  return { userId, route, method, status, durationMs, byteSize }
 }
 
 /** Write one request log line. The only way to log on a request path. */

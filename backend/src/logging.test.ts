@@ -61,20 +61,18 @@ describe('logRequest', () => {
     expect(cap.all()).not.toContain('48000')
   })
 
-  it('leaves out the optional fields nothing set, rather than writing nulls', () => {
+  it('leaves out an optional field nothing set, rather than writing a null', () => {
     const cap = capturing()
     logRequest(entry, cap.logger)
 
-    const [written] = cap.entries()
-    expect(Object.keys(written ?? {})).not.toContain('rowCount')
-    expect(Object.keys(written ?? {})).not.toContain('byteSize')
+    expect(Object.keys(cap.entries()[0] ?? {})).not.toContain('byteSize')
   })
 
-  it('carries the relay’s two numbers when something set them', () => {
+  it('carries the size when something set it', () => {
     const cap = capturing()
-    logRequest({ ...entry, rowCount: 12, byteSize: 4096 }, cap.logger)
+    logRequest({ ...entry, byteSize: 4096 }, cap.logger)
 
-    expect(cap.entries()[0]).toMatchObject({ rowCount: 12, byteSize: 4096 })
+    expect(cap.entries()[0]).toMatchObject({ byteSize: 4096 })
   })
 })
 
