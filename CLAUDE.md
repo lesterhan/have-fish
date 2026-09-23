@@ -140,6 +140,7 @@ PORT=8887
 BETTER_AUTH_SECRET=...
 BETTER_AUTH_URL=http://localhost:8887
 FRONTEND_URL=http://localhost:8888
+LOG_LEVEL=            # optional; debug in dev, info in prod, silent under test
 ```
 
 `DATABASE_URL` is the dev database. `TEST_DATABASE_URL` is a separate database used exclusively by the test suite — `bun test` sets `NODE_ENV=test` automatically, which makes the DB client pick `TEST_DATABASE_URL` instead. The test database must be created and migrated once: `bun run db:migrate:test`.
@@ -226,6 +227,16 @@ are how one check overrides that mapping to keep the code a route already answer
 Where a route's own domain check produces a better failure than a schema could
 (`ACCOUNT_PATH_INVALID`, `UNSUPPORTED_CURRENCY`), the schema types the field `unknown` and
 the check stays.
+
+**And it says only what `RequestLog` allows.** One structured JSON line per request, via
+`logRequest` in `backend/src/logging.ts`. `RequestLog` is the whole vocabulary of that
+line, and `logRequest` copies its fields by name rather than spreading what it was handed,
+so a request body cannot reach the log — there is nowhere to put one. Adding a field means
+editing that type, in a diff that can be reviewed for exactly this. Redaction of
+`authorization`, `cookie`, `password`, `token`, `secret`, `payload`, `blob` and `body` is
+the second line, for the error paths and library output that do not come through the
+wrapper. `log` from the same file is for everything that is not a request; `console.log` is
+for scripts under `backend/scripts/`, never for anything a request can reach.
 
 ## Work Tracking
 
