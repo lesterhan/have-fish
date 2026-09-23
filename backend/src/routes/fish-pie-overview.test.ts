@@ -1,6 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../test-utils'
 
 describe('fish-pie group overview', () => {
   let cookieA: string
@@ -16,30 +15,30 @@ describe('fish-pie group overview', () => {
     cookieA = await createTestUser('a@test.com', 'passwordA')
     cookieB = await createTestUser('b@test.com', 'passwordB')
 
-    const sessionA = await app.request('/api/auth/get-session', { headers: { Cookie: cookieA } })
-    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    const sessionA = await request('/api/auth/get-session', { headers: { Cookie: cookieA } })
+    const sessionB = await request('/api/auth/get-session', { headers: { Cookie: cookieB } })
     userAId = ((await sessionA.json()) as any).user.id
     userBId = ((await sessionB.json()) as any).user.id
 
-    const groupRes = await app.request('/api/fish-pie/groups', {
+    const groupRes = await request('/api/fish-pie/groups', {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Household' }),
     })
     groupId = ((await groupRes.json()) as any).id
 
-    const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+    const invRes = await request(`/api/fish-pie/groups/${groupId}/invites`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'b@test.com' }),
     })
     const inviteId = ((await invRes.json()) as any).id
-    await app.request(`/api/fish-pie/invites/${inviteId}/accept`, {
+    await request(`/api/fish-pie/invites/${inviteId}/accept`, {
       method: 'POST',
       headers: { Cookie: cookieB },
     })
 
-    const acctRes = await app.request('/api/accounts', {
+    const acctRes = await request('/api/accounts', {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ path: 'liabilities:visa', name: 'Visa' }),
@@ -48,7 +47,7 @@ describe('fish-pie group overview', () => {
   })
 
   async function addExpense(amount: string, paidBy: string, cookie: string, payAcct: string) {
-    return app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+    return request(`/api/fish-pie/groups/${groupId}/expenses`, {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -65,7 +64,7 @@ describe('fish-pie group overview', () => {
   it('returns group, expenses, settlements, invites and balances in one payload', async () => {
     await addExpense('100.00', userAId, cookieA, paymentAccountId)
 
-    const res = await app.request(`/api/fish-pie/groups/${groupId}/overview`, {
+    const res = await request(`/api/fish-pie/groups/${groupId}/overview`, {
       headers: { Cookie: cookieA },
     })
     expect(res.status).toBe(200)
@@ -99,8 +98,8 @@ describe('fish-pie group overview', () => {
     await addExpense('40.00', userBId, cookieB, paymentAccountId)
 
     const [overviewRes, balancesRes] = await Promise.all([
-      app.request(`/api/fish-pie/groups/${groupId}/overview`, { headers: { Cookie: cookieA } }),
-      app.request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieA } }),
+      request(`/api/fish-pie/groups/${groupId}/overview`, { headers: { Cookie: cookieA } }),
+      request(`/api/fish-pie/groups/${groupId}/balances`, { headers: { Cookie: cookieA } }),
     ])
     const overview = (await overviewRes.json()) as any
     const balances = (await balancesRes.json()) as any
@@ -108,7 +107,7 @@ describe('fish-pie group overview', () => {
   })
 
   it('expenses are newest-first', async () => {
-    await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+    await request(`/api/fish-pie/groups/${groupId}/expenses`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -120,7 +119,7 @@ describe('fish-pie group overview', () => {
         paymentAccountId,
       }),
     })
-    await app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+    await request(`/api/fish-pie/groups/${groupId}/expenses`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -133,7 +132,7 @@ describe('fish-pie group overview', () => {
       }),
     })
 
-    const res = await app.request(`/api/fish-pie/groups/${groupId}/overview`, {
+    const res = await request(`/api/fish-pie/groups/${groupId}/overview`, {
       headers: { Cookie: cookieA },
     })
     const data = (await res.json()) as any
@@ -144,13 +143,13 @@ describe('fish-pie group overview', () => {
   it('includes pending invites', async () => {
     const cookieC = await createTestUser('c@test.com', 'passwordC')
     void cookieC
-    await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+    await request(`/api/fish-pie/groups/${groupId}/invites`, {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ email: 'c@test.com' }),
     })
 
-    const res = await app.request(`/api/fish-pie/groups/${groupId}/overview`, {
+    const res = await request(`/api/fish-pie/groups/${groupId}/overview`, {
       headers: { Cookie: cookieA },
     })
     const data = (await res.json()) as any
@@ -160,14 +159,14 @@ describe('fish-pie group overview', () => {
 
   it('404s for a non-member', async () => {
     const cookieD = await createTestUser('d@test.com', 'passwordD')
-    const res = await app.request(`/api/fish-pie/groups/${groupId}/overview`, {
+    const res = await request(`/api/fish-pie/groups/${groupId}/overview`, {
       headers: { Cookie: cookieD },
     })
     expect(res.status).toBe(404)
   })
 
   it('404s for an unknown group', async () => {
-    const res = await app.request(
+    const res = await request(
       `/api/fish-pie/groups/00000000-0000-0000-0000-000000000000/overview`,
       { headers: { Cookie: cookieA } },
     )

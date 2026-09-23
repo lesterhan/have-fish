@@ -1,9 +1,9 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
-import { app } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../test-utils'
 
 const today = () => new Date().toISOString().substring(0, 10)
 
@@ -14,20 +14,23 @@ function daysAgo(n: number): string {
 }
 
 async function createAccount(userId: string, path: string, extra: { type?: string } = {}) {
-  const [acct] = await db
-    .insert(accounts)
-    .values({ userId, path, ...extra })
-    .returning()
+  const acct = returnedRow(
+    await db
+      .insert(accounts)
+      .values({ userId, path, ...extra })
+      .returning(),
+    'insert accounts',
+  )
   return acct
 }
 
 async function userIdFor(cookie: string) {
-  const res = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+  const res = await request('/api/auth/get-session', { headers: { Cookie: cookie } })
   return (await res.json()).user.id as string
 }
 
 async function cover(cookie: string, accountId: string, fromDate: string, throughDate: string) {
-  const res = await app.request('/api/coverage', {
+  const res = await request('/api/coverage', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify({ accountId, fromDate, throughDate, source: 'import' }),
@@ -37,10 +40,13 @@ async function cover(cookie: string, accountId: string, fromDate: string, throug
 
 // One transaction on `date`, with a leg in the given account.
 async function seedTxn(userId: string, accountId: string, date: string, expenseAccountId: string) {
-  const [tx] = await db
-    .insert(transactions)
-    .values({ userId, date: new Date(`${date}T12:00:00Z`), description: 'test' })
-    .returning()
+  const tx = returnedRow(
+    await db
+      .insert(transactions)
+      .values({ userId, date: new Date(`${date}T12:00:00Z`), description: 'test' })
+      .returning(),
+    'insert transactions',
+  )
   await db.insert(postings).values([
     { transactionId: tx.id, accountId, amount: '-10.00', currency: 'CAD' },
     { transactionId: tx.id, accountId: expenseAccountId, amount: '10.00', currency: 'CAD' },
@@ -49,7 +55,7 @@ async function seedTxn(userId: string, accountId: string, date: string, expenseA
 }
 
 async function getCatchUp(cookie: string) {
-  const res = await app.request('/api/catch-up', { headers: { Cookie: cookie } })
+  const res = await request('/api/catch-up', { headers: { Cookie: cookie } })
   return { status: res.status, body: await res.json() }
 }
 
@@ -165,7 +171,7 @@ describe('catch-up', () => {
     it('excludes accounts dismissed with tracked false', async () => {
       const chequing = await createAccount(userId, 'assets:chequing')
       const ignored = await createAccount(userId, 'assets:ignored')
-      await app.request(`/api/coverage/config/${ignored.id}`, {
+      await request(`/api/coverage/config/${ignored.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Cookie: cookie },
         body: JSON.stringify({ tracked: false }),
@@ -210,7 +216,7 @@ describe('catch-up', () => {
     })
 
     it('requires authentication', async () => {
-      const res = await app.request('/api/catch-up')
+      const res = await request('/api/catch-up')
 
       expect(res.status).toBe(401)
     })
@@ -281,7 +287,7 @@ describe('catch-up', () => {
 
     it('reads current for a cycle account covered to its statement horizon', async () => {
       const visa = await createAccount(userId, 'liabilities:visa')
-      await app.request(`/api/coverage/config/${visa.id}`, {
+      await request(`/api/coverage/config/${visa.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json', Cookie: cookie },
         body: JSON.stringify({ exportMode: 'cycle', cycleDay: 25 }),

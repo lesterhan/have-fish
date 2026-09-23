@@ -119,8 +119,10 @@ automatically.
 The backend's `tsconfig.json` turns on the strictness flags that `strict` does not imply —
 `noUncheckedIndexedAccess`, `exactOptionalPropertyTypes`, `noFallthroughCasesInSwitch`,
 `noImplicitOverride` and `verbatimModuleSyntax` — each with a comment saying what it buys.
-`bun run check` in `backend/` is the gate; CI runs it. The test files are still excluded
-from that check and are not yet clean under the new flags (#397).
+`bun run check` in `backend/` is the gate; CI runs it, and nothing under `src` is excluded
+from it — the test files included. A test reads a response through `at()` and sends one
+through `request()`, both from `test-utils.ts`: the first says out loud that a list came
+back non-empty, the second is `app.request` typed as the promise it always returns.
 
 ## Development Workflow
 

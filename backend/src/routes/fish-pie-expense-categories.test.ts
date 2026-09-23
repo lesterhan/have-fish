@@ -1,20 +1,19 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { and, eq, isNull } from 'drizzle-orm'
-import { app } from '../app'
 import { db } from '../db'
 import { accounts, groupExpenses, postings, transactions } from '../db/schema'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { at, clearDatabase, createTestUser, request } from '../test-utils'
 
 // Exercises story 2: categoryId on expenses — account resolution, weight resolution,
 // import with/without category, and PATCH recategorization.
 
 async function getUserId(cookie: string): Promise<string> {
-  const res = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+  const res = await request('/api/auth/get-session', { headers: { Cookie: cookie } })
   return ((await res.json()) as any).user.id
 }
 
 async function createGroup(cookie: string, name = 'Household'): Promise<string> {
-  const res = await app.request('/api/fish-pie/groups', {
+  const res = await request('/api/fish-pie/groups', {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
@@ -23,7 +22,7 @@ async function createGroup(cookie: string, name = 'Household'): Promise<string> 
 }
 
 async function createAccount(cookie: string, path: string): Promise<string> {
-  const res = await app.request('/api/accounts', {
+  const res = await request('/api/accounts', {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ path, name: path }),
@@ -32,7 +31,7 @@ async function createAccount(cookie: string, path: string): Promise<string> {
 }
 
 async function createCategory(groupId: string, cookie: string, name: string): Promise<string> {
-  const res = await app.request(`/api/fish-pie/groups/${groupId}/categories`, {
+  const res = await request(`/api/fish-pie/groups/${groupId}/categories`, {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
@@ -46,7 +45,7 @@ function setMapping(
   cookie: string,
   body: Record<string, unknown>,
 ) {
-  return app.request(`/api/fish-pie/groups/${groupId}/categories/${categoryId}/my-mapping`, {
+  return request(`/api/fish-pie/groups/${groupId}/categories/${categoryId}/my-mapping`, {
     method: 'PUT',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -59,20 +58,20 @@ async function inviteAndAccept(
   email: string,
   memberCookie: string,
 ) {
-  const invRes = await app.request(`/api/fish-pie/groups/${groupId}/invites`, {
+  const invRes = await request(`/api/fish-pie/groups/${groupId}/invites`, {
     method: 'POST',
     headers: { Cookie: ownerCookie, 'Content-Type': 'application/json' },
     body: JSON.stringify({ email }),
   })
   const inviteId = ((await invRes.json()) as any).id
-  await app.request(`/api/fish-pie/invites/${inviteId}/accept`, {
+  await request(`/api/fish-pie/invites/${inviteId}/accept`, {
     method: 'POST',
     headers: { Cookie: memberCookie },
   })
 }
 
 function createExpense(groupId: string, cookie: string, body: Record<string, unknown>) {
-  return app.request(`/api/fish-pie/groups/${groupId}/expenses`, {
+  return request(`/api/fish-pie/groups/${groupId}/expenses`, {
     method: 'POST',
     headers: { Cookie: cookie, 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -80,8 +79,7 @@ function createExpense(groupId: string, cookie: string, body: Record<string, unk
 }
 
 async function accountPath(id: string): Promise<string> {
-  const [a] = await db.select().from(accounts).where(eq(accounts.id, id))
-  return a.path
+  return at(await db.select().from(accounts).where(eq(accounts.id, id))).path
 }
 
 describe('fish-pie expense categories', () => {
@@ -115,7 +113,7 @@ describe('fish-pie expense categories', () => {
 
     it('POST rejects an archived category', async () => {
       const catId = await createCategory(groupId, cookie, 'Food')
-      await app.request(`/api/fish-pie/groups/${groupId}/categories/${catId}`, {
+      await request(`/api/fish-pie/groups/${groupId}/categories/${catId}`, {
         method: 'PATCH',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ archived: true }),
@@ -135,7 +133,7 @@ describe('fish-pie expense categories', () => {
   describe('account resolution order', () => {
     it('uses the category mapping over the member default', async () => {
       const defaultAcct = await createAccount(cookie, 'expenses:misc')
-      await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      await request(`/api/fish-pie/groups/${groupId}/members/me`, {
         method: 'PATCH',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultExpenseAccountId: defaultAcct }),
@@ -158,10 +156,9 @@ describe('fish-pie expense categories', () => {
       expect(expense.categoryName).toBe('Food')
 
       // Sole-member payer tx: expense leg posts to the category-mapped account
-      const [tx] = await db
-        .select()
-        .from(transactions)
-        .where(eq(transactions.groupExpenseId, expense.id))
+      const tx = at(
+        await db.select().from(transactions).where(eq(transactions.groupExpenseId, expense.id)),
+      )
       const ps = await db.select().from(postings).where(eq(postings.transactionId, tx.id))
       const credit = ps.find((p) => parseFloat(p.amount) > 0)!
       expect(await accountPath(credit.accountId)).toBe('expenses:food')
@@ -169,7 +166,7 @@ describe('fish-pie expense categories', () => {
 
     it('falls back to the member default when the category has no mapping', async () => {
       const defaultAcct = await createAccount(cookie, 'expenses:misc')
-      await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      await request(`/api/fish-pie/groups/${groupId}/members/me`, {
         method: 'PATCH',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultExpenseAccountId: defaultAcct }),
@@ -186,10 +183,9 @@ describe('fish-pie expense categories', () => {
           categoryId: catId,
         })
       ).json()) as any
-      const [tx] = await db
-        .select()
-        .from(transactions)
-        .where(eq(transactions.groupExpenseId, expense.id))
+      const tx = at(
+        await db.select().from(transactions).where(eq(transactions.groupExpenseId, expense.id)),
+      )
       const ps = await db.select().from(postings).where(eq(postings.transactionId, tx.id))
       const credit = ps.find((p) => parseFloat(p.amount) > 0)!
       expect(await accountPath(credit.accountId)).toBe('expenses:misc')
@@ -207,10 +203,9 @@ describe('fish-pie expense categories', () => {
           categoryId: catId,
         })
       ).json()) as any
-      const [tx] = await db
-        .select()
-        .from(transactions)
-        .where(eq(transactions.groupExpenseId, expense.id))
+      const tx = at(
+        await db.select().from(transactions).where(eq(transactions.groupExpenseId, expense.id)),
+      )
       const ps = await db.select().from(postings).where(eq(postings.transactionId, tx.id))
       const credit = ps.find((p) => parseFloat(p.amount) > 0)!
       expect(await accountPath(credit.accountId)).toBe('uncategorized')
@@ -230,7 +225,7 @@ describe('fish-pie expense categories', () => {
     })
 
     function putWeights(weights: { userId: string; weight: number }[]) {
-      return app.request(`/api/fish-pie/groups/${groupId}/categories/${catId}/weights`, {
+      return request(`/api/fish-pie/groups/${groupId}/categories/${catId}/weights`, {
         method: 'PUT',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ weights }),
@@ -315,7 +310,7 @@ describe('fish-pie expense categories', () => {
 
       // PATCH with explicit splits 1/1 should override the 60/40 category weights
       const patched = (await (
-        await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+        await request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
           method: 'PATCH',
           headers: { Cookie: cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -356,7 +351,7 @@ describe('fish-pie expense categories', () => {
 
       // recategorize Food → Shows
       const patched = (await (
-        await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+        await request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
           method: 'PATCH',
           headers: { Cookie: cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify({ categoryId: shows }),
@@ -374,7 +369,7 @@ describe('fish-pie expense categories', () => {
       const ps = await db
         .select()
         .from(postings)
-        .where(and(eq(postings.transactionId, txs[0].id), isNull(postings.deletedAt)))
+        .where(and(eq(postings.transactionId, at(txs).id), isNull(postings.deletedAt)))
       const credit = ps.find((p) => parseFloat(p.amount) > 0)!
       expect(await accountPath(credit.accountId)).toBe('expenses:shows')
     })
@@ -393,7 +388,7 @@ describe('fish-pie expense categories', () => {
       ).json()) as any
 
       const patched = (await (
-        await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+        await request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
           method: 'PATCH',
           headers: { Cookie: cookie, 'Content-Type': 'application/json' },
           body: JSON.stringify({ categoryId: null }),
@@ -414,12 +409,12 @@ describe('fish-pie expense categories', () => {
           paymentAccountId,
         })
       ).json()) as any
-      await app.request(`/api/fish-pie/groups/${groupId}/categories/${food}`, {
+      await request(`/api/fish-pie/groups/${groupId}/categories/${food}`, {
         method: 'PATCH',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ archived: true }),
       })
-      const res = await app.request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
+      const res = await request(`/api/fish-pie/groups/${groupId}/expenses/${expense.id}`, {
         method: 'PATCH',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ categoryId: food }),
@@ -436,7 +431,7 @@ describe('fish-pie expense categories', () => {
       await setMapping(groupId, catId, cookie, { accountId: foodAcct })
       const sourceAcct = await createAccount(cookie, 'assets:chequing')
 
-      const res = await app.request('/api/import/commit', {
+      const res = await request('/api/import/commit', {
         method: 'POST',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -451,10 +446,9 @@ describe('fish-pie expense categories', () => {
       expect(res.status).toBe(201)
 
       // The created expense carries the category
-      const [expense] = await db
-        .select()
-        .from(groupExpenses)
-        .where(eq(groupExpenses.groupId, groupId))
+      const expense = at(
+        await db.select().from(groupExpenses).where(eq(groupExpenses.groupId, groupId)),
+      )
       expect(expense.categoryId).toBe(catId)
 
       // The import tx has a posting to the category-mapped expense account
@@ -468,14 +462,14 @@ describe('fish-pie expense categories', () => {
 
     it('without a category falls back to the member default expense account', async () => {
       const defaultAcct = await createAccount(cookie, 'expenses:misc')
-      await app.request(`/api/fish-pie/groups/${groupId}/members/me`, {
+      await request(`/api/fish-pie/groups/${groupId}/members/me`, {
         method: 'PATCH',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ defaultExpenseAccountId: defaultAcct }),
       })
       const sourceAcct = await createAccount(cookie, 'assets:chequing')
 
-      const res = await app.request('/api/import/commit', {
+      const res = await request('/api/import/commit', {
         method: 'POST',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -489,10 +483,9 @@ describe('fish-pie expense categories', () => {
       })
       expect(res.status).toBe(201)
 
-      const [expense] = await db
-        .select()
-        .from(groupExpenses)
-        .where(eq(groupExpenses.groupId, groupId))
+      const expense = at(
+        await db.select().from(groupExpenses).where(eq(groupExpenses.groupId, groupId)),
+      )
       expect(expense.categoryId).toBeNull()
       const ps = await db
         .select({ path: accounts.path })
@@ -504,13 +497,13 @@ describe('fish-pie expense categories', () => {
 
     it('rejects an archived category on import', async () => {
       const catId = await createCategory(groupId, cookie, 'Food')
-      await app.request(`/api/fish-pie/groups/${groupId}/categories/${catId}`, {
+      await request(`/api/fish-pie/groups/${groupId}/categories/${catId}`, {
         method: 'PATCH',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({ archived: true }),
       })
       const sourceAcct = await createAccount(cookie, 'assets:chequing')
-      const res = await app.request('/api/import/commit', {
+      const res = await request('/api/import/commit', {
         method: 'POST',
         headers: { Cookie: cookie, 'Content-Type': 'application/json' },
         body: JSON.stringify({

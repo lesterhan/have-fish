@@ -1,24 +1,27 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
-import { app } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { at, clearDatabase, createTestUser, request } from '../test-utils'
 
 async function createAccount(userId: string, path: string) {
-  const [acct] = await db.insert(accounts).values({ userId, path }).returning()
+  const acct = returnedRow(
+    await db.insert(accounts).values({ userId, path }).returning(),
+    'insert accounts',
+  )
   return acct
 }
 
 async function userIdFor(cookie: string) {
-  const res = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+  const res = await request('/api/auth/get-session', { headers: { Cookie: cookie } })
   const session = await res.json()
   return session.user.id as string
 }
 
 // Posts an assertion through the API so writes go via the same validation the app uses.
 async function postCoverage(cookie: string, body: Record<string, unknown>) {
-  return app.request('/api/coverage', {
+  return request('/api/coverage', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', Cookie: cookie },
     body: JSON.stringify(body),
@@ -26,7 +29,7 @@ async function postCoverage(cookie: string, body: Record<string, unknown>) {
 }
 
 async function getCoverage(cookie: string, accountId: string) {
-  return app.request(`/api/accounts/${accountId}/coverage`, { headers: { Cookie: cookie } })
+  return request(`/api/accounts/${accountId}/coverage`, { headers: { Cookie: cookie } })
 }
 
 function addDays(date: string, n: number): string {
@@ -42,10 +45,13 @@ function daysAgo(n: number): string {
 }
 
 async function seedTxn(userId: string, accountId: string, date: string, offsetAccountId: string) {
-  const [tx] = await db
-    .insert(transactions)
-    .values({ userId, date: new Date(`${date}T12:00:00Z`), description: 'test' })
-    .returning()
+  const tx = returnedRow(
+    await db
+      .insert(transactions)
+      .values({ userId, date: new Date(`${date}T12:00:00Z`), description: 'test' })
+      .returning(),
+    'insert transactions',
+  )
   await db.insert(postings).values([
     { transactionId: tx.id, accountId, amount: '-10.00', currency: 'CAD' },
     { transactionId: tx.id, accountId: offsetAccountId, amount: '10.00', currency: 'CAD' },
@@ -253,7 +259,7 @@ describe('coverage', () => {
     })
 
     it('requires authentication', async () => {
-      const res = await app.request('/api/coverage', {
+      const res = await request('/api/coverage', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -407,7 +413,7 @@ describe('coverage', () => {
     it('requires authentication', async () => {
       const acct = await createAccount(userId, 'assets:chequing')
 
-      const res = await app.request(`/api/accounts/${acct.id}/coverage`)
+      const res = await request(`/api/accounts/${acct.id}/coverage`)
 
       expect(res.status).toBe(401)
     })
@@ -424,7 +430,7 @@ describe('coverage', () => {
       it('honours an explicit day count', async () => {
         const acct = await createAccount(userId, 'assets:chequing')
 
-        const res = await app.request(`/api/accounts/${acct.id}/coverage?days=30`, {
+        const res = await request(`/api/accounts/${acct.id}/coverage?days=30`, {
           headers: { Cookie: cookie },
         })
 
@@ -434,7 +440,7 @@ describe('coverage', () => {
       it('clamps an oversized window rather than drawing an unreadable strip', async () => {
         const acct = await createAccount(userId, 'assets:chequing')
 
-        const res = await app.request(`/api/accounts/${acct.id}/coverage?days=99999`, {
+        const res = await request(`/api/accounts/${acct.id}/coverage?days=99999`, {
           headers: { Cookie: cookie },
         })
 
@@ -446,7 +452,7 @@ describe('coverage', () => {
         const acct = await createAccount(userId, 'assets:chequing')
 
         for (const days of ['banana', '0', '-5', '12.5', '']) {
-          const res = await app.request(`/api/accounts/${acct.id}/coverage?days=${days}`, {
+          const res = await request(`/api/accounts/${acct.id}/coverage?days=${days}`, {
             headers: { Cookie: cookie },
           })
           expect((await res.json()).window.days).toBe(90)
@@ -530,7 +536,7 @@ describe('coverage', () => {
 
   describe('POST /api/coverage/reconcile', () => {
     async function reconcile(cookieValue: string, body: Record<string, unknown>) {
-      return app.request('/api/coverage/reconcile', {
+      return request('/api/coverage/reconcile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', Cookie: cookieValue },
         body: JSON.stringify(body),
@@ -708,7 +714,7 @@ describe('coverage', () => {
     it("refuses to reconcile another user's account", async () => {
       const otherCookie = await createTestUser('other@example.com')
       const theirUserId = await (async () => {
-        const r = await app.request('/api/auth/get-session', { headers: { Cookie: otherCookie } })
+        const r = await request('/api/auth/get-session', { headers: { Cookie: otherCookie } })
         return (await r.json()).user.id as string
       })()
       const theirAccount = await createAccount(theirUserId, 'assets:theirs')
@@ -733,7 +739,7 @@ describe('coverage', () => {
     })
 
     it('requires authentication', async () => {
-      const res = await app.request('/api/coverage/reconcile', {
+      const res = await request('/api/coverage/reconcile', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -748,12 +754,12 @@ describe('coverage', () => {
 
   describe('GET /api/coverage/accounts', () => {
     const projection = async () => {
-      const res = await app.request('/api/coverage/accounts', { headers: { Cookie: cookie } })
+      const res = await request('/api/coverage/accounts', { headers: { Cookie: cookie } })
       return { status: res.status, body: await res.json() }
     }
 
     const catchUp = async () => {
-      const res = await app.request('/api/catch-up', { headers: { Cookie: cookie } })
+      const res = await request('/api/catch-up', { headers: { Cookie: cookie } })
       return res.json()
     }
 
@@ -879,7 +885,7 @@ describe('coverage', () => {
     })
 
     it('requires authentication', async () => {
-      const res = await app.request('/api/coverage/accounts')
+      const res = await request('/api/coverage/accounts')
 
       expect(res.status).toBe(401)
     })
@@ -887,7 +893,7 @@ describe('coverage', () => {
 
   describe('GET /api/coverage/months', () => {
     const months = async (from: string, to: string) => {
-      const res = await app.request(`/api/coverage/months?from=${from}&to=${to}`, {
+      const res = await request(`/api/coverage/months?from=${from}&to=${to}`, {
         headers: { Cookie: cookie },
       })
       return { status: res.status, body: await res.json() }
@@ -1078,7 +1084,7 @@ describe('coverage', () => {
     })
 
     it('requires authentication', async () => {
-      const res = await app.request('/api/coverage/months?from=2026-09&to=2026-09')
+      const res = await request('/api/coverage/months?from=2026-09&to=2026-09')
 
       expect(res.status).toBe(401)
     })
@@ -1096,7 +1102,7 @@ describe('coverage', () => {
         })
       ).json()
 
-      const res = await app.request(`/api/coverage/${created.id}`, {
+      const res = await request(`/api/coverage/${created.id}`, {
         method: 'DELETE',
         headers: { Cookie: cookie },
       })
@@ -1107,10 +1113,9 @@ describe('coverage', () => {
       expect(assertions).toEqual([])
 
       // The row survives — a withdrawn assertion is still a thing that was once asserted.
-      const [row] = await db
-        .select()
-        .from(accountCoverage)
-        .where(eq(accountCoverage.id, created.id))
+      const row = at(
+        await db.select().from(accountCoverage).where(eq(accountCoverage.id, created.id)),
+      )
       expect(row).toBeDefined()
       expect(row.deletedAt).not.toBeNull()
     })
@@ -1142,7 +1147,7 @@ describe('coverage', () => {
       const before = await (await getCoverage(cookie, acct.id)).json()
       expect(before.intervals).toEqual([{ fromDate: '2025-06-01', throughDate: '2025-08-31' }])
 
-      await app.request(`/api/coverage/${july.id}`, {
+      await request(`/api/coverage/${july.id}`, {
         method: 'DELETE',
         headers: { Cookie: cookie },
       })
@@ -1173,7 +1178,7 @@ describe('coverage', () => {
         source: 'reconcile',
       })
 
-      await app.request(`/api/coverage/${first.id}`, {
+      await request(`/api/coverage/${first.id}`, {
         method: 'DELETE',
         headers: { Cookie: cookie },
       })
@@ -1195,12 +1200,14 @@ describe('coverage', () => {
         })
       ).json()
 
-      await app.request(`/api/coverage/${theirs.id}`, {
+      await request(`/api/coverage/${theirs.id}`, {
         method: 'DELETE',
         headers: { Cookie: cookie },
       })
 
-      const [row] = await db.select().from(accountCoverage).where(eq(accountCoverage.id, theirs.id))
+      const row = at(
+        await db.select().from(accountCoverage).where(eq(accountCoverage.id, theirs.id)),
+      )
       expect(row.deletedAt).toBeNull()
     })
 
@@ -1215,11 +1222,11 @@ describe('coverage', () => {
         })
       ).json()
 
-      await app.request(`/api/coverage/${created.id}`, {
+      await request(`/api/coverage/${created.id}`, {
         method: 'DELETE',
         headers: { Cookie: cookie },
       })
-      const second = await app.request(`/api/coverage/${created.id}`, {
+      const second = await request(`/api/coverage/${created.id}`, {
         method: 'DELETE',
         headers: { Cookie: cookie },
       })
@@ -1228,7 +1235,7 @@ describe('coverage', () => {
     })
 
     it('returns 204 rather than 500 for a malformed id', async () => {
-      const res = await app.request('/api/coverage/not-a-uuid', {
+      const res = await request('/api/coverage/not-a-uuid', {
         method: 'DELETE',
         headers: { Cookie: cookie },
       })
@@ -1237,7 +1244,7 @@ describe('coverage', () => {
     })
 
     it('requires authentication', async () => {
-      const res = await app.request('/api/coverage/00000000-0000-4000-8000-000000000000', {
+      const res = await request('/api/coverage/00000000-0000-4000-8000-000000000000', {
         method: 'DELETE',
       })
 
