@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, it } from 'bun:test'
 import type { CurrencyBalance } from './api'
+import { at } from './at'
 import {
   buildBatchLines,
   convertedAmount,
@@ -166,8 +167,8 @@ describe('buildBatchLines', () => {
       [line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: true })],
       'CAD',
     )
-    expect(built[0].settledCurrency).toBe('CAD')
-    expect(built[0].fxRate).toBeUndefined()
+    expect(at(built).settledCurrency).toBe('CAD')
+    expect(at(built).fxRate).toBeUndefined()
   })
 
   it('builds a mixed consolidated batch', () => {

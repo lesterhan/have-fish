@@ -27,7 +27,7 @@
      * accent-filled buttons would be the page saying "do this" eight times. True in focus
      * mode, and true when there is only one account behind and no focus bar to lead with.
      */
-    primary?: boolean
+    primary?: boolean | undefined
   }
 
   let {

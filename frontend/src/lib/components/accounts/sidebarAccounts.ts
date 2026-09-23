@@ -19,7 +19,7 @@ import {
 export interface SidebarAccount {
   id: string
   path: string
-  name?: string | null
+  name?: string | null | undefined
 }
 
 export interface SidebarRow {

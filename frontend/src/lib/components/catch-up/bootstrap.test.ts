@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { CatchUpAccount } from '$lib/api'
+import { at } from '../../at'
 import { describeProposal, isValidProposal, proposeStartingLines } from './bootstrap'
 
 function account(over: Partial<CatchUpAccount> = {}): CatchUpAccount {
@@ -132,7 +133,7 @@ describe('proposeStartingLines', () => {
   it('carries the display name through', () => {
     const proposals = proposeStartingLines([account({ name: 'Everyday Chequing' })], '2025-07-14')
 
-    expect(proposals[0].name).toBe('Everyday Chequing')
+    expect(at(proposals).name).toBe('Everyday Chequing')
   })
 })
 

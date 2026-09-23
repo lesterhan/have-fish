@@ -29,9 +29,9 @@
     accounts: SidebarAccount[]
     /** Account id → YYYY-MM-DD of its latest transaction. Drives Recent. */
     lastActivityById: ReadonlyMap<string, string | null>
-    email?: string
-    mobileOpen?: boolean
-    onMobileClose?: () => void
+    email?: string | undefined
+    mobileOpen?: boolean | undefined
+    onMobileClose?: (() => void) | undefined
   }
 
   let {

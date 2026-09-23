@@ -30,6 +30,7 @@ export const DESCRIPTION_PLACEHOLDERS = [
 /** Pick a random placeholder. Pass a seed `rng` (0–1) for deterministic tests. */
 export function randomPlaceholder(rng: number = Math.random()): string {
   const i = Math.floor(rng * DESCRIPTION_PLACEHOLDERS.length)
-  // Clamp guards rng === 1 (Math.random never returns 1, but a test seed might).
-  return DESCRIPTION_PLACEHOLDERS[Math.min(i, DESCRIPTION_PLACEHOLDERS.length - 1)]
+  // Clamp guards rng === 1 (Math.random never returns 1, but a test seed might); the
+  // fallback covers a negative seed, which the clamp does not.
+  return DESCRIPTION_PLACEHOLDERS[Math.min(i, DESCRIPTION_PLACEHOLDERS.length - 1)] ?? ''
 }

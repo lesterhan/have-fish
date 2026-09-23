@@ -36,9 +36,13 @@ export function parseCustomDateRange(input: string): { from: string; to: string 
   const relative = s
     .replace(/^past\s+/, '')
     .match(/^(\d+)\s*(d|day|days|w|wk|wks|week|weeks|mo|mos|mon|mons|month|months)$/)
+  // A matched group is `string | undefined` because a group *can* be optional; these two
+  // are not. `null` is what this function already answers with when it cannot read the
+  // input, so saying it here costs nothing and invents no new failure.
+  const [, count, unit] = relative ?? []
   if (relative) {
-    const num = parseInt(relative[1], 10)
-    const unit = relative[2]
+    if (count === undefined || unit === undefined) return null
+    const num = parseInt(count, 10)
     const days = unit.startsWith('w') ? num * 7 : unit.startsWith('mo') ? num * 31 : num // d/day/days
     const from = new Date(today)
     from.setDate(today.getDate() - days)
@@ -53,8 +57,10 @@ export function parseCustomDateRange(input: string): { from: string; to: string 
 
   const range = s.match(/^(\d{4}-\d{2}-\d{2})\s*(to|-)\s*(\d{4}-\d{2}-\d{2})$/)
   if (range) {
-    if (!isValidDate(range[1]) || !isValidDate(range[3])) return null
-    return { from: range[1], to: range[3] }
+    const [, from, , to] = range
+    if (from === undefined || to === undefined) return null
+    if (!isValidDate(from) || !isValidDate(to)) return null
+    return { from, to }
   }
 
   return null

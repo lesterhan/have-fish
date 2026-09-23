@@ -106,9 +106,9 @@ export function settleAction(
 ): SettleAction {
   // A pending outgoing batch wins: the balance still shows the debt until the
   // receiver confirms, so we must not offer "Settle up" again.
-  const pending = pendingOutgoing(settlements, myUserId)
-  if (pending.length > 0) {
-    return { kind: 'pending', receiverName: pending[0].toUserName ?? 'them' }
+  const [firstPending] = pendingOutgoing(settlements, myUserId)
+  if (firstPending) {
+    return { kind: 'pending', receiverName: firstPending.toUserName ?? 'them' }
   }
 
   if (owedDebts(balances, myUserId).length > 0) return { kind: 'settle' }

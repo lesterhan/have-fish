@@ -1,5 +1,6 @@
 /// <reference types="bun" />
 import { describe, expect, it } from 'bun:test'
+import { at } from '../../at'
 import { rank, type ScorableAccount, scoreOne } from './accountScorer'
 
 // A plausible personal-finance ledger. `freq` drives the gentle tie-break,
@@ -76,11 +77,11 @@ describe('rank — expected rankings', () => {
   })
 
   it('foodburger → expenses:food:restaurants:burgerking', () => {
-    expect(paths('foodburger')[0]).toBe('expenses:food:restaurants:burgerking')
+    expect(at(paths('foodburger'))).toBe('expenses:food:restaurants:burgerking')
   })
 
   it('recvhouse → assets:receivable:household', () => {
-    expect(paths('recvhouse')[0]).toBe('assets:receivable:household')
+    expect(at(paths('recvhouse'))).toBe('assets:receivable:household')
   })
 
   it('coffee → coffee leaf first, then coffee:starbucks', () => {
@@ -106,7 +107,7 @@ describe('rank — query normalization', () => {
   it('empty query returns the full list, sorted by freq desc', () => {
     const ranked = rank('', ACCOUNTS)
     expect(ranked.length).toBe(ACCOUNTS.length)
-    expect(ranked[0].path).toBe('assets:bank:chequing') // freq 142, highest
+    expect(at(ranked).path).toBe('assets:bank:chequing') // freq 142, highest
     expect(ranked.every((r) => r.score === 0)).toBe(true)
   })
 })

@@ -5,11 +5,11 @@
     /** Accent (hero) label — the category, or the group when uncategorized. */
     category: string
     /** Muted secondary label — the group, shown only when it adds info beyond the category. */
-    group?: string | null
+    group?: string | null | undefined
     /** Muted share hint (e.g. "12.50 CAD"), shown when a per-person split is known. */
-    share?: string | null
+    share?: string | null | undefined
     /** Layout escape hatch for the parent (e.g. `flex-shrink`). */
-    style?: string
+    style?: string | undefined
   }
 
   let { category, group = null, share = null, style }: Props = $props()

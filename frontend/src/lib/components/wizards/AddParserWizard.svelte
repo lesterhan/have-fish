@@ -17,7 +17,7 @@
   interface Props {
     open: boolean
     accounts: Account[]
-    onSuccess?: (parser: CsvParser) => void
+    onSuccess?: ((parser: CsvParser) => void) | undefined
   }
 
   let { open = $bindable(), accounts, onSuccess }: Props = $props()

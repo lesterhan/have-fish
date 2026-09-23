@@ -3,14 +3,14 @@
 
   interface Props {
     /** Visual weight. `accent` = filled accent badge (700 weight); `muted` = quiet grey badge. */
-    tone?: 'accent' | 'muted'
+    tone?: 'accent' | 'muted' | undefined
     /** Optional leading icon name (from /static/icons). */
-    icon?: string
-    size?: 'sm' | 'xs'
+    icon?: string | undefined
+    size?: 'sm' | 'xs' | undefined
     /** Clip overflowing label text with an ellipsis (needs a constrained flex parent). */
-    truncate?: boolean
+    truncate?: boolean | undefined
     /** Layout escape hatch for the parent — e.g. `flex-shrink` when chips share a row. */
-    style?: string
+    style?: string | undefined
     children: import('svelte').Snippet
   }
 

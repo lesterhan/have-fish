@@ -10,10 +10,10 @@
 
   interface Props {
     columns: Column[]
-    loading?: boolean
-    loadingRows?: number
-    empty?: boolean
-    emptyText?: string
+    loading?: boolean | undefined
+    loadingRows?: number | undefined
+    empty?: boolean | undefined
+    emptyText?: string | undefined
     children: Snippet
   }
 

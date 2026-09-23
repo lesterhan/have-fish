@@ -134,9 +134,10 @@ export function CashSpend() {
       // Adding the second row turns the implicit single row into an explicit
       // one, so the existing amount has to be pinned before the new row takes
       // the rest — otherwise both would claim the whole total.
+      const [only] = current
       const pinned =
-        current.length === 1
-          ? [{ ...current[0], amount: fromCents(toCents(amount) ?? 0) }]
+        only !== undefined && current.length === 1
+          ? [{ ...only, amount: fromCents(toCents(amount) ?? 0) }]
           : current
       const seeded = seedAmountForNewRow(amount, pinned)
       const row = { id: nextRowId(), accountId: null, amount: seeded }

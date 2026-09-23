@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Posting, PostingRole } from '$lib/api'
+import { at } from '../../at'
 import { accountLabel, narrateTransaction, prettifyPath } from './narration'
 
 // Terse posting fixture. id derived from path+amount; accountName optional so the label
@@ -164,7 +165,7 @@ describe('branches + chips', () => {
   it('simple spend → one `the-spend` branch; source excluded', () => {
     const b = narrateTransaction(simpleSpend()).branches
     expect(b.map((x) => x.path)).toEqual(['expenses:food:cafe'])
-    expect(b[0].chip).toBe('the-spend')
+    expect(at(b).chip).toBe('the-spend')
   })
 
   it('split → `your-share` on the subject, `owes-you` on the receivable', () => {

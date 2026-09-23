@@ -96,7 +96,7 @@ const abs2 = (a: string): string => Math.abs(parseFloat(a) || 0).toFixed(2)
 const titleCaseWord = (seg: string): string =>
   seg
     .split('-')
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
     .join(' ')
 
 // Derive a friendly label from an account path: drop the root segment, title-case the last
@@ -170,7 +170,9 @@ function deriveHero(subjects: Posting[]): Hero {
 function deriveSource(transfers: Posting[], inflow: boolean): Posting | null {
   if (transfers.length === 0) return null
   const sorted = [...transfers].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))
-  return inflow ? sorted[sorted.length - 1] : sorted[0]
+  // `?? null` rather than a non-null read: the length check above makes both branches
+  // safe, and null is already what this function answers with when there is no leg.
+  return (inflow ? sorted[sorted.length - 1] : sorted[0]) ?? null
 }
 
 // Conversion = a genuine FX bridge: ≥2 equity:conversions legs across ≥2 currencies, with one

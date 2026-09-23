@@ -11,7 +11,9 @@ const ROOTS: Roots = {
 }
 
 function acct(id: string, path: string, name?: string): SidebarAccount {
-  return { id, path, name }
+  // Spread rather than assign: `SidebarAccount.name` distinguishes an absent key from one
+  // holding `undefined`, and a fixture with no name means absent.
+  return { id, path, ...(name === undefined ? {} : { name }) }
 }
 
 const NONE = { pinnedIds: new Set<string>(), hiddenIds: new Set<string>() }

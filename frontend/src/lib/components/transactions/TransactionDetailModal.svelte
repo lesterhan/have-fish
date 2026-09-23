@@ -19,13 +19,13 @@
     open: boolean
     onclose: () => void
     // When provided, the detail offers in-place edit + the ledger escape. Omit for read-only.
-    accounts?: Account[]
-    defaultOffsetAccountId?: string | null
-    onaccountcreated?: (account: Account) => void
+    accounts?: Account[] | undefined
+    defaultOffsetAccountId?: string | null | undefined
+    onaccountcreated?: ((account: Account) => void) | undefined
     // Fired with the saved transaction (enriched postings + applied header) after any edit.
-    onsaved?: (updated: Transaction) => void
-    ondeleted?: () => void
-    onremovedFromGroup?: () => void
+    onsaved?: ((updated: Transaction) => void) | undefined
+    ondeleted?: (() => void) | undefined
+    onremovedFromGroup?: (() => void) | undefined
   }
 
   let {

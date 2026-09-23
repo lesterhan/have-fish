@@ -5,11 +5,11 @@
   import { settingsStore } from '$lib/settings.svelte'
 
   interface Props {
-    value?: string
-    id?: string
-    placeholder?: string
-    style?: string
-    oncommit?: (value: string) => void
+    value?: string | undefined
+    id?: string | undefined
+    placeholder?: string | undefined
+    style?: string | undefined
+    oncommit?: ((value: string) => void) | undefined
   }
 
   let {

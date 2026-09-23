@@ -12,11 +12,11 @@
   interface Props {
     accounts: Account[]
     value: string // bound account ID (default) or path string (when searchOnly=true)
-    placeholder?: string
-    searchOnly?: boolean // path-string mode: no create option, no revert-on-blur
-    allowCreate?: boolean // when false, hides the create option (ID mode only)
-    oncreate?: (account: Account) => void
-    oncommit?: (accountId: string) => void // fires after any selection (existing or new)
+    placeholder?: string | undefined
+    searchOnly?: boolean | undefined // path-string mode: no create option, no revert-on-blur
+    allowCreate?: boolean | undefined // when false, hides the create option (ID mode only)
+    oncreate?: ((account: Account) => void) | undefined
+    oncommit?: ((accountId: string) => void) | undefined // fires after any selection (existing or new)
   }
 
   let {

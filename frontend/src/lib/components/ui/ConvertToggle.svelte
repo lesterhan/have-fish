@@ -16,7 +16,7 @@
     /** True while the surface is showing converted figures. */
     converted: boolean
     /** A conversion is in flight; the control is inert until it settles. */
-    busy?: boolean
+    busy?: boolean | undefined
     /** The currency being converted into. */
     currency: string
     /**
@@ -26,7 +26,7 @@
      */
     offLabel: string
     /** Render as the currency pill alone, for a dense toolbar with no room for a phrase. */
-    compact?: boolean
+    compact?: boolean | undefined
     onclick: () => void
   }
 

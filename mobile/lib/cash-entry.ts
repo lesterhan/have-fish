@@ -93,10 +93,11 @@ export function seedAmountForNewRow(total: string, rows: SplitRow[]): string {
  * exists the amounts are explicit and this leaves them alone.
  */
 export function syncSingleRow(rows: SplitRow[], total: string): SplitRow[] {
-  if (rows.length !== 1) return rows
+  const [only] = rows
+  if (only === undefined || rows.length !== 1) return rows
   const amount = total === '' ? '' : fromCents(toCents(total) ?? 0)
-  if (rows[0].amount === amount) return rows
-  return [{ ...rows[0], amount }]
+  if (only.amount === amount) return rows
+  return [{ ...only, amount }]
 }
 
 /** Why the entry can't be submitted yet, or null when it can. */

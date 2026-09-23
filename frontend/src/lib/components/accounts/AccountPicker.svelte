@@ -13,16 +13,16 @@
     accounts: Account[]
     /** Bound account ID (default) or path string (when searchOnly=true). */
     value: string
-    placeholder?: string
+    placeholder?: string | undefined
     /** Path-string mode: value IS the path, partial paths are valid, no create. */
-    searchOnly?: boolean
+    searchOnly?: boolean | undefined
     /** When false, hides the create option (ID mode only). */
-    allowCreate?: boolean
-    oncreate?: (account: Account) => void
+    allowCreate?: boolean | undefined
+    oncreate?: ((account: Account) => void) | undefined
     /** Fires after any selection (existing path/id or a freshly created account). */
-    oncommit?: (value: string) => void
+    oncommit?: ((value: string) => void) | undefined
     /** ISO 4217 code stamped on accounts created here, for callers that know it. */
-    createCurrency?: string
+    createCurrency?: string | undefined
   }
 
   let {

@@ -22,7 +22,7 @@
      * field whenever the current range differs from it — an control that only exists
      * when there is something to clear, replacing a permanently-present reset button.
      */
-    defaultRange?: DateRange
+    defaultRange?: DateRange | undefined
     onchange: (range: DateRange) => void
   }
 

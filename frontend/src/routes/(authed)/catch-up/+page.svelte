@@ -98,7 +98,7 @@
   function skipFocused() {
     if (groups.behind.length === 0) return
     const next = groups.behind[(focusIndex + 1) % groups.behind.length]
-    focusedAccountId = next.accountId
+    focusedAccountId = next?.accountId ?? null
     writeFocusState()
   }
   let allCurrent = $derived(

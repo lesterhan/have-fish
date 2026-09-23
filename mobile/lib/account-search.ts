@@ -13,7 +13,7 @@
 export interface AccountLike {
   id: string
   path: string
-  name?: string | null
+  name?: string | null | undefined
 }
 
 /**

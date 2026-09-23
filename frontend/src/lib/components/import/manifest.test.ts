@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { ParsedTransaction } from '$lib/api'
+import { at } from '../../at'
 import { buildManifest, type ManifestContext } from './manifest'
 import type { RowState } from './row-state'
 
@@ -77,7 +78,7 @@ describe('per-destination totals', () => {
       count: 2,
       currency: 'CAD',
     })
-    expect(m.lines[0].total).toBeCloseTo(52.5, 2)
+    expect(at(m.lines).total).toBeCloseTo(52.5, 2)
     expect(m.lines[1]).toMatchObject({ label: 'expenses:transport', count: 1 })
   })
 
@@ -93,12 +94,12 @@ describe('per-destination totals', () => {
 
   it('flags the uncategorized destination — the line this whole step exists to catch', () => {
     const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: 'a-uncat' })], 0, ctx())
-    expect(m.lines[0].isUncategorized).toBe(true)
+    expect(at(m.lines).isUncategorized).toBe(true)
   })
 
   it('does not flag a normal expense account', () => {
     const m = buildManifest([tx('-40.00')], [row()], 0, ctx())
-    expect(m.lines[0].isUncategorized).toBe(false)
+    expect(at(m.lines).isUncategorized).toBe(false)
   })
 
   it('refuses a total when one destination is fed by several currencies', () => {
@@ -108,9 +109,9 @@ describe('per-destination totals', () => {
     ]
     const m = buildManifest(txs, [row(), row()], 0, ctx())
 
-    expect(m.lines[0].count).toBe(2)
-    expect(m.lines[0].total).toBeNull()
-    expect(m.lines[0].currency).toBeNull()
+    expect(at(m.lines).count).toBe(2)
+    expect(at(m.lines).total).toBeNull()
+    expect(at(m.lines).currency).toBeNull()
   })
 
   it('labels a Fish Pie split by group and category', () => {
@@ -120,7 +121,7 @@ describe('per-destination totals', () => {
       0,
       ctx(),
     )
-    expect(m.lines[0].label).toBe('Household · Groceries')
+    expect(at(m.lines).label).toBe('Household · Groceries')
   })
 
   it('labels an uncategorized split by group alone', () => {
@@ -130,7 +131,7 @@ describe('per-destination totals', () => {
       0,
       ctx(),
     )
-    expect(m.lines[0].label).toBe('Household')
+    expect(at(m.lines).label).toBe('Household')
   })
 
   it('keeps two categories of one group on separate lines', () => {
@@ -157,9 +158,9 @@ describe('per-destination totals', () => {
       ctx(),
     )
 
-    expect(m.lines[0].label).toBe('expenses:transport')
-    expect(m.lines[0].total).toBeCloseTo(360, 2)
-    expect(m.lines[0].currency).toBe('CZK')
+    expect(at(m.lines).label).toBe('expenses:transport')
+    expect(at(m.lines).total).toBeCloseTo(360, 2)
+    expect(at(m.lines).currency).toBe('CZK')
   })
 
   it('sends a convert-and-park to the mapped currency account', () => {
@@ -172,12 +173,12 @@ describe('per-destination totals', () => {
       targetCurrency: 'EUR',
     } as ParsedTransaction
     const m = buildManifest([convert], [row({ kind: 'transfer' })], 0, ctx())
-    expect(m.lines[0].label).toBe('assets:wise:eur')
+    expect(at(m.lines).label).toBe('assets:wise:eur')
   })
 
   it('names an unassigned destination rather than showing a blank line', () => {
     const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: '' })], 0, ctx())
-    expect(m.lines[0].label).toBe('No account assigned')
+    expect(at(m.lines).label).toBe('No account assigned')
   })
 })
 
@@ -206,8 +207,8 @@ describe('skipped rows', () => {
 
   it('leaves skipped rows out of the destination totals entirely', () => {
     const m = buildManifest([tx('-40.00'), tx('-40.00')], [row(), row({ skipped: true })], 0, ctx())
-    expect(m.lines[0].count).toBe(1)
-    expect(m.lines[0].total).toBeCloseTo(40, 2)
+    expect(at(m.lines).count).toBe(1)
+    expect(at(m.lines).total).toBeCloseTo(40, 2)
   })
 })
 

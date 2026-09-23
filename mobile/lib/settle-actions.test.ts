@@ -1,6 +1,7 @@
 /// <reference types="bun-types" />
 import { describe, expect, it } from 'bun:test'
 import type { CurrencyBalance, GroupSettlement } from './api'
+import { at } from './at'
 import type { SettleLine } from './fish-pie-settle'
 import {
   incomingBatches,
@@ -155,9 +156,9 @@ describe('incomingBatches', () => {
     ]
     const batches = incomingBatches(rows, 'me')
     expect(batches).toHaveLength(1)
-    expect(batches[0].batchId).toBe('b1')
-    expect(batches[0].fromUserName).toBe('Partner')
-    expect(batches[0].rows).toHaveLength(2)
+    expect(at(batches).batchId).toBe('b1')
+    expect(at(batches).fromUserName).toBe('Partner')
+    expect(at(batches).rows).toHaveLength(2)
   })
 
   it('keeps a legacy single (null batchId) on its own, keyed by id', () => {

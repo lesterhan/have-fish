@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { at } from '$lib/at'
   import { plural } from '$lib/copy'
   import { page } from '$app/state'
   import {
@@ -192,8 +193,8 @@
       .filter(Boolean)
       .sort()
     if (dates.length === 0) return ''
-    const first = dates[0].slice(0, 10)
-    const last = dates[dates.length - 1].slice(0, 10)
+    const first = at(dates).slice(0, 10)
+    const last = at(dates, dates.length - 1).slice(0, 10)
     return first === last ? first : `${first} → ${last}`
   })
 
@@ -550,8 +551,8 @@
 
         for (const i of membersToWrite(cluster, state, rowStates, override)) {
           rowStates[i] = applyTarget(
-            preview.transactions[i],
-            rowStates[i],
+            at(preview.transactions, i),
+            at(rowStates, i),
             target,
             'cluster',
           )
@@ -638,8 +639,8 @@
     )
     for (const i of matches) {
       rowStates[i] = applyTarget(
-        preview!.transactions[i],
-        rowStates[i],
+        at(preview!.transactions, i),
+        at(rowStates, i),
         rowTarget,
         'cluster',
       )
@@ -704,9 +705,10 @@
       )
       return
     }
-    const invalid = preview.transactions.some(
-      (tx, i) => !rowStates[i].skipped && rowMissingAccounts(tx, rowStates[i]),
-    )
+    const invalid = preview.transactions.some((tx, i) => {
+      const row = at(rowStates, i)
+      return !row.skipped && rowMissingAccounts(tx, row)
+    })
     if (invalid) {
       error = 'All transactions must have accounts assigned.'
       return
@@ -715,8 +717,8 @@
     error = ''
     try {
       const txs: CommitTransaction[] = preview.transactions.flatMap((tx, i) => {
-        if (rowStates[i].skipped) return []
-        const row = rowStates[i]
+        const row = at(rowStates, i)
+        if (row.skipped) return []
         if (tx.isTransfer === true) {
           if (row.kind === 'spend' && !row.groupId) {
             // Cross-currency spend — no target asset; the spend lands in the expense
@@ -781,13 +783,13 @@
         categoryId: string | null
       }[] = []
       let txIdx = 0
-      for (let i = 0; i < rowStates.length; i++) {
-        if (rowStates[i].skipped) continue
-        if (rowStates[i].groupId) {
+      for (const row of rowStates) {
+        if (row.skipped) continue
+        if (row.groupId !== null) {
           groupSplits.push({
             rowIndex: txIdx,
-            groupId: rowStates[i].groupId!,
-            categoryId: rowStates[i].categoryId,
+            groupId: row.groupId,
+            categoryId: row.categoryId,
           })
         }
         txIdx++

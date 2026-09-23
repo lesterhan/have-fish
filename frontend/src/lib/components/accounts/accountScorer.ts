@@ -1,3 +1,5 @@
+import { at } from '../../at'
+
 // ════════════════════════════════════════════════════════════
 //  SEGMENT-AWARE FUZZY SCORER
 //
@@ -128,7 +130,7 @@ export function scoreOne(rawQuery: string, path: string, freq = 0): ScoreResult 
 
   // Leaf bonus — does the last matched char sit inside the final segment?
   const lastSep = lp.lastIndexOf(SEP)
-  if (a.pos[a.pos.length - 1] > lastSep) score += W.leaf
+  if (at(a.pos, a.pos.length - 1) > lastSep) score += W.leaf
 
   // Full-segment coverage bonus — did we cover an entire segment start..end?
   const segs = lp.split(SEP)

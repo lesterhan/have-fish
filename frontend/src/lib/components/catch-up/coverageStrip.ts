@@ -42,7 +42,9 @@ function addDays(date: string, days: number): string {
 }
 
 function monthNameOf(date: string): string {
-  return MONTHS[Number(date.substring(5, 7)) - 1]
+  // The month is positions 5-7 of a `YYYY-MM-DD`, so the index is always in range; `?? ''`
+  // is what a malformed date renders as rather than what it crashes with.
+  return MONTHS[Number(date.substring(5, 7)) - 1] ?? ''
 }
 
 function startOfNextMonth(date: string): string {

@@ -47,7 +47,7 @@
         : ['account'],
   )
 
-  function accountPath(id: string): string {
+  function accountPath(id: string | undefined): string {
     return accounts.find((a) => a.id === id)?.path ?? ''
   }
 
@@ -87,7 +87,10 @@
           <div class="picker">
             <AccountPicker
               {accounts}
-              bind:value={currencyAccounts[currency]}
+              bind:value={
+                () => currencyAccounts[currency] ?? '',
+                (next) => (currencyAccounts[currency] = next)
+              }
               placeholder={suggestedPathForCurrency(rootPath, currency) ||
                 'Select or create…'}
               createCurrency={currency}

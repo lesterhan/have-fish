@@ -45,7 +45,7 @@ const partyName = (path: string): string => {
   const last = path.split(':').filter(Boolean).pop() ?? path
   return last
     .split('-')
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
     .join(' ')
 }
 

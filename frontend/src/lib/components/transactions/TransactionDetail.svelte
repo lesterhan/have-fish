@@ -58,15 +58,15 @@
     tx: Transaction
     // When `accounts` is provided, an Edit affordance appears and recategorize/header edits
     // happen in place. Omit it for a pure read-only surface (view-only hosts).
-    accounts?: Account[]
+    accounts?: Account[] | undefined
     // The saved transaction with freshly classified (enriched) postings + applied header.
-    onsaved?: (updated: Transaction) => void
-    ondeleted?: () => void
-    onaccountcreated?: (account: Account) => void
-    onremovedFromGroup?: () => void
+    onsaved?: ((updated: Transaction) => void) | undefined
+    ondeleted?: (() => void) | undefined
+    onaccountcreated?: ((account: Account) => void) | undefined
+    onremovedFromGroup?: (() => void) | undefined
     // The raw-ledger escape hatch — the host (story 6b wrapper) mounts LedgerEditModal. Without
     // it, a subject-less shape (nothing to recategorize) simply offers no edit.
-    oneditledger?: () => void
+    oneditledger?: (() => void) | undefined
   }
 
   let {

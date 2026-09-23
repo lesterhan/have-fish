@@ -15,7 +15,7 @@
     accountId: string
     accountPath: string
     open: boolean
-    onSuccess?: () => void
+    onSuccess?: (() => void) | undefined
   }
 
   let {

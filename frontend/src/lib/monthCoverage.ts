@@ -1,3 +1,4 @@
+import { at } from './at'
 // Whether a *period* is recorded, as opposed to how current a total is.
 //
 // A month asks a different question than a rollup: not "how current is this" but "is this
@@ -138,7 +139,7 @@ export function comparisonBlocker(
 
   const text =
     blocking.length === 1
-      ? `${labelOf(blocking[0].month)} is only partly recorded`
+      ? `${labelOf(at(blocking).month)} is only partly recorded`
       : `${blocking.length} of the months compared are only partly recorded`
 
   return {

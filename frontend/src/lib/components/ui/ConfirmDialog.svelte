@@ -19,12 +19,12 @@
     /** The verb, e.g. "Rename all" or "Delete". */
     confirmLabel: string
     /** Shown in place of the label while the action is in flight. */
-    busyLabel?: string
-    busy?: boolean
+    busyLabel?: string | undefined
+    busy?: boolean | undefined
     /** `warning` for a destructive confirm; `primary` for everything else. */
-    variant?: 'primary' | 'warning'
+    variant?: 'primary' | 'warning' | undefined
     onconfirm: () => void
-    oncancel?: () => void
+    oncancel?: (() => void) | undefined
     children: Snippet
   }
 

@@ -59,10 +59,14 @@ export function accountIndex<A extends IndexedAccount>(accounts: readonly A[]): 
  * `Object.fromEntries(accounts.map((a) => [a.id, a.path]))` is the obvious way to write this
  * and was in a transaction row, which meant every row in a list rebuilt the whole map. Null
  * for an id the list does not hold, so a caller's `?? accountId` fallback still fires.
+ *
+ * An absent id answers null too: callers read the id off a posting that a transaction may not
+ * have (`pathOf(to?.accountId)`), and "no posting" and "no such account" want the same
+ * fallback. Taking the narrower `string` only moved the `?? ''` to the call site.
  */
 export function pathResolver<A extends IndexedAccount>(
   accounts: readonly A[],
-): (accountId: string) => string | null {
+): (accountId: string | null | undefined) => string | null {
   const { byId } = accountIndex(accounts)
-  return (id) => byId.get(id)?.path ?? null
+  return (id) => (id == null ? null : (byId.get(id)?.path ?? null))
 }

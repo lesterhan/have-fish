@@ -32,8 +32,8 @@ import {
 export interface OverviewAccount {
   id: string
   path: string
-  name?: string | null
-  resolvedType?: StoredAccountType | null
+  name?: string | null | undefined
+  resolvedType?: StoredAccountType | null | undefined
   balances: Money[]
 }
 

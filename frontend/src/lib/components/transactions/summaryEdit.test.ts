@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import type { Posting, PostingRole } from '$lib/api'
+import { at } from '../../at'
 import {
   buildRecategorizePayload,
   canSummaryEdit,
@@ -165,6 +166,6 @@ describe('buildRecategorizePayload', () => {
       { postingId: 'expenses:food:cafe:50.00', accountId: '' },
     ])
     // The cafe leg is the last posting; payload preserves order.
-    expect(payload[payload.length - 1].accountId).toBe('expenses:food:cafe')
+    expect(at(payload, payload.length - 1).accountId).toBe('expenses:food:cafe')
   })
 })

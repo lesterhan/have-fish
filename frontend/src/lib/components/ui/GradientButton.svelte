@@ -2,29 +2,29 @@
   import { tooltip as tooltipAction } from '$lib/tooltip'
 
   interface Props {
-    onclick?: () => void
+    onclick?: (() => void) | undefined
     'aria-label'?: string
     /** For a disclosure button, so the state is announced and not only drawn. */
     'aria-expanded'?: boolean
-    disabled?: boolean
-    active?: boolean
-    square?: boolean
-    tooltip?: string
+    disabled?: boolean | undefined
+    active?: boolean | undefined
+    square?: boolean | undefined
+    tooltip?: string | undefined
     /**
      * "primary" is the single command a surface leads with. It shares the accent fill
      * with `active`, but `active` means toggled-on and sets aria-pressed, which is wrong
      * for a command button — hence a separate variant rather than reusing the state.
      */
-    variant?: 'default' | 'warning' | 'primary'
+    variant?: 'default' | 'warning' | 'primary' | undefined
     /** Loud resting state (amber fill + soft pulse) for an unaddressed attention indicator. */
-    attention?: boolean
+    attention?: boolean | undefined
     /** Borderless and flat at rest; border and gradient arrive on hover. For icon
      * buttons in a dense toolbar, where a row of identical raised chips is what makes
      * the toolbar unreadable. */
-    quiet?: boolean
+    quiet?: boolean | undefined
     /** Control height/typography. "lg" is for primary CTAs; "md" is the default control size. */
-    size?: 'sm' | 'md' | 'lg'
-    type?: 'button' | 'submit' | 'reset'
+    size?: 'sm' | 'md' | 'lg' | undefined
+    type?: 'button' | 'submit' | 'reset' | undefined
     children: import('svelte').Snippet
   }
 

@@ -41,6 +41,7 @@
   import GroupExpenseForm from '$lib/components/fish-pie/GroupExpenseForm.svelte'
   import GroupRightPanel from '$lib/components/fish-pie/GroupRightPanel.svelte'
   import GroupSettleBatchModal from '$lib/components/fish-pie/GroupSettleBatchModal.svelte'
+  import { memberPair } from '$lib/components/fish-pie/utils'
 
   const groupId = $derived(page.params.id ?? '')
   const session = useSession()
@@ -115,10 +116,14 @@
       preferredCurrency =
         settings.preferredCurrency ?? g.defaultCurrency ?? 'CAD'
       configCurrency = g.defaultCurrency ?? ''
-      if (g.members.length === 2) {
-        const total = g.members[0].shareWeight + g.members[1].shareWeight
+      const loadedPair = memberPair(g.members)
+      if (loadedPair) {
+        const total =
+          loadedPair.first.shareWeight + loadedPair.second.shareWeight
         initialSliderPct =
-          total > 0 ? Math.round((g.members[0].shareWeight / total) * 100) : 50
+          total > 0
+            ? Math.round((loadedPair.first.shareWeight / total) * 100)
+            : 50
       }
     } catch {
       notFound = true
@@ -221,13 +226,17 @@
     group = await updateGroup(groupId, { defaultCurrency: code })
   }
 
+  // The slider only exists for a two-member group, so a save that finds any other size is
+  // a stale click after someone was added or removed — dropping it beats writing one half
+  // of a split that no longer has two sides.
   async function saveShareSlider(pct: number) {
-    if (!group) return
+    const current = group && memberPair(group.members)
+    if (!current) return
     const w0 = Math.max(1, Math.round(pct))
     const w1 = Math.max(1, 100 - w0)
     await Promise.all([
-      updateMemberWeight(groupId, group.members[0].userId, w0),
-      updateMemberWeight(groupId, group.members[1].userId, w1),
+      updateMemberWeight(groupId, current.first.userId, w0),
+      updateMemberWeight(groupId, current.second.userId, w1),
     ])
   }
 

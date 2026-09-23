@@ -1,8 +1,11 @@
 /// <reference types="bun-types" />
 import { describe, expect, it } from 'bun:test'
+import { at } from './at'
 import { DESCRIPTION_PLACEHOLDERS, randomPlaceholder } from './description-placeholder'
 
 const pool: readonly string[] = DESCRIPTION_PLACEHOLDERS
+
+const LAST = DESCRIPTION_PLACEHOLDERS.length - 1
 
 describe('randomPlaceholder', () => {
   it('returns the first placeholder for rng 0', () => {
@@ -10,13 +13,11 @@ describe('randomPlaceholder', () => {
   })
 
   it('returns the last placeholder for rng approaching 1', () => {
-    expect(randomPlaceholder(0.999999)).toBe(
-      DESCRIPTION_PLACEHOLDERS[DESCRIPTION_PLACEHOLDERS.length - 1],
-    )
+    expect(randomPlaceholder(0.999999)).toBe(at(DESCRIPTION_PLACEHOLDERS, LAST))
   })
 
   it('clamps rng === 1 to the last placeholder (never out of bounds)', () => {
-    expect(randomPlaceholder(1)).toBe(DESCRIPTION_PLACEHOLDERS[DESCRIPTION_PLACEHOLDERS.length - 1])
+    expect(randomPlaceholder(1)).toBe(at(DESCRIPTION_PLACEHOLDERS, LAST))
   })
 
   it('maps the mid range to a real placeholder', () => {

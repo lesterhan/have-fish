@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { at } from '../../at'
 import {
   type AccountCoverageStatus,
   completeness,
@@ -184,8 +185,9 @@ describe('groupRows', () => {
         ]),
         grouping,
       )
-      expect(groups.at(-1)!.label).toBe('Unfiled')
-      expect(groups.at(-1)!.rows).toHaveLength(1)
+      const unfiled = at(groups, groups.length - 1)
+      expect(unfiled.label).toBe('Unfiled')
+      expect(unfiled.rows).toHaveLength(1)
     }
   })
 

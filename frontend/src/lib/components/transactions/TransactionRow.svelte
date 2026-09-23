@@ -10,13 +10,13 @@
   interface Props {
     tx: Transaction
     accounts: Account[]
-    defaultOffsetAccountId?: string | null
-    defaultConversionAccountId?: string | null
-    currentAccountId?: string | null
-    selectable?: boolean
-    selected?: boolean
-    ontoggleselect?: (id: string) => void
-    onselect?: (tx: Transaction) => void
+    defaultOffsetAccountId?: string | null | undefined
+    defaultConversionAccountId?: string | null | undefined
+    currentAccountId?: string | null | undefined
+    selectable?: boolean | undefined
+    selected?: boolean | undefined
+    ontoggleselect?: ((id: string) => void) | undefined
+    onselect?: ((tx: Transaction) => void) | undefined
   }
 
   let {
@@ -55,7 +55,7 @@
     const settings = settingsStore.value
     if (!settings) return false
     const expRoot = settings.defaultExpensesRootPath
-    const toPath = pathOf(to.accountId) ?? ''
+    const toPath = pathOf(to?.accountId) ?? ''
     return !isUnderRoot(toPath, expRoot)
   })
 
@@ -67,10 +67,10 @@
   // When viewing a specific account page, identify which side of the transaction
   // is the current account so we can suppress it and show only the other side.
   let currentIsFrom = $derived(
-    currentAccountId !== null && from.accountId === currentAccountId,
+    currentAccountId !== null && from?.accountId === currentAccountId,
   )
   let currentIsTo = $derived(
-    currentAccountId !== null && to.accountId === currentAccountId,
+    currentAccountId !== null && to?.accountId === currentAccountId,
   )
   let currentIsSource = $derived(
     currentAccountId !== null &&
@@ -138,13 +138,13 @@
         {:else if currentIsTarget}
           <!-- On the target account page: show only where money came from -->
           <span class="account account-from account-from-transfer">
-            {pathOf(transfer.source.accountId) ?? transfer.source.accountId}
+            {pathOf(transfer.source?.accountId) ?? transfer.source?.accountId}
           </span>
           <span class="arrow" aria-hidden="true">←</span>
         {:else}
           <!-- Full display (transactions page or current account not in source/target) -->
           <span class="account account-from account-from-transfer">
-            {pathOf(transfer.source.accountId) ?? transfer.source.accountId}
+            {pathOf(transfer.source?.accountId) ?? transfer.source?.accountId}
           </span>
           <span class="arrow" aria-hidden="true">➜</span>
           <span class="account account-to">
@@ -172,39 +172,39 @@
           <span class="arrow" aria-hidden="true">→</span>
           <span
             class="account account-to"
-            class:account-uncategorized={to.accountId ===
+            class:account-uncategorized={to?.accountId ===
               defaultOffsetAccountId}
           >
-            {pathOf(to.accountId) ?? to.accountId}
+            {pathOf(to?.accountId) ?? to?.accountId}
           </span>
         {:else if currentIsTo}
           <!-- On the "to" account page: show only where money came from -->
           <span
             class="account account-from"
-            class:account-uncategorized={from.accountId ===
+            class:account-uncategorized={from?.accountId ===
               defaultOffsetAccountId}
           >
-            {pathOf(from.accountId) ?? from.accountId}
+            {pathOf(from?.accountId) ?? from?.accountId}
           </span>
           <span class="arrow" aria-hidden="true">←</span>
         {:else}
           <!-- Full display (transactions page or current account not in from/to) -->
           <span
             class="account account-from"
-            class:account-uncategorized={from.accountId ===
+            class:account-uncategorized={from?.accountId ===
               defaultOffsetAccountId}
           >
-            {pathOf(from.accountId) ?? from.accountId}
+            {pathOf(from?.accountId) ?? from?.accountId}
           </span>
 
           <span class="arrow" aria-hidden="true">➜</span>
 
           <span
             class="account account-to"
-            class:account-uncategorized={to.accountId ===
+            class:account-uncategorized={to?.accountId ===
               defaultOffsetAccountId}
           >
-            {pathOf(to.accountId) ?? to.accountId}
+            {pathOf(to?.accountId) ?? to?.accountId}
           </span>
         {/if}
       </div>
@@ -224,26 +224,29 @@
   <div class="money-col">
     {#if isCrossCurrency}
       <MoneyDisplay
-        amount={fmt(transfer.source.amount)}
-        currency={transfer.source.currency}
+        amount={fmt(transfer.source?.amount)}
+        currency={transfer.source?.currency ?? ''}
       />
       <span class="cross-arrow" aria-hidden="true">➜</span>
       <MoneyDisplay
         amount={fmt(transfer.target?.amount ?? '0')}
         currency={transfer.target?.currency ?? ''}
       />
-    {:else if from.currency === to.currency}
+    {:else if from?.currency === to?.currency}
       <MoneyDisplay
-        amount={fmt(from.amount)}
-        currency={to.currency}
+        amount={fmt(from?.amount)}
+        currency={to?.currency ?? ''}
         {flowDirection}
         {tone}
         inline
       />
     {:else}
-      <MoneyDisplay amount={fmt(from.amount)} currency={from.currency} />
+      <MoneyDisplay
+        amount={fmt(from?.amount)}
+        currency={from?.currency ?? ''}
+      />
       <span class="cross-arrow" aria-hidden="true">→</span>
-      <MoneyDisplay amount={fmt(to.amount)} currency={to.currency} />
+      <MoneyDisplay amount={fmt(to?.amount)} currency={to?.currency ?? ''} />
     {/if}
   </div>
 </div>

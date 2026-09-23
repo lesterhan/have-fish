@@ -15,12 +15,12 @@
 
   interface Props {
     accounts: Account[]
-    defaultOffsetAccountId?: string | null
-    preferredCurrency?: string
+    defaultOffsetAccountId?: string | null | undefined
+    preferredCurrency?: string | undefined
     open: boolean
     onclose: () => void
-    oncreated?: (tx: Transaction) => void
-    onaccountcreated?: (account: Account) => void
+    oncreated?: ((tx: Transaction) => void) | undefined
+    onaccountcreated?: ((account: Account) => void) | undefined
   }
 
   let {
@@ -159,9 +159,11 @@
   }
 
   function handleAmountBlur(i: number) {
-    const n = parseFloat(postings[i].amount)
-    if (!isNaN(n) && postings[i].amount.trim() !== '') {
-      postings[i].amount = n.toFixed(2)
+    const posting = postings[i]
+    if (!posting) return
+    const n = parseFloat(posting.amount)
+    if (!isNaN(n) && posting.amount.trim() !== '') {
+      posting.amount = n.toFixed(2)
     }
   }
 
