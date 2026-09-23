@@ -69,10 +69,11 @@
       },
 
       "style": {
-        // 276 findings, 174 of them in test files. #387 removes most of the rest by
-        // parsing request bodies instead of asserting them, and #389 is where the test
-        // files stop being excluded from type checking. Turn this back on after both:
-        // a warning nobody can action is a warning everybody scrolls past.
+        // Was 276 findings. #387 and #397 took it to 62: 40 in test files, 22 in `src`,
+        // and half of those 22 are in the Fish Pie routes that leave under #380 — the
+        // same reason #387 did not touch them. Turning it on now would mean an error
+        // count that a different issue is going to delete, so it stays off until #380
+        // lands and the remainder is small enough to fix rather than demote.
         "noNonNullAssertion": "off"
       },
 
