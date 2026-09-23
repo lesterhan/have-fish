@@ -1,110 +1,14 @@
-import { and, eq, gte, isNull, lte } from 'drizzle-orm'
+import { and, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
 import { db } from '../db'
-import { accounts, fxRates, postings, transactions } from '../db/schema'
+import { fxRates } from '../db/schema'
 import { fail } from '../errors'
-import type { StoredAccountType } from '../postings/account-type'
-import { typeFilterCondition, underPathCondition } from '../postings/account-type-sql'
 import { loadClassifySettings } from '../postings/classify-service'
-import { type ClassifySettings, isExpenseSubject } from '../postings/roles'
+import { hasExpenseAccountUnder, spendRows } from '../postings/spend-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
-
-// Every spending report is a sum over the same rows, so they are fetched in one place.
-const EXPENSE_TYPE = new Set<StoredAccountType>(['expense'])
-
-type SpendRow = {
-  accountId: string
-  path: string
-  date: Date
-  amount: string
-  currency: string
-}
-
-/**
- * The postings every spending report is computed over: the genuine spend legs in the period,
- * with the mechanical legs of a cross-currency spend already removed.
- *
- * Selection is by RESOLVED account type — the stored override, else what the path root infers
- * — not by `LIKE 'expenses:%'`. That was BUG-007's last hiding place: a category at an
- * atypically-named root, tagged Expense on its own settings page, matched no LIKE pattern, so
- * every spend into it was absent from the total, the breakdown and the trend, with no row to
- * notice was missing.
- *
- * The SQL is an over-inclusive prefilter and `isExpenseSubject` is the verdict — the same
- * split `GET /api/accounts/balances` uses. It has to be the real classifier now: the old
- * fee-and-conversion id set stood in for it only because the LIKE already guaranteed every
- * row was an expense leg, and that premise goes with the LIKE. A clearing account someone
- * has tagged Expense, say, now reaches the prefilter, and it is a `share` leg — a role the
- * id set has no way to express. So this runs the function written for exactly this question,
- * which until now had no caller at all.
- */
-async function spendRows(
-  userId: string,
-  settings: ClassifySettings,
-  opts: { from?: Date; to?: Date; prefix?: string | null } = {},
-): Promise<SpendRow[]> {
-  const rows = await db
-    .select({
-      accountId: postings.accountId,
-      path: accounts.path,
-      type: accounts.type,
-      date: transactions.date,
-      amount: postings.amount,
-      currency: postings.currency,
-    })
-    .from(postings)
-    .innerJoin(accounts, eq(postings.accountId, accounts.id))
-    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        isNull(transactions.deletedAt),
-        isNull(postings.deletedAt),
-        isNull(accounts.deletedAt),
-        typeFilterCondition(EXPENSE_TYPE, settings.roots),
-        opts.prefix ? underPathCondition(opts.prefix) : undefined,
-        opts.from ? gte(transactions.date, opts.from) : undefined,
-        opts.to ? lte(transactions.date, opts.to) : undefined,
-      ),
-    )
-
-  return rows
-    .filter((r) => isExpenseSubject(asRolePosting(r), settings))
-    .map(({ type: _prefilterInput, ...row }) => row)
-}
-
-/** The classifier's view of a fetched row. Its three fields, named the way it names them. */
-function asRolePosting(row: { accountId: string; path: string; type: string | null }) {
-  return { accountId: row.accountId, accountPath: row.path, accountType: row.type }
-}
-
-/**
- * True when at least one of this user's accounts resolves to an expense at or under `prefix`.
- *
- * Guards the drill-down: `?prefix=assets:chequing` is a caller mistake, not an empty report.
- * Asked of the resolved type rather than of the configured expenses root, for the same reason
- * the rows are — a drill into a tagged category at an atypical root is a legitimate request,
- * and the root test refused it.
- */
-async function hasExpenseAccountUnder(userId: string, settings: ClassifySettings, prefix: string) {
-  const candidates = await db
-    .select({ accountId: accounts.id, path: accounts.path, type: accounts.type })
-    .from(accounts)
-    .where(
-      and(
-        eq(accounts.userId, userId),
-        isNull(accounts.deletedAt),
-        typeFilterCondition(EXPENSE_TYPE, settings.roots),
-        underPathCondition(prefix),
-      ),
-    )
-  // A fee or conversion account is an expense account the reports never sum, so a prefix that
-  // reaches only those is as empty as one that reaches none.
-  return candidates.some((a) => isExpenseSubject(asRolePosting(a), settings))
-}
 
 // GET /api/reports/spending-summary?from=YYYY-MM-DD&to=YYYY-MM-DD[&prefix=expenses:food]
 //

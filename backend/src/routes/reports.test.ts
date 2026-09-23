@@ -406,6 +406,112 @@ describe('reports', () => {
     })
   })
 
+  // The spending page lists transactions beside the totals. It used to fetch them by the path
+  // root of whichever category came first, so once the totals spanned two roots the list showed
+  // one root's spending and the figure above it the sum of both.
+  describe('GET /api/transactions?spending=true', () => {
+    type Listed = { description: string | null }
+
+    async function listed(qs: string): Promise<string[]> {
+      const res = await request(`/api/transactions?from=2025-01-01&to=2025-01-31&${qs}`, {
+        headers: { Cookie: cookie },
+      })
+      expect(res.status).toBe(200)
+      return ((await res.json()) as Listed[]).map((t) => t.description ?? '').sort()
+    }
+
+    it('lists spend at every root the totals count, and nothing that is not spend', async () => {
+      const chq = await createAccount(cookie, 'assets:chq')
+      const savings = await createAccount(cookie, 'assets:savings')
+      const food = await createAccount(cookie, 'expenses:food')
+      const rent = await createAccount(cookie, '花钱:房租')
+      await setType(cookie, rent, 'expense')
+      const salary = await createAccount(cookie, 'income:salary')
+
+      await createTransaction(cookie, '2025-01-10', 'Lunch', [
+        { accountId: chq, amount: '-20.00', currency: 'CAD' },
+        { accountId: food, amount: '20.00', currency: 'CAD' },
+      ])
+      await createTransaction(cookie, '2025-01-15', 'Rent', [
+        { accountId: chq, amount: '-900.00', currency: 'CAD' },
+        { accountId: rent, amount: '900.00', currency: 'CAD' },
+      ])
+      await createTransaction(cookie, '2025-01-20', 'Payday', [
+        { accountId: salary, amount: '-3000.00', currency: 'CAD' },
+        { accountId: chq, amount: '3000.00', currency: 'CAD' },
+      ])
+      await createTransaction(cookie, '2025-01-25', 'Save', [
+        { accountId: chq, amount: '-500.00', currency: 'CAD' },
+        { accountId: savings, amount: '500.00', currency: 'CAD' },
+      ])
+
+      expect(await listed('spending=true')).toEqual(['Lunch', 'Rent'])
+    })
+
+    it('scopes the spend leg, not any leg, to the drilled-in path', async () => {
+      const source = await createAccount(cookie, 'assets:wise:usd')
+      const feeAcct = await createAccount(cookie, 'expenses:banking:fee')
+      const cafe = await createAccount(cookie, 'expenses:food:cafe')
+      const atm = await createAccount(cookie, 'expenses:banking:atm')
+      await db.insert(csvParsers).values({
+        userId: await getUserId(cookie),
+        name: 'Wise',
+        normalizedHeader: 'amount|currency|date|description',
+        columnMapping: { date: 'date', amount: 'amount' },
+        isMultiCurrency: true,
+        defaultFeeAccountId: feeAcct,
+      })
+
+      // A coffee whose only leg under `expenses:banking` is the designated fee.
+      await createTransaction(cookie, '2025-01-15', 'Coffee', [
+        { accountId: source, amount: '-5.05', currency: 'USD' },
+        { accountId: feeAcct, amount: '0.05', currency: 'USD' },
+        { accountId: cafe, amount: '5.00', currency: 'USD' },
+      ])
+      await createTransaction(cookie, '2025-01-16', 'ATM charge', [
+        { accountId: source, amount: '-3.00', currency: 'USD' },
+        { accountId: atm, amount: '3.00', currency: 'USD' },
+      ])
+
+      // Any leg: the fee drags the coffee in, which is what the list did before.
+      expect(await listed('accountPath=expenses:banking')).toEqual(['ATM charge', 'Coffee'])
+      // Spend legs only: the banking figure is the ATM charge, and so is its list.
+      expect(await listed('accountPath=expenses:banking&spending=true')).toEqual(['ATM charge'])
+      expect(await listed('accountPath=expenses:food&spending=true')).toEqual(['Coffee'])
+    })
+
+    it('rejects a value that is not true', async () => {
+      const res = await request('/api/transactions?spending=yes', { headers: { Cookie: cookie } })
+      expect(res.status).toBe(400)
+      expect(((await res.json()) as { error: string }).error).toBe('FIELD_NOT_BOOLEAN')
+    })
+  })
+
+  // The list's `accountPath` filter escaped its own LIKE pattern until it moved onto
+  // `underPathCondition`; this holds both halves of what the escaping has to get right.
+  it('GET /api/transactions?accountPath= matches the path and its children, not a wildcard', async () => {
+    const source = await createAccount(cookie, 'assets:chq')
+    const office = await createAccount(cookie, 'expenses:home_office')
+    const desk = await createAccount(cookie, 'expenses:home_office:desk')
+    const decoy = await createAccount(cookie, 'expenses:homeXoffice:chair')
+    for (const [description, accountId] of [
+      ['Office', office],
+      ['Desk', desk],
+      ['Decoy', decoy],
+    ] as const) {
+      await createTransaction(cookie, '2025-01-15', description, [
+        { accountId: source, amount: '-1.00', currency: 'CAD' },
+        { accountId, amount: '1.00', currency: 'CAD' },
+      ])
+    }
+
+    const res = await request('/api/transactions?accountPath=expenses:home_office', {
+      headers: { Cookie: cookie },
+    })
+    const body = (await res.json()) as { description: string | null }[]
+    expect(body.map((t) => t.description).sort()).toEqual(['Desk', 'Office'])
+  })
+
   it('GET /api/reports/monthly-spend returns one entry per month with empty totals when there are no transactions', async () => {
     const res = await request('/api/reports/monthly-spend?months=3', {
       headers: { Cookie: cookie },
