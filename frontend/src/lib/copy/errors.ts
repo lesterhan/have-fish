@@ -240,7 +240,7 @@ export const errorsCopy = {
     `Repairing this would leave the ${currency} lines unbalanced, so nothing was changed.`,
 
   // --- reports --------------------------------------------------------------------------------
-  PREFIX_OUTSIDE_EXPENSES: 'This report only covers accounts under expenses.',
+  PREFIX_OUTSIDE_EXPENSES: 'Nothing under that path is an expense account.',
 
   // --- import and parsers ------------------------------------------------------------------------
   CSV_EMPTY: 'That file has a header and no rows.',
