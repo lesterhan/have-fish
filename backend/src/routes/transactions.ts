@@ -26,7 +26,7 @@ async function enrichPostings<T extends { id: string; accountId: string }>(
   if (rows.length === 0) return []
   const accountIds = [...new Set(rows.map((r) => r.accountId))]
   const accountRows = await db
-    .select({ id: accounts.id, path: accounts.path, name: accounts.name })
+    .select({ id: accounts.id, path: accounts.path, name: accounts.name, type: accounts.type })
     .from(accounts)
     .where(and(inArray(accounts.id, accountIds), eq(accounts.userId, userId)))
   const byId = new Map(accountRows.map((a) => [a.id, a]))
@@ -36,7 +36,14 @@ async function enrichPostings<T extends { id: string; accountId: string }>(
     accountName: byId.get(r.accountId)?.name ?? null,
   }))
   const settings = await loadClassifySettings(userId)
-  const roleById = classifyPostings(withPath, settings)
+  // The classifier reads the account's stored type override; the shape this returns does not
+  // carry it. On its own the override is a half-answer — null means "infer from the path",
+  // which needs the user's configured roots — and `role` is the whole one. So the classifier
+  // gets its own view of the same rows rather than a field stripped back off on the way out.
+  const roleById = classifyPostings(
+    withPath.map((r) => ({ ...r, accountType: byId.get(r.accountId)?.type ?? null })),
+    settings,
+  )
   return withPath.map((r) => ({ ...r, role: roleById.get(r.id)! }))
 }
 
@@ -179,6 +186,9 @@ app.get('/', async (c) => {
       accountId: postings.accountId,
       accountPath: accounts.path,
       accountName: accounts.name,
+      // For the role classifier only; stripped before the rows go on the wire, for the
+      // reason given in `enrichPostings`.
+      accountType: accounts.type,
       amount: postings.amount,
       currency: postings.currency,
       createdAt: postings.createdAt,
@@ -195,10 +205,11 @@ app.get('/', async (c) => {
   const roleById = classifyPostings(postingRows, classifySettings)
 
   // Group postings by transactionId and embed into each transaction, with role attached
-  type EmbeddedPosting = (typeof postingRows)[number] & { role: PostingRole }
+  type EmbeddedPosting = Omit<(typeof postingRows)[number], 'accountType'> & { role: PostingRole }
   const postingsByTx = postingRows.reduce<Record<string, EmbeddedPosting[]>>((acc, p) => {
     const forTx = acc[p.transactionId] ?? []
-    forTx.push({ ...p, role: roleById.get(p.id)! })
+    const { accountType: _classifierInput, ...wire } = p
+    forTx.push({ ...wire, role: roleById.get(p.id)! })
     acc[p.transactionId] = forTx
     return acc
   }, {})

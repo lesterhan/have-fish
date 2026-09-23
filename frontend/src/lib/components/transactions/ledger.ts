@@ -1,15 +1,19 @@
-import type { Posting, StoredAccountType, Transaction } from '$lib/api'
+// Relative, not `$lib`: `toClassifierType` is a value import, and a value import through the
+// alias has no .svelte-kit to resolve against in CI. See lib-imports.test.ts.
+import { type Posting, type StoredAccountType, type Transaction, toClassifierType } from '../../api'
 import { toCents } from '../../money'
 import { accountIndex } from '../accounts/accountIndex'
 import { type AmountTone, amountTone, OWN_MONEY } from './amountTone'
 
 /**
- * The two things a ledger has to decide about a row, in one place.
+ * The three things a ledger has to decide about a row, in one place.
  *
  * Both surfaces that render a ledger — the account page and the transactions list — need
- * the same two answers: which posting is the row *about*, and what does its sign mean. The
- * account page had worked this out already and the transactions list had not, so the same
- * screen idea was implemented once and skipped once. That is the drift §6 exists to stop.
+ * the same answers: which posting is the row *about*, what does its sign mean, and is the
+ * row a move or a spend. The account page had worked the first two out already and the
+ * transactions list had not, so the same screen idea was implemented once and skipped once.
+ * That is the drift §6 exists to stop — and the third question was written twice, in the
+ * two components' markup, which is how both of them came to read a path instead of a type.
  *
  * The subject is the posting on your own money. On an account page that is trivially the
  * account you are looking at. On the global list nobody has named an account, so it is the
@@ -69,6 +73,32 @@ export function ledgerTone(
 
   const counterpart = postings.find((p) => p.accountId !== subject.accountId)
   return amountTone(subject.amount, typeOf(counterpart?.accountId ?? ''))
+}
+
+/**
+ * Does this row move money rather than spend it?
+ *
+ * The test is the counterpart leg: a row whose other side is an expense is a spend, and
+ * anything else — another account of yours, a category you were paid by — is a move. Both
+ * ledger surfaces label the row from this, which is why it sits here beside the other two
+ * questions rather than twice in the markup.
+ *
+ * Asked of the resolved type, not of whether the path sits under the expenses root (#405).
+ * A spend into `花钱:房租` tagged Expense is a spend; reading the path called it a transfer,
+ * and the tag is the account's own answer about itself.
+ *
+ * No answer — no counterpart, or an account the list does not hold — is false, because the
+ * only thing this drives is a `⇄` on the row, and a marker on a row nobody could classify
+ * asserts something. The path test disagreed with itself here: an account it could not find
+ * came back a transfer, but a row rendered before settings loaded came back a spend, so the
+ * same unknown got a marker or not depending on which piece of state was missing.
+ */
+export function isTransferRow(
+  counterpart: { accountId: string } | null | undefined,
+  typeOf: (accountId: string) => StoredAccountType | null | undefined,
+): boolean {
+  const type = counterpart ? typeOf(counterpart.accountId) : null
+  return type != null && toClassifierType(type) !== 'expense'
 }
 
 // ── Days ────────────────────────────────────────────────────
