@@ -1,7 +1,8 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
-import { csvParsers, userSettings } from '../db/schema'
+import { returnedRow } from '../db/returning'
+import { accounts as accountsTable, csvParsers, fxRates, userSettings } from '../db/schema'
 import { at, clearDatabase, createTestUser, request } from '../test-utils'
 
 // Resolves a user's id from a session cookie via the /api/accounts/me-less path:
@@ -22,6 +23,16 @@ async function createAccount(cookie: string, path: string): Promise<string> {
   })
   const body = (await res.json()) as { id: string }
   return body.id
+}
+
+// Helper: set an account's stored hledger type override
+async function setType(cookie: string, id: string, type: string | null): Promise<void> {
+  const res = await request(`/api/accounts/${id}`, {
+    method: 'PATCH',
+    headers: { 'Content-Type': 'application/json', Cookie: cookie },
+    body: JSON.stringify({ type }),
+  })
+  if (res.status !== 200) throw new Error(`setType failed: ${res.status}`)
 }
 
 // Helper: create a balanced transaction via the API
@@ -178,6 +189,221 @@ describe('reports', () => {
     expect(body.total.USD).toBeUndefined()
     expect(body.categories.find((c) => c.category === 'expenses:banking')).toBeUndefined()
     expect(body.categories.find((c) => c.category === 'expenses:food')?.total.CZK).toBe('360.00')
+  })
+
+  // ── BUG-007 ───────────────────────────────────────────────
+  //
+  // The reports selected spend rows with `LIKE 'expenses:%'`, so a category at an
+  // atypically-named root — tagged Expense on its own settings page, which is the one thing
+  // the user can do about it — matched nothing. Every spend into it was absent from the
+  // total, the breakdown and the trend, with no row to notice was missing.
+  describe('a tagged category outside the expenses root', () => {
+    type Category = { category: string; total: Record<string, string>; childCount: number }
+    type Summary = { total: Record<string, string>; categories: Category[] }
+
+    async function seedRent(): Promise<string> {
+      const source = await createAccount(cookie, 'assets:chq')
+      const rent = await createAccount(cookie, '花钱:房租')
+      await setType(cookie, rent, 'expense')
+      await createTransaction(cookie, '2025-01-15', 'Rent', [
+        { accountId: source, amount: '-900.00', currency: 'CNY' },
+        { accountId: rent, amount: '900.00', currency: 'CNY' },
+      ])
+      return rent
+    }
+
+    async function summary(qs: string): Promise<Summary> {
+      const res = await request(`/api/reports/spending-summary${qs}`, {
+        headers: { Cookie: cookie },
+      })
+      expect(res.status).toBe(200)
+      return (await res.json()) as Summary
+    }
+
+    it('is counted in the spending total and its own category', async () => {
+      await seedRent()
+      const body = await summary('?from=2025-01-01&to=2025-01-31')
+      expect(body.total.CNY).toBe('900.00')
+      expect(body.categories.find((cat) => cat.category === '花钱:房租')?.total.CNY).toBe('900.00')
+    })
+
+    it('is not counted while it carries no override', async () => {
+      const source = await createAccount(cookie, 'assets:chq')
+      const rent = await createAccount(cookie, '花钱:房租')
+      await createTransaction(cookie, '2025-01-15', 'Rent', [
+        { accountId: source, amount: '-900.00', currency: 'CNY' },
+        { accountId: rent, amount: '900.00', currency: 'CNY' },
+      ])
+      const body = await summary('?from=2025-01-01&to=2025-01-31')
+      expect(body.total).toEqual({})
+    })
+
+    it('leaves the total again when its override is cleared', async () => {
+      const rent = await seedRent()
+      await setType(cookie, rent, null)
+      expect((await summary('?from=2025-01-01&to=2025-01-31')).total).toEqual({})
+    })
+
+    it('can be drilled into, which the root check used to refuse', async () => {
+      const rent = await seedRent()
+      const deeper = await createAccount(cookie, '花钱:房租:押金')
+      await setType(cookie, deeper, 'expense')
+      const source = await createAccount(cookie, 'assets:chq2')
+      await createTransaction(cookie, '2025-01-16', 'Deposit', [
+        { accountId: source, amount: '-100.00', currency: 'CNY' },
+        { accountId: deeper, amount: '100.00', currency: 'CNY' },
+      ])
+      expect(rent).toBeDefined()
+
+      const body = await summary('?from=2025-01-01&to=2025-01-31&prefix=花钱:房租')
+      expect(body.categories.map((cat) => cat.category)).toEqual(
+        expect.arrayContaining(['花钱:房租', '花钱:房租:押金']),
+      )
+    })
+
+    it('still rejects a prefix that reaches no expense account', async () => {
+      await seedRent()
+      const res = await request(
+        '/api/reports/spending-summary?from=2025-01-01&to=2025-01-31&prefix=assets:chq',
+        { headers: { Cookie: cookie } },
+      )
+      expect(res.status).toBe(400)
+    })
+
+    it('appears in the monthly trend', async () => {
+      const source = await createAccount(cookie, 'assets:chq')
+      const rent = await createAccount(cookie, '花钱:房租')
+      await setType(cookie, rent, 'expense')
+      const today = new Date().toISOString().slice(0, 10)
+      await createTransaction(cookie, today, 'Rent', [
+        { accountId: source, amount: '-900.00', currency: 'CNY' },
+        { accountId: rent, amount: '900.00', currency: 'CNY' },
+      ])
+
+      const res = await request('/api/reports/monthly-spend?months=1', {
+        headers: { Cookie: cookie },
+      })
+      const body = (await res.json()) as { month: string; total: Record<string, string> }[]
+      expect(at(body).total.CNY).toBe('900.00')
+    })
+
+    it('appears in the FX pairs the conversion needs', async () => {
+      await seedRent()
+      const res = await request(
+        '/api/reports/spending-fx-pairs?from=2025-01-01&to=2025-01-31&targetCurrency=CAD',
+        { headers: { Cookie: cookie } },
+      )
+      const body = (await res.json()) as { pairs: { date: string; from: string }[] }
+      expect(body.pairs.map((pair) => pair.from)).toContain('CNY')
+    })
+
+    it('is counted by the converted total once its rate is cached', async () => {
+      await seedRent()
+      await db.insert(fxRates).values({
+        date: '2025-01-15',
+        baseCurrency: 'CNY',
+        quoteCurrency: 'CAD',
+        rate: '0.19',
+      })
+      const res = await request(
+        '/api/reports/spending-converted?from=2025-01-01&to=2025-01-31&targetCurrency=CAD',
+        { headers: { Cookie: cookie } },
+      )
+      const body = (await res.json()) as { total: string | null; missingCount: number }
+      expect(body).toEqual({ total: '171.00', missingCount: 0 })
+    })
+  })
+
+  it('drills into a path holding a LIKE metacharacter, itself and its children', async () => {
+    // `_` is a single-character wildcard. Escaping it is right for the `LIKE '<prefix>:%'`
+    // half and wrong for the `path = '<prefix>'` half, so escaping before the condition is
+    // built drops the account sitting at exactly the prefix and keeps only its children.
+    const source = await createAccount(cookie, 'assets:chq')
+    const office = await createAccount(cookie, 'expenses:home_office')
+    const desk = await createAccount(cookie, 'expenses:home_office:desk')
+    // Deep enough to match an UNescaped `expenses:home_office:%`, which is the other half.
+    const decoy = await createAccount(cookie, 'expenses:homeXoffice:chair')
+
+    await createTransaction(cookie, '2025-01-15', 'Chair', [
+      { accountId: source, amount: '-200.00', currency: 'CAD' },
+      { accountId: office, amount: '200.00', currency: 'CAD' },
+    ])
+    await createTransaction(cookie, '2025-01-16', 'Desk', [
+      { accountId: source, amount: '-300.00', currency: 'CAD' },
+      { accountId: desk, amount: '300.00', currency: 'CAD' },
+    ])
+    await createTransaction(cookie, '2025-01-17', 'Decoy', [
+      { accountId: source, amount: '-9.00', currency: 'CAD' },
+      { accountId: decoy, amount: '9.00', currency: 'CAD' },
+    ])
+
+    const res = await request(
+      '/api/reports/spending-summary?from=2025-01-01&to=2025-01-31&prefix=expenses:home_office',
+      { headers: { Cookie: cookie } },
+    )
+    expect(res.status).toBe(200)
+    const body = (await res.json()) as { total: Record<string, string> }
+    // 200 + 300, and not the 9 belonging to the account the wildcard would have swept in.
+    expect(body.total.CAD).toBe('500.00')
+  })
+
+  // The override wins in both directions, or it does not mean anything.
+  describe('the override against the path', () => {
+    type Summary = { total: Record<string, string>; categories: { category: string }[] }
+
+    async function summary(): Promise<Summary> {
+      const res = await request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
+        headers: { Cookie: cookie },
+      })
+      return (await res.json()) as Summary
+    }
+
+    it('counts a mis-pathed category under the assets root', async () => {
+      const source = await createAccount(cookie, 'assets:chq')
+      const groceries = await createAccount(cookie, 'assets:groceries')
+      await setType(cookie, groceries, 'expense')
+      await createTransaction(cookie, '2025-01-15', 'Groceries', [
+        { accountId: source, amount: '-40.00', currency: 'CAD' },
+        { accountId: groceries, amount: '40.00', currency: 'CAD' },
+      ])
+      expect((await summary()).total.CAD).toBe('40.00')
+    })
+
+    it('drops an account under the expenses root that is tagged an asset', async () => {
+      const source = await createAccount(cookie, 'assets:chq')
+      const holding = await createAccount(cookie, 'expenses:rrsp')
+      await setType(cookie, holding, 'asset')
+      await createTransaction(cookie, '2025-01-15', 'Contribution', [
+        { accountId: source, amount: '-500.00', currency: 'CAD' },
+        { accountId: holding, amount: '500.00', currency: 'CAD' },
+      ])
+      expect((await summary()).total).toEqual({})
+    })
+
+    it('still excludes a Fish Pie clearing leg, whatever it is tagged', async () => {
+      // Selecting by type rather than by path root is what lets a tagged clearing account
+      // reach these queries at all. It is a `share` leg, which is a role the old fee-and-
+      // conversion id set could not express — the reason this runs the real classifier.
+      //
+      // Inserted directly: `POST /api/accounts` refuses the receivable namespace, and the
+      // override is set the same way, so the API cannot build this shape. Fish Pie mints the
+      // account itself, and its Type field is reachable from the account page like any other.
+      const source = await createAccount(cookie, 'assets:chq')
+      const userId = await getUserId(cookie)
+      const clearing = returnedRow(
+        await db
+          .insert(accountsTable)
+          .values({ userId, path: 'assets:receivable:alice', type: 'expense' })
+          .returning({ id: accountsTable.id }),
+        'insert clearing account',
+      ).id
+
+      await createTransaction(cookie, '2025-01-15', 'Split', [
+        { accountId: source, amount: '-60.00', currency: 'CAD' },
+        { accountId: clearing, amount: '60.00', currency: 'CAD' },
+      ])
+      expect((await summary()).total).toEqual({})
+    })
   })
 
   it('GET /api/reports/monthly-spend returns one entry per month with empty totals when there are no transactions', async () => {

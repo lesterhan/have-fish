@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, like, lte, not, or, type SQL, sql } from 'drizzle-orm'
+import { and, eq, isNull, lte, not, or, type SQL, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
@@ -17,6 +17,12 @@ import {
   type StoredAccountType,
   toClassifierType,
 } from '../postings/account-type'
+import {
+  noUsableOverrideCondition,
+  required,
+  typeFilterCondition,
+  underPathCondition,
+} from '../postings/account-type-sql'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { as, asField, asInput, defined, parseBody } from '../validation'
 
@@ -64,68 +70,6 @@ app.get('/', async (c) => {
   return c.json(withType)
 })
 
-// `or()` and `and()` type their result as possibly-undefined because they accept zero
-// conditions. Every call below passes at least one, and a condition silently dropped here
-// would widen the selection to the whole ledger, so say what went missing rather than
-// assert it away.
-function required(condition: SQL | undefined, what: string): SQL {
-  if (!condition) throw new Error(`empty SQL condition: ${what}`)
-  return condition
-}
-
-// SQL narrowing for `GET /balances?types=`. The authoritative verdict is still
-// `resolveStoredOrInferredType` in the JS pass below; this only keeps the query from
-// aggregating postings for the whole ledger (the LEFT JOIN + GROUP BY is the expensive
-// part, and the Wallets tab hits it on every load). It is therefore allowed to be
-// over-inclusive — the JS pass filters again — but must never be under-inclusive.
-//
-// An account matches a requested type either because it carries that STORED override, or
-// because it carries no usable override and its PATH infers to it. `cash` and `conversion`
-// are override-only, so they contribute no path branch at all — which is what makes
-// `?types=cash` a cheap indexed lookup rather than a full scan.
-
-// "At or under this root". The exact-path branch is not decoration: an account created at the
-// bare root (`assets`) is legal, and a `LIKE 'assets:%'` alone would leave it invisible.
-function underRootCondition(root: string): SQL {
-  return required(or(eq(accounts.path, root), like(accounts.path, `${root}:%`)), `under ${root}`)
-}
-
-// Inference applies only when the stored column holds nothing usable. A value outside the
-// valid set (shouldn't happen — validated on write) also falls back to inference, so treat it
-// like null rather than letting the account drop out of the query.
-function noUsableOverrideCondition(): SQL {
-  return required(
-    or(isNull(accounts.type), not(inArray(accounts.type, [...STORED_ACCOUNT_TYPES]))),
-    'no usable override',
-  )
-}
-
-function typeFilterCondition(types: Set<StoredAccountType>, roots: AccountTypeRoots) {
-  const branches: SQL[] = [inArray(accounts.type, [...types])]
-
-  // Roots whose inferred type was requested. Only the five inferable types have one.
-  const inferableRoots: Partial<Record<StoredAccountType, string>> = {
-    asset: roots.assetsRootPath,
-    liability: roots.liabilitiesRootPath,
-    equity: roots.equityRootPath,
-    expense: roots.expensesRootPath,
-    income: roots.incomeRootPath,
-  }
-  const wantedRoots = [...types].map((t) => inferableRoots[t]).filter((r): r is string => !!r)
-
-  if (wantedRoots.length > 0) {
-    const underWantedRoot = wantedRoots.map(underRootCondition)
-    branches.push(
-      required(
-        and(noUsableOverrideCondition(), or(...underWantedRoot)),
-        'inferred branch of the type filter',
-      ),
-    )
-  }
-
-  return required(or(...branches), 'type filter')
-}
-
 // Does this resolved type describe money you hold or owe, as opposed to a category money
 // moved through? Asked as the coarse bucket rather than as a list of the five, so Cash lands
 // with Asset and Conversion with Equity because `toClassifierType` says so.
@@ -157,11 +101,11 @@ function balanceBearingCondition(roots: AccountTypeRoots, includeUnfiled: boolea
   // no longer unfiled — it is whatever it says it is, and lands in that group instead.
   const anyRoot = required(
     or(
-      underRootCondition(roots.assetsRootPath),
-      underRootCondition(roots.liabilitiesRootPath),
-      underRootCondition(roots.equityRootPath),
-      underRootCondition(roots.expensesRootPath),
-      underRootCondition(roots.incomeRootPath),
+      underPathCondition(roots.assetsRootPath),
+      underPathCondition(roots.liabilitiesRootPath),
+      underPathCondition(roots.equityRootPath),
+      underPathCondition(roots.expensesRootPath),
+      underPathCondition(roots.incomeRootPath),
     ),
     'any configured root',
   )

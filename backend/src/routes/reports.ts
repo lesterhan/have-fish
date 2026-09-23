@@ -1,29 +1,109 @@
-import { and, eq, gte, isNull, like, lte } from 'drizzle-orm'
+import { and, eq, gte, isNull, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
 import { db } from '../db'
-import { accounts, fxRates, postings, transactions, userSettings } from '../db/schema'
+import { accounts, fxRates, postings, transactions } from '../db/schema'
 import { fail } from '../errors'
+import type { StoredAccountType } from '../postings/account-type'
+import { typeFilterCondition, underPathCondition } from '../postings/account-type-sql'
 import { loadClassifySettings } from '../postings/classify-service'
+import { type ClassifySettings, isExpenseSubject } from '../postings/roles'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
-// Returns the user's configured expenses root path, with LIKE special chars escaped.
-async function getExpensesRoot(userId: string): Promise<string> {
-  const [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId))
-  const root = settings?.defaultExpensesRootPath ?? 'expenses'
-  return root.replace(/[%_\\]/g, '\\$&')
+// Every spending report is a sum over the same rows, so they are fetched in one place.
+const EXPENSE_TYPE = new Set<StoredAccountType>(['expense'])
+
+type SpendRow = {
+  accountId: string
+  path: string
+  date: Date
+  amount: string
+  currency: string
 }
 
-// Account ids excluded from spending totals: the explicitly-designated fee and conversion
-// legs. Everything else under the expenses root is a genuine spend (subject) leg — this is
-// the posting-role classifier's verdict reduced to a set lookup, valid because these queries
-// already constrain rows to the expenses root (→ expense type → subject unless fee/conversion).
-// Excluding them stops a cross-currency spend from being inflated by its mechanical legs.
-async function spendExcludedAccountIds(userId: string): Promise<Set<string>> {
-  const s = await loadClassifySettings(userId)
-  return new Set<string>([...s.feeAccountIds, ...s.conversionAccountIds])
+/**
+ * The postings every spending report is computed over: the genuine spend legs in the period,
+ * with the mechanical legs of a cross-currency spend already removed.
+ *
+ * Selection is by RESOLVED account type — the stored override, else what the path root infers
+ * — not by `LIKE 'expenses:%'`. That was BUG-007's last hiding place: a category at an
+ * atypically-named root, tagged Expense on its own settings page, matched no LIKE pattern, so
+ * every spend into it was absent from the total, the breakdown and the trend, with no row to
+ * notice was missing.
+ *
+ * The SQL is an over-inclusive prefilter and `isExpenseSubject` is the verdict — the same
+ * split `GET /api/accounts/balances` uses. It has to be the real classifier now: the old
+ * fee-and-conversion id set stood in for it only because the LIKE already guaranteed every
+ * row was an expense leg, and that premise goes with the LIKE. A clearing account someone
+ * has tagged Expense, say, now reaches the prefilter, and it is a `share` leg — a role the
+ * id set has no way to express. So this runs the function written for exactly this question,
+ * which until now had no caller at all.
+ */
+async function spendRows(
+  userId: string,
+  settings: ClassifySettings,
+  opts: { from?: Date; to?: Date; prefix?: string | null } = {},
+): Promise<SpendRow[]> {
+  const rows = await db
+    .select({
+      accountId: postings.accountId,
+      path: accounts.path,
+      type: accounts.type,
+      date: transactions.date,
+      amount: postings.amount,
+      currency: postings.currency,
+    })
+    .from(postings)
+    .innerJoin(accounts, eq(postings.accountId, accounts.id))
+    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+        isNull(accounts.deletedAt),
+        typeFilterCondition(EXPENSE_TYPE, settings.roots),
+        opts.prefix ? underPathCondition(opts.prefix) : undefined,
+        opts.from ? gte(transactions.date, opts.from) : undefined,
+        opts.to ? lte(transactions.date, opts.to) : undefined,
+      ),
+    )
+
+  return rows
+    .filter((r) => isExpenseSubject(asRolePosting(r), settings))
+    .map(({ type: _prefilterInput, ...row }) => row)
+}
+
+/** The classifier's view of a fetched row. Its three fields, named the way it names them. */
+function asRolePosting(row: { accountId: string; path: string; type: string | null }) {
+  return { accountId: row.accountId, accountPath: row.path, accountType: row.type }
+}
+
+/**
+ * True when at least one of this user's accounts resolves to an expense at or under `prefix`.
+ *
+ * Guards the drill-down: `?prefix=assets:chequing` is a caller mistake, not an empty report.
+ * Asked of the resolved type rather than of the configured expenses root, for the same reason
+ * the rows are — a drill into a tagged category at an atypical root is a legitimate request,
+ * and the root test refused it.
+ */
+async function hasExpenseAccountUnder(userId: string, settings: ClassifySettings, prefix: string) {
+  const candidates = await db
+    .select({ accountId: accounts.id, path: accounts.path, type: accounts.type })
+    .from(accounts)
+    .where(
+      and(
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+        typeFilterCondition(EXPENSE_TYPE, settings.roots),
+        underPathCondition(prefix),
+      ),
+    )
+  // A fee or conversion account is an expense account the reports never sum, so a prefix that
+  // reaches only those is as empty as one that reaches none.
+  return candidates.some((a) => isExpenseSubject(asRolePosting(a), settings))
 }
 
 // GET /api/reports/spending-summary?from=YYYY-MM-DD&to=YYYY-MM-DD[&prefix=expenses:food]
@@ -34,6 +114,9 @@ async function spendExcludedAccountIds(userId: string): Promise<Set<string>> {
 // Without prefix: categories are the first two path segments (e.g. "expenses:food").
 // With prefix: filters to accounts under that prefix and groups one level deeper
 // (e.g. prefix=expenses:food yields "expenses:food:restaurant", "expenses:food:groceries").
+// A prefix that reaches no expense account is a caller mistake and answers 400. It need not
+// sit under the configured expenses root: a tagged category at an atypical root is drillable
+// like any other, and the resolved type is what decides.
 //
 // Each category includes childCount — the number of distinct direct child categories
 // that have spending in the period. childCount > 0 means the category is drillable.
@@ -47,42 +130,16 @@ app.get('/spending-summary', async (c) => {
   if (from && !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
   if (to && !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
 
-  const expensesRoot = await getExpensesRoot(userId)
-
-  if (prefix && !prefix.startsWith(`${expensesRoot}:`)) {
+  const settings = await loadClassifySettings(userId)
+  if (prefix && !(await hasExpenseAccountUnder(userId, settings, prefix))) {
     return fail(c, 'PREFIX_OUTSIDE_EXPENSES')
   }
 
-  // Escape LIKE special chars in prefix for safe use in the LIKE pattern
-  const escapedPrefix = prefix ? prefix.replace(/[%_\\]/g, '\\$&') : null
-
-  const allRows = await db
-    .select({
-      accountId: postings.accountId,
-      path: accounts.path,
-      amount: postings.amount,
-      currency: postings.currency,
-    })
-    .from(postings)
-    .innerJoin(accounts, eq(postings.accountId, accounts.id))
-    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        isNull(transactions.deletedAt),
-        isNull(postings.deletedAt),
-        isNull(accounts.deletedAt),
-        // When a prefix is given, filter to that subtree; otherwise filter to all expenses
-        escapedPrefix
-          ? like(accounts.path, `${escapedPrefix}:%`)
-          : like(accounts.path, `${expensesRoot}:%`),
-        from ? gte(transactions.date, new Date(from)) : undefined,
-        to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
-      ),
-    )
-
-  const excluded = await spendExcludedAccountIds(userId)
-  const rows = allRows.filter((r) => !excluded.has(r.accountId))
+  const rows = await spendRows(userId, settings, {
+    ...(prefix === null ? {} : { prefix }),
+    ...(from ? { from: new Date(from) } : {}),
+    ...(to ? { to: new Date(`${to}T23:59:59.999Z`) } : {}),
+  })
 
   const totalByCurrency: Record<string, number> = {}
   const categoryMap: Record<string, Record<string, number>> = {}
@@ -157,32 +214,8 @@ app.get('/monthly-spend', async (c) => {
     Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
   )
 
-  const expensesRoot = await getExpensesRoot(userId)
-
-  const allRows = await db
-    .select({
-      accountId: postings.accountId,
-      date: transactions.date,
-      amount: postings.amount,
-      currency: postings.currency,
-    })
-    .from(postings)
-    .innerJoin(accounts, eq(postings.accountId, accounts.id))
-    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        isNull(transactions.deletedAt),
-        isNull(postings.deletedAt),
-        isNull(accounts.deletedAt),
-        like(accounts.path, `${expensesRoot}:%`),
-        gte(transactions.date, windowStart),
-        lte(transactions.date, windowEnd),
-      ),
-    )
-
-  const excluded = await spendExcludedAccountIds(userId)
-  const rows = allRows.filter((r) => !excluded.has(r.accountId))
+  const settings = await loadClassifySettings(userId)
+  const rows = await spendRows(userId, settings, { from: windowStart, to: windowEnd })
 
   // Build a map of all months in the window initialised to empty totals
   const monthMap: Record<string, Record<string, number>> = {}
@@ -229,27 +262,11 @@ app.get('/spending-fx-pairs', async (c) => {
   if (!targetCurrency || !isValidCurrency(targetCurrency))
     return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
 
-  const expensesRoot = await getExpensesRoot(userId)
-
-  const allRows = await db
-    .select({ accountId: postings.accountId, date: transactions.date, currency: postings.currency })
-    .from(postings)
-    .innerJoin(accounts, eq(postings.accountId, accounts.id))
-    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        isNull(transactions.deletedAt),
-        isNull(postings.deletedAt),
-        isNull(accounts.deletedAt),
-        like(accounts.path, `${expensesRoot}:%`),
-        gte(transactions.date, new Date(from)),
-        lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
-      ),
-    )
-
-  const excluded = await spendExcludedAccountIds(userId)
-  const rows = allRows.filter((r) => !excluded.has(r.accountId))
+  const settings = await loadClassifySettings(userId)
+  const rows = await spendRows(userId, settings, {
+    from: new Date(from),
+    to: new Date(`${to}T23:59:59.999Z`),
+  })
 
   // Deduplicate to unique (date, currency) pairs, excluding the target currency
   const seen = new Set<string>()
@@ -302,32 +319,11 @@ app.get('/spending-converted', async (c) => {
   if (!targetCurrency || !isValidCurrency(targetCurrency))
     return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
 
-  const expensesRoot = await getExpensesRoot(userId)
-
-  const allRows = await db
-    .select({
-      accountId: postings.accountId,
-      date: transactions.date,
-      amount: postings.amount,
-      currency: postings.currency,
-    })
-    .from(postings)
-    .innerJoin(accounts, eq(postings.accountId, accounts.id))
-    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        isNull(transactions.deletedAt),
-        isNull(postings.deletedAt),
-        isNull(accounts.deletedAt),
-        like(accounts.path, `${expensesRoot}:%`),
-        gte(transactions.date, new Date(from)),
-        lte(transactions.date, new Date(`${to}T23:59:59.999Z`)),
-      ),
-    )
-
-  const excluded = await spendExcludedAccountIds(userId)
-  const rows = allRows.filter((r) => !excluded.has(r.accountId))
+  const settings = await loadClassifySettings(userId)
+  const rows = await spendRows(userId, settings, {
+    from: new Date(from),
+    to: new Date(`${to}T23:59:59.999Z`),
+  })
 
   // Build a cache of rates needed: (date:fromCurrency) → rate string | null
   const rateCache = new Map<string, string | null>()
