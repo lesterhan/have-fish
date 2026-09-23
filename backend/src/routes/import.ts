@@ -1,5 +1,6 @@
 import { and, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
@@ -37,6 +38,7 @@ import {
   buildRegularPostings,
 } from '../import/postings'
 import type { ColumnMapping } from '../import/types'
+import { amountLike, as, asField, parseBody, text } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -193,16 +195,27 @@ app.post('/preview', async (c) => {
 // Request body: { rows: [{ accountId: string, date: string, amount: string }] }
 // Response: { duplicates: (PossibleDuplicate | null)[] }
 //   where PossibleDuplicate = { transactionId, date, amount, currency } | null
+
+// A row the caller has already resolved to an account. An empty `accountId` is how the
+// frontend marks a transfer row, which this endpoint does not check — hence the empty
+// string alongside the uuid rather than a bare `z.uuid()`.
+const DuplicateCheckRow = z.object({
+  accountId: z.union([z.literal(''), z.uuid()], { error: asField('FIELD_NOT_UUID') }),
+  date: z.string({ error: asField('FIELD_NOT_DATE') }),
+  amount: amountLike,
+})
+
+const CheckDuplicates = z.object({ rows: z.array(DuplicateCheckRow) })
+
 app.post('/check-duplicates', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { rows } = body
+  const parsed = await parseBody(c, CheckDuplicates)
+  if (!parsed.ok) return parsed.response
+  const { rows } = parsed.data
 
-  if (!Array.isArray(rows) || rows.length === 0) {
-    return c.json({ duplicates: [] })
-  }
+  if (rows.length === 0) return c.json({ duplicates: [] })
 
-  type InputRow = { accountId: string; date: string; amount: string }
+  type InputRow = z.output<typeof DuplicateCheckRow>
   type PossibleDuplicate = {
     transactionId: string
     date: string
@@ -212,7 +225,7 @@ app.post('/check-duplicates', async (c) => {
     fishPieGroupName?: string
   } | null
 
-  const inputRows = rows as InputRow[]
+  const inputRows: InputRow[] = rows
   const result: PossibleDuplicate[] = inputRows.map(() => null)
 
   // Group rows by accountId; skip empty strings (transfer rows not checked). The row
@@ -359,24 +372,67 @@ app.post('/check-duplicates', async (c) => {
 //                        sourceAccountId, targetAccountId, conversionAccountId, feeAccountId }
 //
 // Response: { created: number }
+// One imported row, with every field it can carry typed.
+//
+// Which fields a row *must* carry depends on its kind and on what else the request said —
+// a Fish Pie split supplies the accounts a plain row would have to name — so the loop
+// below is still what decides that, and answers `IMPORT_ROW_MISSING_ACCOUNT` with the row
+// kind and the field. What the schema settles is that every value present is the type the
+// posting builders read it as, which is the part that used to be assumed.
+const ImportRow = z.looseObject({
+  isTransfer: z
+    .union([z.boolean(), z.literal('cross-currency-spend'), z.literal('same-currency')])
+    .optional(),
+  date: z.string({ error: asField('FIELD_NOT_DATE') }),
+  description: z.string().nullish(),
+
+  amount: z.string().optional(),
+  currency: z.string().optional(),
+  sourceAmount: z.string().optional(),
+  sourceCurrency: z.string().optional(),
+  targetAmount: z.string().optional(),
+  targetCurrency: z.string().optional(),
+  feeAmount: z.string().optional(),
+  feeCurrency: z.string().optional(),
+
+  offsetAccountId: z.string().optional(),
+  sourceAccountId: z.string().optional(),
+  targetAccountId: z.string().optional(),
+  conversionAccountId: z.string().optional(),
+  expenseAccountId: z.string().optional(),
+  feeAccountId: z.string().optional(),
+})
+
+const malformedSplit = as('GROUP_SPLIT_MALFORMED')
+
+const GroupSplitInput = z.object({
+  rowIndex: z.number({ error: malformedSplit }),
+  groupId: z.string({ error: malformedSplit }),
+  categoryId: z.string().nullish(),
+})
+
+const emptyBatch = as('FIELD_EMPTY', { field: 'transactions' })
+
+const Commit = z.object({
+  accountId: z.string().nullish(),
+  defaultCurrency: text('FIELD_REQUIRED'),
+  transactions: z.array(ImportRow, { error: emptyBatch }).min(1, { error: emptyBatch }),
+  // A non-array here used to be silently replaced with `[]`, quietly dropping every split
+  // the user had set up. It is the same malformation as a bad element, so it answers the
+  // same way.
+  groupSplits: z.array(GroupSplitInput, { error: malformedSplit }).optional(),
+})
+
 app.post('/commit', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { accountId, defaultCurrency, transactions: parsed, groupSplits } = body
+  const body = await parseBody(c, Commit)
+  if (!body.ok) return body.response
+  const { accountId, defaultCurrency, transactions: parsed } = body.data
 
-  if (!defaultCurrency || typeof defaultCurrency !== 'string')
-    return fail(c, 'FIELD_REQUIRED', { field: 'defaultCurrency' })
-  if (!Array.isArray(parsed) || parsed.length === 0)
-    return fail(c, 'FIELD_EMPTY', { field: 'transactions' })
-
-  // Validate groupSplits and verify membership up front (fail fast before any DB writes)
-  type GroupSplit = { rowIndex: number; groupId: string; categoryId?: string | null }
-  const splits: GroupSplit[] = Array.isArray(groupSplits) ? groupSplits : []
+  // Verify group membership up front (fail fast before any DB writes)
+  const splits = body.data.groupSplits ?? []
   const groupCache = new Map<string, Awaited<ReturnType<typeof fetchGroupWithMembers>>>()
   for (const split of splits) {
-    if (typeof split.rowIndex !== 'number' || typeof split.groupId !== 'string') {
-      return fail(c, 'GROUP_SPLIT_MALFORMED')
-    }
     if (split.rowIndex < 0 || split.rowIndex >= parsed.length) {
       return fail(c, 'GROUP_SPLIT_ROW_OUT_OF_RANGE', { rowIndex: split.rowIndex })
     }
@@ -408,7 +464,7 @@ app.post('/commit', async (c) => {
   const splitByRowIndex = new Map(splits.map((s) => [s.rowIndex, s]))
 
   // Per-row validation — requirements differ by row type
-  for (const [rowIdx, t] of (parsed as Record<string, unknown>[]).entries()) {
+  for (const [rowIdx, t] of parsed.entries()) {
     if (t.isTransfer === 'cross-currency-spend') {
       if (!t.sourceAccountId)
         return fail(c, 'IMPORT_ROW_MISSING_ACCOUNT', {
@@ -763,6 +819,9 @@ app.post('/commit', async (c) => {
       } else {
         const currency = t.currency ?? defaultCurrency
         const sourceId = t.sourceAccountId ?? accountId
+        // The per-row pass above answered `IMPORT_ROW_MISSING_ACCOUNT` for exactly this,
+        // so reaching it here means the two passes have drifted apart.
+        if (!sourceId) throw new Error(`import row ${rowIndex} has no source account`)
         const groupSplit = splitByRowIndex.get(rowIndex)
 
         if (groupSplit) {

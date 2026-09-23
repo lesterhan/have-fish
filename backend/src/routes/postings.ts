@@ -1,22 +1,31 @@
 import { and, count, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, postings, transactions } from '../db/schema'
 import { fail } from '../errors'
+import { amountLike, as, asField, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
 // PATCH /api/postings/:id
 // Updates accountId, amount, and/or currency of a posting.
 // Ownership verified via parent transaction.
+const PostingPatch = z.object({
+  accountId: z.uuid({ error: asField('FIELD_NOT_UUID') }).optional(),
+  amount: amountLike.optional(),
+  currency: z.string({ error: asField('FIELD_NOT_STRING') }).optional(),
+})
+
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
-  const body = await c.req.json()
+  const parsed = await parseBody(c, PostingPatch)
+  if (!parsed.ok) return parsed.response
 
-  const { accountId, amount, currency } = body
+  const { accountId, amount, currency } = parsed.data
   if (!accountId && amount === undefined && !currency) {
     return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
@@ -59,16 +68,26 @@ app.patch('/:id', async (c) => {
 // POST /api/postings
 // Creates a new posting on an existing transaction.
 // Verifies the transaction belongs to the authenticated user.
+// All four fields are required together, and the route has always said so as one failure
+// naming all four rather than four failures naming one each — so every field carries that
+// same code rather than the one the schema would have picked for it.
+const required = as('FIELDS_REQUIRED', {
+  fields: ['transactionId', 'accountId', 'amount', 'currency'],
+})
+
+const NewPosting = z.object({
+  transactionId: z.uuid({ error: required }),
+  accountId: z.uuid({ error: required }),
+  amount: z.union([z.string(), z.number()], { error: required }),
+  currency: z.string({ error: required }).min(1, { error: required }),
+})
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
+  const parsed = await parseBody(c, NewPosting)
+  if (!parsed.ok) return parsed.response
 
-  const { transactionId, accountId, amount, currency } = body
-  if (!transactionId || !accountId || amount === undefined || !currency) {
-    return fail(c, 'FIELDS_REQUIRED', {
-      fields: ['transactionId', 'accountId', 'amount', 'currency'],
-    })
-  }
+  const { transactionId, accountId, amount, currency } = parsed.data
 
   const [tx] = await db
     .select({ id: transactions.id })

@@ -1,5 +1,6 @@
 import { and, desc, eq, gte, inArray, isNull, like, lte, or } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
 import { db } from '../db'
@@ -9,6 +10,7 @@ import { fail, failWith } from '../errors'
 import { loadClassifySettings } from '../postings/classify-service'
 import { findMalformedFxSpends, healFxSpend, loadHealContext } from '../postings/heal-service'
 import { classifyPostings, type PostingRole } from '../postings/roles'
+import { amountLike, as, asField, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -240,14 +242,42 @@ app.get('/', async (c) => {
 // Rules:
 //   - At least two postings required
 //   - Postings must balance to zero per currency (sum of amounts per currency = 0)
+// A calendar day, the shape the `date` column stores. The PATCH route below has always
+// checked this; the create routes reached the column with whatever arrived and let
+// Postgres raise, so this is the same rule applied in all three places.
+const isoDate = z
+  .string({ error: asField('FIELD_NOT_DATE') })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: asField('FIELD_NOT_DATE') })
+
+// One posting as a request carries it.
+//
+// `currency` is only checked for being a string here. Whether it is a currency this
+// ledger supports is the handler's question below, because the answer carries the
+// offending code and, in a bulk request, which transaction it came from — neither of
+// which a per-field schema can see.
+//
+// `amount` arrives as a string from the web app and as a number from a few callers, and
+// the numeric column takes either; normalising to a string here means the balance
+// arithmetic downstream has one type to read rather than two.
+const PostingInput = z.object({
+  accountId: z.uuid({ error: asField('FIELD_NOT_UUID') }),
+  amount: amountLike,
+  currency: z.string({ error: asField('FIELD_NOT_STRING') }),
+})
+
+const tooFew = as('TOO_FEW_POSTINGS')
+
+const NewTransaction = z.object({
+  date: isoDate,
+  description: z.string().nullish(),
+  postings: z.array(PostingInput, { error: tooFew }).min(2, { error: tooFew }),
+})
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { date, description, postings: postingInputs } = body
-
-  if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
-    return fail(c, 'TOO_FEW_POSTINGS')
-  }
+  const parsed = await parseBody(c, NewTransaction)
+  if (!parsed.ok) return parsed.response
+  const { date, description, postings: postingInputs } = parsed.data
 
   // Validate currency codes
   for (const p of postingInputs) {
@@ -268,7 +298,7 @@ app.post('/', async (c) => {
   }
 
   // Verify every referenced account belongs to this user before inserting.
-  const inputAccountIds = postingInputs.map((p: { accountId: string }) => p.accountId)
+  const inputAccountIds = postingInputs.map((p) => p.accountId)
   if (!(await accountsOwnedBy(userId, inputAccountIds))) {
     return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
@@ -277,7 +307,7 @@ app.post('/', async (c) => {
     const newTx = returnedRow(
       await tx
         .insert(transactions)
-        .values({ userId, date: new Date(date), description })
+        .values({ userId, date: new Date(date), description: description ?? null })
         .returning(),
       'insert transactions',
     )
@@ -285,7 +315,7 @@ app.post('/', async (c) => {
     const newPostings = await tx
       .insert(postings)
       .values(
-        postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
+        postingInputs.map((p) => ({
           transactionId: newTx.id,
           accountId: p.accountId,
           amount: p.amount,
@@ -305,19 +335,33 @@ app.post('/', async (c) => {
 // Creates multiple transactions atomically — all succeed or all fail.
 // Request body: { transactions: Array<{ date, description?, postings }> }
 // Same posting rules as POST /api/transactions apply to each entry.
+// The per-entry `postings` array deliberately has no `.min(2)`: too few postings is
+// reported with the index of the entry that is short, and the loop below is what knows it.
+const emptyBatch = as('FIELD_EMPTY', { field: 'transactions' })
+
+const BulkTransactions = z.object({
+  transactions: z
+    .array(
+      z.object({
+        date: isoDate,
+        description: z.string().nullish(),
+        postings: z.array(PostingInput, { error: tooFew }),
+      }),
+      { error: emptyBatch },
+    )
+    .min(1, { error: emptyBatch }),
+})
+
 app.post('/bulk', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { transactions: txInputs } = body
-
-  if (!Array.isArray(txInputs) || txInputs.length === 0) {
-    return fail(c, 'FIELD_EMPTY', { field: 'transactions' })
-  }
+  const parsed = await parseBody(c, BulkTransactions)
+  if (!parsed.ok) return parsed.response
+  const { transactions: txInputs } = parsed.data
 
   // Validate each transaction before touching the DB
-  for (let i = 0; i < txInputs.length; i++) {
-    const { postings: postingInputs } = txInputs[i]
-    if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
+  for (const [i, entry] of txInputs.entries()) {
+    const { postings: postingInputs } = entry
+    if (postingInputs.length < 2) {
       return fail(c, 'TOO_FEW_POSTINGS', { index: i })
     }
     for (const p of postingInputs) {
@@ -337,9 +381,7 @@ app.post('/bulk', async (c) => {
   }
 
   // Verify every referenced account (across all transactions) belongs to this user.
-  const allAccountIds = txInputs.flatMap((t: { postings: { accountId: string }[] }) =>
-    t.postings.map((p) => p.accountId),
-  )
+  const allAccountIds = txInputs.flatMap((t) => t.postings.map((p) => p.accountId))
   if (!(await accountsOwnedBy(userId, allAccountIds))) {
     return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
@@ -350,14 +392,14 @@ app.post('/bulk', async (c) => {
       const newTx = returnedRow(
         await tx
           .insert(transactions)
-          .values({ userId, date: new Date(date), description })
+          .values({ userId, date: new Date(date), description: description ?? null })
           .returning(),
         'insert transactions',
       )
       const newPostings = await tx
         .insert(postings)
         .values(
-          postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
+          postingInputs.map((p) => ({
             transactionId: newTx.id,
             accountId: p.accountId,
             amount: p.amount,
@@ -389,19 +431,21 @@ app.post('/bulk', async (c) => {
 
 // PATCH /api/transactions/:id
 // Partial update for description and/or date. Ignores unknown fields.
+const TransactionPatch = z.object({
+  description: z.string().nullish(),
+  date: isoDate.optional(),
+})
+
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
-  const body = await c.req.json()
+  const parsed = await parseBody(c, TransactionPatch)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const updates: { description?: string | null; date?: Date } = {}
   if ('description' in body) updates.description = body.description ?? null
-  if ('date' in body) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
-      return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
-    }
-    updates.date = new Date(body.date)
-  }
+  if (body.date !== undefined) updates.date = new Date(body.date)
 
   if (Object.keys(updates).length === 0) {
     return fail(c, 'NO_FIELDS_TO_UPDATE')
@@ -427,16 +471,16 @@ app.patch('/:id', async (c) => {
 //   - At least two postings required
 //   - Postings must balance to zero per currency
 //   - Verifies the transaction belongs to the authenticated user
+const ReplacePostings = z.object({
+  postings: z.array(PostingInput, { error: tooFew }).min(2, { error: tooFew }),
+})
+
 app.post('/:id/postings', async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
-  const body = await c.req.json()
-  const { postings: postingInputs } = body
-
-  // Validate inputs
-  if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
-    return fail(c, 'TOO_FEW_POSTINGS')
-  }
+  const parsed = await parseBody(c, ReplacePostings)
+  if (!parsed.ok) return parsed.response
+  const { postings: postingInputs } = parsed.data
 
   // Validate currency codes
   for (const p of postingInputs) {
@@ -467,7 +511,7 @@ app.post('/:id/postings', async (c) => {
   if (!tx) return fail(c, 'TRANSACTION_NOT_FOUND')
 
   // Verify all accounts exist and belong to this user
-  const inputAccountIds = postingInputs.map((p: { accountId: string }) => p.accountId)
+  const inputAccountIds = postingInputs.map((p) => p.accountId)
   if (!(await accountsOwnedBy(userId, inputAccountIds))) {
     return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
@@ -478,7 +522,7 @@ app.post('/:id/postings', async (c) => {
     const newPostings = await dbTx
       .insert(postings)
       .values(
-        postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
+        postingInputs.map((p) => ({
           transactionId: id,
           accountId: p.accountId,
           amount: p.amount,

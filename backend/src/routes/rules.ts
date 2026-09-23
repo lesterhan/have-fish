@@ -1,5 +1,6 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import {
@@ -15,6 +16,7 @@ import {
 import type { ErrorBody } from '../errors'
 import { errorBody, fail, failWith } from '../errors'
 import { cleanDescription, merchantKey } from '../import/merchant'
+import { asField, parseBody, text } from '../validation'
 
 // Re-exported for callers that imported it from here before it moved to import/merchant.ts.
 export { cleanDescription }
@@ -29,42 +31,48 @@ const app = new Hono<{ Variables: AppVariables }>()
 // along in the registry rather than at each return, which is how the same failure used to
 // get two different ones.
 type TargetColumns = { accountId: string | null; groupId: string | null; categoryId: string | null }
+
+// The three id fields a rule's target is drawn from. Both routes accept them, both hand
+// them to `resolveTarget`, and null is meaningful — it is how a target is cleared — so
+// each is nullable as well as optional.
+const targetFields = {
+  accountId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
+  groupId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
+  categoryId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
+}
+type RuleTarget = { [K in keyof typeof targetFields]?: string | null | undefined }
+
 async function resolveTarget(
   userId: string,
-  body: Record<string, unknown>,
+  body: RuleTarget,
 ): Promise<{ columns: TargetColumns } | { failure: ErrorBody }> {
-  const hasAccount = body.accountId != null
-  const hasGroup = body.groupId != null
+  // Read out of `body` so the null checks below narrow the values themselves — the target
+  // is exactly one of these, and which one it is is the first thing this decides.
+  const { accountId, groupId, categoryId } = body
 
-  if (hasAccount && hasGroup) {
+  if (accountId != null && groupId != null) {
     return { failure: errorBody('RULE_TARGET_AMBIGUOUS') }
   }
-  if (!hasAccount && !hasGroup) {
+  if (accountId == null && groupId == null) {
     return { failure: errorBody('RULE_TARGET_MISSING') }
   }
 
-  if (hasAccount) {
-    if (typeof body.accountId !== 'string')
-      return { failure: errorBody('FIELD_NOT_UUID', { field: 'accountId' }) }
-    if (body.categoryId != null) {
+  if (accountId != null) {
+    if (categoryId != null) {
       return { failure: errorBody('RULE_CATEGORY_WITHOUT_GROUP') }
     }
     const [owned] = await db
       .select({ id: accounts.id })
       .from(accounts)
       .where(
-        and(
-          eq(accounts.id, body.accountId),
-          eq(accounts.userId, userId),
-          isNull(accounts.deletedAt),
-        ),
+        and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
       )
     if (!owned) return { failure: errorBody('ACCOUNT_NOT_FOUND') }
-    return { columns: { accountId: body.accountId, groupId: null, categoryId: null } }
+    return { columns: { accountId, groupId: null, categoryId: null } }
   }
 
-  if (typeof body.groupId !== 'string')
-    return { failure: errorBody('FIELD_NOT_UUID', { field: 'groupId' }) }
+  // `groupId` is what is left: the two guards above rule out both-set and neither-set.
+  if (groupId == null) return { failure: errorBody('RULE_TARGET_MISSING') }
 
   // The rule may only target a group the user is actually in — otherwise an import
   // could post into a stranger's shared ledger.
@@ -74,29 +82,27 @@ async function resolveTarget(
     .innerJoin(expenseGroups, eq(expenseGroups.id, expenseGroupMembers.groupId))
     .where(
       and(
-        eq(expenseGroupMembers.groupId, body.groupId),
+        eq(expenseGroupMembers.groupId, groupId),
         eq(expenseGroupMembers.userId, userId),
         isNull(expenseGroups.deletedAt),
       ),
     )
   if (!membership) return { failure: errorBody('NOT_A_GROUP_MEMBER') }
 
-  if (body.categoryId == null) {
-    return { columns: { accountId: null, groupId: body.groupId, categoryId: null } }
+  if (categoryId == null) {
+    return { columns: { accountId: null, groupId, categoryId: null } }
   }
-  if (typeof body.categoryId !== 'string')
-    return { failure: errorBody('FIELD_NOT_UUID', { field: 'categoryId' }) }
 
   // A category is only meaningful inside its own group, and an archived one would
   // produce expenses the user can no longer categorize by hand.
   const [category] = await db
     .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
     .from(groupCategories)
-    .where(and(eq(groupCategories.id, body.categoryId), eq(groupCategories.groupId, body.groupId)))
+    .where(and(eq(groupCategories.id, categoryId), eq(groupCategories.groupId, groupId)))
   if (!category) return { failure: errorBody('CATEGORY_NOT_IN_GROUP') }
   if (category.archivedAt) return { failure: errorBody('CATEGORY_ARCHIVED') }
 
-  return { columns: { accountId: null, groupId: body.groupId, categoryId: body.categoryId } }
+  return { columns: { accountId: null, groupId, categoryId } }
 }
 
 // Shared select shape for rule listings. Left joins throughout: a rule has exactly one
@@ -139,15 +145,15 @@ app.get('/', async (c) => {
 // Body: { pattern: string } plus exactly one target:
 //   { accountId } — post to an expense account
 //   { groupId, categoryId? } — split into a Fish Pie group
+const NewRule = z.object({ pattern: text('FIELD_REQUIRED'), ...targetFields })
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { pattern } = body
+  const parsed = await parseBody(c, NewRule)
+  if (!parsed.ok) return parsed.response
+  const { pattern } = parsed.data
 
-  if (!pattern || typeof pattern !== 'string')
-    return fail(c, 'FIELD_REQUIRED', { field: 'pattern' })
-
-  const target = await resolveTarget(userId, body)
+  const target = await resolveTarget(userId, parsed.data)
   if ('failure' in target) return failWith(c, target.failure)
 
   const [created] = await db
@@ -266,16 +272,16 @@ app.post('/mine', async (c) => {
 // The target is replaced wholesale, never merged: sending accountId on a split rule
 // clears groupId and categoryId, and vice versa. Merging would let a partial patch
 // leave a rule with both targets set, which is the one state the model forbids.
+const RulePatch = z.object({ pattern: text('FIELD_EMPTY').optional(), ...targetFields })
+
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const patch: Record<string, unknown> = {}
+  const parsed = await parseBody(c, RulePatch)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
-  if ('pattern' in body) {
-    if (!body.pattern || typeof body.pattern !== 'string')
-      return fail(c, 'FIELD_EMPTY', { field: 'pattern' })
-    patch.pattern = body.pattern
-  }
+  const patch: Record<string, unknown> = {}
+  if (body.pattern !== undefined) patch.pattern = body.pattern
 
   if ('accountId' in body || 'groupId' in body || 'categoryId' in body) {
     const target = await resolveTarget(userId, body)

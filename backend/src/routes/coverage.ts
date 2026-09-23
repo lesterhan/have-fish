@@ -1,5 +1,6 @@
 import { and, between, desc, eq, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
 import {
   type CoverageConfigOverride,
@@ -19,13 +20,13 @@ import { classifyMonths, monthsBetween } from '../coverage/months'
 import { db } from '../db'
 import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
 import { fail } from '../errors'
+import { as, asField, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
 // The four ways an assertion can come to exist. Provenance only — a range covered by an
 // 'empty' click counts exactly as much as one covered by an imported statement.
 const SOURCES = ['import', 'reconcile', 'manual', 'empty'] as const
-type CoverageSource = (typeof SOURCES)[number]
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -42,6 +43,15 @@ function isIsoDate(value: unknown): value is string {
   const parsed = new Date(`${value}T00:00:00Z`)
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().substring(0, 10) === value
 }
+
+// The two field shapes every body here is built from. `uuid` and `isoDate` restate the
+// guards above as schema, so a route's body is checked in one place instead of a chain.
+const uuid = z.string({ error: asField('FIELD_NOT_UUID') }).refine(isUuid, {
+  error: asField('FIELD_NOT_UUID'),
+})
+const isoDate = z.string({ error: asField('FIELD_NOT_DATE') }).refine(isIsoDate, {
+  error: asField('FIELD_NOT_DATE'),
+})
 
 // Confirms the account exists and belongs to the caller. Coverage is an assertion about
 // someone's ledger, so writing one against an account you don't own must be impossible.
@@ -234,25 +244,27 @@ app.get('/months', async (c) => {
 // 201: the created row
 // 400: malformed dates, inverted range, or an unknown source
 // 404: account not found or not owned by the caller
+const CreateCoverage = z
+  .object({
+    accountId: uuid,
+    fromDate: isoDate,
+    throughDate: isoDate,
+    source: z.enum(SOURCES, {
+      error: as('FIELD_NOT_IN_SET', { field: 'source', allowed: SOURCES }),
+    }),
+    note: z.string().nullish(),
+  })
+  // Ordering is a rule about two fields at once, so it lives on the object rather than on
+  // either of them.
+  .refine((b) => b.fromDate <= b.throughDate, {
+    error: as('RANGE_OUT_OF_ORDER', { from: 'fromDate', to: 'throughDate' }),
+  })
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
-  if (!body) return fail(c, 'INVALID_JSON_BODY')
-
-  const { accountId, fromDate, throughDate, source, note } = body
-
-  if (!isUuid(accountId)) return fail(c, 'FIELD_NOT_UUID', { field: 'accountId' })
-  if (!isIsoDate(fromDate)) return fail(c, 'FIELD_NOT_DATE', { field: 'fromDate' })
-  if (!isIsoDate(throughDate)) return fail(c, 'FIELD_NOT_DATE', { field: 'throughDate' })
-  if (fromDate > throughDate) {
-    return fail(c, 'RANGE_OUT_OF_ORDER', { from: 'fromDate', to: 'throughDate' })
-  }
-  if (typeof source !== 'string' || !SOURCES.includes(source as CoverageSource)) {
-    return fail(c, 'FIELD_NOT_IN_SET', { field: 'source', allowed: SOURCES })
-  }
-  if (note != null && typeof note !== 'string') {
-    return fail(c, 'FIELD_NOT_STRING', { field: 'note' })
-  }
+  const parsed = await parseBody(c, CreateCoverage)
+  if (!parsed.ok) return parsed.response
+  const { accountId, fromDate, throughDate, source, note } = parsed.data
 
   if (!(await ownsAccount(userId, accountId))) {
     return fail(c, 'ACCOUNT_NOT_FOUND')
@@ -305,6 +317,33 @@ app.delete('/:id', async (c) => {
 // effective config is always inference with these laid on top.
 // 200: { accountId, override, config, horizon, nextHorizon }
 // 400: an invalid field value, or a cycle account with no cycle day to compute closes from
+// Each field is nullable — null clears the override — and optional, since a patch names
+// only what it changes. The two range checks carry the codes the hand-written guards used.
+const ConfigPatch = z.object({
+  exportMode: z
+    .enum(['range', 'cycle'], {
+      error: as('FIELD_NOT_IN_SET', { field: 'exportMode', allowed: ['range', 'cycle'] }),
+    })
+    .nullable()
+    .optional(),
+  cycleDay: z
+    .unknown()
+    .refine((v) => v === null || isCycleDay(v), {
+      error: as('FIELD_OUT_OF_RANGE', { field: 'cycleDay', min: 1, max: 31 }),
+    })
+    .optional(),
+  releaseLag: z
+    .unknown()
+    .refine((v) => v === null || isReleaseLag(v), {
+      error: as('FIELD_OUT_OF_RANGE', { field: 'releaseLag', min: 0, max: 31 }),
+    })
+    .optional(),
+  tracked: z
+    .boolean({ error: asField('FIELD_NOT_BOOLEAN') })
+    .nullable()
+    .optional(),
+})
+
 // 404: account not found or not owned by the caller
 app.patch('/config/:accountId', async (c) => {
   const userId = c.get('userId')
@@ -312,33 +351,20 @@ app.patch('/config/:accountId', async (c) => {
 
   if (!isUuid(accountId)) return fail(c, 'ACCOUNT_NOT_FOUND')
 
-  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
-  if (!body) return fail(c, 'INVALID_JSON_BODY')
+  const parsed = await parseBody(c, ConfigPatch)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   // Distinguishes "clear this override" (explicit null) from "leave it alone" (key absent).
+  // `.optional()` is what keeps those apart: an absent key is missing from `parsed.data`,
+  // an explicit null is present and null.
   const cleared = new Set<keyof CoverageConfigOverride>()
   const patch: CoverageConfigOverride = {}
 
-  if ('exportMode' in body) {
-    if (body.exportMode === null) cleared.add('exportMode')
-    else if (body.exportMode === 'range' || body.exportMode === 'cycle')
-      patch.exportMode = body.exportMode
-    else return fail(c, 'FIELD_NOT_IN_SET', { field: 'exportMode', allowed: ['range', 'cycle'] })
-  }
-  if ('cycleDay' in body) {
-    if (body.cycleDay === null) cleared.add('cycleDay')
-    else if (isCycleDay(body.cycleDay)) patch.cycleDay = body.cycleDay
-    else return fail(c, 'FIELD_OUT_OF_RANGE', { field: 'cycleDay', min: 1, max: 31 })
-  }
-  if ('releaseLag' in body) {
-    if (body.releaseLag === null) cleared.add('releaseLag')
-    else if (isReleaseLag(body.releaseLag)) patch.releaseLag = body.releaseLag
-    else return fail(c, 'FIELD_OUT_OF_RANGE', { field: 'releaseLag', min: 0, max: 31 })
-  }
-  if ('tracked' in body) {
-    if (body.tracked === null) cleared.add('tracked')
-    else if (typeof body.tracked === 'boolean') patch.tracked = body.tracked
-    else return fail(c, 'FIELD_NOT_BOOLEAN', { field: 'tracked' })
+  for (const key of ['exportMode', 'cycleDay', 'releaseLag', 'tracked'] as const) {
+    if (!(key in body)) continue
+    if (body[key] === null) cleared.add(key)
+    else patch[key] = body[key] as never
   }
 
   if (cleared.size === 0 && Object.keys(patch).length === 0) {
@@ -420,14 +446,13 @@ async function writeOverride(userId: string, accountId: string, override: Covera
 // 200: { created: true, interval } — or { created: false, reason } when D adds nothing
 // 400: malformed date
 // 404: account not found or not owned by the caller
+const Reconcile = z.object({ accountId: uuid, throughDate: isoDate })
+
 app.post('/reconcile', async (c) => {
   const userId = c.get('userId')
-  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
-  if (!body) return fail(c, 'INVALID_JSON_BODY')
-
-  const { accountId, throughDate } = body
-  if (!isUuid(accountId)) return fail(c, 'FIELD_NOT_UUID', { field: 'accountId' })
-  if (!isIsoDate(throughDate)) return fail(c, 'FIELD_NOT_DATE', { field: 'throughDate' })
+  const parsed = await parseBody(c, Reconcile)
+  if (!parsed.ok) return parsed.response
+  const { accountId, throughDate } = parsed.data
 
   if (!(await ownsAccount(userId, accountId))) {
     return fail(c, 'ACCOUNT_NOT_FOUND')

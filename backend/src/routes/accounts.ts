@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNull, like, lte, not, or, type SQL, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
 import { db } from '../db'
@@ -16,6 +17,7 @@ import {
   type StoredAccountType,
 } from '../postings/account-type'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
+import { as, asField, asInput, defined, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -486,6 +488,36 @@ function readCurrency(value: unknown): CurrencyRead {
   return { ok: false }
 }
 
+// The four fields the two write routes share, as schema.
+//
+// Each one keeps the failure the route already answered with, which is why `path`,
+// `defaultCurrency` and `type` are `unknown` refined by this file's own predicates rather
+// than `z.string()` and `z.enum()`: `ACCOUNT_PATH_INVALID`, `UNSUPPORTED_CURRENCY` with
+// the offending code, and `ACCOUNT_TYPE_INVALID` with the offending type all say more
+// than "wrong type" would.
+const accountPath = z
+  .unknown()
+  .refine((v) => typeof v === 'string' && isValidPath(v), { error: as('ACCOUNT_PATH_INVALID') })
+  .transform(String)
+
+/** null clears the override and falls back to the user's default; anything else must be real. */
+const currencyOverride = z
+  .unknown()
+  .refine((v) => readCurrency(v).ok, {
+    error: asInput('UNSUPPORTED_CURRENCY', (v) => ({ currency: String(v) })),
+  })
+  .transform((v) => (typeof v === 'string' ? v.toUpperCase() : null))
+
+/** null means infer from the path; anything else must be one of the seven hledger types. */
+const typeOverride = z
+  .unknown()
+  .refine((v) => v === null || isStoredAccountType(v), {
+    error: asInput('ACCOUNT_TYPE_INVALID', (v) => ({ type: String(v) })),
+  })
+  .transform((v) => (v === null ? null : (v as StoredAccountType)))
+
+const accountName = z.string({ error: asField('FIELD_NOT_STRING') }).nullable()
+
 // POST /api/accounts
 // Creates one account. Body: { path, name?, defaultCurrency?, type? }.
 //
@@ -497,51 +529,29 @@ function readCurrency(value: unknown): CurrencyRead {
 //
 // 400: no path, a malformed one, the system-managed receivable namespace, or a type or
 // currency this route would refuse on update.
+const NewAccount = z.object({
+  path: accountPath,
+  name: accountName.optional(),
+  defaultCurrency: currencyOverride.optional(),
+  type: typeOverride.optional(),
+})
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = (await c.req.json().catch(() => null)) as Record<string, unknown> | null
-  if (!body) return fail(c, 'INVALID_JSON_BODY')
+  const parsed = await parseBody(c, NewAccount)
+  if (!parsed.ok) return parsed.response
+  const { path, ...overrides } = parsed.data
 
-  const path = body.path
-  if (typeof path !== 'string' || !isValidPath(path)) {
-    return fail(c, 'ACCOUNT_PATH_INVALID')
-  }
   // Receivable accounts are re-spawned at import, so the rename route refuses to move an
   // account into that namespace. Creating one there directly is the same hole by another door.
   if (isClearingAccountPath(path)) {
     return fail(c, 'RECEIVABLE_NOT_CREATABLE')
   }
 
-  const values: {
-    userId: string
-    path: string
-    name?: string | null
-    defaultCurrency?: string | null
-    type?: StoredAccountType | null
-  } = { userId, path }
-
-  if ('name' in body) {
-    if (body.name !== null && typeof body.name !== 'string') {
-      return fail(c, 'FIELD_NOT_STRING', { field: 'name' })
-    }
-    values.name = body.name
-  }
-
-  if ('defaultCurrency' in body) {
-    const currency = readCurrency(body.defaultCurrency)
-    if (!currency.ok)
-      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: String(body.defaultCurrency) })
-    values.defaultCurrency = currency.value
-  }
-
-  // Same rule as the update path: null means infer from the path, anything else must be one
-  // of the seven hledger types.
-  if ('type' in body) {
-    if (body.type !== null && !isStoredAccountType(body.type)) {
-      return fail(c, 'ACCOUNT_TYPE_INVALID', { type: String(body.type) })
-    }
-    values.type = body.type as StoredAccountType | null
-  }
+  // Spread from the parsed body rather than the request's: the schema has already dropped
+  // every key that is not one of the four, which is what keeps an `id` or a `userId` of
+  // the caller's choosing out of the insert.
+  const values = defined({ userId, path, ...overrides })
 
   const [created] = await db.insert(accounts).values(values).returning()
   return c.json(created, 201)
@@ -557,13 +567,19 @@ app.post('/', async (c) => {
 //
 // Rejects: receivable namespace (system-managed), an invalid target path, a target that
 // would collide with an existing account (that's a merge, not a rename), and no-match.
+// Both halves are required together, and the route has always said so as one failure
+// naming both rather than two failures naming one each.
+const bothRequired = as('FIELDS_REQUIRED', { fields: ['from', 'to'] })
+const renamePart = z.string({ error: bothRequired }).min(1, { error: bothRequired })
+
+const Rename = z.object({ from: renamePart, to: renamePart })
+
 app.post('/rename', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => ({}))
-  const from = typeof body.from === 'string' ? body.from : ''
-  const to = typeof body.to === 'string' ? body.to : ''
+  const parsed = await parseBody(c, Rename)
+  if (!parsed.ok) return parsed.response
+  const { from, to } = parsed.data
 
-  if (!from || !to) return fail(c, 'FIELDS_REQUIRED', { fields: ['from', 'to'] })
   if (from === to) return fail(c, 'RENAME_TARGET_SAME_AS_SOURCE')
   if (!isValidPath(to)) return fail(c, 'RENAME_TARGET_INVALID')
   if (isClearingAccountPath(from)) return fail(c, 'RECEIVABLE_NOT_RENAMABLE')
@@ -607,28 +623,21 @@ app.post('/rename', async (c) => {
   return c.json({ renamed: updated.length, accounts: updated })
 })
 
+// `path` is not here on purpose: moving an account is `POST /rename`, which has to
+// cascade over the subtree. Letting a patch write `path` would move one node and orphan
+// its children.
+const AccountPatch = z.object({
+  name: accountName.optional(),
+  defaultCurrency: currencyOverride.optional(),
+  type: typeOverride.optional(),
+})
+
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const allowed = ['name'] as const
-  const updates: Partial<typeof body> = {}
-  for (const key of allowed) {
-    if (key in body) updates[key] = body[key]
-  }
-  if ('defaultCurrency' in body) {
-    const currency = readCurrency(body.defaultCurrency)
-    if (!currency.ok)
-      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: String(body.defaultCurrency) })
-    updates.defaultCurrency = currency.value
-  }
-  // `type` is the hledger type override. null clears it (back to inference); any other value
-  // must be one of the seven valid types. Reject anything else rather than storing garbage.
-  if ('type' in body) {
-    if (body.type !== null && !isStoredAccountType(body.type)) {
-      return fail(c, 'ACCOUNT_TYPE_INVALID', { type: String(body.type) })
-    }
-    updates.type = body.type
-  }
+  const parsed = await parseBody(c, AccountPatch)
+  if (!parsed.ok) return parsed.response
+
+  const updates = defined(parsed.data)
   if (Object.keys(updates).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
   const [updated] = await db
     .update(accounts)
