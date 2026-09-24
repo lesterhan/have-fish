@@ -1,4 +1,4 @@
-import { and, desc, eq, gte, inArray, isNull, like, lte, or } from 'drizzle-orm'
+import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
@@ -7,9 +7,11 @@ import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, expenseGroups, groupExpenses, postings, transactions } from '../db/schema'
 import { fail, failWith } from '../errors'
+import { underPathCondition } from '../postings/account-type-sql'
 import { loadClassifySettings } from '../postings/classify-service'
 import { findMalformedFxSpends, healFxSpend, loadHealContext } from '../postings/heal-service'
 import { classifyPostings, type PostingRole } from '../postings/roles'
+import { spendRows } from '../postings/spend-service'
 import { amountLike, as, asField, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -112,6 +114,10 @@ app.get('/malformed-fx-spend', async (c) => {
 // Filter by account: ?accountId=... (exact account UUID match)
 //                   ?accountPath=... (matches the account and all children by path prefix)
 // Filter by date: ?from=YYYY-MM-DD and/or ?to=YYYY-MM-DD (both inclusive, both optional)
+// Filter to spending: ?spending=true keeps only transactions with a genuine spend leg, by the
+//                   same definition the spending reports sum (spend-service.ts). With it,
+//                   `accountPath` scopes the spend leg rather than any leg: the list beside a
+//                   drilled-in category shows what that category's figure is made of.
 app.get('/', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.query('accountId')
@@ -123,6 +129,13 @@ app.get('/', async (c) => {
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
   if (from && !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
   if (to && !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
+
+  const spendingParam = c.req.query('spending')
+  if (spendingParam !== undefined && spendingParam !== 'true') {
+    return fail(c, 'FIELD_NOT_BOOLEAN', { field: 'spending' })
+  }
+  const spending = spendingParam === 'true'
+  const classifySettings = await loadClassifySettings(userId)
 
   let txRows = await db
     .select()
@@ -148,11 +161,20 @@ app.get('/', async (c) => {
     txRows = txRows.filter((tx) => txIds.includes(tx.id))
   }
 
-  if (accountPath) {
+  if (spending) {
+    const spendTxIds = new Set(
+      (
+        await spendRows(userId, classifySettings, {
+          ...(accountPath ? { prefix: accountPath } : {}),
+          ...(from ? { from: new Date(from) } : {}),
+          ...(to ? { to: new Date(`${to}T23:59:59.999Z`) } : {}),
+        })
+      ).map((r) => r.transactionId),
+    )
+    txRows = txRows.filter((tx) => spendTxIds.has(tx.id))
+  } else if (accountPath) {
     // Match the account itself and all children (e.g. "expenses:food" matches
     // "expenses:food" and "expenses:food:restaurant").
-    // Escape LIKE special chars so user input can't broaden the match.
-    const escaped = accountPath.replace(/[%_\\]/g, '\\$&')
     const matchingAccounts = await db
       .select({ id: accounts.id })
       .from(accounts)
@@ -160,7 +182,7 @@ app.get('/', async (c) => {
         and(
           eq(accounts.userId, userId),
           isNull(accounts.deletedAt),
-          or(eq(accounts.path, accountPath), like(accounts.path, `${escaped}:%`)),
+          underPathCondition(accountPath),
         ),
       )
     const accountIds = matchingAccounts.map((a) => a.id)
@@ -201,7 +223,6 @@ app.get('/', async (c) => {
 
   // Derive each posting's role within its transaction (subject/transfer/conversion/fee/share)
   // so the read payload narrates a complex multi-leg transaction instead of dumping raw legs.
-  const classifySettings = await loadClassifySettings(userId)
   const roleById = classifyPostings(postingRows, classifySettings)
 
   // Group postings by transactionId and embed into each transaction, with role attached

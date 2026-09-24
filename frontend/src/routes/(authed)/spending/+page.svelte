@@ -271,17 +271,15 @@
 
   // --- Data loading ---
   type Crumb = { label: string; path: string | null; current: boolean }
+  // The top of this view is every account typed Expense, which may sit under more than one
+  // path root once a category elsewhere is tagged, so it is named for the type rather than for
+  // whichever root the first category happens to have.
+  const TOP_LABEL = 'Expenses'
   let breadcrumbs = $derived.by<Crumb[]>(() => {
-    const root =
-      drillPath?.split(':')[0] ??
-      summary?.categories[0]?.category.split(':')[0] ??
-      'expenses'
-    const rootLabel = root.charAt(0).toUpperCase() + root.slice(1)
+    if (!drillPath) return [{ label: TOP_LABEL, path: null, current: true }]
 
-    if (!drillPath) return [{ label: rootLabel, path: null, current: true }]
-
-    const segments = drillPath.split(':').slice(1)
-    const crumbs: Crumb[] = [{ label: rootLabel, path: null, current: false }]
+    const [root = drillPath, ...segments] = drillPath.split(':')
+    const crumbs: Crumb[] = [{ label: TOP_LABEL, path: null, current: false }]
     for (let i = 0; i < segments.length; i++) {
       const seg = at(segments, i)
       crumbs.push({
@@ -316,13 +314,13 @@
 
   async function loadTxns() {
     txnsLoading = true
-    const accountPath =
-      drillPath ?? summary?.categories[0]?.category.split(':')[0] ?? 'expenses'
     try {
+      // The same selection the summary sums, so the list is what the figures are made of.
       txns = await fetchTransactions({
         from: monthStart(year, month),
         to: monthEnd(year, month),
-        accountPath,
+        accountPath: drillPath ?? undefined,
+        spending: true,
       })
     } catch {
       txns = []

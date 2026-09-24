@@ -7,10 +7,12 @@
 //
 // So every condition below is allowed to be OVER-inclusive and must never be
 // under-inclusive. A route that narrows with one of these still filters the rows it gets
-// back. That split is what lets the prefilter stay a cheap indexed lookup while the answer
-// stays the one shared resolver — and it is why these live beside `account-type.ts` rather
-// than inline in a route, where the four call sites would each learn the rule slightly
-// differently.
+// back. That split is what lets the prefilter stay plain SQL while the answer stays the one
+// shared resolver — and it is why these live beside `account-type.ts` rather than inline in a
+// route, where each call site would learn the rule slightly differently.
+//
+// "Cheap" here means the accounts table, not an index: `accounts` has only its primary key, so
+// every condition below is a scan of one user's accounts, the same as the LIKE it replaced.
 
 import { and, eq, inArray, isNull, like, not, or, type SQL } from 'drizzle-orm'
 import { accounts } from '../db/schema'
@@ -55,8 +57,8 @@ export function noUsableOverrideCondition(): SQL {
  *
  * An account matches either because it carries that STORED override, or because it carries
  * no usable override and its PATH infers to it. `cash` and `conversion` are override-only —
- * inference never produces them — so they contribute no path branch at all, which is what
- * makes asking for Cash alone a cheap indexed lookup rather than a full scan.
+ * inference never produces them — so they contribute no path branch at all: asking for Cash
+ * alone is a test of the stored column and nothing else.
  */
 export function typeFilterCondition(
   types: ReadonlySet<StoredAccountType>,

@@ -992,12 +992,16 @@ export async function fetchTransactions(params?: {
   to?: string | undefined
   accountId?: string | undefined
   accountPath?: string | undefined
+  // Only transactions with a genuine spend leg — the ones the spending totals are made of.
+  // With it, `accountPath` scopes the spend leg rather than any leg.
+  spending?: boolean | undefined
 }): Promise<Transaction[]> {
   const query = new URLSearchParams()
   if (params?.from) query.set('from', params.from)
   if (params?.to) query.set('to', params.to)
   if (params?.accountId) query.set('accountId', params.accountId)
   if (params?.accountPath) query.set('accountPath', params.accountPath)
+  if (params?.spending) query.set('spending', 'true')
   const qs = query.toString()
   const res = await fetch(`${BASE}/api/transactions${qs ? `?${qs}` : ''}`, {
     credentials: 'include',

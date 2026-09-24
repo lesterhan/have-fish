@@ -4,13 +4,14 @@
 // an expense, …) — distinct from a posting's ROLE, which is the job one leg does inside a
 // single transaction (see roles.ts). Type is an input to role classification.
 //
-// Today the type is INFERRED from the account's path root against the user's configured
-// root paths. This is the "C" decision (2026-06-24, single-transaction-view epic): one
-// shared resolver now, a stored `accounts.type` override column later (hledger-export
-// epic) layered on top as "stored value, else infer" — no caller rework when it lands.
+// The type is the stored `accounts.type` override when the account carries one, else what
+// its path root INFERS against the user's configured root paths — "stored value, else infer",
+// the "C" decision (2026-06-24, single-transaction-view epic). `resolveStoredOrInferredType`
+// is that rule; `resolveAccountType` is inference alone.
 //
-// Inference cannot classify atypically-named roots (e.g. `储蓄:中国银行` or `花钱:房租`);
-// those resolve to null here and will be unlocked by the future manual-assignment column.
+// Inference cannot classify atypically-named roots (e.g. `储蓄:中国银行` or `花钱:房租`); those
+// resolve to null by inference and are typed by tagging them. A view that classifies by path
+// root rather than through the resolver is BUG-007, whichever surface it is on.
 
 // The five types path INFERENCE can produce. These are the coarse buckets the role
 // classifier and balances views reason in. (`income` is hledger's documented alias for
