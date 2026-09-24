@@ -1,11 +1,6 @@
-import { describe, it, expect } from 'bun:test'
-import {
-  RECENT_LIMIT,
-  pinnedRows,
-  recentRows,
-  type SidebarAccount,
-} from './sidebarAccounts'
+import { describe, expect, it } from 'bun:test'
 import type { Roots } from './accountPaths'
+import { pinnedRows, RECENT_LIMIT, recentRows, type SidebarAccount } from './sidebarAccounts'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -16,7 +11,9 @@ const ROOTS: Roots = {
 }
 
 function acct(id: string, path: string, name?: string): SidebarAccount {
-  return { id, path, name }
+  // Spread rather than assign: `SidebarAccount.name` distinguishes an absent key from one
+  // holding `undefined`, and a fixture with no name means absent.
+  return { id, path, ...(name === undefined ? {} : { name }) }
 }
 
 const NONE = { pinnedIds: new Set<string>(), hiddenIds: new Set<string>() }
@@ -29,23 +26,19 @@ describe('pinnedRows', () => {
   ]
 
   it('keeps the order the ids were pinned in, not the account order', () => {
-    expect(pinnedRows(accounts, ['3', '1'], ROOTS).map((r) => r.id)).toEqual([
-      '3',
-      '1',
-    ])
+    expect(pinnedRows(accounts, ['3', '1'], ROOTS).map((r) => r.id)).toEqual(['3', '1'])
   })
 
   it('labels each row against its own surface root', () => {
-    expect(pinnedRows(accounts, ['1', '2'], ROOTS).map((r) => r.label)).toEqual(
-      ['wise:cad', 'Amex Cobalt'],
-    )
+    expect(pinnedRows(accounts, ['1', '2'], ROOTS).map((r) => r.label)).toEqual([
+      'wise:cad',
+      'Amex Cobalt',
+    ])
   })
 
   it('drops an id that no longer resolves rather than rendering a blank', () => {
     // A pinned account can be deleted; the stale id is not worth a write to clean up.
-    expect(
-      pinnedRows(accounts, ['1', 'gone', '2'], ROOTS).map((r) => r.id),
-    ).toEqual(['1', '2'])
+    expect(pinnedRows(accounts, ['1', 'gone', '2'], ROOTS).map((r) => r.id)).toEqual(['1', '2'])
   })
 
   it('is empty when nothing is pinned', () => {
@@ -73,9 +66,11 @@ describe('recentRows', () => {
   ])
 
   it('ranks by last activity, newest first', () => {
-    expect(
-      recentRows(accounts, activity, ROOTS, NONE).map((r) => r.id),
-    ).toEqual(['sav', 'visa', 'chq'])
+    expect(recentRows(accounts, activity, ROOTS, NONE).map((r) => r.id)).toEqual([
+      'sav',
+      'visa',
+      'chq',
+    ])
   })
 
   it('leaves out expense categories, however recently they were posted to', () => {
@@ -109,18 +104,16 @@ describe('recentRows', () => {
   it('keeps unfiled accounts, which are still places you go', () => {
     const withStray = [...accounts, acct('stray', '储蓄:中国银行')]
     const withActivity = new Map(activity).set('stray', '2026-08-28')
-    expect(
-      recentRows(withStray, withActivity, ROOTS, NONE).map((r) => r.id),
-    ).toEqual(['stray', 'sav', 'visa'])
+    expect(recentRows(withStray, withActivity, ROOTS, NONE).map((r) => r.id)).toEqual([
+      'stray',
+      'sav',
+      'visa',
+    ])
   })
 
   it('caps the list at the limit', () => {
-    expect(recentRows(accounts, activity, ROOTS, NONE)).toHaveLength(
-      RECENT_LIMIT,
-    )
-    expect(
-      recentRows(accounts, activity, ROOTS, NONE, 1).map((r) => r.id),
-    ).toEqual(['sav'])
+    expect(recentRows(accounts, activity, ROOTS, NONE)).toHaveLength(RECENT_LIMIT)
+    expect(recentRows(accounts, activity, ROOTS, NONE, 1).map((r) => r.id)).toEqual(['sav'])
   })
 
   it('breaks a same-day tie on the path, so the order does not flicker', () => {
@@ -129,13 +122,32 @@ describe('recentRows', () => {
       ['a', '2026-08-20'],
       ['b', '2026-08-20'],
     ])
-    expect(recentRows(tied, sameDay, ROOTS, NONE).map((r) => r.id)).toEqual([
-      'a',
-      'b',
-    ])
+    expect(recentRows(tied, sameDay, ROOTS, NONE).map((r) => r.id)).toEqual(['a', 'b'])
   })
 
   it('is empty when nothing has been transacted in', () => {
     expect(recentRows(accounts, new Map(), ROOTS, NONE)).toEqual([])
+  })
+})
+
+// ── BUG-007 ─────────────────────────────────────────────────
+describe('a tagged account outside every root', () => {
+  const wallet: SidebarAccount = { id: 'w', path: '储蓄:现金', resolvedType: 'cash' }
+  const category: SidebarAccount = { id: 'g', path: '花钱:房租', resolvedType: 'expense' }
+  const activity = new Map([
+    ['w', '2026-08-28'],
+    ['g', '2026-08-28'],
+  ])
+
+  it('is somewhere you go, because its type says asset', () => {
+    expect(recentRows([wallet], activity, ROOTS, NONE).map((r) => r.id)).toEqual(['w'])
+  })
+
+  it('is not, when its type says category', () => {
+    // `recentRows` is scoped to balance-bearing accounts on purpose: "recent" in a nav means
+    // somewhere you go, not a category a posting landed in. A tag is what decides that now,
+    // so an unrooted path tagged Expense stops qualifying — which is the change, not a
+    // regression of the unfiled rule above.
+    expect(recentRows([category], activity, ROOTS, NONE)).toEqual([])
   })
 })

@@ -1,18 +1,29 @@
+import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
+import type { AppVariables } from '../app'
 import { db } from '../db'
 import {
-  importRules,
   accounts,
-  transactions,
-  postings,
-  userSettings,
-  expenseGroups,
   expenseGroupMembers,
+  expenseGroups,
   groupCategories,
+  importRules,
+  postings,
+  transactions,
 } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
-import type { AppVariables } from '../app'
+import type { ErrorBody } from '../errors'
+import { errorBody, fail, failWith } from '../errors'
 import { cleanDescription, merchantKey } from '../import/merchant'
+import { loadClassifySettings } from '../postings/classify-service'
+import {
+  accountTypeOf,
+  type ClassifySettings,
+  classifyPosting,
+  isExpenseSubject,
+  type RolePosting,
+} from '../postings/roles'
+import { asField, parseBody, text } from '../validation'
 
 // Re-exported for callers that imported it from here before it moved to import/merchant.ts.
 export { cleanDescription }
@@ -22,37 +33,53 @@ const app = new Hono<{ Variables: AppVariables }>()
 // Resolves the target of a create/patch body into the columns to write.
 //
 // A rule targets exactly one of an expense account or a Fish Pie split; the two are
-// mutually exclusive, so setting one clears the other. Returns an error message instead
-// of throwing so callers can turn it into the right status code.
+// mutually exclusive, so setting one clears the other. Returns a failure body instead of
+// throwing, so the two routes that call it can send it with `failWith`. The status rides
+// along in the registry rather than at each return, which is how the same failure used to
+// get two different ones.
 type TargetColumns = { accountId: string | null; groupId: string | null; categoryId: string | null }
+
+// The three id fields a rule's target is drawn from. Both routes accept them, both hand
+// them to `resolveTarget`, and null is meaningful — it is how a target is cleared — so
+// each is nullable as well as optional.
+const targetFields = {
+  accountId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
+  groupId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
+  categoryId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
+}
+type RuleTarget = { [K in keyof typeof targetFields]?: string | null | undefined }
+
 async function resolveTarget(
   userId: string,
-  body: Record<string, unknown>,
-): Promise<{ columns: TargetColumns } | { error: string; status: 400 | 403 | 404 }> {
-  const hasAccount = body.accountId != null
-  const hasGroup = body.groupId != null
+  body: RuleTarget,
+): Promise<{ columns: TargetColumns } | { failure: ErrorBody }> {
+  // Read out of `body` so the null checks below narrow the values themselves — the target
+  // is exactly one of these, and which one it is is the first thing this decides.
+  const { accountId, groupId, categoryId } = body
 
-  if (hasAccount && hasGroup) {
-    return { error: 'a rule targets either accountId or groupId, not both', status: 400 }
+  if (accountId != null && groupId != null) {
+    return { failure: errorBody('RULE_TARGET_AMBIGUOUS') }
   }
-  if (!hasAccount && !hasGroup) {
-    return { error: 'a rule requires either accountId or groupId', status: 400 }
+  if (accountId == null && groupId == null) {
+    return { failure: errorBody('RULE_TARGET_MISSING') }
   }
 
-  if (hasAccount) {
-    if (typeof body.accountId !== 'string') return { error: 'accountId must be a UUID string', status: 400 }
-    if (body.categoryId != null) {
-      return { error: 'categoryId is only valid with groupId', status: 400 }
+  if (accountId != null) {
+    if (categoryId != null) {
+      return { failure: errorBody('RULE_CATEGORY_WITHOUT_GROUP') }
     }
     const [owned] = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(and(eq(accounts.id, body.accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-    if (!owned) return { error: 'account not found', status: 404 }
-    return { columns: { accountId: body.accountId, groupId: null, categoryId: null } }
+      .where(
+        and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
+      )
+    if (!owned) return { failure: errorBody('ACCOUNT_NOT_FOUND') }
+    return { columns: { accountId, groupId: null, categoryId: null } }
   }
 
-  if (typeof body.groupId !== 'string') return { error: 'groupId must be a UUID string', status: 400 }
+  // `groupId` is what is left: the two guards above rule out both-set and neither-set.
+  if (groupId == null) return { failure: errorBody('RULE_TARGET_MISSING') }
 
   // The rule may only target a group the user is actually in — otherwise an import
   // could post into a stranger's shared ledger.
@@ -62,28 +89,27 @@ async function resolveTarget(
     .innerJoin(expenseGroups, eq(expenseGroups.id, expenseGroupMembers.groupId))
     .where(
       and(
-        eq(expenseGroupMembers.groupId, body.groupId),
+        eq(expenseGroupMembers.groupId, groupId),
         eq(expenseGroupMembers.userId, userId),
         isNull(expenseGroups.deletedAt),
       ),
     )
-  if (!membership) return { error: 'not a member of that group', status: 403 }
+  if (!membership) return { failure: errorBody('NOT_A_GROUP_MEMBER') }
 
-  if (body.categoryId == null) {
-    return { columns: { accountId: null, groupId: body.groupId, categoryId: null } }
+  if (categoryId == null) {
+    return { columns: { accountId: null, groupId, categoryId: null } }
   }
-  if (typeof body.categoryId !== 'string') return { error: 'categoryId must be a UUID string', status: 400 }
 
   // A category is only meaningful inside its own group, and an archived one would
   // produce expenses the user can no longer categorize by hand.
   const [category] = await db
     .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
     .from(groupCategories)
-    .where(and(eq(groupCategories.id, body.categoryId), eq(groupCategories.groupId, body.groupId)))
-  if (!category) return { error: 'category not found in that group', status: 404 }
-  if (category.archivedAt) return { error: 'category is archived', status: 400 }
+    .where(and(eq(groupCategories.id, categoryId), eq(groupCategories.groupId, groupId)))
+  if (!category) return { failure: errorBody('CATEGORY_NOT_IN_GROUP') }
+  if (category.archivedAt) return { failure: errorBody('CATEGORY_ARCHIVED') }
 
-  return { columns: { accountId: null, groupId: body.groupId, categoryId: body.categoryId } }
+  return { columns: { accountId: null, groupId, categoryId } }
 }
 
 // Shared select shape for rule listings. Left joins throughout: a rule has exactly one
@@ -126,15 +152,16 @@ app.get('/', async (c) => {
 // Body: { pattern: string } plus exactly one target:
 //   { accountId } — post to an expense account
 //   { groupId, categoryId? } — split into a Fish Pie group
+const NewRule = z.object({ pattern: text('FIELD_REQUIRED'), ...targetFields })
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { pattern } = body
+  const parsed = await parseBody(c, NewRule)
+  if (!parsed.ok) return parsed.response
+  const { pattern } = parsed.data
 
-  if (!pattern || typeof pattern !== 'string') return c.json({ error: 'pattern is required' }, 400)
-
-  const target = await resolveTarget(userId, body)
-  if ('error' in target) return c.json({ error: target.error }, target.status)
+  const target = await resolveTarget(userId, parsed.data)
+  if ('failure' in target) return failWith(c, target.failure)
 
   const [created] = await db
     .insert(importRules)
@@ -143,6 +170,22 @@ app.post('/', async (c) => {
 
   return c.json(created, 201)
 })
+
+// The legs of one transaction that say which expense account its description maps to.
+//
+// By RESOLVED type, not by the expenses root: a tagged category at an atypical root is as
+// much a spend as one under `expenses:`, and a bare `expenses` account is one too. A Fish Pie
+// clearing leg is never the answer, whatever it is tagged. When a transaction also carries a
+// designated fee or conversion leg of expense type — a Wise spend with its fee — the spend is
+// the leg that means something, so the plumbing is set aside; a transaction that is *only* a
+// fee still maps to the fee account, because that is what its description is about.
+function expenseLegs(legs: RolePosting[], settings: ClassifySettings): RolePosting[] {
+  const typed = legs.filter(
+    (p) => accountTypeOf(p, settings) === 'expense' && classifyPosting(p, settings) !== 'share',
+  )
+  const spends = typed.filter((p) => isExpenseSubject(p, settings))
+  return spends.length > 0 ? spends : typed
+}
 
 // POST /api/rules/mine
 // Analyzes transaction history and writes new 'suggested' rules.
@@ -155,30 +198,31 @@ app.post('/', async (c) => {
 app.post('/mine', async (c) => {
   const userId = c.get('userId')
 
-  const [settings] = await db
-    .select({ defaultExpensesRootPath: userSettings.defaultExpensesRootPath })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
-  const expensesRoot = settings?.defaultExpensesRootPath ?? 'expenses'
+  const settings = await loadClassifySettings(userId)
 
-  // Fetch all postings for non-deleted transactions, with account paths
+  // Fetch all postings for non-deleted transactions, with the account's path and stored type
   const rows = await db
     .select({
       txId: transactions.id,
       description: transactions.description,
       accountId: postings.accountId,
       accountPath: accounts.path,
+      accountType: accounts.type,
     })
     .from(transactions)
-    .innerJoin(postings, and(eq(postings.transactionId, transactions.id), isNull(postings.deletedAt)))
+    .innerJoin(
+      postings,
+      and(eq(postings.transactionId, transactions.id), isNull(postings.deletedAt)),
+    )
     .innerJoin(accounts, eq(accounts.id, postings.accountId))
     .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
 
   // Group postings by transaction id
-  const byTx = new Map<string, { description: string | null; postings: { accountId: string; accountPath: string }[] }>()
-  for (const row of rows) {
-    if (!byTx.has(row.txId)) byTx.set(row.txId, { description: row.description, postings: [] })
-    byTx.get(row.txId)!.postings.push({ accountId: row.accountId, accountPath: row.accountPath })
+  const byTx = new Map<string, { description: string | null; postings: RolePosting[] }>()
+  for (const { txId, description, ...leg } of rows) {
+    const tx = byTx.get(txId) ?? { description, postings: [] }
+    tx.postings.push(leg)
+    byTx.set(txId, tx)
   }
 
   // Count (normalized description, expenseAccountId) pairs. Any transaction with exactly
@@ -188,9 +232,11 @@ app.post('/mine', async (c) => {
   const pairCounts = new Map<string, { pattern: string; accountId: string; count: number }>()
   for (const { description, postings: txPostings } of byTx.values()) {
     if (!description) continue
-    const expensePostings = txPostings.filter((p) => p.accountPath.startsWith(`${expensesRoot}:`))
-    if (expensePostings.length !== 1) continue
+    const expensePostings = expenseLegs(txPostings, settings)
     const expensePosting = expensePostings[0]
+    // Exactly one expense leg, or the transaction says nothing about which account a
+    // pattern maps to.
+    if (expensePostings.length !== 1 || !expensePosting) continue
     // Same normalization the import preview stamps as merchantKey, so a mined pattern
     // and the preview cluster it covers are the same string.
     const pattern = merchantKey(description)
@@ -244,33 +290,40 @@ app.post('/mine', async (c) => {
 // The target is replaced wholesale, never merged: sending accountId on a split rule
 // clears groupId and categoryId, and vice versa. Merging would let a partial patch
 // leave a rule with both targets set, which is the one state the model forbids.
+const RulePatch = z.object({ pattern: text('FIELD_EMPTY').optional(), ...targetFields })
+
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const patch: Record<string, unknown> = {}
+  const parsed = await parseBody(c, RulePatch)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
-  if ('pattern' in body) {
-    if (!body.pattern || typeof body.pattern !== 'string') return c.json({ error: 'pattern must be a non-empty string' }, 400)
-    patch.pattern = body.pattern
-  }
+  const patch: Record<string, unknown> = {}
+  if (body.pattern !== undefined) patch.pattern = body.pattern
 
   if ('accountId' in body || 'groupId' in body || 'categoryId' in body) {
     const target = await resolveTarget(userId, body)
-    if ('error' in target) return c.json({ error: target.error }, target.status)
+    if ('failure' in target) return failWith(c, target.failure)
     Object.assign(patch, target.columns)
   }
 
-  if (Object.keys(patch).length === 0) return c.json({ error: 'at least one field is required' }, 400)
+  if (Object.keys(patch).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
 
   patch.updatedAt = new Date()
 
   const [updated] = await db
     .update(importRules)
     .set(patch)
-    .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
+    .where(
+      and(
+        eq(importRules.id, c.req.param('id')),
+        eq(importRules.userId, userId),
+        isNull(importRules.deletedAt),
+      ),
+    )
     .returning()
 
-  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  if (!updated) return fail(c, 'RULE_NOT_FOUND')
   return c.json(updated)
 })
 
@@ -281,7 +334,13 @@ app.delete('/:id', async (c) => {
   await db
     .update(importRules)
     .set({ deletedAt: new Date() })
-    .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
+    .where(
+      and(
+        eq(importRules.id, c.req.param('id')),
+        eq(importRules.userId, userId),
+        isNull(importRules.deletedAt),
+      ),
+    )
   return c.body(null, 204)
 })
 
@@ -293,10 +352,16 @@ app.post('/:id/approve', async (c) => {
   const [updated] = await db
     .update(importRules)
     .set({ status: 'active', updatedAt: new Date() })
-    .where(and(eq(importRules.id, c.req.param('id')), eq(importRules.userId, userId), isNull(importRules.deletedAt)))
+    .where(
+      and(
+        eq(importRules.id, c.req.param('id')),
+        eq(importRules.userId, userId),
+        isNull(importRules.deletedAt),
+      ),
+    )
     .returning()
 
-  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  if (!updated) return fail(c, 'RULE_NOT_FOUND')
   return c.json(updated)
 })
 
@@ -319,7 +384,7 @@ app.post('/:id/deny', async (c) => {
     )
     .returning()
 
-  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  if (!updated) return fail(c, 'RULE_NOT_FOUND')
   return c.json(updated)
 })
 
@@ -341,7 +406,7 @@ app.post('/:id/revive', async (c) => {
     )
     .returning()
 
-  if (!updated) return c.json({ error: 'rule not found' }, 404)
+  if (!updated) return fail(c, 'RULE_NOT_FOUND')
   return c.json(updated)
 })
 

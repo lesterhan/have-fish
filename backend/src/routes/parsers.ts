@@ -1,8 +1,11 @@
+import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
+import type { AppVariables } from '../app'
 import { db } from '../db'
 import { csvParsers } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
-import type { AppVariables } from '../app'
+import { fail } from '../errors'
+import { as, asField, parseBody, text } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -24,23 +27,54 @@ app.get('/', async (c) => {
 //   name             — human-readable name, e.g. "Big Bank Chequing"
 //   normalizedHeader — pipe-joined sorted normalized column names (fingerprint)
 //   columnMapping    — { date: string, amount: string, description?: string, currency?: string }
+// A mapping names which CSV column holds what. `date` and `amount` are the two the
+// importer cannot work without; the rest are optional and the mapping stays open, because
+// a parser built for an unusual export carries columns this schema has never heard of.
+//
+// `notAnObject` is a parameter because the two routes disagree about it: creating a parser
+// without a mapping has always been `FIELD_REQUIRED`, patching one with a non-object has
+// always been `FIELD_NOT_OBJECT`. Both are kept.
+function columnMapping(notAnObject: ReturnType<typeof asField>) {
+  const incomplete = as('PARSER_MAPPING_INCOMPLETE')
+  return z.looseObject(
+    {
+      date: z.string({ error: incomplete }).min(1, { error: incomplete }),
+      amount: z.string({ error: incomplete }).min(1, { error: incomplete }),
+    },
+    { error: notAnObject },
+  )
+}
+
+const CreateParser = z.object({
+  name: text('FIELD_REQUIRED'),
+  normalizedHeader: text('FIELD_REQUIRED'),
+  columnMapping: columnMapping(asField('FIELD_REQUIRED')),
+  defaultAccountId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
+  isMultiCurrency: z.boolean({ error: asField('FIELD_NOT_BOOLEAN') }).optional(),
+  defaultFeeAccountId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
+})
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { name, normalizedHeader, columnMapping } = body
+  const parsed = await parseBody(c, CreateParser)
+  if (!parsed.ok) return parsed.response
+  const { name, normalizedHeader, columnMapping } = parsed.data
 
-  if (!name || typeof name !== 'string') return c.json({ error: 'name is required' }, 400)
-  if (!normalizedHeader || typeof normalizedHeader !== 'string') return c.json({ error: 'normalizedHeader is required' }, 400)
-  if (!columnMapping || typeof columnMapping !== 'object') return c.json({ error: 'columnMapping is required' }, 400)
-  if (!columnMapping.date || !columnMapping.amount) return c.json({ error: 'columnMapping must include date and amount' }, 400)
-
-  const defaultAccountId = body.defaultAccountId ?? null
-  const isMultiCurrency = body.isMultiCurrency === true
-  const defaultFeeAccountId = body.defaultFeeAccountId ?? null
+  const defaultAccountId = parsed.data.defaultAccountId ?? null
+  const isMultiCurrency = parsed.data.isMultiCurrency === true
+  const defaultFeeAccountId = parsed.data.defaultFeeAccountId ?? null
 
   const [created] = await db
     .insert(csvParsers)
-    .values({ userId, name, normalizedHeader, columnMapping, defaultAccountId, isMultiCurrency, defaultFeeAccountId })
+    .values({
+      userId,
+      name,
+      normalizedHeader,
+      columnMapping,
+      defaultAccountId,
+      isMultiCurrency,
+      defaultFeeAccountId,
+    })
     .returning()
 
   return c.json(created, 201)
@@ -55,51 +89,43 @@ app.post('/', async (c) => {
 //   defaultAccountId    — UUID of an account, or null to clear
 //   isMultiCurrency     — boolean
 //   defaultFeeAccountId — UUID of an account, or null to clear
+const ParserPatch = z.object({
+  name: text('FIELD_EMPTY').optional(),
+  columnMapping: columnMapping(asField('FIELD_NOT_OBJECT')).optional(),
+  defaultAccountId: z
+    .uuid({ error: asField('FIELD_NOT_UUID') })
+    .nullable()
+    .optional(),
+  isMultiCurrency: z.boolean({ error: asField('FIELD_NOT_BOOLEAN') }).optional(),
+  defaultFeeAccountId: z
+    .uuid({ error: asField('FIELD_NOT_UUID') })
+    .nullable()
+    .optional(),
+})
+
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
+  const parsed = await parseBody(c, ParserPatch)
+  if (!parsed.ok) return parsed.response
 
-  const patch: Record<string, unknown> = {}
-
-  if ('name' in body) {
-    if (!body.name || typeof body.name !== 'string') return c.json({ error: 'name must be a non-empty string' }, 400)
-    patch.name = body.name
-  }
-
-  if ('columnMapping' in body) {
-    if (!body.columnMapping || typeof body.columnMapping !== 'object') return c.json({ error: 'columnMapping must be an object' }, 400)
-    if (!body.columnMapping.date || !body.columnMapping.amount) return c.json({ error: 'columnMapping must include date and amount' }, 400)
-    patch.columnMapping = body.columnMapping
-  }
-
-  if ('defaultAccountId' in body) {
-    if (body.defaultAccountId !== null && typeof body.defaultAccountId !== 'string') {
-      return c.json({ error: 'defaultAccountId must be a UUID string or null' }, 400)
-    }
-    patch.defaultAccountId = body.defaultAccountId
-  }
-
-  if ('isMultiCurrency' in body) {
-    if (typeof body.isMultiCurrency !== 'boolean') return c.json({ error: 'isMultiCurrency must be a boolean' }, 400)
-    patch.isMultiCurrency = body.isMultiCurrency
-  }
-
-  if ('defaultFeeAccountId' in body) {
-    if (body.defaultFeeAccountId !== null && typeof body.defaultFeeAccountId !== 'string') {
-      return c.json({ error: 'defaultFeeAccountId must be a UUID string or null' }, 400)
-    }
-    patch.defaultFeeAccountId = body.defaultFeeAccountId
-  }
-
-  if (Object.keys(patch).length === 0) return c.json({ error: 'at least one field is required' }, 400)
+  // `parsed.data` already holds exactly the keys the request sent, each one checked, so
+  // the patch is what it parsed rather than a field-by-field copy.
+  const patch: Record<string, unknown> = parsed.data
+  if (Object.keys(patch).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
 
   const [updated] = await db
     .update(csvParsers)
     .set(patch)
-    .where(and(eq(csvParsers.id, c.req.param('id')), eq(csvParsers.userId, userId), isNull(csvParsers.deletedAt)))
+    .where(
+      and(
+        eq(csvParsers.id, c.req.param('id')),
+        eq(csvParsers.userId, userId),
+        isNull(csvParsers.deletedAt),
+      ),
+    )
     .returning()
 
-  if (!updated) return c.json({ error: 'parser not found' }, 404)
+  if (!updated) return fail(c, 'PARSER_NOT_FOUND')
 
   return c.json(updated)
 })
@@ -111,7 +137,13 @@ app.delete('/:id', async (c) => {
   await db
     .update(csvParsers)
     .set({ deletedAt: new Date() })
-    .where(and(eq(csvParsers.id, c.req.param('id')), eq(csvParsers.userId, userId), isNull(csvParsers.deletedAt)))
+    .where(
+      and(
+        eq(csvParsers.id, c.req.param('id')),
+        eq(csvParsers.userId, userId),
+        isNull(csvParsers.deletedAt),
+      ),
+    )
   return c.body(null, 204)
 })
 

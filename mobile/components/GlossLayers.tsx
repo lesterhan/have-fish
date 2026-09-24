@@ -1,7 +1,7 @@
-import { StyleSheet, View } from 'react-native'
 import { LinearGradient } from 'expo-linear-gradient'
-import { theme } from '@/lib/theme'
+import { StyleSheet, View } from 'react-native'
 import { alpha, darken, lighten } from '@/lib/color'
+import { theme } from '@/lib/theme'
 
 interface Props {
   /** Color the gloss is built from. For `accent`, pass the accent fill. */

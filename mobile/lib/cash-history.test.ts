@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import type { PostingRole, Transaction } from './api'
+import { at } from './at'
 import {
   cashHistoryRows,
   counterpartiesOf,
@@ -23,7 +24,12 @@ function posting(
 }
 
 /** A plain cash purchase: wallet out, one expense in. */
-function purchase(id: string, date: string, amount: string, category = 'expenses:food'): Transaction {
+function purchase(
+  id: string,
+  date: string,
+  amount: string,
+  category = 'expenses:food',
+): Transaction {
   return {
     id,
     date,
@@ -200,8 +206,8 @@ describe('cashHistoryRows', () => {
       currentBalance: '0.00',
     })
     expect(rows).toHaveLength(1)
-    expect(rows[0].counterparties).toEqual(['food', 'household', 'electronics'])
-    expect(rows[0].amount).toBe('-180.00')
+    expect(at(rows).counterparties).toEqual(['food', 'household', 'electronics'])
+    expect(at(rows).amount).toBe('-180.00')
   })
 
   it('frames a cash-funded group expense with its group and share', () => {
@@ -222,10 +228,10 @@ describe('cashHistoryRows', () => {
       currency: 'CAD',
       currentBalance: '0.00',
     })
-    expect(rows[0].groupName).toBe('Household')
-    expect(rows[0].share).toBe('90.00')
+    expect(at(rows).groupName).toBe('Household')
+    expect(at(rows).share).toBe('90.00')
     // The wallet really is down the full amount — the notes left your hand.
-    expect(rows[0].amount).toBe('-180.00')
+    expect(at(rows).amount).toBe('-180.00')
   })
 
   it('shows a top-up as a gain', () => {
@@ -244,8 +250,8 @@ describe('cashHistoryRows', () => {
       currency: 'CAD',
       currentBalance: '200.00',
     })
-    expect(rows[0].amount).toBe('200.00')
-    expect(rows[0].counterparties).toEqual(['chequing'])
+    expect(at(rows).amount).toBe('200.00')
+    expect(at(rows).counterparties).toEqual(['chequing'])
   })
 
   it('skips transactions that never touch the wallet', () => {
@@ -270,14 +276,25 @@ describe('cashHistoryRows', () => {
       ],
     }
     expect(
-      cashHistoryRows({ transactions: [bare], walletId: WALLET, currency: 'CAD', currentBalance: '0.00' })[0]
-        .description,
+      at(
+        cashHistoryRows({
+          transactions: [bare],
+          walletId: WALLET,
+          currency: 'CAD',
+          currentBalance: '0.00',
+        }),
+      ).description,
     ).toBe('Cash')
   })
 
   it('handles an empty feed', () => {
     expect(
-      cashHistoryRows({ transactions: [], walletId: WALLET, currency: 'CAD', currentBalance: '0.00' }),
+      cashHistoryRows({
+        transactions: [],
+        walletId: WALLET,
+        currency: 'CAD',
+        currentBalance: '0.00',
+      }),
     ).toEqual([])
   })
 })
@@ -296,8 +313,8 @@ describe('groupByDay', () => {
     })
     const days = groupByDay(rows)
     expect(days.map((d) => d.date)).toEqual(['2026-08-27', '2026-08-26'])
-    expect(days[0].rows).toHaveLength(2)
-    expect(days[1].rows).toHaveLength(1)
+    expect(at(days).rows).toHaveLength(2)
+    expect(at(days, 1).rows).toHaveLength(1)
   })
 
   it('handles an empty list', () => {

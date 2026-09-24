@@ -1,5 +1,5 @@
-import * as Haptics from 'expo-haptics'
 import AsyncStorage from '@react-native-async-storage/async-storage'
+import * as Haptics from 'expo-haptics'
 import { HAPTICS_ENABLED_KEY, parseHapticsEnabled } from './haptics-prefs'
 
 /**

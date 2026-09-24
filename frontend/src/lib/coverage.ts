@@ -57,8 +57,7 @@ export function completeness(rows: AccountCoverageStatus[]): Completeness {
       continue
     }
     // Lexicographic comparison on 'YYYY-MM-DD' is chronological comparison.
-    if (through === null || row.coveredThrough < through)
-      through = row.coveredThrough
+    if (through === null || row.coveredThrough < through) through = row.coveredThrough
   }
 
   return { through, unknown, contributors }
@@ -109,9 +108,7 @@ export type CompletenessNote = {
 // word for it, and the one that names the fix. "Unknown coverage" describes the app's
 // problem; this describes the user's.
 const noStartingLine = (n: number) =>
-  n === 1
-    ? '1 account has no starting line'
-    : `${n} accounts have no starting line`
+  n === 1 ? '1 account has no starting line' : `${n} accounts have no starting line`
 
 // One phrasing for every surface that dates a total, so the accounts tiles, the spending
 // page and the status bar cannot end up describing the same coverage three ways.
@@ -119,14 +116,10 @@ const noStartingLine = (n: number) =>
 // Returns null when the set has no contributors at all: a tile summing only accounts the
 // user has hidden or flagged has nothing to be complete or incomplete about, and "complete
 // through today" would be an answer to a question nobody asked.
-export function completenessNote(
-  c: Completeness,
-  today: string,
-): CompletenessNote | null {
+export function completenessNote(c: Completeness, today: string): CompletenessNote | null {
   if (c.contributors === 0) return null
 
-  const when =
-    c.through === null ? null : formatCompletenessDate(c.through, today)
+  const when = c.through === null ? null : formatCompletenessDate(c.through, today)
 
   // Both facts, in one line, at one weight. §4's rule that a caveat loses to the number is
   // about a caveat set against a *bigger* number — here the whole line is the caveat, so
@@ -161,8 +154,7 @@ export function completenessNote(
 
   return {
     text: 'complete through today',
-    detail:
-      'Every account in this figure is recorded up to its latest available data.',
+    detail: 'Every account in this figure is recorded up to its latest available data.',
     current: true,
   }
 }
@@ -176,14 +168,10 @@ export function completenessNote(
 // a figure inherits its subject and a line alone in the status bar does not.
 //
 // Null when nothing is tracked. An empty strip says less than a sentence about nothing.
-export function statusNote(
-  c: Completeness,
-  today: string,
-): CompletenessNote | null {
+export function statusNote(c: Completeness, today: string): CompletenessNote | null {
   if (c.contributors === 0) return null
 
-  const when =
-    c.through === null ? 'today' : formatCompletenessDate(c.through, today)
+  const when = c.through === null ? 'today' : formatCompletenessDate(c.through, today)
 
   if (c.unknown > 0) {
     const missing =
@@ -202,8 +190,7 @@ export function statusNote(
   if (c.through === null) {
     return {
       text: 'Ledger complete through today',
-      detail:
-        'Every tracked account is recorded up to its latest available data.',
+      detail: 'Every tracked account is recorded up to its latest available data.',
       current: true,
     }
   }

@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { at } from '$lib/at'
   import { plural } from '$lib/copy'
   import Icon from '$lib/components/ui/Icon.svelte'
   import SpendingBreakdown from '$lib/components/spending/SpendingBreakdown.svelte'
@@ -111,7 +112,11 @@
   // The year comes back only when a compared month is from a different one.
   const monthLabel = (key: string) => {
     const [y, m] = key.split('-').map(Number)
-    return y === year ? MONTH_NAMES[m - 1] : `${MONTH_NAMES[m - 1]} ${y}`
+    const name = m === undefined ? undefined : MONTH_NAMES[m - 1]
+    // A key this page did not mint has no name to give it; the raw `YYYY-MM` is at least
+    // readable, where the old code printed "undefined 2026".
+    if (name === undefined) return key
+    return y === year ? name : `${name} ${y}`
   }
 
   let selectedCoverage = $derived(
@@ -159,8 +164,8 @@
     const key = `${year}-${String(month).padStart(2, '0')}`
     const idx = monthlyData.findIndex((m) => m.month === key)
     if (idx <= 0) return null
-    const curr = monthlyData[idx].total
-    const prev = monthlyData[idx - 1].total
+    const curr = at(monthlyData, idx).total
+    const prev = at(monthlyData, idx - 1).total
     const result: Record<string, number> = {}
     for (const [c, amt] of Object.entries(curr)) {
       if (!prev[c]) continue
@@ -176,7 +181,7 @@
     const key = `${year}-${String(month).padStart(2, '0')}`
     const idx = monthlyData.findIndex((m) => m.month === key)
     if (idx < 3) return null
-    const curr = monthlyData[idx].total
+    const curr = at(monthlyData, idx).total
     const result: Record<string, number> = {}
     for (const [c, amt] of Object.entries(curr)) {
       const prior3 = monthlyData.slice(idx - 3, idx)
@@ -266,19 +271,17 @@
 
   // --- Data loading ---
   type Crumb = { label: string; path: string | null; current: boolean }
+  // The top of this view is every account typed Expense, which may sit under more than one
+  // path root once a category elsewhere is tagged, so it is named for the type rather than for
+  // whichever root the first category happens to have.
+  const TOP_LABEL = 'Expenses'
   let breadcrumbs = $derived.by<Crumb[]>(() => {
-    const root =
-      drillPath?.split(':')[0] ??
-      summary?.categories[0]?.category.split(':')[0] ??
-      'expenses'
-    const rootLabel = root.charAt(0).toUpperCase() + root.slice(1)
+    if (!drillPath) return [{ label: TOP_LABEL, path: null, current: true }]
 
-    if (!drillPath) return [{ label: rootLabel, path: null, current: true }]
-
-    const segments = drillPath.split(':').slice(1)
-    const crumbs: Crumb[] = [{ label: rootLabel, path: null, current: false }]
+    const [root = drillPath, ...segments] = drillPath.split(':')
+    const crumbs: Crumb[] = [{ label: TOP_LABEL, path: null, current: false }]
     for (let i = 0; i < segments.length; i++) {
-      const seg = segments[i]
+      const seg = at(segments, i)
       crumbs.push({
         label: seg.charAt(0).toUpperCase() + seg.slice(1),
         path: [root, ...segments.slice(0, i + 1)].join(':'),
@@ -300,7 +303,7 @@
       summary = result
       const available = Object.keys(result.total)
       if (available.length > 0 && !available.includes(currency)) {
-        currency = available[0]
+        currency = at(available)
       }
     } catch {
       error = 'Failed to load spending data.'
@@ -311,13 +314,13 @@
 
   async function loadTxns() {
     txnsLoading = true
-    const accountPath =
-      drillPath ?? summary?.categories[0]?.category.split(':')[0] ?? 'expenses'
     try {
+      // The same selection the summary sums, so the list is what the figures are made of.
       txns = await fetchTransactions({
         from: monthStart(year, month),
         to: monthEnd(year, month),
-        accountPath,
+        accountPath: drillPath ?? undefined,
+        spending: true,
       })
     } catch {
       txns = []

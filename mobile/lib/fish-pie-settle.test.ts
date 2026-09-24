@@ -1,15 +1,16 @@
 /// <reference types="bun-types" />
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { CurrencyBalance } from './api'
+import { at } from './at'
 import {
-  owedDebts,
+  buildBatchLines,
+  convertedAmount,
   initLines,
   isConverted,
-  convertedAmount,
   linesReady,
-  buildBatchLines,
+  owedDebts,
   type SettleLine,
 } from './fish-pie-settle'
-import type { CurrencyBalance } from './api'
 
 const transfer = (from: string, to: string, amount: string, currency: string) => ({
   fromUserId: from,
@@ -41,11 +42,23 @@ const line = (over: Partial<SettleLine>): SettleLine => ({
 describe('owedDebts', () => {
   it('extracts only the transfers where the current user is the debtor', () => {
     const mixed: CurrencyBalance[] = [
-      { currency: 'CAD', netPositions: [], transfers: [transfer('me', 'partner', '500.00', 'CAD'), transfer('other', 'me', '10.00', 'CAD')] },
+      {
+        currency: 'CAD',
+        netPositions: [],
+        transfers: [
+          transfer('me', 'partner', '500.00', 'CAD'),
+          transfer('other', 'me', '10.00', 'CAD'),
+        ],
+      },
     ]
     const debts = owedDebts(mixed, 'me')
     expect(debts).toHaveLength(1)
-    expect(debts[0]).toEqual({ toUserId: 'partner', toUserName: 'partner', amount: '500.00', currency: 'CAD' })
+    expect(debts[0]).toEqual({
+      toUserId: 'partner',
+      toUserName: 'partner',
+      amount: '500.00',
+      currency: 'CAD',
+    })
   })
 
   it('flattens debts across currencies', () => {
@@ -96,8 +109,12 @@ describe('linesReady', () => {
     expect(linesReady([line({ debtCurrency: 'CAD', convert: false })], 'CAD')).toBe(true)
   })
   it('fails a converted line missing a positive settled amount', () => {
-    expect(linesReady([line({ debtCurrency: 'EUR', convert: true, settledAmount: '' })], 'CAD')).toBe(false)
-    expect(linesReady([line({ debtCurrency: 'EUR', convert: true, settledAmount: '80.00' })], 'CAD')).toBe(true)
+    expect(
+      linesReady([line({ debtCurrency: 'EUR', convert: true, settledAmount: '' })], 'CAD'),
+    ).toBe(false)
+    expect(
+      linesReady([line({ debtCurrency: 'EUR', convert: true, settledAmount: '80.00' })], 'CAD'),
+    ).toBe(true)
   })
 })
 
@@ -109,13 +126,30 @@ describe('buildBatchLines', () => {
   })
 
   it('native line mirrors settled to debt', () => {
-    const built = buildBatchLines([line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: false })], 'CAD')
-    expect(built[0]).toEqual({ toUserId: 'partner', debtAmount: '500.00', debtCurrency: 'CAD', settledAmount: '500.00', settledCurrency: 'CAD' })
+    const built = buildBatchLines(
+      [line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: false })],
+      'CAD',
+    )
+    expect(built[0]).toEqual({
+      toUserId: 'partner',
+      debtAmount: '500.00',
+      debtCurrency: 'CAD',
+      settledAmount: '500.00',
+      settledCurrency: 'CAD',
+    })
   })
 
   it('converted line carries the target currency, settled amount and rate', () => {
     const built = buildBatchLines(
-      [line({ debtCurrency: 'EUR', debtAmount: '50.00', convert: true, settledAmount: '80.00', fxRate: '1.60' })],
+      [
+        line({
+          debtCurrency: 'EUR',
+          debtAmount: '50.00',
+          convert: true,
+          settledAmount: '80.00',
+          fxRate: '1.60',
+        }),
+      ],
       'CAD',
     )
     expect(built[0]).toEqual({
@@ -129,9 +163,12 @@ describe('buildBatchLines', () => {
   })
 
   it('a convert toggle on a same-currency line stays native', () => {
-    const built = buildBatchLines([line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: true })], 'CAD')
-    expect(built[0].settledCurrency).toBe('CAD')
-    expect(built[0].fxRate).toBeUndefined()
+    const built = buildBatchLines(
+      [line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: true })],
+      'CAD',
+    )
+    expect(at(built).settledCurrency).toBe('CAD')
+    expect(at(built).fxRate).toBeUndefined()
   })
 
   it('builds a mixed consolidated batch', () => {

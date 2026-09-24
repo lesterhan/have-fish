@@ -33,20 +33,7 @@ export type BuildStripInput = {
   txnDates: string[]
 }
 
-const MONTHS = [
-  'Jan',
-  'Feb',
-  'Mar',
-  'Apr',
-  'May',
-  'Jun',
-  'Jul',
-  'Aug',
-  'Sep',
-  'Oct',
-  'Nov',
-  'Dec',
-]
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
 
 function addDays(date: string, days: number): string {
   const d = new Date(`${date}T00:00:00Z`)
@@ -55,22 +42,19 @@ function addDays(date: string, days: number): string {
 }
 
 function monthNameOf(date: string): string {
-  return MONTHS[Number(date.substring(5, 7)) - 1]
+  // The month is positions 5-7 of a `YYYY-MM-DD`, so the index is always in range; `?? ''`
+  // is what a malformed date renders as rather than what it crashes with.
+  return MONTHS[Number(date.substring(5, 7)) - 1] ?? ''
 }
 
 function startOfNextMonth(date: string): string {
   const year = Number(date.substring(0, 4))
   const month = Number(date.substring(5, 7))
-  return month === 12
-    ? `${year + 1}-01-01`
-    : `${year}-${String(month + 1).padStart(2, '0')}-01`
+  return month === 12 ? `${year + 1}-01-01` : `${year}-${String(month + 1).padStart(2, '0')}-01`
 }
 
 export function daysApart(from: string, to: string): number {
-  return Math.round(
-    (Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) /
-      86_400_000,
-  )
+  return Math.round((Date.parse(`${to}T00:00:00Z`) - Date.parse(`${from}T00:00:00Z`)) / 86_400_000)
 }
 
 // A day cell is only a few pixels wide, so two month labels closer together than this overlap
@@ -94,16 +78,13 @@ export function buildStrip({
   // has to be decided before the loop rather than at the moment the first cell is built.
   const firstOfNextMonth = startOfNextMonth(from)
   const labelFirstCell =
-    firstOfNextMonth > to ||
-    daysApart(from, firstOfNextMonth) >= MIN_LABEL_GAP_DAYS
+    firstOfNextMonth > to || daysApart(from, firstOfNextMonth) >= MIN_LABEL_GAP_DAYS
 
   for (let date = from; date <= to; date = addDays(date, 1)) {
     // Covered wins over beyond-horizon. A day the user has actually asserted is complete is
     // complete, even if it sits past a statement boundary — showing it as unavailable would
     // contradict a fact already recorded.
-    const covered = intervals.some(
-      (i) => date >= i.fromDate && date <= i.throughDate,
-    )
+    const covered = intervals.some((i) => date >= i.fromDate && date <= i.throughDate)
     const state: CoverageDayState = covered
       ? 'covered'
       : date > horizon
@@ -116,10 +97,7 @@ export function buildStrip({
       date,
       state,
       hasTxn: txns.has(date),
-      monthLabel:
-        startsMonth || (isFirstCell && labelFirstCell)
-          ? monthNameOf(date)
-          : null,
+      monthLabel: startsMonth || (isFirstCell && labelFirstCell) ? monthNameOf(date) : null,
     })
   }
 
@@ -149,8 +127,7 @@ export function summarizeStrip(days: CoverageDay[]) {
     beyondHorizon: days.filter((d) => d.state === 'beyond-horizon').length,
     // Transactions sitting in days that are not asserted complete — the mixed state that makes
     // a month look done when it is not.
-    txnsInUncovered: days.filter((d) => d.state === 'uncovered' && d.hasTxn)
-      .length,
+    txnsInUncovered: days.filter((d) => d.state === 'uncovered' && d.hasTxn).length,
   }
 }
 
@@ -161,7 +138,6 @@ export function ariaSummary(
   to: string,
 ): string {
   const parts = [`${counts.covered} covered`, `${counts.uncovered} not covered`]
-  if (counts.beyondHorizon > 0)
-    parts.push(`${counts.beyondHorizon} not yet available`)
+  if (counts.beyondHorizon > 0) parts.push(`${counts.beyondHorizon} not yet available`)
   return `Coverage from ${from} to ${to}: ${parts.join(', ')}.`
 }

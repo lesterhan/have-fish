@@ -27,28 +27,21 @@ export function scrollShadow(node: HTMLElement) {
   bottom.style.cssText = sharedCss
 
   top.style.top = '0'
-  top.style.background =
-    'linear-gradient(to bottom, rgba(0,0,0,0.15), transparent)'
+  top.style.background = 'linear-gradient(to bottom, rgba(0,0,0,0.15), transparent)'
   bottom.style.bottom = '0'
-  bottom.style.background =
-    'linear-gradient(to top, rgba(0,0,0,0.15), transparent)'
+  bottom.style.background = 'linear-gradient(to top, rgba(0,0,0,0.15), transparent)'
 
   wrapper.appendChild(top)
   wrapper.appendChild(bottom)
 
   function setShadow(el: HTMLElement, visible: boolean) {
-    el.style.transition = visible
-      ? 'opacity 80ms ease-in'
-      : 'opacity 150ms ease-out'
+    el.style.transition = visible ? 'opacity 80ms ease-in' : 'opacity 150ms ease-out'
     el.style.opacity = visible ? '1' : '0'
   }
 
   function update() {
     setShadow(top, node.scrollTop > 0)
-    setShadow(
-      bottom,
-      node.scrollTop + node.clientHeight < node.scrollHeight - 1,
-    )
+    setShadow(bottom, node.scrollTop + node.clientHeight < node.scrollHeight - 1)
   }
 
   const ro = new ResizeObserver(update)

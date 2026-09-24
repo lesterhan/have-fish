@@ -1,5 +1,7 @@
 # Bugs
 
+> **Frozen 2026-09-12.** Open bugs here were migrated to GitHub Issues (`type:bug`, lesterhan/have-fish#256–#260) and are tracked on the `have-fish` Project. Do not add to this file; file an issue. The analyses below are kept for their detail.
+
 ## Add Account Wizard
 
 ### BUG-001 — Skipping parser then going back does not save parser on confirm

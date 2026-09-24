@@ -1,23 +1,22 @@
 <script lang="ts">
   import Icon from '$lib/components/ui/Icon.svelte'
   import { type Account, type Transaction } from '$lib/api'
-  import { settingsStore } from '$lib/settings.svelte'
-  import { isUnderRoot } from '$lib/components/accounts/accountPaths'
+  import { pathResolver } from '$lib/components/accounts/accountIndex'
   import MoneyDisplay from '$lib/components/ui/MoneyDisplay.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import { summarize, classifyTransfer, fmt } from './transactionUtils'
-  import { ledgerTone, typeResolver } from './ledger'
+  import { isTransferRow, ledgerTone, typeResolver } from './ledger'
 
   interface Props {
     tx: Transaction
     accounts: Account[]
     currentAccountId: string
-    defaultOffsetAccountId?: string | null
-    defaultConversionAccountId?: string | null
-    convertFx?: boolean
-    preferredCurrency?: string
-    fxRateMap?: Map<string, string | null>
-    onselect?: (tx: Transaction) => void
+    defaultOffsetAccountId?: string | null | undefined
+    defaultConversionAccountId?: string | null | undefined
+    convertFx?: boolean | undefined
+    preferredCurrency?: string | undefined
+    fxRateMap?: Map<string, string | null> | undefined
+    onselect?: ((tx: Transaction) => void) | undefined
   }
 
   let {
@@ -34,8 +33,16 @@
 
   // Row is read-only display now; editing lives in the page-level TransactionDetailModal,
   // opened by clicking the row (onselect). Display derives straight from the `tx` prop.
-  let accountPaths = $derived(
-    Object.fromEntries(accounts.map((a) => [a.id, a.path])),
+  // Indexed rather than rebuilt: an id→path object per row is O(rows × accounts) over an
+  // array every row shares, which is what `pathResolver` exists to avoid.
+  let pathOf = $derived(pathResolver(accounts))
+  // Hoisted above `isTransfer`, which reads it. Same resolver the tone column uses below.
+  let typeOf = $derived(typeResolver(accounts))
+
+  // What to print for the account a posting names: its path, the bare id when the list has
+  // no path for it, and nothing at all when the transaction has no such posting.
+  let accountLabel = $derived(
+    (accountId: string | undefined) => pathOf(accountId) ?? accountId ?? '',
   )
 
   // --- Transaction classification ---
@@ -45,21 +52,17 @@
 
   let { from, to, rest } = $derived(summarize(tx.postings))
 
-  let isTransfer = $derived.by(() => {
-    const settings = settingsStore.value
-    if (!settings) return false
-    const expRoot = settings.defaultExpensesRootPath
-    const toPath = accountPaths[to.accountId] ?? ''
-    return !isUnderRoot(toPath, expRoot)
-  })
+  // Move or spend, from the counterpart's resolved type. See `isTransferRow`: the old test
+  // read the path against the expenses root and missed a category under an atypical root.
+  let isTransfer = $derived(isTransferRow(to, typeOf))
 
   let transfer = $derived(
     classifyTransfer(tx.postings, defaultConversionAccountId),
   )
 
   // Which side of the transaction is the current account?
-  let currentIsFrom = $derived(from.accountId === currentAccountId)
-  let currentIsTo = $derived(to.accountId === currentAccountId)
+  let currentIsFrom = $derived(from?.accountId === currentAccountId)
+  let currentIsTo = $derived(to?.accountId === currentAccountId)
   let currentIsSource = $derived(
     transfer.source?.accountId === currentAccountId,
   )
@@ -83,8 +86,6 @@
   // Amount colour is by exception here — see `ledger.ts`. Which posting to ask about and
   // what its sign means are both the helper's business now, so this page and the global
   // transactions list reach the same answer for the same row.
-  let typeOf = $derived(typeResolver(accounts))
-
   let tone = $derived(ledgerTone(tx.postings, typeOf, currentAccountId))
 
   // MoneyDisplay's flow classes paint --color-transfer-* directly, which would outrank the
@@ -139,26 +140,16 @@
       {#if currentIsSource}
         <span class="dir-arrow flow-out">→</span>
         <span class="account"
-          >{accountPaths[transfer.target?.accountId ?? ''] ??
-            transfer.target?.accountId ??
-            '—'}</span
+          >{accountLabel(transfer.target?.accountId) || '—'}</span
         >
       {:else if currentIsTarget}
         <span class="dir-arrow flow-in">←</span>
-        <span class="account"
-          >{accountPaths[transfer.source.accountId] ??
-            transfer.source.accountId}</span
-        >
+        <span class="account">{accountLabel(transfer.source?.accountId)}</span>
       {:else}
-        <span class="account"
-          >{accountPaths[transfer.source.accountId] ??
-            transfer.source.accountId}</span
-        >
+        <span class="account">{accountLabel(transfer.source?.accountId)}</span>
         <span class="dir-arrow">➜</span>
         <span class="account"
-          >{accountPaths[transfer.target?.accountId ?? ''] ??
-            transfer.target?.accountId ??
-            '—'}</span
+          >{accountLabel(transfer.target?.accountId) || '—'}</span
         >
       {/if}
     {:else if currentIsFrom}
@@ -171,8 +162,8 @@
       >
       <span
         class="account"
-        class:account-uncategorized={to.accountId === defaultOffsetAccountId}
-        >{accountPaths[to.accountId] ?? to.accountId}</span
+        class:account-uncategorized={to?.accountId === defaultOffsetAccountId}
+        >{accountLabel(to?.accountId)}</span
       >
     {:else if currentIsTo}
       <span
@@ -184,16 +175,14 @@
       >
       <span
         class="account"
-        class:account-uncategorized={from.accountId === defaultOffsetAccountId}
-        >{accountPaths[from.accountId] ?? from.accountId}</span
+        class:account-uncategorized={from?.accountId === defaultOffsetAccountId}
+        >{accountLabel(from?.accountId)}</span
       >
     {:else}
       <!-- Fallback: current account not found in from/to (edge case) -->
-      <span class="account"
-        >{accountPaths[from.accountId] ?? from.accountId}</span
-      >
+      <span class="account">{accountLabel(from?.accountId)}</span>
       <span class="dir-arrow">➜</span>
-      <span class="account">{accountPaths[to.accountId] ?? to.accountId}</span>
+      <span class="account">{accountLabel(to?.accountId)}</span>
     {/if}
     {#if isCrossCurrency && transfer.fees.length > 0}
       <span class="fees">
@@ -217,12 +206,12 @@
         <MoneyDisplay
           amount={fmt(
             currentIsSource
-              ? transfer.source.amount
+              ? transfer.source?.amount
               : (transfer.target?.amount ?? '0'),
           )}
-          currency={currentIsSource
-            ? transfer.source.currency
-            : (transfer.target?.currency ?? '')}
+          currency={(currentIsSource
+            ? transfer.source?.currency
+            : transfer.target?.currency) ?? ''}
           flowDirection={amountFlow}
           inline
           emphasis
@@ -233,11 +222,11 @@
             amount={fmt(
               currentIsSource
                 ? (transfer.target?.amount ?? '0')
-                : transfer.source.amount,
+                : transfer.source?.amount,
             )}
-            currency={currentIsSource
-              ? (transfer.target?.currency ?? '')
-              : transfer.source.currency}
+            currency={(currentIsSource
+              ? transfer.target?.currency
+              : transfer.source?.currency) ?? ''}
             inline
           />
         </div>

@@ -1,14 +1,35 @@
+import { and, eq, getTableColumns, inArray, isNull, ne } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db'
-import { groupExpenses, groupExpenseSplits, groupCategories, expenseGroupMembers, expenseGroups, transactions, postings, accounts, user } from '../db/schema'
-import { eq, ne, isNull, and, inArray, getTableColumns } from 'drizzle-orm'
 import type { AppVariables } from '../app'
-import { computeSplits, createGroupExpenseInTx, createMemberTransactionsInTx, resolveCategoryContext, resolveExpenseAccountId, applyCategoryWeights } from '../fish-pie-expense-service'
+import { db } from '../db'
+import {
+  accounts,
+  expenseGroupMembers,
+  expenseGroups,
+  groupCategories,
+  groupExpenseSplits,
+  groupExpenses,
+  postings,
+  transactions,
+  user,
+} from '../db/schema'
+import { fail } from '../errors'
 import { isClearingAccountPath } from '../fish-pie-accounts'
+import {
+  applyCategoryWeights,
+  computeSplits,
+  createGroupExpenseInTx,
+  createMemberTransactionsInTx,
+  resolveCategoryContext,
+  resolveExpenseAccountId,
+} from '../fish-pie-expense-service'
 
 // Validate a categoryId against a group. Returns 'ok' | 'not-found' | 'archived'.
 // Callers decide whether 'archived' is fatal (create) or tolerated (edit).
-async function validateCategory(categoryId: string, groupId: string): Promise<'ok' | 'not-found' | 'archived'> {
+async function validateCategory(
+  categoryId: string,
+  groupId: string,
+): Promise<'ok' | 'not-found' | 'archived'> {
   const [cat] = await db
     .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
     .from(groupCategories)
@@ -93,14 +114,14 @@ app.post('/groups/:groupId/expenses', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await db
     .select()
     .from(expenseGroupMembers)
     .where(eq(expenseGroupMembers.groupId, groupId))
 
-  if (!members.some((m) => m.userId === userId)) return c.json({ error: 'not found' }, 404)
+  if (!members.some((m) => m.userId === userId)) return fail(c, 'GROUP_NOT_FOUND')
 
   const body = await c.req.json<{
     description?: string
@@ -112,29 +133,38 @@ app.post('/groups/:groupId/expenses', async (c) => {
     categoryId?: string | null
   }>()
 
-  if (!body.description?.trim()) return c.json({ error: 'description is required' }, 400)
-  if (!body.amount || isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
-    return c.json({ error: 'amount must be a positive number' }, 400)
-  if (!body.currency?.trim()) return c.json({ error: 'currency is required' }, 400)
-  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
-  if (!body.paymentAccountId?.trim()) return c.json({ error: 'paymentAccountId is required' }, 400)
+  if (!body.description?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'description' })
+  if (!body.amount || Number.isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
+    return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'amount' })
+  if (!body.currency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'currency' })
+  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
+  if (!body.paymentAccountId?.trim())
+    return fail(c, 'FIELD_REQUIRED', { field: 'paymentAccountId' })
+  // A local, because the guard's narrowing does not survive into the transaction callback.
+  const bodyPaymentAccountId = body.paymentAccountId
 
   // Categorizing is optional; if given the category must belong to the group and be active.
   if (body.categoryId) {
     const result = await validateCategory(body.categoryId, groupId)
-    if (result === 'not-found') return c.json({ error: 'category not found in this group' }, 400)
-    if (result === 'archived') return c.json({ error: 'cannot assign an archived category' }, 400)
+    if (result === 'not-found') return fail(c, 'CATEGORY_NOT_IN_GROUP')
+    if (result === 'archived') return fail(c, 'CATEGORY_ARCHIVED')
   }
 
   const payerId = body.paidByUserId ?? userId
-  if (!members.some((m) => m.userId === payerId)) return c.json({ error: 'payer is not a member' }, 400)
+  if (!members.some((m) => m.userId === payerId)) return fail(c, 'PAYER_NOT_A_MEMBER')
 
   // Validate payment account belongs to the payer
   const [paymentAcct] = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.id, body.paymentAccountId), eq(accounts.userId, payerId), isNull(accounts.deletedAt)))
-  if (!paymentAcct) return c.json({ error: 'payment account not found or does not belong to payer' }, 400)
+    .where(
+      and(
+        eq(accounts.id, body.paymentAccountId),
+        eq(accounts.userId, payerId),
+        isNull(accounts.deletedAt),
+      ),
+    )
+  if (!paymentAcct) return fail(c, 'PAYER_ACCOUNT_NOT_FOUND')
 
   const expenseId = await db.transaction(async (tx) => {
     const id = await createGroupExpenseInTx(tx, {
@@ -151,11 +181,13 @@ app.post('/groups/:groupId/expenses', async (c) => {
 
     // Auto-save the payer's defaultPaymentAccountId if it changed
     const payerMember = members.find((m) => m.userId === payerId)!
-    if (payerMember.defaultPaymentAccountId !== body.paymentAccountId) {
+    if (payerMember.defaultPaymentAccountId !== bodyPaymentAccountId) {
       await tx
         .update(expenseGroupMembers)
-        .set({ defaultPaymentAccountId: body.paymentAccountId })
-        .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, payerId)))
+        .set({ defaultPaymentAccountId: bodyPaymentAccountId })
+        .where(
+          and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, payerId)),
+        )
     }
 
     return id
@@ -174,13 +206,13 @@ app.get('/groups/:groupId/expenses', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const [membership] = await db
     .select()
     .from(expenseGroupMembers)
     .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
-  if (!membership) return c.json({ error: 'not found' }, 404)
+  if (!membership) return fail(c, 'GROUP_NOT_FOUND')
 
   return c.json(await fetchGroupExpenses(groupId))
 })
@@ -194,15 +226,21 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
   const [expense] = await db
     .select()
     .from(groupExpenses)
-    .where(and(eq(groupExpenses.id, expenseId), eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
-  if (!expense) return c.json({ error: 'not found' }, 404)
+    .where(
+      and(
+        eq(groupExpenses.id, expenseId),
+        eq(groupExpenses.groupId, groupId),
+        isNull(groupExpenses.deletedAt),
+      ),
+    )
+  if (!expense) return fail(c, 'EXPENSE_NOT_FOUND')
 
   const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, groupId))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const isPayer = expense.paidByUserId === userId
   const isCreator = group.createdBy === userId
-  if (!isPayer && !isCreator) return c.json({ error: 'forbidden' }, 403)
+  if (!isPayer && !isCreator) return fail(c, 'NOT_THE_PAYER_OR_GROUP_CREATOR')
 
   const members = await db
     .select()
@@ -227,7 +265,7 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
   const newCategoryId = categoryProvided ? (body.categoryId ?? null) : expense.categoryId
   if (categoryProvided && body.categoryId) {
     const result = await validateCategory(body.categoryId, groupId)
-    if (result === 'not-found') return c.json({ error: 'category not found in this group' }, 400)
+    if (result === 'not-found') return fail(c, 'CATEGORY_NOT_IN_GROUP')
   }
 
   const description = body.description?.trim() ?? expense.description
@@ -236,18 +274,24 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
   const date = body.date ?? expense.date
   const payerId = body.paidByUserId ?? expense.paidByUserId
 
-  if (!description) return c.json({ error: 'description is required' }, 400)
-  if (isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
-    return c.json({ error: 'amount must be a positive number' }, 400)
-  if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
-  if (!members.some((m) => m.userId === payerId)) return c.json({ error: 'payer is not a member' }, 400)
+  if (!description) return fail(c, 'FIELD_REQUIRED', { field: 'description' })
+  if (Number.isNaN(parseFloat(amount)) || parseFloat(amount) <= 0)
+    return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'amount' })
+  if (!date.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
+  if (!members.some((m) => m.userId === payerId)) return fail(c, 'PAYER_NOT_A_MEMBER')
 
   if (body.paymentAccountId) {
     const [paymentAcct] = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(and(eq(accounts.id, body.paymentAccountId), eq(accounts.userId, payerId), isNull(accounts.deletedAt)))
-    if (!paymentAcct) return c.json({ error: 'payment account not found or does not belong to payer' }, 400)
+      .where(
+        and(
+          eq(accounts.id, body.paymentAccountId),
+          eq(accounts.userId, payerId),
+          isNull(accounts.deletedAt),
+        ),
+      )
+    if (!paymentAcct) return fail(c, 'PAYER_ACCOUNT_NOT_FOUND')
   }
 
   // BUG-006: the edit form doesn't send paymentAccountId, which used to rebuild the
@@ -261,11 +305,13 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
       const [oldPayerTx] = await db
         .select({ id: transactions.id })
         .from(transactions)
-        .where(and(
-          eq(transactions.groupExpenseId, expenseId),
-          eq(transactions.userId, expense.paidByUserId),
-          isNull(transactions.deletedAt),
-        ))
+        .where(
+          and(
+            eq(transactions.groupExpenseId, expenseId),
+            eq(transactions.userId, expense.paidByUserId),
+            isNull(transactions.deletedAt),
+          ),
+        )
       if (oldPayerTx) {
         const oldPostings = await db
           .select({ accountId: postings.accountId, amount: postings.amount })
@@ -279,13 +325,20 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
       }
     }
     if (!paymentAccountId) {
-      paymentAccountId = members.find((m) => m.userId === payerId)?.defaultPaymentAccountId ?? undefined
+      paymentAccountId =
+        members.find((m) => m.userId === payerId)?.defaultPaymentAccountId ?? undefined
     }
     if (paymentAccountId) {
       const [acct] = await db
         .select({ id: accounts.id })
         .from(accounts)
-        .where(and(eq(accounts.id, paymentAccountId), eq(accounts.userId, payerId), isNull(accounts.deletedAt)))
+        .where(
+          and(
+            eq(accounts.id, paymentAccountId),
+            eq(accounts.userId, payerId),
+            isNull(accounts.deletedAt),
+          ),
+        )
       if (!acct) paymentAccountId = undefined
     }
   }
@@ -300,7 +353,8 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
     const membersForSplit = body.splits
       ? members.map((m) => ({
           ...m,
-          shareWeight: body.splits!.find((s) => s.userId === m.userId)?.shareWeight ?? m.shareWeight,
+          shareWeight:
+            body.splits!.find((s) => s.userId === m.userId)?.shareWeight ?? m.shareWeight,
         }))
       : applyCategoryWeights(members, catCtx)
 
@@ -311,29 +365,44 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
     const memberTxRows = await tx
       .select({ id: transactions.id })
       .from(transactions)
-      .where(and(
-        eq(transactions.groupExpenseId, expenseId),
-        isNull(transactions.deletedAt),
-        expense.transactionId ? ne(transactions.id, expense.transactionId) : undefined,
-      ))
+      .where(
+        and(
+          eq(transactions.groupExpenseId, expenseId),
+          isNull(transactions.deletedAt),
+          expense.transactionId ? ne(transactions.id, expense.transactionId) : undefined,
+        ),
+      )
     const memberTxIds = memberTxRows.map((t) => t.id)
     if (memberTxIds.length > 0) {
-      await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, memberTxIds))
-      await tx.update(postings).set({ deletedAt: now }).where(inArray(postings.transactionId, memberTxIds))
+      await tx
+        .update(transactions)
+        .set({ deletedAt: now })
+        .where(inArray(transactions.id, memberTxIds))
+      await tx
+        .update(postings)
+        .set({ deletedAt: now })
+        .where(inArray(postings.transactionId, memberTxIds))
     }
 
     // Update groupExpenses row in-place
     await tx
       .update(groupExpenses)
-      .set({ description, amount: parseFloat(amount).toFixed(2), currency, date, paidByUserId: payerId, categoryId: newCategoryId })
+      .set({
+        description,
+        amount: parseFloat(amount).toFixed(2),
+        currency,
+        date,
+        paidByUserId: payerId,
+        categoryId: newCategoryId,
+      })
       .where(eq(groupExpenses.id, expenseId))
 
     // Hard-delete old splits (no deletedAt on groupExpenseSplits) and insert recomputed ones
     const splits = computeSplits(amount, membersForSplit, payerId)
     await tx.delete(groupExpenseSplits).where(eq(groupExpenseSplits.expenseId, expenseId))
-    await tx.insert(groupExpenseSplits).values(
-      splits.map((s) => ({ expenseId, userId: s.userId, amount: s.amount })),
-    )
+    await tx
+      .insert(groupExpenseSplits)
+      .values(splits.map((s) => ({ expenseId, userId: s.userId, amount: s.amount })))
 
     // Recreate member transactions with updated values
     await createMemberTransactionsInTx(tx, {
@@ -353,13 +422,16 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
 
     // Auto-save the payer's defaultPaymentAccountId when explicitly changed
     // (parity with POST). Recovered/derived accounts don't overwrite the default.
-    if (body.paymentAccountId) {
+    const bodyPaymentAccountId = body.paymentAccountId
+    if (bodyPaymentAccountId) {
       const payerMember = members.find((m) => m.userId === payerId)!
-      if (payerMember.defaultPaymentAccountId !== body.paymentAccountId) {
+      if (payerMember.defaultPaymentAccountId !== bodyPaymentAccountId) {
         await tx
           .update(expenseGroupMembers)
-          .set({ defaultPaymentAccountId: body.paymentAccountId })
-          .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, payerId)))
+          .set({ defaultPaymentAccountId: bodyPaymentAccountId })
+          .where(
+            and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, payerId)),
+          )
       }
     }
 
@@ -370,10 +442,20 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
       // member default → uncategorized.
       const oldCtx = await resolveCategoryContext(tx, expense.categoryId, members)
       const oldPayerMember = members.find((m) => m.userId === expense.paidByUserId)
-      const oldExpenseAccountId = await resolveExpenseAccountId(tx, oldCtx.accounts, oldPayerMember, expense.paidByUserId)
+      const oldExpenseAccountId = await resolveExpenseAccountId(
+        tx,
+        oldCtx.accounts,
+        oldPayerMember,
+        expense.paidByUserId,
+      )
 
       const newPayerMember = members.find((m) => m.userId === payerId)
-      const newExpenseAccountId = await resolveExpenseAccountId(tx, catCtx.accounts, newPayerMember, payerId)
+      const newExpenseAccountId = await resolveExpenseAccountId(
+        tx,
+        catCtx.accounts,
+        newPayerMember,
+        payerId,
+      )
 
       const importPostings = await tx
         .select({
@@ -435,15 +517,21 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
   const [expense] = await db
     .select()
     .from(groupExpenses)
-    .where(and(eq(groupExpenses.id, expenseId), eq(groupExpenses.groupId, groupId), isNull(groupExpenses.deletedAt)))
-  if (!expense) return c.json({ error: 'not found' }, 404)
+    .where(
+      and(
+        eq(groupExpenses.id, expenseId),
+        eq(groupExpenses.groupId, groupId),
+        isNull(groupExpenses.deletedAt),
+      ),
+    )
+  if (!expense) return fail(c, 'EXPENSE_NOT_FOUND')
 
   const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, groupId))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const isPayer = expense.paidByUserId === userId
   const isCreator = group.createdBy === userId
-  if (!isPayer && !isCreator) return c.json({ error: 'forbidden' }, 403)
+  if (!isPayer && !isCreator) return fail(c, 'NOT_THE_PAYER_OR_GROUP_CREATOR')
 
   const now = new Date()
   await db.transaction(async (tx) => {
@@ -457,11 +545,19 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
     // The origin import tx is now forward-linked too, so the query above already includes it.
     // Keep the explicit id as a defensive belt-and-suspenders (dedup'd) so deletion still
     // cascades to it even for any row predating the forward-link backfill.
-    const txIds = [...new Set([...linkedTxs.map((t) => t.id), ...(expense.transactionId ? [expense.transactionId] : [])])]
+    const txIds = [
+      ...new Set([
+        ...linkedTxs.map((t) => t.id),
+        ...(expense.transactionId ? [expense.transactionId] : []),
+      ]),
+    ]
 
     if (txIds.length > 0) {
       await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))
-      await tx.update(postings).set({ deletedAt: now }).where(inArray(postings.transactionId, txIds))
+      await tx
+        .update(postings)
+        .set({ deletedAt: now })
+        .where(inArray(postings.transactionId, txIds))
     }
   })
   return new Response(null, { status: 204 })
@@ -477,14 +573,14 @@ app.delete('/group-expenses/:expenseId', async (c) => {
     .select()
     .from(groupExpenses)
     .where(and(eq(groupExpenses.id, expenseId), isNull(groupExpenses.deletedAt)))
-  if (!expense) return c.json({ error: 'not found' }, 404)
+  if (!expense) return fail(c, 'EXPENSE_NOT_FOUND')
 
   const [group] = await db.select().from(expenseGroups).where(eq(expenseGroups.id, expense.groupId))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const isPayer = expense.paidByUserId === userId
   const isCreator = group.createdBy === userId
-  if (!isPayer && !isCreator) return c.json({ error: 'forbidden' }, 403)
+  if (!isPayer && !isCreator) return fail(c, 'NOT_THE_PAYER_OR_GROUP_CREATOR')
 
   const now = new Date()
   await db.transaction(async (tx) => {
@@ -500,7 +596,10 @@ app.delete('/group-expenses/:expenseId', async (c) => {
 
     if (txIds.length > 0) {
       await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))
-      await tx.update(postings).set({ deletedAt: now }).where(inArray(postings.transactionId, txIds))
+      await tx
+        .update(postings)
+        .set({ deletedAt: now })
+        .where(inArray(postings.transactionId, txIds))
     }
   })
   return new Response(null, { status: 204 })

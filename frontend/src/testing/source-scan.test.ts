@@ -1,3 +1,4 @@
+import { at } from '../lib/at'
 /**
  * The scanner the guards are built on, checked on its own.
  *
@@ -6,14 +7,9 @@
  * assertions rather than being trusted because the tests above it are green.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { join } from 'node:path'
-import {
-  rulesIn,
-  sourceFilesUnder,
-  stripNoise,
-  svelteFilesUnder,
-} from './source-scan'
+import { rulesIn, sourceFilesUnder, stripNoise, svelteFilesUnder } from './source-scan'
 
 const SRC = join(import.meta.dir, '..')
 
@@ -35,16 +31,13 @@ describe('reading a style block', () => {
   it('reads the first rule in the block', () => {
     // Slicing from `<style` rather than past its `>` made the first rule's selector begin
     // with `<`, which the parser skips — so every file's first rule was invisible.
-    expect(
-      rulesIn('<style>\n  .a { color: red; }\n</style>')[0]?.selector,
-    ).toBe('.a')
+    expect(at(rulesIn('<style>\n  .a { color: red; }\n</style>'))?.selector).toBe('.a')
   })
 
   it('collapses a wrapped selector onto one line', () => {
-    expect(
-      rulesIn('<style>\n  .a,\n  .b {\n    color: red;\n  }\n</style>')[0]
-        ?.selector,
-    ).toBe('.a, .b')
+    expect(at(rulesIn('<style>\n  .a,\n  .b {\n    color: red;\n  }\n</style>'))?.selector).toBe(
+      '.a, .b',
+    )
   })
 
   it('is empty for a file with no style block', () => {
@@ -54,9 +47,7 @@ describe('reading a style block', () => {
 
 describe('stripping noise', () => {
   it('removes block comments, markup comments and line comments', () => {
-    expect(stripNoise('/* #fff */ a <!-- #eee --> b\n  // #ddd\n')).not.toMatch(
-      /#/,
-    )
+    expect(stripNoise('/* #fff */ a <!-- #eee --> b\n  // #ddd\n')).not.toMatch(/#/)
   })
 
   it('removes an SVG path, which is coordinates that look like anything', () => {
@@ -76,8 +67,6 @@ describe('walking the tree', () => {
   })
 
   it('honours the extension filter', () => {
-    expect(
-      sourceFilesUnder(SRC, ['.svelte']).every((f) => f.endsWith('.svelte')),
-    ).toBe(true)
+    expect(sourceFilesUnder(SRC, ['.svelte']).every((f) => f.endsWith('.svelte'))).toBe(true)
   })
 })

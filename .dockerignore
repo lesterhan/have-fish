@@ -1,0 +1,20 @@
+# The context is the whole repository now, so everything the image does not need is
+# excluded here rather than being uploaded to the daemon on every build.
+.git
+.github
+node_modules
+**/node_modules
+**/.svelte-kit
+frontend/build
+backend/public
+mobile
+planning
+ops
+*.md
+!backend/**/*.md
+.env
+.env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local

@@ -1,5 +1,12 @@
 # Roadmap
 
+> Status for anything in flight lives on the `have-fish` GitHub Project (see `CLAUDE.md` § Work Tracking). This file remains the index of epic files. The 2026-09 architecture audit, UX pass, path to production and mobile review are in the private `lesterhan/have-fish-ops` repo under `audits/`.
+
+> Product direction — what have-fish is becoming and why — lives in
+> [`planning/productionize/00-direction.md`](productionize/00-direction.md).
+> Read it before scoping anything that touches packaging, sync, or Fish Pie's
+> availability.
+
 | Epic | Status |
 |------|--------|
 | Assets Summary | Done |
@@ -71,7 +78,7 @@
 | [Trust Signals](epics/archive/trust-signals.md) | Done |
 | [Honest Chrome](epics/archive/honest-chrome.md) | Done |
 | [Undo](epics/undo.md) | Scoped |
-| [Copy Extraction](epics/copy-extraction.md) | Scoped |
+| [Copy Extraction](epics/copy-extraction.md) | In progress |
 | [Visual Language](epics/archive/visual-language.md) | Done |
 | [Type & Space Scale](epics/archive/type-and-space.md) | Done |
 

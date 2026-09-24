@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { copy } from '$lib/copy'
   import Chip from '$lib/components/ui/Chip.svelte'
   import CurrencyPill from '$lib/components/ui/CurrencyPill.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -31,11 +32,11 @@
     /** Present for a real account row; null for a virtual path segment. */
     accountId: string | null
     /** Counterparty paths are shortened against this, so the common root is not repeated. */
-    root?: string
+    root?: string | undefined
     /** From `actionRequiredStore`; null while the summary is still loading. */
-    attention?: number | null
+    attention?: number | null | undefined
     /** Offer the import hand-off. Off for categories, which a statement is never about. */
-    canImport?: boolean
+    canImport?: boolean | undefined
   }
 
   let {
@@ -90,9 +91,9 @@
       {/each}
     </div>
   {:else if failed}
-    <p class="empty">Could not load recent entries.</p>
+    <p class="empty">{copy.accounts.drawer.loadFailed}</p>
   {:else if lines.length === 0}
-    <p class="empty">Nothing has been posted here yet.</p>
+    <p class="empty">{copy.accounts.drawer.empty}</p>
   {:else}
     <ul class="entries">
       {#each lines as line (line.id)}
@@ -110,8 +111,8 @@
             {#if line.mixedCurrency}
               <span
                 class="partial"
-                title="This entry also moved another currency in this account — only the {line.currency} side is shown"
-                >+ fx</span
+                title={copy.accounts.drawer.partialHint(line.currency)}
+                >{copy.accounts.drawer.partial}</span
               >
             {/if}
           </span>
@@ -130,20 +131,20 @@
     {#if lines !== null && total > 0}
       <a class="link" href={allHref}>
         {total > RECENT_ENTRIES
-          ? `See all ${total} entries`
-          : 'See these in Transactions'}
+          ? copy.accounts.drawer.seeAll(total)
+          : copy.accounts.drawer.seeInTransactions}
         <Icon name="arrow-right" size={11} />
       </a>
     {/if}
 
     {#if accountId}
       <a class="link" href="/account/{accountId}">
-        Open account
+        {copy.accounts.drawer.openAccount}
         <Icon name="arrow-right" size={11} />
       </a>
       {#if canImport}
         <a class="link" href="/import?account={encodeURIComponent(accountId)}">
-          Import a statement
+          {copy.accounts.drawer.importStatement}
           <Icon name="arrow-right" size={11} />
         </a>
       {/if}

@@ -1,4 +1,5 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import { at } from './at'
 import {
   buildTopUpPostings,
   canSubmitTopUp,
@@ -7,9 +8,9 @@ import {
   formatRate,
   impliedReceived,
   isCrossCurrency,
+  type TopUpDraft,
   topUpBlocker,
   topUpBlockerMessage,
-  type TopUpDraft,
 } from './cash-topup'
 
 const sameCurrency: TopUpDraft = {
@@ -83,8 +84,13 @@ describe('topUpBlocker', () => {
 
   it('has copy for every blocker', () => {
     const all = [
-      'no-wallet', 'no-source', 'no-amount', 'no-received',
-      'no-conversion-account', 'fee-exceeds-amount', 'unbalanced',
+      'no-wallet',
+      'no-source',
+      'no-amount',
+      'no-received',
+      'no-conversion-account',
+      'fee-exceeds-amount',
+      'unbalanced',
     ] as const
     for (const blocker of all) expect(topUpBlockerMessage(blocker).length).toBeGreaterThan(0)
   })
@@ -153,7 +159,9 @@ describe('buildTopUpPostings — same currency', () => {
   it('balances to zero', () => {
     expect(currencySums(buildTopUpPostings(sameCurrency))).toEqual({ CAD: 0 })
     expect(
-      currencySums(buildTopUpPostings({ ...sameCurrency, feeAccountId: 'fees', feeAmount: '3.00' })),
+      currencySums(
+        buildTopUpPostings({ ...sameCurrency, feeAccountId: 'fees', feeAmount: '3.00' }),
+      ),
     ).toEqual({ CAD: 0 })
   })
 })
@@ -226,7 +234,7 @@ describe('buildTopUpPostings — guards', () => {
 
   it('credits the source and debits the wallet', () => {
     const postings = buildTopUpPostings(crossCurrency)
-    expect(parseFloat(postings[0].amount)).toBeLessThan(0)
-    expect(parseFloat(postings[postings.length - 1].amount)).toBeGreaterThan(0)
+    expect(parseFloat(at(postings).amount)).toBeLessThan(0)
+    expect(parseFloat(at(postings, postings.length - 1).amount)).toBeGreaterThan(0)
   })
 })

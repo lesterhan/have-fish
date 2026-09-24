@@ -1,17 +1,18 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { UserSettings } from '../../api'
 import {
-  DEFAULT_ROOTS,
   accountDisplayName,
   bucketOf,
+  DEFAULT_ROOTS,
   institutionOf,
   isUnderRoot,
+  type Roots,
   rootFor,
   rootsFrom,
   shortPath,
   surfaceOf,
-  type Roots,
+  surfaceOfPath,
 } from './accountPaths'
-import type { UserSettings } from '../../api'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -37,47 +38,91 @@ describe('isUnderRoot', () => {
   })
 })
 
-describe('surfaceOf', () => {
+describe('surfaceOfPath', () => {
   it('files each configured root', () => {
-    expect(surfaceOf('assets:wise:cad', ROOTS)).toBe('assets')
-    expect(surfaceOf('liabilities:visa', ROOTS)).toBe('liabilities')
-    expect(surfaceOf('equity:tfsa', ROOTS)).toBe('equity')
-    expect(surfaceOf('expenses:food', ROOTS)).toBe('expenses')
-    expect(surfaceOf('income:salary', ROOTS)).toBe('income')
+    expect(surfaceOfPath('assets:wise:cad', ROOTS)).toBe('assets')
+    expect(surfaceOfPath('liabilities:visa', ROOTS)).toBe('liabilities')
+    expect(surfaceOfPath('equity:tfsa', ROOTS)).toBe('equity')
+    expect(surfaceOfPath('expenses:food', ROOTS)).toBe('expenses')
+    expect(surfaceOfPath('income:salary', ROOTS)).toBe('income')
   })
 
   it('files anything outside every root as unfiled', () => {
-    expect(surfaceOf('储蓄:中国银行', ROOTS)).toBe('unfiled')
-    expect(surfaceOf('asset:typo', ROOTS)).toBe('unfiled')
+    expect(surfaceOfPath('储蓄:中国银行', ROOTS)).toBe('unfiled')
+    expect(surfaceOfPath('asset:typo', ROOTS)).toBe('unfiled')
   })
 
   it('follows renamed roots', () => {
     const custom: Roots = { ...ROOTS, assets: 'activos' }
-    expect(surfaceOf('activos:banco', custom)).toBe('assets')
+    expect(surfaceOfPath('activos:banco', custom)).toBe('assets')
     // The old root is now just another unfiled path — which is the point of the bucket.
-    expect(surfaceOf('assets:chequing', custom)).toBe('unfiled')
+    expect(surfaceOfPath('assets:chequing', custom)).toBe('unfiled')
+  })
+})
+
+describe('surfaceOf', () => {
+  it('falls back to the path when the account carries no resolved type', () => {
+    expect(surfaceOf({ path: 'assets:wise:cad' }, ROOTS)).toBe('assets')
+    expect(surfaceOf({ path: '储蓄:中国银行' }, ROOTS)).toBe('unfiled')
+    expect(surfaceOf({ path: 'assets:wise:cad', resolvedType: null }, ROOTS)).toBe('assets')
+  })
+
+  // BUG-007: the override is the whole point of the column, and reading the path instead
+  // meant tagging an atypically-named wallet Cash left it exactly where it was — nowhere.
+  it('files a tagged account by its type, wherever its path sits', () => {
+    expect(surfaceOf({ path: '储蓄:现金', resolvedType: 'cash' }, ROOTS)).toBe('assets')
+    expect(surfaceOf({ path: '储蓄:中国银行', resolvedType: 'asset' }, ROOTS)).toBe('assets')
+    expect(surfaceOf({ path: '欠款:信用卡', resolvedType: 'liability' }, ROOTS)).toBe('liabilities')
+    expect(surfaceOf({ path: '投资:股票', resolvedType: 'equity' }, ROOTS)).toBe('equity')
+    expect(surfaceOf({ path: '花钱:房租', resolvedType: 'expense' }, ROOTS)).toBe('expenses')
+    expect(surfaceOf({ path: '收入:工资', resolvedType: 'income' }, ROOTS)).toBe('income')
+  })
+
+  it('collapses the two hledger subtypes onto their parents', () => {
+    expect(surfaceOf({ path: 'assets:cash:cad', resolvedType: 'cash' }, ROOTS)).toBe('assets')
+    expect(surfaceOf({ path: 'equity:conversions', resolvedType: 'conversion' }, ROOTS)).toBe(
+      'equity',
+    )
+  })
+
+  it('lets the override win against the path, not only fill in for it', () => {
+    // The same rule read backwards: a mis-pathed category under the assets root is a
+    // category. Anything else would make the override mean "sometimes".
+    expect(surfaceOf({ path: 'assets:groceries', resolvedType: 'expense' }, ROOTS)).toBe('expenses')
+    expect(surfaceOf({ path: 'expenses:rrsp', resolvedType: 'equity' }, ROOTS)).toBe('equity')
   })
 })
 
 describe('bucketOf', () => {
   it('splits assets into cash and owed by the receivable subtree', () => {
-    expect(bucketOf('assets:wise:cad', ROOTS)).toBe('cash')
-    expect(bucketOf('assets:receivable:alice', ROOTS)).toBe('owed')
+    expect(bucketOf({ path: 'assets:wise:cad' }, ROOTS)).toBe('cash')
+    expect(bucketOf({ path: 'assets:receivable:alice' }, ROOTS)).toBe('owed')
   })
 
   it('maps liabilities to owing and equity to investments', () => {
-    expect(bucketOf('liabilities:visa', ROOTS)).toBe('owing')
-    expect(bucketOf('equity:tfsa', ROOTS)).toBe('investments')
+    expect(bucketOf({ path: 'liabilities:visa' }, ROOTS)).toBe('owing')
+    expect(bucketOf({ path: 'equity:tfsa' }, ROOTS)).toBe('investments')
   })
 
   it('gives unfiled, expense and income accounts no bucket', () => {
-    expect(bucketOf('储蓄:中国银行', ROOTS)).toBeNull()
-    expect(bucketOf('expenses:food', ROOTS)).toBeNull()
-    expect(bucketOf('income:salary', ROOTS)).toBeNull()
+    expect(bucketOf({ path: '储蓄:中国银行' }, ROOTS)).toBeNull()
+    expect(bucketOf({ path: 'expenses:food' }, ROOTS)).toBeNull()
+    expect(bucketOf({ path: 'income:salary' }, ROOTS)).toBeNull()
   })
 
   it('does not mistake a receivable-prefixed sibling for a receivable', () => {
-    expect(bucketOf('assets:receivables:old', ROOTS)).toBe('cash')
+    expect(bucketOf({ path: 'assets:receivables:old' }, ROOTS)).toBe('cash')
+  })
+
+  it('buckets a tagged account by its type', () => {
+    expect(bucketOf({ path: '储蓄:现金', resolvedType: 'cash' }, ROOTS)).toBe('cash')
+    expect(bucketOf({ path: '欠款:信用卡', resolvedType: 'liability' }, ROOTS)).toBe('owing')
+    expect(bucketOf({ path: '投资:股票', resolvedType: 'equity' }, ROOTS)).toBe('investments')
+    expect(bucketOf({ path: 'assets:groceries', resolvedType: 'expense' }, ROOTS)).toBeNull()
+  })
+
+  it('counts a tagged asset as spendable, since Owed is a subtree and not a type', () => {
+    expect(bucketOf({ path: '储蓄:朋友欠我', resolvedType: 'asset' }, ROOTS)).toBe('cash')
   })
 })
 
@@ -142,23 +187,16 @@ describe('rootFor', () => {
 
 describe('accountDisplayName', () => {
   it('prefers the name', () => {
-    expect(
-      accountDisplayName(
-        { path: 'assets:wise:cad', name: 'Wise CAD' },
-        'assets',
-      ),
-    ).toBe('Wise CAD')
+    expect(accountDisplayName({ path: 'assets:wise:cad', name: 'Wise CAD' }, 'assets')).toBe(
+      'Wise CAD',
+    )
   })
 
   it('falls back to the path with its root stripped', () => {
-    expect(accountDisplayName({ path: 'assets:wise:cad' }, 'assets')).toBe(
-      'wise:cad',
-    )
+    expect(accountDisplayName({ path: 'assets:wise:cad' }, 'assets')).toBe('wise:cad')
   })
 
   it('keeps an unfiled path whole, since it has no root to strip', () => {
-    expect(accountDisplayName({ path: '储蓄:中国银行' }, '')).toBe(
-      '储蓄:中国银行',
-    )
+    expect(accountDisplayName({ path: '储蓄:中国银行' }, '')).toBe('储蓄:中国银行')
   })
 })

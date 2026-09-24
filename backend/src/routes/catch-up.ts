@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
-import { loadCoverageAccounts, todayUtc } from '../coverage/load'
 import { sortAccounts, summarize } from '../coverage/catch-up'
+import { loadCoverageAccounts, todayUtc } from '../coverage/load'
 
 const app = new Hono<{ Variables: AppVariables }>()
 

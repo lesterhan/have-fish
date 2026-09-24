@@ -1,7 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { PanResponder, StyleSheet, View } from 'react-native'
-import { theme } from '@/lib/theme'
 import * as haptics from '@/lib/haptics'
+import { theme } from '@/lib/theme'
 
 interface Props {
   value: number
@@ -26,7 +26,14 @@ interface Props {
  * The track width is measured via `onLayout`; positions render as percentages so
  * the bar reflows with the sheet.
  */
-export function WeightSlider({ value, onChange, min = 5, max = 95, step = 5, disabled = false }: Props) {
+export function WeightSlider({
+  value,
+  onChange,
+  min = 5,
+  max = 95,
+  step = 5,
+  disabled = false,
+}: Props) {
   const widthRef = useRef(0)
   // Keep the latest props reachable from the PanResponder closure (created once).
   const onChangeRef = useRef(onChange)
@@ -50,7 +57,7 @@ export function WeightSlider({ value, onChange, min = 5, max = 95, step = 5, dis
   function setFromX(x: number) {
     const w = widthRef.current
     if (w <= 0) return
-    const snapped = Math.round((x / w) * 100 / step) * step
+    const snapped = Math.round(((x / w) * 100) / step) * step
     const clamped = Math.min(max, Math.max(min, snapped))
     if (clamped === lastRef.current) return
     lastRef.current = clamped
@@ -68,7 +75,10 @@ export function WeightSlider({ value, onChange, min = 5, max = 95, step = 5, dis
     >
       <View pointerEvents="none" style={styles.rail} />
       <View pointerEvents="none" style={[styles.fill, { width: `${pct}%` }]} />
-      <View pointerEvents="none" style={[styles.thumb, { left: `${pct}%` }, disabled && styles.thumbDisabled]} />
+      <View
+        pointerEvents="none"
+        style={[styles.thumb, { left: `${pct}%` }, disabled && styles.thumbDisabled]}
+      />
     </View>
   )
 }

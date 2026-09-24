@@ -1,12 +1,9 @@
+import { Ionicons } from '@expo/vector-icons'
 import { useEffect, useRef, useState } from 'react'
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import {
-  createBatchSettlement,
-  fetchFxRateAsOf,
-  type Account,
-  type ExpenseGroup,
-} from '@/lib/api'
+import { type Account, createBatchSettlement, type ExpenseGroup, fetchFxRateAsOf } from '@/lib/api'
+import { currencyFlag } from '@/lib/currency'
+import { type DateMode, dateLabel, resolveDate } from '@/lib/expense-date'
 import {
   buildBatchLines,
   convertedAmount,
@@ -16,15 +13,13 @@ import {
   type OwedDebt,
   type SettleLine,
 } from '@/lib/fish-pie-settle'
-import { needsConversionAccount } from '@/lib/settle-actions'
-import { currencyFlag } from '@/lib/currency'
-import { type DateMode, dateLabel, resolveDate } from '@/lib/expense-date'
 import * as haptics from '@/lib/haptics'
+import { needsConversionAccount } from '@/lib/settle-actions'
 import { theme } from '@/lib/theme'
+import { AccountSelect } from './AccountSelect'
 import { BottomSheet } from './BottomSheet'
 import { CurrencySheet } from './CurrencySheet'
 import { DateSheet } from './DateSheet'
-import { AccountSelect } from './AccountSelect'
 import { GlossButton } from './GlossButton'
 import { GlossSurface } from './GlossSurface'
 import { Label } from './Label'
@@ -142,7 +137,9 @@ export function SettleSheet({
   }
 
   function toggleConvert(i: number) {
-    if (lines[i].debtCurrency === target) return // can't convert to the same currency
+    // `i` comes from rendering `lines`, so the row is there; saying so keeps the
+    // same-currency guard below readable.
+    if (lines[i]?.debtCurrency === target) return // can't convert to the same currency
     const next = lines.map((l, idx) =>
       idx === i
         ? { ...l, convert: !l.convert, fxRate: null, asOfDate: null, settledAmount: '' }
@@ -299,7 +296,11 @@ export function SettleSheet({
       />
 
       <View style={styles.metaRow}>
-        <Pressable style={styles.metaField} onPress={() => setDateOpen(true)} onPressIn={haptics.selection}>
+        <Pressable
+          style={styles.metaField}
+          onPress={() => setDateOpen(true)}
+          onPressIn={haptics.selection}
+        >
           <Label>Date</Label>
           <Text style={styles.metaValue}>{dateLabel(resolvedDate)}</Text>
         </Pressable>
@@ -417,7 +418,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   convertCcy: { fontFamily: theme.font.monoBold, fontSize: 13, color: theme.color.ink2 },
-  rateHint: { fontFamily: theme.font.mono, fontSize: 11, color: theme.color.ink3, fontStyle: 'italic' },
+  rateHint: {
+    fontFamily: theme.font.mono,
+    fontSize: 11,
+    color: theme.color.ink3,
+    fontStyle: 'italic',
+  },
 
   guard: {
     fontFamily: theme.font.sans,

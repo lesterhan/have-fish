@@ -19,17 +19,18 @@ export const DESCRIPTION_PLACEHOLDERS = [
   'Log the damage',
   '买单',
   'Coffee, presumably',
-  'Je demande l\'addition',
+  "Je demande l'addition",
   'T’as mangé quoi?',
   'C’tait combien?',
   'Encore un café?',
-  'Encore un p\'tit croissant?',
+  "Encore un p'tit croissant?",
   'Note ça là',
 ] as const
 
 /** Pick a random placeholder. Pass a seed `rng` (0–1) for deterministic tests. */
 export function randomPlaceholder(rng: number = Math.random()): string {
   const i = Math.floor(rng * DESCRIPTION_PLACEHOLDERS.length)
-  // Clamp guards rng === 1 (Math.random never returns 1, but a test seed might).
-  return DESCRIPTION_PLACEHOLDERS[Math.min(i, DESCRIPTION_PLACEHOLDERS.length - 1)]
+  // Clamp guards rng === 1 (Math.random never returns 1, but a test seed might); the
+  // fallback covers a negative seed, which the clamp does not.
+  return DESCRIPTION_PLACEHOLDERS[Math.min(i, DESCRIPTION_PLACEHOLDERS.length - 1)] ?? ''
 }

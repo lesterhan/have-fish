@@ -54,7 +54,9 @@ cp .env.example .env      # then fill in your values
 podman compose up --build
 ```
 
-Frontend at `http://localhost:8888`, backend at `http://localhost:8887`.
+The whole app at `http://localhost:8888` — one container serves the API and the web app.
+(In local development they are still two processes: Vite on 8888 proxying `/api` to the
+backend on 8887.)
 
 ## Mobile App (Android)
 
@@ -70,7 +72,7 @@ bun run start        # starts Metro bundler — scan QR with Expo Go on device
 
 Point the app at your server **from within the app** (server URL is stored in
 SecureStore, not hardcoded) — use your backend's Tailscale or LAN address, e.g.
-`http://100.x.x.x:8887`, not `localhost`.
+`http://100.x.x.x:8888`, not `localhost`.
 
 ### Dev build (full native, no Expo Go)
 

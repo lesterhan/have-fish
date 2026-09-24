@@ -18,3 +18,10 @@ dist/
 .research/
 scripts/
 .design/
+
+# backups
+backups/
+
+# The frontend build, copied in by the image build (and by a local `bun run build`
+# plus a copy, if you are serving it from the backend in dev).
+backend/public/

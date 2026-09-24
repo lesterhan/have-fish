@@ -1,0 +1,10 @@
+# Revisions git blame should skip: commits that changed formatting and nothing else.
+#
+# Locally:  git config blame.ignoreRevsFile .git-blame-ignore-revs
+# GitHub reads this file by itself.
+#
+# Only a commit that changed no behaviour belongs here. If in doubt, leave it out —
+# a wrongly listed commit hides the change that actually broke something.
+
+# [repo] Format the whole repository with Biome
+570536b0d10f47ede0496a4987b5a58b248c5bbb

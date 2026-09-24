@@ -10,7 +10,7 @@
 // transactions in the month *because* it was never imported, so classifying against the
 // accounts that appear would read every neglected month as complete.
 
-import { daysBetween, type CoverageInterval } from './intervals'
+import { type CoverageInterval, daysBetween } from './intervals'
 
 export type MonthCoverageState =
   // Every contributor covers the whole month.
@@ -57,8 +57,16 @@ export type MonthCoverageInput = {
   dormant: boolean
 }
 
-export function monthBounds(month: string, today: string): { from: string; through: string } {
+// 'YYYY-MM' → its two numbers. Callers pass a month the routes have already validated; this
+// is the one place that states it, so the pair reads as numbers everywhere below.
+function monthParts(month: string): { year: number; month: number } {
   const [year, m] = month.split('-').map(Number)
+  if (year === undefined || m === undefined) throw new Error(`not a YYYY-MM month: "${month}"`)
+  return { year, month: m }
+}
+
+export function monthBounds(month: string, today: string): { from: string; through: string } {
+  const { year, month: m } = monthParts(month)
   const from = `${month}-01`
   const lastDay = new Date(Date.UTC(year, m, 0)).getUTCDate()
   const end = `${month}-${String(lastDay).padStart(2, '0')}`
@@ -136,8 +144,8 @@ export function classifyMonths(
 // Inclusive 'YYYY-MM' range, ascending. Rejects nothing — the route validates.
 export function monthsBetween(from: string, to: string): string[] {
   const months: string[] = []
-  let [year, month] = from.split('-').map(Number)
-  const [toYear, toMonth] = to.split('-').map(Number)
+  let { year, month } = monthParts(from)
+  const { year: toYear, month: toMonth } = monthParts(to)
   while (year < toYear || (year === toYear && month <= toMonth)) {
     months.push(`${String(year).padStart(4, '0')}-${String(month).padStart(2, '0')}`)
     month++

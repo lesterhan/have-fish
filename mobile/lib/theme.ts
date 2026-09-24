@@ -1,4 +1,4 @@
-import { type TextStyle, type ViewStyle } from 'react-native'
+import type { TextStyle, ViewStyle } from 'react-native'
 
 /**
  * have-fish Pocket Companion — design tokens.

@@ -6,7 +6,7 @@
 
   interface Props {
     date: string
-    possibleDuplicate?: PossibleDuplicate | null
+    possibleDuplicate?: PossibleDuplicate | null | undefined
   }
 
   let { date, possibleDuplicate }: Props = $props()

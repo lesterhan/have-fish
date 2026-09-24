@@ -1,13 +1,13 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { UserSettings } from '../../api'
+import type { Roots } from './accountPaths'
 import {
-  ROLE_LABEL,
   isSystemManaged,
   protectionFor,
   protectionMessage,
+  ROLE_LABEL,
   rolesOf,
 } from './accountRoles'
-import type { Roots } from './accountPaths'
-import type { UserSettings } from '../../api'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -28,15 +28,9 @@ function settings(over: Partial<UserSettings> = {}): UserSettings {
 
 describe('rolesOf', () => {
   it('names the role an account fills', () => {
-    expect(rolesOf('a', settings({ defaultOffsetAccountId: 'a' }))).toEqual([
-      'offset',
-    ])
-    expect(rolesOf('a', settings({ defaultConversionAccountId: 'a' }))).toEqual(
-      ['conversion'],
-    )
-    expect(
-      rolesOf('a', settings({ defaultAdjustmentsAccountId: 'a' })),
-    ).toEqual(['adjustments'])
+    expect(rolesOf('a', settings({ defaultOffsetAccountId: 'a' }))).toEqual(['offset'])
+    expect(rolesOf('a', settings({ defaultConversionAccountId: 'a' }))).toEqual(['conversion'])
+    expect(rolesOf('a', settings({ defaultAdjustmentsAccountId: 'a' }))).toEqual(['adjustments'])
   })
 
   it('names every role when one account fills several', () => {
@@ -93,19 +87,16 @@ describe('protectionFor', () => {
   })
 
   it('reports the roles pointing at it', () => {
-    expect(
-      protectionFor(plain, settings({ defaultOffsetAccountId: 'a' }), ROOTS),
-    ).toEqual({ kind: 'role', roles: ['offset'] })
+    expect(protectionFor(plain, settings({ defaultOffsetAccountId: 'a' }), ROOTS)).toEqual({
+      kind: 'role',
+      roles: ['offset'],
+    })
   })
 
   it('reports a receivable as system-managed', () => {
-    expect(
-      protectionFor(
-        { id: 'r', path: 'assets:receivable:alice' },
-        settings(),
-        ROOTS,
-      ),
-    ).toEqual({ kind: 'system' })
+    expect(protectionFor({ id: 'r', path: 'assets:receivable:alice' }, settings(), ROOTS)).toEqual({
+      kind: 'system',
+    })
   })
 
   it('leads with the role when an account is both', () => {
@@ -129,9 +120,7 @@ describe('protectionMessage', () => {
   })
 
   it('agrees in number when several roles point at one account', () => {
-    expect(
-      protectionMessage({ kind: 'role', roles: ['offset', 'conversion'] }),
-    ).toBe(
+    expect(protectionMessage({ kind: 'role', roles: ['offset', 'conversion'] })).toBe(
       'Point OFFSET, CONVERSION at another account in Settings first — these are in use.',
     )
   })
@@ -143,10 +132,6 @@ describe('protectionMessage', () => {
   })
 
   it('has a label for every role', () => {
-    expect(Object.values(ROLE_LABEL)).toEqual([
-      'OFFSET',
-      'CONVERSION',
-      'ADJUSTMENTS',
-    ])
+    expect(Object.values(ROLE_LABEL)).toEqual(['OFFSET', 'CONVERSION', 'ADJUSTMENTS'])
   })
 })

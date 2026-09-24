@@ -1,7 +1,8 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { ParsedTransaction } from '$lib/api'
+import { at } from '../../at'
 import { buildManifest, type ManifestContext } from './manifest'
 import type { RowState } from './row-state'
-import type { ParsedTransaction } from '$lib/api'
 
 const ACCOUNTS = [
   { id: 'a-groceries', path: 'expenses:groceries' },
@@ -77,7 +78,7 @@ describe('per-destination totals', () => {
       count: 2,
       currency: 'CAD',
     })
-    expect(m.lines[0].total).toBeCloseTo(52.5, 2)
+    expect(at(m.lines).total).toBeCloseTo(52.5, 2)
     expect(m.lines[1]).toMatchObject({ label: 'expenses:transport', count: 1 })
   })
 
@@ -85,24 +86,20 @@ describe('per-destination totals', () => {
     const txs = [tx('-1.00'), tx('-1.00'), tx('-1.00')]
     const rows = [row({ offsetAccountId: 'a-transport' }), row(), row()]
 
-    expect(
-      buildManifest(txs, rows, 0, ctx()).lines.map((l) => l.label),
-    ).toEqual(['expenses:groceries', 'expenses:transport'])
+    expect(buildManifest(txs, rows, 0, ctx()).lines.map((l) => l.label)).toEqual([
+      'expenses:groceries',
+      'expenses:transport',
+    ])
   })
 
   it('flags the uncategorized destination — the line this whole step exists to catch', () => {
-    const m = buildManifest(
-      [tx('-40.00')],
-      [row({ offsetAccountId: 'a-uncat' })],
-      0,
-      ctx(),
-    )
-    expect(m.lines[0].isUncategorized).toBe(true)
+    const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: 'a-uncat' })], 0, ctx())
+    expect(at(m.lines).isUncategorized).toBe(true)
   })
 
   it('does not flag a normal expense account', () => {
     const m = buildManifest([tx('-40.00')], [row()], 0, ctx())
-    expect(m.lines[0].isUncategorized).toBe(false)
+    expect(at(m.lines).isUncategorized).toBe(false)
   })
 
   it('refuses a total when one destination is fed by several currencies', () => {
@@ -112,9 +109,9 @@ describe('per-destination totals', () => {
     ]
     const m = buildManifest(txs, [row(), row()], 0, ctx())
 
-    expect(m.lines[0].count).toBe(2)
-    expect(m.lines[0].total).toBeNull()
-    expect(m.lines[0].currency).toBeNull()
+    expect(at(m.lines).count).toBe(2)
+    expect(at(m.lines).total).toBeNull()
+    expect(at(m.lines).currency).toBeNull()
   })
 
   it('labels a Fish Pie split by group and category', () => {
@@ -124,7 +121,7 @@ describe('per-destination totals', () => {
       0,
       ctx(),
     )
-    expect(m.lines[0].label).toBe('Household · Groceries')
+    expect(at(m.lines).label).toBe('Household · Groceries')
   })
 
   it('labels an uncategorized split by group alone', () => {
@@ -134,7 +131,7 @@ describe('per-destination totals', () => {
       0,
       ctx(),
     )
-    expect(m.lines[0].label).toBe('Household')
+    expect(at(m.lines).label).toBe('Household')
   })
 
   it('keeps two categories of one group on separate lines', () => {
@@ -142,9 +139,7 @@ describe('per-destination totals', () => {
       row({ groupId: 'g-house', categoryId: 'c-food' }),
       row({ groupId: 'g-house', categoryId: null }),
     ]
-    expect(
-      buildManifest([tx('-1.00'), tx('-1.00')], rows, 0, ctx()).lines,
-    ).toHaveLength(2)
+    expect(buildManifest([tx('-1.00'), tx('-1.00')], rows, 0, ctx()).lines).toHaveLength(2)
   })
 
   it('sends a cross-currency spend to its expense account', () => {
@@ -163,9 +158,9 @@ describe('per-destination totals', () => {
       ctx(),
     )
 
-    expect(m.lines[0].label).toBe('expenses:transport')
-    expect(m.lines[0].total).toBeCloseTo(360, 2)
-    expect(m.lines[0].currency).toBe('CZK')
+    expect(at(m.lines).label).toBe('expenses:transport')
+    expect(at(m.lines).total).toBeCloseTo(360, 2)
+    expect(at(m.lines).currency).toBe('CZK')
   })
 
   it('sends a convert-and-park to the mapped currency account', () => {
@@ -178,17 +173,12 @@ describe('per-destination totals', () => {
       targetCurrency: 'EUR',
     } as ParsedTransaction
     const m = buildManifest([convert], [row({ kind: 'transfer' })], 0, ctx())
-    expect(m.lines[0].label).toBe('assets:wise:eur')
+    expect(at(m.lines).label).toBe('assets:wise:eur')
   })
 
   it('names an unassigned destination rather than showing a blank line', () => {
-    const m = buildManifest(
-      [tx('-40.00')],
-      [row({ offsetAccountId: '' })],
-      0,
-      ctx(),
-    )
-    expect(m.lines[0].label).toBe('No account assigned')
+    const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: '' })], 0, ctx())
+    expect(at(m.lines).label).toBe('No account assigned')
   })
 })
 
@@ -216,24 +206,15 @@ describe('skipped rows', () => {
   })
 
   it('leaves skipped rows out of the destination totals entirely', () => {
-    const m = buildManifest(
-      [tx('-40.00'), tx('-40.00')],
-      [row(), row({ skipped: true })],
-      0,
-      ctx(),
-    )
-    expect(m.lines[0].count).toBe(1)
-    expect(m.lines[0].total).toBeCloseTo(40, 2)
+    const m = buildManifest([tx('-40.00'), tx('-40.00')], [row(), row({ skipped: true })], 0, ctx())
+    expect(at(m.lines).count).toBe(1)
+    expect(at(m.lines).total).toBeCloseTo(40, 2)
   })
 })
 
 describe('date range', () => {
   it('spans the committed rows', () => {
-    const txs = [
-      tx('-1.00', '2026-06-03'),
-      tx('-1.00', '2026-06-30'),
-      tx('-1.00', '2026-06-15'),
-    ]
+    const txs = [tx('-1.00', '2026-06-03'), tx('-1.00', '2026-06-30'), tx('-1.00', '2026-06-15')]
     const m = buildManifest(txs, [row(), row(), row()], 0, ctx())
     expect(m.dateRange).toEqual({ from: '2026-06-03', to: '2026-06-30' })
   })
@@ -241,11 +222,7 @@ describe('date range', () => {
   it('excludes skipped rows at both ends', () => {
     // A leading week of skipped duplicates would otherwise land the user on a screen whose
     // top is entirely rows they did not just import.
-    const txs = [
-      tx('-1.00', '2026-06-01'),
-      tx('-1.00', '2026-06-10'),
-      tx('-1.00', '2026-06-30'),
-    ]
+    const txs = [tx('-1.00', '2026-06-01'), tx('-1.00', '2026-06-10'), tx('-1.00', '2026-06-30')]
     const rows = [row({ skipped: true }), row(), row({ skipped: true })]
 
     expect(buildManifest(txs, rows, 0, ctx()).dateRange).toEqual({
@@ -255,19 +232,11 @@ describe('date range', () => {
   })
 
   it('is null when everything is skipped', () => {
-    expect(
-      buildManifest([tx('-1.00')], [row({ skipped: true })], 0, ctx())
-        .dateRange,
-    ).toBeNull()
+    expect(buildManifest([tx('-1.00')], [row({ skipped: true })], 0, ctx()).dateRange).toBeNull()
   })
 
   it('reads the date part of an ISO timestamp', () => {
-    const m = buildManifest(
-      [tx('-1.00', '2026-06-03T08:00:00Z')],
-      [row()],
-      0,
-      ctx(),
-    )
+    const m = buildManifest([tx('-1.00', '2026-06-03T08:00:00Z')], [row()], 0, ctx())
     expect(m.dateRange).toEqual({ from: '2026-06-03', to: '2026-06-03' })
   })
 })

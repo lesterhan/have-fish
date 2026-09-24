@@ -1,12 +1,12 @@
-import { useEffect, useState } from 'react'
 import { useFonts } from 'expo-font'
 import { Slot, useRouter, useSegments } from 'expo-router'
 import { StatusBar } from 'expo-status-bar'
+import { useEffect, useState } from 'react'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
-import { isAuthenticated } from '@/lib/auth'
 import { flushOfflineQueue } from '@/lib/api'
-import { loadHapticsEnabled } from '@/lib/haptics'
+import { isAuthenticated } from '@/lib/auth'
 import { fontAssets } from '@/lib/fonts'
+import { loadHapticsEnabled } from '@/lib/haptics'
 
 /**
  * Root layout — guards the entire app behind authentication.
@@ -27,7 +27,7 @@ export default function RootLayout() {
     async function bootstrap() {
       try {
         // Hydrate the haptics preference before any tactile UI can fire.
-        loadHapticsEnabled()
+        await loadHapticsEnabled()
 
         const authed = await isAuthenticated()
         const inAuthGroup = segments[0] === '(auth)'
@@ -52,7 +52,7 @@ export default function RootLayout() {
         setChecked(true)
       }
     }
-    bootstrap()
+    void bootstrap()
   }, [])
 
   // Gate the navigator on both the auth check and the bundled fonts so the UI

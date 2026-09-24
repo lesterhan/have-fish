@@ -18,6 +18,7 @@
   import Card from '$lib/components/ui/Card.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
   import Empty from '../ui/Empty.svelte'
+  import { memberPair } from './utils'
 
   interface Props {
     groupId: string
@@ -55,15 +56,16 @@
   // Whether this group's split is editable as a simple two-person slider. The app's
   // share UI is two-member throughout (the index page makes the same assumption); for
   // any other size we hide the weight editor rather than invent a multi-member control.
-  const isPair = $derived(members.length === 2)
+  const pair = $derived(memberPair(members))
+  const isPair = $derived(pair !== null)
 
   // Seed/refresh the slider state whenever the category list changes.
   $effect(() => {
     const nextSlider: Record<string, number> = {}
     for (const cat of cats) {
-      if (isPair) {
+      if (pair) {
         nextSlider[cat.id] =
-          weightsToPct(cat.weights, members[0].userId, members[1].userId) ?? 50
+          weightsToPct(cat.weights, pair.first.userId, pair.second.userId) ?? 50
       }
     }
     sliderPct = nextSlider
@@ -133,11 +135,11 @@
   }
 
   async function handleSliderChange(cat: GroupCategory) {
-    if (!isPair || savingWeights[cat.id]) return
+    if (!pair || savingWeights[cat.id]) return
     const vector = pctToVector(
       sliderPct[cat.id] ?? 50,
-      members[0].userId,
-      members[1].userId,
+      pair.first.userId,
+      pair.second.userId,
     )
     savingWeights[cat.id] = true
     try {
@@ -223,19 +225,19 @@
               </div>
             </div>
 
-            {#if isPair}
+            {#if pair}
               <div class="cat-field">
                 <span class="cat-field-label">Split</span>
                 <div class="cat-field-input">
                   <div class="split-labels">
                     <span
-                      >{members[0].userName}
+                      >{pair.first.userName}
                       {Math.round(sliderPct[cat.id] ?? 50)}%</span
                     >
                     <span class="split-divider">/</span>
                     <span
-                      >{Math.round(100 - (sliderPct[cat.id] ?? 50))}% {members[1]
-                        .userName}</span
+                      >{Math.round(100 - (sliderPct[cat.id] ?? 50))}% {pair
+                        .second.userName}</span
                     >
                   </div>
                   <input
@@ -246,7 +248,7 @@
                     step="1"
                     bind:value={sliderPct[cat.id]}
                     onchange={() => handleSliderChange(cat)}
-                    aria-label="{cat.name} split — {members[0]
+                    aria-label="{cat.name} split — {pair.first
                       .userName}'s percentage"
                   />
                   <div class="split-foot">

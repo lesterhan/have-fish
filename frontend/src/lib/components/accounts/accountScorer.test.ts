@@ -1,6 +1,7 @@
 /// <reference types="bun" />
-import { describe, it, expect } from 'bun:test'
-import { rank, scoreOne, type ScorableAccount } from './accountScorer'
+import { describe, expect, it } from 'bun:test'
+import { at } from '../../at'
+import { rank, type ScorableAccount, scoreOne } from './accountScorer'
 
 // A plausible personal-finance ledger. `freq` drives the gentle tie-break,
 // so the expected rankings below are deterministic.
@@ -65,10 +66,7 @@ describe('rank — expected rankings', () => {
     ])
     // The whole point: no home:* ever ranks above a housing:* result.
     const firstHome = top.findIndex((p) => p.startsWith('expenses:home:'))
-    const lastHousing = top.reduce(
-      (acc, p, i) => (p.startsWith('expenses:housing:') ? i : acc),
-      -1,
-    )
+    const lastHousing = top.reduce((acc, p, i) => (p.startsWith('expenses:housing:') ? i : acc), -1)
     expect(firstHome).toBeGreaterThan(lastHousing)
   })
 
@@ -79,11 +77,11 @@ describe('rank — expected rankings', () => {
   })
 
   it('foodburger → expenses:food:restaurants:burgerking', () => {
-    expect(paths('foodburger')[0]).toBe('expenses:food:restaurants:burgerking')
+    expect(at(paths('foodburger'))).toBe('expenses:food:restaurants:burgerking')
   })
 
   it('recvhouse → assets:receivable:household', () => {
-    expect(paths('recvhouse')[0]).toBe('assets:receivable:household')
+    expect(at(paths('recvhouse'))).toBe('assets:receivable:household')
   })
 
   it('coffee → coffee leaf first, then coffee:starbucks', () => {
@@ -109,7 +107,7 @@ describe('rank — query normalization', () => {
   it('empty query returns the full list, sorted by freq desc', () => {
     const ranked = rank('', ACCOUNTS)
     expect(ranked.length).toBe(ACCOUNTS.length)
-    expect(ranked[0].path).toBe('assets:bank:chequing') // freq 142, highest
+    expect(at(ranked).path).toBe('assets:bank:chequing') // freq 142, highest
     expect(ranked.every((r) => r.score === 0)).toBe(true)
   })
 })

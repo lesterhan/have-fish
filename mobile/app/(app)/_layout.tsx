@@ -1,13 +1,13 @@
-import { View, StyleSheet } from 'react-native'
-import { SafeAreaView } from 'react-native-safe-area-context'
-import { Tabs } from 'expo-router'
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons'
-import { GroupProvider } from '@/lib/group-context'
-import { ShellModeProvider, useShellMode } from '@/lib/shell-mode-context'
-import { WalletProvider } from '@/lib/wallet-context'
-import { tabHref } from '@/lib/shell-mode'
+import { Tabs } from 'expo-router'
+import { StyleSheet, View } from 'react-native'
+import { SafeAreaView } from 'react-native-safe-area-context'
 import { AppHeader } from '@/components/AppHeader'
+import { GroupProvider } from '@/lib/group-context'
+import { tabHrefOption } from '@/lib/shell-mode'
+import { ShellModeProvider, useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
+import { WalletProvider } from '@/lib/wallet-context'
 
 /**
  * Authenticated shell (Companion). Two ledgers live here — Fish Pie (shared
@@ -68,7 +68,7 @@ function ShellTabs() {
         name="index"
         options={{
           title: 'Add',
-          href: tabHref('pie', mode),
+          ...tabHrefOption('pie', mode),
           tabBarIcon: ({ color }) => <Ionicons name="add" size={22} color={color} />,
         }}
       />
@@ -76,7 +76,7 @@ function ShellTabs() {
         name="balances"
         options={{
           title: 'Balances',
-          href: tabHref('pie', mode),
+          ...tabHrefOption('pie', mode),
           tabBarIcon: ({ color }) => (
             <MaterialCommunityIcons name="scale-balance" size={22} color={color} />
           ),
@@ -86,7 +86,7 @@ function ShellTabs() {
         name="history"
         options={{
           title: 'History',
-          href: tabHref('pie', mode),
+          ...tabHrefOption('pie', mode),
           tabBarIcon: ({ color }) => <Ionicons name="list" size={22} color={color} />,
         }}
       />
@@ -96,7 +96,7 @@ function ShellTabs() {
         name="cash-spend"
         options={{
           title: 'Spend',
-          href: tabHref('cash', mode),
+          ...tabHrefOption('cash', mode),
           tabBarIcon: ({ color }) => <Ionicons name="cash-outline" size={22} color={color} />,
         }}
       />
@@ -104,17 +104,15 @@ function ShellTabs() {
         name="cash-wallets"
         options={{
           title: 'Wallets',
-          href: tabHref('cash', mode),
-          tabBarIcon: ({ color }) => (
-            <Ionicons name="wallet-outline" size={22} color={color} />
-          ),
+          ...tabHrefOption('cash', mode),
+          tabBarIcon: ({ color }) => <Ionicons name="wallet-outline" size={22} color={color} />,
         }}
       />
       <Tabs.Screen
         name="cash-history"
         options={{
           title: 'History',
-          href: tabHref('cash', mode),
+          ...tabHrefOption('cash', mode),
           tabBarIcon: ({ color }) => <Ionicons name="list" size={22} color={color} />,
         }}
       />

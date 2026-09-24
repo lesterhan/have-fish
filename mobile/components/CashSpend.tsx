@@ -1,26 +1,26 @@
+import { useRouter } from 'expo-router'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { StyleSheet, Text, TextInput, View } from 'react-native'
-import { useRouter } from 'expo-router'
-import { createTransaction, fetchAccounts, type Account } from '@/lib/api'
 import { appendDigit, appendDot, backspace } from '@/lib/amount-input'
+import { type Account, createTransaction, fetchAccounts } from '@/lib/api'
 import {
   blockerMessage,
   buildCashPostings,
   fromCents,
   remainder,
   remainderCents,
+  type SplitRow,
   seedAmountForNewRow,
   submitBlocker,
   syncSingleRow,
   toCents,
-  type SplitRow,
 } from '@/lib/cash-entry'
 import { randomPlaceholder } from '@/lib/description-placeholder'
-import { dateLabel, resolveDate, type DateMode } from '@/lib/expense-date'
+import { type DateMode, dateLabel, resolveDate } from '@/lib/expense-date'
 import { submitOutcome } from '@/lib/expense-submit'
-import { useWallets } from '@/lib/wallet-context'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
+import { useWallets } from '@/lib/wallet-context'
 import { AccountSelect } from './AccountSelect'
 import { AmountHero } from './AmountHero'
 import { DateSheet } from './DateSheet'
@@ -63,9 +63,7 @@ export function CashSpend() {
   const [dateMode, setDateMode] = useState<DateMode>('today')
   const [pickDate, setPickDate] = useState<string | null>(null)
   const [dateOpen, setDateOpen] = useState(false)
-  const [rows, setRows] = useState<SplitRow[]>([
-    { id: nextRowId(), accountId: null, amount: '' },
-  ])
+  const [rows, setRows] = useState<SplitRow[]>([{ id: nextRowId(), accountId: null, amount: '' }])
   // null = the numpad drives the hero; otherwise it drives this row's amount.
   const [editingRowId, setEditingRowId] = useState<string | null>(null)
   const [pickingRowId, setPickingRowId] = useState<string | null>(null)
@@ -74,9 +72,12 @@ export function CashSpend() {
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const flashTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  useEffect(() => () => {
-    if (flashTimer.current) clearTimeout(flashTimer.current)
-  }, [])
+  useEffect(
+    () => () => {
+      if (flashTimer.current) clearTimeout(flashTimer.current)
+    },
+    [],
+  )
 
   // The account picker needs the full list; tolerate offline, since the sheet's
   // inline-create path still works from an empty one.
@@ -133,9 +134,10 @@ export function CashSpend() {
       // Adding the second row turns the implicit single row into an explicit
       // one, so the existing amount has to be pinned before the new row takes
       // the rest — otherwise both would claim the whole total.
+      const [only] = current
       const pinned =
-        current.length === 1
-          ? [{ ...current[0], amount: fromCents(toCents(amount) ?? 0) }]
+        only !== undefined && current.length === 1
+          ? [{ ...only, amount: fromCents(toCents(amount) ?? 0) }]
           : current
       const seeded = seedAmountForNewRow(amount, pinned)
       const row = { id: nextRowId(), accountId: null, amount: seeded }
@@ -186,7 +188,7 @@ export function CashSpend() {
       resetEntry()
       haptics.success()
       flashThenReset('added')
-      reload()
+      void reload()
     } catch (e) {
       if (submitOutcome(e) === 'queued') {
         // Enqueued offline — a soft success. Don't reload balances; nothing has

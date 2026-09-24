@@ -10,14 +10,14 @@
       childCount: number
     }[]
     currency: string
-    activePath?: string | null
+    activePath?: string | null | undefined
     /**
      * The month these figures cover is not fully recorded, so every bar is a floor rather
      * than a length. The bars say so instead of being drawn as if they were final — a
      * magnitude the app knows is partial and draws like a complete one is the same lie as
      * an aggregate that hides its as-of (DESIGN.md §8).
      */
-    incomplete?: boolean
+    incomplete?: boolean | undefined
     onclick: (category: string, childCount: number) => void
   }
 
@@ -36,10 +36,14 @@
     return category.split(':').slice(1).join(':') || category
   }
 
+  // Filter and read in one pass: `currency in c.total` and then `c.total[currency]` asked
+  // the same question twice, and only the first one was written down.
   let sorted = $derived(
-    [...categories]
-      .filter((c) => currency in c.total)
-      .map((c) => ({ ...c, amount: parseFloat(c.total[currency]) }))
+    categories
+      .flatMap((c) => {
+        const total = c.total[currency]
+        return total === undefined ? [] : [{ ...c, amount: parseFloat(total) }]
+      })
       .sort((a, b) => Math.abs(b.amount) - Math.abs(a.amount)),
   )
 

@@ -11,14 +11,14 @@
     from: string
     to: string
     sortDir: 'asc' | 'desc'
-    accountPath?: string
+    accountPath?: string | undefined
     /** The range the clear affordance restores to. Omitted = no clear affordance. */
-    defaultRange?: { from: string; to: string }
+    defaultRange?: { from: string; to: string } | undefined
     /** Borderless icon buttons at rest — see GradientButton's `quiet`. */
-    quiet?: boolean
+    quiet?: boolean | undefined
     onApply: (from: string, to: string) => void
     onSortChange: (dir: 'asc' | 'desc') => void
-    onAccountPathChange?: (path: string) => void
+    onAccountPathChange?: ((path: string) => void) | undefined
   }
 
   let {

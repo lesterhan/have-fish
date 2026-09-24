@@ -1,5 +1,20 @@
-import { bumpCoverage } from './coverageRefresh'
+// ════════════════════════════════════════════════════════════
+//  API TYPES
+//
+//  Every optional member here is written `?: T | undefined` rather than `?: T`, which
+//  under `exactOptionalPropertyTypes` are different types: the first admits a key that is
+//  present and undefined, the second only an absent one.
+//
+//  JSON cannot tell those apart. `JSON.stringify` drops an undefined value entirely, and a
+//  key a response omits reads back as undefined — so on this boundary the distinction the
+//  flag draws does not exist, and the narrower form only forces callers to delete keys
+//  they were about to send as nothing. Inside the app the narrow `?: T` still means what
+//  it says; it is this module that talks to the wire.
+// ════════════════════════════════════════════════════════════
+
+import { errorMessage } from './copy/errors'
 import type { AccountCoverageStatus, CoverageState } from './coverage'
+import { bumpCoverage } from './coverageRefresh'
 import type { MonthCoverage } from './monthCoverage'
 
 export type { AccountCoverageStatus, CoverageState } from './coverage'
@@ -13,9 +28,24 @@ export type {
 // Empty base means same-origin, which works in both dev and production.
 const BASE = ''
 
+/**
+ * The error to throw for a failed response.
+ *
+ * The API answers a failure with a code — `{ error: 'ACCOUNT_NOT_FOUND' }` — and
+ * `copy/errors.ts` owns the sentence for it. Every failure in this file goes through here so
+ * that mapping happens once; before this, thirty call sites read `body.error` and rendered
+ * whatever the route had written, and the other thirty ignored the server entirely.
+ *
+ * `fallback` is what the reader sees when there is no code to look up: a proxy timing out,
+ * an unhandled 500, an HTML error page. Reading the body is allowed to fail for the same
+ * reason.
+ */
+async function apiError(res: Response, fallback: string): Promise<Error> {
+  return new Error(errorMessage(await res.json().catch(() => null), fallback))
+}
+
 // The five types path inference can produce.
-export type AccountType =
-  'asset' | 'liability' | 'equity' | 'income' | 'expense'
+export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense'
 // The full hledger set a stored override may hold (adds Cash + Conversion, which are
 // override-only — inference never produces them).
 export type StoredAccountType = AccountType | 'cash' | 'conversion'
@@ -32,34 +62,37 @@ export function toClassifierType(type: StoredAccountType): AccountType {
 export type Account = {
   id: string
   path: string
-  name?: string | null
-  defaultCurrency?: string | null
+  name?: string | null | undefined
+  defaultCurrency?: string | null | undefined
   // Stored hledger type override; null = infer from the path root.
-  type?: StoredAccountType | null
-  // Effective type (stored override else path inference). Surfaced by GET /api/accounts
+  type?: StoredAccountType | null | undefined
+  // Effective type (own override, else nearest tagged ancestor's, else path inference). Surfaced by GET /api/accounts
   // and GET /api/accounts/:id; null when an atypical root has no override.
-  resolvedType?: StoredAccountType | null
-  // Pure path-inferred type, ignoring any override. Surfaced only by GET /api/accounts/:id —
-  // lets the settings UI show "Auto (inferred: X)". Null for atypical roots.
-  inferredType?: AccountType | null
-  createdAt?: string
-  deletedAt?: string | null
+  resolvedType?: StoredAccountType | null | undefined
+  // What "Auto" would resolve to: the type with this account's own override ignored, taken
+  // from its nearest tagged ancestor or else its path root. Surfaced only by
+  // GET /api/accounts/:id, for the settings UI. Null when neither says anything.
+  inferredType?: StoredAccountType | null | undefined
+  // The tagged ancestor `inferredType` came from; null when it came from a path root.
+  inheritedFrom?: string | null | undefined
+  createdAt?: string | undefined
+  deletedAt?: string | null | undefined
 }
 
 export async function fetchAccount(id: string): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error(`Account not found: ${id}`)
+  if (!res.ok) throw await apiError(res, `Account not found: ${id}`)
   return res.json()
 }
 
 export async function updateAccount(
   id: string,
   updates: {
-    name?: string | null
-    defaultCurrency?: string | null
-    type?: StoredAccountType | null
+    name?: string | null | undefined
+    defaultCurrency?: string | null | undefined
+    type?: StoredAccountType | null | undefined
   },
 ): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
@@ -68,14 +101,14 @@ export async function updateAccount(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(updates),
   })
-  if (!res.ok) throw new Error('Failed to update account')
+  if (!res.ok) throw await apiError(res, 'Failed to update account')
   return res.json()
 }
 
 // Rewrites an account path prefix `from` → `to`, cascading to every descendant. A leaf
 // rename is `from`/`to` being full leaf paths; a parent/category rename rewrites the
-// shared prefix across all accounts under it. Throws with the server message on 409
-// (collision → that's a merge) or 400 (invalid / receivable).
+// shared prefix across all accounts under it. Throws the sentence for the server's code on
+// 409 (collision → that's a merge) or 400 (invalid / receivable).
 export async function renameAccount(
   from: string,
   to: string,
@@ -87,8 +120,7 @@ export async function renameAccount(
     body: JSON.stringify({ from, to }),
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? 'Failed to rename account')
+    throw await apiError(res, 'Failed to rename account')
   }
   return res.json()
 }
@@ -103,7 +135,7 @@ export async function fetchAccounts(): Promise<Account[]> {
 // derived from the currency — so it sets it rather than leaving the column null.
 export async function createAccount(body: {
   path: string
-  defaultCurrency?: string
+  defaultCurrency?: string | undefined
 }): Promise<Account> {
   const res = await fetch(`${BASE}/api/accounts`, {
     method: 'POST',
@@ -114,14 +146,13 @@ export async function createAccount(body: {
   // A rejected create used to be returned as `{ error }` and used as an account, which meant
   // the caller silently committed an undefined id. Throw so the surface can say what happened.
   if (!res.ok) {
-    const problem = await res.json().catch(() => ({}))
-    throw new Error(problem.error ?? 'Failed to create account')
+    throw await apiError(res, 'Failed to create account')
   }
   return res.json()
 }
 
 // Refused (409) when the account still has entries, fills a default role, or is one Fish Pie
-// manages — see the DELETE handler. The message is written for display.
+// manages — see the DELETE handler. The code it sends becomes a sentence in copy/errors.ts.
 export async function deleteAccount(id: string) {
   const res = await fetch(`${BASE}/api/accounts/${id}`, {
     method: 'DELETE',
@@ -129,8 +160,7 @@ export async function deleteAccount(id: string) {
     headers: { 'Content-Type': 'application/json' },
   })
   if (!res.ok) {
-    const problem = await res.json().catch(() => ({}))
-    throw new Error(problem.error ?? 'Failed to delete account')
+    throw await apiError(res, 'Failed to delete account')
   }
 }
 
@@ -142,9 +172,7 @@ export type AccountPostingCount = {
   lastActivity: string | null
 }
 
-export async function fetchAccountPostingCounts(): Promise<
-  AccountPostingCount[]
-> {
+export async function fetchAccountPostingCounts(): Promise<AccountPostingCount[]> {
   const res = await fetch(`${BASE}/api/accounts/posting-counts`, {
     credentials: 'include',
   })
@@ -172,6 +200,9 @@ export async function deleteCategory(id: string) {
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
   })
+  if (!res.ok) {
+    throw await apiError(res, 'Failed to delete category')
+  }
 }
 
 // Mirrors the ParsedTransaction discriminated union from the backend.
@@ -181,8 +212,10 @@ export type PossibleDuplicate = {
   date: string
   amount: string
   currency: string
-  fishPieGroupId?: string
-  fishPieGroupName?: string
+  // Set when the match was entered through Fish Pie: the split itself, or a settlement.
+  fishPieKind?: 'expense' | 'settlement' | undefined
+  fishPieGroupId?: string | undefined
+  fishPieGroupName?: string | undefined
 } | null
 
 // Preview enrichment shared by every row kind that carries a description.
@@ -198,49 +231,49 @@ export type PossibleDuplicate = {
 // suggestedCategoryId is null on an uncategorized split rule, so its presence is not a
 // reliable test — check suggestedGroupId.
 type MerchantFields = {
-  merchantKey?: string
-  matchedRulePattern?: string
-  suggestedGroupId?: string
-  suggestedCategoryId?: string | null
+  merchantKey?: string | undefined
+  matchedRulePattern?: string | undefined
+  suggestedGroupId?: string | undefined
+  suggestedCategoryId?: string | null | undefined
 }
 
 export type RegularParsedTransaction = MerchantFields & {
   isTransfer: false
   date: string
   amount: string
-  description?: string
-  currency?: string
-  possibleDuplicate?: PossibleDuplicate
-  suggestedOffsetAccountId?: string
+  description?: string | undefined
+  currency?: string | undefined
+  possibleDuplicate?: PossibleDuplicate | undefined
+  suggestedOffsetAccountId?: string | undefined
 }
 
 export type TransferParsedTransaction = MerchantFields & {
   isTransfer: true
   date: string
-  description?: string
+  description?: string | undefined
   sourceAmount: string
   sourceCurrency: string
   targetAmount: string
   targetCurrency: string
-  feeAmount?: string
-  feeCurrency?: string
-  possibleDuplicate?: PossibleDuplicate
+  feeAmount?: string | undefined
+  feeCurrency?: string | undefined
+  possibleDuplicate?: PossibleDuplicate | undefined
   // Preview enrichment: how the wizard should treat this cross-currency row by default.
   // 'spend' = a card purchase in a currency the user doesn't hold (the common case);
   // 'transfer' = a convert-and-park (counterparty is the user). The user can flip it.
-  suggestedKind?: 'spend' | 'transfer'
+  suggestedKind?: 'spend' | 'transfer' | undefined
   // For a defaulted spend, the expense account inferred from the import rules.
-  suggestedExpenseAccountId?: string
+  suggestedExpenseAccountId?: string | undefined
 }
 
 export type SameCurrencyTransferParsedTransaction = MerchantFields & {
   isTransfer: 'same-currency'
   date: string
-  description?: string
+  description?: string | undefined
   amount: string // net amount received (positive)
   feeAmount: string // fee charged (positive)
   currency: string
-  possibleDuplicate?: PossibleDuplicate
+  possibleDuplicate?: PossibleDuplicate | undefined
 }
 
 export type ParsedTransaction =
@@ -251,7 +284,7 @@ export type ParsedTransaction =
 // Commit payloads — ParsedTransaction plus the account IDs resolved during preview.
 export type RegularCommitTransaction = RegularParsedTransaction & {
   offsetAccountId: string
-  sourceAccountId?: string // set for regular rows in a multi-currency parser
+  sourceAccountId?: string | undefined // set for regular rows in a multi-currency parser
 }
 
 export type TransferCommitTransaction = TransferParsedTransaction & {
@@ -261,12 +294,11 @@ export type TransferCommitTransaction = TransferParsedTransaction & {
   feeAccountId: string
 }
 
-export type SameCurrencyTransferCommitTransaction =
-  SameCurrencyTransferParsedTransaction & {
-    targetAccountId: string
-    sourceAccountId: string
-    feeAccountId: string
-  }
+export type SameCurrencyTransferCommitTransaction = SameCurrencyTransferParsedTransaction & {
+  targetAccountId: string
+  sourceAccountId: string
+  feeAccountId: string
+}
 
 // A cross-currency spend (story 1 shape): a purchase in a currency the user doesn't hold,
 // funded from another-currency account via on-the-fly conversion. Bridged through
@@ -274,17 +306,17 @@ export type SameCurrencyTransferCommitTransaction =
 export type CrossCurrencySpendCommitTransaction = {
   isTransfer: 'cross-currency-spend'
   date: string
-  description?: string
+  description?: string | undefined
   sourceAmount: string // negative, gross incl. fee (leaving source)
   sourceCurrency: string
   targetAmount: string // positive (the spend, in targetCurrency)
   targetCurrency: string
-  feeAmount?: string
-  feeCurrency?: string
+  feeAmount?: string | undefined
+  feeCurrency?: string | undefined
   sourceAccountId: string
   expenseAccountId: string
   conversionAccountId: string
-  feeAccountId?: string
+  feeAccountId?: string | undefined
 }
 
 export type CommitTransaction =
@@ -315,14 +347,13 @@ export async function importPreview(
     body: form,
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? 'Failed to parse CSV.')
+    throw await apiError(res, 'Failed to parse CSV.')
   }
   return res.json()
 }
 
 export async function checkDuplicates(
-  rows: { accountId: string; date: string; amount: string }[],
+  rows: { accountId: string; date: string; amount: string; currency: string }[],
 ): Promise<(PossibleDuplicate | null)[]> {
   const res = await fetch(`${BASE}/api/import/check-duplicates`, {
     method: 'POST',
@@ -330,7 +361,7 @@ export async function checkDuplicates(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ rows }),
   })
-  if (!res.ok) throw new Error('Failed to check for duplicates.')
+  if (!res.ok) throw await apiError(res, 'Failed to check for duplicates.')
   const data = await res.json()
   return data.duplicates
 }
@@ -339,11 +370,13 @@ export async function importCommit(body: {
   accountId: string // empty string for multi-currency imports (source is per-row)
   defaultCurrency: string
   transactions: CommitTransaction[]
-  groupSplits?: {
-    rowIndex: number
-    groupId: string
-    categoryId?: string | null
-  }[]
+  groupSplits?:
+    | {
+        rowIndex: number
+        groupId: string
+        categoryId?: string | null | undefined
+      }[]
+    | undefined
 }): Promise<{ created: number; fishPieExpenses: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
@@ -359,9 +392,7 @@ export async function importCommit(body: {
  * (YYYY-MM-DD) bound the exported transactions; omit for everything. Streams the
  * response to a Blob and triggers a browser download. Backend route: GET /api/export/journal.
  */
-export async function exportJournal(
-  opts: { from?: string; to?: string } = {},
-): Promise<void> {
+export async function exportJournal(opts: { from?: string; to?: string } = {}): Promise<void> {
   const params = new URLSearchParams()
   if (opts.from) params.set('from', opts.from)
   if (opts.to) params.set('to', opts.to)
@@ -370,8 +401,7 @@ export async function exportJournal(
     credentials: 'include',
   })
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? 'Failed to export journal.')
+    throw await apiError(res, 'Failed to export journal.')
   }
   const blob = await res.blob()
   const url = URL.createObjectURL(blob)
@@ -387,17 +417,17 @@ export async function exportJournal(
 export type ColumnMapping = {
   date: string
   amount: string
-  description?: string | null
-  currency?: string | null
+  description?: string | null | undefined
+  currency?: string | null | undefined
   // Multi-currency transfer fields
-  sourceAmount?: string | null
-  sourceCurrency?: string | null
-  targetAmount?: string | null
-  targetCurrency?: string | null
-  feeAmount?: string | null
-  feeCurrency?: string | null
-  signColumn?: string | null
-  signNegativeValue?: string | null
+  sourceAmount?: string | null | undefined
+  sourceCurrency?: string | null | undefined
+  targetAmount?: string | null | undefined
+  targetCurrency?: string | null | undefined
+  feeAmount?: string | null | undefined
+  feeCurrency?: string | null | undefined
+  signColumn?: string | null | undefined
+  signNegativeValue?: string | null | undefined
 }
 
 export type CsvParser = {
@@ -422,11 +452,7 @@ export async function updateParser(
   body: Partial<
     Pick<
       CsvParser,
-      | 'name'
-      | 'columnMapping'
-      | 'defaultAccountId'
-      | 'isMultiCurrency'
-      | 'defaultFeeAccountId'
+      'name' | 'columnMapping' | 'defaultAccountId' | 'isMultiCurrency' | 'defaultFeeAccountId'
     >
   >,
 ): Promise<CsvParser> {
@@ -443,9 +469,9 @@ export async function createParser(body: {
   name: string
   normalizedHeader: string
   columnMapping: ColumnMapping
-  defaultAccountId?: string | null
-  isMultiCurrency?: boolean
-  defaultFeeAccountId?: string | null
+  defaultAccountId?: string | null | undefined
+  isMultiCurrency?: boolean | undefined
+  defaultFeeAccountId?: string | null | undefined
 }): Promise<CsvParser> {
   const res = await fetch(`${BASE}/api/parsers`, {
     method: 'POST',
@@ -453,8 +479,7 @@ export async function createParser(body: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create parser')
+  if (!res.ok) throw await apiError(res, 'Failed to create parser')
   return res.json()
 }
 
@@ -466,17 +491,17 @@ export async function deleteParser(id: string): Promise<void> {
 }
 
 export type UserPreferences = {
-  hiddenAccountIds?: string[]
+  hiddenAccountIds?: string[] | undefined
   /** Accounts pinned to the sidebar, in the order they were pinned. */
-  pinnedAccountIds?: string[]
-  accentColor?: import('$lib/accent').AccentKey
-  recentCurrencies?: string[]
-  recentGroups?: string[]
+  pinnedAccountIds?: string[] | undefined
+  accentColor?: import('$lib/accent').AccentKey | undefined
+  recentCurrencies?: string[] | undefined
+  recentGroups?: string[] | undefined
   // Sticky last-used category per fish-pie group, keyed by groupId → categoryId.
-  lastCategoryByGroup?: Record<string, string>
+  lastCategoryByGroup?: Record<string, string> | undefined
   // Recently used import split targets, most-recent first. Each entry is
   // `${groupId}:${categoryId}` (empty categoryId = no category).
-  recentFishPieSplits?: string[]
+  recentFishPieSplits?: string[] | undefined
 }
 
 export type UserSettings = {
@@ -529,8 +554,7 @@ export async function updateUserSettings(
   // Unchecked, a failure here parsed the error body as settings and wrote it into the
   // store — so a control backed by this endpoint could only ever report success.
   if (!res.ok) {
-    const body = await res.json().catch(() => ({}))
-    throw new Error(body.error ?? 'Failed to save settings')
+    throw await apiError(res, 'Failed to save settings')
   }
   // Hiding an account, flagging it illiquid, or pinning coverage config all land here, and
   // the first two remove it as a contributor outright. Bumping on every settings save is
@@ -543,12 +567,12 @@ export async function updateUserSettings(
 export type AccountBalance = {
   id: string
   path: string
-  name?: string | null
+  name?: string | null | undefined
   // Same meaning as on `Account`: the raw stored override, and the effective
-  // stored-wins-else-inferred answer. For the coarse asset/liability/equity bucket,
+  // resolved answer. For the coarse asset/liability/equity bucket,
   // run `resolvedType` through `toClassifierType`.
-  type?: StoredAccountType | null
-  resolvedType?: StoredAccountType | null
+  type?: StoredAccountType | null | undefined
+  resolvedType?: StoredAccountType | null | undefined
   balances: { currency: string; amount: string }[]
 }
 
@@ -581,10 +605,7 @@ export async function fetchAccountBalanceAtDate(
     `${BASE}/api/accounts/${accountId}/balance?date=${encodeURIComponent(date)}`,
     { credentials: 'include' },
   )
-  if (!res.ok)
-    throw new Error(
-      (await res.json()).error ?? 'Failed to fetch account balance',
-    )
+  if (!res.ok) throw await apiError(res, 'Failed to fetch account balance')
   return res.json()
 }
 
@@ -593,8 +614,7 @@ export async function deleteTransaction(id: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to delete transaction')
+  if (!res.ok) throw await apiError(res, 'Failed to delete transaction')
 }
 
 export async function patchTransaction(
@@ -607,8 +627,7 @@ export async function patchTransaction(
     credentials: 'include',
     body: JSON.stringify(updates),
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to update transaction')
+  if (!res.ok) throw await apiError(res, 'Failed to update transaction')
   return res.json()
 }
 
@@ -622,8 +641,7 @@ export async function patchPosting(
     credentials: 'include',
     body: JSON.stringify(updates),
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to update posting')
+  if (!res.ok) throw await apiError(res, 'Failed to update posting')
   return res.json()
 }
 
@@ -654,23 +672,17 @@ export async function fetchMalformedFxSpends(): Promise<{
   const res = await fetch(`${BASE}/api/transactions/malformed-fx-spend`, {
     credentials: 'include',
   })
-  if (!res.ok)
-    throw new Error(
-      (await res.json()).error ?? 'Failed to load malformed transactions',
-    )
+  if (!res.ok) throw await apiError(res, 'Failed to load malformed transactions')
   return res.json()
 }
 
 // Repairs a single malformed cross-currency-spend transaction in place.
-export async function healFxSpend(
-  id: string,
-): Promise<{ postings: HealPosting[] }> {
+export async function healFxSpend(id: string): Promise<{ postings: HealPosting[] }> {
   const res = await fetch(`${BASE}/api/transactions/${id}/heal-fx-spend`, {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to repair transaction')
+  if (!res.ok) throw await apiError(res, 'Failed to repair transaction')
   return res.json()
 }
 
@@ -686,7 +698,7 @@ export type SpendingSummary = {
 export async function fetchSpendingSummary(
   from: string,
   to: string,
-  prefix?: string,
+  prefix?: string | undefined,
 ): Promise<SpendingSummary> {
   const params = new URLSearchParams({ from, to })
   if (prefix) params.set('prefix', prefix)
@@ -698,13 +710,10 @@ export async function fetchSpendingSummary(
 
 export type MonthlySpend = { month: string; total: Record<string, string> }
 
-export async function fetchMonthlySpend(
-  months: number,
-): Promise<MonthlySpend[]> {
-  const res = await fetch(
-    `${BASE}/api/reports/monthly-spend?months=${months}`,
-    { credentials: 'include' },
-  )
+export async function fetchMonthlySpend(months: number): Promise<MonthlySpend[]> {
+  const res = await fetch(`${BASE}/api/reports/monthly-spend?months=${months}`, {
+    credentials: 'include',
+  })
   return res.json()
 }
 
@@ -746,8 +755,7 @@ export async function createPosting(body: {
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create posting')
+  if (!res.ok) throw await apiError(res, 'Failed to create posting')
   return (await res.json()) as {
     id: string
     accountId: string
@@ -761,14 +769,12 @@ export async function deletePosting(id: string) {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to delete posting')
+  if (!res.ok) throw await apiError(res, 'Failed to delete posting')
 }
 
 // A posting's role within its transaction, derived by the backend classifier
 // (src/postings/roles.ts). Drives the narrated TransactionDetail view.
-export type PostingRole =
-  'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
+export type PostingRole = 'subject' | 'transfer' | 'conversion' | 'fee' | 'share'
 
 export type Posting = {
   id: string
@@ -792,7 +798,7 @@ export type Transaction = {
 
 export async function createTransaction(body: {
   date: string
-  description?: string
+  description?: string | undefined
   postings: { accountId: string; amount: string; currency: string }[]
 }): Promise<Transaction> {
   const res = await fetch(`${BASE}/api/transactions`, {
@@ -801,8 +807,7 @@ export async function createTransaction(body: {
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create transaction')
+  if (!res.ok) throw await apiError(res, 'Failed to create transaction')
   // A transaction landing inside an open gap is the revival rule: it pulls a dormant account
   // back into the reckoning, which changes what every rollup's as-of is computed over.
   bumpCoverage()
@@ -812,7 +817,7 @@ export async function createTransaction(body: {
 export async function createTransactionsBulk(
   txns: {
     date: string
-    description?: string
+    description?: string | undefined
     postings: { accountId: string; amount: string; currency: string }[]
   }[],
 ): Promise<Transaction[]> {
@@ -822,8 +827,7 @@ export async function createTransactionsBulk(
     credentials: 'include',
     body: JSON.stringify({ transactions: txns }),
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create transactions')
+  if (!res.ok) throw await apiError(res, 'Failed to create transactions')
   bumpCoverage()
   return res.json()
 }
@@ -832,17 +836,13 @@ export async function replacePostings(
   transactionId: string,
   postings: { accountId: string; amount: string; currency: string }[],
 ) {
-  const res = await fetch(
-    `${BASE}/api/transactions/${transactionId}/postings`,
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify({ postings }),
-    },
-  )
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to update postings')
+  const res = await fetch(`${BASE}/api/transactions/${transactionId}/postings`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    credentials: 'include',
+    body: JSON.stringify({ postings }),
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to update postings')
   return res.json()
 }
 
@@ -852,10 +852,9 @@ export async function fetchFxRate(
   from: string,
   to: string,
 ): Promise<{ date: string; from: string; to: string; rate: string } | null> {
-  const res = await fetch(
-    `${BASE}/api/fx-rates?${new URLSearchParams({ date, from, to })}`,
-    { credentials: 'include' },
-  )
+  const res = await fetch(`${BASE}/api/fx-rates?${new URLSearchParams({ date, from, to })}`, {
+    credentials: 'include',
+  })
   if (!res.ok) return null
   return res.json()
 }
@@ -871,10 +870,9 @@ export async function fetchFxRateAsOf(
   rate: string
   asOfDate: string
 } | null> {
-  const res = await fetch(
-    `${BASE}/api/fx-rates/as-of?${new URLSearchParams({ from, to })}`,
-    { credentials: 'include' },
-  )
+  const res = await fetch(`${BASE}/api/fx-rates/as-of?${new URLSearchParams({ from, to })}`, {
+    credentials: 'include',
+  })
   if (!res.ok) return null
   return res.json()
 }
@@ -900,25 +898,21 @@ export type ImportRule = {
 
 // Exactly one target per call. Sending a target on update replaces the existing one
 // wholesale — patching an account rule with a groupId clears its account, and vice versa.
-export type RuleTarget =
-  { accountId: string } | { groupId: string; categoryId?: string | null }
+export type RuleTarget = { accountId: string } | { groupId: string; categoryId?: string | null }
 
 export async function fetchRules(): Promise<ImportRule[]> {
   const res = await fetch(`${BASE}/api/rules`, { credentials: 'include' })
   return res.json()
 }
 
-export async function createRule(
-  body: { pattern: string } & RuleTarget,
-): Promise<ImportRule> {
+export async function createRule(body: { pattern: string } & RuleTarget): Promise<ImportRule> {
   const res = await fetch(`${BASE}/api/rules`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to create rule')
+  if (!res.ok) throw await apiError(res, 'Failed to create rule')
   return res.json()
 }
 
@@ -932,8 +926,7 @@ export async function updateRule(
     credentials: 'include',
     body: JSON.stringify(body),
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to update rule')
+  if (!res.ok) throw await apiError(res, 'Failed to update rule')
   return res.json()
 }
 
@@ -949,8 +942,7 @@ export async function approveRule(id: string): Promise<ImportRule> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to approve rule')
+  if (!res.ok) throw await apiError(res, 'Failed to approve rule')
   return res.json()
 }
 
@@ -959,8 +951,7 @@ export async function denyRule(id: string): Promise<ImportRule> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to deny rule')
+  if (!res.ok) throw await apiError(res, 'Failed to deny rule')
   return res.json()
 }
 
@@ -969,8 +960,7 @@ export async function reviveRule(id: string): Promise<ImportRule> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok)
-    throw new Error((await res.json()).error ?? 'Failed to revive rule')
+  if (!res.ok) throw await apiError(res, 'Failed to revive rule')
   return res.json()
 }
 
@@ -1003,16 +993,20 @@ export async function fetchActionRequired(accountId: string): Promise<{
 }
 
 export async function fetchTransactions(params?: {
-  from?: string
-  to?: string
-  accountId?: string
-  accountPath?: string
+  from?: string | undefined
+  to?: string | undefined
+  accountId?: string | undefined
+  accountPath?: string | undefined
+  // Only transactions with a genuine spend leg — the ones the spending totals are made of.
+  // With it, `accountPath` scopes the spend leg rather than any leg.
+  spending?: boolean | undefined
 }): Promise<Transaction[]> {
   const query = new URLSearchParams()
   if (params?.from) query.set('from', params.from)
   if (params?.to) query.set('to', params.to)
   if (params?.accountId) query.set('accountId', params.accountId)
   if (params?.accountPath) query.set('accountPath', params.accountPath)
+  if (params?.spending) query.set('spending', 'true')
   const qs = query.toString()
   const res = await fetch(`${BASE}/api/transactions${qs ? `?${qs}` : ''}`, {
     credentials: 'include',
@@ -1059,7 +1053,7 @@ export async function fetchGroups(): Promise<ExpenseGroup[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch groups')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch groups')
   return res.json()
 }
 
@@ -1067,7 +1061,7 @@ export async function fetchGroup(id: string): Promise<ExpenseGroup> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${id}`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Group not found')
+  if (!res.ok) throw await apiError(res, 'Group not found')
   return res.json()
 }
 
@@ -1078,7 +1072,7 @@ export async function createGroup(name: string): Promise<ExpenseGroup> {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
-  if (!res.ok) throw new Error('Failed to create group')
+  if (!res.ok) throw await apiError(res, 'Failed to create group')
   return res.json()
 }
 
@@ -1092,7 +1086,7 @@ export async function updateGroup(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(data),
   })
-  if (!res.ok) throw new Error('Failed to update group')
+  if (!res.ok) throw await apiError(res, 'Failed to update group')
   return res.json()
 }
 
@@ -1101,16 +1095,13 @@ export async function updateMemberWeight(
   userId: string,
   shareWeight: number,
 ): Promise<GroupMember> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/members/${userId}`,
-    {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ shareWeight }),
-    },
-  )
-  if (!res.ok) throw new Error('Failed to update share weight')
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/members/${userId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ shareWeight }),
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to update share weight')
   return res.json()
 }
 
@@ -1124,7 +1115,7 @@ export async function updateMyExpenseAccount(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ defaultExpenseAccountId }),
   })
-  if (!res.ok) throw new Error('Failed to update expense account')
+  if (!res.ok) throw await apiError(res, 'Failed to update expense account')
   return res.json()
 }
 
@@ -1133,32 +1124,27 @@ export async function deleteGroup(id: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to delete group')
+  if (!res.ok) throw await apiError(res, 'Failed to delete group')
 }
 
 // --- Fish-pie group categories (epic: fish-pie-categories) ---
 
-export async function fetchGroupCategories(
-  groupId: string,
-): Promise<GroupCategory[]> {
+export async function fetchGroupCategories(groupId: string): Promise<GroupCategory[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch categories')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch categories')
   return res.json()
 }
 
-export async function createGroupCategory(
-  groupId: string,
-  name: string,
-): Promise<GroupCategory> {
+export async function createGroupCategory(groupId: string, name: string): Promise<GroupCategory> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories`, {
     method: 'POST',
     credentials: 'include',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ name }),
   })
-  if (!res.ok) throw new Error('Failed to create category')
+  if (!res.ok) throw await apiError(res, 'Failed to create category')
   return res.json()
 }
 
@@ -1167,16 +1153,13 @@ export async function updateGroupCategory(
   categoryId: string,
   data: { name?: string; sortOrder?: number; archived?: boolean },
 ): Promise<GroupCategory> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}`,
-    {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(data),
-    },
-  )
-  if (!res.ok) throw new Error('Failed to update category')
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/categories/${categoryId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to update category')
   return res.json()
 }
 
@@ -1195,7 +1178,7 @@ export async function setCategoryMyMapping(
       body: JSON.stringify({ accountId }),
     },
   )
-  if (!res.ok) throw new Error('Failed to set category account')
+  if (!res.ok) throw await apiError(res, 'Failed to set category account')
   return res.json()
 }
 
@@ -1215,7 +1198,7 @@ export async function setCategoryWeights(
       body: JSON.stringify({ weights }),
     },
   )
-  if (!res.ok) throw new Error('Failed to set category weights')
+  if (!res.ok) throw await apiError(res, 'Failed to set category weights')
   return res.json()
 }
 
@@ -1227,24 +1210,19 @@ export type GroupInvite = {
   status: string
   createdAt: string
   resolvedAt: string | null
-  groupName?: string
-  inviterName?: string
+  groupName?: string | undefined
+  inviterName?: string | undefined
 }
 
-export async function fetchGroupInvites(
-  groupId: string,
-): Promise<GroupInvite[]> {
+export async function fetchGroupInvites(groupId: string): Promise<GroupInvite[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch invites')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch invites')
   return res.json()
 }
 
-export async function sendInvite(
-  groupId: string,
-  email: string,
-): Promise<GroupInvite> {
+export async function sendInvite(groupId: string, email: string): Promise<GroupInvite> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites`, {
     method: 'POST',
     credentials: 'include',
@@ -1252,31 +1230,24 @@ export async function sendInvite(
     body: JSON.stringify({ email }),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to send invite')
+    throw await apiError(res, 'Failed to send invite')
   }
   return res.json()
 }
 
-export async function cancelInvite(
-  groupId: string,
-  inviteId: string,
-): Promise<void> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/invites/${inviteId}`,
-    {
-      method: 'DELETE',
-      credentials: 'include',
-    },
-  )
-  if (!res.ok) throw new Error('Failed to cancel invite')
+export async function cancelInvite(groupId: string, inviteId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/invites/${inviteId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to cancel invite')
 }
 
 export async function fetchMyInvites(): Promise<GroupInvite[]> {
   const res = await fetch(`${BASE}/api/fish-pie/invites`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch invites')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch invites')
   return res.json()
 }
 
@@ -1285,7 +1256,7 @@ export async function acceptInvite(inviteId: string): Promise<GroupInvite> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to accept invite')
+  if (!res.ok) throw await apiError(res, 'Failed to accept invite')
   return res.json()
 }
 
@@ -1294,7 +1265,7 @@ export async function declineInvite(inviteId: string): Promise<GroupInvite> {
     method: 'POST',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to decline invite')
+  if (!res.ok) throw await apiError(res, 'Failed to decline invite')
   return res.json()
 }
 
@@ -1328,7 +1299,7 @@ export async function fetchExpenses(groupId: string): Promise<GroupExpense[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch expenses')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch expenses')
   return res.json()
 }
 
@@ -1342,7 +1313,7 @@ export async function updateMyPaymentAccount(
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ defaultPaymentAccountId }),
   })
-  if (!res.ok) throw new Error('Failed to update payment account')
+  if (!res.ok) throw await apiError(res, 'Failed to update payment account')
   return res.json()
 }
 
@@ -1353,9 +1324,9 @@ export async function createExpense(
     amount: string
     currency: string
     date: string
-    paidByUserId?: string
+    paidByUserId?: string | undefined
     paymentAccountId: string
-    categoryId?: string | null
+    categoryId?: string | null | undefined
   },
 ): Promise<GroupExpense> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses`, {
@@ -1365,8 +1336,7 @@ export async function createExpense(
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create expense')
+    throw await apiError(res, 'Failed to create expense')
   }
   return res.json()
 }
@@ -1375,43 +1345,33 @@ export async function updateExpense(
   groupId: string,
   expenseId: string,
   body: {
-    description?: string
-    amount?: string
-    currency?: string
-    date?: string
-    paidByUserId?: string
-    splits?: { userId: string; shareWeight: number }[]
-    categoryId?: string | null
+    description?: string | undefined
+    amount?: string | undefined
+    currency?: string | undefined
+    date?: string | undefined
+    paidByUserId?: string | undefined
+    splits?: { userId: string; shareWeight: number }[] | undefined
+    categoryId?: string | null | undefined
   },
 ): Promise<GroupExpense> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`,
-    {
-      method: 'PATCH',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  )
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
+    method: 'PATCH',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to update expense')
+    throw await apiError(res, 'Failed to update expense')
   }
   return res.json()
 }
 
-export async function deleteExpense(
-  groupId: string,
-  expenseId: string,
-): Promise<void> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`,
-    {
-      method: 'DELETE',
-      credentials: 'include',
-    },
-  )
-  if (!res.ok) throw new Error('Failed to delete expense')
+export async function deleteExpense(groupId: string, expenseId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/expenses/${expenseId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to delete expense')
 }
 
 export async function removeGroupExpense(expenseId: string): Promise<void> {
@@ -1419,7 +1379,7 @@ export async function removeGroupExpense(expenseId: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to remove from group')
+  if (!res.ok) throw await apiError(res, 'Failed to remove from group')
 }
 
 export type BalanceTransfer = {
@@ -1437,13 +1397,11 @@ export type CurrencyBalance = {
   transfers: BalanceTransfer[]
 }
 
-export async function fetchBalances(
-  groupId: string,
-): Promise<CurrencyBalance[]> {
+export async function fetchBalances(groupId: string): Promise<CurrencyBalance[]> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/balances`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to fetch balances')
+  if (!res.ok) throw await apiError(res, 'Failed to fetch balances')
   return res.json()
 }
 
@@ -1458,13 +1416,11 @@ export type GroupOverview = {
   balances: CurrencyBalance[]
 }
 
-export async function fetchGroupOverview(
-  groupId: string,
-): Promise<GroupOverview> {
+export async function fetchGroupOverview(groupId: string): Promise<GroupOverview> {
   const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/overview`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to load group')
+  if (!res.ok) throw await apiError(res, 'Failed to load group')
   return res.json()
 }
 
@@ -1492,14 +1448,11 @@ export type GroupSettlement = {
   deletedAt: string | null
 }
 
-export async function fetchSettlements(
-  groupId: string,
-): Promise<GroupSettlement[]> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/settlements`,
-    { credentials: 'include' },
-  )
-  if (!res.ok) throw new Error('Failed to fetch settlements')
+export async function fetchSettlements(groupId: string): Promise<GroupSettlement[]> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, {
+    credentials: 'include',
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to fetch settlements')
   return res.json()
 }
 
@@ -1511,22 +1464,18 @@ export async function createSettlement(
     amount: string
     currency: string
     date: string
-    note?: string
+    note?: string | undefined
     payerAccountId: string
   },
 ): Promise<GroupSettlement> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/settlements`,
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  )
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create settlement')
+    throw await apiError(res, 'Failed to create settlement')
   }
   return res.json()
 }
@@ -1546,24 +1495,17 @@ export async function confirmSettlement(
     },
   )
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+    throw await apiError(res, 'Failed to confirm settlement')
   }
   return res.json()
 }
 
-export async function deleteSettlement(
-  groupId: string,
-  settlementId: string,
-): Promise<void> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}`,
-    {
-      method: 'DELETE',
-      credentials: 'include',
-    },
-  )
-  if (!res.ok) throw new Error('Failed to delete settlement')
+export async function deleteSettlement(groupId: string, settlementId: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/${settlementId}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to delete settlement')
 }
 
 // One debt being settled. Native lines repeat the debt currency/amount in the
@@ -1574,7 +1516,7 @@ export type BatchSettlementLine = {
   debtCurrency: string
   settledAmount: string
   settledCurrency: string
-  fxRate?: string
+  fxRate?: string | undefined
 }
 
 export async function createSettlementBatch(
@@ -1582,22 +1524,18 @@ export async function createSettlementBatch(
   body: {
     payerAccountId: string
     date: string
-    note?: string
+    note?: string | undefined
     lines: BatchSettlementLine[]
   },
 ): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
-  const res = await fetch(
-    `${BASE}/api/fish-pie/groups/${groupId}/settlements/batch`,
-    {
-      method: 'POST',
-      credentials: 'include',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(body),
-    },
-  )
+  const res = await fetch(`${BASE}/api/fish-pie/groups/${groupId}/settlements/batch`, {
+    method: 'POST',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create settlement')
+    throw await apiError(res, 'Failed to create settlement')
   }
   return res.json()
 }
@@ -1617,8 +1555,7 @@ export async function confirmSettlementBatch(
     },
   )
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+    throw await apiError(res, 'Failed to confirm settlement')
   }
   return res.json()
 }
@@ -1686,7 +1623,7 @@ export type CatchUpPayload = {
 
 export async function fetchCatchUp(): Promise<CatchUpPayload> {
   const res = await fetch(`${BASE}/api/catch-up`, { credentials: 'include' })
-  if (!res.ok) throw new Error('Failed to load catch-up status')
+  if (!res.ok) throw await apiError(res, 'Failed to load catch-up status')
   return res.json()
 }
 
@@ -1707,7 +1644,7 @@ export async function fetchCoverageStatus(): Promise<CoverageStatusPayload> {
   const res = await fetch(`${BASE}/api/coverage/accounts`, {
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to load account coverage')
+  if (!res.ok) throw await apiError(res, 'Failed to load account coverage')
   return res.json()
 }
 
@@ -1726,15 +1663,12 @@ export type MonthCoveragePayload = {
  * nothing about a hole behind it, and a month in that hole is unrecorded however recent the
  * edge is. `from` and `to` are inclusive `YYYY-MM`.
  */
-export async function fetchMonthCoverage(
-  from: string,
-  to: string,
-): Promise<MonthCoveragePayload> {
+export async function fetchMonthCoverage(from: string, to: string): Promise<MonthCoveragePayload> {
   const res = await fetch(
     `${BASE}/api/coverage/months?from=${encodeURIComponent(from)}&to=${encodeURIComponent(to)}`,
     { credentials: 'include' },
   )
-  if (!res.ok) throw new Error('Failed to load month coverage')
+  if (!res.ok) throw await apiError(res, 'Failed to load month coverage')
   return res.json()
 }
 
@@ -1771,14 +1705,13 @@ export type AccountCoverage = {
 
 export async function fetchAccountCoverage(
   accountId: string,
-  days?: number,
+  days?: number | undefined,
 ): Promise<AccountCoverage> {
   const query = days ? `?days=${days}` : ''
-  const res = await fetch(
-    `${BASE}/api/accounts/${accountId}/coverage${query}`,
-    { credentials: 'include' },
-  )
-  if (!res.ok) throw new Error('Failed to load coverage')
+  const res = await fetch(`${BASE}/api/accounts/${accountId}/coverage${query}`, {
+    credentials: 'include',
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to load coverage')
   return res.json()
 }
 
@@ -1787,7 +1720,7 @@ export async function createCoverage(body: {
   fromDate: string
   throughDate: string
   source: CoverageSource
-  note?: string
+  note?: string | undefined
 }): Promise<CoverageAssertion> {
   const res = await fetch(`${BASE}/api/coverage`, {
     method: 'POST',
@@ -1796,8 +1729,7 @@ export async function createCoverage(body: {
     body: JSON.stringify(body),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to record coverage')
+    throw await apiError(res, 'Failed to record coverage')
   }
   // Here rather than at the call site: the status bar reports coverage on every screen, and
   // the writes are spread across the import flow, the catch-up hub and the reconcile modal.
@@ -1810,7 +1742,7 @@ export async function deleteCoverage(id: string): Promise<void> {
     method: 'DELETE',
     credentials: 'include',
   })
-  if (!res.ok) throw new Error('Failed to withdraw coverage')
+  if (!res.ok) throw await apiError(res, 'Failed to withdraw coverage')
   bumpCoverage()
 }
 
@@ -1838,8 +1770,7 @@ export async function updateCoverageConfig(
     body: JSON.stringify(patch),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to update coverage config')
+    throw await apiError(res, 'Failed to update coverage config')
   }
   // `tracked: false` removes the account as a contributor outright, which moves every as-of
   // computed over it.
@@ -1864,8 +1795,7 @@ export async function recordReconcileCoverage(
     body: JSON.stringify({ accountId, throughDate }),
   })
   if (!res.ok) {
-    const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to record coverage')
+    throw await apiError(res, 'Failed to record coverage')
   }
   bumpCoverage()
   return res.json()

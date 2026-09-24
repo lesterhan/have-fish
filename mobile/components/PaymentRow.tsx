@@ -1,5 +1,5 @@
-import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { Ionicons } from '@expo/vector-icons'
+import { Pressable, StyleSheet, Text, View } from 'react-native'
 import type { ExpenseGroup } from '@/lib/api'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'

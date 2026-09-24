@@ -21,7 +21,13 @@ interface Rgb {
  * token fails loudly in dev rather than rendering a transparent surface. */
 export function hexToRgb(hex: string): Rgb {
   const h = hex.replace('#', '').trim()
-  const full = h.length === 3 ? h.split('').map((c) => c + c).join('') : h
+  const full =
+    h.length === 3
+      ? h
+          .split('')
+          .map((c) => c + c)
+          .join('')
+      : h
   if (full.length !== 6 || /[^0-9a-fA-F]/.test(full)) {
     throw new Error(`color: expected #rgb or #rrggbb, got "${hex}"`)
   }

@@ -34,7 +34,8 @@
     } else {
       accountId = ''
       // Pre-select the only group when there is one — the picker would be a formality.
-      if (!groupId && groups.length === 1) groupId = groups[0].id
+      const only = groups.length === 1 ? groups[0] : undefined
+      if (!groupId && only) groupId = only.id
     }
   }
 

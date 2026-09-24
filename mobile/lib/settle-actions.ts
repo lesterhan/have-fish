@@ -60,10 +60,7 @@ export type IncomingBatch = {
   rows: GroupSettlement[]
 }
 
-export function incomingBatches(
-  settlements: GroupSettlement[],
-  myUserId: string,
-): IncomingBatch[] {
+export function incomingBatches(settlements: GroupSettlement[], myUserId: string): IncomingBatch[] {
   const groups = new Map<string, IncomingBatch>()
   for (const s of pendingIncoming(settlements, myUserId)) {
     const key = s.batchId ?? `single:${s.id}`
@@ -96,7 +93,10 @@ export function receiptLines(rows: GroupSettlement[]): { currency: string; amoun
     if (!Number.isFinite(amount)) continue
     totals.set(currency, (totals.get(currency) ?? 0) + amount)
   }
-  return [...totals.entries()].map(([currency, amount]) => ({ currency, amount: amount.toFixed(2) }))
+  return [...totals.entries()].map(([currency, amount]) => ({
+    currency,
+    amount: amount.toFixed(2),
+  }))
 }
 
 export function settleAction(
@@ -106,9 +106,9 @@ export function settleAction(
 ): SettleAction {
   // A pending outgoing batch wins: the balance still shows the debt until the
   // receiver confirms, so we must not offer "Settle up" again.
-  const pending = pendingOutgoing(settlements, myUserId)
-  if (pending.length > 0) {
-    return { kind: 'pending', receiverName: pending[0].toUserName ?? 'them' }
+  const [firstPending] = pendingOutgoing(settlements, myUserId)
+  if (firstPending) {
+    return { kind: 'pending', receiverName: firstPending.toUserName ?? 'them' }
   }
 
   if (owedDebts(balances, myUserId).length > 0) return { kind: 'settle' }

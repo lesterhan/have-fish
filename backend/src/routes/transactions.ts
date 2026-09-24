@@ -1,13 +1,18 @@
+import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db'
-import { transactions, postings, groupExpenses, expenseGroups } from '../db/schema'
-import { eq, isNull, and, inArray, gte, lte, or, like, desc } from 'drizzle-orm'
-import { accounts } from '../db/schema'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
-import { loadHealContext, findMalformedFxSpends, healFxSpend } from '../postings/heal-service'
+import { db } from '../db'
+import { returnedRow } from '../db/returning'
+import { accounts, expenseGroups, groupExpenses, postings, transactions } from '../db/schema'
+import { fail, failWith } from '../errors'
+import { underPathCondition } from '../postings/account-type-sql'
 import { loadClassifySettings } from '../postings/classify-service'
+import { findMalformedFxSpends, healFxSpend, loadHealContext } from '../postings/heal-service'
 import { classifyPostings, type PostingRole } from '../postings/roles'
+import { spendRows } from '../postings/spend-service'
+import { amountLike, as, asField, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -23,7 +28,7 @@ async function enrichPostings<T extends { id: string; accountId: string }>(
   if (rows.length === 0) return []
   const accountIds = [...new Set(rows.map((r) => r.accountId))]
   const accountRows = await db
-    .select({ id: accounts.id, path: accounts.path, name: accounts.name })
+    .select({ id: accounts.id, path: accounts.path, name: accounts.name, type: accounts.type })
     .from(accounts)
     .where(and(inArray(accounts.id, accountIds), eq(accounts.userId, userId)))
   const byId = new Map(accountRows.map((a) => [a.id, a]))
@@ -33,7 +38,14 @@ async function enrichPostings<T extends { id: string; accountId: string }>(
     accountName: byId.get(r.accountId)?.name ?? null,
   }))
   const settings = await loadClassifySettings(userId)
-  const roleById = classifyPostings(withPath, settings)
+  // The classifier reads the account's stored type override; the shape this returns does not
+  // carry it. On its own the override is a half-answer — null means "infer from the path",
+  // which needs the user's configured roots — and `role` is the whole one. So the classifier
+  // gets its own view of the same rows rather than a field stripped back off on the way out.
+  const roleById = classifyPostings(
+    withPath.map((r) => ({ ...r, accountType: byId.get(r.accountId)?.type ?? null })),
+    settings,
+  )
   return withPath.map((r) => ({ ...r, role: roleById.get(r.id)! }))
 }
 
@@ -46,7 +58,9 @@ async function accountsOwnedBy(userId: string, accountIds: string[]): Promise<bo
   const owned = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(inArray(accounts.id, unique), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .where(
+      and(inArray(accounts.id, unique), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
+    )
   return owned.length === unique.length
 }
 
@@ -67,10 +81,18 @@ app.get('/malformed-fx-spend', async (c) => {
     const after = ps.map((p) => {
       if (!canHeal) return p
       if (p.id === finding.sourceBridgePostingId || p.id === finding.targetBridgePostingId) {
-        return { ...p, accountId: ctx.conversionAccountId!, accountPath: ctx.conversionAccountPath ?? p.accountPath }
+        return {
+          ...p,
+          accountId: ctx.conversionAccountId!,
+          accountPath: ctx.conversionAccountPath ?? p.accountPath,
+        }
       }
       if (p.id === finding.phantomPostingId) {
-        return { ...p, accountId: finding.expenseAccountId, accountPath: finding.expenseAccountPath }
+        return {
+          ...p,
+          accountId: finding.expenseAccountId,
+          accountPath: finding.expenseAccountPath,
+        }
       }
       return p
     })
@@ -92,6 +114,10 @@ app.get('/malformed-fx-spend', async (c) => {
 // Filter by account: ?accountId=... (exact account UUID match)
 //                   ?accountPath=... (matches the account and all children by path prefix)
 // Filter by date: ?from=YYYY-MM-DD and/or ?to=YYYY-MM-DD (both inclusive, both optional)
+// Filter to spending: ?spending=true keeps only transactions with a genuine spend leg, by the
+//                   same definition the spending reports sum (spend-service.ts). With it,
+//                   `accountPath` scopes the spend leg rather than any leg: the list beside a
+//                   drilled-in category shows what that category's figure is made of.
 app.get('/', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.query('accountId')
@@ -101,18 +127,27 @@ app.get('/', async (c) => {
   const to = c.req.query('to')
 
   const dateRe = /^\d{4}-\d{2}-\d{2}$/
-  if (from && !dateRe.test(from)) return c.json({ error: 'Invalid from date, expected YYYY-MM-DD' }, 400)
-  if (to && !dateRe.test(to)) return c.json({ error: 'Invalid to date, expected YYYY-MM-DD' }, 400)
+  if (from && !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
+  if (to && !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
+
+  const spendingParam = c.req.query('spending')
+  if (spendingParam !== undefined && spendingParam !== 'true') {
+    return fail(c, 'FIELD_NOT_BOOLEAN', { field: 'spending' })
+  }
+  const spending = spendingParam === 'true'
+  const classifySettings = await loadClassifySettings(userId)
 
   let txRows = await db
     .select()
     .from(transactions)
-    .where(and(
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      from ? gte(transactions.date, new Date(from)) : undefined,
-      to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
-    ))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        from ? gte(transactions.date, new Date(from)) : undefined,
+        to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
+      ),
+    )
     .orderBy(desc(transactions.date))
 
   if (accountId) {
@@ -126,22 +161,30 @@ app.get('/', async (c) => {
     txRows = txRows.filter((tx) => txIds.includes(tx.id))
   }
 
-  if (accountPath) {
+  if (spending) {
+    const spendTxIds = new Set(
+      (
+        await spendRows(userId, classifySettings, {
+          ...(accountPath ? { prefix: accountPath } : {}),
+          ...(from ? { from: new Date(from) } : {}),
+          ...(to ? { to: new Date(`${to}T23:59:59.999Z`) } : {}),
+        })
+      ).map((r) => r.transactionId),
+    )
+    txRows = txRows.filter((tx) => spendTxIds.has(tx.id))
+  } else if (accountPath) {
     // Match the account itself and all children (e.g. "expenses:food" matches
     // "expenses:food" and "expenses:food:restaurant").
-    // Escape LIKE special chars so user input can't broaden the match.
-    const escaped = accountPath.replace(/[%_\\]/g, '\\$&')
     const matchingAccounts = await db
       .select({ id: accounts.id })
       .from(accounts)
-      .where(and(
-        eq(accounts.userId, userId),
-        isNull(accounts.deletedAt),
-        or(
-          eq(accounts.path, accountPath),
-          like(accounts.path, `${escaped}:%`),
+      .where(
+        and(
+          eq(accounts.userId, userId),
+          isNull(accounts.deletedAt),
+          underPathCondition(accountPath),
         ),
-      ))
+      )
     const accountIds = matchingAccounts.map((a) => a.id)
     if (accountIds.length === 0) return c.json([])
     const postingRows = await db
@@ -165,6 +208,9 @@ app.get('/', async (c) => {
       accountId: postings.accountId,
       accountPath: accounts.path,
       accountName: accounts.name,
+      // For the role classifier only; stripped before the rows go on the wire, for the
+      // reason given in `enrichPostings`.
+      accountType: accounts.type,
       amount: postings.amount,
       currency: postings.currency,
       createdAt: postings.createdAt,
@@ -177,13 +223,15 @@ app.get('/', async (c) => {
 
   // Derive each posting's role within its transaction (subject/transfer/conversion/fee/share)
   // so the read payload narrates a complex multi-leg transaction instead of dumping raw legs.
-  const classifySettings = await loadClassifySettings(userId)
   const roleById = classifyPostings(postingRows, classifySettings)
 
   // Group postings by transactionId and embed into each transaction, with role attached
-  type EmbeddedPosting = (typeof postingRows)[number] & { role: PostingRole }
+  type EmbeddedPosting = Omit<(typeof postingRows)[number], 'accountType'> & { role: PostingRole }
   const postingsByTx = postingRows.reduce<Record<string, EmbeddedPosting[]>>((acc, p) => {
-    ; (acc[p.transactionId] ??= []).push({ ...p, role: roleById.get(p.id)! })
+    const forTx = acc[p.transactionId] ?? []
+    const { accountType: _classifierInput, ...wire } = p
+    forTx.push({ ...wire, role: roleById.get(p.id)! })
+    acc[p.transactionId] = forTx
     return acc
   }, {})
 
@@ -226,19 +274,47 @@ app.get('/', async (c) => {
 // Rules:
 //   - At least two postings required
 //   - Postings must balance to zero per currency (sum of amounts per currency = 0)
+// A calendar day, the shape the `date` column stores. The PATCH route below has always
+// checked this; the create routes reached the column with whatever arrived and let
+// Postgres raise, so this is the same rule applied in all three places.
+const isoDate = z
+  .string({ error: asField('FIELD_NOT_DATE') })
+  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: asField('FIELD_NOT_DATE') })
+
+// One posting as a request carries it.
+//
+// `currency` is only checked for being a string here. Whether it is a currency this
+// ledger supports is the handler's question below, because the answer carries the
+// offending code and, in a bulk request, which transaction it came from — neither of
+// which a per-field schema can see.
+//
+// `amount` arrives as a string from the web app and as a number from a few callers, and
+// the numeric column takes either; normalising to a string here means the balance
+// arithmetic downstream has one type to read rather than two.
+const PostingInput = z.object({
+  accountId: z.uuid({ error: asField('FIELD_NOT_UUID') }),
+  amount: amountLike,
+  currency: z.string({ error: asField('FIELD_NOT_STRING') }),
+})
+
+const tooFew = as('TOO_FEW_POSTINGS')
+
+const NewTransaction = z.object({
+  date: isoDate,
+  description: z.string().nullish(),
+  postings: z.array(PostingInput, { error: tooFew }).min(2, { error: tooFew }),
+})
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { date, description, postings: postingInputs } = body
-
-  if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
-    return c.json({ error: 'At least two postings are required' }, 400)
-  }
+  const parsed = await parseBody(c, NewTransaction)
+  if (!parsed.ok) return parsed.response
+  const { date, description, postings: postingInputs } = parsed.data
 
   // Validate currency codes
   for (const p of postingInputs) {
     if (!isValidCurrency(p.currency)) {
-      return c.json({ error: `Unsupported currency: ${p.currency}` }, 400)
+      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency })
     }
   }
 
@@ -249,30 +325,35 @@ app.post('/', async (c) => {
   }
   for (const [currency, sum] of Object.entries(balances)) {
     if (Math.abs(sum) > 0.001) {
-      return c.json({ error: `Postings do not balance for currency ${currency}: sum is ${sum}` }, 400)
+      return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, sum })
     }
   }
 
   // Verify every referenced account belongs to this user before inserting.
-  const inputAccountIds = postingInputs.map((p: { accountId: string }) => p.accountId)
+  const inputAccountIds = postingInputs.map((p) => p.accountId)
   if (!(await accountsOwnedBy(userId, inputAccountIds))) {
-    return c.json({ error: 'One or more accounts not found' }, 404)
+    return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
 
   const created = await db.transaction(async (tx) => {
-    const [newTx] = await tx
-      .insert(transactions)
-      .values({ userId, date: new Date(date), description })
-      .returning()
+    const newTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({ userId, date: new Date(date), description: description ?? null })
+        .returning(),
+      'insert transactions',
+    )
 
     const newPostings = await tx
       .insert(postings)
-      .values(postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
-        transactionId: newTx.id,
-        accountId: p.accountId,
-        amount: p.amount,
-        currency: p.currency,
-      })))
+      .values(
+        postingInputs.map((p) => ({
+          transactionId: newTx.id,
+          accountId: p.accountId,
+          amount: p.amount,
+          currency: p.currency,
+        })),
+      )
       .returning()
 
     return { ...newTx, postings: newPostings }
@@ -286,24 +367,38 @@ app.post('/', async (c) => {
 // Creates multiple transactions atomically — all succeed or all fail.
 // Request body: { transactions: Array<{ date, description?, postings }> }
 // Same posting rules as POST /api/transactions apply to each entry.
+// The per-entry `postings` array deliberately has no `.min(2)`: too few postings is
+// reported with the index of the entry that is short, and the loop below is what knows it.
+const emptyBatch = as('FIELD_EMPTY', { field: 'transactions' })
+
+const BulkTransactions = z.object({
+  transactions: z
+    .array(
+      z.object({
+        date: isoDate,
+        description: z.string().nullish(),
+        postings: z.array(PostingInput, { error: tooFew }),
+      }),
+      { error: emptyBatch },
+    )
+    .min(1, { error: emptyBatch }),
+})
+
 app.post('/bulk', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const { transactions: txInputs } = body
-
-  if (!Array.isArray(txInputs) || txInputs.length === 0) {
-    return c.json({ error: 'transactions array is required and must be non-empty' }, 400)
-  }
+  const parsed = await parseBody(c, BulkTransactions)
+  if (!parsed.ok) return parsed.response
+  const { transactions: txInputs } = parsed.data
 
   // Validate each transaction before touching the DB
-  for (let i = 0; i < txInputs.length; i++) {
-    const { postings: postingInputs } = txInputs[i]
-    if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
-      return c.json({ error: `Transaction at index ${i}: at least two postings are required` }, 400)
+  for (const [i, entry] of txInputs.entries()) {
+    const { postings: postingInputs } = entry
+    if (postingInputs.length < 2) {
+      return fail(c, 'TOO_FEW_POSTINGS', { index: i })
     }
     for (const p of postingInputs) {
       if (!isValidCurrency(p.currency)) {
-        return c.json({ error: `Transaction at index ${i}: unsupported currency ${p.currency}` }, 400)
+        return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency, index: i })
       }
     }
     const balances: Record<string, number> = {}
@@ -312,34 +407,37 @@ app.post('/bulk', async (c) => {
     }
     for (const [currency, sum] of Object.entries(balances)) {
       if (Math.abs(sum) > 0.001) {
-        return c.json({ error: `Transaction at index ${i}: postings do not balance for currency ${currency}` }, 400)
+        return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, index: i })
       }
     }
   }
 
   // Verify every referenced account (across all transactions) belongs to this user.
-  const allAccountIds = txInputs.flatMap((t: { postings: { accountId: string }[] }) =>
-    t.postings.map((p) => p.accountId),
-  )
+  const allAccountIds = txInputs.flatMap((t) => t.postings.map((p) => p.accountId))
   if (!(await accountsOwnedBy(userId, allAccountIds))) {
-    return c.json({ error: 'One or more accounts not found' }, 404)
+    return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
 
   const created = await db.transaction(async (tx) => {
     const results = []
     for (const { date, description, postings: postingInputs } of txInputs) {
-      const [newTx] = await tx
-        .insert(transactions)
-        .values({ userId, date: new Date(date), description })
-        .returning()
+      const newTx = returnedRow(
+        await tx
+          .insert(transactions)
+          .values({ userId, date: new Date(date), description: description ?? null })
+          .returning(),
+        'insert transactions',
+      )
       const newPostings = await tx
         .insert(postings)
-        .values(postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
-          transactionId: newTx.id,
-          accountId: p.accountId,
-          amount: p.amount,
-          currency: p.currency,
-        })))
+        .values(
+          postingInputs.map((p) => ({
+            transactionId: newTx.id,
+            accountId: p.accountId,
+            amount: p.amount,
+            currency: p.currency,
+          })),
+        )
         .returning()
       results.push({ ...newTx, postings: newPostings })
     }
@@ -347,43 +445,53 @@ app.post('/bulk', async (c) => {
   })
 
   // Enrich every posting across all created transactions in one pass, then regroup.
-  const enriched = await enrichPostings(userId, created.flatMap((t) => t.postings))
+  const enriched = await enrichPostings(
+    userId,
+    created.flatMap((t) => t.postings),
+  )
   const byTx = new Map<string, typeof enriched>()
   for (const p of enriched) {
     const list = byTx.get(p.transactionId)
     if (list) list.push(p)
     else byTx.set(p.transactionId, [p])
   }
-  return c.json(created.map((t) => ({ ...t, postings: byTx.get(t.id) ?? [] })), 201)
+  return c.json(
+    created.map((t) => ({ ...t, postings: byTx.get(t.id) ?? [] })),
+    201,
+  )
 })
 
 // PATCH /api/transactions/:id
 // Partial update for description and/or date. Ignores unknown fields.
+const TransactionPatch = z.object({
+  description: z.string().nullish(),
+  date: isoDate.optional(),
+})
+
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
-  const body = await c.req.json()
+  const parsed = await parseBody(c, TransactionPatch)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const updates: { description?: string | null; date?: Date } = {}
   if ('description' in body) updates.description = body.description ?? null
-  if ('date' in body) {
-    if (!/^\d{4}-\d{2}-\d{2}$/.test(body.date)) {
-      return c.json({ error: 'Invalid date format, expected YYYY-MM-DD' }, 400)
-    }
-    updates.date = new Date(body.date)
-  }
+  if (body.date !== undefined) updates.date = new Date(body.date)
 
   if (Object.keys(updates).length === 0) {
-    return c.json({ error: 'No updatable fields provided' }, 400)
+    return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
   const [updated] = await db
     .update(transactions)
     .set(updates)
-    .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .where(
+      and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)),
+    )
     .returning()
 
-  if (!updated) return c.json({ error: 'Transaction not found' }, 404)
+  if (!updated) return fail(c, 'TRANSACTION_NOT_FOUND')
   return c.json(updated)
 })
 
@@ -395,21 +503,21 @@ app.patch('/:id', async (c) => {
 //   - At least two postings required
 //   - Postings must balance to zero per currency
 //   - Verifies the transaction belongs to the authenticated user
+const ReplacePostings = z.object({
+  postings: z.array(PostingInput, { error: tooFew }).min(2, { error: tooFew }),
+})
+
 app.post('/:id/postings', async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
-  const body = await c.req.json()
-  const { postings: postingInputs } = body
-
-  // Validate inputs
-  if (!Array.isArray(postingInputs) || postingInputs.length < 2) {
-    return c.json({ error: 'At least two postings are required' }, 400)
-  }
+  const parsed = await parseBody(c, ReplacePostings)
+  if (!parsed.ok) return parsed.response
+  const { postings: postingInputs } = parsed.data
 
   // Validate currency codes
   for (const p of postingInputs) {
     if (!isValidCurrency(p.currency)) {
-      return c.json({ error: `Unsupported currency: ${p.currency}` }, 400)
+      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency })
     }
   }
 
@@ -420,7 +528,7 @@ app.post('/:id/postings', async (c) => {
   }
   for (const [currency, sum] of Object.entries(balances)) {
     if (Math.abs(sum) > 0.001) {
-      return c.json({ error: `Postings do not balance for currency ${currency}: sum is ${sum}` }, 400)
+      return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, sum })
     }
   }
 
@@ -428,14 +536,16 @@ app.post('/:id/postings', async (c) => {
   const [tx] = await db
     .select()
     .from(transactions)
-    .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+    .where(
+      and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)),
+    )
 
-  if (!tx) return c.json({ error: 'Transaction not found' }, 404)
+  if (!tx) return fail(c, 'TRANSACTION_NOT_FOUND')
 
   // Verify all accounts exist and belong to this user
-  const inputAccountIds = postingInputs.map((p: { accountId: string }) => p.accountId)
+  const inputAccountIds = postingInputs.map((p) => p.accountId)
   if (!(await accountsOwnedBy(userId, inputAccountIds))) {
-    return c.json({ error: 'One or more accounts not found' }, 404)
+    return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
 
   // Atomically replace all postings
@@ -443,12 +553,14 @@ app.post('/:id/postings', async (c) => {
     await dbTx.delete(postings).where(eq(postings.transactionId, id))
     const newPostings = await dbTx
       .insert(postings)
-      .values(postingInputs.map((p: { accountId: string; amount: string; currency: string }) => ({
-        transactionId: id,
-        accountId: p.accountId,
-        amount: p.amount,
-        currency: p.currency,
-      })))
+      .values(
+        postingInputs.map((p) => ({
+          transactionId: id,
+          accountId: p.accountId,
+          amount: p.amount,
+          currency: p.currency,
+        })),
+      )
       .returning()
     return { ...tx, postings: newPostings }
   })
@@ -467,7 +579,7 @@ app.post('/:id/heal-fx-spend', async (c) => {
   const id = c.req.param('id')
   const ctx = await loadHealContext(userId)
   const result = await healFxSpend(userId, id, ctx)
-  if (!result.ok) return c.json({ error: result.error }, result.status)
+  if (!result.ok) return failWith(c, result.failure)
   return c.json({ postings: result.postings })
 })
 
@@ -483,7 +595,13 @@ app.delete('/:id', async (c) => {
     await tx
       .update(transactions)
       .set({ deletedAt: new Date() })
-      .where(and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)))
+      .where(
+        and(
+          eq(transactions.id, id),
+          eq(transactions.userId, userId),
+          isNull(transactions.deletedAt),
+        ),
+      )
   })
   return c.body(null, 204)
 })

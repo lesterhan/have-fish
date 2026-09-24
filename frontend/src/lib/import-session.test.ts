@@ -1,28 +1,27 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import { at } from './at'
 import {
-  STORAGE_KEY,
-  SESSION_VERSION,
-  parseCatchUpHandoff,
-  defaultCoverageRange,
-  MAX_AGE_DAYS,
-  MAX_SESSIONS,
-  pruneSessions,
-  isFresh,
-  loadSessions,
-  saveSession,
   clearSession,
-  latestSession,
+  defaultCoverageRange,
   describeAge,
   type ImportSession,
+  isFresh,
+  latestSession,
+  loadSessions,
+  MAX_AGE_DAYS,
+  MAX_SESSIONS,
+  parseCatchUpHandoff,
+  pruneSessions,
+  SESSION_VERSION,
   type SessionStorageLike,
+  STORAGE_KEY,
+  saveSession,
 } from './import-session'
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z')
 const DAY = 24 * 60 * 60 * 1000
 
-function fakeStorage(
-  initial?: string,
-): SessionStorageLike & { raw: () => string | null } {
+function fakeStorage(initial?: string): SessionStorageLike & { raw: () => string | null } {
   let value: string | null = initial ?? null
   return {
     getItem: () => value,
@@ -90,7 +89,7 @@ describe('session round-trip', () => {
     const session = makeSession()
 
     saveSession(session, NOW, storage)
-    const [restored] = loadSessions(NOW, storage)
+    const restored = at(loadSessions(NOW, storage))
 
     expect(restored).toEqual(session)
   })
@@ -98,13 +97,9 @@ describe('session round-trip', () => {
   it('preserves a hand-pointed currency mapping', () => {
     // RMB pointed at the CNY account — the case path derivation cannot express.
     const storage = fakeStorage()
-    saveSession(
-      makeSession({ currencyAccounts: { CAD: 'a-cad', RMB: 'a-cny' } }),
-      NOW,
-      storage,
-    )
+    saveSession(makeSession({ currencyAccounts: { CAD: 'a-cad', RMB: 'a-cny' } }), NOW, storage)
 
-    const [restored] = loadSessions(NOW, storage)
+    const restored = at(loadSessions(NOW, storage))
     expect(restored.currencyAccounts).toEqual({ CAD: 'a-cad', RMB: 'a-cny' })
   })
 
@@ -127,11 +122,11 @@ describe('session round-trip', () => {
     })
 
     saveSession(session, NOW, storage)
-    const [restored] = loadSessions(NOW, storage)
+    const restored = at(loadSessions(NOW, storage))
 
-    expect(restored.rowStates[0].groupId).toBe('group-1')
-    expect(restored.rowStates[0].skipped).toBe(true)
-    expect(restored.rowStates[0].source).toBe('user')
+    expect(at(restored.rowStates).groupId).toBe('group-1')
+    expect(at(restored.rowStates).skipped).toBe(true)
+    expect(at(restored.rowStates).source).toBe('user')
   })
 
   it('replaces the session for the same file rather than duplicating it', () => {
@@ -141,21 +136,13 @@ describe('session round-trip', () => {
 
     const sessions = loadSessions(NOW + 1000, storage)
     expect(sessions).toHaveLength(1)
-    expect(sessions[0].step).toBe('review')
+    expect(at(sessions).step).toBe('review')
   })
 
   it('keeps sessions for different files side by side', () => {
     const storage = fakeStorage()
-    saveSession(
-      makeSession({ fileHash: 'aaa', fileName: 'a.csv' }),
-      NOW,
-      storage,
-    )
-    saveSession(
-      makeSession({ fileHash: 'bbb', fileName: 'b.csv' }),
-      NOW + 1000,
-      storage,
-    )
+    saveSession(makeSession({ fileHash: 'aaa', fileName: 'a.csv' }), NOW, storage)
+    saveSession(makeSession({ fileHash: 'bbb', fileName: 'b.csv' }), NOW + 1000, storage)
 
     expect(loadSessions(NOW + 1000, storage)).toHaveLength(2)
   })
@@ -171,7 +158,7 @@ describe('clearing', () => {
 
     const remaining = loadSessions(NOW, storage)
     expect(remaining).toHaveLength(1)
-    expect(remaining[0].fileHash).toBe('bbb')
+    expect(at(remaining).fileHash).toBe('bbb')
   })
 
   it('removes the storage entry entirely once the last session is cleared', () => {
@@ -220,25 +207,15 @@ describe('pruning', () => {
   })
 
   it('drops entries missing required fields', () => {
-    expect(
-      pruneSessions([{ version: SESSION_VERSION, fileHash: 'x' }], NOW),
-    ).toHaveLength(0)
+    expect(pruneSessions([{ version: SESSION_VERSION, fileHash: 'x' }], NOW)).toHaveLength(0)
   })
 
   it('drops an entry with an unrecognized step', () => {
-    expect(
-      pruneSessions([{ ...makeSession(), step: 'nonsense' }], NOW),
-    ).toHaveLength(0)
+    expect(pruneSessions([{ ...makeSession(), step: 'nonsense' }], NOW)).toHaveLength(0)
   })
 
   it('accepts every step in the flow', () => {
-    for (const step of [
-      'file',
-      'accounts',
-      'sort',
-      'review',
-      'confirm',
-    ] as const) {
+    for (const step of ['file', 'accounts', 'sort', 'review', 'confirm'] as const) {
       expect(pruneSessions([makeSession({ step })], NOW)).toHaveLength(1)
     }
   })
@@ -271,7 +248,7 @@ describe('pruning', () => {
     const pruned = pruneSessions(many, NOW)
 
     expect(pruned).toHaveLength(MAX_SESSIONS)
-    expect(pruned[0].fileHash).toBe('hash-0')
+    expect(at(pruned).fileHash).toBe('hash-0')
   })
 
   it('ignores a stored value that is not an array', () => {
@@ -312,7 +289,7 @@ describe('resilience', () => {
 
     const sessions = loadSessions(NOW, storage)
     expect(sessions).toHaveLength(1)
-    expect(sessions[0].fileHash).toBe('aaa')
+    expect(at(sessions).fileHash).toBe('aaa')
   })
 
   it('writes under the documented storage key', () => {
@@ -332,16 +309,8 @@ describe('resilience', () => {
 describe('latestSession', () => {
   it('offers the most recently saved import', () => {
     const storage = fakeStorage()
-    saveSession(
-      makeSession({ fileHash: 'old', fileName: 'old.csv' }),
-      NOW - 5000,
-      storage,
-    )
-    saveSession(
-      makeSession({ fileHash: 'new', fileName: 'new.csv' }),
-      NOW,
-      storage,
-    )
+    saveSession(makeSession({ fileHash: 'old', fileName: 'old.csv' }), NOW - 5000, storage)
+    saveSession(makeSession({ fileHash: 'new', fileName: 'new.csv' }), NOW, storage)
 
     expect(latestSession(NOW, storage)?.fileName).toBe('new.csv')
   })
@@ -353,21 +322,11 @@ describe('latestSession', () => {
 
 describe('describeAge', () => {
   it('describes recent, hourly and daily ages', () => {
-    expect(describeAge(new Date(NOW - 30_000).toISOString(), NOW)).toBe(
-      'just now',
-    )
-    expect(describeAge(new Date(NOW - 5 * 60_000).toISOString(), NOW)).toBe(
-      '5 minutes ago',
-    )
-    expect(describeAge(new Date(NOW - 60_000).toISOString(), NOW)).toBe(
-      '1 minute ago',
-    )
-    expect(
-      describeAge(new Date(NOW - 3 * 60 * 60_000).toISOString(), NOW),
-    ).toBe('3 hours ago')
-    expect(describeAge(new Date(NOW - 2 * DAY).toISOString(), NOW)).toBe(
-      '2 days ago',
-    )
+    expect(describeAge(new Date(NOW - 30_000).toISOString(), NOW)).toBe('just now')
+    expect(describeAge(new Date(NOW - 5 * 60_000).toISOString(), NOW)).toBe('5 minutes ago')
+    expect(describeAge(new Date(NOW - 60_000).toISOString(), NOW)).toBe('1 minute ago')
+    expect(describeAge(new Date(NOW - 3 * 60 * 60_000).toISOString(), NOW)).toBe('3 hours ago')
+    expect(describeAge(new Date(NOW - 2 * DAY).toISOString(), NOW)).toBe('2 days ago')
   })
 })
 
@@ -376,42 +335,31 @@ describe('parseCatchUpHandoff', () => {
 
   it('reads a complete handoff', () => {
     expect(
-      parseCatchUpHandoff(
-        params('account=acct-1&from=2026-07-01&to=2026-07-31&return=catch-up'),
-      ),
+      parseCatchUpHandoff(params('account=acct-1&from=2026-07-01&to=2026-07-31&return=catch-up')),
     ).toEqual({ accountId: 'acct-1', from: '2026-07-01', to: '2026-07-31' })
   })
 
   // A half-populated handoff would write coverage for a range nobody asked for.
   it('refuses an incomplete handoff', () => {
-    expect(
-      parseCatchUpHandoff(params('account=acct-1&from=2026-07-01')),
-    ).toBeNull()
-    expect(
-      parseCatchUpHandoff(params('from=2026-07-01&to=2026-07-31')),
-    ).toBeNull()
+    expect(parseCatchUpHandoff(params('account=acct-1&from=2026-07-01'))).toBeNull()
+    expect(parseCatchUpHandoff(params('from=2026-07-01&to=2026-07-31'))).toBeNull()
     expect(parseCatchUpHandoff(params(''))).toBeNull()
   })
 
   it('refuses malformed dates', () => {
-    expect(
-      parseCatchUpHandoff(params('account=a&from=01/07/2026&to=2026-07-31')),
-    ).toBeNull()
-    expect(
-      parseCatchUpHandoff(params('account=a&from=2026-02-30&to=2026-07-31')),
-    ).toBeNull()
+    expect(parseCatchUpHandoff(params('account=a&from=01/07/2026&to=2026-07-31'))).toBeNull()
+    expect(parseCatchUpHandoff(params('account=a&from=2026-02-30&to=2026-07-31'))).toBeNull()
   })
 
   it('refuses an inverted range', () => {
-    expect(
-      parseCatchUpHandoff(params('account=a&from=2026-07-31&to=2026-07-01')),
-    ).toBeNull()
+    expect(parseCatchUpHandoff(params('account=a&from=2026-07-31&to=2026-07-01'))).toBeNull()
   })
 
   it('accepts a single-day range', () => {
-    expect(
-      parseCatchUpHandoff(params('account=a&from=2026-07-05&to=2026-07-05')),
-    ).toMatchObject({ from: '2026-07-05', to: '2026-07-05' })
+    expect(parseCatchUpHandoff(params('account=a&from=2026-07-05&to=2026-07-05'))).toMatchObject({
+      from: '2026-07-05',
+      to: '2026-07-05',
+    })
   })
 })
 

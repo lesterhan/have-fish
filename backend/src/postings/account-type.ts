@@ -4,13 +4,20 @@
 // an expense, …) — distinct from a posting's ROLE, which is the job one leg does inside a
 // single transaction (see roles.ts). Type is an input to role classification.
 //
-// Today the type is INFERRED from the account's path root against the user's configured
-// root paths. This is the "C" decision (2026-06-24, single-transaction-view epic): one
-// shared resolver now, a stored `accounts.type` override column later (hledger-export
-// epic) layered on top as "stored value, else infer" — no caller rework when it lands.
+// The type is the stored `accounts.type` override when the account carries one; else the
+// override of its nearest tagged ancestor; else what its path root INFERS against the user's
+// configured root paths. `resolveStoredOrInferredType` is that rule; `resolveAccountType` is
+// root inference alone.
 //
-// Inference cannot classify atypically-named roots (e.g. `储蓄:中国银行` or `花钱:房租`);
-// those resolve to null here and will be unlocked by the future manual-assignment column.
+// Inheritance is hledger's own rule — subaccounts take their parent's declared type unless
+// they declare one — and decision #412 adopted it so the app agrees with the journal it
+// exports. It also makes root inference a special case rather than a second mechanism: a
+// configured root is an ancestor with a type. The walk goes up the path one level at a time,
+// and at each level a tag on an account there beats a configured root there; the nearest level
+// with either wins.
+//
+// A view that classifies by path root rather than through the resolver is BUG-007, whichever
+// surface it is on.
 
 // The five types path INFERENCE can produce. These are the coarse buckets the role
 // classifier and balances views reason in. (`income` is hledger's documented alias for
@@ -25,11 +32,23 @@ export type AccountType = 'asset' | 'liability' | 'equity' | 'income' | 'expense
 export type StoredAccountType = AccountType | 'cash' | 'conversion'
 
 // The five inferable types — for validating an inferred value.
-export const ACCOUNT_TYPES: readonly AccountType[] = ['asset', 'liability', 'equity', 'income', 'expense']
+export const ACCOUNT_TYPES: readonly AccountType[] = [
+  'asset',
+  'liability',
+  'equity',
+  'income',
+  'expense',
+]
 
 // The seven valid stored-override values — for validating the stored column or API input.
 export const STORED_ACCOUNT_TYPES: readonly StoredAccountType[] = [
-  'asset', 'cash', 'liability', 'equity', 'income', 'expense', 'conversion',
+  'asset',
+  'cash',
+  'liability',
+  'equity',
+  'income',
+  'expense',
+  'conversion',
 ]
 
 // Type guard for one of the five inferable types.
@@ -93,16 +112,78 @@ export function resolveAccountType(path: string, roots: AccountTypeRoots): Accou
   return best?.type ?? null
 }
 
-// Stored-wins-else-infer: the effective hledger type of an account. A valid stored `type`
-// override wins (and may be one of the seven, including Cash/Conversion); otherwise fall back
-// to path inference (which only ever yields the coarse five). This is the resolver every
-// consumer (UI, journal export) should call so they all agree on one answer. An invalid stored
-// value (shouldn't happen — validated on write) is ignored in favour of inference. Consumers
-// that need the coarse classifier bucket run the result through `toClassifierType`.
+/**
+ * Everything the resolver needs besides the account itself: the configured roots, and the
+ * user's tagged accounts by path so an untagged account can find its nearest tagged ancestor.
+ *
+ * `tagged` is required, not optional. A caller that loaded only the roots would resolve every
+ * child of a tagged parent as if the tag were not there — the bug inheritance exists to fix —
+ * so it is a compile error instead. Loaded by `loadAccountTypeContext`; `tagsFrom` builds it
+ * from rows a caller already holds.
+ */
+export type AccountTypeContext = AccountTypeRoots & {
+  tagged: ReadonlyMap<string, StoredAccountType>
+}
+
+/** The path → type map of accounts that carry a valid override. Invalid values are skipped. */
+export function tagsFrom(
+  rows: Iterable<{ path: string; type: string | null }>,
+): Map<string, StoredAccountType> {
+  const tagged = new Map<string, StoredAccountType>()
+  for (const { path, type } of rows) if (isStoredAccountType(type)) tagged.set(path, type)
+  return tagged
+}
+
+/** Where an account's type came from: its own tag, a tagged ancestor, or a configured root. */
+export type TypeSource =
+  | { type: StoredAccountType; from: 'own' }
+  | { type: StoredAccountType; from: 'ancestor'; path: string }
+  | { type: AccountType; from: 'root'; path: string }
+
+/**
+ * The account's type and where it came from, or null when nothing on the way up says.
+ *
+ * The account's own `type` column is what counts at its own level, not whatever `tagged`
+ * holds for its path — the row in hand is the one being asked about. Pass `type: null` to ask
+ * what "Auto" would resolve to, which is how the settings page shows it.
+ */
+export function explainType(
+  account: { path: string; type: string | null },
+  ctx: AccountTypeContext,
+): TypeSource | null {
+  if (isStoredAccountType(account.type)) return { type: account.type, from: 'own' }
+
+  const segments = account.path.split(':')
+  for (let depth = segments.length; depth > 0; depth--) {
+    const level = segments.slice(0, depth).join(':')
+    if (depth < segments.length) {
+      const tag = ctx.tagged.get(level)
+      if (tag) return { type: tag, from: 'ancestor', path: level }
+    }
+    const root = rootTypeAt(level, ctx)
+    if (root) return { type: root, from: 'root', path: level }
+  }
+  return null
+}
+
+// Which inferable type a configured root at exactly this path stands for, if any.
+function rootTypeAt(path: string, roots: AccountTypeRoots): AccountType | null {
+  if (path === roots.assetsRootPath) return 'asset'
+  if (path === roots.liabilitiesRootPath) return 'liability'
+  if (path === roots.equityRootPath) return 'equity'
+  if (path === roots.expensesRootPath) return 'expense'
+  if (path === roots.incomeRootPath) return 'income'
+  return null
+}
+
+// The effective hledger type of an account: its own valid override, else its nearest tagged
+// ancestor's, else root inference. This is the resolver every consumer (UI, journal export)
+// should call so they all agree on one answer. An invalid stored value (shouldn't happen —
+// validated on write) counts as no override. Consumers that need the coarse classifier bucket
+// run the result through `toClassifierType`.
 export function resolveStoredOrInferredType(
   account: { path: string; type: string | null },
-  roots: AccountTypeRoots,
+  ctx: AccountTypeContext,
 ): StoredAccountType | null {
-  if (isStoredAccountType(account.type)) return account.type
-  return resolveAccountType(account.path, roots)
+  return explainType(account, ctx)?.type ?? null
 }

@@ -1,3 +1,5 @@
+import { at } from '../../at'
+
 // ════════════════════════════════════════════════════════════
 //  SEGMENT-AWARE FUZZY SCORER
 //
@@ -90,8 +92,7 @@ function align(q: string, path: string): Alignment | null {
       }
       const sub = rec(qi + 1, p + 1, p)
       const total = s + sub.score
-      if (!best || total > best.score)
-        best = { score: total, pos: [p, ...sub.pos] }
+      if (!best || total > best.score) best = { score: total, pos: [p, ...sub.pos] }
     }
     return best ?? { score: -Infinity, pos: [] }
   }
@@ -117,11 +118,7 @@ function normalizeQuery(raw: string): string {
  * Returns the score + matched positions, or null if the query is not a
  * subsequence of the path. An empty query matches everything with score 0.
  */
-export function scoreOne(
-  rawQuery: string,
-  path: string,
-  freq = 0,
-): ScoreResult | null {
+export function scoreOne(rawQuery: string, path: string, freq = 0): ScoreResult | null {
   const q = normalizeQuery(rawQuery)
   const lp = path.toLowerCase()
   if (!q) return { score: 0, pos: [] }
@@ -133,7 +130,7 @@ export function scoreOne(
 
   // Leaf bonus — does the last matched char sit inside the final segment?
   const lastSep = lp.lastIndexOf(SEP)
-  if (a.pos[a.pos.length - 1] > lastSep) score += W.leaf
+  if (at(a.pos, a.pos.length - 1) > lastSep) score += W.leaf
 
   // Full-segment coverage bonus — did we cover an entire segment start..end?
   const segs = lp.split(SEP)
@@ -179,10 +176,7 @@ export function rank<T extends ScorableAccount>(
     if (r) out.push({ ...acc, score: r.score, pos: r.pos })
   }
   out.sort(
-    (a, b) =>
-      b.score - a.score ||
-      (b.freq ?? 0) - (a.freq ?? 0) ||
-      a.path.localeCompare(b.path),
+    (a, b) => b.score - a.score || (b.freq ?? 0) - (a.freq ?? 0) || a.path.localeCompare(b.path),
   )
   return out
 }

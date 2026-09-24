@@ -14,10 +14,10 @@
     horizon: string
     txnDates: string[]
     // Hidden when the strip is one of many on the hub, where a shared legend does the job.
-    showLegend?: boolean
+    showLegend?: boolean | undefined
     // Inline variant for the account page's status line: a 10px band with no month ruler
     // and no legend, sized to sit beside a sentence rather than to be read on its own.
-    compact?: boolean
+    compact?: boolean | undefined
   }
 
   let {

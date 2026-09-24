@@ -1,15 +1,16 @@
+import { and, eq, isNull } from 'drizzle-orm'
 import { db } from './db'
+import { returnedRow } from './db/returning'
 import {
-  groupExpenses,
-  groupExpenseSplits,
-  groupCategoryMemberAccounts,
-  groupCategoryWeights,
   expenseGroupMembers,
   expenseGroups,
-  transactions,
+  groupCategoryMemberAccounts,
+  groupCategoryWeights,
+  groupExpenseSplits,
+  groupExpenses,
   postings,
+  transactions,
 } from './db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
 import { ensureSharedAccount, ensureUncategorizedAccount } from './fish-pie-accounts'
 
 type Group = typeof expenseGroups.$inferSelect
@@ -20,7 +21,7 @@ type TxDb = Parameters<Parameters<typeof db.transaction>[0]>[0]
 // account (overrides their group default) and, when *every* split member has set a
 // per-category weight, the category weight map (else null → fall back to group weights).
 export type CategoryContext = {
-  accounts: Map<string, string>      // userId → category-mapped accountId
+  accounts: Map<string, string> // userId → category-mapped accountId
   weights: Map<string, number> | null // userId → category weight, or null
 }
 
@@ -36,7 +37,10 @@ export async function resolveCategoryContext(
   if (!categoryId) return { accounts: new Map(), weights: null }
 
   const [mappings, weightRows] = await Promise.all([
-    tx.select().from(groupCategoryMemberAccounts).where(eq(groupCategoryMemberAccounts.categoryId, categoryId)),
+    tx
+      .select()
+      .from(groupCategoryMemberAccounts)
+      .where(eq(groupCategoryMemberAccounts.categoryId, categoryId)),
     tx.select().from(groupCategoryWeights).where(eq(groupCategoryWeights.categoryId, categoryId)),
   ])
 
@@ -58,7 +62,11 @@ export async function resolveExpenseAccountId(
   member: Member | undefined,
   userId: string,
 ): Promise<string> {
-  return accounts.get(userId) ?? member?.defaultExpenseAccountId ?? (await ensureUncategorizedAccount(userId, tx))
+  return (
+    accounts.get(userId) ??
+    member?.defaultExpenseAccountId ??
+    (await ensureUncategorizedAccount(userId, tx))
+  )
 }
 
 // Apply a category's weights to a member list for split computation, when they apply.
@@ -72,17 +80,25 @@ export function applyCategoryWeights<T extends Member>(members: T[], ctx: Catego
 // weights when they apply, group weights otherwise).
 export async function resolvePayerImportContext(
   tx: TxDb,
-  opts: { categoryId?: string | null; members: Member[]; payerId: string },
+  opts: { categoryId?: string | null | undefined; members: Member[]; payerId: string },
 ): Promise<{ payerExpenseAccountId: string; payerShareRatio: number }> {
   const { categoryId, members, payerId } = opts
   const ctx = await resolveCategoryContext(tx, categoryId, members)
   const payerMember = members.find((m) => m.userId === payerId)
-  const payerExpenseAccountId = await resolveExpenseAccountId(tx, ctx.accounts, payerMember, payerId)
+  const payerExpenseAccountId = await resolveExpenseAccountId(
+    tx,
+    ctx.accounts,
+    payerMember,
+    payerId,
+  )
 
   const effective = applyCategoryWeights(members, ctx)
   const totalWeight = effective.reduce((s, m) => s + m.shareWeight, 0)
   const payerWeight = effective.find((m) => m.userId === payerId)?.shareWeight ?? 1
-  return { payerExpenseAccountId, payerShareRatio: totalWeight === 0 ? 0 : payerWeight / totalWeight }
+  return {
+    payerExpenseAccountId,
+    payerShareRatio: totalWeight === 0 ? 0 : payerWeight / totalWeight,
+  }
 }
 
 export function computeSplits(
@@ -97,7 +113,7 @@ export function computeSplits(
 
   let remaining = total
   const splits = members.map((m) => {
-    const share = Math.round((total * m.shareWeight / totalWeight) * 100) / 100
+    const share = Math.round(((total * m.shareWeight) / totalWeight) * 100) / 100
     remaining = Math.round((remaining - share) * 100) / 100
     return { userId: m.userId, amount: share.toFixed(2) }
   })
@@ -129,14 +145,27 @@ export async function createMemberTransactionsInTx(
     date: string
     payerId: string
     totalAmount: string
-    paymentAccountId?: string
-    skipPayerMemberTx?: boolean
+    paymentAccountId?: string | undefined
+    skipPayerMemberTx?: boolean | undefined
     // Category-mapped expense account per member; takes precedence over the member's
     // group default. Empty/omitted → fall back to the default → uncategorized.
-    categoryAccounts?: Map<string, string>
+    categoryAccounts?: Map<string, string> | undefined
   },
 ): Promise<void> {
-  const { expenseId, group, members, splits, description, currency, date, payerId, totalAmount, paymentAccountId, skipPayerMemberTx, categoryAccounts } = opts
+  const {
+    expenseId,
+    group,
+    members,
+    splits,
+    description,
+    currency,
+    date,
+    payerId,
+    totalAmount,
+    paymentAccountId,
+    skipPayerMemberTx,
+    categoryAccounts,
+  } = opts
   const normalizedCurrency = currency.trim().toUpperCase()
   const txDate = new Date(`${date}T00:00:00Z`)
 
@@ -144,22 +173,30 @@ export async function createMemberTransactionsInTx(
   for (const split of splits) {
     if (skipPayerMemberTx && split.userId === payerId) continue
     const member = members.find((m) => m.userId === split.userId)!
-    const expenseAccountId = await resolveExpenseAccountId(tx, categoryAccounts ?? new Map(), member, split.userId)
+    const expenseAccountId = await resolveExpenseAccountId(
+      tx,
+      categoryAccounts ?? new Map(),
+      member,
+      split.userId,
+    )
 
     if (!sharedAccountIds.has(split.userId)) {
       sharedAccountIds.set(split.userId, await ensureSharedAccount(split.userId, group, tx))
     }
     const sharedAccountId = sharedAccountIds.get(split.userId)!
 
-    const [memberTx] = await tx
-      .insert(transactions)
-      .values({
-        userId: split.userId,
-        date: txDate,
-        description: description.trim(),
-        groupExpenseId: expenseId,
-      })
-      .returning()
+    const memberTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId: split.userId,
+          date: txDate,
+          description: description.trim(),
+          groupExpenseId: expenseId,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
     const isPayerWithSource = split.userId === payerId && !!paymentAccountId
     if (isPayerWithSource) {
@@ -168,7 +205,12 @@ export async function createMemberTransactionsInTx(
       // When there is only one member (no others), the shared posting is omitted.
       const payerShare = parseFloat(split.amount)
       const othersShare = (parseFloat(totalAmount) - payerShare).toFixed(2)
-      const payerPostings: { transactionId: string; accountId: string; amount: string; currency: string }[] = [
+      const payerPostings: {
+        transactionId: string
+        accountId: string
+        amount: string
+        currency: string
+      }[] = [
         {
           transactionId: memberTx.id,
           accountId: paymentAccountId!,
@@ -242,19 +284,31 @@ export async function createGroupExpenseInTx(
     amount: string
     currency: string
     date: string
-    linkedTransactionId?: string
+    linkedTransactionId?: string | undefined
     // When true, skips creating the payer's member transaction. Used for import-linked
     // expenses where the import tx already records the payer's share as a direct posting.
-    skipPayerMemberTx?: boolean
+    skipPayerMemberTx?: boolean | undefined
     // Account the payer is paying from. When provided, the payer gets a 3-posting tx
     // (source, group clearing, expense) instead of the legacy 2-posting tx.
-    paymentAccountId?: string
+    paymentAccountId?: string | undefined
     // Spending category. Drives per-member expense-account resolution and, when every
     // member has a per-category weight, the split weights.
-    categoryId?: string | null
+    categoryId?: string | null | undefined
   },
 ): Promise<string> {
-  const { group, members, payerId, description, amount, currency, date, linkedTransactionId, skipPayerMemberTx, paymentAccountId, categoryId } = opts
+  const {
+    group,
+    members,
+    payerId,
+    description,
+    amount,
+    currency,
+    date,
+    linkedTransactionId,
+    skipPayerMemberTx,
+    paymentAccountId,
+    categoryId,
+  } = opts
 
   const ctx = await resolveCategoryContext(tx, categoryId, members)
   const membersForSplit = applyCategoryWeights(members, ctx)
@@ -262,23 +316,26 @@ export async function createGroupExpenseInTx(
   const normalizedAmount = parseFloat(amount).toFixed(2)
   const normalizedCurrency = currency.trim().toUpperCase()
 
-  const [expense] = await tx
-    .insert(groupExpenses)
-    .values({
-      groupId: group.id,
-      categoryId: categoryId ?? null,
-      paidByUserId: payerId,
-      description: description.trim(),
-      amount: normalizedAmount,
-      currency: normalizedCurrency,
-      date,
-      transactionId: linkedTransactionId ?? null,
-    })
-    .returning()
-
-  await tx.insert(groupExpenseSplits).values(
-    splits.map((s) => ({ expenseId: expense.id, userId: s.userId, amount: s.amount })),
+  const expense = returnedRow(
+    await tx
+      .insert(groupExpenses)
+      .values({
+        groupId: group.id,
+        categoryId: categoryId ?? null,
+        paidByUserId: payerId,
+        description: description.trim(),
+        amount: normalizedAmount,
+        currency: normalizedCurrency,
+        date,
+        transactionId: linkedTransactionId ?? null,
+      })
+      .returning(),
+    'insert groupExpenses',
   )
+
+  await tx
+    .insert(groupExpenseSplits)
+    .values(splits.map((s) => ({ expenseId: expense.id, userId: s.userId, amount: s.amount })))
 
   // Forward link is total: stamp the origin import transaction with group_expense_id too,
   // so every transaction in this expense — member txs and the import tx alike — resolves its

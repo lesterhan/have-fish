@@ -2,12 +2,12 @@
   import Icon from './Icon.svelte'
 
   interface Props {
-    checked?: boolean
-    disabled?: boolean
-    label?: string
-    ariaLabel?: string
-    size?: number
-    onchange?: (checked: boolean) => void
+    checked?: boolean | undefined
+    disabled?: boolean | undefined
+    label?: string | undefined
+    ariaLabel?: string | undefined
+    size?: number | undefined
+    onchange?: ((checked: boolean) => void) | undefined
   }
 
   let {

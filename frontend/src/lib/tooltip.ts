@@ -51,7 +51,7 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
     el = null
   }
 
-  function showOnKeyboard(e: FocusEvent) {
+  function showOnKeyboard() {
     if (!node.matches(':focus-visible')) return
     const rect = node.getBoundingClientRect()
     show({ clientX: rect.left, clientY: rect.bottom } as MouseEvent)
@@ -67,8 +67,7 @@ export function tooltip(node: HTMLElement, param: TooltipParam) {
   return {
     update(newParam: TooltipParam) {
       label = typeof newParam === 'string' ? newParam : (newParam?.label ?? '')
-      always =
-        typeof newParam === 'string' ? false : (newParam?.always ?? false)
+      always = typeof newParam === 'string' ? false : (newParam?.always ?? false)
     },
     destroy() {
       node.removeEventListener('mouseenter', show)

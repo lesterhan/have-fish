@@ -4,10 +4,11 @@ import { createGroup } from '@/lib/api'
 import { useGroups } from '@/lib/group-context'
 import { groupSubtitle } from '@/lib/group-store'
 import { theme } from '@/lib/theme'
-import { BottomSheet } from './BottomSheet'
-import { GlossSurface } from './GlossSurface'
-import { GlossButton } from './GlossButton'
+import { thrownMessage } from '../lib/errors'
 import { Avatar } from './Avatar'
+import { BottomSheet } from './BottomSheet'
+import { GlossButton } from './GlossButton'
+import { GlossSurface } from './GlossSurface'
 
 interface Props {
   visible: boolean
@@ -42,8 +43,8 @@ export function GroupsSheet({ visible, onClose }: Props) {
       setCreating(false)
       await reloadGroups()
       if (created?.id) pick(created.id)
-    } catch (e: any) {
-      setError(e?.message ?? 'Failed to create group')
+    } catch (e) {
+      setError(thrownMessage(e, 'Failed to create group'))
     } finally {
       setBusy(false)
     }
@@ -93,7 +94,12 @@ export function GroupsSheet({ visible, onClose }: Props) {
           {busy ? (
             <ActivityIndicator />
           ) : (
-            <GlossButton label="Create" onPress={handleCreate} height={44} style={styles.createBtn} />
+            <GlossButton
+              label="Create"
+              onPress={handleCreate}
+              height={44}
+              style={styles.createBtn}
+            />
           )}
         </View>
       ) : (
@@ -119,13 +125,23 @@ const styles = StyleSheet.create({
     paddingVertical: theme.sp[11],
   },
   rowText: { flex: 1 },
-  name: { fontFamily: theme.font.sans, fontSize: 15, fontWeight: theme.weight.semibold, color: theme.color.ink },
+  name: {
+    fontFamily: theme.font.sans,
+    fontSize: 15,
+    fontWeight: theme.weight.semibold,
+    color: theme.color.ink,
+  },
   nameActive: { color: theme.color.accentInk },
   sub: { fontFamily: theme.font.mono, fontSize: 11, color: theme.color.ink3, marginTop: 2 },
   check: { fontSize: 16, color: theme.color.accentInk, fontWeight: theme.weight.bold },
   empty: { color: theme.color.ink3, textAlign: 'center', paddingVertical: theme.sp.md },
   error: { color: theme.color.red, fontSize: theme.text.sm, marginTop: theme.sp.xs },
-  createRow: { flexDirection: 'row', alignItems: 'center', gap: theme.sp.xs, marginTop: theme.sp.sm },
+  createRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: theme.sp.xs,
+    marginTop: theme.sp.sm,
+  },
   input: {
     flex: 1,
     borderWidth: 1,

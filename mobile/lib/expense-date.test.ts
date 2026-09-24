@@ -5,8 +5,8 @@ import {
   dateLabel,
   monthDay,
   resolveDate,
-  toISODate,
   todayISO,
+  toISODate,
   yesterdayISO,
 } from './expense-date'
 

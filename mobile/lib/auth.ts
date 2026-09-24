@@ -95,7 +95,7 @@ export async function signIn(baseUrl: string, email: string, password: string): 
 
   if (!res.ok) {
     const body = await res.json().catch(() => ({}))
-    throw new Error((body as any).message ?? 'Sign in failed')
+    throw new Error((body as { message?: string }).message ?? 'Sign in failed')
   }
 
   // React Native fetch exposes Set-Cookie via the headers map

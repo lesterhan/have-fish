@@ -1,12 +1,9 @@
-import { Hono } from 'hono'
-import { db } from '../db'
-import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
 import { and, between, desc, eq, isNull, sql } from 'drizzle-orm'
+import { Hono } from 'hono'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
-import { addDays, mergeCoverage } from '../coverage/intervals'
-import { loadCoverageAccounts, loadCoverageContext, todayUtc } from '../coverage/load'
-import { classifyMonths, monthsBetween } from '../coverage/months'
 import {
+  type CoverageConfigOverride,
   horizon,
   inferCycleFromIntervals,
   isCycleDay,
@@ -16,15 +13,20 @@ import {
   readCatchUpOverrides,
   readIntervals,
   resolveConfig,
-  type CoverageConfigOverride,
 } from '../coverage/horizon'
+import { addDays, mergeCoverage } from '../coverage/intervals'
+import { loadCoverageAccounts, loadCoverageContext, todayUtc } from '../coverage/load'
+import { classifyMonths, monthsBetween } from '../coverage/months'
+import { db } from '../db'
+import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
+import { fail } from '../errors'
+import { as, asField, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
 // The four ways an assertion can come to exist. Provenance only — a range covered by an
 // 'empty' click counts exactly as much as one covered by an imported statement.
 const SOURCES = ['import', 'reconcile', 'manual', 'empty'] as const
-type CoverageSource = (typeof SOURCES)[number]
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -41,6 +43,15 @@ function isIsoDate(value: unknown): value is string {
   const parsed = new Date(`${value}T00:00:00Z`)
   return !Number.isNaN(parsed.getTime()) && parsed.toISOString().substring(0, 10) === value
 }
+
+// The two field shapes every body here is built from. `uuid` and `isoDate` restate the
+// guards above as schema, so a route's body is checked in one place instead of a chain.
+const uuid = z.string({ error: asField('FIELD_NOT_UUID') }).refine(isUuid, {
+  error: asField('FIELD_NOT_UUID'),
+})
+const isoDate = z.string({ error: asField('FIELD_NOT_DATE') }).refine(isIsoDate, {
+  error: asField('FIELD_NOT_DATE'),
+})
 
 // Confirms the account exists and belongs to the caller. Coverage is an assertion about
 // someone's ledger, so writing one against an account you don't own must be impossible.
@@ -102,17 +113,15 @@ async function readCoverage(userId: string, accountId: string, windowDays: numbe
     .selectDistinct({ date: sql<string>`to_char(${transactions.date}::date, 'YYYY-MM-DD')` })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(postings.accountId, accountId),
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-      between(
-        sql`${transactions.date}::date`,
-        sql`${windowFrom}::date`,
-        sql`${today}::date`,
+    .where(
+      and(
+        eq(postings.accountId, accountId),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+        between(sql`${transactions.date}::date`, sql`${windowFrom}::date`, sql`${today}::date`),
       ),
-    ))
+    )
 
   return {
     accountId,
@@ -199,13 +208,13 @@ app.get('/months', async (c) => {
   const from = c.req.query('from')
   const to = c.req.query('to')
 
-  if (!from || !MONTH_RE.test(from)) return c.json({ error: 'from must be a YYYY-MM month' }, 400)
-  if (!to || !MONTH_RE.test(to)) return c.json({ error: 'to must be a YYYY-MM month' }, 400)
-  if (from > to) return c.json({ error: 'from must be on or before to' }, 400)
+  if (!from || !MONTH_RE.test(from)) return fail(c, 'FIELD_NOT_MONTH', { field: 'from' })
+  if (!to || !MONTH_RE.test(to)) return fail(c, 'FIELD_NOT_MONTH', { field: 'to' })
+  if (from > to) return fail(c, 'RANGE_OUT_OF_ORDER', { from: 'from', to: 'to' })
 
   const months = monthsBetween(from, to)
   if (months.length > MAX_MONTHS) {
-    return c.json({ error: `range must span at most ${MAX_MONTHS} months` }, 400)
+    return fail(c, 'RANGE_TOO_LONG', { months: MAX_MONTHS })
   }
 
   const today = todayUtc()
@@ -235,28 +244,30 @@ app.get('/months', async (c) => {
 // 201: the created row
 // 400: malformed dates, inverted range, or an unknown source
 // 404: account not found or not owned by the caller
+const CreateCoverage = z
+  .object({
+    accountId: uuid,
+    fromDate: isoDate,
+    throughDate: isoDate,
+    source: z.enum(SOURCES, {
+      error: as('FIELD_NOT_IN_SET', { field: 'source', allowed: SOURCES }),
+    }),
+    note: z.string().nullish(),
+  })
+  // Ordering is a rule about two fields at once, so it lives on the object rather than on
+  // either of them.
+  .refine((b) => b.fromDate <= b.throughDate, {
+    error: as('RANGE_OUT_OF_ORDER', { from: 'fromDate', to: 'throughDate' }),
+  })
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
-
-  const { accountId, fromDate, throughDate, source, note } = body
-
-  if (!isUuid(accountId)) return c.json({ error: 'accountId must be a UUID string' }, 400)
-  if (!isIsoDate(fromDate)) return c.json({ error: 'fromDate must be a YYYY-MM-DD date' }, 400)
-  if (!isIsoDate(throughDate)) return c.json({ error: 'throughDate must be a YYYY-MM-DD date' }, 400)
-  if (fromDate > throughDate) {
-    return c.json({ error: 'fromDate must be on or before throughDate' }, 400)
-  }
-  if (typeof source !== 'string' || !SOURCES.includes(source as CoverageSource)) {
-    return c.json({ error: `source must be one of ${SOURCES.join(', ')}` }, 400)
-  }
-  if (note != null && typeof note !== 'string') {
-    return c.json({ error: 'note must be a string' }, 400)
-  }
+  const parsed = await parseBody(c, CreateCoverage)
+  if (!parsed.ok) return parsed.response
+  const { accountId, fromDate, throughDate, source, note } = parsed.data
 
   if (!(await ownsAccount(userId, accountId))) {
-    return c.json({ error: 'account not found' }, 404)
+    return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   // No reconciliation against existing rows — overlaps and duplicates are allowed to pile up
@@ -306,47 +317,62 @@ app.delete('/:id', async (c) => {
 // effective config is always inference with these laid on top.
 // 200: { accountId, override, config, horizon, nextHorizon }
 // 400: an invalid field value, or a cycle account with no cycle day to compute closes from
+// Each field is nullable — null clears the override — and optional, since a patch names
+// only what it changes. The two range checks carry the codes the hand-written guards used.
+const ConfigPatch = z.object({
+  exportMode: z
+    .enum(['range', 'cycle'], {
+      error: as('FIELD_NOT_IN_SET', { field: 'exportMode', allowed: ['range', 'cycle'] }),
+    })
+    .nullable()
+    .optional(),
+  cycleDay: z
+    .unknown()
+    .refine((v) => v === null || isCycleDay(v), {
+      error: as('FIELD_OUT_OF_RANGE', { field: 'cycleDay', min: 1, max: 31 }),
+    })
+    .optional(),
+  releaseLag: z
+    .unknown()
+    .refine((v) => v === null || isReleaseLag(v), {
+      error: as('FIELD_OUT_OF_RANGE', { field: 'releaseLag', min: 0, max: 31 }),
+    })
+    .optional(),
+  tracked: z
+    .boolean({ error: asField('FIELD_NOT_BOOLEAN') })
+    .nullable()
+    .optional(),
+})
+
 // 404: account not found or not owned by the caller
 app.patch('/config/:accountId', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.param('accountId')
 
-  if (!isUuid(accountId)) return c.json({ error: 'account not found' }, 404)
+  if (!isUuid(accountId)) return fail(c, 'ACCOUNT_NOT_FOUND')
 
-  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+  const parsed = await parseBody(c, ConfigPatch)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   // Distinguishes "clear this override" (explicit null) from "leave it alone" (key absent).
+  // `.optional()` is what keeps those apart: an absent key is missing from `parsed.data`,
+  // an explicit null is present and null.
   const cleared = new Set<keyof CoverageConfigOverride>()
   const patch: CoverageConfigOverride = {}
 
-  if ('exportMode' in body) {
-    if (body.exportMode === null) cleared.add('exportMode')
-    else if (body.exportMode === 'range' || body.exportMode === 'cycle') patch.exportMode = body.exportMode
-    else return c.json({ error: "exportMode must be 'range', 'cycle', or null" }, 400)
-  }
-  if ('cycleDay' in body) {
-    if (body.cycleDay === null) cleared.add('cycleDay')
-    else if (isCycleDay(body.cycleDay)) patch.cycleDay = body.cycleDay
-    else return c.json({ error: 'cycleDay must be a whole number from 1 to 31, or null' }, 400)
-  }
-  if ('releaseLag' in body) {
-    if (body.releaseLag === null) cleared.add('releaseLag')
-    else if (isReleaseLag(body.releaseLag)) patch.releaseLag = body.releaseLag
-    else return c.json({ error: 'releaseLag must be a whole number from 0 to 31, or null' }, 400)
-  }
-  if ('tracked' in body) {
-    if (body.tracked === null) cleared.add('tracked')
-    else if (typeof body.tracked === 'boolean') patch.tracked = body.tracked
-    else return c.json({ error: 'tracked must be a boolean or null' }, 400)
+  for (const key of ['exportMode', 'cycleDay', 'releaseLag', 'tracked'] as const) {
+    if (!(key in body)) continue
+    if (body[key] === null) cleared.add(key)
+    else patch[key] = body[key] as never
   }
 
   if (cleared.size === 0 && Object.keys(patch).length === 0) {
-    return c.json({ error: 'no valid fields to update' }, 400)
+    return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
   if (!(await ownsAccount(userId, accountId))) {
-    return c.json({ error: 'account not found' }, 404)
+    return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   const [overrides, intervals] = await Promise.all([
@@ -363,7 +389,7 @@ app.patch('/config/:accountId', async (c) => {
   // than inventing a boundary, but silently ignoring what the user asked for would leave them
   // staring at a 'cycle' account behaving exactly like a 'range' one.
   if (config.exportMode === 'cycle' && config.cycleDay == null) {
-    return c.json({ error: 'a cycle account needs a cycleDay' }, 400)
+    return fail(c, 'CYCLE_ACCOUNT_NEEDS_CYCLE_DAY')
   }
 
   await writeOverride(userId, accountId, override)
@@ -385,11 +411,12 @@ app.patch('/config/:accountId', async (c) => {
 async function writeOverride(userId: string, accountId: string, override: CoverageConfigOverride) {
   const existing = sql`COALESCE(${userSettings.preferences}, '{}'::jsonb)`
 
-  const next = Object.keys(override).length === 0
-    // Nothing pinned any more — drop the key entirely so the blob doesn't accumulate empty
-    // objects for every account the user has ever poked at.
-    ? sql`${existing} #- ARRAY['catchUp', ${accountId}]::text[]`
-    : sql`jsonb_set(
+  const next =
+    Object.keys(override).length === 0
+      ? // Nothing pinned any more — drop the key entirely so the blob doesn't accumulate empty
+        // objects for every account the user has ever poked at.
+        sql`${existing} #- ARRAY['catchUp', ${accountId}]::text[]`
+      : sql`jsonb_set(
         jsonb_set(${existing}, '{catchUp}'::text[], COALESCE(${existing}->'catchUp', '{}'::jsonb), true),
         ARRAY['catchUp', ${accountId}]::text[],
         ${JSON.stringify(override)}::jsonb,
@@ -419,17 +446,16 @@ async function writeOverride(userId: string, accountId: string, override: Covera
 // 200: { created: true, interval } — or { created: false, reason } when D adds nothing
 // 400: malformed date
 // 404: account not found or not owned by the caller
+const Reconcile = z.object({ accountId: uuid, throughDate: isoDate })
+
 app.post('/reconcile', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
-
-  const { accountId, throughDate } = body
-  if (!isUuid(accountId)) return c.json({ error: 'accountId must be a UUID string' }, 400)
-  if (!isIsoDate(throughDate)) return c.json({ error: 'throughDate must be a YYYY-MM-DD date' }, 400)
+  const parsed = await parseBody(c, Reconcile)
+  if (!parsed.ok) return parsed.response
+  const { accountId, throughDate } = parsed.data
 
   if (!(await ownsAccount(userId, accountId))) {
-    return c.json({ error: 'account not found' }, 404)
+    return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   const merged = mergeCoverage(await readIntervals(userId, accountId))
@@ -442,11 +468,12 @@ app.post('/reconcile', async (c) => {
     return c.json({ created: false, reason: 'already covered', coveredThrough })
   }
 
-  const fromDate = coveredThrough !== null
-    ? addDays(coveredThrough, 1)
-    // No coverage at all: start at the account's first transaction, since everything before it
-    // is vacuously complete. With no transactions either, the reconcile speaks only for D.
-    : ((await firstTransactionDate(userId, accountId)) ?? throughDate)
+  const fromDate =
+    coveredThrough !== null
+      ? addDays(coveredThrough, 1)
+      : // No coverage at all: start at the account's first transaction, since everything before it
+        // is vacuously complete. With no transactions either, the reconcile speaks only for D.
+        ((await firstTransactionDate(userId, accountId)) ?? throughDate)
 
   const [created] = await db
     .insert(accountCoverage)
@@ -470,12 +497,14 @@ async function firstTransactionDate(userId: string, accountId: string): Promise<
     .select({ first: sql<string | null>`to_char(MIN(${transactions.date})::date, 'YYYY-MM-DD')` })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(and(
-      eq(postings.accountId, accountId),
-      eq(transactions.userId, userId),
-      isNull(transactions.deletedAt),
-      isNull(postings.deletedAt),
-    ))
+    .where(
+      and(
+        eq(postings.accountId, accountId),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+      ),
+    )
 
   return row?.first ?? null
 }
@@ -495,9 +524,9 @@ accountCoverageRoute.get('/:id/coverage', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.param('id')
 
-  if (!isUuid(accountId)) return c.json({ error: 'account not found' }, 404)
+  if (!isUuid(accountId)) return fail(c, 'ACCOUNT_NOT_FOUND')
   if (!(await ownsAccount(userId, accountId))) {
-    return c.json({ error: 'account not found' }, 404)
+    return fail(c, 'ACCOUNT_NOT_FOUND')
   }
 
   return c.json(await readCoverage(userId, accountId, windowDaysFrom(c.req.query('days'))))

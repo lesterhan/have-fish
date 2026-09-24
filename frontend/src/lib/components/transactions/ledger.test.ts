@@ -1,12 +1,13 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import type { Posting, StoredAccountType, Transaction } from '$lib/api'
 import {
   dayNet,
   groupByDay,
+  isTransferRow,
   ledgerTone,
   subjectPosting,
-  typeResolver,
   type TypedAccount,
+  typeResolver,
 } from './ledger'
 
 // ── Fixtures ────────────────────────────────────────────────
@@ -47,38 +48,18 @@ function tx(date: string, ...postings: Posting[]): Transaction {
   }
 }
 
-const SPEND = tx(
-  '2026-09-06',
-  posting('card', '-42.00'),
-  posting('groceries', '42.00'),
-)
-const REFUND = tx(
-  '2026-09-06',
-  posting('card', '18.00'),
-  posting('groceries', '-18.00'),
-)
-const INCOME = tx(
-  '2026-09-06',
-  posting('chequing', '2500.00'),
-  posting('salary', '-2500.00'),
-)
-const PAYDOWN = tx(
-  '2026-09-06',
-  posting('card', '500.00'),
-  posting('chequing', '-500.00'),
-)
+const SPEND = tx('2026-09-06', posting('card', '-42.00'), posting('groceries', '42.00'))
+const REFUND = tx('2026-09-06', posting('card', '18.00'), posting('groceries', '-18.00'))
+const INCOME = tx('2026-09-06', posting('chequing', '2500.00'), posting('salary', '-2500.00'))
+const PAYDOWN = tx('2026-09-06', posting('card', '500.00'), posting('chequing', '-500.00'))
 
 // ── Which posting the row is about ──────────────────────────
 
 describe('subjectPosting', () => {
   it('is the account you are looking at, when you are looking at one', () => {
-    expect(subjectPosting(SPEND.postings, typeOf, 'card')?.accountId).toBe(
-      'card',
-    )
+    expect(subjectPosting(SPEND.postings, typeOf, 'card')?.accountId).toBe('card')
     // The same row from the other side. Nothing about the row changed; the question did.
-    expect(subjectPosting(SPEND.postings, typeOf, 'groceries')?.accountId).toBe(
-      'groceries',
-    )
+    expect(subjectPosting(SPEND.postings, typeOf, 'groceries')?.accountId).toBe('groceries')
   })
 
   it('is the own-money side when no account has been named', () => {
@@ -89,11 +70,7 @@ describe('subjectPosting', () => {
   })
 
   it('reports nothing when no side is your own money', () => {
-    const reclassify = tx(
-      '2026-09-06',
-      posting('groceries', '-10.00'),
-      posting('salary', '10.00'),
-    )
+    const reclassify = tx('2026-09-06', posting('groceries', '-10.00'), posting('salary', '10.00'))
     expect(subjectPosting(reclassify.postings, typeOf)).toBeNull()
   })
 
@@ -128,11 +105,7 @@ describe('ledgerTone', () => {
   })
 
   it('is neutral when the row touches none of your accounts', () => {
-    const reclassify = tx(
-      '2026-09-06',
-      posting('groceries', '-10.00'),
-      posting('salary', '10.00'),
-    )
+    const reclassify = tx('2026-09-06', posting('groceries', '-10.00'), posting('salary', '10.00'))
     expect(ledgerTone(reclassify.postings, typeOf)).toBe('neutral')
   })
 })
@@ -178,20 +151,12 @@ describe('dayNet', () => {
   it('withholds the figure when one amount cannot be read', () => {
     // A bad row treated as zero produces a net that is wrong and looks right. Better to
     // have no figure than a confident wrong one.
-    const broken = tx(
-      '2026-09-06',
-      posting('card', 'not a number'),
-      posting('groceries', '1.00'),
-    )
+    const broken = tx('2026-09-06', posting('card', 'not a number'), posting('groceries', '1.00'))
     expect(dayNet([SPEND, broken], typeOf).kind).toBe('mixed')
   })
 
   it('says nothing rather than zero when no side is yours', () => {
-    const reclassify = tx(
-      '2026-09-06',
-      posting('groceries', '-10.00'),
-      posting('salary', '10.00'),
-    )
+    const reclassify = tx('2026-09-06', posting('groceries', '-10.00'), posting('salary', '10.00'))
     expect(dayNet([reclassify], typeOf)).toEqual({ kind: 'none' })
   })
 })
@@ -200,10 +165,7 @@ describe('dayNet', () => {
 
 describe('groupByDay', () => {
   it('collects consecutive rows of one date', () => {
-    const groups = groupByDay(
-      [SPEND, REFUND, tx('2026-09-05', ...INCOME.postings)],
-      typeOf,
-    )
+    const groups = groupByDay([SPEND, REFUND, tx('2026-09-05', ...INCOME.postings)], typeOf)
     expect(groups.map((g) => [g.date, g.transactions.length])).toEqual([
       ['2026-09-06', 2],
       ['2026-09-05', 1],
@@ -211,10 +173,7 @@ describe('groupByDay', () => {
   })
 
   it('carries each run its own net', () => {
-    const groups = groupByDay(
-      [SPEND, tx('2026-09-05', ...INCOME.postings)],
-      typeOf,
-    )
+    const groups = groupByDay([SPEND, tx('2026-09-05', ...INCOME.postings)], typeOf)
     expect(groups[0]!.net).toEqual({
       kind: 'net',
       cents: -4200,
@@ -230,15 +189,8 @@ describe('groupByDay', () => {
   it('does not reorder a list that was ordered on purpose', () => {
     // Two runs of the same date rather than one merged group: re-sorting here would quietly
     // repair a list the caller arranged some other way, and hide that it had.
-    const groups = groupByDay(
-      [SPEND, tx('2026-09-05', ...INCOME.postings), REFUND],
-      typeOf,
-    )
-    expect(groups.map((g) => g.date)).toEqual([
-      '2026-09-06',
-      '2026-09-05',
-      '2026-09-06',
-    ])
+    const groups = groupByDay([SPEND, tx('2026-09-05', ...INCOME.postings), REFUND], typeOf)
+    expect(groups.map((g) => g.date)).toEqual(['2026-09-06', '2026-09-05', '2026-09-06'])
   })
 
   it('handles an empty list', () => {
@@ -246,10 +198,7 @@ describe('groupByDay', () => {
   })
 
   it('reads the date out of a timestamp', () => {
-    const groups = groupByDay(
-      [tx('2026-09-06T14:03:00.000Z', ...SPEND.postings)],
-      typeOf,
-    )
+    const groups = groupByDay([tx('2026-09-06T14:03:00.000Z', ...SPEND.postings)], typeOf)
     expect(groups[0]!.date).toBe('2026-09-06')
   })
 })
@@ -280,5 +229,43 @@ describe('typeResolver', () => {
       const scanned = accounts.find((a) => a.id === id)?.resolvedType ?? null
       expect(indexed(id)).toBe(scanned)
     }
+  })
+})
+
+// ── isTransferRow ───────────────────────────────────────────
+describe('isTransferRow', () => {
+  it('is a spend when the counterpart is an expense', () => {
+    expect(isTransferRow({ accountId: 'groceries' }, typeOf)).toBe(false)
+  })
+
+  it('is a move when the counterpart is your own money', () => {
+    expect(isTransferRow({ accountId: 'chequing' }, typeOf)).toBe(true)
+    expect(isTransferRow({ accountId: 'card' }, typeOf)).toBe(true)
+  })
+
+  it('is a move when the counterpart is income, which is not a spend', () => {
+    expect(isTransferRow({ accountId: 'salary' }, typeOf)).toBe(true)
+  })
+
+  // #405: the reason this reads a type rather than a path. `花钱:房租` is under no configured
+  // root, so the old `isUnderRoot(path, expensesRoot)` test called a real spend a transfer —
+  // and the account's Type field, set for exactly this, changed nothing.
+  it('reads the tag, so a category under an atypical root is still a spend', () => {
+    const tagged = (id: string) => (id === 'rent' ? ('expense' as StoredAccountType) : null)
+    expect(isTransferRow({ accountId: 'rent' }, tagged)).toBe(false)
+  })
+
+  it('collapses Cash and Conversion onto their parents', () => {
+    const tagged = (id: string) => (id === 'wallet' ? 'cash' : 'conversion') as StoredAccountType
+    expect(isTransferRow({ accountId: 'wallet' }, tagged)).toBe(true)
+    expect(isTransferRow({ accountId: 'bridge' }, tagged)).toBe(true)
+  })
+
+  it('claims nothing when there is no counterpart, or none the list knows', () => {
+    // False, not true: the flag only paints a ⇄ on the row, and a row nobody could classify
+    // should carry no marker rather than the wrong one.
+    expect(isTransferRow(null, typeOf)).toBe(false)
+    expect(isTransferRow(undefined, typeOf)).toBe(false)
+    expect(isTransferRow({ accountId: 'nobody' }, typeOf)).toBe(false)
   })
 })

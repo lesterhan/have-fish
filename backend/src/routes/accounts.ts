@@ -1,36 +1,33 @@
+import { and, eq, isNull, lte, not, or, type SQL, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { z } from 'zod'
+import type { AppVariables } from '../app'
+import { isValidCurrency } from '../currencies'
 import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
-import { eq, isNull, and, like, or, not, inArray, lte, sql, type SQL } from 'drizzle-orm'
-import type { AppVariables } from '../app'
-import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
+import { fail } from '../errors'
 import { isClearingAccountPath } from '../fish-pie-accounts'
-import { resolveAccountType, resolveStoredOrInferredType, isStoredAccountType, STORED_ACCOUNT_TYPES, DEFAULT_ROOTS, type AccountTypeRoots, type StoredAccountType } from '../postings/account-type'
-import { isValidCurrency } from '../currencies'
+import {
+  type AccountTypeContext,
+  explainType,
+  isStoredAccountType,
+  resolveStoredOrInferredType,
+  STORED_ACCOUNT_TYPES,
+  type StoredAccountType,
+  tagsFrom,
+  toClassifierType,
+} from '../postings/account-type'
+import {
+  noUsableOverrideCondition,
+  required,
+  typeFilterCondition,
+  underAnyTypeSourceCondition,
+} from '../postings/account-type-sql'
+import { loadAccountTypeContext, loadAccountTypeRoots } from '../postings/classify-service'
+import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
+import { as, asField, asInput, defined, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
-
-// Loads this user's configured account-type root paths, falling back to schema defaults when
-// no settings row exists. Shared by endpoints that resolve account types.
-async function loadAccountTypeRoots(userId: string): Promise<AccountTypeRoots> {
-  const [s] = await db
-    .select({
-      assetsRootPath: userSettings.defaultAssetsRootPath,
-      liabilitiesRootPath: userSettings.defaultLiabilitiesRootPath,
-      equityRootPath: userSettings.defaultEquityRootPath,
-      expensesRootPath: userSettings.defaultExpensesRootPath,
-      incomeRootPath: userSettings.defaultIncomeRootPath,
-    })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
-  return {
-    assetsRootPath: s?.assetsRootPath ?? DEFAULT_ROOTS.assetsRootPath,
-    liabilitiesRootPath: s?.liabilitiesRootPath ?? DEFAULT_ROOTS.liabilitiesRootPath,
-    equityRootPath: s?.equityRootPath ?? DEFAULT_ROOTS.equityRootPath,
-    expensesRootPath: s?.expensesRootPath ?? DEFAULT_ROOTS.expensesRootPath,
-    incomeRootPath: s?.incomeRootPath ?? DEFAULT_ROOTS.incomeRootPath,
-  }
-}
 
 // A valid account path is colon-segmented with no empty segments and no surrounding
 // whitespace — rejects '', ':x', 'x:', 'x::y'.
@@ -45,89 +42,59 @@ app.get('/', async (c) => {
     .select()
     .from(accounts)
     .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  // Surface the effective type (stored override else path inference) so the UI and the
-  // journal serializer share one resolved answer. `type` stays the raw stored override.
-  const roots = await loadAccountTypeRoots(userId)
-  const withType = all.map((a) => ({ ...a, resolvedType: resolveStoredOrInferredType(a, roots) }))
+  // Surface the effective type (own override, else a tagged ancestor's, else path inference)
+  // so the UI and the journal serializer share one resolved answer. `type` stays the raw
+  // stored override. Every account is already in hand, so the tags come from these rows.
+  const ctx = { ...(await loadAccountTypeRoots(userId)), tagged: tagsFrom(all) }
+  const withType = all.map((a) => ({ ...a, resolvedType: resolveStoredOrInferredType(a, ctx) }))
   return c.json(withType)
 })
 
-// SQL narrowing for `GET /balances?types=`. The authoritative verdict is still
-// `resolveStoredOrInferredType` in the JS pass below; this only keeps the query from
-// aggregating postings for the whole ledger (the LEFT JOIN + GROUP BY is the expensive
-// part, and the Wallets tab hits it on every load). It is therefore allowed to be
-// over-inclusive — the JS pass filters again — but must never be under-inclusive.
-//
-// An account matches a requested type either because it carries that STORED override, or
-// because it carries no usable override and its PATH infers to it. `cash` and `conversion`
-// are override-only, so they contribute no path branch at all — which is what makes
-// `?types=cash` a cheap indexed lookup rather than a full scan.
-// "At or under this root". The exact-path branch is not decoration: an account created at the
-// bare root (`assets`) is legal, and a `LIKE 'assets:%'` alone would leave it invisible.
-function underRootCondition(root: string): SQL {
-  return or(eq(accounts.path, root), like(accounts.path, `${root}:%`))!
+// Does this resolved type describe money you hold or owe, as opposed to a category money
+// moved through? Asked as the coarse bucket rather than as a list of the five, so Cash lands
+// with Asset and Conversion with Equity because `toClassifierType` says so.
+function isBalanceBearing(type: StoredAccountType | null): boolean {
+  if (type === null) return false
+  const bucket = toClassifierType(type)
+  return bucket === 'asset' || bucket === 'liability' || bucket === 'equity'
 }
 
-function typeFilterCondition(types: Set<StoredAccountType>, roots: AccountTypeRoots) {
-  const branches: SQL[] = [inArray(accounts.type, [...types])]
+// The same question as a set, for the SQL prefilter. Derived rather than written out: two
+// lists that must agree are one list that will eventually not.
+const BALANCE_BEARING_TYPES = new Set(STORED_ACCOUNT_TYPES.filter(isBalanceBearing))
 
-  // Roots whose inferred type was requested. Only the five inferable types have one.
-  const inferableRoots: Partial<Record<StoredAccountType, string>> = {
-    asset: roots.assetsRootPath,
-    liability: roots.liabilitiesRootPath,
-    equity: roots.equityRootPath,
-    expense: roots.expensesRootPath,
-    income: roots.incomeRootPath,
-  }
-  const wantedRoots = [...types].map((t) => inferableRoots[t]).filter((r): r is string => !!r)
-
-  if (wantedRoots.length > 0) {
-    // Inference applies only when the stored column holds nothing usable. A value outside
-    // the valid set (shouldn't happen — validated on write) also falls back to inference,
-    // so treat it like null here rather than letting the account drop out of the query.
-    const noUsableOverride = or(
-      isNull(accounts.type),
-      not(inArray(accounts.type, [...STORED_ACCOUNT_TYPES])),
-    )
-    const underWantedRoot = wantedRoots.flatMap((root) => [
-      eq(accounts.path, root),
-      like(accounts.path, `${root}:%`),
-    ])
-    branches.push(and(noUsableOverride, or(...underWantedRoot))!)
-  }
-
-  return or(...branches)
-}
-
-// The default selection for GET /balances: the three balance-bearing roots, optionally plus
-// everything that belongs to no configured root at all. Expenses and income are excluded
+// The default selection for GET /balances: everything whose RESOLVED type is balance-bearing,
+// optionally plus everything the app has no type for at all. Expenses and income are excluded
 // either way — they are categories, and the Categories tab owns them.
-function balanceBearingCondition(roots: AccountTypeRoots, includeUnfiled: boolean): SQL {
-  const balanceBearing = or(
-    underRootCondition(roots.assetsRootPath),
-    underRootCondition(roots.liabilitiesRootPath),
-    underRootCondition(roots.equityRootPath),
-  )!
+//
+// Resolved, not path-inferred: a wallet at `储蓄:现金` tagged Cash is money you hold, and
+// selecting by path root alone left it on no balances surface at all — visible only to a
+// caller that passed `?types=cash`, which is the one query the bug report could not make from
+// the UI. The stored override is the account's answer about itself; a view that asks the path
+// instead is asking the wrong source.
+function balanceBearingCondition(ctx: AccountTypeContext, includeUnfiled: boolean): SQL {
+  const balanceBearing = typeFilterCondition(BALANCE_BEARING_TYPES, ctx)
   if (!includeUnfiled) return balanceBearing
 
-  const anyRoot = or(
-    balanceBearing,
-    underRootCondition(roots.expensesRootPath),
-    underRootCondition(roots.incomeRootPath),
-  )!
-  return or(balanceBearing, not(anyRoot))!
+  // Unfiled is what it always meant: the app has no answer for this account. No usable
+  // override, no tagged ancestor to inherit one from, and no configured root to infer one
+  // from. A path that *is* tagged, or sits under one that is, is whatever that says.
+  const unfiled = required(
+    and(noUsableOverrideCondition(), not(underAnyTypeSourceCondition(ctx))),
+    'unfiled',
+  )
+  return required(or(balanceBearing, unfiled), 'balance-bearing selection')
 }
 
 // GET /api/accounts/balances[?types=cash,asset][?include=unfiled]
 // Returns all asset, liability, and equity accounts with their per-currency balances and type.
-// "Asset accounts"     = paths starting with defaultAssetsRootPath
-// "Liability accounts" = paths starting with defaultLiabilitiesRootPath
-// "Equity accounts"    = paths starting with defaultEquityRootPath
+// Membership is by RESOLVED type — own override, else a tagged ancestor's, else the root's — so
+// an account is on this endpoint because of what it says it is, not because of where it sits.
 // Balance = SUM of all posting amounts for that account, grouped by currency.
 // Accounts with no postings are included with an empty balances array.
 //
 // `type` and `resolvedType` mean exactly what they mean on GET /api/accounts: the raw stored
-// override, and the effective stored-wins-else-inferred answer. This endpoint used to report
+// override, and the effective resolved answer. This endpoint used to report
 // a third thing under `type` — a coarse asset/liability/equity bucket — which made the same
 // field name mean two different things depending on which route you called. Callers that want
 // that bucket derive it with `toClassifierType(resolvedType)`, the same function the role
@@ -135,25 +102,24 @@ function balanceBearingCondition(roots: AccountTypeRoots, includeUnfiled: boolea
 app.get('/balances', async (c) => {
   const userId = c.get('userId')
 
-  // Optional `?types=` filter. When absent, the endpoint keeps its original behaviour:
-  // select by PATH ROOT (assets/liabilities/equity) and report the coarse three-way `type`.
-  // When present, select by RESOLVED type instead (stored override wins over inference), so
-  // a wallet tagged Cash under an atypically-named root — the very case the override exists
-  // for — is found. The web dashboard and balances page pass no filter and are unaffected.
+  // Optional `?types=` filter. Both modes select by RESOLVED type (stored override wins over
+  // inference); the filter only narrows which resolved types count. Absent, that is the five
+  // balance-bearing ones; present, it is exactly what was asked for — which is how a caller
+  // asks for Cash alone without also asking what a cash wallet's path looks like.
   const typesParam = c.req.query('types')
-  // `?include=unfiled` adds the accounts that sit outside *every* configured root. They are
-  // balance-bearing accounts with a mis-typed or unconventional path, and without this they
-  // appear on no surface at all — the Accounts page groups them under "Unfiled" so a stray
-  // path is visibly stray rather than silently missing.
+  // `?include=unfiled` adds the accounts the app has no type for: outside every configured
+  // root AND carrying no override. Without this they appear on no surface at all — the
+  // Accounts page groups them under "Unfiled" so a stray path is visibly stray rather than
+  // silently missing. Tagging such an account is how it leaves that group.
   const includeParam = c.req.query('include')
   if (includeParam !== undefined && includeParam !== 'unfiled') {
-    return c.json({ error: `invalid include: ${includeParam}` }, 400)
+    return fail(c, 'ACCOUNT_INCLUDE_INVALID', { value: includeParam })
   }
   const includeUnfiled = includeParam === 'unfiled'
   // The two are different selection modes — `types` picks by resolved type, `include` widens
   // the root-based default — so combining them would be ambiguous rather than additive.
   if (includeUnfiled && typesParam !== undefined) {
-    return c.json({ error: 'include=unfiled cannot be combined with types' }, 400)
+    return fail(c, 'ACCOUNT_INCLUDE_UNFILED_WITH_TYPES')
   }
 
   let typeFilter: Set<StoredAccountType> | null = null
@@ -162,15 +128,15 @@ app.get('/balances', async (c) => {
     // An empty parameter is a caller mistake, not "everything" — a typo'd filter must not
     // silently widen to the whole ledger.
     if (requested.length === 0 || requested.some((t) => t === '')) {
-      return c.json({ error: 'types must not be empty' }, 400)
+      return fail(c, 'FIELD_EMPTY', { field: 'types' })
     }
     for (const t of requested) {
-      if (!isStoredAccountType(t)) return c.json({ error: `invalid account type: ${t}` }, 400)
+      if (!isStoredAccountType(t)) return fail(c, 'ACCOUNT_TYPE_INVALID', { type: t })
     }
     typeFilter = new Set(requested as StoredAccountType[])
   }
 
-  const roots = await loadAccountTypeRoots(userId)
+  const ctx = await loadAccountTypeContext(userId)
 
   // LEFT JOIN so accounts with no postings still appear (with null currency/balance)
   const rows = await db
@@ -185,13 +151,15 @@ app.get('/balances', async (c) => {
     })
     .from(accounts)
     .leftJoin(postings, and(eq(postings.accountId, accounts.id), isNull(postings.deletedAt)))
-    .where(and(
-      eq(accounts.userId, userId),
-      isNull(accounts.deletedAt),
-      typeFilter
-        ? typeFilterCondition(typeFilter, roots)
-        : balanceBearingCondition(roots, includeUnfiled),
-    ))
+    .where(
+      and(
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+        typeFilter
+          ? typeFilterCondition(typeFilter, ctx)
+          : balanceBearingCondition(ctx, includeUnfiled),
+      ),
+    )
     .groupBy(
       accounts.id,
       accounts.path,
@@ -213,13 +181,26 @@ app.get('/balances', async (c) => {
     defaultCurrency: string | null
     balances: { currency: string; amount: string }[]
   }
+  // The SQL above is a prefilter and is allowed to be over-inclusive; this is the verdict.
+  // It runs in every mode, not just under `?types=`: the default selection reads the same
+  // resolved type, so an account under the assets root that is tagged Expense is excluded
+  // here rather than counted as money because of where it happens to sit.
+  const keep = (resolvedType: StoredAccountType | null): boolean => {
+    if (typeFilter) return resolvedType !== null && typeFilter.has(resolvedType)
+    if (isBalanceBearing(resolvedType)) return true
+    return includeUnfiled && resolvedType === null
+  }
+
   const grouped = new Map<string, Row>()
   const excluded = new Set<string>()
   for (const row of rows) {
     if (excluded.has(row.id)) continue
     if (!grouped.has(row.id)) {
-      const resolvedType = resolveStoredOrInferredType({ path: row.path, type: row.storedType }, roots)
-      if (typeFilter && (resolvedType === null || !typeFilter.has(resolvedType))) {
+      const resolvedType = resolveStoredOrInferredType(
+        { path: row.path, type: row.storedType },
+        ctx,
+      )
+      if (!keep(resolvedType)) {
         excluded.add(row.id)
         continue
       }
@@ -263,7 +244,10 @@ app.get('/posting-counts', async (c) => {
     })
     .from(accounts)
     .leftJoin(postings, and(eq(postings.accountId, accounts.id), isNull(postings.deletedAt)))
-    .leftJoin(transactions, and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)))
+    .leftJoin(
+      transactions,
+      and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)),
+    )
     .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
     .groupBy(accounts.id)
   return c.json(rows)
@@ -277,18 +261,18 @@ app.get('/:id/balance', async (c) => {
   const accountId = c.req.param('id')
   const dateParam = c.req.query('date')
 
-  if (!dateParam) return c.json({ error: 'date query parameter is required' }, 400)
+  if (!dateParam) return fail(c, 'FIELD_REQUIRED', { field: 'date' })
 
   // Parse as a local date — treat the param as midnight UTC on that day.
   const asOf = new Date(`${dateParam}T23:59:59.999Z`)
-  if (isNaN(asOf.getTime())) return c.json({ error: 'invalid date format, expected YYYY-MM-DD' }, 400)
+  if (Number.isNaN(asOf.getTime())) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
 
   // Verify the account belongs to this user
   const [account] = await db
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!account) return c.json({ error: 'account not found' }, 404)
+  if (!account) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   const rows = await db
     .select({
@@ -297,18 +281,20 @@ app.get('/:id/balance', async (c) => {
     })
     .from(postings)
     .innerJoin(transactions, eq(transactions.id, postings.transactionId))
-    .where(and(
-      eq(postings.accountId, accountId),
-      isNull(postings.deletedAt),
-      isNull(transactions.deletedAt),
-      lte(transactions.date, asOf),
-    ))
+    .where(
+      and(
+        eq(postings.accountId, accountId),
+        isNull(postings.deletedAt),
+        isNull(transactions.deletedAt),
+        lte(transactions.date, asOf),
+      ),
+    )
     .groupBy(postings.currency)
 
   return c.json({
     accountId,
     date: dateParam,
-    balances: rows.map(r => ({ currency: r.currency, amount: r.amount ?? '0.00' })),
+    balances: rows.map((r) => ({ currency: r.currency, amount: r.amount ?? '0.00' })),
   })
 })
 
@@ -378,9 +364,7 @@ app.get('/action-required-summary', async (c) => {
     for (const txId of txIds) add(accountId, txId)
   }
 
-  return c.json(
-    [...byAccount].map(([accountId, txIds]) => ({ accountId, count: txIds.size })),
-  )
+  return c.json([...byAccount].map(([accountId, txIds]) => ({ accountId, count: txIds.size })))
 })
 
 // GET /api/accounts/:id/action-required
@@ -394,7 +378,7 @@ app.get('/:id/action-required', async (c) => {
     .select({ id: accounts.id })
     .from(accounts)
     .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!account) return c.json({ error: 'account not found' }, 404)
+  if (!account) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   const { offsetAccountId } = await getActionRequiredSettings(userId)
 
@@ -430,20 +414,31 @@ app.get('/:id', async (c) => {
   const [found] = await db
     .select()
     .from(accounts)
-    .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!found) return c.json({ error: 'Not found' }, 404)
-  const roots = await loadAccountTypeRoots(userId)
-  return c.json(withResolvedTypes(found, roots))
+    .where(
+      and(
+        eq(accounts.id, c.req.param('id')),
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+      ),
+    )
+  if (!found) return fail(c, 'ACCOUNT_NOT_FOUND')
+  return c.json(withResolvedTypes(found, await loadAccountTypeContext(userId)))
 })
 
-// Enriches an account row with both the effective type (stored override else inference) and
-// the pure inferred type, so the settings UI can show "Auto (inferred: X)" alongside an
-// explicit override. Used by the single-account GET and PATCH so both return the same shape.
-function withResolvedTypes<T extends { path: string; type: string | null }>(account: T, roots: AccountTypeRoots) {
+// Enriches an account row with the effective type and with what "Auto" would pick — the type
+// it would have with no override of its own, and the tagged ancestor that answer came from, if
+// any — so the settings UI can show "Auto (Expense, from 花钱)" beside an explicit override.
+// Used by the single-account GET and PATCH so both return the same shape.
+function withResolvedTypes<T extends { path: string; type: string | null }>(
+  account: T,
+  ctx: AccountTypeContext,
+) {
+  const auto = explainType({ path: account.path, type: null }, ctx)
   return {
     ...account,
-    resolvedType: resolveStoredOrInferredType(account, roots),
-    inferredType: resolveAccountType(account.path, roots),
+    resolvedType: resolveStoredOrInferredType(account, ctx),
+    inferredType: auto?.type ?? null,
+    inheritedFrom: auto?.from === 'ancestor' ? auto.path : null,
   }
 }
 
@@ -460,6 +455,36 @@ function readCurrency(value: unknown): CurrencyRead {
   return { ok: false }
 }
 
+// The four fields the two write routes share, as schema.
+//
+// Each one keeps the failure the route already answered with, which is why `path`,
+// `defaultCurrency` and `type` are `unknown` refined by this file's own predicates rather
+// than `z.string()` and `z.enum()`: `ACCOUNT_PATH_INVALID`, `UNSUPPORTED_CURRENCY` with
+// the offending code, and `ACCOUNT_TYPE_INVALID` with the offending type all say more
+// than "wrong type" would.
+const accountPath = z
+  .unknown()
+  .refine((v) => typeof v === 'string' && isValidPath(v), { error: as('ACCOUNT_PATH_INVALID') })
+  .transform(String)
+
+/** null clears the override and falls back to the user's default; anything else must be real. */
+const currencyOverride = z
+  .unknown()
+  .refine((v) => readCurrency(v).ok, {
+    error: asInput('UNSUPPORTED_CURRENCY', (v) => ({ currency: String(v) })),
+  })
+  .transform((v) => (typeof v === 'string' ? v.toUpperCase() : null))
+
+/** null means infer from the path; anything else must be one of the seven hledger types. */
+const typeOverride = z
+  .unknown()
+  .refine((v) => v === null || isStoredAccountType(v), {
+    error: asInput('ACCOUNT_TYPE_INVALID', (v) => ({ type: String(v) })),
+  })
+  .transform((v) => (v === null ? null : (v as StoredAccountType)))
+
+const accountName = z.string({ error: asField('FIELD_NOT_STRING') }).nullable()
+
 // POST /api/accounts
 // Creates one account. Body: { path, name?, defaultCurrency?, type? }.
 //
@@ -471,50 +496,29 @@ function readCurrency(value: unknown): CurrencyRead {
 //
 // 400: no path, a malformed one, the system-managed receivable namespace, or a type or
 // currency this route would refuse on update.
+const NewAccount = z.object({
+  path: accountPath,
+  name: accountName.optional(),
+  defaultCurrency: currencyOverride.optional(),
+  type: typeOverride.optional(),
+})
+
 app.post('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => null) as Record<string, unknown> | null
-  if (!body) return c.json({ error: 'invalid JSON body' }, 400)
+  const parsed = await parseBody(c, NewAccount)
+  if (!parsed.ok) return parsed.response
+  const { path, ...overrides } = parsed.data
 
-  const path = body.path
-  if (typeof path !== 'string' || !isValidPath(path)) {
-    return c.json({ error: 'invalid account path' }, 400)
-  }
   // Receivable accounts are re-spawned at import, so the rename route refuses to move an
   // account into that namespace. Creating one there directly is the same hole by another door.
   if (isClearingAccountPath(path)) {
-    return c.json({ error: 'receivable accounts are system-managed and cannot be created by hand' }, 400)
+    return fail(c, 'RECEIVABLE_NOT_CREATABLE')
   }
 
-  const values: {
-    userId: string
-    path: string
-    name?: string | null
-    defaultCurrency?: string | null
-    type?: StoredAccountType | null
-  } = { userId, path }
-
-  if ('name' in body) {
-    if (body.name !== null && typeof body.name !== 'string') {
-      return c.json({ error: 'name must be a string or null' }, 400)
-    }
-    values.name = body.name
-  }
-
-  if ('defaultCurrency' in body) {
-    const currency = readCurrency(body.defaultCurrency)
-    if (!currency.ok) return c.json({ error: 'invalid currency' }, 400)
-    values.defaultCurrency = currency.value
-  }
-
-  // Same rule as the update path: null means infer from the path, anything else must be one
-  // of the seven hledger types.
-  if ('type' in body) {
-    if (body.type !== null && !isStoredAccountType(body.type)) {
-      return c.json({ error: 'invalid account type' }, 400)
-    }
-    values.type = body.type as StoredAccountType | null
-  }
+  // Spread from the parsed body rather than the request's: the schema has already dropped
+  // every key that is not one of the four, which is what keeps an `id` or a `userId` of
+  // the caller's choosing out of the insert.
+  const values = defined({ userId, path, ...overrides })
 
   const [created] = await db.insert(accounts).values(values).returning()
   return c.json(created, 201)
@@ -530,17 +534,23 @@ app.post('/', async (c) => {
 //
 // Rejects: receivable namespace (system-managed), an invalid target path, a target that
 // would collide with an existing account (that's a merge, not a rename), and no-match.
+// Both halves are required together, and the route has always said so as one failure
+// naming both rather than two failures naming one each.
+const bothRequired = as('FIELDS_REQUIRED', { fields: ['from', 'to'] })
+const renamePart = z.string({ error: bothRequired }).min(1, { error: bothRequired })
+
+const Rename = z.object({ from: renamePart, to: renamePart })
+
 app.post('/rename', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json().catch(() => ({}))
-  const from = typeof body.from === 'string' ? body.from : ''
-  const to = typeof body.to === 'string' ? body.to : ''
+  const parsed = await parseBody(c, Rename)
+  if (!parsed.ok) return parsed.response
+  const { from, to } = parsed.data
 
-  if (!from || !to) return c.json({ error: '`from` and `to` are required' }, 400)
-  if (from === to) return c.json({ error: '`from` and `to` are identical' }, 400)
-  if (!isValidPath(to)) return c.json({ error: 'invalid target path' }, 400)
-  if (isClearingAccountPath(from)) return c.json({ error: 'receivable accounts are system-managed and cannot be renamed' }, 400)
-  if (isClearingAccountPath(to)) return c.json({ error: 'cannot rename into the receivable namespace' }, 400)
+  if (from === to) return fail(c, 'RENAME_TARGET_SAME_AS_SOURCE')
+  if (!isValidPath(to)) return fail(c, 'RENAME_TARGET_INVALID')
+  if (isClearingAccountPath(from)) return fail(c, 'RECEIVABLE_NOT_RENAMABLE')
+  if (isClearingAccountPath(to)) return fail(c, 'RECEIVABLE_NOT_A_RENAME_TARGET')
 
   // Load all of this user's active accounts; match/collision-check in JS to avoid LIKE
   // wildcard hazards (`_`/`%` in a path) and keep anchoring exact. Per-user counts are small.
@@ -552,7 +562,7 @@ app.post('/rename', async (c) => {
   // Anchored prefix match: exactly `from`, or a descendant `from:...`. So renaming
   // `expenses:food` leaves `expenses:foodcourt` untouched.
   const matched = all.filter((a) => a.path === from || a.path.startsWith(`${from}:`))
-  if (matched.length === 0) return c.json({ error: 'no account matches the given path' }, 404)
+  if (matched.length === 0) return fail(c, 'RENAME_NO_MATCH')
 
   const matchedIds = new Set(matched.map((a) => a.id))
   const existingPaths = new Set(all.filter((a) => !matchedIds.has(a.id)).map((a) => a.path))
@@ -561,7 +571,7 @@ app.post('/rename', async (c) => {
   const rewrites = matched.map((a) => ({ id: a.id, newPath: `${to}${a.path.slice(from.length)}` }))
   const collision = rewrites.find((r) => existingPaths.has(r.newPath))
   if (collision) {
-    return c.json({ error: `target path already exists: ${collision.newPath} (merge, not rename)` }, 409)
+    return fail(c, 'RENAME_TARGET_EXISTS', { path: collision.newPath })
   }
 
   const updated = await db.transaction(async (tx) => {
@@ -580,36 +590,35 @@ app.post('/rename', async (c) => {
   return c.json({ renamed: updated.length, accounts: updated })
 })
 
+// `path` is not here on purpose: moving an account is `POST /rename`, which has to
+// cascade over the subtree. Letting a patch write `path` would move one node and orphan
+// its children.
+const AccountPatch = z.object({
+  name: accountName.optional(),
+  defaultCurrency: currencyOverride.optional(),
+  type: typeOverride.optional(),
+})
+
 app.patch('/:id', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
-  const allowed = ['name'] as const
-  const updates: Partial<typeof body> = {}
-  for (const key of allowed) {
-    if (key in body) updates[key] = body[key]
-  }
-  if ('defaultCurrency' in body) {
-    const currency = readCurrency(body.defaultCurrency)
-    if (!currency.ok) return c.json({ error: 'invalid currency' }, 400)
-    updates.defaultCurrency = currency.value
-  }
-  // `type` is the hledger type override. null clears it (back to inference); any other value
-  // must be one of the seven valid types. Reject anything else rather than storing garbage.
-  if ('type' in body) {
-    if (body.type !== null && !isStoredAccountType(body.type)) {
-      return c.json({ error: 'invalid account type' }, 400)
-    }
-    updates.type = body.type
-  }
-  if (Object.keys(updates).length === 0) return c.json({ error: 'No valid fields to update' }, 400)
+  const parsed = await parseBody(c, AccountPatch)
+  if (!parsed.ok) return parsed.response
+
+  const updates = defined(parsed.data)
+  if (Object.keys(updates).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
   const [updated] = await db
     .update(accounts)
     .set(updates)
-    .where(and(eq(accounts.id, c.req.param('id')), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+    .where(
+      and(
+        eq(accounts.id, c.req.param('id')),
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+      ),
+    )
     .returning()
-  if (!updated) return c.json({ error: 'Not found' }, 404)
-  const roots = await loadAccountTypeRoots(userId)
-  return c.json(withResolvedTypes(updated, roots))
+  if (!updated) return fail(c, 'ACCOUNT_NOT_FOUND')
+  return c.json(withResolvedTypes(updated, await loadAccountTypeContext(userId)))
 })
 
 // DELETE /api/accounts/:id
@@ -631,10 +640,10 @@ app.delete('/:id', async (c) => {
     .select({ path: accounts.path })
     .from(accounts)
     .where(and(eq(accounts.id, id), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!account) return c.json({ error: 'account not found' }, 404)
+  if (!account) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   if (isClearingAccountPath(account.path)) {
-    return c.json({ error: 'receivable accounts are system-managed and cannot be deleted' }, 409)
+    return fail(c, 'RECEIVABLE_NOT_DELETABLE')
   }
 
   // Postings on a soft-deleted transaction do not count — the entry is already gone, so the
@@ -643,13 +652,13 @@ app.delete('/:id', async (c) => {
   const [{ entries } = { entries: 0 }] = await db
     .select({ entries: sql<number>`COUNT(${transactions.id})::int` })
     .from(postings)
-    .innerJoin(transactions, and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)))
+    .innerJoin(
+      transactions,
+      and(eq(transactions.id, postings.transactionId), isNull(transactions.deletedAt)),
+    )
     .where(and(eq(postings.accountId, id), isNull(postings.deletedAt)))
   if (entries > 0) {
-    return c.json(
-      { error: `this account has ${entries} ${entries === 1 ? 'entry' : 'entries'} — move or delete them first` },
-      409,
-    )
+    return fail(c, 'ACCOUNT_HAS_ENTRIES', { entries })
   }
 
   const [roles] = await db
@@ -666,10 +675,7 @@ app.delete('/:id', async (c) => {
     roles?.adjustments === id ? 'adjustments' : null,
   ].filter((r): r is string => r !== null)
   if (held.length > 0) {
-    return c.json(
-      { error: `this is your default ${held.join(' and ')} account — point that setting elsewhere first` },
-      409,
-    )
+    return fail(c, 'ACCOUNT_IS_A_DEFAULT', { roles: held })
   }
 
   await db

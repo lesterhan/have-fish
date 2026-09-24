@@ -1,14 +1,14 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
-  NO_RATES,
   conversionNote,
   convertBalances,
   formatCents,
   formatCentsAbs,
   formatMoneyAbs,
+  type Money,
+  NO_RATES,
   otherCurrencies,
   toCents,
-  type Money,
 } from './money'
 
 describe('toCents / formatCents', () => {
@@ -45,15 +45,19 @@ describe('convertBalances', () => {
   ])
 
   it('passes the preferred currency through untouched', () => {
-    expect(
-      convertBalances([{ currency: 'CAD', amount: '100.00' }], rates, 'CAD'),
-    ).toEqual({ cents: 10000, missing: [], included: ['CAD'] })
+    expect(convertBalances([{ currency: 'CAD', amount: '100.00' }], rates, 'CAD')).toEqual({
+      cents: 10000,
+      missing: [],
+      included: ['CAD'],
+    })
   })
 
   it('applies the rate for a foreign currency', () => {
-    expect(
-      convertBalances([{ currency: 'USD', amount: '100.00' }], rates, 'CAD'),
-    ).toEqual({ cents: 14000, missing: [], included: ['USD'] })
+    expect(convertBalances([{ currency: 'USD', amount: '100.00' }], rates, 'CAD')).toEqual({
+      cents: 14000,
+      missing: [],
+      included: ['USD'],
+    })
   })
 
   it('excludes a balance with no rate and names its currency', () => {
@@ -83,11 +87,7 @@ describe('convertBalances', () => {
   })
 
   it('treats an unparseable amount as missing rather than summing NaN', () => {
-    const out = convertBalances(
-      [{ currency: 'CAD', amount: 'oops' }],
-      rates,
-      'CAD',
-    )
+    const out = convertBalances([{ currency: 'CAD', amount: 'oops' }], rates, 'CAD')
     expect(out.cents).toBe(0)
     expect(out.missing).toEqual(['CAD'])
   })
@@ -123,22 +123,14 @@ describe('otherCurrencies', () => {
   })
 
   it('does not report the preferred currency as foreign when an amount is unreadable', () => {
-    const total = convertBalances(
-      [{ currency: 'CAD', amount: '' }],
-      NO_RATES,
-      'CAD',
-    )
+    const total = convertBalances([{ currency: 'CAD', amount: '' }], NO_RATES, 'CAD')
     expect(otherCurrencies(total, 'CAD')).toEqual([])
   })
 })
 
 describe('conversionNote — unconverted', () => {
   function note(balances: Money[], preferred = 'CAD') {
-    return conversionNote(
-      convertBalances(balances, NO_RATES, preferred),
-      preferred,
-      false,
-    )
+    return conversionNote(convertBalances(balances, NO_RATES, preferred), preferred, false)
   }
 
   it('says nothing when the preferred currency is all there is', () => {
@@ -212,11 +204,7 @@ describe('conversionNote — converted', () => {
   const rates = new Map([['USD', 1.4]])
 
   function note(balances: Money[], r = rates, preferred = 'CAD') {
-    return conversionNote(
-      convertBalances(balances, r, preferred),
-      preferred,
-      true,
-    )
+    return conversionNote(convertBalances(balances, r, preferred), preferred, true)
   }
 
   it('says nothing when every balance made it into the total', () => {
@@ -259,9 +247,7 @@ describe('conversionNote — converted', () => {
   })
 
   it('never claims "CAD only" for a total holding no CAD at all', () => {
-    expect(note([{ currency: 'CZK', amount: '1.00' }], new Map())).toBe(
-      'no rate available',
-    )
+    expect(note([{ currency: 'CZK', amount: '1.00' }], new Map())).toBe('no rate available')
   })
 
   it('never claims "CAD only" when some foreign rates did resolve', () => {

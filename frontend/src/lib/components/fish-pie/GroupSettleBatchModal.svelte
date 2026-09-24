@@ -8,6 +8,7 @@
   import Checkbox from '$lib/components/ui/Checkbox.svelte'
   import Card from '$lib/components/ui/Card.svelte'
   import AccountPathInput from '$lib/components/accounts/AccountPathInput.svelte'
+  import { at } from '$lib/at'
   import type { Account, BatchSettlementLine } from '$lib/api'
   import { fetchFxRateAsOf } from '$lib/api'
   import {
@@ -68,42 +69,43 @@
     })
   })
 
+  // Every index below comes from walking `lines` itself, so the row is always there. `at`
+  // writes that down once, and fails naming the list, instead of a `!` at each field.
+  const line = (i: number) => at(lines, i)
+
   // Fetch the FX rate for every converted line lacking one and prefill its cash amount
   // (unless the user has already typed an override).
   async function refreshRates() {
     await Promise.all(
       lines.map(async (l, i) => {
-        if (!isConverted(l, target) || lines[i].fxRate) return
+        if (!isConverted(l, target) || line(i).fxRate) return
         const r = await fetchFxRateAsOf(l.debtCurrency, target)
-        lines[i].fxRate = r?.rate ?? null
-        lines[i].asOfDate = r?.asOfDate ?? null
-        if (!lines[i].settledAmount)
-          lines[i].settledAmount = convertedAmount(
-            l.debtAmount,
-            r?.rate ?? null,
-          )
+        line(i).fxRate = r?.rate ?? null
+        line(i).asOfDate = r?.asOfDate ?? null
+        if (!line(i).settledAmount)
+          line(i).settledAmount = convertedAmount(l.debtAmount, r?.rate ?? null)
       }),
     )
   }
 
   function clearRate(i: number) {
-    lines[i].fxRate = null
-    lines[i].asOfDate = null
-    lines[i].settledAmount = ''
+    line(i).fxRate = null
+    line(i).asOfDate = null
+    line(i).settledAmount = ''
   }
 
   function onTargetCommit(code: string) {
     target = code
     for (let i = 0; i < lines.length; i++) {
-      if (lines[i].debtCurrency === target) lines[i].convert = false
+      if (line(i).debtCurrency === target) line(i).convert = false
       clearRate(i)
     }
     void refreshRates()
   }
 
   function toggleConvert(i: number) {
-    if (lines[i].debtCurrency === target) return // can't convert to the same currency
-    lines[i].convert = !lines[i].convert
+    if (line(i).debtCurrency === target) return // can't convert to the same currency
+    line(i).convert = !line(i).convert
     clearRate(i)
     void refreshRates()
   }

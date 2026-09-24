@@ -1,6 +1,5 @@
-import { describe, it, expect, beforeEach, spyOn } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { beforeEach, describe, expect, it, spyOn } from 'bun:test'
+import { clearDatabase, createTestUser, request } from '../test-utils'
 
 describe('fx-rates', () => {
   let cookie: string
@@ -14,15 +13,15 @@ describe('fx-rates', () => {
 
   it('GET /api/fx-rates fetches from frankfurter.app and caches the result', async () => {
     const fetchSpy = spyOn(global, 'fetch').mockResolvedValueOnce(
-      new Response(JSON.stringify({ rates: { CAD: 1.473200 } }), { status: 200 }),
+      new Response(JSON.stringify({ rates: { CAD: 1.4732 } }), { status: 200 }),
     )
 
-    const res = await app.request('/api/fx-rates?date=2024-01-15&from=EUR&to=CAD', {
+    const res = await request('/api/fx-rates?date=2024-01-15&from=EUR&to=CAD', {
       headers: { Cookie: cookie },
     })
 
     expect(res.status).toBe(200)
-    const body = await res.json() as { date: string; from: string; to: string; rate: string }
+    const body = (await res.json()) as { date: string; from: string; to: string; rate: string }
     expect(body.date).toBe('2024-01-15')
     expect(body.from).toBe('EUR')
     expect(body.to).toBe('CAD')
@@ -31,7 +30,7 @@ describe('fx-rates', () => {
 
     // Second request for the same pair should hit the DB cache — no network call
     fetchSpy.mockClear()
-    const res2 = await app.request('/api/fx-rates?date=2024-01-15&from=EUR&to=CAD', {
+    const res2 = await request('/api/fx-rates?date=2024-01-15&from=EUR&to=CAD', {
       headers: { Cookie: cookie },
     })
     expect(res2.status).toBe(200)
@@ -45,7 +44,7 @@ describe('fx-rates', () => {
       new Response(JSON.stringify({ rates: {} }), { status: 200 }),
     )
 
-    const res = await app.request('/api/fx-rates?date=2024-01-13&from=EUR&to=CAD', {
+    const res = await request('/api/fx-rates?date=2024-01-13&from=EUR&to=CAD', {
       headers: { Cookie: cookie },
     })
 
@@ -56,7 +55,7 @@ describe('fx-rates', () => {
   it('GET /api/fx-rates returns 404 for a future date without hitting the network', async () => {
     const fetchSpy = spyOn(global, 'fetch')
 
-    const res = await app.request('/api/fx-rates?date=2099-01-01&from=EUR&to=CAD', {
+    const res = await request('/api/fx-rates?date=2099-01-01&from=EUR&to=CAD', {
       headers: { Cookie: cookie },
     })
 
@@ -66,7 +65,7 @@ describe('fx-rates', () => {
   })
 
   it('GET /api/fx-rates returns 400 when query params are missing', async () => {
-    const res = await app.request('/api/fx-rates?date=2024-01-15&from=EUR', {
+    const res = await request('/api/fx-rates?date=2024-01-15&from=EUR', {
       headers: { Cookie: cookie },
     })
     expect(res.status).toBe(400)
@@ -86,12 +85,17 @@ describe('fx-rates', () => {
         new Response(JSON.stringify({ rates: { CAD: 1.4732 } }), { status: 200 }),
       )
 
-      const res = await app.request('/api/fx-rates/as-of?from=EUR&to=CAD', {
+      const res = await request('/api/fx-rates/as-of?from=EUR&to=CAD', {
         headers: { Cookie: cookie },
       })
 
       expect(res.status).toBe(200)
-      const body = (await res.json()) as { from: string; to: string; rate: string; asOfDate: string }
+      const body = (await res.json()) as {
+        from: string
+        to: string
+        rate: string
+        asOfDate: string
+      }
       expect(body.from).toBe('EUR')
       expect(body.to).toBe('CAD')
       expect(parseFloat(body.rate)).toBeCloseTo(1.4732)
@@ -104,15 +108,17 @@ describe('fx-rates', () => {
     it('walks back over a no-data day to the last published day', async () => {
       const twoDaysAgo = dateDaysAgo(2)
       // Yesterday: no data (e.g. weekend/holiday). Two days ago: published.
-      const fetchSpy = spyOn(global, 'fetch').mockImplementation(async (input) => {
+      const fetchSpy = spyOn(global, 'fetch').mockImplementation((async (
+        input: RequestInfo | URL,
+      ) => {
         const url = String(input)
         if (url.includes(twoDaysAgo)) {
           return new Response(JSON.stringify({ rates: { CAD: 1.5 } }), { status: 200 })
         }
         return new Response(JSON.stringify({ rates: {} }), { status: 200 })
-      })
+      }) as typeof fetch)
 
-      const res = await app.request('/api/fx-rates/as-of?from=EUR&to=CAD', {
+      const res = await request('/api/fx-rates/as-of?from=EUR&to=CAD', {
         headers: { Cookie: cookie },
       })
 
@@ -128,10 +134,11 @@ describe('fx-rates', () => {
       // Fresh Response per call — a single Response body can only be read once,
       // and the helper walks back several days (reading each).
       const fetchSpy = spyOn(global, 'fetch').mockImplementation(
-        async () => new Response(JSON.stringify({ rates: {} }), { status: 200 }),
+        (async (_input: RequestInfo | URL) =>
+          new Response(JSON.stringify({ rates: {} }), { status: 200 })) as typeof fetch,
       )
 
-      const res = await app.request('/api/fx-rates/as-of?from=EUR&to=CAD', {
+      const res = await request('/api/fx-rates/as-of?from=EUR&to=CAD', {
         headers: { Cookie: cookie },
       })
 
@@ -140,14 +147,14 @@ describe('fx-rates', () => {
     })
 
     it('returns 400 when from/to are missing', async () => {
-      const res = await app.request('/api/fx-rates/as-of?from=EUR', {
+      const res = await request('/api/fx-rates/as-of?from=EUR', {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(400)
     })
 
     it('returns 400 for an unsupported currency', async () => {
-      const res = await app.request('/api/fx-rates/as-of?from=EUR&to=ZZZ', {
+      const res = await request('/api/fx-rates/as-of?from=EUR&to=ZZZ', {
         headers: { Cookie: cookie },
       })
       expect(res.status).toBe(400)

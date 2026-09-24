@@ -1,9 +1,20 @@
+import { randomUUID } from 'node:crypto'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { randomUUID } from 'crypto'
-import { db } from '../db'
-import { expenseGroups, expenseGroupMembers, groupSettlements, user, accounts, transactions, postings, userSettings } from '../db/schema'
-import { eq, isNull, and, inArray } from 'drizzle-orm'
 import type { AppVariables } from '../app'
+import { db } from '../db'
+import { returnedRow } from '../db/returning'
+import {
+  accounts,
+  expenseGroupMembers,
+  expenseGroups,
+  groupSettlements,
+  postings,
+  transactions,
+  user,
+  userSettings,
+} from '../db/schema'
+import { fail } from '../errors'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -16,8 +27,13 @@ async function fetchSettlementsWithNames(settlementIds: string[]) {
     .from(groupSettlements)
     .where(inArray(groupSettlements.id, settlementIds))
 
-  const userIds = [...new Set([...settlements.map((s) => s.fromUserId), ...settlements.map((s) => s.toUserId)])]
-  const users = await db.select({ id: user.id, name: user.name }).from(user).where(inArray(user.id, userIds))
+  const userIds = [
+    ...new Set([...settlements.map((s) => s.fromUserId), ...settlements.map((s) => s.toUserId)]),
+  ]
+  const users = await db
+    .select({ id: user.id, name: user.name })
+    .from(user)
+    .where(inArray(user.id, userIds))
   const nameMap = new Map(users.map((u) => [u.id, u.name]))
 
   return settlements.map((s) => ({
@@ -52,7 +68,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await db
     .select({ userId: expenseGroupMembers.userId })
@@ -60,7 +76,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
     .where(eq(expenseGroupMembers.groupId, groupId))
 
   const memberIds = new Set(members.map((m) => m.userId))
-  if (!memberIds.has(userId)) return c.json({ error: 'not found' }, 404)
+  if (!memberIds.has(userId)) return fail(c, 'GROUP_NOT_FOUND')
 
   const body = await c.req.json<{
     fromUserId?: string
@@ -72,69 +88,96 @@ app.post('/groups/:groupId/settlements', async (c) => {
     payerAccountId?: string
   }>()
 
-  if (!body.fromUserId || !memberIds.has(body.fromUserId)) return c.json({ error: 'fromUserId must be a group member' }, 400)
-  if (!body.toUserId || !memberIds.has(body.toUserId)) return c.json({ error: 'toUserId must be a group member' }, 400)
-  if (body.fromUserId === body.toUserId) return c.json({ error: 'from and to must differ' }, 400)
-  if (body.fromUserId !== userId) return c.json({ error: 'only the payer can initiate a settlement' }, 403)
-  if (!body.amount || isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
-    return c.json({ error: 'amount must be a positive number' }, 400)
-  if (!body.currency?.trim()) return c.json({ error: 'currency is required' }, 400)
-  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
-  if (!body.payerAccountId) return c.json({ error: 'payerAccountId is required' }, 400)
+  if (!body.fromUserId || !memberIds.has(body.fromUserId))
+    return fail(c, 'NAMED_USER_NOT_A_MEMBER', { field: 'fromUserId' })
+  if (!body.toUserId || !memberIds.has(body.toUserId))
+    return fail(c, 'NAMED_USER_NOT_A_MEMBER', { field: 'toUserId' })
+  if (body.fromUserId === body.toUserId) return fail(c, 'SETTLEMENT_SAME_USER')
+  if (body.fromUserId !== userId) return fail(c, 'ONLY_PAYER_CAN_SETTLE')
+  if (!body.amount || Number.isNaN(parseFloat(body.amount)) || parseFloat(body.amount) <= 0)
+    return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'amount' })
+  if (!body.currency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'currency' })
+  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
+  if (!body.payerAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'payerAccountId' })
+
+  // Read out of `body` once the guards above have run. Narrowing a property does not
+  // survive into the transaction callback below — which is why these reads used to carry
+  // a `!` — but a local does.
+  const { fromUserId, toUserId, payerAccountId, date } = body
 
   // Verify payer account belongs to the fromUser
   const [payerAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.id, body.payerAccountId), eq(accounts.userId, body.fromUserId), isNull(accounts.deletedAt)))
-  if (!payerAccount) return c.json({ error: 'payerAccountId not found' }, 400)
+    .where(
+      and(
+        eq(accounts.id, body.payerAccountId),
+        eq(accounts.userId, body.fromUserId),
+        isNull(accounts.deletedAt),
+      ),
+    )
+  if (!payerAccount) return fail(c, 'PAYER_ACCOUNT_NOT_FOUND')
 
   const amount = parseFloat(body.amount).toFixed(2)
   const currency = body.currency.trim().toUpperCase()
   const txDate = new Date(`${body.date}T00:00:00Z`)
 
   const result = await db.transaction(async (tx) => {
-    const [settlement] = await tx
-      .insert(groupSettlements)
-      .values({
-        groupId,
-        fromUserId: body.fromUserId!,
-        toUserId: body.toUserId!,
-        amount,
-        currency,
-        date: body.date!,
-        note: body.note?.trim() || null,
-        status: 'pending',
-        payerAccountId: body.payerAccountId,
-      })
-      .returning()
+    const settlement = returnedRow(
+      await tx
+        .insert(groupSettlements)
+        .values({
+          groupId,
+          fromUserId,
+          toUserId,
+          amount,
+          currency,
+          date,
+          note: body.note?.trim() || null,
+          status: 'pending',
+          payerAccountId,
+        })
+        .returning(),
+      'insert groupSettlements',
+    )
 
     // Payer's ledger transaction:
     // debit payerAccount (cash out): -amount
     // credit group:<group> (payment into group recorded): +amount
-    const sharedAccountId = await ensureSharedAccount(body.fromUserId!, group, tx)
+    const sharedAccountId = await ensureSharedAccount(fromUserId, group, tx)
 
-    const [payerTx] = await tx
-      .insert(transactions)
-      .values({
-        userId: body.fromUserId!,
-        date: txDate,
-        description: body.note?.trim() || `Settlement to ${group.name}`,
-      })
-      .returning()
+    const payerTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId: fromUserId,
+          date: txDate,
+          description: body.note?.trim() || `Settlement to ${group.name}`,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
     await tx.insert(postings).values([
-      { transactionId: payerTx.id, accountId: body.payerAccountId!, amount: `-${amount}`, currency },
+      {
+        transactionId: payerTx.id,
+        accountId: payerAccountId,
+        amount: `-${amount}`,
+        currency,
+      },
       { transactionId: payerTx.id, accountId: sharedAccountId, amount, currency },
     ])
 
-    const [updated] = await tx
-      .update(groupSettlements)
-      .set({ payerTransactionId: payerTx.id })
-      .where(eq(groupSettlements.id, settlement.id))
-      .returning()
-
-    return updated
+    // The row this updates was inserted two statements ago inside the same transaction,
+    // so a miss here is a broken invariant, not a 404.
+    return returnedRow(
+      await tx
+        .update(groupSettlements)
+        .set({ payerTransactionId: payerTx.id })
+        .where(eq(groupSettlements.id, settlement.id))
+        .returning(),
+      'update groupSettlements',
+    )
   })
 
   const [withNames] = await fetchSettlementsWithNames([result.id])
@@ -159,14 +202,14 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await db
     .select({ userId: expenseGroupMembers.userId })
     .from(expenseGroupMembers)
     .where(eq(expenseGroupMembers.groupId, groupId))
   const memberIds = new Set(members.map((m) => m.userId))
-  if (!memberIds.has(userId)) return c.json({ error: 'not found' }, 404)
+  if (!memberIds.has(userId)) return fail(c, 'GROUP_NOT_FOUND')
 
   const body = await c.req.json<{
     payerAccountId?: string
@@ -182,17 +225,28 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     }[]
   }>()
 
-  if (!body.payerAccountId) return c.json({ error: 'payerAccountId is required' }, 400)
-  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return c.json({ error: 'date must be YYYY-MM-DD' }, 400)
+  if (!body.payerAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'payerAccountId' })
+  if (!body.date?.match(/^\d{4}-\d{2}-\d{2}$/)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
   if (!Array.isArray(body.lines) || body.lines.length === 0)
-    return c.json({ error: 'lines must be a non-empty array' }, 400)
+    return fail(c, 'FIELD_EMPTY', { field: 'lines' })
+
+  // Locals, for the same reason as the single-settlement route above: the guards narrow
+  // `body.payerAccountId` and `body.date`, but that narrowing does not reach inside the
+  // transaction callback.
+  const { payerAccountId, date } = body
 
   // The payer is always the caller — the cash leaves their account.
   const [payerAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.id, body.payerAccountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!payerAccount) return c.json({ error: 'payerAccountId not found' }, 400)
+    .where(
+      and(
+        eq(accounts.id, body.payerAccountId),
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+      ),
+    )
+  if (!payerAccount) return fail(c, 'PAYER_ACCOUNT_NOT_FOUND')
 
   type NormLine = {
     toUserId: string
@@ -205,14 +259,19 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
   }
   const lines: NormLine[] = []
   for (const l of body.lines) {
-    if (!l.toUserId || !memberIds.has(l.toUserId)) return c.json({ error: 'each line toUserId must be a group member' }, 400)
-    if (l.toUserId === userId) return c.json({ error: 'cannot settle with yourself' }, 400)
-    if (!l.debtAmount || isNaN(parseFloat(l.debtAmount)) || parseFloat(l.debtAmount) <= 0)
-      return c.json({ error: 'debtAmount must be a positive number' }, 400)
-    if (!l.debtCurrency?.trim()) return c.json({ error: 'debtCurrency is required' }, 400)
-    if (!l.settledAmount || isNaN(parseFloat(l.settledAmount)) || parseFloat(l.settledAmount) <= 0)
-      return c.json({ error: 'settledAmount must be a positive number' }, 400)
-    if (!l.settledCurrency?.trim()) return c.json({ error: 'settledCurrency is required' }, 400)
+    if (!l.toUserId || !memberIds.has(l.toUserId))
+      return fail(c, 'NAMED_USER_NOT_A_MEMBER', { field: 'toUserId' })
+    if (l.toUserId === userId) return fail(c, 'SETTLEMENT_SAME_USER')
+    if (!l.debtAmount || Number.isNaN(parseFloat(l.debtAmount)) || parseFloat(l.debtAmount) <= 0)
+      return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'debtAmount' })
+    if (!l.debtCurrency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'debtCurrency' })
+    if (
+      !l.settledAmount ||
+      Number.isNaN(parseFloat(l.settledAmount)) ||
+      parseFloat(l.settledAmount) <= 0
+    )
+      return fail(c, 'FIELD_NOT_POSITIVE_NUMBER', { field: 'settledAmount' })
+    if (!l.settledCurrency?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'settledCurrency' })
 
     const debtCurrency = l.debtCurrency.trim().toUpperCase()
     const settledCurrency = l.settledCurrency.trim().toUpperCase()
@@ -221,9 +280,9 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     const converted = settledCurrency !== debtCurrency
 
     if (!converted && debtAmount !== settledAmount)
-      return c.json({ error: 'native line settledAmount must equal debtAmount' }, 400)
-    if (converted && (!l.fxRate || isNaN(parseFloat(l.fxRate)) || parseFloat(l.fxRate) <= 0))
-      return c.json({ error: 'converted line requires a positive fxRate' }, 400)
+      return fail(c, 'SETTLEMENT_NATIVE_AMOUNT_MISMATCH')
+    if (converted && (!l.fxRate || Number.isNaN(parseFloat(l.fxRate)) || parseFloat(l.fxRate) <= 0))
+      return fail(c, 'SETTLEMENT_FX_RATE_REQUIRED')
 
     lines.push({
       toUserId: l.toUserId,
@@ -244,8 +303,7 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
       .from(userSettings)
       .where(eq(userSettings.userId, userId))
     conversionAccountId = settings?.conversionAccountId ?? null
-    if (!conversionAccountId)
-      return c.json({ error: 'a conversion account is required for cross-currency settlement; set one in settings' }, 400)
+    if (!conversionAccountId) return fail(c, 'CONVERSION_ACCOUNT_REQUIRED')
   }
 
   const txDate = new Date(`${body.date}T00:00:00Z`)
@@ -254,33 +312,64 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
   const result = await db.transaction(async (tx) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
 
-    const [payerTx] = await tx
-      .insert(transactions)
-      .values({
-        userId,
-        date: txDate,
-        description: body.note?.trim() || `Settlement to ${group.name}`,
-      })
-      .returning()
+    const payerTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId,
+          date: txDate,
+          description: body.note?.trim() || `Settlement to ${group.name}`,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
-    const postingRows: { transactionId: string; accountId: string; amount: string; currency: string }[] = []
+    const postingRows: {
+      transactionId: string
+      accountId: string
+      amount: string
+      currency: string
+    }[] = []
 
     // One combined cash leg per settled currency (single bank movement per currency).
     const cashByCurrency = new Map<string, number>()
     for (const l of lines) {
-      cashByCurrency.set(l.settledCurrency, (cashByCurrency.get(l.settledCurrency) ?? 0) + parseFloat(l.settledAmount))
+      cashByCurrency.set(
+        l.settledCurrency,
+        (cashByCurrency.get(l.settledCurrency) ?? 0) + parseFloat(l.settledAmount),
+      )
     }
     for (const [currency, total] of cashByCurrency) {
-      postingRows.push({ transactionId: payerTx.id, accountId: body.payerAccountId!, amount: (-total).toFixed(2), currency })
+      postingRows.push({
+        transactionId: payerTx.id,
+        accountId: body.payerAccountId!,
+        amount: (-total).toFixed(2),
+        currency,
+      })
     }
 
     // Credit the payer's clearing account per debt; bridge converted lines through
     // equity:conversions so every currency nets to zero.
     for (const l of lines) {
-      postingRows.push({ transactionId: payerTx.id, accountId: sharedAccountId, amount: l.debtAmount, currency: l.debtCurrency })
+      postingRows.push({
+        transactionId: payerTx.id,
+        accountId: sharedAccountId,
+        amount: l.debtAmount,
+        currency: l.debtCurrency,
+      })
       if (l.converted) {
-        postingRows.push({ transactionId: payerTx.id, accountId: conversionAccountId!, amount: l.settledAmount, currency: l.settledCurrency })
-        postingRows.push({ transactionId: payerTx.id, accountId: conversionAccountId!, amount: `-${l.debtAmount}`, currency: l.debtCurrency })
+        postingRows.push({
+          transactionId: payerTx.id,
+          accountId: conversionAccountId!,
+          amount: l.settledAmount,
+          currency: l.settledCurrency,
+        })
+        postingRows.push({
+          transactionId: payerTx.id,
+          accountId: conversionAccountId!,
+          amount: `-${l.debtAmount}`,
+          currency: l.debtCurrency,
+        })
       }
     }
 
@@ -300,10 +389,10 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
           settledCurrency: l.converted ? l.settledCurrency : null,
           fxRate: l.fxRate,
           batchId,
-          date: body.date!,
+          date,
           note: body.note?.trim() || null,
           status: 'pending' as const,
-          payerAccountId: body.payerAccountId,
+          payerAccountId,
           payerTransactionId: payerTx.id,
         })),
       )
@@ -327,30 +416,43 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
   const [settlement] = await db
     .select()
     .from(groupSettlements)
-    .where(and(eq(groupSettlements.id, settlementId), eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt)))
-  if (!settlement) return c.json({ error: 'not found' }, 404)
+    .where(
+      and(
+        eq(groupSettlements.id, settlementId),
+        eq(groupSettlements.groupId, groupId),
+        isNull(groupSettlements.deletedAt),
+      ),
+    )
+  if (!settlement) return fail(c, 'SETTLEMENT_NOT_FOUND')
 
-  if (settlement.toUserId !== userId) return c.json({ error: 'forbidden' }, 403)
-  if (settlement.status === 'completed') return c.json({ error: 'already confirmed' }, 409)
+  if (settlement.toUserId !== userId) return fail(c, 'ONLY_RECIPIENT_CAN_CONFIRM')
+  if (settlement.status === 'completed') return fail(c, 'SETTLEMENT_ALREADY_CONFIRMED')
   // Batch rows (esp. cross-currency) must confirm through the batch endpoint, which
   // books the cash leg in the settled currency. This single-row path would wrongly
   // book the debt currency/amount as the cash received.
-  if (settlement.batchId) return c.json({ error: 'use the batch confirm endpoint' }, 409)
+  if (settlement.batchId) return fail(c, 'SETTLEMENT_NEEDS_BATCH_CONFIRM')
 
   const body = await c.req.json<{ receiverAccountId?: string }>()
-  if (!body.receiverAccountId) return c.json({ error: 'receiverAccountId is required' }, 400)
+  if (!body.receiverAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'receiverAccountId' })
+  const { receiverAccountId } = body
 
   const [group] = await db
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const [receiverAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.id, body.receiverAccountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!receiverAccount) return c.json({ error: 'receiverAccountId not found' }, 400)
+    .where(
+      and(
+        eq(accounts.id, body.receiverAccountId),
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+      ),
+    )
+  if (!receiverAccount) return fail(c, 'RECEIVER_ACCOUNT_NOT_FOUND')
 
   const result = await db.transaction(async (tx) => {
     // Receiver's ledger transaction:
@@ -359,27 +461,43 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     const txDate = new Date(`${settlement.date}T00:00:00Z`)
 
-    const [receiverTx] = await tx
-      .insert(transactions)
-      .values({
-        userId,
-        date: txDate,
-        description: settlement.note || `Settlement from ${group.name}`,
-      })
-      .returning()
+    const receiverTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId,
+          date: txDate,
+          description: settlement.note || `Settlement from ${group.name}`,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
     await tx.insert(postings).values([
-      { transactionId: receiverTx.id, accountId: body.receiverAccountId!, amount: settlement.amount, currency: settlement.currency },
-      { transactionId: receiverTx.id, accountId: sharedAccountId, amount: `-${settlement.amount}`, currency: settlement.currency },
+      {
+        transactionId: receiverTx.id,
+        accountId: receiverAccountId,
+        amount: settlement.amount,
+        currency: settlement.currency,
+      },
+      {
+        transactionId: receiverTx.id,
+        accountId: sharedAccountId,
+        amount: `-${settlement.amount}`,
+        currency: settlement.currency,
+      },
     ])
 
-    const [updated] = await tx
-      .update(groupSettlements)
-      .set({ status: 'completed', receiverTransactionId: receiverTx.id })
-      .where(eq(groupSettlements.id, settlementId))
-      .returning()
-
-    return updated
+    // `settlement` was read and checked above, and this transaction is the only writer,
+    // so no row back here means the invariant broke rather than the row being gone.
+    return returnedRow(
+      await tx
+        .update(groupSettlements)
+        .set({ status: 'completed', receiverTransactionId: receiverTx.id })
+        .where(eq(groupSettlements.id, settlementId))
+        .returning(),
+      'update groupSettlements',
+    )
   })
 
   const [withNames] = await fetchSettlementsWithNames([result.id])
@@ -401,7 +519,7 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   // Rows in this batch addressed to the caller (the receiver).
   const rows = await db
@@ -415,18 +533,29 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
         isNull(groupSettlements.deletedAt),
       ),
     )
-  if (rows.length === 0) return c.json({ error: 'not found' }, 404)
-  if (rows.every((r) => r.status === 'completed')) return c.json({ error: 'already confirmed' }, 409)
+  if (rows.length === 0) return fail(c, 'SETTLEMENT_NOT_FOUND')
   const pending = rows.filter((r) => r.status !== 'completed')
+  // Nothing pending means every row in the batch is already confirmed — the same check
+  // as before, read off the filtered list so the first row below is a value rather than
+  // an index into an array the compiler has no reason to think is non-empty.
+  const firstPending = pending[0]
+  if (!firstPending) return fail(c, 'SETTLEMENT_ALREADY_CONFIRMED')
 
   const body = await c.req.json<{ receiverAccountId?: string }>()
-  if (!body.receiverAccountId) return c.json({ error: 'receiverAccountId is required' }, 400)
+  if (!body.receiverAccountId) return fail(c, 'FIELD_REQUIRED', { field: 'receiverAccountId' })
+  const { receiverAccountId } = body
 
   const [receiverAccount] = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.id, body.receiverAccountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  if (!receiverAccount) return c.json({ error: 'receiverAccountId not found' }, 400)
+    .where(
+      and(
+        eq(accounts.id, body.receiverAccountId),
+        eq(accounts.userId, userId),
+        isNull(accounts.deletedAt),
+      ),
+    )
+  if (!receiverAccount) return fail(c, 'RECEIVER_ACCOUNT_NOT_FOUND')
 
   // Cross-currency rows need the receiver's conversion account to bridge currencies.
   const hasConverted = pending.some((r) => r.settledCurrency !== null)
@@ -437,25 +566,32 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
       .from(userSettings)
       .where(eq(userSettings.userId, userId))
     conversionAccountId = settings?.conversionAccountId ?? null
-    if (!conversionAccountId)
-      return c.json({ error: 'a conversion account is required for cross-currency settlement; set one in settings' }, 400)
+    if (!conversionAccountId) return fail(c, 'CONVERSION_ACCOUNT_REQUIRED')
   }
 
   const result = await db.transaction(async (tx) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     // All rows in a batch share the payer's date; use the first.
-    const txDate = new Date(`${pending[0].date}T00:00:00Z`)
+    const txDate = new Date(`${firstPending.date}T00:00:00Z`)
 
-    const [receiverTx] = await tx
-      .insert(transactions)
-      .values({
-        userId,
-        date: txDate,
-        description: pending[0].note || `Settlement from ${group.name}`,
-      })
-      .returning()
+    const receiverTx = returnedRow(
+      await tx
+        .insert(transactions)
+        .values({
+          userId,
+          date: txDate,
+          description: firstPending.note || `Settlement from ${group.name}`,
+        })
+        .returning(),
+      'insert transactions',
+    )
 
-    const postingRows: { transactionId: string; accountId: string; amount: string; currency: string }[] = []
+    const postingRows: {
+      transactionId: string
+      accountId: string
+      amount: string
+      currency: string
+    }[] = []
 
     // One combined cash-in leg per received currency (mirror of the payer's cash-out).
     const cashByCurrency = new Map<string, number>()
@@ -465,16 +601,36 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
       cashByCurrency.set(cashCurrency, (cashByCurrency.get(cashCurrency) ?? 0) + cashAmount)
     }
     for (const [currency, total] of cashByCurrency) {
-      postingRows.push({ transactionId: receiverTx.id, accountId: body.receiverAccountId!, amount: total.toFixed(2), currency })
+      postingRows.push({
+        transactionId: receiverTx.id,
+        accountId: receiverAccountId,
+        amount: total.toFixed(2),
+        currency,
+      })
     }
 
     // Drain the receiver's clearing account per debt; bridge converted rows through
     // their equity:conversions so every currency nets to zero.
     for (const r of pending) {
-      postingRows.push({ transactionId: receiverTx.id, accountId: sharedAccountId, amount: `-${r.amount}`, currency: r.currency })
+      postingRows.push({
+        transactionId: receiverTx.id,
+        accountId: sharedAccountId,
+        amount: `-${r.amount}`,
+        currency: r.currency,
+      })
       if (r.settledCurrency !== null) {
-        postingRows.push({ transactionId: receiverTx.id, accountId: conversionAccountId!, amount: `-${r.settledAmount}`, currency: r.settledCurrency })
-        postingRows.push({ transactionId: receiverTx.id, accountId: conversionAccountId!, amount: r.amount, currency: r.currency })
+        postingRows.push({
+          transactionId: receiverTx.id,
+          accountId: conversionAccountId!,
+          amount: `-${r.settledAmount}`,
+          currency: r.settledCurrency,
+        })
+        postingRows.push({
+          transactionId: receiverTx.id,
+          accountId: conversionAccountId!,
+          amount: r.amount,
+          currency: r.currency,
+        })
       }
     }
 
@@ -483,7 +639,12 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     const updated = await tx
       .update(groupSettlements)
       .set({ status: 'completed', receiverTransactionId: receiverTx.id })
-      .where(inArray(groupSettlements.id, pending.map((r) => r.id)))
+      .where(
+        inArray(
+          groupSettlements.id,
+          pending.map((r) => r.id),
+        ),
+      )
       .returning()
 
     return updated
@@ -502,13 +663,13 @@ app.get('/groups/:groupId/settlements', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const [membership] = await db
     .select()
     .from(expenseGroupMembers)
     .where(and(eq(expenseGroupMembers.groupId, groupId), eq(expenseGroupMembers.userId, userId)))
-  if (!membership) return c.json({ error: 'not found' }, 404)
+  if (!membership) return fail(c, 'GROUP_NOT_FOUND')
 
   return c.json(await fetchGroupSettlements(groupId))
 })
@@ -522,15 +683,24 @@ app.delete('/groups/:groupId/settlements/:settlementId', async (c) => {
   const [settlement] = await db
     .select()
     .from(groupSettlements)
-    .where(and(eq(groupSettlements.id, settlementId), eq(groupSettlements.groupId, groupId), isNull(groupSettlements.deletedAt)))
-  if (!settlement) return c.json({ error: 'not found' }, 404)
+    .where(
+      and(
+        eq(groupSettlements.id, settlementId),
+        eq(groupSettlements.groupId, groupId),
+        isNull(groupSettlements.deletedAt),
+      ),
+    )
+  if (!settlement) return fail(c, 'SETTLEMENT_NOT_FOUND')
 
-  const [group] = await db.select().from(expenseGroups).where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  const [group] = await db
+    .select()
+    .from(expenseGroups)
+    .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const isParty = settlement.fromUserId === userId || settlement.toUserId === userId
   const isCreator = group.createdBy === userId
-  if (!isParty && !isCreator) return c.json({ error: 'forbidden' }, 403)
+  if (!isParty && !isCreator) return fail(c, 'NOT_A_PARTY_OR_GROUP_CREATOR')
 
   // A batch shares one payer transaction across all its rows, so a single row can't be
   // removed in isolation without unbalancing that transaction — delete the whole batch
@@ -539,7 +709,9 @@ app.delete('/groups/:groupId/settlements/:settlementId', async (c) => {
     ? await db
         .select()
         .from(groupSettlements)
-        .where(and(eq(groupSettlements.batchId, settlement.batchId), isNull(groupSettlements.deletedAt)))
+        .where(
+          and(eq(groupSettlements.batchId, settlement.batchId), isNull(groupSettlements.deletedAt)),
+        )
     : [settlement]
 
   const settlementIds = siblings.map((s) => s.id)
@@ -552,11 +724,20 @@ app.delete('/groups/:groupId/settlements/:settlementId', async (c) => {
   ]
 
   await db.transaction(async (tx) => {
-    await tx.update(groupSettlements).set({ deletedAt: new Date() }).where(inArray(groupSettlements.id, settlementIds))
+    await tx
+      .update(groupSettlements)
+      .set({ deletedAt: new Date() })
+      .where(inArray(groupSettlements.id, settlementIds))
 
     if (txIds.length > 0) {
-      await tx.update(transactions).set({ deletedAt: new Date() }).where(inArray(transactions.id, txIds))
-      await tx.update(postings).set({ deletedAt: new Date() }).where(inArray(postings.transactionId, txIds))
+      await tx
+        .update(transactions)
+        .set({ deletedAt: new Date() })
+        .where(inArray(transactions.id, txIds))
+      await tx
+        .update(postings)
+        .set({ deletedAt: new Date() })
+        .where(inArray(postings.transactionId, txIds))
     }
   })
 

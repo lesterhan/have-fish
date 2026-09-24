@@ -5,6 +5,28 @@ on:
     branches: [main]
 
 jobs:
+  # One formatter and one linter for every half of the repo, configured in `biome.jsonc`
+  # at the root. This job is deliberately the cheapest in the file — no database, no
+  # install beyond one binary — so a formatting or lint break is reported in seconds
+  # rather than behind a four-minute test run.
+  lint:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install Biome
+        run: bun install
+
+      # `check` is formatter + linter + import sorting in one pass. Warnings do not fail
+      # the job; errors do.
+      - name: Format and lint
+        run: bun run check
+
   backend:
     runs-on: ubuntu-latest
 
@@ -51,6 +73,13 @@ jobs:
         working-directory: backend
         run: bun test
 
+      # `bun test` strips types rather than checking them, so nothing in this job would
+      # notice a type error until the dev server crashed. It matters for `src/errors.ts`,
+      # whose whole point is that `fail(c, code, detail)` types the detail per code.
+      - name: Type check
+        working-directory: backend
+        run: bun run check
+
   frontend:
     runs-on: ubuntu-latest
 
@@ -71,10 +100,19 @@ jobs:
         working-directory: frontend
         run: bun install
 
+      # `bun run test`, not `bun test`: the script runs `svelte-kit sync` first, which
+      # generates the `$lib` path mapping. A checkout does not carry it, and the route
+      # guards under test import through that alias.
       - name: Run tests
         working-directory: frontend
-        run: bun test
+        run: bun run test
 
       - name: Type check
         working-directory: frontend
         run: bun run check
+
+      # The frontend is no longer built by its own image, so a build break would otherwise
+      # reach `main` and only surface when the combined image is assembled.
+      - name: Build
+        working-directory: frontend
+        run: bun run build

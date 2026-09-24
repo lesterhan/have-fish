@@ -35,7 +35,12 @@ export function owedDebts(balances: CurrencyBalance[], currentUserId: string): O
   for (const cb of balances) {
     for (const t of cb.transfers) {
       if (t.fromUserId === currentUserId) {
-        out.push({ toUserId: t.toUserId, toUserName: t.toUserName, amount: t.amount, currency: t.currency })
+        out.push({
+          toUserId: t.toUserId,
+          toUserName: t.toUserName,
+          amount: t.amount,
+          currency: t.currency,
+        })
       }
     }
   }
@@ -77,13 +82,18 @@ export function convertedAmount(debtAmount: string, rate: string | null): string
 export function linesReady(lines: SettleLine[], targetCurrency: string): boolean {
   const included = lines.filter((l) => l.include)
   if (included.length === 0) return false
-  return included.every((l) => (isConverted(l, targetCurrency) ? parseFloat(l.settledAmount) > 0 : true))
+  return included.every((l) =>
+    isConverted(l, targetCurrency) ? parseFloat(l.settledAmount) > 0 : true,
+  )
 }
 
 // Build the create-batch payload from the sheet's line state.
 // Native line ⇒ settled* mirror the debt. Converted line ⇒ pay settledAmount of the
 // target currency at fxRate. Excluded lines are dropped (partial batch).
-export function buildBatchLines(lines: SettleLine[], targetCurrency: string): BatchSettlementLine[] {
+export function buildBatchLines(
+  lines: SettleLine[],
+  targetCurrency: string,
+): BatchSettlementLine[] {
   const out: BatchSettlementLine[] = []
   for (const l of lines) {
     if (!l.include) continue

@@ -11,17 +11,23 @@ export interface Particle {
   rot1: number // deg, end rotation
 }
 
-const SYMBOLS = ['💵', '💎', '🐟', '🧧', '💴', '💶', '💷', '🪙']
+const SYMBOLS = ['💵', '💎', '🐟', '🧧', '💴', '💶', '💷', '🪙'] as const
 const COUNT = 88
 
 function rand(min: number, max: number) {
   return min + Math.random() * (max - min)
 }
 
+// `Math.random()` never reaches 1, so the index is always inside the list. The first symbol
+// is what says that to the type checker; a `!` would say it to nobody.
+function randomSymbol(): string {
+  return SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)] ?? SYMBOLS[0]
+}
+
 function generate(): Particle[] {
   return Array.from({ length: COUNT }, (_, i) => ({
     id: i,
-    symbol: SYMBOLS[Math.floor(Math.random() * SYMBOLS.length)],
+    symbol: randomSymbol(),
     x: rand(-5, 105),
     rise: rand(30, 70),
     delay: rand(0, 1.4),

@@ -1,9 +1,12 @@
+import { and, eq, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db'
-import { userSettings, accounts } from '../db/schema'
-import { eq, and, isNull, sql } from 'drizzle-orm'
+import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
+import { db } from '../db'
+import { accounts, userSettings } from '../db/schema'
+import { fail } from '../errors'
+import { asField, parseBody, text } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -13,16 +16,10 @@ const app = new Hono<{ Variables: AppVariables }>()
 app.get('/', async (c) => {
   const userId = c.get('userId')
 
-  let [settings] = await db
-    .select()
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
+  let [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId))
 
   if (!settings) {
-    ;[settings] = await db
-      .insert(userSettings)
-      .values({ userId })
-      .returning()
+    ;[settings] = await db.insert(userSettings).values({ userId }).returning()
   }
 
   return c.json(settings)
@@ -40,24 +37,59 @@ app.get('/', async (c) => {
 //   defaultEquityRootPath      — plain text path prefix, e.g. "equity"
 //   defaultIncomeRootPath      — plain text path prefix, e.g. "income"
 //   preferences                — arbitrary JSON object, shallow-merged into existing preferences
+// Every field is optional — a patch names only what it changes — and the three account
+// fields are additionally nullable, because null is how a default is cleared.
+//
+// `z.uuid()` on the account ids is a tightening: they used to be checked only for being a
+// string and then handed to a uuid column, so `"abc"` reached Postgres and came back as a
+// 500 rather than as the `FIELD_NOT_UUID` the route already had a name for.
+const SettingsPatch = z.object({
+  defaultOffsetAccountId: z
+    .uuid({ error: asField('FIELD_NOT_UUID') })
+    .nullable()
+    .optional(),
+  defaultConversionAccountId: z
+    .uuid({ error: asField('FIELD_NOT_UUID') })
+    .nullable()
+    .optional(),
+  defaultAdjustmentsAccountId: z
+    .uuid({ error: asField('FIELD_NOT_UUID') })
+    .nullable()
+    .optional(),
+
+  defaultAssetsRootPath: text('FIELD_EMPTY').optional(),
+  defaultLiabilitiesRootPath: text('FIELD_EMPTY').optional(),
+  defaultExpensesRootPath: text('FIELD_EMPTY').optional(),
+  defaultEquityRootPath: text('FIELD_EMPTY').optional(),
+  defaultIncomeRootPath: text('FIELD_EMPTY').optional(),
+
+  preferredCurrency: text('FIELD_EMPTY').optional(),
+
+  // Arbitrary keys, shallow-merged below. The schema's job here is only to refuse an
+  // array, a null or a scalar, which is what the hand-written check did.
+  preferences: z.record(z.string(), z.unknown(), { error: asField('FIELD_NOT_OBJECT') }).optional(),
+})
+
 app.patch('/', async (c) => {
   const userId = c.get('userId')
-  const body = await c.req.json()
+  const parsed = await parseBody(c, SettingsPatch)
+  if (!parsed.ok) return parsed.response
+  const body = parsed.data
 
   const patch: Partial<typeof userSettings.$inferInsert> = {}
 
   // Account UUID fields — must reference an account owned by this user
-  for (const field of ['defaultOffsetAccountId', 'defaultConversionAccountId', 'defaultAdjustmentsAccountId'] as const) {
-    if (!(field in body)) continue
+  for (const field of [
+    'defaultOffsetAccountId',
+    'defaultConversionAccountId',
+    'defaultAdjustmentsAccountId',
+  ] as const) {
     const value = body[field]
+    if (value === undefined) continue
 
     if (value === null) {
       patch[field] = null
       continue
-    }
-
-    if (typeof value !== 'string') {
-      return c.json({ error: `${field} must be a UUID string or null` }, 400)
     }
 
     // Verify the account exists and belongs to this user
@@ -66,45 +98,41 @@ app.patch('/', async (c) => {
       .from(accounts)
       .where(and(eq(accounts.id, value), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
 
-    if (!account) return c.json({ error: `account not found: ${field}` }, 400)
+    if (!account) return fail(c, 'SETTING_ACCOUNT_NOT_FOUND', { field })
 
     patch[field] = value
   }
 
   // Plain text fields
-  for (const field of ['defaultAssetsRootPath', 'defaultLiabilitiesRootPath', 'defaultExpensesRootPath', 'defaultEquityRootPath', 'defaultIncomeRootPath'] as const) {
-    if (!(field in body)) continue
+  for (const field of [
+    'defaultAssetsRootPath',
+    'defaultLiabilitiesRootPath',
+    'defaultExpensesRootPath',
+    'defaultEquityRootPath',
+    'defaultIncomeRootPath',
+  ] as const) {
     const value = body[field]
-    if (typeof value !== 'string' || !value.trim()) {
-      return c.json({ error: `${field} must be a non-empty string` }, 400)
-    }
-    patch[field] = value.trim()
+    if (value === undefined) continue
+    patch[field] = value
   }
 
   // preferredCurrency — validated against the supported currency list
-  if ('preferredCurrency' in body) {
-    const value = body.preferredCurrency
-    if (typeof value !== 'string' || !value.trim()) {
-      return c.json({ error: 'preferredCurrency must be a non-empty string' }, 400)
+  if (body.preferredCurrency !== undefined) {
+    if (!isValidCurrency(body.preferredCurrency)) {
+      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: body.preferredCurrency })
     }
-    if (!isValidCurrency(value)) {
-      return c.json({ error: `Unsupported currency: ${value}` }, 400)
-    }
-    patch.preferredCurrency = value.trim().toUpperCase()
+    patch.preferredCurrency = body.preferredCurrency.toUpperCase()
   }
 
   // preferences — shallow-merged into existing JSONB using the || operator so
   // patching one key never wipes unrelated keys set by other features.
   let preferencePatch: ReturnType<typeof sql> | undefined
-  if ('preferences' in body) {
-    if (typeof body.preferences !== 'object' || body.preferences === null || Array.isArray(body.preferences)) {
-      return c.json({ error: 'preferences must be a JSON object' }, 400)
-    }
+  if (body.preferences !== undefined) {
     preferencePatch = sql`COALESCE(${userSettings.preferences}, '{}') || ${JSON.stringify(body.preferences)}::jsonb`
   }
 
   if (Object.keys(patch).length === 0 && !preferencePatch) {
-    return c.json({ error: 'no valid fields to update' }, 400)
+    return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
   // Upsert: create the row if it doesn't exist, otherwise update it

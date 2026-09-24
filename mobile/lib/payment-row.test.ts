@@ -59,7 +59,9 @@ describe('seedAccountForPayer', () => {
 describe('shouldOpenPayerSheet', () => {
   it('is false for 1 or 2 members (inline flip)', () => {
     expect(shouldOpenPayerSheet(group([member({ userId: 'a' })]))).toBe(false)
-    expect(shouldOpenPayerSheet(group([member({ userId: 'a' }), member({ userId: 'b' })]))).toBe(false)
+    expect(shouldOpenPayerSheet(group([member({ userId: 'a' }), member({ userId: 'b' })]))).toBe(
+      false,
+    )
   })
 
   it('is true for 3+ members', () => {

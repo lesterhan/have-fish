@@ -21,8 +21,7 @@
 import type { Posting } from '$lib/api'
 
 // The chip that labels a branch with its *meaning* instead of ledger jargon.
-export type Chip =
-  'the-spend' | 'your-share' | 'owes-you' | 'you-owe' | 'fx-fee' | 'deposit'
+export type Chip = 'the-spend' | 'your-share' | 'owes-you' | 'you-owe' | 'fx-fee' | 'deposit'
 
 // direct   → 1 asset out → 1 expense in (or a same-currency multi-category split): a plain
 //            single-hop payment, nothing mechanical between the asset and the category.
@@ -97,7 +96,7 @@ const abs2 = (a: string): string => Math.abs(parseFloat(a) || 0).toFixed(2)
 const titleCaseWord = (seg: string): string =>
   seg
     .split('-')
-    .map((w) => (w ? w[0].toUpperCase() + w.slice(1) : w))
+    .map((w) => (w ? w.charAt(0).toUpperCase() + w.slice(1) : w))
     .join(' ')
 
 // Derive a friendly label from an account path: drop the root segment, title-case the last
@@ -113,13 +112,8 @@ export function prettifyPath(path: string): string {
 }
 
 // The display label for an account: its explicit `name` if set, else a prettified path.
-export function accountLabel(p: {
-  accountName: string | null
-  accountPath: string
-}): string {
-  return p.accountName && p.accountName.trim()
-    ? p.accountName
-    : prettifyPath(p.accountPath)
+export function accountLabel(p: { accountName: string | null; accountPath: string }): string {
+  return p.accountName?.trim() ? p.accountName : prettifyPath(p.accountPath)
 }
 
 // --- role/path predicates ---------------------------------------------------------------
@@ -159,9 +153,7 @@ function chipFor(p: Posting, hasShare: boolean): Chip {
 function deriveHero(subjects: Posting[]): Hero {
   if (subjects.length === 0) return null
   const posting = subjects.reduce((best, p) =>
-    Math.abs(parseFloat(p.amount)) > Math.abs(parseFloat(best.amount))
-      ? p
-      : best,
+    Math.abs(parseFloat(p.amount)) > Math.abs(parseFloat(best.amount)) ? p : best,
   )
   return {
     posting,
@@ -177,10 +169,10 @@ function deriveHero(subjects: Posting[]): Hero {
 // → the most-positive (money landed in it). Null when there is no transfer leg.
 function deriveSource(transfers: Posting[], inflow: boolean): Posting | null {
   if (transfers.length === 0) return null
-  const sorted = [...transfers].sort(
-    (a, b) => parseFloat(a.amount) - parseFloat(b.amount),
-  )
-  return inflow ? sorted[sorted.length - 1] : sorted[0]
+  const sorted = [...transfers].sort((a, b) => parseFloat(a.amount) - parseFloat(b.amount))
+  // `?? null` rather than a non-null read: the length check above makes both branches
+  // safe, and null is already what this function answers with when there is no leg.
+  return (inflow ? sorted[sorted.length - 1] : sorted[0]) ?? null
 }
 
 // Conversion = a genuine FX bridge: ≥2 equity:conversions legs across ≥2 currencies, with one
@@ -207,9 +199,7 @@ function deriveConversion(
   return {
     paid: { amount: abs2(source.amount), currency: sourceCcy },
     converted: { amount: nativeAbs.toFixed(2), currency: nativeCcy },
-    fee: feeLeg
-      ? { amount: abs2(feeLeg.amount), currency: feeLeg.currency }
-      : null,
+    fee: feeLeg ? { amount: abs2(feeLeg.amount), currency: feeLeg.currency } : null,
     // ≥1 rates read naturally at 2dp ("20.88"); sub-1 rates need more to stay meaningful.
     rate: rateNum >= 1 ? rateNum.toFixed(2) : rateNum.toFixed(4),
     rateUnit: `${nativeCcy}/${sourceCcy}`,
@@ -229,11 +219,7 @@ function deriveArchetype(
 
 // Branches = every non-source, non-conversion leg, chipped with its meaning. The equity bridges
 // are never branches; they live only in the conversion math + the All-postings expander.
-function deriveBranches(
-  postings: Posting[],
-  source: Posting | null,
-  hasShare: boolean,
-): Branch[] {
+function deriveBranches(postings: Posting[], source: Posting | null, hasShare: boolean): Branch[] {
   return postings
     .filter((p) => p !== source && p.role !== 'conversion')
     .map((p) => ({
@@ -249,8 +235,7 @@ function deriveBranches(
 // Balances = per-currency sum across every leg; should be zero within rounding.
 function deriveBalances(postings: Posting[]): Balances {
   const byCcy = new Map<string, number>()
-  for (const p of postings)
-    byCcy.set(p.currency, (byCcy.get(p.currency) ?? 0) + cents(p.amount))
+  for (const p of postings) byCcy.set(p.currency, (byCcy.get(p.currency) ?? 0) + cents(p.amount))
   const byCurrency = [...byCcy].map(([currency, c]) => ({
     currency,
     sum: fromCents(c),

@@ -1,22 +1,18 @@
 /// <reference types="bun" />
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { CurrencyBalance } from './api'
+import { at } from './at'
 import {
-  owedDebts,
+  buildBatchLines,
+  convertedAmount,
   initLines,
   isConverted,
-  convertedAmount,
   linesReady,
-  buildBatchLines,
+  owedDebts,
   type SettleLine,
 } from './fish-pie-settle'
-import type { CurrencyBalance } from './api'
 
-const transfer = (
-  from: string,
-  to: string,
-  amount: string,
-  currency: string,
-) => ({
+const transfer = (from: string, to: string, amount: string, currency: string) => ({
   fromUserId: from,
   fromUserName: from,
   toUserId: to,
@@ -95,17 +91,11 @@ describe('initLines', () => {
 
 describe('isConverted', () => {
   it('is false when currencies match even if convert is on', () => {
-    expect(
-      isConverted(line({ debtCurrency: 'CAD', convert: true }), 'CAD'),
-    ).toBe(false)
+    expect(isConverted(line({ debtCurrency: 'CAD', convert: true }), 'CAD')).toBe(false)
   })
   it('is true only when convert is on and currencies differ', () => {
-    expect(
-      isConverted(line({ debtCurrency: 'EUR', convert: true }), 'CAD'),
-    ).toBe(true)
-    expect(
-      isConverted(line({ debtCurrency: 'EUR', convert: false }), 'CAD'),
-    ).toBe(false)
+    expect(isConverted(line({ debtCurrency: 'EUR', convert: true }), 'CAD')).toBe(true)
+    expect(isConverted(line({ debtCurrency: 'EUR', convert: false }), 'CAD')).toBe(false)
   })
 })
 
@@ -124,32 +114,21 @@ describe('linesReady', () => {
     expect(linesReady([line({ include: false })], 'CAD')).toBe(false)
   })
   it('passes a native line with no settled amount', () => {
-    expect(
-      linesReady([line({ debtCurrency: 'CAD', convert: false })], 'CAD'),
-    ).toBe(true)
+    expect(linesReady([line({ debtCurrency: 'CAD', convert: false })], 'CAD')).toBe(true)
   })
   it('fails a converted line missing a positive settled amount', () => {
     expect(
-      linesReady(
-        [line({ debtCurrency: 'EUR', convert: true, settledAmount: '' })],
-        'CAD',
-      ),
+      linesReady([line({ debtCurrency: 'EUR', convert: true, settledAmount: '' })], 'CAD'),
     ).toBe(false)
     expect(
-      linesReady(
-        [line({ debtCurrency: 'EUR', convert: true, settledAmount: '80.00' })],
-        'CAD',
-      ),
+      linesReady([line({ debtCurrency: 'EUR', convert: true, settledAmount: '80.00' })], 'CAD'),
     ).toBe(true)
   })
 })
 
 describe('buildBatchLines', () => {
   it('omits excluded lines (partial batch)', () => {
-    const lines = [
-      line({ debtCurrency: 'CAD', convert: false }),
-      line({ include: false }),
-    ]
+    const lines = [line({ debtCurrency: 'CAD', convert: false }), line({ include: false })]
     const built = buildBatchLines(lines, 'CAD')
     expect(built).toHaveLength(1)
   })
@@ -196,8 +175,8 @@ describe('buildBatchLines', () => {
       [line({ debtCurrency: 'CAD', debtAmount: '500.00', convert: true })],
       'CAD',
     )
-    expect(built[0].settledCurrency).toBe('CAD')
-    expect(built[0].fxRate).toBeUndefined()
+    expect(at(built).settledCurrency).toBe('CAD')
+    expect(at(built).fxRate).toBeUndefined()
   })
 
   it('builds a mixed consolidated batch', () => {

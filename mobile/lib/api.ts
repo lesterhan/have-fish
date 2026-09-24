@@ -5,6 +5,7 @@
 
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { getBaseUrl, getSession } from './auth'
+import { errorMessage } from './errors'
 import { ExpenseQueuedError } from './expense-submit'
 
 // ---------------------------------------------------------------------------
@@ -17,7 +18,7 @@ type QueuedRequest = {
   id: string
   path: string
   method: string
-  body?: string
+  body?: string | undefined
   queuedAt: string
 }
 
@@ -28,7 +29,7 @@ async function apiFetch(path: string, options: RequestInit = {}): Promise<Respon
   const headers: Record<string, string> = {
     ...(options.headers as Record<string, string>),
   }
-  if (session) headers['Cookie'] = session
+  if (session) headers.Cookie = session
   if (options.body) headers['Content-Type'] = 'application/json'
 
   return fetch(`${baseUrl}${path}`, { ...options, headers })
@@ -66,9 +67,11 @@ export async function flushOfflineQueue(): Promise<{ flushed: number; failed: nu
 
   for (const req of queue) {
     try {
+      // `body` is spread rather than assigned: `RequestInit` distinguishes an absent key
+      // from one holding `undefined`, and a queued GET has no body at all.
       const res = await apiFetch(req.path, {
         method: req.method,
-        body: req.body,
+        ...(req.body === undefined ? {} : { body: req.body }),
       })
       if (res.ok) {
         flushed++
@@ -113,7 +116,8 @@ export type Account = {
   defaultCurrency?: string | null
   // The raw stored type override — null means "infer from the path".
   type?: StoredAccountType | null
-  // The backend's effective answer: stored override else path inference. This is
+  // The backend's effective answer: own override, else nearest tagged
+  // ancestor's, else path inference. This is
   // the field to test against; `type` alone would miss nothing today but would
   // disagree with the journal export the moment inference matters.
   resolvedType?: StoredAccountType | null
@@ -379,7 +383,7 @@ export async function createTransaction(body: {
   }
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create transaction')
+    throw new Error(errorMessage(err, 'Failed to create transaction'))
   }
   return res.json()
 }
@@ -462,10 +466,10 @@ export async function updateCategoryWeights(
   categoryId: string,
   weights: { userId: string; weight: number }[],
 ): Promise<GroupCategory> {
-  const res = await apiFetch(
-    `/api/fish-pie/groups/${groupId}/categories/${categoryId}/weights`,
-    { method: 'PUT', body: JSON.stringify({ weights }) },
-  )
+  const res = await apiFetch(`/api/fish-pie/groups/${groupId}/categories/${categoryId}/weights`, {
+    method: 'PUT',
+    body: JSON.stringify({ weights }),
+  })
   if (!res.ok) throw new Error('Failed to update category weights')
   return res.json()
 }
@@ -487,7 +491,7 @@ export async function sendInvite(groupId: string, email: string): Promise<GroupI
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to send invite')
+    throw new Error(errorMessage(err, 'Failed to send invite'))
   }
   return res.json()
 }
@@ -557,7 +561,7 @@ export async function createExpense(
     // The server reached us and rejected the request — a real error, not an
     // offline case. Surface it.
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create expense')
+    throw new Error(errorMessage(err, 'Failed to create expense'))
   }
   return res.json()
 }
@@ -581,7 +585,7 @@ export async function updateExpense(
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to update expense')
+    throw new Error(errorMessage(err, 'Failed to update expense'))
   }
   return res.json()
 }
@@ -629,7 +633,7 @@ export async function createSettlement(
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create settlement')
+    throw new Error(errorMessage(err, 'Failed to create settlement'))
   }
   return res.json()
 }
@@ -651,7 +655,7 @@ export async function confirmSettlement(
   )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+    throw new Error(errorMessage(err, 'Failed to confirm settlement'))
   }
   return res.json()
 }
@@ -672,7 +676,7 @@ export type BatchSettlementLine = {
   debtCurrency: string
   settledAmount: string
   settledCurrency: string
-  fxRate?: string
+  fxRate?: string | undefined
 }
 
 // Create a pending batch — one combined payer transaction, one settlement row per
@@ -681,7 +685,12 @@ export type BatchSettlementLine = {
 // account (enforced server-side).
 export async function createBatchSettlement(
   groupId: string,
-  body: { payerAccountId: string; date: string; note?: string; lines: BatchSettlementLine[] },
+  body: {
+    payerAccountId: string
+    date: string
+    note?: string | undefined
+    lines: BatchSettlementLine[]
+  },
 ): Promise<{ batchId: string; settlements: GroupSettlement[] }> {
   const res = await apiFetch(`/api/fish-pie/groups/${groupId}/settlements/batch`, {
     method: 'POST',
@@ -689,7 +698,7 @@ export async function createBatchSettlement(
   })
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to create settlement')
+    throw new Error(errorMessage(err, 'Failed to create settlement'))
   }
   return res.json()
 }
@@ -710,7 +719,7 @@ export async function confirmBatchSettlement(
   )
   if (!res.ok) {
     const err = await res.json().catch(() => ({}))
-    throw new Error((err as any).error ?? 'Failed to confirm settlement')
+    throw new Error(errorMessage(err, 'Failed to confirm settlement'))
   }
   return res.json()
 }

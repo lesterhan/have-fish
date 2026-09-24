@@ -48,7 +48,11 @@ describe('parseServerUrl', () => {
   })
 
   it('treats a non-numeric trailing segment as part of the host, not a port', () => {
-    expect(parseServerUrl('myserver:abc')).toEqual({ scheme: 'https', host: 'myserver:abc', port: '' })
+    expect(parseServerUrl('myserver:abc')).toEqual({
+      scheme: 'https',
+      host: 'myserver:abc',
+      port: '',
+    })
   })
 
   it('trims surrounding whitespace', () => {
@@ -128,6 +132,6 @@ describe('pushServer', () => {
 
 describe('constants', () => {
   it('exposes the standard backend port', () => {
-    expect(DEFAULT_PORT).toBe('8887')
+    expect(DEFAULT_PORT).toBe('8888')
   })
 })

@@ -1,16 +1,8 @@
+import { Ionicons } from '@expo/vector-icons'
+import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker'
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
-import { Ionicons } from '@expo/vector-icons'
-import DateTimePicker, {
-  type DateTimePickerEvent,
-} from '@react-native-community/datetimepicker'
-import {
-  type DateMode,
-  resolveDate,
-  toISODate,
-  todayISO,
-  yesterdayISO,
-} from '@/lib/expense-date'
+import { type DateMode, resolveDate, todayISO, toISODate, yesterdayISO } from '@/lib/expense-date'
 import * as haptics from '@/lib/haptics'
 import { theme } from '@/lib/theme'
 import { BottomSheet } from './BottomSheet'
@@ -30,6 +22,11 @@ interface Props {
 /** Parse a local `YYYY-MM-DD` string to a local-midnight Date for the picker. */
 function parseISO(iso: string): Date {
   const [y, m, d] = iso.split('-').map(Number)
+  // Every caller passes a value this app produced as `YYYY-MM-DD`. Saying so here is what
+  // lets the three numbers below be numbers.
+  if (y === undefined || m === undefined || d === undefined) {
+    throw new Error(`not a YYYY-MM-DD date: "${iso}"`)
+  }
   return new Date(y, m - 1, d)
 }
 
@@ -102,7 +99,7 @@ export function DateSheet({ visible, mode, pickDate, onSelect, onClose }: Props)
 
 interface OptionProps {
   label: string
-  meta?: string
+  meta?: string | undefined
   icon?: keyof typeof Ionicons.glyphMap
   selected: boolean
   onPress: () => void

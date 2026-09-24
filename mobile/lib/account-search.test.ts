@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'bun:test'
 import {
-  ROOTS,
+  type AccountLike,
   accountLeaf,
   createSuggestion,
   filterAccounts,
   fuzzyMatch,
+  ROOTS,
   resolveCreatePath,
   rootOf,
-  type AccountLike,
 } from './account-search'
 
 const acct = (path: string, name?: string | null, id = path): AccountLike => ({ id, path, name })
@@ -92,6 +92,27 @@ describe('filterAccounts', () => {
   })
   it('combines root scope and query', () => {
     expect(filterAccounts(ACCOUNTS, 'visa', 'expenses')).toEqual([])
+  })
+
+  // BUG-007: the chips scoped by first path segment, so a tagged category at an
+  // atypical root was under no chip at all.
+  it('scopes by resolved type when the server gave one', () => {
+    const typed: AccountLike[] = [
+      { id: 'rent', path: '花钱:房租', resolvedType: 'expense' },
+      { id: 'rrsp', path: 'expenses:rrsp', resolvedType: 'asset' },
+      { id: 'food', path: 'cost:food', resolvedType: 'expense' },
+      { id: 'wallet', path: '钱包:现金', resolvedType: 'cash' },
+    ]
+    expect(filterAccounts(typed, '', 'expenses').map((a) => a.id)).toEqual(['food', 'rent'])
+    expect(filterAccounts(typed, '', 'assets').map((a) => a.id)).toEqual(['rrsp', 'wallet'])
+  })
+
+  it('falls back to the path for an account with no type to ask', () => {
+    const untyped: AccountLike[] = [
+      { id: 'new', path: 'expenses:new' },
+      { id: 'unfiled', path: '花钱:杂项', resolvedType: null },
+    ]
+    expect(filterAccounts(untyped, '', 'expenses').map((a) => a.id)).toEqual(['new'])
   })
 })
 

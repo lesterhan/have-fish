@@ -10,9 +10,10 @@
 //
 // Optional env vars:
 //   SEED_PARTNER_PASSWORD  — partner account password (default: password123)
-//   SEED_MONTH             — month to seed transactions for (default: current + previous)
 //
-// Idempotent: re-running creates another Fish Pie group but skips existing users.
+// Seeds the previous and the current month, never past today. Safe to re-run: existing
+// users, transactions and the Fish Pie group are left as they are, and a later run fills
+// in the days of the current month that have passed since.
 
 const email = process.env.SEED_EMAIL
 const password = process.env.SEED_PASSWORD
@@ -26,10 +27,10 @@ if (!email || !password || !partnerEmail) {
   process.exit(1)
 }
 
-function run(script: string, env: Record<string, string> = {}) {
-  console.log(`\n→ ${script}`)
+function run(script: string, env: Record<string, string> = {}, args: string[] = []) {
+  console.log(`\n→ ${script} ${args.join(' ')}`)
   const result = Bun.spawnSync(
-    ['bun', 'run', `scripts/${script}`],
+    ['bun', 'run', `scripts/${script}`, ...args],
     {
       env: { ...process.env, ...env },
       stdio: ['ignore', 'inherit', 'inherit'],
@@ -42,11 +43,12 @@ function run(script: string, env: Record<string, string> = {}) {
   }
 }
 
-// Current and previous month in YYYY-MM format
+// Current and previous month in YYYY-MM format, by the local calendar. Day 1 so that
+// stepping back from the 31st does not roll over into the same month.
 function monthStr(offset: number): string {
-  const d = new Date()
-  d.setMonth(d.getMonth() + offset)
-  return d.toISOString().slice(0, 7)
+  const now = new Date()
+  const d = new Date(now.getFullYear(), now.getMonth() + offset, 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 }
 
 console.log('=== seed-all ===')
@@ -60,8 +62,8 @@ run('seed-user.ts', { SEED_EMAIL: partnerEmail, SEED_PASSWORD: partnerPassword }
 // 2. Seed two months of personal transactions for primary user
 const prevMonth = monthStr(-1)
 const currMonth = monthStr(0)
-run('seed-month.ts', { SEED_EMAIL: email, SEED_MONTH: prevMonth })
-run('seed-month.ts', { SEED_EMAIL: email, SEED_MONTH: currMonth })
+run('seed-month.ts', { SEED_EMAIL: email }, [prevMonth])
+run('seed-month.ts', { SEED_EMAIL: email }, [currMonth])
 
 // 3. Seed Fish Pie group
 run('seed-fish-pie.ts', {

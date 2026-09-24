@@ -1,13 +1,14 @@
+import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from '../db'
-import { expenseGroups, expenseGroupInvites } from '../db/schema'
-import { eq, isNull, and } from 'drizzle-orm'
 import type { AppVariables } from '../app'
-import { fetchMembersForGroups } from './fish-pie-groups'
+import { db } from '../db'
+import { expenseGroupInvites, expenseGroups } from '../db/schema'
+import { fail } from '../errors'
+import { computeCurrencyBalances } from '../fish-pie-balance-service'
 import { fetchCategoriesForGroups } from './fish-pie-categories'
 import { fetchGroupExpenses } from './fish-pie-expenses'
+import { fetchMembersForGroups } from './fish-pie-groups'
 import { fetchGroupSettlements } from './fish-pie-settlements'
-import { computeCurrencyBalances } from '../fish-pie-balance-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -25,10 +26,10 @@ app.get('/:id/overview', async (c) => {
     .select()
     .from(expenseGroups)
     .where(and(eq(expenseGroups.id, groupId), isNull(expenseGroups.deletedAt)))
-  if (!group) return c.json({ error: 'not found' }, 404)
+  if (!group) return fail(c, 'GROUP_NOT_FOUND')
 
   const members = await fetchMembersForGroups([groupId])
-  if (!members.some((m) => m.userId === userId)) return c.json({ error: 'not found' }, 404)
+  if (!members.some((m) => m.userId === userId)) return fail(c, 'GROUP_NOT_FOUND')
 
   const [categories, expenses, settlements, invites] = await Promise.all([
     fetchCategoriesForGroups([groupId], userId),
@@ -37,7 +38,9 @@ app.get('/:id/overview', async (c) => {
     db
       .select()
       .from(expenseGroupInvites)
-      .where(and(eq(expenseGroupInvites.groupId, groupId), eq(expenseGroupInvites.status, 'pending'))),
+      .where(
+        and(eq(expenseGroupInvites.groupId, groupId), eq(expenseGroupInvites.status, 'pending')),
+      ),
   ])
 
   const memberLite = members.map((m) => ({ userId: m.userId, userName: m.userName }))

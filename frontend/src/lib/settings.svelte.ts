@@ -1,5 +1,5 @@
-import { fetchUserSettings, updateUserSettings } from './api'
 import type { UserSettings } from './api'
+import { fetchUserSettings, updateUserSettings } from './api'
 
 const store = $state<{ value: UserSettings | null }>({ value: null })
 

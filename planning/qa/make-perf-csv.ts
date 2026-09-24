@@ -23,8 +23,16 @@ if (!Number.isInteger(n) || n < 1) {
 }
 
 const KINDS = [
-  'CAFE', 'GROCER', 'PHARMACY', 'HARDWARE', 'BOOKSHOP',
-  'BAKERY', 'TAXI', 'CLINIC', 'STATIONER', 'LAUNDRY',
+  'CAFE',
+  'GROCER',
+  'PHARMACY',
+  'HARDWARE',
+  'BOOKSHOP',
+  'BAKERY',
+  'TAXI',
+  'CLINIC',
+  'STATIONER',
+  'LAUNDRY',
 ]
 
 const lines = ['Date,Description,Amount,Balance']

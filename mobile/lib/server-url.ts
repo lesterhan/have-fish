@@ -17,7 +17,7 @@ export interface ServerParts {
 }
 
 /** The app's standard backend port — shown as the port-field placeholder hint. */
-export const DEFAULT_PORT = '8887'
+export const DEFAULT_PORT = '8888'
 
 /** Cap on the remembered-server list (mirrors the currency recents cap). */
 export const SERVERS_CAP = 8
@@ -36,7 +36,9 @@ export function parseServerUrl(raw: string): ServerParts {
   let scheme: Scheme = 'https'
   const schemeMatch = rest.match(/^(https?):\/\//i)
   if (schemeMatch) {
-    scheme = schemeMatch[1].toLowerCase() as Scheme
+    // Group 1 is not optional in the pattern, so `?? scheme` keeps the default rather
+    // than describing a case the regex cannot produce.
+    scheme = (schemeMatch[1] ?? scheme).toLowerCase() as Scheme
     rest = rest.slice(schemeMatch[0].length)
   }
 

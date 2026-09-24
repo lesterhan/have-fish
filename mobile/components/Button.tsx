@@ -1,10 +1,4 @@
-import {
-  Text,
-  TouchableOpacity,
-  ActivityIndicator,
-  StyleSheet,
-  type ViewStyle,
-} from 'react-native'
+import { ActivityIndicator, StyleSheet, Text, TouchableOpacity, type ViewStyle } from 'react-native'
 import { theme } from '@/lib/theme'
 
 type Variant = 'primary' | 'neutral' | 'danger'

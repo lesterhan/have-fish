@@ -12,11 +12,11 @@
 
 import type { Posting, Transaction } from '$lib/api'
 import {
-  canSummaryEdit,
-  recategorizableLegs,
-  initialSubjectDrafts,
-  hasAccountChange,
   buildRecategorizePayload,
+  canSummaryEdit,
+  hasAccountChange,
+  initialSubjectDrafts,
+  recategorizableLegs,
   type SubjectDraft,
 } from './summaryEdit'
 
@@ -66,9 +66,7 @@ export function setSubjectAccount(
   postingId: string,
   accountId: string,
 ): SubjectDraft[] {
-  return subjects.map((d) =>
-    d.postingId === postingId ? { ...d, accountId } : d,
-  )
+  return subjects.map((d) => (d.postingId === postingId ? { ...d, accountId } : d))
 }
 
 // True when the draft differs from the stored transaction in any savable way: a subject leg
@@ -89,9 +87,7 @@ export function buildSavePlan(tx: Transaction, draft: EditDraft): SavePlan {
   const dateChanged = draft.date !== dateOnly(tx.date)
   const descChanged = desc !== (tx.description ?? '')
   return {
-    recategorize: accountChanged
-      ? buildRecategorizePayload(tx.postings, draft.subjects)
-      : null,
+    recategorize: accountChanged ? buildRecategorizePayload(tx.postings, draft.subjects) : null,
     patch:
       dateChanged || descChanged
         ? {

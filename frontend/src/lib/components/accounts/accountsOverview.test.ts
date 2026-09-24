@@ -1,4 +1,13 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import { at } from '../../at'
+import {
+  type AccountCoverageStatus,
+  completeness,
+  completenessNote,
+  coverageFor,
+} from '../../coverage'
+import type { Money } from '../../money'
+import type { Roots } from './accountPaths'
 import {
   buildRows,
   convertRows,
@@ -6,18 +15,10 @@ import {
   daysBetween,
   groupCurrency,
   groupRows,
+  type OverviewAccount,
   positionAccountIds,
   positionTotals,
-  type OverviewAccount,
 } from './accountsOverview'
-import type { Roots } from './accountPaths'
-import type { Money } from '../../money'
-import {
-  completeness,
-  completenessNote,
-  coverageFor,
-  type AccountCoverageStatus,
-} from '../../coverage'
 
 const ROOTS: Roots = {
   assets: 'assets',
@@ -63,16 +64,8 @@ describe('buildRows', () => {
   // Naming itself belongs to accountPaths and is tested there. What matters here is that each
   // row is handed *its own* surface's root, so a liability is not shortened against `assets`.
   it('strips each row against the root of its own surface', () => {
-    const rows = rowsFor([
-      acct('assets:wise:cad'),
-      acct('liabilities:amex'),
-      acct('储蓄:中国银行'),
-    ])
-    expect(rows.map((r) => r.displayName)).toEqual([
-      'wise:cad',
-      'amex',
-      '储蓄:中国银行',
-    ])
+    const rows = rowsFor([acct('assets:wise:cad'), acct('liabilities:amex'), acct('储蓄:中国银行')])
+    expect(rows.map((r) => r.displayName)).toEqual(['wise:cad', 'amex', '储蓄:中国银行'])
     expect(rows[2]!.surface).toBe('unfiled')
   })
 
@@ -101,10 +94,7 @@ describe('groupRows', () => {
       'institution',
     )
     expect(groups.map((g) => g.label)).toEqual(['Wealthsimple', 'Wise'])
-    expect(groups[1]!.rows.map((r) => r.displayName)).toEqual([
-      'wise:cad',
-      'wise:usd',
-    ])
+    expect(groups[1]!.rows.map((r) => r.displayName)).toEqual(['wise:cad', 'wise:usd'])
   })
 
   it('files a standalone account under its surface rather than its own institution', () => {
@@ -117,15 +107,8 @@ describe('groupRows', () => {
       ]),
       'institution',
     )
-    expect(groups.map((g) => g.label)).toEqual([
-      'Assets',
-      'Liabilities',
-      'Wise',
-    ])
-    expect(groups[0]!.rows.map((r) => r.displayName)).toEqual([
-      'chequing',
-      'savings',
-    ])
+    expect(groups.map((g) => g.label)).toEqual(['Assets', 'Liabilities', 'Wise'])
+    expect(groups[0]!.rows.map((r) => r.displayName)).toEqual(['chequing', 'savings'])
   })
 
   it('groups by resolved type, not by path root', () => {
@@ -173,9 +156,7 @@ describe('groupRows', () => {
     expect(groups[0]!.rows).toHaveLength(2)
     expect(groups[1]!.rows).toHaveLength(1)
     // The USD group shows the USD leg alone, so its total is an exact native sum.
-    expect(groups[1]!.rows[0]!.balances).toEqual([
-      { currency: 'USD', amount: '50.00' },
-    ])
+    expect(groups[1]!.rows[0]!.balances).toEqual([{ currency: 'USD', amount: '50.00' }])
   })
 
   it('sends an account with no balances to its own group, sorted last', () => {
@@ -190,21 +171,13 @@ describe('groupRows', () => {
   })
 
   it('puts everything in one group when flat', () => {
-    const groups = groupRows(
-      rowsFor([acct('assets:wise:cad'), acct('liabilities:visa')]),
-      'flat',
-    )
+    const groups = groupRows(rowsFor([acct('assets:wise:cad'), acct('liabilities:visa')]), 'flat')
     expect(groups).toHaveLength(1)
     expect(groups[0]!.rows).toHaveLength(2)
   })
 
   it('keeps unfiled accounts in their own group under every grouping, sorted last', () => {
-    for (const grouping of [
-      'institution',
-      'type',
-      'currency',
-      'flat',
-    ] as const) {
+    for (const grouping of ['institution', 'type', 'currency', 'flat'] as const) {
       const groups = groupRows(
         rowsFor([
           acct('储蓄:中国银行', [{ currency: 'CNY', amount: '1.00' }]),
@@ -212,8 +185,9 @@ describe('groupRows', () => {
         ]),
         grouping,
       )
-      expect(groups.at(-1)!.label).toBe('Unfiled')
-      expect(groups.at(-1)!.rows).toHaveLength(1)
+      const unfiled = at(groups, groups.length - 1)
+      expect(unfiled.label).toBe('Unfiled')
+      expect(unfiled.rows).toHaveLength(1)
     }
   })
 
@@ -225,10 +199,7 @@ describe('groupRows', () => {
       ]),
       'institution',
     )
-    expect(groups[0]!.rows.map((r) => r.displayName)).toEqual([
-      'Apple',
-      'Zebra',
-    ])
+    expect(groups[0]!.rows.map((r) => r.displayName)).toEqual(['Apple', 'Zebra'])
   })
 })
 
@@ -242,10 +213,7 @@ describe('groupCurrency', () => {
   })
 
   it('is null for a group that is not a single currency', () => {
-    const institution = groupRows(
-      rowsFor([acct('assets:wise:cad')]),
-      'institution',
-    )
+    const institution = groupRows(rowsFor([acct('assets:wise:cad')]), 'institution')
     expect(groupCurrency(institution[0]!)).toBeNull()
 
     // No-balance and Unfiled both hold rows of mixed or absent currency.
@@ -317,9 +285,7 @@ describe('convertRows', () => {
       'currency',
     )
     const usd = groups.find((g) => g.label === 'USD')!
-    expect(convertRows(usd.rows, new Map([['USD', 1.4]]), 'CAD').cents).toBe(
-      14000,
-    )
+    expect(convertRows(usd.rows, new Map([['USD', 1.4]]), 'CAD').cents).toBe(14000)
   })
 })
 
@@ -348,10 +314,7 @@ describe('positionTotals', () => {
   it('keeps expenses and unfiled money out of every bucket', () => {
     const totals = positionTotals(rows, ROOTS, rates, 'CAD')
     const sum =
-      totals.cash.cents +
-      totals.owed.cents +
-      totals.investments.cents +
-      totals.owing.cents
+      totals.cash.cents + totals.owed.cents + totals.investments.cents + totals.owing.cents
     expect(sum).toBe(100000 + 14000 + 2500 + 500000 - 30000)
   })
 
@@ -428,10 +391,7 @@ describe('dating a position tile', () => {
     bucket: 'cash' | 'investments' | 'owed' | 'owing',
   ) {
     const ids = positionAccountIds(rows, ROOTS)
-    return completenessNote(
-      completeness(coverageFor(coverage, ids[bucket])),
-      TODAY,
-    )
+    return completenessNote(completeness(coverageFor(coverage, ids[bucket])), TODAY)
   }
 
   it('reads as complete through today when every contributor is current', () => {
@@ -504,5 +464,47 @@ describe('dating a position tile', () => {
     const coverage = cover({ 'assets:chequing': {} })
 
     expect(noteFor(coverage, 'cash')?.text).toBe('complete through today')
+  })
+})
+
+// ── BUG-007 ─────────────────────────────────────────────────
+//
+// A wallet at an atypically-named root, tagged Cash on its own settings page, is money you
+// hold. The page used to read the path root instead of the resolved type, so the account
+// arrived, landed in Unfiled, and contributed nothing to the position row — the one number
+// on the page that claims to say what you have.
+describe('a tagged account outside every root', () => {
+  const wallet = acct('储蓄:现金', [{ currency: 'CNY', amount: '900.00' }], {
+    resolvedType: 'cash',
+  })
+
+  it('takes its surface from the type, not the path', () => {
+    expect(at(rowsFor([wallet])).surface).toBe('assets')
+  })
+
+  it('groups with the assets, not under Unfiled', () => {
+    const groups = groupRows(rowsFor([wallet, acct('assets:chequing')]), 'institution')
+    expect(groups.map((g) => g.key)).not.toContain('unfiled')
+  })
+
+  it('counts towards what you can spend', () => {
+    const rows = rowsFor([wallet])
+    expect(positionAccountIds(rows, ROOTS).cash).toEqual(['储蓄:现金'])
+    const totals = positionTotals(rows, ROOTS, new Map(), 'CNY')
+    expect(totals.cash.cents).toBe(90_000)
+  })
+
+  it('is still Unfiled when it carries no type at all', () => {
+    const untagged = acct('储蓄:中国银行')
+    expect(at(rowsFor([untagged])).surface).toBe('unfiled')
+    expect(positionAccountIds(rowsFor([untagged]), ROOTS).cash).toEqual([])
+  })
+
+  it('leaves the position row when it is tagged as a category', () => {
+    // The override in the other direction: a mis-pathed category under the assets root is
+    // not money, however its path reads.
+    const rows = rowsFor([acct('assets:groceries', [], { resolvedType: 'expense' })])
+    expect(at(rows).surface).toBe('expenses')
+    expect(positionAccountIds(rows, ROOTS).cash).toEqual([])
   })
 })

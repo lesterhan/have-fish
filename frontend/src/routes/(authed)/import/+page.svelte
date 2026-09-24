@@ -1,5 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
+  import { at } from '$lib/at'
   import { plural } from '$lib/copy'
   import { page } from '$app/state'
   import {
@@ -17,7 +18,7 @@
     createCoverage,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
-  import { isUnderRoot } from '$lib/components/accounts/accountPaths'
+  import { rootsFrom, surfaceOf } from '$lib/components/accounts/accountPaths'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
@@ -175,13 +176,15 @@
   // storing it negated. That follows from the account, so it is shown as a fact with an
   // override available, not as a switch — flipping it mid-review silently re-signs every
   // amount in the table.
+  //
+  // Asked of the account's resolved type, not of where its path sits: a card at `信用卡:visa`
+  // tagged Liability is a liability, and defaulting it to the un-negated sign because its root
+  // is not the configured one was BUG-007 on the one surface where it flips amounts.
   let derivedLiabilities = $derived.by(() => {
-    if (!preview) return false
-    const root =
-      settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
-    const path =
-      accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
-    return isUnderRoot(path, root)
+    const defaultAccountId = preview?.defaultAccountId
+    const account = accounts.find((a) => a.id === defaultAccountId)
+    if (!account) return false
+    return surfaceOf(account, rootsFrom(settingsStore.value)) === 'liabilities'
   })
   let importAsLiabilities = $derived(liabilitiesOverride ?? derivedLiabilities)
 
@@ -192,8 +195,8 @@
       .filter(Boolean)
       .sort()
     if (dates.length === 0) return ''
-    const first = dates[0].slice(0, 10)
-    const last = dates[dates.length - 1].slice(0, 10)
+    const first = at(dates).slice(0, 10)
+    const last = at(dates, dates.length - 1).slice(0, 10)
     return first === last ? first : `${first} → ${last}`
   })
 
@@ -434,6 +437,10 @@
             : '',
         date: tx.date,
         amount: tx.isTransfer === false ? tx.amount : '0',
+        // A match must be in the same currency: 8,400 JPY is not 8,400 CAD.
+        currency: (
+          (tx.isTransfer === false ? tx.currency : undefined) ?? defaultCurrency
+        ).toUpperCase(),
       }))
       const perRowDuplicates = await checkDuplicates(checkRows)
 
@@ -550,8 +557,8 @@
 
         for (const i of membersToWrite(cluster, state, rowStates, override)) {
           rowStates[i] = applyTarget(
-            preview.transactions[i],
-            rowStates[i],
+            at(preview.transactions, i),
+            at(rowStates, i),
             target,
             'cluster',
           )
@@ -638,8 +645,8 @@
     )
     for (const i of matches) {
       rowStates[i] = applyTarget(
-        preview!.transactions[i],
-        rowStates[i],
+        at(preview!.transactions, i),
+        at(rowStates, i),
         rowTarget,
         'cluster',
       )
@@ -704,9 +711,10 @@
       )
       return
     }
-    const invalid = preview.transactions.some(
-      (tx, i) => !rowStates[i].skipped && rowMissingAccounts(tx, rowStates[i]),
-    )
+    const invalid = preview.transactions.some((tx, i) => {
+      const row = at(rowStates, i)
+      return !row.skipped && rowMissingAccounts(tx, row)
+    })
     if (invalid) {
       error = 'All transactions must have accounts assigned.'
       return
@@ -715,8 +723,8 @@
     error = ''
     try {
       const txs: CommitTransaction[] = preview.transactions.flatMap((tx, i) => {
-        if (rowStates[i].skipped) return []
-        const row = rowStates[i]
+        const row = at(rowStates, i)
+        if (row.skipped) return []
         if (tx.isTransfer === true) {
           if (row.kind === 'spend' && !row.groupId) {
             // Cross-currency spend — no target asset; the spend lands in the expense
@@ -781,13 +789,13 @@
         categoryId: string | null
       }[] = []
       let txIdx = 0
-      for (let i = 0; i < rowStates.length; i++) {
-        if (rowStates[i].skipped) continue
-        if (rowStates[i].groupId) {
+      for (const row of rowStates) {
+        if (row.skipped) continue
+        if (row.groupId !== null) {
           groupSplits.push({
             rowIndex: txIdx,
-            groupId: rowStates[i].groupId!,
-            categoryId: rowStates[i].categoryId,
+            groupId: row.groupId,
+            categoryId: row.categoryId,
           })
         }
         txIdx++

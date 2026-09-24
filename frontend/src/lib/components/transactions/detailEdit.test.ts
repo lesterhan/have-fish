@@ -1,13 +1,14 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
+import type { Posting, PostingRole, Transaction } from '$lib/api'
+import { at } from '../../at'
 import {
+  buildSavePlan,
   canSummaryEdit,
   editableSubjectIds,
   initialEditDraft,
-  setSubjectAccount,
   isDirty,
-  buildSavePlan,
+  setSubjectAccount,
 } from './detailEdit'
-import type { Posting, PostingRole, Transaction } from '$lib/api'
 
 // Build a posting; id derived from accountPath so fixtures stay terse. accountId == path
 // here so payload assertions read clearly.
@@ -16,7 +17,7 @@ function p(
   amount: string,
   currency: string,
   role: PostingRole,
-  id = accountPath + ':' + amount,
+  id = `${accountPath}:${amount}`,
 ): Posting {
   return {
     id,
@@ -84,9 +85,7 @@ describe('canSummaryEdit (re-exported)', () => {
 
 describe('editableSubjectIds', () => {
   it('returns only the subject leg ids', () => {
-    expect([...editableSubjectIds(wiseSpend())]).toEqual([
-      'expenses:food:cafe:50.00',
-    ])
+    expect([...editableSubjectIds(wiseSpend())]).toEqual(['expenses:food:cafe:50.00'])
   })
 
   it('returns every subject of a multi-category split', () => {
@@ -97,9 +96,7 @@ describe('editableSubjectIds', () => {
   })
 
   it('is empty for a subject-less shape', () => {
-    expect(
-      editableSubjectIds([p('assets:a', '1.00', 'CAD', 'transfer')]).size,
-    ).toBe(0)
+    expect(editableSubjectIds([p('assets:a', '1.00', 'CAD', 'transfer')]).size).toBe(0)
   })
 })
 
@@ -118,20 +115,14 @@ describe('initialEditDraft', () => {
   })
 
   it('represents a null description as an empty string', () => {
-    expect(
-      initialEditDraft(tx(simpleSpend(), { description: null })).description,
-    ).toBe('')
+    expect(initialEditDraft(tx(simpleSpend(), { description: null })).description).toBe('')
   })
 })
 
 describe('setSubjectAccount', () => {
   it('repoints one draft immutably, leaving others untouched', () => {
     const draft = initialEditDraft(tx(twoCategory()))
-    const next = setSubjectAccount(
-      draft.subjects,
-      'expenses:food:20.00',
-      'expenses:groceries',
-    )
+    const next = setSubjectAccount(draft.subjects, 'expenses:food:20.00', 'expenses:groceries')
     expect(next).toEqual([
       { postingId: 'expenses:food:20.00', accountId: 'expenses:groceries' },
       {
@@ -140,7 +131,7 @@ describe('setSubjectAccount', () => {
       },
     ])
     // original array not mutated
-    expect(draft.subjects[0].accountId).toBe('expenses:food')
+    expect(at(draft.subjects).accountId).toBe('expenses:food')
   })
 })
 
@@ -153,30 +144,20 @@ describe('isDirty', () => {
   it('true when a subject account is repointed', () => {
     const t = tx(simpleSpend())
     const d = initialEditDraft(t)
-    d.subjects = setSubjectAccount(
-      d.subjects,
-      'expenses:food:cafe:50.00',
-      'expenses:groceries',
-    )
+    d.subjects = setSubjectAccount(d.subjects, 'expenses:food:cafe:50.00', 'expenses:groceries')
     expect(isDirty(t, d)).toBe(true)
   })
 
   it('true when the date changes', () => {
     const t = tx(simpleSpend())
-    expect(isDirty(t, { ...initialEditDraft(t), date: '2026-06-21' })).toBe(
-      true,
-    )
+    expect(isDirty(t, { ...initialEditDraft(t), date: '2026-06-21' })).toBe(true)
   })
 
   it('true when the description changes, ignoring surrounding whitespace', () => {
     const t = tx(simpleSpend())
-    expect(isDirty(t, { ...initialEditDraft(t), description: 'Brunch' })).toBe(
-      true,
-    )
+    expect(isDirty(t, { ...initialEditDraft(t), description: 'Brunch' })).toBe(true)
     // whitespace-only change is not dirty (description compared trimmed)
-    expect(
-      isDirty(t, { ...initialEditDraft(t), description: '  Lunch  ' }),
-    ).toBe(false)
+    expect(isDirty(t, { ...initialEditDraft(t), description: '  Lunch  ' })).toBe(false)
   })
 })
 
@@ -192,11 +173,7 @@ describe('buildSavePlan', () => {
   it('emits a balanced recategorize payload and no patch on an account change', () => {
     const t = tx(wiseSpend())
     const d = initialEditDraft(t)
-    d.subjects = setSubjectAccount(
-      d.subjects,
-      'expenses:food:cafe:50.00',
-      'expenses:food:bar',
-    )
+    d.subjects = setSubjectAccount(d.subjects, 'expenses:food:cafe:50.00', 'expenses:food:bar')
     const plan = buildSavePlan(t, d)
     expect(plan.patch).toBeNull()
     expect(plan.recategorize).not.toBeNull()
@@ -213,18 +190,13 @@ describe('buildSavePlan', () => {
   it('preserves per-currency balance through a recategorize (amounts untouched)', () => {
     const t = tx(simpleSpend())
     const d = initialEditDraft(t)
-    d.subjects = setSubjectAccount(
-      d.subjects,
-      'expenses:food:cafe:50.00',
-      'expenses:groceries',
-    )
+    d.subjects = setSubjectAccount(d.subjects, 'expenses:food:cafe:50.00', 'expenses:groceries')
     const plan = buildSavePlan(t, d)
     const byCcy = new Map<string, number>()
     for (const leg of plan.recategorize!) {
       byCcy.set(
         leg.currency,
-        (byCcy.get(leg.currency) ?? 0) +
-          Math.round(parseFloat(leg.amount) * 100),
+        (byCcy.get(leg.currency) ?? 0) + Math.round(parseFloat(leg.amount) * 100),
       )
     }
     for (const sum of byCcy.values()) expect(sum).toBe(0)
@@ -253,11 +225,7 @@ describe('buildSavePlan', () => {
   it('emits both parts when account and header both changed', () => {
     const t = tx(simpleSpend())
     const d = { ...initialEditDraft(t), date: '2026-06-23' }
-    d.subjects = setSubjectAccount(
-      d.subjects,
-      'expenses:food:cafe:50.00',
-      'expenses:groceries',
-    )
+    d.subjects = setSubjectAccount(d.subjects, 'expenses:food:cafe:50.00', 'expenses:groceries')
     const plan = buildSavePlan(t, d)
     expect(plan.recategorize).not.toBeNull()
     expect(plan.patch).toEqual({ date: '2026-06-23' })

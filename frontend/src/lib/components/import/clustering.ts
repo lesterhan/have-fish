@@ -1,5 +1,6 @@
 import type { ParsedTransaction } from '$lib/api'
-import type { RowState, RowSource } from './row-state'
+import { at } from '../../at'
+import type { RowSource, RowState } from './row-state'
 
 // Merchant clusters for the Sort step.
 //
@@ -73,37 +74,27 @@ export function buildClusters(
     if (indices.length < 2) continue
 
     const ordered = [...indices].sort((a, b) =>
-      (transactions[a].date ?? '').localeCompare(transactions[b].date ?? ''),
+      (at(transactions, a).date ?? '').localeCompare(at(transactions, b).date ?? ''),
     )
 
-    const amounts = ordered.map((i) =>
-      spendFacing(transactions[i], defaultCurrency),
-    )
+    const amounts = ordered.map((i) => spendFacing(at(transactions, i), defaultCurrency))
     const currencies = new Set(amounts.map((a) => a.currency))
     const singleCurrency = currencies.size === 1 ? [...currencies][0] : null
 
     clusters.push({
       key,
       indices: ordered,
-      firstDate: (transactions[ordered[0]].date ?? '').slice(0, 10),
-      lastDate: (transactions[ordered[ordered.length - 1]].date ?? '').slice(
-        0,
-        10,
-      ),
-      total: singleCurrency
-        ? amounts.reduce((sum, a) => sum + a.amount, 0)
-        : null,
-      currency: singleCurrency,
+      firstDate: (at(transactions, at(ordered)).date ?? '').slice(0, 10),
+      lastDate: (at(transactions, at(ordered, ordered.length - 1)).date ?? '').slice(0, 10),
+      total: singleCurrency ? amounts.reduce((sum, a) => sum + a.amount, 0) : null,
+      currency: singleCurrency ?? null,
       matchedRulePattern:
-        ordered.map((i) => transactions[i].matchedRulePattern).find(Boolean) ??
-        null,
+        ordered.map((i) => at(transactions, i).matchedRulePattern).find(Boolean) ?? null,
     })
   }
 
   // Count descending, then alphabetically so the order is stable across re-renders.
-  return clusters.sort(
-    (a, b) => b.indices.length - a.indices.length || a.key.localeCompare(b.key),
-  )
+  return clusters.sort((a, b) => b.indices.length - a.indices.length || a.key.localeCompare(b.key))
 }
 
 // `remember` defaults on for a cluster of three or more and off for a pair. Three is where
@@ -120,9 +111,7 @@ export function initialClusterState(cluster: MerchantCluster): ClusterState {
     // A cluster a rule already covers defaults to off however large it is — the user is
     // overriding an existing rule here, and remembering would write a second rule with the
     // same pattern rather than correcting the one that fired. They can still turn it on.
-    remember:
-      !cluster.matchedRulePattern &&
-      cluster.indices.length >= REMEMBER_THRESHOLD,
+    remember: !cluster.matchedRulePattern && cluster.indices.length >= REMEMBER_THRESHOLD,
     excluded: [],
   }
 }
@@ -205,9 +194,6 @@ export function userEditedCount(
   rowStates: RowState[],
 ): number {
   return cluster.indices.filter(
-    (i) =>
-      !state.excluded.includes(i) &&
-      rowStates[i]?.source === 'user' &&
-      !rowStates[i].skipped,
+    (i) => !state.excluded.includes(i) && rowStates[i]?.source === 'user' && !rowStates[i].skipped,
   ).length
 }

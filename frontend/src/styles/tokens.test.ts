@@ -1,3 +1,4 @@
+import { at } from '../lib/at'
 /**
  * Contrast contracts that the token file has to keep.
  *
@@ -27,7 +28,7 @@
  * to have on. Before this, the section bar's step diverged between themes by 61x.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 
@@ -35,10 +36,7 @@ import { fileURLToPath } from 'node:url'
 // guards this, and did not catch it, because it only looked at src/lib.
 import { contrastRatio, deltaL, hexToOklch, luminance } from '../lib/oklch'
 
-const TOKENS = readFileSync(
-  fileURLToPath(new URL('./tokens.css', import.meta.url)),
-  'utf8',
-)
+const TOKENS = readFileSync(fileURLToPath(new URL('./tokens.css', import.meta.url)), 'utf8')
 
 /**
  * WCAG 1.4.11 asks 3:1 for graphical objects you need to see to understand the content. Every
@@ -63,7 +61,8 @@ function themeBlock(selector: string): Map<string, string> {
 
   const declarations = new Map<string, string>()
   for (const [, name, value] of body.matchAll(/(--[\w-]+)\s*:\s*([^;]+);/g)) {
-    declarations.set(name, value.trim())
+    // Both groups are mandatory in the pattern; the guard is for the day it is not.
+    if (name !== undefined && value !== undefined) declarations.set(name, value.trim())
   }
   return declarations
 }
@@ -75,8 +74,7 @@ const THEMES = {
 
 function token(theme: Map<string, string>, name: string): string {
   const value = theme.get(name)
-  if (value === undefined)
-    throw new Error(`${name} is not defined in this theme`)
+  if (value === undefined) throw new Error(`${name} is not defined in this theme`)
   return value
 }
 
@@ -92,11 +90,7 @@ describe('the coverage strip reads as a picture in both themes', () => {
   // is literally the inset surface. Every other state is measured against it.
   const TROUGH = '--color-window-inset'
 
-  const FILLS = [
-    '--color-coverage-covered-hi',
-    '--color-coverage-covered-lo',
-    '--color-incomplete',
-  ]
+  const FILLS = ['--color-coverage-covered-hi', '--color-coverage-covered-lo', '--color-incomplete']
 
   for (const [name, theme] of Object.entries(THEMES)) {
     describe(name, () => {
@@ -171,9 +165,8 @@ describe('the tooltip is readable in both themes', () => {
  */
 function caseColour(theme: Map<string, string>): string {
   const hexes = token(theme, '--color-titlebar-bg').match(/#[0-9a-f]{6}/gi)
-  if (!hexes?.length)
-    throw new Error('the titlebar gradient declares no stop to measure')
-  return hexes.at(-1)!
+  if (!hexes?.length) throw new Error('the titlebar gradient declares no stop to measure')
+  return at(hexes, hexes.length - 1)
 }
 
 /**
@@ -240,10 +233,7 @@ describe('the surface ladder', () => {
     describe(step.what, () => {
       for (const [name, theme] of Object.entries(THEMES)) {
         it(`is a real step in ${name}`, () => {
-          const delta = deltaL(
-            surface(theme, step.from),
-            surface(theme, step.to),
-          )
+          const delta = deltaL(surface(theme, step.from), surface(theme, step.to))
           expect(delta).toBeGreaterThanOrEqual(MIN_STEP)
         })
       }
@@ -276,14 +266,11 @@ describe('the surface ladder', () => {
       // An input or a chart trough has to read as a hole cut in the panel. In light that means
       // lighter than every surface; in dark, darker than every one.
       const trough = lightness(token(theme, '--color-window-inset'))
-      const others = [
-        '--color-window',
-        '--color-window-raised',
-        '--color-section-bar-bg',
-      ].map((surfaceToken) => lightness(token(theme, surfaceToken)))
+      const others = ['--color-window', '--color-window-raised', '--color-section-bar-bg'].map(
+        (surfaceToken) => lightness(token(theme, surfaceToken)),
+      )
 
-      const extreme =
-        name === 'light' ? Math.max(...others) : Math.min(...others)
+      const extreme = name === 'light' ? Math.max(...others) : Math.min(...others)
       expect(name === 'light' ? trough > extreme : trough < extreme).toBe(true)
     })
   }
@@ -315,10 +302,7 @@ describe('ink sits on the same rung in both themes', () => {
   for (const rung of INK_RUNGS) {
     for (const [name, theme] of Object.entries(THEMES)) {
       it(`${name}: ${rung.token}`, () => {
-        const ratio = contrastRatio(
-          token(theme, rung.token),
-          token(theme, '--color-window'),
-        )
+        const ratio = contrastRatio(token(theme, rung.token), token(theme, '--color-window'))
         expect(ratio).toBeGreaterThanOrEqual(rung.min)
         expect(ratio).toBeLessThanOrEqual(rung.max)
       })
@@ -339,9 +323,7 @@ describe('ink sits on the same rung in both themes', () => {
         token(theme, '--color-window'),
       )
 
-      expect(
-        Math.max(positive, negative) / Math.min(positive, negative),
-      ).toBeLessThan(1.5)
+      expect(Math.max(positive, negative) / Math.min(positive, negative)).toBeLessThan(1.5)
     })
 
     it(`${name}: disabled text is quiet, not invisible`, () => {
@@ -387,14 +369,8 @@ describe('magnitude marks are ink, not accent', () => {
     })
 
     it(`${name}: --color-incomplete is quieter than a complete mark but still a mark`, () => {
-      const incomplete = contrastRatio(
-        token(theme, '--color-incomplete'),
-        token(theme, TROUGH),
-      )
-      const complete = contrastRatio(
-        token(theme, '--color-bar-ink'),
-        token(theme, TROUGH),
-      )
+      const incomplete = contrastRatio(token(theme, '--color-incomplete'), token(theme, TROUGH))
+      const complete = contrastRatio(token(theme, '--color-bar-ink'), token(theme, TROUGH))
 
       expect(incomplete).toBeGreaterThanOrEqual(MIN_RATIO)
       expect(incomplete).toBeLessThan(complete)
@@ -405,16 +381,13 @@ describe('magnitude marks are ink, not accent', () => {
       // 3:1 of graphical objects you need to see to understand the content, and a bar is
       // read from its filled length. Asserting the ceiling rather than a floor is what stops
       // someone helpfully raising it later and drawing a second bar.
-      expect(
-        contrastRatio(token(theme, '--color-rule'), token(theme, TROUGH)),
-      ).toBeLessThan(MIN_RATIO)
+      expect(contrastRatio(token(theme, '--color-rule'), token(theme, TROUGH))).toBeLessThan(
+        MIN_RATIO,
+      )
 
       // It still has to be distinguishable from the fill, or the bar has no end.
       expect(
-        contrastRatio(
-          token(theme, '--color-bar-ink'),
-          token(theme, '--color-rule'),
-        ),
+        contrastRatio(token(theme, '--color-bar-ink'), token(theme, '--color-rule')),
       ).toBeGreaterThanOrEqual(MIN_RATIO)
     })
   }
@@ -535,9 +508,7 @@ describe('the space ladder', () => {
     // Gutters are a different question from gaps — the distance from a surface's edge to
     // its content — and the census proved it: of 58 uses of 14 and 22px, all 58 were
     // padding and none was a margin.
-    const gutters = GUTTER_RUNGS.map((r) =>
-      px(r ? `--gutter-${r}` : '--gutter'),
-    )
+    const gutters = GUTTER_RUNGS.map((r) => px(r ? `--gutter-${r}` : '--gutter'))
     expect(gutters, gutters.join(' / ')).toSatisfy(ascending)
     expect(px('--gutter')).toBeGreaterThan(px('--sp-sm'))
     expect(px('--gutter')).toBeLessThan(px('--sp-md'))

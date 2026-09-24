@@ -9,7 +9,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { accountCoverage, userSettings } from '../db/schema'
-import { addDays, daysBetween, type CoverageInterval } from './intervals'
+import { addDays, type CoverageInterval, daysBetween } from './intervals'
 
 // How data comes out of the institution.
 //   'range'  — any date range, any time (Wise, most chequing accounts). Horizon is today.
@@ -67,6 +67,11 @@ export function dateInMonth(year: number, month: number, day: number): string {
 
 function parts(date: string): { year: number; month: number; day: number } {
   const [year, month, day] = date.split('-').map(Number)
+  // Every caller passes a 'YYYY-MM-DD' string the routes have already validated. This is the
+  // one place that says so, so the three numbers below are numbers everywhere else.
+  if (year === undefined || month === undefined || day === undefined) {
+    throw new Error(`not a YYYY-MM-DD date: "${date}"`)
+  }
   return { year, month, day }
 }
 
@@ -139,7 +144,9 @@ export function nextHorizon(config: CoverageConfig, today: string): string | nul
 // interval's throughDate and when the row was created — but that measures how long the user
 // took to get around to importing, which is precisely the thing this whole feature exists
 // because it is unpredictable. It stays 0 until the user says otherwise.
-export function inferCycleFromIntervals(intervals: CoverageInterval[]): CoverageConfigOverride | null {
+export function inferCycleFromIntervals(
+  intervals: CoverageInterval[],
+): CoverageConfigOverride | null {
   if (intervals.length < MIN_INTERVALS_TO_INFER) return null
 
   // Most recent first, so a bank that changed its cycle day is judged on its current one.
@@ -151,7 +158,10 @@ export function inferCycleFromIntervals(intervals: CoverageInterval[]): Coverage
   // Consecutive closes must be roughly a month apart. This is what rejects a pile of ad-hoc
   // range exports that happen to share a day of month.
   for (let i = 0; i < ends.length - 1; i++) {
-    const daysApart = daysBetween(ends[i + 1], ends[i])
+    const earlier = ends[i + 1]
+    const later = ends[i]
+    if (earlier === undefined || later === undefined) break
+    const daysApart = daysBetween(earlier, later)
     if (daysApart < 26 || daysApart > 33) return null
   }
 
@@ -162,8 +172,9 @@ export function inferCycleFromIntervals(intervals: CoverageInterval[]): Coverage
   }
 
   const days = ends.map((d) => parts(d).day)
-  if (days.every((d) => d === days[0])) {
-    return { exportMode: 'cycle', cycleDay: days[0] }
+  const firstDay = days[0]
+  if (firstDay !== undefined && days.every((d) => d === firstDay)) {
+    return { exportMode: 'cycle', cycleDay: firstDay }
   }
 
   return null
@@ -239,7 +250,10 @@ export async function readCatchUpOverrides(
 }
 
 // The live coverage assertions for one account, oldest first.
-export async function readIntervals(userId: string, accountId: string): Promise<CoverageInterval[]> {
+export async function readIntervals(
+  userId: string,
+  accountId: string,
+): Promise<CoverageInterval[]> {
   return db
     .select({ fromDate: accountCoverage.fromDate, throughDate: accountCoverage.throughDate })
     .from(accountCoverage)

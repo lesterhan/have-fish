@@ -2,16 +2,26 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    // The same flags `strict` does not imply that `backend/tsconfig.json` turns on, so a
+    // pattern that is a compile error in one half is a compile error in all three.
+    //
+    // Indexing an array or a record yields `T | undefined` rather than `T`. On this half
+    // it mostly named list reads that were already guarded a line above; `SplitSheet`'s
+    // two-member pair is the one place it forced the guard to be written down.
+    "noUncheckedIndexedAccess": true,
+    // `{ a?: string }` stops accepting `{ a: undefined }` — "absent" and "present and
+    // undefined" become different types. A tab whose `href` is suppressed spreads the key
+    // in or out (`tabHrefOption`) rather than passing undefined, which is the distinction
+    // the flag is drawing.
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    // A type-only import must say `import type`, so nothing type-shaped survives into what
+    // Metro bundles.
+    "verbatimModuleSyntax": true,
     "paths": {
-      "@/*": [
-        "./*"
-      ]
+      "@/*": ["./*"]
     }
   },
-  "include": [
-    "**/*.ts",
-    "**/*.tsx",
-    ".expo/types/**/*.ts",
-    "expo-env.d.ts"
-  ]
+  "include": ["**/*.ts", "**/*.tsx", ".expo/types/**/*.ts", "expo-env.d.ts"]
 }

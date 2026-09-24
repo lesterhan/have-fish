@@ -1,11 +1,16 @@
-import { db } from './db'
-import { accounts } from './db/schema'
-import { and, eq, isNull } from 'drizzle-orm'
 import type { ExtractTablesWithRelations } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import type { PgTransaction } from 'drizzle-orm/pg-core'
 import type { PostgresJsQueryResultHKT } from 'drizzle-orm/postgres-js'
+import { db } from './db'
+import { returnedRow } from './db/returning'
+import { accounts } from './db/schema'
 
-type Tx = PgTransaction<PostgresJsQueryResultHKT, typeof import('./db/schema'), ExtractTablesWithRelations<typeof import('./db/schema')>>
+type Tx = PgTransaction<
+  PostgresJsQueryResultHKT,
+  typeof import('./db/schema'),
+  ExtractTablesWithRelations<typeof import('./db/schema')>
+>
 
 export function slugify(name: string): string {
   return name
@@ -50,20 +55,20 @@ export async function ensureSharedAccount(
 
   if (existing) return existing.id
 
-  const [created] = await client
-    .insert(accounts)
-    .values({ userId, path, name: `Receivable: ${group.name}` })
-    .returning({ id: accounts.id })
+  const created = returnedRow(
+    await client
+      .insert(accounts)
+      .values({ userId, path, name: `Receivable: ${group.name}` })
+      .returning({ id: accounts.id }),
+    'insert accounts',
+  )
 
   return created.id
 }
 
 // Find or create an uncategorized account for a user.
 // Used when a member has no defaultExpenseAccountId configured.
-export async function ensureUncategorizedAccount(
-  userId: string,
-  tx?: Tx,
-): Promise<string> {
+export async function ensureUncategorizedAccount(userId: string, tx?: Tx): Promise<string> {
   const path = 'uncategorized'
   const client = tx ?? db
 
@@ -74,10 +79,13 @@ export async function ensureUncategorizedAccount(
 
   if (existing) return existing.id
 
-  const [created] = await client
-    .insert(accounts)
-    .values({ userId, path, name: 'Uncategorized' })
-    .returning({ id: accounts.id })
+  const created = returnedRow(
+    await client
+      .insert(accounts)
+      .values({ userId, path, name: 'Uncategorized' })
+      .returning({ id: accounts.id }),
+    'insert accounts',
+  )
 
   return created.id
 }

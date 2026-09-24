@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { type ReactNode, useEffect, useRef, useState } from 'react'
 import {
   Animated,
   Easing,
@@ -130,7 +130,14 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
 
 const styles = StyleSheet.create({
   root: { flex: 1, justifyContent: 'flex-end' },
-  scrim: { position: 'absolute', top: 0, left: 0, right: 0, bottom: 0, backgroundColor: theme.color.scrim },
+  scrim: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: theme.color.scrim,
+  },
   panel: {
     maxHeight: MAX_HEIGHT,
     backgroundColor: theme.color.surface,

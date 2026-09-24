@@ -1,6 +1,6 @@
 /// <reference types="bun-types" />
 import { describe, expect, it } from 'bun:test'
-import { darken, hexToRgb, lighten, alpha } from './color'
+import { alpha, darken, hexToRgb, lighten } from './color'
 
 describe('hexToRgb', () => {
   it('parses #rrggbb', () => {

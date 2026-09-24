@@ -11,24 +11,19 @@
 
 // Relative, not `$lib`: this module is unit-tested directly, and a value import through the
 // alias has no .svelte-kit to resolve against in CI. See lib-imports.test.ts.
-import { toClassifierType, type StoredAccountType } from '../../api'
+import { type StoredAccountType, toClassifierType } from '../../api'
+import { accountsCopy } from '../../copy/accounts'
+import { type Converted, convertBalances, type Money, type Rates } from '../../money'
 import {
-  convertBalances,
-  type Converted,
-  type Money,
-  type Rates,
-} from '../../money'
-import {
-  SURFACE_LABEL,
-  UNFILED_LABEL,
-  bucketOf,
   accountDisplayName,
+  bucketOf,
   institutionOf,
-  rootFor,
-  surfaceOf,
   type PositionBucket,
   type Roots,
+  rootFor,
+  SURFACE_LABEL,
   type Surface,
+  surfaceOf,
 } from './accountPaths'
 
 // ── Rows ────────────────────────────────────────────────────
@@ -37,8 +32,8 @@ import {
 export interface OverviewAccount {
   id: string
   path: string
-  name?: string | null
-  resolvedType?: StoredAccountType | null
+  name?: string | null | undefined
+  resolvedType?: StoredAccountType | null | undefined
   balances: Money[]
 }
 
@@ -83,7 +78,7 @@ export function buildRows(
   today: string,
 ): Row[] {
   return accounts.map((account) => {
-    const surface = surfaceOf(account.path, roots)
+    const surface = surfaceOf(account, roots)
     const lastActivity = lastActivityById.get(account.id) ?? null
     return {
       account,
@@ -106,16 +101,10 @@ export interface Group {
   rows: Row[]
 }
 
-const TYPE_LABEL: Record<string, string> = {
-  asset: 'Assets',
-  liability: 'Liabilities',
-  equity: 'Equity',
-  income: 'Income',
-  expense: 'Expenses',
-}
+const TYPE_LABEL: Record<string, string> = accountsCopy.groups.type
 
 /** Group with no currency at all — an account that has never been posted to. */
-export const NO_BALANCE_LABEL = 'No balance'
+export const NO_BALANCE_LABEL = accountsCopy.groups.noBalance
 
 function titleCase(segment: string): string {
   return segment.charAt(0).toUpperCase() + segment.slice(1)
@@ -133,11 +122,8 @@ function currenciesOf(row: Row): string[] {
  * buckets, and neither should push real accounts down the page.
  */
 function sortGroups(groups: Group[]): Group[] {
-  const trailing = (g: Group) =>
-    g.key === 'unfiled' || g.key === 'currency:' ? 1 : 0
-  return groups.sort(
-    (a, b) => trailing(a) - trailing(b) || a.label.localeCompare(b.label),
-  )
+  const trailing = (g: Group) => (g.key === 'unfiled' || g.key === 'currency:' ? 1 : 0)
+  return groups.sort((a, b) => trailing(a) - trailing(b) || a.label.localeCompare(b.label))
 }
 
 function sortRows(rows: Row[]): Row[] {
@@ -160,7 +146,7 @@ export function groupRows(rows: readonly Row[], grouping: Grouping): Group[] {
     // Unfiled always wins over the chosen grouping: the point of the bucket is that these
     // rows are visibly set apart, not quietly filed under an institution or a type.
     if (row.surface === 'unfiled') {
-      push(map, 'unfiled', UNFILED_LABEL, row)
+      push(map, 'unfiled', SURFACE_LABEL.unfiled, row)
       continue
     }
 
@@ -178,12 +164,7 @@ export function groupRows(rows: readonly Row[], grouping: Grouping): Group[] {
       case 'type': {
         const resolved = row.account.resolvedType
         const key = resolved ? toClassifierType(resolved) : row.surface
-        push(
-          map,
-          `type:${key}`,
-          TYPE_LABEL[key] ?? SURFACE_LABEL[row.surface],
-          row,
-        )
+        push(map, `type:${key}`, TYPE_LABEL[key] ?? SURFACE_LABEL[row.surface], row)
         break
       }
       case 'currency': {
@@ -198,15 +179,13 @@ export function groupRows(rows: readonly Row[], grouping: Grouping): Group[] {
         for (const currency of currencies) {
           push(map, `currency:${currency}`, currency, {
             ...row,
-            balances: row.account.balances.filter(
-              (b) => b.currency === currency,
-            ),
+            balances: row.account.balances.filter((b) => b.currency === currency),
           })
         }
         break
       }
       case 'flat':
-        push(map, 'flat', 'All accounts', row)
+        push(map, 'flat', accountsCopy.groups.all, row)
         break
     }
   }
@@ -231,10 +210,7 @@ export function groupCurrency(group: Group): string | null {
 // ── Roll-ups ────────────────────────────────────────────────
 
 /** Every currency appearing in these rows except the preferred one — what needs a rate. */
-export function currenciesNeedingRates(
-  rows: readonly Row[],
-  preferred: string,
-): string[] {
+export function currenciesNeedingRates(rows: readonly Row[], preferred: string): string[] {
   const seen = new Set<string>()
   for (const row of rows) {
     for (const b of row.account.balances) {
@@ -248,11 +224,7 @@ export function currenciesNeedingRates(
  * Sum the balances these rows *display* — which is not the same as the balances their accounts
  * hold, since currency grouping narrows a row to one currency.
  */
-export function convertRows(
-  rows: readonly Row[],
-  rates: Rates,
-  preferred: string,
-): Converted {
+export function convertRows(rows: readonly Row[], rates: Rates, preferred: string): Converted {
   return convertBalances(
     rows.flatMap((r) => r.balances),
     rates,
@@ -288,7 +260,7 @@ export function positionAccountIds(
     owing: [],
   }
   for (const row of rows) {
-    const bucket = bucketOf(row.account.path, roots)
+    const bucket = bucketOf(row.account, roots)
     if (bucket) ids[bucket].push(row.account.id)
   }
   return ids
@@ -307,7 +279,7 @@ export function positionTotals(
     owing: [],
   }
   for (const row of rows) {
-    const bucket = bucketOf(row.account.path, roots)
+    const bucket = bucketOf(row.account, roots)
     if (bucket) buckets[bucket].push(row)
   }
   return {

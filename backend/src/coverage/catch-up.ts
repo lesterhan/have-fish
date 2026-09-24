@@ -4,8 +4,8 @@
 // Pure assembly — every input is passed in so the whole shape can be tested without a
 // database. routes/catch-up.ts does the querying.
 
-import { addDays, daysBetween, mergeCoverage, type CoverageInterval } from './intervals'
-import { horizon, nextHorizon, type CoverageConfig } from './horizon'
+import { type CoverageConfig, horizon, nextHorizon } from './horizon'
+import { addDays, type CoverageInterval, daysBetween, mergeCoverage } from './intervals'
 
 // 'unset' means no coverage has ever been asserted for this account — distinct from 'behind',
 // because it is not evidence of neglect, only of a feature that has never been used. It drives
@@ -92,7 +92,11 @@ function totalDays(intervals: CoverageInterval[]): number {
 
 // The portion of each span falling inside [from, through]. Used to measure the rate over a
 // recent window rather than over an account's whole life.
-function clipToWindow(intervals: CoverageInterval[], from: string, through: string): CoverageInterval[] {
+function clipToWindow(
+  intervals: CoverageInterval[],
+  from: string,
+  through: string,
+): CoverageInterval[] {
   const clipped: CoverageInterval[] = []
   for (const interval of intervals) {
     const start = interval.fromDate > from ? interval.fromDate : from
@@ -103,7 +107,9 @@ function clipToWindow(intervals: CoverageInterval[], from: string, through: stri
 }
 
 function datesIn(counts: Record<string, number>, from: string, through: string): string[] {
-  return Object.keys(counts).filter((d) => d >= from && d <= through).sort()
+  return Object.keys(counts)
+    .filter((d) => d >= from && d <= through)
+    .sort()
 }
 
 function sumWithin(counts: Record<string, number>, intervals: CoverageInterval[]): number {
@@ -115,11 +121,13 @@ function sumWithin(counts: Record<string, number>, intervals: CoverageInterval[]
 }
 
 export function assembleAccount(input: CatchUpAccountInput, today: string): CatchUpAccount {
-  const { accountId, path, name, config, intervals, txnCountsByDate, firstTxnDate, lastTxnDate } = input
+  const { accountId, path, name, config, intervals, txnCountsByDate, firstTxnDate, lastTxnDate } =
+    input
 
   const merged = mergeCoverage(intervals)
   const accountHorizon = horizon(config, today)
-  const horizonReason = config.exportMode === 'cycle' && config.cycleDay != null ? 'statement' : 'today'
+  const horizonReason =
+    config.exportMode === 'cycle' && config.cycleDay != null ? 'statement' : 'today'
 
   // The leading edge is the last span, full stop. Older holes are real and stay in the data,
   // but they are never surfaced — a 2019 gap sitting in a queue forever is the definition of
@@ -152,17 +160,16 @@ export function assembleAccount(input: CatchUpAccountInput, today: string): Catc
   const coveredDays = totalDays(recentCovered)
   const coveredTxns = sumWithin(txnCountsByDate, recentCovered)
 
-  const expectedTxns = gap && coveredDays >= MIN_COVERED_DAYS_FOR_RATE
-    ? Math.round((coveredTxns / coveredDays) * gap.days)
-    : null
+  const expectedTxns =
+    gap && coveredDays >= MIN_COVERED_DAYS_FOR_RATE
+      ? Math.round((coveredTxns / coveredDays) * gap.days)
+      : null
 
   // Quiet for a confirmed stretch, and nothing has landed in the open window. The second half
   // is the revival rule: a transaction dated inside the gap — a split entered from the phone
   // on holiday — pulls the account straight back up the queue.
   const dormant =
-    coveredDays >= MIN_COVERED_DAYS_FOR_DORMANCY &&
-    coveredTxns === 0 &&
-    txnDatesInGap.length === 0
+    coveredDays >= MIN_COVERED_DAYS_FOR_DORMANCY && coveredTxns === 0 && txnDatesInGap.length === 0
 
   return {
     accountId,

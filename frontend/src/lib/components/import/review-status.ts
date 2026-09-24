@@ -26,16 +26,11 @@ export function rowStatus(row: StatusInput): RowStatus {
   return 'needs-review'
 }
 
-export function matchesFilter(
-  status: RowStatus,
-  filter: ReviewFilter,
-): boolean {
+export function matchesFilter(status: RowStatus, filter: ReviewFilter): boolean {
   return filter === 'all' || status === filter
 }
 
-export function statusCounts(
-  rows: StatusInput[],
-): Record<ReviewFilter, number> {
+export function statusCounts(rows: StatusInput[]): Record<ReviewFilter, number> {
   const counts: Record<ReviewFilter, number> = {
     all: rows.length,
     'needs-review': 0,
@@ -60,7 +55,8 @@ export function nextUnreviewedIndex(rows: StatusInput[], from: number): number {
   if (rows.length === 0) return -1
   for (let offset = 1; offset <= rows.length; offset++) {
     const i = (from + offset + rows.length) % rows.length
-    if (rowStatus(rows[i]) === 'needs-review') return i
+    const row = rows[i]
+    if (row !== undefined && rowStatus(row) === 'needs-review') return i
   }
   return -1
 }
@@ -86,10 +82,7 @@ export function rowsMatchingPattern(
 
 // Day boundaries for the review table's sticky headers. Returns the set of indices that
 // open a new day, so the table stays one chronological list rather than being regrouped.
-export function dayBoundaries(
-  transactions: ParsedTransaction[],
-  visible: number[],
-): Set<number> {
+export function dayBoundaries(transactions: ParsedTransaction[], visible: number[]): Set<number> {
   const starts = new Set<number>()
   let previous = ''
   for (const i of visible) {

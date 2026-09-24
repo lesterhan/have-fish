@@ -1,14 +1,11 @@
-import { describe, it, expect } from 'bun:test'
-import { RECENT_ENTRIES, entryLines } from './accountEntries'
+import { describe, expect, it } from 'bun:test'
 import type { Posting, Transaction } from '../../api'
+import { at } from '../../at'
+import { entryLines, RECENT_ENTRIES } from './accountEntries'
 
 let seq = 0
 
-function posting(
-  accountPath: string,
-  amount: string,
-  currency = 'CAD',
-): Posting {
+function posting(accountPath: string, amount: string, currency = 'CAD'): Posting {
   return {
     id: `p${seq++}`,
     accountId: `id:${accountPath}`,
@@ -46,7 +43,7 @@ describe('entryLines', () => {
   ])
 
   it('reports the movement as this account saw it, not the expense leg', () => {
-    const [line] = entryLines([groceries], CHEQUING)
+    const line = at(entryLines([groceries], CHEQUING))
     expect(line).toMatchObject({
       date: '2026-08-27',
       description: 'Loblaws',
@@ -56,13 +53,11 @@ describe('entryLines', () => {
   })
 
   it('names the other side of the entry', () => {
-    expect(entryLines([groceries], CHEQUING)[0]!.counterparty).toBe(
-      'expenses:food:groceries',
-    )
+    expect(at(entryLines([groceries], CHEQUING)).counterparty).toBe('expenses:food:groceries')
   })
 
   it('shortens the counterparty against a root when one is given', () => {
-    const line = entryLines([groceries], CHEQUING, { root: 'expenses' })[0]!
+    const line = at(entryLines([groceries], CHEQUING, { root: 'expenses' }))
     expect(line.counterparty).toBe('food:groceries')
   })
 
@@ -72,14 +67,12 @@ describe('entryLines', () => {
       posting('expenses:food:groceries', '60.00'),
       posting('expenses:household', '40.00'),
     ])
-    expect(entryLines([split], CHEQUING)[0]!.counterparty).toBe('split')
+    expect(at(entryLines([split], CHEQUING)).counterparty).toBe('split')
   })
 
   it('has no counterparty when the entry only touches this account', () => {
-    const solo = tx('t3', '2026-08-25', 'Opening balance', [
-      posting('assets:chequing', '500.00'),
-    ])
-    expect(entryLines([solo], CHEQUING)[0]!.counterparty).toBeNull()
+    const solo = tx('t3', '2026-08-25', 'Opening balance', [posting('assets:chequing', '500.00')])
+    expect(at(entryLines([solo], CHEQUING)).counterparty).toBeNull()
   })
 
   it('sums several postings on the same account in one entry', () => {
@@ -88,7 +81,7 @@ describe('entryLines', () => {
       posting('assets:chequing', '-2.00'),
       posting('expenses:fees', '5.00'),
     ])
-    expect(entryLines([twice], CHEQUING)[0]!.cents).toBe(-500)
+    expect(at(entryLines([twice], CHEQUING)).cents).toBe(-500)
   })
 
   it('flags a conversion rather than summing across currencies', () => {
@@ -97,7 +90,7 @@ describe('entryLines', () => {
       posting('assets:chequing', '73.00', 'USD'),
       posting('equity:conversions', '100.00', 'CAD'),
     ])
-    const line = entryLines([conversion], CHEQUING)[0]!
+    const line = at(entryLines([conversion], CHEQUING))
     expect(line.mixedCurrency).toBe(true)
     // Only the first currency's legs are summed — 100 CAD out, with the USD leg left out.
     expect(line).toMatchObject({ currency: 'CAD', cents: -10000 })
@@ -117,9 +110,7 @@ describe('entryLines', () => {
       posting('expenses:foodstuffs', '10.00'),
       posting('assets:chequing', '-10.00'),
     ])
-    expect(
-      entryLines([other], { kind: 'subtree', path: 'expenses:food' }),
-    ).toEqual([])
+    expect(entryLines([other], { kind: 'subtree', path: 'expenses:food' })).toEqual([])
   })
 
   it('drops an entry that does not touch the account at all', () => {
@@ -131,16 +122,16 @@ describe('entryLines', () => {
   })
 
   it('orders newest first and caps at the limit', () => {
-    const many = ['2026-08-01', '2026-08-05', '2026-08-03', '2026-08-09'].map(
-      (date, i) =>
-        tx(`m${i}`, date, date, [
-          posting('assets:chequing', '-1.00'),
-          posting('expenses:food', '1.00'),
-        ]),
+    const many = ['2026-08-01', '2026-08-05', '2026-08-03', '2026-08-09'].map((date, i) =>
+      tx(`m${i}`, date, date, [
+        posting('assets:chequing', '-1.00'),
+        posting('expenses:food', '1.00'),
+      ]),
     )
-    expect(entryLines(many, CHEQUING, { limit: 2 }).map((l) => l.date)).toEqual(
-      ['2026-08-09', '2026-08-05'],
-    )
+    expect(entryLines(many, CHEQUING, { limit: 2 }).map((l) => l.date)).toEqual([
+      '2026-08-09',
+      '2026-08-05',
+    ])
     expect(entryLines(many, CHEQUING)).toHaveLength(4)
   })
 
@@ -155,10 +146,8 @@ describe('entryLines', () => {
   })
 
   it('trims a date that carries a time, and an empty description', () => {
-    const timed = tx('t8', '2026-08-20T00:00:00.000Z', '   ', [
-      posting('assets:chequing', '-1.00'),
-    ])
-    expect(entryLines([timed], CHEQUING)[0]).toMatchObject({
+    const timed = tx('t8', '2026-08-20T00:00:00.000Z', '   ', [posting('assets:chequing', '-1.00')])
+    expect(at(entryLines([timed], CHEQUING))).toMatchObject({
       date: '2026-08-20',
       description: '—',
     })

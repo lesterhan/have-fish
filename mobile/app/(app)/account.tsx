@@ -1,15 +1,15 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
+import { useRouter } from 'expo-router'
 import { useEffect, useState } from 'react'
 import { Alert, ScrollView, StyleSheet, Switch, Text, View } from 'react-native'
-import { useRouter } from 'expo-router'
-import AsyncStorage from '@react-native-async-storage/async-storage'
-import { addServer, clearSession, getBaseUrl, getEmail, setBaseUrl } from '@/lib/auth'
-import { composeServerUrl, DEFAULT_PORT, parseServerUrl, type Scheme } from '@/lib/server-url'
-import * as haptics from '@/lib/haptics'
-import { theme } from '@/lib/theme'
 import { Button } from '@/components/Button'
 import { GlossButton } from '@/components/GlossButton'
 import { ServerAddressFields } from '@/components/ServerAddressFields'
 import { SettingsCard, SettingsRow } from '@/components/SettingsCard'
+import { addServer, clearSession, getBaseUrl, getEmail, setBaseUrl } from '@/lib/auth'
+import * as haptics from '@/lib/haptics'
+import { composeServerUrl, DEFAULT_PORT, parseServerUrl, type Scheme } from '@/lib/server-url'
+import { theme } from '@/lib/theme'
 
 /**
  * Account & app settings — the rightmost shell tab. Device/account config that
@@ -42,7 +42,9 @@ export default function AccountScreen() {
       }
       setHapticsOn(haptics.parseHapticsEnabled(raw))
     }
-    load()
+    // Best-effort hydration: SecureStore can throw, and every field already holds
+    // a usable default, so a failure leaves the form working rather than blank.
+    load().catch(() => {})
   }, [])
 
   async function toggleHaptics(value: boolean) {
@@ -84,10 +86,7 @@ export default function AccountScreen() {
         <SettingsRow label="Signed in as" value={email ?? '—'} />
       </SettingsCard>
 
-      <SettingsCard
-        title="Server"
-        caption="Update the server address without logging out."
-      >
+      <SettingsCard title="Server" caption="Update the server address without logging out.">
         <View style={styles.field}>
           <ServerAddressFields
             scheme={scheme}
@@ -136,8 +135,19 @@ const styles = StyleSheet.create({
   error: { fontFamily: theme.font.sans, fontSize: theme.text.sm, color: theme.color.red },
   saveBtn: { alignSelf: 'flex-start', minWidth: 120, marginTop: theme.sp[4] },
 
-  toggleRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingVertical: theme.sp.sm, gap: theme.sp.sm },
+  toggleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: theme.sp.sm,
+    gap: theme.sp.sm,
+  },
   toggleText: { flex: 1 },
   toggleLabel: { fontFamily: theme.font.sans, fontSize: 14.5, color: theme.color.ink },
-  toggleHint: { fontFamily: theme.font.mono, fontSize: 10.5, color: theme.color.ink3, marginTop: 2 },
+  toggleHint: {
+    fontFamily: theme.font.mono,
+    fontSize: 10.5,
+    color: theme.color.ink3,
+    marginTop: 2,
+  },
 })

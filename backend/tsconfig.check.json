@@ -1,0 +1,15 @@
+{
+  "extends": "./tsconfig.json",
+  "// why": [
+    "Type checking for CI, which `bun test` does not do — bun strips types and runs.",
+    "That matters most for `src/errors.ts`: `fail(c, code, detail)` types the detail per",
+    "code so a missing or misspelt field is a build error, and without a checker in the",
+    "pipeline that guarantee only holds on whichever machine last ran tsc.",
+    "Nothing under `src` is excluded any more. The test files used to be, because they",
+    "carried errors that were noise rather than bugs — `.then` on Hono's",
+    "`Response | Promise<Response>`, union fields read without narrowing. Those were real",
+    "holes in the instrument the rest of the suite is measured with, and #397 closed them:",
+    "`request` and `at` in `test-utils.ts` are where the assumptions now live."
+  ],
+  "exclude": ["drizzle", "node_modules"]
+}

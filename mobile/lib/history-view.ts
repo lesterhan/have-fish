@@ -80,10 +80,7 @@ function settlementRow(s: GroupSettlement): SettlementRow {
 }
 
 /** Build the History feed view model from the active group's raw records. */
-export function historyView(
-  expenses: GroupExpense[],
-  settlements: GroupSettlement[],
-): HistoryView {
+export function historyView(expenses: GroupExpense[], settlements: GroupSettlement[]): HistoryView {
   return {
     expenses: expenses.map(expenseRow),
     settlements: settlements.map(settlementRow),

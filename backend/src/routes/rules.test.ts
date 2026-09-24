@@ -1,12 +1,15 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
-import { db } from '../db'
-import { accounts, transactions, postings, importRules } from '../db/schema'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
+import { db } from '../db'
+import { returnedRow } from '../db/returning'
+import { accounts, csvParsers, importRules, postings, transactions } from '../db/schema'
+import { clearDatabase, createTestUser, request } from '../test-utils'
 
 async function createAccount(userId: string, path: string) {
-  const [acct] = await db.insert(accounts).values({ userId, path }).returning()
+  const acct = returnedRow(
+    await db.insert(accounts).values({ userId, path }).returning(),
+    'insert accounts',
+  )
   return acct
 }
 
@@ -16,7 +19,10 @@ async function seedTransaction(
   sourceAccountId: string,
   expenseAccountId: string,
 ) {
-  const [tx] = await db.insert(transactions).values({ userId, date: new Date(), description }).returning()
+  const tx = returnedRow(
+    await db.insert(transactions).values({ userId, date: new Date(), description }).returning(),
+    'insert transactions',
+  )
   await db.insert(postings).values([
     { transactionId: tx.id, accountId: sourceAccountId, amount: '-10.00', currency: 'CAD' },
     { transactionId: tx.id, accountId: expenseAccountId, amount: '10.00', currency: 'CAD' },
@@ -31,7 +37,10 @@ async function seedMultiPostingTransaction(
   description: string,
   legs: { accountId: string; amount: string; currency: string }[],
 ) {
-  const [tx] = await db.insert(transactions).values({ userId, date: new Date(), description }).returning()
+  const tx = returnedRow(
+    await db.insert(transactions).values({ userId, date: new Date(), description }).returning(),
+    'insert transactions',
+  )
   await db.insert(postings).values(legs.map((l) => ({ transactionId: tx.id, ...l })))
   return tx
 }
@@ -44,7 +53,7 @@ describe('rules', () => {
     await clearDatabase()
     cookie = await createTestUser()
     // Extract userId from session
-    const sessionRes = await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })
+    const sessionRes = await request('/api/auth/get-session', { headers: { Cookie: cookie } })
     const session = await sessionRes.json()
     userId = session.user.id
   })
@@ -57,7 +66,7 @@ describe('rules', () => {
     await seedTransaction(userId, 'LOBLAWS #042', chequing.id, groceries.id)
     await seedTransaction(userId, 'LOBLAWS #042', chequing.id, groceries.id)
 
-    const mineRes = await app.request('/api/rules/mine', {
+    const mineRes = await request('/api/rules/mine', {
       method: 'POST',
       headers: { Cookie: cookie },
     })
@@ -65,7 +74,7 @@ describe('rules', () => {
     const { created } = await mineRes.json()
     expect(created).toBe(1)
 
-    const listRes = await app.request('/api/rules', { headers: { Cookie: cookie } })
+    const listRes = await request('/api/rules', { headers: { Cookie: cookie } })
     const rules = await listRes.json()
     expect(rules).toBeArrayOfSize(1)
     // Trailing store number stripped so the rule generalizes across LOBLAWS locations.
@@ -88,11 +97,14 @@ describe('rules', () => {
       ])
     }
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect(mineRes.status).toBe(200)
     expect((await mineRes.json()).created).toBe(1)
 
-    const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    const rules = await (await request('/api/rules', { headers: { Cookie: cookie } })).json()
     expect(rules).toBeArrayOfSize(1)
     expect(rules[0].pattern).toBe('CARREFOUR')
     expect(rules[0].accountPath).toBe('expenses:food:groceries')
@@ -114,13 +126,89 @@ describe('rules', () => {
       ])
     }
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(1)
 
-    const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    const rules = await (await request('/api/rules', { headers: { Cookie: cookie } })).json()
     expect(rules).toBeArrayOfSize(1)
     expect(rules[0].accountPath).toBe('expenses:food:dining')
     expect(rules[0].matchCount).toBe(2)
+  })
+
+  // BUG-007: mining found expense legs by the expenses root, so a category tagged Expense
+  // elsewhere never got a suggestion, and one filed under the root but tagged otherwise did.
+  describe('expense legs by resolved type', () => {
+    async function tag(id: string, type: string) {
+      await db.update(accounts).set({ type }).where(eq(accounts.id, id))
+    }
+
+    async function mine(): Promise<{ pattern: string; accountPath: string }[]> {
+      await request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+      return (await request('/api/rules', { headers: { Cookie: cookie } })).json()
+    }
+
+    async function designateFee(accountId: string) {
+      await db.insert(csvParsers).values({
+        userId,
+        name: 'Wise',
+        normalizedHeader: 'amount|currency|date|description',
+        columnMapping: { date: 'date', amount: 'amount' },
+        isMultiCurrency: true,
+        defaultFeeAccountId: accountId,
+      })
+    }
+
+    it('mines a category tagged Expense outside the expenses root', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      const rent = await createAccount(userId, '花钱:房租')
+      await tag(rent.id, 'expense')
+      await seedTransaction(userId, 'LANDLORD', chequing.id, rent.id)
+      await seedTransaction(userId, 'LANDLORD', chequing.id, rent.id)
+
+      const rules = await mine()
+      expect(rules.map((r) => r.accountPath)).toEqual(['花钱:房租'])
+    })
+
+    it('does not mine an account under the expenses root that is tagged otherwise', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      const rrsp = await createAccount(userId, 'expenses:rrsp')
+      await tag(rrsp.id, 'asset')
+      await seedTransaction(userId, 'RRSP CONTRIBUTION', chequing.id, rrsp.id)
+      await seedTransaction(userId, 'RRSP CONTRIBUTION', chequing.id, rrsp.id)
+
+      expect(await mine()).toEqual([])
+    })
+
+    it('mines the spend of a transaction that also carries its fee', async () => {
+      const wise = await createAccount(userId, 'assets:wise:cad')
+      const fee = await createAccount(userId, 'expenses:banking:fee')
+      const cafe = await createAccount(userId, 'expenses:food:cafe')
+      await designateFee(fee.id)
+      for (let i = 0; i < 2; i++) {
+        await seedMultiPostingTransaction(userId, 'CAFE LOUVRE', [
+          { accountId: wise.id, amount: '-5.05', currency: 'CAD' },
+          { accountId: fee.id, amount: '0.05', currency: 'CAD' },
+          { accountId: cafe.id, amount: '5.00', currency: 'CAD' },
+        ])
+      }
+
+      const rules = await mine()
+      expect(rules.map((r) => r.accountPath)).toEqual(['expenses:food:cafe'])
+    })
+
+    it('still maps a transaction that is only a fee to the fee account', async () => {
+      const wise = await createAccount(userId, 'assets:wise:cad')
+      const fee = await createAccount(userId, 'expenses:banking:fee')
+      await designateFee(fee.id)
+      await seedTransaction(userId, 'WISE MONTHLY FEE', wise.id, fee.id)
+      await seedTransaction(userId, 'WISE MONTHLY FEE', wise.id, fee.id)
+
+      const rules = await mine()
+      expect(rules.map((r) => r.accountPath)).toEqual(['expenses:banking:fee'])
+    })
   })
 
   it('groups near-duplicate descriptions (different store numbers) into one rule', async () => {
@@ -132,10 +220,13 @@ describe('rules', () => {
     await seedTransaction(userId, 'LOBLAWS #119', chequing.id, groceries.id)
     await seedTransaction(userId, 'LOBLAWS #007', chequing.id, groceries.id)
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(1)
 
-    const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    const rules = await (await request('/api/rules', { headers: { Cookie: cookie } })).json()
     expect(rules).toBeArrayOfSize(1)
     expect(rules[0].pattern).toBe('LOBLAWS')
     expect(rules[0].matchCount).toBe(3)
@@ -148,7 +239,10 @@ describe('rules', () => {
     await seedTransaction(userId, 'TTC FARE', chequing.id, transit.id)
     await seedTransaction(userId, 'TTC FARE', chequing.id, transit.id)
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(1)
   })
 
@@ -158,7 +252,10 @@ describe('rules', () => {
 
     await seedTransaction(userId, 'ONE OFF SHOP', chequing.id, groceries.id)
 
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(0)
   })
 
@@ -171,13 +268,13 @@ describe('rules', () => {
     await seedTransaction(userId, 'LOBLAWS #042', chequing.id, groceries.id)
 
     // First mine produces the suggestion.
-    await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
-    let rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    await request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    let rules = await (await request('/api/rules', { headers: { Cookie: cookie } })).json()
     expect(rules).toBeArrayOfSize(1)
     const ruleId = rules[0].id
 
     // Deny it.
-    const denyRes = await app.request(`/api/rules/${ruleId}/deny`, {
+    const denyRes = await request(`/api/rules/${ruleId}/deny`, {
       method: 'POST',
       headers: { Cookie: cookie },
     })
@@ -186,40 +283,49 @@ describe('rules', () => {
     expect(denied.status).toBe('denied')
 
     // Mining again must NOT re-create the suggestion — the denied pattern stays suppressed.
-    const mineRes = await app.request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+    const mineRes = await request('/api/rules/mine', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
     expect((await mineRes.json()).created).toBe(0)
 
-    rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    rules = await (await request('/api/rules', { headers: { Cookie: cookie } })).json()
     expect(rules).toBeArrayOfSize(1)
     expect(rules[0].status).toBe('denied')
   })
 
   it('reviving a denied rule returns it to the suggestions list', async () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
-    const [rule] = await db
-      .insert(importRules)
-      .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'denied', matchCount: 5 })
-      .returning()
+    const rule = returnedRow(
+      await db
+        .insert(importRules)
+        .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'denied', matchCount: 5 })
+        .returning(),
+      'insert importRules',
+    )
 
-    const reviveRes = await app.request(`/api/rules/${rule.id}/revive`, {
+    const reviveRes = await request(`/api/rules/${rule.id}/revive`, {
       method: 'POST',
       headers: { Cookie: cookie },
     })
     expect(reviveRes.status).toBe(200)
     expect((await reviveRes.json()).status).toBe('suggested')
 
-    const rules = await (await app.request('/api/rules', { headers: { Cookie: cookie } })).json()
+    const rules = await (await request('/api/rules', { headers: { Cookie: cookie } })).json()
     expect(rules[0].status).toBe('suggested')
   })
 
   it('deny rejects a rule that is not a suggestion', async () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
-    const [active] = await db
-      .insert(importRules)
-      .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'active' })
-      .returning()
+    const active = returnedRow(
+      await db
+        .insert(importRules)
+        .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'active' })
+        .returning(),
+      'insert importRules',
+    )
 
-    const res = await app.request(`/api/rules/${active.id}/deny`, {
+    const res = await request(`/api/rules/${active.id}/deny`, {
       method: 'POST',
       headers: { Cookie: cookie },
     })
@@ -228,12 +334,21 @@ describe('rules', () => {
 
   it('revive rejects a rule that is not denied', async () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
-    const [suggested] = await db
-      .insert(importRules)
-      .values({ userId, pattern: 'LOBLAWS', accountId: acct.id, status: 'suggested', matchCount: 3 })
-      .returning()
+    const suggested = returnedRow(
+      await db
+        .insert(importRules)
+        .values({
+          userId,
+          pattern: 'LOBLAWS',
+          accountId: acct.id,
+          status: 'suggested',
+          matchCount: 3,
+        })
+        .returning(),
+      'insert importRules',
+    )
 
-    const res = await app.request(`/api/rules/${suggested.id}/revive`, {
+    const res = await request(`/api/rules/${suggested.id}/revive`, {
       method: 'POST',
       headers: { Cookie: cookie },
     })
@@ -243,14 +358,14 @@ describe('rules', () => {
   it('creates a rule and fetches it', async () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
 
-    const createRes = await app.request('/api/rules', {
+    const createRes = await request('/api/rules', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ pattern: 'LOBLAWS', accountId: acct.id }),
     })
     expect(createRes.status).toBe(201)
 
-    const listRes = await app.request('/api/rules', { headers: { Cookie: cookie } })
+    const listRes = await request('/api/rules', { headers: { Cookie: cookie } })
     expect(listRes.status).toBe(200)
     const rules = await listRes.json()
     expect(rules).toBeArrayOfSize(1)
@@ -271,7 +386,7 @@ describe('rules — split targets', () => {
   let groupId: string
 
   async function createGroup(c: string, name = 'Household'): Promise<string> {
-    const res = await app.request('/api/fish-pie/groups', {
+    const res = await request('/api/fish-pie/groups', {
       method: 'POST',
       headers: { Cookie: c, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
@@ -280,7 +395,7 @@ describe('rules — split targets', () => {
   }
 
   async function createCategory(c: string, gId: string, name: string) {
-    const res = await app.request(`/api/fish-pie/groups/${gId}/categories`, {
+    const res = await request(`/api/fish-pie/groups/${gId}/categories`, {
       method: 'POST',
       headers: { Cookie: c, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name }),
@@ -289,7 +404,7 @@ describe('rules — split targets', () => {
   }
 
   function postRule(c: string, body: Record<string, unknown>) {
-    return app.request('/api/rules', {
+    return request('/api/rules', {
       method: 'POST',
       headers: { Cookie: c, 'Content-Type': 'application/json' },
       body: JSON.stringify(body),
@@ -297,13 +412,15 @@ describe('rules — split targets', () => {
   }
 
   function listRules(c: string) {
-    return app.request('/api/rules', { headers: { Cookie: c } }).then((r) => r.json())
+    return request('/api/rules', { headers: { Cookie: c } }).then((r) => r.json())
   }
 
   beforeEach(async () => {
     await clearDatabase()
     cookie = await createTestUser()
-    const session = await (await app.request('/api/auth/get-session', { headers: { Cookie: cookie } })).json()
+    const session = await (
+      await request('/api/auth/get-session', { headers: { Cookie: cookie } })
+    ).json()
     userId = session.user.id
     groupId = await createGroup(cookie)
   })
@@ -355,19 +472,23 @@ describe('rules — split targets', () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
     const res = await postRule(cookie, { pattern: 'BILLA', accountId: acct.id, groupId })
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toContain('not both')
+    expect((await res.json()).error).toBe('RULE_TARGET_AMBIGUOUS')
   })
 
   it('rejects a rule with neither target set', async () => {
     const res = await postRule(cookie, { pattern: 'BILLA' })
     expect(res.status).toBe(400)
-    expect((await res.json()).error).toContain('either accountId or groupId')
+    expect((await res.json()).error).toBe('RULE_TARGET_MISSING')
   })
 
   it('rejects a categoryId sent alongside an accountId', async () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
     const category = await createCategory(cookie, groupId, 'Groceries')
-    const res = await postRule(cookie, { pattern: 'BILLA', accountId: acct.id, categoryId: category.id })
+    const res = await postRule(cookie, {
+      pattern: 'BILLA',
+      accountId: acct.id,
+      categoryId: category.id,
+    })
     expect(res.status).toBe(400)
   })
 
@@ -381,7 +502,9 @@ describe('rules — split targets', () => {
 
   it('rejects an account belonging to another user', async () => {
     const otherCookie = await createTestUser('other@example.com')
-    const otherSession = await (await app.request('/api/auth/get-session', { headers: { Cookie: otherCookie } })).json()
+    const otherSession = await (
+      await request('/api/auth/get-session', { headers: { Cookie: otherCookie } })
+    ).json()
     const theirAccount = await createAccount(otherSession.user.id, 'expenses:theirs')
 
     const res = await postRule(cookie, { pattern: 'BILLA', accountId: theirAccount.id })
@@ -393,12 +516,15 @@ describe('rules — split targets', () => {
     const category = await createCategory(cookie, otherGroupId, 'Flights')
 
     const res = await postRule(cookie, { pattern: 'BILLA', groupId, categoryId: category.id })
-    expect(res.status).toBe(404)
+    // 400, not the 404 this used to answer: the same failure reaches this route through
+    // `import.ts` and `fish-pie-expenses.ts` as a 400, and one failure gets one status.
+    expect(res.status).toBe(400)
+    expect((await res.json()).error).toBe('CATEGORY_NOT_IN_GROUP')
   })
 
   it('rejects an archived category', async () => {
     const category = await createCategory(cookie, groupId, 'Groceries')
-    await app.request(`/api/fish-pie/groups/${groupId}/categories/${category.id}`, {
+    await request(`/api/fish-pie/groups/${groupId}/categories/${category.id}`, {
       method: 'PATCH',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ archived: true }),
@@ -412,7 +538,7 @@ describe('rules — split targets', () => {
     const acct = await createAccount(userId, 'expenses:food:groceries')
     const created = await (await postRule(cookie, { pattern: 'BILLA', accountId: acct.id })).json()
 
-    const res = await app.request(`/api/rules/${created.id}`, {
+    const res = await request(`/api/rules/${created.id}`, {
       method: 'PATCH',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ groupId }),
@@ -425,10 +551,12 @@ describe('rules — split targets', () => {
 
   it('patching a group rule to an account target clears the group and category', async () => {
     const category = await createCategory(cookie, groupId, 'Groceries')
-    const created = await (await postRule(cookie, { pattern: 'BILLA', groupId, categoryId: category.id })).json()
+    const created = await (
+      await postRule(cookie, { pattern: 'BILLA', groupId, categoryId: category.id })
+    ).json()
     const acct = await createAccount(userId, 'expenses:food:groceries')
 
-    const res = await app.request(`/api/rules/${created.id}`, {
+    const res = await request(`/api/rules/${created.id}`, {
       method: 'PATCH',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ accountId: acct.id }),
@@ -443,7 +571,7 @@ describe('rules — split targets', () => {
   it('patching only the pattern leaves the target alone', async () => {
     const created = await (await postRule(cookie, { pattern: 'BILLA', groupId })).json()
 
-    const res = await app.request(`/api/rules/${created.id}`, {
+    const res = await request(`/api/rules/${created.id}`, {
       method: 'PATCH',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({ pattern: 'BILLA MARKT' }),
@@ -492,10 +620,13 @@ describe('rules — split targets', () => {
 
     it('rejects an update that would leave a rule with both targets', async () => {
       const acct = await createAccount(userId, 'expenses:food:groceries')
-      const [rule] = await db
-        .insert(importRules)
-        .values({ userId, pattern: 'BILLA', accountId: acct.id })
-        .returning()
+      const rule = returnedRow(
+        await db
+          .insert(importRules)
+          .values({ userId, pattern: 'BILLA', accountId: acct.id })
+          .returning(),
+        'insert importRules',
+      )
 
       await expectOneTargetViolation(() =>
         db.update(importRules).set({ groupId }).where(eq(importRules.id, rule.id)),
@@ -508,7 +639,9 @@ describe('rules — split targets', () => {
 
       await db.insert(importRules).values({ userId, pattern: 'LOBLAWS', accountId: acct.id })
       await db.insert(importRules).values({ userId, pattern: 'BILLA', groupId })
-      await db.insert(importRules).values({ userId, pattern: 'HOFER', groupId, categoryId: category.id })
+      await db
+        .insert(importRules)
+        .values({ userId, pattern: 'HOFER', groupId, categoryId: category.id })
 
       const rules = await listRules(cookie)
       expect(rules).toBeArrayOfSize(3)
@@ -518,7 +651,7 @@ describe('rules — split targets', () => {
   it('an active split rule suggests a group, never an account, on import preview', async () => {
     await postRule(cookie, { pattern: 'Coffee', groupId })
 
-    await app.request('/api/parsers', {
+    await request('/api/parsers', {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -529,10 +662,18 @@ describe('rules — split targets', () => {
     })
 
     const form = new FormData()
-    form.append('file', new Blob(['Date,Amount,Description\n2026-02-01,-42.50,Coffee'], { type: 'text/csv' }), 'e.csv')
+    form.append(
+      'file',
+      new Blob(['Date,Amount,Description\n2026-02-01,-42.50,Coffee'], { type: 'text/csv' }),
+      'e.csv',
+    )
     form.append('defaultCurrency', 'CAD')
 
-    const res = await app.request('/api/import/preview', { method: 'POST', headers: { Cookie: cookie }, body: form })
+    const res = await request('/api/import/preview', {
+      method: 'POST',
+      headers: { Cookie: cookie },
+      body: form,
+    })
     expect(res.status).toBe(200)
     const body = await res.json()
     expect(body.transactions[0].suggestedGroupId).toBe(groupId)

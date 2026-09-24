@@ -1,0 +1,22 @@
+[Unit]
+Description=have-fish database backup
+Documentation=https://github.com/lesterhan/have-fish/blob/main/ops/README.md
+After=network-online.target
+# A backup that fails where nobody is looking is the same as no backup.
+OnFailure=havefish-backup-failed.service
+
+[Service]
+Type=oneshot
+# systemd gives a service no $HOME, so restic cannot find a cache directory and runs
+# without one — re-fetching index and pack metadata from the remote on every single run,
+# and warning that prune will be very slow. CacheDirectory= has systemd create and own
+# /var/cache/havefish-backup; RESTIC_CACHE_DIR points restic at it.
+CacheDirectory=havefish-backup
+CacheDirectoryMode=0700
+Environment=RESTIC_CACHE_DIR=/var/cache/havefish-backup
+# Adjust to wherever the repo is checked out on the server.
+WorkingDirectory=/opt/have-fish
+ExecStart=/opt/have-fish/ops/backup.sh --quiet
+# Offsite credentials. Keep them out of .env, which is read by the app containers too:
+# this file should be root-owned and chmod 600.
+EnvironmentFile=-/etc/have-fish/backup.env

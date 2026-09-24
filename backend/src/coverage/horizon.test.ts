@@ -1,5 +1,6 @@
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import {
+  type CoverageConfig,
   DEFAULT_CONFIG,
   dateInMonth,
   daysInMonth,
@@ -7,7 +8,6 @@ import {
   inferCycleFromIntervals,
   mergeConfig,
   nextHorizon,
-  type CoverageConfig,
 } from './horizon'
 
 // A cycle account, spelled out per case so each test reads as its own scenario.
@@ -140,86 +140,101 @@ describe('inferCycleFromIntervals', () => {
 
   // Two monthly statements are a coincidence; three are a rhythm.
   it('declines on two intervals', () => {
-    expect(inferCycleFromIntervals([
-      iv('2025-05-26', '2025-06-25'),
-      iv('2025-06-26', '2025-07-25'),
-    ])).toBeNull()
+    expect(
+      inferCycleFromIntervals([iv('2025-05-26', '2025-06-25'), iv('2025-06-26', '2025-07-25')]),
+    ).toBeNull()
   })
 
   it('infers a mid-month cycle day from three statements', () => {
-    expect(inferCycleFromIntervals([
-      iv('2025-04-26', '2025-05-25'),
-      iv('2025-05-26', '2025-06-25'),
-      iv('2025-06-26', '2025-07-25'),
-    ])).toEqual({ exportMode: 'cycle', cycleDay: 25 })
+    expect(
+      inferCycleFromIntervals([
+        iv('2025-04-26', '2025-05-25'),
+        iv('2025-05-26', '2025-06-25'),
+        iv('2025-06-26', '2025-07-25'),
+      ]),
+    ).toEqual({ exportMode: 'cycle', cycleDay: 25 })
   })
 
   // Month-end statements land on 31, 30, 28 or 29, so they agree on "last day" rather than on
   // a number. cycleDay 31 is how that is stored.
   it('infers month-end statements as day 31', () => {
-    expect(inferCycleFromIntervals([
-      iv('2025-01-01', '2025-01-31'),
-      iv('2025-02-01', '2025-02-28'),
-      iv('2025-03-01', '2025-03-31'),
-      iv('2025-04-01', '2025-04-30'),
-    ])).toEqual({ exportMode: 'cycle', cycleDay: 31 })
+    expect(
+      inferCycleFromIntervals([
+        iv('2025-01-01', '2025-01-31'),
+        iv('2025-02-01', '2025-02-28'),
+        iv('2025-03-01', '2025-03-31'),
+        iv('2025-04-01', '2025-04-30'),
+      ]),
+    ).toEqual({ exportMode: 'cycle', cycleDay: 31 })
   })
 
   it('infers month-end across a leap February', () => {
-    expect(inferCycleFromIntervals([
-      iv('2024-01-01', '2024-01-31'),
-      iv('2024-02-01', '2024-02-29'),
-      iv('2024-03-01', '2024-03-31'),
-    ])).toEqual({ exportMode: 'cycle', cycleDay: 31 })
+    expect(
+      inferCycleFromIntervals([
+        iv('2024-01-01', '2024-01-31'),
+        iv('2024-02-01', '2024-02-29'),
+        iv('2024-03-01', '2024-03-31'),
+      ]),
+    ).toEqual({ exportMode: 'cycle', cycleDay: 31 })
   })
 
   // Ad-hoc range exports that happen to share a day of month are not a statement cycle.
   it('declines when the intervals are not roughly a month apart', () => {
-    expect(inferCycleFromIntervals([
-      iv('2025-01-01', '2025-01-15'),
-      iv('2025-01-16', '2025-02-15'),
-      iv('2025-02-16', '2025-08-15'),
-    ])).toBeNull()
+    expect(
+      inferCycleFromIntervals([
+        iv('2025-01-01', '2025-01-15'),
+        iv('2025-01-16', '2025-02-15'),
+        iv('2025-02-16', '2025-08-15'),
+      ]),
+    ).toBeNull()
   })
 
   it('declines when the end dates disagree on a day', () => {
-    expect(inferCycleFromIntervals([
-      iv('2025-04-26', '2025-05-20'),
-      iv('2025-05-21', '2025-06-17'),
-      iv('2025-06-18', '2025-07-14'),
-    ])).toBeNull()
+    expect(
+      inferCycleFromIntervals([
+        iv('2025-04-26', '2025-05-20'),
+        iv('2025-05-21', '2025-06-17'),
+        iv('2025-06-18', '2025-07-14'),
+      ]),
+    ).toBeNull()
   })
 
   it('declines on weekly intervals', () => {
-    expect(inferCycleFromIntervals([
-      iv('2025-07-01', '2025-07-07'),
-      iv('2025-07-08', '2025-07-14'),
-      iv('2025-07-15', '2025-07-21'),
-    ])).toBeNull()
+    expect(
+      inferCycleFromIntervals([
+        iv('2025-07-01', '2025-07-07'),
+        iv('2025-07-08', '2025-07-14'),
+        iv('2025-07-15', '2025-07-21'),
+      ]),
+    ).toBeNull()
   })
 
   it('reads the rhythm regardless of input order', () => {
-    expect(inferCycleFromIntervals([
-      iv('2025-05-26', '2025-06-25'),
-      iv('2025-06-26', '2025-07-25'),
-      iv('2025-04-26', '2025-05-25'),
-    ])).toEqual({ exportMode: 'cycle', cycleDay: 25 })
+    expect(
+      inferCycleFromIntervals([
+        iv('2025-05-26', '2025-06-25'),
+        iv('2025-06-26', '2025-07-25'),
+        iv('2025-04-26', '2025-05-25'),
+      ]),
+    ).toEqual({ exportMode: 'cycle', cycleDay: 25 })
   })
 
   // Only the most recent statements are sampled, so a cycle day the bank changed a year ago
   // cannot outvote the one in force now.
   it('judges on the most recent statements when the cycle day changed', () => {
-    expect(inferCycleFromIntervals([
-      iv('2024-08-11', '2024-09-10'),
-      iv('2024-09-11', '2024-10-10'),
-      iv('2024-10-11', '2024-11-10'),
-      iv('2025-02-26', '2025-03-25'),
-      iv('2025-03-26', '2025-04-25'),
-      iv('2025-04-26', '2025-05-25'),
-      iv('2025-05-26', '2025-06-25'),
-      iv('2025-06-26', '2025-07-25'),
-      iv('2025-07-26', '2025-08-25'),
-    ])).toEqual({ exportMode: 'cycle', cycleDay: 25 })
+    expect(
+      inferCycleFromIntervals([
+        iv('2024-08-11', '2024-09-10'),
+        iv('2024-09-11', '2024-10-10'),
+        iv('2024-10-11', '2024-11-10'),
+        iv('2025-02-26', '2025-03-25'),
+        iv('2025-03-26', '2025-04-25'),
+        iv('2025-04-26', '2025-05-25'),
+        iv('2025-05-26', '2025-06-25'),
+        iv('2025-06-26', '2025-07-25'),
+        iv('2025-07-26', '2025-08-25'),
+      ]),
+    ).toEqual({ exportMode: 'cycle', cycleDay: 25 })
   })
 
   it('never infers a release lag', () => {
@@ -244,13 +259,19 @@ describe('mergeConfig', () => {
 
   it('applies inference over the defaults', () => {
     expect(mergeConfig({ exportMode: 'cycle', cycleDay: 25 }, {})).toEqual({
-      exportMode: 'cycle', cycleDay: 25, releaseLag: 0, tracked: true,
+      exportMode: 'cycle',
+      cycleDay: 25,
+      releaseLag: 0,
+      tracked: true,
     })
   })
 
   it('lets the override beat inference', () => {
     expect(mergeConfig({ exportMode: 'cycle', cycleDay: 25 }, { cycleDay: 18 })).toEqual({
-      exportMode: 'cycle', cycleDay: 18, releaseLag: 0, tracked: true,
+      exportMode: 'cycle',
+      cycleDay: 18,
+      releaseLag: 0,
+      tracked: true,
     })
   })
 
@@ -261,7 +282,10 @@ describe('mergeConfig', () => {
 
   it('carries an override for a field inference never sets', () => {
     expect(mergeConfig(null, { releaseLag: 3, tracked: false })).toEqual({
-      exportMode: 'range', cycleDay: null, releaseLag: 3, tracked: false,
+      exportMode: 'range',
+      cycleDay: null,
+      releaseLag: 3,
+      tracked: false,
     })
   })
 })

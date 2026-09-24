@@ -48,14 +48,19 @@ export const auth = betterAuth({
             ])
             .returning()
 
-          await db
-            .insert(userSettings)
-            .values({
-              userId: user.id,
-              defaultOffsetAccountId: offsetAccount.id,
-              defaultConversionAccountId: conversionAccount.id,
-              defaultAdjustmentsAccountId: adjustmentsAccount.id,
-            })
+          // Three values in, three rows back. If that ever stops holding, a new account
+          // would silently get a settings row pointing at nothing, so say so loudly here
+          // instead.
+          if (!offsetAccount || !conversionAccount || !adjustmentsAccount) {
+            throw new Error('insert accounts returned fewer rows than it was given')
+          }
+
+          await db.insert(userSettings).values({
+            userId: user.id,
+            defaultOffsetAccountId: offsetAccount.id,
+            defaultConversionAccountId: conversionAccount.id,
+            defaultAdjustmentsAccountId: adjustmentsAccount.id,
+          })
         },
       },
     },

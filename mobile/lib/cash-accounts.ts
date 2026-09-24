@@ -27,7 +27,7 @@ export const LAST_WALLET_KEY = 'havefish_last_wallet'
 
 /**
  * True when the account is a cash wallet. Strictly the resolved hledger type —
- * `resolvedType` is the backend's stored-wins-else-infer answer, so this is one
+ * `resolvedType` is the backend's resolved answer (own override, else a tagged ancestor's, else the root's), so this is one
  * shared verdict rather than a second opinion.
  */
 export function isCashAccount(account: { resolvedType?: string | null }): boolean {
@@ -78,7 +78,10 @@ export function walletCurrency(account: {
  * '0.00' when the account has no postings in it — a wallet that has never been
  * spent from holds zero, which is a real answer, not a missing one.
  */
-export function balanceIn(balances: { currency: string; amount: string }[], currency: string): string {
+export function balanceIn(
+  balances: { currency: string; amount: string }[],
+  currency: string,
+): string {
   return balances.find((b) => b.currency === currency)?.amount ?? '0.00'
 }
 

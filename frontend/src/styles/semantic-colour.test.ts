@@ -26,7 +26,7 @@
  * wrong when they are wrong; they just need a reader rather than a regex.
  */
 
-import { describe, it, expect } from 'bun:test'
+import { describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { rulesIn, svelteFilesUnder } from '../testing/source-scan'
@@ -59,15 +59,11 @@ const MONEY_TOKENS = ['--color-amount-positive', '--color-amount-negative']
 /** Whole-word, so `.checkbox` is not `ok` and `.warning-free` is still `warn`-ish. */
 export function statusWordsIn(selector: string): string[] {
   const lower = selector.toLowerCase()
-  return STATUS_WORDS.filter((word) =>
-    new RegExp(`(^|[^a-z])${word}([^a-z]|$)`).test(lower),
-  )
+  return STATUS_WORDS.filter((word) => new RegExp(`(^|[^a-z])${word}([^a-z]|$)`).test(lower))
 }
 
 export function moneyTokensIn(body: string): string[] {
-  return MONEY_TOKENS.filter((token) =>
-    new RegExp(`${token}\\b`).test(body),
-  ).sort()
+  return MONEY_TOKENS.filter((token) => new RegExp(`${token}\\b`).test(body)).sort()
 }
 
 // --- the detectors themselves -------------------------------------------------------------
@@ -81,9 +77,7 @@ describe('reading a style block', () => {
 
   it('finds a money token wherever it sits in a declaration', () => {
     expect(
-      moneyTokensIn(
-        'background: color-mix(in srgb, var(--color-amount-positive) 55%, white);',
-      ),
+      moneyTokensIn('background: color-mix(in srgb, var(--color-amount-positive) 55%, white);'),
     ).toEqual(['--color-amount-positive'])
   })
 })

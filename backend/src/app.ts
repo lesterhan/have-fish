@@ -1,26 +1,28 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
-import { logger } from 'hono/logger'
 import { auth } from './auth'
+import { fail } from './errors'
+import { log } from './logging'
+import { requestLogger } from './request-log'
 import accountsRoute from './routes/accounts'
-import transactionsRoute from './routes/transactions'
-import postingsRoute from './routes/postings'
+import catchUpRoute from './routes/catch-up'
+import coverageRoute, { accountCoverageRoute } from './routes/coverage'
+import fishPieBalancesRoute from './routes/fish-pie-balances'
+import fishPieCategoriesRoute from './routes/fish-pie-categories'
+import fishPieExpensesRoute from './routes/fish-pie-expenses'
+import fishPieGroupsRoute from './routes/fish-pie-groups'
+import fishPieInvitesRoute from './routes/fish-pie-invites'
+import fishPieMergeRoute from './routes/fish-pie-merge'
+import fishPieOverviewRoute from './routes/fish-pie-overview'
+import fishPieSettlementsRoute from './routes/fish-pie-settlements'
+import fxRatesRoute from './routes/fx-rates'
 import importRoute from './routes/import'
 import parsersRoute from './routes/parsers'
-import userSettingsRoute from './routes/user-settings'
+import postingsRoute from './routes/postings'
 import reportsRoute from './routes/reports'
-import fxRatesRoute from './routes/fx-rates'
 import rulesRoute from './routes/rules'
-import fishPieGroupsRoute from './routes/fish-pie-groups'
-import fishPieOverviewRoute from './routes/fish-pie-overview'
-import fishPieCategoriesRoute from './routes/fish-pie-categories'
-import fishPieMergeRoute from './routes/fish-pie-merge'
-import fishPieInvitesRoute from './routes/fish-pie-invites'
-import fishPieExpensesRoute from './routes/fish-pie-expenses'
-import fishPieBalancesRoute from './routes/fish-pie-balances'
-import fishPieSettlementsRoute from './routes/fish-pie-settlements'
-import coverageRoute, { accountCoverageRoute } from './routes/coverage'
-import catchUpRoute from './routes/catch-up'
+import transactionsRoute from './routes/transactions'
+import userSettingsRoute from './routes/user-settings'
 
 // Typed context variables shared across all route handlers.
 // Add new entries here as routes need more session data.
@@ -30,11 +32,32 @@ export type AppVariables = {
 
 export const app = new Hono<{ Variables: AppVariables }>()
 
-app.use('*', cors({
-  origin: process.env.FRONTEND_URL ?? 'http://localhost:8888',
-  credentials: true,
-}))
-app.use('*', logger())
+app.use(
+  '*',
+  cors({
+    origin: process.env.FRONTEND_URL ?? 'http://localhost:8888',
+    credentials: true,
+  }),
+)
+app.use('*', requestLogger())
+
+// An unhandled throw otherwise reaches stderr as Hono's own unstructured dump, which is
+// the one request path the logger does not own — and the path that matters most when
+// something is wrong at 2am. The response is byte-for-byte what Hono's default returns, so
+// this changes what is written down and nothing a client sees.
+app.onError((err, c) => {
+  log.error(
+    {
+      route: c.req.routePath,
+      method: c.req.method,
+      // The message and stack, never the error object: a thrown object from a driver or a
+      // fetch can carry the request that caused it, and that request can carry a body.
+      err: { message: err.message, stack: err.stack },
+    },
+    'unhandled error',
+  )
+  return c.text('Internal Server Error', 500)
+})
 
 app.get('/health', (c) => c.json({ status: 'ok' }))
 
@@ -45,7 +68,7 @@ app.get('/health', (c) => c.json({ status: 'ok' }))
 app.use('/api/*', async (c, next) => {
   if (c.req.path.startsWith('/api/auth/')) return next()
   const session = await auth.api.getSession({ headers: c.req.raw.headers })
-  if (!session) return c.json({ error: 'Unauthorized' }, 401)
+  if (!session) return fail(c, 'UNAUTHORIZED')
   c.set('userId', session.user.id)
   return next()
 })

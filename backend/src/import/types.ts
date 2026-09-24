@@ -1,24 +1,27 @@
+// Under `exactOptionalPropertyTypes`, `?: T | undefined` is the shape that accepts both an
+// omitted key and an explicit `undefined`. Every optional here means "the CSV row did not
+// carry this", and the parser reaches that state both ways, so both are allowed.
 // The result of mapping one CSV row to a transaction — a discriminated union.
 // isTransfer: false — a standard single-currency row
 export type RegularParsedTransaction = {
   isTransfer: false
-  date: string        // ISO 8601 string
-  amount: string      // signed numeric string, e.g. "-50.00" or "1200.00"
-  description?: string
-  currency?: string   // if absent, the import caller supplies a default
+  date: string // ISO 8601 string
+  amount: string // signed numeric string, e.g. "-50.00" or "1200.00"
+  description?: string | undefined
+  currency?: string | undefined // if absent, the import caller supplies a default
 }
 
 // isTransfer: true — a cross-currency transfer row (e.g. Wise CAD → GBP)
 export type TransferParsedTransaction = {
   isTransfer: true
   date: string
-  description?: string
-  sourceAmount: string   // amount leaving the source account, e.g. "-200.00"
+  description?: string | undefined
+  sourceAmount: string // amount leaving the source account, e.g. "-200.00"
   sourceCurrency: string
-  targetAmount: string   // amount arriving in the target account, e.g. "107.90"
+  targetAmount: string // amount arriving in the target account, e.g. "107.90"
   targetCurrency: string
-  feeAmount?: string     // fee charged by the institution, e.g. "0.96"
-  feeCurrency?: string
+  feeAmount?: string | undefined // fee charged by the institution, e.g. "0.96"
+  feeCurrency?: string | undefined
 }
 
 // isTransfer: 'same-currency' — a same-currency IN transfer with a non-zero fee (e.g. Wise bank transfer)
@@ -26,16 +29,19 @@ export type TransferParsedTransaction = {
 export type SameCurrencyTransferParsedTransaction = {
   isTransfer: 'same-currency'
   date: string
-  description?: string
-  amount: string     // net amount received (positive), e.g. "199.69"
-  feeAmount: string  // fee charged (positive), e.g. "0.62"
+  description?: string | undefined
+  amount: string // net amount received (positive), e.g. "199.69"
+  feeAmount: string // fee charged (positive), e.g. "0.62"
   currency: string
 }
 
-export type ParsedTransaction = RegularParsedTransaction | TransferParsedTransaction | SameCurrencyTransferParsedTransaction
+export type ParsedTransaction =
+  | RegularParsedTransaction
+  | TransferParsedTransaction
+  | SameCurrencyTransferParsedTransaction
 
 export type ParseError = {
-  row: number   // 1-indexed row number in the original CSV
+  row: number // 1-indexed row number in the original CSV
   reason: string
 }
 
@@ -59,6 +65,6 @@ export type ColumnMapping = {
   targetCurrency?: string | null
   feeAmount?: string | null
   feeCurrency?: string | null
-  signColumn?: string | null        // the column whose value encodes direction
+  signColumn?: string | null // the column whose value encodes direction
   signNegativeValue?: string | null // the value that means "negate the amount" (compared case-insensitively)
 }

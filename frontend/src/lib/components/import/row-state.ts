@@ -10,7 +10,7 @@ export type RowState = {
   conversionAccountId: string
   feeAccountId: string
   skipped: boolean
-  possibleDuplicate?: PossibleDuplicate
+  possibleDuplicate?: PossibleDuplicate | undefined
   groupId: string | null
   // Meaningful only when groupId is set; null = uncategorized fish-pie split.
   categoryId: string | null

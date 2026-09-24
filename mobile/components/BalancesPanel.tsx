@@ -1,27 +1,32 @@
+import AsyncStorage from '@react-native-async-storage/async-storage'
 import { useEffect, useMemo, useState } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
-import AsyncStorage from '@react-native-async-storage/async-storage'
 import {
-  fetchAccounts,
-  fetchUserSettings,
   type Account,
   type CurrencyBalance,
   type ExpenseGroup,
+  fetchAccounts,
+  fetchUserSettings,
   type GroupSettlement,
   type UserSettings,
 } from '@/lib/api'
 import { getEmail } from '@/lib/auth'
+import { isSupportedCurrency, lastCurrencyKey, RECENT_CURRENCIES_KEY } from '@/lib/currency'
 import { owedDebts } from '@/lib/fish-pie-settle'
-import { incomingBatches, receiptLines, settleAction, type IncomingBatch } from '@/lib/settle-actions'
 import { resolveMyUserId } from '@/lib/group-entry'
-import { RECENT_CURRENCIES_KEY, isSupportedCurrency, lastCurrencyKey } from '@/lib/currency'
+import {
+  type IncomingBatch,
+  incomingBatches,
+  receiptLines,
+  settleAction,
+} from '@/lib/settle-actions'
 import { theme } from '@/lib/theme'
 import { BalanceCard } from './BalanceCard'
+import { ConfirmSheet } from './ConfirmSheet'
 import { GlossButton } from './GlossButton'
 import { GlossSurface } from './GlossSurface'
 import { Label } from './Label'
 import { SettleSheet } from './SettleSheet'
-import { ConfirmSheet } from './ConfirmSheet'
 
 interface Props {
   group: ExpenseGroup
@@ -84,7 +89,9 @@ export function BalancesPanel({ group, balances, settlements, reloadData }: Prop
         try {
           const parsed = JSON.parse(raw)
           if (Array.isArray(parsed)) {
-            setRecents(parsed.filter((c): c is string => typeof c === 'string' && isSupportedCurrency(c)))
+            setRecents(
+              parsed.filter((c): c is string => typeof c === 'string' && isSupportedCurrency(c)),
+            )
           }
         } catch {
           // Corrupt value — ignore.
@@ -103,10 +110,7 @@ export function BalancesPanel({ group, balances, settlements, reloadData }: Prop
     () => (myUserId ? settleAction(balances, settlements, myUserId) : { kind: 'none' as const }),
     [balances, settlements, myUserId],
   )
-  const debts = useMemo(
-    () => (myUserId ? owedDebts(balances, myUserId) : []),
-    [balances, myUserId],
-  )
+  const debts = useMemo(() => (myUserId ? owedDebts(balances, myUserId) : []), [balances, myUserId])
   // Pending batches awaiting this user's confirmation (they're the receiver).
   const incoming = useMemo(
     () => (myUserId ? incomingBatches(settlements, myUserId) : []),
@@ -124,9 +128,19 @@ export function BalancesPanel({ group, balances, settlements, reloadData }: Prop
     action.kind === 'settle' ? (
       <GlossButton label="Settle up" height={46} onPress={() => setSheetOpen(true)} />
     ) : action.kind === 'pending' ? (
-      <GlossButton label={`Recorded — awaiting ${action.receiverName}`} height={46} disabled onPress={() => {}} />
+      <GlossButton
+        label={`Recorded — awaiting ${action.receiverName}`}
+        height={46}
+        disabled
+        onPress={() => {}}
+      />
     ) : action.kind === 'waiting' ? (
-      <GlossButton label={`Waiting for ${action.payerName} to pay`} height={46} disabled onPress={() => {}} />
+      <GlossButton
+        label={`Waiting for ${action.payerName} to pay`}
+        height={46}
+        disabled
+        onPress={() => {}}
+      />
     ) : null
 
   return (

@@ -12,13 +12,10 @@
  * that already exists" is exactly the question a confirm dialog exists to answer.
  */
 
-import {
-  SURFACE_LABEL,
-  isUnderRoot,
-  surfaceOf,
-  type Roots,
-  type Surface,
-} from './accountPaths'
+// Relative, not `$lib`: this module is unit-tested directly. See lib-imports.test.ts.
+import type { StoredAccountType } from '../../api'
+import { accountsCopy } from '../../copy/accounts'
+import { isUnderRoot, type Roots, SURFACE_LABEL, type Surface, surfaceOf } from './accountPaths'
 
 const SEP = ':'
 
@@ -26,6 +23,8 @@ const SEP = ':'
 export interface CategoryAccount {
   id: string
   path: string
+  /** Stored-wins-else-inferred type. Decides the section; see `surfaceOf`. */
+  resolvedType?: StoredAccountType | null | undefined
 }
 
 /** Per-account usage, straight from `GET /api/accounts/posting-counts`. */
@@ -60,11 +59,7 @@ export interface CategoryNode {
  * amount of tooltip makes that read as anything but a trap.
  */
 export function isDeletable(node: CategoryNode): boolean {
-  return (
-    node.accountId !== null &&
-    node.ownEntries === 0 &&
-    node.children.length === 0
-  )
+  return node.accountId !== null && node.ownEntries === 0 && node.children.length === 0
 }
 
 function newNode(segment: string, path: string): CategoryNode {
@@ -150,11 +145,7 @@ export interface CategorySection {
  * `unfiled` is the safety net the epic makes non-negotiable: an account outside every
  * configured root has to land somewhere, or the tabs between them lose a row.
  */
-export const CATEGORY_SURFACES: readonly Surface[] = [
-  'expenses',
-  'income',
-  'unfiled',
-]
+export const CATEGORY_SURFACES: readonly Surface[] = ['expenses', 'income', 'unfiled']
 
 /**
  * Split the tree into the tab's sections.
@@ -171,15 +162,12 @@ export function categorySections(
 ): CategorySection[] {
   const sections: CategorySection[] = []
   for (const key of CATEGORY_SURFACES) {
-    const mine = accounts.filter((a) => surfaceOf(a.path, roots) === key)
+    const mine = accounts.filter((a) => surfaceOf(a, roots) === key)
     if (mine.length === 0) continue
     const forest = buildCategoryTree(mine, stats)
     const root = key === 'unfiled' ? '' : roots[key]
     const only = forest.length === 1 ? forest[0]! : null
-    const nodes =
-      only && only.path === root && only.accountId === null
-        ? only.children
-        : forest
+    const nodes = only && only.path === root && only.accountId === null ? only.children : forest
     sections.push({
       key,
       label: SURFACE_LABEL[key],
@@ -304,10 +292,7 @@ export function realRows(nodes: readonly CategoryNode[]): CategoryNode[] {
  *
  * Only the named branches change, so folding one section leaves the others as you left them.
  */
-export function foldAll(
-  collapsed: ReadonlySet<string>,
-  branches: readonly string[],
-): Set<string> {
+export function foldAll(collapsed: ReadonlySet<string>, branches: readonly string[]): Set<string> {
   const anyOpen = branches.some((p) => !collapsed.has(p))
   const next = new Set(collapsed)
   for (const p of branches) {
@@ -354,17 +339,14 @@ export function renameTarget(path: string, segment: string): string {
  */
 export function segmentError(segment: string, current: string): string | null {
   const trimmed = segment.trim()
-  if (!trimmed) return 'A name cannot be empty'
-  if (trimmed.includes(SEP)) return 'A name cannot contain a colon'
+  if (!trimmed) return accountsCopy.categories.validation.nameEmpty
+  if (trimmed.includes(SEP)) return accountsCopy.categories.validation.nameSeparator
   if (trimmed === current) return null
   return null
 }
 
 /** Every real account row rewritten by renaming `path` — itself and its descendants. */
-export function affectedPaths(
-  allPaths: readonly string[],
-  path: string,
-): string[] {
+export function affectedPaths(allPaths: readonly string[], path: string): string[] {
   return allPaths.filter((p) => isUnderRoot(p, path)).sort()
 }
 
@@ -399,16 +381,13 @@ export function findCollision(
  * Mirrors the server's `isValidPath` so the message arrives as you type rather than as a 400,
  * and adds the one thing the server cannot know: that you already have this path.
  */
-export function pathError(
-  raw: string,
-  existingPaths: readonly string[],
-): string | null {
+export function pathError(raw: string, existingPaths: readonly string[]): string | null {
   const path = raw.trim()
   if (!path) return null
   const segs = path.split(SEP)
   if (segs.some((s) => s.length === 0 || s !== s.trim())) {
-    return 'Use single colons between names, with no blank segments'
+    return accountsCopy.categories.validation.pathShape
   }
-  if (existingPaths.includes(path)) return 'That account already exists'
+  if (existingPaths.includes(path)) return accountsCopy.categories.validation.pathExists
   return null
 }

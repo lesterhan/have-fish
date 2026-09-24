@@ -5,15 +5,25 @@
  * from these helpers; SecureStore / network I/O stays at the call site.
  *
  * Accounts are identified by a colon-separated materialized path that doubles as
- * the hledger account name (`expenses:groceries:veg`). The **root type** is the
- * first path segment.
+ * the hledger account name (`expenses:groceries:veg`). The **root** is the first
+ * path segment; the root chips scope by the account's resolved type, which the
+ * server works out from the stored override and the user's configured roots.
  */
+
+import type { StoredAccountType } from './api'
 
 /** A ledger account, structurally — the subset this module needs. */
 export interface AccountLike {
   id: string
   path: string
-  name?: string | null
+  name?: string | null | undefined
+  /**
+   * Own override, else nearest tagged ancestor's, else path inference against the
+   * user's configured roots,
+   * as `GET /api/accounts` serves it. Absent on an account the server has not
+   * described (one created a moment ago), where the path is all there is.
+   */
+  resolvedType?: StoredAccountType | null | undefined
 }
 
 /**
@@ -24,7 +34,35 @@ export interface AccountLike {
 export const ROOTS = ['assets', 'liabilities', 'expenses', 'income', 'equity'] as const
 export type Root = (typeof ROOTS)[number]
 
-/** First path segment = the account's root type (lowercased, trimmed). */
+/**
+ * Which chip each type belongs under. Cash is an asset and Conversion is
+ * equity, the same collapse the backend's `toClassifierType` makes.
+ */
+const ROOT_FOR_TYPE: Record<StoredAccountType, Root> = {
+  asset: 'assets',
+  cash: 'assets',
+  liability: 'liabilities',
+  equity: 'equity',
+  conversion: 'equity',
+  expense: 'expenses',
+  income: 'income',
+}
+
+/**
+ * Whether an account belongs under a root chip. By resolved type when the
+ * server gave one, so `花钱:房租` tagged Expense sits under Expenses and
+ * `expenses:rrsp` tagged Asset does not — and so a user whose expenses root is
+ * `cost` finds `cost:food` there too. The first path segment is the fallback
+ * for an account with no type to ask, not the rule.
+ */
+export function inRoot(account: AccountLike, root: string): boolean {
+  const r = root.trim().toLowerCase()
+  const type = account.resolvedType
+  if (type) return ROOT_FOR_TYPE[type] === r
+  return rootOf(account.path) === r
+}
+
+/** First path segment = the account's root (lowercased, trimmed). */
 export function rootOf(path: string): string {
   return path.split(':')[0]?.trim().toLowerCase() ?? ''
 }
@@ -60,7 +98,7 @@ export function fuzzyMatch(haystack: string, needle: string): boolean {
 
 /**
  * The accounts to show, given a free-text query and an optional root scope.
- * Scoped to `root` first (by first path segment), then fuzzy-filtered over both
+ * Scoped to `root` first (see `inRoot`), then fuzzy-filtered over both
  * path and name, then sorted by path so siblings cluster. An empty query (after
  * scoping) returns the whole scope, sorted.
  */
@@ -69,10 +107,9 @@ export function filterAccounts(
   query: string,
   root?: string,
 ): AccountLike[] {
-  const r = root?.trim().toLowerCase()
   const q = query.trim()
   return accounts
-    .filter((a) => (r ? rootOf(a.path) === r : true))
+    .filter((a) => (root?.trim() ? inRoot(a, root) : true))
     .filter((a) => (q ? fuzzyMatch(a.path, q) || fuzzyMatch(a.name ?? '', q) : true))
     .sort((a, b) => a.path.localeCompare(b.path))
 }

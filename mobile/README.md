@@ -33,8 +33,9 @@ from Obtainium without colliding.
 
 The app talks to a have-fish backend. The **server URL is entered in the app**
 (stored in SecureStore via `lib/auth.ts`), not hardcoded — point it at your dev
-backend's LAN address (e.g. `http://192.168.x.x:8887`), not `localhost`, since
-that resolves to the phone itself.
+backend's LAN address (e.g. `http://192.168.x.x:8888`), not `localhost`, since
+that resolves to the phone itself. 8888 is the port a deployed have-fish answers on; a
+`bun run dev` backend is on 8887.
 
 ## Project layout
 

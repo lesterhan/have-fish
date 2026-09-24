@@ -1,19 +1,21 @@
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
+import type { AppVariables } from '../app'
 import { db } from '../db'
+import { returnedRow } from '../db/returning'
 import {
-  expenseGroups,
+  accounts,
   expenseGroupMembers,
-  groupExpenses,
-  groupSettlements,
+  expenseGroups,
   groupCategories,
   groupCategoryMemberAccounts,
   groupCategoryWeights,
-  accounts,
+  groupExpenses,
+  groupSettlements,
   postings,
 } from '../db/schema'
-import { eq, and, isNull, inArray } from 'drizzle-orm'
-import type { AppVariables } from '../app'
-import { ensureSharedAccount, slugify, CLEARING_PREFIX } from '../fish-pie-accounts'
+import { fail } from '../errors'
+import { CLEARING_PREFIX, ensureSharedAccount, slugify } from '../fish-pie-accounts'
 import { fetchCategoriesForGroups } from './fish-pie-categories'
 import { fetchMembersForGroups } from './fish-pie-groups'
 
@@ -30,18 +32,22 @@ app.post('/merge', async (c) => {
   const userId = c.get('userId')
   const body = await c.req.json<{ groupIds?: string[]; name?: string }>()
 
-  if (!body.name?.trim()) return c.json({ error: 'name is required' }, 400)
-  if (!Array.isArray(body.groupIds)) return c.json({ error: 'groupIds is required' }, 400)
+  if (!body.name?.trim()) return fail(c, 'FIELD_REQUIRED', { field: 'name' })
+  const name = body.name.trim()
+  if (!Array.isArray(body.groupIds)) return fail(c, 'FIELD_REQUIRED', { field: 'groupIds' })
 
   // Preserve request order (first group is the weight/defaults fallback) but de-dupe.
   const groupIds = [...new Set(body.groupIds)]
-  if (groupIds.length < 2) return c.json({ error: 'at least two distinct groups are required' }, 400)
+  // The first group is the weight/defaults fallback, so the merge needs it to exist —
+  // which `< 2` already guarantees, said in a way the compiler can follow.
+  const firstGroupId = groupIds[0]
+  if (groupIds.length < 2 || firstGroupId === undefined) return fail(c, 'MERGE_NEEDS_TWO_GROUPS')
 
   const sourceGroups = await db
     .select()
     .from(expenseGroups)
     .where(and(inArray(expenseGroups.id, groupIds), isNull(expenseGroups.deletedAt)))
-  if (sourceGroups.length !== groupIds.length) return c.json({ error: 'one or more groups not found' }, 404)
+  if (sourceGroups.length !== groupIds.length) return fail(c, 'GROUPS_NOT_FOUND')
   const sourceGroupById = new Map(sourceGroups.map((g) => [g.id, g]))
 
   const allMembers = await db
@@ -59,17 +65,20 @@ app.post('/merge', async (c) => {
   // Caller must be a member of every group.
   for (const gid of groupIds) {
     const list = membersByGroup.get(gid) ?? []
-    if (!list.some((m) => m.userId === userId)) return c.json({ error: 'not a member of all groups' }, 403)
+    if (!list.some((m) => m.userId === userId)) return fail(c, 'NOT_A_MEMBER_OF_ALL_GROUPS')
   }
 
   // Identical, non-empty member sets across all groups.
-  const memberSetKey = (gid: string) => (membersByGroup.get(gid) ?? []).map((m) => m.userId).sort().join(',')
+  const memberSetKey = (gid: string) =>
+    (membersByGroup.get(gid) ?? [])
+      .map((m) => m.userId)
+      .sort()
+      .join(',')
   const keys = new Set(groupIds.map(memberSetKey))
-  if (keys.size !== 1) return c.json({ error: 'groups must have identical member sets' }, 400)
+  if (keys.size !== 1) return fail(c, 'MERGE_MEMBERS_DIFFER')
 
-  const firstGroupId = groupIds[0]
   const firstGroupMembers = membersByGroup.get(firstGroupId) ?? []
-  if (firstGroupMembers.length === 0) return c.json({ error: 'groups have no members' }, 400)
+  if (firstGroupMembers.length === 0) return fail(c, 'MERGE_GROUPS_EMPTY')
   const memberUserIds = firstGroupMembers.map((m) => m.userId)
 
   const newGroup = await db.transaction(async (tx) => {
@@ -77,10 +86,17 @@ app.post('/merge', async (c) => {
     //    shareWeight + account defaults come from the first group as a *fallback* —
     //    the real per-category weights/accounts live on the categories below.
     const firstGroup = sourceGroupById.get(firstGroupId)!
-    const [created] = await tx
-      .insert(expenseGroups)
-      .values({ name: body.name!.trim(), createdBy: userId, defaultCurrency: firstGroup.defaultCurrency ?? null })
-      .returning()
+    const created = returnedRow(
+      await tx
+        .insert(expenseGroups)
+        .values({
+          name,
+          createdBy: userId,
+          defaultCurrency: firstGroup.defaultCurrency ?? null,
+        })
+        .returning(),
+      'insert expenseGroups',
+    )
 
     const firstMemberByUser = new Map(firstGroupMembers.map((m) => [m.userId, m]))
     await tx.insert(expenseGroupMembers).values(
@@ -110,20 +126,29 @@ app.post('/merge', async (c) => {
     for (const gid of groupIds) {
       const srcGroup = sourceGroupById.get(gid)!
       const srcMembers = membersByGroup.get(gid)!
-      const [cat] = await tx
-        .insert(groupCategories)
-        .values({ groupId: created.id, name: srcGroup.name, sortOrder: sortOrder++ })
-        .returning()
+      const cat = returnedRow(
+        await tx
+          .insert(groupCategories)
+          .values({ groupId: created.id, name: srcGroup.name, sortOrder: sortOrder++ })
+          .returning(),
+        'insert groupCategories',
+      )
       categoryByGroup.set(gid, cat.id)
 
       const mappingRows = srcMembers
         .filter((m) => m.defaultExpenseAccountId)
-        .map((m) => ({ categoryId: cat.id, userId: m.userId, accountId: m.defaultExpenseAccountId! }))
+        .map((m) => ({
+          categoryId: cat.id,
+          userId: m.userId,
+          accountId: m.defaultExpenseAccountId!,
+        }))
       if (mappingRows.length > 0) await tx.insert(groupCategoryMemberAccounts).values(mappingRows)
 
-      await tx.insert(groupCategoryWeights).values(
-        srcMembers.map((m) => ({ categoryId: cat.id, userId: m.userId, weight: m.shareWeight })),
-      )
+      await tx
+        .insert(groupCategoryWeights)
+        .values(
+          srcMembers.map((m) => ({ categoryId: cat.id, userId: m.userId, weight: m.shareWeight })),
+        )
     }
 
     // 4. Re-point each source group's expenses onto the merged group + its category.
@@ -135,7 +160,10 @@ app.post('/merge', async (c) => {
     }
 
     // 5. Re-point settlements onto the merged group.
-    await tx.update(groupSettlements).set({ groupId: created.id }).where(inArray(groupSettlements.groupId, groupIds))
+    await tx
+      .update(groupSettlements)
+      .set({ groupId: created.id })
+      .where(inArray(groupSettlements.groupId, groupIds))
 
     // 6. Collapse old per-source-group clearing accounts into each member's single new
     //    clearing account, then soft-delete the old accounts.
@@ -146,7 +174,13 @@ app.post('/merge', async (c) => {
     const oldClearingAccounts = await tx
       .select({ id: accounts.id, userId: accounts.userId })
       .from(accounts)
-      .where(and(inArray(accounts.userId, memberUserIds), inArray(accounts.path, oldClearingPaths), isNull(accounts.deletedAt)))
+      .where(
+        and(
+          inArray(accounts.userId, memberUserIds),
+          inArray(accounts.path, oldClearingPaths),
+          isNull(accounts.deletedAt),
+        ),
+      )
 
     const toDelete: string[] = []
     for (const acct of oldClearingAccounts) {
@@ -163,7 +197,10 @@ app.post('/merge', async (c) => {
     }
 
     // 7. Soft-delete the source groups.
-    await tx.update(expenseGroups).set({ deletedAt: new Date() }).where(inArray(expenseGroups.id, groupIds))
+    await tx
+      .update(expenseGroups)
+      .set({ deletedAt: new Date() })
+      .where(inArray(expenseGroups.id, groupIds))
 
     return created
   })

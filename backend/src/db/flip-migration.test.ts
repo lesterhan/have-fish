@@ -1,11 +1,11 @@
-import { describe, it, expect, beforeEach } from 'bun:test'
+import { beforeEach, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { sql, eq } from 'drizzle-orm'
-import { app } from '../app'
-import { clearDatabase, createTestUser } from '../test-utils'
+import { eq, sql } from 'drizzle-orm'
 import { db } from '../db'
-import { transactions, postings, accounts, groupExpenses } from './schema'
+import { clearDatabase, createTestUser, request } from '../test-utils'
+import { returnedRow } from './returning'
+import { accounts, groupExpenses, postings, transactions } from './schema'
 
 // Migration 0029 flips the postings of active non-payer member transactions
 // (BUG-005). The drizzle journal runs it exactly once at deploy time; this test
@@ -26,12 +26,12 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
     const cookieA = await createTestUser('a@test.com', 'passwordA')
     const cookieB = await createTestUser('b@test.com', 'passwordB')
 
-    const sessionA = await app.request('/api/auth/get-session', { headers: { Cookie: cookieA } })
+    const sessionA = await request('/api/auth/get-session', { headers: { Cookie: cookieA } })
     userAId = ((await sessionA.json()) as any).user.id
-    const sessionB = await app.request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    const sessionB = await request('/api/auth/get-session', { headers: { Cookie: cookieB } })
     userBId = ((await sessionB.json()) as any).user.id
 
-    const groupRes = await app.request('/api/fish-pie/groups', {
+    const groupRes = await request('/api/fish-pie/groups', {
       method: 'POST',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
       body: JSON.stringify({ name: 'Trip' }),
@@ -40,7 +40,10 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
   })
 
   async function insertAccount(userId: string, path: string) {
-    const [acct] = await db.insert(accounts).values({ userId, path, name: path }).returning()
+    const acct = returnedRow(
+      await db.insert(accounts).values({ userId, path, name: path }).returning(),
+      'insert accounts',
+    )
     return acct
   }
 
@@ -60,26 +63,52 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
     const txDate = new Date('2026-05-01T00:00:00Z')
 
     // Expense paid by A — pre-fix posting shapes inserted by hand.
-    const [expense] = await db
-      .insert(groupExpenses)
-      .values({ groupId, paidByUserId: userAId, description: 'Dinner', amount: '100.00', currency: 'CAD', date: '2026-05-01' })
-      .returning()
+    const expense = returnedRow(
+      await db
+        .insert(groupExpenses)
+        .values({
+          groupId,
+          paidByUserId: userAId,
+          description: 'Dinner',
+          amount: '100.00',
+          currency: 'CAD',
+          date: '2026-05-01',
+        })
+        .returning(),
+      'insert groupExpenses',
+    )
 
     // 1. B's member tx, old (inverted) signs → MUST flip
-    const [debtorTx] = await db
-      .insert(transactions)
-      .values({ userId: userBId, date: txDate, description: 'Dinner', groupExpenseId: expense.id })
-      .returning()
+    const debtorTx = returnedRow(
+      await db
+        .insert(transactions)
+        .values({
+          userId: userBId,
+          date: txDate,
+          description: 'Dinner',
+          groupExpenseId: expense.id,
+        })
+        .returning(),
+      'insert transactions',
+    )
     await db.insert(postings).values([
       { transactionId: debtorTx.id, accountId: foodB.id, amount: '-50.00', currency: 'CAD' },
       { transactionId: debtorTx.id, accountId: clearingB.id, amount: '50.00', currency: 'CAD' },
     ])
 
     // 2. A's payer 3-posting tx → untouched (userId = paidByUserId)
-    const [payerTx] = await db
-      .insert(transactions)
-      .values({ userId: userAId, date: txDate, description: 'Dinner', groupExpenseId: expense.id })
-      .returning()
+    const payerTx = returnedRow(
+      await db
+        .insert(transactions)
+        .values({
+          userId: userAId,
+          date: txDate,
+          description: 'Dinner',
+          groupExpenseId: expense.id,
+        })
+        .returning(),
+      'insert transactions',
+    )
     await db.insert(postings).values([
       { transactionId: payerTx.id, accountId: visaA.id, amount: '-100.00', currency: 'CAD' },
       { transactionId: payerTx.id, accountId: clearingA.id, amount: '50.00', currency: 'CAD' },
@@ -88,23 +117,58 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
 
     // 3. Soft-deleted tx of a FORMER payer (payer later edited from B to A):
     //    userId != paidByUserId but deleted → untouched
-    const [stalePayerTx] = await db
-      .insert(transactions)
-      .values({ userId: userBId, date: txDate, description: 'Dinner (old payer)', groupExpenseId: expense.id, deletedAt: new Date() })
-      .returning()
+    const stalePayerTx = returnedRow(
+      await db
+        .insert(transactions)
+        .values({
+          userId: userBId,
+          date: txDate,
+          description: 'Dinner (old payer)',
+          groupExpenseId: expense.id,
+          deletedAt: new Date(),
+        })
+        .returning(),
+      'insert transactions',
+    )
     await db.insert(postings).values([
-      { transactionId: stalePayerTx.id, accountId: chequingB.id, amount: '-100.00', currency: 'CAD', deletedAt: new Date() },
-      { transactionId: stalePayerTx.id, accountId: clearingB.id, amount: '50.00', currency: 'CAD', deletedAt: new Date() },
-      { transactionId: stalePayerTx.id, accountId: foodB.id, amount: '50.00', currency: 'CAD', deletedAt: new Date() },
+      {
+        transactionId: stalePayerTx.id,
+        accountId: chequingB.id,
+        amount: '-100.00',
+        currency: 'CAD',
+        deletedAt: new Date(),
+      },
+      {
+        transactionId: stalePayerTx.id,
+        accountId: clearingB.id,
+        amount: '50.00',
+        currency: 'CAD',
+        deletedAt: new Date(),
+      },
+      {
+        transactionId: stalePayerTx.id,
+        accountId: foodB.id,
+        amount: '50.00',
+        currency: 'CAD',
+        deletedAt: new Date(),
+      },
     ])
 
     // 4. Settlement-style tx (no groupExpenseId) → untouched
-    const [settlementTx] = await db
-      .insert(transactions)
-      .values({ userId: userBId, date: txDate, description: 'Settlement to Trip' })
-      .returning()
+    const settlementTx = returnedRow(
+      await db
+        .insert(transactions)
+        .values({ userId: userBId, date: txDate, description: 'Settlement to Trip' })
+        .returning(),
+      'insert transactions',
+    )
     await db.insert(postings).values([
-      { transactionId: settlementTx.id, accountId: chequingB.id, amount: '-50.00', currency: 'CAD' },
+      {
+        transactionId: settlementTx.id,
+        accountId: chequingB.id,
+        amount: '-50.00',
+        currency: 'CAD',
+      },
       { transactionId: settlementTx.id, accountId: clearingB.id, amount: '50.00', currency: 'CAD' },
     ])
 

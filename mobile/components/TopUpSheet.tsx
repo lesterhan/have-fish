@@ -1,28 +1,23 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ScrollView, StyleSheet, Text, TextInput, View } from 'react-native'
-import {
-  createTransaction,
-  fetchAccounts,
-  fetchUserSettings,
-  type Account,
-} from '@/lib/api'
-import { walletCurrency, type WalletView } from '@/lib/cash-accounts'
+import { type Account, createTransaction, fetchAccounts, fetchUserSettings } from '@/lib/api'
+import { type WalletView, walletCurrency } from '@/lib/cash-accounts'
 import {
   buildTopUpPostings,
   effectiveRate,
   formatRate,
   impliedReceived,
   isCrossCurrency,
+  type TopUpDraft,
   topUpBlocker,
   topUpBlockerMessage,
-  type TopUpDraft,
 } from '@/lib/cash-topup'
-import { resolveDate, type DateMode } from '@/lib/expense-date'
+import { type DateMode, resolveDate } from '@/lib/expense-date'
 import { submitOutcome } from '@/lib/expense-submit'
-import { useShellMode } from '@/lib/shell-mode-context'
-import { useWallets } from '@/lib/wallet-context'
 import * as haptics from '@/lib/haptics'
+import { useShellMode } from '@/lib/shell-mode-context'
 import { theme } from '@/lib/theme'
+import { useWallets } from '@/lib/wallet-context'
 import { AccountSelect } from './AccountSelect'
 import { BottomSheet } from './BottomSheet'
 import { GlossButton } from './GlossButton'
@@ -93,14 +88,23 @@ export function TopUpSheet({ visible, onClose, wallet }: Props) {
       feeAmount,
     }),
     [
-      sourceId, sourceCurrency, sourceAmount, wallet.id, targetCurrency,
-      receivedAmount, conversionAccountId, feeAccountId, feeAmount,
+      sourceId,
+      sourceCurrency,
+      sourceAmount,
+      wallet.id,
+      targetCurrency,
+      receivedAmount,
+      conversionAccountId,
+      feeAccountId,
+      feeAmount,
     ],
   )
 
   const cross = isCrossCurrency(draft)
   const blocker = topUpBlocker(draft)
-  const rate = cross ? formatRate(sourceCurrency, targetCurrency, effectiveRate(sourceAmount, receivedAmount)) : null
+  const rate = cross
+    ? formatRate(sourceCurrency, targetCurrency, effectiveRate(sourceAmount, receivedAmount))
+    : null
 
   async function save() {
     if (busy || blocker != null) return

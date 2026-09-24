@@ -7,19 +7,23 @@
  * to track, and it is already fetched for the Accounts page's staleness column.
  */
 
+import type { StoredAccountType } from '../../api'
 import {
   ACCOUNT_SURFACES,
   accountDisplayName,
+  type Roots,
   rootFor,
   surfaceOf,
-  type Roots,
 } from './accountPaths'
 
 /** The minimal shape the sidebar needs from `GET /api/accounts`. */
 export interface SidebarAccount {
   id: string
   path: string
-  name?: string | null
+  name?: string | null | undefined
+  /** Stored-wins-else-inferred type. Decides both the label's root and what counts as
+   *  somewhere you go; see `surfaceOf`. */
+  resolvedType?: StoredAccountType | null | undefined
 }
 
 export interface SidebarRow {
@@ -35,7 +39,7 @@ export interface SidebarRow {
 export const RECENT_LIMIT = 3
 
 function toRow(account: SidebarAccount, roots: Roots): SidebarRow {
-  const surface = surfaceOf(account.path, roots)
+  const surface = surfaceOf(account, roots)
   return {
     id: account.id,
     path: account.path,
@@ -81,7 +85,7 @@ export function recentRows(
       (a) =>
         !exclude.pinnedIds.has(a.id) &&
         !exclude.hiddenIds.has(a.id) &&
-        ACCOUNT_SURFACES.includes(surfaceOf(a.path, roots)) &&
+        ACCOUNT_SURFACES.includes(surfaceOf(a, roots)) &&
         (lastActivityById.get(a.id) ?? null) !== null,
     )
     .sort((a, b) => {

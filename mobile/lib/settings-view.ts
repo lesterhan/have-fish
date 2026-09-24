@@ -76,7 +76,7 @@ export function accountRows(categories: GroupCategory[], accounts: Account[]): A
   return activeCategories(categories).map((c) => ({
     categoryId: c.id,
     name: c.name,
-    accountPath: c.myMapping ? pathById.get(c.myMapping.accountId) ?? null : null,
+    accountPath: c.myMapping ? (pathById.get(c.myMapping.accountId) ?? null) : null,
   }))
 }
 
@@ -103,7 +103,7 @@ export function categoryWeightRows(category: GroupCategory, members: GroupMember
     members.map((m) => ({
       userId: m.userId,
       name: m.userName,
-      weight: override ? byUser.get(m.userId) ?? m.shareWeight : m.shareWeight,
+      weight: override ? (byUser.get(m.userId) ?? m.shareWeight) : m.shareWeight,
     })),
   )
 }
@@ -131,7 +131,11 @@ export function categoryVector(category: GroupCategory, members: GroupMember[]):
  * binds to. Null when the vector doesn't cover both members or sums to zero
  * (the caller then falls back to 50). Mirrors the web `weightsToPct`.
  */
-export function weightsToPct(weights: WeightVector, member0Id: string, member1Id: string): number | null {
+export function weightsToPct(
+  weights: WeightVector,
+  member0Id: string,
+  member1Id: string,
+): number | null {
   const w0 = weights.find((w) => w.userId === member0Id)?.weight
   const w1 = weights.find((w) => w.userId === member1Id)?.weight
   if (w0 === undefined || w1 === undefined) return null
