@@ -437,6 +437,10 @@
             : '',
         date: tx.date,
         amount: tx.isTransfer === false ? tx.amount : '0',
+        // A match must be in the same currency: 8,400 JPY is not 8,400 CAD.
+        currency: (
+          (tx.isTransfer === false ? tx.currency : undefined) ?? defaultCurrency
+        ).toUpperCase(),
       }))
       const perRowDuplicates = await checkDuplicates(checkRows)
 

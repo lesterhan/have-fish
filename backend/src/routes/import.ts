@@ -9,6 +9,7 @@ import {
   csvParsers,
   expenseGroups,
   groupCategories,
+  groupExpenses,
   groupSettlements,
   importRules,
   postings,
@@ -192,9 +193,14 @@ app.post('/preview', async (c) => {
 // where each row maps to a different sub-account (e.g. assets:wise:usd) that
 // the /preview endpoint cannot know about until the frontend resolves them.
 //
-// Request body: { rows: [{ accountId: string, date: string, amount: string }] }
+// Request body: { rows: [{ accountId, date, amount, currency }] }
 // Response: { duplicates: (PossibleDuplicate | null)[] }
-//   where PossibleDuplicate = { transactionId, date, amount, currency } | null
+//   where PossibleDuplicate = { transactionId, date, amount, currency } plus, when the
+//   match was entered through Fish Pie, fishPieKind ('expense' | 'settlement') and the
+//   group's id and name
+//
+// A match needs the same currency as well as the same account, ±1 day and |amount|
+// within 0.01: 8,400 JPY and 8,400 CAD are not the same purchase.
 
 // A row the caller has already resolved to an account. An empty `accountId` is how the
 // frontend marks a transfer row, which this endpoint does not check — hence the empty
@@ -203,6 +209,7 @@ const DuplicateCheckRow = z.object({
   accountId: z.union([z.literal(''), z.uuid()], { error: asField('FIELD_NOT_UUID') }),
   date: z.string({ error: asField('FIELD_NOT_DATE') }),
   amount: amountLike,
+  currency: z.string(),
 })
 
 const CheckDuplicates = z.object({ rows: z.array(DuplicateCheckRow) })
@@ -221,6 +228,7 @@ app.post('/check-duplicates', async (c) => {
     date: string
     amount: string
     currency: string
+    fishPieKind?: 'expense' | 'settlement'
     fishPieGroupId?: string
     fishPieGroupName?: string
   } | null
@@ -281,11 +289,13 @@ app.post('/check-duplicates', async (c) => {
     for (const { i, row } of entries) {
       const txDate = new Date(row.date).getTime()
       const txAmount = parseFloat(row.amount)
+      const txCurrency = row.currency.toUpperCase()
 
       const match = existing.find((e) => {
         const eDate = new Date(e.date).getTime()
         const eAmount = parseFloat(e.amount)
         return (
+          e.currency.toUpperCase() === txCurrency &&
           Math.abs(eDate - txDate) <= dayMs &&
           Math.abs(Math.abs(eAmount) - Math.abs(txAmount)) <= 0.01
         )
@@ -302,9 +312,59 @@ app.post('/check-duplicates', async (c) => {
     }
   }
 
-  // Enrich matched duplicates: check if any matched transaction is a Fish Pie settlement
+  // Enrich matched duplicates entered through Fish Pie, so the review can say "that's the
+  // lunch you split" rather than show a bare possible duplicate. A split expense reaches
+  // its transactions through `transactions.groupExpenseId` (member and payer transactions,
+  // and import transactions since the forward link) or, for older imports, through
+  // `groupExpenses.transactionId`; a settlement through its payer or receiver transaction.
   const matchedTxIds = result.filter((r) => r !== null).map((r) => r.transactionId)
   if (matchedTxIds.length > 0) {
+    type FishPieContext = {
+      kind: 'expense' | 'settlement'
+      groupId: string
+      groupName: string
+    }
+    const contextByTxId = new Map<string, FishPieContext>()
+
+    const expenseRows = await db
+      .select({
+        transactionId: transactions.id,
+        groupExpenseId: transactions.groupExpenseId,
+        groupId: expenseGroups.id,
+        groupName: expenseGroups.name,
+      })
+      .from(transactions)
+      .innerJoin(groupExpenses, eq(groupExpenses.id, transactions.groupExpenseId))
+      .innerJoin(expenseGroups, eq(groupExpenses.groupId, expenseGroups.id))
+      .where(and(inArray(transactions.id, matchedTxIds), isNull(groupExpenses.deletedAt)))
+    for (const row of expenseRows) {
+      contextByTxId.set(row.transactionId, {
+        kind: 'expense',
+        groupId: row.groupId,
+        groupName: row.groupName,
+      })
+    }
+
+    const legacyImportRows = await db
+      .select({
+        transactionId: groupExpenses.transactionId,
+        groupId: expenseGroups.id,
+        groupName: expenseGroups.name,
+      })
+      .from(groupExpenses)
+      .innerJoin(expenseGroups, eq(groupExpenses.groupId, expenseGroups.id))
+      .where(
+        and(inArray(groupExpenses.transactionId, matchedTxIds), isNull(groupExpenses.deletedAt)),
+      )
+    for (const row of legacyImportRows) {
+      if (!row.transactionId) continue
+      contextByTxId.set(row.transactionId, {
+        kind: 'expense',
+        groupId: row.groupId,
+        groupName: row.groupName,
+      })
+    }
+
     const settlementRows = await db
       .select({
         payerTransactionId: groupSettlements.payerTransactionId,
@@ -323,27 +383,23 @@ app.post('/check-duplicates', async (c) => {
           ),
         ),
       )
-
-    const settlementByTxId = new Map<string, { groupId: string; groupName: string }>()
     for (const row of settlementRows) {
-      if (row.payerTransactionId)
-        settlementByTxId.set(row.payerTransactionId, {
-          groupId: row.groupId,
-          groupName: row.groupName,
-        })
-      if (row.receiverTransactionId)
-        settlementByTxId.set(row.receiverTransactionId, {
-          groupId: row.groupId,
-          groupName: row.groupName,
-        })
+      const context: FishPieContext = {
+        kind: 'settlement',
+        groupId: row.groupId,
+        groupName: row.groupName,
+      }
+      if (row.payerTransactionId) contextByTxId.set(row.payerTransactionId, context)
+      if (row.receiverTransactionId) contextByTxId.set(row.receiverTransactionId, context)
     }
 
     for (const entry of result) {
       if (!entry) continue
-      const settlement = settlementByTxId.get(entry.transactionId)
-      if (settlement) {
-        entry.fishPieGroupId = settlement.groupId
-        entry.fishPieGroupName = settlement.groupName
+      const context = contextByTxId.get(entry.transactionId)
+      if (context) {
+        entry.fishPieKind = context.kind
+        entry.fishPieGroupId = context.groupId
+        entry.fishPieGroupName = context.groupName
       }
     }
   }

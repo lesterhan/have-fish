@@ -123,7 +123,9 @@
     {tx.description ?? '—'}
     {#if rowState.possibleDuplicate?.fishPieGroupName}
       <span class="fishpie-hint">
-        · Fish Pie settlement in
+        · Fish Pie {rowState.possibleDuplicate.fishPieKind === 'expense'
+          ? 'split'
+          : 'settlement'} in
         <a
           href="/fish-pie/{rowState.possibleDuplicate.fishPieGroupId}"
           class="fishpie-hint-link"

@@ -41,6 +41,46 @@ async function createAccount(cookie: string, path: string) {
   return res.json()
 }
 
+// One posting of `amount` in `currency` on `accountId`, dated 2026-02-01, via a plain import.
+async function seedPosting(
+  cookie: string,
+  accountId: string,
+  offsetAccountId: string,
+  amount: string,
+  currency: string,
+) {
+  const res = await request('/api/import/commit', {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      accountId,
+      defaultCurrency: currency,
+      transactions: [
+        {
+          isTransfer: false,
+          date: new Date('2026-02-01').toISOString(),
+          amount,
+          currency,
+          offsetAccountId,
+        },
+      ],
+    }),
+  })
+  expect(res.status).toBe(201)
+}
+
+type DuplicateRow = { accountId: string; date: string; amount: string; currency: string }
+
+async function checkRows(cookie: string, rows: DuplicateRow[]) {
+  const res = await request('/api/import/check-duplicates', {
+    method: 'POST',
+    headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ rows }),
+  })
+  expect(res.status).toBe(200)
+  return (await res.json()) as { duplicates: (Record<string, string> | null)[] }
+}
+
 function csvForm(csv: string) {
   const form = new FormData()
   form.append('file', new Blob([csv], { type: 'text/csv' }), 'export.csv')
@@ -499,7 +539,7 @@ describe('POST /api/import/check-duplicates', () => {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        rows: [{ accountId: source.id, date: '2026-02-01', amount: '-42.50' }],
+        rows: [{ accountId: source.id, date: '2026-02-01', amount: '-42.50', currency: 'USD' }],
       }),
     })
     expect(res.status).toBe(200)
@@ -534,7 +574,7 @@ describe('POST /api/import/check-duplicates', () => {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        rows: [{ accountId: source.id, date: '2026-02-01', amount: '-42.50' }],
+        rows: [{ accountId: source.id, date: '2026-02-01', amount: '-42.50', currency: 'USD' }],
       }),
     })
     expect(res.status).toBe(200)
@@ -572,7 +612,7 @@ describe('POST /api/import/check-duplicates', () => {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        rows: [{ accountId: cad.id, date: '2026-02-01', amount: '-42.50' }],
+        rows: [{ accountId: cad.id, date: '2026-02-01', amount: '-42.50', currency: 'USD' }],
       }),
     })
     expect(res.status).toBe(200)
@@ -585,7 +625,7 @@ describe('POST /api/import/check-duplicates', () => {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        rows: [{ accountId: '', date: '2026-02-01', amount: '-42.50' }],
+        rows: [{ accountId: '', date: '2026-02-01', amount: '-42.50', currency: 'USD' }],
       }),
     })
     expect(res.status).toBe(200)
@@ -621,13 +661,165 @@ describe('POST /api/import/check-duplicates', () => {
       method: 'POST',
       headers: { Cookie: cookie, 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        rows: [{ accountId: otherAccount.id, date: '2026-02-01', amount: '-42.50' }],
+        rows: [
+          { accountId: otherAccount.id, date: '2026-02-01', amount: '-42.50', currency: 'USD' },
+        ],
       }),
     })
     expect(res.status).toBe(200)
     const body = await res.json()
     // Account ownership check silently skips the row — returns null, not the other user's data
     expect(body.duplicates[0]).toBeNull()
+  })
+  // MC2 (#323): 8,400 JPY on a phone entry and 8,400 CAD on the statement are not the
+  // same purchase, however equal the digits.
+  it('does not flag a posting in another currency with the same digits', async () => {
+    const card = await createAccount(cookie, 'liabilities:visa')
+    const offset = await createAccount(cookie, 'expenses:food')
+    await seedPosting(cookie, card.id, offset.id, '-8400.00', 'JPY')
+
+    const body = await checkRows(cookie, [
+      { accountId: card.id, date: '2026-02-01', amount: '-8400.00', currency: 'CAD' },
+    ])
+    expect(body.duplicates).toEqual([null])
+  })
+
+  it('flags the same-currency posting when one in another currency also has the same digits', async () => {
+    const card = await createAccount(cookie, 'liabilities:visa')
+    const offset = await createAccount(cookie, 'expenses:food')
+    await seedPosting(cookie, card.id, offset.id, '-48.00', 'JPY')
+    await seedPosting(cookie, card.id, offset.id, '-48.00', 'CAD')
+
+    const body = await checkRows(cookie, [
+      { accountId: card.id, date: '2026-02-01', amount: '-48.00', currency: 'CAD' },
+    ])
+    expect(body.duplicates[0]).toMatchObject({ amount: '-48.00', currency: 'CAD' })
+  })
+
+  it('compares currency codes without regard to case', async () => {
+    const card = await createAccount(cookie, 'liabilities:visa')
+    const offset = await createAccount(cookie, 'expenses:food')
+    await seedPosting(cookie, card.id, offset.id, '-12.00', 'CAD')
+
+    const body = await checkRows(cookie, [
+      { accountId: card.id, date: '2026-02-01', amount: '-12.00', currency: 'cad' },
+    ])
+    expect(body.duplicates[0]).toMatchObject({ currency: 'CAD' })
+  })
+
+  it('rejects a row with no currency', async () => {
+    const card = await createAccount(cookie, 'liabilities:visa')
+    const res = await request('/api/import/check-duplicates', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        rows: [{ accountId: card.id, date: '2026-02-01', amount: '-12.00' }],
+      }),
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({ error: 'FIELD_REQUIRED' })
+  })
+})
+
+// MC2 (#323): a bank row that matches something already entered through Fish Pie says so,
+// whether it is the split itself (entered on the phone) or a settlement.
+describe('POST /api/import/check-duplicates — Fish Pie context', () => {
+  let cookieA: string
+  let cookieB: string
+  let userAId: string
+  let userBId: string
+  let groupId: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+    cookieA = await createTestUser('a@test.com', 'passwordA')
+    cookieB = await createTestUser('b@test.com', 'passwordB')
+    const sessionA = await request('/api/auth/get-session', { headers: { Cookie: cookieA } })
+    const sessionB = await request('/api/auth/get-session', { headers: { Cookie: cookieB } })
+    userAId = ((await sessionA.json()) as any).user.id
+    userBId = ((await sessionB.json()) as any).user.id
+
+    const groupRes = await request('/api/fish-pie/groups', {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ name: 'Trip' }),
+    })
+    groupId = ((await groupRes.json()) as any).id
+    const invRes = await request(`/api/fish-pie/groups/${groupId}/invites`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ email: 'b@test.com' }),
+    })
+    const inviteId = ((await invRes.json()) as any).id
+    await request(`/api/fish-pie/invites/${inviteId}/accept`, {
+      method: 'POST',
+      headers: { Cookie: cookieB },
+    })
+  })
+
+  it('names the group when the match is a split expense entered in Fish Pie', async () => {
+    const visa = await createAccount(cookieA, 'liabilities:visa')
+    const res = await request(`/api/fish-pie/groups/${groupId}/expenses`, {
+      method: 'POST',
+      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        description: 'Lunch',
+        amount: '48.00',
+        currency: 'CAD',
+        date: '2026-02-01',
+        paymentAccountId: visa.id,
+      }),
+    })
+    expect(res.status).toBe(201)
+
+    const body = await checkRows(cookieA, [
+      { accountId: visa.id, date: '2026-02-01', amount: '-48.00', currency: 'CAD' },
+    ])
+    expect(body.duplicates[0]).toMatchObject({
+      amount: '-48.00',
+      fishPieKind: 'expense',
+      fishPieGroupId: groupId,
+      fishPieGroupName: 'Trip',
+    })
+  })
+
+  it('names the group when the match is a Fish Pie settlement', async () => {
+    const chequing = await createAccount(cookieB, 'assets:chequing')
+    const res = await request(`/api/fish-pie/groups/${groupId}/settlements`, {
+      method: 'POST',
+      headers: { Cookie: cookieB, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        fromUserId: userBId,
+        toUserId: userAId,
+        amount: '30.00',
+        currency: 'CAD',
+        date: '2026-02-01',
+        payerAccountId: chequing.id,
+      }),
+    })
+    expect(res.status).toBe(201)
+
+    const body = await checkRows(cookieB, [
+      { accountId: chequing.id, date: '2026-02-01', amount: '-30.00', currency: 'CAD' },
+    ])
+    expect(body.duplicates[0]).toMatchObject({
+      fishPieKind: 'settlement',
+      fishPieGroupId: groupId,
+      fishPieGroupName: 'Trip',
+    })
+  })
+
+  it('leaves a match outside Fish Pie without group context', async () => {
+    const visa = await createAccount(cookieA, 'liabilities:visa')
+    const food = await createAccount(cookieA, 'expenses:food')
+    await seedPosting(cookieA, visa.id, food.id, '-48.00', 'CAD')
+
+    const body = await checkRows(cookieA, [
+      { accountId: visa.id, date: '2026-02-01', amount: '-48.00', currency: 'CAD' },
+    ])
+    expect(body.duplicates[0]).not.toBeNull()
+    expect(body.duplicates[0]).not.toHaveProperty('fishPieKind')
+    expect(body.duplicates[0]).not.toHaveProperty('fishPieGroupName')
   })
 })
 
