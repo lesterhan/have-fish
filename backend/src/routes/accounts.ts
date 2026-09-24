@@ -8,21 +8,22 @@ import { accounts, postings, transactions, userSettings } from '../db/schema'
 import { fail } from '../errors'
 import { isClearingAccountPath } from '../fish-pie-accounts'
 import {
-  type AccountTypeRoots,
+  type AccountTypeContext,
+  explainType,
   isStoredAccountType,
-  resolveAccountType,
   resolveStoredOrInferredType,
   STORED_ACCOUNT_TYPES,
   type StoredAccountType,
+  tagsFrom,
   toClassifierType,
 } from '../postings/account-type'
 import {
   noUsableOverrideCondition,
   required,
   typeFilterCondition,
-  underPathCondition,
+  underAnyTypeSourceCondition,
 } from '../postings/account-type-sql'
-import { loadAccountTypeRoots } from '../postings/classify-service'
+import { loadAccountTypeContext, loadAccountTypeRoots } from '../postings/classify-service'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { as, asField, asInput, defined, parseBody } from '../validation'
 
@@ -41,10 +42,11 @@ app.get('/', async (c) => {
     .select()
     .from(accounts)
     .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  // Surface the effective type (stored override else path inference) so the UI and the
-  // journal serializer share one resolved answer. `type` stays the raw stored override.
-  const roots = await loadAccountTypeRoots(userId)
-  const withType = all.map((a) => ({ ...a, resolvedType: resolveStoredOrInferredType(a, roots) }))
+  // Surface the effective type (own override, else a tagged ancestor's, else path inference)
+  // so the UI and the journal serializer share one resolved answer. `type` stays the raw
+  // stored override. Every account is already in hand, so the tags come from these rows.
+  const ctx = { ...(await loadAccountTypeRoots(userId)), tagged: tagsFrom(all) }
+  const withType = all.map((a) => ({ ...a, resolvedType: resolveStoredOrInferredType(a, ctx) }))
   return c.json(withType)
 })
 
@@ -70,36 +72,29 @@ const BALANCE_BEARING_TYPES = new Set(STORED_ACCOUNT_TYPES.filter(isBalanceBeari
 // caller that passed `?types=cash`, which is the one query the bug report could not make from
 // the UI. The stored override is the account's answer about itself; a view that asks the path
 // instead is asking the wrong source.
-function balanceBearingCondition(roots: AccountTypeRoots, includeUnfiled: boolean): SQL {
-  const balanceBearing = typeFilterCondition(BALANCE_BEARING_TYPES, roots)
+function balanceBearingCondition(ctx: AccountTypeContext, includeUnfiled: boolean): SQL {
+  const balanceBearing = typeFilterCondition(BALANCE_BEARING_TYPES, ctx)
   if (!includeUnfiled) return balanceBearing
 
-  // Unfiled is now what it always meant: the app has no answer for this account. No usable
-  // override, and no configured root to infer one from. An unrooted path that *is* tagged is
-  // no longer unfiled — it is whatever it says it is, and lands in that group instead.
-  const anyRoot = required(
-    or(
-      underPathCondition(roots.assetsRootPath),
-      underPathCondition(roots.liabilitiesRootPath),
-      underPathCondition(roots.equityRootPath),
-      underPathCondition(roots.expensesRootPath),
-      underPathCondition(roots.incomeRootPath),
-    ),
-    'any configured root',
+  // Unfiled is what it always meant: the app has no answer for this account. No usable
+  // override, no tagged ancestor to inherit one from, and no configured root to infer one
+  // from. A path that *is* tagged, or sits under one that is, is whatever that says.
+  const unfiled = required(
+    and(noUsableOverrideCondition(), not(underAnyTypeSourceCondition(ctx))),
+    'unfiled',
   )
-  const unfiled = required(and(noUsableOverrideCondition(), not(anyRoot)), 'unfiled')
   return required(or(balanceBearing, unfiled), 'balance-bearing selection')
 }
 
 // GET /api/accounts/balances[?types=cash,asset][?include=unfiled]
 // Returns all asset, liability, and equity accounts with their per-currency balances and type.
-// Membership is by RESOLVED type — the stored override, else what the path root infers — so
+// Membership is by RESOLVED type — own override, else a tagged ancestor's, else the root's — so
 // an account is on this endpoint because of what it says it is, not because of where it sits.
 // Balance = SUM of all posting amounts for that account, grouped by currency.
 // Accounts with no postings are included with an empty balances array.
 //
 // `type` and `resolvedType` mean exactly what they mean on GET /api/accounts: the raw stored
-// override, and the effective stored-wins-else-inferred answer. This endpoint used to report
+// override, and the effective resolved answer. This endpoint used to report
 // a third thing under `type` — a coarse asset/liability/equity bucket — which made the same
 // field name mean two different things depending on which route you called. Callers that want
 // that bucket derive it with `toClassifierType(resolvedType)`, the same function the role
@@ -141,7 +136,7 @@ app.get('/balances', async (c) => {
     typeFilter = new Set(requested as StoredAccountType[])
   }
 
-  const roots = await loadAccountTypeRoots(userId)
+  const ctx = await loadAccountTypeContext(userId)
 
   // LEFT JOIN so accounts with no postings still appear (with null currency/balance)
   const rows = await db
@@ -161,8 +156,8 @@ app.get('/balances', async (c) => {
         eq(accounts.userId, userId),
         isNull(accounts.deletedAt),
         typeFilter
-          ? typeFilterCondition(typeFilter, roots)
-          : balanceBearingCondition(roots, includeUnfiled),
+          ? typeFilterCondition(typeFilter, ctx)
+          : balanceBearingCondition(ctx, includeUnfiled),
       ),
     )
     .groupBy(
@@ -203,7 +198,7 @@ app.get('/balances', async (c) => {
     if (!grouped.has(row.id)) {
       const resolvedType = resolveStoredOrInferredType(
         { path: row.path, type: row.storedType },
-        roots,
+        ctx,
       )
       if (!keep(resolvedType)) {
         excluded.add(row.id)
@@ -427,21 +422,23 @@ app.get('/:id', async (c) => {
       ),
     )
   if (!found) return fail(c, 'ACCOUNT_NOT_FOUND')
-  const roots = await loadAccountTypeRoots(userId)
-  return c.json(withResolvedTypes(found, roots))
+  return c.json(withResolvedTypes(found, await loadAccountTypeContext(userId)))
 })
 
-// Enriches an account row with both the effective type (stored override else inference) and
-// the pure inferred type, so the settings UI can show "Auto (inferred: X)" alongside an
-// explicit override. Used by the single-account GET and PATCH so both return the same shape.
+// Enriches an account row with the effective type and with what "Auto" would pick — the type
+// it would have with no override of its own, and the tagged ancestor that answer came from, if
+// any — so the settings UI can show "Auto (Expense, from 花钱)" beside an explicit override.
+// Used by the single-account GET and PATCH so both return the same shape.
 function withResolvedTypes<T extends { path: string; type: string | null }>(
   account: T,
-  roots: AccountTypeRoots,
+  ctx: AccountTypeContext,
 ) {
+  const auto = explainType({ path: account.path, type: null }, ctx)
   return {
     ...account,
-    resolvedType: resolveStoredOrInferredType(account, roots),
-    inferredType: resolveAccountType(account.path, roots),
+    resolvedType: resolveStoredOrInferredType(account, ctx),
+    inferredType: auto?.type ?? null,
+    inheritedFrom: auto?.from === 'ancestor' ? auto.path : null,
   }
 }
 
@@ -621,8 +618,7 @@ app.patch('/:id', async (c) => {
     )
     .returning()
   if (!updated) return fail(c, 'ACCOUNT_NOT_FOUND')
-  const roots = await loadAccountTypeRoots(userId)
-  return c.json(withResolvedTypes(updated, roots))
+  return c.json(withResolvedTypes(updated, await loadAccountTypeContext(userId)))
 })
 
 // DELETE /api/accounts/:id

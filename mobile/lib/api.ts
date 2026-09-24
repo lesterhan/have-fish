@@ -116,7 +116,8 @@ export type Account = {
   defaultCurrency?: string | null
   // The raw stored type override — null means "infer from the path".
   type?: StoredAccountType | null
-  // The backend's effective answer: stored override else path inference. This is
+  // The backend's effective answer: own override, else nearest tagged
+  // ancestor's, else path inference. This is
   // the field to test against; `type` alone would miss nothing today but would
   // disagree with the journal export the moment inference matters.
   resolvedType?: StoredAccountType | null

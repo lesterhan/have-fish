@@ -34,7 +34,7 @@ function asRolePosting(row: { accountId: string; path: string; type: string | nu
  * The genuine spend legs in the period, with the mechanical legs of a cross-currency spend
  * already removed. `prefix` narrows to spend legs whose account is at or under that path.
  *
- * Selection is by RESOLVED account type — the stored override, else what the path root infers
+ * Selection is by RESOLVED account type — the account's own override, else its nearest tagged ancestor's, else what the path root infers
  * — not by `LIKE 'expenses:%'`. That was BUG-007's last hiding place: a category at an
  * atypically-named root, tagged Expense on its own settings page, matched no LIKE pattern, so
  * every spend into it was absent from the total, the breakdown and the trend, with no row to

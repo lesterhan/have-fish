@@ -66,12 +66,15 @@ export type Account = {
   defaultCurrency?: string | null | undefined
   // Stored hledger type override; null = infer from the path root.
   type?: StoredAccountType | null | undefined
-  // Effective type (stored override else path inference). Surfaced by GET /api/accounts
+  // Effective type (own override, else nearest tagged ancestor's, else path inference). Surfaced by GET /api/accounts
   // and GET /api/accounts/:id; null when an atypical root has no override.
   resolvedType?: StoredAccountType | null | undefined
-  // Pure path-inferred type, ignoring any override. Surfaced only by GET /api/accounts/:id —
-  // lets the settings UI show "Auto (inferred: X)". Null for atypical roots.
-  inferredType?: AccountType | null | undefined
+  // What "Auto" would resolve to: the type with this account's own override ignored, taken
+  // from its nearest tagged ancestor or else its path root. Surfaced only by
+  // GET /api/accounts/:id, for the settings UI. Null when neither says anything.
+  inferredType?: StoredAccountType | null | undefined
+  // The tagged ancestor `inferredType` came from; null when it came from a path root.
+  inheritedFrom?: string | null | undefined
   createdAt?: string | undefined
   deletedAt?: string | null | undefined
 }
@@ -564,7 +567,7 @@ export type AccountBalance = {
   path: string
   name?: string | null | undefined
   // Same meaning as on `Account`: the raw stored override, and the effective
-  // stored-wins-else-inferred answer. For the coarse asset/liability/equity bucket,
+  // resolved answer. For the coarse asset/liability/equity bucket,
   // run `resolvedType` through `toClassifierType`.
   type?: StoredAccountType | null | undefined
   resolvedType?: StoredAccountType | null | undefined

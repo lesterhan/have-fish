@@ -27,7 +27,7 @@ export const LAST_WALLET_KEY = 'havefish_last_wallet'
 
 /**
  * True when the account is a cash wallet. Strictly the resolved hledger type —
- * `resolvedType` is the backend's stored-wins-else-infer answer, so this is one
+ * `resolvedType` is the backend's resolved answer (own override, else a tagged ancestor's, else the root's), so this is one
  * shared verdict rather than a second opinion.
  */
 export function isCashAccount(account: { resolvedType?: string | null }): boolean {

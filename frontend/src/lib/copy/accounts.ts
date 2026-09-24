@@ -312,9 +312,11 @@ export const accountsCopy = {
     },
     type: {
       label: 'Type',
-      hint: 'Used on hledger export. Auto infers it from the path.',
+      hint: 'Used on hledger export. Auto takes it from the nearest tagged parent, else from the path.',
       /** The Auto option says what inference would pick, so it is not a blind choice. */
       auto: (inferred: string) => `Auto (inferred: ${inferred})`,
+      /** Auto when the answer comes from a tagged parent rather than the path root. */
+      autoInherited: (type: string, parent: string) => `Auto (${type}, from ${parent})`,
       /** What inference yields for an atypical root: nothing. */
       unclassified: 'unclassified',
       failed: 'Could not save the type',

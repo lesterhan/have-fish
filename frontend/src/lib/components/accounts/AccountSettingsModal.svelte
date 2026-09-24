@@ -6,7 +6,6 @@
     updateCoverageConfig,
     type Account,
     type AccountCoverage,
-    type AccountType,
     type StoredAccountType,
   } from '$lib/api'
   import {
@@ -20,6 +19,7 @@
     type ModeChoice,
   } from '../catch-up/cycleConfig'
   import { SUPPORTED_CURRENCIES, currencyFlag } from '$lib/currency'
+  import { bump as refreshSidebar } from '$lib/sidebarRefresh.svelte'
   import Modal from '../ui/Modal.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
   import TextInput from '../ui/TextInput.svelte'
@@ -120,20 +120,32 @@
     typeValue = account.type ?? ''
   })
 
-  // What inference would pick, so "Auto" is not a blind choice. An atypical root infers to
-  // nothing.
-  const inferredLabel = $derived(
-    account.inferredType
-      ? TYPE_LABELS[account.inferredType as AccountType]
-      : copy.accounts.settings.type.unclassified,
-  )
+  // What Auto would pick, so it is not a blind choice: a tagged parent's type, named with the
+  // parent it came from, else the path root's, else nothing for an atypical root.
+  const autoLabel = $derived.by(() => {
+    const auto = account.inferredType
+    if (!auto)
+      return copy.accounts.settings.type.auto(
+        copy.accounts.settings.type.unclassified,
+      )
+    if (account.inheritedFrom) {
+      return copy.accounts.settings.type.autoInherited(
+        TYPE_LABELS[auto],
+        account.inheritedFrom,
+      )
+    }
+    return copy.accounts.settings.type.auto(TYPE_LABELS[auto])
+  })
 
   async function saveType() {
     const next = typeValue === '' ? null : (typeValue as StoredAccountType)
     const outcome = await typeSaver.run(() =>
       updateAccount(account.id, { type: next }),
     )
-    if (outcome.status === 'saved') onupdated(outcome.value)
+    if (outcome.status !== 'saved') return
+    onupdated(outcome.value)
+    // A type moves the account, and every untagged account under it, between surfaces.
+    refreshSidebar()
   }
 
   // --- sidebar visibility ---------------------------------------------------------
@@ -435,7 +447,7 @@
             onchange={saveType}
           >
             <option value="">
-              {copy.accounts.settings.type.auto(inferredLabel)}
+              {autoLabel}
             </option>
             {#each TYPE_OPTIONS as t}
               <option value={t}>{TYPE_LABELS[t]}</option>

@@ -12,7 +12,7 @@ import { formatCents, formatCentsAbs, toCents } from '../../money'
  * magnitude. Only liability accounts get that treatment; everywhere else the signed
  * rendering is the honest one.
  *
- * `resolvedType` is the effective type (stored override, else path inference). It is null
+ * `resolvedType` is the effective type (own override, else a tagged ancestor's, else path inference). It is null
  * for an atypical root with no override, which falls through to the neutral BALANCE case.
  */
 export type BalanceLabel = {

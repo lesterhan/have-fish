@@ -1,13 +1,18 @@
 import { describe, expect, it } from 'bun:test'
 import {
+  type AccountTypeContext,
   type AccountTypeRoots,
   DEFAULT_ROOTS,
+  explainType,
   isAccountType,
   isStoredAccountType,
   resolveAccountType,
   resolveStoredOrInferredType,
+  tagsFrom,
   toClassifierType,
 } from './account-type'
+
+const NO_TAGS: AccountTypeContext = { ...DEFAULT_ROOTS, tagged: new Map() }
 
 describe('resolveAccountType', () => {
   it('classifies each standard root', () => {
@@ -120,46 +125,125 @@ describe('toClassifierType', () => {
 describe('resolveStoredOrInferredType', () => {
   it('uses a valid stored override over inference', () => {
     // path infers to expense, but the stored override says asset — override wins
-    expect(
-      resolveStoredOrInferredType({ path: 'expenses:food', type: 'asset' }, DEFAULT_ROOTS),
-    ).toBe('asset')
+    expect(resolveStoredOrInferredType({ path: 'expenses:food', type: 'asset' }, NO_TAGS)).toBe(
+      'asset',
+    )
   })
 
   it('falls back to inference when the stored type is null', () => {
-    expect(resolveStoredOrInferredType({ path: 'expenses:food', type: null }, DEFAULT_ROOTS)).toBe(
+    expect(resolveStoredOrInferredType({ path: 'expenses:food', type: null }, NO_TAGS)).toBe(
       'expense',
     )
   })
 
   it('resolves an atypical root via its stored override', () => {
     // inference returns null for these — the override is the only way they classify
-    expect(
-      resolveStoredOrInferredType({ path: '储蓄:中国银行', type: 'asset' }, DEFAULT_ROOTS),
-    ).toBe('asset')
-    expect(resolveStoredOrInferredType({ path: '花钱:房租', type: 'expense' }, DEFAULT_ROOTS)).toBe(
+    expect(resolveStoredOrInferredType({ path: '储蓄:中国银行', type: 'asset' }, NO_TAGS)).toBe(
+      'asset',
+    )
+    expect(resolveStoredOrInferredType({ path: '花钱:房租', type: 'expense' }, NO_TAGS)).toBe(
       'expense',
     )
   })
 
   it('honours the override-only Cash and Conversion types', () => {
     // inference can never yield these; only a stored override can
+    expect(resolveStoredOrInferredType({ path: 'assets:wise:cad', type: 'cash' }, NO_TAGS)).toBe(
+      'cash',
+    )
     expect(
-      resolveStoredOrInferredType({ path: 'assets:wise:cad', type: 'cash' }, DEFAULT_ROOTS),
-    ).toBe('cash')
-    expect(
-      resolveStoredOrInferredType({ path: 'equity:conversion', type: 'conversion' }, DEFAULT_ROOTS),
+      resolveStoredOrInferredType({ path: 'equity:conversion', type: 'conversion' }, NO_TAGS),
     ).toBe('conversion')
   })
 
   it('returns null for an atypical root with no stored override', () => {
-    expect(
-      resolveStoredOrInferredType({ path: '储蓄:中国银行', type: null }, DEFAULT_ROOTS),
-    ).toBeNull()
+    expect(resolveStoredOrInferredType({ path: '储蓄:中国银行', type: null }, NO_TAGS)).toBeNull()
   })
 
   it('ignores an invalid stored value and falls back to inference', () => {
-    expect(resolveStoredOrInferredType({ path: 'assets:cash', type: 'bogus' }, DEFAULT_ROOTS)).toBe(
+    expect(resolveStoredOrInferredType({ path: 'assets:cash', type: 'bogus' }, NO_TAGS)).toBe(
       'asset',
     )
+  })
+})
+
+// Decision #412: hledger's rule. An untagged account takes its nearest tagged ancestor's type,
+// and a configured root is just an ancestor with a type.
+describe('inheritance', () => {
+  const ctx = (tags: [string, string][], roots: AccountTypeRoots = DEFAULT_ROOTS) => ({
+    ...roots,
+    tagged: tagsFrom(tags.map(([path, type]) => ({ path, type }))),
+  })
+
+  it("gives an untagged child its tagged parent's type", () => {
+    const c = ctx([['花钱', 'expense']])
+    expect(resolveStoredOrInferredType({ path: '花钱:房租', type: null }, c)).toBe('expense')
+    expect(resolveStoredOrInferredType({ path: '花钱:房租:押金', type: null }, c)).toBe('expense')
+  })
+
+  it('takes the nearest tagged ancestor, not the topmost', () => {
+    const c = ctx([
+      ['储蓄', 'asset'],
+      ['储蓄:现金', 'cash'],
+    ])
+    expect(resolveStoredOrInferredType({ path: '储蓄:现金:钱包', type: null }, c)).toBe('cash')
+    expect(resolveStoredOrInferredType({ path: '储蓄:中国银行', type: null }, c)).toBe('asset')
+  })
+
+  it('lets a tagged ancestor below a root win over the root', () => {
+    const c = ctx([['expenses:rrsp', 'asset']])
+    expect(resolveStoredOrInferredType({ path: 'expenses:rrsp:tfsa', type: null }, c)).toBe('asset')
+    expect(resolveStoredOrInferredType({ path: 'expenses:food', type: null }, c)).toBe('expense')
+  })
+
+  it('lets a root below a tagged ancestor win over the tag', () => {
+    // Nearest wins in both directions: the root is the nearer source here.
+    const c = ctx([['money', 'expense']], { ...DEFAULT_ROOTS, assetsRootPath: 'money:held' })
+    expect(resolveStoredOrInferredType({ path: 'money:held:cad', type: null }, c)).toBe('asset')
+  })
+
+  it('lets a tag and a root at the same path be decided by the tag', () => {
+    const c = ctx([['expenses', 'asset']])
+    expect(resolveStoredOrInferredType({ path: 'expenses:food', type: null }, c)).toBe('asset')
+  })
+
+  it("never lets an ancestor override the account's own tag", () => {
+    const c = ctx([['花钱', 'expense']])
+    expect(resolveStoredOrInferredType({ path: '花钱:存款', type: 'asset' }, c)).toBe('asset')
+  })
+
+  it("reads the account's own level from its row, not from the tag map", () => {
+    // The map says `花钱:房租` is tagged, but the row asks what Auto would be: its parent.
+    const c = ctx([
+      ['花钱', 'expense'],
+      ['花钱:房租', 'asset'],
+    ])
+    expect(resolveStoredOrInferredType({ path: '花钱:房租', type: null }, c)).toBe('expense')
+  })
+
+  it('does not match a sibling that merely shares a prefix', () => {
+    const c = ctx([['花钱', 'expense']])
+    expect(resolveStoredOrInferredType({ path: '花钱多:x', type: null }, c)).toBeNull()
+  })
+
+  it('skips an invalid tag in the map', () => {
+    const c = ctx([['花钱', 'bogus']])
+    expect(resolveStoredOrInferredType({ path: '花钱:房租', type: null }, c)).toBeNull()
+  })
+
+  it('says where the type came from', () => {
+    const c = ctx([['花钱', 'expense']])
+    expect(explainType({ path: '花钱:房租', type: null }, c)).toEqual({
+      type: 'expense',
+      from: 'ancestor',
+      path: '花钱',
+    })
+    expect(explainType({ path: 'assets:chq', type: null }, c)).toEqual({
+      type: 'asset',
+      from: 'root',
+      path: 'assets',
+    })
+    expect(explainType({ path: 'x', type: 'cash' }, c)).toEqual({ type: 'cash', from: 'own' })
+    expect(explainType({ path: '别的:x', type: null }, c)).toBeNull()
   })
 })

@@ -152,9 +152,12 @@ Story 5 gates the epic as done.
 
 ## Open research (confirm before story 3)
 
-- Exact `account ... type:X` directive syntax in current hledger; whether subaccounts
-  inherit type (they do — declare only roots/overrides, or declare all? lean: declare all
-  with a resolved type for explicitness).
+- Exact `account ... type:X` directive syntax in current hledger.
+- ~~Whether subaccounts inherit type~~ — **settled by #412**: they do in hledger, and the app
+  now does too (`resolveStoredOrInferredType` walks to the nearest tagged ancestor, then the
+  configured roots). Because the two agree, declaring every account's resolved type and
+  declaring only the overrides export the same meaning; declaring all stays the lean for
+  explicitness, and a file with only the overrides is no longer a different ledger.
 - Whether `commodity` directives are needed for display precision or hledger infers fine
   from the amounts.
 - Confirm `--infer-costs` reconstructs cost from our `equity:conversion` legs as expected

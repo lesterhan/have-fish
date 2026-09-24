@@ -18,7 +18,8 @@ export interface AccountLike {
   path: string
   name?: string | null | undefined
   /**
-   * Stored override, else path inference against the user's configured roots,
+   * Own override, else nearest tagged ancestor's, else path inference against the
+   * user's configured roots,
    * as `GET /api/accounts` serves it. Absent on an account the server has not
    * described (one created a moment ago), where the path is all there is.
    */

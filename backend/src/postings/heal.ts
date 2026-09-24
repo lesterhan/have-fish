@@ -23,7 +23,7 @@
 
 import {
   type AccountType,
-  type AccountTypeRoots,
+  type AccountTypeContext,
   resolveStoredOrInferredType,
   toClassifierType,
 } from './account-type'
@@ -39,8 +39,9 @@ export type HealPosting = {
   currency: string
 }
 
-// The roots path inference falls back on. The stored override on each leg comes first.
-export type HealSettings = AccountTypeRoots
+// What each leg's type resolves against: tagged ancestors and the roots. The leg's own stored
+// override comes first.
+export type HealSettings = AccountTypeContext
 
 export type MalformedFinding = {
   expenseAccountId: string
