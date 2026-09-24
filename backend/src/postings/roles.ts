@@ -57,14 +57,14 @@ const under = (path: string, root: string) => path === root || path.startsWith(`
 
 /**
  * The leg's account type, stored override winning over path inference, collapsed to the
- * coarse five the roles below reason in. Null only when the account is tagged with nothing
+ * coarse five the roles reason in. Null only when the account is tagged with nothing
  * *and* sits under no configured root — the app genuinely has no answer.
  *
  * Shared by `classifyPosting` and `isExpenseSubject` so the two cannot drift: they used to
  * resolve the type separately, which is how "is this a spend" and "what is this leg" could
  * in principle disagree about the same posting.
  */
-function typeOf(p: RolePosting, settings: ClassifySettings): AccountType | null {
+export function accountTypeOf(p: RolePosting, settings: ClassifySettings): AccountType | null {
   const resolved = resolveStoredOrInferredType(
     { path: p.accountPath, type: p.accountType },
     settings.roots,
@@ -81,7 +81,7 @@ export function classifyPosting(p: RolePosting, settings: ClassifySettings): Pos
   if (settings.feeAccountIds.has(p.accountId)) return 'fee'
   if (under(p.accountPath, settings.clearingPrefix)) return 'share'
 
-  const type = typeOf(p, settings)
+  const type = accountTypeOf(p, settings)
   // Untyped and unrooted: the app has no answer, so treat the leg as mechanical rather than
   // guess. A wrong `subject` inflates the spending sum; a wrong `transfer` only under-narrates
   // a row, and the account page says plainly that the account is unfiled. Tagging the account
@@ -113,5 +113,5 @@ export function classifyPostings<T extends RolePosting & { id: string }>(
 // True when a posting is a genuine spend leg whose account is an expense — the legs that
 // make up the spending total. Income subjects (a paycheck) and mechanical legs are excluded.
 export function isExpenseSubject(p: RolePosting, settings: ClassifySettings): boolean {
-  return classifyPosting(p, settings) === 'subject' && typeOf(p, settings) === 'expense'
+  return classifyPosting(p, settings) === 'subject' && accountTypeOf(p, settings) === 'expense'
 }

@@ -9,7 +9,6 @@ import { fail } from '../errors'
 import { isClearingAccountPath } from '../fish-pie-accounts'
 import {
   type AccountTypeRoots,
-  DEFAULT_ROOTS,
   isStoredAccountType,
   resolveAccountType,
   resolveStoredOrInferredType,
@@ -23,32 +22,11 @@ import {
   typeFilterCondition,
   underPathCondition,
 } from '../postings/account-type-sql'
+import { loadAccountTypeRoots } from '../postings/classify-service'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { as, asField, asInput, defined, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
-
-// Loads this user's configured account-type root paths, falling back to schema defaults when
-// no settings row exists. Shared by endpoints that resolve account types.
-async function loadAccountTypeRoots(userId: string): Promise<AccountTypeRoots> {
-  const [s] = await db
-    .select({
-      assetsRootPath: userSettings.defaultAssetsRootPath,
-      liabilitiesRootPath: userSettings.defaultLiabilitiesRootPath,
-      equityRootPath: userSettings.defaultEquityRootPath,
-      expensesRootPath: userSettings.defaultExpensesRootPath,
-      incomeRootPath: userSettings.defaultIncomeRootPath,
-    })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
-  return {
-    assetsRootPath: s?.assetsRootPath ?? DEFAULT_ROOTS.assetsRootPath,
-    liabilitiesRootPath: s?.liabilitiesRootPath ?? DEFAULT_ROOTS.liabilitiesRootPath,
-    equityRootPath: s?.equityRootPath ?? DEFAULT_ROOTS.equityRootPath,
-    expensesRootPath: s?.expensesRootPath ?? DEFAULT_ROOTS.expensesRootPath,
-    incomeRootPath: s?.incomeRootPath ?? DEFAULT_ROOTS.incomeRootPath,
-  }
-}
 
 // A valid account path is colon-segmented with no empty segments and no surrounding
 // whitespace — rejects '', ':x', 'x:', 'x::y'.

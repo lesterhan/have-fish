@@ -18,7 +18,7 @@
     createCoverage,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
-  import { isUnderRoot } from '$lib/components/accounts/accountPaths'
+  import { rootsFrom, surfaceOf } from '$lib/components/accounts/accountPaths'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
@@ -176,13 +176,15 @@
   // storing it negated. That follows from the account, so it is shown as a fact with an
   // override available, not as a switch — flipping it mid-review silently re-signs every
   // amount in the table.
+  //
+  // Asked of the account's resolved type, not of where its path sits: a card at `信用卡:visa`
+  // tagged Liability is a liability, and defaulting it to the un-negated sign because its root
+  // is not the configured one was BUG-007 on the one surface where it flips amounts.
   let derivedLiabilities = $derived.by(() => {
-    if (!preview) return false
-    const root =
-      settingsStore.value?.defaultLiabilitiesRootPath ?? 'liabilities'
-    const path =
-      accounts.find((a) => a.id === preview!.defaultAccountId)?.path ?? ''
-    return isUnderRoot(path, root)
+    const defaultAccountId = preview?.defaultAccountId
+    const account = accounts.find((a) => a.id === defaultAccountId)
+    if (!account) return false
+    return surfaceOf(account, rootsFrom(settingsStore.value)) === 'liabilities'
   })
   let importAsLiabilities = $derived(liabilitiesOverride ?? derivedLiabilities)
 

@@ -11,11 +11,18 @@ import {
   importRules,
   postings,
   transactions,
-  userSettings,
 } from '../db/schema'
 import type { ErrorBody } from '../errors'
 import { errorBody, fail, failWith } from '../errors'
 import { cleanDescription, merchantKey } from '../import/merchant'
+import { loadClassifySettings } from '../postings/classify-service'
+import {
+  accountTypeOf,
+  type ClassifySettings,
+  classifyPosting,
+  isExpenseSubject,
+  type RolePosting,
+} from '../postings/roles'
 import { asField, parseBody, text } from '../validation'
 
 // Re-exported for callers that imported it from here before it moved to import/merchant.ts.
@@ -164,6 +171,22 @@ app.post('/', async (c) => {
   return c.json(created, 201)
 })
 
+// The legs of one transaction that say which expense account its description maps to.
+//
+// By RESOLVED type, not by the expenses root: a tagged category at an atypical root is as
+// much a spend as one under `expenses:`, and a bare `expenses` account is one too. A Fish Pie
+// clearing leg is never the answer, whatever it is tagged. When a transaction also carries a
+// designated fee or conversion leg of expense type — a Wise spend with its fee — the spend is
+// the leg that means something, so the plumbing is set aside; a transaction that is *only* a
+// fee still maps to the fee account, because that is what its description is about.
+function expenseLegs(legs: RolePosting[], settings: ClassifySettings): RolePosting[] {
+  const typed = legs.filter(
+    (p) => accountTypeOf(p, settings) === 'expense' && classifyPosting(p, settings) !== 'share',
+  )
+  const spends = typed.filter((p) => isExpenseSubject(p, settings))
+  return spends.length > 0 ? spends : typed
+}
+
 // POST /api/rules/mine
 // Analyzes transaction history and writes new 'suggested' rules.
 // Considers any transaction with exactly one expense posting (regular, Fish Pie, and
@@ -175,19 +198,16 @@ app.post('/', async (c) => {
 app.post('/mine', async (c) => {
   const userId = c.get('userId')
 
-  const [settings] = await db
-    .select({ defaultExpensesRootPath: userSettings.defaultExpensesRootPath })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
-  const expensesRoot = settings?.defaultExpensesRootPath ?? 'expenses'
+  const settings = await loadClassifySettings(userId)
 
-  // Fetch all postings for non-deleted transactions, with account paths
+  // Fetch all postings for non-deleted transactions, with the account's path and stored type
   const rows = await db
     .select({
       txId: transactions.id,
       description: transactions.description,
       accountId: postings.accountId,
       accountPath: accounts.path,
+      accountType: accounts.type,
     })
     .from(transactions)
     .innerJoin(
@@ -198,13 +218,11 @@ app.post('/mine', async (c) => {
     .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
 
   // Group postings by transaction id
-  const byTx = new Map<
-    string,
-    { description: string | null; postings: { accountId: string; accountPath: string }[] }
-  >()
-  for (const row of rows) {
-    if (!byTx.has(row.txId)) byTx.set(row.txId, { description: row.description, postings: [] })
-    byTx.get(row.txId)!.postings.push({ accountId: row.accountId, accountPath: row.accountPath })
+  const byTx = new Map<string, { description: string | null; postings: RolePosting[] }>()
+  for (const { txId, description, ...leg } of rows) {
+    const tx = byTx.get(txId) ?? { description, postings: [] }
+    tx.postings.push(leg)
+    byTx.set(txId, tx)
   }
 
   // Count (normalized description, expenseAccountId) pairs. Any transaction with exactly
@@ -214,7 +232,7 @@ app.post('/mine', async (c) => {
   const pairCounts = new Map<string, { pattern: string; accountId: string; count: number }>()
   for (const { description, postings: txPostings } of byTx.values()) {
     if (!description) continue
-    const expensePostings = txPostings.filter((p) => p.accountPath.startsWith(`${expensesRoot}:`))
+    const expensePostings = expenseLegs(txPostings, settings)
     const expensePosting = expensePostings[0]
     // Exactly one expense leg, or the transaction says nothing about which account a
     // pattern maps to.
