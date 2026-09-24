@@ -92,7 +92,8 @@ export const ACCOUNT_SURFACES: readonly Surface[] = ['assets', 'liabilities', 'e
  * The minimal shape every surface question is really asked about.
  *
  * `resolvedType` is what `GET /api/accounts` and `GET /api/accounts/balances` both report:
- * the stored override, else what the path root infers. Optional because a caller may be
+ * the account's own override, else its nearest tagged ancestor's, else what the path root
+ * infers. Optional because a caller may be
  * holding a payload that predates the field; absent means "ask the path", which is exactly
  * what this module did before the field existed.
  */

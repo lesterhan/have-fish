@@ -406,6 +406,32 @@ describe('reports', () => {
     })
   })
 
+  // Decision #412: tagging the top of an atypical tree types the whole tree, so its untagged
+  // categories are spending like any other.
+  it('counts spend into an untagged category whose parent is tagged Expense', async () => {
+    const source = await createAccount(cookie, 'assets:chq')
+    const top = await createAccount(cookie, '花钱')
+    const rent = await createAccount(cookie, '花钱:房租')
+    await setType(cookie, top, 'expense')
+    await createTransaction(cookie, '2025-01-15', 'Rent', [
+      { accountId: source, amount: '-900.00', currency: 'CNY' },
+      { accountId: rent, amount: '900.00', currency: 'CNY' },
+    ])
+
+    const res = await request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
+      headers: { Cookie: cookie },
+    })
+    const body = (await res.json()) as { total: Record<string, string> }
+    expect(body.total.CNY).toBe('900.00')
+
+    const listed = await request('/api/transactions?from=2025-01-01&to=2025-01-31&spending=true', {
+      headers: { Cookie: cookie },
+    })
+    expect(((await listed.json()) as { description: string }[]).map((t) => t.description)).toEqual([
+      'Rent',
+    ])
+  })
+
   // The spending page lists transactions beside the totals. It used to fetch them by the path
   // root of whichever category came first, so once the totals spanned two roots the list showed
   // one root's spending and the figure above it the sum of both.

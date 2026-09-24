@@ -19,7 +19,7 @@
 
 import {
   type AccountType,
-  type AccountTypeRoots,
+  type AccountTypeContext,
   resolveStoredOrInferredType,
   toClassifierType,
 } from './account-type'
@@ -44,7 +44,8 @@ export type RolePosting = {
 }
 
 export type ClassifySettings = {
-  roots: AccountTypeRoots
+  // Roots plus tagged ancestors: everything `resolveStoredOrInferredType` needs.
+  roots: AccountTypeContext
   // Accounts explicitly designated as transfer/bank fees (from csvParsers.defaultFeeAccountId).
   feeAccountIds: ReadonlySet<string>
   // Accounts explicitly designated as the FX rate-balancing leg (userSettings.defaultConversionAccountId).

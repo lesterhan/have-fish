@@ -6,7 +6,7 @@ const FEE = 'fee-account-id'
 const CONV = 'conversion-account-id'
 
 const settings: ClassifySettings = {
-  roots: DEFAULT_ROOTS,
+  roots: { ...DEFAULT_ROOTS, tagged: new Map() },
   feeAccountIds: new Set([FEE]),
   conversionAccountIds: new Set([CONV]),
   clearingPrefix: 'assets:receivable',

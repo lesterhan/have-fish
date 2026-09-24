@@ -3,7 +3,7 @@ import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
 import type { ErrorBody } from '../errors'
 import { errorBody } from '../errors'
-import { loadAccountTypeRoots } from './classify-service'
+import { loadAccountTypeContext } from './classify-service'
 import {
   detectMalformedFxSpend,
   type HealPosting,
@@ -22,7 +22,7 @@ export type HealContext = {
 // Loads the per-user classification roots and the configured conversion account used as the
 // repair target. Falls back to the schema defaults when the user has no settings row.
 export async function loadHealContext(userId: string): Promise<HealContext> {
-  const settings = await loadAccountTypeRoots(userId)
+  const settings = await loadAccountTypeContext(userId)
   const [s] = await db
     .select({ conversionAccountId: userSettings.defaultConversionAccountId })
     .from(userSettings)

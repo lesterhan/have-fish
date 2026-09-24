@@ -12,6 +12,7 @@ const settings: HealSettings = {
   liabilitiesRootPath: 'liabilities',
   equityRootPath: 'equity',
   incomeRootPath: 'income',
+  tagged: new Map(),
 }
 
 // The canonical malformed shape: coffee for 360 CZK funded from USD, no CZK held.
@@ -195,6 +196,7 @@ describe('detectMalformedFxSpend', () => {
       liabilitiesRootPath: 'debt',
       equityRootPath: 'equity',
       incomeRootPath: 'income',
+      tagged: new Map(),
     }
     const finding = detectMalformedFxSpend(custom, customSettings)
     expect(finding).not.toBeNull()

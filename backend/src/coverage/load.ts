@@ -13,6 +13,7 @@ import { isClearingAccountPath } from '../fish-pie-accounts'
 import {
   DEFAULT_ROOTS,
   resolveStoredOrInferredType,
+  tagsFrom,
   toClassifierType,
 } from '../postings/account-type'
 import { assembleAccount, type CatchUpAccount, type CatchUpAccountInput } from './catch-up'
@@ -104,6 +105,8 @@ export async function loadCoverageContext(
     .select({ id: accounts.id, path: accounts.path, name: accounts.name, type: accounts.type })
     .from(accounts)
     .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+  // Every account is in hand, so the tagged ancestors an untagged account inherits from are too.
+  const typeCtx = { ...roots, tagged: tagsFrom(allAccounts) }
 
   const candidates = allAccounts.filter((a) => {
     if (hidden.has(a.id) || illiquid.has(a.id)) return false
@@ -111,7 +114,7 @@ export async function loadCoverageContext(
     // generated from group expenses and settlements, never imported from a statement, so
     // they can no more fall behind than an expense account can.
     if (isClearingAccountPath(a.path)) return false
-    const resolved = resolveStoredOrInferredType(a, roots)
+    const resolved = resolveStoredOrInferredType(a, typeCtx)
     if (!resolved) return false
     const type = toClassifierType(resolved)
     return type === 'asset' || type === 'liability'

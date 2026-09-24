@@ -1604,4 +1604,117 @@ describe('accounts', () => {
       expect((await del(id)).status).toBe(404)
     })
   })
+
+  // Decision #412: an untagged account takes its nearest tagged ancestor's type, as hledger
+  // does. Tagging the top of an atypical tree is one click, and the whole tree follows.
+  describe('type inheritance', () => {
+    async function create(path: string, as = cookie): Promise<string> {
+      const res = await request('/api/accounts', {
+        method: 'POST',
+        headers: { Cookie: as, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path }),
+      })
+      return ((await res.json()) as Account).id
+    }
+
+    async function tag(id: string, type: string | null, as = cookie) {
+      const res = await request(`/api/accounts/${id}`, {
+        method: 'PATCH',
+        headers: { Cookie: as, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      })
+      expect(res.status).toBe(200)
+      return res.json() as Promise<{ resolvedType: string | null }>
+    }
+
+    async function resolved(): Promise<Record<string, string | null>> {
+      const res = await request('/api/accounts', { headers: { Cookie: cookie } })
+      const all = (await res.json()) as { path: string; resolvedType: string | null }[]
+      return Object.fromEntries(all.map((a) => [a.path, a.resolvedType]))
+    }
+
+    async function balancePaths(qs = ''): Promise<string[]> {
+      const res = await request(`/api/accounts/balances${qs}`, { headers: { Cookie: cookie } })
+      return ((await res.json()) as { path: string }[]).map((a) => a.path).sort()
+    }
+
+    it('resolves untagged children to their tagged parent on GET /api/accounts', async () => {
+      const top = await create('储蓄')
+      await create('储蓄:中国银行')
+      await create('储蓄:现金:钱包')
+      const wallet = await create('储蓄:现金')
+      await tag(top, 'asset')
+      await tag(wallet, 'cash')
+
+      const types = await resolved()
+      expect(types['储蓄:中国银行']).toBe('asset')
+      expect(types['储蓄:现金:钱包']).toBe('cash')
+    })
+
+    it('puts the children of a tagged parent on the balances surface, and takes them off', async () => {
+      const top = await create('储蓄')
+      await create('储蓄:中国银行')
+      await tag(top, 'asset')
+      expect(await balancePaths()).toContain('储蓄:中国银行')
+      expect(await balancePaths('?include=unfiled')).toContain('储蓄:中国银行')
+
+      await tag(top, null)
+      expect(await balancePaths()).not.toContain('储蓄:中国银行')
+      // Untagged and unrooted again: unfiled, which is the only group that shows it.
+      expect(await balancePaths('?include=unfiled')).toContain('储蓄:中国银行')
+    })
+
+    it('answers ?types=cash with the children of a Cash-tagged wallet', async () => {
+      const wallet = await create('钱包')
+      await create('钱包:日元')
+      await tag(wallet, 'cash')
+      expect(await balancePaths('?types=cash')).toEqual(['钱包', '钱包:日元'])
+    })
+
+    it('lets a tag below a root carry its subtree off the root', async () => {
+      const rrsp = await create('expenses:rrsp')
+      await create('expenses:rrsp:tfsa')
+      await tag(rrsp, 'asset')
+      expect(await balancePaths()).toContain('expenses:rrsp:tfsa')
+    })
+
+    it('keeps an unfiled child out of the unfiled group once its parent is tagged a category', async () => {
+      const top = await create('花钱')
+      await create('花钱:房租')
+      await tag(top, 'expense')
+      expect(await balancePaths('?include=unfiled')).not.toContain('花钱:房租')
+    })
+
+    it("never inherits from another user's tag on the same path", async () => {
+      const other = await createTestUser('inherit-other@example.com')
+      await tag(await create('储蓄', other), 'asset', other)
+      await create('储蓄:中国银行')
+      expect((await resolved())['储蓄:中国银行']).toBeNull()
+    })
+
+    it('GET /:id says what Auto would pick and where it came from', async () => {
+      const top = await create('花钱')
+      const rent = await create('花钱:房租')
+      await tag(top, 'expense')
+      await tag(rent, 'asset')
+
+      const res = await request(`/api/accounts/${rent}`, { headers: { Cookie: cookie } })
+      const acct = (await res.json()) as {
+        resolvedType: string | null
+        inferredType: string | null
+        inheritedFrom: string | null
+      }
+      expect(acct.resolvedType).toBe('asset')
+      expect(acct.inferredType).toBe('expense')
+      expect(acct.inheritedFrom).toBe('花钱')
+    })
+
+    it('GET /:id has no inheritedFrom for a type inferred from a root', async () => {
+      const id = await create('expenses:food')
+      const res = await request(`/api/accounts/${id}`, { headers: { Cookie: cookie } })
+      const acct = (await res.json()) as { inferredType: string | null; inheritedFrom: unknown }
+      expect(acct.inferredType).toBe('expense')
+      expect(acct.inheritedFrom).toBeNull()
+    })
+  })
 })

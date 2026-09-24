@@ -16,7 +16,11 @@
 
 import { and, eq, inArray, isNull, like, not, or, type SQL } from 'drizzle-orm'
 import { accounts } from '../db/schema'
-import { type AccountTypeRoots, STORED_ACCOUNT_TYPES, type StoredAccountType } from './account-type'
+import {
+  type AccountTypeContext,
+  STORED_ACCOUNT_TYPES,
+  type StoredAccountType,
+} from './account-type'
 
 // `or()` and `and()` type their result as possibly-undefined because they accept zero
 // conditions. Every call here passes at least one, and a condition silently dropped would
@@ -55,36 +59,57 @@ export function noUsableOverrideCondition(): SQL {
 /**
  * Accounts whose RESOLVED type is one of `types`, over-inclusively.
  *
- * An account matches either because it carries that STORED override, or because it carries
- * no usable override and its PATH infers to it. `cash` and `conversion` are override-only —
- * inference never produces them — so they contribute no path branch at all: asking for Cash
- * alone is a test of the stored column and nothing else.
+ * An account matches because it carries that STORED override, or because it carries no usable
+ * override and sits at or under something that would hand it that type: a tagged account of
+ * that type (inheritance), or a configured root that infers it. Nearest-wins is the resolver's
+ * job, not this one's — `expenses:rrsp:tfsa` under a tagged-Asset `expenses:rrsp` matches the
+ * expense root branch here and is dropped by the verdict in JS, which is the over-inclusion the
+ * contract allows. `cash` and `conversion` have no root, so they reach past the stored column
+ * only through a tagged ancestor.
  */
 export function typeFilterCondition(
   types: ReadonlySet<StoredAccountType>,
-  roots: AccountTypeRoots,
+  ctx: AccountTypeContext,
 ): SQL {
   const branches: SQL[] = [inArray(accounts.type, [...types])]
 
   // Roots whose inferred type was requested. Only the five inferable types have one.
   const inferableRoots: Partial<Record<StoredAccountType, string>> = {
-    asset: roots.assetsRootPath,
-    liability: roots.liabilitiesRootPath,
-    equity: roots.equityRootPath,
-    expense: roots.expensesRootPath,
-    income: roots.incomeRootPath,
+    asset: ctx.assetsRootPath,
+    liability: ctx.liabilitiesRootPath,
+    equity: ctx.equityRootPath,
+    expense: ctx.expensesRootPath,
+    income: ctx.incomeRootPath,
   }
   const wantedRoots = [...types].map((t) => inferableRoots[t]).filter((r): r is string => !!r)
+  const wantedTags = [...ctx.tagged].filter(([, type]) => types.has(type)).map(([path]) => path)
+  const sources = [...wantedRoots, ...wantedTags]
 
-  if (wantedRoots.length > 0) {
-    const underWantedRoot = wantedRoots.map(underPathCondition)
+  if (sources.length > 0) {
     branches.push(
       required(
-        and(noUsableOverrideCondition(), or(...underWantedRoot)),
-        'inferred branch of the type filter',
+        and(noUsableOverrideCondition(), or(...sources.map(underPathCondition))),
+        'inherited or inferred branch of the type filter',
       ),
     )
   }
 
   return required(or(...branches), 'type filter')
+}
+
+/**
+ * Accounts at or under anything that could give an untagged account a type — every configured
+ * root and every tagged account. Its negation, beside `noUsableOverrideCondition`, is the
+ * over-inclusive half of "unfiled".
+ */
+export function underAnyTypeSourceCondition(ctx: AccountTypeContext): SQL {
+  const sources = [
+    ctx.assetsRootPath,
+    ctx.liabilitiesRootPath,
+    ctx.equityRootPath,
+    ctx.expensesRootPath,
+    ctx.incomeRootPath,
+    ...ctx.tagged.keys(),
+  ]
+  return required(or(...sources.map(underPathCondition)), 'any type source')
 }
