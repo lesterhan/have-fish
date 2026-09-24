@@ -9,6 +9,7 @@
   import WizardStepConfirm from './WizardStepConfirm.svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import { errorMessage } from '$lib/copy/errors'
+  import { type FlowState, PARSER_STEP, parserFlow } from './parserFlow'
 
   interface Props {
     type: 'asset' | 'liability' | 'equity'
@@ -26,50 +27,31 @@
 
   const STEP = {
     ACCOUNT: 'account',
-    PARSER_UPLOAD: 'parser-upload',
-    PARSER_COLUMNS: 'parser-columns',
-    PARSER_MULTICURRENCY: 'parser-multicurrency',
-    CONFIRM: 'confirm',
+    PARSER_UPLOAD: PARSER_STEP.UPLOAD,
+    PARSER_COLUMNS: PARSER_STEP.COLUMNS,
+    PARSER_MULTICURRENCY: PARSER_STEP.MULTICURRENCY,
+    CONFIRM: PARSER_STEP.CONFIRM,
   } as const
 
   type WizardStep = (typeof STEP)[keyof typeof STEP]
   let step = $state<WizardStep>(STEP.ACCOUNT)
   let parserSkipped = $state(false)
 
-  const NEXT: Record<WizardStep, WizardStep | (() => WizardStep)> = {
-    [STEP.ACCOUNT]: STEP.PARSER_UPLOAD,
-    [STEP.PARSER_UPLOAD]: STEP.PARSER_COLUMNS,
-    [STEP.PARSER_COLUMNS]: () =>
-      isMultiCurrency ? STEP.PARSER_MULTICURRENCY : STEP.CONFIRM,
-    [STEP.PARSER_MULTICURRENCY]: STEP.CONFIRM,
-    [STEP.CONFIRM]: STEP.CONFIRM,
-  }
+  const flow = parserFlow(STEP.ACCOUNT)
 
-  const BACK: Record<WizardStep, WizardStep | (() => WizardStep)> = {
-    [STEP.ACCOUNT]: STEP.ACCOUNT,
-    [STEP.PARSER_UPLOAD]: STEP.ACCOUNT,
-    [STEP.PARSER_COLUMNS]: STEP.PARSER_UPLOAD,
-    [STEP.PARSER_MULTICURRENCY]: STEP.PARSER_COLUMNS,
-    [STEP.CONFIRM]: () =>
-      parserSkipped
-        ? STEP.PARSER_UPLOAD
-        : isMultiCurrency
-          ? STEP.PARSER_MULTICURRENCY
-          : STEP.PARSER_COLUMNS,
+  function go(s: FlowState<typeof STEP.ACCOUNT>) {
+    step = s.step
+    parserSkipped = s.parserSkipped
   }
-
   function next() {
-    const t = NEXT[step]
-    step = typeof t === 'function' ? t() : t
+    go(flow.next({ step, parserSkipped }, isMultiCurrency))
   }
   function back() {
-    const t = BACK[step]
-    step = typeof t === 'function' ? t() : t
+    go(flow.back({ step, parserSkipped }, isMultiCurrency))
   }
   function skip() {
     resetStep2()
-    parserSkipped = true
-    step = STEP.CONFIRM
+    go(flow.skip())
   }
   function close() {
     open = false
