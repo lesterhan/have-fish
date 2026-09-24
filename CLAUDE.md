@@ -28,6 +28,7 @@ Three guiding principles that should inform every feature decision:
 ```
 have-fish/
 ├── backend/
+│   ├── ARCHITECTURE.md      # Map of the backend: request flow, layers, every write path
 │   ├── src/
 │   │   ├── app.ts           # Hono app (import this in tests)
 │   │   ├── index.ts         # Bun server entry point (do not import in tests)
