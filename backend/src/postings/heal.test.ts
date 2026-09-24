@@ -11,6 +11,7 @@ const settings: HealSettings = {
   assetsRootPath: 'assets',
   liabilitiesRootPath: 'liabilities',
   equityRootPath: 'equity',
+  incomeRootPath: 'income',
 }
 
 // The canonical malformed shape: coffee for 360 CZK funded from USD, no CZK held.
@@ -19,6 +20,7 @@ const malformed: HealPosting[] = [
     id: 'p1',
     accountId: 'usd',
     accountPath: 'assets:bank:savings:usd',
+    accountType: null,
     amount: '-17.29',
     currency: 'USD',
   },
@@ -26,14 +28,23 @@ const malformed: HealPosting[] = [
     id: 'p2',
     accountId: 'coffee',
     accountPath: 'expenses:food:coffee',
+    accountType: null,
     amount: '17.24',
     currency: 'USD',
   },
-  { id: 'p3', accountId: 'fee', accountPath: 'expenses:banking', amount: '0.05', currency: 'USD' },
+  {
+    id: 'p3',
+    accountId: 'fee',
+    accountPath: 'expenses:banking',
+    accountType: null,
+    amount: '0.05',
+    currency: 'USD',
+  },
   {
     id: 'p4',
     accountId: 'coffee',
     accountPath: 'expenses:food:coffee',
+    accountType: null,
     amount: '-360.00',
     currency: 'CZK',
   },
@@ -41,6 +52,7 @@ const malformed: HealPosting[] = [
     id: 'p5',
     accountId: 'czk',
     accountPath: 'assets:bank:savings:czk',
+    accountType: null,
     amount: '360.00',
     currency: 'CZK',
   },
@@ -64,6 +76,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p1',
         accountId: 'usd',
         accountPath: 'assets:bank:savings:usd',
+        accountType: null,
         amount: '-17.29',
         currency: 'USD',
       },
@@ -71,6 +84,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p2',
         accountId: 'equity',
         accountPath: 'equity:conversions',
+        accountType: null,
         amount: '17.24',
         currency: 'USD',
       },
@@ -78,6 +92,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p3',
         accountId: 'fee',
         accountPath: 'expenses:banking',
+        accountType: null,
         amount: '0.05',
         currency: 'USD',
       },
@@ -85,6 +100,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p4',
         accountId: 'equity',
         accountPath: 'equity:conversions',
+        accountType: null,
         amount: '-360.00',
         currency: 'CZK',
       },
@@ -92,6 +108,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p5',
         accountId: 'coffee',
         accountPath: 'expenses:food:coffee',
+        accountType: null,
         amount: '360.00',
         currency: 'CZK',
       },
@@ -105,6 +122,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p1',
         accountId: 'fee',
         accountPath: 'expenses:banking:fee:wise',
+        accountType: null,
         amount: '2.34',
         currency: 'EUR',
       },
@@ -112,6 +130,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p2',
         accountId: 'eur',
         accountPath: 'assets:wise:eur',
+        accountType: null,
         amount: '-497.66',
         currency: 'EUR',
       },
@@ -119,6 +138,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p3',
         accountId: 'equity',
         accountPath: 'equity:conversions',
+        accountType: null,
         amount: '495.32',
         currency: 'EUR',
       },
@@ -126,6 +146,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p4',
         accountId: 'equity',
         accountPath: 'equity:conversions',
+        accountType: null,
         amount: '-3949.90',
         currency: 'CNY',
       },
@@ -133,6 +154,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p5',
         accountId: 'cny',
         accountPath: 'assets:wise:cny',
+        accountType: null,
         amount: '3949.90',
         currency: 'CNY',
       },
@@ -146,6 +168,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p1',
         accountId: 'chq',
         accountPath: 'assets:bank:chequing',
+        accountType: null,
         amount: '-45.20',
         currency: 'CAD',
       },
@@ -153,6 +176,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p2',
         accountId: 'food',
         accountPath: 'expenses:food:groceries',
+        accountType: null,
         amount: '45.20',
         currency: 'CAD',
       },
@@ -170,6 +194,7 @@ describe('detectMalformedFxSpend', () => {
       assetsRootPath: 'funds',
       liabilitiesRootPath: 'debt',
       equityRootPath: 'equity',
+      incomeRootPath: 'income',
     }
     const finding = detectMalformedFxSpend(custom, customSettings)
     expect(finding).not.toBeNull()
@@ -183,6 +208,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p1',
         accountId: 'usd',
         accountPath: 'assets:bank:savings:usd',
+        accountType: null,
         amount: '-17.29',
         currency: 'USD',
       },
@@ -190,6 +216,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p2',
         accountId: 'coffee',
         accountPath: 'expenses:food:coffee',
+        accountType: null,
         amount: '17.29',
         currency: 'USD',
       },
@@ -197,6 +224,7 @@ describe('detectMalformedFxSpend', () => {
         id: 'p3',
         accountId: 'czk',
         accountPath: 'assets:bank:savings:czk',
+        accountType: null,
         amount: '360.00',
         currency: 'CZK',
       },
@@ -204,11 +232,38 @@ describe('detectMalformedFxSpend', () => {
         id: 'p4',
         accountId: 'czk2',
         accountPath: 'assets:other:czk',
+        accountType: null,
         amount: '-360.00',
         currency: 'CZK',
       },
     ]
     expect(detectMalformedFxSpend(single, settings)).toBeNull()
+  })
+
+  // BUG-007: detection judged each leg by its path root, so a tagged ledger at atypical roots
+  // was invisible to it, and a leg tagged against its root was judged by the root instead.
+  describe('by resolved type', () => {
+    it('detects the shape in a ledger whose roots are tagged rather than inferred', () => {
+      const tagged: HealPosting[] = malformed.map((p) => ({
+        ...p,
+        accountPath: p.accountPath
+          .replace(/^expenses:food:coffee/, '花钱:咖啡')
+          .replace(/^expenses:banking/, '花钱:银行')
+          .replace(/^assets:bank:savings/, '储蓄'),
+        accountType: p.accountPath.startsWith('expenses') ? 'expense' : 'cash',
+      }))
+      const finding = detectMalformedFxSpend(tagged, settings)
+      expect(finding?.expenseAccountPath).toBe('花钱:咖啡')
+      expect(finding?.phantomPostingId).toBe('p5')
+    })
+
+    it('reads a bridge tagged Conversion as a genuine conversion, whatever its path', () => {
+      // The same legs, but the account doing the bridging says it is the conversion account.
+      const bridged = malformed.map((p) =>
+        p.accountId === 'coffee' ? { ...p, accountType: 'conversion' } : p,
+      )
+      expect(detectMalformedFxSpend(bridged, settings)).toBeNull()
+    })
   })
 })
 

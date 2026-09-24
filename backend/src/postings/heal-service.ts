@@ -3,10 +3,12 @@ import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
 import type { ErrorBody } from '../errors'
 import { errorBody } from '../errors'
+import { loadAccountTypeRoots } from './classify-service'
 import {
   detectMalformedFxSpend,
   type HealPosting,
   type HealSettings,
+  isBalanceLeg,
   type MalformedFinding,
   planFxSpendRepair,
 } from './heal'
@@ -20,23 +22,11 @@ export type HealContext = {
 // Loads the per-user classification roots and the configured conversion account used as the
 // repair target. Falls back to the schema defaults when the user has no settings row.
 export async function loadHealContext(userId: string): Promise<HealContext> {
+  const settings = await loadAccountTypeRoots(userId)
   const [s] = await db
-    .select({
-      expensesRootPath: userSettings.defaultExpensesRootPath,
-      assetsRootPath: userSettings.defaultAssetsRootPath,
-      liabilitiesRootPath: userSettings.defaultLiabilitiesRootPath,
-      equityRootPath: userSettings.defaultEquityRootPath,
-      conversionAccountId: userSettings.defaultConversionAccountId,
-    })
+    .select({ conversionAccountId: userSettings.defaultConversionAccountId })
     .from(userSettings)
     .where(eq(userSettings.userId, userId))
-
-  const settings: HealSettings = {
-    expensesRootPath: s?.expensesRootPath ?? 'expenses',
-    assetsRootPath: s?.assetsRootPath ?? 'assets',
-    liabilitiesRootPath: s?.liabilitiesRootPath ?? 'liabilities',
-    equityRootPath: s?.equityRootPath ?? 'equity',
-  }
 
   let conversionAccountPath: string | null = null
   if (s?.conversionAccountId) {
@@ -68,6 +58,7 @@ async function fetchPostingsWithPaths(
       transactionId: postings.transactionId,
       accountId: postings.accountId,
       accountPath: accounts.path,
+      accountType: accounts.type,
       amount: postings.amount,
       currency: postings.currency,
     })
@@ -90,6 +81,7 @@ async function fetchPostingsWithPaths(
       id: r.id,
       accountId: r.accountId,
       accountPath: r.accountPath,
+      accountType: r.accountType,
       amount: r.amount,
       currency: r.currency,
     })
@@ -159,19 +151,13 @@ export async function malformedFxSpendsByAccount(
   ctx: HealContext,
 ): Promise<{ byAccount: Map<string, Set<string>>; allTxIds: Set<string> }> {
   const candidates = await findMalformedFxSpends(userId, ctx)
-  const { assetsRootPath, liabilitiesRootPath } = ctx.settings
-  const isBalance = (path: string) =>
-    path === assetsRootPath ||
-    path.startsWith(`${assetsRootPath}:`) ||
-    path === liabilitiesRootPath ||
-    path.startsWith(`${liabilitiesRootPath}:`)
 
   const byAccount = new Map<string, Set<string>>()
   const allTxIds = new Set<string>()
   for (const c of candidates) {
     allTxIds.add(c.transaction.id)
     for (const p of c.postings) {
-      if (!isBalance(p.accountPath)) continue
+      if (!isBalanceLeg(p, ctx.settings)) continue
       const set = byAccount.get(p.accountId) ?? new Set<string>()
       set.add(c.transaction.id)
       byAccount.set(p.accountId, set)

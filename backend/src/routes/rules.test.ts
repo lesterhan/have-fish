@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
-import { accounts, importRules, postings, transactions } from '../db/schema'
+import { accounts, csvParsers, importRules, postings, transactions } from '../db/schema'
 import { clearDatabase, createTestUser, request } from '../test-utils'
 
 async function createAccount(userId: string, path: string) {
@@ -136,6 +136,79 @@ describe('rules', () => {
     expect(rules).toBeArrayOfSize(1)
     expect(rules[0].accountPath).toBe('expenses:food:dining')
     expect(rules[0].matchCount).toBe(2)
+  })
+
+  // BUG-007: mining found expense legs by the expenses root, so a category tagged Expense
+  // elsewhere never got a suggestion, and one filed under the root but tagged otherwise did.
+  describe('expense legs by resolved type', () => {
+    async function tag(id: string, type: string) {
+      await db.update(accounts).set({ type }).where(eq(accounts.id, id))
+    }
+
+    async function mine(): Promise<{ pattern: string; accountPath: string }[]> {
+      await request('/api/rules/mine', { method: 'POST', headers: { Cookie: cookie } })
+      return (await request('/api/rules', { headers: { Cookie: cookie } })).json()
+    }
+
+    async function designateFee(accountId: string) {
+      await db.insert(csvParsers).values({
+        userId,
+        name: 'Wise',
+        normalizedHeader: 'amount|currency|date|description',
+        columnMapping: { date: 'date', amount: 'amount' },
+        isMultiCurrency: true,
+        defaultFeeAccountId: accountId,
+      })
+    }
+
+    it('mines a category tagged Expense outside the expenses root', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      const rent = await createAccount(userId, '花钱:房租')
+      await tag(rent.id, 'expense')
+      await seedTransaction(userId, 'LANDLORD', chequing.id, rent.id)
+      await seedTransaction(userId, 'LANDLORD', chequing.id, rent.id)
+
+      const rules = await mine()
+      expect(rules.map((r) => r.accountPath)).toEqual(['花钱:房租'])
+    })
+
+    it('does not mine an account under the expenses root that is tagged otherwise', async () => {
+      const chequing = await createAccount(userId, 'assets:chequing')
+      const rrsp = await createAccount(userId, 'expenses:rrsp')
+      await tag(rrsp.id, 'asset')
+      await seedTransaction(userId, 'RRSP CONTRIBUTION', chequing.id, rrsp.id)
+      await seedTransaction(userId, 'RRSP CONTRIBUTION', chequing.id, rrsp.id)
+
+      expect(await mine()).toEqual([])
+    })
+
+    it('mines the spend of a transaction that also carries its fee', async () => {
+      const wise = await createAccount(userId, 'assets:wise:cad')
+      const fee = await createAccount(userId, 'expenses:banking:fee')
+      const cafe = await createAccount(userId, 'expenses:food:cafe')
+      await designateFee(fee.id)
+      for (let i = 0; i < 2; i++) {
+        await seedMultiPostingTransaction(userId, 'CAFE LOUVRE', [
+          { accountId: wise.id, amount: '-5.05', currency: 'CAD' },
+          { accountId: fee.id, amount: '0.05', currency: 'CAD' },
+          { accountId: cafe.id, amount: '5.00', currency: 'CAD' },
+        ])
+      }
+
+      const rules = await mine()
+      expect(rules.map((r) => r.accountPath)).toEqual(['expenses:food:cafe'])
+    })
+
+    it('still maps a transaction that is only a fee to the fee account', async () => {
+      const wise = await createAccount(userId, 'assets:wise:cad')
+      const fee = await createAccount(userId, 'expenses:banking:fee')
+      await designateFee(fee.id)
+      await seedTransaction(userId, 'WISE MONTHLY FEE', wise.id, fee.id)
+      await seedTransaction(userId, 'WISE MONTHLY FEE', wise.id, fee.id)
+
+      const rules = await mine()
+      expect(rules.map((r) => r.accountPath)).toEqual(['expenses:banking:fee'])
+    })
   })
 
   it('groups near-duplicate descriptions (different store numbers) into one rule', async () => {

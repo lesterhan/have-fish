@@ -47,3 +47,26 @@ export async function loadClassifySettings(userId: string): Promise<ClassifySett
 
   return { roots, feeAccountIds, conversionAccountIds, clearingPrefix: CLEARING_PREFIX }
 }
+
+// Loads this user's configured account-type root paths, falling back to schema defaults when
+// no settings row exists. Shared by everything that resolves account types outside the role
+// classifier, which loads its roots alongside the fee and conversion designations above.
+export async function loadAccountTypeRoots(userId: string): Promise<AccountTypeRoots> {
+  const [s] = await db
+    .select({
+      assetsRootPath: userSettings.defaultAssetsRootPath,
+      liabilitiesRootPath: userSettings.defaultLiabilitiesRootPath,
+      equityRootPath: userSettings.defaultEquityRootPath,
+      expensesRootPath: userSettings.defaultExpensesRootPath,
+      incomeRootPath: userSettings.defaultIncomeRootPath,
+    })
+    .from(userSettings)
+    .where(eq(userSettings.userId, userId))
+  return {
+    assetsRootPath: s?.assetsRootPath ?? DEFAULT_ROOTS.assetsRootPath,
+    liabilitiesRootPath: s?.liabilitiesRootPath ?? DEFAULT_ROOTS.liabilitiesRootPath,
+    equityRootPath: s?.equityRootPath ?? DEFAULT_ROOTS.equityRootPath,
+    expensesRootPath: s?.expensesRootPath ?? DEFAULT_ROOTS.expensesRootPath,
+    incomeRootPath: s?.incomeRootPath ?? DEFAULT_ROOTS.incomeRootPath,
+  }
+}
