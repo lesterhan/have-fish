@@ -212,6 +212,8 @@ export type PossibleDuplicate = {
   date: string
   amount: string
   currency: string
+  // Set when the match was entered through Fish Pie: the split itself, or a settlement.
+  fishPieKind?: 'expense' | 'settlement' | undefined
   fishPieGroupId?: string | undefined
   fishPieGroupName?: string | undefined
 } | null
@@ -351,7 +353,7 @@ export async function importPreview(
 }
 
 export async function checkDuplicates(
-  rows: { accountId: string; date: string; amount: string }[],
+  rows: { accountId: string; date: string; amount: string; currency: string }[],
 ): Promise<(PossibleDuplicate | null)[]> {
   const res = await fetch(`${BASE}/api/import/check-duplicates`, {
     method: 'POST',
