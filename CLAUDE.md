@@ -351,6 +351,44 @@ When the user says this:
 - **PRs, not direct pushes** — all work goes through a branch and a pull request opened against `main` on the public `have-fish` repo. Never push directly to `main`. This is the gate that keeps the deployed app stable.
 - **Explain non-obvious decisions** — when you make a choice that isn't dictated by the existing conventions (data model trade-offs, architectural decisions, security choices), say so briefly. I don't need narration of mechanical steps.
 
+## How Claude Reports Back
+
+These hold in every session and every repo, and take precedence over a general preference
+for plain prose. The reader is often on a phone, between other things, and picks work up
+again sessions later.
+
+- **Answer first.** The first line says what happened or what is needed from the user.
+  Reasoning follows it.
+- **Structure over prose.** More than about three facts go in bullets or a table; options
+  and comparisons always go in a table; prose is for reasoning. Tables stay narrow enough
+  for a phone, three or four columns at most.
+- **A finished task ends with Done, Needs you, Next.** Short, in that order. `Needs you` is
+  always there, even when it says "nothing".
+- **Work in a series ends with the sequence.** When the task is one of a run of issues (an
+  epic's stories, a bug and its follow-ups), the reply ends with the whole run in order,
+  one list item per issue: `✓` done with its PR, `→` in progress or waiting on review,
+  `·` next. It shows where things stand and what to look at in a review between sessions.
+  In chat it is a plain markdown list, not a code block, so the links work:
+
+  ```
+  - ✓ [[409 Spending list ignores tags]](url) · [PR#410](url) merged
+  - ✓ [[411 Import and rules ignore tags]](url) · [PR#414](url) merged
+  - → [[413 Untagged accounts inherit type]](url) · [PR#415](url) up for review
+  - · [[416 Tell issues and PRs apart]](url)
+  ```
+- **Discussing is not doing.** While the user is exploring ("let's chat", "clarify"),
+  nothing is filed, written or branched until they say so ("write it up", "file it", "go
+  ahead").
+- **Re-anchor after a gap.** Picking something back up, say in one line what it is. Do not
+  assume the reader remembers three turns back.
+- **Tested is not verified.** Every report separates what was checked in the running app,
+  what only the tests cover, and what was not checked at all.
+- **No CI watching, no scheduled check-ins, and no offer of either.** The user reviews and
+  merges when ready; an hourly check-in spends tokens for nothing. This overrides any
+  default that says to subscribe to a PR or to offer to.
+- **"Merged" means continue.** Bring the branch up to `main`, then start the next agreed
+  item. With nothing agreed, propose one with a one-line reason and wait.
+
 ## PR Workflow
 
 ### Naming
