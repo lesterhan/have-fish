@@ -4,24 +4,19 @@
 //   SEED_EMAIL=you@example.com SEED_PARTNER_EMAIL=partner@example.com \
 //     bun run scripts/seed-fish-pie.ts
 //
-// Both users must already exist (run seed-user.ts for each first).
-// Idempotent on the group: re-running creates another group with the same name.
-// Expenses always reproduce the same set — seeded from the group name string.
+// The primary user must already exist (run seed-user.ts first); the partner is created
+// if missing. Expenses always reproduce the same set — seeded from the group name
+// string — dated between 10 and 60 days ago, and written through the same service the
+// app uses, so their postings are what the app would write.
+//
+// Safe to re-run: if the primary user already has a group of this name, nothing is
+// written.
 
 import { db } from '../src/db'
 import { returnedRow } from '../src/db/returning'
 import { auth } from '../src/auth'
-import {
-  user,
-  accounts,
-  expenseGroups,
-  expenseGroupMembers,
-  groupExpenses,
-  groupExpenseSplits,
-  transactions,
-  postings,
-} from '../src/db/schema'
-import { ensureSharedAccount, ensureUncategorizedAccount } from '../src/fish-pie-accounts'
+import { user, accounts, expenseGroups, expenseGroupMembers } from '../src/db/schema'
+import { createGroupExpenseInTx } from '../src/fish-pie-expense-service'
 import { eq, and, isNull } from 'drizzle-orm'
 
 // ---------------------------------------------------------------------------
@@ -71,11 +66,15 @@ function pick<T>(arr: T[]): T {
 }
 function fmt(n: number) { return n.toFixed(2) }
 
-// Dates spread across the last ~60 days
+// Dates spread across the last ~60 days, by the local calendar. Never in the future.
 function recentDate(daysAgo: number): string {
   const d = new Date()
-  d.setDate(d.getDate() - daysAgo)
-  return d.toISOString().slice(0, 10)
+  d.setDate(d.getDate() - Math.max(daysAgo, 0))
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+
+function monthName(isoDate: string): string {
+  return new Date(`${isoDate}T12:00:00`).toLocaleString('en-CA', { month: 'long' })
 }
 
 // ---------------------------------------------------------------------------
@@ -113,8 +112,23 @@ console.log(`Seeding Fish Pie group "${GROUP_NAME}"`)
 console.log(`  Primary user: ${email} (${userId.slice(0, 8)}…)`)
 console.log(`  Partner:      ${partnerEmail} (${partnerId.slice(0, 8)}…)`)
 
+const [existingGroup] = await db
+  .select({ id: expenseGroups.id })
+  .from(expenseGroups)
+  .where(
+    and(
+      eq(expenseGroups.name, GROUP_NAME),
+      eq(expenseGroups.createdBy, userId),
+      isNull(expenseGroups.deletedAt),
+    ),
+  )
+if (existingGroup) {
+  console.log(`  group "${GROUP_NAME}" already exists (${existingGroup.id.slice(0, 8)}…) — skipping`)
+  process.exit(0)
+}
+
 // ---------------------------------------------------------------------------
-// Ensure expense accounts exist for each user
+// Ensure expense and payment accounts exist for each user
 // ---------------------------------------------------------------------------
 
 async function ensureAccount(ownerId: string, path: string): Promise<string> {
@@ -133,137 +147,76 @@ async function ensureAccount(ownerId: string, path: string): Promise<string> {
 
 const myHousingAccountId = await ensureAccount(userId, 'expenses:housing')
 const partnerHousingAccountId = await ensureAccount(partnerId, 'expenses:housing')
-
-// ---------------------------------------------------------------------------
-// Create group + members
-// ---------------------------------------------------------------------------
-
-const group = returnedRow(
-  await db
-    .insert(expenseGroups)
-    .values({ name: GROUP_NAME, defaultCurrency: 'CAD', createdBy: userId })
-    .returning(),
-  'insert expenseGroups',
-)
-
-await db.insert(expenseGroupMembers).values([
-  { groupId: group.id, userId, shareWeight: 1, defaultExpenseAccountId: myHousingAccountId },
-  { groupId: group.id, userId: partnerId, shareWeight: 1, defaultExpenseAccountId: partnerHousingAccountId },
-])
-
-console.log(`  created group ${group.id.slice(0, 8)}…`)
-
-// ---------------------------------------------------------------------------
-// Ensure shared:<slug> accounts for both users
-// ---------------------------------------------------------------------------
-
-const mySharedId = await ensureSharedAccount(userId, group)
-const partnerSharedId = await ensureSharedAccount(partnerId, group)
-
-console.log(`  shared accounts: ${mySharedId.slice(0, 8)}… / ${partnerSharedId.slice(0, 8)}…`)
-
-// ---------------------------------------------------------------------------
-// Helpers to insert an expense + splits + auto-postings
-// ---------------------------------------------------------------------------
-
-const members = [
-  { userId, shareWeight: 1, defaultExpenseAccountId: myHousingAccountId, sharedAccountId: mySharedId },
-  { userId: partnerId, shareWeight: 1, defaultExpenseAccountId: partnerHousingAccountId, sharedAccountId: partnerSharedId },
-]
-
-function computeSplits(amount: string, payerId: string) {
-  const total = parseFloat(amount)
-  const splits = members.map((m) => ({
-    userId: m.userId,
-    amount: fmt(total / members.length),
-  }))
-  // Assign rounding remainder to payer
-  const splitTotal = splits.reduce((s, sp) => s + parseFloat(sp.amount), 0)
-  const remainder = fmt(total - splitTotal)
-  if (parseFloat(remainder) !== 0) {
-    const payerSplit = splits.find((s) => s.userId === payerId)!
-    payerSplit.amount = fmt(parseFloat(payerSplit.amount) + parseFloat(remainder))
-  }
-  return splits
-}
-
-async function seedExpense(
-  date: string,
-  description: string,
-  amount: number,
-  currency: string,
-  payerId: string,
-) {
-  const amountStr = fmt(amount)
-  const splits = computeSplits(amountStr, payerId)
-
-  await db.transaction(async (tx) => {
-    const expense = returnedRow(
-      await tx
-        .insert(groupExpenses)
-        .values({ groupId: group.id, paidByUserId: payerId, description, amount: amountStr, currency, date })
-        .returning(),
-      'insert groupExpenses',
-    )
-
-    await tx.insert(groupExpenseSplits).values(
-      splits.map((s) => ({ expenseId: expense.id, userId: s.userId, amount: s.amount })),
-    )
-
-    for (const split of splits) {
-      const member = members.find((m) => m.userId === split.userId)!
-      const t = returnedRow(
-        await tx
-          .insert(transactions)
-          .values({
-            userId: split.userId,
-            date: new Date(`${date}T00:00:00Z`),
-            description,
-            groupExpenseId: expense.id,
-          })
-          .returning(),
-        'insert transactions',
-      )
-
-      await tx.insert(postings).values([
-        { transactionId: t.id, accountId: member.defaultExpenseAccountId, amount: `-${split.amount}`, currency },
-        { transactionId: t.id, accountId: member.sharedAccountId, amount: split.amount, currency },
-      ])
-    }
-  })
-
-  const payerName = payerId === userId ? email : partnerEmail
-  console.log(`  [expense] ${date} ${description.padEnd(28)} ${currency} ${amountStr}  paid by ${payerName}`)
+const paymentAccountIds: Record<string, string> = {
+  [userId]: await ensureAccount(userId, 'assets:bank:chequing'),
+  [partnerId]: await ensureAccount(partnerId, 'assets:bank:chequing'),
 }
 
 // ---------------------------------------------------------------------------
-// Seed expenses — mix of payers, a few categories
+// The expenses — mix of payers, a few categories
 // ---------------------------------------------------------------------------
 
-console.log('Inserting expenses…')
+type ExpenseSpec = { date: string; description: string; amount: string; payerId: string }
 
 const UTILITIES = ['Hydro bill', 'Gas bill', 'Internet bill', 'Water bill']
 const SUPPLIES  = ['Home supplies', 'Cleaning supplies', 'Light bulbs / hardware']
 const REPAIRS   = ['Plumber visit', 'Handyman fix', 'Window repair']
 
-// Fixed recurring (paid by primary user)
-await seedExpense(recentDate(58), 'Rent — May',             ri(1200, 1600), 'CAD', userId)
-await seedExpense(recentDate(28), 'Rent — June',            ri(1200, 1600), 'CAD', userId)
+const firstRent = recentDate(58)
+const secondRent = recentDate(28)
+const expenses: ExpenseSpec[] = [
+  // Fixed recurring (paid by primary user)
+  { date: firstRent,  description: `Rent — ${monthName(firstRent)}`,  amount: fmt(ri(1200, 1600)), payerId: userId },
+  { date: secondRent, description: `Rent — ${monthName(secondRent)}`, amount: fmt(ri(1200, 1600)), payerId: userId },
+  // Utilities — alternate payers
+  { date: recentDate(ri(45, 55)), description: pick(UTILITIES), amount: fmt(rf(80, 140)), payerId: userId },
+  { date: recentDate(ri(30, 44)), description: pick(UTILITIES), amount: fmt(rf(80, 140)), payerId: partnerId },
+  { date: recentDate(ri(10, 29)), description: pick(UTILITIES), amount: fmt(rf(80, 140)), payerId: userId },
+  // Supplies — mostly partner pays
+  { date: recentDate(ri(40, 50)), description: pick(SUPPLIES), amount: fmt(rf(30, 60)), payerId: partnerId },
+  { date: recentDate(ri(15, 39)), description: pick(SUPPLIES), amount: fmt(rf(20, 50)), payerId: partnerId },
+  // One-off repair
+  { date: recentDate(ri(20, 35)), description: pick(REPAIRS), amount: fmt(rf(120, 350)), payerId: userId },
+]
 
-// Utilities — alternate payers
-await seedExpense(recentDate(ri(45, 55)), pick(UTILITIES),  rf(80, 140),   'CAD', userId)
-await seedExpense(recentDate(ri(30, 44)), pick(UTILITIES),  rf(80, 140),   'CAD', partnerId)
-await seedExpense(recentDate(ri(10, 29)), pick(UTILITIES),  rf(80, 140),   'CAD', userId)
+// ---------------------------------------------------------------------------
+// Group, members and every expense in one transaction, so a run that fails partway
+// leaves no half-seeded group for the next run to skip. Each expense goes through the
+// same service the app uses: splits, and every member's postings as the app writes them.
+// ---------------------------------------------------------------------------
 
-// Supplies — mostly partner pays
-await seedExpense(recentDate(ri(40, 50)), pick(SUPPLIES),   rf(30, 60),    'CAD', partnerId)
-await seedExpense(recentDate(ri(15, 39)), pick(SUPPLIES),   rf(20, 50),    'CAD', partnerId)
+const members = [
+  { userId, shareWeight: 1, defaultExpenseAccountId: myHousingAccountId },
+  { userId: partnerId, shareWeight: 1, defaultExpenseAccountId: partnerHousingAccountId },
+]
 
-// One-off repair
-await seedExpense(recentDate(ri(20, 35)), pick(REPAIRS),    rf(120, 350),  'CAD', userId)
+await db.transaction(async (tx) => {
+  const group = returnedRow(
+    await tx
+      .insert(expenseGroups)
+      .values({ name: GROUP_NAME, defaultCurrency: 'CAD', createdBy: userId })
+      .returning(),
+    'insert expenseGroups',
+  )
+  await tx.insert(expenseGroupMembers).values(members.map((m) => ({ groupId: group.id, ...m })))
+  console.log(`  created group ${group.id.slice(0, 8)}…`)
 
-console.log(`\nDone. Group "${GROUP_NAME}" seeded with ${8} expenses.`)
-console.log(`  Run "bun run migrate:fish-pie" if you want auto-postings for existing expenses`)
-console.log(`  (this script already posts them — no need to run that for new data)`)
+  for (const e of expenses) {
+    await createGroupExpenseInTx(tx, {
+      group,
+      members,
+      payerId: e.payerId,
+      description: e.description,
+      amount: e.amount,
+      currency: 'CAD',
+      date: e.date,
+      paymentAccountId: paymentAccountIds[e.payerId],
+    })
+    const payerName = e.payerId === userId ? email : partnerEmail
+    console.log(`  [expense] ${e.date} ${e.description.padEnd(28)} CAD ${e.amount}  paid by ${payerName}`)
+  }
+})
+
+console.log(`\nDone. Group "${GROUP_NAME}" seeded with ${expenses.length} expenses.`)
 
 process.exit(0)
