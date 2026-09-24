@@ -255,6 +255,20 @@ server repo when it exists. The full guide, label set and board setup live in
   Project card; nothing else is needed.
 - **Cross-repo references are fully qualified**: `lesterhan/have-fish-ops#10`. A bare `#10`
   means this repo's issue 10.
+- **Issue titles are sticky notes.** Six words or so, saying what is wrong or what to do:
+  `Fix expense labeling`, `Spending list ignores type tags`. No `[scope]` prefix and no
+  `BUG-007`-style id; an audit id (`P1.3`) stays in front, because that is how an issue and
+  its audit section find each other. PR titles keep `[scope] Imperative description`. An
+  older, longer title is shortened when its issue is picked up.
+- **In chat, a reference says what it is and links to it.** Issues and PRs share one number
+  sequence, so a bare `#415` does not say which one it is or what it is about. An issue is
+  written `[[318 Fix expense labeling]](url)`: number and sticky-note title inside visible
+  brackets. A PR is `[PR#414](url)`. In another repo, its short name goes first
+  (`have-fish`, `ops`, `server`): `[[ops 10 Body limit gap]](url)`, `[ops PR#12](url)`. A PR
+  closes one issue, so talk about the work by its issue and link the PR when there is
+  something to review or merge. Older ids (`BUG-007`, D-numbers, `Story 2`) get the same
+  treatment: say what they are. Issue and PR bodies and GitHub comments keep the plain
+  `#N`, which GitHub links and titles by itself.
 - **What goes where.** Code, UX, mobile, docs and release work are issues here. Anything
   describing an unfixed weakness in the running hosted instance, or business, legal,
   pricing and support, is an issue in `have-fish-ops`, never here. The fix for a private
