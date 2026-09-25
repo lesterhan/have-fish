@@ -7,6 +7,7 @@ import {
   expenseGroupMembers,
   expenseGroups,
   groupExpenses,
+  postings,
   transactions,
 } from '../db/schema'
 import { at, clearDatabase, createTestUser, request } from '../test-utils'
@@ -1112,5 +1113,85 @@ describe('transactions', () => {
       expect(tx.groupExpenseId).toBeNull()
       expect(tx.groupName).toBeNull()
     })
+  })
+})
+
+describe('DELETE /api/transactions/:id', () => {
+  let alice: string
+  let bob: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+    alice = await createTestUser('alice@example.com')
+    bob = await createTestUser('bob@example.com')
+  })
+
+  async function seedTransaction(cookie: string) {
+    const headers = { Cookie: cookie, 'Content-Type': 'application/json' }
+    const [cash, food] = (await Promise.all(
+      ['assets:cash', 'expenses:food'].map((path) =>
+        request('/api/accounts', { method: 'POST', headers, body: JSON.stringify({ path }) }).then(
+          (r) => r.json(),
+        ),
+      ),
+    )) as [{ id: string }, { id: string }]
+    const res = await request('/api/transactions', {
+      method: 'POST',
+      headers,
+      body: JSON.stringify({
+        date: '2026-02-01',
+        description: 'Lunch',
+        postings: [
+          { accountId: cash.id, amount: '-10.00', currency: 'CAD' },
+          { accountId: food.id, amount: '10.00', currency: 'CAD' },
+        ],
+      }),
+    })
+    expect(res.status).toBe(201)
+    return (await res.json()) as { id: string }
+  }
+
+  async function listTransactions(cookie: string) {
+    const res = await request('/api/transactions', { headers: { Cookie: cookie } })
+    return (await res.json()) as { id: string; postings: unknown[] }[]
+  }
+
+  it('deletes the transaction and its postings for its owner', async () => {
+    const tx = await seedTransaction(alice)
+
+    const res = await request(`/api/transactions/${tx.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: alice },
+    })
+
+    expect(res.status).toBe(204)
+    expect(await listTransactions(alice)).toEqual([])
+    const left = await db.select().from(postings).where(eq(postings.transactionId, tx.id))
+    expect(left).toEqual([])
+  })
+
+  it("leaves another user's transaction and postings untouched", async () => {
+    const bobs = await seedTransaction(bob)
+
+    const res = await request(`/api/transactions/${bobs.id}`, {
+      method: 'DELETE',
+      headers: { Cookie: alice },
+    })
+
+    // 204 like any delete of something that isn't there, so the answer doesn't say the id
+    // exists. What matters is that nothing was written.
+    expect(res.status).toBe(204)
+    const [still] = await listTransactions(bob)
+    expect(still?.id).toBe(bobs.id)
+    expect(still?.postings).toBeArrayOfSize(2)
+  })
+
+  it('answers 204 again for a transaction already deleted', async () => {
+    const tx = await seedTransaction(alice)
+    const del = () =>
+      request(`/api/transactions/${tx.id}`, { method: 'DELETE', headers: { Cookie: alice } })
+
+    expect((await del()).status).toBe(204)
+    expect((await del()).status).toBe(204)
   })
 })

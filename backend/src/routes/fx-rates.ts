@@ -8,6 +8,8 @@ import { fail } from '../errors'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
+const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/
+
 // Returns a daily FX rate, fetching from frankfurter.app and caching in the DB if needed.
 // Returns null if the date is today-or-future, or if the API has no data (e.g. some holidays).
 export async function getOrFetchRate(
@@ -15,6 +17,9 @@ export async function getOrFetchRate(
   baseCurrency: string,
   quoteCurrency: string,
 ): Promise<string | null> {
+  // The date goes into the path of the outbound URL, so nothing but a date gets that far,
+  // whichever caller it came from.
+  if (!ISO_DATE.test(date)) return null
   const today = new Date().toISOString().substring(0, 10)
   if (date >= today) return null
 
@@ -105,6 +110,8 @@ app.get('/', async (c) => {
   if (!date || !from || !to) {
     return fail(c, 'FIELDS_REQUIRED', { fields: ['date', 'from', 'to'] })
   }
+
+  if (!ISO_DATE.test(date)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
 
   if (!isValidCurrency(from) || !isValidCurrency(to)) {
     return fail(c, 'UNSUPPORTED_CURRENCY', { currency: isValidCurrency(from) ? to : from })
