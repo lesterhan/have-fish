@@ -7,6 +7,12 @@
  * that belong to the transaction's owner. A new `insert(postings)` anywhere else would be
  * a path around those rules, and the day it lands this test says so.
  *
+ * Postings are also the one part of a transaction whose change doesn't move the
+ * transaction's version by itself (`updatedAt`, the sync unit's version). The service moves
+ * it whenever it changes postings, so no module outside it may update or delete one either.
+ * An update to the transaction row itself is allowed anywhere: the schema's `$onUpdate`
+ * moves the version for it.
+ *
  * Modelled on `routes/bodies.test.ts`, which reads route sources for the same reason.
  */
 
@@ -39,6 +45,19 @@ function inserts(): { file: string; table: string }[] {
   })
 }
 
+// Any `.update(postings)` or `.delete(postings)`, with the same allowance for formatting.
+const POSTING_CHANGE = /\.(update|delete)\(\s*postings\s*\)/g
+
+function postingChanges(): { file: string; call: string }[] {
+  return sourceFiles(SRC).flatMap((path) => {
+    const file = relative(SRC, path)
+    return [...readFileSync(path, 'utf8').matchAll(POSTING_CHANGE)].map((m) => ({
+      file,
+      call: m[1] ?? '',
+    }))
+  })
+}
+
 describe('the ledger write service', () => {
   it('is the only place transactions and postings are inserted', () => {
     const elsewhere = inserts().filter((i) => i.file !== SERVICE)
@@ -50,5 +69,20 @@ describe('the ledger write service', () => {
       .filter((i) => i.file === SERVICE)
       .map((i) => i.table)
     expect(new Set(tables)).toEqual(new Set(['postings', 'transactions']))
+  })
+
+  it('is the only place postings are updated or deleted', () => {
+    // `clearDatabase` empties every table between tests; it is not a writer the app runs.
+    const elsewhere = postingChanges().filter(
+      (c) => c.file !== SERVICE && c.file !== 'test-utils.ts',
+    )
+    expect(elsewhere).toEqual([])
+  })
+
+  it('does update and delete them, so that rule is not vacuous either', () => {
+    const calls = postingChanges()
+      .filter((c) => c.file === SERVICE)
+      .map((c) => c.call)
+    expect(new Set(calls)).toEqual(new Set(['update', 'delete']))
   })
 })

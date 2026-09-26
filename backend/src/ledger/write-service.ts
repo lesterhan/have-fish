@@ -2,7 +2,7 @@ import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { accountsOwnedBy } from '../accounts/ownership-service'
 import { type DbTransaction, db, type Executor } from '../db'
 import { returnedRow } from '../db/returning'
-import { postings, transactions } from '../db/schema'
+import { accounts, postings, transactions } from '../db/schema'
 import { type ErrorBody, errorBody, type Outcome } from '../errors'
 import { type PostingDraft, validatePostings } from './validate'
 
@@ -12,6 +12,12 @@ import { type PostingDraft, validatePostings } from './validate'
 //   1. `validatePostings`: count, currency, balance. Pure, so it fails before any query.
 //   2. `accountsOwnedBy`: every account named belongs to the transaction's owner.
 //   3. The writes, inside one database transaction, so a failure leaves nothing behind.
+//
+// A transaction and its postings are one sync document, versioned by the transaction's
+// `updatedAt` (planning/epics/sync-unit.md). An update to the transaction row moves it by
+// itself (`$onUpdate` in the schema); a change to postings alone does not, so every
+// function here that changes postings moves it too, with `touch`. That's why no module
+// outside `ledger/` may write a posting (`writers.test.ts`).
 //
 // There are two ways in.
 //
@@ -126,7 +132,9 @@ export async function replacePostings(
 
   const written = await db.transaction(async (tx) => {
     await tx.delete(postings).where(eq(postings.transactionId, transactionId))
-    return { ...existing, postings: await insertPostings(tx, transactionId, drafts) }
+    const inserted = await insertPostings(tx, transactionId, drafts)
+    const [touched] = await touch(tx, [transactionId])
+    return { ...existing, ...touched, postings: inserted }
   })
   return { ok: true, value: written }
 }
@@ -247,7 +255,87 @@ export async function amendPostings(
       .set({ deletedAt: change.at })
       .where(and(eq(postings.transactionId, transactionId), inArray(postings.id, change.retire)))
   }
-  return insertPostings(exec, transactionId, change.add)
+  const added = await insertPostings(exec, transactionId, change.add)
+  await touch(exec, [transactionId])
+  return added
+}
+
+/**
+ * Soft-delete transactions and their postings together, at `at`, inside the caller's unit
+ * of work. Fish Pie retires a member's transactions this way when an expense is edited or
+ * deleted, and a settlement's when it is deleted. Each transaction becomes a tombstone: the
+ * update to its row moves its version. The caller has already established whose they are.
+ */
+export async function retireTransactions(
+  exec: DbTransaction,
+  transactionIds: string[],
+  at: Date,
+): Promise<void> {
+  if (transactionIds.length === 0) return
+  await exec
+    .update(transactions)
+    .set({ deletedAt: at })
+    .where(inArray(transactions.id, transactionIds))
+  await exec
+    .update(postings)
+    .set({ deletedAt: at })
+    .where(inArray(postings.transactionId, transactionIds))
+}
+
+/**
+ * Move individual postings of `ownerId`'s transactions to other accounts, amounts
+ * untouched, so every transaction still balances. Heal uses this to route a malformed FX
+ * spend through the conversion account. The new accounts must be the owner's.
+ */
+export async function repointPostings(
+  exec: DbTransaction,
+  ownerId: string,
+  moves: { postingId: string; toAccountId: string }[],
+): Promise<void> {
+  const owned = await accountsOwnedBy(
+    ownerId,
+    moves.map((m) => m.toAccountId),
+    { executor: exec, includeDeleted: true },
+  )
+  if (!owned) throw new Refused(errorBody('ACCOUNTS_NOT_FOUND'))
+
+  const changed = new Set<string>()
+  for (const move of moves) {
+    const rows = await exec
+      .update(postings)
+      .set({ accountId: move.toAccountId })
+      .where(eq(postings.id, move.postingId))
+      .returning({ transactionId: postings.transactionId })
+    for (const r of rows) changed.add(r.transactionId)
+  }
+  await touch(exec, [...changed])
+}
+
+/**
+ * Move every posting, deleted or not, from one account to another of the same owner. The
+ * Fish Pie group merge folds each member's old clearing accounts into their new one this
+ * way. Every transaction with a leg moved gets a new version.
+ */
+export async function moveAccountPostings(
+  exec: DbTransaction,
+  fromAccountId: string,
+  toAccountId: string,
+): Promise<void> {
+  const owners = await exec
+    .select({ userId: accounts.userId })
+    .from(accounts)
+    .where(inArray(accounts.id, [fromAccountId, toAccountId]))
+  if (owners.length !== 2 || owners[0]?.userId !== owners[1]?.userId) {
+    // Not a refusal a request can cause: the merge pairs each member's accounts itself.
+    throw new Error('moveAccountPostings: the two accounts must exist and share an owner')
+  }
+
+  const rows = await exec
+    .update(postings)
+    .set({ accountId: toAccountId })
+    .where(eq(postings.accountId, fromAccountId))
+    .returning({ transactionId: postings.transactionId })
+  await touch(exec, [...new Set(rows.map((r) => r.transactionId))])
 }
 
 function refuseUnless(outcome: Outcome<void>): void {
@@ -300,6 +388,16 @@ async function insertPostings(
         currency: p.currency,
       })),
     )
+    .returning()
+}
+
+// Move the version of transactions whose postings changed without their own row changing.
+function touch(exec: Executor, transactionIds: string[]): Promise<TransactionRow[]> {
+  if (transactionIds.length === 0) return Promise.resolve([])
+  return exec
+    .update(transactions)
+    .set({ updatedAt: new Date() })
+    .where(inArray(transactions.id, transactionIds))
     .returning()
 }
 

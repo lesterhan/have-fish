@@ -1,10 +1,9 @@
 # Sync unit
 
-**Tracked as [#281](https://github.com/lesterhan/have-fish/issues/281)**, a decision:
-accepting this file closes it. The schema work it describes is a separate issue, filed
-once the design is agreed. Parent: P1, #244.
+**Tracked as [#281](https://github.com/lesterhan/have-fish/issues/281)**, a decision,
+closed when this file was accepted. The schema work it describes is #454. Parent: P1, #244.
 
-**Status: proposed.** The design is the architecture audit's § "Sync unit design" (F2),
+**Status: accepted** (2026-09-26, #281), corrections included. The design is the architecture audit's § "Sync unit design" (F2),
 brought up to date with the code as it stands after the domain-layer epic's stories 1–3
 and #279. What changed from the audit, and why, is under
 [Corrections to the audit](#corrections-to-the-audit).

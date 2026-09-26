@@ -149,20 +149,20 @@ once the group is end-to-end encrypted (#393).
 
 ## Every write to `transactions` and `postings`
 
-Every insert goes through `ledger/write-service.ts`; `ledger/writers.test.ts` fails if one
-appears anywhere else.
+Every insert of either, and every update or delete of a posting, goes through
+`ledger/write-service.ts`; `ledger/writers.test.ts` fails if one appears anywhere else. An
+update to a transaction row itself is allowed anywhere, because the schema moves its
+version (below) on its own.
 
 | Caller | Through | Deletes postings by |
 |---|---|---|
 | `routes/transactions.ts` (create, bulk, replace, delete) | `createTransaction`, `createTransactions`, `replacePostings`, `deleteTransaction` | Hard delete (replace, delete) |
 | `routes/import.ts` commit | `writeTransaction`, one per row, in one `inLedgerTransaction` | — |
 | `fish-pie-expense-service.ts` | `writeTransaction`, one per member | — |
-| `routes/fish-pie-expenses.ts` | `inLedgerTransaction`; the payer's import transaction is rebalanced with `amendPostings` | Soft delete |
-| `routes/fish-pie-settlements.ts` | `writeTransaction` for the payer's and receiver's sides, in `inLedgerTransaction` | Soft delete |
-
-Two writers change existing legs without inserting, and keep amounts as they were, so they
-stay balanced: `postings/heal-service.ts` re-points the legs of a malformed spend, and
-`routes/fish-pie-merge.ts` re-points postings from merged groups' clearing accounts.
+| `routes/fish-pie-expenses.ts` | `inLedgerTransaction`; the payer's import transaction is rebalanced with `amendPostings`; edits and deletes use `retireTransactions` | Soft delete |
+| `routes/fish-pie-settlements.ts` | `writeTransaction` for the payer's and receiver's sides, in `inLedgerTransaction`; delete uses `retireTransactions` | Soft delete |
+| `postings/heal-service.ts` | `repointPostings`: moves the legs of a malformed spend, amounts untouched | — |
+| `routes/fish-pie-merge.ts` | `moveAccountPostings`: folds old clearing accounts into the merged group's | — |
 
 **The ledger write path** (`ledger/`). Every transaction is written in three steps, in this
 order:
@@ -200,9 +200,20 @@ rounded to the cent, and the leftover goes to one named share.
 
 **Deleting has two meanings.** A personal transaction's delete hard-deletes its postings.
 A Fish Pie delete soft-deletes them. Postings are also hard-deleted and re-inserted with
-new ids whenever a transaction's postings are replaced. `00-direction.md` (the correction
-marked `F2`) explains why that makes the transaction, not the posting, the unit that syncs
-(#281).
+new ids whenever a transaction's postings are replaced. That's why the transaction, not the
+posting, is the unit that syncs (`planning/epics/sync-unit.md`).
+
+**Versions.** Every sync document's root row (`transactions`, `accounts`, `csvParsers`,
+`importRules`, `userSettings`) carries `updatedAt`, its version, and every change to the
+document moves it:
+
+- An update to the root row moves it through `$onUpdate` in the schema, with no route
+  involved. That covers edits, soft deletes (tombstones), and upserts.
+- A change to a transaction's postings alone doesn't touch its row. The ledger service
+  moves the version itself (`touch`) in every function that changes postings. The gate
+  above keeps posting writes inside the service.
+
+`ledger/versions.test.ts` checks every writer.
 
 ## Rules written more than once
 

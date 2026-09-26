@@ -3,6 +3,7 @@ import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
 import type { ErrorBody } from '../errors'
 import { errorBody } from '../errors'
+import { inLedgerTransaction, repointPostings } from '../ledger/write-service'
 import { loadAccountTypeContext } from './classify-service'
 import {
   detectMalformedFxSpend,
@@ -206,14 +207,8 @@ export async function healFxSpend(
     }
   }
 
-  await db.transaction(async (dbTx) => {
-    for (const r of repoints) {
-      await dbTx
-        .update(postings)
-        .set({ accountId: r.toAccountId })
-        .where(eq(postings.id, r.postingId))
-    }
-  })
+  const written = await inLedgerTransaction((dbTx) => repointPostings(dbTx, userId, repoints))
+  if (!written.ok) return written
 
   const updated = (await fetchPostingsWithPaths(userId, [txId])).get(txId) ?? []
   return { ok: true, postings: updated }

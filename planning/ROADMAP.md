@@ -82,7 +82,7 @@
 | [Visual Language](epics/archive/visual-language.md) | Done |
 | [Type & Space Scale](epics/archive/type-and-space.md) | Done |
 | [Domain Layer](epics/domain-layer.md) | In progress |
-| [Sync Unit](epics/sync-unit.md) | Proposed |
+| [Sync Unit](epics/sync-unit.md) | Accepted; schema in progress (#454) |
 
 ## Fish Pie sequence
 
