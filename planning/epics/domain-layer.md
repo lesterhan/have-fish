@@ -154,7 +154,7 @@ Any story can run in coach mode ("coach me") if you'd rather drive it yourself.
 
 | Issue | What |
 |---|---|
-| #432 | The raw ledger editor saves an edit as parallel requests that never check the balance, so a partial failure leaves an unbalanced transaction |
+| #432 | The raw ledger editor saves an edit as parallel requests that never check the balance, so a partial failure leaves an unbalanced transaction. **Fixed** by retiring `/api/postings`; the editor saves through the ledger service |
 | #433 | Two active accounts can share one path, because create doesn't check and no index stops it |
 | #434 | Import commit stores unknown currencies, and a row with no amount is a 500 |
 

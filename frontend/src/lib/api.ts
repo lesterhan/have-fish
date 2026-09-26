@@ -631,20 +631,6 @@ export async function patchTransaction(
   return res.json()
 }
 
-export async function patchPosting(
-  id: string,
-  updates: { accountId?: string; amount?: string; currency?: string },
-) {
-  const res = await fetch(`${BASE}/api/postings/${id}`, {
-    method: 'PATCH',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(updates),
-  })
-  if (!res.ok) throw await apiError(res, 'Failed to update posting')
-  return res.json()
-}
-
 // A posting as returned by the heal endpoints (joined to its account path).
 export type HealPosting = {
   id: string
@@ -741,35 +727,6 @@ export async function fetchSpendingConverted(
     credentials: 'include',
   })
   return res.json()
-}
-
-export async function createPosting(body: {
-  transactionId: string
-  accountId: string
-  amount: string
-  currency: string
-}) {
-  const res = await fetch(`${BASE}/api/postings`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    credentials: 'include',
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) throw await apiError(res, 'Failed to create posting')
-  return (await res.json()) as {
-    id: string
-    accountId: string
-    amount: string
-    currency: string
-  }
-}
-
-export async function deletePosting(id: string) {
-  const res = await fetch(`${BASE}/api/postings/${id}`, {
-    method: 'DELETE',
-    credentials: 'include',
-  })
-  if (!res.ok) throw await apiError(res, 'Failed to delete posting')
 }
 
 // A posting's role within its transaction, derived by the backend classifier

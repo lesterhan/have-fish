@@ -5,7 +5,6 @@
 </script>
 
 <script lang="ts">
-  import { at } from '$lib/at'
   import Modal from '$lib/components/ui/Modal.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
@@ -13,13 +12,13 @@
   import { toISODate } from '$lib/date'
   import {
     patchTransaction,
-    patchPosting,
-    createPosting,
-    deletePosting,
+    replacePostings,
     deleteTransaction,
     removeGroupExpense,
     type Account,
+    type Posting as SavedPosting,
   } from '$lib/api'
+  import { planLedgerSave, postingsChanged } from './ledgerSave'
 
   interface Posting {
     id: string
@@ -54,11 +53,13 @@
     open: boolean
     onclose: () => void
     onaccountcreated?: ((account: Account) => void) | undefined
+    // `postings` is the set the server saved, with its new ids, paths and roles, or the
+    // untouched originals when only the header changed.
     onsaved?:
       | ((updates: {
           date: string
           description: string | null
-          postings: Posting[]
+          postings: (Posting & Partial<SavedPosting>)[]
         }) => void)
       | undefined
     ondeleted?: (() => void) | undefined
@@ -131,16 +132,7 @@
   let dirty = $derived(
     localDate !== origDate ||
       localDescription !== origDescription ||
-      localPostings.some((p) => p.isNew || p.markedForDelete) ||
-      localPostings.some((p) => {
-        const o = origPostings.find((o) => o.id === p.id)
-        return (
-          o != null &&
-          (p.accountId !== o.accountId ||
-            p.amount !== o.amount ||
-            p.currency !== o.currency)
-        )
-      }),
+      postingsChanged(origPostings, localPostings),
   )
 
   // --- Date editing ---
@@ -258,83 +250,40 @@
   let saving = $state(false)
   let saveError = $state('')
 
+  // The postings go as one set through replacePostings, which validates and swaps them in
+  // one database transaction, so a failed save leaves the transaction as it was. The header
+  // follows, the same order TransactionDetail uses. See ledgerSave.ts.
   async function handleSave() {
     saving = true
     saveError = ''
     try {
-      const patchTxCall =
-        localDate !== origDate || localDescription !== origDescription
-          ? patchTransaction(tx.id, {
-              ...(localDate !== origDate ? { date: localDate } : {}),
-              ...(localDescription !== origDescription
-                ? { description: localDescription || null }
-                : {}),
-            })
-          : Promise.resolve(null)
-
-      const changedPostings = localPostings
-        .filter((p) => !p.isNew && !p.markedForDelete)
-        .filter((p) => {
-          const o = origPostings.find((o) => o.id === p.id)
-          return (
-            o &&
-            (p.accountId !== o.accountId ||
-              p.amount !== o.amount ||
-              p.currency !== o.currency)
-          )
-        })
-      const patchPostingCalls = changedPostings.map((p) =>
-        patchPosting(p.id, {
-          accountId: p.accountId,
-          amount: p.amount,
-          currency: p.currency,
-        }),
+      const plan = planLedgerSave(
+        {
+          date: origDate,
+          description: origDescription,
+          postings: origPostings,
+        },
+        {
+          date: localDate,
+          description: localDescription,
+          postings: localPostings,
+        },
       )
 
-      const newPostings = localPostings.filter(
-        (p) => p.isNew && !p.markedForDelete,
-      )
-      const createPostingCalls = newPostings.map((p) =>
-        createPosting({
-          transactionId: tx.id,
-          accountId: p.accountId,
-          amount: p.amount,
-          currency: p.currency,
-        }),
-      )
-
-      const deletePostingCalls = localPostings
-        .filter((p) => p.markedForDelete && !p.isNew)
-        .map((p) => deletePosting(p.id))
-
-      const [, createdResults] = await Promise.all([
-        Promise.all([patchTxCall, ...patchPostingCalls, ...deletePostingCalls]),
-        Promise.all(createPostingCalls),
-      ])
-
-      let newIdx = 0
-      const updatedPostings: Posting[] = localPostings
-        .filter((p) => !p.markedForDelete)
-        .map((p) =>
-          p.isNew
-            ? {
-                id: at(createdResults, newIdx++).id,
-                accountId: p.accountId,
-                amount: p.amount,
-                currency: p.currency,
-              }
-            : {
-                id: p.id,
-                accountId: p.accountId,
-                amount: p.amount,
-                currency: p.currency,
-              },
+      let saved: (Posting & Partial<SavedPosting>)[] = tx.postings
+      if (plan.postings) {
+        const replaced: { postings: SavedPosting[] } = await replacePostings(
+          tx.id,
+          plan.postings,
         )
+        saved = replaced.postings
+      }
+      if (plan.patch) await patchTransaction(tx.id, plan.patch)
 
       onsaved?.({
         date: localDate,
         description: localDescription || null,
-        postings: updatedPostings,
+        postings: saved,
       })
       onclose()
     } catch (e) {

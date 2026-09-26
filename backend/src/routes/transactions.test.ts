@@ -769,6 +769,71 @@ describe('transactions', () => {
       })
       expect(res.status).toBe(404)
     })
+
+    // The raw ledger editor saves through this endpoint (#432). An edit that changes an
+    // amount has to change two legs at once, and a save that is refused must leave the
+    // transaction exactly as it was: same postings, same ids, nothing half-applied.
+    it('changes several legs in one request, as an amount edit needs', async () => {
+      const res = await request(`/api/transactions/${txId}/postings`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          postings: [
+            { accountId: accA.id, amount: '-12.50', currency: 'CAD' },
+            { accountId: accB.id, amount: '12.50', currency: 'CAD' },
+          ],
+        }),
+      })
+      expect(res.status).toBe(200)
+      const amounts = ((await res.json()).postings as { amount: string }[]).map((p) => p.amount)
+      expect(amounts.sort()).toEqual(['-12.50', '12.50'])
+    })
+
+    it('leaves the transaction exactly as it was when a save is refused', async () => {
+      const snapshot = async () => {
+        const list = (await (
+          await request('/api/transactions', { headers: { Cookie: cookie } })
+        ).json()) as {
+          id: string
+          postings: { id: string; accountId: string; amount: string; currency: string }[]
+        }[]
+        const tx = list.find((t) => t.id === txId)
+        return tx?.postings
+          .map(({ id, accountId, amount, currency }) => ({ id, accountId, amount, currency }))
+          .sort((a, b) => a.id.localeCompare(b.id))
+      }
+      const before = await snapshot()
+      expect(before).toHaveLength(2)
+
+      const refused = [
+        // one leg edited, its partner not: unbalanced
+        [
+          { accountId: accA.id, amount: '-7.00', currency: 'CAD' },
+          { accountId: accB.id, amount: '10.00', currency: 'CAD' },
+        ],
+        // an unsupported currency
+        [
+          { accountId: accA.id, amount: '-7.00', currency: 'XYZ' },
+          { accountId: accB.id, amount: '7.00', currency: 'XYZ' },
+        ],
+        // an account that doesn't exist
+        [
+          { accountId: accA.id, amount: '-10.00', currency: 'CAD' },
+          { accountId: '00000000-0000-4000-8000-000000000000', amount: '10.00', currency: 'CAD' },
+        ],
+        // a leg removed, leaving one
+        [{ accountId: accA.id, amount: '0.00', currency: 'CAD' }],
+      ]
+      for (const postings of refused) {
+        const res = await request(`/api/transactions/${txId}/postings`, {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({ postings }),
+        })
+        expect(res.status).toBeGreaterThanOrEqual(400)
+        expect(await snapshot()).toEqual(before)
+      }
+    })
   })
 
   describe('GET /api/transactions date filtering', () => {

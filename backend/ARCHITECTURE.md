@@ -94,14 +94,9 @@ actually live; "writes" lists the tables touched.
 | `POST /:id/heal-fx-spend` | Repair one malformed spend | `heal-service` → `heal` | `postings` |
 | `DELETE /:id` | Soft-delete the transaction | `deleteTransaction`: the caller's own, active transaction; its postings go only if that matched | `transactions`, `postings` (hard delete) |
 
-**`postings.ts`** — `/api/postings` (163 lines). Single-posting edits, used by the raw
-ledger editor. None of the three checks the transaction still balances (#432).
-
-| Endpoint | Does | Writes |
-|---|---|---|
-| `PATCH /:id` | Change a posting's account, amount or currency | `postings` |
-| `POST /` | Add one posting to a transaction | `postings` |
-| `DELETE /:id` | Soft-delete a posting, keeping at least two | `postings` |
+There is no endpoint that edits one posting. A transaction's legs change as a set,
+through `POST /api/transactions/:id/postings`, which is what lets the balance be checked
+(#432 retired `/api/postings`).
 
 **`import.ts`** — `/api/import` (941 lines)
 
@@ -159,7 +154,6 @@ This is the table #425 and #426 exist to collapse into one row.
 | Where | Inserts | Deletes postings by | Balance checked |
 |---|---|---|---|
 | `ledger/write-service.ts` (create, bulk, replace, delete; called by `routes/transactions.ts`) | Yes | Hard delete (replace, delete) | Yes: `validatePostings` |
-| `routes/postings.ts` | One posting | Soft delete | **No** (#432) |
 | `routes/import.ts` commit | Yes, by row kind | — | By construction (`import/postings`) |
 | `postings/heal-service.ts` | Re-points existing legs | — | Amounts untouched, so it stays balanced |
 | `fish-pie-expense-service.ts` | Member transactions | — | By construction |
@@ -195,7 +189,7 @@ marked `F2`) explains why that makes the transaction, not the posting, the unit 
 | Postings balance per currency | `ledger/validate.ts` once in the backend (`parseFloat`, tolerance 0.001); `LedgerEditModal` and `AddTransactionModal` in the frontend (tolerance 0.005) | No: two tolerances, and float arithmetic (#279) |
 | An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
 | A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
-| A currency is supported | `isValidCurrency` in transactions, accounts, user-settings and fx-rates. Missing on import commit (#434) and the posting endpoints (#432) | Only where it's called |
+| A currency is supported | `isValidCurrency` in `ledger/validate`, accounts, user-settings and fx-rates. Missing on import commit (#434) | Only where it's called |
 | A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
 | Money arithmetic | `parseFloat` or `toFixed` on over 90 lines (`import/postings`, the Fish Pie routes and services, `heal`, `transactions.ts`) | Floats. #279 replaces them with integer cents |
 
