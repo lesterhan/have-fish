@@ -53,10 +53,14 @@ export function CurrencyGrid({
 }: Props) {
   return (
     <>
-      {intoRows(codes, COLUMNS).map((row, i) => (
-        <View key={i} style={styles.row}>
+      {intoRows(codes, COLUMNS).map((row) => (
+        // A row always starts with a real code — only the tail is padded.
+        <View key={row[0] ?? ''} style={styles.row}>
           {row.map((code, j) => {
-            if (code == null) return <View key={`spacer-${j}`} style={styles.tileSlot} />
+            if (code == null) {
+              // biome-ignore lint/suspicious/noArrayIndexKey: spacers are identical and have no identity other than their slot
+              return <View key={`spacer-${j}`} style={styles.tileSlot} />
+            }
             const isSelected = code === selected
             const isDisabled = disabledCodes?.has(code) ?? false
             return (

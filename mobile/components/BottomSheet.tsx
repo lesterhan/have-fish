@@ -47,6 +47,11 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
   const [mounted, setMounted] = useState(visible)
   const [keyboardHeight, setKeyboardHeight] = useState(0)
 
+  // Runs on `visible` alone. `mounted` is read only to skip an exit animation on
+  // a sheet that never opened; as a dependency it would re-run the effect the
+  // moment `setMounted(true)` lands and restart the open animation from wherever
+  // it had got to, a visible stutter.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(mounted): reacting to it restarts the open animation
   useEffect(() => {
     if (visible) {
       setMounted(true)
@@ -66,8 +71,7 @@ export function BottomSheet({ visible, onClose, title, children }: Props) {
         if (finished) setMounted(false)
       })
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [visible])
+  }, [visible, anim])
 
   // iOS reports the keyboard before it animates, Android only once it is up;
   // either way the height is what the panel has to clear.
