@@ -71,8 +71,9 @@ bun run start        # starts Metro bundler — scan QR with Expo Go on device
 ```
 
 Point the app at your server **from within the app** (server URL is stored in
-SecureStore, not hardcoded) — use your backend's Tailscale or LAN address, e.g.
-`http://100.x.x.x:8888`, not `localhost`.
+SecureStore, not hardcoded) — your backend's Tailscale or LAN address, e.g.
+`http://100.x.x.x:8888`. To test against a local backend with seeded data over a USB
+cable instead, see [Testing on a phone over USB](mobile/README.md#testing-on-a-phone-over-usb).
 
 ### Dev build (full native, no Expo Go)
 
