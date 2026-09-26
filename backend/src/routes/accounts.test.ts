@@ -105,6 +105,37 @@ describe('accounts', () => {
       expect(chequing.balances).toEqual([{ currency: 'CAD', amount: '1000.00' }])
     })
 
+    it('adds the amounts in cents, and shows a zero balance as 0.00', async () => {
+      const assetId = await createAccount('assets:chequing')
+      const expenseId = await createAccount('expenses:food')
+      const walletId = await createAccount('assets:wallet')
+
+      // Ten postings of 0.10 add up to 0.9999999999999999 as floats.
+      for (let i = 0; i < 10; i++) {
+        await createTransaction([
+          { accountId: assetId, amount: '0.10', currency: 'CAD' },
+          { accountId: expenseId, amount: '-0.10', currency: 'CAD' },
+        ])
+      }
+      await createTransaction([
+        { accountId: walletId, amount: '5.00', currency: 'EUR' },
+        { accountId: expenseId, amount: '-5.00', currency: 'EUR' },
+      ])
+      await createTransaction([
+        { accountId: walletId, amount: '-5.00', currency: 'EUR' },
+        { accountId: expenseId, amount: '5.00', currency: 'EUR' },
+      ])
+
+      const res = await request('/api/accounts/balances', { headers: { Cookie: cookie } })
+      const body = (await res.json()) as {
+        path: string
+        balances: { currency: string; amount: string }[]
+      }[]
+      const find = (path: string) => body.find((b) => b.path === path)?.balances
+      expect(find('assets:chequing')).toEqual([{ currency: 'CAD', amount: '1.00' }])
+      expect(find('assets:wallet')).toEqual([{ currency: 'EUR', amount: '0.00' }])
+    })
+
     it('returns an account with no postings as empty balances', async () => {
       await createAccount('assets:savings')
 
@@ -663,6 +694,41 @@ describe('accounts', () => {
         balances: { currency: string; amount: string }[]
       }
       expect(body.balances).toEqual([{ currency: 'CAD', amount: '1000.00' }])
+    })
+
+    it('adds the amounts in cents, per currency', async () => {
+      const assetId = await createAccount('assets:chequing')
+      const expenseId = await createAccount('expenses:food')
+
+      for (const amount of ['0.10', '0.20', '0.40']) {
+        await createTransaction('2024-01-01', [
+          { accountId: assetId, amount, currency: 'CAD' },
+          { accountId: expenseId, amount: `-${amount}`, currency: 'CAD' },
+        ])
+      }
+      await createTransaction('2024-01-02', [
+        { accountId: assetId, amount: '-3.33', currency: 'EUR' },
+        { accountId: expenseId, amount: '3.33', currency: 'EUR' },
+      ])
+
+      const res = await request(`/api/accounts/${assetId}/balance?date=2024-01-31`, {
+        headers: { Cookie: cookie },
+      })
+      const body = (await res.json()) as { balances: { currency: string; amount: string }[] }
+      // No order is promised between currencies.
+      body.balances.sort((x, y) => x.currency.localeCompare(y.currency))
+      expect(body.balances).toEqual([
+        { currency: 'CAD', amount: '0.70' },
+        { currency: 'EUR', amount: '-3.33' },
+      ])
+    })
+
+    it('answers no balances for an account with nothing on or before the date', async () => {
+      const assetId = await createAccount('assets:chequing')
+      const res = await request(`/api/accounts/${assetId}/balance?date=2024-01-31`, {
+        headers: { Cookie: cookie },
+      })
+      expect(((await res.json()) as { balances: unknown[] }).balances).toEqual([])
     })
   })
 

@@ -69,9 +69,9 @@ actually live; "writes" lists the tables touched.
 | Endpoint | Does | Rules | Writes |
 |---|---|---|---|
 | `GET /` | Every active account, with its resolved type | `account-type` | — |
-| `GET /balances` | Balance-bearing accounts with per-currency sums | Handler + `account-type-sql`; SQL `SUM` (#279) | — |
+| `GET /balances` | Balance-bearing accounts with per-currency sums | Handler + `account-type-sql`; `money.sum` | — |
 | `GET /posting-counts` | Entries and last activity per account | Handler (SQL) | — |
-| `GET /:id/balance` | One account's balance as of a date | Handler; SQL `SUM` | — |
+| `GET /:id/balance` | One account's balance as of a date | Handler; `money.sum` | — |
 | `GET /action-required-summary` | Per account: uncategorized plus malformed-FX counts | Handler (raw SQL, #280) + `heal-service` | — |
 | `GET /:id/action-required` | The same, for one account, with ids | Same | — |
 | `GET /:id` | One account with resolved, inferred and inherited type | `account-type` | — |
@@ -167,8 +167,8 @@ stay balanced: `postings/heal-service.ts` re-points the legs of a malformed spen
 **The ledger write path** (`ledger/`). Every transaction is written in three steps, in this
 order:
 
-1. `validatePostings` (pure): at least two postings, supported currencies, each currency
-   summing to zero.
+1. `validatePostings` (pure): at least two postings, supported currencies, every amount a
+   number the column can hold, each currency summing to exactly zero in cents.
 2. `accountsOwnedBy`: every account named belongs to the transaction's owner.
 3. The inserts, inside one database transaction.
 
@@ -189,6 +189,15 @@ There are two ways in:
   - Accounts may be deleted but must be the owner's: Fish Pie builds legs from members'
     stored defaults, and whether those are still active is #443.
 
+**Money** (`money.ts`). An amount goes in and comes out as the string `numeric(12,2)` stores,
+and is added in integer cents in between. `money.parse` rounds a string to the cent
+exactly as the column does on write (half away from zero), and answers null for anything
+the column wouldn't store as money: not a number, `NaN`, or too large. Checking the
+parsed cents is therefore checking what will be written, with no tolerance. Balances are
+summed in JS rather than by SQL `SUM`, so the answer doesn't depend on the database's
+decimal type; SQLite has none. `splitByWeights` is the one split rule: each share is
+rounded to the cent, and the leftover goes to one named share.
+
 **Deleting has two meanings.** A personal transaction's delete hard-deletes its postings.
 A Fish Pie delete soft-deletes them. Postings are also hard-deleted and re-inserted with
 new ids whenever a transaction's postings are replaced. `00-direction.md` (the correction
@@ -199,18 +208,19 @@ marked `F2`) explains why that makes the transaction, not the posting, the unit 
 
 | Rule | Copies | Agree? |
 |---|---|---|
-| Postings balance per currency | `ledger/validate.ts` once in the backend (`parseFloat`, tolerance 0.001); `LedgerEditModal` and `AddTransactionModal` in the frontend (tolerance 0.005) | No: two tolerances, and float arithmetic (#279) |
+| Postings balance per currency | `ledger/validate.ts` once in the backend (exact, in cents); `LedgerEditModal` and `AddTransactionModal` in the frontend (floats, tolerance 0.005) | No: the frontend passes some legs the backend refuses (#450) |
 | An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
 | A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
 | A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |
 | A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
-| Money arithmetic | `parseFloat` or `toFixed` on over 90 lines (`import/postings`, the Fish Pie routes and services, `heal`, `transactions.ts`) | Floats. #279 replaces them with integer cents |
+| Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints); `parseFloat` or `toFixed` still in import (#448, #447), reports and heal (#449), and Fish Pie (#451) | No: moving file by file |
 
 ## Pure modules that already exist
 
 | Module | What | Called by |
 |---|---|---|
 | `currencies.ts` | The supported currency set and `isValidCurrency` | Routes that accept a currency |
+| `money.ts` | Amounts in integer cents: `parse`, `format`, `add`, `sub`, `neg`, `sum`, `splitByWeights` | `ledger/validate`, the balance endpoints |
 | `import/csv-parser.ts` | Delimiter detection, CSV parsing, header fingerprint | Import preview |
 | `import/dynamic-parser.ts` | Build a row parser from a saved column mapping | Import preview |
 | `import/merchant.ts` | Merchant stem: strip terminal numbers, dates, references | Preview grouping, rule mining |

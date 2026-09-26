@@ -97,6 +97,7 @@ export const ERROR_STATUS = {
   TRANSACTION_NOT_FOUND: 404,
   TOO_FEW_POSTINGS: 400,
   POSTINGS_DO_NOT_BALANCE: 400,
+  AMOUNT_INVALID: 400,
   TRANSACTION_NOT_MALFORMED: 409,
   HEAL_WOULD_UNBALANCE: 409,
 
@@ -221,6 +222,7 @@ export interface ErrorDetails {
   /** `index` is the position in a batch; absent for a single-transaction request. */
   TOO_FEW_POSTINGS: { index?: number }
   POSTINGS_DO_NOT_BALANCE: { currency: string; sum?: number; index?: number }
+  AMOUNT_INVALID: { amount: string; index?: number }
   HEAL_WOULD_UNBALANCE: { currency: string; sum: number }
 
   IMPORT_ROW_MISSING_ACCOUNT: { rowKind: ImportRowKind; field: string }
