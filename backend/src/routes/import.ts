@@ -1,6 +1,7 @@
 import { and, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { accountsOwnedBy } from '../accounts/ownership-service'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
@@ -592,6 +593,24 @@ app.post('/commit', async (c) => {
           field: 'sourceAccountId',
         })
     }
+  }
+
+  // Every account the request names must be one of the caller's own, the same check
+  // `POST /api/transactions` makes. It covers ids a row carries but a Fish Pie split then
+  // ignores, because an id that is not yours has no business in the request at all.
+  const namedAccountIds = [
+    accountId,
+    ...parsed.flatMap((t) => [
+      t.offsetAccountId,
+      t.sourceAccountId,
+      t.targetAccountId,
+      t.conversionAccountId,
+      t.expenseAccountId,
+      t.feeAccountId,
+    ]),
+  ].filter((id): id is string => !!id)
+  if (!(await accountsOwnedBy(userId, namedAccountIds))) {
+    return fail(c, 'ACCOUNTS_NOT_FOUND')
   }
 
   type RegularRow = {

@@ -1,6 +1,7 @@
 import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { accountsOwnedBy } from '../accounts/ownership-service'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
 import { db } from '../db'
@@ -47,21 +48,6 @@ async function enrichPostings<T extends { id: string; accountId: string }>(
     settings,
   )
   return withPath.map((r) => ({ ...r, role: roleById.get(r.id)! }))
-}
-
-// True when every id is an active account owned by userId. Guards the create/replace
-// paths so a transaction can't reference (or leak the path of) another user's account.
-// Empty input is vacuously true; posting-count validation rejects empties separately.
-async function accountsOwnedBy(userId: string, accountIds: string[]): Promise<boolean> {
-  const unique = [...new Set(accountIds)]
-  if (unique.length === 0) return true
-  const owned = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(
-      and(inArray(accounts.id, unique), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
-    )
-  return owned.length === unique.length
 }
 
 // GET /api/transactions/malformed-fx-spend
@@ -587,12 +573,16 @@ app.post('/:id/heal-fx-spend', async (c) => {
 // Soft-deletes a transaction and hard-deletes its postings.
 // The transaction row with deletedAt set is the audit record that it existed.
 // Postings have no meaning without their transaction, so they don't need a tombstone.
+//
+// The postings go only if the soft-delete matched: that update is the ownership check, so
+// it runs first and nothing else is written when it finds no active transaction of this
+// user's. The answer is 204 either way, like every other delete here: deleting what is
+// already gone is not an error, and a 404 would say which ids exist for someone else.
 app.delete('/:id', async (c) => {
   const userId = c.get('userId')
   const id = c.req.param('id')
   await db.transaction(async (tx) => {
-    await tx.delete(postings).where(eq(postings.transactionId, id))
-    await tx
+    const deleted = await tx
       .update(transactions)
       .set({ deletedAt: new Date() })
       .where(
@@ -602,6 +592,9 @@ app.delete('/:id', async (c) => {
           isNull(transactions.deletedAt),
         ),
       )
+      .returning({ id: transactions.id })
+    if (deleted.length === 0) return
+    await tx.delete(postings).where(eq(postings.transactionId, id))
   })
   return c.body(null, 204)
 })

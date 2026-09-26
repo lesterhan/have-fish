@@ -121,3 +121,88 @@ describe('parsers', () => {
     })
   })
 })
+
+describe("parsers — another user's accounts as defaults", () => {
+  let alice: string
+  let bob: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+    alice = await createTestUser('alice@example.com')
+    bob = await createTestUser('bob@example.com')
+  })
+
+  async function createAccount(cookie: string, path: string): Promise<{ id: string }> {
+    const res = await request('/api/accounts', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path }),
+    })
+    return res.json()
+  }
+
+  function patchParser(cookie: string, id: string, body: Record<string, unknown>) {
+    return request(`/api/parsers/${id}`, {
+      method: 'PATCH',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    })
+  }
+
+  it('accepts the caller’s own accounts', async () => {
+    const own = await createAccount(alice, 'assets:chequing')
+    const fees = await createAccount(alice, 'expenses:fees')
+
+    const res = await createParser(alice, {
+      ...validParser,
+      defaultAccountId: own.id,
+      defaultFeeAccountId: fees.id,
+    } as typeof validParser)
+
+    expect(res.status).toBe(201)
+  })
+
+  it.each(['defaultAccountId', 'defaultFeeAccountId'])(
+    'refuses to create a parser whose %s is not the caller’s',
+    async (field) => {
+      const foreign = await createAccount(bob, 'assets:bob')
+
+      const res = await createParser(alice, {
+        ...validParser,
+        [field]: foreign.id,
+      } as typeof validParser)
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'SETTING_ACCOUNT_NOT_FOUND', detail: { field } })
+      const list = await (await request('/api/parsers', { headers: { Cookie: alice } })).json()
+      expect(list).toEqual([])
+    },
+  )
+
+  it.each(['defaultAccountId', 'defaultFeeAccountId'])(
+    'refuses to point %s at another user’s account',
+    async (field) => {
+      const parser = await (await createParser(alice)).json()
+      const foreign = await createAccount(bob, 'assets:bob')
+
+      const res = await patchParser(alice, parser.id, { [field]: foreign.id })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'SETTING_ACCOUNT_NOT_FOUND', detail: { field } })
+      const [stored] = await (await request('/api/parsers', { headers: { Cookie: alice } })).json()
+      expect(stored[field]).toBeNull()
+    },
+  )
+
+  it('still clears a default with null', async () => {
+    const own = await createAccount(alice, 'assets:chequing')
+    const parser = await (
+      await createParser(alice, { ...validParser, defaultAccountId: own.id } as typeof validParser)
+    ).json()
+
+    const res = await patchParser(alice, parser.id, { defaultAccountId: null })
+
+    expect(res.status).toBe(200)
+    expect((await res.json()).defaultAccountId).toBeNull()
+  })
+})

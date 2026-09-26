@@ -1750,3 +1750,124 @@ describe('POST /api/import/commit — group splits', () => {
     expect(parseFloat(sourcePosting!.amount)).toBeCloseTo(-100, 2)
   })
 })
+
+describe("POST /api/import/commit — another user's accounts", () => {
+  let alice: string
+  let bob: string
+
+  beforeEach(async () => {
+    await clearDatabase()
+    alice = await createTestUser('alice@example.com')
+    bob = await createTestUser('bob@example.com')
+  })
+
+  async function commit(cookie: string, body: Record<string, unknown>) {
+    return request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({ defaultCurrency: 'CAD', ...body }),
+    })
+  }
+
+  async function postingsOn(accountId: string) {
+    return db.select().from(postings).where(eq(postings.accountId, accountId))
+  }
+
+  const regular = (fields: Record<string, string>) => ({
+    date: new Date('2026-02-01').toISOString(),
+    amount: '-99.00',
+    currency: 'CAD',
+    description: 'Row',
+    ...fields,
+  })
+
+  it.each(['accountId', 'sourceAccountId', 'offsetAccountId'])(
+    'rejects a regular row whose %s is not the caller’s, and writes nothing',
+    async (field) => {
+      const own = await createAccount(alice, 'assets:chequing')
+      const ownOffset = await createAccount(alice, 'expenses:food')
+      const foreign = await createAccount(bob, 'assets:bob')
+      const ids: Record<string, string> = {
+        accountId: own.id,
+        sourceAccountId: own.id,
+        offsetAccountId: ownOffset.id,
+        [field]: foreign.id,
+      }
+      const { accountId, ...rowIds } = ids
+
+      const res = await commit(alice, { accountId, transactions: [regular(rowIds)] })
+
+      expect(res.status).toBe(404)
+      expect((await res.json()).error).toBe('ACCOUNTS_NOT_FOUND')
+      expect(await postingsOn(foreign.id)).toEqual([])
+      expect(await db.select().from(transactions)).toEqual([])
+    },
+  )
+
+  it.each(['sourceAccountId', 'targetAccountId', 'conversionAccountId', 'feeAccountId'])(
+    'rejects a transfer row whose %s is not the caller’s',
+    async (field) => {
+      const ids: Record<string, string> = {
+        sourceAccountId: (await createAccount(alice, 'assets:wise:cad')).id,
+        targetAccountId: (await createAccount(alice, 'assets:wise:gbp')).id,
+        conversionAccountId: (await createAccount(alice, 'equity:conversion')).id,
+        feeAccountId: (await createAccount(alice, 'expenses:fees')).id,
+      }
+      const foreign = await createAccount(bob, 'assets:bob')
+      ids[field] = foreign.id
+
+      const res = await commit(alice, {
+        transactions: [
+          {
+            isTransfer: true,
+            date: new Date('2026-03-01').toISOString(),
+            sourceAmount: '-200.00',
+            sourceCurrency: 'CAD',
+            targetAmount: '107.90',
+            targetCurrency: 'GBP',
+            ...ids,
+          },
+        ],
+      })
+
+      expect(res.status).toBe(404)
+      expect(await postingsOn(foreign.id)).toEqual([])
+    },
+  )
+
+  it('rejects a cross-currency spend whose expense account is not the caller’s', async () => {
+    const foreign = await createAccount(bob, 'expenses:bob')
+
+    const res = await commit(alice, {
+      transactions: [
+        {
+          isTransfer: 'cross-currency-spend',
+          date: new Date('2026-03-01').toISOString(),
+          sourceAmount: '-20.00',
+          sourceCurrency: 'CAD',
+          targetAmount: '12.00',
+          targetCurrency: 'EUR',
+          sourceAccountId: (await createAccount(alice, 'assets:card')).id,
+          conversionAccountId: (await createAccount(alice, 'equity:conversion')).id,
+          expenseAccountId: foreign.id,
+        },
+      ],
+    })
+
+    expect(res.status).toBe(404)
+    expect(await postingsOn(foreign.id)).toEqual([])
+  })
+
+  it('rejects a deleted account of the caller’s own', async () => {
+    const own = await createAccount(alice, 'assets:old')
+    const offset = await createAccount(alice, 'expenses:food')
+    await db.update(accounts).set({ deletedAt: new Date() }).where(eq(accounts.id, own.id))
+
+    const res = await commit(alice, {
+      accountId: own.id,
+      transactions: [regular({ offsetAccountId: offset.id })],
+    })
+
+    expect(res.status).toBe(404)
+  })
+})

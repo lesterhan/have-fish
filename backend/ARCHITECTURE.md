@@ -90,7 +90,7 @@ actually live; "writes" lists the tables touched.
 | `PATCH /:id` | Date and description | Schema | `transactions` |
 | `POST /:id/postings` | Replace every posting, atomically | Handler: the same checks, a third copy | `postings` (hard delete + insert) |
 | `POST /:id/heal-fx-spend` | Repair one malformed spend | `heal-service` → `heal` | `postings` |
-| `DELETE /:id` | Soft-delete the transaction | Handler | `transactions`, `postings` (hard delete) |
+| `DELETE /:id` | Soft-delete the transaction | Handler: the caller's own, active transaction; its postings go only if that matched | `transactions`, `postings` (hard delete) |
 
 **`postings.ts`** — `/api/postings` (163 lines). Single-posting edits, used by the raw
 ledger editor. None of the three checks the transaction still balances (#432).
@@ -107,7 +107,7 @@ ledger editor. None of the three checks the transaction still balances (#432).
 |---|---|---|---|
 | `POST /preview` | Match the CSV to a saved parser, parse it, suggest accounts from rules | `csv-parser`, `dynamic-parser`, `merchant`; rule matching and own-transfer detection in the handler | — |
 | `POST /check-duplicates` | Possible duplicates per row, with Fish Pie context | Handler: ±1 day, same currency, amount within 0.01 | — |
-| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | Handler: per-row-kind checks, group and category checks; `import/postings` builds the legs | `transactions`, `postings`, Fish Pie tables |
+| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | Handler: every named account is the caller's (`accountsOwnedBy`), per-row-kind checks, group and category checks; `import/postings` builds the legs | `transactions`, `postings`, Fish Pie tables |
 
 **`rules.ts`** — `/api/rules` (413 lines). Import rules: a pattern that suggests an
 account, or a Fish Pie group and category.
@@ -122,10 +122,10 @@ account, or a Fish Pie group and category.
 
 | File | Mount | Does |
 |---|---|---|
-| `parsers.ts` | `/api/parsers` | CRUD for saved CSV parsers: header fingerprint and column mapping |
+| `parsers.ts` | `/api/parsers` | CRUD for saved CSV parsers: header fingerprint, column mapping, default accounts (the caller's own) |
 | `user-settings.ts` | `/api/user-settings` | The settings row: default accounts, type roots, preferred currency, a free-form `preferences` merged in SQL (#278) |
 | `reports.ts` | `/api/reports` | Spending summary, monthly spend, FX pairs, converted totals. All through `spend-service` |
-| `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates`. The backend's only outbound `fetch` |
+| `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates`. The backend's only outbound `fetch`, so nothing but a `YYYY-MM-DD` date reaches its URL |
 | `coverage.ts` | `/api/coverage`, plus `/api/accounts/:id/coverage` | Coverage assertions, per-account config, reconcile, month view. Pure logic in `coverage/*` |
 | `catch-up.ts` | `/api/catch-up` | The catch-up coach's summary. `coverage/load` + `coverage/catch-up` |
 
@@ -179,8 +179,8 @@ marked `F2`) explains why that makes the transaction, not the posting, the unit 
 | Rule | Copies | Agree? |
 |---|---|---|
 | Postings balance per currency | `transactions.ts` ×3 (`parseFloat`, tolerance 0.001); `LedgerEditModal` and `AddTransactionModal` in the frontend (tolerance 0.005) | No: two tolerances, and float arithmetic (#279) |
-| An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (transactions), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
-| A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
+| An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
+| A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
 | A currency is supported | `isValidCurrency` in transactions, accounts, user-settings and fx-rates. Missing on import commit (#434) and the posting endpoints (#432) | Only where it's called |
 | A failure returned as a value | `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | Three shapes of one idea. The epic picks one |
 | The database transaction type | `Tx` in `fish-pie-accounts.ts`, `TxDb` in `fish-pie-expense-service.ts` | Two local aliases of one type |
