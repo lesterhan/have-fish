@@ -160,4 +160,20 @@ describe('fx-rates', () => {
       expect(res.status).toBe(400)
     })
   })
+
+  it.each(['not-a-date', '2024-01-15/../latest', '2024-1-5'])(
+    'rejects %s as a date without calling out',
+    async (date) => {
+      const fetchSpy = spyOn(global, 'fetch')
+
+      const res = await request(`/api/fx-rates?date=${encodeURIComponent(date)}&from=EUR&to=CAD`, {
+        headers: { Cookie: cookie },
+      })
+
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'FIELD_NOT_DATE', detail: { field: 'date' } })
+      expect(fetchSpy).not.toHaveBeenCalled()
+      fetchSpy.mockRestore()
+    },
+  )
 })

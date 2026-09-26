@@ -2,11 +2,15 @@ import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
-import { isValidCurrency } from '../currencies'
 import { db } from '../db'
-import { returnedRow } from '../db/returning'
 import { accounts, expenseGroups, groupExpenses, postings, transactions } from '../db/schema'
 import { fail, failWith } from '../errors'
+import {
+  createTransaction,
+  createTransactions,
+  deleteTransaction,
+  replacePostings,
+} from '../ledger/write-service'
 import { underPathCondition } from '../postings/account-type-sql'
 import { loadClassifySettings } from '../postings/classify-service'
 import { findMalformedFxSpends, healFxSpend, loadHealContext } from '../postings/heal-service'
@@ -47,21 +51,6 @@ async function enrichPostings<T extends { id: string; accountId: string }>(
     settings,
   )
   return withPath.map((r) => ({ ...r, role: roleById.get(r.id)! }))
-}
-
-// True when every id is an active account owned by userId. Guards the create/replace
-// paths so a transaction can't reference (or leak the path of) another user's account.
-// Empty input is vacuously true; posting-count validation rejects empties separately.
-async function accountsOwnedBy(userId: string, accountIds: string[]): Promise<boolean> {
-  const unique = [...new Set(accountIds)]
-  if (unique.length === 0) return true
-  const owned = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(
-      and(inArray(accounts.id, unique), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
-    )
-  return owned.length === unique.length
 }
 
 // GET /api/transactions/malformed-fx-spend
@@ -271,9 +260,9 @@ app.get('/', async (c) => {
 //     description?: string,
 //     postings: [{ accountId: string, amount: string, currency: string }, ...]
 //   }
-// Rules:
-//   - At least two postings required
-//   - Postings must balance to zero per currency (sum of amounts per currency = 0)
+// The rules (two or more postings, supported currencies, balanced per currency) and the
+// ownership check live in `ledger/`; this file parses the request and shapes the answer.
+//
 // A calendar day, the shape the `date` column stores. The PATCH route below has always
 // checked this; the create routes reached the column with whatever arrived and let
 // Postgres raise, so this is the same rule applied in all three places.
@@ -284,7 +273,7 @@ const isoDate = z
 // One posting as a request carries it.
 //
 // `currency` is only checked for being a string here. Whether it is a currency this
-// ledger supports is the handler's question below, because the answer carries the
+// ledger supports is `validatePostings`'s question, because the answer carries the
 // offending code and, in a bulk request, which transaction it came from — neither of
 // which a per-field schema can see.
 //
@@ -309,56 +298,11 @@ app.post('/', async (c) => {
   const userId = c.get('userId')
   const parsed = await parseBody(c, NewTransaction)
   if (!parsed.ok) return parsed.response
-  const { date, description, postings: postingInputs } = parsed.data
 
-  // Validate currency codes
-  for (const p of postingInputs) {
-    if (!isValidCurrency(p.currency)) {
-      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency })
-    }
-  }
+  const result = await createTransaction(userId, parsed.data)
+  if (!result.ok) return failWith(c, result.failure)
 
-  // Validate balance per currency: sum of amounts must equal zero
-  const balances: Record<string, number> = {}
-  for (const p of postingInputs) {
-    balances[p.currency] = (balances[p.currency] ?? 0) + parseFloat(p.amount)
-  }
-  for (const [currency, sum] of Object.entries(balances)) {
-    if (Math.abs(sum) > 0.001) {
-      return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, sum })
-    }
-  }
-
-  // Verify every referenced account belongs to this user before inserting.
-  const inputAccountIds = postingInputs.map((p) => p.accountId)
-  if (!(await accountsOwnedBy(userId, inputAccountIds))) {
-    return fail(c, 'ACCOUNTS_NOT_FOUND')
-  }
-
-  const created = await db.transaction(async (tx) => {
-    const newTx = returnedRow(
-      await tx
-        .insert(transactions)
-        .values({ userId, date: new Date(date), description: description ?? null })
-        .returning(),
-      'insert transactions',
-    )
-
-    const newPostings = await tx
-      .insert(postings)
-      .values(
-        postingInputs.map((p) => ({
-          transactionId: newTx.id,
-          accountId: p.accountId,
-          amount: p.amount,
-          currency: p.currency,
-        })),
-      )
-      .returning()
-
-    return { ...newTx, postings: newPostings }
-  })
-
+  const created = result.value
   const enriched = await enrichPostings(userId, created.postings)
   return c.json({ ...created, postings: enriched }, 201)
 })
@@ -368,7 +312,7 @@ app.post('/', async (c) => {
 // Request body: { transactions: Array<{ date, description?, postings }> }
 // Same posting rules as POST /api/transactions apply to each entry.
 // The per-entry `postings` array deliberately has no `.min(2)`: too few postings is
-// reported with the index of the entry that is short, and the loop below is what knows it.
+// reported with the index of the entry that is short, and `createTransactions` is what knows it.
 const emptyBatch = as('FIELD_EMPTY', { field: 'transactions' })
 
 const BulkTransactions = z.object({
@@ -388,61 +332,10 @@ app.post('/bulk', async (c) => {
   const userId = c.get('userId')
   const parsed = await parseBody(c, BulkTransactions)
   if (!parsed.ok) return parsed.response
-  const { transactions: txInputs } = parsed.data
 
-  // Validate each transaction before touching the DB
-  for (const [i, entry] of txInputs.entries()) {
-    const { postings: postingInputs } = entry
-    if (postingInputs.length < 2) {
-      return fail(c, 'TOO_FEW_POSTINGS', { index: i })
-    }
-    for (const p of postingInputs) {
-      if (!isValidCurrency(p.currency)) {
-        return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency, index: i })
-      }
-    }
-    const balances: Record<string, number> = {}
-    for (const p of postingInputs) {
-      balances[p.currency] = (balances[p.currency] ?? 0) + parseFloat(p.amount)
-    }
-    for (const [currency, sum] of Object.entries(balances)) {
-      if (Math.abs(sum) > 0.001) {
-        return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, index: i })
-      }
-    }
-  }
-
-  // Verify every referenced account (across all transactions) belongs to this user.
-  const allAccountIds = txInputs.flatMap((t) => t.postings.map((p) => p.accountId))
-  if (!(await accountsOwnedBy(userId, allAccountIds))) {
-    return fail(c, 'ACCOUNTS_NOT_FOUND')
-  }
-
-  const created = await db.transaction(async (tx) => {
-    const results = []
-    for (const { date, description, postings: postingInputs } of txInputs) {
-      const newTx = returnedRow(
-        await tx
-          .insert(transactions)
-          .values({ userId, date: new Date(date), description: description ?? null })
-          .returning(),
-        'insert transactions',
-      )
-      const newPostings = await tx
-        .insert(postings)
-        .values(
-          postingInputs.map((p) => ({
-            transactionId: newTx.id,
-            accountId: p.accountId,
-            amount: p.amount,
-            currency: p.currency,
-          })),
-        )
-        .returning()
-      results.push({ ...newTx, postings: newPostings })
-    }
-    return results
-  })
+  const result = await createTransactions(userId, parsed.data.transactions)
+  if (!result.ok) return failWith(c, result.failure)
+  const created = result.value
 
   // Enrich every posting across all created transactions in one pass, then regroup.
   const enriched = await enrichPostings(
@@ -499,74 +392,22 @@ app.patch('/:id', async (c) => {
 // Replaces all postings on a transaction atomically (used when editing a transaction).
 // Request body:
 //   { postings: [{ accountId: string, amount: string, currency: string }, ...] }
-// Rules:
-//   - At least two postings required
-//   - Postings must balance to zero per currency
-//   - Verifies the transaction belongs to the authenticated user
+// Same rules as create, and the transaction must be the caller's (404 otherwise).
 const ReplacePostings = z.object({
   postings: z.array(PostingInput, { error: tooFew }).min(2, { error: tooFew }),
 })
 
 app.post('/:id/postings', async (c) => {
   const userId = c.get('userId')
-  const id = c.req.param('id')
   const parsed = await parseBody(c, ReplacePostings)
   if (!parsed.ok) return parsed.response
-  const { postings: postingInputs } = parsed.data
 
-  // Validate currency codes
-  for (const p of postingInputs) {
-    if (!isValidCurrency(p.currency)) {
-      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: p.currency })
-    }
-  }
+  const result = await replacePostings(userId, c.req.param('id'), parsed.data.postings)
+  if (!result.ok) return failWith(c, result.failure)
 
-  // Validate balance per currency
-  const balances: Record<string, number> = {}
-  for (const p of postingInputs) {
-    balances[p.currency] = (balances[p.currency] ?? 0) + parseFloat(p.amount)
-  }
-  for (const [currency, sum] of Object.entries(balances)) {
-    if (Math.abs(sum) > 0.001) {
-      return fail(c, 'POSTINGS_DO_NOT_BALANCE', { currency, sum })
-    }
-  }
-
-  // Verify transaction exists and belongs to this user
-  const [tx] = await db
-    .select()
-    .from(transactions)
-    .where(
-      and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)),
-    )
-
-  if (!tx) return fail(c, 'TRANSACTION_NOT_FOUND')
-
-  // Verify all accounts exist and belong to this user
-  const inputAccountIds = postingInputs.map((p) => p.accountId)
-  if (!(await accountsOwnedBy(userId, inputAccountIds))) {
-    return fail(c, 'ACCOUNTS_NOT_FOUND')
-  }
-
-  // Atomically replace all postings
-  const result = await db.transaction(async (dbTx) => {
-    await dbTx.delete(postings).where(eq(postings.transactionId, id))
-    const newPostings = await dbTx
-      .insert(postings)
-      .values(
-        postingInputs.map((p) => ({
-          transactionId: id,
-          accountId: p.accountId,
-          amount: p.amount,
-          currency: p.currency,
-        })),
-      )
-      .returning()
-    return { ...tx, postings: newPostings }
-  })
-
-  const enriched = await enrichPostings(userId, result.postings)
-  return c.json({ ...result, postings: enriched })
+  const replaced = result.value
+  const enriched = await enrichPostings(userId, replaced.postings)
+  return c.json({ ...replaced, postings: enriched })
 })
 
 // POST /api/transactions/:id/heal-fx-spend
@@ -584,25 +425,12 @@ app.post('/:id/heal-fx-spend', async (c) => {
 })
 
 // DELETE /api/transactions/:id
-// Soft-deletes a transaction and hard-deletes its postings.
-// The transaction row with deletedAt set is the audit record that it existed.
-// Postings have no meaning without their transaction, so they don't need a tombstone.
+// Soft-deletes the transaction and hard-deletes its postings; `deleteTransaction` says why.
+// The answer is 204 whether or not anything was deleted, like every other delete here:
+// deleting what is already gone is not an error, and a 404 would say which ids exist for
+// someone else.
 app.delete('/:id', async (c) => {
-  const userId = c.get('userId')
-  const id = c.req.param('id')
-  await db.transaction(async (tx) => {
-    await tx.delete(postings).where(eq(postings.transactionId, id))
-    await tx
-      .update(transactions)
-      .set({ deletedAt: new Date() })
-      .where(
-        and(
-          eq(transactions.id, id),
-          eq(transactions.userId, userId),
-          isNull(transactions.deletedAt),
-        ),
-      )
-  })
+  await deleteTransaction(c.get('userId'), c.req.param('id'))
   return c.body(null, 204)
 })
 

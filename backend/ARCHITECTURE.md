@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` at `ba23404`, and the layering the [domain-layer
+code as it is on `main` (last updated by #425), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -13,7 +13,8 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
   └ server.ts   one Hono server: the API first, then the built frontend, then the SPA fallback
       └ app.ts  the API: CORS → request logger → session guard → route
           └ routes/<resource>.ts   parse the body, check, query, write, answer
-              ├ pure modules        import/, postings/, coverage/ … (no database)
+              ├ services            *-service.ts: load, check, write (ledger/write-service, …)
+              ├ pure modules        ledger/validate, import/, postings/, coverage/ … (no database)
               └ db/                 Drizzle client and schema (Postgres today, SQLite per D8)
 ```
 
@@ -48,9 +49,9 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 
 | Layer | Target: does | Target: may import | Today |
 |---|---|---|---|
-| Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Most handlers also query, check and write directly |
-| Service | Load, check, write inside one transaction | Domain, `db`, schema | A few exist: `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `fish-pie-expense-service` |
-| Domain | Pure rules | Nothing stateful | About 1,300 lines already: `import/*`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up}`, `currencies` |
+| Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Most handlers also query, check and write directly. The transaction writes no longer do |
+| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `accounts/ownership-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `fish-pie-expense-service` |
+| Domain | Pure rules | Nothing stateful | About 1,300 lines already: `ledger/validate`, `import/*`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up}`, `currencies` |
 
 `routes/catch-up.ts` (29 lines) and `routes/reports.ts` already look like the target:
 the handler validates the query, calls a service, and answers. `routes/import.ts` (941
@@ -79,18 +80,19 @@ actually live; "writes" lists the tables touched.
 | `PATCH /:id` | Name, currency, type override | Schema | `accounts` |
 | `DELETE /:id` | Soft-delete one nothing depends on | Handler: no entries, not a default, not receivable | `accounts` |
 
-**`transactions.ts`** — `/api/transactions` (609 lines)
+**`transactions.ts`** — `/api/transactions` (437 lines). Every write goes through
+`ledger/write-service`; the handlers parse and shape the answer.
 
 | Endpoint | Does | Rules | Writes |
 |---|---|---|---|
 | `GET /malformed-fx-spend` | Malformed cross-currency spends, before and after | `heal-service` | — |
 | `GET /` | Transactions with postings and roles; filters by account, path, dates, spending | Handler + `roles`, `spend-service` | — |
-| `POST /` | Create one transaction | Handler: posting count, currency, balance per currency | `transactions`, `postings` |
-| `POST /bulk` | Create many, atomically | Handler: the same checks, a second copy | Same |
+| `POST /` | Create one transaction | `createTransaction`: `validatePostings`, then ownership | `transactions`, `postings` |
+| `POST /bulk` | Create many, atomically | `createTransactions`: the same, with each entry's index | Same |
 | `PATCH /:id` | Date and description | Schema | `transactions` |
-| `POST /:id/postings` | Replace every posting, atomically | Handler: the same checks, a third copy | `postings` (hard delete + insert) |
+| `POST /:id/postings` | Replace every posting, atomically | `replacePostings`: the same, and the transaction is the caller's | `postings` (hard delete + insert) |
 | `POST /:id/heal-fx-spend` | Repair one malformed spend | `heal-service` → `heal` | `postings` |
-| `DELETE /:id` | Soft-delete the transaction | Handler | `transactions`, `postings` (hard delete) |
+| `DELETE /:id` | Soft-delete the transaction | `deleteTransaction`: the caller's own, active transaction; its postings go only if that matched | `transactions`, `postings` (hard delete) |
 
 **`postings.ts`** — `/api/postings` (163 lines). Single-posting edits, used by the raw
 ledger editor. None of the three checks the transaction still balances (#432).
@@ -107,7 +109,7 @@ ledger editor. None of the three checks the transaction still balances (#432).
 |---|---|---|---|
 | `POST /preview` | Match the CSV to a saved parser, parse it, suggest accounts from rules | `csv-parser`, `dynamic-parser`, `merchant`; rule matching and own-transfer detection in the handler | — |
 | `POST /check-duplicates` | Possible duplicates per row, with Fish Pie context | Handler: ±1 day, same currency, amount within 0.01 | — |
-| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | Handler: per-row-kind checks, group and category checks; `import/postings` builds the legs | `transactions`, `postings`, Fish Pie tables |
+| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | Handler: every named account is the caller's (`accountsOwnedBy`), per-row-kind checks, group and category checks; `import/postings` builds the legs | `transactions`, `postings`, Fish Pie tables |
 
 **`rules.ts`** — `/api/rules` (413 lines). Import rules: a pattern that suggests an
 account, or a Fish Pie group and category.
@@ -122,10 +124,10 @@ account, or a Fish Pie group and category.
 
 | File | Mount | Does |
 |---|---|---|
-| `parsers.ts` | `/api/parsers` | CRUD for saved CSV parsers: header fingerprint and column mapping |
+| `parsers.ts` | `/api/parsers` | CRUD for saved CSV parsers: header fingerprint, column mapping, default accounts (the caller's own) |
 | `user-settings.ts` | `/api/user-settings` | The settings row: default accounts, type roots, preferred currency, a free-form `preferences` merged in SQL (#278) |
 | `reports.ts` | `/api/reports` | Spending summary, monthly spend, FX pairs, converted totals. All through `spend-service` |
-| `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates`. The backend's only outbound `fetch` |
+| `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates`. The backend's only outbound `fetch`, so nothing but a `YYYY-MM-DD` date reaches its URL |
 | `coverage.ts` | `/api/coverage`, plus `/api/accounts/:id/coverage` | Coverage assertions, per-account config, reconcile, month view. Pure logic in `coverage/*` |
 | `catch-up.ts` | `/api/catch-up` | The catch-up coach's summary. `coverage/load` + `coverage/catch-up` |
 
@@ -156,7 +158,7 @@ This is the table #425 and #426 exist to collapse into one row.
 
 | Where | Inserts | Deletes postings by | Balance checked |
 |---|---|---|---|
-| `routes/transactions.ts` (create, bulk, replace) | Yes | Hard delete (replace, delete) | Yes, three copies |
+| `ledger/write-service.ts` (create, bulk, replace, delete; called by `routes/transactions.ts`) | Yes | Hard delete (replace, delete) | Yes: `validatePostings` |
 | `routes/postings.ts` | One posting | Soft delete | **No** (#432) |
 | `routes/import.ts` commit | Yes, by row kind | — | By construction (`import/postings`) |
 | `postings/heal-service.ts` | Re-points existing legs | — | Amounts untouched, so it stays balanced |
@@ -168,6 +170,18 @@ This is the table #425 and #426 exist to collapse into one row.
 "By construction" means the code that builds the legs makes them balance, and nothing
 checks afterwards. It holds until an edit breaks it without any test failing.
 
+**The ledger write path** (`ledger/`). A personal transaction is written in three steps, in
+this order, by every function in `write-service.ts`:
+
+1. `validatePostings` (pure): at least two postings, supported currencies, each currency
+   summing to zero. It fails before any query runs.
+2. `accountsOwnedBy`: every account named is the caller's own and active.
+3. The inserts, inside one database transaction.
+
+Steps 1 and 2 answer an `Outcome`, which the route sends with `failWith`. The inserts take an
+`Executor` (`db/index.ts`: the client or an open transaction), so #426 can let import and
+Fish Pie write through the same code inside their own units of work.
+
 **Deleting has two meanings.** A personal transaction's delete hard-deletes its postings.
 A Fish Pie delete soft-deletes them. Postings are also hard-deleted and re-inserted with
 new ids whenever a transaction's postings are replaced. `00-direction.md` (the correction
@@ -178,12 +192,11 @@ marked `F2`) explains why that makes the transaction, not the posting, the unit 
 
 | Rule | Copies | Agree? |
 |---|---|---|
-| Postings balance per currency | `transactions.ts` ×3 (`parseFloat`, tolerance 0.001); `LedgerEditModal` and `AddTransactionModal` in the frontend (tolerance 0.005) | No: two tolerances, and float arithmetic (#279) |
-| An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (transactions), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
-| A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
+| Postings balance per currency | `ledger/validate.ts` once in the backend (`parseFloat`, tolerance 0.001); `LedgerEditModal` and `AddTransactionModal` in the frontend (tolerance 0.005) | No: two tolerances, and float arithmetic (#279) |
+| An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
+| A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
 | A currency is supported | `isValidCurrency` in transactions, accounts, user-settings and fx-rates. Missing on import commit (#434) and the posting endpoints (#432) | Only where it's called |
-| A failure returned as a value | `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | Three shapes of one idea. The epic picks one |
-| The database transaction type | `Tx` in `fish-pie-accounts.ts`, `TxDb` in `fish-pie-expense-service.ts` | Two local aliases of one type |
+| A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
 | Money arithmetic | `parseFloat` or `toFixed` on over 90 lines (`import/postings`, the Fish Pie routes and services, `heal`, `transactions.ts`) | Floats. #279 replaces them with integer cents |
 
 ## Pure modules that already exist
@@ -194,6 +207,7 @@ marked `F2`) explains why that makes the transaction, not the posting, the unit 
 | `import/csv-parser.ts` | Delimiter detection, CSV parsing, header fingerprint | Import preview |
 | `import/dynamic-parser.ts` | Build a row parser from a saved column mapping | Import preview |
 | `import/merchant.ts` | Merchant stem: strip terminal numbers, dates, references | Preview grouping, rule mining |
+| `ledger/validate.ts` | Whether postings may be written as one transaction: count, currency, balance per currency | `ledger/write-service` |
 | `import/postings.ts` | The legs for each import row kind, Fish Pie variants included | Import commit |
 | `postings/account-type.ts` | Resolve an account's type: override, then tagged ancestor, then path root | Accounts, roles, spend, coverage |
 | `postings/roles.ts` | Classify each posting's role inside its transaction | Transactions list, rules, spend |

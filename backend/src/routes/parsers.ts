@@ -1,6 +1,7 @@
 import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
+import { accountsOwnedBy } from '../accounts/ownership-service'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import { csvParsers } from '../db/schema'
@@ -19,6 +20,23 @@ app.get('/', async (c) => {
     .where(and(eq(csvParsers.userId, userId), isNull(csvParsers.deletedAt)))
   return c.json(all)
 })
+
+// A parser's default accounts are filled into the import form, and from there into the
+// postings a commit writes, so they are held to the same rule: the caller's own, active.
+// Answers with the first field that fails, or null when both are fine (or absent).
+async function foreignDefaultAccount(
+  userId: string,
+  defaults: {
+    defaultAccountId?: string | null | undefined
+    defaultFeeAccountId?: string | null | undefined
+  },
+): Promise<'defaultAccountId' | 'defaultFeeAccountId' | null> {
+  for (const field of ['defaultAccountId', 'defaultFeeAccountId'] as const) {
+    const id = defaults[field]
+    if (id && !(await accountsOwnedBy(userId, [id]))) return field
+  }
+  return null
+}
 
 // POST /api/parsers
 // Creates a new parser config for the current user.
@@ -63,6 +81,9 @@ app.post('/', async (c) => {
   const defaultAccountId = parsed.data.defaultAccountId ?? null
   const isMultiCurrency = parsed.data.isMultiCurrency === true
   const defaultFeeAccountId = parsed.data.defaultFeeAccountId ?? null
+
+  const foreign = await foreignDefaultAccount(userId, parsed.data)
+  if (foreign) return fail(c, 'SETTING_ACCOUNT_NOT_FOUND', { field: foreign })
 
   const [created] = await db
     .insert(csvParsers)
@@ -112,6 +133,9 @@ app.patch('/:id', async (c) => {
   // the patch is what it parsed rather than a field-by-field copy.
   const patch: Record<string, unknown> = parsed.data
   if (Object.keys(patch).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
+
+  const foreign = await foreignDefaultAccount(userId, parsed.data)
+  if (foreign) return fail(c, 'SETTING_ACCOUNT_NOT_FOUND', { field: foreign })
 
   const [updated] = await db
     .update(csvParsers)
