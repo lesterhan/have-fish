@@ -1,5 +1,5 @@
 import { and, eq, isNull } from 'drizzle-orm'
-import { db, type Executor } from './db'
+import { type DbTransaction, db } from './db'
 import { returnedRow } from './db/returning'
 import {
   expenseGroupMembers,
@@ -8,10 +8,11 @@ import {
   groupCategoryWeights,
   groupExpenseSplits,
   groupExpenses,
-  postings,
   transactions,
 } from './db/schema'
 import { ensureSharedAccount, ensureUncategorizedAccount } from './fish-pie-accounts'
+import type { PostingDraft } from './ledger/validate'
+import { writeTransaction } from './ledger/write-service'
 
 type Group = typeof expenseGroups.$inferSelect
 type Member = { userId: string; shareWeight: number; defaultExpenseAccountId: string | null }
@@ -29,7 +30,7 @@ export type CategoryContext = {
 // member has one — a partial set would silently reshape the split, so we fall back
 // to group weights instead.
 export async function resolveCategoryContext(
-  tx: Executor,
+  tx: DbTransaction,
   categoryId: string | null | undefined,
   members: { userId: string }[],
 ): Promise<CategoryContext> {
@@ -56,7 +57,7 @@ export async function resolveCategoryContext(
 // Resolution order for a member's expense account:
 // category mapping → member's group default → their uncategorized account.
 export async function resolveExpenseAccountId(
-  tx: Executor,
+  tx: DbTransaction,
   accounts: Map<string, string>,
   member: Member | undefined,
   userId: string,
@@ -78,7 +79,7 @@ export function applyCategoryWeights<T extends Member>(members: T[], ctx: Catego
 // the payer's category-resolved expense account and their share ratio (category
 // weights when they apply, group weights otherwise).
 export async function resolvePayerImportContext(
-  tx: Executor,
+  tx: DbTransaction,
   opts: { categoryId?: string | null | undefined; members: Member[]; payerId: string },
 ): Promise<{ payerExpenseAccountId: string; payerShareRatio: number }> {
   const { categoryId, members, payerId } = opts
@@ -133,7 +134,7 @@ export function computeSplits(
 // 2-posting tx with pre-BUG-005 signs (still reachable via PATCH — see BUG-006).
 // Called from both createGroupExpenseInTx (new expense) and the PATCH edit handler (rebuild after edit).
 export async function createMemberTransactionsInTx(
-  tx: Executor,
+  tx: DbTransaction,
   opts: {
     expenseId: string
     group: Group
@@ -184,97 +185,75 @@ export async function createMemberTransactionsInTx(
     }
     const sharedAccountId = sharedAccountIds.get(split.userId)!
 
-    const memberTx = returnedRow(
-      await tx
-        .insert(transactions)
-        .values({
-          userId: split.userId,
-          date: txDate,
-          description: description.trim(),
-          groupExpenseId: expenseId,
-        })
-        .returning(),
-      'insert transactions',
-    )
-
-    const isPayerWithSource = split.userId === payerId && !!paymentAccountId
-    if (isPayerWithSource) {
-      // 3-posting payer tx: mirrors the import-path structure.
-      // payment: -(total), group: +(others share), expense: +(payer share)
-      // When there is only one member (no others), the shared posting is omitted.
-      const payerShare = parseFloat(split.amount)
-      const othersShare = (parseFloat(totalAmount) - payerShare).toFixed(2)
-      const payerPostings: {
-        transactionId: string
-        accountId: string
-        amount: string
-        currency: string
-      }[] = [
-        {
-          transactionId: memberTx.id,
-          accountId: paymentAccountId!,
-          amount: (-parseFloat(totalAmount)).toFixed(2),
-          currency: normalizedCurrency,
-        },
-      ]
-      if (parseFloat(othersShare) !== 0) {
-        payerPostings.push({
-          transactionId: memberTx.id,
-          accountId: sharedAccountId,
-          amount: othersShare,
-          currency: normalizedCurrency,
-        })
-      }
-      payerPostings.push({
-        transactionId: memberTx.id,
-        accountId: expenseAccountId,
-        amount: split.amount,
-        currency: normalizedCurrency,
-      })
-      await tx.insert(postings).values(payerPostings)
-    } else if (split.userId !== payerId) {
-      // 2-posting non-payer tx. Expense positive (their share of the spending,
-      // consistent with every other expense-posting path), clearing negative
-      // (their debt to the payer — the settlement payer leg posts +amount, which
-      // clears this to zero). BUG-005.
-      await tx.insert(postings).values([
-        {
-          transactionId: memberTx.id,
-          accountId: expenseAccountId,
-          amount: split.amount,
-          currency: normalizedCurrency,
-        },
-        {
-          transactionId: memberTx.id,
-          accountId: sharedAccountId,
-          amount: `-${split.amount}`,
-          currency: normalizedCurrency,
-        },
-      ])
-    } else {
-      // Legacy 2-posting payer tx (no source account). Signs intentionally kept
-      // pre-BUG-005: this path is only reachable via PATCH without
-      // paymentAccountId (BUG-006) and is removed by the proposals epic.
-      await tx.insert(postings).values([
-        {
-          transactionId: memberTx.id,
-          accountId: expenseAccountId,
-          amount: `-${split.amount}`,
-          currency: normalizedCurrency,
-        },
-        {
-          transactionId: memberTx.id,
-          accountId: sharedAccountId,
-          amount: split.amount,
-          currency: normalizedCurrency,
-        },
-      ])
-    }
+    // Each member's own transaction, with legs in their own accounts. Written through the
+    // ledger service, so the legs are validated like any other transaction's.
+    const legs = memberLegs({
+      isPayer: split.userId === payerId,
+      paymentAccountId,
+      sharedAccountId,
+      expenseAccountId,
+      share: split.amount,
+      totalAmount,
+      currency: normalizedCurrency,
+    })
+    await writeTransaction(tx, split.userId, {
+      date: txDate,
+      description: description.trim(),
+      groupExpenseId: expenseId,
+      postings: legs,
+    })
   }
 }
 
+// The legs of one member's transaction for a shared expense. Pure.
+//
+// - **The payer, with the account they paid from**: payment −total, the clearing account
+//   +(everyone else's share), their expense +(their share). The clearing leg is left out
+//   when no one else owes anything. This mirrors the import path's structure.
+// - **Anyone else**: expense +share (their share of the spending, the same sign as every
+//   other expense leg), clearing −share (their debt to the payer; the settlement's payer leg
+//   posts +share, which clears it to zero). BUG-005.
+// - **The payer, with no source account**: the legacy two-leg shape, signs intentionally
+//   kept from before BUG-005. Only reachable via PATCH without paymentAccountId (BUG-006),
+//   and removed by the proposals epic.
+function memberLegs(opts: {
+  isPayer: boolean
+  paymentAccountId: string | undefined
+  sharedAccountId: string
+  expenseAccountId: string
+  share: string
+  totalAmount: string
+  currency: string
+}): PostingDraft[] {
+  const { sharedAccountId, expenseAccountId, share, totalAmount, currency } = opts
+  if (opts.isPayer && opts.paymentAccountId) {
+    const othersShare = (parseFloat(totalAmount) - parseFloat(share)).toFixed(2)
+    return [
+      {
+        accountId: opts.paymentAccountId,
+        amount: (-parseFloat(totalAmount)).toFixed(2),
+        currency,
+      },
+      ...(parseFloat(othersShare) !== 0
+        ? [{ accountId: sharedAccountId, amount: othersShare, currency }]
+        : []),
+      { accountId: expenseAccountId, amount: share, currency },
+    ]
+  }
+  if (!opts.isPayer) {
+    return [
+      { accountId: expenseAccountId, amount: share, currency },
+      { accountId: sharedAccountId, amount: `-${share}`, currency },
+    ]
+  }
+  return [
+    { accountId: expenseAccountId, amount: `-${share}`, currency },
+    { accountId: sharedAccountId, amount: share, currency },
+  ]
+}
+
 export async function createGroupExpenseInTx(
-  tx: Executor,
+  tx: DbTransaction,
   opts: {
     group: Group
     members: Member[]

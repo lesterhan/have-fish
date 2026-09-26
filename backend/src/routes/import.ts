@@ -1,10 +1,10 @@
+import { randomUUID } from 'node:crypto'
 import { and, eq, gte, inArray, isNull, lte, or } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { accountsOwnedBy } from '../accounts/ownership-service'
 import type { AppVariables } from '../app'
 import { db } from '../db'
-import { returnedRow } from '../db/returning'
 import {
   accounts,
   csvParsers,
@@ -17,7 +17,7 @@ import {
   transactions,
   user,
 } from '../db/schema'
-import { fail } from '../errors'
+import { fail, failWith } from '../errors'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 import {
   createGroupExpenseInTx,
@@ -40,6 +40,8 @@ import {
   buildRegularPostings,
 } from '../import/postings'
 import type { ColumnMapping } from '../import/types'
+import type { PostingDraft } from '../ledger/validate'
+import { inLedgerTransaction, writeTransaction } from '../ledger/write-service'
 import { amountLike, as, asField, parseBody, text } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -669,20 +671,23 @@ app.post('/commit', async (c) => {
 
   let fishPieExpenses = 0
 
-  await db.transaction(async (tx) => {
+  // Every row is written through the ledger service inside one unit of work. The row's
+  // transaction id is minted here because the leg builders stamp it on each leg; the
+  // service then validates the legs (count, currency, balance per currency, ownership) and
+  // writes the transaction and its postings together. A refused row rolls back every row
+  // and answers with its index.
+  const written = await inLedgerTransaction(async (tx) => {
     for (const [rowIndex, t] of (
       parsed as (RegularRow | TransferRow | SameCurrencyTransferRow | CrossCurrencySpendRow)[]
     ).entries()) {
-      const newTx = returnedRow(
-        await tx
-          .insert(transactions)
-          // `?? null` rather than letting `undefined` through: the column is nullable with
-          // no default, so an omitted key and an explicit null store the same thing, and
-          // `exactOptionalPropertyTypes` wants the difference spelled out.
-          .values({ userId, date: new Date(t.date), description: t.description ?? null })
-          .returning(),
-        'insert transactions',
-      )
+      const transactionId = randomUUID()
+      const write = (legs: PostingDraft[]) =>
+        writeTransaction(
+          tx,
+          userId,
+          { id: transactionId, date: t.date, description: t.description ?? null, postings: legs },
+          { index: rowIndex },
+        )
 
       if (t.isTransfer === 'cross-currency-spend') {
         // Cross-currency spend — a purchase in a currency the user doesn't hold, funded
@@ -693,9 +698,9 @@ app.post('/commit', async (c) => {
         const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0
         const conversionSrcAmount = (-(srcAmount + feeVal)).toFixed(2)
 
-        await tx.insert(postings).values(
+        await write(
           buildCrossCurrencySpendPostings({
-            transactionId: newTx.id,
+            transactionId,
             sourceAccountId: t.sourceAccountId,
             sourceAmount: t.sourceAmount,
             sourceCurrency: t.sourceCurrency,
@@ -740,9 +745,9 @@ app.post('/commit', async (c) => {
             payerId: userId,
           })
 
-          await tx.insert(postings).values(
+          await write(
             buildFishPieCrossCurrencyPostings({
-              transactionId: newTx.id,
+              transactionId,
               sourceAccountId: t.sourceAccountId,
               sourceAmount: t.sourceAmount,
               sourceCurrency: t.sourceCurrency,
@@ -769,39 +774,29 @@ app.post('/commit', async (c) => {
             amount: absAmount,
             currency: t.targetCurrency,
             date: dateStr,
-            linkedTransactionId: newTx.id,
+            linkedTransactionId: transactionId,
             skipPayerMemberTx: true,
             categoryId: groupSplit.categoryId ?? null,
           })
           fishPieExpenses++
         } else {
-          type PostingRow = {
-            transactionId: string
-            accountId: string
-            amount: string
-            currency: string
-          }
-          const postingRows: PostingRow[] = [
+          const postingRows: PostingDraft[] = [
             {
-              transactionId: newTx.id,
               accountId: t.sourceAccountId,
               amount: t.sourceAmount,
               currency: t.sourceCurrency,
             },
             {
-              transactionId: newTx.id,
               accountId: t.conversionAccountId,
               amount: conversionSrcAmount,
               currency: t.sourceCurrency,
             },
             {
-              transactionId: newTx.id,
               accountId: t.conversionAccountId,
               amount: (-tgtAmount).toFixed(2),
               currency: t.targetCurrency,
             },
             {
-              transactionId: newTx.id,
               accountId: t.targetAccountId,
               amount: t.targetAmount,
               currency: t.targetCurrency,
@@ -810,14 +805,13 @@ app.post('/commit', async (c) => {
 
           if (t.feeAmount && feeVal !== 0) {
             postingRows.splice(2, 0, {
-              transactionId: newTx.id,
               accountId: t.feeAccountId,
               amount: t.feeAmount,
               currency: feeCurrency,
             })
           }
 
-          await tx.insert(postings).values(postingRows)
+          await write(postingRows)
         }
       } else if (t.isTransfer === 'same-currency') {
         // Same-currency IN transfer — 3 postings (regular) or 4 (Fish Pie).
@@ -839,9 +833,9 @@ app.post('/commit', async (c) => {
             payerId: userId,
           })
 
-          await tx.insert(postings).values(
+          await write(
             buildFishPieSameCurrencyPostings({
-              transactionId: newTx.id,
+              transactionId,
               sourceAccountId: t.sourceAccountId,
               amount: t.amount,
               feeAmount: t.feeAmount,
@@ -863,28 +857,25 @@ app.post('/commit', async (c) => {
             amount: absAmount,
             currency: t.currency,
             date: dateStr,
-            linkedTransactionId: newTx.id,
+            linkedTransactionId: transactionId,
             skipPayerMemberTx: true,
             categoryId: groupSplit.categoryId ?? null,
           })
           fishPieExpenses++
         } else {
           const gross = (parseFloat(t.amount) + parseFloat(t.feeAmount)).toFixed(2)
-          await tx.insert(postings).values([
+          await write([
             {
-              transactionId: newTx.id,
               accountId: t.targetAccountId,
               amount: t.amount,
               currency: t.currency,
             },
             {
-              transactionId: newTx.id,
               accountId: t.feeAccountId,
               amount: t.feeAmount,
               currency: t.currency,
             },
             {
-              transactionId: newTx.id,
               accountId: t.sourceAccountId,
               amount: `-${gross}`,
               currency: t.currency,
@@ -912,9 +903,9 @@ app.post('/commit', async (c) => {
             payerId: userId,
           })
 
-          await tx.insert(postings).values(
+          await write(
             buildFishPiePostings({
-              transactionId: newTx.id,
+              transactionId,
               sourceAccountId: sourceId,
               amount: t.amount,
               groupAccountId,
@@ -934,15 +925,15 @@ app.post('/commit', async (c) => {
             amount: absAmount,
             currency,
             date: dateStr,
-            linkedTransactionId: newTx.id,
+            linkedTransactionId: transactionId,
             skipPayerMemberTx: true,
             categoryId: groupSplit.categoryId ?? null,
           })
           fishPieExpenses++
         } else {
-          await tx.insert(postings).values(
+          await write(
             buildRegularPostings({
-              transactionId: newTx.id,
+              transactionId,
               sourceAccountId: sourceId,
               amount: t.amount,
               offsetAccountId: t.offsetAccountId,
@@ -953,6 +944,7 @@ app.post('/commit', async (c) => {
       }
     }
   })
+  if (!written.ok) return failWith(c, written.failure)
 
   return c.json({ created: parsed.length, fishPieExpenses }, 201)
 })

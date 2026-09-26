@@ -13,7 +13,7 @@ import {
   transactions,
   user,
 } from '../db/schema'
-import { fail } from '../errors'
+import { fail, failWith } from '../errors'
 import { isClearingAccountPath } from '../fish-pie-accounts'
 import {
   applyCategoryWeights,
@@ -23,6 +23,7 @@ import {
   resolveCategoryContext,
   resolveExpenseAccountId,
 } from '../fish-pie-expense-service'
+import { amendPostings, inLedgerTransaction } from '../ledger/write-service'
 
 // Validate a categoryId against a group. Returns 'ok' | 'not-found' | 'archived'.
 // Callers decide whether 'archived' is fatal (create) or tolerated (edit).
@@ -166,7 +167,7 @@ app.post('/groups/:groupId/expenses', async (c) => {
     )
   if (!paymentAcct) return fail(c, 'PAYER_ACCOUNT_NOT_FOUND')
 
-  const expenseId = await db.transaction(async (tx) => {
+  const created = await inLedgerTransaction(async (tx) => {
     const id = await createGroupExpenseInTx(tx, {
       group,
       members,
@@ -192,8 +193,9 @@ app.post('/groups/:groupId/expenses', async (c) => {
 
     return id
   })
+  if (!created.ok) return failWith(c, created.failure)
 
-  const [withDetails] = await fetchExpenseWithDetails([expenseId])
+  const [withDetails] = await fetchExpenseWithDetails([created.value])
   return c.json(withDetails, 201)
 })
 
@@ -345,7 +347,7 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
 
   const now = new Date()
 
-  await db.transaction(async (tx) => {
+  const edited = await inLedgerTransaction(async (tx) => {
     // Weight resolution order: explicit per-expense splits > category weights (when
     // every member has one) > stored group member weights. Account resolution per
     // member runs through the (new) category as well.
@@ -473,11 +475,6 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
       const expensePosting = importPostings.find((p) => p.accountId === oldExpenseAccountId)
 
       if (groupPosting && expensePosting) {
-        await tx
-          .update(postings)
-          .set({ deletedAt: now })
-          .where(inArray(postings.id, [groupPosting.id, expensePosting.id]))
-
         // Both postings share the same sign; their sum is the net target amount
         const netTarget = parseFloat(groupPosting.amount) + parseFloat(expensePosting.amount)
         const totalWeight = membersForSplit.reduce((s, m) => s + m.shareWeight, 0)
@@ -486,23 +483,20 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
         const newOthersShare = (netTarget - parseFloat(newPayerShare)).toFixed(2)
         const targetCurrency = groupPosting.currency
 
-        await tx.insert(postings).values([
-          {
-            transactionId: expense.transactionId,
-            accountId: groupPosting.accountId,
-            amount: newOthersShare,
-            currency: targetCurrency,
-          },
-          {
-            transactionId: expense.transactionId,
-            accountId: newExpenseAccountId,
-            amount: newPayerShare,
-            currency: targetCurrency,
-          },
-        ])
+        // The two legs are retired (soft-deleted, as Fish Pie keeps them) and replaced in
+        // one step, and the import transaction is re-validated as a whole.
+        await amendPostings(tx, expense.transactionId, {
+          retire: [groupPosting.id, expensePosting.id],
+          add: [
+            { accountId: groupPosting.accountId, amount: newOthersShare, currency: targetCurrency },
+            { accountId: newExpenseAccountId, amount: newPayerShare, currency: targetCurrency },
+          ],
+          at: now,
+        })
       }
     }
   })
+  if (!edited.ok) return failWith(c, edited.failure)
 
   const [withDetails] = await fetchExpenseWithDetails([expenseId])
   return c.json(withDetails)
