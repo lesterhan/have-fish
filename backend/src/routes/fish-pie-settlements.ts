@@ -14,8 +14,10 @@ import {
   user,
   userSettings,
 } from '../db/schema'
-import { fail } from '../errors'
+import { fail, failWith } from '../errors'
 import { ensureSharedAccount } from '../fish-pie-accounts'
+import type { PostingDraft } from '../ledger/validate'
+import { inLedgerTransaction, writeTransaction } from '../ledger/write-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -122,7 +124,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
   const currency = body.currency.trim().toUpperCase()
   const txDate = new Date(`${body.date}T00:00:00Z`)
 
-  const result = await db.transaction(async (tx) => {
+  const written = await inLedgerTransaction(async (tx) => {
     const settlement = returnedRow(
       await tx
         .insert(groupSettlements)
@@ -146,27 +148,14 @@ app.post('/groups/:groupId/settlements', async (c) => {
     // credit group:<group> (payment into group recorded): +amount
     const sharedAccountId = await ensureSharedAccount(fromUserId, group, tx)
 
-    const payerTx = returnedRow(
-      await tx
-        .insert(transactions)
-        .values({
-          userId: fromUserId,
-          date: txDate,
-          description: body.note?.trim() || `Settlement to ${group.name}`,
-        })
-        .returning(),
-      'insert transactions',
-    )
-
-    await tx.insert(postings).values([
-      {
-        transactionId: payerTx.id,
-        accountId: payerAccountId,
-        amount: `-${amount}`,
-        currency,
-      },
-      { transactionId: payerTx.id, accountId: sharedAccountId, amount, currency },
-    ])
+    const payerTx = await writeTransaction(tx, fromUserId, {
+      date: txDate,
+      description: body.note?.trim() || `Settlement to ${group.name}`,
+      postings: [
+        { accountId: payerAccountId, amount: `-${amount}`, currency },
+        { accountId: sharedAccountId, amount, currency },
+      ],
+    })
 
     // The row this updates was inserted two statements ago inside the same transaction,
     // so a miss here is a broken invariant, not a 404.
@@ -179,6 +168,8 @@ app.post('/groups/:groupId/settlements', async (c) => {
       'update groupSettlements',
     )
   })
+  if (!written.ok) return failWith(c, written.failure)
+  const result = written.value
 
   const [withNames] = await fetchSettlementsWithNames([result.id])
   return c.json(withNames, 201)
@@ -309,27 +300,10 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
   const txDate = new Date(`${body.date}T00:00:00Z`)
   const batchId = randomUUID()
 
-  const result = await db.transaction(async (tx) => {
+  const written = await inLedgerTransaction(async (tx) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
 
-    const payerTx = returnedRow(
-      await tx
-        .insert(transactions)
-        .values({
-          userId,
-          date: txDate,
-          description: body.note?.trim() || `Settlement to ${group.name}`,
-        })
-        .returning(),
-      'insert transactions',
-    )
-
-    const postingRows: {
-      transactionId: string
-      accountId: string
-      amount: string
-      currency: string
-    }[] = []
+    const postingRows: PostingDraft[] = []
 
     // One combined cash leg per settled currency (single bank movement per currency).
     const cashByCurrency = new Map<string, number>()
@@ -341,7 +315,6 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     }
     for (const [currency, total] of cashByCurrency) {
       postingRows.push({
-        transactionId: payerTx.id,
         accountId: body.payerAccountId!,
         amount: (-total).toFixed(2),
         currency,
@@ -352,20 +325,17 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     // equity:conversions so every currency nets to zero.
     for (const l of lines) {
       postingRows.push({
-        transactionId: payerTx.id,
         accountId: sharedAccountId,
         amount: l.debtAmount,
         currency: l.debtCurrency,
       })
       if (l.converted) {
         postingRows.push({
-          transactionId: payerTx.id,
           accountId: conversionAccountId!,
           amount: l.settledAmount,
           currency: l.settledCurrency,
         })
         postingRows.push({
-          transactionId: payerTx.id,
           accountId: conversionAccountId!,
           amount: `-${l.debtAmount}`,
           currency: l.debtCurrency,
@@ -373,7 +343,11 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
       }
     }
 
-    await tx.insert(postings).values(postingRows)
+    const payerTx = await writeTransaction(tx, userId, {
+      date: txDate,
+      description: body.note?.trim() || `Settlement to ${group.name}`,
+      postings: postingRows,
+    })
 
     const inserted = await tx
       .insert(groupSettlements)
@@ -400,6 +374,8 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
 
     return inserted
   })
+  if (!written.ok) return failWith(c, written.failure)
+  const result = written.value
 
   const named = await fetchSettlementsWithNames(result.map((s) => s.id))
   return c.json({ batchId, settlements: named }, 201)
@@ -454,39 +430,25 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
     )
   if (!receiverAccount) return fail(c, 'RECEIVER_ACCOUNT_NOT_FOUND')
 
-  const result = await db.transaction(async (tx) => {
+  const written = await inLedgerTransaction(async (tx) => {
     // Receiver's ledger transaction:
     // credit receiverAccount (cash in): +amount
     // debit group:<group> (payment received, clears shared balance): -amount
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     const txDate = new Date(`${settlement.date}T00:00:00Z`)
 
-    const receiverTx = returnedRow(
-      await tx
-        .insert(transactions)
-        .values({
-          userId,
-          date: txDate,
-          description: settlement.note || `Settlement from ${group.name}`,
-        })
-        .returning(),
-      'insert transactions',
-    )
-
-    await tx.insert(postings).values([
-      {
-        transactionId: receiverTx.id,
-        accountId: receiverAccountId,
-        amount: settlement.amount,
-        currency: settlement.currency,
-      },
-      {
-        transactionId: receiverTx.id,
-        accountId: sharedAccountId,
-        amount: `-${settlement.amount}`,
-        currency: settlement.currency,
-      },
-    ])
+    const receiverTx = await writeTransaction(tx, userId, {
+      date: txDate,
+      description: settlement.note || `Settlement from ${group.name}`,
+      postings: [
+        { accountId: receiverAccountId, amount: settlement.amount, currency: settlement.currency },
+        {
+          accountId: sharedAccountId,
+          amount: `-${settlement.amount}`,
+          currency: settlement.currency,
+        },
+      ],
+    })
 
     // `settlement` was read and checked above, and this transaction is the only writer,
     // so no row back here means the invariant broke rather than the row being gone.
@@ -499,6 +461,8 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
       'update groupSettlements',
     )
   })
+  if (!written.ok) return failWith(c, written.failure)
+  const result = written.value
 
   const [withNames] = await fetchSettlementsWithNames([result.id])
   return c.json(withNames)
@@ -569,29 +533,12 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     if (!conversionAccountId) return fail(c, 'CONVERSION_ACCOUNT_REQUIRED')
   }
 
-  const result = await db.transaction(async (tx) => {
+  const written = await inLedgerTransaction(async (tx) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     // All rows in a batch share the payer's date; use the first.
     const txDate = new Date(`${firstPending.date}T00:00:00Z`)
 
-    const receiverTx = returnedRow(
-      await tx
-        .insert(transactions)
-        .values({
-          userId,
-          date: txDate,
-          description: firstPending.note || `Settlement from ${group.name}`,
-        })
-        .returning(),
-      'insert transactions',
-    )
-
-    const postingRows: {
-      transactionId: string
-      accountId: string
-      amount: string
-      currency: string
-    }[] = []
+    const postingRows: PostingDraft[] = []
 
     // One combined cash-in leg per received currency (mirror of the payer's cash-out).
     const cashByCurrency = new Map<string, number>()
@@ -602,7 +549,6 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     }
     for (const [currency, total] of cashByCurrency) {
       postingRows.push({
-        transactionId: receiverTx.id,
         accountId: receiverAccountId,
         amount: total.toFixed(2),
         currency,
@@ -613,20 +559,17 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     // their equity:conversions so every currency nets to zero.
     for (const r of pending) {
       postingRows.push({
-        transactionId: receiverTx.id,
         accountId: sharedAccountId,
         amount: `-${r.amount}`,
         currency: r.currency,
       })
       if (r.settledCurrency !== null) {
         postingRows.push({
-          transactionId: receiverTx.id,
           accountId: conversionAccountId!,
           amount: `-${r.settledAmount}`,
           currency: r.settledCurrency,
         })
         postingRows.push({
-          transactionId: receiverTx.id,
           accountId: conversionAccountId!,
           amount: r.amount,
           currency: r.currency,
@@ -634,7 +577,11 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
       }
     }
 
-    await tx.insert(postings).values(postingRows)
+    const receiverTx = await writeTransaction(tx, userId, {
+      date: txDate,
+      description: firstPending.note || `Settlement from ${group.name}`,
+      postings: postingRows,
+    })
 
     const updated = await tx
       .update(groupSettlements)
@@ -649,6 +596,8 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
 
     return updated
   })
+  if (!written.ok) return failWith(c, written.failure)
+  const result = written.value
 
   const named = await fetchSettlementsWithNames(result.map((s) => s.id))
   return c.json({ batchId, settlements: named })

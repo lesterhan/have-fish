@@ -23,7 +23,7 @@ No UI changes, so there's no UX brief.
 
 1. [x] **Map where the backend's rules live** — #424. `backend/ARCHITECTURE.md`, the
    findings filed, and this file.
-2. [ ] **One write path for transactions** — #425
+2. [x] **One write path for transactions** — #425
 3. [ ] **Every posting writer uses the ledger service** — #426
 4. [ ] **Import commit plans in pure code** — #427
 5. [ ] **Accounts and coverage into services** — #428
@@ -150,17 +150,20 @@ editor, or exempt them, which leaves the gate unmet.
 
 Any story can run in coach mode ("coach me") if you'd rather drive it yourself.
 
-## Findings from the map (story 1)
+## Findings
 
 | Issue | What |
 |---|---|
 | #432 | The raw ledger editor saves an edit as parallel requests that never check the balance, so a partial failure leaves an unbalanced transaction. **Fixed** by retiring `/api/postings`; the editor saves through the ledger service |
 | #433 | Two active accounts can share one path, because create doesn't check and no index stops it |
-| #434 | Import commit stores unknown currencies, and a row with no amount is a 500 |
+| #434 | Import commit stores unknown currencies, and a row with no amount is a 500. Unknown currencies are refused since story 3; the missing amount is still open |
+| #442 | An import transfer with its fee in a third currency can't balance; written unbalanced before story 3, refused since |
+| #443 | Fish Pie can post to a member's deleted default account, because account delete doesn't check Fish Pie settings |
 
-One more finding was handled privately, per rule 4, and is now fixed: #436 holds
-transaction delete, import commit and parser defaults to the caller's own rows, and
-requires a real date on the FX-rate lookup.
+Two more findings were handled privately, per rule 4. #436 holds transaction delete,
+import commit and parser defaults to the caller's own rows, and requires a real date on
+the FX-rate lookup. Story 3 keeps every leg a Fish Pie edit writes in an account of the
+transaction's owner.
 
 Also recorded in the map, not filed:
 - **Floats in money arithmetic** on over 90 lines. #279 covers it.

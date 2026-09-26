@@ -104,7 +104,7 @@ through `POST /api/transactions/:id/postings`, which is what lets the balance be
 |---|---|---|---|
 | `POST /preview` | Match the CSV to a saved parser, parse it, suggest accounts from rules | `csv-parser`, `dynamic-parser`, `merchant`; rule matching and own-transfer detection in the handler | — |
 | `POST /check-duplicates` | Possible duplicates per row, with Fish Pie context | Handler: ±1 day, same currency, amount within 0.01 | — |
-| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | Handler: every named account is the caller's (`accountsOwnedBy`), per-row-kind checks, group and category checks; `import/postings` builds the legs | `transactions`, `postings`, Fish Pie tables |
+| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | Handler: every named account is the caller's (`accountsOwnedBy`), per-row-kind checks, group and category checks; `import/postings` builds the legs; `writeTransaction` validates each row | `transactions`, `postings`, Fish Pie tables |
 
 **`rules.ts`** — `/api/rules` (413 lines). Import rules: a pattern that suggests an
 account, or a Fish Pie group and category.
@@ -149,32 +149,45 @@ once the group is end-to-end encrypted (#393).
 
 ## Every write to `transactions` and `postings`
 
-This is the table #425 and #426 exist to collapse into one row.
+Every insert goes through `ledger/write-service.ts`; `ledger/writers.test.ts` fails if one
+appears anywhere else.
 
-| Where | Inserts | Deletes postings by | Balance checked |
-|---|---|---|---|
-| `ledger/write-service.ts` (create, bulk, replace, delete; called by `routes/transactions.ts`) | Yes | Hard delete (replace, delete) | Yes: `validatePostings` |
-| `routes/import.ts` commit | Yes, by row kind | — | By construction (`import/postings`) |
-| `postings/heal-service.ts` | Re-points existing legs | — | Amounts untouched, so it stays balanced |
-| `fish-pie-expense-service.ts` | Member transactions | — | By construction |
-| `routes/fish-pie-expenses.ts` | Rebuilds on edit | Soft delete | By construction |
-| `routes/fish-pie-settlements.ts` | Payer and receiver transactions | Soft delete | By construction, two legs each |
-| `routes/fish-pie-merge.ts` | — | Re-points postings between accounts | Amounts untouched |
+| Caller | Through | Deletes postings by |
+|---|---|---|
+| `routes/transactions.ts` (create, bulk, replace, delete) | `createTransaction`, `createTransactions`, `replacePostings`, `deleteTransaction` | Hard delete (replace, delete) |
+| `routes/import.ts` commit | `writeTransaction`, one per row, in one `inLedgerTransaction` | — |
+| `fish-pie-expense-service.ts` | `writeTransaction`, one per member | — |
+| `routes/fish-pie-expenses.ts` | `inLedgerTransaction`; the payer's import transaction is rebalanced with `amendPostings` | Soft delete |
+| `routes/fish-pie-settlements.ts` | `writeTransaction` for the payer's and receiver's sides, in `inLedgerTransaction` | Soft delete |
 
-"By construction" means the code that builds the legs makes them balance, and nothing
-checks afterwards. It holds until an edit breaks it without any test failing.
+Two writers change existing legs without inserting, and keep amounts as they were, so they
+stay balanced: `postings/heal-service.ts` re-points the legs of a malformed spend, and
+`routes/fish-pie-merge.ts` re-points postings from merged groups' clearing accounts.
 
-**The ledger write path** (`ledger/`). A personal transaction is written in three steps, in
-this order, by every function in `write-service.ts`:
+**The ledger write path** (`ledger/`). Every transaction is written in three steps, in this
+order:
 
 1. `validatePostings` (pure): at least two postings, supported currencies, each currency
-   summing to zero. It fails before any query runs.
-2. `accountsOwnedBy`: every account named is the caller's own and active.
+   summing to zero.
+2. `accountsOwnedBy`: every account named belongs to the transaction's owner.
 3. The inserts, inside one database transaction.
 
-Steps 1 and 2 answer an `Outcome`, which the route sends with `failWith`. The inserts take an
-`Executor` (`db/index.ts`: the client or an open transaction), so #426 can let import and
-Fish Pie write through the same code inside their own units of work.
+There are two ways in:
+
+- **A whole request** (the transaction routes). The service opens the database transaction
+  itself. Steps 1 and 2 run before it does, and a refusal is an `Outcome` the route sends
+  with `failWith`. Accounts must be active.
+- **A step in a larger unit of work** (import and Fish Pie). These build the legs
+  themselves, inside a database transaction that also writes group expenses, settlements
+  and clearing accounts:
+  - The route opens that transaction with `inLedgerTransaction`, and writes each
+    transaction with `writeTransaction`, or with `amendPostings` to change some legs of an
+    existing one.
+  - A refusal from any of them rolls the whole unit back, and `inLedgerTransaction` hands it
+    back as an `Outcome`, so the route still answers with `failWith` and never sees a throw.
+  - An import refusal carries the row's `index`.
+  - Accounts may be deleted but must be the owner's: Fish Pie builds legs from members'
+    stored defaults, and whether those are still active is #443.
 
 **Deleting has two meanings.** A personal transaction's delete hard-deletes its postings.
 A Fish Pie delete soft-deletes them. Postings are also hard-deleted and re-inserted with
@@ -189,7 +202,7 @@ marked `F2`) explains why that makes the transaction, not the posting, the unit 
 | Postings balance per currency | `ledger/validate.ts` once in the backend (`parseFloat`, tolerance 0.001); `LedgerEditModal` and `AddTransactionModal` in the frontend (tolerance 0.005) | No: two tolerances, and float arithmetic (#279) |
 | An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
 | A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
-| A currency is supported | `isValidCurrency` in `ledger/validate`, accounts, user-settings and fx-rates. Missing on import commit (#434) | Only where it's called |
+| A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |
 | A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
 | Money arithmetic | `parseFloat` or `toFixed` on over 90 lines (`import/postings`, the Fish Pie routes and services, `heal`, `transactions.ts`) | Floats. #279 replaces them with integer cents |
 
