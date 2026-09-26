@@ -269,6 +269,14 @@ export type ErrorBody<C extends ErrorCode = ErrorCode> = C extends ErrorCode
   : never
 
 /**
+ * What a service answers: the value it produced, or the failure a route sends with
+ * `failWith`. A rule the caller can break (unbalanced, not yours, unsupported currency)
+ * comes back as `ok: false`, decided before any write begins; a throw is kept for an
+ * invariant only the code itself can break, the way `returnedRow` does.
+ */
+export type Outcome<T> = { ok: true; value: T } | { ok: false; failure: ErrorBody }
+
+/**
  * Build the body without sending it — for the handful of helpers that resolve access before
  * they hold a `Context`, and for `import.ts`, which reports a row's failure inside a result
  * rather than as a response.

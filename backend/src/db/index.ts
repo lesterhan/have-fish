@@ -10,3 +10,13 @@ const url =
 const client = postgres(url)
 
 export const db = drizzle(client, { schema })
+
+/** An open database transaction, as `db.transaction(async (tx) => …)` hands it over. */
+export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]
+
+/**
+ * Whatever a query can run on: the client itself, or a transaction someone else opened.
+ * A function that writes as part of a larger unit of work takes one of these rather than
+ * opening its own, so the caller decides where the unit begins and ends.
+ */
+export type Executor = typeof db | DbTransaction
