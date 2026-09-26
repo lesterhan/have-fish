@@ -74,7 +74,6 @@ describe('every route that stays reads its body through a schema', () => {
         'coverage.ts',
         'import.ts',
         'parsers.ts',
-        'postings.ts',
         'rules.ts',
         'transactions.ts',
         'user-settings.ts',

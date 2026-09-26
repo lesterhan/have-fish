@@ -95,7 +95,6 @@ export const ERROR_STATUS = {
 
   // --- transactions and postings ------------------------------------------------------
   TRANSACTION_NOT_FOUND: 404,
-  POSTING_NOT_FOUND: 404,
   TOO_FEW_POSTINGS: 400,
   POSTINGS_DO_NOT_BALANCE: 400,
   TRANSACTION_NOT_MALFORMED: 409,
@@ -257,7 +256,7 @@ export type ImportRowKind =
  * The body every failed request returns. The client reads `error` and never renders it raw.
  *
  * Mapped over the code rather than written as a plain conditional, so `ErrorBody` with no
- * argument is the discriminated union of all 87 bodies and a helper can hand one around
+ * argument is the discriminated union of every body and a helper can hand one around
  * before it has a `Context` to send it with.
  */
 export type ErrorBody<C extends ErrorCode = ErrorCode> = C extends ErrorCode

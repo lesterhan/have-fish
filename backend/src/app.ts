@@ -18,7 +18,6 @@ import fishPieSettlementsRoute from './routes/fish-pie-settlements'
 import fxRatesRoute from './routes/fx-rates'
 import importRoute from './routes/import'
 import parsersRoute from './routes/parsers'
-import postingsRoute from './routes/postings'
 import reportsRoute from './routes/reports'
 import rulesRoute from './routes/rules'
 import transactionsRoute from './routes/transactions'
@@ -81,7 +80,6 @@ app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
 app.route('/api/accounts', accountCoverageRoute)
 app.route('/api/accounts', accountsRoute)
 app.route('/api/transactions', transactionsRoute)
-app.route('/api/postings', postingsRoute)
 app.route('/api/import', importRoute)
 app.route('/api/parsers', parsersRoute)
 app.route('/api/user-settings', userSettingsRoute)

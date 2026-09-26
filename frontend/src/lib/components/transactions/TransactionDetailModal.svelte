@@ -57,12 +57,13 @@
     onclose()
   }
 
-  // A raw ledger save returns bare postings; re-enrich them (role + path) from the prior copy so
-  // the in-place narration stays meaningful until the host feeds a fully classified copy back.
+  // A raw ledger save that replaced the postings hands back the server's classified copy (new
+  // ids, path, role), which wins. A header-only save hands back the postings it started with;
+  // any field missing either way is filled from the prior copy so the narration stays whole.
   function enrichLedgerSave(
     date: string,
     description: string | null,
-    postings: RawPosting[],
+    postings: (RawPosting & Partial<Transaction['postings'][number]>)[],
   ): Transaction {
     const base = live ?? tx!
     const byId = new Map(base.postings.map((p) => [p.id, p]))
@@ -80,9 +81,16 @@
           accountId: lp.accountId,
           amount: lp.amount,
           currency: lp.currency,
-          accountPath: paths[lp.accountId] ?? orig?.accountPath ?? lp.accountId,
-          accountName: orig?.accountName ?? null,
-          role: orig?.role ?? 'subject',
+          accountPath:
+            lp.accountPath ??
+            paths[lp.accountId] ??
+            orig?.accountPath ??
+            lp.accountId,
+          accountName:
+            lp.accountName !== undefined
+              ? lp.accountName
+              : (orig?.accountName ?? null),
+          role: lp.role ?? orig?.role ?? 'subject',
         }
       }),
     }

@@ -217,7 +217,6 @@ export const errorsCopy = {
 
   // --- transactions -------------------------------------------------------------------------
   TRANSACTION_NOT_FOUND: 'That transaction no longer exists.',
-  POSTING_NOT_FOUND: 'That line no longer exists.',
   TOO_FEW_POSTINGS: ({ index }: { index?: number } = {}) =>
     index === undefined
       ? 'A transaction needs at least two lines.'

@@ -104,6 +104,16 @@
   let editing = $state(false)
   // Seeded from the initial tx; re-seeded each time edit mode is entered (enterEdit).
   let draft = $state<EditDraft>(untrack(() => initialEditDraft(tx)))
+  // A save made from the raw ledger editor hands down a new copy while edit mode is still
+  // open, with new posting ids when it replaced the legs and possibly a new date or
+  // description. The draft was seeded from the old copy, so it starts over from the new one
+  // rather than pointing at legs that no longer exist or saving the old header back.
+  $effect(() => {
+    const next = tx
+    untrack(() => {
+      if (editing) draft = initialEditDraft(next)
+    })
+  })
   let saving = $state(false)
   let deleting = $state(false)
   let removingFromGroup = $state(false)
