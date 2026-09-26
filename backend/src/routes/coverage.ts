@@ -428,7 +428,7 @@ async function writeOverride(userId: string, accountId: string, override: Covera
     .values({ userId, preferences: { catchUp: { [accountId]: override } } })
     .onConflictDoUpdate({
       target: userSettings.userId,
-      set: { preferences: next, updatedAt: new Date() },
+      set: { preferences: next },
     })
 }
 

@@ -568,8 +568,9 @@ instead of two. That last part is also the shape D7 needs: one process binding a
 handing out the same assets is what the local binary does, so P2.3 inherits it rather than
 rebuilding it.
 
-**`updatedAt` is missing almost everywhere.** It exists only on `userSettings` and
-`importRules`, plus the Better Auth tables. `accounts`, `transactions`, `postings`,
+**~~`updatedAt` is missing almost everywhere.~~** **Resolved 2026-09-26 (#454)**, on
+document roots rather than every table (`planning/epics/sync-unit.md`). It existed only on
+`userSettings` and `importRules`, plus the Better Auth tables. `accounts`, `transactions`, `postings`,
 `csvParsers` and `accountCoverage` have `createdAt` and `deletedAt` but nothing recording
 last modification. Last-write-wins merge needs it on every replicated table. Small,
 independent, worth landing early.
@@ -589,10 +590,13 @@ shared-expense rule block an entire bank statement.
    plan and more urgent than it, which is why it went first.
 2. **Finish `epics/hledger-export.md` + CSV.** Delivers Vision principle #2 outright and
    makes every later decision reversible.
-3. **`updatedAt` on every replicated document root** — `transactions`, expenses and
-   settlement batches. *Not* on `postings` or splits, whose identity is not stable across
-   an edit (`F2`, and the correction under "Code evidence" above). Still one small PR, but
-   design the sync unit before writing it, or it lands on the wrong tables.
+3. **`updatedAt` on every replicated document root** — `transactions`, `accounts`,
+   `csvParsers`, `importRules` and `userSettings`. *Not* on `postings`, whose identity is
+   not stable across an edit (`F2`, and the correction under "Code evidence" above).
+   **Corrected 2026-09-26 (#281):** not on Fish Pie's expenses or settlement batches
+   either. The local app never replicates Fish Pie's tables, and the Fish Pie service
+   versions its own when it is extracted (#380). The design is
+   `planning/epics/sync-unit.md`; the schema is #454.
 4. ~~**Static frontend build target.**~~ **Done 2026-09-22** (#275). Removed the per-page
    auth round trip, and collapsed the two containers into one — a latency win today, and
    the serving shape P2.3 needs.

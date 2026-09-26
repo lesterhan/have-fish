@@ -23,7 +23,7 @@ import {
   resolveCategoryContext,
   resolveExpenseAccountId,
 } from '../fish-pie-expense-service'
-import { amendPostings, inLedgerTransaction } from '../ledger/write-service'
+import { amendPostings, inLedgerTransaction, retireTransactions } from '../ledger/write-service'
 
 // Validate a categoryId against a group. Returns 'ok' | 'not-found' | 'archived'.
 // Callers decide whether 'archived' is fatal (create) or tolerated (edit).
@@ -375,16 +375,7 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
         ),
       )
     const memberTxIds = memberTxRows.map((t) => t.id)
-    if (memberTxIds.length > 0) {
-      await tx
-        .update(transactions)
-        .set({ deletedAt: now })
-        .where(inArray(transactions.id, memberTxIds))
-      await tx
-        .update(postings)
-        .set({ deletedAt: now })
-        .where(inArray(postings.transactionId, memberTxIds))
-    }
+    await retireTransactions(tx, memberTxIds, now)
 
     // Update groupExpenses row in-place
     await tx
@@ -546,13 +537,7 @@ app.delete('/groups/:groupId/expenses/:expenseId', async (c) => {
       ]),
     ]
 
-    if (txIds.length > 0) {
-      await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))
-      await tx
-        .update(postings)
-        .set({ deletedAt: now })
-        .where(inArray(postings.transactionId, txIds))
-    }
+    await retireTransactions(tx, txIds, now)
   })
   return new Response(null, { status: 204 })
 })
@@ -588,13 +573,7 @@ app.delete('/group-expenses/:expenseId', async (c) => {
     const txIds = linkedTxs.map((t) => t.id)
     if (expense.transactionId) txIds.push(expense.transactionId)
 
-    if (txIds.length > 0) {
-      await tx.update(transactions).set({ deletedAt: now }).where(inArray(transactions.id, txIds))
-      await tx
-        .update(postings)
-        .set({ deletedAt: now })
-        .where(inArray(postings.transactionId, txIds))
-    }
+    await retireTransactions(tx, txIds, now)
   })
   return new Response(null, { status: 204 })
 })

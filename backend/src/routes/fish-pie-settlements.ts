@@ -9,15 +9,13 @@ import {
   expenseGroupMembers,
   expenseGroups,
   groupSettlements,
-  postings,
-  transactions,
   user,
   userSettings,
 } from '../db/schema'
 import { fail, failWith } from '../errors'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 import type { PostingDraft } from '../ledger/validate'
-import { inLedgerTransaction, writeTransaction } from '../ledger/write-service'
+import { inLedgerTransaction, retireTransactions, writeTransaction } from '../ledger/write-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -673,21 +671,12 @@ app.delete('/groups/:groupId/settlements/:settlementId', async (c) => {
   ]
 
   await db.transaction(async (tx) => {
+    const now = new Date()
     await tx
       .update(groupSettlements)
-      .set({ deletedAt: new Date() })
+      .set({ deletedAt: now })
       .where(inArray(groupSettlements.id, settlementIds))
-
-    if (txIds.length > 0) {
-      await tx
-        .update(transactions)
-        .set({ deletedAt: new Date() })
-        .where(inArray(transactions.id, txIds))
-      await tx
-        .update(postings)
-        .set({ deletedAt: new Date() })
-        .where(inArray(postings.transactionId, txIds))
-    }
+    await retireTransactions(tx, txIds, now)
   })
 
   return new Response(null, { status: 204 })

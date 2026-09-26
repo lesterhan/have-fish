@@ -12,10 +12,10 @@ import {
   groupCategoryWeights,
   groupExpenses,
   groupSettlements,
-  postings,
 } from '../db/schema'
 import { fail } from '../errors'
 import { CLEARING_PREFIX, ensureSharedAccount, slugify } from '../fish-pie-accounts'
+import { moveAccountPostings } from '../ledger/write-service'
 import { fetchCategoriesForGroups } from './fish-pie-categories'
 import { fetchMembersForGroups } from './fish-pie-groups'
 
@@ -189,7 +189,7 @@ app.post('/merge', async (c) => {
       if (newClearingIds.has(acct.id)) continue
       const newId = newClearingByUser.get(acct.userId)
       if (!newId) continue
-      await tx.update(postings).set({ accountId: newId }).where(eq(postings.accountId, acct.id))
+      await moveAccountPostings(tx, acct.id, newId)
       toDelete.push(acct.id)
     }
     if (toDelete.length > 0) {

@@ -144,7 +144,6 @@ app.patch('/', async (c) => {
       set: {
         ...patch,
         ...(preferencePatch ? { preferences: preferencePatch } : {}),
-        updatedAt: new Date(),
       },
     })
     .returning()

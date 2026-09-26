@@ -17,6 +17,15 @@ import {
 // --- Better Auth tables ---
 // These are required by Better Auth and must not be renamed or removed.
 
+// The version of a sync document (see planning/epics/sync-unit.md). It lives on the root row
+// only, and `$onUpdate` moves it on every update of that row, so no route has to remember to.
+// A change to a transaction's postings alone moves it through the ledger service.
+const version = () =>
+  timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date())
+
 export const user = pgTable('user', {
   id: text('id').primaryKey(),
   name: text('name').notNull(),
@@ -87,6 +96,7 @@ export const accounts = pgTable('accounts', {
   // the unlock for atypically-named roots that path inference can't classify.
   type: text('type'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: version(),
   deletedAt: timestamp('deleted_at'),
 })
 
@@ -107,6 +117,7 @@ export const transactions = pgTable('transactions', {
   // so adding a back-reference here would create a circular FK constraint.
   groupExpenseId: uuid('group_expense_id'),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: version(),
   deletedAt: timestamp('deleted_at'),
 })
 
@@ -138,6 +149,7 @@ export const csvParsers = pgTable('csv_parsers', {
   // Only relevant when isMultiCurrency is true.
   defaultFeeAccountId: uuid('default_fee_account_id').references(() => accounts.id),
   createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: version(),
   deletedAt: timestamp('deleted_at'),
 })
 
@@ -173,7 +185,7 @@ export const userSettings = pgTable('user_settings', {
   // Use this for any new preference rather than adding columns — keeps the table stable.
   preferences: jsonb('preferences').notNull().default({}),
   createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: timestamp('updated_at').notNull().defaultNow(),
+  updatedAt: version(),
 })
 
 // Cached daily FX rates fetched from frankfurter.app.
@@ -215,7 +227,7 @@ export const importRules = pgTable(
     status: text('status').notNull().default('active'),
     matchCount: integer('match_count').notNull().default(0),
     createdAt: timestamp('created_at').notNull().defaultNow(),
-    updatedAt: timestamp('updated_at').notNull().defaultNow(),
+    updatedAt: version(),
     deletedAt: timestamp('deleted_at'),
   },
   (t) => [

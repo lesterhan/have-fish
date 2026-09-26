@@ -309,8 +309,6 @@ app.patch('/:id', async (c) => {
 
   if (Object.keys(patch).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
 
-  patch.updatedAt = new Date()
-
   const [updated] = await db
     .update(importRules)
     .set(patch)
@@ -351,7 +349,7 @@ app.post('/:id/approve', async (c) => {
 
   const [updated] = await db
     .update(importRules)
-    .set({ status: 'active', updatedAt: new Date() })
+    .set({ status: 'active' })
     .where(
       and(
         eq(importRules.id, c.req.param('id')),
@@ -373,7 +371,7 @@ app.post('/:id/deny', async (c) => {
 
   const [updated] = await db
     .update(importRules)
-    .set({ status: 'denied', updatedAt: new Date() })
+    .set({ status: 'denied' })
     .where(
       and(
         eq(importRules.id, c.req.param('id')),
@@ -395,7 +393,7 @@ app.post('/:id/revive', async (c) => {
 
   const [updated] = await db
     .update(importRules)
-    .set({ status: 'suggested', updatedAt: new Date() })
+    .set({ status: 'suggested' })
     .where(
       and(
         eq(importRules.id, c.req.param('id')),
