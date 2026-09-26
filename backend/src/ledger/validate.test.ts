@@ -114,4 +114,55 @@ describe('validatePostings', () => {
       })
     })
   })
+
+  describe('in cents', () => {
+    it('rounds each amount as the column will, and checks what will be stored', () => {
+      // 0.005 is stored as 0.01 and -0.004 as 0.00, so the stored legs would not balance,
+      // though the float difference was inside the old tolerance.
+      expect(validatePostings([leg('0.005'), leg('-0.004', 'CAD', B)])).toEqual({
+        ok: false,
+        failure: { error: 'POSTINGS_DO_NOT_BALANCE', detail: { currency: 'CAD', sum: 0.01 } },
+      })
+      // 5.00 against -4.999: stored as 5.00 and -5.00, which balance.
+      expect(validatePostings([leg('5.00'), leg('-4.999', 'CAD', B)]).ok).toBe(true)
+    })
+
+    it('reports the sum as the cents it is out by', () => {
+      expect(
+        validatePostings([leg('0.10'), leg('0.20', 'CAD', B), leg('-0.29', 'CAD', C)]),
+      ).toEqual({
+        ok: false,
+        failure: { error: 'POSTINGS_DO_NOT_BALANCE', detail: { currency: 'CAD', sum: 0.01 } },
+      })
+    })
+
+    it('refuses an amount that is not a number, naming it', () => {
+      for (const amount of ['NaN', 'abc', '', '--5.00', '1,000.00']) {
+        expect(validatePostings([leg(amount), leg('5.00', 'CAD', B)])).toEqual({
+          ok: false,
+          failure: { error: 'AMOUNT_INVALID', detail: { amount } },
+        })
+      }
+    })
+
+    it('refuses an amount the column cannot hold', () => {
+      expect(validatePostings([leg('10000000000'), leg('-10000000000', 'CAD', B)])).toEqual({
+        ok: false,
+        failure: { error: 'AMOUNT_INVALID', detail: { amount: '10000000000' } },
+      })
+    })
+
+    it('carries the index for an invalid amount in a batch', () => {
+      expect(validatePostings([leg('NaN'), leg('NaN', 'CAD', B)], 4)).toEqual({
+        ok: false,
+        failure: { error: 'AMOUNT_INVALID', detail: { amount: 'NaN', index: 4 } },
+      })
+    })
+
+    it('checks currency before amount', () => {
+      expect(validatePostings([leg('abc', 'ZZZ'), leg('1', 'ZZZ', B)])).toMatchObject({
+        failure: { error: 'UNSUPPORTED_CURRENCY' },
+      })
+    })
+  })
 })

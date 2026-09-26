@@ -234,6 +234,10 @@ export const errorsCopy = {
     const off = sum === undefined ? '' : ` They are out by ${formatCents(Math.round(sum * 100))}.`
     return `${where} ${currency} lines do not add up to zero.${off}`
   },
+  AMOUNT_INVALID: ({ amount, index }: { amount: string; index?: number }) =>
+    index === undefined
+      ? `“${amount}” is not an amount.`
+      : `Row ${index + 1}: “${amount}” is not an amount.`,
   TRANSACTION_NOT_MALFORMED: 'That transaction is already sound — there is nothing to repair.',
   HEAL_WOULD_UNBALANCE: ({ currency }: { currency: string; sum: number }) =>
     `Repairing this would leave the ${currency} lines unbalanced, so nothing was changed.`,

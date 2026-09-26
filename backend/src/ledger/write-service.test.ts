@@ -224,3 +224,88 @@ describe('a refused write inside a unit of work', () => {
     expect(expenses).toEqual([])
   })
 })
+
+// The amounts are checked in cents, rounded as the column rounds them (#279), so what passes
+// is what balances once stored, and what isn't a number is refused before the database sees it.
+describe('amounts, checked as they will be stored', () => {
+  it('refuses an amount that is not a number, rather than storing NaN or failing at insert', async () => {
+    const cash = await account(alice, 'assets:chequing')
+    const food = await account(alice, 'expenses:food')
+
+    for (const [amount, other] of [
+      ['NaN', 'NaN'],
+      ['abc', '-5.00'],
+      ['', '0'],
+      ['99999999999', '-99999999999'],
+    ]) {
+      const res = await send(alice, '/api/transactions', {
+        date: '2026-01-01',
+        postings: [
+          { accountId: cash, amount, currency: 'CAD' },
+          { accountId: food, amount: other, currency: 'CAD' },
+        ],
+      })
+      expect(res.status).toBe(400)
+      expect(await res.json()).toEqual({ error: 'AMOUNT_INVALID', detail: { amount } })
+    }
+    expect(await transactionCount()).toBe(0)
+  })
+
+  it('refuses legs that would be stored unbalanced, though their floats were close', async () => {
+    const cash = await account(alice, 'assets:chequing')
+    const food = await account(alice, 'expenses:food')
+
+    const res = await send(alice, '/api/transactions', {
+      date: '2026-01-01',
+      postings: [
+        { accountId: cash, amount: '0.005', currency: 'CAD' },
+        { accountId: food, amount: '-0.004', currency: 'CAD' },
+      ],
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      error: 'POSTINGS_DO_NOT_BALANCE',
+      detail: { currency: 'CAD', sum: 0.01 },
+    })
+    expect(await transactionCount()).toBe(0)
+  })
+
+  it('names the entry with the bad amount in a batch, and writes none of the batch', async () => {
+    const cash = await account(alice, 'assets:chequing')
+    const food = await account(alice, 'expenses:food')
+    const entry = (amount: string) => ({
+      date: '2026-01-01',
+      postings: [
+        { accountId: cash, amount, currency: 'CAD' },
+        { accountId: food, amount: '-5.00', currency: 'CAD' },
+      ],
+    })
+
+    const res = await send(alice, '/api/transactions/bulk', {
+      transactions: [entry('5.00'), entry('5.OO')],
+    })
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      error: 'AMOUNT_INVALID',
+      detail: { amount: '5.OO', index: 1 },
+    })
+    expect(await transactionCount()).toBe(0)
+  })
+
+  it('stores an amount the way it was checked', async () => {
+    const cash = await account(alice, 'assets:chequing')
+    const food = await account(alice, 'expenses:food')
+
+    const res = await send(alice, '/api/transactions', {
+      date: '2026-01-01',
+      postings: [
+        { accountId: cash, amount: 0.1 + 0.2, currency: 'CAD' },
+        { accountId: food, amount: '-0.3', currency: 'CAD' },
+      ],
+    })
+    expect(res.status).toBe(201)
+    const id = ((await res.json()) as { id: string }).id
+    const stored = await db.select().from(postings).where(eq(postings.transactionId, id))
+    expect(stored.map((p) => p.amount).sort()).toEqual(['-0.30', '0.30'])
+  })
+})
