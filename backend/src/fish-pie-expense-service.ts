@@ -1,5 +1,5 @@
 import { and, eq, isNull } from 'drizzle-orm'
-import { db } from './db'
+import { db, type Executor } from './db'
 import { returnedRow } from './db/returning'
 import {
   expenseGroupMembers,
@@ -15,7 +15,6 @@ import { ensureSharedAccount, ensureUncategorizedAccount } from './fish-pie-acco
 
 type Group = typeof expenseGroups.$inferSelect
 type Member = { userId: string; shareWeight: number; defaultExpenseAccountId: string | null }
-type TxDb = Parameters<Parameters<typeof db.transaction>[0]>[0]
 
 // Resolved category context for one expense: each member's category-mapped expense
 // account (overrides their group default) and, when *every* split member has set a
@@ -30,7 +29,7 @@ export type CategoryContext = {
 // member has one — a partial set would silently reshape the split, so we fall back
 // to group weights instead.
 export async function resolveCategoryContext(
-  tx: TxDb,
+  tx: Executor,
   categoryId: string | null | undefined,
   members: { userId: string }[],
 ): Promise<CategoryContext> {
@@ -57,7 +56,7 @@ export async function resolveCategoryContext(
 // Resolution order for a member's expense account:
 // category mapping → member's group default → their uncategorized account.
 export async function resolveExpenseAccountId(
-  tx: TxDb,
+  tx: Executor,
   accounts: Map<string, string>,
   member: Member | undefined,
   userId: string,
@@ -79,7 +78,7 @@ export function applyCategoryWeights<T extends Member>(members: T[], ctx: Catego
 // the payer's category-resolved expense account and their share ratio (category
 // weights when they apply, group weights otherwise).
 export async function resolvePayerImportContext(
-  tx: TxDb,
+  tx: Executor,
   opts: { categoryId?: string | null | undefined; members: Member[]; payerId: string },
 ): Promise<{ payerExpenseAccountId: string; payerShareRatio: number }> {
   const { categoryId, members, payerId } = opts
@@ -134,7 +133,7 @@ export function computeSplits(
 // 2-posting tx with pre-BUG-005 signs (still reachable via PATCH — see BUG-006).
 // Called from both createGroupExpenseInTx (new expense) and the PATCH edit handler (rebuild after edit).
 export async function createMemberTransactionsInTx(
-  tx: TxDb,
+  tx: Executor,
   opts: {
     expenseId: string
     group: Group
@@ -275,7 +274,7 @@ export async function createMemberTransactionsInTx(
 }
 
 export async function createGroupExpenseInTx(
-  tx: TxDb,
+  tx: Executor,
   opts: {
     group: Group
     members: Member[]

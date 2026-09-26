@@ -21,7 +21,7 @@ No UI changes, so there's no UX brief.
 
 ## Stories
 
-1. [ ] **Map where the backend's rules live** — #424. `backend/ARCHITECTURE.md`, the
+1. [x] **Map where the backend's rules live** — #424. `backend/ARCHITECTURE.md`, the
    findings filed, and this file.
 2. [ ] **One write path for transactions** — #425
 3. [ ] **Every posting writer uses the ledger service** — #426
@@ -47,9 +47,10 @@ The test for whether something belongs in a domain module is simple: could a pho
 against its own SQLite file, or a laptop run it on a document that just arrived from the
 relay? If yes, it has no business importing `db` or `hono`.
 
-## Design choices to settle before story 2
+## Design choices
 
-Proposals. Each one is settled in review of this PR, then built from story 2 onward.
+All five were agreed in review of #435 (2026-09-25) and are built from story 2 onward.
+Each is written as the proposal that was agreed.
 
 ### 1. How a service reports failure
 
@@ -156,6 +157,10 @@ Any story can run in coach mode ("coach me") if you'd rather drive it yourself.
 | #432 | The raw ledger editor saves an edit as parallel requests that never check the balance, so a partial failure leaves an unbalanced transaction |
 | #433 | Two active accounts can share one path, because create doesn't check and no index stops it |
 | #434 | Import commit stores unknown currencies, and a row with no amount is a 500 |
+
+One more finding was handled privately, per rule 4, and is now fixed: #436 holds
+transaction delete, import commit and parser defaults to the caller's own rows, and
+requires a real date on the FX-rate lookup.
 
 Also recorded in the map, not filed:
 - **Floats in money arithmetic** on over 90 lines. #279 covers it.
