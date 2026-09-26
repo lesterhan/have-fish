@@ -145,6 +145,17 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
   // sticky category for this group (validated against the group's active
   // categories), else clear it. A new group is a fresh entry context: clear any
   // manual account override so the seed applies.
+  //
+  // Keyed on `group.id` alone, on purpose. The group context replaces the group
+  // object on every reload (after each submit, and once more when a switched-to
+  // group's full fetch lands); keyed on the object, each of those would snap the
+  // payer, payment account and category back to their defaults. The members and
+  // categories read here are the ones the group had when it was switched to,
+  // which is what a seed is. Biome reports that one decision as five findings.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(group): seeded per group id, not per reload of the group object
+  // biome-ignore lint/correctness/useExhaustiveDependencies(group.categories.some): as above
+  // biome-ignore lint/correctness/useExhaustiveDependencies(group.members[0]?.userId): as above
+  // biome-ignore lint/correctness/useExhaustiveDependencies(group.id): the key itself, narrower than the object on purpose
   useEffect(() => {
     let cancelled = false
     setUserTouchedAccount(false)
@@ -173,7 +184,6 @@ export function SpeedEntry({ group, onExpenseAdded }: Props) {
     return () => {
       cancelled = true
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [group.id])
 
   useEffect(() => {

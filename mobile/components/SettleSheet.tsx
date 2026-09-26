@@ -107,7 +107,15 @@ export function SettleSheet({
     )
   }
 
-  // Seed + reset every time the sheet opens.
+  // Seed + reset every time the sheet opens, and only then. `debts` and the two
+  // defaults are read once: following them would throw away the lines, rates
+  // and account the user is mid-way through editing whenever the panel behind
+  // re-renders. `refreshRates` is a fresh closure every render; it guards its own
+  // staleness with `rateToken`.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(debts): seeded on open, never re-synced over the user's edits
+  // biome-ignore lint/correctness/useExhaustiveDependencies(defaultTargetCurrency): seeded on open, never re-synced over the user's edits
+  // biome-ignore lint/correctness/useExhaustiveDependencies(defaultPayerAccountId): seeded on open, never re-synced over the user's edits
+  // biome-ignore lint/correctness/useExhaustiveDependencies(refreshRates): a new function every render; superseded calls are dropped by rateToken
   useEffect(() => {
     if (!visible) return
     const seeded = initLines(debts, defaultTargetCurrency)
@@ -119,7 +127,6 @@ export function SettleSheet({
     setPayerAccountId(defaultPayerAccountId)
     setError(null)
     void refreshRates(seeded, defaultTargetCurrency)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible])
 
   function selectTarget(code: string) {
