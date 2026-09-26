@@ -7,6 +7,7 @@ import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
 import { fail } from '../errors'
 import { isClearingAccountPath } from '../fish-pie-accounts'
+import * as money from '../money'
 import {
   type AccountTypeContext,
   explainType,
@@ -90,7 +91,7 @@ function balanceBearingCondition(ctx: AccountTypeContext, includeUnfiled: boolea
 // Returns all asset, liability, and equity accounts with their per-currency balances and type.
 // Membership is by RESOLVED type — own override, else a tagged ancestor's, else the root's — so
 // an account is on this endpoint because of what it says it is, not because of where it sits.
-// Balance = SUM of all posting amounts for that account, grouped by currency.
+// Balance = the sum of all posting amounts for that account, per currency.
 // Accounts with no postings are included with an empty balances array.
 //
 // `type` and `resolvedType` mean exactly what they mean on GET /api/accounts: the raw stored
@@ -138,7 +139,13 @@ app.get('/balances', async (c) => {
 
   const ctx = await loadAccountTypeContext(userId)
 
-  // LEFT JOIN so accounts with no postings still appear (with null currency/balance)
+  const selection = and(
+    eq(accounts.userId, userId),
+    isNull(accounts.deletedAt),
+    typeFilter
+      ? typeFilterCondition(typeFilter, ctx)
+      : balanceBearingCondition(ctx, includeUnfiled),
+  )
   const rows = await db
     .select({
       id: accounts.id,
@@ -146,28 +153,17 @@ app.get('/balances', async (c) => {
       name: accounts.name,
       storedType: accounts.type,
       defaultCurrency: accounts.defaultCurrency,
-      currency: postings.currency,
-      balance: sql<string>`SUM(${postings.amount})`,
     })
     .from(accounts)
-    .leftJoin(postings, and(eq(postings.accountId, accounts.id), isNull(postings.deletedAt)))
-    .where(
-      and(
-        eq(accounts.userId, userId),
-        isNull(accounts.deletedAt),
-        typeFilter
-          ? typeFilterCondition(typeFilter, ctx)
-          : balanceBearingCondition(ctx, includeUnfiled),
-      ),
-    )
-    .groupBy(
-      accounts.id,
-      accounts.path,
-      accounts.name,
-      accounts.type,
-      accounts.defaultCurrency,
-      postings.currency,
-    )
+    .where(selection)
+  // The amounts themselves, summed below in cents rather than by SQL `SUM`: the sum is the
+  // same, and it no longer depends on the database adding decimals correctly (SQLite's
+  // would add them as floats). Joined to the same selection so no id list is sent.
+  const amounts = await db
+    .select({ accountId: postings.accountId, currency: postings.currency, amount: postings.amount })
+    .from(postings)
+    .innerJoin(accounts, eq(accounts.id, postings.accountId))
+    .where(and(isNull(postings.deletedAt), selection))
 
   // Collapse the flat rows into one entry per account with a balances array
   type Row = {
@@ -191,35 +187,33 @@ app.get('/balances', async (c) => {
     return includeUnfiled && resolvedType === null
   }
 
-  const grouped = new Map<string, Row>()
-  const excluded = new Set<string>()
-  for (const row of rows) {
-    if (excluded.has(row.id)) continue
-    if (!grouped.has(row.id)) {
-      const resolvedType = resolveStoredOrInferredType(
-        { path: row.path, type: row.storedType },
-        ctx,
-      )
-      if (!keep(resolvedType)) {
-        excluded.add(row.id)
-        continue
-      }
-      grouped.set(row.id, {
-        id: row.id,
-        path: row.path,
-        name: row.name,
-        type: isStoredAccountType(row.storedType) ? row.storedType : null,
-        resolvedType,
-        defaultCurrency: row.defaultCurrency,
-        balances: [],
-      })
-    }
-    if (row.currency !== null && row.balance !== null) {
-      grouped.get(row.id)!.balances.push({ currency: row.currency, amount: row.balance })
-    }
+  // Each account's amounts by currency, in the order the currencies first appear.
+  const byAccount = new Map<string, Map<string, string[]>>()
+  for (const { accountId, currency, amount } of amounts) {
+    const currencies = byAccount.get(accountId) ?? new Map<string, string[]>()
+    byAccount.set(accountId, currencies)
+    const list = currencies.get(currency) ?? []
+    currencies.set(currency, list)
+    list.push(amount)
   }
 
-  return c.json([...grouped.values()])
+  const grouped: Row[] = []
+  for (const row of rows) {
+    const resolvedType = resolveStoredOrInferredType({ path: row.path, type: row.storedType }, ctx)
+    if (!keep(resolvedType)) continue
+    const currencies = byAccount.get(row.id) ?? new Map<string, string[]>()
+    grouped.push({
+      id: row.id,
+      path: row.path,
+      name: row.name,
+      type: isStoredAccountType(row.storedType) ? row.storedType : null,
+      resolvedType,
+      defaultCurrency: row.defaultCurrency,
+      balances: [...currencies].map(([currency, list]) => ({ currency, amount: money.sum(list) })),
+    })
+  }
+
+  return c.json(grouped)
 })
 
 // GET /api/accounts/posting-counts
@@ -255,7 +249,7 @@ app.get('/posting-counts', async (c) => {
 
 // GET /api/accounts/:id/balance?date=YYYY-MM-DD
 // Returns the ledger balance for one account as of the end of the given date.
-// Balance = SUM of postings in non-deleted transactions on or before the date, grouped by currency.
+// Balance = the sum of postings in non-deleted transactions on or before the date, per currency.
 app.get('/:id/balance', async (c) => {
   const userId = c.get('userId')
   const accountId = c.req.param('id')
@@ -275,10 +269,7 @@ app.get('/:id/balance', async (c) => {
   if (!account) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   const rows = await db
-    .select({
-      currency: postings.currency,
-      amount: sql<string>`SUM(${postings.amount})`,
-    })
+    .select({ currency: postings.currency, amount: postings.amount })
     .from(postings)
     .innerJoin(transactions, eq(transactions.id, postings.transactionId))
     .where(
@@ -289,12 +280,19 @@ app.get('/:id/balance', async (c) => {
         lte(transactions.date, asOf),
       ),
     )
-    .groupBy(postings.currency)
+
+  // Summed in cents rather than by SQL `SUM`, as `/balances` does.
+  const byCurrency = new Map<string, string[]>()
+  for (const r of rows) {
+    const list = byCurrency.get(r.currency) ?? []
+    byCurrency.set(r.currency, list)
+    list.push(r.amount)
+  }
 
   return c.json({
     accountId,
     date: dateParam,
-    balances: rows.map((r) => ({ currency: r.currency, amount: r.amount ?? '0.00' })),
+    balances: [...byCurrency].map(([currency, list]) => ({ currency, amount: money.sum(list) })),
   })
 })
 
