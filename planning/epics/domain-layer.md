@@ -24,7 +24,7 @@ No UI changes, so there's no UX brief.
 1. [x] **Map where the backend's rules live** — #424. `backend/ARCHITECTURE.md`, the
    findings filed, and this file.
 2. [x] **One write path for transactions** — #425
-3. [ ] **Every posting writer uses the ledger service** — #426
+3. [x] **Every posting writer uses the ledger service** — #426
 4. [ ] **Import commit plans in pure code** — #427
 5. [ ] **Accounts and coverage into services** — #428
 6. [ ] **Rules, parsers, settings, reports into services** — #429
