@@ -61,13 +61,6 @@
     "rules": {
       "preset": "recommended",
 
-      "correctness": {
-        // 16 findings, all React effect dependency arrays in `mobile/`. Rewriting those
-        // without being able to run the app is how a stale render becomes an infinite
-        // one. Demoted to a warning until someone with a device owns them — #395.
-        "useExhaustiveDependencies": "warn"
-      },
-
       "style": {
         // Was 276 findings. #387 and #397 took it to 62: 40 in test files, 22 in `src`,
         // and half of those 22 are in the Fish Pie routes that leave under #380 — the
@@ -75,12 +68,6 @@
         // count that a different issue is going to delete, so it stays off until #380
         // lands and the remainder is small enough to fix rather than demote.
         "noNonNullAssertion": "off"
-      },
-
-      "suspicious": {
-        // 5 findings, all React list keys in `mobile/`. Same reasoning as
-        // useExhaustiveDependencies — #395.
-        "noArrayIndexKey": "warn"
       },
 
       "nursery": {

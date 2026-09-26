@@ -47,11 +47,15 @@ export function ConfirmSheet({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Seeds the picker each time the sheet opens. The default is read then and not
+  // followed afterwards: a background refresh that changed it would otherwise
+  // overwrite the account the user just picked. The banner that opens this sheet
+  // only renders once the caller is resolved, so the default is already known.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(defaultReceiverAccountId): seeded on open, never re-synced over a user's pick
   useEffect(() => {
     if (!visible) return
     setReceiverAccountId(defaultReceiverAccountId)
     setError(null)
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [visible])
 
   async function handleConfirm() {

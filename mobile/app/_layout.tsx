@@ -23,6 +23,11 @@ export default function RootLayout() {
   const [checked, setChecked] = useState(false)
   const [fontsLoaded] = useFonts(fontAssets)
 
+  // A launch-time check, run once. On `segments` it would re-read SecureStore and
+  // flush the offline queue on every navigation; the login screen routes itself
+  // into the app, and signing out routes back. `router` is stable in Expo Router.
+  // biome-ignore lint/correctness/useExhaustiveDependencies(segments[0]): the auth guard runs at launch, not per navigation
+  // biome-ignore lint/correctness/useExhaustiveDependencies(router.replace): stable for the app's lifetime
   useEffect(() => {
     async function bootstrap() {
       try {

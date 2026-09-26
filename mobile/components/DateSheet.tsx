@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons'
-import DateTimePicker, { type DateTimePickerEvent } from '@react-native-community/datetimepicker'
+import DateTimePicker from '@react-native-community/datetimepicker'
 import { useState } from 'react'
 import { Pressable, StyleSheet, Text, View } from 'react-native'
 import { type DateMode, resolveDate, todayISO, toISODate, yesterdayISO } from '@/lib/expense-date'
@@ -49,11 +49,15 @@ export function DateSheet({ visible, mode, pickDate, onSelect, onClose }: Props)
     setShowPicker(true)
   }
 
-  function onPickerChange(event: DateTimePickerEvent, date?: Date) {
+  function onPickerSet(_event: unknown, date: Date) {
     setShowPicker(false)
-    if (event.type !== 'set' || !date) return // dismissed → keep current
     onSelect('pick', toISODate(date))
     onClose()
+  }
+
+  // Dismissed without a pick: keep the current date, leave the sheet open.
+  function onPickerDismiss() {
+    setShowPicker(false)
   }
 
   const today = todayISO()
@@ -90,7 +94,8 @@ export function DateSheet({ visible, mode, pickDate, onSelect, onClose }: Props)
           display="default"
           value={pickDate ? parseISO(pickDate) : new Date()}
           maximumDate={new Date()}
-          onChange={onPickerChange}
+          onValueChange={onPickerSet}
+          onDismiss={onPickerDismiss}
         />
       )}
     </BottomSheet>

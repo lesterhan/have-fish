@@ -1,4 +1,4 @@
-import type { ReactNode } from 'react'
+import { Children, isValidElement, type ReactNode } from 'react'
 import { StyleSheet, Text, View } from 'react-native'
 import { theme } from '@/lib/theme'
 import { GlossSurface } from './GlossSurface'
@@ -17,13 +17,19 @@ interface CardProps {
  * by both the group-settings and app-settings screens.
  */
 export function SettingsCard({ title, caption, children }: CardProps) {
-  const rows = Array.isArray(children) ? children.filter(Boolean) : [children]
+  // `Children.toArray` drops `false`/`null` rows and keys each one by its own key
+  // (a mapped list's `c.id`) or by its slot in the JSX, so a row added or removed
+  // above another does not hand that row's wrapper to its neighbour.
+  const rows = Children.toArray(children)
   return (
     <View style={styles.section}>
       <Label style={styles.heading}>{title}</Label>
       <GlossSurface radius={theme.radius.cardSm} style={styles.card}>
         {rows.map((row, i) => (
-          <View key={i} style={[styles.rowWrap, i > 0 && styles.divided]}>
+          <View
+            key={isValidElement(row) ? row.key : String(row)}
+            style={[styles.rowWrap, i > 0 && styles.divided]}
+          >
             {row}
           </View>
         ))}

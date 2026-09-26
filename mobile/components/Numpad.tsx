@@ -35,8 +35,8 @@ interface Props {
 export function Numpad({ onKey, onClear }: Props) {
   return (
     <View style={styles.grid}>
-      {ROWS.map((row, i) => (
-        <View key={i} style={styles.row}>
+      {ROWS.map((row) => (
+        <View key={row.join('')} style={styles.row}>
           {row.map((key) => (
             <NumpadButton
               key={key}

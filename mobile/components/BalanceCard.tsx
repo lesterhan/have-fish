@@ -81,8 +81,10 @@ function CurrencyCard({ balance }: { balance: CurrencyBalance }) {
       {balance.transfers.length > 0 && (
         <View style={styles.settleBlock}>
           <Label style={styles.settleLabel}>To settle</Label>
-          {balance.transfers.map((t, i) => (
-            <View key={i} style={styles.settleRow}>
+          {/* One transfer per debtor → creditor pair: the backend's two-pointer
+              settle-up never visits a pair twice, and a card is one currency. */}
+          {balance.transfers.map((t) => (
+            <View key={`${t.fromUserId}->${t.toUserId}`} style={styles.settleRow}>
               <Text style={styles.settleSentence}>
                 <Text style={styles.bold}>{t.fromUserName ?? t.fromUserId}</Text>
                 {' owes '}
