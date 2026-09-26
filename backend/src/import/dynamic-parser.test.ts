@@ -227,3 +227,86 @@ describe('buildParser — transfer detection', () => {
     expect(tx.feeCurrency).toBe('CAD')
   })
 })
+
+// #447: parseFloat read "-1,234.56" as -1 and imported it. Every amount column now refuses
+// anything that is not a plain decimal, so a separator is a row error and no row is written.
+describe('buildParser — amounts that are not plain decimals', () => {
+  const parseTransfer = buildParser({
+    date: 'date',
+    amount: 'sourceamount',
+    sourceAmount: 'sourceamount',
+    sourceCurrency: 'sourcecurrency',
+    targetAmount: 'targetamount',
+    targetCurrency: 'targetcurrency',
+    feeAmount: 'feeamount',
+  })
+  const crossCurrency = {
+    date: '2026-03-01',
+    sourceamount: '200.00',
+    sourcecurrency: 'CAD',
+    targetamount: '107.90',
+    targetcurrency: 'GBP',
+    feeamount: '0.96',
+  }
+  const sameCurrencyRow = { ...crossCurrency, targetamount: '199.04', targetcurrency: 'CAD' }
+
+  function refused(result: ParseResult, column: string, cell: string) {
+    expect(result.transactions).toHaveLength(0)
+    expect(result.errors).toHaveLength(1)
+    expect(errorAt(result).reason).toBe(`invalid ${column}: "${cell}"`)
+  }
+
+  it('refuses a thousands separator in every amount column', () => {
+    const parse = buildParser({ date: 'date', amount: 'amount' })
+    refused(parse([{ date: '2026-02-15', amount: '-1,234.56' }]), 'amount', '-1,234.56')
+    refused(
+      parseTransfer([{ ...crossCurrency, sourceamount: '1,234.56' }]),
+      'sourceAmount',
+      '1,234.56',
+    )
+    refused(
+      parseTransfer([{ ...crossCurrency, targetamount: '1,234.56' }]),
+      'targetAmount',
+      '1,234.56',
+    )
+    refused(
+      parseTransfer([{ ...sameCurrencyRow, targetamount: '1,234.56' }]),
+      'targetAmount',
+      '1,234.56',
+    )
+    refused(parseTransfer([{ ...crossCurrency, feeamount: '1,234.56' }]), 'feeAmount', '1,234.56')
+    refused(parseTransfer([{ ...sameCurrencyRow, feeamount: '1,234.56' }]), 'feeAmount', '1,234.56')
+  })
+
+  it('refuses what parseFloat used to read a prefix of', () => {
+    const parse = buildParser({ date: 'date', amount: 'amount' })
+    for (const cell of ['12.34abc', '1 234.56', '5.00 CAD', 'Infinity']) {
+      refused(parse([{ date: '2026-02-15', amount: cell }]), 'amount', cell)
+    }
+  })
+
+  it('rounds a third decimal place the way the ledger column does', () => {
+    const parse = buildParser({ date: 'date', amount: 'amount' })
+    // parseFloat(...).toFixed(2) gave "1.00" and "-1.00" here: 1.005 is 1.00499… as a float.
+    const result = parse([
+      { date: '2026-02-15', amount: '1.005' },
+      { date: '2026-02-15', amount: '-1.005' },
+    ])
+    expect(regular(result, 0).amount).toBe('1.01')
+    expect(regular(result, 1).amount).toBe('-1.01')
+  })
+
+  it('still reads a blank fee as no fee', () => {
+    const cross = transfer(parseTransfer([{ ...crossCurrency, feeamount: '  ' }]))
+    expect(cross.feeAmount).toBeUndefined()
+    // Same currency with no fee is an ordinary row, read from the amount column.
+    const same = regular(parseTransfer([{ ...sameCurrencyRow, feeamount: '' }]))
+    expect(same.amount).toBe('200.00')
+  })
+
+  it('still reads a zero fee on a same-currency row as an ordinary row', () => {
+    const result = parseTransfer([{ ...sameCurrencyRow, feeamount: '0.00' }])
+    expect(result.errors).toHaveLength(0)
+    expect(regular(result).amount).toBe('200.00')
+  })
+})

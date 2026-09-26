@@ -1,3 +1,4 @@
+import * as money from '../money'
 import type {
   ColumnMapping,
   ParsedTransaction,
@@ -18,6 +19,12 @@ import type {
 // the row is emitted as a TransferParsedTransaction instead of a regular one.
 //
 // Rows that fail validation are collected as ParseErrors.
+//
+// Every amount is read by `money.parse`, the same reading the ledger's numeric(12,2) column
+// gives it, so what the preview shows is what gets written. Anything that is not a plain
+// decimal is a row error: `parseFloat` read "-1,234.56" as -1 and stopped there (#447).
+// Thousands separators are not guessed at, because "1,234.56" and "1.234,56" are the same
+// amount in different locales; accepting them would be a setting on the parser.
 export function buildParser(
   columnMapping: ColumnMapping,
 ): (rows: Record<string, string>[]) => ParseResult {
@@ -57,15 +64,15 @@ export function buildParser(
 
         if (sourceCurrency && targetCurrency && sourceCurrency !== targetCurrency) {
           const rawSourceAmount = row[columnMapping.sourceAmount!]
-          const sourceAmountVal = parseFloat(rawSourceAmount ?? '')
-          if (!rawSourceAmount || Number.isNaN(sourceAmountVal)) {
+          const sourceCents = amountOf(rawSourceAmount)
+          if (sourceCents === null) {
             errors.push({ row: rowNumber, reason: `invalid sourceAmount: "${rawSourceAmount}"` })
             return
           }
 
           const rawTargetAmount = row[columnMapping.targetAmount!]
-          const targetAmountVal = parseFloat(rawTargetAmount ?? '')
-          if (!rawTargetAmount || Number.isNaN(targetAmountVal)) {
+          const targetCents = amountOf(rawTargetAmount)
+          if (targetCents === null) {
             errors.push({ row: rowNumber, reason: `invalid targetAmount: "${rawTargetAmount}"` })
             return
           }
@@ -74,17 +81,22 @@ export function buildParser(
             isTransfer: true,
             date: date.toISOString(),
             description,
-            sourceAmount: (-Math.abs(sourceAmountVal)).toFixed(2), // always negative (leaving source)
+            sourceAmount: money.format(-Math.abs(sourceCents)), // always negative (leaving source)
             sourceCurrency,
-            targetAmount: Math.abs(targetAmountVal).toFixed(2), // always positive (arriving at target)
+            targetAmount: money.format(Math.abs(targetCents)), // always positive (arriving at target)
             targetCurrency,
           }
 
           if (columnMapping.feeAmount) {
             const rawFee = row[columnMapping.feeAmount]
-            const feeVal = parseFloat(rawFee ?? '')
-            if (rawFee && !Number.isNaN(feeVal)) {
-              tx.feeAmount = Math.abs(feeVal).toFixed(2) // fee is always a positive expense amount
+            // A blank fee cell means no fee; anything else has to be an amount.
+            if (rawFee?.trim()) {
+              const feeCents = amountOf(rawFee)
+              if (feeCents === null) {
+                errors.push({ row: rowNumber, reason: `invalid feeAmount: "${rawFee}"` })
+                return
+              }
+              tx.feeAmount = money.format(Math.abs(feeCents)) // fee is always a positive expense amount
               tx.feeCurrency = columnMapping.feeCurrency
                 ? (row[columnMapping.feeCurrency]?.trim() ?? sourceCurrency)
                 : sourceCurrency
@@ -103,11 +115,16 @@ export function buildParser(
           columnMapping.feeAmount
         ) {
           const rawFee = row[columnMapping.feeAmount]
-          const feeVal = parseFloat(rawFee ?? '')
-          if (rawFee && !Number.isNaN(feeVal) && feeVal !== 0) {
+          // A blank or zero fee leaves this a regular row, below.
+          const feeCents = rawFee?.trim() ? amountOf(rawFee) : 0
+          if (feeCents === null) {
+            errors.push({ row: rowNumber, reason: `invalid feeAmount: "${rawFee}"` })
+            return
+          }
+          if (feeCents !== 0) {
             const rawTargetAmount = row[columnMapping.targetAmount!]
-            const targetAmountVal = parseFloat(rawTargetAmount ?? '')
-            if (!rawTargetAmount || Number.isNaN(targetAmountVal)) {
+            const targetCents = amountOf(rawTargetAmount)
+            if (targetCents === null) {
               errors.push({ row: rowNumber, reason: `invalid targetAmount: "${rawTargetAmount}"` })
               return
             }
@@ -115,8 +132,8 @@ export function buildParser(
               isTransfer: 'same-currency',
               date: date.toISOString(),
               description,
-              amount: Math.abs(targetAmountVal).toFixed(2),
-              feeAmount: Math.abs(feeVal).toFixed(2),
+              amount: money.format(Math.abs(targetCents)),
+              feeAmount: money.format(Math.abs(feeCents)),
               currency: targetCurrency,
             }
             transactions.push(tx)
@@ -127,8 +144,8 @@ export function buildParser(
 
       // --- regular transaction row ---
       const rawAmount = row[columnMapping.amount]
-      const amount = parseFloat(rawAmount ?? '')
-      if (!rawAmount || Number.isNaN(amount)) {
+      const amount = amountOf(rawAmount)
+      if (amount === null) {
         errors.push({ row: rowNumber, reason: `invalid amount: "${rawAmount}"` })
         return
       }
@@ -146,7 +163,7 @@ export function buildParser(
       const tx: RegularParsedTransaction = {
         isTransfer: false,
         date: date.toISOString(),
-        amount: signedAmount.toFixed(2),
+        amount: money.format(signedAmount),
         description,
       }
 
@@ -159,4 +176,9 @@ export function buildParser(
 
     return { transactions, errors }
   }
+}
+
+// A cell as integer cents, or null when it is missing or is not an amount.
+function amountOf(raw: string | undefined): number | null {
+  return raw === undefined ? null : money.parse(raw)
 }
