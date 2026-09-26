@@ -852,7 +852,12 @@ Those refinements are in the epic file, not here.
 - **ARIA coverage** ~70% of components.
 - **`/import` at 1863 lines** — redesigned once already. Next time split, don't grow. It has
   grown 86 lines since that sentence was written, which is the sentence's own point.
-- **No responsive audit** has ever been run on the web app.
+- **No responsive audit** has ever been run on the web app, and the first measurement of it
+  says it is worse than "untested". Below roughly 1100px the fixed column geometry meets the
+  fixed 200px sidebar and loses: at 768 the accounts sheet drops `LAST ACTIVITY` and `FLAGS`
+  off the right edge, and the spending page's three panels slide under one another until the
+  breakdown has no amounts in it. Nothing is responsive because nothing was ever asked to be —
+  every sheet and panel is sized for the desk. This is an epic, not a fix.
 - **No virtualisation** anywhere; transaction lists rely on date filtering to stay small.
 - ~~**Legacy accent aliases** (`--color-accent-mid`, `--color-accent-light`) still marked
   "components updated in story 4" in `tokens.css`.~~ Gone — Visual Language story 2 derives
