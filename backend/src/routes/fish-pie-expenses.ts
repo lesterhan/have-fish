@@ -1,5 +1,6 @@
 import { and, eq, getTableColumns, inArray, isNull, ne } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { isClearingAccountPath } from '../accounts/paths'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import {
@@ -13,7 +14,6 @@ import {
   transactions,
   user,
 } from '../db/schema'
-import { fail, failWith } from '../errors'
 import {
   computeSplits,
   payerShareRatio,
@@ -21,7 +21,6 @@ import {
   withExplicitWeights,
   withWeights,
 } from '../fish-pie/splits'
-import { isClearingAccountPath } from '../fish-pie-accounts'
 import {
   createGroupExpenseInTx,
   createMemberTransactionsInTx,
@@ -29,6 +28,7 @@ import {
   resolveExpenseAccountId,
 } from '../fish-pie-expense-service'
 import { amendPostings, inLedgerTransaction, retireTransactions } from '../ledger/write-service'
+import { fail, failWith } from '../respond'
 
 // Validate a categoryId against a group. Returns 'ok' | 'not-found' | 'archived'.
 // Callers decide whether 'archived' is fatal (create) or tolerated (edit).

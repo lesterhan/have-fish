@@ -1,8 +1,8 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #430), and the layering the [domain-layer
-epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
+code as it is on `main` (last updated by #431), and the layering the [domain-layer
+epic](../planning/epics/domain-layer.md) (#423) moved it to. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
 
@@ -12,7 +12,7 @@ exists.
 index.ts        Bun entry point: reads PORT and the static root, nothing else
   └ server.ts   one Hono server: the API first, then the built frontend, then the SPA fallback
       └ app.ts  the API: CORS → request logger → session guard → route
-          └ routes/<resource>.ts   parse the body, check, query, write, answer
+          └ routes/<resource>.ts   parse the request, call one service, answer
               ├ services            *-service.ts: load, check, write (ledger/write-service, …)
               ├ pure modules        ledger/validate, import/, postings/, coverage/ … (no database)
               └ db/                 Drizzle client and schema (Postgres today, SQLite per D8)
@@ -25,8 +25,9 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
   `parseBody(c, Schema)` in `validation.ts`. `bodies.test.ts` holds the rule. The eight
   `fish-pie-*` route files are exempt because they leave this repository under #380.
 - **Failures** are a code plus the values that vary: `fail(c, 'ACCOUNT_NOT_FOUND')`. The
-  codes and their HTTP status live in `errors.ts`, and the sentences live in the frontend's
-  `copy/errors.ts`.
+  codes and their HTTP status live in `errors.ts`, which imports nothing, so a pure module can
+  name a failure; `fail` and `failWith`, which need a request, live in `respond.ts`. The
+  sentences live in the frontend's `copy/errors.ts`.
 - **Logging** is one structured line per request, from `request-log.ts` and `logging.ts`.
   A request body has no field to land in.
 - **Unhandled throws** reach `app.onError`, which logs the message and the stack, and
@@ -45,21 +46,49 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 | Clearing account | `assets:receivable:<group>`, one per member per Fish Pie group. It nets what the group owes you against what you owe it. System-managed |
 | Coverage | "This account's ledger is complete from A through B." Append-only assertions, merged into spans on read |
 
-## Layers: today and target
+## Layers
 
-| Layer | Target: does | Target: may import | Today |
+| Layer | Does | May import | Files |
 |---|---|---|---|
-| Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Since #429 no personal-ledger handler touches `db`. The eight `fish-pie-*` routes still do; they leave under #380, and story 7 takes only their maths |
-| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `ledger/read-service`, `accounts/{account,balance,action-required,ownership}-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `import/parser-service`, `rules/rule-service`, `reports/report-service`, `fx/rate-service`, `export/export-service`, `fish-pie-expense-service` |
-| Domain | Pure rules | Nothing stateful | `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `rules/{target,mining}`, `reports/spending`, `fish-pie/{splits,legs,balances}`, `export/journal`, `currencies` |
+| Route | Parse, read `userId`, call a service, shape the answer | Services, domain modules, `validation`, `respond`, `errors` | `routes/*.ts`. None of the personal-ledger routes touches `db` since #429. The eight `fish-pie-*` routes still do; they leave under #380, and #430 took only their maths |
+| Service | Load, check, write inside one transaction | Anything but a route | Every `*-service.ts`: `ledger/{write,read}-service`, `import/{preview,duplicates,commit,parser}-service`, `accounts/{account,balance,action-required,ownership}-service`, `postings/{heal,classify,spend}-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `rules/rule-service`, `reports/report-service`, `fx/rate-service`, `export/export-service`, `fish-pie-{expense,accounts}-service` |
+| Domain | Pure rules | Other domain modules, and `papaparse` and `node:crypto` | Everything else: `errors`, `money`, `currencies`, `calendar-date`, `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `rules/{target,mining}`, `reports/spending`, `settings/preferences`, `fish-pie/{splits,legs,balances,clearing}`, `export/journal` |
 
-Every personal-ledger route now looks like the target: the handler validates the request,
-calls a service, and answers. `routes/import.ts` got there in #427 from 941 lines,
-`accounts.ts` and `coverage.ts` in #428, and the rest in #429.
+Two more kinds of file sit beside them:
 
-`fx/rate-source.ts` is the one file that is neither: it holds the backend's only outbound
-`fetch` (frankfurter.app) and touches no database, so it isn't a `-service`, and an offline
-build or a test has one function to stub.
+- **Query fragments** (`*-sql.ts`; only `postings/account-type-sql.ts` today). These build
+  `WHERE` clauses for services. They need the schema to name columns but run no query, and
+  only services import them.
+- **Infrastructure**: `index`, `server`, `app`, `auth`, `logging`, `request-log`,
+  `validation`, `respond`, `test-utils`, `db/{index,schema,returning}`, and
+  `fx/rate-source.ts`. The last holds the backend's only outbound `fetch` (frankfurter.app).
+  It touches no database, so an offline build or a test has one function to stub.
+
+**How the layers are held** (`layers.test.ts`, #431). Every source file gets its layer from
+its name: `routes/`, `-service.ts`, `-sql.ts`, the infrastructure list, and anything else is
+domain. A new file is therefore held to the strictest rule until its name says otherwise.
+The test reads every import with TypeScript's own scanner, type-only imports and re-exports
+included, and fails when:
+
+- a domain module imports anything but another domain module or an allowlisted package.
+  Checking each import is enough for the whole graph, since everything a domain module
+  reaches is then domain too. No domain module reaches `db`, the schema, Drizzle or Hono,
+  even for a type. That is why `fail` and `failWith` left `errors.ts`;
+- a domain module calls `fetch`;
+- anything but a service, infrastructure or a leaving Fish Pie route imports the database
+  client;
+- a `*-sql.ts` file imports the client, or is imported by anything but a service;
+- a route that stays imports `db`, the schema or Drizzle, or opens a transaction
+  (`db.transaction` or `inLedgerTransaction`).
+
+The Fish Pie exemption can only shrink. The test fails if a name on it no longer matches a
+file, or matches one that no longer needs it. `node:crypto` is allowed for
+`import/fingerprint.ts`, which a phone can't run yet (#474). `ledger/writers.test.ts` keeps
+the ledger write service the only writer of postings, and `routes/bodies.test.ts` keeps
+every staying route parsing its body through a schema.
+
+The test for whether something belongs in a domain module: could a phone run it against its
+own SQLite file, or a laptop run it on a document that just arrived from the relay?
 
 ## Route map
 
@@ -328,10 +357,11 @@ document moves it:
 | A failure returned as a value | `Outcome<T>` in `errors.ts`, in every service and pure module; `parseBody` → `{ ok, response }` | One shape since #429, when `heal-service` and the rule target moved to it. `parseBody` stays, being route-level |
 | Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts, the import legs and the duplicate check, report totals, heal); `parseFloat` or `toFixed` still in Fish Pie, the import path's payer share included (#451). The converted spend total multiplies by a rate, so it stays a float product of cents, rounded once | No: Fish Pie is the last file |
 
-## Pure modules that already exist
+## Pure modules
 
 | Module | What | Called by |
 |---|---|---|
+| `errors.ts` | Every failure code with its status, the detail each carries, `errorBody` and `Outcome` | Every service and route; `respond.ts` sends one |
 | `currencies.ts` | The supported currency set and `isValidCurrency` | Routes that accept a currency |
 | `calendar-date.ts` | Calendar dates as `YYYY-MM-DD` text: check, read from a request or a CSV cell, add and count days, never through a time zone | Ledger writes, import, duplicate check, transaction and balance routes |
 | `money.ts` | Amounts in integer cents: `parse`, `format`, `add`, `sub`, `neg`, `sum`, `splitByWeights` | `ledger/validate`, the balance endpoints |
@@ -350,7 +380,7 @@ document moves it:
 | `rules/target.ts` | Which target a rule's three id fields name, and the columns it's stored in | `rule-service` |
 | `rules/mining.ts` | Which rules to suggest from the ledger: one expense leg, a merchant key, the account seen most, twice or more | `rule-service` |
 | `reports/spending.ts` | Category totals and drill-down counts, month buckets, the rates a conversion needs, the converted total | `report-service` |
-| `accounts/paths.ts` | What a valid path is, the receivable namespace (`isClearingAccountPath`, re-exported by `fish-pie-accounts.ts`), and `planRename` | `account-service`, the accounts route's schema, classification, coverage |
+| `accounts/paths.ts` | What a valid path is, the receivable namespace (`isClearingAccountPath`), and `planRename` | `account-service`, the accounts route's schema, classification, coverage |
 | `accounts/balances.ts` | Which accounts a balances view shows (`readBalanceSelection`, `selects`) and per-currency sums in cents | `balance-service` |
 | `coverage/intervals.ts`, `months.ts`, `catch-up.ts` | Merge coverage spans, classify months, assemble catch-up state | Coverage and catch-up services |
 | `coverage/horizon.ts` | The horizon, cycle inference, merging the config, and reading and changing the pins (`overridesFrom`, `configChangeFrom`, `applyConfigChange`) | Coverage, config and load services |
@@ -359,22 +389,31 @@ document moves it:
 | `fish-pie/splits.ts` | Divide an expense by weight, remainder to the payer; which weights apply; the payer's share | `fish-pie-expense-service`, the expense routes |
 | `fish-pie/legs.ts` | The legs of each member's expense, settlement and batch-settlement transactions | `fish-pie-expense-service`, the settlement routes |
 | `fish-pie/balances.ts` | Net balances per currency and the minimal set of transfers | Balances, overview |
+| `fish-pie/clearing.ts` | A group's clearing account path, from the group's name | `fish-pie-accounts-service`, the merge route |
 
 The epic settles one convention: a `-service` file touches the database, and nothing else
 does. Three files broke it and no longer do: `coverage/horizon.ts` lost its four loaders to
 `coverage/config-service.ts` and `coverage/load.ts` became `coverage/load-service.ts` (#428),
-and the pure `fish-pie-balance-service.ts` became `fish-pie/balances.ts` (#430).
-`fish-pie-accounts.ts` still queries without the suffix; it leaves with the Fish Pie
-service (#380).
+the pure `fish-pie-balance-service.ts` became `fish-pie/balances.ts` (#430), and
+`fish-pie-accounts.ts` became `fish-pie-accounts-service.ts`, its pure path rule going to
+`fish-pie/clearing.ts` (#431). Since #431 the convention is a test, not a habit.
 
-## Where this is going
+## How it got here, and what is left
 
-The target and the order are in [`planning/epics/domain-layer.md`](../planning/epics/domain-layer.md):
+The domain-layer epic ([`planning/epics/domain-layer.md`](../planning/epics/domain-layer.md))
+did it in this order:
 
 1. This map (#424)
 2. One write path for transactions (#425), then every posting writer through it (#426)
 3. The P1 items that build on that path: #279, #281
-4. Import planned in pure code (#427), then its fingerprint (#282, done)
+4. Import planned in pure code (#427), then its fingerprint (#282)
 5. Accounts and coverage (#428); rules, parsers, settings and reports (#429)
 6. Fish Pie maths (#430)
 7. A check that locks the layers in (#431)
+
+What the layers still allow, each with its own issue:
+
+- The eight `fish-pie-*` routes query and open transactions themselves until they leave
+  for the Fish Pie service (#380).
+- `import/fingerprint.ts` hashes with `node:crypto`, which React Native lacks (#474).
+- Fish Pie's maths is in floats rounded to the cent, where the ledger works in cents (#451).

@@ -13,7 +13,7 @@
 import { db } from '../src/db'
 import { returnedRow } from '../src/db/returning'
 import { groupExpenses, groupExpenseSplits, expenseGroupMembers, expenseGroups, transactions, postings } from '../src/db/schema'
-import { ensureSharedAccount, ensureUncategorizedAccount } from '../src/fish-pie-accounts'
+import { ensureSharedAccount, ensureUncategorizedAccount } from '../src/fish-pie-accounts-service'
 import { eq, isNull, and } from 'drizzle-orm'
 
 console.log('Fish Pie account integration migration')

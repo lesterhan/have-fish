@@ -39,8 +39,8 @@ import {
   type ErrorCode,
   type ErrorDetails,
   errorBody,
-  failWith,
 } from './errors'
+import { failWith } from './respond'
 
 /**
  * The codes whose whole detail is the offending field's name.

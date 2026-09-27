@@ -12,7 +12,7 @@ import {
 } from './db/schema'
 import { expenseMemberLegs } from './fish-pie/legs'
 import { categoryWeightsFor, computeSplits, payerShareRatio, withWeights } from './fish-pie/splits'
-import { ensureSharedAccount, ensureUncategorizedAccount } from './fish-pie-accounts'
+import { ensureSharedAccount, ensureUncategorizedAccount } from './fish-pie-accounts-service'
 import { writeTransaction } from './ledger/write-service'
 
 // Loads and writes a shared expense. The split and each member's legs are pure, in

@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
-import { fail, failWith } from '../errors'
+import { fail, failWith } from '../respond'
 import {
   createRule,
   deleteRule,

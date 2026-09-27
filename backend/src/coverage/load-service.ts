@@ -7,9 +7,9 @@
 // choose what to project.
 
 import { and, eq, gte, isNull, sql } from 'drizzle-orm'
+import { isClearingAccountPath } from '../accounts/paths'
 import { db } from '../db'
 import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
-import { isClearingAccountPath } from '../fish-pie-accounts'
 import {
   DEFAULT_ROOTS,
   resolveStoredOrInferredType,

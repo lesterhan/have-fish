@@ -13,7 +13,7 @@ import {
 import { configChangeFrom, isCycleDay, isReleaseLag } from '../coverage/horizon'
 import { loadCoverageAccounts, todayUtc } from '../coverage/load-service'
 import { monthsBetween } from '../coverage/months'
-import { fail, failWith } from '../errors'
+import { fail, failWith } from '../respond'
 import { as, asField, defined, parseBody } from '../validation'
 
 // The handlers parse the request and answer; the rules and queries are in `coverage/`.

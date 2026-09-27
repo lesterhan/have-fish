@@ -1,8 +1,8 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
-import { fail } from '../errors'
 import { getOrFetchRate, getRateAsOf } from '../fx/rate-service'
+import { fail } from '../respond'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
