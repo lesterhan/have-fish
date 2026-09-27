@@ -17,6 +17,7 @@
     type ExpenseGroup,
     type ParsedTransaction,
     createCoverage,
+    exportJournal,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { rootsFrom, surfaceOf } from '$lib/components/accounts/accountPaths'
@@ -74,9 +75,23 @@
 
   let activeTab = $state<'import' | 'export'>('import')
 
-  // Export tab — optional date bounds (disabled until the backend export route lands).
+  // Export tab — optional, inclusive date bounds; both empty exports everything.
   let exportFrom = $state('')
   let exportTo = $state('')
+  let exporting = $state(false)
+  let exportError = $state('')
+
+  async function handleExport() {
+    exporting = true
+    exportError = ''
+    try {
+      await exportJournal({ from: exportFrom, to: exportTo })
+    } catch (e) {
+      exportError = e instanceof Error ? e.message : 'Failed to export journal.'
+    } finally {
+      exporting = false
+    }
+  }
 
   let accounts = $state<Account[]>([])
   let parsers = $state<CsvParser[]>([])
@@ -1298,7 +1313,7 @@
                 type="date"
                 class="date-input"
                 bind:value={exportFrom}
-                disabled
+                disabled={exporting}
               />
             </div>
             <div class="import-field">
@@ -1308,17 +1323,27 @@
                 type="date"
                 class="date-input"
                 bind:value={exportTo}
-                disabled
+                disabled={exporting}
               />
             </div>
           </div>
 
           <div class="actions-bar">
-            <GradientButton size="lg" disabled tooltip="Coming soon">
+            <GradientButton
+              size="lg"
+              disabled={exporting}
+              onclick={handleExport}
+            >
               <Icon name="export" size={14} />
-              Export journal
+              {exporting ? 'Exporting…' : 'Export journal'}
             </GradientButton>
           </div>
+
+          {#if exportError}
+            <div class="error-strip">
+              <span class="error-text">{exportError}</span>
+            </div>
+          {/if}
         </div>
       {/if}
     </div>
