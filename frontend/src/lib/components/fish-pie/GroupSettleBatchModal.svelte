@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toISODate } from '$lib/date'
   import { untrack } from 'svelte'
   import Modal from '$lib/components/ui/Modal.svelte'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
@@ -44,7 +45,7 @@
     onSettle,
   }: Props = $props()
 
-  const today = () => new Date().toISOString().slice(0, 10)
+  const today = () => toISODate(new Date())
 
   // Seeded from defaultTargetCurrency each time the modal opens (see the effect below).
   let target = $state('')

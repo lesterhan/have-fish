@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #282), and the layering the [domain-layer
+code as it is on `main` (last updated by #277), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -239,6 +239,16 @@ summed in JS rather than by SQL `SUM`, so the answer doesn't depend on the datab
 decimal type; SQLite has none. `splitByWeights` is the one split rule: each share is
 rounded to the cent, and the leftover goes to one named share.
 
+**Dates** (`calendar-date.ts`, #277). `transactions.date` is a calendar day, `YYYY-MM-DD`
+text, like the Fish Pie and FX dates. It never passes through a JS `Date` on its way in:
+`writeTransaction` and its siblings store `calendarDateOf(draft.date)`, and a CSV cell is read
+by `calendarDateFromText`, which keeps the day the bank wrote in any time zone. ISO text
+compares correctly as a string, so every range filter, `MIN`, `MAX`, `GROUP BY` and `ORDER BY`
+works on the column as it is, with no `::date` or `to_char`, in Postgres and SQLite alike.
+Before, the column was a timestamp, and a backend running east of UTC stored a non-ISO CSV
+date as the previous day (things-missed M1). `bun run test:zones`, which CI runs, repeats the
+date-bearing suites in Tokyo and Los Angeles, because a date bug hides in UTC.
+
 **Deleting has two meanings.** A personal transaction's delete hard-deletes its postings.
 A Fish Pie delete soft-deletes them. Postings are also hard-deleted and re-inserted with
 new ids whenever a transaction's postings are replaced. That's why the transaction, not the
@@ -262,7 +272,7 @@ document moves it:
 |---|---|---|
 | Postings balance per currency | `ledger/validate.ts` once in the backend (exact, in cents); `LedgerEditModal` and `AddTransactionModal` in the frontend (floats, tolerance 0.005) | No: the frontend passes some legs the backend refuses (#450) |
 | An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
-| A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
+| A date is `YYYY-MM-DD` | `calendar-date.ts` (`isCalendarDate`, also refusing days that don't exist) for transaction writes, the transaction routes and the balance-as-of date; hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Same shape; only `calendar-date.ts` refuses `2026-02-30` |
 | A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |
 | A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
 | Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts); `parseFloat` or `toFixed` still in import arithmetic (#448), reports and heal (#449), and Fish Pie (#451) | No: moving file by file |
@@ -272,6 +282,7 @@ document moves it:
 | Module | What | Called by |
 |---|---|---|
 | `currencies.ts` | The supported currency set and `isValidCurrency` | Routes that accept a currency |
+| `calendar-date.ts` | Calendar dates as `YYYY-MM-DD` text: check, read from a request or a CSV cell, add and count days, never through a time zone | Ledger writes, import, duplicate check, transaction and balance routes |
 | `money.ts` | Amounts in integer cents: `parse`, `format`, `add`, `sub`, `neg`, `sum`, `splitByWeights` | `ledger/validate`, the balance endpoints |
 | `import/csv-parser.ts` | Delimiter detection, CSV parsing, header fingerprint | Import preview |
 | `import/dynamic-parser.ts` | Build a row parser from a saved column mapping; amounts read by `money.parse`, so a cell that is not a plain decimal is a row error | Import preview |

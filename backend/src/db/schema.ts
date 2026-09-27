@@ -110,7 +110,9 @@ export const transactions = pgTable(
     userId: text('user_id')
       .notNull()
       .references(() => user.id, { onDelete: 'cascade' }),
-    date: timestamp('date').notNull(),
+    // A calendar day, `YYYY-MM-DD`, as text (#277, calendar-date.ts). Like the Fish Pie and
+    // FX dates below: a date has no time zone, and ISO text compares correctly as a string.
+    date: text('date').notNull(),
     description: text('description'),
     // The group expense this transaction belongs to. The single, total forward link: set on
     // every transaction in an expense — the auto-created member txs AND the payer's origin

@@ -4,18 +4,8 @@ import { byAccount, candidateWindow, type ExistingPosting, findDuplicate } from 
 // No database here: the rule for "probably the same money" on its own.
 
 const existing: ExistingPosting[] = [
-  {
-    transactionId: 'lunch',
-    date: new Date('2026-03-10T12:00:00Z'),
-    amount: '-42.50',
-    currency: 'CAD',
-  },
-  {
-    transactionId: 'yen',
-    date: new Date('2026-03-10T12:00:00Z'),
-    amount: '-8400.00',
-    currency: 'JPY',
-  },
+  { transactionId: 'lunch', date: '2026-03-10', amount: '-42.50', currency: 'CAD' },
+  { transactionId: 'yen', date: '2026-03-10', amount: '-8400.00', currency: 'JPY' },
 ]
 
 describe('findDuplicate', () => {
@@ -27,15 +17,22 @@ describe('findDuplicate', () => {
   })
 
   it('matches within a day either side, and not beyond', () => {
-    expect(
-      findDuplicate({ date: '2026-03-11T12:00:00Z', amount: '-42.50', currency: 'CAD' }, existing),
-    ).toBeDefined()
-    expect(
-      findDuplicate({ date: '2026-03-09T12:00:00Z', amount: '-42.50', currency: 'CAD' }, existing),
-    ).toBeDefined()
-    expect(
-      findDuplicate({ date: '2026-03-11T12:00:01Z', amount: '-42.50', currency: 'CAD' }, existing),
-    ).toBeUndefined()
+    for (const date of ['2026-03-09', '2026-03-11']) {
+      expect(findDuplicate({ date, amount: '-42.50', currency: 'CAD' }, existing)).toBeDefined()
+    }
+    for (const date of ['2026-03-08', '2026-03-12']) {
+      expect(findDuplicate({ date, amount: '-42.50', currency: 'CAD' }, existing)).toBeUndefined()
+    }
+  })
+
+  it('reads a timestamp by its date, as an older client sends it', () => {
+    const row = { date: '2026-03-11T00:00:00.000Z', amount: '-42.50', currency: 'CAD' }
+    expect(findDuplicate(row, existing)).toBeDefined()
+  })
+
+  it('matches nothing for a row with no real date', () => {
+    const row = { date: 'yesterday', amount: '-42.50', currency: 'CAD' }
+    expect(findDuplicate(row, existing)).toBeUndefined()
   })
 
   it('matches within a cent, and not beyond', () => {
@@ -73,9 +70,21 @@ describe('byAccount', () => {
 })
 
 describe('candidateWindow', () => {
-  it('reaches a day before the earliest row and to the end of the day after the latest', () => {
-    const { from, to } = candidateWindow(['2026-03-10T12:00:00', '2026-03-05T08:00:00'])
-    expect(from).toEqual(new Date('2026-03-04T08:00:00'))
-    expect(to).toEqual(new Date('2026-03-11T23:59:59.999'))
+  it('reaches a day before the earliest row and a day after the latest', () => {
+    expect(candidateWindow(['2026-03-10', '2026-03-05', '2026-03-01T09:00:00Z'])).toEqual({
+      from: '2026-02-28',
+      to: '2026-03-11',
+    })
+  })
+
+  it('crosses month and year ends as calendar days', () => {
+    expect(candidateWindow(['2026-01-01', '2025-12-31'])).toEqual({
+      from: '2025-12-30',
+      to: '2026-01-02',
+    })
+  })
+
+  it('has no window when no row names a day', () => {
+    expect(candidateWindow(['', 'soon'])).toBeNull()
   })
 })

@@ -1,5 +1,6 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { accountsOwnedBy } from '../accounts/ownership-service'
+import { calendarDateOf } from '../calendar-date'
 import { type DbTransaction, db, type Executor } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, postings, transactions } from '../db/schema'
@@ -32,7 +33,8 @@ import { type PostingDraft, validatePostings } from './validate'
 
 /** A transaction as a caller proposes it. */
 export type TransactionDraft = {
-  date: string | Date
+  /** `YYYY-MM-DD`, or an ISO timestamp whose date part is the day (`calendarDateOf`). */
+  date: string
   description?: string | null | undefined
   postings: PostingDraft[]
 }
@@ -365,7 +367,7 @@ async function insertTransaction(
       .values({
         ...(draft.id ? { id: draft.id } : {}),
         userId,
-        date: new Date(draft.date),
+        date: calendarDateOf(draft.date),
         description: draft.description ?? null,
         ...(draft.groupExpenseId ? { groupExpenseId: draft.groupExpenseId } : {}),
         ...(draft.importFingerprint ? { importFingerprint: draft.importFingerprint } : {}),

@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toISODate } from '$lib/date'
   import { untrack } from 'svelte'
   import type {
     GroupMember,
@@ -57,7 +58,7 @@
   let desc = $state('')
   let amount = $state('')
   let currency = $state(untrack(() => defaultCurrency))
-  const today = new Date().toISOString().slice(0, 10)
+  const today = toISODate(new Date())
   let date = $state(today)
   let paidBy = $state(untrack(() => currentUserId))
   let paymentAccountId = $state(

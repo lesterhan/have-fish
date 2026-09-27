@@ -46,10 +46,7 @@ function daysAgo(n: number): string {
 
 async function seedTxn(userId: string, accountId: string, date: string, offsetAccountId: string) {
   const tx = returnedRow(
-    await db
-      .insert(transactions)
-      .values({ userId, date: new Date(`${date}T12:00:00Z`), description: 'test' })
-      .returning(),
+    await db.insert(transactions).values({ userId, date, description: 'test' }).returning(),
     'insert transactions',
   )
   await db.insert(postings).values([

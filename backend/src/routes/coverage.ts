@@ -110,7 +110,7 @@ async function readCoverage(userId: string, accountId: string, windowDays: numbe
   // window so an account with a decade of history doesn't ship a decade of dates to draw 90
   // cells with.
   const txnDateRows = await db
-    .selectDistinct({ date: sql<string>`to_char(${transactions.date}::date, 'YYYY-MM-DD')` })
+    .selectDistinct({ date: transactions.date })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
     .where(
@@ -119,7 +119,7 @@ async function readCoverage(userId: string, accountId: string, windowDays: numbe
         eq(transactions.userId, userId),
         isNull(transactions.deletedAt),
         isNull(postings.deletedAt),
-        between(sql`${transactions.date}::date`, sql`${windowFrom}::date`, sql`${today}::date`),
+        between(transactions.date, windowFrom, today),
       ),
     )
 
@@ -494,7 +494,7 @@ app.post('/reconcile', async (c) => {
 
 async function firstTransactionDate(userId: string, accountId: string): Promise<string | null> {
   const [row] = await db
-    .select({ first: sql<string | null>`to_char(MIN(${transactions.date})::date, 'YYYY-MM-DD')` })
+    .select({ first: sql<string | null>`MIN(${transactions.date})` })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))
     .where(

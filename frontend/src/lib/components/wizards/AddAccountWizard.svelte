@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toISODate } from '$lib/date'
   import { onMount } from 'svelte'
   import Modal from '../ui/Modal.svelte'
   import GradientButton from '../ui/GradientButton.svelte'
@@ -85,7 +86,7 @@
   let startingDate = $state(todayIso())
 
   function todayIso(): string {
-    return new Date().toISOString().slice(0, 10)
+    return toISODate(new Date())
   }
 
   $effect(() => {

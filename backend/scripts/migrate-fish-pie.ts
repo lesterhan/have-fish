@@ -76,7 +76,7 @@ await db.transaction(async (tx) => {
       }
       const sharedAccountId = sharedAccountIds.get(split.userId)!
 
-      const txDate = new Date(`${expense.date}T00:00:00Z`)
+      const txDate = expense.date
       const t = returnedRow(
         await tx
           .insert(transactions)

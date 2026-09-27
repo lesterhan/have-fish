@@ -1,3 +1,4 @@
+import { calendarDateOf } from '../calendar-date'
 import { errorBody, type ImportRowKind, type Outcome } from '../errors'
 import type { PostingDraft } from '../ledger/validate'
 import { importFingerprint, importTransactionId } from './fingerprint'
@@ -329,7 +330,7 @@ export function planRows(
         description: t.description ?? '',
         amount,
         currency,
-        date: new Date(t.date).toISOString().slice(0, 10),
+        date: calendarDateOf(t.date),
       }
 
     if (t.isTransfer === 'cross-currency-spend') {

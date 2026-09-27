@@ -1,3 +1,5 @@
+import { addDays, calendarDateOf, daysBetween } from '../calendar-date'
+
 // When an imported row is probably something already in the ledger, decided without a
 // database. `duplicates-service.ts` loads the candidate postings and calls these.
 //
@@ -26,12 +28,19 @@ export type DuplicateCheckRow = {
 /** A posting already in the ledger, with its transaction's date. */
 export type ExistingPosting = {
   transactionId: string
-  date: Date
+  date: string // YYYY-MM-DD
   amount: string
   currency: string
 }
 
-const DAY_MS = 24 * 60 * 60 * 1000
+/** The calendar day a row's date names, or null when it names none (never a match). */
+function dayOf(value: string): string | null {
+  try {
+    return calendarDateOf(value)
+  } catch {
+    return null
+  }
+}
 
 /**
  * The rows to check, grouped by account. An empty `accountId` marks a transfer row, which
@@ -52,17 +61,15 @@ export function byAccount<R extends { accountId: string }>(
 }
 
 /**
- * The dates to load candidates for: a day either side of the rows' earliest and latest,
- * to the end of the last day. In the server's local time zone, as it has always been.
+ * The days to load candidates for: a day either side of the rows' earliest and latest.
+ * Null when no row names a day.
  */
-export function candidateWindow(dates: readonly string[]): { from: Date; to: Date } {
-  const times = dates.map((d) => new Date(d).getTime())
-  const from = new Date(Math.min(...times))
-  const to = new Date(Math.max(...times))
-  from.setDate(from.getDate() - 1)
-  to.setDate(to.getDate() + 1)
-  to.setHours(23, 59, 59, 999)
-  return { from, to }
+export function candidateWindow(dates: readonly string[]): { from: string; to: string } | null {
+  const days = dates.flatMap((d) => dayOf(d) ?? []).sort()
+  const first = days[0]
+  const last = days[days.length - 1]
+  if (!first || !last) return null
+  return { from: addDays(first, -1), to: addDays(last, 1) }
 }
 
 /** The first existing posting that looks like the same money as `row`, if any. */
@@ -70,16 +77,16 @@ export function findDuplicate(
   row: { date: string; amount: string; currency: string },
   existing: readonly ExistingPosting[],
 ): ExistingPosting | undefined {
-  const txDate = new Date(row.date).getTime()
+  const day = dayOf(row.date)
+  if (!day) return undefined
   const txAmount = parseFloat(row.amount)
   const txCurrency = row.currency.toUpperCase()
 
   return existing.find((e) => {
-    const eDate = new Date(e.date).getTime()
     const eAmount = parseFloat(e.amount)
     return (
       e.currency.toUpperCase() === txCurrency &&
-      Math.abs(eDate - txDate) <= DAY_MS &&
+      Math.abs(daysBetween(day, e.date)) <= 1 &&
       Math.abs(Math.abs(eAmount) - Math.abs(txAmount)) <= 0.01
     )
   })

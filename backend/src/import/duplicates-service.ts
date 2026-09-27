@@ -49,7 +49,9 @@ export async function findPossibleDuplicates(
       .limit(1)
     if (owned.length === 0) continue
 
-    const { from, to } = candidateWindow(entries.map((e) => e.row.date))
+    const window = candidateWindow(entries.map((e) => e.row.date))
+    if (!window) continue
+    const { from, to } = window
     const existing = await db
       .select({
         transactionId: postings.transactionId,
@@ -74,7 +76,7 @@ export async function findPossibleDuplicates(
       if (match) {
         result[i] = {
           transactionId: match.transactionId,
-          date: match.date.toISOString().substring(0, 10),
+          date: match.date,
           amount: match.amount,
           currency: match.currency,
         }
@@ -146,7 +148,7 @@ async function addCertainMatches(
       const leg = legs.find((l) => l.transactionId === tx.id && l.accountId === row.importAccountId)
       result[i] = {
         transactionId: tx.id,
-        date: tx.date.toISOString().substring(0, 10),
+        date: tx.date,
         amount: leg?.amount ?? row.amount,
         currency: leg?.currency ?? row.currency.toUpperCase(),
         certain: true,

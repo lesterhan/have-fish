@@ -14,14 +14,14 @@ import type { ParsedTransaction } from './types'
 
 const coffee: ParsedTransaction = {
   isTransfer: false,
-  date: '2026-03-01T00:00:00.000Z',
+  date: '2026-03-01',
   amount: '-4.50',
   description: 'STARBUCKS #123 Toronto',
 }
 const rent: ParsedTransaction = { ...coffee, amount: '-1200.00', description: 'Rent' }
 const wise: ParsedTransaction = {
   isTransfer: true,
-  date: '2026-03-01T00:00:00.000Z',
+  date: '2026-03-01',
   description: 'To GBP',
   sourceAmount: '-200.00',
   sourceCurrency: 'CAD',
@@ -80,7 +80,7 @@ describe('rowKeys', () => {
   it('changes with the parser, the date, any amount, currency or fee, and the kind', () => {
     const [base] = rowKeys('parser', [wise])
     const variants: ParsedTransaction[] = [
-      { ...wise, date: '2026-03-02T00:00:00.000Z' },
+      { ...wise, date: '2026-03-02' },
       { ...wise, sourceAmount: '-200.01' },
       { ...wise, targetCurrency: 'EUR' },
       { ...wise, feeAmount: '0.97' },
@@ -106,7 +106,7 @@ describe('rowKeys', () => {
   // out separately, in Python, from the description in fingerprint.ts.
   it('has not changed', () => {
     expect(rowKeys('parser', [coffee])).toEqual([
-      'f4fd725a5e03d92171368ec542d33198d1148ac4a8d13dd49d414bbf7f467966',
+      '470d6f4e5bdc8ce818393d07248565e6d39ff740ed661ef51d497e708fcd876c',
     ])
   })
 })

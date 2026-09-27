@@ -187,7 +187,7 @@ async function insertTx(
   await db.transaction(async (tx) => {
     const [newTx] = await tx
       .insert(transactions)
-      .values({ id, userId, date: new Date(date), description })
+      .values({ id, userId, date, description })
       .onConflictDoNothing({ target: transactions.id })
       .returning()
     if (!newTx) {

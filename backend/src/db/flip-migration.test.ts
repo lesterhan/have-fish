@@ -60,7 +60,7 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
     const clearingB = await insertAccount(userBId, 'group:trip-manual')
     const chequingB = await insertAccount(userBId, 'assets:chequing')
 
-    const txDate = new Date('2026-05-01T00:00:00Z')
+    const txDate = '2026-05-01'
 
     // Expense paid by A — pre-fix posting shapes inserted by hand.
     const expense = returnedRow(
