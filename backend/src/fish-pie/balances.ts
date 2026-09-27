@@ -1,5 +1,5 @@
-// Shared balance computation for a fish-pie group. Used by the balances endpoint
-// and the group overview endpoint so the netting logic lives in exactly one place.
+// Who owes whom in a Fish Pie group: each member's net position per currency, and the
+// fewest transfers that settle it. Pure; the balances and overview routes load the rows.
 
 export type Transfer = {
   fromUserId: string

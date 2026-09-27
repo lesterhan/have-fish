@@ -13,8 +13,8 @@ import {
   userSettings,
 } from '../db/schema'
 import { fail, failWith } from '../errors'
+import { batchSettlementLegs, settlementLegs } from '../fish-pie/legs'
 import { ensureSharedAccount } from '../fish-pie-accounts'
-import type { PostingDraft } from '../ledger/validate'
 import { inLedgerTransaction, retireTransactions, writeTransaction } from '../ledger/write-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -140,18 +140,18 @@ app.post('/groups/:groupId/settlements', async (c) => {
       'insert groupSettlements',
     )
 
-    // Payer's ledger transaction:
-    // debit payerAccount (cash out): -amount
-    // credit group:<group> (payment into group recorded): +amount
+    // The payer's side: cash out, clearing account credited (`settlementLegs`).
     const sharedAccountId = await ensureSharedAccount(fromUserId, group, tx)
 
     const payerTx = await writeTransaction(tx, fromUserId, {
       date,
       description: body.note?.trim() || `Settlement to ${group.name}`,
-      postings: [
-        { accountId: payerAccountId, amount: `-${amount}`, currency },
-        { accountId: sharedAccountId, amount, currency },
-      ],
+      postings: settlementLegs(
+        'payer',
+        { cash: payerAccountId, clearing: sharedAccountId },
+        amount,
+        currency,
+      ),
     })
 
     // The row this updates was inserted two statements ago inside the same transaction,
@@ -299,45 +299,17 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
   const written = await inLedgerTransaction(async (tx) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
 
-    const postingRows: PostingDraft[] = []
-
-    // One combined cash leg per settled currency (single bank movement per currency).
-    const cashByCurrency = new Map<string, number>()
-    for (const l of lines) {
-      cashByCurrency.set(
-        l.settledCurrency,
-        (cashByCurrency.get(l.settledCurrency) ?? 0) + parseFloat(l.settledAmount),
-      )
-    }
-    for (const [currency, total] of cashByCurrency) {
-      postingRows.push({
-        accountId: body.payerAccountId!,
-        amount: (-total).toFixed(2),
-        currency,
-      })
-    }
-
-    // Credit the payer's clearing account per debt; bridge converted lines through
-    // equity:conversions so every currency nets to zero.
-    for (const l of lines) {
-      postingRows.push({
-        accountId: sharedAccountId,
-        amount: l.debtAmount,
-        currency: l.debtCurrency,
-      })
-      if (l.converted) {
-        postingRows.push({
-          accountId: conversionAccountId!,
-          amount: l.settledAmount,
-          currency: l.settledCurrency,
-        })
-        postingRows.push({
-          accountId: conversionAccountId!,
-          amount: `-${l.debtAmount}`,
-          currency: l.debtCurrency,
-        })
-      }
-    }
+    // One cash leg per currency paid, a clearing leg per debt, and a conversion bridge
+    // for each line paid in another currency (`batchSettlementLegs`).
+    const postingRows = batchSettlementLegs(
+      'payer',
+      { cash: payerAccountId, clearing: sharedAccountId, conversion: conversionAccountId },
+      lines.map((l) => ({
+        debtAmount: l.debtAmount,
+        debtCurrency: l.debtCurrency,
+        settled: l.converted ? { amount: l.settledAmount, currency: l.settledCurrency } : null,
+      })),
+    )
 
     const payerTx = await writeTransaction(tx, userId, {
       date,
@@ -427,22 +399,18 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
   if (!receiverAccount) return fail(c, 'RECEIVER_ACCOUNT_NOT_FOUND')
 
   const written = await inLedgerTransaction(async (tx) => {
-    // Receiver's ledger transaction:
-    // credit receiverAccount (cash in): +amount
-    // debit group:<group> (payment received, clears shared balance): -amount
+    // The receiver's side: cash in, clearing account drained, which clears the debt.
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
 
     const receiverTx = await writeTransaction(tx, userId, {
       date: settlement.date,
       description: settlement.note || `Settlement from ${group.name}`,
-      postings: [
-        { accountId: receiverAccountId, amount: settlement.amount, currency: settlement.currency },
-        {
-          accountId: sharedAccountId,
-          amount: `-${settlement.amount}`,
-          currency: settlement.currency,
-        },
-      ],
+      postings: settlementLegs(
+        'receiver',
+        { cash: receiverAccountId, clearing: sharedAccountId },
+        settlement.amount,
+        settlement.currency,
+      ),
     })
 
     // `settlement` was read and checked above, and this transaction is the only writer,
@@ -532,44 +500,20 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     // All rows in a batch share the payer's date; use the first.
 
-    const postingRows: PostingDraft[] = []
-
-    // One combined cash-in leg per received currency (mirror of the payer's cash-out).
-    const cashByCurrency = new Map<string, number>()
-    for (const r of pending) {
-      const cashCurrency = r.settledCurrency ?? r.currency
-      const cashAmount = parseFloat(r.settledAmount ?? r.amount)
-      cashByCurrency.set(cashCurrency, (cashByCurrency.get(cashCurrency) ?? 0) + cashAmount)
-    }
-    for (const [currency, total] of cashByCurrency) {
-      postingRows.push({
-        accountId: receiverAccountId,
-        amount: total.toFixed(2),
-        currency,
-      })
-    }
-
-    // Drain the receiver's clearing account per debt; bridge converted rows through
-    // their equity:conversions so every currency nets to zero.
-    for (const r of pending) {
-      postingRows.push({
-        accountId: sharedAccountId,
-        amount: `-${r.amount}`,
-        currency: r.currency,
-      })
-      if (r.settledCurrency !== null) {
-        postingRows.push({
-          accountId: conversionAccountId!,
-          amount: `-${r.settledAmount}`,
-          currency: r.settledCurrency,
-        })
-        postingRows.push({
-          accountId: conversionAccountId!,
-          amount: r.amount,
-          currency: r.currency,
-        })
-      }
-    }
+    // The payer's legs with every sign flipped: cash in per currency received, each debt
+    // drained from the clearing account, converted rows bridged back.
+    const postingRows = batchSettlementLegs(
+      'receiver',
+      { cash: receiverAccountId, clearing: sharedAccountId, conversion: conversionAccountId },
+      pending.map((r) => ({
+        debtAmount: r.amount,
+        debtCurrency: r.currency,
+        settled:
+          r.settledCurrency !== null && r.settledAmount !== null
+            ? { amount: r.settledAmount, currency: r.settledCurrency }
+            : null,
+      })),
+    )
 
     const receiverTx = await writeTransaction(tx, userId, {
       date: firstPending.date,

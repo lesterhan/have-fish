@@ -28,7 +28,7 @@ No UI changes, so there's no UX brief.
 4. [x] **Import commit plans in pure code** — #427
 5. [x] **Accounts and coverage into services** — #428
 6. [x] **Rules, parsers, settings, reports into services** — #429
-7. [ ] **Fish Pie split and settlement maths into domain** — #430
+7. [x] **Fish Pie split and settlement maths into domain** — #430
 8. [ ] **Lock the layers in with a check** — #431
 
 Interleaved with P1 (agreed 2026-09-24): #279 and #281 wait for stories 2–3, and #282

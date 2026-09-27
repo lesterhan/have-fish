@@ -10,9 +10,13 @@ import {
   groupExpenses,
   transactions,
 } from './db/schema'
+import { expenseMemberLegs } from './fish-pie/legs'
+import { categoryWeightsFor, computeSplits, payerShareRatio, withWeights } from './fish-pie/splits'
 import { ensureSharedAccount, ensureUncategorizedAccount } from './fish-pie-accounts'
-import type { PostingDraft } from './ledger/validate'
 import { writeTransaction } from './ledger/write-service'
+
+// Loads and writes a shared expense. The split and each member's legs are pure, in
+// `fish-pie/splits.ts` and `fish-pie/legs.ts`.
 
 type Group = typeof expenseGroups.$inferSelect
 type Member = { userId: string; shareWeight: number; defaultExpenseAccountId: string | null }
@@ -22,13 +26,11 @@ type Member = { userId: string; shareWeight: number; defaultExpenseAccountId: st
 // per-category weight, the category weight map (else null → fall back to group weights).
 export type CategoryContext = {
   accounts: Map<string, string> // userId → category-mapped accountId
-  weights: Map<string, number> | null // userId → category weight, or null
+  weights: ReadonlyMap<string, number> | null // userId → category weight, or null
 }
 
 // Load a category's private account mappings and shared weight vector, and decide
-// whether the weights apply. Category weights only take effect when every split
-// member has one — a partial set would silently reshape the split, so we fall back
-// to group weights instead.
+// whether the weights apply (`categoryWeightsFor`).
 export async function resolveCategoryContext(
   tx: DbTransaction,
   categoryId: string | null | undefined,
@@ -50,8 +52,7 @@ export async function resolveCategoryContext(
   const weights = new Map<string, number>()
   for (const w of weightRows) weights.set(w.userId, w.weight)
 
-  const allHaveWeight = members.length > 0 && members.every((mem) => weights.has(mem.userId))
-  return { accounts, weights: allHaveWeight ? weights : null }
+  return { accounts, weights: categoryWeightsFor(members, weights) }
 }
 
 // Resolution order for a member's expense account:
@@ -67,12 +68,6 @@ export async function resolveExpenseAccountId(
     member?.defaultExpenseAccountId ??
     (await ensureUncategorizedAccount(userId, tx))
   )
-}
-
-// Apply a category's weights to a member list for split computation, when they apply.
-export function applyCategoryWeights<T extends Member>(members: T[], ctx: CategoryContext): T[] {
-  if (!ctx.weights) return members
-  return members.map((m) => ({ ...m, shareWeight: ctx.weights!.get(m.userId)! }))
 }
 
 // Payer-side values needed to build an import transaction's split directly:
@@ -92,38 +87,10 @@ export async function resolvePayerImportContext(
     payerId,
   )
 
-  const effective = applyCategoryWeights(members, ctx)
-  const totalWeight = effective.reduce((s, m) => s + m.shareWeight, 0)
-  const payerWeight = effective.find((m) => m.userId === payerId)?.shareWeight ?? 1
   return {
     payerExpenseAccountId,
-    payerShareRatio: totalWeight === 0 ? 0 : payerWeight / totalWeight,
+    payerShareRatio: payerShareRatio(withWeights(members, ctx.weights), payerId),
   }
-}
-
-export function computeSplits(
-  amount: string,
-  members: Pick<Member, 'userId' | 'shareWeight'>[],
-  payerId: string,
-): { userId: string; amount: string }[] {
-  if (members.length === 0) throw new Error('cannot split among zero members')
-  const total = parseFloat(amount)
-  const totalWeight = members.reduce((s, m) => s + m.shareWeight, 0)
-  if (totalWeight === 0) throw new Error('total member share weight is zero')
-
-  let remaining = total
-  const splits = members.map((m) => {
-    const share = Math.round(((total * m.shareWeight) / totalWeight) * 100) / 100
-    remaining = Math.round((remaining - share) * 100) / 100
-    return { userId: m.userId, amount: share.toFixed(2) }
-  })
-
-  if (remaining !== 0) {
-    const payerSplit = splits.find((s) => s.userId === payerId)
-    if (payerSplit) payerSplit.amount = (parseFloat(payerSplit.amount) + remaining).toFixed(2)
-  }
-
-  return splits
 }
 
 // Creates member transactions for each split member.
@@ -186,7 +153,7 @@ export async function createMemberTransactionsInTx(
 
     // Each member's own transaction, with legs in their own accounts. Written through the
     // ledger service, so the legs are validated like any other transaction's.
-    const legs = memberLegs({
+    const legs = expenseMemberLegs({
       isPayer: split.userId === payerId,
       paymentAccountId,
       sharedAccountId,
@@ -202,53 +169,6 @@ export async function createMemberTransactionsInTx(
       postings: legs,
     })
   }
-}
-
-// The legs of one member's transaction for a shared expense. Pure.
-//
-// - **The payer, with the account they paid from**: payment −total, the clearing account
-//   +(everyone else's share), their expense +(their share). The clearing leg is left out
-//   when no one else owes anything. This mirrors the import path's structure.
-// - **Anyone else**: expense +share (their share of the spending, the same sign as every
-//   other expense leg), clearing −share (their debt to the payer; the settlement's payer leg
-//   posts +share, which clears it to zero). BUG-005.
-// - **The payer, with no source account**: the legacy two-leg shape, signs intentionally
-//   kept from before BUG-005. Only reachable via PATCH without paymentAccountId (BUG-006),
-//   and removed by the proposals epic.
-function memberLegs(opts: {
-  isPayer: boolean
-  paymentAccountId: string | undefined
-  sharedAccountId: string
-  expenseAccountId: string
-  share: string
-  totalAmount: string
-  currency: string
-}): PostingDraft[] {
-  const { sharedAccountId, expenseAccountId, share, totalAmount, currency } = opts
-  if (opts.isPayer && opts.paymentAccountId) {
-    const othersShare = (parseFloat(totalAmount) - parseFloat(share)).toFixed(2)
-    return [
-      {
-        accountId: opts.paymentAccountId,
-        amount: (-parseFloat(totalAmount)).toFixed(2),
-        currency,
-      },
-      ...(parseFloat(othersShare) !== 0
-        ? [{ accountId: sharedAccountId, amount: othersShare, currency }]
-        : []),
-      { accountId: expenseAccountId, amount: share, currency },
-    ]
-  }
-  if (!opts.isPayer) {
-    return [
-      { accountId: expenseAccountId, amount: share, currency },
-      { accountId: sharedAccountId, amount: `-${share}`, currency },
-    ]
-  }
-  return [
-    { accountId: expenseAccountId, amount: `-${share}`, currency },
-    { accountId: sharedAccountId, amount: share, currency },
-  ]
 }
 
 export async function createGroupExpenseInTx(
@@ -288,7 +208,7 @@ export async function createGroupExpenseInTx(
   } = opts
 
   const ctx = await resolveCategoryContext(tx, categoryId, members)
-  const membersForSplit = applyCategoryWeights(members, ctx)
+  const membersForSplit = withWeights(members, ctx.weights)
   const splits = computeSplits(amount, membersForSplit, payerId)
   const normalizedAmount = parseFloat(amount).toFixed(2)
   const normalizedCurrency = currency.trim().toUpperCase()
