@@ -25,7 +25,7 @@ No UI changes, so there's no UX brief.
    findings filed, and this file.
 2. [x] **One write path for transactions** — #425
 3. [x] **Every posting writer uses the ledger service** — #426
-4. [ ] **Import commit plans in pure code** — #427
+4. [x] **Import commit plans in pure code** — #427
 5. [ ] **Accounts and coverage into services** — #428
 6. [ ] **Rules, parsers, settings, reports into services** — #429
 7. [ ] **Fish Pie split and settlement maths into domain** — #430
@@ -159,6 +159,7 @@ Any story can run in coach mode ("coach me") if you'd rather drive it yourself.
 | #434 | Import commit stores unknown currencies, and a row with no amount is a 500. Unknown currencies are refused since story 3; the missing amount is still open |
 | #442 | An import transfer with its fee in a third currency can't balance; written unbalanced before story 3, refused since |
 | #443 | Fish Pie can post to a member's deleted default account, because account delete doesn't check Fish Pie settings |
+| #458 | Import commit answers 500 for a regular row whose source account is an empty string, which the frontend sends for an unmapped currency |
 
 Two more findings were handled privately, per rule 4. #436 holds transaction delete,
 import commit and parser defaults to the caller's own rows, and requires a real date on
@@ -172,8 +173,9 @@ Also recorded in the map, not filed:
 - **`GET /api/transactions` loads every transaction, then filters in memory.** Fine at
   household scale; it becomes a service in story 2's neighbourhood and can take its filters
   into SQL then.
-- **Non-null `!` assertions** remain in `transactions.ts`, `accounts.ts` and `import.ts`,
-  against the convention in `CLAUDE.md`. Each goes when its code moves.
+- **Non-null `!` assertions**, against the convention in `CLAUDE.md`. None are left in the
+  route files; `import.ts` lost its last three in #427. Five remain in
+  `import/dynamic-parser.ts`, each on a column that `hasTransferColumns` has just checked.
 
 ## Gate
 
