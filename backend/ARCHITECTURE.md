@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #278), and the layering the [domain-layer
+code as it is on `main` (last updated by #448), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -282,7 +282,7 @@ document moves it:
 | A date is `YYYY-MM-DD` | `calendar-date.ts` (`isCalendarDate`, also refusing days that don't exist) for transaction writes, the transaction routes and the balance-as-of date; hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Same shape; only `calendar-date.ts` refuses `2026-02-30` |
 | A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |
 | A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
-| Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts); `parseFloat` or `toFixed` still in import arithmetic (#448), reports and heal (#449), and Fish Pie (#451) | No: moving file by file |
+| Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts, the import legs and the duplicate check); `parseFloat` or `toFixed` still in reports and heal (#449), and Fish Pie, the import path's payer share included (#451) | No: moving file by file |
 
 ## Pure modules that already exist
 
@@ -295,10 +295,10 @@ document moves it:
 | `import/dynamic-parser.ts` | Build a row parser from a saved column mapping; amounts read by `money.parse`, so a cell that is not a plain decimal is a row error | Import preview |
 | `import/merchant.ts` | Merchant stem: strip terminal numbers, dates, references | Preview grouping, rule mining |
 | `ledger/validate.ts` | Whether postings may be written as one transaction: count, currency, balance per currency | `ledger/write-service` |
-| `import/postings.ts` | The legs for each import row kind, Fish Pie variants included | `import/commit-plan` |
+| `import/postings.ts` | The legs for each import row kind, Fish Pie variants included. Derived legs are worked out in cents by `inCents`, which turns an unreadable amount into one the ledger check refuses | `import/commit-plan` |
 | `import/commit-plan.ts` | Which accounts each row kind needs; the transaction and group expense each row becomes | `import/commit-service` |
 | `import/preview.ts` | Which saved parser a file belongs to; the rule, merchant key and kind each row suggests | `import/preview-service` |
-| `import/duplicates.ts` | Whether a row is probably a posting already in the ledger | `import/duplicates-service` |
+| `import/duplicates.ts` | Whether a row is probably a posting already in the ledger: same currency, a day either side, within a cent | `import/duplicates-service` |
 | `import/fingerprint.ts` | Row keys, fingerprints and the ids they give imported transactions | Preview, commit and duplicate services |
 | `postings/account-type.ts` | Resolve an account's type: override, then tagged ancestor, then path root | Accounts, roles, spend, coverage |
 | `postings/roles.ts` | Classify each posting's role inside its transaction | Transactions list, rules, spend |

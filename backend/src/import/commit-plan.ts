@@ -1,6 +1,7 @@
 import { calendarDateOf } from '../calendar-date'
 import { errorBody, type ImportRowKind, type Outcome } from '../errors'
 import type { PostingDraft } from '../ledger/validate'
+import * as money from '../money'
 import { importFingerprint, importTransactionId } from './fingerprint'
 import {
   buildCrossCurrencySpendPostings,
@@ -8,6 +9,7 @@ import {
   buildFishPiePostings,
   buildFishPieSameCurrencyPostings,
   buildRegularPostings,
+  inCents,
 } from './postings'
 
 // What an import commit writes, decided without a database.
@@ -338,9 +340,8 @@ export function planRows(
       // from another-currency account via on-the-fly conversion. equity:conversions
       // bridges both sides; the spend lands in an expense account (never the bridge),
       // and no phantom asset balance is created. See buildCrossCurrencySpendPostings.
-      const srcAmount = parseFloat(t.sourceAmount) // negative
-      const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0
-      const conversionSrcAmount = (-(srcAmount + feeVal)).toFixed(2)
+      // The conversion leg takes the source amount less the fee: −(source + fee), positive.
+      const conversionSrcAmount = inCents([t.sourceAmount, t.feeAmount || '0'], (s, f) => -(s + f))
 
       return planned(
         buildCrossCurrencySpendPostings({
@@ -374,11 +375,8 @@ export function planRows(
       //   5. target account gains targetAmount in targetCurrency  (e.g. +107.90 GBP)
       //
       // Per-currency totals balance to zero.
-      const srcAmount = parseFloat(t.sourceAmount) // negative
-      const feeVal = t.feeAmount ? parseFloat(t.feeAmount) : 0 // positive or 0
-      const tgtAmount = parseFloat(t.targetAmount) // positive
       const feeCurrency = t.feeCurrency ?? t.sourceCurrency
-      const conversionSrcAmount = (-(srcAmount + feeVal)).toFixed(2)
+      const conversionSrcAmount = inCents([t.sourceAmount, t.feeAmount || '0'], (s, f) => -(s + f))
 
       if (split) {
         return planned(
@@ -398,7 +396,7 @@ export function planRows(
             expenseAccountId: split.payerExpenseAccountId,
             payerShareRatio: split.payerShareRatio,
           }),
-          expenseFor(Math.abs(tgtAmount).toFixed(2), t.targetCurrency),
+          expenseFor(inCents([t.targetAmount], Math.abs), t.targetCurrency),
         )
       }
 
@@ -411,12 +409,12 @@ export function planRows(
         },
         {
           accountId: t.conversionAccountId,
-          amount: (-tgtAmount).toFixed(2),
+          amount: inCents([t.targetAmount], (a) => -a),
           currency: t.targetCurrency,
         },
         { accountId: t.targetAccountId, amount: t.targetAmount, currency: t.targetCurrency },
       ]
-      if (t.feeAmount && feeVal !== 0) {
+      if (t.feeAmount && money.parse(t.feeAmount) !== 0) {
         postingRows.splice(2, 0, {
           accountId: t.feeAccountId,
           amount: t.feeAmount,
@@ -449,15 +447,18 @@ export function planRows(
             expenseAccountId: split.payerExpenseAccountId,
             payerShareRatio: split.payerShareRatio,
           }),
-          expenseFor(Math.abs(parseFloat(t.amount)).toFixed(2), t.currency),
+          expenseFor(inCents([t.amount], Math.abs), t.currency),
         )
       }
 
-      const gross = (parseFloat(t.amount) + parseFloat(t.feeAmount)).toFixed(2)
       return planned([
         { accountId: t.targetAccountId, amount: t.amount, currency: t.currency },
         { accountId: t.feeAccountId, amount: t.feeAmount, currency: t.currency },
-        { accountId: t.sourceAccountId, amount: `-${gross}`, currency: t.currency },
+        {
+          accountId: t.sourceAccountId,
+          amount: inCents([t.amount, t.feeAmount], (a, f) => -(a + f)),
+          currency: t.currency,
+        },
       ])
     }
 
@@ -482,7 +483,7 @@ export function planRows(
           payerShareRatio: split.payerShareRatio,
           currency,
         }),
-        expenseFor(Math.abs(parseFloat(t.amount)).toFixed(2), currency),
+        expenseFor(inCents([t.amount], Math.abs), currency),
       )
     }
 

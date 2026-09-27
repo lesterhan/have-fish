@@ -1,10 +1,11 @@
 import { addDays, calendarDateOf, daysBetween } from '../calendar-date'
+import * as money from '../money'
 
 // When an imported row is probably something already in the ledger, decided without a
 // database. `duplicates-service.ts` loads the candidate postings and calls these.
 //
 // A match is a posting on the same account, in the same currency, dated within a day of
-// the row, whose amount is within 0.01 of the row's, ignoring sign. The currency matters:
+// the row, whose amount is within a cent of the row's, ignoring sign. The currency matters:
 // 8,400 JPY and 8,400 CAD are not the same purchase.
 //
 // That is a guess, kept for manual entries and rows imported before fingerprints. A row the
@@ -79,15 +80,19 @@ export function findDuplicate(
 ): ExistingPosting | undefined {
   const day = dayOf(row.date)
   if (!day) return undefined
-  const txAmount = parseFloat(row.amount)
+  const txCents = money.parse(row.amount)
+  if (txCents === null) return undefined
   const txCurrency = row.currency.toUpperCase()
 
+  // Within a cent, counted in cents: in floats, 18.41 against 18.40 is 0.010000000000001563
+  // and missed, while 42.51 against 42.50 is 0.00999999999999801 and matched.
   return existing.find((e) => {
-    const eAmount = parseFloat(e.amount)
+    const eCents = money.parse(e.amount)
     return (
+      eCents !== null &&
       e.currency.toUpperCase() === txCurrency &&
       Math.abs(daysBetween(day, e.date)) <= 1 &&
-      Math.abs(Math.abs(eAmount) - Math.abs(txAmount)) <= 0.01
+      Math.abs(Math.abs(eCents) - Math.abs(txCents)) <= 1
     )
   })
 }
