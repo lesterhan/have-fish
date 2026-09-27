@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { add, format, neg, parse, splitByWeights, sub, sum } from './money'
+import { add, cents, format, neg, parse, splitByWeights, sub, sum } from './money'
 
 describe('parse', () => {
   it('reads the amounts the ledger stores', () => {
@@ -164,5 +164,16 @@ describe('splitByWeights', () => {
     expect(() => splitByWeights('1.00', [1, -1])).toThrow(RangeError)
     expect(() => splitByWeights('1.00', [1, Number.NaN])).toThrow(RangeError)
     expect(() => splitByWeights('1.00', [1, 1], 2)).toThrow(RangeError)
+  })
+})
+
+describe('cents', () => {
+  it('reads a stored amount', () => {
+    expect(cents('-12.35')).toBe(-1235)
+    expect(cents('0.00')).toBe(0)
+  })
+
+  it('throws on something that is not an amount', () => {
+    expect(() => cents('abc')).toThrow(RangeError)
   })
 })

@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #448), and the layering the [domain-layer
+code as it is on `main` (last updated by #449), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -277,12 +277,12 @@ document moves it:
 
 | Rule | Copies | Agree? |
 |---|---|---|
-| Postings balance per currency | `ledger/validate.ts` once in the backend (exact, in cents); `LedgerEditModal` and `AddTransactionModal` in the frontend (floats, tolerance 0.005) | No: the frontend passes some legs the backend refuses (#450) |
+| Postings balance per currency | `ledger/validate.ts` once in the backend (exact, in cents; `imbalance` is the rule on its own, which heal's pre-repair check uses too); `LedgerEditModal` and `AddTransactionModal` in the frontend (floats, tolerance 0.005) | No: the frontend passes some legs the backend refuses (#450) |
 | An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
 | A date is `YYYY-MM-DD` | `calendar-date.ts` (`isCalendarDate`, also refusing days that don't exist) for transaction writes, the transaction routes and the balance-as-of date; hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Same shape; only `calendar-date.ts` refuses `2026-02-30` |
 | A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |
 | A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
-| Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts, the import legs and the duplicate check); `parseFloat` or `toFixed` still in reports and heal (#449), and Fish Pie, the import path's payer share included (#451) | No: moving file by file |
+| Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts, the import legs and the duplicate check, report totals, heal); `parseFloat` or `toFixed` still in Fish Pie, the import path's payer share included (#451). The converted spend total multiplies by a rate, so it stays a float product of cents, rounded once | No: Fish Pie is the last file |
 
 ## Pure modules that already exist
 
@@ -302,7 +302,7 @@ document moves it:
 | `import/fingerprint.ts` | Row keys, fingerprints and the ids they give imported transactions | Preview, commit and duplicate services |
 | `postings/account-type.ts` | Resolve an account's type: override, then tagged ancestor, then path root | Accounts, roles, spend, coverage |
 | `postings/roles.ts` | Classify each posting's role inside its transaction | Transactions list, rules, spend |
-| `postings/heal.ts` | Detect and plan the repair of malformed cross-currency spends | `heal-service` |
+| `postings/heal.ts` | Detect and plan the repair of malformed cross-currency spends. A phantom leg matches its bridge leg exactly, in cents | `heal-service` |
 | `coverage/intervals.ts`, `months.ts`, `catch-up.ts` | Merge coverage spans, classify months, assemble catch-up state | Coverage and catch-up routes |
 | `settings/preferences.ts` | Changes to the `preferences` blob: a shallow merge, and one account's catch-up override set or removed | `settings/settings-service` |
 | `fish-pie-balance-service.ts` | Net balances per currency and the minimal set of transfers | Balances, overview |

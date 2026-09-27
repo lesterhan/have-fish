@@ -21,6 +21,7 @@
 // leg on the expense account, no phantom holding). Idempotent: a repaired transaction has an
 // equity bridge leg and is no longer detected.
 
+import * as money from '../money'
 import {
   type AccountType,
   type AccountTypeContext,
@@ -114,8 +115,8 @@ export function detectMalformedFxSpend(
     // Exactly two currencies is the bridge shape this heals; `!a || !b` is the same bound
     // as `size !== 2` said where the two legs are read.
     if (!a || !b || byCurrency.size !== 2) continue
-    const aVal = parseFloat(a.amount)
-    const bVal = parseFloat(b.amount)
+    const aVal = money.cents(a.amount)
+    const bVal = money.cents(b.amount)
     if (Math.sign(aVal) === Math.sign(bVal)) continue // must be opposite signs
 
     // The bridge legs: positive one is the source side, negative one the target (spend) side.
@@ -128,8 +129,8 @@ export function detectMalformedFxSpend(
       (p) =>
         isBalance(p) &&
         p.currency === targetLeg.currency &&
-        parseFloat(p.amount) > 0 &&
-        Math.abs(parseFloat(p.amount) - Math.abs(parseFloat(targetLeg.amount))) < 0.005,
+        money.cents(p.amount) > 0 &&
+        money.cents(p.amount) === Math.abs(money.cents(targetLeg.amount)),
     )
     if (!phantom) continue
 

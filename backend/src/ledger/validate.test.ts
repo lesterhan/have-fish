@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { type PostingDraft, validatePostings } from './validate'
+import { imbalance, type PostingDraft, validatePostings } from './validate'
 
 // No database here: the validator is a pure function of the postings, which is the point
 // of it. A device checking a document it received runs exactly this.
@@ -164,5 +164,31 @@ describe('validatePostings', () => {
         failure: { error: 'UNSUPPORTED_CURRENCY' },
       })
     })
+  })
+})
+
+describe('imbalance', () => {
+  it('is null when every currency sums to zero', () => {
+    expect(
+      imbalance([leg('0.10'), leg('0.20'), leg('-0.30'), leg('5.00', 'EUR'), leg('-5', 'EUR')]),
+    ).toBeNull()
+  })
+
+  it('names the first currency that is out, and by how many cents', () => {
+    expect(imbalance([leg('10.00'), leg('-9.99'), leg('1.00', 'EUR')])).toEqual({
+      currency: 'CAD',
+      cents: 1,
+    })
+  })
+
+  it('never nets one currency against another', () => {
+    expect(imbalance([leg('10.00'), leg('-10.00', 'EUR')])).toEqual({
+      currency: 'CAD',
+      cents: 1000,
+    })
+  })
+
+  it('throws on an amount that is not one, since its callers hold stored legs', () => {
+    expect(() => imbalance([leg('abc'), leg('1.00')])).toThrow(RangeError)
   })
 })
