@@ -14,10 +14,15 @@ import {
   user,
 } from '../db/schema'
 import { fail, failWith } from '../errors'
+import {
+  computeSplits,
+  payerShareRatio,
+  splitNet,
+  withExplicitWeights,
+  withWeights,
+} from '../fish-pie/splits'
 import { isClearingAccountPath } from '../fish-pie-accounts'
 import {
-  applyCategoryWeights,
-  computeSplits,
   createGroupExpenseInTx,
   createMemberTransactionsInTx,
   resolveCategoryContext,
@@ -353,12 +358,8 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
     // member runs through the (new) category as well.
     const catCtx = await resolveCategoryContext(tx, newCategoryId, members)
     const membersForSplit = body.splits
-      ? members.map((m) => ({
-          ...m,
-          shareWeight:
-            body.splits!.find((s) => s.userId === m.userId)?.shareWeight ?? m.shareWeight,
-        }))
-      : applyCategoryWeights(members, catCtx)
+      ? withExplicitWeights(members, body.splits)
+      : withWeights(members, catCtx.weights)
 
     // Soft-delete existing member transactions + their postings, but NOT the origin import
     // tx. It is now forward-linked (group_expense_id) like the member txs, so it must be
@@ -468,10 +469,10 @@ app.patch('/groups/:groupId/expenses/:expenseId', async (c) => {
       if (groupPosting && expensePosting) {
         // Both postings share the same sign; their sum is the net target amount
         const netTarget = parseFloat(groupPosting.amount) + parseFloat(expensePosting.amount)
-        const totalWeight = membersForSplit.reduce((s, m) => s + m.shareWeight, 0)
-        const payerWeight = membersForSplit.find((m) => m.userId === payerId)?.shareWeight ?? 1
-        const newPayerShare = (netTarget * (payerWeight / totalWeight)).toFixed(2)
-        const newOthersShare = (netTarget - parseFloat(newPayerShare)).toFixed(2)
+        const { payerShare: newPayerShare, othersShare: newOthersShare } = splitNet(
+          netTarget,
+          payerShareRatio(membersForSplit, payerId),
+        )
         const targetCurrency = groupPosting.currency
 
         // The two legs are retired (soft-deleted, as Fish Pie keeps them) and replaced in

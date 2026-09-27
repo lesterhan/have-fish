@@ -11,7 +11,7 @@ import {
   user,
 } from '../db/schema'
 import { fail } from '../errors'
-import { computeCurrencyBalances } from '../fish-pie-balance-service'
+import { computeCurrencyBalances } from '../fish-pie/balances'
 
 const app = new Hono<{ Variables: AppVariables }>()
 

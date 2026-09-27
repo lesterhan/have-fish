@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #429), and the layering the [domain-layer
+code as it is on `main` (last updated by #430), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -51,7 +51,7 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 |---|---|---|---|
 | Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Since #429 no personal-ledger handler touches `db`. The eight `fish-pie-*` routes still do; they leave under #380, and story 7 takes only their maths |
 | Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `ledger/read-service`, `accounts/{account,balance,action-required,ownership}-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `import/parser-service`, `rules/rule-service`, `reports/report-service`, `fx/rate-service`, `export/export-service`, `fish-pie-expense-service` |
-| Domain | Pure rules | Nothing stateful | `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `rules/{target,mining}`, `reports/spending`, `export/journal`, `currencies` |
+| Domain | Pure rules | Nothing stateful | `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `rules/{target,mining}`, `reports/spending`, `fish-pie/{splits,legs,balances}`, `export/journal`, `currencies` |
 
 Every personal-ledger route now looks like the target: the handler validates the request,
 calls a service, and answers. `routes/import.ts` got there in #427 from 941 lines,
@@ -188,8 +188,23 @@ account, or a Fish Pie group and category. The work is in `rules/` (#429).
 ### Fish Pie
 
 Eight files, about 2,100 lines, mounted under `/api/fish-pie`. They leave this repository
-for the Fish Pie service under #380. The split and settlement maths they use stays here,
-because the client runs it (#430).
+for the Fish Pie service under #380, so their orchestration was left as it is. The maths
+they use stays here, because each member's device runs it, and since #430 it is pure, in
+`fish-pie/`:
+
+- `splits.ts`: dividing an expense by weight, with the cents left over going to the payer;
+  when a category's weights apply (only if every member has one); explicit per-expense
+  weights; the payer's share of an import-linked expense.
+- `legs.ts`: the legs each member's own ledger gets. For an expense: the payer's payment,
+  clearing and expense; everyone else's expense and debt. For a settlement: the payer's
+  cash out and clearing credit, the receiver's cash in and clearing drain. For a batch: one
+  cash leg per currency paid, a clearing leg per debt, and a conversion bridge for a debt
+  paid in another currency; the receiver's side is the payer's with every sign flipped.
+- `balances.ts`: each member's net position per currency, and the fewest transfers that
+  settle it.
+
+Every set of legs balances per currency, which `fish-pie/legs.test.ts` checks with the
+ledger's own `imbalance`, and the ledger service checks again on every write.
 
 | File | Does |
 |---|---|
@@ -198,7 +213,7 @@ because the client runs it (#430).
 | `fish-pie-categories.ts` | Categories per group: each member's private account mapping and the shared weight vector |
 | `fish-pie-expenses.ts` | Create, list, edit and delete shared expenses. Every member's ledger transaction is rebuilt on edit. The edit handler alone is about 290 lines |
 | `fish-pie-settlements.ts` | Settle up: one payment, or a batch across currencies. The receiver confirms. Two-sided ledger writes |
-| `fish-pie-balances.ts`, `fish-pie-overview.ts` | Who owes whom, computed by `fish-pie-balance-service` |
+| `fish-pie-balances.ts`, `fish-pie-overview.ts` | Who owes whom, computed by `fish-pie/balances` |
 | `fish-pie-merge.ts` | Merge several groups into one group with a category per source group |
 
 A Fish Pie write touches more than the caller's own ledger. It creates or rebuilds
@@ -341,14 +356,16 @@ document moves it:
 | `coverage/horizon.ts` | The horizon, cycle inference, merging the config, and reading and changing the pins (`overridesFrom`, `configChangeFrom`, `applyConfigChange`) | Coverage, config and load services |
 | `coverage/reconcile.ts` | Where a reconcile's interval starts, and when it records nothing | `coverage-service` |
 | `settings/preferences.ts` | Changes to the `preferences` blob: a shallow merge, and one account's catch-up override set or removed | `settings/settings-service` |
-| `fish-pie-balance-service.ts` | Net balances per currency and the minimal set of transfers | Balances, overview |
-
-One name misleads: **`fish-pie-balance-service.ts` is pure**, despite the `-service`
-suffix (story 7). `coverage/horizon.ts` lost its four loaders to `coverage/config-service.ts`
-in #428, and `coverage/load.ts`, which always queried, is now `coverage/load-service.ts`.
+| `fish-pie/splits.ts` | Divide an expense by weight, remainder to the payer; which weights apply; the payer's share | `fish-pie-expense-service`, the expense routes |
+| `fish-pie/legs.ts` | The legs of each member's expense, settlement and batch-settlement transactions | `fish-pie-expense-service`, the settlement routes |
+| `fish-pie/balances.ts` | Net balances per currency and the minimal set of transfers | Balances, overview |
 
 The epic settles one convention: a `-service` file touches the database, and nothing else
-does.
+does. Three files broke it and no longer do: `coverage/horizon.ts` lost its four loaders to
+`coverage/config-service.ts` and `coverage/load.ts` became `coverage/load-service.ts` (#428),
+and the pure `fish-pie-balance-service.ts` became `fish-pie/balances.ts` (#430).
+`fish-pie-accounts.ts` still queries without the suffix; it leaves with the Fish Pie
+service (#380).
 
 ## Where this is going
 
