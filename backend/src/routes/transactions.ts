@@ -1,58 +1,23 @@
-import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { isCalendarDate } from '../calendar-date'
-import { db } from '../db'
-import { accounts, expenseGroups, groupExpenses, postings, transactions } from '../db/schema'
 import { fail, failWith } from '../errors'
+import { enrichPostings, listTransactions } from '../ledger/read-service'
 import {
   createTransaction,
   createTransactions,
   deleteTransaction,
   replacePostings,
+  updateTransactionDetails,
 } from '../ledger/write-service'
-import { underPathCondition } from '../postings/account-type-sql'
-import { loadClassifySettings } from '../postings/classify-service'
-import { findMalformedFxSpends, healFxSpend, loadHealContext } from '../postings/heal-service'
-import { classifyPostings, type PostingRole } from '../postings/roles'
-import { spendRows } from '../postings/spend-service'
+import { healFxSpend, malformedFxSpendReport } from '../postings/heal-service'
 import { amountLike, as, asField, parseBody } from '../validation'
 
-const app = new Hono<{ Variables: AppVariables }>()
+// The handlers parse the request and answer. Reads are `ledger/read-service`, writes
+// `ledger/write-service`, and the FX-spend repair `postings/heal-service`.
 
-// Augments raw posting rows (from an insert .returning()) with accountPath + derived
-// role so create/replace responses match the GET payload shape. This keeps a single
-// honest `Posting` type on the client and lets a freshly-created row be narrated
-// (TransactionDetail) without a refetch. Postings carry transactionId, so a flattened
-// list from several transactions can be enriched in one pass and regrouped by caller.
-async function enrichPostings<T extends { id: string; accountId: string }>(
-  userId: string,
-  rows: T[],
-): Promise<(T & { accountPath: string; accountName: string | null; role: PostingRole })[]> {
-  if (rows.length === 0) return []
-  const accountIds = [...new Set(rows.map((r) => r.accountId))]
-  const accountRows = await db
-    .select({ id: accounts.id, path: accounts.path, name: accounts.name, type: accounts.type })
-    .from(accounts)
-    .where(and(inArray(accounts.id, accountIds), eq(accounts.userId, userId)))
-  const byId = new Map(accountRows.map((a) => [a.id, a]))
-  const withPath = rows.map((r) => ({
-    ...r,
-    accountPath: byId.get(r.accountId)?.path ?? '',
-    accountName: byId.get(r.accountId)?.name ?? null,
-  }))
-  const settings = await loadClassifySettings(userId)
-  // The classifier reads the account's stored type override; the shape this returns does not
-  // carry it. On its own the override is a half-answer — null means "infer from the path",
-  // which needs the user's configured roots — and `role` is the whole one. So the classifier
-  // gets its own view of the same rows rather than a field stripped back off on the way out.
-  const roleById = classifyPostings(
-    withPath.map((r) => ({ ...r, accountType: byId.get(r.accountId)?.type ?? null })),
-    settings,
-  )
-  return withPath.map((r) => ({ ...r, role: roleById.get(r.id)! }))
-}
+const app = new Hono<{ Variables: AppVariables }>()
 
 // GET /api/transactions/malformed-fx-spend
 // Lists transactions matching the malformed cross-currency-spend shape (expense account
@@ -60,44 +25,7 @@ async function enrichPostings<T extends { id: string; accountId: string }>(
 // of the one-click repair. canHeal is false when no conversion account is configured.
 //
 // Registered before any '/:id' route so the literal path isn't shadowed.
-app.get('/malformed-fx-spend', async (c) => {
-  const userId = c.get('userId')
-  const ctx = await loadHealContext(userId)
-  const candidates = await findMalformedFxSpends(userId, ctx)
-  const canHeal = ctx.conversionAccountId !== null
-
-  const result = candidates.map(({ transaction, postings: ps, finding }) => {
-    // "After" mirrors the repair: both bridge legs → conversion account, phantom → expense.
-    const after = ps.map((p) => {
-      if (!canHeal) return p
-      if (p.id === finding.sourceBridgePostingId || p.id === finding.targetBridgePostingId) {
-        return {
-          ...p,
-          accountId: ctx.conversionAccountId!,
-          accountPath: ctx.conversionAccountPath ?? p.accountPath,
-        }
-      }
-      if (p.id === finding.phantomPostingId) {
-        return {
-          ...p,
-          accountId: finding.expenseAccountId,
-          accountPath: finding.expenseAccountPath,
-        }
-      }
-      return p
-    })
-    return {
-      transactionId: transaction.id,
-      date: transaction.date,
-      description: transaction.description,
-      before: ps,
-      after,
-      canHeal,
-    }
-  })
-
-  return c.json({ candidates: result, conversionAccountConfigured: canHeal })
-})
+app.get('/malformed-fx-spend', async (c) => c.json(await malformedFxSpendReport(c.get('userId'))))
 
 // GET /api/transactions
 // Returns all transactions for the user, each with its postings array embedded.
@@ -125,132 +53,8 @@ app.get('/', async (c) => {
     return fail(c, 'FIELD_NOT_BOOLEAN', { field: 'spending' })
   }
   const spending = spendingParam === 'true'
-  const classifySettings = await loadClassifySettings(userId)
 
-  let txRows = await db
-    .select()
-    .from(transactions)
-    .where(
-      and(
-        eq(transactions.userId, userId),
-        isNull(transactions.deletedAt),
-        from ? gte(transactions.date, from) : undefined,
-        to ? lte(transactions.date, to) : undefined,
-      ),
-    )
-    .orderBy(desc(transactions.date))
-
-  if (accountId) {
-    // Filter to transactions that have at least one posting for this account
-    const postingRows = await db
-      .select({ transactionId: postings.transactionId })
-      .from(postings)
-      .where(eq(postings.accountId, accountId))
-    const txIds = [...new Set(postingRows.map((p) => p.transactionId))]
-    if (txIds.length === 0) return c.json([])
-    txRows = txRows.filter((tx) => txIds.includes(tx.id))
-  }
-
-  if (spending) {
-    const spendTxIds = new Set(
-      (
-        await spendRows(userId, classifySettings, {
-          ...(accountPath ? { prefix: accountPath } : {}),
-          ...(from ? { from } : {}),
-          ...(to ? { to } : {}),
-        })
-      ).map((r) => r.transactionId),
-    )
-    txRows = txRows.filter((tx) => spendTxIds.has(tx.id))
-  } else if (accountPath) {
-    // Match the account itself and all children (e.g. "expenses:food" matches
-    // "expenses:food" and "expenses:food:restaurant").
-    const matchingAccounts = await db
-      .select({ id: accounts.id })
-      .from(accounts)
-      .where(
-        and(
-          eq(accounts.userId, userId),
-          isNull(accounts.deletedAt),
-          underPathCondition(accountPath),
-        ),
-      )
-    const accountIds = matchingAccounts.map((a) => a.id)
-    if (accountIds.length === 0) return c.json([])
-    const postingRows = await db
-      .select({ transactionId: postings.transactionId })
-      .from(postings)
-      .where(and(inArray(postings.accountId, accountIds), isNull(postings.deletedAt)))
-    const txIds = [...new Set(postingRows.map((p) => p.transactionId))]
-    if (txIds.length === 0) return c.json([])
-    txRows = txRows.filter((tx) => txIds.includes(tx.id))
-  }
-
-  if (txRows.length === 0) return c.json([])
-
-  // Fetch all postings for the matched transactions in one query, joined to their account
-  // path so each leg can be classified and rendered without a second lookup.
-  const txIds = txRows.map((tx) => tx.id)
-  const postingRows = await db
-    .select({
-      id: postings.id,
-      transactionId: postings.transactionId,
-      accountId: postings.accountId,
-      accountPath: accounts.path,
-      accountName: accounts.name,
-      // For the role classifier only; stripped before the rows go on the wire, for the
-      // reason given in `enrichPostings`.
-      accountType: accounts.type,
-      amount: postings.amount,
-      currency: postings.currency,
-      createdAt: postings.createdAt,
-      deletedAt: postings.deletedAt,
-    })
-    .from(postings)
-    .innerJoin(accounts, eq(accounts.id, postings.accountId))
-    .where(and(inArray(postings.transactionId, txIds), isNull(postings.deletedAt)))
-    .orderBy(postings.createdAt)
-
-  // Derive each posting's role within its transaction (subject/transfer/conversion/fee/share)
-  // so the read payload narrates a complex multi-leg transaction instead of dumping raw legs.
-  const roleById = classifyPostings(postingRows, classifySettings)
-
-  // Group postings by transactionId and embed into each transaction, with role attached
-  type EmbeddedPosting = Omit<(typeof postingRows)[number], 'accountType'> & { role: PostingRole }
-  const postingsByTx = postingRows.reduce<Record<string, EmbeddedPosting[]>>((acc, p) => {
-    const forTx = acc[p.transactionId] ?? []
-    const { accountType: _classifierInput, ...wire } = p
-    forTx.push({ ...wire, role: roleById.get(p.id)! })
-    acc[p.transactionId] = forTx
-    return acc
-  }, {})
-
-  // Resolve the group a transaction belongs to via the single forward link
-  // (transactions.groupExpenseId). This is total: member transactions and the payer's origin
-  // import transaction are all stamped with it, so one lookup answers every row. (The reverse
-  // pointer groupExpenses.transactionId still exists, but only marks the origin import line for
-  // the edit/delete lifecycle — it is not a read path.)
-  const groupExpenseIds = txRows
-    .map((tx) => tx.groupExpenseId)
-    .filter((id): id is string => id !== null)
-  const groupNameByExpenseId: Record<string, string> = {}
-  if (groupExpenseIds.length > 0) {
-    const rows = await db
-      .select({ expenseId: groupExpenses.id, groupName: expenseGroups.name })
-      .from(groupExpenses)
-      .innerJoin(expenseGroups, eq(groupExpenses.groupId, expenseGroups.id))
-      .where(inArray(groupExpenses.id, groupExpenseIds))
-    for (const row of rows) {
-      groupNameByExpenseId[row.expenseId] = row.groupName
-    }
-  }
-
-  const result = txRows.map((tx) => ({
-    ...tx,
-    postings: postingsByTx[tx.id] ?? [],
-    groupName: tx.groupExpenseId ? (groupNameByExpenseId[tx.groupExpenseId] ?? null) : null,
-  }))
-  return c.json(result)
+  return c.json(await listTransactions(userId, { accountId, accountPath, from, to, spending }))
 })
 
 // POST /api/transactions
@@ -380,16 +184,9 @@ app.patch('/:id', async (c) => {
     return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
-  const [updated] = await db
-    .update(transactions)
-    .set(updates)
-    .where(
-      and(eq(transactions.id, id), eq(transactions.userId, userId), isNull(transactions.deletedAt)),
-    )
-    .returning()
-
-  if (!updated) return fail(c, 'TRANSACTION_NOT_FOUND')
-  return c.json(updated)
+  const result = await updateTransactionDetails(userId, id, updates)
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
 
 // POST /api/transactions/:id/postings
@@ -420,12 +217,9 @@ app.post('/:id/postings', async (c) => {
 // are untouched, so the entry stays balanced. Rejects transactions that aren't malformed
 // (409) and requests when no conversion account is configured (400).
 app.post('/:id/heal-fx-spend', async (c) => {
-  const userId = c.get('userId')
-  const id = c.req.param('id')
-  const ctx = await loadHealContext(userId)
-  const result = await healFxSpend(userId, id, ctx)
+  const result = await healFxSpend(c.get('userId'), c.req.param('id'))
   if (!result.ok) return failWith(c, result.failure)
-  return c.json({ postings: result.postings })
+  return c.json({ postings: result.value })
 })
 
 // DELETE /api/transactions/:id

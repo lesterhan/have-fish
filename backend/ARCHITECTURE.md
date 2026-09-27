@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #428), and the layering the [domain-layer
+code as it is on `main` (last updated by #429), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -49,14 +49,17 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 
 | Layer | Target: does | Target: may import | Today |
 |---|---|---|---|
-| Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Many handlers still query, check and write directly. Transactions, import, accounts and coverage no longer do |
-| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `accounts/{account,balance,action-required,ownership}-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `export/export-service`, `fish-pie-expense-service` |
-| Domain | Pure rules | Nothing stateful | `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `export/journal`, `currencies` |
+| Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Since #429 no personal-ledger handler touches `db`. The eight `fish-pie-*` routes still do; they leave under #380, and story 7 takes only their maths |
+| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `ledger/read-service`, `accounts/{account,balance,action-required,ownership}-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `import/parser-service`, `rules/rule-service`, `reports/report-service`, `fx/rate-service`, `export/export-service`, `fish-pie-expense-service` |
+| Domain | Pure rules | Nothing stateful | `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `rules/{target,mining}`, `reports/spending`, `export/journal`, `currencies` |
 
-`routes/catch-up.ts` (29 lines) and `routes/reports.ts` already look like the target:
-the handler validates the query, calls a service, and answers. So does `routes/import.ts`
-since #427, which was the furthest from it at 941 lines, and `routes/accounts.ts` and
-`routes/coverage.ts` since #428.
+Every personal-ledger route now looks like the target: the handler validates the request,
+calls a service, and answers. `routes/import.ts` got there in #427 from 941 lines,
+`accounts.ts` and `coverage.ts` in #428, and the rest in #429.
+
+`fx/rate-source.ts` is the one file that is neither: it holds the backend's only outbound
+`fetch` (frankfurter.app) and touches no database, so it isn't a `-service`, and an offline
+build or a test has one function to stub.
 
 ## Route map
 
@@ -93,16 +96,17 @@ account *outside* the moved subtree is refused, since that would be a merge; one
 *inside* it is fine, because that row moves too. Postings don't change: they point at
 `accounts.id`, which a rename never touches.
 
-**`transactions.ts`** — `/api/transactions` (437 lines). Every write goes through
-`ledger/write-service`; the handlers parse and shape the answer.
+**`transactions.ts`** — `/api/transactions` (235 lines). Writes go through
+`ledger/write-service` and reads through `ledger/read-service`; the handlers parse and
+shape the answer.
 
 | Endpoint | Does | Rules | Writes |
 |---|---|---|---|
-| `GET /malformed-fx-spend` | Malformed cross-currency spends, before and after | `heal-service` | — |
-| `GET /` | Transactions with postings and roles; filters by account, path, dates, spending | Handler + `roles`, `spend-service` | — |
+| `GET /malformed-fx-spend` | Malformed cross-currency spends, before and after | `malformedFxSpendReport` (`heal-service`) → `previewRepair` (`heal`) | — |
+| `GET /` | Transactions with postings and roles; filters by account, path, dates, spending | `listTransactions` (`read-service`) + `roles`, `spend-service` | — |
 | `POST /` | Create one transaction | `createTransaction`: `validatePostings`, then ownership | `transactions`, `postings` |
 | `POST /bulk` | Create many, atomically | `createTransactions`: the same, with each entry's index | Same |
-| `PATCH /:id` | Date and description | Schema | `transactions` |
+| `PATCH /:id` | Date and description | Schema; `updateTransactionDetails`: the caller's own, active transaction | `transactions` |
 | `POST /:id/postings` | Replace every posting, atomically | `replacePostings`: the same, and the transaction is the caller's | `postings` (hard delete + insert) |
 | `POST /:id/heal-fx-spend` | Repair one malformed spend | `heal-service` → `heal` | `postings` |
 | `DELETE /:id` | Soft-delete the transaction | `deleteTransaction`: the caller's own, active transaction; its postings go only if that matched | `transactions`, `postings` (hard delete) |
@@ -160,23 +164,23 @@ plan is pure, a rule like "a split degrades to a plain expense when Fish Pie is
 unreachable" (offline import, `00-direction.md`) is a change to `planRows`, not to the
 route.
 
-**`rules.ts`** — `/api/rules` (413 lines). Import rules: a pattern that suggests an
-account, or a Fish Pie group and category.
+**`rules.ts`** — `/api/rules` (105 lines). Import rules: a pattern that suggests an
+account, or a Fish Pie group and category. The work is in `rules/` (#429).
 
 | Endpoint | Does | Rules |
 |---|---|---|
-| `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` | List, create, edit, soft-delete | `resolveTarget` in the handler file: exactly one target, owned or a member |
-| `POST /mine` | Suggest rules from history: merchant stems with one consistent expense account, seen twice or more | Handler + `merchant`, `roles` |
-| `POST /:id/approve`, `/deny`, `/revive` | Move a rule between suggested, active and denied | Handler |
+| `GET /`, `POST /`, `PATCH /:id`, `DELETE /:id` | List, create, edit, soft-delete | `readRuleTarget` (`target`): exactly one target, no category on an account; `rule-service`: the account is the caller's, the group one they're in, the category that group's and not archived |
+| `POST /mine` | Suggest rules from history: merchant stems with one consistent expense account, seen twice or more | `mineSuggestions` (`mining`) + `merchant`, `roles` |
+| `POST /:id/approve`, `/deny`, `/revive` | Move a rule between suggested, active and denied | `moveRule`: which moves exist and from which status |
 
 **Smaller files**
 
 | File | Mount | Does |
 |---|---|---|
-| `parsers.ts` | `/api/parsers` | CRUD for saved CSV parsers: header fingerprint, column mapping, default accounts (the caller's own) |
-| `user-settings.ts` | `/api/user-settings` | The settings row: default accounts, type roots, preferred currency, a free-form `preferences` blob, shallow-merged. Writes through `settings/settings-service` |
-| `reports.ts` | `/api/reports` | Spending summary, monthly spend, FX pairs, converted totals. All through `spend-service` |
-| `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates`. The backend's only outbound `fetch`, so nothing but a `YYYY-MM-DD` date reaches its URL |
+| `parsers.ts` | `/api/parsers` | CRUD for saved CSV parsers: header fingerprint, column mapping, default accounts (the caller's own). `import/parser-service` |
+| `user-settings.ts` | `/api/user-settings` | The settings row: default accounts, type roots, preferred currency, a free-form `preferences` blob, shallow-merged. Reads and writes through `settings/settings-service` (`readSettings`, `updateSettings`) |
+| `reports.ts` | `/api/reports` | The spending page's four reports: summary, monthly spend, FX pairs, converted totals. `reports/report-service` loads legs through `spend-service` and cached rates through `fx/rate-service`; `reports/spending` does the arithmetic |
+| `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates` by `fx/rate-service`. The fetch itself is `fx/rate-source`, and nothing but a `YYYY-MM-DD` date reaches its URL |
 | `coverage.ts` | `/api/coverage`, plus `/api/accounts/:id/coverage` | Coverage assertions, per-account config (stored in `preferences.catchUp`), reconcile, month view. Handlers parse and answer; `coverage/coverage-service` does the work, `coverage/config-service` reads and writes the pins through `settings/settings-service`, and the rules are pure in `coverage/{horizon,intervals,months,reconcile}` (#428) |
 | `catch-up.ts` | `/api/catch-up` | The catch-up coach's summary. `coverage/load-service` + `coverage/catch-up` |
 | `export.ts` | `/api/export` | `GET /journal?from=&to=`: the ledger as an hledger `.journal` download. `export/export-service` loads it, `export/journal` writes it |
@@ -303,10 +307,10 @@ document moves it:
 | Rule | Copies | Agree? |
 |---|---|---|
 | Postings balance per currency | `ledger/validate.ts` once in the backend (exact, in cents; `imbalance` is the rule on its own, which heal's pre-repair check uses too); `LedgerEditModal` and `AddTransactionModal` through `transactions/balance.ts`, which sums in cents with `frontend/src/lib/ledger-money.ts`, a byte-for-byte copy of `money.ts` that a frontend test keeps identical | Yes, since #450. The client still skips an amount it can't read yet, where the server answers `AMOUNT_INVALID` |
-| An account belongs to the caller | `accountsOwnedBy` (`accounts/ownership-service.ts`: transactions, import commit, parser defaults, the per-account balance and action-required reads, and coverage since #428), and a hand-written `select` where the row itself is needed (`account-service` read, update, delete) or in the files later stories cover | Same condition. Coverage's own `ownsAccount` is gone |
+| An account belongs to the caller | `accountsOwnedBy` (`accounts/ownership-service.ts`: transactions, import commit, parser defaults, the per-account balance and action-required reads, coverage, rule targets and the settings defaults), and a hand-written `select` where the row itself is needed (`account-service` read, update, delete) or in Fish Pie | Same condition everywhere in the personal ledger |
 | A date is `YYYY-MM-DD` | `calendar-date.ts` (`isCalendarDate`, also refusing days that don't exist) for transaction writes, the transaction routes and the balance-as-of date; hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Same shape; only `calendar-date.ts` refuses `2026-02-30` |
 | A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |
-| A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`, `import/`, `accounts/`, `coverage/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
+| A failure returned as a value | `Outcome<T>` in `errors.ts`, in every service and pure module; `parseBody` → `{ ok, response }` | One shape since #429, when `heal-service` and the rule target moved to it. `parseBody` stays, being route-level |
 | Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts, the import legs and the duplicate check, report totals, heal); `parseFloat` or `toFixed` still in Fish Pie, the import path's payer share included (#451). The converted spend total multiplies by a rate, so it stays a float product of cents, rounded once | No: Fish Pie is the last file |
 
 ## Pure modules that already exist
@@ -327,7 +331,10 @@ document moves it:
 | `import/fingerprint.ts` | Row keys, fingerprints and the ids they give imported transactions | Preview, commit and duplicate services |
 | `postings/account-type.ts` | Resolve an account's type: override, then tagged ancestor, then path root | Accounts, roles, spend, coverage |
 | `postings/roles.ts` | Classify each posting's role inside its transaction | Transactions list, rules, spend |
-| `postings/heal.ts` | Detect and plan the repair of malformed cross-currency spends. A phantom leg matches its bridge leg exactly, in cents | `heal-service` |
+| `postings/heal.ts` | Detect, plan and preview the repair of malformed cross-currency spends. A phantom leg matches its bridge leg exactly, in cents | `heal-service` |
+| `rules/target.ts` | Which target a rule's three id fields name, and the columns it's stored in | `rule-service` |
+| `rules/mining.ts` | Which rules to suggest from the ledger: one expense leg, a merchant key, the account seen most, twice or more | `rule-service` |
+| `reports/spending.ts` | Category totals and drill-down counts, month buckets, the rates a conversion needs, the converted total | `report-service` |
 | `accounts/paths.ts` | What a valid path is, the receivable namespace (`isClearingAccountPath`, re-exported by `fish-pie-accounts.ts`), and `planRename` | `account-service`, the accounts route's schema, classification, coverage |
 | `accounts/balances.ts` | Which accounts a balances view shows (`readBalanceSelection`, `selects`) and per-currency sums in cents | `balance-service` |
 | `coverage/intervals.ts`, `months.ts`, `catch-up.ts` | Merge coverage spans, classify months, assemble catch-up state | Coverage and catch-up services |

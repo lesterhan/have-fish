@@ -1,31 +1,16 @@
-import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
-import { isValidCurrency } from '../currencies'
-import { db } from '../db'
-import { accounts, userSettings } from '../db/schema'
-import { fail } from '../errors'
-import { mergePreferences } from '../settings/preferences'
-import { type SettingsColumns, writeSettings } from '../settings/settings-service'
-import { asField, parseBody, text } from '../validation'
+import { failWith } from '../errors'
+import { readSettings, updateSettings } from '../settings/settings-service'
+import { asField, defined, parseBody, text } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
 // GET /api/user-settings
 // Returns the current user's settings row. Creates one with null defaults if
 // it doesn't exist yet (handles existing users who predate the seeding hook).
-app.get('/', async (c) => {
-  const userId = c.get('userId')
-
-  let [settings] = await db.select().from(userSettings).where(eq(userSettings.userId, userId))
-
-  if (!settings) {
-    ;[settings] = await db.insert(userSettings).values({ userId }).returning()
-  }
-
-  return c.json(settings)
-})
+app.get('/', async (c) => c.json(await readSettings(c.get('userId'))))
 
 // PATCH /api/user-settings
 // Updates user settings fields. Unknown keys are ignored.
@@ -72,74 +57,14 @@ const SettingsPatch = z.object({
   preferences: z.record(z.string(), z.unknown(), { error: asField('FIELD_NOT_OBJECT') }).optional(),
 })
 
+// `updateSettings` holds the checks: each account default must be the caller's, the
+// currency must be supported, and the change must name something.
 app.patch('/', async (c) => {
-  const userId = c.get('userId')
   const parsed = await parseBody(c, SettingsPatch)
   if (!parsed.ok) return parsed.response
-  const body = parsed.data
-
-  const patch: SettingsColumns = {}
-
-  // Account UUID fields — must reference an account owned by this user
-  for (const field of [
-    'defaultOffsetAccountId',
-    'defaultConversionAccountId',
-    'defaultAdjustmentsAccountId',
-  ] as const) {
-    const value = body[field]
-    if (value === undefined) continue
-
-    if (value === null) {
-      patch[field] = null
-      continue
-    }
-
-    // Verify the account exists and belongs to this user
-    const [account] = await db
-      .select()
-      .from(accounts)
-      .where(and(eq(accounts.id, value), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-
-    if (!account) return fail(c, 'SETTING_ACCOUNT_NOT_FOUND', { field })
-
-    patch[field] = value
-  }
-
-  // Plain text fields
-  for (const field of [
-    'defaultAssetsRootPath',
-    'defaultLiabilitiesRootPath',
-    'defaultExpensesRootPath',
-    'defaultEquityRootPath',
-    'defaultIncomeRootPath',
-  ] as const) {
-    const value = body[field]
-    if (value === undefined) continue
-    patch[field] = value
-  }
-
-  // preferredCurrency — validated against the supported currency list
-  if (body.preferredCurrency !== undefined) {
-    if (!isValidCurrency(body.preferredCurrency)) {
-      return fail(c, 'UNSUPPORTED_CURRENCY', { currency: body.preferredCurrency })
-    }
-    patch.preferredCurrency = body.preferredCurrency.toUpperCase()
-  }
-
-  if (Object.keys(patch).length === 0 && body.preferences === undefined) {
-    return fail(c, 'NO_FIELDS_TO_UPDATE')
-  }
-
-  // preferences — shallow-merged into what is stored, so patching one key never wipes
-  // unrelated keys set by other features.
-  const preferences = body.preferences
-  const updated = await writeSettings(
-    userId,
-    patch,
-    preferences && ((current) => mergePreferences(current, preferences)),
-  )
-
-  return c.json(updated)
+  const result = await updateSettings(c.get('userId'), defined(parsed.data))
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
 
 export default app

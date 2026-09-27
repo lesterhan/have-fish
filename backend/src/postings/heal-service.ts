@@ -1,8 +1,7 @@
 import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
-import type { ErrorBody } from '../errors'
-import { errorBody } from '../errors'
+import { errorBody, type Outcome } from '../errors'
 import { imbalance } from '../ledger/validate'
 import { inLedgerTransaction, repointPostings } from '../ledger/write-service'
 import { loadAccountTypeContext } from './classify-service'
@@ -13,6 +12,7 @@ import {
   isBalanceLeg,
   type MalformedFinding,
   planFxSpendRepair,
+  previewRepair,
 } from './heal'
 
 export type HealContext = {
@@ -168,15 +168,37 @@ export async function malformedFxSpendsByAccount(
   return { byAccount, allTxIds }
 }
 
-export type HealResult = { ok: true; postings: HealPosting[] } | { ok: false; failure: ErrorBody }
+/**
+ * Every malformed cross-currency spend, each with its legs before and after the repair
+ * `healFxSpend` would make. `canHeal` and `conversionAccountConfigured` are false when no
+ * conversion account is set, since the repair needs one to point the bridge legs at.
+ */
+export async function malformedFxSpendReport(userId: string) {
+  const ctx = await loadHealContext(userId)
+  const candidates = await findMalformedFxSpends(userId, ctx)
+  const canHeal = ctx.conversionAccountId !== null
+  const conversion =
+    ctx.conversionAccountId === null
+      ? null
+      : { id: ctx.conversionAccountId, path: ctx.conversionAccountPath }
+
+  return {
+    candidates: candidates.map(({ transaction, postings: ps, finding }) => ({
+      transactionId: transaction.id,
+      date: transaction.date,
+      description: transaction.description,
+      before: ps,
+      after: previewRepair(ps, finding, conversion),
+      canHeal,
+    })),
+    conversionAccountConfigured: canHeal,
+  }
+}
 
 // Applies the repair to a single transaction. Pure account repoint — amounts never change,
 // so the per-currency balance is preserved (re-validated defensively before commit).
-export async function healFxSpend(
-  userId: string,
-  txId: string,
-  ctx: HealContext,
-): Promise<HealResult> {
+export async function healFxSpend(userId: string, txId: string): Promise<Outcome<HealPosting[]>> {
+  const ctx = await loadHealContext(userId)
   const [tx] = await db
     .select({ id: transactions.id })
     .from(transactions)
@@ -213,5 +235,5 @@ export async function healFxSpend(
   if (!written.ok) return written
 
   const updated = (await fetchPostingsWithPaths(userId, [txId])).get(txId) ?? []
-  return { ok: true, postings: updated }
+  return { ok: true, value: updated }
 }

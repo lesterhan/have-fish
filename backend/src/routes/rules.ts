@@ -1,151 +1,35 @@
-import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
-import { db } from '../db'
+import { fail, failWith } from '../errors'
 import {
-  accounts,
-  expenseGroupMembers,
-  expenseGroups,
-  groupCategories,
-  importRules,
-  postings,
-  transactions,
-} from '../db/schema'
-import type { ErrorBody } from '../errors'
-import { errorBody, fail, failWith } from '../errors'
-import { cleanDescription, merchantKey } from '../import/merchant'
-import { loadClassifySettings } from '../postings/classify-service'
-import {
-  accountTypeOf,
-  type ClassifySettings,
-  classifyPosting,
-  isExpenseSubject,
-  type RolePosting,
-} from '../postings/roles'
+  createRule,
+  deleteRule,
+  listRules,
+  mineRules,
+  moveRule,
+  updateRule,
+} from '../rules/rule-service'
+import { namesTarget } from '../rules/target'
 import { asField, parseBody, text } from '../validation'
 
-// Re-exported for callers that imported it from here before it moved to import/merchant.ts.
-export { cleanDescription }
+// The handlers parse the request and answer; the rules about rules are in `rules/`.
 
 const app = new Hono<{ Variables: AppVariables }>()
 
-// Resolves the target of a create/patch body into the columns to write.
-//
-// A rule targets exactly one of an expense account or a Fish Pie split; the two are
-// mutually exclusive, so setting one clears the other. Returns a failure body instead of
-// throwing, so the two routes that call it can send it with `failWith`. The status rides
-// along in the registry rather than at each return, which is how the same failure used to
-// get two different ones.
-type TargetColumns = { accountId: string | null; groupId: string | null; categoryId: string | null }
-
-// The three id fields a rule's target is drawn from. Both routes accept them, both hand
-// them to `resolveTarget`, and null is meaningful — it is how a target is cleared — so
-// each is nullable as well as optional.
+// The three id fields a rule's target is drawn from. Both write routes accept them, and null
+// is meaningful — it is how a target is cleared — so each is nullable as well as optional.
+// `rules/target.ts` says which combinations name a target.
 const targetFields = {
   accountId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
   groupId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
   categoryId: z.uuid({ error: asField('FIELD_NOT_UUID') }).nullish(),
 }
-type RuleTarget = { [K in keyof typeof targetFields]?: string | null | undefined }
-
-async function resolveTarget(
-  userId: string,
-  body: RuleTarget,
-): Promise<{ columns: TargetColumns } | { failure: ErrorBody }> {
-  // Read out of `body` so the null checks below narrow the values themselves — the target
-  // is exactly one of these, and which one it is is the first thing this decides.
-  const { accountId, groupId, categoryId } = body
-
-  if (accountId != null && groupId != null) {
-    return { failure: errorBody('RULE_TARGET_AMBIGUOUS') }
-  }
-  if (accountId == null && groupId == null) {
-    return { failure: errorBody('RULE_TARGET_MISSING') }
-  }
-
-  if (accountId != null) {
-    if (categoryId != null) {
-      return { failure: errorBody('RULE_CATEGORY_WITHOUT_GROUP') }
-    }
-    const [owned] = await db
-      .select({ id: accounts.id })
-      .from(accounts)
-      .where(
-        and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)),
-      )
-    if (!owned) return { failure: errorBody('ACCOUNT_NOT_FOUND') }
-    return { columns: { accountId, groupId: null, categoryId: null } }
-  }
-
-  // `groupId` is what is left: the two guards above rule out both-set and neither-set.
-  if (groupId == null) return { failure: errorBody('RULE_TARGET_MISSING') }
-
-  // The rule may only target a group the user is actually in — otherwise an import
-  // could post into a stranger's shared ledger.
-  const [membership] = await db
-    .select({ id: expenseGroupMembers.id })
-    .from(expenseGroupMembers)
-    .innerJoin(expenseGroups, eq(expenseGroups.id, expenseGroupMembers.groupId))
-    .where(
-      and(
-        eq(expenseGroupMembers.groupId, groupId),
-        eq(expenseGroupMembers.userId, userId),
-        isNull(expenseGroups.deletedAt),
-      ),
-    )
-  if (!membership) return { failure: errorBody('NOT_A_GROUP_MEMBER') }
-
-  if (categoryId == null) {
-    return { columns: { accountId: null, groupId, categoryId: null } }
-  }
-
-  // A category is only meaningful inside its own group, and an archived one would
-  // produce expenses the user can no longer categorize by hand.
-  const [category] = await db
-    .select({ id: groupCategories.id, archivedAt: groupCategories.archivedAt })
-    .from(groupCategories)
-    .where(and(eq(groupCategories.id, categoryId), eq(groupCategories.groupId, groupId)))
-  if (!category) return { failure: errorBody('CATEGORY_NOT_IN_GROUP') }
-  if (category.archivedAt) return { failure: errorBody('CATEGORY_ARCHIVED') }
-
-  return { columns: { accountId: null, groupId, categoryId } }
-}
-
-// Shared select shape for rule listings. Left joins throughout: a rule has exactly one
-// target, so the columns for the other kind are always null.
-const ruleColumns = {
-  id: importRules.id,
-  pattern: importRules.pattern,
-  accountId: importRules.accountId,
-  accountPath: accounts.path,
-  accountName: accounts.name,
-  groupId: importRules.groupId,
-  groupName: expenseGroups.name,
-  categoryId: importRules.categoryId,
-  categoryName: groupCategories.name,
-  status: importRules.status,
-  matchCount: importRules.matchCount,
-  createdAt: importRules.createdAt,
-  updatedAt: importRules.updatedAt,
-}
 
 // GET /api/rules
 // Returns all non-deleted rules (active + suggested + denied) for the current user,
 // with the display fields for whichever target kind each rule uses.
-app.get('/', async (c) => {
-  const userId = c.get('userId')
-
-  const rules = await db
-    .select(ruleColumns)
-    .from(importRules)
-    .leftJoin(accounts, eq(importRules.accountId, accounts.id))
-    .leftJoin(expenseGroups, eq(importRules.groupId, expenseGroups.id))
-    .leftJoin(groupCategories, eq(importRules.categoryId, groupCategories.id))
-    .where(and(eq(importRules.userId, userId), isNull(importRules.deletedAt)))
-
-  return c.json(rules)
-})
+app.get('/', async (c) => c.json(await listRules(c.get('userId'))))
 
 // POST /api/rules
 // Creates a rule manually. status defaults to 'active'.
@@ -155,257 +39,67 @@ app.get('/', async (c) => {
 const NewRule = z.object({ pattern: text('FIELD_REQUIRED'), ...targetFields })
 
 app.post('/', async (c) => {
-  const userId = c.get('userId')
   const parsed = await parseBody(c, NewRule)
   if (!parsed.ok) return parsed.response
-  const { pattern } = parsed.data
-
-  const target = await resolveTarget(userId, parsed.data)
-  if ('failure' in target) return failWith(c, target.failure)
-
-  const [created] = await db
-    .insert(importRules)
-    .values({ userId, pattern, ...target.columns, status: 'active' })
-    .returning()
-
-  return c.json(created, 201)
+  const result = await createRule(c.get('userId'), parsed.data)
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value, 201)
 })
-
-// The legs of one transaction that say which expense account its description maps to.
-//
-// By RESOLVED type, not by the expenses root: a tagged category at an atypical root is as
-// much a spend as one under `expenses:`, and a bare `expenses` account is one too. A Fish Pie
-// clearing leg is never the answer, whatever it is tagged. When a transaction also carries a
-// designated fee or conversion leg of expense type — a Wise spend with its fee — the spend is
-// the leg that means something, so the plumbing is set aside; a transaction that is *only* a
-// fee still maps to the fee account, because that is what its description is about.
-function expenseLegs(legs: RolePosting[], settings: ClassifySettings): RolePosting[] {
-  const typed = legs.filter(
-    (p) => accountTypeOf(p, settings) === 'expense' && classifyPosting(p, settings) !== 'share',
-  )
-  const spends = typed.filter((p) => isExpenseSubject(p, settings))
-  return spends.length > 0 ? spends : typed
-}
 
 // POST /api/rules/mine
-// Analyzes transaction history and writes new 'suggested' rules.
-// Considers any transaction with exactly one expense posting (regular, Fish Pie, and
-// multi-currency conversions all qualify — they each have a single expense leg).
-// Descriptions are normalized (see cleanDescription) before grouping so near-duplicates
-// from the same merchant accumulate matches together.
-// Skips descriptions already covered by any existing non-deleted rule.
+// Analyzes transaction history and writes new 'suggested' rules; `rules/mining.ts` says
+// which transactions count and which patterns are suggested.
 // Returns { created: number }.
-app.post('/mine', async (c) => {
-  const userId = c.get('userId')
-
-  const settings = await loadClassifySettings(userId)
-
-  // Fetch all postings for non-deleted transactions, with the account's path and stored type
-  const rows = await db
-    .select({
-      txId: transactions.id,
-      description: transactions.description,
-      accountId: postings.accountId,
-      accountPath: accounts.path,
-      accountType: accounts.type,
-    })
-    .from(transactions)
-    .innerJoin(
-      postings,
-      and(eq(postings.transactionId, transactions.id), isNull(postings.deletedAt)),
-    )
-    .innerJoin(accounts, eq(accounts.id, postings.accountId))
-    .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt)))
-
-  // Group postings by transaction id
-  const byTx = new Map<string, { description: string | null; postings: RolePosting[] }>()
-  for (const { txId, description, ...leg } of rows) {
-    const tx = byTx.get(txId) ?? { description, postings: [] }
-    tx.postings.push(leg)
-    byTx.set(txId, tx)
-  }
-
-  // Count (normalized description, expenseAccountId) pairs. Any transaction with exactly
-  // one expense posting qualifies — this admits Fish Pie and multi-currency conversions
-  // (multiple postings, one expense leg), not just plain 2-posting transactions. A
-  // transaction with zero or several expense legs is ambiguous, so it is skipped.
-  const pairCounts = new Map<string, { pattern: string; accountId: string; count: number }>()
-  for (const { description, postings: txPostings } of byTx.values()) {
-    if (!description) continue
-    const expensePostings = expenseLegs(txPostings, settings)
-    const expensePosting = expensePostings[0]
-    // Exactly one expense leg, or the transaction says nothing about which account a
-    // pattern maps to.
-    if (expensePostings.length !== 1 || !expensePosting) continue
-    // Same normalization the import preview stamps as merchantKey, so a mined pattern
-    // and the preview cluster it covers are the same string.
-    const pattern = merchantKey(description)
-    if (!pattern) continue
-    const key = `${pattern.toLowerCase()}|||${expensePosting.accountId}`
-    const existing = pairCounts.get(key)
-    if (existing) existing.count++
-    else pairCounts.set(key, { pattern, accountId: expensePosting.accountId, count: 1 })
-  }
-
-  // For each unique normalized pattern, keep the (pattern, account) pair with the highest count
-  const bestByPattern = new Map<string, { pattern: string; accountId: string; count: number }>()
-  for (const pair of pairCounts.values()) {
-    const patternKey = pair.pattern.toLowerCase()
-    const current = bestByPattern.get(patternKey)
-    if (!current || pair.count > current.count) bestByPattern.set(patternKey, pair)
-  }
-
-  // Fetch existing non-deleted rules to skip already-covered descriptions
-  const existingRules = await db
-    .select({ pattern: importRules.pattern })
-    .from(importRules)
-    .where(and(eq(importRules.userId, userId), isNull(importRules.deletedAt)))
-  const coveredPatterns = new Set(existingRules.map((r) => r.pattern.toLowerCase()))
-
-  // Insert suggestions for uncovered patterns seen at least twice. A floor of 2 (rather
-  // than 3) lets a first-ever import surface rules; normalization above means a "2" is a
-  // genuine repeat of the same merchant, not two unrelated reference-laden descriptions.
-  const toInsert = [...bestByPattern.values()].filter(
-    (pair) => pair.count >= 2 && !coveredPatterns.has(pair.pattern.toLowerCase()),
-  )
-
-  if (toInsert.length > 0) {
-    await db.insert(importRules).values(
-      toInsert.map((pair) => ({
-        userId,
-        pattern: pair.pattern,
-        accountId: pair.accountId,
-        status: 'suggested' as const,
-        matchCount: pair.count,
-      })),
-    )
-  }
-
-  return c.json({ created: toInsert.length })
-})
+app.post('/mine', async (c) => c.json(await mineRules(c.get('userId'))))
 
 // PATCH /api/rules/:id
-// Updates the pattern and/or the target. At least one field required.
-//
-// The target is replaced wholesale, never merged: sending accountId on a split rule
-// clears groupId and categoryId, and vice versa. Merging would let a partial patch
-// leave a rule with both targets set, which is the one state the model forbids.
+// Updates the pattern and/or the target. At least one field required. The target is
+// replaced wholesale; `updateRule` says why.
 const RulePatch = z.object({ pattern: text('FIELD_EMPTY').optional(), ...targetFields })
 
 app.patch('/:id', async (c) => {
-  const userId = c.get('userId')
   const parsed = await parseBody(c, RulePatch)
   if (!parsed.ok) return parsed.response
   const body = parsed.data
+  const target = namesTarget(body) ? body : undefined
+  if (body.pattern === undefined && !target) return fail(c, 'NO_FIELDS_TO_UPDATE')
 
-  const patch: Record<string, unknown> = {}
-  if (body.pattern !== undefined) patch.pattern = body.pattern
-
-  if ('accountId' in body || 'groupId' in body || 'categoryId' in body) {
-    const target = await resolveTarget(userId, body)
-    if ('failure' in target) return failWith(c, target.failure)
-    Object.assign(patch, target.columns)
-  }
-
-  if (Object.keys(patch).length === 0) return fail(c, 'NO_FIELDS_TO_UPDATE')
-
-  const [updated] = await db
-    .update(importRules)
-    .set(patch)
-    .where(
-      and(
-        eq(importRules.id, c.req.param('id')),
-        eq(importRules.userId, userId),
-        isNull(importRules.deletedAt),
-      ),
-    )
-    .returning()
-
-  if (!updated) return fail(c, 'RULE_NOT_FOUND')
-  return c.json(updated)
+  const result = await updateRule(c.get('userId'), c.req.param('id'), {
+    pattern: body.pattern,
+    target,
+  })
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
 
 // DELETE /api/rules/:id
 // Soft-deletes a rule.
 app.delete('/:id', async (c) => {
-  const userId = c.get('userId')
-  await db
-    .update(importRules)
-    .set({ deletedAt: new Date() })
-    .where(
-      and(
-        eq(importRules.id, c.req.param('id')),
-        eq(importRules.userId, userId),
-        isNull(importRules.deletedAt),
-      ),
-    )
+  await deleteRule(c.get('userId'), c.req.param('id'))
   return c.body(null, 204)
 })
 
-// POST /api/rules/:id/approve
-// Flips a suggested rule to active.
+// A rule's status moves; `moveRule` says which moves exist and from where.
+
+// POST /api/rules/:id/approve — a rule becomes active.
 app.post('/:id/approve', async (c) => {
-  const userId = c.get('userId')
-
-  const [updated] = await db
-    .update(importRules)
-    .set({ status: 'active' })
-    .where(
-      and(
-        eq(importRules.id, c.req.param('id')),
-        eq(importRules.userId, userId),
-        isNull(importRules.deletedAt),
-      ),
-    )
-    .returning()
-
-  if (!updated) return fail(c, 'RULE_NOT_FOUND')
-  return c.json(updated)
+  const result = await moveRule(c.get('userId'), c.req.param('id'), 'approve')
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
 
-// POST /api/rules/:id/deny
-// Hides a suggested rule by flipping it to 'denied'. The row is kept (not soft-deleted) so its
-// pattern stays in mining's skip-set and is never re-suggested. Reversible via /revive.
+// POST /api/rules/:id/deny — a suggestion becomes denied, and is never suggested again.
 app.post('/:id/deny', async (c) => {
-  const userId = c.get('userId')
-
-  const [updated] = await db
-    .update(importRules)
-    .set({ status: 'denied' })
-    .where(
-      and(
-        eq(importRules.id, c.req.param('id')),
-        eq(importRules.userId, userId),
-        eq(importRules.status, 'suggested'),
-        isNull(importRules.deletedAt),
-      ),
-    )
-    .returning()
-
-  if (!updated) return fail(c, 'RULE_NOT_FOUND')
-  return c.json(updated)
+  const result = await moveRule(c.get('userId'), c.req.param('id'), 'deny')
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
 
-// POST /api/rules/:id/revive
-// Flips a denied rule back to 'suggested' so it reappears in the suggestions list.
+// POST /api/rules/:id/revive — a denied rule becomes a suggestion again.
 app.post('/:id/revive', async (c) => {
-  const userId = c.get('userId')
-
-  const [updated] = await db
-    .update(importRules)
-    .set({ status: 'suggested' })
-    .where(
-      and(
-        eq(importRules.id, c.req.param('id')),
-        eq(importRules.userId, userId),
-        eq(importRules.status, 'denied'),
-        isNull(importRules.deletedAt),
-      ),
-    )
-    .returning()
-
-  if (!updated) return fail(c, 'RULE_NOT_FOUND')
-  return c.json(updated)
+  const result = await moveRule(c.get('userId'), c.req.param('id'), 'revive')
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
 
 export default app
