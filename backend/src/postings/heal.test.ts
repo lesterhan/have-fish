@@ -71,6 +71,13 @@ describe('detectMalformedFxSpend', () => {
     expect(finding!.targetCurrency).toBe('CZK')
   })
 
+  it('matches the phantom to the cent, however the amount is written', () => {
+    const phantom = (amount: string) => malformed.map((p) => (p.id === 'p5' ? { ...p, amount } : p))
+    expect(detectMalformedFxSpend(phantom('360.0'), settings)?.phantomPostingId).toBe('p5')
+    expect(detectMalformedFxSpend(phantom('360.01'), settings)).toBeNull()
+    expect(detectMalformedFxSpend(phantom('359.99'), settings)).toBeNull()
+  })
+
   it('does not flag a healthy cross-currency spend (has an equity bridge)', () => {
     const healthy: HealPosting[] = [
       {

@@ -5,6 +5,7 @@ import { isValidCurrency } from '../currencies'
 import { db } from '../db'
 import { fxRates } from '../db/schema'
 import { fail } from '../errors'
+import * as money from '../money'
 import { loadClassifySettings } from '../postings/classify-service'
 import { hasExpenseAccountUnder, spendRows } from '../postings/spend-service'
 
@@ -53,7 +54,7 @@ app.get('/spending-summary', async (c) => {
   const prefixDepth = prefix ? prefix.split(':').length : 0
 
   for (const row of rows) {
-    const amount = parseFloat(row.amount)
+    const amount = money.cents(row.amount)
     const { currency } = row
     const segments = row.path.split(':')
 
@@ -82,16 +83,12 @@ app.get('/spending-summary', async (c) => {
 
   const categories = Object.entries(categoryMap).map(([category, byCurrency]) => ({
     category,
-    total: Object.fromEntries(
-      Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)]),
-    ),
+    total: formatTotals(byCurrency),
     childCount: directChildSets[category]?.size ?? 0,
   }))
 
   return c.json({
-    total: Object.fromEntries(
-      Object.entries(totalByCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)]),
-    ),
+    total: formatTotals(totalByCurrency),
     categories,
   })
 })
@@ -136,14 +133,12 @@ app.get('/monthly-spend', async (c) => {
     const bucket = monthMap[row.date.slice(0, 7)]
     // Rows outside the requested range land on a month with no bucket; skip them.
     if (!bucket) continue
-    bucket[row.currency] = (bucket[row.currency] ?? 0) + parseFloat(row.amount)
+    bucket[row.currency] = (bucket[row.currency] ?? 0) + money.cents(row.amount)
   }
 
   const result = Object.entries(monthMap).map(([month, byCurrency]) => ({
     month,
-    total: Object.fromEntries(
-      Object.entries(byCurrency).map(([currency, amount]) => [currency, amount.toFixed(2)]),
-    ),
+    total: formatTotals(byCurrency),
   }))
 
   return c.json(result)
@@ -256,9 +251,12 @@ app.get('/spending-converted', async (c) => {
     return c.json({ total: null, missingCount })
   }
 
+  // In cents. An amount already in the target currency adds exactly; a converted one is a
+  // float product of cents and rate, and the total is rounded to the cent once, at the end,
+  // half away from zero as the ledger's own column rounds.
   let total = 0
   for (const row of rows) {
-    const amount = parseFloat(row.amount)
+    const amount = money.cents(row.amount)
     if (row.currency === targetCurrency) {
       total += amount
     } else {
@@ -268,7 +266,15 @@ app.get('/spending-converted', async (c) => {
     }
   }
 
-  return c.json({ total: total.toFixed(2), missingCount: 0 })
+  const rounded = Math.sign(total) * Math.round(Math.abs(total)) + 0
+  return c.json({ total: money.format(rounded), missingCount: 0 })
 })
+
+/** Per-currency totals kept in cents, as the two-place strings the API has always answered. */
+function formatTotals(byCurrency: Record<string, number>): Record<string, string> {
+  return Object.fromEntries(
+    Object.entries(byCurrency).map(([currency, cents]) => [currency, money.format(cents)]),
+  )
+}
 
 export default app

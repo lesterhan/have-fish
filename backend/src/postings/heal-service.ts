@@ -3,6 +3,7 @@ import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
 import type { ErrorBody } from '../errors'
 import { errorBody } from '../errors'
+import { imbalance } from '../ledger/validate'
 import { inLedgerTransaction, repointPostings } from '../ledger/write-service'
 import { loadAccountTypeContext } from './classify-service'
 import {
@@ -198,12 +199,13 @@ export async function healFxSpend(
 
   const repoints = planFxSpendRepair(finding, ctx.conversionAccountId)
 
-  // Defensive balance check on the post-repair amounts (amounts are untouched, but guard anyway).
-  const balances: Record<string, number> = {}
-  for (const p of ps) balances[p.currency] = (balances[p.currency] ?? 0) + parseFloat(p.amount)
-  for (const [currency, sum] of Object.entries(balances)) {
-    if (Math.abs(sum) > 0.001) {
-      return { ok: false, failure: errorBody('HEAL_WOULD_UNBALANCE', { currency, sum }) }
+  // Defensive balance check on the post-repair amounts (amounts are untouched, but guard
+  // anyway): the ledger's own rule, each currency exactly zero in cents.
+  const off = imbalance(ps)
+  if (off) {
+    return {
+      ok: false,
+      failure: errorBody('HEAL_WOULD_UNBALANCE', { currency: off.currency, sum: off.cents / 100 }),
     }
   }
 

@@ -55,7 +55,9 @@ export function format(cents: number): string {
 
 // Amounts handed to the arithmetic below have already been accepted: they came from a column
 // or through `parse` at the edge. One that doesn't parse is a bug in the caller, so it throws.
-function cents(amount: string): number {
+
+/** A stored amount in cents, for sums kept as numbers. Throws on one that isn't an amount. */
+export function cents(amount: string): number {
   const value = parse(amount)
   if (value === null) throw new RangeError(`not an amount: ${JSON.stringify(amount)}`)
   return value

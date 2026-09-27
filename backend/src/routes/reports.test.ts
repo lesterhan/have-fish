@@ -197,6 +197,30 @@ describe('reports', () => {
   // atypically-named root — tagged Expense on its own settings page, which is the one thing
   // the user can do about it — matched nothing. Every spend into it was absent from the
   // total, the breakdown and the trend, with no row to notice was missing.
+  // Summed as floats, 0.30 − 0.10 − 0.20 is −2.8e-17, which printed as "-0.00".
+  it('answers 0.00 for spend that refunds net to zero', async () => {
+    const source = await createAccount(cookie, 'assets:chq')
+    const food = await createAccount(cookie, 'expenses:food')
+    for (const [date, amount] of [
+      ['2025-01-10', '0.30'],
+      ['2025-01-11', '-0.10'],
+      ['2025-01-12', '-0.20'],
+    ] as const) {
+      await createTransaction(cookie, date, 'Snack', [
+        { accountId: source, amount: `${-Number(amount)}`, currency: 'CAD' },
+        { accountId: food, amount, currency: 'CAD' },
+      ])
+    }
+
+    const summary = (await (
+      await request('/api/reports/spending-summary?from=2025-01-01&to=2025-01-31', {
+        headers: { Cookie: cookie },
+      })
+    ).json()) as { total: Record<string, string>; categories: { total: Record<string, string> }[] }
+    expect(summary.total).toEqual({ CAD: '0.00' })
+    expect(summary.categories.map((c) => c.total)).toEqual([{ CAD: '0.00' }])
+  })
+
   describe('a tagged category outside the expenses root', () => {
     type Category = { category: string; total: Record<string, string>; childCount: number }
     type Summary = { total: Record<string, string>; categories: Category[] }

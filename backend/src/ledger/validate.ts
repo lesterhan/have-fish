@@ -1,6 +1,6 @@
 import { isValidCurrency } from '../currencies'
 import { errorBody, type Outcome } from '../errors'
-import { parse } from '../money'
+import { cents, parse } from '../money'
 
 /** One leg of a transaction as a caller proposes it, before anything is written. */
 export type PostingDraft = { accountId: string; amount: string; currency: string }
@@ -45,21 +45,34 @@ export function validatePostings(postings: readonly PostingDraft[], index?: numb
     }
   }
 
-  const sums = new Map<string, number>()
   for (const p of postings) {
-    const cents = parse(p.amount)
-    if (cents === null) {
+    if (parse(p.amount) === null) {
       return { ok: false, failure: errorBody('AMOUNT_INVALID', { amount: p.amount, ...at }) }
-    }
-    sums.set(p.currency, (sums.get(p.currency) ?? 0) + cents)
-  }
-  for (const [currency, cents] of sums) {
-    if (cents !== 0) {
-      const sum = cents / 100
-      const detail = index === undefined ? { currency, sum } : { currency, index }
-      return { ok: false, failure: errorBody('POSTINGS_DO_NOT_BALANCE', detail) }
     }
   }
 
+  const off = imbalance(postings)
+  if (off) {
+    const detail =
+      index === undefined
+        ? { currency: off.currency, sum: off.cents / 100 }
+        : { currency: off.currency, index }
+    return { ok: false, failure: errorBody('POSTINGS_DO_NOT_BALANCE', detail) }
+  }
+
   return { ok: true, value: undefined }
+}
+
+/**
+ * The first currency whose legs don't sum to exactly zero in cents, and by how many cents;
+ * null when every currency balances. Rule 4 above on its own, for a caller checking legs
+ * that are already stored (`heal-service`). Every amount must be one: it throws otherwise.
+ */
+export function imbalance(
+  postings: readonly Pick<PostingDraft, 'amount' | 'currency'>[],
+): { currency: string; cents: number } | null {
+  const sums = new Map<string, number>()
+  for (const p of postings) sums.set(p.currency, (sums.get(p.currency) ?? 0) + cents(p.amount))
+  for (const [currency, sum] of sums) if (sum !== 0) return { currency, cents: sum }
+  return null
 }
