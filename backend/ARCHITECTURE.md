@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #277), and the layering the [domain-layer
+code as it is on `main` (last updated by #278), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -50,7 +50,7 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 | Layer | Target: does | Target: may import | Today |
 |---|---|---|---|
 | Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Most handlers also query, check and write directly. The transaction writes no longer do |
-| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `accounts/ownership-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `fish-pie-expense-service` |
+| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `accounts/ownership-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `settings/settings-service`, `fish-pie-expense-service` |
 | Domain | Pure rules | Nothing stateful | About 1,300 lines already: `ledger/validate`, `import/*`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up}`, `currencies` |
 
 `routes/catch-up.ts` (29 lines) and `routes/reports.ts` already look like the target:
@@ -161,10 +161,10 @@ account, or a Fish Pie group and category.
 | File | Mount | Does |
 |---|---|---|
 | `parsers.ts` | `/api/parsers` | CRUD for saved CSV parsers: header fingerprint, column mapping, default accounts (the caller's own) |
-| `user-settings.ts` | `/api/user-settings` | The settings row: default accounts, type roots, preferred currency, a free-form `preferences` merged in SQL (#278) |
+| `user-settings.ts` | `/api/user-settings` | The settings row: default accounts, type roots, preferred currency, a free-form `preferences` blob, shallow-merged. Writes through `settings/settings-service` |
 | `reports.ts` | `/api/reports` | Spending summary, monthly spend, FX pairs, converted totals. All through `spend-service` |
 | `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates`. The backend's only outbound `fetch`, so nothing but a `YYYY-MM-DD` date reaches its URL |
-| `coverage.ts` | `/api/coverage`, plus `/api/accounts/:id/coverage` | Coverage assertions, per-account config, reconcile, month view. Pure logic in `coverage/*` |
+| `coverage.ts` | `/api/coverage`, plus `/api/accounts/:id/coverage` | Coverage assertions, per-account config (stored in `preferences.catchUp`, through `settings/settings-service`), reconcile, month view. Pure logic in `coverage/*` |
 | `catch-up.ts` | `/api/catch-up` | The catch-up coach's summary. `coverage/load` + `coverage/catch-up` |
 
 ### Fish Pie
@@ -249,6 +249,13 @@ Before, the column was a timestamp, and a backend running east of UTC stored a n
 date as the previous day (things-missed M1). `bun run test:zones`, which CI runs, repeats the
 date-bearing suites in Tokyo and Los Angeles, because a date bug hides in UTC.
 
+**Preferences** (`settings/`, #278). `userSettings.preferences` is one JSON blob with a key
+per feature. Every change to it is worked out in JS (`preferences.ts`) and written back
+whole by `writeSettings`, which locks the row between the read and the write so two
+requests changing different keys at once both land. Postgres used to merge it with its
+own JSON operators; the row lock (`FOR UPDATE`) is now the only Postgres-only step, and
+SQLite, which admits one writer at a time, needs nothing in its place.
+
 **Deleting has two meanings.** A personal transaction's delete hard-deletes its postings.
 A Fish Pie delete soft-deletes them. Postings are also hard-deleted and re-inserted with
 new ids whenever a transaction's postings are replaced. That's why the transaction, not the
@@ -297,6 +304,7 @@ document moves it:
 | `postings/roles.ts` | Classify each posting's role inside its transaction | Transactions list, rules, spend |
 | `postings/heal.ts` | Detect and plan the repair of malformed cross-currency spends | `heal-service` |
 | `coverage/intervals.ts`, `months.ts`, `catch-up.ts` | Merge coverage spans, classify months, assemble catch-up state | Coverage and catch-up routes |
+| `settings/preferences.ts` | Changes to the `preferences` blob: a shallow merge, and one account's catch-up override set or removed | `settings/settings-service` |
 | `fish-pie-balance-service.ts` | Net balances per currency and the minimal set of transfers | Balances, overview |
 
 Two names mislead:

@@ -18,8 +18,10 @@ import { addDays, mergeCoverage } from '../coverage/intervals'
 import { loadCoverageAccounts, loadCoverageContext, todayUtc } from '../coverage/load'
 import { classifyMonths, monthsBetween } from '../coverage/months'
 import { db } from '../db'
-import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
+import { accountCoverage, accounts, postings, transactions } from '../db/schema'
 import { fail } from '../errors'
+import { withCatchUpOverride } from '../settings/preferences'
+import { writeSettings } from '../settings/settings-service'
 import { as, asField, parseBody } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -405,31 +407,9 @@ app.patch('/config/:accountId', async (c) => {
 })
 
 // Writes one account's overrides into preferences.catchUp without disturbing anything else in
-// the blob. Nested jsonb_set rather than the `||` shallow merge the settings route uses:
-// `||` at the top level would replace the whole catchUp object and wipe every other account's
-// config, and at the catchUp level it could not remove a cleared key.
+// the blob: not the other accounts' overrides, and not the other features' keys.
 async function writeOverride(userId: string, accountId: string, override: CoverageConfigOverride) {
-  const existing = sql`COALESCE(${userSettings.preferences}, '{}'::jsonb)`
-
-  const next =
-    Object.keys(override).length === 0
-      ? // Nothing pinned any more — drop the key entirely so the blob doesn't accumulate empty
-        // objects for every account the user has ever poked at.
-        sql`${existing} #- ARRAY['catchUp', ${accountId}]::text[]`
-      : sql`jsonb_set(
-        jsonb_set(${existing}, '{catchUp}'::text[], COALESCE(${existing}->'catchUp', '{}'::jsonb), true),
-        ARRAY['catchUp', ${accountId}]::text[],
-        ${JSON.stringify(override)}::jsonb,
-        true
-      )`
-
-  await db
-    .insert(userSettings)
-    .values({ userId, preferences: { catchUp: { [accountId]: override } } })
-    .onConflictDoUpdate({
-      target: userSettings.userId,
-      set: { preferences: next },
-    })
+  await writeSettings(userId, {}, (current) => withCatchUpOverride(current, accountId, override))
 }
 
 // POST /api/coverage/reconcile

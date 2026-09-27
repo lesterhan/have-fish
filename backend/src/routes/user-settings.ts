@@ -1,4 +1,4 @@
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, eq, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
@@ -6,6 +6,8 @@ import { isValidCurrency } from '../currencies'
 import { db } from '../db'
 import { accounts, userSettings } from '../db/schema'
 import { fail } from '../errors'
+import { mergePreferences } from '../settings/preferences'
+import { type SettingsColumns, writeSettings } from '../settings/settings-service'
 import { asField, parseBody, text } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
@@ -76,7 +78,7 @@ app.patch('/', async (c) => {
   if (!parsed.ok) return parsed.response
   const body = parsed.data
 
-  const patch: Partial<typeof userSettings.$inferInsert> = {}
+  const patch: SettingsColumns = {}
 
   // Account UUID fields — must reference an account owned by this user
   for (const field of [
@@ -124,29 +126,18 @@ app.patch('/', async (c) => {
     patch.preferredCurrency = body.preferredCurrency.toUpperCase()
   }
 
-  // preferences — shallow-merged into existing JSONB using the || operator so
-  // patching one key never wipes unrelated keys set by other features.
-  let preferencePatch: ReturnType<typeof sql> | undefined
-  if (body.preferences !== undefined) {
-    preferencePatch = sql`COALESCE(${userSettings.preferences}, '{}') || ${JSON.stringify(body.preferences)}::jsonb`
-  }
-
-  if (Object.keys(patch).length === 0 && !preferencePatch) {
+  if (Object.keys(patch).length === 0 && body.preferences === undefined) {
     return fail(c, 'NO_FIELDS_TO_UPDATE')
   }
 
-  // Upsert: create the row if it doesn't exist, otherwise update it
-  const [updated] = await db
-    .insert(userSettings)
-    .values({ userId, ...patch, preferences: body.preferences ?? {} })
-    .onConflictDoUpdate({
-      target: userSettings.userId,
-      set: {
-        ...patch,
-        ...(preferencePatch ? { preferences: preferencePatch } : {}),
-      },
-    })
-    .returning()
+  // preferences — shallow-merged into what is stored, so patching one key never wipes
+  // unrelated keys set by other features.
+  const preferences = body.preferences
+  const updated = await writeSettings(
+    userId,
+    patch,
+    preferences && ((current) => mergePreferences(current, preferences)),
+  )
 
   return c.json(updated)
 })
