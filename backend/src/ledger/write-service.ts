@@ -171,6 +171,32 @@ export async function deleteTransaction(userId: string, transactionId: string): 
   })
 }
 
+/**
+ * Change a transaction's date or description. `PATCH /api/transactions/:id`.
+ *
+ * Only the transaction row changes, so its `updatedAt` moves by itself and there is nothing
+ * to validate: the postings, and so the balance, are untouched.
+ */
+export async function updateTransactionDetails(
+  userId: string,
+  transactionId: string,
+  details: { description?: string | null; date?: string },
+): Promise<Outcome<TransactionRow>> {
+  const [updated] = await db
+    .update(transactions)
+    .set(details)
+    .where(
+      and(
+        eq(transactions.id, transactionId),
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+      ),
+    )
+    .returning()
+  if (!updated) return { ok: false, failure: errorBody('TRANSACTION_NOT_FOUND') }
+  return { ok: true, value: updated }
+}
+
 // --- Inside a larger unit of work -------------------------------------------------------
 
 // Carries a refusal out of the database transaction, which rolls it back. Private: only

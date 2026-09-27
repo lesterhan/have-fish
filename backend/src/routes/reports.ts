@@ -1,13 +1,16 @@
-import { and, eq } from 'drizzle-orm'
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
-import { db } from '../db'
-import { fxRates } from '../db/schema'
-import { fail } from '../errors'
-import * as money from '../money'
-import { loadClassifySettings } from '../postings/classify-service'
-import { hasExpenseAccountUnder, spendRows } from '../postings/spend-service'
+import { fail, failWith } from '../errors'
+import {
+  monthlySpend,
+  spendingConverted,
+  spendingFxPairs,
+  spendingSummary,
+} from '../reports/report-service'
+
+// The spending page's reports. The handlers read the query and answer; which legs count as
+// spending is `postings/spend-service`, the arithmetic is `reports/spending`.
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -35,62 +38,9 @@ app.get('/spending-summary', async (c) => {
   if (from && !dateRe.test(from)) return fail(c, 'FIELD_NOT_DATE', { field: 'from' })
   if (to && !dateRe.test(to)) return fail(c, 'FIELD_NOT_DATE', { field: 'to' })
 
-  const settings = await loadClassifySettings(userId)
-  if (prefix && !(await hasExpenseAccountUnder(userId, settings, prefix))) {
-    return fail(c, 'PREFIX_OUTSIDE_EXPENSES')
-  }
-
-  const rows = await spendRows(userId, settings, {
-    ...(prefix === null ? {} : { prefix }),
-    ...(from ? { from } : {}),
-    ...(to ? { to } : {}),
-  })
-
-  const totalByCurrency: Record<string, number> = {}
-  const categoryMap: Record<string, Record<string, number>> = {}
-  // Tracks distinct direct-child category paths per category, used to compute childCount
-  const directChildSets: Record<string, Set<string>> = {}
-
-  const prefixDepth = prefix ? prefix.split(':').length : 0
-
-  for (const row of rows) {
-    const amount = money.cents(row.amount)
-    const { currency } = row
-    const segments = row.path.split(':')
-
-    // Determine the category bucket this row falls into
-    const category = prefix
-      ? segments.slice(0, prefixDepth + 1).join(':') // one level deeper than prefix
-      : segments.length >= 2
-        ? `${segments[0]}:${segments[1]}`
-        : // A path with fewer than two segments is its own category; `row.path` says that
-          // without indexing into a split whose length the compiler cannot see.
-          row.path
-
-    totalByCurrency[currency] = (totalByCurrency[currency] ?? 0) + amount
-    const byCurrency = categoryMap[category] ?? {}
-    byCurrency[currency] = (byCurrency[currency] ?? 0) + amount
-    categoryMap[category] = byCurrency
-
-    // If this path is deeper than the category, record the direct child
-    const categoryDepth = category.split(':').length
-    if (segments.length > categoryDepth) {
-      const children = directChildSets[category] ?? new Set()
-      children.add(segments.slice(0, categoryDepth + 1).join(':'))
-      directChildSets[category] = children
-    }
-  }
-
-  const categories = Object.entries(categoryMap).map(([category, byCurrency]) => ({
-    category,
-    total: formatTotals(byCurrency),
-    childCount: directChildSets[category]?.size ?? 0,
-  }))
-
-  return c.json({
-    total: formatTotals(totalByCurrency),
-    categories,
-  })
+  const result = await spendingSummary(userId, { from, to, prefix })
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
 
 // GET /api/reports/monthly-spend?months=N
@@ -108,40 +58,7 @@ app.get('/monthly-spend', async (c) => {
     return fail(c, 'FIELD_OUT_OF_RANGE', { field: 'months', min: 1, max: 120 })
   }
 
-  // Build the window: from the first day of (months) ago to end of current month
-  const now = new Date()
-  const windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1))
-    .toISOString()
-    .slice(0, 10)
-  const windowEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
-    .toISOString()
-    .slice(0, 10)
-
-  const settings = await loadClassifySettings(userId)
-  const rows = await spendRows(userId, settings, { from: windowStart, to: windowEnd })
-
-  // Build a map of all months in the window initialised to empty totals
-  const monthMap: Record<string, Record<string, number>> = {}
-  for (let i = 0; i < months; i++) {
-    const d = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1 + i, 1))
-    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-    monthMap[key] = {}
-  }
-
-  // Accumulate spend into the month buckets
-  for (const row of rows) {
-    const bucket = monthMap[row.date.slice(0, 7)]
-    // Rows outside the requested range land on a month with no bucket; skip them.
-    if (!bucket) continue
-    bucket[row.currency] = (bucket[row.currency] ?? 0) + money.cents(row.amount)
-  }
-
-  const result = Object.entries(monthMap).map(([month, byCurrency]) => ({
-    month,
-    total: formatTotals(byCurrency),
-  }))
-
-  return c.json(result)
+  return c.json(await monthlySpend(userId, months))
 })
 
 // GET /api/reports/spending-fx-pairs?from=YYYY-MM-DD&to=YYYY-MM-DD&targetCurrency=CAD
@@ -161,44 +78,7 @@ app.get('/spending-fx-pairs', async (c) => {
   if (!targetCurrency || !isValidCurrency(targetCurrency))
     return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
 
-  const settings = await loadClassifySettings(userId)
-  const rows = await spendRows(userId, settings, {
-    from,
-    to,
-  })
-
-  // Deduplicate to unique (date, currency) pairs, excluding the target currency
-  const seen = new Set<string>()
-  const uniquePairs: { date: string; from: string }[] = []
-  for (const row of rows) {
-    const dateStr = row.date
-    if (row.currency === targetCurrency) continue
-    const key = `${dateStr}:${row.currency}`
-    if (!seen.has(key)) {
-      seen.add(key)
-      uniquePairs.push({ date: dateStr, from: row.currency })
-    }
-  }
-
-  // Check DB cache for each pair
-  const pairs = await Promise.all(
-    uniquePairs.map(async ({ date, from: fromCurrency }) => {
-      const [cached] = await db
-        .select({ id: fxRates.id })
-        .from(fxRates)
-        .where(
-          and(
-            eq(fxRates.date, date),
-            eq(fxRates.baseCurrency, fromCurrency),
-            eq(fxRates.quoteCurrency, targetCurrency),
-          ),
-        )
-        .limit(1)
-      return { date, from: fromCurrency, to: targetCurrency, cached: !!cached }
-    }),
-  )
-
-  return c.json({ pairs })
+  return c.json(await spendingFxPairs(userId, from, to, targetCurrency))
 })
 
 // GET /api/reports/spending-converted?from=YYYY-MM-DD&to=YYYY-MM-DD&targetCurrency=CAD
@@ -218,63 +98,7 @@ app.get('/spending-converted', async (c) => {
   if (!targetCurrency || !isValidCurrency(targetCurrency))
     return fail(c, 'UNSUPPORTED_CURRENCY', { currency: targetCurrency })
 
-  const settings = await loadClassifySettings(userId)
-  const rows = await spendRows(userId, settings, {
-    from,
-    to,
-  })
-
-  // Build a cache of rates needed: (date:fromCurrency) → rate string | null
-  const rateCache = new Map<string, string | null>()
-  for (const row of rows) {
-    const dateStr = row.date
-    if (row.currency === targetCurrency) continue
-    const key = `${dateStr}:${row.currency}`
-    if (!rateCache.has(key)) {
-      const [cached] = await db
-        .select({ rate: fxRates.rate })
-        .from(fxRates)
-        .where(
-          and(
-            eq(fxRates.date, dateStr),
-            eq(fxRates.baseCurrency, row.currency),
-            eq(fxRates.quoteCurrency, targetCurrency),
-          ),
-        )
-        .limit(1)
-      rateCache.set(key, cached?.rate ?? null)
-    }
-  }
-
-  const missingCount = [...rateCache.values()].filter((r) => r === null).length
-  if (missingCount > 0) {
-    return c.json({ total: null, missingCount })
-  }
-
-  // In cents. An amount already in the target currency adds exactly; a converted one is a
-  // float product of cents and rate, and the total is rounded to the cent once, at the end,
-  // half away from zero as the ledger's own column rounds.
-  let total = 0
-  for (const row of rows) {
-    const amount = money.cents(row.amount)
-    if (row.currency === targetCurrency) {
-      total += amount
-    } else {
-      const dateStr = row.date
-      const rate = parseFloat(rateCache.get(`${dateStr}:${row.currency}`)!)
-      total += amount * rate
-    }
-  }
-
-  const rounded = Math.sign(total) * Math.round(Math.abs(total)) + 0
-  return c.json({ total: money.format(rounded), missingCount: 0 })
+  return c.json(await spendingConverted(userId, from, to, targetCurrency))
 })
-
-/** Per-currency totals kept in cents, as the two-place strings the API has always answered. */
-function formatTotals(byCurrency: Record<string, number>): Record<string, string> {
-  return Object.fromEntries(
-    Object.entries(byCurrency).map(([currency, cents]) => [currency, money.format(cents)]),
-  )
-}
 
 export default app

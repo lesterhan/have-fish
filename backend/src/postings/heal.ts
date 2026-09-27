@@ -162,3 +162,27 @@ export function planFxSpendRepair(
     { postingId: finding.phantomPostingId, toAccountId: finding.expenseAccountId },
   ]
 }
+
+/**
+ * The legs as the repair would leave them, for showing before it runs: both bridge legs on
+ * the conversion account, the phantom leg on the expense account, the rest untouched. With no
+ * conversion account configured there is nothing to repair to, and the legs come back as
+ * they are. A conversion account whose path can't be read (deleted since it was chosen)
+ * keeps each bridge leg's own path beside the new id.
+ */
+export function previewRepair<P extends Pick<HealPosting, 'id' | 'accountId' | 'accountPath'>>(
+  postings: readonly P[],
+  finding: MalformedFinding,
+  conversion: { id: string; path: string | null } | null,
+): P[] {
+  return postings.map((p) => {
+    if (!conversion) return p
+    if (p.id === finding.sourceBridgePostingId || p.id === finding.targetBridgePostingId) {
+      return { ...p, accountId: conversion.id, accountPath: conversion.path ?? p.accountPath }
+    }
+    if (p.id === finding.phantomPostingId) {
+      return { ...p, accountId: finding.expenseAccountId, accountPath: finding.expenseAccountPath }
+    }
+    return p
+  })
+}

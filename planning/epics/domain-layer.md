@@ -27,7 +27,7 @@ No UI changes, so there's no UX brief.
 3. [x] **Every posting writer uses the ledger service** — #426
 4. [x] **Import commit plans in pure code** — #427
 5. [x] **Accounts and coverage into services** — #428
-6. [ ] **Rules, parsers, settings, reports into services** — #429
+6. [x] **Rules, parsers, settings, reports into services** — #429
 7. [ ] **Fish Pie split and settlement maths into domain** — #430
 8. [ ] **Lock the layers in with a check** — #431
 
@@ -172,10 +172,12 @@ Also recorded in the map, not filed:
 - **Two meanings of delete.** Covered by the `F2` correction in `00-direction.md` and by
   #281.
 - **`GET /api/transactions` loads every transaction, then filters in memory.** Fine at
-  household scale; it becomes a service in story 2's neighbourhood and can take its filters
-  into SQL then.
+  household scale. It is `ledger/read-service` since #429 and can take its filters into SQL
+  there.
 - **Non-null `!` assertions**, against the convention in `CLAUDE.md`. None are left in the
-  route files; `import.ts` lost its last three in #427. Five remain in
+  personal-ledger routes: `import.ts` lost its last three in #427, and `transactions.ts` and
+  `reports.ts` theirs in #429. They remain in the Fish Pie routes (story 7 and #380), two in
+  `coverage/load-service.ts` on a map built from the same list, and five in
   `import/dynamic-parser.ts`, each on a column that `hasTransferColumns` has just checked.
 
 ## Gate
