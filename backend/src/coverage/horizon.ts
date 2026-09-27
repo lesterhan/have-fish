@@ -6,9 +6,6 @@
 // bank. So each account gets a horizon, and coverage reaching the horizon is the finish line.
 // The span between horizon and today is "not yet available", never a gap and never work.
 
-import { and, eq, isNull } from 'drizzle-orm'
-import { db } from '../db'
-import { accountCoverage, userSettings } from '../db/schema'
 import { addDays, type CoverageInterval, daysBetween } from './intervals'
 
 // How data comes out of the institution.
@@ -227,19 +224,11 @@ export function mergeConfig(
   return { ...DEFAULT_CONFIG, ...(inferred ?? {}), ...override }
 }
 
-// Every catchUp override for a user, keyed by account id. Read once per request rather than
-// per account — story 3 walks every tracked account and would otherwise issue N queries for
-// one row of JSON.
-export async function readCatchUpOverrides(
-  userId: string,
-): Promise<Record<string, CoverageConfigOverride>> {
-  const [settings] = await db
-    .select({ preferences: userSettings.preferences })
-    .from(userSettings)
-    .where(eq(userSettings.userId, userId))
-
-  const preferences = settings?.preferences as Record<string, unknown> | undefined
-  const catchUp = preferences?.catchUp
+// Every catch-up override in a `preferences` blob, keyed by account id, each one sanitized.
+// Anything that is not an object where `catchUp` should be reads as no overrides at all.
+export function overridesFrom(preferences: unknown): Record<string, CoverageConfigOverride> {
+  if (typeof preferences !== 'object' || preferences === null) return {}
+  const catchUp = (preferences as Record<string, unknown>).catchUp
   if (typeof catchUp !== 'object' || catchUp === null || Array.isArray(catchUp)) return {}
 
   const overrides: Record<string, CoverageConfigOverride> = {}
@@ -249,49 +238,57 @@ export async function readCatchUpOverrides(
   return overrides
 }
 
-// The live coverage assertions for one account, oldest first.
-export async function readIntervals(
-  userId: string,
-  accountId: string,
-): Promise<CoverageInterval[]> {
-  return db
-    .select({ fromDate: accountCoverage.fromDate, throughDate: accountCoverage.throughDate })
-    .from(accountCoverage)
-    .where(
-      and(
-        eq(accountCoverage.userId, userId),
-        eq(accountCoverage.accountId, accountId),
-        isNull(accountCoverage.deletedAt),
-      ),
-    )
+// --- changing the pins ------------------------------------------------------------------
+
+/**
+ * A change to one account's pins: the fields set by hand, and the fields handed back to
+ * inference. Clearing is spelled `null` in a request, which is why "this account has no
+ * statement cycle" is `exportMode: 'range'` rather than `cycleDay: null`.
+ */
+export type ConfigChange = {
+  set: CoverageConfigOverride
+  cleared: ReadonlySet<keyof CoverageConfig>
 }
 
-// The config actually in force for one account, and the raw pins behind it.
-//
-// Both are needed by anything that lets the user edit the config: the merged config cannot say
-// whether a value was inferred or pinned by hand, and "hand this field back to automatic" is
-// only offerable when you know which it was. A field absent from `override` is inferred, and
-// its inferred value is the one already sitting in `config`.
-export async function resolveConfig(
-  userId: string,
-  accountId: string,
-): Promise<{
-  config: CoverageConfig
-  override: CoverageConfigOverride
-  inferred: CoverageConfigOverride | null
-}> {
-  const [intervals, overrides] = await Promise.all([
-    readIntervals(userId, accountId),
-    readCatchUpOverrides(userId),
-  ])
+const CONFIG_KEYS = ['exportMode', 'cycleDay', 'releaseLag', 'tracked'] as const
 
-  const override = overrides[accountId] ?? {}
-  const inferred = inferCycleFromIntervals(intervals)
-  return { config: mergeConfig(inferred, override), override, inferred }
+/**
+ * Read a change from a checked request body, where an absent key leaves a field alone and an
+ * explicit null clears its pin. Null when the body names no field at all.
+ */
+export function configChangeFrom(
+  body: {
+    [K in keyof CoverageConfig]?: CoverageConfig[K] | null
+  },
+): ConfigChange | null {
+  const set: CoverageConfigOverride = {}
+  const cleared = new Set<keyof CoverageConfig>()
+  for (const key of CONFIG_KEYS) {
+    if (!(key in body)) continue
+    const value = body[key]
+    if (value === null) cleared.add(key)
+    else Object.assign(set, { [key]: value })
+  }
+  if (cleared.size === 0 && Object.keys(set).length === 0) return null
+  return { set, cleared }
 }
 
-// The config actually in force for one account: inference over its coverage history, with any
-// user override laid on top.
-export async function effectiveConfig(userId: string, accountId: string): Promise<CoverageConfig> {
-  return (await resolveConfig(userId, accountId)).config
+/** The pins after a change: the stored ones, the new ones laid over them, the cleared ones gone. */
+export function applyConfigChange(
+  stored: CoverageConfigOverride,
+  change: ConfigChange,
+): CoverageConfigOverride {
+  const override: CoverageConfigOverride = { ...stored, ...change.set }
+  for (const key of change.cleared) delete override[key]
+  return override
+}
+
+/**
+ * Whether the horizon can be worked out under this config. A cycle account needs a cycle
+ * day to compute its closes from. `horizon()` falls back to today rather than inventing a
+ * boundary, but saving such a config would leave the user looking at a 'cycle' account
+ * behaving exactly like a 'range' one, so it is refused instead.
+ */
+export function isComputable(config: CoverageConfig): boolean {
+  return !(config.exportMode === 'cycle' && config.cycleDay == null)
 }

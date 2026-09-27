@@ -4,7 +4,7 @@ import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, userSettings } from '../db/schema'
 import { clearDatabase, createTestUser, request } from '../test-utils'
-import { effectiveConfig, readCatchUpOverrides } from './horizon'
+import { effectiveConfig, readCatchUpOverrides } from './config-service'
 
 async function createAccount(userId: string, path: string) {
   return returnedRow(

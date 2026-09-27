@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { sortAccounts, summarize } from '../coverage/catch-up'
-import { loadCoverageAccounts, todayUtc } from '../coverage/load'
+import { loadCoverageAccounts, todayUtc } from '../coverage/load-service'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
@@ -10,7 +10,7 @@ const app = new Hono<{ Variables: AppVariables }>()
 // account cards, the coverage strips and the bootstrap step need, in one request.
 //
 // The projection at GET /api/coverage/accounts is the same derivation with the heavy parts
-// dropped; see coverage/load.ts for why both go through one loader.
+// dropped; see coverage/load-service.ts for why both go through one loader.
 // 200: { today, accounts, summary }
 app.get('/', async (c) => {
   const today = todayUtc()

@@ -26,7 +26,7 @@ No UI changes, so there's no UX brief.
 2. [x] **One write path for transactions** — #425
 3. [x] **Every posting writer uses the ledger service** — #426
 4. [x] **Import commit plans in pure code** — #427
-5. [ ] **Accounts and coverage into services** — #428
+5. [x] **Accounts and coverage into services** — #428
 6. [ ] **Rules, parsers, settings, reports into services** — #429
 7. [ ] **Fish Pie split and settlement maths into domain** — #430
 8. [ ] **Lock the layers in with a check** — #431
@@ -160,6 +160,7 @@ Any story can run in coach mode ("coach me") if you'd rather drive it yourself.
 | #442 | An import transfer with its fee in a third currency can't balance; written unbalanced before story 3, refused since |
 | #443 | Fish Pie can post to a member's deleted default account, because account delete doesn't check Fish Pie settings |
 | #458 | Import commit answers 500 for a regular row whose source account is an empty string, which the frontend sends for an unmapped currency |
+| #470 | The coach reads catch-up pins from `preferences` without sanitizing them, while the config endpoint sanitizes the same pins, so a malformed pin written through `/api/user-settings` makes the two disagree |
 
 Two more findings were handled privately, per rule 4. #436 holds transaction delete,
 import commit and parser defaults to the caller's own rows, and requires a real date on

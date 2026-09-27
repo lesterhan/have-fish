@@ -1,7 +1,12 @@
 import { and, eq, isNull } from 'drizzle-orm'
+import { CLEARING_PREFIX } from './accounts/paths'
 import { db, type Executor } from './db'
 import { returnedRow } from './db/returning'
 import { accounts } from './db/schema'
+
+// The receivable namespace is a personal-ledger rule (accounts refuse it), so it lives in
+// `accounts/paths.ts`; re-exported for the Fish Pie files that already read it from here.
+export { CLEARING_PREFIX, isClearingAccountPath } from './accounts/paths'
 
 export function slugify(name: string): string {
   return name
@@ -12,21 +17,8 @@ export function slugify(name: string): string {
     .replace(/^-|-$/g, '')
 }
 
-// Clearing-account path scheme. A member's per-group clearing account nets what the
-// group owes them (positive) against what they owe the group (negative) — a single
-// receivable account per group.
-export const CLEARING_PREFIX = 'assets:receivable'
-
 export function clearingAccountPath(name: string): string {
   return `${CLEARING_PREFIX}:${slugify(name)}`
-}
-
-// True for the receivable namespace itself and anything under it. Clearing accounts are
-// system-managed, so this gates both path-matching over postings (the import-linked PATCH
-// rebuild) and the surfaces that only make sense for accounts a human imports into.
-// Anchored on the colon, so `assets:receivables-ledger` is an ordinary account.
-export function isClearingAccountPath(path: string): boolean {
-  return path === CLEARING_PREFIX || path.startsWith(`${CLEARING_PREFIX}:`)
 }
 
 // Find or create the clearing (receivable) account for a user in a group.
