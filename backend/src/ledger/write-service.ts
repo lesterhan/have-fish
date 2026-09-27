@@ -40,11 +40,13 @@ export type TransactionDraft = {
 /**
  * A transaction a unit of work writes. `id` lets the caller mint the id before the legs
  * are built, for builders that stamp it on each leg; `groupExpenseId` links a Fish Pie
- * member's transaction to its expense.
+ * member's transaction to its expense; `importFingerprint` records the bank row an import
+ * came from (`import/fingerprint.ts`).
  */
 export type LedgerDraft = TransactionDraft & {
   id?: string
   groupExpenseId?: string | null
+  importFingerprint?: string
 }
 
 type TransactionRow = typeof transactions.$inferSelect
@@ -366,6 +368,7 @@ async function insertTransaction(
         date: new Date(draft.date),
         description: draft.description ?? null,
         ...(draft.groupExpenseId ? { groupExpenseId: draft.groupExpenseId } : {}),
+        ...(draft.importFingerprint ? { importFingerprint: draft.importFingerprint } : {}),
       })
       .returning(),
     'insert transactions',

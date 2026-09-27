@@ -1,5 +1,6 @@
 import { errorBody, type ImportRowKind, type Outcome } from '../errors'
 import type { PostingDraft } from '../ledger/validate'
+import { importFingerprint, importTransactionId } from './fingerprint'
 import {
   buildCrossCurrencySpendPostings,
   buildFishPieCrossCurrencyPostings,
@@ -16,8 +17,9 @@ import {
 //
 //   checkRows   the request's rows → the same rows, typed by kind, or the first one missing
 //               an account it needs
-//   planRows    typed rows + split context → one transaction per row, and a Fish Pie
-//               expense for each split row
+//   identify    typed rows → the fingerprint and id of each row the preview keyed (#282)
+//   planRows    typed rows + split context → one transaction per row not already imported,
+//               and a Fish Pie expense for each split row
 
 /** One row as the commit request carries it, before anything has checked it. */
 export type ImportRowInput = {
@@ -38,6 +40,8 @@ export type ImportRowInput = {
   conversionAccountId?: string | undefined
   expenseAccountId?: string | undefined
   feeAccountId?: string | undefined
+  /** The row key the preview gave this row (`import/fingerprint.ts`). Absent: a manual row. */
+  importKey?: string | undefined
 }
 
 /** A single-currency row: the source account against one offset account. */
@@ -98,7 +102,12 @@ export type SameCurrencyTransferRow = {
   feeAccountId: string
 }
 
-export type CommitRow = RegularRow | TransferRow | CrossCurrencySpendRow | SameCurrencyTransferRow
+export type CommitRow = (
+  | RegularRow
+  | TransferRow
+  | CrossCurrencySpendRow
+  | SameCurrencyTransferRow
+) & { importKey?: string | undefined }
 
 /**
  * Check that every row names the accounts its kind needs, in row order, and answer the
@@ -192,6 +201,63 @@ export function takesSplit(row: CommitRow): boolean {
   return row.isTransfer !== 'cross-currency-spend'
 }
 
+/**
+ * The account a row's file is the statement of, which its fingerprint is bound to: the
+ * account the money left for a regular row, a transfer or a spend, and the account that
+ * received it for a same-currency transfer. It never depends on a choice made in the
+ * review, so re-importing a file finds the same account whatever the user picked for the
+ * other side. The review's duplicate check applies the same rule (`importAccountId`).
+ */
+export function statementAccountId(
+  row: CommitRow,
+  accountId: string | null | undefined,
+): string | undefined {
+  if (row.isTransfer === 'same-currency') return row.targetAccountId || undefined
+  if (row.isTransfer === false) return row.sourceAccountId || accountId || undefined
+  return row.sourceAccountId || undefined
+}
+
+/** Where an imported row comes from, and the id its transaction takes. */
+export type ImportIdentity = { id: string; fingerprint: string }
+
+/**
+ * The fingerprint and id of every row that carries a row key, by index. A row without one
+ * (a manual import, or a certain duplicate the user chose to import anyway) is left out and
+ * gets a random id.
+ */
+export function identify(
+  rows: readonly CommitRow[],
+  options: { accountId: string | null | undefined; userId: string },
+): Map<number, ImportIdentity> {
+  const identities = new Map<number, ImportIdentity>()
+  for (const [index, row] of rows.entries()) {
+    if (!row.importKey) continue
+    const account = statementAccountId(row, options.accountId)
+    if (!account) continue
+    const fingerprint = importFingerprint(account, row.importKey)
+    identities.set(index, { id: importTransactionId(options.userId, fingerprint), fingerprint })
+  }
+  return identities
+}
+
+/**
+ * The rows not to write: those whose fingerprint is already in the ledger (`existing`,
+ * deleted transactions included, since the id is still taken), and any row repeating an
+ * earlier row of the same request.
+ */
+export function alreadyImported(
+  identities: ReadonlyMap<number, ImportIdentity>,
+  existing: ReadonlySet<string>,
+): Set<number> {
+  const skip = new Set<number>()
+  const seen = new Set<string>()
+  for (const [index, { fingerprint }] of [...identities].sort(([a], [b]) => a - b)) {
+    if (existing.has(fingerprint) || seen.has(fingerprint)) skip.add(index)
+    seen.add(fingerprint)
+  }
+  return skip
+}
+
 /** The Fish Pie expense a split row creates, linked to the row's transaction. */
 export type PlannedGroupExpense = {
   groupId: string
@@ -205,7 +271,13 @@ export type PlannedGroupExpense = {
 /** One row, planned: the transaction to write and, for a split row, its group expense. */
 export type PlannedRow = {
   index: number
-  transaction: { id: string; date: string; description: string | null; postings: PostingDraft[] }
+  transaction: {
+    id: string
+    date: string
+    description: string | null
+    postings: PostingDraft[]
+    importFingerprint?: string
+  }
   groupExpense?: PlannedGroupExpense
 }
 
@@ -213,8 +285,9 @@ export type PlannedRow = {
  * The transaction each row becomes. Legs are built by `import/postings.ts`; which builder
  * a row gets depends on its kind and on whether it is split with a Fish Pie group.
  *
- * `newId` mints each transaction's id up front, because the builders stamp it on every leg.
- * Nothing here validates the legs: the ledger service does that as each is written, and a
+ * Each transaction's id is decided up front, because the builders stamp it on every leg: the
+ * row's import identity when it has one, else `newId`. A row in `skip` is left out; the
+ * rest keep their index in `rows`. Nothing here validates the legs: the ledger service does that as each is written, and a
  * refusal names the row by `index`.
  */
 export function planRows(
@@ -223,13 +296,20 @@ export function planRows(
     accountId: string | null | undefined
     defaultCurrency: string
     splits: ReadonlyMap<number, SplitContext>
+    identities?: ReadonlyMap<number, ImportIdentity>
+    skip?: ReadonlySet<number>
     newId: () => string
   },
 ): PlannedRow[] {
   const { accountId, defaultCurrency, splits, newId } = context
+  const identities = context.identities ?? new Map<number, ImportIdentity>()
+  const skip = context.skip ?? new Set<number>()
 
-  return rows.map((t, index) => {
-    const transactionId = newId()
+  return rows.flatMap((t, index) => (skip.has(index) ? [] : [planRow(t, index)]))
+
+  function planRow(t: CommitRow, index: number): PlannedRow {
+    const identity = identities.get(index)
+    const transactionId = identity?.id ?? newId()
     const split = takesSplit(t) ? splits.get(index) : undefined
     const planned = (postings: PostingDraft[], groupExpense?: PlannedGroupExpense): PlannedRow => ({
       index,
@@ -238,6 +318,7 @@ export function planRows(
         date: t.date,
         description: t.description ?? null,
         postings,
+        ...(identity ? { importFingerprint: identity.fingerprint } : {}),
       },
       ...(groupExpense ? { groupExpense } : {}),
     })
@@ -413,5 +494,5 @@ export function planRows(
         currency,
       }),
     )
-  })
+  }
 }

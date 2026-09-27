@@ -3,6 +3,7 @@ import { db } from '../db'
 import { csvParsers, importRules, user } from '../db/schema'
 import { errorBody, type Outcome } from '../errors'
 import { buildParser } from './dynamic-parser'
+import { rowKeys } from './fingerprint'
 import { matchParser, suggest } from './preview'
 import type { ColumnMapping } from './types'
 
@@ -11,7 +12,8 @@ import type { ColumnMapping } from './types'
  * accounts for each row. Writes nothing.
  *
  * Loads the caller's active parsers, rules and name; `preview.ts` does the matching and
- * the suggesting.
+ * the suggesting. Each row also gets its row key (`fingerprint.ts`), which the review sends
+ * back with the rows it checks for duplicates and commits.
  */
 export async function previewImport(userId: string, csv: string) {
   const userParsers = await db
@@ -41,6 +43,7 @@ export async function previewImport(userId: string, csv: string) {
       ),
     )
 
+  const keys = rowKeys(parser.id, result.transactions)
   const [u] = await db.select({ name: user.name }).from(user).where(eq(user.id, userId))
   const userName = (u?.name ?? '').trim().toLowerCase()
 
@@ -50,7 +53,10 @@ export async function previewImport(userId: string, csv: string) {
     isMultiCurrency: parser.isMultiCurrency,
     defaultFeeAccountId: parser.defaultFeeAccountId,
     ...result,
-    transactions: suggest(result.transactions, activeRules, userName),
+    transactions: suggest(result.transactions, activeRules, userName).map((t, i) => ({
+      ...t,
+      importKey: keys[i],
+    })),
   }
   return { ok: true, value: preview } satisfies Outcome<typeof preview>
 }

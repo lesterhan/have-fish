@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #427), and the layering the [domain-layer
+code as it is on `main` (last updated by #282), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -104,8 +104,8 @@ service in `import/`; each service loads what a pure module needs and calls it.
 | Endpoint | Does | Rules | Writes |
 |---|---|---|---|
 | `POST /preview` | Match the CSV to a saved parser, parse it, suggest accounts from rules | `preview-service` → `preview` (`matchParser`, `suggest`), `csv-parser`, `dynamic-parser`, `merchant` | — |
-| `POST /check-duplicates` | Possible duplicates per row, with Fish Pie context | `duplicates-service` → `duplicates` (`findDuplicate`: ±1 day, same currency, amount within 0.01) | — |
-| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | `commit-service`: split checks, then `checkRows`, then `accountsOwnedBy`, then `planRows` inside `inLedgerTransaction`; `writeTransaction` validates each row | `transactions`, `postings`, Fish Pie tables |
+| `POST /check-duplicates` | Possible duplicates per row, with Fish Pie context; a row already imported comes back `certain` | `duplicates-service` → `duplicates` (`findDuplicate`: ±1 day, same currency, amount within 0.01) and `fingerprint` | — |
+| `POST /commit` | Write every row not already imported, and create Fish Pie expenses for split rows | `commit-service`: split checks, `checkRows`, `accountsOwnedBy`, `identify` and the skip, then `planRows` inside `inLedgerTransaction`; `writeTransaction` validates each row | `transactions`, `postings`, Fish Pie tables |
 
 **How an import commit works.** The plan (`import/commit-plan.ts`) is two pure functions:
 
@@ -124,7 +124,24 @@ The service (`import/commit-service.ts`) does everything the plan can't:
    Pie.
 4. Run `planRows`, and write each row with `writeTransaction` then its group expense.
 
-A refusal anywhere in step 4 rolls back every row. `takesSplit` says which row kinds a
+A refusal anywhere in step 4 rolls back every row.
+
+**Importing the same row twice** (#282, formula in #460). The preview gives every row a
+*row key*: a hash of the parser, the row's kind, date, amounts, currencies, normalised
+description, and its position among identical rows in the file (`import/fingerprint.ts`).
+The review sends the key back. Commit binds it to the row's *statement account*
+(`statementAccountId`: the account the money left, or for a same-currency transfer the one
+that received it) to make the fingerprint, and the transaction's id is a UUIDv5 of that
+fingerprint and the user. A fingerprint already in `transactions.import_fingerprint`,
+deleted or not, means the row is skipped, not written, and a partial unique index on
+`(user_id, import_fingerprint)` backs that up. `check-duplicates` runs the same lookup, so
+the review shows the row as already imported and skipped. A row sent without its key is
+written as a new transaction: that's a manual import, or a duplicate the user chose to
+import anyway.
+
+The key, the fingerprint and the id are all derived from what the transaction says. They
+are a local convergence device: two devices importing the same row mint the same id. They
+never leave the device in the clear, and a sync relay never gets them as a column (#375). `takesSplit` says which row kinds a
 split changes; a cross-currency spend ignores its split, as it always has. Because the
 plan is pure, a rule like "a split degrades to a plain expense when Fish Pie is
 unreachable" (offline import, `00-direction.md`) is a change to `planRows`, not to the
@@ -264,6 +281,7 @@ document moves it:
 | `import/commit-plan.ts` | Which accounts each row kind needs; the transaction and group expense each row becomes | `import/commit-service` |
 | `import/preview.ts` | Which saved parser a file belongs to; the rule, merchant key and kind each row suggests | `import/preview-service` |
 | `import/duplicates.ts` | Whether a row is probably a posting already in the ledger | `import/duplicates-service` |
+| `import/fingerprint.ts` | Row keys, fingerprints and the ids they give imported transactions | Preview, commit and duplicate services |
 | `postings/account-type.ts` | Resolve an account's type: override, then tagged ancestor, then path root | Accounts, roles, spend, coverage |
 | `postings/roles.ts` | Classify each posting's role inside its transaction | Transactions list, rules, spend |
 | `postings/heal.ts` | Detect and plan the repair of malformed cross-currency spends | `heal-service` |
@@ -286,7 +304,7 @@ The target and the order are in [`planning/epics/domain-layer.md`](../planning/e
 1. This map (#424)
 2. One write path for transactions (#425), then every posting writer through it (#426)
 3. The P1 items that build on that path: #279, #281
-4. Import planned in pure code (#427), then its fingerprint (#282)
+4. Import planned in pure code (#427), then its fingerprint (#282, done)
 5. Accounts and coverage (#428); rules, parsers, settings and reports (#429)
 6. Fish Pie maths (#430)
 7. A check that locks the layers in (#431)

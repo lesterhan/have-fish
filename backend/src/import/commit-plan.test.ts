@@ -2,15 +2,19 @@ import { describe, expect, it } from 'bun:test'
 import type { ImportRowKind } from '../errors'
 import { validatePostings } from '../ledger/validate'
 import {
+  alreadyImported,
   type CommitRow,
   checkRows,
   type ImportRowInput,
+  identify,
   namedAccountIds,
   type PlannedRow,
   planRows,
   type SplitContext,
+  statementAccountId,
   takesSplit,
 } from './commit-plan'
+import { importFingerprint, importTransactionId } from './fingerprint'
 
 // No database here: the plan is rows in, transactions out.
 
@@ -327,5 +331,72 @@ describe('planRows', () => {
   it('throws on a regular row whose source is an empty string', () => {
     const rows = checked([{ ...regularRow, sourceAccountId: '' }])
     expect(() => plan(rows)).toThrow('import row 0 has no source account')
+  })
+})
+
+describe('import identity', () => {
+  const key = 'a'.repeat(64)
+  const otherKey = 'b'.repeat(64)
+
+  it('binds each kind of row to the account its statement describes', () => {
+    const [regular, regularOwn, transfer, spend, same] = checked([
+      regularRow,
+      { ...regularRow, sourceAccountId: 'wise-usd' },
+      transferRow,
+      spendRow,
+      sameCurrencyRow,
+    ])
+    expect(regular && statementAccountId(regular, 'import-account')).toBe('import-account')
+    expect(regularOwn && statementAccountId(regularOwn, 'import-account')).toBe('wise-usd')
+    expect(transfer && statementAccountId(transfer, null)).toBe('wise-cad')
+    expect(spend && statementAccountId(spend, null)).toBe('wise-cad')
+    // Money arriving: the statement is the account that received it, not the one the user
+    // picked as its source in the review.
+    expect(same && statementAccountId(same, null)).toBe('wise-cad')
+  })
+
+  it('identifies only the rows that carry a key', () => {
+    const rows = checked([{ ...regularRow, importKey: key }, regularRow])
+    const identities = identify(rows, { accountId: 'import-account', userId: 'user' })
+    expect([...identities.keys()]).toEqual([0])
+    const identity = identities.get(0)
+    expect(identity?.fingerprint).toBe(importFingerprint('import-account', key))
+    expect(identity?.id).toBe(importTransactionId('user', importFingerprint('import-account', key)))
+  })
+
+  it('skips a row already in the ledger, and a row repeating an earlier one', () => {
+    const rows = checked([
+      { ...regularRow, importKey: key },
+      { ...regularRow, importKey: otherKey },
+      { ...regularRow, importKey: key },
+    ])
+    const identities = identify(rows, { accountId: 'import-account', userId: 'user' })
+    expect([...alreadyImported(identities, new Set())]).toEqual([2])
+    const existing = new Set([importFingerprint('import-account', otherKey)])
+    expect([...alreadyImported(identities, existing)].sort()).toEqual([1, 2])
+  })
+
+  it('plans keyed rows with their own id and fingerprint, and leaves skipped rows out', () => {
+    const rows = checked([
+      { ...regularRow, importKey: key },
+      sameCurrencyRow,
+      { ...regularRow, importKey: otherKey },
+    ])
+    const identities = identify(rows, { accountId: 'import', userId: 'user' })
+    const planned = planRows(rows, {
+      accountId: 'import',
+      defaultCurrency: 'CAD',
+      splits: new Map(),
+      identities,
+      skip: new Set([2]),
+      newId: () => 'random',
+    })
+    expect(planned.map((p) => p.index)).toEqual([0, 1])
+    expect(planned[0]?.transaction).toMatchObject({
+      id: identities.get(0)?.id,
+      importFingerprint: identities.get(0)?.fingerprint,
+    })
+    expect(planned[1]?.transaction.id).toBe('random')
+    expect(planned[1]?.transaction).not.toHaveProperty('importFingerprint')
   })
 })

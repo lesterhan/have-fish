@@ -1,8 +1,8 @@
 import { randomUUID } from 'node:crypto'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray } from 'drizzle-orm'
 import { accountsOwnedBy } from '../accounts/ownership-service'
 import { type DbTransaction, db } from '../db'
-import { groupCategories } from '../db/schema'
+import { groupCategories, transactions } from '../db/schema'
 import { type ErrorBody, errorBody, type Outcome } from '../errors'
 import { ensureSharedAccount } from '../fish-pie-accounts'
 import {
@@ -12,8 +12,11 @@ import {
 } from '../fish-pie-expense-service'
 import { inLedgerTransaction, writeTransaction } from '../ledger/write-service'
 import {
+  alreadyImported,
   checkRows,
+  type ImportIdentity,
   type ImportRowInput,
+  identify,
   namedAccountIds,
   planRows,
   type SplitContext,
@@ -38,7 +41,10 @@ type Group = NonNullable<Awaited<ReturnType<typeof fetchGroupWithMembers>>>
  *    category of that group.
  * 2. Each row names the accounts its kind needs (`checkRows`).
  * 3. Every account named is the caller's.
- * 4. In one database transaction: find or create what each split row needs from Fish Pie,
+ * 4. Rows the preview keyed get their fingerprint and id (`identify`); a row whose
+ *    fingerprint is already in the ledger is skipped, not refused, so importing the same
+ *    file twice writes nothing the second time (#282).
+ * 5. In one database transaction: find or create what each split row needs from Fish Pie,
  *    plan every row (`planRows`), then write each through the ledger service, which
  *    validates its legs, and create the group expense for a split row. A refused row rolls
  *    back every row, the clearing accounts included, and answers with its index.
@@ -51,7 +57,7 @@ export async function commitImport(
     rows: readonly ImportRowInput[]
     splits: readonly GroupSplitInput[]
   },
-): Promise<Outcome<{ created: number; fishPieExpenses: number }>> {
+): Promise<Outcome<{ created: number; skipped: number; fishPieExpenses: number }>> {
   const { accountId, defaultCurrency, rows, splits } = request
 
   const groups = await checkSplits(userId, splits, rows.length)
@@ -65,13 +71,16 @@ export async function commitImport(
     return { ok: false, failure: errorBody('ACCOUNTS_NOT_FOUND') }
   }
 
+  const identities = identify(checked.value, { accountId, userId })
+  const skip = alreadyImported(identities, await importedFingerprints(userId, identities))
+
   const written = await inLedgerTransaction(async (tx) => {
     // Loaded in row order, before any row is written; finding or creating the clearing
     // account is idempotent, so doing it up front gives each row what it got before.
     const splitContexts = new Map<number, SplitContext>()
     for (const [rowIndex, row] of checked.value.entries()) {
       const split = splitByRowIndex.get(rowIndex)
-      if (!split || !takesSplit(row)) continue
+      if (!split || !takesSplit(row) || skip.has(rowIndex)) continue
       splitContexts.set(rowIndex, await loadSplitContext(tx, userId, split, groups.value))
     }
 
@@ -79,6 +88,8 @@ export async function commitImport(
       accountId,
       defaultCurrency,
       splits: splitContexts,
+      identities,
+      skip,
       newId: randomUUID,
     })
 
@@ -102,11 +113,31 @@ export async function commitImport(
         fishPieExpenses++
       }
     }
-    return fishPieExpenses
+    return { created: plan.length, fishPieExpenses }
   })
   if (!written.ok) return written
 
-  return { ok: true, value: { created: rows.length, fishPieExpenses: written.value } }
+  return { ok: true, value: { ...written.value, skipped: skip.size } }
+}
+
+/**
+ * Which of these fingerprints the caller's ledger already holds, deleted transactions
+ * included: a deleted import's id is still taken, and re-importing its statement should not
+ * bring it back.
+ */
+async function importedFingerprints(
+  userId: string,
+  identities: ReadonlyMap<number, ImportIdentity>,
+): Promise<Set<string>> {
+  const fingerprints = [...identities.values()].map((i) => i.fingerprint)
+  if (fingerprints.length === 0) return new Set()
+  const rows = await db
+    .select({ fingerprint: transactions.importFingerprint })
+    .from(transactions)
+    .where(
+      and(eq(transactions.userId, userId), inArray(transactions.importFingerprint, fingerprints)),
+    )
+  return new Set(rows.flatMap((r) => (r.fingerprint ? [r.fingerprint] : [])))
 }
 
 /**

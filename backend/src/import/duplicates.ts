@@ -4,13 +4,23 @@
 // A match is a posting on the same account, in the same currency, dated within a day of
 // the row, whose amount is within 0.01 of the row's, ignoring sign. The currency matters:
 // 8,400 JPY and 8,400 CAD are not the same purchase.
+//
+// That is a guess, kept for manual entries and rows imported before fingerprints. A row the
+// preview keyed is also checked by fingerprint (`fingerprint.ts`), and a match there is
+// certain.
 
-/** A row to check, already resolved to the account it will post to. */
+/**
+ * A row to check, already resolved to the account it will post to. `importKey` and
+ * `importAccountId` (the row key from the preview, and the row's statement account as
+ * commit will decide it) are there when the certain check can run.
+ */
 export type DuplicateCheckRow = {
   accountId: string
   date: string
   amount: string
   currency: string
+  importKey?: string | undefined
+  importAccountId?: string | undefined
 }
 
 /** A posting already in the ledger, with its transaction's date. */

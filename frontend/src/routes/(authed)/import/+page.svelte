@@ -15,6 +15,7 @@
     type CsvParser,
     type CommitTransaction,
     type ExpenseGroup,
+    type ParsedTransaction,
     createCoverage,
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
@@ -425,8 +426,23 @@
 
       // Check for duplicates against the account each row will actually post to — the
       // same map commit reads, so the pre-check and the commit can't disagree. Transfer
-      // rows pass an empty accountId and are skipped by the backend.
+      // rows pass an empty accountId and are skipped by the guess.
+      //
+      // Every row also sends its key and the account its file is the statement of, for the
+      // certain check. That account follows the backend's `statementAccountId`: the account
+      // the money left, or for a same-currency transfer the one that received it.
+      const statementAccount = (tx: ParsedTransaction): string => {
+        const inCurrency = (currency: string) =>
+          fetched.isMultiCurrency
+            ? (currencyAccounts[currency.toUpperCase()] ?? '')
+            : fromAccountId
+        if (tx.isTransfer === true) return inCurrency(tx.sourceCurrency)
+        if (tx.isTransfer === 'same-currency') return inCurrency(tx.currency)
+        return inCurrency(tx.currency ?? defaultCurrency) || fromAccountId
+      }
       const checkRows = fetched.transactions.map((tx) => ({
+        importKey: tx.importKey,
+        importAccountId: statementAccount(tx),
         accountId:
           tx.isTransfer === false
             ? fetched.isMultiCurrency
@@ -722,66 +738,75 @@
     loading = true
     error = ''
     try {
-      const txs: CommitTransaction[] = preview.transactions.flatMap((tx, i) => {
-        const row = at(rowStates, i)
-        if (row.skipped) return []
-        if (tx.isTransfer === true) {
-          if (row.kind === 'spend' && !row.groupId) {
-            // Cross-currency spend — no target asset; the spend lands in the expense
-            // account, bridged through equity:conversions on both sides (story-1 shape).
-            // A *shared* spend (groupId set) falls through to the transfer-shaped row below,
-            // which the backend routes to the Fish Pie cross-currency path — that splits the
-            // target leg into group + payer-expense (no phantom asset either).
+      const txs: CommitTransaction[] = preview.transactions.flatMap(
+        (parsed, i) => {
+          const row = at(rowStates, i)
+          if (row.skipped) return []
+          // A row already imported for certain that the user chose to import anyway goes
+          // without its key, so the backend writes it as a new transaction instead of
+          // skipping it.
+          const tx = row.possibleDuplicate?.certain
+            ? { ...parsed, importKey: undefined }
+            : parsed
+          if (tx.isTransfer === true) {
+            if (row.kind === 'spend' && !row.groupId) {
+              // Cross-currency spend — no target asset; the spend lands in the expense
+              // account, bridged through equity:conversions on both sides (story-1 shape).
+              // A *shared* spend (groupId set) falls through to the transfer-shaped row below,
+              // which the backend routes to the Fish Pie cross-currency path — that splits the
+              // target leg into group + payer-expense (no phantom asset either).
+              return {
+                isTransfer: 'cross-currency-spend' as const,
+                date: tx.date,
+                description: tx.description,
+                sourceAmount: tx.sourceAmount,
+                sourceCurrency: tx.sourceCurrency,
+                targetAmount: tx.targetAmount,
+                targetCurrency: tx.targetCurrency,
+                feeAmount: tx.feeAmount,
+                feeCurrency: tx.feeCurrency,
+                sourceAccountId: accountForCurrency(tx.sourceCurrency),
+                expenseAccountId: row.expenseAccountId,
+                conversionAccountId: row.conversionAccountId,
+                feeAccountId: row.feeAccountId,
+                importKey: tx.importKey,
+              }
+            }
             return {
-              isTransfer: 'cross-currency-spend' as const,
-              date: tx.date,
-              description: tx.description,
-              sourceAmount: tx.sourceAmount,
-              sourceCurrency: tx.sourceCurrency,
-              targetAmount: tx.targetAmount,
-              targetCurrency: tx.targetCurrency,
-              feeAmount: tx.feeAmount,
-              feeCurrency: tx.feeCurrency,
+              ...tx,
               sourceAccountId: accountForCurrency(tx.sourceCurrency),
-              expenseAccountId: row.expenseAccountId,
+              targetAccountId: accountForCurrency(tx.targetCurrency),
               conversionAccountId: row.conversionAccountId,
               feeAccountId: row.feeAccountId,
             }
+          } else if (tx.isTransfer === 'same-currency') {
+            return {
+              ...tx,
+              targetAccountId: preview!.isMultiCurrency
+                ? accountForCurrency(tx.currency)
+                : fromAccountId,
+              sourceAccountId: row.offsetAccountId,
+              feeAccountId: row.feeAccountId,
+            }
+          } else {
+            const amount = importAsLiabilities
+              ? String(-parseFloat(tx.amount))
+              : tx.amount
+            return {
+              ...tx,
+              amount,
+              offsetAccountId: row.offsetAccountId,
+              ...(preview!.isMultiCurrency
+                ? {
+                    sourceAccountId: accountForCurrency(
+                      tx.currency ?? defaultCurrency,
+                    ),
+                  }
+                : {}),
+            }
           }
-          return {
-            ...tx,
-            sourceAccountId: accountForCurrency(tx.sourceCurrency),
-            targetAccountId: accountForCurrency(tx.targetCurrency),
-            conversionAccountId: row.conversionAccountId,
-            feeAccountId: row.feeAccountId,
-          }
-        } else if (tx.isTransfer === 'same-currency') {
-          return {
-            ...tx,
-            targetAccountId: preview!.isMultiCurrency
-              ? accountForCurrency(tx.currency)
-              : fromAccountId,
-            sourceAccountId: row.offsetAccountId,
-            feeAccountId: row.feeAccountId,
-          }
-        } else {
-          const amount = importAsLiabilities
-            ? String(-parseFloat(tx.amount))
-            : tx.amount
-          return {
-            ...tx,
-            amount,
-            offsetAccountId: row.offsetAccountId,
-            ...(preview!.isMultiCurrency
-              ? {
-                  sourceAccountId: accountForCurrency(
-                    tx.currency ?? defaultCurrency,
-                  ),
-                }
-              : {}),
-          }
-        }
-      })
+        },
+      )
       // Build groupSplits re-indexed to txs positions (skipped rows excluded from txs)
       const groupSplits: {
         rowIndex: number
@@ -811,7 +836,13 @@
         result.fishPieExpenses > 0
           ? `, ${result.fishPieExpenses} added to Fish Pie`
           : ''
-      toast.show(`${result.created} transaction(s) imported${fishPieMsg}`)
+      // Rows imported before are skipped by the backend even if the review missed them
+      // (#282), so say how many, or a short count reads as rows gone missing.
+      const skippedMsg =
+        result.skipped > 0 ? `, ${result.skipped} already imported` : ''
+      toast.show(
+        `${result.created} transaction(s) imported${fishPieMsg}${skippedMsg}`,
+      )
       refreshSidebar()
       confetti.trigger()
 
