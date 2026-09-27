@@ -1,6 +1,10 @@
 # Epic: hledger journal export — the portability escape hatch
 
-> **Status: SCOPED (2026-06-28).** Stories below are firm and sequenced. Cross-currency
+> **Status: stories 1–5 built (2026-09-27).** Stories 1–2 shipped earlier; 3–5 landed together
+> in #283, which replaced the June serializer PR (#152) rather than rebasing it, since the
+> resolver and the date column had both changed under it. What remains is wrapping the epic up.
+>
+> **Scoped (2026-06-28).** Stories below are firm and sequenced. Cross-currency
 > notation is resolved (see "Key finding"), so the skeleton's cost-notation story is gone.
 > Scope decisions locked with Lester: stored type column **in v1**, balance assertions
 > **skipped v1**, round-trip import **out of scope v1** (export-only escape hatch).
@@ -151,6 +155,22 @@ type column improves role classification). Story 3 has no UI and is pure/heavily
 Story 5 gates the epic as done.
 
 ## Open research (confirm before story 3)
+
+Answered by #283 against hledger 1.30.1, the version CI installs:
+
+- **Type syntax:** `account NAME  ; type:A`, the tag in the directive's comment. Every
+  account is declared, bare when it has no type, so `hledger check --strict` passes.
+- **`commodity` directives:** not needed for display (every amount has two decimals), but
+  strict mode wants each currency declared, so each gets `commodity 1000.00 CCY`.
+- **`--infer-costs`:** confirmed. With `equity:conversion` declared `type:V`, a conversion
+  with no fee prints as `-150.00 CAD @@ 16500.00 JPY`. With a fee leg the amounts don't
+  pair, so hledger leaves the legs as they are, which still balance.
+- **Not in the plan, found on the way:** hledger's format has no escaping. A newline in a
+  description or path could start a directive, a `;` starts a comment, a leading `*`, `!`
+  or `(` reads as status or code, two spaces end an account name, and a bracketed name is
+  a virtual posting. `export/journal.ts` handles each; the harness has a fixture for each.
+
+The original questions:
 
 - Exact `account ... type:X` directive syntax in current hledger.
 - ~~Whether subaccounts inherit type~~ — **settled by #412**: they do in hledger, and the app

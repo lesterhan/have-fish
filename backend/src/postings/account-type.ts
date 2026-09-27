@@ -51,6 +51,18 @@ export const STORED_ACCOUNT_TYPES: readonly StoredAccountType[] = [
   'conversion',
 ]
 
+// hledger's one-letter code for each stored type, as the journal export declares it
+// (`account assets:bank  ; type:A`). Income is hledger's Revenue.
+export const HLEDGER_TYPE_CODE: Readonly<Record<StoredAccountType, string>> = {
+  asset: 'A',
+  cash: 'C',
+  liability: 'L',
+  equity: 'E',
+  income: 'R',
+  expense: 'X',
+  conversion: 'V',
+}
+
 // Type guard for one of the five inferable types.
 export function isAccountType(value: unknown): value is AccountType {
   return typeof value === 'string' && (ACCOUNT_TYPES as readonly string[]).includes(value)

@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #450), and the layering the [domain-layer
+code as it is on `main` (last updated by #283), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -50,8 +50,8 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 | Layer | Target: does | Target: may import | Today |
 |---|---|---|---|
 | Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Most handlers also query, check and write directly. The transaction writes no longer do |
-| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `accounts/ownership-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `settings/settings-service`, `fish-pie-expense-service` |
-| Domain | Pure rules | Nothing stateful | About 1,300 lines already: `ledger/validate`, `import/*`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up}`, `currencies` |
+| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `accounts/ownership-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `settings/settings-service`, `export/export-service`, `fish-pie-expense-service` |
+| Domain | Pure rules | Nothing stateful | About 1,300 lines already: `ledger/validate`, `import/*`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up}`, `export/journal`, `currencies` |
 
 `routes/catch-up.ts` (29 lines) and `routes/reports.ts` already look like the target:
 the handler validates the query, calls a service, and answers. So does `routes/import.ts`
@@ -166,6 +166,7 @@ account, or a Fish Pie group and category.
 | `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates`. The backend's only outbound `fetch`, so nothing but a `YYYY-MM-DD` date reaches its URL |
 | `coverage.ts` | `/api/coverage`, plus `/api/accounts/:id/coverage` | Coverage assertions, per-account config (stored in `preferences.catchUp`, through `settings/settings-service`), reconcile, month view. Pure logic in `coverage/*` |
 | `catch-up.ts` | `/api/catch-up` | The catch-up coach's summary. `coverage/load` + `coverage/catch-up` |
+| `export.ts` | `/api/export` | `GET /journal?from=&to=`: the ledger as an hledger `.journal` download. `export/export-service` loads it, `export/journal` writes it |
 
 ### Fish Pie
 
@@ -255,6 +256,17 @@ whole by `writeSettings`, which locks the row between the read and the write so 
 requests changing different keys at once both land. Postgres used to merge it with its
 own JSON operators; the row lock (`FOR UPDATE`) is now the only Postgres-only step, and
 SQLite, which admits one writer at a time, needs nothing in its place.
+
+**The journal export** (`export/`, #283). Vision #2's escape hatch: `serializeJournal` writes
+a `commodity` directive per currency, an `account` directive per account (typed `; type:X`
+with the resolved type, bare when it has none), then every live transaction with its
+postings exactly as stored, no `@` prices. hledger has no escaping, so `journalAccountName`
+and `journalDescription` change the few characters its parser would misread: control
+characters (a line break could start an `include`), whitespace runs in a path, a leading
+bracket, a `;` in a description. `export/hledger.test.ts` is the acceptance test: it builds a
+multi-currency ledger through the API, hands the export to a real hledger, and requires
+`check --strict` to pass and every balance, date, description and type to match the app's.
+It skips where hledger is missing; CI installs hledger and sets `REQUIRE_HLEDGER=1`.
 
 **Deleting has two meanings.** A personal transaction's delete hard-deletes its postings.
 A Fish Pie delete soft-deletes them. Postings are also hard-deleted and re-inserted with

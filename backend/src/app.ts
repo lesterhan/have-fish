@@ -7,6 +7,7 @@ import { requestLogger } from './request-log'
 import accountsRoute from './routes/accounts'
 import catchUpRoute from './routes/catch-up'
 import coverageRoute, { accountCoverageRoute } from './routes/coverage'
+import exportRoute from './routes/export'
 import fishPieBalancesRoute from './routes/fish-pie-balances'
 import fishPieCategoriesRoute from './routes/fish-pie-categories'
 import fishPieExpensesRoute from './routes/fish-pie-expenses'
@@ -96,3 +97,4 @@ app.route('/api/fish-pie', fishPieBalancesRoute)
 app.route('/api/fish-pie', fishPieSettlementsRoute)
 app.route('/api/coverage', coverageRoute)
 app.route('/api/catch-up', catchUpRoute)
+app.route('/api/export', exportRoute)

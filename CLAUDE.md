@@ -64,7 +64,7 @@ have-fish/
 ```bash
 # Backend (run from /backend)
 bun run dev           # start dev server with hot reload
-bun test              # run all tests
+bun test              # run all tests (the hledger export test skips unless `hledger` is installed)
 bun run test:watch    # run tests in watch mode (use while developing)
 bun run db:generate       # generate SQL migrations from schema changes
 bun run db:migrate        # apply migrations to the dev database
