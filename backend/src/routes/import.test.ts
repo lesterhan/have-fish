@@ -1781,6 +1781,28 @@ describe("POST /api/import/commit — another user's accounts", () => {
     ...fields,
   })
 
+  // Commit doesn't check amounts before planning (#434). An unreadable one reaches the
+  // ledger check, which refuses it by name, rather than the cents arithmetic throwing a 500.
+  it('refuses a row whose amount is not a number, and writes nothing', async () => {
+    const own = await createAccount(alice, 'assets:chequing')
+    const food = await createAccount(alice, 'expenses:food')
+
+    const res = await commit(alice, {
+      accountId: own.id,
+      transactions: [
+        regular({ offsetAccountId: food.id }),
+        regular({ offsetAccountId: food.id, amount: 'abc' }),
+      ],
+    })
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toMatchObject({
+      error: 'AMOUNT_INVALID',
+      detail: { amount: 'abc', index: 1 },
+    })
+    expect(await postingsOn(own.id)).toHaveLength(0)
+  })
+
   it.each(['accountId', 'sourceAccountId', 'offsetAccountId'])(
     'rejects a regular row whose %s is not the caller’s, and writes nothing',
     async (field) => {

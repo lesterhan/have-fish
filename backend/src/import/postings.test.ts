@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'bun:test'
-import { buildCrossCurrencySpendPostings } from './postings'
+import { buildCrossCurrencySpendPostings, buildRegularPostings, inCents } from './postings'
 
 // Pure-function tests for the cross-currency SPEND builder — the canonical Wise example:
 // coffee bought for 360 CZK while holding no CZK, funded from USD (17.29 USD gross,
@@ -76,5 +76,41 @@ describe('buildCrossCurrencySpendPostings', () => {
         (p) => p.currency === 'CZK' && parseFloat(p.amount) > 0 && p.accountId !== 'coffee',
       ),
     ).toBe(false)
+  })
+})
+
+describe('inCents', () => {
+  it('does the arithmetic in whole cents', () => {
+    expect(inCents(['0.10', '0.20'], (a, b) => a + b)).toBe('0.30')
+    expect(inCents(['-17.29', '0.05'], (s, f) => -(s + f))).toBe('17.24')
+  })
+
+  it('writes the result as the two-place string a posting stores', () => {
+    expect(inCents(['360'], (t) => t)).toBe('360.00')
+    expect(inCents(['-5.5'], Math.abs)).toBe('5.50')
+  })
+
+  it('never writes a negative zero', () => {
+    expect(inCents(['0.00'], (a) => -a)).toBe('0.00')
+  })
+
+  // Commit doesn't check its amounts before planning (#434); the ledger check refuses them.
+  it("answers 'NaN' for an amount that isn't one, rather than throwing", () => {
+    expect(inCents(['abc'], (a) => -a)).toBe('NaN')
+    expect(inCents(['1.00', undefined], (a, b) => a + b)).toBe('NaN')
+    expect(inCents(['1,000.00'], (a) => a)).toBe('NaN')
+  })
+})
+
+describe('buildRegularPostings', () => {
+  it('offsets the amount exactly', () => {
+    const legs = buildRegularPostings({
+      transactionId: 'tx',
+      sourceAccountId: 'src',
+      amount: '-1234567.89',
+      offsetAccountId: 'food',
+      currency: 'CAD',
+    })
+    expect(legs.map((l) => l.amount)).toEqual(['-1234567.89', '1234567.89'])
   })
 })

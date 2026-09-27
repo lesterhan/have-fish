@@ -44,6 +44,28 @@ describe('findDuplicate', () => {
     ).toBeUndefined()
   })
 
+  // In floats, 18.41 against 18.40 is 0.010000000000001563 and was missed, while 42.51
+  // against 42.50 is 0.00999999999999801 and matched.
+  it('matches a cent apart whatever the digits', () => {
+    for (const [a, b] of [
+      ['18.41', '-18.40'],
+      ['-18.40', '-18.41'],
+      ['0.29', '-0.28'],
+      ['1000000.01', '-1000000.00'],
+    ] as const) {
+      const posting = [{ transactionId: 'p', date: '2026-03-10', amount: b, currency: 'CAD' }]
+      expect(
+        findDuplicate({ date: '2026-03-10', amount: a, currency: 'CAD' }, posting),
+      ).toBeDefined()
+    }
+  })
+
+  it('matches nothing for an amount that is not one', () => {
+    expect(
+      findDuplicate({ date: '2026-03-10', amount: 'abc', currency: 'CAD' }, existing),
+    ).toBeUndefined()
+  })
+
   it('never matches across currencies: 8,400 JPY is not 8,400 CAD', () => {
     expect(
       findDuplicate({ date: '2026-03-10', amount: '-8400.00', currency: 'CAD' }, existing),

@@ -1,8 +1,26 @@
+import * as money from '../money'
+
 export type PostingSpec = {
   transactionId: string
   accountId: string
   amount: string
   currency: string
+}
+
+/**
+ * `f` applied to `amounts` in integer cents, as the two-place string a posting stores.
+ *
+ * The amounts are the commit request's own, and nothing checks them before the plan is made
+ * (#434). So one that isn't an amount doesn't throw here: it makes the result `'NaN'`, as
+ * `parseFloat` arithmetic did, and the ledger check refuses the row with `AMOUNT_INVALID`.
+ */
+export function inCents(
+  amounts: readonly (string | undefined)[],
+  f: (...cents: number[]) => number,
+): string {
+  const cents = amounts.map((a) => (a === undefined ? null : money.parse(a)))
+  if (cents.some((c) => c === null)) return 'NaN'
+  return money.format(f(...(cents as number[])) + 0)
 }
 
 // Builds the 2 postings for a regular (non-Fish-Pie) import transaction.
@@ -14,7 +32,7 @@ export function buildRegularPostings(opts: {
   currency: string
 }): PostingSpec[] {
   const { transactionId, sourceAccountId, amount, offsetAccountId, currency } = opts
-  const negated = (-parseFloat(amount)).toFixed(2)
+  const negated = inCents([amount], (a) => -a)
   return [
     { transactionId, accountId: sourceAccountId, amount, currency },
     { transactionId, accountId: offsetAccountId, amount: negated, currency },
@@ -63,6 +81,8 @@ export function buildFishPieCrossCurrencyPostings(opts: {
     expenseAccountId,
     payerShareRatio,
   } = opts
+  // The payer's share is the Fish Pie split, which moves to cents with the Fish Pie clean-up
+  // (#451) so that the two agree.
   const tgt = parseFloat(targetAmount)
   const payerShare = (tgt * payerShareRatio).toFixed(2)
   const othersShare = (tgt - parseFloat(payerShare)).toFixed(2)
@@ -78,7 +98,7 @@ export function buildFishPieCrossCurrencyPostings(opts: {
     {
       transactionId,
       accountId: conversionAccountId,
-      amount: (-tgt).toFixed(2),
+      amount: inCents([targetAmount], (t) => -t),
       currency: targetCurrency,
     },
     { transactionId, accountId: groupAccountId, amount: othersShare, currency: targetCurrency },
@@ -140,7 +160,6 @@ export function buildCrossCurrencySpendPostings(opts: {
     feeCurrency,
     feeAccountId,
   } = opts
-  const tgt = parseFloat(targetAmount)
 
   const specs: PostingSpec[] = [
     { transactionId, accountId: sourceAccountId, amount: sourceAmount, currency: sourceCurrency },
@@ -153,13 +172,13 @@ export function buildCrossCurrencySpendPostings(opts: {
     {
       transactionId,
       accountId: conversionAccountId,
-      amount: (-tgt).toFixed(2),
+      amount: inCents([targetAmount], (t) => -t),
       currency: targetCurrency,
     },
     {
       transactionId,
       accountId: expenseAccountId,
-      amount: tgt.toFixed(2),
+      amount: inCents([targetAmount], (t) => t),
       currency: targetCurrency,
     },
   ]
@@ -204,15 +223,20 @@ export function buildFishPieSameCurrencyPostings(opts: {
     expenseAccountId,
     payerShareRatio,
   } = opts
+  // The split is Fish Pie's, and moves to cents with it (#451).
   const net = parseFloat(amount)
   const payerShare = (net * payerShareRatio).toFixed(2)
   const othersShare = (net - parseFloat(payerShare)).toFixed(2)
-  const gross = (net + parseFloat(feeAmount)).toFixed(2)
   return [
     { transactionId, accountId: groupAccountId, amount: othersShare, currency },
     { transactionId, accountId: expenseAccountId, amount: payerShare, currency },
     { transactionId, accountId: feeAccountId, amount: feeAmount, currency },
-    { transactionId, accountId: sourceAccountId, amount: `-${gross}`, currency },
+    {
+      transactionId,
+      accountId: sourceAccountId,
+      amount: inCents([amount, feeAmount], (n, f) => -(n + f)),
+      currency,
+    },
   ]
 }
 
@@ -246,6 +270,7 @@ export function buildFishPiePostings(opts: {
     payerShareRatio,
     currency,
   } = opts
+  // The split is Fish Pie's, and moves to cents with it (#451).
   const negated = -parseFloat(amount)
   const payerShare = (negated * payerShareRatio).toFixed(2)
   // othersShare is negated minus payerShare (remainder) so the three postings always sum to zero.
