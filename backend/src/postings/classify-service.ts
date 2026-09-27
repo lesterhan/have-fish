@@ -1,7 +1,7 @@
 import { and, eq, isNotNull, isNull } from 'drizzle-orm'
+import { CLEARING_PREFIX } from '../accounts/paths'
 import { db } from '../db'
 import { accounts, csvParsers, userSettings } from '../db/schema'
-import { CLEARING_PREFIX } from '../fish-pie-accounts'
 import {
   type AccountTypeContext,
   type AccountTypeRoots,

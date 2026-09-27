@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #283), and the layering the [domain-layer
+code as it is on `main` (last updated by #428), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -49,13 +49,14 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 
 | Layer | Target: does | Target: may import | Today |
 |---|---|---|---|
-| Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Most handlers also query, check and write directly. The transaction writes no longer do |
-| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `accounts/ownership-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `settings/settings-service`, `export/export-service`, `fish-pie-expense-service` |
-| Domain | Pure rules | Nothing stateful | About 1,300 lines already: `ledger/validate`, `import/*`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up}`, `export/journal`, `currencies` |
+| Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Many handlers still query, check and write directly. Transactions, import, accounts and coverage no longer do |
+| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `accounts/{account,balance,action-required,ownership}-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `export/export-service`, `fish-pie-expense-service` |
+| Domain | Pure rules | Nothing stateful | `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `export/journal`, `currencies` |
 
 `routes/catch-up.ts` (29 lines) and `routes/reports.ts` already look like the target:
 the handler validates the query, calls a service, and answers. So does `routes/import.ts`
-since #427, which was the furthest from it at 941 lines.
+since #427, which was the furthest from it at 941 lines, and `routes/accounts.ts` and
+`routes/coverage.ts` since #428.
 
 ## Route map
 
@@ -64,21 +65,33 @@ actually live; "writes" lists the tables touched.
 
 ### Personal ledger
 
-**`accounts.ts`** — `/api/accounts` (688 lines)
+**`accounts.ts`** — `/api/accounts` (208 lines). The handlers parse and answer; the work
+is in `accounts/` (#428).
 
 | Endpoint | Does | Rules | Writes |
 |---|---|---|---|
-| `GET /` | Every active account, with its resolved type | `account-type` | — |
-| `GET /balances` | Balance-bearing accounts with per-currency sums | Handler + `account-type-sql`; `money.sum` | — |
-| `GET /posting-counts` | Entries and last activity per account | Handler (SQL) | — |
-| `GET /:id/balance` | One account's balance as of a date | Handler; `money.sum` | — |
-| `GET /action-required-summary` | Per account: uncategorized plus malformed-FX counts | Handler (raw SQL, #280) + `heal-service` | — |
-| `GET /:id/action-required` | The same, for one account, with ids | Same | — |
-| `GET /:id` | One account with resolved, inferred and inherited type | `account-type` | — |
-| `POST /` | Create an account | Handler: path shape, not in the receivable namespace | `accounts` |
-| `POST /rename` | Rewrite a path prefix across a subtree | Handler: collision and namespace checks | `accounts` |
+| `GET /` | Every active account, with its resolved type | `account-service` → `account-type` | — |
+| `GET /balances` | Balance-bearing accounts with per-currency sums | `readBalanceSelection` and `selects` (`balances`), `balance-service` with `account-type-sql`; `sumByCurrency` | — |
+| `GET /posting-counts` | Entries and last activity per account | `balance-service` (SQL) | — |
+| `GET /:id/balance` | One account's balance as of a date | `balance-service`: `accountsOwnedBy`, `sumByCurrency` | — |
+| `GET /action-required-summary` | Per account: uncategorized plus malformed-FX counts | `action-required-service` (raw SQL, #280) + `heal-service` | — |
+| `GET /:id/action-required` | The same, for one account, with ids | Same, after `accountsOwnedBy` | — |
+| `GET /:id` | One account with resolved, inferred and inherited type | `account-service` → `explainType` | — |
+| `POST /` | Create an account | Schema: path shape (`isValidPath`); `account-service`: not in the receivable namespace | `accounts` |
+| `POST /rename` | Rewrite a path prefix across a subtree | `planRename` (`paths`): same path, valid target, receivable namespace, no match, collision; `account-service` writes it in one transaction | `accounts` |
 | `PATCH /:id` | Name, currency, type override | Schema | `accounts` |
-| `DELETE /:id` | Soft-delete one nothing depends on | Handler: no entries, not a default, not receivable | `accounts` |
+| `DELETE /:id` | Soft-delete one nothing depends on | `account-service`: no entries, not a default, not receivable | `accounts` |
+
+**How the rename works.** Paths are materialized: every account row holds its whole path,
+and a parent with no row of its own exists only as a prefix of its children's paths. So
+renaming `expenses:food` to `expenses:eating` rewrites the prefix on every row at or under
+it, and a virtual parent renames by way of its children. `planRename` gets the user's active
+accounts and returns the new path for each moved row, or the failure. It matches in code
+rather than with SQL `LIKE`, so `_` and `%` in a path are plain characters, and the match is
+anchored on the colon, so `expenses:foodcourt` stays put. A new path already held by an
+account *outside* the moved subtree is refused, since that would be a merge; one held
+*inside* it is fine, because that row moves too. Postings don't change: they point at
+`accounts.id`, which a rename never touches.
 
 **`transactions.ts`** — `/api/transactions` (437 lines). Every write goes through
 `ledger/write-service`; the handlers parse and shape the answer.
@@ -164,8 +177,8 @@ account, or a Fish Pie group and category.
 | `user-settings.ts` | `/api/user-settings` | The settings row: default accounts, type roots, preferred currency, a free-form `preferences` blob, shallow-merged. Writes through `settings/settings-service` |
 | `reports.ts` | `/api/reports` | Spending summary, monthly spend, FX pairs, converted totals. All through `spend-service` |
 | `fx-rates.ts` | `/api/fx-rates` | Rate for a date, or the latest within 7 days, cached in `fx_rates`. The backend's only outbound `fetch`, so nothing but a `YYYY-MM-DD` date reaches its URL |
-| `coverage.ts` | `/api/coverage`, plus `/api/accounts/:id/coverage` | Coverage assertions, per-account config (stored in `preferences.catchUp`, through `settings/settings-service`), reconcile, month view. Pure logic in `coverage/*` |
-| `catch-up.ts` | `/api/catch-up` | The catch-up coach's summary. `coverage/load` + `coverage/catch-up` |
+| `coverage.ts` | `/api/coverage`, plus `/api/accounts/:id/coverage` | Coverage assertions, per-account config (stored in `preferences.catchUp`), reconcile, month view. Handlers parse and answer; `coverage/coverage-service` does the work, `coverage/config-service` reads and writes the pins through `settings/settings-service`, and the rules are pure in `coverage/{horizon,intervals,months,reconcile}` (#428) |
+| `catch-up.ts` | `/api/catch-up` | The catch-up coach's summary. `coverage/load-service` + `coverage/catch-up` |
 | `export.ts` | `/api/export` | `GET /journal?from=&to=`: the ledger as an hledger `.journal` download. `export/export-service` loads it, `export/journal` writes it |
 
 ### Fish Pie
@@ -290,10 +303,10 @@ document moves it:
 | Rule | Copies | Agree? |
 |---|---|---|
 | Postings balance per currency | `ledger/validate.ts` once in the backend (exact, in cents; `imbalance` is the rule on its own, which heal's pre-repair check uses too); `LedgerEditModal` and `AddTransactionModal` through `transactions/balance.ts`, which sums in cents with `frontend/src/lib/ledger-money.ts`, a byte-for-byte copy of `money.ts` that a frontend test keeps identical | Yes, since #450. The client still skips an amount it can't read yet, where the server answers `AMOUNT_INVALID` |
-| An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
+| An account belongs to the caller | `accountsOwnedBy` (`accounts/ownership-service.ts`: transactions, import commit, parser defaults, the per-account balance and action-required reads, and coverage since #428), and a hand-written `select` where the row itself is needed (`account-service` read, update, delete) or in the files later stories cover | Same condition. Coverage's own `ownsAccount` is gone |
 | A date is `YYYY-MM-DD` | `calendar-date.ts` (`isCalendarDate`, also refusing days that don't exist) for transaction writes, the transaction routes and the balance-as-of date; hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Same shape; only `calendar-date.ts` refuses `2026-02-30` |
 | A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |
-| A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
+| A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`, `import/`, `accounts/`, `coverage/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
 | Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts, the import legs and the duplicate check, report totals, heal); `parseFloat` or `toFixed` still in Fish Pie, the import path's payer share included (#451). The converted spend total multiplies by a rate, so it stays a float product of cents, rounded once | No: Fish Pie is the last file |
 
 ## Pure modules that already exist
@@ -315,15 +328,17 @@ document moves it:
 | `postings/account-type.ts` | Resolve an account's type: override, then tagged ancestor, then path root | Accounts, roles, spend, coverage |
 | `postings/roles.ts` | Classify each posting's role inside its transaction | Transactions list, rules, spend |
 | `postings/heal.ts` | Detect and plan the repair of malformed cross-currency spends. A phantom leg matches its bridge leg exactly, in cents | `heal-service` |
-| `coverage/intervals.ts`, `months.ts`, `catch-up.ts` | Merge coverage spans, classify months, assemble catch-up state | Coverage and catch-up routes |
+| `accounts/paths.ts` | What a valid path is, the receivable namespace (`isClearingAccountPath`, re-exported by `fish-pie-accounts.ts`), and `planRename` | `account-service`, the accounts route's schema, classification, coverage |
+| `accounts/balances.ts` | Which accounts a balances view shows (`readBalanceSelection`, `selects`) and per-currency sums in cents | `balance-service` |
+| `coverage/intervals.ts`, `months.ts`, `catch-up.ts` | Merge coverage spans, classify months, assemble catch-up state | Coverage and catch-up services |
+| `coverage/horizon.ts` | The horizon, cycle inference, merging the config, and reading and changing the pins (`overridesFrom`, `configChangeFrom`, `applyConfigChange`) | Coverage, config and load services |
+| `coverage/reconcile.ts` | Where a reconcile's interval starts, and when it records nothing | `coverage-service` |
 | `settings/preferences.ts` | Changes to the `preferences` blob: a shallow merge, and one account's catch-up override set or removed | `settings/settings-service` |
 | `fish-pie-balance-service.ts` | Net balances per currency and the minimal set of transfers | Balances, overview |
 
-Two names mislead:
-
-- **`fish-pie-balance-service.ts` is pure**, despite the `-service` suffix.
-- **`coverage/horizon.ts` is pure except its last four functions**, which read settings and
-  intervals from the database.
+One name misleads: **`fish-pie-balance-service.ts` is pure**, despite the `-service`
+suffix (story 7). `coverage/horizon.ts` lost its four loaders to `coverage/config-service.ts`
+in #428, and `coverage/load.ts`, which always queried, is now `coverage/load-service.ts`.
 
 The epic settles one convention: a `-service` file touches the database, and nothing else
 does.

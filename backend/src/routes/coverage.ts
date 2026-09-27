@@ -1,34 +1,24 @@
-import { and, between, desc, eq, isNull, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
 import {
-  type CoverageConfigOverride,
-  horizon,
-  inferCycleFromIntervals,
-  isCycleDay,
-  isReleaseLag,
-  mergeConfig,
-  nextHorizon,
-  readCatchUpOverrides,
-  readIntervals,
-  resolveConfig,
-} from '../coverage/horizon'
-import { addDays, mergeCoverage } from '../coverage/intervals'
-import { loadCoverageAccounts, loadCoverageContext, todayUtc } from '../coverage/load'
-import { classifyMonths, monthsBetween } from '../coverage/months'
-import { db } from '../db'
-import { accountCoverage, accounts, postings, transactions } from '../db/schema'
-import { fail } from '../errors'
-import { withCatchUpOverride } from '../settings/preferences'
-import { writeSettings } from '../settings/settings-service'
-import { as, asField, parseBody } from '../validation'
+  assertCoverage,
+  monthCoverage,
+  readCoverage,
+  reconcileCoverage,
+  SOURCES,
+  updateCoverageConfig,
+  withdrawCoverage,
+} from '../coverage/coverage-service'
+import { configChangeFrom, isCycleDay, isReleaseLag } from '../coverage/horizon'
+import { loadCoverageAccounts, todayUtc } from '../coverage/load-service'
+import { monthsBetween } from '../coverage/months'
+import { fail, failWith } from '../errors'
+import { as, asField, defined, parseBody } from '../validation'
+
+// The handlers parse the request and answer; the rules and queries are in `coverage/`.
 
 const app = new Hono<{ Variables: AppVariables }>()
-
-// The four ways an assertion can come to exist. Provenance only — a range covered by an
-// 'empty' click counts exactly as much as one covered by an imported statement.
-const SOURCES = ['import', 'reconcile', 'manual', 'empty'] as const
 
 const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
@@ -55,16 +45,6 @@ const isoDate = z.string({ error: asField('FIELD_NOT_DATE') }).refine(isIsoDate,
   error: asField('FIELD_NOT_DATE'),
 })
 
-// Confirms the account exists and belongs to the caller. Coverage is an assertion about
-// someone's ledger, so writing one against an account you don't own must be impossible.
-async function ownsAccount(userId: string, accountId: string): Promise<boolean> {
-  const [owned] = await db
-    .select({ id: accounts.id })
-    .from(accounts)
-    .where(and(eq(accounts.id, accountId), eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  return owned != null
-}
-
 // The default span the coverage strip draws. Roughly a quarter — long enough to show a
 // statement rhythm, short enough that a day cell stays wide enough to hover.
 const DEFAULT_WINDOW_DAYS = 90
@@ -72,76 +52,6 @@ const DEFAULT_WINDOW_DAYS = 90
 // Two years. Past this the strip is unreadable at any cell width, and the transaction scan
 // stops being cheap.
 const MAX_WINDOW_DAYS = 730
-
-// Reads one account's live assertions, newest first, alongside the coalesced spans.
-//
-// Both shapes are returned because they answer different questions: the merged spans are what
-// "covered through D" is read off, while the raw rows are the only thing carrying the ids that
-// DELETE needs — a merged span has no id to undo.
-async function readCoverage(userId: string, accountId: string, windowDays: number) {
-  const rows = await db
-    .select({
-      id: accountCoverage.id,
-      fromDate: accountCoverage.fromDate,
-      throughDate: accountCoverage.throughDate,
-      source: accountCoverage.source,
-      note: accountCoverage.note,
-      createdAt: accountCoverage.createdAt,
-    })
-    .from(accountCoverage)
-    .where(
-      and(
-        eq(accountCoverage.userId, userId),
-        eq(accountCoverage.accountId, accountId),
-        isNull(accountCoverage.deletedAt),
-      ),
-    )
-    .orderBy(desc(accountCoverage.fromDate), desc(accountCoverage.throughDate))
-
-  // mergeCoverage returns ascending; the UI reads most-recent-first, same as every other listing.
-  const intervals = mergeCoverage(rows).reverse()
-
-  // The horizon travels with the coverage because the strip needs both to render: covered days
-  // and uncovered days are only distinguishable from not-yet-obtainable ones once you know
-  // where the account's data actually stops being available.
-  const { config, override, inferred } = await resolveConfig(userId, accountId)
-  const today = todayUtc()
-  const windowFrom = addDays(today, -(windowDays - 1))
-
-  // Distinct dates only — the strip draws one tick per day, not per transaction. Scoped to the
-  // window so an account with a decade of history doesn't ship a decade of dates to draw 90
-  // cells with.
-  const txnDateRows = await db
-    .selectDistinct({ date: transactions.date })
-    .from(postings)
-    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(
-      and(
-        eq(postings.accountId, accountId),
-        eq(transactions.userId, userId),
-        isNull(transactions.deletedAt),
-        isNull(postings.deletedAt),
-        between(transactions.date, windowFrom, today),
-      ),
-    )
-
-  return {
-    accountId,
-    intervals,
-    assertions: rows,
-    config,
-    // The raw pins behind `config`, and what inference alone would have said. `config` is
-    // post-merge and so cannot answer either question: which fields the user pinned, or what
-    // "back to automatic" would restore them to.
-    override,
-    inferred,
-    horizon: horizon(config, today),
-    nextHorizon: nextHorizon(config, today),
-    // The window the strip draws, and the days inside it that already have transactions.
-    window: { from: windowFrom, to: today, days: windowDays },
-    txnDates: txnDateRows.map((r) => r.date).sort(),
-  }
-}
 
 // Clamps ?days= to something drawable. A bad value falls back to the default rather than
 // erroring — the strip is a read-only view, and refusing to render it over a query string
@@ -196,14 +106,7 @@ const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/
 // current an account is; it says nothing about a hole behind it, and a month sitting in that
 // hole is unrecorded however recent the edge is.
 //
-// Scope is every tracked account, not the accounts with transactions in the month — an
-// account whose statement was never imported has no transactions in the month *because* it
-// was never imported, so classifying against what shows up would read every neglected month
-// as complete.
-// `assertedAccounts` is how many tracked accounts have ever had coverage asserted at all.
-// Zero means the coverage feature has never been used, in which case every month comes back
-// 'uncovered' — technically true and useless. A caller must say nothing about coverage rather
-// than tell a user who has never bootstrapped that none of their spending is recorded.
+// `monthCoverage` says what the scope is and what `assertedAccounts` is for.
 // 200: { today, assertedAccounts, months: [{ month, state, completeThrough, through, contributors, gaps }] }
 // 400: malformed or inverted range, or a span over 36 months
 app.get('/months', async (c) => {
@@ -219,25 +122,7 @@ app.get('/months', async (c) => {
     return fail(c, 'RANGE_TOO_LONG', { months: MAX_MONTHS })
   }
 
-  const today = todayUtc()
-  const { accounts: assembled, intervalsByAccount } = await loadCoverageContext(
-    c.get('userId'),
-    today,
-  )
-
-  const inputs = assembled.map((a) => ({
-    accountId: a.accountId,
-    path: a.path,
-    name: a.name,
-    intervals: intervalsByAccount.get(a.accountId) ?? [],
-    dormant: a.dormant,
-  }))
-
-  return c.json({
-    today,
-    assertedAccounts: inputs.filter((i) => i.intervals.length > 0).length,
-    months: classifyMonths(inputs, months, today),
-  })
+  return c.json(await monthCoverage(c.get('userId'), months))
 })
 
 // POST /api/coverage
@@ -263,24 +148,13 @@ const CreateCoverage = z
   })
 
 app.post('/', async (c) => {
-  const userId = c.get('userId')
   const parsed = await parseBody(c, CreateCoverage)
   if (!parsed.ok) return parsed.response
-  const { accountId, fromDate, throughDate, source, note } = parsed.data
+  const { note, ...assertion } = parsed.data
 
-  if (!(await ownsAccount(userId, accountId))) {
-    return fail(c, 'ACCOUNT_NOT_FOUND')
-  }
-
-  // No reconciliation against existing rows — overlaps and duplicates are allowed to pile up
-  // and are coalesced on read. Keeping writes dumb is what lets an import, a reconcile and a
-  // manual assertion all land without any of them needing to know about the others.
-  const [created] = await db
-    .insert(accountCoverage)
-    .values({ userId, accountId, fromDate, throughDate, source, note: note ?? null })
-    .returning()
-
-  return c.json(created, 201)
+  const result = await assertCoverage(c.get('userId'), { ...assertion, note: note ?? null })
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value, 201)
 })
 
 // DELETE /api/coverage/:id
@@ -288,21 +162,8 @@ app.post('/', async (c) => {
 // stays on the record even after the user takes it back.
 // 204: deleted, or already gone
 app.delete('/:id', async (c) => {
-  const userId = c.get('userId')
   const id = c.req.param('id')
-  if (!isUuid(id)) return c.body(null, 204)
-
-  await db
-    .update(accountCoverage)
-    .set({ deletedAt: new Date() })
-    .where(
-      and(
-        eq(accountCoverage.id, id),
-        eq(accountCoverage.userId, userId),
-        isNull(accountCoverage.deletedAt),
-      ),
-    )
-
+  if (isUuid(id)) await withdrawCoverage(c.get('userId'), id)
   return c.body(null, 204)
 })
 
@@ -314,9 +175,6 @@ app.delete('/:id', async (c) => {
 // account has no statement cycle" is expressed as exportMode: 'range' rather than
 // cycleDay: null.
 //
-// Stored under preferences.catchUp[accountId] rather than in a column on accounts, following
-// the same precedent as the other display preferences. Only the overrides live there; the
-// effective config is always inference with these laid on top.
 // 200: { accountId, override, config, horizon, nextHorizon }
 // 400: an invalid field value, or a cycle account with no cycle day to compute closes from
 // Each field is nullable — null clears the override — and optional, since a patch names
@@ -348,80 +206,24 @@ const ConfigPatch = z.object({
 
 // 404: account not found or not owned by the caller
 app.patch('/config/:accountId', async (c) => {
-  const userId = c.get('userId')
   const accountId = c.req.param('accountId')
-
   if (!isUuid(accountId)) return fail(c, 'ACCOUNT_NOT_FOUND')
 
   const parsed = await parseBody(c, ConfigPatch)
   if (!parsed.ok) return parsed.response
-  const body = parsed.data
+  const change = configChangeFrom(defined(parsed.data))
+  if (!change) return fail(c, 'NO_FIELDS_TO_UPDATE')
 
-  // Distinguishes "clear this override" (explicit null) from "leave it alone" (key absent).
-  // `.optional()` is what keeps those apart: an absent key is missing from `parsed.data`,
-  // an explicit null is present and null.
-  const cleared = new Set<keyof CoverageConfigOverride>()
-  const patch: CoverageConfigOverride = {}
-
-  for (const key of ['exportMode', 'cycleDay', 'releaseLag', 'tracked'] as const) {
-    if (!(key in body)) continue
-    if (body[key] === null) cleared.add(key)
-    else patch[key] = body[key] as never
-  }
-
-  if (cleared.size === 0 && Object.keys(patch).length === 0) {
-    return fail(c, 'NO_FIELDS_TO_UPDATE')
-  }
-
-  if (!(await ownsAccount(userId, accountId))) {
-    return fail(c, 'ACCOUNT_NOT_FOUND')
-  }
-
-  const [overrides, intervals] = await Promise.all([
-    readCatchUpOverrides(userId),
-    readIntervals(userId, accountId),
-  ])
-
-  const override: CoverageConfigOverride = { ...(overrides[accountId] ?? {}), ...patch }
-  for (const key of cleared) delete override[key]
-
-  const config = mergeConfig(inferCycleFromIntervals(intervals), override)
-
-  // Refuse the one combination that cannot be computed. horizon() falls back to today rather
-  // than inventing a boundary, but silently ignoring what the user asked for would leave them
-  // staring at a 'cycle' account behaving exactly like a 'range' one.
-  if (config.exportMode === 'cycle' && config.cycleDay == null) {
-    return fail(c, 'CYCLE_ACCOUNT_NEEDS_CYCLE_DAY')
-  }
-
-  await writeOverride(userId, accountId, override)
-
-  const today = todayUtc()
-  return c.json({
-    accountId,
-    override,
-    config,
-    horizon: horizon(config, today),
-    nextHorizon: nextHorizon(config, today),
-  })
+  const result = await updateCoverageConfig(c.get('userId'), accountId, change)
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
-
-// Writes one account's overrides into preferences.catchUp without disturbing anything else in
-// the blob: not the other accounts' overrides, and not the other features' keys.
-async function writeOverride(userId: string, accountId: string, override: CoverageConfigOverride) {
-  await writeSettings(userId, {}, (current) => withCatchUpOverride(current, accountId, override))
-}
 
 // POST /api/coverage/reconcile
 // Records that a reconcile proved this account complete through a date.
 //
-// Reconciling to D means the ledger agrees with the bank at D by construction — either the
-// balances already matched, or the adjustment posting made them match. That is the strongest
-// evidence of completeness the app can ever have, and until now it was computed and thrown
-// away.
-//
-// The start is derived rather than asked for: coverage continues from wherever it left off,
-// so the user is never made to answer a question the data already answers.
+// `coverage/reconcile.ts` has the rule: where the recorded interval starts, and when a
+// reconcile records nothing.
 // Body: { accountId, throughDate }
 // 200: { created: true, interval } — or { created: false, reason } when D adds nothing
 // 400: malformed date
@@ -429,65 +231,14 @@ async function writeOverride(userId: string, accountId: string, override: Covera
 const Reconcile = z.object({ accountId: uuid, throughDate: isoDate })
 
 app.post('/reconcile', async (c) => {
-  const userId = c.get('userId')
   const parsed = await parseBody(c, Reconcile)
   if (!parsed.ok) return parsed.response
   const { accountId, throughDate } = parsed.data
 
-  if (!(await ownsAccount(userId, accountId))) {
-    return fail(c, 'ACCOUNT_NOT_FOUND')
-  }
-
-  const merged = mergeCoverage(await readIntervals(userId, accountId))
-  const coveredThrough = merged.at(-1)?.throughDate ?? null
-
-  // Already covered past the reconcile date. The reconcile is still real evidence, but it
-  // asserts nothing the log does not already hold, and writing a backwards or zero-length
-  // interval to record that would only add noise.
-  if (coveredThrough !== null && coveredThrough >= throughDate) {
-    return c.json({ created: false, reason: 'already covered', coveredThrough })
-  }
-
-  const fromDate =
-    coveredThrough !== null
-      ? addDays(coveredThrough, 1)
-      : // No coverage at all: start at the account's first transaction, since everything before it
-        // is vacuously complete. With no transactions either, the reconcile speaks only for D.
-        ((await firstTransactionDate(userId, accountId)) ?? throughDate)
-
-  const [created] = await db
-    .insert(accountCoverage)
-    .values({
-      userId,
-      accountId,
-      // Guard rather than assume: a first transaction dated after the reconcile date would
-      // otherwise produce an inverted range the check constraint rejects.
-      fromDate: fromDate > throughDate ? throughDate : fromDate,
-      throughDate,
-      source: 'reconcile',
-      note: null,
-    })
-    .returning()
-
-  return c.json({ created: true, interval: created })
+  const result = await reconcileCoverage(c.get('userId'), accountId, throughDate)
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
-
-async function firstTransactionDate(userId: string, accountId: string): Promise<string | null> {
-  const [row] = await db
-    .select({ first: sql<string | null>`MIN(${transactions.date})` })
-    .from(postings)
-    .innerJoin(transactions, eq(postings.transactionId, transactions.id))
-    .where(
-      and(
-        eq(postings.accountId, accountId),
-        eq(transactions.userId, userId),
-        isNull(transactions.deletedAt),
-        isNull(postings.deletedAt),
-      ),
-    )
-
-  return row?.first ?? null
-}
 
 export default app
 
@@ -501,13 +252,11 @@ export const accountCoverageRoute = new Hono<{ Variables: AppVariables }>()
 //      coverage strip needs to draw a day cell in the right state
 // 404: account not found or not owned by the caller
 accountCoverageRoute.get('/:id/coverage', async (c) => {
-  const userId = c.get('userId')
   const accountId = c.req.param('id')
-
   if (!isUuid(accountId)) return fail(c, 'ACCOUNT_NOT_FOUND')
-  if (!(await ownsAccount(userId, accountId))) {
-    return fail(c, 'ACCOUNT_NOT_FOUND')
-  }
 
-  return c.json(await readCoverage(userId, accountId, windowDaysFrom(c.req.query('days'))))
+  const days = windowDaysFrom(c.req.query('days'))
+  const result = await readCoverage(c.get('userId'), accountId, days)
+  if (!result.ok) return failWith(c, result.failure)
+  return c.json(result.value)
 })
