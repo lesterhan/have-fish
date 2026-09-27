@@ -12,6 +12,8 @@
     type Transaction,
   } from '$lib/api'
   import { toISODate } from '$lib/date'
+  import { format } from '$lib/ledger-money'
+  import { balancesInCents, isBalanced } from './balance'
 
   interface Props {
     accounts: Account[]
@@ -66,21 +68,12 @@
     }
   })
 
-  // Per-currency balance — same logic as LedgerEditModal.
-  // Skip unparseable amounts while the user is still typing.
-  let balances = $derived.by(() => {
-    const map = new Map<string, number>()
-    for (const p of postings) {
-      const n = parseFloat(p.amount)
-      if (!isNaN(n)) map.set(p.currency, (map.get(p.currency) ?? 0) + n)
-    }
-    return map
-  })
+  // Per-currency balance in cents, by the server's rule (`balance.ts`), so the button is
+  // enabled exactly when the save would be accepted. Unreadable amounts are skipped while
+  // the user is still typing.
+  let balances = $derived(balancesInCents(postings))
 
-  let balanced = $derived(
-    balances.size > 0 &&
-      [...balances.values()].every((v) => Math.abs(v) < 0.005),
-  )
+  let balanced = $derived(balances.size > 0 && isBalanced(balances))
 
   let canSubmit = $derived(
     balanced && postings.every((p) => p.accountId !== '') && !submitting,
@@ -260,9 +253,9 @@
       {:else}
         <div class="balance-errors">
           {#each [...balances.entries()] as [cur, total]}
-            {#if Math.abs(total) >= 0.005}
+            {#if total !== 0}
               <span class="balance-bad" title="Balance must be zero">
-                {total > 0 ? '+' : ''}{total.toFixed(2)}
+                {total > 0 ? '+' : ''}{format(total)}
                 {cur}
               </span>
             {/if}

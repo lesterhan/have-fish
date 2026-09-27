@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #449), and the layering the [domain-layer
+code as it is on `main` (last updated by #450), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -277,7 +277,7 @@ document moves it:
 
 | Rule | Copies | Agree? |
 |---|---|---|
-| Postings balance per currency | `ledger/validate.ts` once in the backend (exact, in cents; `imbalance` is the rule on its own, which heal's pre-repair check uses too); `LedgerEditModal` and `AddTransactionModal` in the frontend (floats, tolerance 0.005) | No: the frontend passes some legs the backend refuses (#450) |
+| Postings balance per currency | `ledger/validate.ts` once in the backend (exact, in cents; `imbalance` is the rule on its own, which heal's pre-repair check uses too); `LedgerEditModal` and `AddTransactionModal` through `transactions/balance.ts`, which sums in cents with `frontend/src/lib/ledger-money.ts`, a byte-for-byte copy of `money.ts` that a frontend test keeps identical | Yes, since #450. The client still skips an amount it can't read yet, where the server answers `AMOUNT_INVALID` |
 | An account belongs to the caller | More than 20 queries in three shapes: `accountsOwnedBy` (`accounts/ownership-service.ts`, used by transactions, import commit and parser defaults), `ownsAccount` (coverage), and a hand-written `select` elsewhere | Same condition, but nothing shares it |
 | A date is `YYYY-MM-DD` | `calendar-date.ts` (`isCalendarDate`, also refusing days that don't exist) for transaction writes, the transaction routes and the balance-as-of date; hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Same shape; only `calendar-date.ts` refuses `2026-02-30` |
 | A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |

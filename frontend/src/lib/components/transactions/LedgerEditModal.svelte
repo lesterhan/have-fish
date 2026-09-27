@@ -19,6 +19,8 @@
     type Posting as SavedPosting,
   } from '$lib/api'
   import { planLedgerSave, postingsChanged } from './ledgerSave'
+  import { format } from '$lib/ledger-money'
+  import { balancesInCents, isBalanced } from './balance'
 
   interface Posting {
     id: string
@@ -114,19 +116,11 @@
   // Active (non-deleted) postings
   let activePostings = $derived(localPostings.filter((p) => !p.markedForDelete))
 
-  // Per-currency balance (active postings only; skip unparseable amounts while typing)
-  let balances = $derived.by(() => {
-    const map = new Map<string, number>()
-    for (const p of activePostings) {
-      const n = parseFloat(p.amount)
-      if (!isNaN(n)) map.set(p.currency, (map.get(p.currency) ?? 0) + n)
-    }
-    return map
-  })
+  // Per-currency balance in cents over the active postings, by the server's rule
+  // (`balance.ts`). Unreadable amounts are skipped while the user is still typing.
+  let balances = $derived(balancesInCents(activePostings))
 
-  let balanced = $derived(
-    [...balances.values()].every((v) => Math.abs(v) < 0.005),
-  )
+  let balanced = $derived(isBalanced(balances))
 
   // Dirty: any field differs from the snapshot
   let dirty = $derived(
@@ -414,9 +408,9 @@
       {:else}
         <div class="balance-errors">
           {#each [...balances.entries()] as [currency, total]}
-            {#if Math.abs(total) >= 0.005}
+            {#if total !== 0}
               <span class="balance-bad" title="Balance must be zero">
-                {total > 0 ? '+' : ''}{total.toFixed(2)}
+                {total > 0 ? '+' : ''}{format(total)}
                 {currency}
               </span>
             {/if}
