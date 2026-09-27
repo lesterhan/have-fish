@@ -224,7 +224,7 @@ document moves it:
 | A date is `YYYY-MM-DD` | The `isoDate` schema in `transactions.ts`, and hand-written regexes in the `GET /api/transactions` query, `reports.ts`, `fx-rates.ts`, and the Fish Pie expense and settlement routes | Yes, but in separate places |
 | A currency is supported | `isValidCurrency` in `ledger/validate` (so every posting written, import and Fish Pie included), accounts, user-settings and fx-rates | Yes, for postings |
 | A failure returned as a value | `Outcome<T>` in `errors.ts` (`ledger/`); `parseBody` → `{ ok, response }`; `heal-service` → `{ ok, failure }`; `rules.ts` → `{ columns } \| { failure }` | `Outcome` is the one the epic chose. `heal-service` and `rules.ts` move to it when their stories touch them; `parseBody` stays, being route-level |
-| Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints); `parseFloat` or `toFixed` still in import (#448, #447), reports and heal (#449), and Fish Pie (#451) | No: moving file by file |
+| Money arithmetic | `money.ts` in integer cents (the ledger check, both balance endpoints, reading CSV amounts); `parseFloat` or `toFixed` still in import arithmetic (#448), reports and heal (#449), and Fish Pie (#451) | No: moving file by file |
 
 ## Pure modules that already exist
 
@@ -233,7 +233,7 @@ document moves it:
 | `currencies.ts` | The supported currency set and `isValidCurrency` | Routes that accept a currency |
 | `money.ts` | Amounts in integer cents: `parse`, `format`, `add`, `sub`, `neg`, `sum`, `splitByWeights` | `ledger/validate`, the balance endpoints |
 | `import/csv-parser.ts` | Delimiter detection, CSV parsing, header fingerprint | Import preview |
-| `import/dynamic-parser.ts` | Build a row parser from a saved column mapping | Import preview |
+| `import/dynamic-parser.ts` | Build a row parser from a saved column mapping; amounts read by `money.parse`, so a cell that is not a plain decimal is a row error | Import preview |
 | `import/merchant.ts` | Merchant stem: strip terminal numbers, dates, references | Preview grouping, rule mining |
 | `ledger/validate.ts` | Whether postings may be written as one transaction: count, currency, balance per currency | `ledger/write-service` |
 | `import/postings.ts` | The legs for each import row kind, Fish Pie variants included | Import commit |
