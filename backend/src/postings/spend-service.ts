@@ -20,7 +20,7 @@ export type SpendRow = {
   transactionId: string
   accountId: string
   path: string
-  date: Date
+  date: string
   amount: string
   currency: string
 }
@@ -49,7 +49,7 @@ function asRolePosting(row: { accountId: string; path: string; type: string | nu
 export async function spendRows(
   userId: string,
   settings: ClassifySettings,
-  opts: { from?: Date; to?: Date; prefix?: string | null } = {},
+  opts: { from?: string; to?: string; prefix?: string | null } = {},
 ): Promise<SpendRow[]> {
   const rows = await db
     .select({

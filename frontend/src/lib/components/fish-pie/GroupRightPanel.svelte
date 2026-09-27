@@ -1,4 +1,5 @@
 <script lang="ts">
+  import { toISODate } from '$lib/date'
   import type {
     GroupExpense,
     GroupSettlement,
@@ -163,7 +164,7 @@
 
   const editDateLabel = $derived.by(() => {
     if (!editDate) return ''
-    const today = new Date().toISOString().slice(0, 10)
+    const today = toISODate(new Date())
     return editDate === today
       ? 'Today'
       : new Date(editDate + 'T00:00:00').toLocaleDateString('en-CA', {

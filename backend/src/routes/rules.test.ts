@@ -20,7 +20,10 @@ async function seedTransaction(
   expenseAccountId: string,
 ) {
   const tx = returnedRow(
-    await db.insert(transactions).values({ userId, date: new Date(), description }).returning(),
+    await db
+      .insert(transactions)
+      .values({ userId, date: new Date().toISOString().slice(0, 10), description })
+      .returning(),
     'insert transactions',
   )
   await db.insert(postings).values([
@@ -38,7 +41,10 @@ async function seedMultiPostingTransaction(
   legs: { accountId: string; amount: string; currency: string }[],
 ) {
   const tx = returnedRow(
-    await db.insert(transactions).values({ userId, date: new Date(), description }).returning(),
+    await db
+      .insert(transactions)
+      .values({ userId, date: new Date().toISOString().slice(0, 10), description })
+      .returning(),
     'insert transactions',
   )
   await db.insert(postings).values(legs.map((l) => ({ transactionId: tx.id, ...l })))

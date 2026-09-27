@@ -15,6 +15,7 @@
 import { errorMessage } from './copy/errors'
 import type { AccountCoverageStatus, CoverageState } from './coverage'
 import { bumpCoverage } from './coverageRefresh'
+import { toISODate } from './date'
 import type { MonthCoverage } from './monthCoverage'
 
 export type { AccountCoverageStatus, CoverageState } from './coverage'
@@ -423,7 +424,7 @@ export async function exportJournal(opts: { from?: string; to?: string } = {}): 
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `have-fish-${new Date().toISOString().slice(0, 10)}.journal`
+  a.download = `have-fish-${toISODate(new Date())}.journal`
   document.body.appendChild(a)
   a.click()
   a.remove()

@@ -160,12 +160,12 @@ export async function loadCoverageContext(
     if (gapStart < since) since = gapStart
   }
 
-  // Dates are stored as UTC timestamps; ::date truncates to the calendar day the ledger means.
+  // Dates are calendar days already (`YYYY-MM-DD` text, #277), so they group as they are.
   // DISTINCT on the transaction so a transfer with two legs in the same account counts once.
   const txnRows = await db
     .select({
       accountId: postings.accountId,
-      date: sql<string>`to_char(${transactions.date}::date, 'YYYY-MM-DD')`,
+      date: transactions.date,
       count: sql<number>`COUNT(DISTINCT ${transactions.id})::int`,
     })
     .from(postings)
@@ -175,10 +175,10 @@ export async function loadCoverageContext(
         eq(transactions.userId, userId),
         isNull(transactions.deletedAt),
         isNull(postings.deletedAt),
-        gte(transactions.date, new Date(`${since}T00:00:00Z`)),
+        gte(transactions.date, since),
       ),
     )
-    .groupBy(postings.accountId, sql`${transactions.date}::date`)
+    .groupBy(postings.accountId, transactions.date)
 
   // The full history span, deliberately unbounded by the lookback above: bootstrap proposes
   // an account's whole existing ledger as its starting line, and that history routinely
@@ -187,8 +187,8 @@ export async function loadCoverageContext(
     ? await db
         .select({
           accountId: postings.accountId,
-          first: sql<string>`to_char(MIN(${transactions.date})::date, 'YYYY-MM-DD')`,
-          last: sql<string>`to_char(MAX(${transactions.date})::date, 'YYYY-MM-DD')`,
+          first: sql<string>`MIN(${transactions.date})`,
+          last: sql<string>`MAX(${transactions.date})`,
         })
         .from(postings)
         .innerJoin(transactions, eq(postings.transactionId, transactions.id))

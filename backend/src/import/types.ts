@@ -5,7 +5,7 @@
 // isTransfer: false — a standard single-currency row
 export type RegularParsedTransaction = {
   isTransfer: false
-  date: string // ISO 8601 string
+  date: string // YYYY-MM-DD, the day the bank wrote (calendar-date.ts)
   amount: string // signed numeric string, e.g. "-50.00" or "1200.00"
   description?: string | undefined
   currency?: string | undefined // if absent, the import caller supplies a default

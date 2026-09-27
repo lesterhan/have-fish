@@ -119,7 +119,9 @@
   }
 
   function dayLabel(date: string): string {
-    const d = new Date(date)
+    // Local midnight of the day: `new Date('2026-09-12')` is UTC midnight, which is the
+    // 11th anywhere west of UTC (#277).
+    const d = new Date(`${date.slice(0, 10)}T00:00:00`)
     return Number.isNaN(d.getTime())
       ? date
       : d.toLocaleDateString(undefined, {

@@ -167,7 +167,6 @@ export async function createMemberTransactionsInTx(
     categoryAccounts,
   } = opts
   const normalizedCurrency = currency.trim().toUpperCase()
-  const txDate = new Date(`${date}T00:00:00Z`)
 
   const sharedAccountIds = new Map<string, string>()
   for (const split of splits) {
@@ -197,7 +196,7 @@ export async function createMemberTransactionsInTx(
       currency: normalizedCurrency,
     })
     await writeTransaction(tx, split.userId, {
-      date: txDate,
+      date,
       description: description.trim(),
       groupExpenseId: expenseId,
       postings: legs,

@@ -2,6 +2,7 @@ import { and, eq, isNull, lte, not, or, type SQL, sql } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
+import { isCalendarDate } from '../calendar-date'
 import { isValidCurrency } from '../currencies'
 import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
@@ -234,7 +235,7 @@ app.get('/posting-counts', async (c) => {
     .select({
       accountId: accounts.id,
       count: sql<number>`COUNT(${transactions.id})::int`,
-      lastActivity: sql<string | null>`to_char(MAX(${transactions.date})::date, 'YYYY-MM-DD')`,
+      lastActivity: sql<string | null>`MAX(${transactions.date})`,
     })
     .from(accounts)
     .leftJoin(postings, and(eq(postings.accountId, accounts.id), isNull(postings.deletedAt)))
@@ -257,9 +258,9 @@ app.get('/:id/balance', async (c) => {
 
   if (!dateParam) return fail(c, 'FIELD_REQUIRED', { field: 'date' })
 
-  // Parse as a local date — treat the param as midnight UTC on that day.
-  const asOf = new Date(`${dateParam}T23:59:59.999Z`)
-  if (Number.isNaN(asOf.getTime())) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
+  // A calendar day, inclusive: every transaction dated on or before it.
+  if (!isCalendarDate(dateParam)) return fail(c, 'FIELD_NOT_DATE', { field: 'date' })
+  const asOf = dateParam
 
   // Verify the account belongs to this user
   const [account] = await db

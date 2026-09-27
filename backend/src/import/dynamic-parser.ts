@@ -1,3 +1,4 @@
+import { calendarDateFromText } from '../calendar-date'
 import * as money from '../money'
 import type {
   ColumnMapping,
@@ -45,10 +46,11 @@ export function buildParser(
 
       // --- date ---
       const rawDate = row[columnMapping.date]
-      // `?? ''` only so `new Date` has a string to reject; a column that is not in the row
-      // is caught by `!rawDate` below, and the error still reports what the row held.
-      const date = new Date(rawDate ?? '')
-      if (!rawDate || Number.isNaN(date.getTime())) {
+      // The calendar date the bank wrote, never shifted by this machine's time zone (#277,
+      // `calendarDateFromText`). A column that is not in the row reads as no date, and the
+      // error still reports what the row held.
+      const date = calendarDateFromText(rawDate ?? '')
+      if (!date) {
         errors.push({ row: rowNumber, reason: `invalid date: "${rawDate}"` })
         return
       }
@@ -79,7 +81,7 @@ export function buildParser(
 
           const tx: TransferParsedTransaction = {
             isTransfer: true,
-            date: date.toISOString(),
+            date,
             description,
             sourceAmount: money.format(-Math.abs(sourceCents)), // always negative (leaving source)
             sourceCurrency,
@@ -130,7 +132,7 @@ export function buildParser(
             }
             const tx: SameCurrencyTransferParsedTransaction = {
               isTransfer: 'same-currency',
-              date: date.toISOString(),
+              date,
               description,
               amount: money.format(Math.abs(targetCents)),
               feeAmount: money.format(Math.abs(feeCents)),
@@ -162,7 +164,7 @@ export function buildParser(
 
       const tx: RegularParsedTransaction = {
         isTransfer: false,
-        date: date.toISOString(),
+        date,
         amount: money.format(signedAmount),
         description,
       }

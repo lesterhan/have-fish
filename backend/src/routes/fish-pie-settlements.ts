@@ -120,7 +120,6 @@ app.post('/groups/:groupId/settlements', async (c) => {
 
   const amount = parseFloat(body.amount).toFixed(2)
   const currency = body.currency.trim().toUpperCase()
-  const txDate = new Date(`${body.date}T00:00:00Z`)
 
   const written = await inLedgerTransaction(async (tx) => {
     const settlement = returnedRow(
@@ -147,7 +146,7 @@ app.post('/groups/:groupId/settlements', async (c) => {
     const sharedAccountId = await ensureSharedAccount(fromUserId, group, tx)
 
     const payerTx = await writeTransaction(tx, fromUserId, {
-      date: txDate,
+      date,
       description: body.note?.trim() || `Settlement to ${group.name}`,
       postings: [
         { accountId: payerAccountId, amount: `-${amount}`, currency },
@@ -295,7 +294,6 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     if (!conversionAccountId) return fail(c, 'CONVERSION_ACCOUNT_REQUIRED')
   }
 
-  const txDate = new Date(`${body.date}T00:00:00Z`)
   const batchId = randomUUID()
 
   const written = await inLedgerTransaction(async (tx) => {
@@ -342,7 +340,7 @@ app.post('/groups/:groupId/settlements/batch', async (c) => {
     }
 
     const payerTx = await writeTransaction(tx, userId, {
-      date: txDate,
+      date,
       description: body.note?.trim() || `Settlement to ${group.name}`,
       postings: postingRows,
     })
@@ -433,10 +431,9 @@ app.post('/groups/:groupId/settlements/:settlementId/confirm', async (c) => {
     // credit receiverAccount (cash in): +amount
     // debit group:<group> (payment received, clears shared balance): -amount
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
-    const txDate = new Date(`${settlement.date}T00:00:00Z`)
 
     const receiverTx = await writeTransaction(tx, userId, {
-      date: txDate,
+      date: settlement.date,
       description: settlement.note || `Settlement from ${group.name}`,
       postings: [
         { accountId: receiverAccountId, amount: settlement.amount, currency: settlement.currency },
@@ -534,7 +531,6 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
   const written = await inLedgerTransaction(async (tx) => {
     const sharedAccountId = await ensureSharedAccount(userId, group, tx)
     // All rows in a batch share the payer's date; use the first.
-    const txDate = new Date(`${firstPending.date}T00:00:00Z`)
 
     const postingRows: PostingDraft[] = []
 
@@ -576,7 +572,7 @@ app.post('/groups/:groupId/settlements/batch/:batchId/confirm', async (c) => {
     }
 
     const receiverTx = await writeTransaction(tx, userId, {
-      date: txDate,
+      date: firstPending.date,
       description: firstPending.note || `Settlement from ${group.name}`,
       postings: postingRows,
     })

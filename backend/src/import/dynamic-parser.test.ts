@@ -71,7 +71,7 @@ describe('buildParser', () => {
 
     expect(result.errors).toHaveLength(0)
     expect(result.transactions).toHaveLength(1)
-    expect(regular(result).date).toBe(new Date('2026-02-15').toISOString())
+    expect(regular(result).date).toBe('2026-02-15')
     expect(regular(result).amount).toBe('-42.50')
     expect(regular(result).description).toBe('Grocery run')
     expect(regular(result).currency).toBe('CAD')

@@ -41,8 +41,8 @@ app.get('/spending-summary', async (c) => {
 
   const rows = await spendRows(userId, settings, {
     ...(prefix === null ? {} : { prefix }),
-    ...(from ? { from: new Date(from) } : {}),
-    ...(to ? { to: new Date(`${to}T23:59:59.999Z`) } : {}),
+    ...(from ? { from } : {}),
+    ...(to ? { to } : {}),
   })
 
   const totalByCurrency: Record<string, number> = {}
@@ -114,9 +114,11 @@ app.get('/monthly-spend', async (c) => {
   // Build the window: from the first day of (months) ago to end of current month
   const now = new Date()
   const windowStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() - months + 1, 1))
-  const windowEnd = new Date(
-    Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0, 23, 59, 59, 999),
-  )
+    .toISOString()
+    .slice(0, 10)
+  const windowEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
+    .toISOString()
+    .slice(0, 10)
 
   const settings = await loadClassifySettings(userId)
   const rows = await spendRows(userId, settings, { from: windowStart, to: windowEnd })
@@ -131,9 +133,7 @@ app.get('/monthly-spend', async (c) => {
 
   // Accumulate spend into the month buckets
   for (const row of rows) {
-    const d = new Date(row.date)
-    const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, '0')}`
-    const bucket = monthMap[key]
+    const bucket = monthMap[row.date.slice(0, 7)]
     // Rows outside the requested range land on a month with no bucket; skip them.
     if (!bucket) continue
     bucket[row.currency] = (bucket[row.currency] ?? 0) + parseFloat(row.amount)
@@ -168,15 +168,15 @@ app.get('/spending-fx-pairs', async (c) => {
 
   const settings = await loadClassifySettings(userId)
   const rows = await spendRows(userId, settings, {
-    from: new Date(from),
-    to: new Date(`${to}T23:59:59.999Z`),
+    from,
+    to,
   })
 
   // Deduplicate to unique (date, currency) pairs, excluding the target currency
   const seen = new Set<string>()
   const uniquePairs: { date: string; from: string }[] = []
   for (const row of rows) {
-    const dateStr = new Date(row.date).toISOString().slice(0, 10)
+    const dateStr = row.date
     if (row.currency === targetCurrency) continue
     const key = `${dateStr}:${row.currency}`
     if (!seen.has(key)) {
@@ -225,14 +225,14 @@ app.get('/spending-converted', async (c) => {
 
   const settings = await loadClassifySettings(userId)
   const rows = await spendRows(userId, settings, {
-    from: new Date(from),
-    to: new Date(`${to}T23:59:59.999Z`),
+    from,
+    to,
   })
 
   // Build a cache of rates needed: (date:fromCurrency) → rate string | null
   const rateCache = new Map<string, string | null>()
   for (const row of rows) {
-    const dateStr = new Date(row.date).toISOString().slice(0, 10)
+    const dateStr = row.date
     if (row.currency === targetCurrency) continue
     const key = `${dateStr}:${row.currency}`
     if (!rateCache.has(key)) {
@@ -262,7 +262,7 @@ app.get('/spending-converted', async (c) => {
     if (row.currency === targetCurrency) {
       total += amount
     } else {
-      const dateStr = new Date(row.date).toISOString().slice(0, 10)
+      const dateStr = row.date
       const rate = parseFloat(rateCache.get(`${dateStr}:${row.currency}`)!)
       total += amount * rate
     }

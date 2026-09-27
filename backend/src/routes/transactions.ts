@@ -2,6 +2,7 @@ import { and, desc, eq, gte, inArray, isNull, lte } from 'drizzle-orm'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
+import { isCalendarDate } from '../calendar-date'
 import { db } from '../db'
 import { accounts, expenseGroups, groupExpenses, postings, transactions } from '../db/schema'
 import { fail, failWith } from '../errors'
@@ -133,8 +134,8 @@ app.get('/', async (c) => {
       and(
         eq(transactions.userId, userId),
         isNull(transactions.deletedAt),
-        from ? gte(transactions.date, new Date(from)) : undefined,
-        to ? lte(transactions.date, new Date(`${to}T23:59:59.999Z`)) : undefined,
+        from ? gte(transactions.date, from) : undefined,
+        to ? lte(transactions.date, to) : undefined,
       ),
     )
     .orderBy(desc(transactions.date))
@@ -155,8 +156,8 @@ app.get('/', async (c) => {
       (
         await spendRows(userId, classifySettings, {
           ...(accountPath ? { prefix: accountPath } : {}),
-          ...(from ? { from: new Date(from) } : {}),
-          ...(to ? { to: new Date(`${to}T23:59:59.999Z`) } : {}),
+          ...(from ? { from } : {}),
+          ...(to ? { to } : {}),
         })
       ).map((r) => r.transactionId),
     )
@@ -266,9 +267,12 @@ app.get('/', async (c) => {
 // A calendar day, the shape the `date` column stores. The PATCH route below has always
 // checked this; the create routes reached the column with whatever arrived and let
 // Postgres raise, so this is the same rule applied in all three places.
+//
+// A day that doesn't exist (`2026-02-30`) is refused too: the column is text since #277, so
+// nothing downstream would catch it.
 const isoDate = z
   .string({ error: asField('FIELD_NOT_DATE') })
-  .regex(/^\d{4}-\d{2}-\d{2}$/, { error: asField('FIELD_NOT_DATE') })
+  .refine(isCalendarDate, { error: asField('FIELD_NOT_DATE') })
 
 // One posting as a request carries it.
 //
@@ -368,9 +372,9 @@ app.patch('/:id', async (c) => {
   if (!parsed.ok) return parsed.response
   const body = parsed.data
 
-  const updates: { description?: string | null; date?: Date } = {}
+  const updates: { description?: string | null; date?: string } = {}
   if ('description' in body) updates.description = body.description ?? null
-  if (body.date !== undefined) updates.date = new Date(body.date)
+  if (body.date !== undefined) updates.date = body.date
 
   if (Object.keys(updates).length === 0) {
     return fail(c, 'NO_FIELDS_TO_UPDATE')
