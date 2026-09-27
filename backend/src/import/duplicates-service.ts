@@ -9,6 +9,7 @@ import {
   transactions,
 } from '../db/schema'
 import { byAccount, candidateWindow, type DuplicateCheckRow, findDuplicate } from './duplicates'
+import { importFingerprint } from './fingerprint'
 
 export type PossibleDuplicate = {
   transactionId: string
@@ -18,15 +19,18 @@ export type PossibleDuplicate = {
   fishPieKind?: 'expense' | 'settlement'
   fishPieGroupId?: string
   fishPieGroupName?: string
+  /** The row's fingerprint is already in the ledger: not a guess (#282). */
+  certain?: true
 } | null
 
 /**
  * For each row, the transaction already in the caller's ledger that it probably
  * duplicates, or null. The answer lines up with `rows` by index.
  *
- * Rows on an account that isn't the caller's are never matched. A match entered through
- * Fish Pie carries its group, so the review can say "that's the lunch you split" rather
- * than show a bare possible duplicate.
+ * Rows on an account that isn't the caller's are never matched. A match by fingerprint is
+ * `certain` and wins over a guess. A match entered through Fish Pie carries its group, so
+ * the review can say "that's the lunch you split" rather than show a bare possible
+ * duplicate.
  */
 export async function findPossibleDuplicates(
   userId: string,
@@ -78,8 +82,77 @@ export async function findPossibleDuplicates(
     }
   }
 
+  await addCertainMatches(userId, rows, result)
   await addFishPieContext(result)
   return result
+}
+
+/**
+ * Replace the guess with the transaction itself for every row whose fingerprint the
+ * caller's ledger already holds. A deleted import counts: its id is taken, and commit skips
+ * the row. The amount shown is the transaction's own leg on the statement account while it
+ * has one, else the row's.
+ */
+async function addCertainMatches(
+  userId: string,
+  rows: readonly DuplicateCheckRow[],
+  result: PossibleDuplicate[],
+): Promise<void> {
+  const byFingerprint = new Map<string, number[]>()
+  for (const [i, row] of rows.entries()) {
+    if (!row.importKey || !row.importAccountId) continue
+    const fingerprint = importFingerprint(row.importAccountId, row.importKey)
+    byFingerprint.set(fingerprint, [...(byFingerprint.get(fingerprint) ?? []), i])
+  }
+  if (byFingerprint.size === 0) return
+
+  const imported = await db
+    .select({
+      id: transactions.id,
+      date: transactions.date,
+      fingerprint: transactions.importFingerprint,
+    })
+    .from(transactions)
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        inArray(transactions.importFingerprint, [...byFingerprint.keys()]),
+      ),
+    )
+  if (imported.length === 0) return
+
+  const legs = await db
+    .select({
+      transactionId: postings.transactionId,
+      accountId: postings.accountId,
+      amount: postings.amount,
+      currency: postings.currency,
+    })
+    .from(postings)
+    .where(
+      and(
+        inArray(
+          postings.transactionId,
+          imported.map((t) => t.id),
+        ),
+        isNull(postings.deletedAt),
+      ),
+    )
+
+  for (const tx of imported) {
+    for (const i of (tx.fingerprint && byFingerprint.get(tx.fingerprint)) || []) {
+      const row = rows[i]
+      if (!row) continue
+      const leg = legs.find((l) => l.transactionId === tx.id && l.accountId === row.importAccountId)
+      result[i] = {
+        transactionId: tx.id,
+        date: tx.date.toISOString().substring(0, 10),
+        amount: leg?.amount ?? row.amount,
+        currency: leg?.currency ?? row.currency.toUpperCase(),
+        certain: true,
+      }
+    }
+  }
 }
 
 /**

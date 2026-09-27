@@ -64,7 +64,10 @@ before Transaction documents in any batch, so the set is usually empty.
 
 **Identity.** Every id is a client-minted UUIDv4, except imported transactions. Those take
 a UUIDv5 of their import fingerprint (#282), so that two devices importing the same bank
-row mint the same id and converge without a merge.
+row mint the same id and converge without a merge. The fingerprint is a row key from the
+file bound to the statement account (#460, `backend/src/import/fingerprint.ts`); the id is
+scoped to the user by naming it with the user id under one fixed namespace, because user
+ids are not UUIDs. Both are content-derived, so neither is ever a relay column (#375).
 
 **Versions.** The version is a hybrid logical clock `(wallMs, counter, deviceId)`,
 compared in that order. `updatedAt` on the root is the wall-clock part, and it's the only

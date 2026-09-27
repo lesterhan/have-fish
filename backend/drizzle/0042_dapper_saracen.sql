@@ -1,0 +1,2 @@
+ALTER TABLE "transactions" ADD COLUMN "import_fingerprint" text;--> statement-breakpoint
+CREATE UNIQUE INDEX IF NOT EXISTS "transactions_user_import_fingerprint_idx" ON "transactions" USING btree ("user_id","import_fingerprint") WHERE "transactions"."import_fingerprint" is not null;

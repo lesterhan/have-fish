@@ -11,6 +11,7 @@ import {
   text,
   timestamp,
   unique,
+  uniqueIndex,
   uuid,
 } from 'drizzle-orm/pg-core'
 
@@ -102,24 +103,37 @@ export const accounts = pgTable('accounts', {
 
 // A transaction is a metadata envelope: a date, a description, and a set of postings.
 // The money details (amounts, currencies, accounts) live entirely in postings.
-export const transactions = pgTable('transactions', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  date: timestamp('date').notNull(),
-  description: text('description'),
-  // The group expense this transaction belongs to. The single, total forward link: set on
-  // every transaction in an expense — the auto-created member txs AND the payer's origin
-  // import tx (see groupExpenses.transactionId) — so "which expense?" is one lookup.
-  // Used by the read payload, the edit modal's "Remove from group", and DELETE to cascade.
-  // No DB FK intentional: groupExpenses already has a FK to transactions (transactionId),
-  // so adding a back-reference here would create a circular FK constraint.
-  groupExpenseId: uuid('group_expense_id'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: version(),
-  deletedAt: timestamp('deleted_at'),
-})
+export const transactions = pgTable(
+  'transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    date: timestamp('date').notNull(),
+    description: text('description'),
+    // The group expense this transaction belongs to. The single, total forward link: set on
+    // every transaction in an expense — the auto-created member txs AND the payer's origin
+    // import tx (see groupExpenses.transactionId) — so "which expense?" is one lookup.
+    // Used by the read payload, the edit modal's "Remove from group", and DELETE to cascade.
+    // No DB FK intentional: groupExpenses already has a FK to transactions (transactionId),
+    // so adding a back-reference here would create a circular FK constraint.
+    groupExpenseId: uuid('group_expense_id'),
+    // Which bank row an imported transaction came from (#282, import/fingerprint.ts), and the
+    // source of its id, so importing the same row twice is refused by the index below.
+    // Content-derived, so it is a local convergence device: it never leaves the device in the
+    // clear, and a sync relay never gets it as a column (#375). Null for everything else.
+    importFingerprint: text('import_fingerprint'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: version(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    uniqueIndex('transactions_user_import_fingerprint_idx')
+      .on(t.userId, t.importFingerprint)
+      .where(sql`${t.importFingerprint} is not null`),
+  ],
+)
 
 // A user-defined CSV parser configuration.
 // Stores the column fingerprint of a bank's CSV export and a mapping from

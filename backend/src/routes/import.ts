@@ -4,6 +4,7 @@ import type { AppVariables } from '../app'
 import { fail, failWith } from '../errors'
 import { commitImport } from '../import/commit-service'
 import { findPossibleDuplicates } from '../import/duplicates-service'
+import { IMPORT_KEY } from '../import/fingerprint'
 import { previewImport } from '../import/preview-service'
 import { amountLike, as, asField, parseBody, text } from '../validation'
 
@@ -47,7 +48,9 @@ app.post('/preview', async (c) => {
 //   group's id and name
 //
 // A match needs the same currency as well as the same account, ±1 day and |amount|
-// within 0.01: 8,400 JPY and 8,400 CAD are not the same purchase.
+// within 0.01: 8,400 JPY and 8,400 CAD are not the same purchase. A row that sends its
+// `importKey` and `importAccountId` is also checked by fingerprint, and a match there comes
+// back with `certain: true`, whatever the guess said.
 
 // A row the caller has already resolved to an account. An empty `accountId` is how the
 // frontend marks a transfer row, which this endpoint does not check — hence the empty
@@ -57,6 +60,13 @@ const DuplicateCheckRow = z.object({
   date: z.string({ error: asField('FIELD_NOT_DATE') }),
   amount: amountLike,
   currency: z.string(),
+  // For the certain check (#282): the row key the preview gave the row, and its statement
+  // account as commit will decide it (`statementAccountId` in import/commit-plan.ts).
+  importKey: z
+    .string({ error: asField('FIELD_INVALID') })
+    .regex(IMPORT_KEY, { error: asField('FIELD_INVALID') })
+    .optional(),
+  importAccountId: z.string({ error: asField('FIELD_NOT_STRING') }).optional(),
 })
 
 const CheckDuplicates = z.object({ rows: z.array(DuplicateCheckRow) })
@@ -86,7 +96,8 @@ app.post('/check-duplicates', async (c) => {
 //                        feeAmount?, feeCurrency?,
 //                        sourceAccountId, targetAccountId, conversionAccountId, feeAccountId }
 //
-// Response: { created: number, fishPieExpenses: number }
+// Response: { created: number, skipped: number, fishPieExpenses: number }
+//   skipped — rows whose fingerprint the ledger already holds (#282), not written
 
 // One imported row, with every field it can carry typed.
 //
@@ -117,6 +128,13 @@ const ImportRow = z.looseObject({
   conversionAccountId: z.string().optional(),
   expenseAccountId: z.string().optional(),
   feeAccountId: z.string().optional(),
+
+  // The row key the preview gave this row. Present, the row is fingerprinted and skipped
+  // if it was imported before; absent, it is written as a new transaction.
+  importKey: z
+    .string({ error: asField('FIELD_INVALID') })
+    .regex(IMPORT_KEY, { error: asField('FIELD_INVALID') })
+    .optional(),
 })
 
 const malformedSplit = as('GROUP_SPLIT_MALFORMED')

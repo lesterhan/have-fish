@@ -216,6 +216,8 @@ export type PossibleDuplicate = {
   fishPieKind?: 'expense' | 'settlement' | undefined
   fishPieGroupId?: string | undefined
   fishPieGroupName?: string | undefined
+  // Set when the row's fingerprint is already in the ledger: not a guess, the same bank row.
+  certain?: true | undefined
 } | null
 
 // Preview enrichment shared by every row kind that carries a description.
@@ -230,7 +232,12 @@ export type PossibleDuplicate = {
 // split suggestion below is shared, since both kinds commit through the same builders.
 // suggestedCategoryId is null on an uncategorized split rule, so its presence is not a
 // reliable test — check suggestedGroupId.
+//
+// importKey identifies the bank row within its file (backend import/fingerprint.ts). The
+// review sends it back with the duplicate check and the commit, which is how a row imported
+// before is recognised for certain. Opaque: never shown, logged or stored here.
 type MerchantFields = {
+  importKey?: string | undefined
   merchantKey?: string | undefined
   matchedRulePattern?: string | undefined
   suggestedGroupId?: string | undefined
@@ -317,6 +324,7 @@ export type CrossCurrencySpendCommitTransaction = {
   expenseAccountId: string
   conversionAccountId: string
   feeAccountId?: string | undefined
+  importKey?: string | undefined
 }
 
 export type CommitTransaction =
@@ -353,7 +361,15 @@ export async function importPreview(
 }
 
 export async function checkDuplicates(
-  rows: { accountId: string; date: string; amount: string; currency: string }[],
+  rows: {
+    accountId: string
+    date: string
+    amount: string
+    currency: string
+    // For the certain check: the row's key, and the account its file is the statement of.
+    importKey?: string | undefined
+    importAccountId?: string | undefined
+  }[],
 ): Promise<(PossibleDuplicate | null)[]> {
   const res = await fetch(`${BASE}/api/import/check-duplicates`, {
     method: 'POST',
@@ -377,7 +393,7 @@ export async function importCommit(body: {
         categoryId?: string | null | undefined
       }[]
     | undefined
-}): Promise<{ created: number; fishPieExpenses: number }> {
+}): Promise<{ created: number; skipped: number; fishPieExpenses: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
     credentials: 'include',

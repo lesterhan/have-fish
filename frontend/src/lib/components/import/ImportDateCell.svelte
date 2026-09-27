@@ -23,7 +23,7 @@
     <span
       class="indicator-icon warn"
       use:tooltip={{
-        label: `Possible duplicate: ${possibleDuplicate.date} ${possibleDuplicate.amount} ${possibleDuplicate.currency}`,
+        label: `${possibleDuplicate.certain ? 'Already imported' : 'Possible duplicate'}: ${possibleDuplicate.date} ${possibleDuplicate.amount} ${possibleDuplicate.currency}`,
         always: true,
       }}
     >
