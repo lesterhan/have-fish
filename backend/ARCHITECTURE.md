@@ -1,7 +1,7 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #425), and the layering the [domain-layer
+code as it is on `main` (last updated by #427), and the layering the [domain-layer
 epic](../planning/epics/domain-layer.md) (#423) is moving it towards. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
@@ -50,12 +50,12 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 | Layer | Target: does | Target: may import | Today |
 |---|---|---|---|
 | Route | Parse, read `userId`, call a service, shape the answer | Services, `validation`, `errors` | Most handlers also query, check and write directly. The transaction writes no longer do |
-| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `accounts/ownership-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `fish-pie-expense-service` |
+| Service | Load, check, write inside one transaction | Domain, `db`, schema | `ledger/write-service`, `import/{preview,duplicates,commit}-service`, `accounts/ownership-service`, `heal-service`, `classify-service`, `spend-service`, `coverage/load`, `fish-pie-expense-service` |
 | Domain | Pure rules | Nothing stateful | About 1,300 lines already: `ledger/validate`, `import/*`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up}`, `currencies` |
 
 `routes/catch-up.ts` (29 lines) and `routes/reports.ts` already look like the target:
-the handler validates the query, calls a service, and answers. `routes/import.ts` (941
-lines) is the furthest from it.
+the handler validates the query, calls a service, and answers. So does `routes/import.ts`
+since #427, which was the furthest from it at 941 lines.
 
 ## Route map
 
@@ -98,13 +98,37 @@ There is no endpoint that edits one posting. A transaction's legs change as a se
 through `POST /api/transactions/:id/postings`, which is what lets the balance be checked
 (#432 retired `/api/postings`).
 
-**`import.ts`** — `/api/import` (941 lines)
+**`import.ts`** — `/api/import` (157 lines). Each handler parses the request and calls one
+service in `import/`; each service loads what a pure module needs and calls it.
 
 | Endpoint | Does | Rules | Writes |
 |---|---|---|---|
-| `POST /preview` | Match the CSV to a saved parser, parse it, suggest accounts from rules | `csv-parser`, `dynamic-parser`, `merchant`; rule matching and own-transfer detection in the handler | — |
-| `POST /check-duplicates` | Possible duplicates per row, with Fish Pie context | Handler: ±1 day, same currency, amount within 0.01 | — |
-| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | Handler: every named account is the caller's (`accountsOwnedBy`), per-row-kind checks, group and category checks; `import/postings` builds the legs; `writeTransaction` validates each row | `transactions`, `postings`, Fish Pie tables |
+| `POST /preview` | Match the CSV to a saved parser, parse it, suggest accounts from rules | `preview-service` → `preview` (`matchParser`, `suggest`), `csv-parser`, `dynamic-parser`, `merchant` | — |
+| `POST /check-duplicates` | Possible duplicates per row, with Fish Pie context | `duplicates-service` → `duplicates` (`findDuplicate`: ±1 day, same currency, amount within 0.01) | — |
+| `POST /commit` | Write every row, and create Fish Pie expenses for split rows | `commit-service`: split checks, then `checkRows`, then `accountsOwnedBy`, then `planRows` inside `inLedgerTransaction`; `writeTransaction` validates each row | `transactions`, `postings`, Fish Pie tables |
+
+**How an import commit works.** The plan (`import/commit-plan.ts`) is two pure functions:
+
+- `checkRows`: does each row name the accounts its kind needs? A Fish Pie split needs
+  fewer, because the group's clearing account and the payer's expense account replace
+  the offset or target. The first row missing one is the answer.
+- `planRows`: the transaction each row becomes. Its legs come from `import/postings.ts`,
+  and a split row also carries the group expense to create.
+
+The service (`import/commit-service.ts`) does everything the plan can't:
+
+1. Check each split: row in range, the group exists, the caller is a member, the category
+   is active.
+2. `checkRows`, then check every named account is the caller's.
+3. Open one database transaction and find or create what each split row needs from Fish
+   Pie.
+4. Run `planRows`, and write each row with `writeTransaction` then its group expense.
+
+A refusal anywhere in step 4 rolls back every row. `takesSplit` says which row kinds a
+split changes; a cross-currency spend ignores its split, as it always has. Because the
+plan is pure, a rule like "a split degrades to a plain expense when Fish Pie is
+unreachable" (offline import, `00-direction.md`) is a change to `planRows`, not to the
+route.
 
 **`rules.ts`** — `/api/rules` (413 lines). Import rules: a pattern that suggests an
 account, or a Fish Pie group and category.
@@ -157,7 +181,7 @@ version (below) on its own.
 | Caller | Through | Deletes postings by |
 |---|---|---|
 | `routes/transactions.ts` (create, bulk, replace, delete) | `createTransaction`, `createTransactions`, `replacePostings`, `deleteTransaction` | Hard delete (replace, delete) |
-| `routes/import.ts` commit | `writeTransaction`, one per row, in one `inLedgerTransaction` | — |
+| `import/commit-service.ts` (`POST /api/import/commit`) | `writeTransaction`, one per row, in one `inLedgerTransaction` | — |
 | `fish-pie-expense-service.ts` | `writeTransaction`, one per member | — |
 | `routes/fish-pie-expenses.ts` | `inLedgerTransaction`; the payer's import transaction is rebalanced with `amendPostings`; edits and deletes use `retireTransactions` | Soft delete |
 | `routes/fish-pie-settlements.ts` | `writeTransaction` for the payer's and receiver's sides, in `inLedgerTransaction`; delete uses `retireTransactions` | Soft delete |
@@ -180,7 +204,7 @@ There are two ways in:
 - **A step in a larger unit of work** (import and Fish Pie). These build the legs
   themselves, inside a database transaction that also writes group expenses, settlements
   and clearing accounts:
-  - The route opens that transaction with `inLedgerTransaction`, and writes each
+  - The service or route that owns the unit opens it with `inLedgerTransaction`, and writes each
     transaction with `writeTransaction`, or with `amendPostings` to change some legs of an
     existing one.
   - A refusal from any of them rolls the whole unit back, and `inLedgerTransaction` hands it
@@ -236,7 +260,10 @@ document moves it:
 | `import/dynamic-parser.ts` | Build a row parser from a saved column mapping; amounts read by `money.parse`, so a cell that is not a plain decimal is a row error | Import preview |
 | `import/merchant.ts` | Merchant stem: strip terminal numbers, dates, references | Preview grouping, rule mining |
 | `ledger/validate.ts` | Whether postings may be written as one transaction: count, currency, balance per currency | `ledger/write-service` |
-| `import/postings.ts` | The legs for each import row kind, Fish Pie variants included | Import commit |
+| `import/postings.ts` | The legs for each import row kind, Fish Pie variants included | `import/commit-plan` |
+| `import/commit-plan.ts` | Which accounts each row kind needs; the transaction and group expense each row becomes | `import/commit-service` |
+| `import/preview.ts` | Which saved parser a file belongs to; the rule, merchant key and kind each row suggests | `import/preview-service` |
+| `import/duplicates.ts` | Whether a row is probably a posting already in the ledger | `import/duplicates-service` |
 | `postings/account-type.ts` | Resolve an account's type: override, then tagged ancestor, then path root | Accounts, roles, spend, coverage |
 | `postings/roles.ts` | Classify each posting's role inside its transaction | Transactions list, rules, spend |
 | `postings/heal.ts` | Detect and plan the repair of malformed cross-currency spends | `heal-service` |
