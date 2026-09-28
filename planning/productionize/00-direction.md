@@ -291,6 +291,13 @@ compiled binaries. PGlite was the alternative — zero schema change, but a WASM
 is the wrong place for novelty in the durability layer of a finance app, and it cannot
 run on React Native, which `L08` O2 needs.
 
+**Confirmed with numbers 2026-09-28 (#286): SQLite through libsql, not `bun:sqlite`.**
+`bun:sqlite` is synchronous, so a `db.transaction(async …)` commits at its first `await` and
+everything after runs outside it (#284). libsql keeps the existing async transactions
+atomic and embeds in a compiled binary with a one-line build plugin. Probe 1 (#285) ran the
+whole suite on it: 1156 of 1198 green untouched, 1196 after three one-line fixes, the two
+left being Postgres migration tests. What the port still owes is in #480, #481 and #482.
+
 ### D9 — Fish Pie v1 is gated on connecting to sync
 **Per `L03` option F1.**
 
@@ -480,7 +487,7 @@ applies to it, re-scoped and much smaller:
 | LQ1 | Is multi-currency settlement math stable under event reordering? | `L03` |
 | LQ2 | Optional passphrase encryption of the local file | `L02`, D6 |
 | — | Group end-to-end encryption: per-group keys, rotation, recovery. Deferred 2026-09-21 until a Fish Pie group exists outside the household | D6, `F4` |
-| — | Dialect for the hosted edition: one everywhere, split, or a dual matrix. Deferred 2026-09-21 to Probe 1; owed explicitly, not by default | D8, D9, `F5` |
+| — | Dialect for the hosted edition: one everywhere, split, or a dual matrix. Probe 1 ran 2026-09-28 and put the local app on SQLite (#286); whether the hosted edition follows or stays on Postgres is owed at gate G2 (#245), explicitly, not by default | D8, D9, `F5` |
 | Q1 | Target jurisdictions — Canada/US first, or accept EU users? | `03` |
 | Q3 | Stripe direct vs merchant of record | `05` |
 | Q5 | Sole proprietor or incorporate before holding others' data? | `08` |
