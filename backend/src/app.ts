@@ -1,8 +1,7 @@
 import { Hono } from 'hono'
 import { cors } from 'hono/cors'
 import { auth } from './auth'
-import { log } from './logging'
-import { requestLogger } from './request-log'
+import { requestLogger, unhandledError } from './request-log'
 import { fail } from './respond'
 import accountsRoute from './routes/accounts'
 import catchUpRoute from './routes/catch-up'
@@ -41,23 +40,7 @@ app.use(
 )
 app.use('*', requestLogger())
 
-// An unhandled throw otherwise reaches stderr as Hono's own unstructured dump, which is
-// the one request path the logger does not own — and the path that matters most when
-// something is wrong at 2am. The response is byte-for-byte what Hono's default returns, so
-// this changes what is written down and nothing a client sees.
-app.onError((err, c) => {
-  log.error(
-    {
-      route: c.req.routePath,
-      method: c.req.method,
-      // The message and stack, never the error object: a thrown object from a driver or a
-      // fetch can carry the request that caused it, and that request can carry a body.
-      err: { message: err.message, stack: err.stack },
-    },
-    'unhandled error',
-  )
-  return c.text('Internal Server Error', 500)
-})
+app.onError(unhandledError())
 
 app.get('/health', (c) => c.json({ status: 'ok' }))
 

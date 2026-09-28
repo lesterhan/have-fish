@@ -599,7 +599,8 @@ describe('rules — split targets', () => {
       try {
         await write()
       } catch (e) {
-        message = (e as Error).message
+        // Drizzle wraps the driver's error and keeps it on `cause`; the constraint is named there.
+        message = ((e as Error).cause as Error | undefined)?.message ?? ''
       }
       expect(message).toContain('import_rules_one_target')
     }
