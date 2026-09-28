@@ -83,23 +83,36 @@ export const verification = pgTable('verification', {
 // Examples: "assets:wise:eur", "expenses:food:restaurant", "liabilities:credit-card"
 //
 // The path is a colon-separated materialized path — it doubles as the hledger account name.
-// Path is unique per user (enforced at the application layer).
-export const accounts = pgTable('accounts', {
-  id: uuid('id').primaryKey().defaultRandom(),
-  userId: text('user_id')
-    .notNull()
-    .references(() => user.id, { onDelete: 'cascade' }),
-  path: text('path').notNull(),
-  name: text('name'), // optional human-friendly display name; falls back to path when null
-  defaultCurrency: text('default_currency'), // ISO 4217 code; pre-selects currency in quick entry
-  // hledger account type override: one of asset|liability|equity|income|expense, or null.
-  // Null = infer from the path root (see resolveAccountType). Stored value wins when present —
-  // the unlock for atypically-named roots that path inference can't classify.
-  type: text('type'),
-  createdAt: timestamp('created_at').notNull().defaultNow(),
-  updatedAt: version(),
-  deletedAt: timestamp('deleted_at'),
-})
+// It keeps the spelling it was typed with; `pathKey` is the same path in the form paths are
+// compared in (`pathKey()` in `accounts/paths.ts`, #480). Every lookup and every "at or under"
+// goes through the key, and an active path is unique per user by key. The service enforces that
+// with a readable refusal and a rule no index can express (one spelling per tree node); the
+// index is the backstop for a write that goes around it.
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    pathKey: text('path_key').notNull(),
+    name: text('name'), // optional human-friendly display name; falls back to path when null
+    defaultCurrency: text('default_currency'), // ISO 4217 code; pre-selects currency in quick entry
+    // hledger account type override: one of asset|liability|equity|income|expense, or null.
+    // Null = infer from the path root (see resolveAccountType). Stored value wins when present —
+    // the unlock for atypically-named roots that path inference can't classify.
+    type: text('type'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: version(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    uniqueIndex('accounts_user_path_key_idx')
+      .on(t.userId, t.pathKey)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+)
 
 // A transaction is a metadata envelope: a date, a description, and a set of postings.
 // The money details (amounts, currencies, accounts) live entirely in postings.

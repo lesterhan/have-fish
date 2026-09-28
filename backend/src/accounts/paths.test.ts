@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'bun:test'
-import { isClearingAccountPath, isValidPath, planRename } from './paths'
+import {
+  isClearingAccountPath,
+  isValidPath,
+  pathKey,
+  pathTakenBy,
+  planRename,
+  spellingConflicts,
+} from './paths'
 
 // No database: a rename is decided from the rows in hand. `routes/accounts.test.ts` covers
 // the route and the write around it.
@@ -123,6 +130,40 @@ describe('planRename', () => {
   })
 })
 
+describe('planRename, ignoring case', () => {
+  const wise = [
+    { id: 'wise', path: 'assets:wise' },
+    { id: 'eur', path: 'assets:wise:eur' },
+    { id: 'usd', path: 'assets:wise:usd' },
+    { id: 'bank', path: 'assets:Bank' },
+  ]
+
+  it('changes only the case of a node and everything under it', () => {
+    expect(planRename(wise, 'assets:wise', 'assets:Wise')).toEqual({
+      ok: true,
+      value: [
+        { id: 'wise', newPath: 'assets:Wise' },
+        { id: 'eur', newPath: 'assets:Wise:eur' },
+        { id: 'usd', newPath: 'assets:Wise:usd' },
+      ],
+    })
+  })
+
+  it('refuses a move onto a path that exists in another case, naming the one there', () => {
+    expect(failure(planRename(wise, 'assets:Bank', 'assets:WISE'))).toEqual({
+      error: 'RENAME_TARGET_EXISTS',
+      detail: { path: 'assets:wise' },
+    })
+  })
+
+  it('refuses re-casing one child, which would spell its parent two ways', () => {
+    expect(failure(planRename(wise, 'assets:wise:eur', 'assets:Wise:eur'))).toEqual({
+      error: 'RENAME_TARGET_EXISTS',
+      detail: { path: 'assets:wise' },
+    })
+  })
+})
+
 describe('isValidPath', () => {
   it('accepts colon-separated segments', () => {
     for (const path of ['assets', 'assets:bank', '储蓄:中国银行', 'a b:c']) {
@@ -143,5 +184,60 @@ describe('isClearingAccountPath', () => {
     expect(isClearingAccountPath('assets:receivable:trip')).toBe(true)
     expect(isClearingAccountPath('assets:receivables-ledger')).toBe(false)
     expect(isClearingAccountPath('assets')).toBe(false)
+  })
+
+  it('ignores case, like every other path comparison', () => {
+    expect(isClearingAccountPath('Assets:Receivable:trip')).toBe(true)
+  })
+})
+
+describe('pathKey', () => {
+  it('lowercases all of Unicode, not only ASCII', () => {
+    expect(pathKey('Assets:Wise:EUR')).toBe('assets:wise:eur')
+    // SQLite's lower() would leave the É, which is why the key is never computed in SQL.
+    expect(pathKey('Expenses:CAFÉ')).toBe('expenses:café')
+    expect(pathKey('储蓄:中国银行')).toBe('储蓄:中国银行')
+  })
+})
+
+describe('pathTakenBy', () => {
+  const existing = ['assets:wise', 'assets:wise:eur', 'expenses:café', 'expenses:food:groceries']
+
+  it('is the path already there when the new one equals it, ignoring case', () => {
+    expect(pathTakenBy(existing, 'assets:wise')).toBe('assets:wise')
+    expect(pathTakenBy(existing, 'assets:Wise')).toBe('assets:wise')
+    expect(pathTakenBy(existing, 'ASSETS:WISE:EUR')).toBe('assets:wise:eur')
+    expect(pathTakenBy(existing, 'expenses:CAFÉ')).toBe('expenses:café')
+  })
+
+  it('is the node already there when the new path spells it differently', () => {
+    // No account at `assets:Wise:usd`, but its parent is `assets:wise` in this tree.
+    expect(pathTakenBy(existing, 'assets:Wise:usd')).toBe('assets:wise')
+    expect(pathTakenBy(existing, 'Assets:bank')).toBe('assets')
+    // A grouping node with no row of its own counts: `expenses:food` exists through its child.
+    expect(pathTakenBy(existing, 'expenses:Food:dining')).toBe('expenses:food')
+  })
+
+  it('is nothing for a new path spelled the way the tree already spells it', () => {
+    expect(pathTakenBy(existing, 'assets:wise:usd')).toBeUndefined()
+    // A row at a node that so far was only a grouping.
+    expect(pathTakenBy(existing, 'expenses:food')).toBeUndefined()
+    expect(pathTakenBy(existing, 'assets:wisely')).toBeUndefined()
+    expect(pathTakenBy([], 'Assets:Wise')).toBeUndefined()
+  })
+})
+
+describe('spellingConflicts', () => {
+  it('lists every node spelled more than one way, with its spellings', () => {
+    expect(
+      spellingConflicts(['assets:wise', 'assets:Wise:eur', 'Assets:bank', 'expenses:food']),
+    ).toEqual([
+      ['Assets', 'assets'],
+      ['assets:Wise', 'assets:wise'],
+    ])
+  })
+
+  it('is empty for a tree with one spelling per node', () => {
+    expect(spellingConflicts(['assets:wise', 'assets:wise:eur', 'expenses:food'])).toEqual([])
   })
 })

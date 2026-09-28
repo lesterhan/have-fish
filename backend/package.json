@@ -18,6 +18,7 @@
     "test:zones": "for tz in Asia/Tokyo America/Los_Angeles; do TZ=$tz NODE_ENV=test bun test src/routes/dates-in-zones.test.ts src/routes/import.test.ts src/routes/import-fingerprint.test.ts src/routes/transactions.test.ts src/routes/coverage.test.ts src/routes/reports.test.ts src/import || exit 1; done",
     "seed-user": "bun run scripts/seed-user.ts",
     "reset-db": "bun run scripts/reset-db.ts",
+    "check:account-paths": "bun run scripts/check-account-paths.ts",
     "migrate:fish-pie": "bun run scripts/migrate-fish-pie.ts",
     "seed-fish-pie": "bun run scripts/seed-fish-pie.ts",
     "seed-all": "bun run scripts/seed-all.ts"

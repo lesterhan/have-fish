@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { and, eq } from 'drizzle-orm'
+import { pathKey } from '../accounts/paths'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import {
@@ -7,7 +8,7 @@ import {
   postings as postingsTable,
   transactions as transactionsTable,
 } from '../db/schema'
-import { at, clearDatabase, createTestUser, request } from '../test-utils'
+import { accountAt, at, clearDatabase, createTestUser, request } from '../test-utils'
 
 type Account = typeof accountsTable.$inferSelect
 
@@ -149,7 +150,7 @@ describe('accounts', () => {
 
     it('returns multiple currency balances for a multi-currency account', async () => {
       const assetId = await createAccount('assets:wise:cad')
-      const conversionId = await createAccount('equity:conversions')
+      const conversionId = (await accountAt(cookie, 'equity:conversions')).id
 
       // Two transactions in different currencies
       await createTransaction([
@@ -764,7 +765,7 @@ describe('accounts', () => {
 
     it('GET /api/accounts/:id/action-required flags uncategorized transactions', async () => {
       const assetId = await createAccount('assets:chequing')
-      const offsetId = await createAccount('expenses:uncategorized')
+      const offsetId = (await accountAt(cookie, 'expenses:uncategorized')).id
       await setSettings({ defaultOffsetAccountId: offsetId })
 
       // Needs action — posts to the offset account
@@ -791,7 +792,7 @@ describe('accounts', () => {
 
     it('GET /api/accounts/action-required-summary returns counts per account', async () => {
       const assetId = await createAccount('assets:chequing')
-      const offsetId = await createAccount('expenses:uncategorized')
+      const offsetId = (await accountAt(cookie, 'expenses:uncategorized')).id
       await setSettings({ defaultOffsetAccountId: offsetId })
 
       await createTransaction('2024-01-15', [
@@ -1087,7 +1088,10 @@ describe('accounts', () => {
         async (r) => (await r.json()).user.id as string,
       )
       const acct = returnedRow(
-        await db.insert(accountsTable).values({ userId, path }).returning(),
+        await db
+          .insert(accountsTable)
+          .values({ userId, path, pathKey: pathKey(path) })
+          .returning(),
         'insert accountsTable',
       )
       return acct!
@@ -1645,7 +1649,11 @@ describe('accounts', () => {
       const row = returnedRow(
         await db
           .insert(accountsTable)
-          .values({ userId: owner!.userId, path: 'assets:receivable:alice' })
+          .values({
+            userId: owner!.userId,
+            path: 'assets:receivable:alice',
+            pathKey: 'assets:receivable:alice',
+          })
           .returning(),
         'insert accountsTable',
       )

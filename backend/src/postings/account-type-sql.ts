@@ -14,7 +14,8 @@
 // "Cheap" here means the accounts table, not an index: `accounts` has only its primary key, so
 // every condition below is a scan of one user's accounts, the same as the LIKE it replaced.
 
-import { and, eq, inArray, isNull, like, not, or, type SQL } from 'drizzle-orm'
+import { and, eq, inArray, isNull, not, or, type SQL, sql } from 'drizzle-orm'
+import { pathKey } from '../accounts/paths'
 import { accounts } from '../db/schema'
 import {
   type AccountTypeContext,
@@ -32,18 +33,27 @@ export function required(condition: SQL | undefined, what: string): SQL {
 }
 
 /**
- * "At or under this path". The exact-path branch is not decoration: an account created at the
- * bare root (`assets`) is legal, and a `LIKE 'assets:%'` alone would leave it invisible.
+ * "At or under this path", ignoring case: compared on `path_key` (#480), which the account
+ * service keeps to one spelling per tree node, so this matches exactly the subtree the account
+ * tree shows. The exact-path branch is not decoration: an account created at the bare root
+ * (`assets`) is legal, and a `LIKE 'assets:%'` alone would leave it invisible.
  *
  * LIKE metacharacters are escaped here rather than by the caller, and only in the pattern
  * branch. Escaping before the call would be a quiet bug: the escaped string is no longer the
  * account's path, so `expenses:home_office` would match its children and not itself. A path
  * is a value on one side of this and a pattern on the other, and only one of them wants
- * `\_`.
+ * `\_`. The escape character is named, because SQLite's LIKE has none by default.
+ *
+ * Both sides are lowercase already, so SQLite's LIKE (case-insensitive for ASCII) and
+ * Postgres's (case-sensitive) give the same answer.
  */
 export function underPathCondition(path: string): SQL {
-  const pattern = path.replace(/[%_\\]/g, '\\$&')
-  return required(or(eq(accounts.path, path), like(accounts.path, `${pattern}:%`)), `under ${path}`)
+  const key = pathKey(path)
+  const pattern = key.replace(/[%_\\]/g, '\\$&')
+  return required(
+    or(eq(accounts.pathKey, key), sql`${accounts.pathKey} LIKE ${`${pattern}:%`} ESCAPE '\\'`),
+    `under ${path}`,
+  )
 }
 
 // Inference applies only when the stored column holds nothing usable. A value outside the

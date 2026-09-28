@@ -309,6 +309,13 @@
       "when": 1790473794430,
       "tag": "0043_transactions_date_text",
       "breakpoints": true
+    },
+    {
+      "idx": 44,
+      "version": "7",
+      "when": 1790581341473,
+      "tag": "0044_accounts_path_key",
+      "breakpoints": true
     }
   ]
 }

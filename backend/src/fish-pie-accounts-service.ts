@@ -2,6 +2,7 @@
 // clearing path itself is pure, in `fish-pie/clearing.ts`.
 
 import { and, eq, isNull } from 'drizzle-orm'
+import { pathKey } from './accounts/paths'
 import { db, type Executor } from './db'
 import { returnedRow } from './db/returning'
 import { accounts } from './db/schema'
@@ -20,14 +21,20 @@ export async function ensureSharedAccount(
   const [existing] = await client
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.userId, userId), eq(accounts.path, path), isNull(accounts.deletedAt)))
+    .where(
+      and(
+        eq(accounts.userId, userId),
+        eq(accounts.pathKey, pathKey(path)),
+        isNull(accounts.deletedAt),
+      ),
+    )
 
   if (existing) return existing.id
 
   const created = returnedRow(
     await client
       .insert(accounts)
-      .values({ userId, path, name: `Receivable: ${group.name}` })
+      .values({ userId, path, pathKey: pathKey(path), name: `Receivable: ${group.name}` })
       .returning({ id: accounts.id }),
     'insert accounts',
   )
@@ -44,14 +51,20 @@ export async function ensureUncategorizedAccount(userId: string, tx?: Executor):
   const [existing] = await client
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.userId, userId), eq(accounts.path, path), isNull(accounts.deletedAt)))
+    .where(
+      and(
+        eq(accounts.userId, userId),
+        eq(accounts.pathKey, pathKey(path)),
+        isNull(accounts.deletedAt),
+      ),
+    )
 
   if (existing) return existing.id
 
   const created = returnedRow(
     await client
       .insert(accounts)
-      .values({ userId, path, name: 'Uncategorized' })
+      .values({ userId, path, pathKey: pathKey(path), name: 'Uncategorized' })
       .returning({ id: accounts.id }),
     'insert accounts',
   )

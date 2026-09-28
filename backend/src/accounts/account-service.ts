@@ -13,7 +13,7 @@ import {
   tagsFrom,
 } from '../postings/account-type'
 import { loadAccountTypeContext, loadAccountTypeRoots } from '../postings/classify-service'
-import { isClearingAccountPath, planRename } from './paths'
+import { isClearingAccountPath, pathKey, pathTakenBy, planRename } from './paths'
 
 type AccountRow = typeof accounts.$inferSelect
 
@@ -72,6 +72,9 @@ export async function getAccount(
  * the receivable namespace is refused here. Clearing accounts are re-spawned by Fish Pie, so
  * the rename refuses to move an account into that namespace, and creating one there directly
  * would be the same hole by another door.
+ *
+ * A path already taken ignoring case, or one that spells an existing node differently, is
+ * refused with the spelling already there (`pathTakenBy`), so the caller can use it.
  */
 export async function createAccount(
   userId: string,
@@ -80,9 +83,20 @@ export async function createAccount(
   if (isClearingAccountPath(fields.path)) {
     return { ok: false, failure: errorBody('RECEIVABLE_NOT_CREATABLE') }
   }
+  const existing = await db
+    .select({ path: accounts.path })
+    .from(accounts)
+    .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
+  const taken = pathTakenBy(
+    existing.map((a) => a.path),
+    fields.path,
+  )
+  if (taken !== undefined) {
+    return { ok: false, failure: errorBody('ACCOUNT_PATH_TAKEN', { path: taken }) }
+  }
   const created = await db
     .insert(accounts)
-    .values({ ...fields, userId })
+    .values({ ...fields, userId, pathKey: pathKey(fields.path) })
     .returning()
   return { ok: true, value: returnedRow(created, 'insert accounts') }
 }
@@ -110,7 +124,7 @@ export async function renameAccounts(
     for (const r of plan.value) {
       const rows = await tx
         .update(accounts)
-        .set({ path: r.newPath })
+        .set({ path: r.newPath, pathKey: pathKey(r.newPath) })
         .where(and(eq(accounts.id, r.id), eq(accounts.userId, userId)))
         .returning()
       out.push(returnedRow(rows, 'update accounts'))

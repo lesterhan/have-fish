@@ -199,6 +199,8 @@ export const errorsCopy = {
     ),
   ACCOUNT_IS_A_DEFAULT: ({ roles }: { roles: string[] }) =>
     `This is your default ${AND.format(roles.map((r) => ROLE_NAMES[r] ?? r))} account. Point that setting somewhere else first.`,
+  ACCOUNT_PATH_TAKEN: ({ path }: { path: string }) =>
+    `${path} already exists. Account paths ignore case, so use that spelling.`,
   SETTING_ACCOUNT_NOT_FOUND: ({ field }: { field: string }) =>
     `The account you chose for ${nameOf(field)} no longer exists.`,
   CYCLE_ACCOUNT_NEEDS_CYCLE_DAY: 'An account on a statement cycle needs a statement day.',

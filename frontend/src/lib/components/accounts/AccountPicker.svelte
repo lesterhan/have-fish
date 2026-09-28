@@ -121,9 +121,10 @@
       pos: r.pos,
     }))
     // Create-new pseudo-row: demoted below a dashed divider, only when the query
-    // is typed, non-empty, contains a letter, and matches no existing path.
+    // is typed, non-empty, contains a letter, and matches no existing path. Paths ignore
+    // case (#480), so `Assets:Wise` beside `assets:wise` is that account, not a new one.
     const norm = query.trim()
-    const exact = accounts.some((a) => a.path === norm)
+    const exact = accounts.some((a) => a.path.toLowerCase() === norm.toLowerCase())
     const showCreate =
       !searchOnly &&
       allowCreate &&

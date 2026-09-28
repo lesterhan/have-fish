@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
-import { clearDatabase, createTestUser, request } from '../test-utils'
+import { accountAt, clearDatabase, createTestUser, request } from '../test-utils'
 
 /**
  * The five accounts every test here seeds, named rather than open.
@@ -64,7 +64,7 @@ describe('cross-currency spend healing', () => {
       coffee: await createAccount(cookie, 'expenses:food:coffee'),
       fee: await createAccount(cookie, 'expenses:banking'),
       czk: await createAccount(cookie, 'assets:bank:savings:czk'),
-      equity: await createAccount(cookie, 'equity:conversions'),
+      equity: await accountAt(cookie, 'equity:conversions'),
     }
   })
 

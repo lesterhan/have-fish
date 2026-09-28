@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { eq, sql } from 'drizzle-orm'
+import { pathKey } from '../accounts/paths'
 import { db } from '../db'
 import { clearDatabase, createTestUser, request } from '../test-utils'
 import { returnedRow } from './returning'
@@ -41,7 +42,10 @@ describe('migration 0029 — flip non-payer member tx postings', () => {
 
   async function insertAccount(userId: string, path: string) {
     const acct = returnedRow(
-      await db.insert(accounts).values({ userId, path, name: path }).returning(),
+      await db
+        .insert(accounts)
+        .values({ userId, path, pathKey: pathKey(path), name: path })
+        .returning(),
       'insert accounts',
     )
     return acct
