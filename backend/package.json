@@ -23,6 +23,7 @@
     "seed-all": "bun run scripts/seed-all.ts"
   },
   "dependencies": {
+    "@noble/hashes": "^2.0.1",
     "better-auth": "^1.6.29",
     "date-fns": "^4.4.0",
     "drizzle-orm": "^0.36.4",
