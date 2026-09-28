@@ -1,4 +1,6 @@
-import { createHash } from 'node:crypto'
+import { sha1 } from '@noble/hashes/legacy.js'
+import { sha256 as sha256Bytes } from '@noble/hashes/sha2.js'
+import { bytesToHex, hexToBytes, utf8ToBytes } from '@noble/hashes/utils.js'
 import type { ParsedTransaction } from './types'
 
 // Which bank row an imported transaction came from, as two hashes (#282, decided in #460).
@@ -21,6 +23,10 @@ import type { ParsedTransaction } from './types'
 //
 // Changing anything below changes every key, and statements imported before the change
 // stop matching. Change it only by bumping VERSION on purpose.
+//
+// The hashes are pure JavaScript (`@noble/hashes`), synchronous and with no `node:crypto` or
+// `Buffer`, so a phone mints the same keys as this server (#474). They replaced
+// `node:crypto` byte for byte; `fingerprint.test.ts` holds the two to the same output.
 
 const VERSION = 'import-fingerprint/v1'
 
@@ -83,16 +89,18 @@ export function importTransactionId(userId: string, fingerprint: string): string
 }
 
 function sha256(parts: string[]): string {
-  return createHash('sha256').update(JSON.stringify(parts)).digest('hex')
+  return bytesToHex(sha256Bytes(utf8ToBytes(JSON.stringify(parts))))
 }
 
 /** RFC 9562 UUIDv5: SHA-1 of the namespace's bytes and the name, stamped version 5. */
 export function uuidv5(namespace: string, name: string): string {
-  const ns = Buffer.from(namespace.replace(/-/g, ''), 'hex')
-  const hash = createHash('sha1').update(ns).update(name, 'utf8').digest()
-  const bytes = hash.subarray(0, 16)
+  const hash = sha1
+    .create()
+    .update(hexToBytes(namespace.replace(/-/g, '')))
+    .update(utf8ToBytes(name))
+  const bytes = hash.digest().subarray(0, 16)
   bytes[6] = ((bytes[6] ?? 0) & 0x0f) | 0x50
   bytes[8] = ((bytes[8] ?? 0) & 0x3f) | 0x80
-  const hex = bytes.toString('hex')
+  const hex = bytesToHex(bytes)
   return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
 }

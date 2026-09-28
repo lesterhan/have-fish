@@ -52,7 +52,7 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
 |---|---|---|---|
 | Route | Parse, read `userId`, call a service, shape the answer | Services, domain modules, `validation`, `respond`, `errors` | `routes/*.ts`. None of the personal-ledger routes touches `db` since #429. The eight `fish-pie-*` routes still do; they leave under #380, and #430 took only their maths |
 | Service | Load, check, write inside one transaction | Anything but a route | Every `*-service.ts`: `ledger/{write,read}-service`, `import/{preview,duplicates,commit,parser}-service`, `accounts/{account,balance,action-required,ownership}-service`, `postings/{heal,classify,spend}-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `rules/rule-service`, `reports/report-service`, `fx/rate-service`, `export/export-service`, `fish-pie-{expense,accounts}-service` |
-| Domain | Pure rules | Other domain modules, and `papaparse` and `node:crypto` | Everything else: `errors`, `money`, `currencies`, `calendar-date`, `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `rules/{target,mining}`, `reports/spending`, `settings/preferences`, `fish-pie/{splits,legs,balances,clearing}`, `export/journal` |
+| Domain | Pure rules | Other domain modules, and `papaparse` and `@noble/hashes` | Everything else: `errors`, `money`, `currencies`, `calendar-date`, `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `rules/{target,mining}`, `reports/spending`, `settings/preferences`, `fish-pie/{splits,legs,balances,clearing}`, `export/journal` |
 
 Two more kinds of file sit beside them:
 
@@ -82,8 +82,9 @@ included, and fails when:
   (`db.transaction` or `inLedgerTransaction`).
 
 The Fish Pie exemption can only shrink. The test fails if a name on it no longer matches a
-file, or matches one that no longer needs it. `node:crypto` is allowed for
-`import/fingerprint.ts`, which a phone can't run yet (#474). `ledger/writers.test.ts` keeps
+file, or matches one that no longer needs it. The package allowlist is `papaparse` and
+`@noble/hashes`, the pure-JS hashes the import fingerprint uses so a phone mints the same
+keys as the server (#474). `ledger/writers.test.ts` keeps
 the ledger write service the only writer of postings, and `routes/bodies.test.ts` keeps
 every staying route parsing its body through a schema.
 
@@ -422,5 +423,4 @@ What the layers still allow, each with its own issue:
 
 - The eight `fish-pie-*` routes query and open transactions themselves until they leave
   for the Fish Pie service (#380).
-- `import/fingerprint.ts` hashes with `node:crypto`, which React Native lacks (#474).
 - Fish Pie's maths is in floats rounded to the cent, where the ledger works in cents (#451).

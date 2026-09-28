@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'bun:test'
+import { createHash } from 'node:crypto'
 import {
   IMPORT_KEY,
   importFingerprint,
@@ -108,6 +109,9 @@ describe('rowKeys', () => {
     expect(rowKeys('parser', [coffee])).toEqual([
       '470d6f4e5bdc8ce818393d07248565e6d39ff740ed661ef51d497e708fcd876c',
     ])
+    expect(rowKeys('wise', [wise])).toEqual([
+      'f042cf34f58a2d15020d0b7461febf937aaeb60f97ce2e6fd533141595b794c3',
+    ])
   })
 })
 
@@ -127,5 +131,52 @@ describe('importFingerprint and importTransactionId', () => {
     expect(importTransactionId('user-a', fp)).toBe(id)
     expect(importTransactionId('user-b', fp)).not.toBe(id)
     expect(importTransactionId('user-a', importFingerprint('savings', key))).not.toBe(id)
+  })
+
+  // Pinned, and worked out in Python like the row key: these are stored on every imported
+  // transaction, so a change here would import every earlier statement again.
+  it('has not changed', () => {
+    const fp = importFingerprint('chequing', key)
+    expect(fp).toBe('91c13639167c198e96390991874b45766ae27a6f2ccbe3918318af12738b2c19')
+    expect(importTransactionId('user-a', fp)).toBe('7a383859-ddf2-5701-932c-9da5bd91ba88')
+  })
+})
+
+// The hashes are pure JavaScript so that a phone can mint the same keys (#474), and they
+// replaced `node:crypto`, which minted every key stored before. This holds the two to the
+// same bytes on text a bank export can carry: accents, emoji, CJK, and a lone surrogate.
+describe('the hashes agree with node:crypto', () => {
+  const names = ['', 'a', 'ünïcödé', 'e\u0301', '有鱼 🐟', '\ud83d', 'x'.repeat(1000), '"\\\n']
+  const nodeSha256 = (parts: string[]) =>
+    createHash('sha256').update(JSON.stringify(parts)).digest('hex')
+
+  it('in the fingerprint', () => {
+    for (const account of names) {
+      for (const rowKey of names) {
+        expect(importFingerprint(account, rowKey)).toBe(
+          nodeSha256(['import-fingerprint/v1', account, rowKey]),
+        )
+      }
+    }
+  })
+
+  it('in the row key', () => {
+    for (const description of names) {
+      const [rowKey] = rowKeys('parser', [{ ...coffee, description }])
+      const identity = JSON.stringify([
+        'parser',
+        'regular',
+        coffee.date,
+        coffee.amount,
+        '',
+        normaliseDescription(description),
+      ])
+      expect(rowKey).toBe(nodeSha256(['import-fingerprint/v1', identity, '0']))
+    }
+  })
+
+  it('in the UUIDv5', () => {
+    const ns = 'e788c43d-d22f-43f1-8d0d-3922a1b0bf78'
+    for (const name of names) expect(uuidv5(ns, name)).toBe(Bun.randomUUIDv5(name, ns))
   })
 })

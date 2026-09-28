@@ -76,7 +76,7 @@ const LEAVING_WITH_FISH_PIE = [
  */
 const DOMAIN_PACKAGES: Record<string, string> = {
   papaparse: 'CSV parsing, plain JavaScript',
-  'node:crypto': 'the import fingerprint hashes; not in React Native (#474)',
+  '@noble/hashes': 'the import fingerprint hashes, pure JavaScript and synchronous (#474)',
 }
 
 const DB_CLIENT = 'db/index.ts'
@@ -122,6 +122,12 @@ const EDGES: Edge[] = FILES.flatMap((file) =>
 )
 
 const isPackage = (target: string, name: string) => target === name || target.startsWith(`${name}/`)
+/** `@noble/hashes/sha2.js` is the package `@noble/hashes`; `papaparse` is itself. */
+const packageOf = (spec: string) =>
+  spec
+    .split('/')
+    .slice(0, spec.startsWith('@') ? 2 : 1)
+    .join('/')
 const inLayer = (layer: Layer) => (e: Edge) => layerOf(e.file) === layer
 const leaving = (file: string) => LEAVING_WITH_FISH_PIE.includes(file)
 const shown = (e: Edge) => `${e.file} → ${e.imports}`
@@ -146,7 +152,7 @@ describe('a domain module', () => {
 
   it('imports no package outside the allowlist, so never Hono, Drizzle or the schema', () => {
     const packages = domain.filter((e) => !SOURCE.has(e.imports))
-    const refused = packages.filter((e) => !(e.imports in DOMAIN_PACKAGES))
+    const refused = packages.filter((e) => !(packageOf(e.imports) in DOMAIN_PACKAGES))
     expect(refused.map(shown)).toEqual([])
   })
 
