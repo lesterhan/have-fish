@@ -11,6 +11,7 @@
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
+    "local": "cd ../frontend && bun run build && cd ../backend && HAVEFISH_MODE=local HAVEFISH_STATIC_ROOT=../frontend/build bun --conditions=sqlite src/index.ts",
     "db:generate": "drizzle-kit generate && drizzle-kit generate --config drizzle.sqlite.config.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:test": "drizzle-kit migrate --config drizzle.test.config.ts",

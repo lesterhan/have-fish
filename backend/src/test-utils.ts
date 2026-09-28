@@ -12,6 +12,7 @@ import {
   groupExpenses,
   groupSettlements,
   importRules,
+  localProfile,
   postings,
   transactions,
   user,
@@ -36,6 +37,7 @@ export async function clearDatabase() {
   await db.delete(expenseGroupMembers)
   await db.delete(expenseGroups)
   await db.delete(accounts)
+  await db.delete(localProfile)
   await db.delete(user)
   await db.delete(fxRates)
 }

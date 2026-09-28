@@ -41,6 +41,10 @@
 export const ERROR_STATUS = {
   UNAUTHORIZED: 401,
 
+  // --- the local build's front door (#287) -----------------------------------------------
+  LAUNCH_TOKEN_INVALID: 401,
+  LOCAL_REQUEST_REFUSED: 403,
+
   // --- request shape ------------------------------------------------------------------
   INVALID_JSON_BODY: 400,
   FIELD_REQUIRED: 400,

@@ -1,8 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
-import { pathKey } from './accounts/paths'
 import { db, dialect } from './db'
-import { accounts, userSettings } from './db/schema'
+import { giveStarterSet } from './users/starter-service'
 
 // Builds the list of origins allowed to make authenticated requests (Better Auth's
 // CSRF guard). FRONTEND_URL covers the web app; TRUSTED_ORIGINS is a comma-separated
@@ -40,28 +39,7 @@ export const auth = betterAuth({
     user: {
       create: {
         after: async (user) => {
-          const [offsetAccount, conversionAccount, adjustmentsAccount] = await db
-            .insert(accounts)
-            .values(
-              ['expenses:uncategorized', 'equity:conversions', 'equity:adjustments'].map(
-                (path) => ({ userId: user.id, path, pathKey: pathKey(path) }),
-              ),
-            )
-            .returning()
-
-          // Three values in, three rows back. If that ever stops holding, a new account
-          // would silently get a settings row pointing at nothing, so say so loudly here
-          // instead.
-          if (!offsetAccount || !conversionAccount || !adjustmentsAccount) {
-            throw new Error('insert accounts returned fewer rows than it was given')
-          }
-
-          await db.insert(userSettings).values({
-            userId: user.id,
-            defaultOffsetAccountId: offsetAccount.id,
-            defaultConversionAccountId: conversionAccount.id,
-            defaultAdjustmentsAccountId: adjustmentsAccount.id,
-          })
+          await giveStarterSet(db, user.id)
         },
       },
     },

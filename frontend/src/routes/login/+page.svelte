@@ -8,6 +8,8 @@
   import TextInput from '$lib/components/ui/TextInput.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
 
+  let { data } = $props()
+
   let email = $state('')
   let password = $state('')
   let error = $state('')
@@ -29,53 +31,67 @@
   }
 </script>
 
-<div class="panel">
-  <div class="panel-titlebar">
-    <Icon name="lock" />
-    <span>{copy.auth.signIn.title}</span>
+{#if data.capabilities.mode === 'local'}
+  <!-- The local build has no sign-in form: a window is signed in by the link the app opens
+       it with, and this one was not (a restarted app, or a link already used). -->
+  <div class="panel">
+    <div class="panel-titlebar">
+      <Icon name="lock" />
+      <span>{copy.auth.local.title}</span>
+    </div>
+    <div class="panel-body">
+      <p class="local-note">{copy.auth.local.body}</p>
+    </div>
   </div>
+{:else}
+  <div class="panel">
+    <div class="panel-titlebar">
+      <Icon name="lock" />
+      <span>{copy.auth.signIn.title}</span>
+    </div>
 
-  <div class="panel-body">
-    <form onsubmit={handleSubmit}>
-      <div class="field">
-        <label for="email">{copy.auth.signIn.email}</label>
-        <TextInput
-          id="email"
-          type="email"
-          bind:value={email}
-          required
-          autocomplete="email"
-        />
-      </div>
+    <div class="panel-body">
+      <form onsubmit={handleSubmit}>
+        <div class="field">
+          <label for="email">{copy.auth.signIn.email}</label>
+          <TextInput
+            id="email"
+            type="email"
+            bind:value={email}
+            required
+            autocomplete="email"
+          />
+        </div>
 
-      <div class="field">
-        <label for="password">{copy.auth.signIn.password}</label>
-        <TextInput
-          id="password"
-          type="password"
-          bind:value={password}
-          required
-          autocomplete="current-password"
-        />
-      </div>
+        <div class="field">
+          <label for="password">{copy.auth.signIn.password}</label>
+          <TextInput
+            id="password"
+            type="password"
+            bind:value={password}
+            required
+            autocomplete="current-password"
+          />
+        </div>
 
-      {#if error}
-        <p class="error">{error}</p>
-      {/if}
+        {#if error}
+          <p class="error">{error}</p>
+        {/if}
 
-      <div class="actions">
-        <GradientButton variant="primary" type="submit"
-          >{copy.auth.signIn.submit}</GradientButton
-        >
-      </div>
-    </form>
+        <div class="actions">
+          <GradientButton variant="primary" type="submit"
+            >{copy.auth.signIn.submit}</GradientButton
+          >
+        </div>
+      </form>
 
-    <p class="switch-link">
-      {copy.auth.signIn.switch.question}
-      <a href="/signup">{copy.auth.signIn.switch.action}</a>
-    </p>
+      <p class="switch-link">
+        {copy.auth.signIn.switch.question}
+        <a href="/signup">{copy.auth.signIn.switch.action}</a>
+      </p>
+    </div>
   </div>
-</div>
+{/if}
 
 <style>
   .panel {
@@ -112,6 +128,12 @@
   label {
     font-size: var(--text-body);
     color: var(--color-text);
+  }
+
+  .local-note {
+    font-size: var(--text-body);
+    color: var(--color-text);
+    margin: 0;
   }
 
   .error {

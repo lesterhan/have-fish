@@ -1,6 +1,6 @@
 import { Hono } from 'hono'
 import { serveStatic } from 'hono/bun'
-import { app } from './app'
+import type { AppEnv } from './build-app'
 
 /**
  * The API, with the built frontend in front of it when this deployment carries one.
@@ -10,9 +10,10 @@ import { app } from './app'
  * (D7, and P2.3) — the same server binding a port and handing out the same assets.
  *
  * Lives here rather than in `app.ts` because the test suite imports `app`, and rather than
- * in `index.ts` because that is the entry point and this needs testing.
+ * in `index.ts` because that is the entry point and this needs testing. It takes the app
+ * rather than importing it because each build brings its own (`build-app.ts`).
  */
-export async function createServer(staticRoot: string): Promise<Hono> {
+export async function createServer(app: Hono<AppEnv>, staticRoot: string): Promise<Hono> {
   const server = new Hono()
 
   // The API and /health first, so no static file can shadow a route.

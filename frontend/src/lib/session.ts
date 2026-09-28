@@ -1,4 +1,5 @@
 import { authClient } from './auth'
+import { redeemLaunchToken } from './capabilities'
 import { once } from './once'
 
 export type SessionUser = { id: string; email: string }
@@ -17,8 +18,15 @@ export function toUser(res: GetSessionResponse): SessionUser | null {
  * before the page renders — while the chrome in `+layout.svelte` needs it reactively,
  * which is what `useSession()` gives it. Those are two shapes over the same fact; this
  * owns the imperative one.
+ *
+ * A page the local launcher opened carries a launch token, and it is redeemed first, so the
+ * first session check a page makes already has the cookie it buys (#287). Every route guard
+ * comes through here before anything renders, which is what orders the two.
  */
-const load = once<SessionUser | null>(async () => toUser(await authClient.getSession()))
+const load = once<SessionUser | null>(async () => {
+  await redeemLaunchToken()
+  return toUser(await authClient.getSession())
+})
 
 export function loadSession(): Promise<SessionUser | null> {
   return load()
