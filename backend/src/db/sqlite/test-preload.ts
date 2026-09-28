@@ -7,15 +7,8 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { createClient } from '@libsql/client'
-import { drizzle } from 'drizzle-orm/libsql'
-import { migrate } from 'drizzle-orm/libsql/migrator'
+import { migrateSqliteFile } from './migrate'
 
 const path = join(mkdtempSync(join(tmpdir(), 'havefish-test-')), 'test.sqlite')
 process.env.SQLITE_PATH = path
-
-const client = createClient({ url: `file:${path}` })
-await migrate(drizzle(client), {
-  migrationsFolder: join(import.meta.dir, '../../../drizzle/sqlite'),
-})
-client.close()
+await migrateSqliteFile(path)

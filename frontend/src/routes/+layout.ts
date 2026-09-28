@@ -1,3 +1,6 @@
+import { loadCapabilities } from '$lib/capabilities'
+import type { LayoutLoad } from './$types'
+
 // The whole app is client-rendered. There is no server to render on: the build is a
 // directory of static files, and every route below resolves in the browser.
 //
@@ -7,3 +10,7 @@
 // blank screen when the backend was unreachable.
 export const ssr = false
 export const prerender = false
+
+// Which build this is decides what the case shows (no Fish Pie, no sign-out on the local
+// build), so it is known before the case renders, and every page can read it from its data.
+export const load: LayoutLoad = async () => ({ capabilities: await loadCapabilities() })

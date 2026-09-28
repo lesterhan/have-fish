@@ -28,7 +28,10 @@
   import AccentPicker from '$lib/components/AccentPicker.svelte'
   import { theme } from '$lib/theme.svelte'
 
-  let { children } = $props()
+  let { children, data } = $props()
+
+  // The local build has one person and no sign-in, so no email to show and no session to end.
+  const local = $derived(data.capabilities.mode === 'local')
 
   const session = useSession()
 
@@ -213,10 +216,11 @@
         >
           <Icon name={maximized ? 'restore-window' : 'maximize'} size={12} />
         </ChromeButton>
-        {#if $session.data}
+        {#if $session.data && !local}
           <!-- Only where it means something: on the login screen there is no session to end,
                and a close button that would open a dialog about nothing is the exact thing
-               this epic is about. -->
+               this epic is about. The local build has no session to end either: closing the
+               tab is closing the app. -->
           <ChromeButton
             variant="close"
             aria-label={copy.case.titlebar.signOut}
@@ -233,7 +237,8 @@
         <Sidebar
           accounts={sidebarAccounts}
           {lastActivityById}
-          email={$session.data.user.email}
+          email={local ? undefined : $session.data.user.email}
+          fishPie={data.capabilities.fishPie}
           mobileOpen={mobileSidebarOpen}
           onMobileClose={closeMobileSidebar}
         />

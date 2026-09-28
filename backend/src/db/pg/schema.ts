@@ -77,6 +77,22 @@ export const verification = pgTable('verification', {
   updatedAt: timestamp('updated_at'),
 })
 
+// The person a local build serves (#287, D7). The local build has no sign-in: its first run
+// inserts one `user` row directly and records it here, and every request is that user. It is a
+// row rather than a setting so the database file knows whose it is wherever it is copied. One
+// row at most, by the check. The server build never writes it.
+export const localProfile = pgTable(
+  'local_profile',
+  {
+    id: text('id').primaryKey().default('local'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [check('local_profile_one_row', sql`${t.id} = 'local'`)],
+)
+
 // --- App tables ---
 
 // An account is any named bucket that holds or moves money.

@@ -1,4 +1,4 @@
-// PROBE (#285): the Postgres schema in schema.pg.ts, translated per L02 for SQLite.
+// The Postgres schema in `db/pg/schema.ts`, translated per L02 for SQLite (#482).
 // uuid → text + randomUUID, numeric → text (never numeric(): NUMERIC affinity turns '100.00'
 // into 100), timestamp → integer ms, jsonb → text json, boolean → integer, date → text.
 // Table and column names are unchanged, so no query changes.
@@ -74,6 +74,24 @@ export const verification = sqliteTable('verification', {
   createdAt: integer('created_at', { mode: 'timestamp_ms' }),
   updatedAt: integer('updated_at', { mode: 'timestamp_ms' }),
 })
+
+// The person a local build serves (#287, D7). The local build has no sign-in: its first run
+// inserts one `user` row directly and records it here, and every request is that user. It is a
+// row rather than a setting so the database file knows whose it is wherever it is copied. One
+// row at most, by the check. The server build never writes it.
+export const localProfile = sqliteTable(
+  'local_profile',
+  {
+    id: text('id').primaryKey().default('local'),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id),
+    createdAt: integer('created_at', { mode: 'timestamp_ms' })
+      .notNull()
+      .$defaultFn(() => new Date()),
+  },
+  (t) => [check('local_profile_one_row', sql`${t.id} = 'local'`)],
+)
 
 // --- App tables ---
 

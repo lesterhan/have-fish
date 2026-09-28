@@ -139,6 +139,11 @@ const IMPORT_ROW_ACCOUNTS: Record<string, Record<string, string>> = {
 export const errorsCopy = {
   UNAUTHORIZED: 'Your session has ended. Sign in again.',
 
+  // --- the local app's front door --------------------------------------------------------
+  LAUNCH_TOKEN_INVALID:
+    'That link has already been used or has expired. Start have-fish again to open a fresh one.',
+  LOCAL_REQUEST_REFUSED: 'have-fish only answers the window it opened itself.',
+
   // --- have-fish sent a request the API would not take -----------------------------------
   INVALID_JSON_BODY: 'That request was malformed. Reload the page and try again.',
   FIELD_REQUIRED: ({ field }: { field: string }) => `${nameOf(field)} is required.`,

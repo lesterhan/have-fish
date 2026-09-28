@@ -3,6 +3,7 @@ import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Hono } from 'hono'
+import { app } from './app'
 import { createServer, hasFrontend } from './server'
 
 // A stand-in for a SvelteKit build: the document, a hashed asset, and one file named after
@@ -26,7 +27,7 @@ describe('with a frontend build present', () => {
 
   beforeAll(async () => {
     dir = buildDir()
-    server = await createServer(dir)
+    server = await createServer(app, dir)
   })
   afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
@@ -81,7 +82,7 @@ describe('with no frontend build', () => {
 
   beforeAll(async () => {
     dir = mkdtempSync(join(tmpdir(), 'havefish-empty-'))
-    server = await createServer(dir)
+    server = await createServer(app, dir)
   })
   afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
