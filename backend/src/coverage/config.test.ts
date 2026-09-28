@@ -477,4 +477,32 @@ describe('coverage config', () => {
       })
     })
   })
+
+  // #470: the coach read the pins as stored while the account page sanitized them, so one
+  // malformed pin set the two against each other about the same account's horizon.
+  describe('a malformed pin written through /api/user-settings', () => {
+    it('reads the same in the coach as on the account page', async () => {
+      const visa = await createAccount(userId, 'liabilities:visa')
+      await seedMonthlyStatements(cookie, visa.id)
+      const res = await request('/api/user-settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json', Cookie: cookie },
+        body: JSON.stringify({
+          preferences: { catchUp: { [visa.id]: { cycleDay: '10', exportMode: 'weekly' } } },
+        }),
+      })
+      expect(res.status).toBe(200)
+
+      const page = await (
+        await request(`/api/accounts/${visa.id}/coverage`, { headers: { Cookie: cookie } })
+      ).json()
+      const coach = await (await request('/api/catch-up', { headers: { Cookie: cookie } })).json()
+      const inCoach = coach.accounts.find((a: { accountId: string }) => a.accountId === visa.id)
+
+      // Both pins are dropped, so the statements' inferred cycle stands.
+      expect(page.config).toMatchObject({ exportMode: 'cycle', cycleDay: 25 })
+      expect(inCoach.config).toEqual(page.config)
+      expect(inCoach.horizon).toBe(page.horizon)
+    })
+  })
 })

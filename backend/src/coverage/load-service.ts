@@ -17,7 +17,7 @@ import {
   toClassifierType,
 } from '../postings/account-type'
 import { assembleAccount, type CatchUpAccount, type CatchUpAccountInput } from './catch-up'
-import { type CoverageConfigOverride, inferCycleFromIntervals, mergeConfig } from './horizon'
+import { inferCycleFromIntervals, mergeConfig, overridesFrom } from './horizon'
 import { addDays, type CoverageInterval, mergeCoverage } from './intervals'
 
 // Matches RATE_WINDOW_DAYS in catch-up.ts — the transaction query must reach back at least as
@@ -93,13 +93,9 @@ export async function loadCoverageContext(
   // The illiquid-account epic is still in the backlog, so nothing writes this key yet. Reading
   // it now means the coach respects the flag the day that feature lands, with no rework.
   const illiquid = idSet(preferences.illiquidAccountIds)
-  const catchUpOverrides = (
-    typeof preferences.catchUp === 'object' &&
-    preferences.catchUp !== null &&
-    !Array.isArray(preferences.catchUp)
-      ? preferences.catchUp
-      : {}
-  ) as Record<string, CoverageConfigOverride>
+  // Through the same sanitizer as the account page (`config-service`), so a pin written
+  // malformed through the settings PATCH is dropped here too rather than read as stored.
+  const catchUpOverrides = overridesFrom(preferences)
 
   const allAccounts = await db
     .select({ id: accounts.id, path: accounts.path, name: accounts.name, type: accounts.type })
