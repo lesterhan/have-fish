@@ -1,7 +1,7 @@
 // What each account holds: the balances view, one account's balance as of a date, and how
 // many entries each account has. Reads only.
 
-import { and, eq, isNull, lte, not, or, type SQL, sql } from 'drizzle-orm'
+import { and, count, eq, isNull, lte, not, or, type SQL, sql } from 'drizzle-orm'
 import { db } from '../db'
 import { accounts, postings, transactions } from '../db/schema'
 import { errorBody, type Outcome } from '../errors'
@@ -140,7 +140,7 @@ export async function postingCounts(userId: string): Promise<PostingCount[]> {
   return db
     .select({
       accountId: accounts.id,
-      count: sql<number>`COUNT(${transactions.id})::int`,
+      count: count(transactions.id),
       lastActivity: sql<string | null>`MAX(${transactions.date})`,
     })
     .from(accounts)

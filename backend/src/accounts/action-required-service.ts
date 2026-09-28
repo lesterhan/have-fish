@@ -5,19 +5,13 @@
 //   (`expenses:uncategorized` at sign-up), which import uses when no rule matched.
 // - Malformed cross-currency spends that need repair, attached to the balance accounts they
 //   touch (`postings/heal`).
-//
-// The two raw `db.execute` queries are the ones #280 moves to the query builder.
 
-import { eq, sql } from 'drizzle-orm'
+import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { db } from '../db'
-import { userSettings } from '../db/schema'
+import { postings, transactions, userSettings } from '../db/schema'
 import { errorBody, type Outcome } from '../errors'
 import { loadHealContext, malformedFxSpendsByAccount } from '../postings/heal-service'
 import { accountsOwnedBy } from './ownership-service'
-
-// Raw row shapes returned by the action-required SQL queries.
-type ActionRequiredPairRow = { account_id: string; id: string }
-type ActionRequiredIdRow = { id: string }
 
 async function offsetAccountOf(userId: string): Promise<string | null> {
   const [settings] = await db
@@ -27,17 +21,21 @@ async function offsetAccountOf(userId: string): Promise<string | null> {
   return settings?.defaultOffsetAccountId ?? null
 }
 
-// The WHERE clause body shared by both queries: the transaction `t` has a live posting to the
-// offset account. Null when no offset account is configured, and callers skip the query.
+// The condition both queries share: the transaction has a live posting to the offset account.
+// Null when no offset account is configured, and callers skip the query. A subquery over
+// `postings` rather than an EXISTS correlated with the outer one, because the outer query
+// joins `postings` too and a correlated form would need a dialect's `alias()` to tell them
+// apart.
 function uncategorizedCondition(offsetAccountId: string | null) {
   if (offsetAccountId === null) return null
 
-  return sql`EXISTS (
-    SELECT 1 FROM postings p
-    WHERE p.transaction_id = t.id
-      AND p.deleted_at IS NULL
-      AND p.account_id = ${offsetAccountId}
-  )`
+  return inArray(
+    transactions.id,
+    db
+      .select({ id: postings.transactionId })
+      .from(postings)
+      .where(and(eq(postings.accountId, offsetAccountId), isNull(postings.deletedAt))),
+  )
 }
 
 async function malformedByAccount(userId: string): Promise<Map<string, Set<string>>> {
@@ -62,15 +60,15 @@ export async function actionRequiredSummary(
 
   const condition = uncategorizedCondition(await offsetAccountOf(userId))
   if (condition) {
-    const rows = await db.execute(sql`
-      SELECT anchor.account_id, t.id
-      FROM transactions t
-      JOIN postings anchor ON anchor.transaction_id = t.id AND anchor.deleted_at IS NULL
-      WHERE t.user_id = ${userId}
-        AND t.deleted_at IS NULL
-        AND ${condition}
-    `)
-    for (const r of rows as unknown as ActionRequiredPairRow[]) add(r.account_id, r.id)
+    const rows = await db
+      .select({ accountId: postings.accountId, id: transactions.id })
+      .from(transactions)
+      .innerJoin(
+        postings,
+        and(eq(postings.transactionId, transactions.id), isNull(postings.deletedAt)),
+      )
+      .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt), condition))
+    for (const r of rows) add(r.accountId, r.id)
   }
 
   for (const [accountId, txIds] of await malformedByAccount(userId)) {
@@ -102,17 +100,19 @@ export async function actionRequiredFor(
   const ids = new Set<string>()
   const condition = uncategorizedCondition(await offsetAccountOf(userId))
   if (condition) {
-    const result = await db.execute(sql`
-      SELECT DISTINCT t.id
-      FROM transactions t
-      JOIN postings anchor ON anchor.transaction_id = t.id
-        AND anchor.account_id = ${accountId}
-        AND anchor.deleted_at IS NULL
-      WHERE t.user_id = ${userId}
-        AND t.deleted_at IS NULL
-        AND ${condition}
-    `)
-    for (const r of result as unknown as ActionRequiredIdRow[]) ids.add(r.id)
+    const rows = await db
+      .selectDistinct({ id: transactions.id })
+      .from(transactions)
+      .innerJoin(
+        postings,
+        and(
+          eq(postings.transactionId, transactions.id),
+          eq(postings.accountId, accountId),
+          isNull(postings.deletedAt),
+        ),
+      )
+      .where(and(eq(transactions.userId, userId), isNull(transactions.deletedAt), condition))
+    for (const r of rows) ids.add(r.id)
   }
 
   const malformedTransactionIds = [...((await malformedByAccount(userId)).get(accountId) ?? [])]

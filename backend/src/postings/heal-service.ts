@@ -1,4 +1,4 @@
-import { and, eq, inArray, isNull, sql } from 'drizzle-orm'
+import { and, countDistinct, eq, gt, inArray, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
 import { errorBody, type Outcome } from '../errors'
@@ -106,19 +106,20 @@ export async function findMalformedFxSpends(
   userId: string,
   ctx: HealContext,
 ): Promise<MalformedCandidate[]> {
-  const multiCurrencyRows = await db.execute(sql`
-    SELECT p.transaction_id
-    FROM postings p
-    JOIN transactions t ON t.id = p.transaction_id
-    WHERE t.user_id = ${userId}
-      AND t.deleted_at IS NULL
-      AND p.deleted_at IS NULL
-    GROUP BY p.transaction_id
-    HAVING COUNT(DISTINCT p.currency) > 1
-  `)
-  const txIds = (multiCurrencyRows as unknown as { transaction_id: string }[]).map(
-    (r) => r.transaction_id,
-  )
+  const multiCurrencyRows = await db
+    .select({ transactionId: postings.transactionId })
+    .from(postings)
+    .innerJoin(transactions, eq(transactions.id, postings.transactionId))
+    .where(
+      and(
+        eq(transactions.userId, userId),
+        isNull(transactions.deletedAt),
+        isNull(postings.deletedAt),
+      ),
+    )
+    .groupBy(postings.transactionId)
+    .having(gt(countDistinct(postings.currency), 1))
+  const txIds = multiCurrencyRows.map((r) => r.transactionId)
   if (txIds.length === 0) return []
 
   const txRows = await db
