@@ -15,7 +15,7 @@ index.ts        Bun entry point: reads PORT and the static root, nothing else
           └ routes/<resource>.ts   parse the request, call one service, answer
               ├ services            *-service.ts: load, check, write (ledger/write-service, …)
               ├ pure modules        ledger/validate, import/, postings/, coverage/ … (no database)
-              └ db/                 Drizzle client and schema (Postgres today, SQLite per D8)
+              └ db/                 Drizzle client and schema: db/pg/ or db/sqlite/, per build
 ```
 
 - **The session guard** is in `app.ts`. Every `/api/*` path except `/api/auth/*` needs a
@@ -60,7 +60,8 @@ Two more kinds of file sit beside them:
   `WHERE` clauses for services. They need the schema to name columns but run no query, and
   only services import them.
 - **Infrastructure**: `index`, `server`, `app`, `auth`, `logging`, `request-log`,
-  `validation`, `respond`, `test-utils`, `db/{index,schema,returning}`, and
+  `validation`, `respond`, `test-utils`, `db/{index,schema,returning}`, the two dialect
+  folders `db/pg/` and `db/sqlite/`, and
   `fx/rate-source.ts`. The last holds the backend's only outbound `fetch` (frankfurter.app).
   It touches no database, so an offline build or a test has one function to stub.
 
@@ -92,8 +93,31 @@ every staying route parsing its body through a schema.
 the query builder: no `db.execute`, which Drizzle's SQLite driver does not have, and no
 `sql.raw`. Inside a `sql` template the test refuses a `::` cast, `to_char`, `jsonb` and
 `SUM(`, and points at what replaced each one: Drizzle's `count()` and `countDistinct()`,
-text dates (#277), JSON merged in TypeScript (#278) and `money.sum` (#279). The schema is
-the one file allowed to name Postgres types, because the SQLite port replaces it whole.
+text dates (#277), JSON merged in TypeScript (#278) and `money.sum` (#279). The dialect
+folders, `db/pg/` and `db/sqlite/`, are the only code allowed to speak one dialect.
+
+**Two builds, one set of queries** (#482). `db/index.ts` and `db/schema.ts` re-export
+`#dialect/client` and `#dialect/schema`, a package.json `imports` entry that a build condition
+resolves: `db/pg/` by default, `db/sqlite/` under `--conditions=sqlite` (`bun run test:sqlite`,
+and the local binary). It is chosen when the process starts, not by an environment variable,
+and that is what lets tsc check it: `bun run check` runs tsc once per dialect
+(`tsconfig.check.json`, `tsconfig.check.sqlite.json`), so every service is typed against the
+real client and schema of each build, with no cast between them. The two schemas declare the
+same tables, columns, indexes, checks and foreign keys, and `db/schemas.test.ts` compares them
+through Drizzle's table configs. Only the column types differ, per L02: uuid → text with
+`randomUUID`, numeric → text, timestamp → integer ms, jsonb → JSON text, boolean → integer.
+Where the dialects must behave differently, the difference is exported from both clients:
+`dialect` (Better Auth's provider) and `forUpdate` (below). Each has its own migrations,
+`drizzle/` and `drizzle/sqlite/`; `db:generate` writes both.
+
+**One writer at a time on SQLite** (`db/sqlite/client.ts`). libsql begins a transaction
+IMMEDIATE, taking SQLite's one write lock until it ends. Every connection lives on the one
+thread, so a second writer cannot wait for it (a busy timeout would block the thread the
+first needs to finish) and fails with SQLITE_BUSY instead (#285). So writes take turns
+in-process: `db.transaction` and every non-`SELECT` statement outside a transaction wait for
+the one before. Reads go straight through, which WAL allows. A write through `db` from inside
+a transaction's callback would wait for its own transaction forever, so it throws, naming
+`tx`. `db/transactions.test.ts` starts twelve transactions in one tick on both dialects.
 
 The test for whether something belongs in a domain module: could a phone run it against its
 own SQLite file, or a laptop run it on a document that just arrived from the relay?
@@ -316,7 +340,9 @@ exactly as the column does on write (half away from zero), and answers null for 
 the column wouldn't store as money: not a number, `NaN`, or too large. Checking the
 parsed cents is therefore checking what will be written, with no tolerance. Balances are
 summed in JS rather than by SQL `SUM`, so the answer doesn't depend on the database's
-decimal type; SQLite has none. `splitByWeights` is the one split rule: each share is
+decimal type; SQLite has none. For the same reason the ledger stores `format(cents(amount))`
+rather than the string it was handed: Postgres would round and pad it on write, and a SQLite
+text column keeps whatever it gets. `splitByWeights` is the one split rule: each share is
 rounded to the cent, and the leftover goes to one named share.
 
 **Dates** (`calendar-date.ts`, #277). `transactions.date` is a calendar day, `YYYY-MM-DD`
@@ -333,8 +359,8 @@ date-bearing suites in Tokyo and Los Angeles, because a date bug hides in UTC.
 per feature. Every change to it is worked out in JS (`preferences.ts`) and written back
 whole by `writeSettings`, which locks the row between the read and the write so two
 requests changing different keys at once both land. Postgres used to merge it with its
-own JSON operators; the row lock (`FOR UPDATE`) is now the only Postgres-only step, and
-SQLite, which admits one writer at a time, needs nothing in its place.
+own JSON operators. The row lock is `forUpdate` from `db`: `FOR UPDATE` on Postgres, and
+nothing on SQLite, where the transaction already holds the only write lock.
 
 **The journal export** (`export/`, #283). Vision #2's escape hatch: `serializeJournal` writes
 a `commodity` directive per currency, an `account` directive per account (typed `; type:X`

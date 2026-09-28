@@ -9,7 +9,7 @@
 import { describe, expect, it } from 'bun:test'
 import { DrizzleQueryError } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { db } from './db'
+import { db, dialect } from './db'
 import { importRules } from './db/schema'
 import { createLogger, logRequest, type RequestLog } from './logging'
 import { loggedError, requestLogger, unhandledError } from './request-log'
@@ -295,7 +295,8 @@ describe('the error handler', () => {
       msg: 'unhandled error',
       route: '/api/rules',
       method: 'POST',
-      err: { code: '23514' },
+      // The driver's own code for a failed check: SQLSTATE on Postgres, libsql's on SQLite.
+      err: { code: dialect === 'pg' ? '23514' : 'SQLITE_CONSTRAINT' },
     })
     const err = written?.err as { message: string; stack: string }
     expect(err.message).toContain('import_rules_one_target')

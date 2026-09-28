@@ -2,22 +2,23 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { eq, sql } from 'drizzle-orm'
-import { pathKey } from '../accounts/paths'
-import { db } from '../db'
-import { clearDatabase, createTestUser, request } from '../test-utils'
-import { returnedRow } from './returning'
-import { accounts, groupExpenses, postings, transactions } from './schema'
+import { pathKey } from '../../accounts/paths'
+import { clearDatabase, createTestUser, request } from '../../test-utils'
+import { db, dialect } from '../index'
+import { returnedRow } from '../returning'
+import { accounts, groupExpenses, postings, transactions } from '../schema'
 
 // Migration 0029 flips the postings of active non-payer member transactions
 // (BUG-005). The drizzle journal runs it exactly once at deploy time; this test
 // seeds pre-fix data by hand and executes the same SQL to prove the discriminator
 // flips exactly the debtor rows and nothing else.
 const migrationSql = readFileSync(
-  join(import.meta.dir, '../../drizzle/0029_flip_nonpayer_member_tx_postings.sql'),
+  join(import.meta.dir, '../../../drizzle/0029_flip_nonpayer_member_tx_postings.sql'),
   'utf8',
 )
 
-describe('migration 0029 — flip non-payer member tx postings', () => {
+// Postgres DDL, so the SQLite run (`test:sqlite`) skips it.
+describe.skipIf(dialect !== 'pg')('migration 0029 — flip non-payer member tx postings', () => {
   let userAId: string
   let userBId: string
   let groupId: string

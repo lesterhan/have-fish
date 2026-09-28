@@ -101,6 +101,40 @@ jobs:
         working-directory: backend
         run: bun run check
 
+  # The same suite on the local build's database (D8, #482): SQLite through libsql, in a temp
+  # file the preload creates and migrates. No service container, and the three tests of
+  # Postgres migrations skip themselves. The type check above already covers this build;
+  # `bun run check` runs tsc once per dialect.
+  backend-sqlite:
+    runs-on: ubuntu-24.04
+
+    env:
+      BETTER_AUTH_SECRET: ci-secret-not-used-in-tests
+      BETTER_AUTH_URL: http://localhost:8887
+      # The journal export is the escape hatch, so it is held to hledger on this build too.
+      REQUIRE_HLEDGER: '1'
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install hledger
+        run: |
+          sudo apt-get update -q
+          sudo apt-get install -y -q hledger
+          hledger --version
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: bun install
+
+      - name: Run tests on SQLite
+        working-directory: backend
+        run: bun run test:sqlite
+
   frontend:
     runs-on: ubuntu-latest
 

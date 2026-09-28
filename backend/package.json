@@ -2,18 +2,26 @@
   "name": "have-fish-backend",
   "version": "0.1.0",
   "private": true,
+  "imports": {
+    "#dialect/*": {
+      "sqlite": "./src/db/sqlite/*.ts",
+      "default": "./src/db/pg/*.ts"
+    }
+  },
   "scripts": {
     "dev": "bun run --watch src/index.ts",
     "start": "bun run src/index.ts",
-    "db:generate": "drizzle-kit generate",
+    "db:generate": "drizzle-kit generate && drizzle-kit generate --config drizzle.sqlite.config.ts",
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:test": "drizzle-kit migrate --config drizzle.test.config.ts",
+    "db:migrate:sqlite": "drizzle-kit migrate --config drizzle.sqlite.config.ts",
     "db:studio": "drizzle-kit studio",
     "db:reset": "bun run db:generate && bun run db:migrate",
-    "check": "tsc --noEmit -p tsconfig.check.json",
+    "check": "tsc --noEmit -p tsconfig.check.json && tsc --noEmit -p tsconfig.check.sqlite.json",
     "lint": "biome check .",
     "format": "biome format --write .",
     "test": "NODE_ENV=test bun test",
+    "test:sqlite": "NODE_ENV=test bun test --conditions=sqlite --preload ./src/db/sqlite/test-preload.ts",
     "test:watch": "NODE_ENV=test bun test --watch",
     "test:zones": "for tz in Asia/Tokyo America/Los_Angeles; do TZ=$tz NODE_ENV=test bun test src/routes/dates-in-zones.test.ts src/routes/import.test.ts src/routes/import-fingerprint.test.ts src/routes/transactions.test.ts src/routes/coverage.test.ts src/routes/reports.test.ts src/import || exit 1; done",
     "seed-user": "bun run scripts/seed-user.ts",
@@ -24,6 +32,7 @@
     "seed-all": "bun run scripts/seed-all.ts"
   },
   "dependencies": {
+    "@libsql/client": "^0.18.0",
     "@noble/hashes": "^2.0.1",
     "better-auth": "^1.6.29",
     "date-fns": "^4.4.0",

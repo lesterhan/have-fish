@@ -48,6 +48,11 @@ const INFRASTRUCTURE: Record<string, string> = {
   'test-utils.ts': 'the test harness, which empties every table',
   'db/index.ts': 'the database client',
   'db/schema.ts': 'the schema',
+  'db/pg/client.ts': "the database client, the server build's dialect",
+  'db/pg/schema.ts': "the schema, the server build's dialect",
+  'db/sqlite/client.ts': "the database client, the local build's dialect",
+  'db/sqlite/schema.ts': "the schema, the local build's dialect",
+  'db/sqlite/test-preload.ts': 'the SQLite test run, which makes and migrates a database file',
   'db/returning.ts': "reading a statement's returned row",
   'fx/rate-source.ts': 'the one outbound fetch, so it has one function to stub',
 }
@@ -81,7 +86,7 @@ const DOMAIN_PACKAGES: Record<string, string> = {
 
 const DB_CLIENT = 'db/index.ts'
 const SCHEMA = 'db/schema.ts'
-const STORAGE_PACKAGES = ['drizzle-orm', 'postgres']
+const STORAGE_PACKAGES = ['drizzle-orm', 'postgres', '@libsql/client', '#dialect']
 
 function layerOf(file: string): Layer {
   if (file.startsWith('routes/')) return 'route'
@@ -194,6 +199,15 @@ describe('the database client', () => {
     expect([...importers]).toEqual(
       expect.arrayContaining(['ledger/write-service.ts', 'accounts/account-service.ts']),
     )
+  })
+})
+
+describe('the dialect (`#dialect/*`)', () => {
+  // It resolves to one build's client or schema, and `db/index.ts` and `db/schema.ts` are the
+  // two doors to it. Anything reaching past them would skip the rules above.
+  it('is imported only through `db/index.ts` and `db/schema.ts`', () => {
+    const importers = EDGES.filter((e) => isPackage(e.imports, '#dialect')).map((e) => e.file)
+    expect([...new Set(importers)].sort()).toEqual([DB_CLIENT, SCHEMA])
   })
 })
 

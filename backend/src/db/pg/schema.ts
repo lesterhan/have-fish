@@ -1,0 +1,558 @@
+import { sql } from 'drizzle-orm'
+import {
+  boolean,
+  check,
+  date,
+  index,
+  integer,
+  jsonb,
+  numeric,
+  pgTable,
+  text,
+  timestamp,
+  unique,
+  uniqueIndex,
+  uuid,
+} from 'drizzle-orm/pg-core'
+
+// --- Better Auth tables ---
+// These are required by Better Auth and must not be renamed or removed.
+
+// The version of a sync document (see planning/epics/sync-unit.md). It lives on the root row
+// only, and `$onUpdate` moves it on every update of that row, so no route has to remember to.
+// A change to a transaction's postings alone moves it through the ledger service.
+const version = () =>
+  timestamp('updated_at')
+    .notNull()
+    .defaultNow()
+    .$onUpdate(() => new Date())
+
+export const user = pgTable('user', {
+  id: text('id').primaryKey(),
+  name: text('name').notNull(),
+  email: text('email').notNull().unique(),
+  emailVerified: boolean('email_verified').notNull(),
+  image: text('image'),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+})
+
+export const session = pgTable('session', {
+  id: text('id').primaryKey(),
+  expiresAt: timestamp('expires_at').notNull(),
+  token: text('token').notNull().unique(),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+  ipAddress: text('ip_address'),
+  userAgent: text('user_agent'),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+})
+
+export const account = pgTable('account', {
+  id: text('id').primaryKey(),
+  accountId: text('account_id').notNull(),
+  providerId: text('provider_id').notNull(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  accessToken: text('access_token'),
+  refreshToken: text('refresh_token'),
+  idToken: text('id_token'),
+  accessTokenExpiresAt: timestamp('access_token_expires_at'),
+  refreshTokenExpiresAt: timestamp('refresh_token_expires_at'),
+  scope: text('scope'),
+  password: text('password'),
+  createdAt: timestamp('created_at').notNull(),
+  updatedAt: timestamp('updated_at').notNull(),
+})
+
+export const verification = pgTable('verification', {
+  id: text('id').primaryKey(),
+  identifier: text('identifier').notNull(),
+  value: text('value').notNull(),
+  expiresAt: timestamp('expires_at').notNull(),
+  createdAt: timestamp('created_at'),
+  updatedAt: timestamp('updated_at'),
+})
+
+// --- App tables ---
+
+// An account is any named bucket that holds or moves money.
+// Examples: "assets:wise:eur", "expenses:food:restaurant", "liabilities:credit-card"
+//
+// The path is a colon-separated materialized path — it doubles as the hledger account name.
+// It keeps the spelling it was typed with; `pathKey` is the same path in the form paths are
+// compared in (`pathKey()` in `accounts/paths.ts`, #480). Every lookup and every "at or under"
+// goes through the key, and an active path is unique per user by key. The service enforces that
+// with a readable refusal and a rule no index can express (one spelling per tree node); the
+// index is the backstop for a write that goes around it.
+export const accounts = pgTable(
+  'accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    path: text('path').notNull(),
+    pathKey: text('path_key').notNull(),
+    name: text('name'), // optional human-friendly display name; falls back to path when null
+    defaultCurrency: text('default_currency'), // ISO 4217 code; pre-selects currency in quick entry
+    // hledger account type override: one of asset|liability|equity|income|expense, or null.
+    // Null = infer from the path root (see resolveAccountType). Stored value wins when present —
+    // the unlock for atypically-named roots that path inference can't classify.
+    type: text('type'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: version(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    uniqueIndex('accounts_user_path_key_idx')
+      .on(t.userId, t.pathKey)
+      .where(sql`${t.deletedAt} is null`),
+  ],
+)
+
+// A transaction is a metadata envelope: a date, a description, and a set of postings.
+// The money details (amounts, currencies, accounts) live entirely in postings.
+export const transactions = pgTable(
+  'transactions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // A calendar day, `YYYY-MM-DD`, as text (#277, calendar-date.ts). Like the Fish Pie and
+    // FX dates below: a date has no time zone, and ISO text compares correctly as a string.
+    date: text('date').notNull(),
+    description: text('description'),
+    // The group expense this transaction belongs to. The single, total forward link: set on
+    // every transaction in an expense — the auto-created member txs AND the payer's origin
+    // import tx (see groupExpenses.transactionId) — so "which expense?" is one lookup.
+    // Used by the read payload, the edit modal's "Remove from group", and DELETE to cascade.
+    // No DB FK intentional: groupExpenses already has a FK to transactions (transactionId),
+    // so adding a back-reference here would create a circular FK constraint.
+    groupExpenseId: uuid('group_expense_id'),
+    // Which bank row an imported transaction came from (#282, import/fingerprint.ts), and the
+    // source of its id, so importing the same row twice is refused by the index below.
+    // Content-derived, so it is a local convergence device: it never leaves the device in the
+    // clear, and a sync relay never gets it as a column (#375). Null for everything else.
+    importFingerprint: text('import_fingerprint'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: version(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    uniqueIndex('transactions_user_import_fingerprint_idx')
+      .on(t.userId, t.importFingerprint)
+      .where(sql`${t.importFingerprint} is not null`),
+  ],
+)
+
+// A user-defined CSV parser configuration.
+// Stores the column fingerprint of a bank's CSV export and a mapping from
+// CSV columns to transaction fields. Used to auto-detect the correct parser
+// when a CSV is uploaded, and to extract data from each row.
+export const csvParsers = pgTable('csv_parsers', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  name: text('name').notNull(),
+  // Pipe-joined sorted normalized column names — the fingerprint used for auto-detection.
+  // e.g. "amount|balance|currency|date|description|transaction"
+  normalizedHeader: text('normalized_header').notNull(),
+  // Maps transaction field names to normalized CSV column names.
+  // { date: string, amount: string, description?: string, currency?: string }
+  columnMapping: jsonb('column_mapping').notNull(),
+  // The account this parser's CSVs belong to by default. Nullable — not all parsers
+  // need a default. Used on the import page to pre-fill the source account dropdown.
+  // For multi-currency parsers this is the root path account (e.g. assets:wise),
+  // not a leaf account — child accounts are derived from it per row.
+  defaultAccountId: uuid('default_account_id').references(() => accounts.id),
+  // When true, the parser supports inline multi-currency transfers (e.g. Wise).
+  // Enables transfer column mappings and per-row source account inference.
+  isMultiCurrency: boolean('is_multi_currency').notNull().default(false),
+  // Institution-specific fee account for transfer rows (e.g. expenses:fees:wise).
+  // Only relevant when isMultiCurrency is true.
+  defaultFeeAccountId: uuid('default_fee_account_id').references(() => accounts.id),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: version(),
+  deletedAt: timestamp('deleted_at'),
+})
+
+// Per-user settings. One row per user, created alongside the user's seed accounts.
+// Stores references to accounts that serve as defaults in various workflows.
+// defaultOffsetAccountId — pre-selected on the import page as the balancing account
+// defaultConversionAccountId — pre-selected when creating cross-currency transfers
+export const userSettings = pgTable('user_settings', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  userId: text('user_id')
+    .notNull()
+    .unique()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  defaultOffsetAccountId: uuid('default_offset_account_id').references(() => accounts.id),
+  defaultConversionAccountId: uuid('default_conversion_account_id').references(() => accounts.id),
+  // All accounts whose path starts with defaultAssetsRootPath value are treated as assets.
+  defaultAssetsRootPath: text('default_assets_root_path').notNull().default('assets'),
+  defaultLiabilitiesRootPath: text('default_liabilities_root_path')
+    .notNull()
+    .default('liabilities'),
+  defaultExpensesRootPath: text('default_expenses_root_path').notNull().default('expenses'),
+  defaultEquityRootPath: text('default_equity_root_path').notNull().default('equity'),
+  // Accounts under this root are the user's income/revenue. Distinct from equity so the
+  // account-type resolver can tell a paycheck (income) from a rate-balancing leg (equity) —
+  // before this, everything non-asset/non-liability collapsed to equity.
+  defaultIncomeRootPath: text('default_income_root_path').notNull().default('income'),
+  // Offset account used when posting reconciliation adjustments (e.g. equity:adjustments).
+  defaultAdjustmentsAccountId: uuid('default_adjustments_account_id').references(() => accounts.id),
+  // The user's home currency — used to display converted amounts in the UI.
+  // Stored as an ISO 4217 code (e.g. "CAD", "USD", "EUR"). Defaults to CAD.
+  preferredCurrency: text('preferred_currency').notNull().default('CAD'),
+  // Catch-all JSONB blob for UI display preferences (e.g. hidden currencies).
+  // Use this for any new preference rather than adding columns — keeps the table stable.
+  preferences: jsonb('preferences').notNull().default({}),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  updatedAt: version(),
+})
+
+// Cached daily FX rates fetched from frankfurter.app.
+// Rates are global (not per-user) — the same rate applies to all users.
+// The unique constraint on (date, baseCurrency, quoteCurrency) prevents double-inserts
+// and allows upsert-style conflict handling in the fetch service.
+export const fxRates = pgTable('fx_rates', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  date: text('date').notNull(), // YYYY-MM-DD
+  baseCurrency: text('base_currency').notNull(), // e.g. "EUR"
+  quoteCurrency: text('quote_currency').notNull(), // e.g. "CAD"
+  rate: numeric('rate', { precision: 12, scale: 6 }).notNull(),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+})
+
+// A rule matches a description substring to an expense account.
+// status: 'active' = applied during import preview; 'suggested' = mined, awaiting user action;
+// 'denied' = a suggestion the user hid. Denied rules keep their row (not soft-deleted) so their
+// pattern stays in mining's skip-set and is never re-suggested. Approving a suggestion flips it to
+// 'active'; denying flips it to 'denied'; reviving flips 'denied' back to 'suggested'.
+// An import rule points a description pattern at exactly one target: either an expense
+// account (accountId) or a Fish Pie split (groupId, with an optional categoryId).
+//
+// A split rule deliberately stores no expense account: the payer's expense leg is derived
+// from the category at posting-build time, the same way a manual split does it. Storing it
+// here would be a second source of truth that silently goes stale when the category's
+// account mapping changes.
+export const importRules = pgTable(
+  'import_rules',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    pattern: text('pattern').notNull(),
+    accountId: uuid('account_id').references(() => accounts.id),
+    groupId: uuid('group_id').references(() => expenseGroups.id, { onDelete: 'cascade' }),
+    categoryId: uuid('category_id').references(() => groupCategories.id, { onDelete: 'set null' }),
+    status: text('status').notNull().default('active'),
+    matchCount: integer('match_count').notNull().default(0),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: version(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    // Exactly one target, and a category only alongside a group. routes/rules.ts validates
+    // this too and is what produces a readable 400 — this is the backstop for writes that
+    // never reach the route: /api/rules/mine inserts directly, later stories add their own
+    // rule-writing paths, and Drizzle Studio bypasses the app entirely.
+    check(
+      'import_rules_one_target',
+      sql`(${t.accountId} IS NOT NULL AND ${t.groupId} IS NULL AND ${t.categoryId} IS NULL)
+        OR (${t.accountId} IS NULL AND ${t.groupId} IS NOT NULL)`,
+    ),
+  ],
+)
+
+// --- Fish Pie (shared expense) tables ---
+
+export const expenseGroups = pgTable('expense_groups', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  name: text('name').notNull(),
+  defaultCurrency: text('default_currency'),
+  createdBy: text('created_by')
+    .notNull()
+    .references(() => user.id, { onDelete: 'cascade' }),
+  createdAt: timestamp('created_at').notNull().defaultNow(),
+  deletedAt: timestamp('deleted_at'),
+})
+
+export const expenseGroupMembers = pgTable(
+  'expense_group_members',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => expenseGroups.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    shareWeight: integer('share_weight').notNull().default(1),
+    // Account where this member's share of group expenses is posted (e.g. expenses:food).
+    // Null = falls back to uncategorized account.
+    defaultExpenseAccountId: uuid('default_expense_account_id').references(() => accounts.id),
+    // Account the payer pays from when manually creating an expense (e.g. liabilities:visa).
+    // Required by the UI when creating a manual expense; stored so it can be pre-filled next time.
+    defaultPaymentAccountId: uuid('default_payment_account_id').references(() => accounts.id),
+    joinedAt: timestamp('joined_at').notNull().defaultNow(),
+  },
+  (t) => [
+    unique().on(t.groupId, t.userId),
+    index('expense_group_members_user_id_idx').on(t.userId),
+  ],
+)
+
+export const expenseGroupInvites = pgTable(
+  'expense_group_invites',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => expenseGroups.id, { onDelete: 'cascade' }),
+    invitedByUserId: text('invited_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    inviteeEmail: text('invitee_email').notNull(),
+    status: text('status').notNull().default('pending'), // 'pending' | 'accepted' | 'declined'
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    resolvedAt: timestamp('resolved_at'),
+  },
+  (t) => [
+    index('expense_group_invites_group_id_idx').on(t.groupId),
+    index('expense_group_invites_invitee_email_idx').on(t.inviteeEmail),
+  ],
+)
+
+// A spending category within a group (Food, Housing, …). Shared vocabulary for the
+// whole group; each member maps it to their own expense account via
+// groupCategoryMemberAccounts. Soft-archived via archivedAt — archived categories are
+// hidden from create flows but still resolvable for existing expenses that point at them.
+export const groupCategories = pgTable(
+  'group_categories',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => expenseGroups.id, { onDelete: 'cascade' }),
+    name: text('name').notNull(),
+    sortOrder: integer('sort_order').notNull().default(0),
+    archivedAt: timestamp('archived_at'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+  },
+  (t) => [index('group_categories_group_id_idx').on(t.groupId)],
+)
+
+// One member's private mapping of a category to their own expense account.
+// Self-owned: each member manages only their own row.
+export const groupCategoryMemberAccounts = pgTable(
+  'group_category_member_accounts',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => groupCategories.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+  },
+  (t) => [unique().on(t.categoryId, t.userId)],
+)
+
+// The group's agreed split weight for a member within a category (Housing 60/40,
+// Food 70/30). Shared, not private: any member may set the whole vector — the
+// agreement is implied. A category's weights apply only when every current member
+// has one; otherwise the split falls back to group member weights.
+export const groupCategoryWeights = pgTable(
+  'group_category_weights',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    categoryId: uuid('category_id')
+      .notNull()
+      .references(() => groupCategories.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    weight: integer('weight').notNull(),
+  },
+  (t) => [unique().on(t.categoryId, t.userId)],
+)
+
+export const groupExpenses = pgTable(
+  'group_expenses',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => expenseGroups.id, { onDelete: 'cascade' }),
+    // Spending category for this expense. Null = uncategorized (legacy/pre-categories).
+    // No cascade: archiving/deleting a category must not delete its expenses.
+    categoryId: uuid('category_id').references(() => groupCategories.id, { onDelete: 'set null' }),
+    paidByUserId: text('paid_by_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    description: text('description').notNull(),
+    amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+    currency: text('currency').notNull(),
+    date: text('date').notNull(), // YYYY-MM-DD
+    // Marks the origin import transaction for an expense logged from a CSV import (paid by the
+    // importer): the externally-owned bank line this expense was spawned from. Its purpose is
+    // lifecycle, not lookup — it flags the one tx that must be preserved (postings patched in
+    // place) rather than regenerated on edit. The belongs-to link is transactions.groupExpenseId.
+    // Null for manually-created expenses and pre-integration ones.
+    transactionId: uuid('transaction_id').references(() => transactions.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    index('group_expenses_group_id_idx').on(t.groupId),
+    index('group_expenses_category_id_idx').on(t.categoryId),
+  ],
+)
+
+export const groupExpenseSplits = pgTable(
+  'group_expense_splits',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    expenseId: uuid('expense_id')
+      .notNull()
+      .references(() => groupExpenses.id, { onDelete: 'cascade' }),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+  },
+  (t) => [unique().on(t.expenseId, t.userId)],
+)
+
+export const groupSettlements = pgTable(
+  'group_settlements',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    groupId: uuid('group_id')
+      .notNull()
+      .references(() => expenseGroups.id, { onDelete: 'cascade' }),
+    fromUserId: text('from_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    toUserId: text('to_user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    // The debt being cleared, in its own currency. Balance math nets on these.
+    amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+    currency: text('currency').notNull(),
+    // The cash actually paid. Null ⇒ native settlement (settledAmount == amount,
+    // settledCurrency == currency, no FX). Non-null ⇒ cross-currency: the debt above
+    // was cleared by paying settledAmount of settledCurrency at fxRate.
+    settledAmount: numeric('settled_amount', { precision: 12, scale: 2 }),
+    settledCurrency: text('settled_currency'),
+    fxRate: numeric('fx_rate', { precision: 12, scale: 6 }),
+    // Settlements created together (one combined cash transaction) share a batchId.
+    // Drives combined confirm + cascade delete. Null on legacy single settlements.
+    batchId: uuid('batch_id'),
+    date: text('date').notNull(),
+    note: text('note'),
+    status: text('status').notNull().default('pending'),
+    payerAccountId: uuid('payer_account_id').references(() => accounts.id, {
+      onDelete: 'set null',
+    }),
+    payerTransactionId: uuid('payer_transaction_id').references(() => transactions.id, {
+      onDelete: 'set null',
+    }),
+    receiverTransactionId: uuid('receiver_transaction_id').references(() => transactions.id, {
+      onDelete: 'set null',
+    }),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    index('group_settlements_group_id_idx').on(t.groupId),
+    index('group_settlements_batch_id_idx').on(t.batchId),
+  ],
+)
+
+// A posting is one leg of a transaction — money moving in or out of one account.
+// Every transaction has at least two postings, and they must balance to zero per currency.
+// Negative amount = money leaving the account (expense/debit).
+// Positive amount = money entering the account (income/credit).
+export const postings = pgTable(
+  'postings',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    transactionId: uuid('transaction_id')
+      .notNull()
+      .references(() => transactions.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    amount: numeric('amount', { precision: 12, scale: 2 }).notNull(),
+    currency: text('currency').notNull().default('CAD'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    index('postings_transaction_id_idx').on(t.transactionId),
+    index('postings_account_id_idx').on(t.accountId),
+  ],
+)
+
+// An assertion that one account's ledger is complete for an inclusive date range.
+//
+// The fact the rest of the app could never express: "this account is done through date D."
+// Last-transaction-date cannot say it — a quiet account and a neglected one look identical,
+// and neither ever reads *finished*. Coverage is therefore asserted, never inferred.
+//
+// Intervals rather than a single high-water date, because imports arrive out of order:
+// August often gets done before July does. A watermark would either lie about July or refuse
+// to advance past it; intervals say "you have Jan-Feb and Aug, Mar-Jul is missing" instead.
+//
+// Append-only with soft delete, so every assertion keeps its provenance and can be undone.
+// Rows may overlap or nest freely — writers never reconcile against what is already stored;
+// readers coalesce via mergeCoverage(). See coverage/intervals.ts.
+export const accountCoverage = pgTable(
+  'account_coverage',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    accountId: uuid('account_id')
+      .notNull()
+      .references(() => accounts.id),
+    // Both bounds inclusive. A single covered day is fromDate === throughDate.
+    fromDate: date('from_date').notNull(),
+    throughDate: date('through_date').notNull(),
+    // How the assertion was made: 'import' (a statement was ingested), 'reconcile' (the balance
+    // matched the bank), 'manual' (the user vouched for the range), 'empty' (the user confirmed
+    // nothing happened). Provenance only — all four carry equal weight when merging.
+    source: text('source').notNull(),
+    note: text('note'), // optional context, e.g. the statement filename
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    deletedAt: timestamp('deleted_at'),
+  },
+  (t) => [
+    // Every read is "this user's coverage for this account, in date order".
+    index('account_coverage_user_account_from_idx').on(t.userId, t.accountId, t.fromDate),
+    // routes/coverage.ts validates both of these and is what produces a readable 400. These are
+    // the backstop for writes that never reach the route: later stories have import and reconcile
+    // insert directly, and Drizzle Studio bypasses the app entirely. An inverted range would
+    // silently corrupt every merge downstream, so it must not be storable at all.
+    check('account_coverage_range_ordered', sql`${t.fromDate} <= ${t.throughDate}`),
+    check(
+      'account_coverage_source_valid',
+      sql`${t.source} IN ('import', 'reconcile', 'manual', 'empty')`,
+    ),
+  ],
+)

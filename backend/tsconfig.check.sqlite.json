@@ -1,0 +1,11 @@
+{
+  "extends": "./tsconfig.check.json",
+  "// why": [
+    "The same check for the SQLite build (D8, #286). `customConditions` resolves `#dialect/*` to",
+    "`src/db/sqlite/` as `bun --conditions=sqlite` does, so every service and test is checked",
+    "against the SQLite client and schema. Each build leaves out the other dialect's folder,",
+    "which is also where the Postgres-only migration tests live."
+  ],
+  "compilerOptions": { "customConditions": ["sqlite"] },
+  "exclude": ["drizzle", "node_modules", "src/db/pg"]
+}

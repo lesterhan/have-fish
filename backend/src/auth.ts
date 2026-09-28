@@ -1,7 +1,7 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
 import { pathKey } from './accounts/paths'
-import { db } from './db'
+import { db, dialect } from './db'
 import { accounts, userSettings } from './db/schema'
 
 // Builds the list of origins allowed to make authenticated requests (Better Auth's
@@ -25,7 +25,7 @@ export function buildTrustedOrigins(env: NodeJS.ProcessEnv = process.env): strin
 // - BETTER_AUTH_URL must be set to the backend's public URL (e.g. http://localhost:8887)
 export const auth = betterAuth({
   database: drizzleAdapter(db, {
-    provider: 'pg',
+    provider: dialect,
   }),
   emailAndPassword: {
     enabled: true,

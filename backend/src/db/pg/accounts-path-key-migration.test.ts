@@ -2,14 +2,14 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
-import { db } from '../db'
-import { clearDatabase, createTestUser, request } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../../test-utils'
+import { db, dialect } from '../index'
 
 // Migration 0044 adds accounts.path_key and the unique index over it (#480). The test database
 // is already past it, so this takes both off again inside a transaction, seeds rows the old
 // schema allowed, runs the migration's own SQL, checks the result and rolls everything back.
 const migrationSql = readFileSync(
-  join(import.meta.dir, '../../drizzle/0044_accounts_path_key.sql'),
+  join(import.meta.dir, '../../../drizzle/0044_accounts_path_key.sql'),
   'utf8',
 )
 
@@ -31,7 +31,8 @@ async function beforeMigration(
     })
 }
 
-describe('migration 0044: accounts.path_key', () => {
+// Postgres DDL, so the SQLite run (`test:sqlite`) skips it.
+describe.skipIf(dialect !== 'pg')('migration 0044: accounts.path_key', () => {
   let userId: string
 
   beforeEach(async () => {
