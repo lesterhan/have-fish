@@ -87,6 +87,13 @@ file, or matches one that no longer needs it. `node:crypto` is allowed for
 the ledger write service the only writer of postings, and `routes/bodies.test.ts` keeps
 every staying route parsing its body through a schema.
 
+**How the queries stay dialect-neutral** (`dialect.test.ts`, #280). Every query goes through
+the query builder: no `db.execute`, which Drizzle's SQLite driver does not have, and no
+`sql.raw`. Inside a `sql` template the test refuses a `::` cast, `to_char`, `jsonb` and
+`SUM(`, and points at what replaced each one: Drizzle's `count()` and `countDistinct()`,
+text dates (#277), JSON merged in TypeScript (#278) and `money.sum` (#279). The schema is
+the one file allowed to name Postgres types, because the SQLite port replaces it whole.
+
 The test for whether something belongs in a domain module: could a phone run it against its
 own SQLite file, or a laptop run it on a document that just arrived from the relay?
 
@@ -106,7 +113,7 @@ is in `accounts/` (#428).
 | `GET /balances` | Balance-bearing accounts with per-currency sums | `readBalanceSelection` and `selects` (`balances`), `balance-service` with `account-type-sql`; `sumByCurrency` | — |
 | `GET /posting-counts` | Entries and last activity per account | `balance-service` (SQL) | — |
 | `GET /:id/balance` | One account's balance as of a date | `balance-service`: `accountsOwnedBy`, `sumByCurrency` | — |
-| `GET /action-required-summary` | Per account: uncategorized plus malformed-FX counts | `action-required-service` (raw SQL, #280) + `heal-service` | — |
+| `GET /action-required-summary` | Per account: uncategorized plus malformed-FX counts | `action-required-service` + `heal-service` | — |
 | `GET /:id/action-required` | The same, for one account, with ids | Same, after `accountsOwnedBy` | — |
 | `GET /:id` | One account with resolved, inferred and inherited type | `account-service` → `explainType` | — |
 | `POST /` | Create an account | Schema: path shape (`isValidPath`); `account-service`: not in the receivable namespace | `accounts` |

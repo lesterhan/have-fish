@@ -241,8 +241,10 @@ SQLite file: it imports only other domain modules and an allowlist of packages, 
 database client, the schema, Drizzle or Hono, not even for a type. `*-sql.ts` builds query
 fragments for services and runs none. `backend/src/layers.test.ts` gives every file a layer
 from its name (anything unnamed is domain) and fails on the first import across the line;
-the eight `fish-pie-*` routes are exempt until they leave under #380.
-`backend/ARCHITECTURE.md` is the map.
+the eight `fish-pie-*` routes are exempt until they leave under #380. Its queries say nothing
+only Postgres understands, so the SQLite port swaps a driver rather than rewriting them:
+`backend/src/dialect.test.ts` refuses `db.execute`, `sql.raw`, and a `::` cast, `to_char`,
+`jsonb` or `SUM(` inside a `sql` template. `backend/ARCHITECTURE.md` is the map.
 
 **And it says only what `RequestLog` allows.** One structured JSON line per request, via
 `logRequest` in `backend/src/logging.ts`. `RequestLog` is the whole vocabulary of that

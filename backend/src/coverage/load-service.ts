@@ -6,7 +6,7 @@
 // account on the same screen, so the queries and the assembly live here and the routes only
 // choose what to project.
 
-import { and, eq, gte, isNull, sql } from 'drizzle-orm'
+import { and, countDistinct, eq, gte, isNull, sql } from 'drizzle-orm'
 import { isClearingAccountPath } from '../accounts/paths'
 import { db } from '../db'
 import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
@@ -166,7 +166,7 @@ export async function loadCoverageContext(
     .select({
       accountId: postings.accountId,
       date: transactions.date,
-      count: sql<number>`COUNT(DISTINCT ${transactions.id})::int`,
+      count: countDistinct(transactions.id),
     })
     .from(postings)
     .innerJoin(transactions, eq(postings.transactionId, transactions.id))

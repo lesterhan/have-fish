@@ -1,7 +1,7 @@
 // The account rows themselves: list, read, create, rename a subtree, update, soft-delete.
 // Path rules are in `paths.ts`; this loads what they need and writes what they decide.
 
-import { and, eq, isNull, sql } from 'drizzle-orm'
+import { and, count, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
@@ -161,7 +161,7 @@ export async function deleteAccount(userId: string, accountId: string): Promise<
   // account is free. Same rule `postingCounts` uses, so the count the UI shows and the count
   // this refuses on are the same number.
   const [{ entries } = { entries: 0 }] = await db
-    .select({ entries: sql<number>`COUNT(${transactions.id})::int` })
+    .select({ entries: count(transactions.id) })
     .from(postings)
     .innerJoin(
       transactions,
