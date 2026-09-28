@@ -1,4 +1,5 @@
 import type { ParsedTransaction } from '$lib/api'
+import { importCopy } from '../../copy/import'
 import type { RowState } from './row-state'
 
 // Whether a row still needs a decision. Derived from recorded provenance rather than
@@ -9,11 +10,11 @@ export type RowStatus = 'skipped' | 'done' | 'auto' | 'needs-review'
 export type ReviewFilter = 'all' | 'needs-review' | 'auto' | 'done' | 'skipped'
 
 export const REVIEW_FILTERS: { id: ReviewFilter; label: string }[] = [
-  { id: 'all', label: 'All' },
-  { id: 'needs-review', label: 'Needs review' },
-  { id: 'auto', label: 'Auto' },
-  { id: 'done', label: 'Done' },
-  { id: 'skipped', label: 'Skipped' },
+  { id: 'all', label: importCopy.review.filters.all },
+  { id: 'needs-review', label: importCopy.review.filters.needsReview },
+  { id: 'auto', label: importCopy.review.filters.auto },
+  { id: 'done', label: importCopy.review.filters.done },
+  { id: 'skipped', label: importCopy.review.filters.skipped },
 ]
 
 type StatusInput = Pick<RowState, 'skipped' | 'source'>

@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '$lib/components/ui/Icon.svelte'
+  import { copy } from '$lib/copy'
   import { tooltip } from '$lib/tooltip'
   import type { PossibleDuplicate } from '$lib/api'
   import { parseDateParts } from '$lib/components/transactions/transactionUtils'
@@ -12,6 +13,16 @@
   let { date, possibleDuplicate }: Props = $props()
 
   let parts = $derived(parseDateParts(date))
+
+  // The row it matched, as data: its date, amount and currency, in the order the table reads.
+  let duplicateLabel = $derived.by(() => {
+    const dup = possibleDuplicate
+    if (!dup) return ''
+    const match = `${dup.date} ${dup.amount} ${dup.currency}`
+    return dup.certain
+      ? copy.import.row.duplicate.certain(match)
+      : copy.import.row.duplicate.possible(match)
+  })
 </script>
 
 <td class="cell-date">
@@ -23,7 +34,7 @@
     <span
       class="indicator-icon warn"
       use:tooltip={{
-        label: `${possibleDuplicate.certain ? 'Already imported' : 'Possible duplicate'}: ${possibleDuplicate.date} ${possibleDuplicate.amount} ${possibleDuplicate.currency}`,
+        label: duplicateLabel,
         always: true,
       }}
     >

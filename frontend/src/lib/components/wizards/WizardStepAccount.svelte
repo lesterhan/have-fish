@@ -2,6 +2,7 @@
   import WizardFormGrid from './WizardFormGrid.svelte'
   import TextInput from '../ui/TextInput.svelte'
   import CurrencyInput from '../ui/CurrencyInput.svelte'
+  import { copy } from '$lib/copy'
 
   interface Props {
     accountPath: string
@@ -21,7 +22,7 @@
 </script>
 
 <WizardFormGrid>
-  <label for="account-path">Account path</label>
+  <label for="account-path">{copy.import.addAccount.path}</label>
   <input
     id="account-path"
     type="text"
@@ -32,7 +33,8 @@
   />
 
   <label for="starting-balance">
-    Starting balance <span class="optional">(optional)</span>
+    {copy.import.addAccount.startingBalance}
+    <span class="optional">{copy.import.addAccount.optional}</span>
   </label>
   <div class="balance-row">
     <TextInput
@@ -49,7 +51,7 @@
   </div>
 
   {#if startingBalance.trim()}
-    <label for="starting-date">Balance date</label>
+    <label for="starting-date">{copy.import.addAccount.balanceDate}</label>
     <input id="starting-date" type="date" bind:value={startingDate} />
   {/if}
 </WizardFormGrid>

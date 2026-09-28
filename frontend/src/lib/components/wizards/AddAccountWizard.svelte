@@ -9,6 +9,7 @@
   import WizardStepParserMultiCurrency from './WizardStepParserMultiCurrency.svelte'
   import WizardStepConfirm from './WizardStepConfirm.svelte'
   import { settingsStore } from '$lib/settings.svelte'
+  import { copy } from '$lib/copy'
   import { errorMessage } from '$lib/copy/errors'
   import { type FlowState, PARSER_STEP, parserFlow } from './parserFlow'
 
@@ -19,12 +20,6 @@
   }
 
   let { type, open = $bindable(), onSuccess }: Props = $props()
-
-  const TITLES = {
-    asset: 'Add New Asset Account',
-    liability: 'Add New Liability Account',
-    equity: 'Add New Equity Account',
-  }
 
   const STEP = {
     ACCOUNT: 'account',
@@ -216,7 +211,7 @@
       })
       if (!accountRes.ok) {
         const err = await accountRes.json().catch(() => ({}))
-        throw new Error(errorMessage(err, 'Failed to create account.'))
+        throw new Error(errorMessage(err, copy.import.addAccount.createFailed))
       }
       const account = await accountRes.json()
 
@@ -229,7 +224,7 @@
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             date: startingDate,
-            description: 'Opening balance',
+            description: copy.import.addAccount.openingBalance,
             postings: [
               {
                 accountId: account.id,
@@ -247,10 +242,7 @@
         if (!txRes.ok) {
           const err = await txRes.json().catch(() => ({}))
           throw new Error(
-            errorMessage(
-              err,
-              'Account created but failed to post starting balance.',
-            ),
+            errorMessage(err, copy.import.addAccount.balanceFailed),
           )
         }
       }
@@ -289,7 +281,7 @@
         if (!parserRes.ok) {
           const err = await parserRes.json().catch(() => ({}))
           throw new Error(
-            errorMessage(err, 'Account created but failed to save parser.'),
+            errorMessage(err, copy.import.addAccount.parserFailed),
           )
         }
       }
@@ -297,14 +289,14 @@
       onSuccess?.()
       close()
     } catch (e) {
-      submitError = e instanceof Error ? e.message : 'Something went wrong.'
+      submitError = e instanceof Error ? e.message : copy.import.wizard.failed
     } finally {
       submitting = false
     }
   }
 </script>
 
-<Modal title={TITLES[type]} bind:open onclose={close}>
+<Modal title={copy.import.addAccount.titles[type]} bind:open onclose={close}>
   <div class="wizard-body">
     {#if step === STEP.ACCOUNT}
       <WizardStepAccount
@@ -365,34 +357,41 @@
   <div class="wizard-footer">
     <div class="footer-left">
       {#if step !== STEP.ACCOUNT}
-        <GradientButton onclick={back}>Back</GradientButton>
+        <GradientButton onclick={back}>{copy.import.wizard.back}</GradientButton
+        >
       {/if}
     </div>
     <div class="footer-right">
       {#if step === STEP.ACCOUNT}
         <GradientButton active onclick={next} disabled={!step1Valid}
-          >Next</GradientButton
+          >{copy.import.wizard.next}</GradientButton
         >
       {:else if step === STEP.PARSER_UPLOAD}
-        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton onclick={skip}>{copy.import.wizard.skip}</GradientButton
+        >
         <GradientButton active onclick={next} disabled={!parserUploadValid}
-          >Next</GradientButton
+          >{copy.import.wizard.next}</GradientButton
         >
       {:else if step === STEP.PARSER_COLUMNS}
-        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton onclick={skip}>{copy.import.wizard.skip}</GradientButton
+        >
         <GradientButton active onclick={next} disabled={!parserColumnsValid}
-          >Next</GradientButton
+          >{copy.import.wizard.next}</GradientButton
         >
       {:else if step === STEP.PARSER_MULTICURRENCY}
-        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton onclick={skip}>{copy.import.wizard.skip}</GradientButton
+        >
         <GradientButton
           active
           onclick={next}
-          disabled={!parserMultiCurrencyValid}>Next</GradientButton
+          disabled={!parserMultiCurrencyValid}
+          >{copy.import.wizard.next}</GradientButton
         >
       {:else if step === STEP.CONFIRM}
         <GradientButton active onclick={handleConfirm} disabled={submitting}>
-          {submitting ? 'Creating…' : 'Confirm'}
+          {submitting
+            ? copy.import.wizard.creating
+            : copy.import.wizard.confirm}
         </GradientButton>
       {/if}
     </div>

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'bun:test'
 import { at } from './at'
+import { importCopy } from './copy/import'
 import {
   clearSession,
   defaultCoverageRange,
@@ -322,7 +323,7 @@ describe('latestSession', () => {
 
 describe('describeAge', () => {
   it('describes recent, hourly and daily ages', () => {
-    expect(describeAge(new Date(NOW - 30_000).toISOString(), NOW)).toBe('just now')
+    expect(describeAge(new Date(NOW - 30_000).toISOString(), NOW)).toBe(importCopy.resume.justNow)
     expect(describeAge(new Date(NOW - 5 * 60_000).toISOString(), NOW)).toBe('5 minutes ago')
     expect(describeAge(new Date(NOW - 60_000).toISOString(), NOW)).toBe('1 minute ago')
     expect(describeAge(new Date(NOW - 3 * 60 * 60_000).toISOString(), NOW)).toBe('3 hours ago')

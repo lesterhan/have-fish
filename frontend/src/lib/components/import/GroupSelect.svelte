@@ -2,6 +2,7 @@
   import { onMount } from 'svelte'
   import { settingsStore } from '$lib/settings.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import { copy } from '$lib/copy'
   import type { ExpenseGroup } from '$lib/api'
 
   interface Props {
@@ -62,7 +63,7 @@
     return {
       groupId: gid,
       categoryId: null,
-      label: `${group.name} · No category`,
+      label: copy.import.split.recentNoCategory(group.name),
       recent: true,
     }
   }
@@ -90,7 +91,7 @@
         .map(resolveRecent)
         .filter((o): o is Option => o !== null)
         .slice(0, 5)
-      push('Recent', recents)
+      push(copy.import.split.recent, recents)
     }
 
     for (const group of groups) {
@@ -98,7 +99,7 @@
         {
           groupId: group.id,
           categoryId: null,
-          label: 'No category',
+          label: copy.import.split.noCategory,
           recent: false,
         },
         ...activeCats(group).map((c) => ({
@@ -195,7 +196,9 @@
 
 <!-- Takes up 22px in the cell so the row height doesn't change -->
 <div class="placeholder">
-  {multiGroup ? 'Choose split…' : 'Choose category…'}
+  {multiGroup
+    ? copy.import.split.chooseSplit
+    : copy.import.split.chooseCategory}
 </div>
 
 <!-- svelte-ignore a11y_click_events_have_key_events -->

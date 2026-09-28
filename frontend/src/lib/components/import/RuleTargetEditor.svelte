@@ -1,6 +1,7 @@
 <script lang="ts">
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
   import Select from '$lib/components/ui/Select.svelte'
+  import { copy } from '$lib/copy'
   import type { Account, ExpenseGroup } from '$lib/api'
 
   interface Props {
@@ -49,20 +50,26 @@
 
 <div class="target-editor">
   {#if groups.length > 0}
-    <div class="kind-switch" role="group" aria-label="Rule target kind">
+    <div
+      class="kind-switch"
+      role="group"
+      aria-label={copy.import.rules.target.kindLabel}
+    >
       <button
         type="button"
         class="kind"
         class:active={kind === 'account'}
         aria-pressed={kind === 'account'}
-        onclick={() => selectKind('account')}>Account</button
+        onclick={() => selectKind('account')}
+        >{copy.import.rules.target.account}</button
       >
       <button
         type="button"
         class="kind"
         class:active={kind === 'split'}
         aria-pressed={kind === 'split'}
-        onclick={() => selectKind('split')}>Split</button
+        onclick={() => selectKind('split')}
+        >{copy.import.rules.target.split}</button
       >
     </div>
   {/if}
@@ -71,21 +78,21 @@
     <AccountPicker
       {accounts}
       bind:value={accountId}
-      placeholder="Select account…"
+      placeholder={copy.import.rules.target.accountPlaceholder}
       oncreate={onaccountcreated}
     />
   {:else}
     <div class="split-fields">
       <Select
         value={groupId ?? ''}
-        aria-label="Group"
+        aria-label={copy.import.rules.target.group}
         onchange={(e) => {
           groupId = (e.currentTarget as HTMLSelectElement).value || null
           // A category belongs to one group, so changing group invalidates it.
           categoryId = null
         }}
       >
-        <option value="">Select group…</option>
+        <option value="">{copy.import.rules.target.selectGroup}</option>
         {#each groups as group (group.id)}
           <option value={group.id}>{group.name}</option>
         {/each}
@@ -94,12 +101,12 @@
       {#if categories.length > 0}
         <Select
           value={categoryId ?? ''}
-          aria-label="Category"
+          aria-label={copy.import.rules.target.category}
           onchange={(e) => {
             categoryId = (e.currentTarget as HTMLSelectElement).value || null
           }}
         >
-          <option value="">Uncategorized</option>
+          <option value="">{copy.import.rules.target.uncategorized}</option>
           {#each categories as category (category.id)}
             <option value={category.id}>{category.name}</option>
           {/each}

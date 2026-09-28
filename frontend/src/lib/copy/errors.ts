@@ -249,8 +249,9 @@ export const errorsCopy = {
 
   // --- import and parsers ------------------------------------------------------------------------
   CSV_EMPTY: 'That file has a header and no rows.',
-  NO_PARSER_MATCHED:
-    'No saved parser matches this file’s columns. Set one up under Import Parsers in Settings.',
+  // The import page puts an Add parser button beside this, so it says what is wrong and
+  // leaves the where to the page. It used to point at Settings, which has no parsers.
+  NO_PARSER_MATCHED: 'No saved parser matches this file’s columns.',
   PARSER_NOT_FOUND: 'That parser no longer exists.',
   PARSER_MAPPING_INCOMPLETE: 'A parser needs at least a date column and an amount column.',
   IMPORT_ROW_MISSING_ACCOUNT: ({ rowKind, field }: { rowKind: string; field: string }) =>
