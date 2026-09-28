@@ -37,6 +37,8 @@ have-fish/
 │   │   │   ├── index.ts     # The client, likewise (ARCHITECTURE.md, "Two builds")
 │   │   │   ├── pg/          # Postgres client + schema.ts (the server build)
 │   │   │   └── sqlite/      # SQLite client + schema.ts (the local build, --conditions=sqlite)
+│   │   ├── build-app.ts     # The routes behind an edge: server-edge.ts or local/edge.ts
+│   │   ├── local/           # The local build: launcher, lockfile, launch token, profile
 │   │   ├── routes/          # One file per resource, co-located with tests
 │   │   └── test-utils.ts    # clearDatabase() helper for tests
 │   └── drizzle/             # Generated migration files (do not edit by hand)
@@ -66,6 +68,7 @@ have-fish/
 ```bash
 # Backend (run from /backend)
 bun run dev           # start dev server with hot reload
+bun run local         # the local build: builds the frontend, then opens it signed in (#287)
 bun test              # run all tests (the hledger export test skips unless `hledger` is installed)
 bun run test:sqlite   # the same suite on SQLite, in a temp file it creates and migrates
 bun run test:watch    # run tests in watch mode (use while developing)
@@ -150,7 +153,17 @@ BETTER_AUTH_URL=http://localhost:8887
 FRONTEND_URL=http://localhost:8888
 LOG_LEVEL=            # optional; debug in dev, info in prod, silent under test
 SQLITE_PATH=havefish.sqlite  # the SQLite build's database file; the Postgres build ignores it
+HAVEFISH_MODE=        # unset or `server` for the hosted edition; `local` for the local build
 ```
+
+The local build (`bun run local`, or `HAVEFISH_MODE=local` with `--conditions=sqlite`) ignores
+`SQLITE_PATH`, `PORT` and the Better Auth variables. It keeps its data in
+`$XDG_DATA_HOME/havefish` (`HAVEFISH_DATA_DIR` overrides it), listens on 127.0.0.1 from port
+47821 (`HAVEFISH_PORT`), and opens the browser unless `HAVEFISH_NO_BROWSER` is set, in which
+case it prints the link. `backend/ARCHITECTURE.md`, "Two editions, one app", has the rest.
+
+Every test run is offline: `backend/bunfig.toml` preloads a `fetch` that throws for anything
+past loopback, and `network.test.ts` lists the only files allowed to reach the network.
 
 `DATABASE_URL` is the dev database. `TEST_DATABASE_URL` is a separate database used exclusively by the test suite — `bun test` sets `NODE_ENV=test` automatically, which makes the DB client pick `TEST_DATABASE_URL` instead. The test database must be created and migrated once: `bun run db:migrate:test`.
 

@@ -9,18 +9,20 @@ exists.
 ## How a request flows
 
 ```
-index.ts        Bun entry point: reads PORT and the static root, nothing else
+index.ts        Bun entry point: reads HAVEFISH_MODE once, then PORT and the static root
   └ server.ts   one Hono server: the API first, then the built frontend, then the SPA fallback
-      └ app.ts  the API: CORS → request logger → session guard → route
+      └ build-app.ts  the API: edge guard → request logger → session guard → route
           └ routes/<resource>.ts   parse the request, call one service, answer
               ├ services            *-service.ts: load, check, write (ledger/write-service, …)
               ├ pure modules        ledger/validate, import/, postings/, coverage/ … (no database)
               └ db/                 Drizzle client and schema: db/pg/ or db/sqlite/, per build
 ```
 
-- **The session guard** is in `app.ts`. Every `/api/*` path except `/api/auth/*` needs a
-  Better Auth session, and the guard puts `userId` on the context. A route reads it with
-  `c.get('userId')`, and every query it runs is expected to scope by it.
+- **The session guard** is in `build-app.ts`, and the edge decides what a session is (see
+  "Two editions, one app" below). In the server build every `/api/*` path except
+  `/api/auth/*` and `/api/capabilities` needs a Better Auth session; the guard puts `userId`
+  on the context. A route reads it with `c.get('userId')`, and every query it runs is
+  expected to scope by it.
 - **Request bodies** are parsed through a Zod schema declared beside the handler, via
   `parseBody(c, Schema)` in `validation.ts`. `bodies.test.ts` holds the rule. The eight
   `fish-pie-*` route files are exempt because they leave this repository under #380.
@@ -59,11 +61,12 @@ Two more kinds of file sit beside them:
 - **Query fragments** (`*-sql.ts`; only `postings/account-type-sql.ts` today). These build
   `WHERE` clauses for services. They need the schema to name columns but run no query, and
   only services import them.
-- **Infrastructure**: `index`, `server`, `app`, `auth`, `logging`, `request-log`,
-  `validation`, `respond`, `test-utils`, `db/{index,schema,returning}`, the two dialect
-  folders `db/pg/` and `db/sqlite/`, and
-  `fx/rate-source.ts`. The last holds the backend's only outbound `fetch` (frankfurter.app).
-  It touches no database, so an offline build or a test has one function to stub.
+- **Infrastructure**: `index`, `server`, `app`, `build-app`, `server-edge`, `auth`,
+  `logging`, `request-log`, `validation`, `respond`, `test-utils`, `test-network-off`,
+  `db/{index,schema,returning}`, the two dialect folders `db/pg/` and `db/sqlite/`, the local
+  build's `local/{edge,launch,launch-token,lockfile,data-dir}`, and `fx/rate-source.ts`. The
+  last holds the backend's only outbound `fetch` (frankfurter.app). It touches no database,
+  so an offline build or a test has one function to stub.
 
 **How the layers are held** (`layers.test.ts`, #431). Every source file gets its layer from
 its name: `routes/`, `-service.ts`, `-sql.ts`, the infrastructure list, and anything else is
@@ -118,6 +121,55 @@ in-process: `db.transaction` and every non-`SELECT` statement outside a transact
 the one before. Reads go straight through, which WAL allows. A write through `db` from inside
 a transaction's callback would wait for its own transaction forever, so it throws, naming
 `tx`. `db/transactions.test.ts` starts twelve transactions in one tick on both dialects.
+
+**Two editions, one app** (#287, D7). `HAVEFISH_MODE` is read once, in `index.ts`: unset
+or `server` is the hosted edition, `local` the app on one person's machine. The routes and
+services are the same code in both; `buildApp(edge)` mounts them behind an `Edge`, which is
+everything that differs:
+
+| | `server-edge.ts` | `local/edge.ts` |
+|---|---|---|
+| Before everything | CORS for the dev frontend and the phone | Refuses a `Host` other than `127.0.0.1:<port>`, and a cross-site or same-site request (DNS rebinding, other pages, other local ports). No CORS headers at all |
+| A session is | Better Auth's | The cookie bought with a single-use launch token; every session is the local profile |
+| Open without one | `/api/auth/*`, `/api/capabilities` | `/api/local/session` (the exchange), `/api/auth/get-session`, `/api/capabilities` |
+| Fish Pie | Mounted | Absent, not refused (D3) |
+
+`GET /api/capabilities` says which it is, so the frontend hides Fish Pie, sign-out and the
+account controls in the local build. `app.ts` is the server build's app, the one the tests
+import; the local launcher never loads it, so it never constructs Better Auth.
+
+The local edge answers `GET /api/auth/get-session` itself, in the shape Better Auth's client
+reads, so the frontend's session handling is the same code in both builds. It is the one
+Better Auth path the local build knows.
+
+**Starting the local build** (`local/launch.ts`). `bun run local`, or `HAVEFISH_MODE=local`
+with `--conditions=sqlite`; the Postgres build refuses the mode. In order:
+
+1. The data directory is `$XDG_DATA_HOME/havefish` (`HAVEFISH_DATA_DIR` overrides it), made
+   `0700`. It holds `havefish.sqlite` and `havefish.lock`.
+2. The lock is created exclusively and names the process holding it. A second launch finds a
+   live holder, signs a fresh launch link with the key the holder published in the lockfile,
+   opens it and exits: one process per database file, since the write queue above is
+   per-process. A lock left by a dead process is taken over.
+3. `SQLITE_PATH` is set, and only then is anything that touches the database imported. The
+   file is migrated from `drizzle/sqlite/`, and the local profile found or minted
+   (`local/profile-service.ts`): one `user` row, the starter accounts and settings a sign-up
+   gives (`users/starter-service.ts`), and the `local_profile` row that says whose file it is.
+4. It binds `127.0.0.1` on the first free port from 47821 (`HAVEFISH_PORT` overrides it),
+   publishes the port and a fresh launch key in the lockfile, and opens the browser at
+   `/#token=…`. The fragment is never sent, so the token never reaches a request line or a
+   log. The page trades it for an `HttpOnly`, `SameSite=Strict` cookie whose value lives only
+   in this process: a restart ends every session, and the launcher opens a new one.
+
+A launch token is `<issued>.<nonce>.<HMAC>`, good once and for two minutes
+(`local/launch-token.ts`).
+
+**No hidden network calls** (`network.test.ts`, `test-network-off.ts`). The personal ledger
+works offline, and two things hold that. The static test lists the files allowed to open a
+connection (`fetch`, `Bun.connect`, WebSocket, the node network modules): today only
+`fx/rate-source.ts`, and in time `sync/` and the Fish Pie proxy. And `bunfig.toml` preloads
+`test-network-off.ts` into every test run, on both dialects, which makes any call past
+loopback throw. A dependency that quietly phones home fails the suite rather than the laptop.
 
 The test for whether something belongs in a domain module: could a phone run it against its
 own SQLite file, or a laptop run it on a document that just arrived from the relay?

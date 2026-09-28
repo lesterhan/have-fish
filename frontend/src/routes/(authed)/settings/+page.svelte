@@ -18,7 +18,13 @@
   import { toast } from '$lib/toast.svelte'
   import TooltipIcon from '$lib/components/ui/TooltipIcon.svelte'
 
+  let { data } = $props()
+
   const session = useSession()
+
+  // The local build has no account: nothing to rename, sign out of or delete, since the
+  // ledger is a file on this machine rather than a login somewhere (#287).
+  const local = $derived(data.capabilities.mode === 'local')
 
   /** The one control on this page focused from script, so it is reachable by id. */
   const NAME_INPUT_ID = 'settings-display-name'
@@ -140,7 +146,7 @@
         }}
         aria-label={copy.settings.user.greetingLabel}>🧧</button
       >
-      {#if $session.data}
+      {#if $session.data && !local}
         <span class="user-email">{$session.data.user.email}</span>
         <div class="name-section">
           {#if editingName}
@@ -183,9 +189,11 @@
           {/if}
         </div>
       {/if}
-      <GradientButton onclick={handleSignOut}>
-        {copy.settings.user.signOut}
-      </GradientButton>
+      {#if !local}
+        <GradientButton onclick={handleSignOut}>
+          {copy.settings.user.signOut}
+        </GradientButton>
+      {/if}
     </div>
   </div>
 
@@ -356,12 +364,14 @@
   <!-- Danger zone. A quiet footer, matching the group settings page: a page you open to
        change a default posting path should not have its most destructive action as the
        loudest thing on it (V3). The alarm belongs in the confirmation, which is where it is. -->
-  <div class="danger-footer">
-    <button class="danger-link" onclick={() => (showDeleteConfirm = true)}
-      >{copy.settings.danger.open}</button
-    >
-    <span class="danger-desc">{copy.settings.danger.description}</span>
-  </div>
+  {#if !local}
+    <div class="danger-footer">
+      <button class="danger-link" onclick={() => (showDeleteConfirm = true)}
+        >{copy.settings.danger.open}</button
+      >
+      <span class="danger-desc">{copy.settings.danger.description}</span>
+    </div>
+  {/if}
 </div>
 
 <Modal title={copy.settings.danger.title} bind:open={showDeleteConfirm}>

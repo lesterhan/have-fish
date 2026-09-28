@@ -29,7 +29,10 @@
     accounts: SidebarAccount[]
     /** Account id → YYYY-MM-DD of its latest transaction. Drives Recent. */
     lastActivityById: ReadonlyMap<string, string | null>
+    /** The signed-in address, which labels the settings link; the local build has none. */
     email?: string | undefined
+    /** Whether Fish Pie exists in this build (D3: absent, not disabled). */
+    fishPie?: boolean | undefined
     mobileOpen?: boolean | undefined
     onMobileClose?: (() => void) | undefined
   }
@@ -38,6 +41,7 @@
     accounts,
     lastActivityById,
     email,
+    fishPie = true,
     mobileOpen = false,
     onMobileClose,
   }: Props = $props()
@@ -109,15 +113,17 @@
         <Icon name="piggy-bank" size={16} />
         <span class="nav-label">{copy.case.sidebar.nav.budgeting}</span>
       </a>
-      <a
-        href="/fish-pie"
-        class="nav-link"
-        class:active={currentPath.startsWith('/fish-pie')}
-        use:tooltip={copy.case.sidebar.nav.fishPie}
-      >
-        <Icon name="pie" size={16} />
-        <span class="nav-label">{copy.case.sidebar.nav.fishPie}</span>
-      </a>
+      {#if fishPie}
+        <a
+          href="/fish-pie"
+          class="nav-link"
+          class:active={currentPath.startsWith('/fish-pie')}
+          use:tooltip={copy.case.sidebar.nav.fishPie}
+        >
+          <Icon name="pie" size={16} />
+          <span class="nav-label">{copy.case.sidebar.nav.fishPie}</span>
+        </a>
+      {/if}
       <a
         href="/catch-up"
         class="nav-link"
@@ -259,16 +265,14 @@
             : copy.case.sidebar.darkTheme}</span
         >
       </button>
-      {#if email}
-        <a
-          href="/settings"
-          class="footer-btn footer-settings"
-          use:tooltip={copy.case.sidebar.settings}
-        >
-          <Icon name="user" size={16} />
-          <span class="nav-label">{email}</span>
-        </a>
-      {/if}
+      <a
+        href="/settings"
+        class="footer-btn footer-settings"
+        use:tooltip={copy.case.sidebar.settings}
+      >
+        <Icon name="user" size={16} />
+        <span class="nav-label">{email ?? copy.case.sidebar.settings}</span>
+      </a>
     </div>
   </div>
 </aside>
