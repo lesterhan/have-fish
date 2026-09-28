@@ -213,11 +213,13 @@ Four rules, and the first is the one that matters:
 **The backend writes no sentences.** A route answers a failed request with a code and the
 values that vary — `fail(c, 'FIELD_REQUIRED', { field: 'name' })` sends
 `{ error: 'FIELD_REQUIRED', detail: { field: 'name' } }` — and `copy/errors.ts` owns the
-words. Add a failure by adding the code and its status to `backend/src/errors.ts` and the
-sentence to `frontend/src/lib/copy/errors.ts`; the status lives in the registry so one
-failure cannot answer 400 in one route and 404 in another. Two tests hold it: a written-out
-`error: '…'` anywhere under `backend/src` fails `errors.test.ts`, and a code with no sentence
-(or a sentence with no code) fails `copy/errors.test.ts`.
+words. `fail` and `failWith` are in `backend/src/respond.ts`; a service decides a failure
+with `errorBody` and hands it back as an `Outcome`. Add a failure by adding the code and its
+status to `backend/src/errors.ts` and the sentence to `frontend/src/lib/copy/errors.ts`; the
+status lives in the registry so one failure cannot answer 400 in one route and 404 in
+another. Two tests hold it: a written-out `error: '…'` anywhere under `backend/src` fails
+`errors.test.ts`, and a code with no sentence (or a sentence with no code) fails
+`copy/errors.test.ts`.
 
 No i18n library, no `en/` folder implying a sibling — a typed object is the whole design.
 
@@ -230,6 +232,17 @@ are how one check overrides that mapping to keep the code a route already answer
 Where a route's own domain check produces a better failure than a schema could
 (`ACCOUNT_PATH_INVALID`, `UNSUPPORTED_CURRENCY`), the schema types the field `unknown` and
 the check stays.
+
+**And it keeps three layers.** A route parses the request, reads `userId`, calls a service
+and answers. A service (`*-service.ts`) loads what a rule needs, runs it and writes; it is
+the only kind of file that touches the database, and the one that owns a unit of work opens
+its transaction. A domain module is a pure rule that a phone could run against its own
+SQLite file: it imports only other domain modules and an allowlist of packages, so never the
+database client, the schema, Drizzle or Hono, not even for a type. `*-sql.ts` builds query
+fragments for services and runs none. `backend/src/layers.test.ts` gives every file a layer
+from its name (anything unnamed is domain) and fails on the first import across the line;
+the eight `fish-pie-*` routes are exempt until they leave under #380.
+`backend/ARCHITECTURE.md` is the map.
 
 **And it says only what `RequestLog` allows.** One structured JSON line per request, via
 `logRequest` in `backend/src/logging.ts`. `RequestLog` is the whole vocabulary of that

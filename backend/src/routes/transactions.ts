@@ -2,7 +2,6 @@ import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { isCalendarDate } from '../calendar-date'
-import { fail, failWith } from '../errors'
 import { enrichPostings, listTransactions } from '../ledger/read-service'
 import {
   createTransaction,
@@ -12,6 +11,7 @@ import {
   updateTransactionDetails,
 } from '../ledger/write-service'
 import { healFxSpend, malformedFxSpendReport } from '../postings/heal-service'
+import { fail, failWith } from '../respond'
 import { amountLike, as, asField, parseBody } from '../validation'
 
 // The handlers parse the request and answer. Reads are `ledger/read-service`, writes

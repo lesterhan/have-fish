@@ -4,7 +4,7 @@ import { accountsOwnedBy } from '../accounts/ownership-service'
 import { type DbTransaction, db } from '../db'
 import { groupCategories, transactions } from '../db/schema'
 import { type ErrorBody, errorBody, type Outcome } from '../errors'
-import { ensureSharedAccount } from '../fish-pie-accounts'
+import { ensureSharedAccount } from '../fish-pie-accounts-service'
 import {
   createGroupExpenseInTx,
   fetchGroupWithMembers,

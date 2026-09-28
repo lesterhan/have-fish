@@ -1,7 +1,7 @@
 import { Hono } from 'hono'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
-import { failWith } from '../errors'
+import { failWith } from '../respond'
 import { readSettings, updateSettings } from '../settings/settings-service'
 import { asField, defined, parseBody, text } from '../validation'
 

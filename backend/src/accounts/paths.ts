@@ -13,7 +13,7 @@ export function isValidPath(path: string): boolean {
 
 // Clearing-account path scheme. A member's per-group clearing account nets what the
 // group owes them (positive) against what they owe the group (negative) — a single
-// receivable account per group. Fish Pie creates them (`fish-pie-accounts.ts`); the
+// receivable account per group. Fish Pie creates them (`fish-pie-accounts-service.ts`); the
 // personal ledger only has to keep people out of the namespace, which is why the rule
 // lives here rather than with Fish Pie.
 export const CLEARING_PREFIX = 'assets:receivable'

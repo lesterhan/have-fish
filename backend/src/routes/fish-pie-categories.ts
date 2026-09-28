@@ -12,7 +12,8 @@ import {
   groupCategoryWeights,
 } from '../db/schema'
 import type { ErrorBody } from '../errors'
-import { errorBody, fail, failWith } from '../errors'
+import { errorBody } from '../errors'
+import { fail, failWith } from '../respond'
 
 const app = new Hono<{ Variables: AppVariables }>()
 

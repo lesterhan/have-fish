@@ -15,8 +15,8 @@ import { isValidPath } from '../accounts/paths'
 import type { AppVariables } from '../app'
 import { isCalendarDate } from '../calendar-date'
 import { isValidCurrency } from '../currencies'
-import { fail, failWith } from '../errors'
 import { isStoredAccountType, type StoredAccountType } from '../postings/account-type'
+import { fail, failWith } from '../respond'
 import { as, asField, asInput, defined, parseBody } from '../validation'
 
 // The handlers parse the request and answer; the rules and queries are in `accounts/`.

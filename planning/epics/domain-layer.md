@@ -29,7 +29,7 @@ No UI changes, so there's no UX brief.
 5. [x] **Accounts and coverage into services** — #428
 6. [x] **Rules, parsers, settings, reports into services** — #429
 7. [x] **Fish Pie split and settlement maths into domain** — #430
-8. [ ] **Lock the layers in with a check** — #431
+8. [x] **Lock the layers in with a check** — #431
 
 Interleaved with P1 (agreed 2026-09-24): #279 and #281 wait for stories 2–3, and #282
 waits for story 4. #277, #278 and #283 are independent. P1 goes ahead of stories 5–8,
@@ -110,7 +110,8 @@ free. But it hides a failure path in the one place a reader most needs to see it
 
 `errors.ts` imports Hono's `Context` for `fail` and `failWith`. The domain may import only
 its types (`ErrorBody`, `errorBody`), so story 8 splits `fail` and `failWith` into a
-route-side helper if that makes the check cleaner.
+route-side helper if that makes the check cleaner. It did: they are in `respond.ts` since
+story 8, and `errors.ts` imports nothing.
 
 ### 4. How far the Fish Pie story goes
 
@@ -161,6 +162,7 @@ Any story can run in coach mode ("coach me") if you'd rather drive it yourself.
 | #443 | Fish Pie can post to a member's deleted default account, because account delete doesn't check Fish Pie settings |
 | #458 | Import commit answers 500 for a regular row whose source account is an empty string, which the frontend sends for an unmapped currency |
 | #470 | The coach reads catch-up pins from `preferences` without sanitizing them, while the config endpoint sanitizes the same pins, so a malformed pin written through `/api/user-settings` makes the two disagree |
+| #474 | `import/fingerprint.ts` hashes with `node:crypto`, which React Native lacks, so the one domain module a device must run identically can't run on a phone yet. `layers.test.ts` allows it by name |
 
 Two more findings were handled privately, per rule 4. #436 holds transaction delete,
 import commit and parser defaults to the caller's own rows, and requires a real date on
@@ -184,7 +186,9 @@ Also recorded in the map, not filed:
 
 - `insert(postings)` appears only in the ledger write service, and a test fails if it
   shows up anywhere else.
-- No route handler opens `db.transaction`.
-- Domain modules import neither `db` nor `hono`, and a check enforces it.
+- No route handler opens `db.transaction`. The eight `fish-pie-*` routes are exempt, as
+  design choice 4 and `bodies.test.ts` already had them, until they leave under #380;
+  `layers.test.ts` holds everything else to it.
+- Domain modules import neither `db` nor `hono`, and a check enforces it (`layers.test.ts`).
 - `backend/ARCHITECTURE.md` describes the code as it is.
 - The full suite passes with no existing test modified.

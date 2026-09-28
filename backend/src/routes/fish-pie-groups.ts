@@ -4,8 +4,8 @@ import type { AppVariables } from '../app'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, expenseGroupMembers, expenseGroups, user } from '../db/schema'
-import { fail } from '../errors'
-import { ensureSharedAccount } from '../fish-pie-accounts'
+import { ensureSharedAccount } from '../fish-pie-accounts-service'
+import { fail } from '../respond'
 import { fetchCategoriesForGroups } from './fish-pie-categories'
 
 const app = new Hono<{ Variables: AppVariables }>()

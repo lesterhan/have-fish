@@ -1,13 +1,13 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { isValidCurrency } from '../currencies'
-import { fail, failWith } from '../errors'
 import {
   monthlySpend,
   spendingConverted,
   spendingFxPairs,
   spendingSummary,
 } from '../reports/report-service'
+import { fail, failWith } from '../respond'
 
 // The spending page's reports. The handlers read the query and answer; which legs count as
 // spending is `postings/spend-service`, the arithmetic is `reports/spending`.

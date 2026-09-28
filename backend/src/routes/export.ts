@@ -1,9 +1,9 @@
 import { Hono } from 'hono'
 import type { AppVariables } from '../app'
 import { isCalendarDate } from '../calendar-date'
-import { fail } from '../errors'
 import { loadJournal } from '../export/export-service'
 import { serializeJournal } from '../export/journal'
+import { fail } from '../respond'
 
 const app = new Hono<{ Variables: AppVariables }>()
 

@@ -12,10 +12,10 @@ import {
   user,
   userSettings,
 } from '../db/schema'
-import { fail, failWith } from '../errors'
 import { batchSettlementLegs, settlementLegs } from '../fish-pie/legs'
-import { ensureSharedAccount } from '../fish-pie-accounts'
+import { ensureSharedAccount } from '../fish-pie-accounts-service'
 import { inLedgerTransaction, retireTransactions, writeTransaction } from '../ledger/write-service'
+import { fail, failWith } from '../respond'
 
 const app = new Hono<{ Variables: AppVariables }>()
 

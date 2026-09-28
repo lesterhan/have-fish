@@ -21,15 +21,14 @@
  * - **One status per failure.** The status lives next to the code, so the same failure
  *   cannot answer 400 in one route and 404 in another. It did: `category not found in
  *   that group` was 404 in `rules.ts` and 400 in `fish-pie-expenses.ts` and `import.ts`.
- * - **Typed detail.** `ErrorDetails` below says which codes carry what, and `fail` makes
- *   a missing or misspelt field a compile error rather than `undefined` on screen.
+ * - **Typed detail.** `ErrorDetails` below says which codes carry what, and `fail`
+ *   (`respond.ts`) makes a missing or misspelt field a compile error rather than
+ *   `undefined` on screen.
  *
  * Adding a failure: add the code here with its status, add the detail shape if it varies,
  * and add the sentence to `copy/errors.ts`. The coverage test fails until you do the last
  * one, which is the point — a code with no sentence renders as itself.
  */
-
-import type { Context } from 'hono'
 
 /**
  * Code → HTTP status.
@@ -278,32 +277,10 @@ export type ErrorBody<C extends ErrorCode = ErrorCode> = C extends ErrorCode
 export type Outcome<T> = { ok: true; value: T } | { ok: false; failure: ErrorBody }
 
 /**
- * Build the body without sending it — for the handful of helpers that resolve access before
- * they hold a `Context`, and for `import.ts`, which reports a row's failure inside a result
- * rather than as a response.
+ * Build the body without sending it. Services and pure modules decide a failure this way and
+ * hand it back in an `Outcome`; `fail` and `failWith` in `respond.ts` send one. This file
+ * imports nothing, so naming a failure never reaches Hono.
  */
 export function errorBody<C extends ErrorCode>(code: C, ...detail: DetailArgs<C>): ErrorBody<C> {
   return (detail.length ? { error: code, detail: detail[0] } : { error: code }) as ErrorBody<C>
-}
-
-/**
- * Answer a request with a failure.
- *
- * ```ts
- * if (!account) return fail(c, 'ACCOUNT_NOT_FOUND')
- * if (!body.name) return fail(c, 'FIELD_REQUIRED', { field: 'name' })
- * ```
- */
-export function fail<C extends ErrorCode>(c: Context, code: C, ...detail: DetailArgs<C>) {
-  return failWith(c, errorBody(code, ...detail) as ErrorBody)
-}
-
-/**
- * Answer a request with a failure some other function already decided on.
- *
- * `rules.ts` resolves a rule's target before it knows which route is asking, and
- * `heal-service.ts` is not a route at all; both return a body and let the handler send it.
- */
-export function failWith(c: Context, body: ErrorBody) {
-  return c.json(body, ERROR_STATUS[body.error])
 }

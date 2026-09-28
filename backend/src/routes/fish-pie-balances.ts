@@ -10,8 +10,8 @@ import {
   groupSettlements,
   user,
 } from '../db/schema'
-import { fail } from '../errors'
 import { computeCurrencyBalances } from '../fish-pie/balances'
+import { fail } from '../respond'
 
 const app = new Hono<{ Variables: AppVariables }>()
 
