@@ -10,8 +10,8 @@
  *   integer cents in `money.ts`. Drizzle's own helpers (`count()`, `countDistinct()`) render
  *   for each dialect.
  *
- * The schema is the one file allowed to name Postgres types: the port replaces it wholesale
- * (`planning/productionize/local-first/L02-data-layer.md`), `jsonb` columns included.
+ * `db/pg/` and `db/sqlite/` are the two folders allowed to speak their own dialect: each
+ * holds one build's client and schema (#482), and nothing else imports them directly.
  *
  * Sources are read with TypeScript's parser rather than a grep, so a comment that mentions
  * `::` or `db.execute` changes nothing, and only a template actually tagged `sql` is read as SQL.
@@ -23,7 +23,7 @@ import { join, relative } from 'node:path'
 import ts from 'typescript'
 
 const SRC = import.meta.dir
-const SCHEMA = 'db/schema.ts'
+const DIALECT_FOLDERS = ['db/pg/', 'db/sqlite/']
 
 /** Postgres-only text a `sql` template may not contain, each with what to use instead. */
 const POSTGRES_ONLY: [RegExp, string][] = [
@@ -80,7 +80,7 @@ function scan(file: string, text = readFileSync(join(SRC, file), 'utf8')) {
 }
 
 const FILES = sourceFiles(SRC)
-  .filter((f) => f !== SCHEMA)
+  .filter((f) => !DIALECT_FOLDERS.some((folder) => f.startsWith(folder)))
   .sort()
 const SCANNED = FILES.map((f) => scan(f))
 const TEMPLATES = SCANNED.flatMap((s) => s.templates)

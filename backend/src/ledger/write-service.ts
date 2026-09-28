@@ -5,6 +5,7 @@ import { type DbTransaction, db, type Executor } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, postings, transactions } from '../db/schema'
 import { type ErrorBody, errorBody, type Outcome } from '../errors'
+import { cents, format } from '../money'
 import { type PostingDraft, validatePostings } from './validate'
 
 // The one place transactions and their postings are written. Every function here runs the
@@ -415,7 +416,9 @@ async function insertPostings(
       drafts.map((p) => ({
         transactionId,
         accountId: p.accountId,
-        amount: p.amount,
+        // As `numeric(12,2)` would store it: Postgres rounds and pads on write, and SQLite's
+        // text column stores whatever it is handed, so the two must be handed the same.
+        amount: format(cents(p.amount)),
         currency: p.currency,
       })),
     )

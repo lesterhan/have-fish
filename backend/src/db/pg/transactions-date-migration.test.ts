@@ -2,21 +2,22 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { sql } from 'drizzle-orm'
-import { db } from '../db'
-import { clearDatabase, createTestUser, request } from '../test-utils'
+import { clearDatabase, createTestUser, request } from '../../test-utils'
+import { db, dialect } from '../index'
 
 // Migration 0043 turns transactions.date from a timestamp into YYYY-MM-DD text (#277). The
 // test database is already past it, so this puts the column back to a timestamp inside a
 // transaction, seeds the shapes the old code stored, runs the migration's own SQL, checks
 // the result and rolls everything back.
 const migrationSql = readFileSync(
-  join(import.meta.dir, '../../drizzle/0043_transactions_date_text.sql'),
+  join(import.meta.dir, '../../../drizzle/0043_transactions_date_text.sql'),
   'utf8',
 )
 
 class Rollback extends Error {}
 
-describe('migration 0043: transactions.date to calendar-date text', () => {
+// Postgres DDL, so the SQLite run (`test:sqlite`) skips it.
+describe.skipIf(dialect !== 'pg')('migration 0043: transactions.date to calendar-date text', () => {
   let userId: string
 
   beforeEach(async () => {

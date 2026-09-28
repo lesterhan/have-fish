@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm'
 import { accountsOwnedBy } from '../accounts/ownership-service'
 import { isValidCurrency } from '../currencies'
-import { db } from '../db'
+import { db, forUpdate } from '../db'
 import { returnedRow } from '../db/returning'
 import { userSettings } from '../db/schema'
 import { errorBody, type Outcome } from '../errors'
@@ -20,8 +20,8 @@ export type SettingsColumns = Omit<
  * `changePreferences`, when given, receives the stored blob and returns the whole new one
  * (`preferences.ts` has the changes). The row is locked from that read to the write, so two
  * requests changing different keys at once both land rather than one overwriting the other.
- * That lock is the one Postgres-only step here; SQLite lets one writer in at a time and
- * needs nothing in its place.
+ * `forUpdate` is that lock on Postgres and nothing on SQLite, whose transaction already holds
+ * the database's one write lock.
  */
 export async function writeSettings(
   userId: string,
@@ -32,11 +32,12 @@ export async function writeSettings(
     await tx.insert(userSettings).values({ userId }).onConflictDoNothing({
       target: userSettings.userId,
     })
-    const [stored] = await tx
-      .select({ preferences: userSettings.preferences })
-      .from(userSettings)
-      .where(eq(userSettings.userId, userId))
-      .for('update')
+    const [stored] = await forUpdate(
+      tx
+        .select({ preferences: userSettings.preferences })
+        .from(userSettings)
+        .where(eq(userSettings.userId, userId)),
+    )
 
     const preferences = changePreferences?.(asPreferences(stored?.preferences))
     return returnedRow(

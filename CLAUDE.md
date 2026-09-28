@@ -18,7 +18,7 @@ Three guiding principles that should inform every feature decision:
 - **Backend**: Hono + Bun (TypeScript)
 - **Frontend**: SvelteKit + Svelte 5 (TypeScript)
 - **Mobile**: React Native + Expo (Android, `mobile/`)
-- **Database**: PostgreSQL via Drizzle ORM
+- **Database**: PostgreSQL (server build) or SQLite through libsql (local build, D8), via Drizzle ORM
 - **Auth**: Better Auth (email + password)
 - **Deployment**: Docker/Podman Compose
 - **Formatting and linting**: Biome, configured once in `biome.jsonc` at the root
@@ -33,8 +33,10 @@ have-fish/
 │   │   ├── app.ts           # Hono app (import this in tests)
 │   │   ├── index.ts         # Bun server entry point (do not import in tests)
 │   │   ├── db/
-│   │   │   ├── schema.ts    # Drizzle schema — source of truth for DB shape
-│   │   │   └── index.ts     # Drizzle client
+│   │   │   ├── schema.ts    # The tables, re-exported from this build's dialect
+│   │   │   ├── index.ts     # The client, likewise (ARCHITECTURE.md, "Two builds")
+│   │   │   ├── pg/          # Postgres client + schema.ts (the server build)
+│   │   │   └── sqlite/      # SQLite client + schema.ts (the local build, --conditions=sqlite)
 │   │   ├── routes/          # One file per resource, co-located with tests
 │   │   └── test-utils.ts    # clearDatabase() helper for tests
 │   └── drizzle/             # Generated migration files (do not edit by hand)
@@ -65,10 +67,12 @@ have-fish/
 # Backend (run from /backend)
 bun run dev           # start dev server with hot reload
 bun test              # run all tests (the hledger export test skips unless `hledger` is installed)
+bun run test:sqlite   # the same suite on SQLite, in a temp file it creates and migrates
 bun run test:watch    # run tests in watch mode (use while developing)
-bun run db:generate       # generate SQL migrations from schema changes
+bun run db:generate       # generate SQL migrations from schema changes, for both dialects
 bun run db:migrate        # apply migrations to the dev database
 bun run db:migrate:test   # apply migrations to the test database
+bun run db:migrate:sqlite # apply the SQLite migrations to the file SQLITE_PATH names
 bun run db:studio         # open Drizzle Studio (DB GUI in browser)
 
 # Frontend (run from /frontend)
@@ -131,7 +135,8 @@ back non-empty, the second is `app.request` typed as the promise it always retur
 - Tests use `app.request()` (Hono's test helper) against a real database — no mocking
 - Always run `clearDatabase()` in `beforeEach` to keep tests isolated
 - Tests run against `havefish_test` (set via `TEST_DATABASE_URL`); the dev database (`havefish`) is never touched by the test suite
-- After changing `schema.ts`, run `db:generate` then **both** `db:migrate` and `db:migrate:test`
+- A schema change is made in **both** `db/pg/schema.ts` and `db/sqlite/schema.ts` (`db/schemas.test.ts` fails until they match), then `db:generate`, then `db:migrate` and `db:migrate:test`
+- Run `bun run test:sqlite` as well as `bun test` for anything that touches the database; CI runs both
 
 ## Environment
 
@@ -144,6 +149,7 @@ BETTER_AUTH_SECRET=...
 BETTER_AUTH_URL=http://localhost:8887
 FRONTEND_URL=http://localhost:8888
 LOG_LEVEL=            # optional; debug in dev, info in prod, silent under test
+SQLITE_PATH=havefish.sqlite  # the SQLite build's database file; the Postgres build ignores it
 ```
 
 `DATABASE_URL` is the dev database. `TEST_DATABASE_URL` is a separate database used exclusively by the test suite — `bun test` sets `NODE_ENV=test` automatically, which makes the DB client pick `TEST_DATABASE_URL` instead. The test database must be created and migrated once: `bun run db:migrate:test`.

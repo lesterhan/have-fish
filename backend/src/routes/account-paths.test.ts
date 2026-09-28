@@ -4,7 +4,7 @@
 
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { and, eq, isNull } from 'drizzle-orm'
-import { db } from '../db'
+import { db, dialect } from '../db'
 import { accounts } from '../db/schema'
 import { ensureUncategorizedAccount } from '../fish-pie-accounts-service'
 import { accountAt, clearDatabase, createTestUser, request } from '../test-utils'
@@ -177,7 +177,12 @@ describe('the index behind the rule', () => {
       cause = ((e as Error).cause as Error | undefined)?.message ?? ''
     }
 
-    expect(cause).toContain('accounts_user_path_key_idx')
+    // Postgres names the index; SQLite names the columns it covers.
+    expect(cause).toContain(
+      dialect === 'pg'
+        ? 'accounts_user_path_key_idx'
+        : 'UNIQUE constraint failed: accounts.user_id, accounts.path_key',
+    )
   })
 
   it('does not count a deleted account', async () => {
