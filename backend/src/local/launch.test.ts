@@ -2,9 +2,10 @@
 // a child process, over HTTP on 127.0.0.1, with a data directory of its own.
 
 import { afterAll, describe, expect, it } from 'bun:test'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { createClient } from '@libsql/client'
 import type { Subprocess } from 'bun'
 import { launchUrl, listenOnFreePort } from './launch'
 
@@ -137,10 +138,28 @@ describe('HAVEFISH_MODE=local', () => {
     await open(link)
   }, 20_000)
 
-  it('gives up the lock when stopped', async () => {
-    first.kill('SIGTERM')
-    await first.exited
+  it('folds the WAL into the file and gives up the lock when stopped', async () => {
+    first.kill('SIGINT')
+    expect(await first.exited).toBe(0)
     expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
+    const wal = join(data, 'havefish.sqlite-wal')
+    expect(existsSync(wal) ? statSync(wal).size : 0).toBe(0)
+  }, 20_000)
+
+  it('refuses a ledger a newer build has migrated, and leaves it alone', async () => {
+    const client = createClient({ url: `file:${join(data, 'havefish.sqlite')}` })
+    await client.execute("INSERT INTO __migrations VALUES ('9999_from_the_future', 0)")
+    client.close()
+
+    const older = launch()
+    expect(await older.exited).toBe(1)
+    expect(await new Response(older.stderr).text()).toContain('newer have-fish')
+    expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
+    expect(existsSync(join(data, 'backups'))).toBe(false)
+
+    const again = createClient({ url: `file:${join(data, 'havefish.sqlite')}` })
+    await again.execute("DELETE FROM __migrations WHERE name = '9999_from_the_future'")
+    again.close()
   }, 20_000)
 
   it('refuses to start from the Postgres build', async () => {

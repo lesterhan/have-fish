@@ -1,14 +1,16 @@
-// Starting the local build (#287): `HAVEFISH_MODE=local`, with `--conditions=sqlite`.
+// Starting the local build (#287): `HAVEFISH_MODE=local` with `--conditions=sqlite`, or the
+// compiled binary (#288), which carries its frontend and migrations inside itself.
 //
 // In order: find the data directory, take the single-instance lock (or hand over to the
-// instance that has it), point the SQLite client at the file, migrate it, find or make the
-// local profile, listen on 127.0.0.1, and open the browser on a single-use link. Everything
-// that reaches the database is imported only after SQLITE_PATH is set, because the client
-// opens its file when it is first imported.
+// instance that has it), point the SQLite client at the file, migrate it (copying it first if
+// it holds data), find or make the local profile, listen on 127.0.0.1, and open the browser on
+// a single-use link. Everything that reaches the database is imported only after SQLITE_PATH
+// is set, because the client opens its file when it is first imported.
 
 import type { Server } from 'bun'
+import type { Migration } from '../db/sqlite/migrate'
 import { log } from '../logging'
-import { createServer, hasFrontend } from '../server'
+import { createServer, type Frontend, hasFrontend } from '../server'
 import { dataDirFor, dataPaths, prepareDataDir } from './data-dir'
 import { mintLaunchToken, randomSecret } from './launch-token'
 import { type Claim, claimLock, type Holder } from './lockfile'
@@ -54,8 +56,8 @@ function openBrowser(url: string, env: NodeJS.ProcessEnv): boolean {
  * Tells the person at the terminal where the app is. Not through the logger: the link carries
  * a token, and a log line is kept. It goes to the terminal only when no browser was opened.
  */
-function announce(port: number, url: string, opened: boolean) {
-  const lines = [`have-fish is running at http://127.0.0.1:${port}`]
+function announce(port: number, url: string, opened: boolean, dataDir: string) {
+  const lines = [`have-fish is running at http://127.0.0.1:${port}`, `Your ledger is in ${dataDir}`]
   if (!opened) lines.push(`Open it with this link (it works once, for two minutes):`, url)
   process.stdout.write(`${lines.join('\n')}\n`)
 }
@@ -70,7 +72,13 @@ async function awaitHolder(lockPath: string): Promise<Claim> {
   throw new Error(`another have-fish is starting and has not finished; see ${lockPath}`)
 }
 
-export async function launchLocal(staticRoot: string, env = process.env): Promise<void> {
+export type LocalBundle = {
+  frontend: Frontend
+  /** The binary's own; `bun run local` reads them from `drizzle/sqlite` instead. */
+  migrations?: Migration[]
+}
+
+export async function launchLocal(bundle: LocalBundle, env = process.env): Promise<void> {
   const dir = dataDirFor(env)
   prepareDataDir(dir)
   const paths = dataPaths(dir)
@@ -80,7 +88,7 @@ export async function launchLocal(staticRoot: string, env = process.env): Promis
   if (claim.kind === 'running') {
     // A second launch opens a window on the first rather than starting again.
     const url = launchUrl(claim.holder)
-    announce(claim.holder.port, url, openBrowser(url, env))
+    announce(claim.holder.port, url, openBrowser(url, env), dir)
     return
   }
   if (claim.kind !== 'claimed') throw new Error(`unexpected lock state at ${paths.lock}`)
@@ -94,16 +102,33 @@ export async function launchLocal(staticRoot: string, env = process.env): Promis
         'HAVEFISH_MODE=local needs the SQLite build: run bun with --conditions=sqlite',
       )
     }
-    const { migrateSqliteFile } = await import('../db/sqlite/migrate')
-    await migrateSqliteFile(paths.database)
+    const { migrateSqliteFile, readMigrations, SchemaTooNewError } = await import(
+      '../db/sqlite/migrate'
+    )
+    try {
+      const { applied, backup } = await migrateSqliteFile(
+        paths.database,
+        bundle.migrations ?? readMigrations(),
+        { backupDir: paths.backups },
+      )
+      if (applied.length) log.info({ applied, backup }, 'database migrated')
+      if (backup) process.stdout.write(`Copied your ledger to ${backup} before updating it\n`)
+    } catch (e) {
+      // An older build must not open a newer ledger; say so plainly and leave it alone.
+      if (!(e instanceof SchemaTooNewError)) throw e
+      process.stderr.write(`${e.message}\n`)
+      process.exitCode = 1
+      lock.release()
+      return
+    }
 
     const { ensureLocalProfile } = await import('./profile-service')
     const { buildApp } = await import('../build-app')
     const { localEdge } = await import('./edge')
     const user = await ensureLocalProfile()
 
-    if (!(await hasFrontend(staticRoot))) {
-      log.warn({ staticRoot }, 'no frontend build found; the local app will serve the API only')
+    if (!(await hasFrontend(bundle.frontend))) {
+      log.warn('no frontend build found; the local app will serve the API only')
     }
 
     // The edge's Host check needs the port, and the port is known only once bound, so the
@@ -115,13 +140,22 @@ export async function launchLocal(staticRoot: string, env = process.env): Promis
       handle(req),
     )
     const port = server.port ?? DEFAULT_PORT
-    handle = (await createServer(buildApp(localEdge({ port, launchKey, user })), staticRoot)).fetch
+    handle = (await createServer(buildApp(localEdge({ port, launchKey, user })), bundle.frontend))
+      .fetch
 
     lock.publish({ pid: process.pid, port, launchKey })
     log.info({ port, dataDir: dir }, 'local app listening')
 
-    const stop = () => {
-      server.stop()
+    // A clean stop lets requests in flight finish (for a moment, not forever: a browser keeps
+    // its connections open), folds the WAL back into the file, and only then gives up the lock.
+    const { closeDatabase } = await import('../db')
+    let stopping = false
+    const stop = async () => {
+      if (stopping) return
+      stopping = true
+      await Promise.race([server.stop(), Bun.sleep(2000)])
+      server.stop(true)
+      await closeDatabase()
       lock.release()
       process.exit(0)
     }
@@ -130,7 +164,7 @@ export async function launchLocal(staticRoot: string, env = process.env): Promis
     process.on('exit', () => lock.release())
 
     const url = launchUrl({ port, launchKey })
-    announce(port, url, openBrowser(url, env))
+    announce(port, url, openBrowser(url, env), dir)
   } catch (e) {
     lock.release()
     throw e

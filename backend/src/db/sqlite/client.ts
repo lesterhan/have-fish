@@ -64,6 +64,15 @@ db.transaction = (work, config?) => {
   return inTurn(() => insideTransaction.run(true, () => transaction(work, config)))
 }
 
+/**
+ * Folds the WAL back into the database file and closes it, for a clean stop (L01: a SIGINT
+ * checkpoints). Taken as a write's turn, so it waits for whatever is in flight.
+ */
+export async function closeDatabase(): Promise<void> {
+  await client.execute('PRAGMA wal_checkpoint(TRUNCATE)')
+  client.close()
+}
+
 /** Postgres locks the rows it reads; here the transaction already holds the only write lock. */
 export function forUpdate<Query>(query: Query): Query {
   return query
