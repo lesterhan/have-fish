@@ -117,8 +117,8 @@ is in `accounts/` (#428).
 | `GET /action-required-summary` | Per account: uncategorized plus malformed-FX counts | `action-required-service` + `heal-service` | — |
 | `GET /:id/action-required` | The same, for one account, with ids | Same, after `accountsOwnedBy` | — |
 | `GET /:id` | One account with resolved, inferred and inherited type | `account-service` → `explainType` | — |
-| `POST /` | Create an account | Schema: path shape (`isValidPath`); `account-service`: not in the receivable namespace | `accounts` |
-| `POST /rename` | Rewrite a path prefix across a subtree | `planRename` (`paths`): same path, valid target, receivable namespace, no match, collision; `account-service` writes it in one transaction | `accounts` |
+| `POST /` | Create an account | Schema: path shape (`isValidPath`); `account-service`: not in the receivable namespace, not taken ignoring case (`pathTakenBy`) | `accounts` |
+| `POST /rename` | Rewrite a path prefix across a subtree | `planRename` (`paths`): same path, valid target, receivable namespace, no match, collision ignoring case; `account-service` writes it in one transaction | `accounts` |
 | `PATCH /:id` | Name, currency, type override | Schema | `accounts` |
 | `DELETE /:id` | Soft-delete one nothing depends on | `account-service`: no entries, not a default, not receivable | `accounts` |
 
@@ -132,6 +132,16 @@ anchored on the colon, so `expenses:foodcourt` stays put. A new path already hel
 account *outside* the moved subtree is refused, since that would be a merge; one held
 *inside* it is fine, because that row moves too. Postings don't change: they point at
 `accounts.id`, which a rename never touches.
+
+**Paths ignore case (#480).** A path keeps the spelling it was typed with, and
+`accounts.path_key` holds it in the form paths are compared in (`pathKey` in `paths.ts`,
+computed in TypeScript because SQLite's `lower()` is ASCII-only). Every lookup by path and
+every "at or under" (`underPathCondition`) goes through the key. Create and rename refuse a
+path whose key is taken, and one that spells an existing tree node differently
+(`pathTakenBy`): with `assets:wise` there, `assets:Wise:eur` would be a second subtree on
+screen but the same one to a query by key. A partial unique index on
+`(user_id, path_key) WHERE deleted_at IS NULL` backs the first rule; the second is the
+service's alone, and `bun run check:account-paths` checks a database against both.
 
 **`transactions.ts`** — `/api/transactions` (235 lines). Writes go through
 `ledger/write-service` and reads through `ledger/read-service`; the handlers parse and
@@ -388,7 +398,7 @@ document moves it:
 | `rules/target.ts` | Which target a rule's three id fields name, and the columns it's stored in | `rule-service` |
 | `rules/mining.ts` | Which rules to suggest from the ledger: one expense leg, a merchant key, the account seen most, twice or more | `rule-service` |
 | `reports/spending.ts` | Category totals and drill-down counts, month buckets, the rates a conversion needs, the converted total | `report-service` |
-| `accounts/paths.ts` | What a valid path is, the receivable namespace (`isClearingAccountPath`), and `planRename` | `account-service`, the accounts route's schema, classification, coverage |
+| `accounts/paths.ts` | What a valid path is, when two are the same (`pathKey`, `pathTakenBy`), the receivable namespace (`isClearingAccountPath`), and `planRename` | `account-service`, the accounts route's schema, classification, coverage |
 | `accounts/balances.ts` | Which accounts a balances view shows (`readBalanceSelection`, `selects`) and per-currency sums in cents | `balance-service` |
 | `coverage/intervals.ts`, `months.ts`, `catch-up.ts` | Merge coverage spans, classify months, assemble catch-up state | Coverage and catch-up services |
 | `coverage/horizon.ts` | The horizon, cycle inference, merging the config, and reading and changing the pins (`overridesFrom`, `configChangeFrom`, `applyConfigChange`) | Coverage, config and load services |

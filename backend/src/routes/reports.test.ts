@@ -3,7 +3,7 @@ import { eq } from 'drizzle-orm'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts as accountsTable, csvParsers, fxRates, userSettings } from '../db/schema'
-import { at, clearDatabase, createTestUser, request } from '../test-utils'
+import { accountAt, at, clearDatabase, createTestUser, request } from '../test-utils'
 
 // Resolves a user's id from a session cookie via the /api/accounts/me-less path:
 // we read it off any created account instead. Simpler: createAccount returns ids, and
@@ -111,7 +111,7 @@ describe('reports', () => {
     // Both expense postings must appear in the total — historically the frontend
     // only picked the first expense posting (the fee), missing the CZK spend.
     const source = await createAccount(cookie, 'assets:wise:usd')
-    const equity = await createAccount(cookie, 'equity:conversions')
+    const equity = (await accountAt(cookie, 'equity:conversions')).id
     const feeAcct = await createAccount(cookie, 'expenses:banking:fee')
     const expense = await createAccount(cookie, 'expenses:food:cafe')
 
@@ -149,7 +149,7 @@ describe('reports', () => {
     // account. Both are mechanical — the spending total should count only the true cafe
     // spend (CZK 360), not the USD fee, and never the conversion leg.
     const source = await createAccount(cookie, 'assets:wise:usd')
-    const equity = await createAccount(cookie, 'equity:conversions')
+    const equity = (await accountAt(cookie, 'equity:conversions')).id
     const feeAcct = await createAccount(cookie, 'expenses:banking:fee')
     const expense = await createAccount(cookie, 'expenses:food:cafe')
 
@@ -417,7 +417,12 @@ describe('reports', () => {
       const clearing = returnedRow(
         await db
           .insert(accountsTable)
-          .values({ userId, path: 'assets:receivable:alice', type: 'expense' })
+          .values({
+            userId,
+            path: 'assets:receivable:alice',
+            pathKey: 'assets:receivable:alice',
+            type: 'expense',
+          })
           .returning({ id: accountsTable.id }),
         'insert clearing account',
       ).id

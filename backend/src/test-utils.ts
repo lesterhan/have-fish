@@ -80,6 +80,23 @@ export function request(...args: Parameters<typeof app.request>): Promise<Respon
   return Promise.resolve(app.request(...args))
 }
 
+/**
+ * The caller's active account at `path`, read through the API.
+ *
+ * For the three accounts sign-up makes (`expenses:uncategorized`, `equity:conversions`,
+ * `equity:adjustments`): a test that needs one reads it, because creating a second account at
+ * a path already taken is refused (#480).
+ */
+export async function accountAt(
+  cookie: string,
+  path: string,
+): Promise<{ id: string; path: string }> {
+  const res = await request('/api/accounts', { headers: { Cookie: cookie } })
+  const found = ((await res.json()) as { id: string; path: string }[]).find((a) => a.path === path)
+  if (!found) throw new Error(`no active account at ${path}`)
+  return found
+}
+
 // Signs up a fresh test user and returns the session Cookie header string.
 // Pass the returned value as the Cookie header on subsequent requests:
 //   app.request('/api/accounts', { headers: { Cookie: cookie } })

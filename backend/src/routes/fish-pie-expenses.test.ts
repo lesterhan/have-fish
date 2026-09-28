@@ -1091,13 +1091,8 @@ describe('fish-pie PATCH expense', () => {
   })
 
   it('PATCH import-linked expense updates import tx split postings, does not delete import tx', async () => {
-    // Create source account and import a row with fish pie split
-    const srcRes = await request('/api/accounts', {
-      method: 'POST',
-      headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ path: 'liabilities:visa' }),
-    })
-    const sourceId = ((await srcRes.json()) as any).id
+    // Import a row with a Fish Pie split from the visa `beforeEach` made
+    const sourceId = paymentAccountId
 
     await request('/api/import/commit', {
       method: 'POST',

@@ -77,6 +77,7 @@ export const ERROR_STATUS = {
   ACCOUNT_INCLUDE_UNFILED_WITH_TYPES: 400,
   ACCOUNT_HAS_ENTRIES: 409,
   ACCOUNT_IS_A_DEFAULT: 409,
+  ACCOUNT_PATH_TAKEN: 409,
   SETTING_ACCOUNT_NOT_FOUND: 400,
   CYCLE_ACCOUNT_NEEDS_CYCLE_DAY: 400,
 
@@ -215,6 +216,8 @@ export interface ErrorDetails {
   ACCOUNT_HAS_ENTRIES: { entries: number }
   /** The settings that point at the account: `offset`, `conversion`, `adjustments`. */
   ACCOUNT_IS_A_DEFAULT: { roles: readonly string[] }
+  /** The spelling already there: the whole path, or the node the new one spells differently. */
+  ACCOUNT_PATH_TAKEN: { path: string }
   SETTING_ACCOUNT_NOT_FOUND: { field: string }
   RENAME_TARGET_EXISTS: { path: string }
 

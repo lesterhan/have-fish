@@ -10,7 +10,7 @@ import {
   postings,
   transactions,
 } from '../db/schema'
-import { at, clearDatabase, createTestUser, request } from '../test-utils'
+import { accountAt, at, clearDatabase, createTestUser, request } from '../test-utils'
 
 // Minimal CSV that matches the parser we create in tests.
 // Headers: Date, Amount, Description — normalised fingerprint: amount|date|description
@@ -549,7 +549,7 @@ describe('POST /api/import/check-duplicates', () => {
 
   it('flags a duplicate when posting exists on the exact sub-account', async () => {
     const source = await createAccount(cookie, 'assets:wise:usd')
-    const offset = await createAccount(cookie, 'expenses:uncategorized')
+    const offset = await accountAt(cookie, 'expenses:uncategorized')
 
     // Seed an existing transaction on assets:wise:usd
     await request('/api/import/commit', {
@@ -586,7 +586,7 @@ describe('POST /api/import/check-duplicates', () => {
   it('does not flag a duplicate when the posting is on a sibling sub-account (the original multi-currency bug)', async () => {
     const usd = await createAccount(cookie, 'assets:wise:usd')
     const cad = await createAccount(cookie, 'assets:wise:cad')
-    const offset = await createAccount(cookie, 'expenses:uncategorized')
+    const offset = await accountAt(cookie, 'expenses:uncategorized')
 
     // Seed a transaction on assets:wise:usd
     await request('/api/import/commit', {
@@ -636,7 +636,7 @@ describe('POST /api/import/check-duplicates', () => {
   it('does not expose postings from another user', async () => {
     const otherCookie = await createTestUser('other@example.com')
     const otherAccount = await createAccount(otherCookie, 'assets:wise:usd')
-    const otherOffset = await createAccount(otherCookie, 'expenses:uncategorized')
+    const otherOffset = await accountAt(otherCookie, 'expenses:uncategorized')
 
     await request('/api/import/commit', {
       method: 'POST',
@@ -833,7 +833,7 @@ describe('POST /api/import/commit', () => {
 
   it('writes transactions and postings to the database', async () => {
     const source = await createAccount(cookie, 'assets:chequing')
-    const offset = await createAccount(cookie, 'expenses:uncategorized')
+    const offset = await accountAt(cookie, 'expenses:uncategorized')
 
     const parsed = [
       {
@@ -937,7 +937,7 @@ describe('POST /api/import/commit', () => {
 
   it('cross-currency spend: spend lands in expense account, bridged by equity, no phantom asset', async () => {
     const sourceAcc = await createAccount(cookie, 'assets:bank:savings:usd')
-    const conversionAcc = await createAccount(cookie, 'equity:conversions')
+    const conversionAcc = await accountAt(cookie, 'equity:conversions')
     const feeAcc = await createAccount(cookie, 'expenses:banking')
     const coffeeAcc = await createAccount(cookie, 'expenses:food:coffee')
 
@@ -1007,7 +1007,7 @@ describe('POST /api/import/commit', () => {
 
   it('cross-currency spend without a fee: 4 postings, balanced', async () => {
     const sourceAcc = await createAccount(cookie, 'assets:bank:savings:usd')
-    const conversionAcc = await createAccount(cookie, 'equity:conversions')
+    const conversionAcc = await accountAt(cookie, 'equity:conversions')
     const coffeeAcc = await createAccount(cookie, 'expenses:food:coffee')
 
     const row = {
@@ -1045,7 +1045,7 @@ describe('POST /api/import/commit', () => {
 
   it('rejects a cross-currency spend with a fee but no feeAccountId', async () => {
     const sourceAcc = await createAccount(cookie, 'assets:bank:savings:usd')
-    const conversionAcc = await createAccount(cookie, 'equity:conversions')
+    const conversionAcc = await accountAt(cookie, 'equity:conversions')
     const coffeeAcc = await createAccount(cookie, 'expenses:food:coffee')
 
     const res = await request('/api/import/commit', {
@@ -1356,7 +1356,7 @@ describe('POST /api/import/commit — group splits', () => {
     // Simulate a credit card import: positive amount = charge to card.
     // User A pays $100, 50/50 split → payer's share = $50.
     const cardId = (await createAccount(cookieA, 'liabilities:visa')).id
-    const expenseId = (await createAccount(cookieA, 'expenses:food')).id
+    const expenseId = (await createAccount(cookieA, 'expenses:shared')).id
 
     // Set user A's defaultExpenseAccountId so the member tx posts to expenses:food.
     await request(`/api/fish-pie/groups/${groupId}/members/me`, {
@@ -1401,7 +1401,7 @@ describe('POST /api/import/commit — group splits', () => {
   it('Fish Pie chequing import creates 3 balanced postings on the import tx', async () => {
     // Chequing $1200, 50/50. Import tx must have 3 postings that sum to zero:
     //   chequing −1200, assets:receivable:housing +600 (B's share), expense +600 (A's share).
-    const expenseAccId = (await createAccount(cookieA, 'expenses:food')).id
+    const expenseAccId = (await createAccount(cookieA, 'expenses:shared')).id
     await request(`/api/fish-pie/groups/${groupId}/members/me`, {
       method: 'PATCH',
       headers: { Cookie: cookieA, 'Content-Type': 'application/json' },
@@ -1594,7 +1594,7 @@ describe('POST /api/import/commit — group splits', () => {
     // A shared cross-currency spend (a purchase in a currency the user doesn't hold,
     // split with a group). The wizard sends no targetAccountId — there is no target asset.
     const usdAccountId = (await createAccount(cookieA, 'assets:wise:usd')).id
-    const convAccountId = (await createAccount(cookieA, 'equity:conversions')).id
+    const convAccountId = (await accountAt(cookieA, 'equity:conversions')).id
     const feeAccountId = (await createAccount(cookieA, 'expenses:banking')).id
     const expenseAccId = (await createAccount(cookieA, 'expenses:food:coffee')).id
 

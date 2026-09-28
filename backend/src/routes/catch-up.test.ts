@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
+import { pathKey } from '../accounts/paths'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
@@ -17,7 +18,7 @@ async function createAccount(userId: string, path: string, extra: { type?: strin
   const acct = returnedRow(
     await db
       .insert(accounts)
-      .values({ userId, path, ...extra })
+      .values({ userId, path, pathKey: pathKey(path), ...extra })
       .returning(),
     'insert accounts',
   )
@@ -98,7 +99,7 @@ describe('catch-up', () => {
     })
 
     it('excludes equity accounts', async () => {
-      await createAccount(userId, 'equity:adjustments')
+      await createAccount(userId, 'equity:opening-balances')
 
       const { body } = await getCatchUp(cookie)
 

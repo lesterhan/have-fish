@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
+import { pathKey } from '../accounts/paths'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, userSettings } from '../db/schema'
@@ -8,7 +9,10 @@ import { effectiveConfig, readCatchUpOverrides } from './config-service'
 
 async function createAccount(userId: string, path: string) {
   return returnedRow(
-    await db.insert(accounts).values({ userId, path }).returning(),
+    await db
+      .insert(accounts)
+      .values({ userId, path, pathKey: pathKey(path) })
+      .returning(),
     'insert accounts',
   )
 }

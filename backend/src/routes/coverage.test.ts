@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq } from 'drizzle-orm'
+import { pathKey } from '../accounts/paths'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accountCoverage, accounts, postings, transactions, userSettings } from '../db/schema'
@@ -7,7 +8,10 @@ import { at, clearDatabase, createTestUser, request } from '../test-utils'
 
 async function createAccount(userId: string, path: string) {
   const acct = returnedRow(
-    await db.insert(accounts).values({ userId, path }).returning(),
+    await db
+      .insert(accounts)
+      .values({ userId, path, pathKey: pathKey(path) })
+      .returning(),
     'insert accounts',
   )
   return acct

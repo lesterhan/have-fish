@@ -1097,7 +1097,14 @@ describe('transactions', () => {
       // create route refuses that namespace by hand — it is system-managed, same reason the
       // rename route refuses to move an account into it.
       const [recvRows, food] = await Promise.all([
-        db.insert(accounts).values({ userId, path: 'assets:receivable:quotidien' }).returning(),
+        db
+          .insert(accounts)
+          .values({
+            userId,
+            path: 'assets:receivable:quotidien',
+            pathKey: 'assets:receivable:quotidien',
+          })
+          .returning(),
         request('/api/accounts', {
           method: 'POST',
           headers,

@@ -1,5 +1,6 @@
 import { betterAuth } from 'better-auth'
 import { drizzleAdapter } from 'better-auth/adapters/drizzle'
+import { pathKey } from './accounts/paths'
 import { db } from './db'
 import { accounts, userSettings } from './db/schema'
 
@@ -41,11 +42,11 @@ export const auth = betterAuth({
         after: async (user) => {
           const [offsetAccount, conversionAccount, adjustmentsAccount] = await db
             .insert(accounts)
-            .values([
-              { userId: user.id, path: 'expenses:uncategorized' },
-              { userId: user.id, path: 'equity:conversions' },
-              { userId: user.id, path: 'equity:adjustments' },
-            ])
+            .values(
+              ['expenses:uncategorized', 'equity:conversions', 'equity:adjustments'].map(
+                (path) => ({ userId: user.id, path, pathKey: pathKey(path) }),
+              ),
+            )
             .returning()
 
           // Three values in, three rows back. If that ever stops holding, a new account

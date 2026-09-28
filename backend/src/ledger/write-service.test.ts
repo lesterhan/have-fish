@@ -2,7 +2,7 @@ import { beforeEach, describe, expect, it } from 'bun:test'
 import { eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { accounts, postings, transactions } from '../db/schema'
-import { clearDatabase, createTestUser, request } from '../test-utils'
+import { accountAt, clearDatabase, createTestUser, request } from '../test-utils'
 
 // Every writer (a request, an import row, a Fish Pie expense or settlement) goes through
 // the ledger write service, so every one gets the same validation. These tests pin down
@@ -83,7 +83,7 @@ describe('import commit through the ledger service', () => {
           feeCurrency: 'USD',
           sourceAccountId: await account(alice, 'assets:wise:cad'),
           targetAccountId: await account(alice, 'assets:wise:gbp'),
-          conversionAccountId: await account(alice, 'equity:conversions'),
+          conversionAccountId: (await accountAt(alice, 'equity:conversions')).id,
           feeAccountId: await account(alice, 'expenses:fees'),
         },
       ],

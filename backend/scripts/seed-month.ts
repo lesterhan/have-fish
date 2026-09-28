@@ -16,6 +16,7 @@
 // (i.e. no existing transactions for this user).
 
 import { createHash } from 'node:crypto'
+import { pathKey } from '../src/accounts/paths'
 import { db } from '../src/db'
 import { returnedRow } from '../src/db/returning'
 import { user, accounts, transactions, postings } from '../src/db/schema'
@@ -134,12 +135,12 @@ async function ensureAccount(path: string): Promise<string> {
   const [existing] = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.userId, userId), eq(accounts.path, path), isNull(accounts.deletedAt)))
+    .where(and(eq(accounts.userId, userId), eq(accounts.pathKey, pathKey(path)), isNull(accounts.deletedAt)))
   if (existing) return existing.id
   const created = returnedRow(
     await db
       .insert(accounts)
-      .values({ userId, path })
+      .values({ userId, path, pathKey: pathKey(path) })
       .returning({ id: accounts.id }),
     'insert accounts',
   )

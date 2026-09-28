@@ -1,6 +1,6 @@
 import { and, eq, inArray, isNull } from 'drizzle-orm'
 import { Hono } from 'hono'
-import { CLEARING_PREFIX } from '../accounts/paths'
+import { CLEARING_PREFIX, pathKey } from '../accounts/paths'
 import type { AppVariables } from '../app'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
@@ -179,7 +179,7 @@ app.post('/merge', async (c) => {
       .where(
         and(
           inArray(accounts.userId, memberUserIds),
-          inArray(accounts.path, oldClearingPaths),
+          inArray(accounts.pathKey, oldClearingPaths.map(pathKey)),
           isNull(accounts.deletedAt),
         ),
       )

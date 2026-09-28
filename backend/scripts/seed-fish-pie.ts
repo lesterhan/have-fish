@@ -12,6 +12,7 @@
 // Safe to re-run: if the primary user already has a group of this name, nothing is
 // written.
 
+import { pathKey } from '../src/accounts/paths'
 import { db } from '../src/db'
 import { returnedRow } from '../src/db/returning'
 import { auth } from '../src/auth'
@@ -135,10 +136,10 @@ async function ensureAccount(ownerId: string, path: string): Promise<string> {
   const [existing] = await db
     .select({ id: accounts.id })
     .from(accounts)
-    .where(and(eq(accounts.userId, ownerId), eq(accounts.path, path), isNull(accounts.deletedAt)))
+    .where(and(eq(accounts.userId, ownerId), eq(accounts.pathKey, pathKey(path)), isNull(accounts.deletedAt)))
   if (existing) return existing.id
   const created = returnedRow(
-    await db.insert(accounts).values({ userId: ownerId, path }).returning({ id: accounts.id }),
+    await db.insert(accounts).values({ userId: ownerId, path, pathKey: pathKey(path) }).returning({ id: accounts.id }),
     'insert accounts',
   )
   console.log(`  created account ${path} for ${ownerId.slice(0, 8)}…`)
