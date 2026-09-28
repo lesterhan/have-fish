@@ -7,9 +7,12 @@
  */
 
 import { describe, expect, it } from 'bun:test'
+import { DrizzleQueryError } from 'drizzle-orm'
 import { Hono } from 'hono'
+import { db } from './db'
+import { importRules } from './db/schema'
 import { createLogger, logRequest, type RequestLog } from './logging'
-import { requestLogger } from './request-log'
+import { loggedError, requestLogger, unhandledError } from './request-log'
 
 /** A logger writing into an array, so a test can read back what stdout would have got. */
 function capturing(level = 'info') {
@@ -236,5 +239,77 @@ describe('a request that throws', () => {
 
     expect(res.status).toBe(500)
     expect(cap.entries()[0]).toMatchObject({ route: '/boom', status: 500 })
+  })
+})
+
+describe('the error handler', () => {
+  /** A value no log line may contain, so a grep for it is the whole test. */
+  const CANARY = 'CANARY-7f3a-rent-for-march'
+
+  /**
+   * An app whose one route runs a real query that Postgres refuses: a rule with no target
+   * breaks `import_rules_one_target`, which is checked before the foreign key, so no user
+   * needs to exist. The thrown error is kept so the test can show the wrapper carries the
+   * value the log must not.
+   */
+  function failingQuery(logger: ReturnType<typeof capturing>['logger']) {
+    const thrown: unknown[] = []
+    const app = new Hono()
+    app.onError(unhandledError(logger))
+    app.post('/api/rules', async () => {
+      try {
+        await db.insert(importRules).values({ userId: crypto.randomUUID(), pattern: CANARY })
+      } catch (err) {
+        thrown.push(err)
+        throw err
+      }
+      return new Response(null, { status: 204 })
+    })
+    return { app, thrown }
+  }
+
+  it("never writes a failed query's parameters, though Drizzle's error carries them", async () => {
+    const cap = capturing()
+    const { app, thrown } = failingQuery(cap.logger)
+
+    const res = await app.request('/api/rules', { method: 'POST' })
+
+    expect(res.status).toBe(500)
+    expect(await res.text()).toBe('Internal Server Error')
+    // The premise: what reached the handler is the wrapper, and the wrapper holds the value.
+    expect(thrown[0]).toBeInstanceOf(DrizzleQueryError)
+    expect((thrown[0] as Error).message).toContain(CANARY)
+    expect((thrown[0] as Error).stack).toContain(CANARY)
+    // The rule: the log line does not.
+    expect(cap.all()).not.toContain(CANARY)
+    expect(cap.all()).not.toContain('params')
+  })
+
+  it("names what failed, from the driver's error", async () => {
+    const cap = capturing()
+    await failingQuery(cap.logger).app.request('/api/rules', { method: 'POST' })
+
+    const [written] = cap.entries()
+    expect(written).toMatchObject({
+      level: 50,
+      msg: 'unhandled error',
+      route: '/api/rules',
+      method: 'POST',
+      err: { code: '23514' },
+    })
+    const err = written?.err as { message: string; stack: string }
+    expect(err.message).toContain('import_rules_one_target')
+    expect(err.stack).toContain('import_rules_one_target')
+  })
+
+  it('writes any other error as its message and stack', () => {
+    const err = new Error('kaboom')
+    expect(loggedError(err)).toEqual({ message: 'kaboom', stack: err.stack, code: undefined })
+  })
+
+  it('writes a failed query with no driver error inside as that, and nothing it was given', () => {
+    const wrapper = new DrizzleQueryError('insert into "t" values ($1)', [CANARY])
+    expect(JSON.stringify(loggedError(wrapper))).not.toContain(CANARY)
+    expect(loggedError(wrapper).message).toBe('query failed')
   })
 })

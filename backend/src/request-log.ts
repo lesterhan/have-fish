@@ -7,7 +7,8 @@
  * volume for less information.
  */
 
-import type { MiddlewareHandler } from 'hono'
+import { DrizzleQueryError } from 'drizzle-orm'
+import type { ErrorHandler, MiddlewareHandler } from 'hono'
 import type pino from 'pino'
 import type { AppVariables } from './app'
 import { log, logRequest } from './logging'
@@ -46,6 +47,56 @@ function matchedPattern(c: {
     if (path !== undefined && !path.endsWith('*')) return path
   }
   return c.req.routePath
+}
+
+/** What an unhandled error is written down as. */
+export type LoggedError = { message: string; stack: string | undefined; code: string | undefined }
+
+/**
+ * The message, stack and code of an error, from the error that actually went wrong.
+ *
+ * Since Drizzle 0.44 a failed query throws `DrizzleQueryError`, whose message is
+ * `Failed query: <sql>\nparams: <values>` and whose stack opens with that same message. The
+ * values are whatever the request wrote (a description, an amount, an email), so logging
+ * the wrapper would put a request body in the log by the back door. The driver's error is
+ * on `cause`, and its message names the constraint or the syntax that failed, which is what
+ * the line is for; its `code` (SQLSTATE on Postgres) says the same thing in a form a query
+ * over the log can group by.
+ *
+ * Fields by name, never the error object: a thrown object from a driver or a fetch can carry
+ * the request that caused it (the Postgres driver's errors hold `parameters`), and that
+ * request can carry a body.
+ */
+export function loggedError(err: Error): LoggedError {
+  if (err instanceof DrizzleQueryError) {
+    if (err.cause instanceof Error) return loggedError(err.cause)
+    // A wrapper with nothing inside: say that a query failed, and nothing it was given.
+    return { message: 'query failed', stack: undefined, code: undefined }
+  }
+  const code = (err as { code?: unknown }).code
+  return {
+    message: err.message,
+    stack: err.stack,
+    code: typeof code === 'string' ? code : undefined,
+  }
+}
+
+/**
+ * The line for a request that threw.
+ *
+ * An unhandled throw otherwise reaches stderr as Hono's own unstructured dump, which is the
+ * one request path the request logger does not own, and the path that matters most when
+ * something is wrong at 2am. The response is byte-for-byte what Hono's default returns, so
+ * this changes what is written down and nothing a client sees.
+ */
+export function unhandledError(logger: pino.Logger = log): ErrorHandler {
+  return (err, c) => {
+    logger.error(
+      { route: c.req.routePath, method: c.req.method, err: loggedError(err) },
+      'unhandled error',
+    )
+    return c.text('Internal Server Error', 500)
+  }
 }
 
 /**
