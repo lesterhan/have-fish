@@ -2,6 +2,7 @@
   import WizardFormGrid from './WizardFormGrid.svelte'
   import Toggle from '../ui/Toggle.svelte'
   import TooltipIcon from '../ui/TooltipIcon.svelte'
+  import { copy } from '$lib/copy'
 
   interface Props {
     parserName: string
@@ -21,16 +22,16 @@
 </script>
 
 <WizardFormGrid>
-  <label for="parser-name">Parser name</label>
+  <label for="parser-name">{copy.import.parser.fields.name}</label>
   <input
     id="parser-name"
     type="text"
     bind:value={parserName}
-    placeholder="e.g. Imre Trust Visa"
+    placeholder={copy.import.parser.fields.namePlaceholder}
     autocomplete="off"
   />
 
-  <label for="wizard-csv-file">CSV file</label>
+  <label for="wizard-csv-file">{copy.import.parser.fields.file}</label>
   <input
     id="wizard-csv-file"
     type="file"
@@ -40,16 +41,14 @@
   />
 
   {#if detectedHeader}
-    <span class="field-label">Detected header</span>
+    <span class="field-label">{copy.import.parser.fields.detectedHeader}</span>
     <code class="detected-header">{detectedHeader}</code>
   {/if}
 
   {#if columns.length > 0}
     <span class="field-label toggle-label">
-      Multi-currency
-      <TooltipIcon
-        label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."
-      />
+      {copy.import.parser.fields.multiCurrency}
+      <TooltipIcon label={copy.import.parser.fields.multiCurrencyHint} />
     </span>
     <Toggle bind:checked={isMultiCurrency} />
   {/if}

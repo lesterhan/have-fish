@@ -168,6 +168,11 @@ findings below.
 guidance prose, so it may want splitting into wizards vs. steps once story 4 has calibrated
 how long a surface actually takes.
 
+The real figure was **309**, all in `copy/import.ts`, across 23 components and the two
+modules outside those directories that spoke for them (`lib/import/delimiter.ts` and
+`lib/import-session.ts`). One PR; the wizards and the steps turned out to share a voice.
+Done; findings below.
+
 **6. Fish Pie.** ~79 strings across `lib/components/fish-pie` and `routes/(authed)/fish-pie`.
 
 **7. Transactions, spending, catch-up.** ~84 strings across the three remaining surfaces.
@@ -202,7 +207,7 @@ change that should not be smuggled in earlier.
   across 13 files, one PR, and the copy file stayed readable because it is organised by the
   component that speaks rather than alphabetically. Import's 166 is smaller than that, so it
   does not need splitting on size. Split it only if the wizards and the steps turn out to
-  want different voices.
+  want different voices. They did not: story 5 was 309 messages in one PR.
 
 ## What extracting the case turned up
 
@@ -308,6 +313,69 @@ story's one rendered change.
 `'assets'`, `'liabilities'`… in the value and typed the same word again in the placeholder,
 one copy of each per field, none of them connected to `DEFAULT_ROOTS` where the real
 defaults live. They read from it now — the placeholder was never copy, it was the value.
+
+## What the import surface turned up
+
+**309 messages, against an estimate of 166.** The same shortfall as story 4, for the same
+reason. Stories 6, 7 and 9 should expect roughly twice their figures.
+
+**The page sent the reader to a screen that does not exist.** When no parser matched a file,
+the error said `Set one up under Import Parsers in Settings` and the hint under it said `Go to
+Settings to add a parser`. Settings has never had a parsers section: the parsers table is on
+the import page, a few hundred pixels below the error. Story 8 moved the backend's sentence
+into `copy/errors.ts` word for word, so the wrong instruction survived that story too. The
+error now says only what is wrong, and the hint beside it has an Add parser button that
+opens the wizard.
+
+**A behaviour hung off a phrase in a sentence.** The page decided whether to show that hint
+with `error.toLowerCase().includes('no saved parser')`. It worked because the copy happened
+to contain those words, and the first copy edit to that error would have turned the hint off
+without a test failing. It now compares against the copy entry itself. This is the frontend
+cousin of the test in story 3 that asserted on a copy literal: extraction is how you find the
+code that was reading the words.
+
+**The splice had two disguises the ban could not see.** `row(s) could not be parsed` and
+`transaction(s) imported` are the same splice written as a parenthesis, and they read wrongly
+in English as well (`1 row(s)`). `describeAge` spliced `minute${n === 1 ? '' : 's'}` in
+`import-session.ts`, and the ban read only `.svelte` files. The ban now reads `.ts` modules
+too (with comments stripped, since `plural.ts` quotes the shape), and a second check catches
+a bracketed plural in any rendered text or string literal. Relative ages now go through
+`Intl.RelativeTimeFormat`: an age is formatted data, not copy.
+
+**Three counts were wrong at one.** `1 matches` on the rules page, `1 still need an account`
+in review, `1 rows · saved just now` on the resume strip. None of them was a ternary, so
+nothing flagged them. All three go through `plural` now.
+
+**Drift, visible once the words sat together.** One control had two names: the button that
+removes a Fish Pie split was `Remove Fish Pie split` on a regular row and `Remove group
+split` on a transfer row. The Edit Parser panel's tooltips for Multi-currency and Direction
+column were shorter versions of the wizard's, and the shorter ones dropped the half that says
+what to do. All three share one entry now, under `parser.fields`, which the Add Parser wizard,
+the Add Account wizard's parser steps and the Edit Parser panel all read.
+
+**The detector learned two shapes.** An inline style handed to the DOM
+(`'position: fixed; top: -9999px'`) and a `querySelector` list (`'button, input'`) both read
+as several lowercase words. Each is a class, not a one-off, so the detector excuses CSS
+declarations and bare selector lists, and still flags a comma list or a label with a colon
+that is prose. The allowlist is still empty.
+
+**Deliberate rendered changes**, beyond the fixes above:
+
+- The coach strip and the resume strip were sentences wrapped around bold values (`Catching
+  up **path** from **date** to **date**.`, `Resume **file**?`). Each is now a lead phrase and
+  its values (`Catching up **path** · **from** → **to**`, `Unfinished import **file**`), which
+  keeps the emphasis without cutting a sentence in half. The buttons ask the question.
+- `Press [n] for the next unreviewed row` wrapped a sentence around a key legend. It is now
+  `Next unreviewed row [n]`.
+- The export blurb wrapped a sentence around `<code>.journal</code>`. It now says `journal
+  file` in plain text.
+
+**Noticed, not changed.** A split with no category is `No category` in the import split
+picker and `Uncategorized` in the rule editor, and Fish Pie's own screens say `Uncategorized
+(default)`. Which word Fish Pie uses is story 6's call, so both stay as they were.
+`AddParserWizard` repeats the four `WizardStep*` components inline rather than using them,
+which is now obvious because both copies read the same keys. Folding them together is a
+refactor, not an extraction.
 
 ## Appendix: plural splice sites
 

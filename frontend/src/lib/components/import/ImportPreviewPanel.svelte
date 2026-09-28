@@ -1,7 +1,7 @@
 <script lang="ts">
   import { at } from '$lib/at'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import type { Account, ImportPreviewResult, ExpenseGroup } from '$lib/api'
   import ImportRowTransfer from './ImportRowTransfer.svelte'
   import ImportRowRegular from './ImportRowRegular.svelte'
@@ -154,20 +154,20 @@
 
 <div class="preview-window">
   <div class="section-bar">
-    <span class="section-bar-title">Review — {preview.parser}</span>
+    <span class="section-bar-title"
+      >{copy.import.review.title(preview.parser)}</span
+    >
     <span class="preview-counts">
-      {reviewed} of {counts.all} reviewed
+      {copy.import.review.progress(reviewed, counts.all)}
     </span>
   </div>
   <div class="preview-body">
     {#if preview.errors.length > 0}
       <div class="parse-errors">
-        <p>
-          {preview.errors.length} row(s) could not be parsed and will be skipped.
-        </p>
+        <p>{copy.import.unparsed(preview.errors.length)}</p>
         <ul>
           {#each preview.errors as e}
-            <li>Row {e.row}: {e.reason}</li>
+            <li>{copy.import.rowNumber(e.row)}: {e.reason}</li>
           {/each}
         </ul>
       </div>
@@ -175,15 +175,11 @@
 
     {#if unmappedCurrencies.length > 0}
       <div class="unmapped-notice">
-        Flipping a row to convert-and-park needs an account for
+        {copy.import.review.unmappedLead}
         {#each unmappedCurrencies as c, i}<code>{c}</code
           >{#if i < unmappedCurrencies.length - 1},
           {/if}{/each}.
-        {plural(
-          unmappedCurrencies.length,
-          'Go back to the Accounts step to map it.',
-          'Go back to the Accounts step to map them.',
-        )}
+        {copy.import.review.unmapped(unmappedCurrencies.length)}
       </div>
     {/if}
 
@@ -191,22 +187,29 @@
       <!-- Derived from the import account, set on the File step. Shown here as a
            reminder that amounts are negated, not as a control. -->
       <span class="liability-chip" class:hidden={!importAsLiabilities}>
-        Imported as liabilities
+        {copy.import.page.liabilities}
       </span>
       <div class="bar-actions">
         {#if unfinished > 0}
-          <span class="unfinished-hint">{unfinished} still need an account</span
+          <span class="unfinished-hint"
+            >{copy.import.review.unfinished(unfinished)}</span
           >
         {/if}
-        <GradientButton onclick={oncancel}>Cancel</GradientButton>
+        <GradientButton onclick={oncancel}
+          >{copy.import.review.cancel}</GradientButton
+        >
         <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
-          Continue to confirm
+          {copy.import.review.continue}
         </GradientButton>
       </div>
     </div>
 
     <div class="filter-bar">
-      <div class="filters" role="group" aria-label="Filter rows">
+      <div
+        class="filters"
+        role="group"
+        aria-label={copy.import.review.filtersLabel}
+      >
         {#each REVIEW_FILTERS as f (f.id)}
           <button
             type="button"
@@ -222,7 +225,8 @@
         {/each}
       </div>
       <span class="jump-hint">
-        Press <kbd>n</kbd> for the next unreviewed row
+        {copy.import.review.nextUnreviewed}
+        <kbd>{copy.import.review.nextUnreviewedKey}</kbd>
       </span>
     </div>
 
@@ -230,20 +234,26 @@
       <table>
         <thead>
           <tr>
-            <th class="col-date">Date</th>
-            <th class="col-description">Description</th>
-            <th class="col-amount">Amount</th>
-            {#if !preview.isMultiCurrency}<th>Currency</th>{/if}
-            <th class="col-offset">To account</th>
-            {#if groups.length > 0}<th class="col-split">Fish Pie</th>{/if}
-            <th class="col-skip">Skip</th>
+            <th class="col-date">{copy.import.review.columns.date}</th>
+            <th class="col-description"
+              >{copy.import.review.columns.description}</th
+            >
+            <th class="col-amount">{copy.import.review.columns.amount}</th>
+            {#if !preview.isMultiCurrency}<th
+                >{copy.import.review.columns.currency}</th
+              >{/if}
+            <th class="col-offset">{copy.import.review.columns.toAccount}</th>
+            {#if groups.length > 0}<th class="col-split"
+                >{copy.import.review.columns.fishPie}</th
+              >{/if}
+            <th class="col-skip">{copy.import.review.columns.skip}</th>
           </tr>
         </thead>
         <tbody>
           {#if visibleIndices.length === 0}
             <tr>
               <td class="empty-filter" colspan={columnCount}>
-                Nothing here — every row is accounted for under this filter.
+                {copy.import.review.emptyFilter}
               </td>
             </tr>
           {/if}
@@ -312,9 +322,11 @@
       <p class="error">{error}</p>
     {/if}
     <div class="action-buttons">
-      <GradientButton onclick={oncancel}>Cancel</GradientButton>
+      <GradientButton onclick={oncancel}
+        >{copy.import.review.cancel}</GradientButton
+      >
       <GradientButton onclick={onconfirm} disabled={confirmDisabled} active>
-        Continue to confirm
+        {copy.import.review.continue}
       </GradientButton>
     </div>
   </div>

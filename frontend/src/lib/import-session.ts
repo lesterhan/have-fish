@@ -1,6 +1,7 @@
 import type { ImportPreviewResult } from '$lib/api'
 import type { ClusterState } from '$lib/components/import/clustering'
 import type { RowState } from '$lib/components/import/row-state'
+import { importCopy } from './copy/import'
 
 // An in-progress import, persisted so multi-step navigation (and an accidental refresh)
 // doesn't lose a half-categorized CSV.
@@ -194,15 +195,20 @@ export function latestSession(
 }
 
 // Human-readable age for the resume prompt ("saved 2 hours ago").
+//
+// A relative time is formatted data, like an amount or a date, so `Intl` words it and
+// pluralises it; it used to splice an `s` onto the unit by hand. Only "just now" is copy —
+// with `numeric: 'always'` so a day ago stays "1 day ago" rather than becoming "yesterday".
+const RELATIVE = new Intl.RelativeTimeFormat(undefined, { numeric: 'always' })
+
 export function describeAge(savedAt: string, now: number = Date.now()): string {
   const ms = now - Date.parse(savedAt)
-  if (!Number.isFinite(ms) || ms < 60_000) return 'just now'
+  if (!Number.isFinite(ms) || ms < 60_000) return importCopy.resume.justNow
   const minutes = Math.floor(ms / 60_000)
-  if (minutes < 60) return `${minutes} minute${minutes === 1 ? '' : 's'} ago`
+  if (minutes < 60) return RELATIVE.format(-minutes, 'minute')
   const hours = Math.floor(minutes / 60)
-  if (hours < 24) return `${hours} hour${hours === 1 ? '' : 's'} ago`
-  const days = Math.floor(hours / 24)
-  return `${days} day${days === 1 ? '' : 's'} ago`
+  if (hours < 24) return RELATIVE.format(-hours, 'hour')
+  return RELATIVE.format(-Math.floor(hours / 24), 'day')
 }
 
 // Reads a coach handoff off the import URL. Returns null unless every part is present and

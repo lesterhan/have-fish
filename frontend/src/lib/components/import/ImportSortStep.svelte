@@ -1,7 +1,7 @@
 <script lang="ts">
   import { at } from '$lib/at'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import GroupSelect from './GroupSelect.svelte'
   import Toggle from '$lib/components/ui/Toggle.svelte'
@@ -132,14 +132,10 @@
 
 <div class="sort-step">
   <div class="intro">
-    <h2>Repeat merchants</h2>
+    <h2>{copy.import.sort.heading}</h2>
     <p>
-      {plural(
-        clusters.length,
-        '1 merchant appears more than once.',
-        `${clusters.length} merchants appear more than once.`,
-      )} Assign each one here and its rows drop out of the review list. Anything you
-      skip is still waiting in Review.
+      {copy.import.sort.repeats(clusters.length)}
+      {copy.import.sort.intro}
     </p>
   </div>
 
@@ -178,7 +174,7 @@
               −{cluster.total.toFixed(2)}
               <span class="total-currency">{cluster.currency}</span>
             {:else}
-              <span class="mixed">mixed currencies</span>
+              <span class="mixed">{copy.import.sort.mixedCurrencies}</span>
             {/if}
           </span>
 
@@ -193,7 +189,7 @@
                 <button
                   type="button"
                   class="chip-remove"
-                  aria-label="Remove split"
+                  aria-label={copy.import.sort.removeSplit}
                   onclick={() => clearSplit(cluster.key)}>×</button
                 >
               </span>
@@ -212,7 +208,9 @@
                 bind:value={
                   () => state.accountId, (next) => (state.accountId = next)
                 }
-                placeholder={matched ? 'Override…' : 'expenses:groceries…'}
+                placeholder={matched
+                  ? copy.import.sort.override
+                  : copy.import.sort.placeholder}
                 oncreate={onaccountcreated}
               />
             {/if}
@@ -221,8 +219,8 @@
           {#if groups.length > 0 && !state.groupId && splitOpenFor !== cluster.key}
             <GradientButton
               square
-              aria-label="Split with group"
-              tooltip="Split with a Fish Pie group"
+              aria-label={copy.import.sort.split}
+              tooltip={copy.import.sort.splitHint}
               onclick={() => (splitOpenFor = cluster.key)}
             >
               <Icon name="pie" size={14} />
@@ -232,7 +230,7 @@
           <span class="remember">
             <Toggle
               checked={state.remember}
-              label="remember"
+              label={copy.import.sort.remember}
               onchange={(v) => setRemember(cluster.key, v)}
             />
           </span>
@@ -242,7 +240,7 @@
           <!-- Shown, never hidden: a rule assigning the wrong account is exactly what the
                user needs to see. Expanding it allows an override. -->
           <div class="matched-note">
-            matched by rule «{cluster.matchedRulePattern}»
+            {copy.import.sort.matchedBy(cluster.matchedRulePattern ?? '')}
           </div>
         {/if}
 
@@ -263,9 +261,11 @@
                   <span class="member-amount">{rowAmount(tx)}</span>
                 </label>
                 {#if rowStates[i]?.source === 'user'}
-                  <span class="member-flag">edited by hand</span>
+                  <span class="member-flag"
+                    >{copy.import.sort.editedByHand}</span
+                  >
                 {:else if rowStates[i]?.skipped}
-                  <span class="member-flag">skipped</span>
+                  <span class="member-flag">{copy.import.sort.skipped}</span>
                 {/if}
               </li>
             {/each}
@@ -276,14 +276,16 @@
   </div>
 
   <div class="actions">
-    <GradientButton onclick={onback}>Back</GradientButton>
+    <GradientButton onclick={onback}>{copy.import.sort.back}</GradientButton>
     <span class="spacer"></span>
     {#if protectedCount > 0}
       <GradientButton onclick={() => onapply(true)} disabled={applying}>
-        Override all {protectedCount}
+        {copy.import.sort.overrideAll(protectedCount)}
       </GradientButton>
     {/if}
-    <GradientButton onclick={onskip} disabled={applying}>Skip</GradientButton>
+    <GradientButton onclick={onskip} disabled={applying}
+      >{copy.import.sort.skip}</GradientButton
+    >
     <GradientButton
       size="lg"
       active
@@ -291,17 +293,11 @@
       onclick={() => onapply(false)}
     >
       {#if applying}
-        Applying…
+        {copy.import.sort.applying}
       {:else if writeCount === 0}
-        Nothing to apply
+        {copy.import.sort.nothing}
       {:else}
-        {plural(
-          writeCount,
-          'Apply to 1 row',
-          `Apply to ${writeCount} rows`,
-        )}{rememberCount > 0
-          ? ` · ${plural(rememberCount, '1 rule', `${rememberCount} rules`)}`
-          : ''}
+        {copy.import.sort.apply(writeCount, rememberCount)}
       {/if}
     </GradientButton>
   </div>

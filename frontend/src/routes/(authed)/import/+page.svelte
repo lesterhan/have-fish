@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte'
   import { at } from '$lib/at'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import { page } from '$app/state'
   import {
     fetchAccounts,
@@ -87,7 +87,7 @@
     try {
       await exportJournal({ from: exportFrom, to: exportTo })
     } catch (e) {
-      exportError = e instanceof Error ? e.message : 'Failed to export journal.'
+      exportError = e instanceof Error ? e.message : copy.import.export.failed
     } finally {
       exporting = false
     }
@@ -149,11 +149,11 @@
   // Only the steps that exist today. Later stories in this epic insert Sort and Confirm;
   // until then the stepper must not advertise them.
   const STEPS: { id: ImportStep; label: string }[] = [
-    { id: 'file', label: 'File' },
-    { id: 'accounts', label: 'Accounts' },
-    { id: 'sort', label: 'Sort' },
-    { id: 'review', label: 'Review' },
-    { id: 'confirm', label: 'Confirm' },
+    { id: 'file', label: copy.import.steps.file },
+    { id: 'accounts', label: copy.import.steps.accounts },
+    { id: 'sort', label: copy.import.steps.sort },
+    { id: 'review', label: copy.import.steps.review },
+    { id: 'confirm', label: copy.import.steps.confirm },
   ]
 
   const session = useSession()
@@ -237,7 +237,7 @@
   let handoffAccountPath = $derived(
     catchUp
       ? (accounts.find((a) => a.id === catchUp!.accountId)?.path ??
-          'that account')
+          copy.import.coach.unknownAccount)
       : '',
   )
 
@@ -401,7 +401,7 @@
 
   async function handleSubmit() {
     if (!file || !defaultCurrency) {
-      error = 'File and default currency are required.'
+      error = copy.import.file.required
       return
     }
     error = ''
@@ -541,11 +541,10 @@
         step = 'review'
       }
     } catch (e) {
-      error =
-        e instanceof Error
-          ? e.message
-          : 'Failed to parse the CSV. Please check the file and try again.'
-      noParserFound = error.toLowerCase().includes('no saved parser')
+      error = e instanceof Error ? e.message : copy.import.file.parseFailed
+      // Compared with the copy entry itself rather than a phrase inside it, so rewording the
+      // sentence cannot quietly turn the hint off.
+      noParserFound = error === copy.errors.NO_PARSER_MATCHED
     } finally {
       loading = false
     }
@@ -611,19 +610,16 @@
               rulesCreated = [...rulesCreated, cluster.key]
           } catch (e) {
             toast.show(
-              `Applied ${cluster.key}, but the rule could not be saved: ${e instanceof Error ? e.message : 'unknown error'}`,
+              copy.import.sort.ruleFailed(
+                cluster.key,
+                e instanceof Error ? e.message : copy.import.sort.unknownError,
+              ),
             )
           }
         }
       }
 
-      const ruleMsg =
-        created > 0
-          ? `, ${plural(created, '1 rule saved', `${created} rules saved`)}`
-          : ''
-      toast.show(
-        `${plural(written, '1 row assigned', `${written} rows assigned`)}${ruleMsg}`,
-      )
+      toast.show(copy.import.sort.applied(written, created))
       step = 'review'
     } finally {
       applyingClusters = false
@@ -662,7 +658,7 @@
       if (!rulesCreated.includes(tx.merchantKey))
         rulesCreated = [...rulesCreated, tx.merchantKey]
     } catch (e) {
-      toast.show(e instanceof Error ? e.message : 'Could not save the rule.')
+      toast.show(e instanceof Error ? e.message : copy.import.commit.ruleFailed)
       return
     }
 
@@ -683,16 +679,7 @@
       )
     }
 
-    const applied = matches.length
-    toast.show(
-      applied > 0
-        ? plural(
-            applied,
-            `Rule saved for “${tx.merchantKey}” — applied to 1 more row`,
-            `Rule saved for “${tx.merchantKey}” — applied to ${applied} more rows`,
-          )
-        : `Rule saved for “${tx.merchantKey}”`,
-    )
+    toast.show(copy.import.commit.ruleSaved(tx.merchantKey, matches.length))
   }
 
   // --- Confirm ---
@@ -728,17 +715,16 @@
   async function handleConfirm() {
     if (!preview) return
     if (!preview.isMultiCurrency && !fromAccountId) {
-      error = 'From account is required.'
+      error = copy.import.commit.fromRequired
       return
     }
     // The Accounts step covers every currency the preview expected. This catches the tail:
     // a row flipped to convert-and-park after that step introduces a target currency the
     // step never asked about. Name the currencies rather than saying "some account".
     if (unmappedCommitCurrencies.length > 0) {
-      error = plural(
+      error = copy.import.commit.unmapped(
         unmappedCommitCurrencies.length,
-        `No account mapped for ${unmappedCommitCurrencies.join(', ')}. Go back to Accounts to map it.`,
-        `No account mapped for ${unmappedCommitCurrencies.join(', ')}. Go back to Accounts to map them.`,
+        unmappedCommitCurrencies.join(', '),
       )
       return
     }
@@ -747,7 +733,7 @@
       return !row.skipped && rowMissingAccounts(tx, row)
     })
     if (invalid) {
-      error = 'All transactions must have accounts assigned.'
+      error = copy.import.commit.incomplete
       return
     }
     loading = true
@@ -847,16 +833,12 @@
         transactions: txs,
         groupSplits: groupSplits.length > 0 ? groupSplits : undefined,
       })
-      const fishPieMsg =
-        result.fishPieExpenses > 0
-          ? `, ${result.fishPieExpenses} added to Fish Pie`
-          : ''
-      // Rows imported before are skipped by the backend even if the review missed them
-      // (#282), so say how many, or a short count reads as rows gone missing.
-      const skippedMsg =
-        result.skipped > 0 ? `, ${result.skipped} already imported` : ''
       toast.show(
-        `${result.created} transaction(s) imported${fishPieMsg}${skippedMsg}`,
+        copy.import.commit.imported({
+          created: result.created,
+          fishPie: result.fishPieExpenses,
+          skipped: result.skipped,
+        }),
       )
       refreshSidebar()
       confetti.trigger()
@@ -877,7 +859,7 @@
             }),
           ),
         ).catch(() => {
-          toast.show('Imported, but the covered range could not be recorded')
+          toast.show(copy.import.commit.coverageFailed)
         })
       }
 
@@ -897,7 +879,7 @@
         )
       }
     } catch {
-      error = 'Import failed. Please try again.'
+      error = copy.import.commit.failed
     } finally {
       loading = false
     }
@@ -953,12 +935,11 @@
       <Icon name={handoffMismatch ? 'warning' : 'calendar'} size={14} />
       <span>
         {#if handoffMismatch}
-          The coach asked about <strong>{handoffAccountPath}</strong>, but this
-          file posts somewhere else. Importing is fine — it just won't close
-          that gap.
+          {copy.import.coach.askedAbout} <strong>{handoffAccountPath}</strong>
+          · {copy.import.coach.mismatch}
         {:else}
-          Catching up <strong>{handoffAccountPath}</strong> from
-          <strong>{catchUp.from}</strong> to <strong>{catchUp.to}</strong>.
+          {copy.import.coach.catchingUp} <strong>{handoffAccountPath}</strong>
+          · <strong>{catchUp.from}</strong> → <strong>{catchUp.to}</strong>
         {/if}
       </span>
     </div>
@@ -979,36 +960,34 @@
             </span>
             {#if importAsLiabilities}
               <span class="liability-chip">
-                Imported as liabilities
-                <TooltipIcon
-                  label="This account is a debt, so a charge on the statement increases what you owe. Amounts are stored negated to match."
-                />
+                {copy.import.page.liabilities}
+                <TooltipIcon label={copy.import.summary.liabilitiesHint} />
               </span>
             {/if}
           </div>
 
           <dl class="summary-facts">
             <div class="fact">
-              <dt>Parser</dt>
+              <dt>{copy.import.summary.facts.parser}</dt>
               <dd>{preview.parser}</dd>
             </div>
             <div class="fact">
-              <dt>Rows</dt>
+              <dt>{copy.import.summary.facts.rows}</dt>
               <dd>{preview.transactions.length}</dd>
             </div>
             {#if dateRange}
               <div class="fact">
-                <dt>Dates</dt>
+                <dt>{copy.import.summary.facts.dates}</dt>
                 <dd>{dateRange}</dd>
               </div>
             {/if}
             <div class="fact">
-              <dt>Currency</dt>
+              <dt>{copy.import.summary.facts.currency}</dt>
               <dd>{defaultCurrency}</dd>
             </div>
             {#if preview.errors.length > 0}
               <div class="fact">
-                <dt>Unparsed</dt>
+                <dt>{copy.import.summary.facts.unparsed}</dt>
                 <dd class="fact-warn">{preview.errors.length}</dd>
               </div>
             {/if}
@@ -1017,33 +996,32 @@
           <details class="defaults">
             <summary class="defaults-summary">
               <Icon name="arrow-right" size={10} />
-              <span class="defaults-label">Override</span>
+              <span class="defaults-label">{copy.import.summary.override}</span>
               <span class="defaults-values">
                 {liabilitiesOverride === null
-                  ? 'following the account'
-                  : 'set by hand'}
+                  ? copy.import.summary.following
+                  : copy.import.summary.byHand}
               </span>
             </summary>
             <div class="override-body">
               <Toggle
                 checked={importAsLiabilities}
-                label="Import as liabilities"
+                label={copy.import.summary.importAsLiabilities}
                 onchange={(v) =>
                   (liabilitiesOverride = v === derivedLiabilities ? null : v)}
               />
               <p class="override-hint">
-                Follows the import account's path by default. Change it only
-                when the statement's signs don't match the account.
+                {copy.import.summary.overrideHint}
               </p>
             </div>
           </details>
 
           <div class="summary-actions">
             <GradientButton onclick={handleCancel}
-              >Discard import</GradientButton
+              >{copy.import.summary.discard}</GradientButton
             >
             <GradientButton size="lg" active onclick={advanceFromFile}>
-              Continue
+              {copy.import.summary.continue}
             </GradientButton>
           </div>
         </div>
@@ -1120,17 +1098,20 @@
       <div class="resume-strip">
         <Icon name="restore-window" size={14} />
         <span class="resume-text">
-          Resume <strong>{resumable.fileName}</strong>?
+          {copy.import.resume.lead} <strong>{resumable.fileName}</strong>
           <span class="resume-meta">
-            {resumable.rowStates.length} rows · saved {describeAge(
-              resumable.savedAt,
+            {copy.import.resume.meta(
+              resumable.rowStates.length,
+              describeAge(resumable.savedAt),
             )}
           </span>
         </span>
         <div class="resume-actions">
-          <GradientButton onclick={discardResumable}>Discard</GradientButton>
+          <GradientButton onclick={discardResumable}
+            >{copy.import.resume.discard}</GradientButton
+          >
           <GradientButton active onclick={() => resumeSession(resumable!)}
-            >Resume</GradientButton
+            >{copy.import.resume.resume}</GradientButton
           >
         </div>
       </div>
@@ -1147,7 +1128,7 @@
             onclick={() => (activeTab = 'import')}
           >
             <Icon name="import" size={13} />
-            Import
+            {copy.import.page.tabs.import}
           </button>
           <button
             type="button"
@@ -1157,11 +1138,11 @@
             onclick={() => (activeTab = 'export')}
           >
             <Icon name="export" size={13} />
-            Export
+            {copy.import.page.tabs.export}
           </button>
           <a class="tab tab-link" href="/import/rules">
             <Icon name="settings" size={13} />
-            Rules
+            {copy.import.page.tabs.rules}
           </a>
         </div>
       </div>
@@ -1198,22 +1179,23 @@
               <span class="file-chip">
                 <Icon name="import" size={13} />
                 <span class="file-name">{file.name}</span>
-                <span class="file-size">{(file.size / 1024).toFixed(1)} KB</span
+                <span class="file-size"
+                  >{copy.import.file.size((file.size / 1024).toFixed(1))}</span
                 >
                 <button
                   type="button"
                   class="file-clear"
-                  aria-label="Remove file"
+                  aria-label={copy.import.file.remove}
                   onclick={clearFile}>✕</button
                 >
               </span>
               <GradientButton type="submit" size="lg" disabled={loading} active>
-                {loading ? 'Parsing…' : 'Preview import'}
+                {loading ? copy.import.file.parsing : copy.import.file.preview}
               </GradientButton>
             {:else}
               <label class="choose-btn">
                 <Icon name="import" size={14} />
-                Choose CSV…
+                {copy.import.file.choose}
                 <input
                   id="csv-file"
                   type="file"
@@ -1226,7 +1208,7 @@
                 />
               </label>
               <span class="drop-hint">
-                or drop a file here
+                {copy.import.file.dropHint}
                 <span class="pacman"
                   ><Icon name="pacman" size={14} /><Icon
                     name="dot"
@@ -1243,20 +1225,18 @@
           <details class="defaults">
             <summary class="defaults-summary">
               <Icon name="arrow-right" size={10} />
-              <span class="defaults-label">Defaults</span>
+              <span class="defaults-label">{copy.import.file.defaults}</span>
               <span class="defaults-values">
                 {defaultCurrency} ·
                 {accounts.find((a) => a.id === toAccountId)?.path ??
-                  'no uncategorized account'}
+                  copy.import.file.noUncategorized}
               </span>
             </summary>
             <div class="import-fields">
               <div class="import-field">
                 <label class="import-label" for="default-currency">
-                  Default currency
-                  <TooltipIcon
-                    label="The currency to use when the CSV doesn't specify one."
-                  />
+                  {copy.import.file.defaultCurrency}
+                  <TooltipIcon label={copy.import.file.defaultCurrencyHint} />
                 </label>
                 <CurrencyInput
                   id="default-currency"
@@ -1266,15 +1246,13 @@
               </div>
               <div class="import-field import-account">
                 <span class="import-label">
-                  Uncategorized account
-                  <TooltipIcon
-                    label="Transactions with no matching import rule are posted to this account."
-                  />
+                  {copy.import.file.uncategorized}
+                  <TooltipIcon label={copy.import.file.uncategorizedHint} />
                 </span>
                 <AccountPicker
                   {accounts}
                   bind:value={toAccountId}
-                  placeholder="Select or create an account…"
+                  placeholder={copy.import.file.accountPlaceholder}
                   oncreate={handleAccountCreated}
                 />
               </div>
@@ -1285,10 +1263,14 @@
             <div class="error-strip">
               <span class="error-text">{error}</span>
               {#if noParserFound}
-                <span class="hint-text">
-                  Go to <a href="/settings">Settings</a> to add a parser for this
-                  file.
-                </span>
+                <span class="hint-text">{copy.import.file.noParserHint}</span>
+                <GradientButton
+                  onclick={() => {
+                    showAddParser = true
+                  }}
+                >
+                  {copy.import.file.noParserAction}
+                </GradientButton>
               {/if}
             </div>
           {/if}
@@ -1296,17 +1278,14 @@
       {:else}
         <div class="export-body">
           <p class="export-blurb">
-            Download all your data as an hledger-compatible <code>.journal</code
-            > file. This is your escape hatch — nothing is locked in.
+            {copy.import.export.blurb}
           </p>
 
           <div class="import-fields">
             <div class="import-field">
               <label class="import-label" for="export-from">
-                From
-                <TooltipIcon
-                  label="Leave both dates empty to export everything."
-                />
+                {copy.import.export.from}
+                <TooltipIcon label={copy.import.export.fromHint} />
               </label>
               <input
                 id="export-from"
@@ -1317,7 +1296,9 @@
               />
             </div>
             <div class="import-field">
-              <label class="import-label" for="export-to">To</label>
+              <label class="import-label" for="export-to"
+                >{copy.import.export.to}</label
+              >
               <input
                 id="export-to"
                 type="date"
@@ -1335,7 +1316,7 @@
               onclick={handleExport}
             >
               <Icon name="export" size={14} />
-              {exporting ? 'Exporting…' : 'Export journal'}
+              {exporting ? copy.import.export.running : copy.import.export.run}
             </GradientButton>
           </div>
 
@@ -1388,22 +1369,18 @@
   }}
 />
 
-<Modal title="Discard import" bind:open={showDiscardConfirm}>
+<Modal title={copy.import.discard.title} bind:open={showDiscardConfirm}>
   <div class="discard-modal">
     <p>
       {#if fileName}<strong>{fileName}</strong> —{/if}
-      {plural(
-        rowStates.length,
-        '1 row and every account assignment made so far will be discarded. This cannot be undone.',
-        `${rowStates.length} rows and every account assignment made so far will be discarded. This cannot be undone.`,
-      )}
+      {copy.import.discard.body(rowStates.length)}
     </p>
     <div class="discard-actions">
       <GradientButton onclick={() => (showDiscardConfirm = false)}
-        >Keep working</GradientButton
+        >{copy.import.discard.keep}</GradientButton
       >
       <GradientButton variant="warning" active onclick={confirmDiscard}>
-        Discard import
+        {copy.import.discard.confirm}
       </GradientButton>
     </div>
   </div>
@@ -1876,16 +1853,6 @@
     line-height: var(--leading-normal);
     color: var(--color-text-muted);
     max-width: 52ch;
-  }
-
-  .export-blurb code {
-    font-family: var(--font-mono);
-    font-size: var(--text-dense);
-    padding: var(--sp-hair) var(--sp-3xs);
-    background: var(--color-window-inset);
-    border: 1px solid var(--color-border);
-    border-radius: var(--radius-sm);
-    color: var(--color-text);
   }
 
   /* ── Error strip ── */

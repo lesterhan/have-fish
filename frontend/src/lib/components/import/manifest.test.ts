@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'bun:test'
 import type { ParsedTransaction } from '$lib/api'
 import { at } from '../../at'
+import { importCopy } from '../../copy/import'
 import { buildManifest, type ManifestContext } from './manifest'
 import type { RowState } from './row-state'
 
@@ -178,7 +179,8 @@ describe('per-destination totals', () => {
 
   it('names an unassigned destination rather than showing a blank line', () => {
     const m = buildManifest([tx('-40.00')], [row({ offsetAccountId: '' })], 0, ctx())
-    expect(at(m.lines).label).toBe('No account assigned')
+    // The copy entry, not its wording: this test is about the line being named at all.
+    expect(at(m.lines).label).toBe(importCopy.manifest.noAccount)
   })
 })
 

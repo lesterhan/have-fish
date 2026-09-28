@@ -1,5 +1,6 @@
 <script lang="ts">
   import Icon from '$lib/components/ui/Icon.svelte'
+  import { copy } from '$lib/copy'
   import type { ImportStep } from '$lib/import-session'
 
   interface Props {
@@ -16,7 +17,7 @@
   let currentIndex = $derived(steps.findIndex((s) => s.id === step))
 </script>
 
-<nav class="stepper" aria-label="Import progress">
+<nav class="stepper" aria-label={copy.import.steps.label}>
   {#each steps as s, i (s.id)}
     {#if i > 0}
       <span class="separator" aria-hidden="true">

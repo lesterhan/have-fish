@@ -1,4 +1,5 @@
 import type { Account, ExpenseGroup, ParsedTransaction } from '$lib/api'
+import { importCopy } from '../../copy/import'
 import { rowMissingAccounts } from './import-helpers'
 import type { RowState } from './row-state'
 
@@ -111,10 +112,10 @@ function labelFor(dest: ReturnType<typeof destinationOf>, ctx: ManifestContext):
     const category = dest.categoryId
       ? group?.categories.find((c) => c.id === dest.categoryId)
       : null
-    const name = group?.name ?? 'Fish Pie group'
+    const name = group?.name ?? importCopy.manifest.unknownGroup
     return category ? `${name} · ${category.name}` : name
   }
-  return ctx.accounts.find((a) => a.id === dest.accountId)?.path ?? 'No account assigned'
+  return ctx.accounts.find((a) => a.id === dest.accountId)?.path ?? importCopy.manifest.noAccount
 }
 
 export function buildManifest(

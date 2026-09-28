@@ -1,6 +1,6 @@
 <script lang="ts">
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import Icon from '$lib/components/ui/Icon.svelte'
   import type { ParsedTransaction } from '$lib/api'
   import type { Manifest } from './manifest'
@@ -72,34 +72,30 @@
   )
 
   function money(total: number | null, currency: string | null): string {
-    if (total === null) return 'mixed currencies'
+    if (total === null) return copy.import.confirm.mixedCurrencies
     return `−${total.toFixed(2)}${currency ? ` ${currency}` : ''}`
   }
 
   function rowLabel(index: number): string {
     const tx = transactions[index]
-    if (!tx) return `Row ${index + 1}`
-    return `${(tx.date ?? '').slice(0, 10)} · ${tx.description ?? 'no description'}`
+    if (!tx) return copy.import.rowNumber(index + 1)
+    return `${(tx.date ?? '').slice(0, 10)} · ${tx.description ?? copy.import.confirm.noDescription}`
   }
 </script>
 
 <div class="confirm-step">
   <div class="headline">
     <h2>
-      {plural(
-        manifest.committedCount,
-        '1 transaction',
-        `${manifest.committedCount} transactions`,
-      )}
+      {copy.import.confirm.count(manifest.committedCount)}
     </h2>
     {#if manifest.dateRange}
       <span class="range"
         >{manifest.dateRange.from} → {manifest.dateRange.to}</span
       >
     {/if}
-    <span class="parser">via {parserName}</span>
+    <span class="parser">{copy.import.confirm.via(parserName)}</span>
     {#if importAsLiabilities}
-      <span class="liability-chip">Imported as liabilities</span>
+      <span class="liability-chip">{copy.import.page.liabilities}</span>
     {/if}
   </div>
 
@@ -113,49 +109,53 @@
         <span class="dest-count">{line.count}</span>
         <span class="dest-total">{money(line.total, line.currency)}</span>
         {#if line.isUncategorized}
-          <span
-            class="warn-flag"
-            title="These rows were never assigned an account"
-          >
-            <Icon name="warning" size={13} /> uncategorized
+          <span class="warn-flag" title={copy.import.confirm.uncategorizedHint}>
+            <Icon name="warning" size={13} />
+            {copy.import.confirm.uncategorized}
           </span>
         {/if}
       </div>
     {:else}
-      <p class="nothing">Every row is skipped — there is nothing to import.</p>
+      <p class="nothing">{copy.import.confirm.nothing}</p>
     {/each}
   </div>
 
   <dl class="notes">
     {#if manifest.skippedDuplicates > 0}
       <div class="note">
-        <dt>Skipped as duplicates: {manifest.skippedDuplicates}</dt>
+        <dt>
+          {copy.import.confirm.skippedDuplicates(manifest.skippedDuplicates)}
+        </dt>
         <dd>
           <button type="button" class="link" onclick={onreviewskipped}
-            >review</button
+            >{copy.import.confirm.review}</button
           >
         </dd>
       </div>
     {/if}
     {#if manifest.skippedManual > 0}
       <div class="note">
-        <dt>Skipped by hand: {manifest.skippedManual}</dt>
+        <dt>{copy.import.confirm.skippedByHand(manifest.skippedManual)}</dt>
         <dd>
           <button type="button" class="link" onclick={onreviewskipped}
-            >review</button
+            >{copy.import.confirm.review}</button
           >
         </dd>
       </div>
     {/if}
     {#if manifest.rulesCreated.length > 0}
       <div class="note">
-        <dt>Import rules created: {manifest.rulesCreated.length}</dt>
+        <dt>
+          {copy.import.confirm.rulesCreated(manifest.rulesCreated.length)}
+        </dt>
         <dd class="note-detail">{manifest.rulesCreated.join(', ')}</dd>
       </div>
     {/if}
     {#if manifest.accountsCreated.length > 0}
       <div class="note">
-        <dt>Accounts created: {manifest.accountsCreated.length}</dt>
+        <dt>
+          {copy.import.confirm.accountsCreated(manifest.accountsCreated.length)}
+        </dt>
         <dd class="note-detail">{manifest.accountsCreated.join(', ')}</dd>
       </div>
     {/if}
@@ -165,15 +165,14 @@
     <details class="parse-errors">
       <summary>
         <Icon name="arrow-right" size={10} />
-        {plural(
-          parseErrors.length,
-          '1 row could not be parsed and will be skipped',
-          `${parseErrors.length} rows could not be parsed and will be skipped`,
-        )}
+        {copy.import.unparsed(parseErrors.length)}
       </summary>
       <ul>
         {#each visibleErrors as e (e.row)}
-          <li><span class="err-row">Row {e.row}</span> {e.reason}</li>
+          <li>
+            <span class="err-row">{copy.import.rowNumber(e.row)}</span>
+            {e.reason}
+          </li>
         {/each}
       </ul>
       {#if !showAllErrors && parseErrors.length > ERROR_PREVIEW}
@@ -182,7 +181,7 @@
           class="link"
           onclick={() => (showAllErrors = true)}
         >
-          {parseErrors.length - ERROR_PREVIEW} more
+          {copy.import.confirm.more(parseErrors.length - ERROR_PREVIEW)}
         </button>
       {/if}
     </details>
@@ -193,11 +192,7 @@
     <div class="incomplete">
       <p class="incomplete-head">
         <Icon name="warning-filled" size={13} />
-        {plural(
-          manifest.incomplete.length,
-          '1 row still needs an account:',
-          `${manifest.incomplete.length} rows still need an account:`,
-        )}
+        {copy.import.confirm.incomplete(manifest.incomplete.length)}
       </p>
       <ul>
         {#each manifest.incomplete as index (index)}
@@ -214,39 +209,35 @@
   {#if coverageRange}
     <div class="covers">
       <div class="covers-head">
-        <span class="covers-title">This file covers</span>
+        <span class="covers-title">{copy.import.confirm.covers}</span>
         <div class="covers-dates">
           <input
             type="date"
             value={coverageRange.from}
             oninput={(e) => setCoverage('from', e.currentTarget.value)}
-            aria-label="Covered from"
+            aria-label={copy.import.confirm.coveredFrom}
           />
           <span class="covers-sep">→</span>
           <input
             type="date"
             value={coverageRange.to}
             oninput={(e) => setCoverage('to', e.currentTarget.value)}
-            aria-label="Covered through"
+            aria-label={copy.import.confirm.coveredThrough}
           />
         </div>
       </div>
       <p class="covers-note" class:invalid={!coverageValid}>
         {#if !coverageValid}
-          The start date has to come before the end date.
+          {copy.import.confirm.coverageBackwards}
         {:else if fromCoach}
-          The range the coach asked for. A statement can cover days with no
-          transactions on them, so this is usually wider than the dates in the
-          file — leave it as the statement period rather than the first and last
-          row.
+          {copy.import.confirm.coverageFromCoach}
         {:else}
-          Taken from the dates in the file. Widen it if the statement period
-          starts before its first transaction.
+          {copy.import.confirm.coverageFromFile}
         {/if}
       </p>
       {#if coverageAccountCount > 1}
         <p class="covers-note">
-          Recorded against all {coverageAccountCount} accounts this file posts to.
+          {copy.import.confirm.coverageAccounts(coverageAccountCount)}
         </p>
       {/if}
     </div>
@@ -257,23 +248,15 @@
   {/if}
 
   <div class="actions">
-    <GradientButton onclick={onback}>Back to review</GradientButton>
+    <GradientButton onclick={onback}>{copy.import.confirm.back}</GradientButton>
     <span class="spacer"></span>
     <GradientButton size="lg" active disabled={!canCommit} onclick={onconfirm}>
       {#if loading}
-        Importing…
+        {copy.import.confirm.importing}
       {:else if manifest.incomplete.length > 0}
-        {plural(
-          manifest.incomplete.length,
-          '1 row to fix',
-          `${manifest.incomplete.length} rows to fix`,
-        )}
+        {copy.import.confirm.toFix(manifest.incomplete.length)}
       {:else}
-        {plural(
-          manifest.committedCount,
-          'Import 1 transaction',
-          `Import ${manifest.committedCount} transactions`,
-        )}
+        {copy.import.confirm.run(manifest.committedCount)}
       {/if}
     </GradientButton>
   </div>

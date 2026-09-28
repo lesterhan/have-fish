@@ -12,6 +12,7 @@
     type ColumnMapping,
   } from '$lib/api'
   import TooltipIcon from '../ui/TooltipIcon.svelte'
+  import { copy } from '$lib/copy'
 
   interface Props {
     parser: CsvParser
@@ -105,7 +106,8 @@
       })
       onSuccess?.(updated)
     } catch (e) {
-      saveError = e instanceof Error ? e.message : 'Failed to save parser.'
+      saveError =
+        e instanceof Error ? e.message : copy.import.parser.edit.failed
     } finally {
       saving = false
     }
@@ -114,22 +116,29 @@
 
 <div class="edit-window">
   <div class="section-bar">
-    <span class="section-bar-title">Edit parser — {parser.name}</span>
+    <span class="section-bar-title"
+      >{copy.import.parser.edit.title(parser.name)}</span
+    >
   </div>
   <div class="edit-body">
     <div class="columns">
       <!-- Left: general settings -->
       <section>
-        <h3 class="section-heading">General</h3>
+        <h3 class="section-heading">{copy.import.parser.edit.general}</h3>
         <div class="form-grid">
-          <label for="ep-name">Name <span class="required">*</span></label>
+          <label for="ep-name"
+            >{copy.import.parser.edit.name}
+            <span class="required">*</span></label
+          >
           <TextInput id="ep-name" bind:value={name} autocomplete="off" />
 
-          <label for="ep-account">Default account</label>
+          <label for="ep-account"
+            >{copy.import.parser.edit.defaultAccount}</label
+          >
           <AccountPicker
             {accounts}
             bind:value={defaultAccountId}
-            placeholder="Select or create…"
+            placeholder={copy.import.parser.edit.accountPlaceholder}
             oncreate={(a) => {
               onAccountCreated?.(a)
               defaultAccountId = a.id
@@ -137,19 +146,19 @@
           />
 
           <span class="toggle-label">
-            Multi-currency
-            <TooltipIcon
-              label="Enable for banks that encode transfers inline (e.g. Wise)."
-            />
+            {copy.import.parser.fields.multiCurrency}
+            <TooltipIcon label={copy.import.parser.fields.multiCurrencyHint} />
           </span>
           <Toggle bind:checked={isMultiCurrency} />
 
           {#if isMultiCurrency}
-            <label for="ep-fee-account">Fee account</label>
+            <label for="ep-fee-account"
+              >{copy.import.parser.edit.feeAccount}</label
+            >
             <AccountPicker
               {accounts}
               bind:value={defaultFeeAccountId}
-              placeholder="expenses:fees…"
+              placeholder={copy.import.parser.edit.feePlaceholder}
               oncreate={(a) => {
                 onAccountCreated?.(a)
                 defaultFeeAccountId = a.id
@@ -161,49 +170,57 @@
 
       <!-- Right: column mapping -->
       <section>
-        <h3 class="section-heading">Column mapping</h3>
+        <h3 class="section-heading">{copy.import.parser.edit.mapping}</h3>
         <div class="form-grid">
-          <label for="ep-date">Date <span class="required">*</span></label>
+          <label for="ep-date"
+            >{copy.import.parser.fields.date}
+            <span class="required">*</span></label
+          >
           <Select id="ep-date" bind:value={mappingDate}>
-            <option value="">— select —</option>
+            <option value="">{copy.import.parser.fields.select}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
-          <label for="ep-amount">Amount <span class="required">*</span></label>
+          <label for="ep-amount"
+            >{copy.import.parser.fields.amount}
+            <span class="required">*</span></label
+          >
           <Select id="ep-amount" bind:value={mappingAmount}>
-            <option value="">— select —</option>
+            <option value="">{copy.import.parser.fields.select}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
-          <label for="ep-description">Description</label>
+          <label for="ep-description"
+            >{copy.import.parser.fields.description}</label
+          >
           <Select id="ep-description" bind:value={mappingDescription}>
-            <option value="">— not mapped —</option>
+            <option value="">{copy.import.parser.fields.notMapped}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
-          <label for="ep-currency">Currency</label>
+          <label for="ep-currency">{copy.import.parser.fields.currency}</label>
           <Select id="ep-currency" bind:value={mappingCurrency}>
-            <option value="">— not mapped —</option>
+            <option value="">{copy.import.parser.fields.notMapped}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
           <label for="ep-sign-col" class="toggle-label">
-            Direction column
-            <TooltipIcon
-              label="For banks that put IN/OUT in a separate column (e.g. Wise)."
-            />
+            {copy.import.parser.fields.direction}
+            <TooltipIcon label={copy.import.parser.fields.directionHint} />
           </label>
           <Select id="ep-sign-col" bind:value={mappingSignColumn}>
-            <option value="">— not mapped —</option>
+            <option value="">{copy.import.parser.fields.notMapped}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
           {#if mappingSignColumn}
-            <label for="ep-sign-neg">Negative value</label>
+            <label for="ep-sign-neg"
+              >{copy.import.parser.fields.negativeValue}</label
+            >
             <TextInput
               id="ep-sign-neg"
               bind:value={mappingSignNegativeValue}
-              placeholder="e.g. OUT"
+              placeholder={copy.import.parser.fields.negativePlaceholder}
               spellcheck={false}
               autocomplete="off"
             />
@@ -214,49 +231,59 @@
 
     {#if isMultiCurrency}
       <section>
-        <h3 class="section-heading">Multi-currency columns</h3>
+        <h3 class="section-heading">
+          {copy.import.parser.edit.multiCurrency}
+        </h3>
         <div class="multi-grid">
           <label for="ep-src-amount"
-            >Source amount <span class="required">*</span></label
+            >{copy.import.parser.fields.sourceAmount}
+            <span class="required">*</span></label
           >
           <Select id="ep-src-amount" bind:value={mappingSourceAmount}>
-            <option value="">— select —</option>
+            <option value="">{copy.import.parser.fields.select}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
           <label for="ep-src-currency"
-            >Source currency <span class="required">*</span></label
+            >{copy.import.parser.fields.sourceCurrency}
+            <span class="required">*</span></label
           >
           <Select id="ep-src-currency" bind:value={mappingSourceCurrency}>
-            <option value="">— select —</option>
+            <option value="">{copy.import.parser.fields.select}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
           <label for="ep-tgt-amount"
-            >Target amount <span class="required">*</span></label
+            >{copy.import.parser.fields.targetAmount}
+            <span class="required">*</span></label
           >
           <Select id="ep-tgt-amount" bind:value={mappingTargetAmount}>
-            <option value="">— select —</option>
+            <option value="">{copy.import.parser.fields.select}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
           <label for="ep-tgt-currency"
-            >Target currency <span class="required">*</span></label
+            >{copy.import.parser.fields.targetCurrency}
+            <span class="required">*</span></label
           >
           <Select id="ep-tgt-currency" bind:value={mappingTargetCurrency}>
-            <option value="">— select —</option>
+            <option value="">{copy.import.parser.fields.select}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
-          <label for="ep-fee-amount">Fee amount</label>
+          <label for="ep-fee-amount"
+            >{copy.import.parser.fields.feeAmount}</label
+          >
           <Select id="ep-fee-amount" bind:value={mappingFeeAmount}>
-            <option value="">— not mapped —</option>
+            <option value="">{copy.import.parser.fields.notMapped}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
 
-          <label for="ep-fee-currency">Fee currency</label>
+          <label for="ep-fee-currency"
+            >{copy.import.parser.fields.feeCurrency}</label
+          >
           <Select id="ep-fee-currency" bind:value={mappingFeeCurrency}>
-            <option value="">— not mapped —</option>
+            <option value="">{copy.import.parser.fields.notMapped}</option>
             {#each columns as col}<option value={col}>{col}</option>{/each}
           </Select>
         </div>
@@ -268,9 +295,13 @@
         <p class="save-error">{saveError}</p>
       {/if}
       <div class="footer-actions">
-        <GradientButton onclick={onCancel}>Cancel</GradientButton>
+        <GradientButton onclick={onCancel}
+          >{copy.import.parser.edit.cancel}</GradientButton
+        >
         <GradientButton onclick={handleSave} disabled={saving || !valid}>
-          <Icon name="floppy" size={12} />{saving ? 'Saving…' : 'Save'}
+          <Icon name="floppy" size={12} />{saving
+            ? copy.import.parser.edit.saving
+            : copy.import.parser.edit.save}
         </GradientButton>
       </div>
     </div>

@@ -6,6 +6,7 @@
   import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
+  import { copy } from '$lib/copy'
   import { formatCents, toCents } from '$lib/money'
   import type {
     Account,
@@ -123,9 +124,10 @@
     {tx.description ?? '—'}
     {#if rowState.possibleDuplicate?.fishPieGroupName}
       <span class="fishpie-hint">
-        · Fish Pie {rowState.possibleDuplicate.fishPieKind === 'expense'
-          ? 'split'
-          : 'settlement'} in
+        ·
+        {rowState.possibleDuplicate.fishPieKind === 'expense'
+          ? copy.import.row.fishPieMatch.expense
+          : copy.import.row.fishPieMatch.settlement}
         <a
           href="/fish-pie/{rowState.possibleDuplicate.fishPieGroupId}"
           class="fishpie-hint-link"
@@ -149,7 +151,9 @@
       <!-- Match the labelled-field gutter of the cross-currency rows so the column's left
            edge stays consistent. Plain (non-multi-currency) imports opt out via no-label. -->
       <div class="field" class:no-label={!isMultiCurrency}>
-        {#if isMultiCurrency}<span class="field-label">split</span>{/if}
+        {#if isMultiCurrency}<span class="field-label"
+            >{copy.import.row.fields.split}</span
+          >{/if}
         <div class="pills-wrap">
           <FishPiePills
             {groups}
@@ -163,7 +167,7 @@
             <span
               class="indicator-icon"
               use:tooltip={{
-                label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`,
+                label: copy.import.row.prefilled(tx.matchedRulePattern ?? ''),
                 always: true,
               }}
             >
@@ -173,8 +177,8 @@
           {#if canSaveRule && status === 'done' && !rowState.skipped}
             <GradientButton
               square
-              aria-label="Save as import rule"
-              tooltip={`Always split “${tx.merchantKey}” this way`}
+              aria-label={copy.import.row.saveRule}
+              tooltip={copy.import.row.alwaysSplit(tx.merchantKey ?? '')}
               onclick={onsaverule}
             >
               <Icon name="floppy" size={12} />
@@ -184,13 +188,15 @@
       </div>
     {:else if !splitSelectOpen}
       <div class="field" class:no-label={!isMultiCurrency}>
-        {#if isMultiCurrency}<span class="field-label">to</span>{/if}
+        {#if isMultiCurrency}<span class="field-label"
+            >{copy.import.row.fields.to}</span
+          >{/if}
         <div class="offset-wrap">
           {#if showPicker}
             <AccountPicker
               {accounts}
               bind:value={rowState.offsetAccountId}
-              placeholder="Select or create…"
+              placeholder={copy.import.row.placeholders.account}
               oncreate={onaccountcreated}
               oncommit={onedited}
             />
@@ -208,7 +214,7 @@
             <span
               class="indicator-icon"
               use:tooltip={{
-                label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`,
+                label: copy.import.row.prefilled(tx.matchedRulePattern ?? ''),
                 always: true,
               }}
             >
@@ -218,8 +224,8 @@
           {#if canSaveRule && status === 'done' && !rowState.skipped}
             <GradientButton
               square
-              aria-label="Save as import rule"
-              tooltip={`Always send “${tx.merchantKey}” here`}
+              aria-label={copy.import.row.saveRule}
+              tooltip={copy.import.row.alwaysSend(tx.merchantKey ?? '')}
               onclick={onsaverule}
             >
               <Icon name="floppy" size={12} />
@@ -230,7 +236,9 @@
     {/if}
     {#if !rowState.groupId && splitSelectOpen}
       <div class="field" class:no-label={!isMultiCurrency}>
-        {#if isMultiCurrency}<span class="field-label">split</span>{/if}
+        {#if isMultiCurrency}<span class="field-label"
+            >{copy.import.row.fields.split}</span
+          >{/if}
         <div class="split-anchor" bind:this={splitAnchorEl}>
           <GroupSelect
             {groups}
@@ -252,7 +260,7 @@
           <GradientButton
             square
             size="lg"
-            aria-label="Remove Fish Pie split"
+            aria-label={copy.import.row.removeSplit}
             onclick={() => {
               rowState = { ...rowState, groupId: null, categoryId: null }
               onclosesplit()
@@ -263,7 +271,7 @@
           <GradientButton
             square
             size="lg"
-            aria-label="Split with group"
+            aria-label={copy.import.row.split}
             onclick={onsplitopen}
           >
             <Icon name="pie" size={16} />
