@@ -926,6 +926,10 @@ describe('coverage', () => {
       const groceries = await createAccount(userId, 'expenses:groceries')
       const chequing = await createAccount(userId, 'assets:chequing')
       const visa = await createAccount(userId, 'liabilities:visa')
+      // The visa stops mid-month. `daysAgo(90)` alone lands on a month's last day about one
+      // day in thirty, and a month covered to its last day is complete, not partial.
+      const month = monthOf(daysAgo(90))
+      const stop = `${month}-15`
       await postCoverage(cookie, {
         accountId: chequing.id,
         fromDate: daysAgo(400),
@@ -935,19 +939,18 @@ describe('coverage', () => {
       await postCoverage(cookie, {
         accountId: visa.id,
         fromDate: daysAgo(400),
-        throughDate: daysAgo(90),
+        throughDate: stop,
         source: 'import',
       })
       await seedTxn(userId, chequing.id, daysAgo(10), groceries.id)
       await seedTxn(userId, visa.id, daysAgo(120), groceries.id)
 
-      // The month the visa's coverage stops inside.
-      const { body } = await months(monthOf(daysAgo(90)), monthOf(daysAgo(90)))
+      const { body } = await months(month, month)
 
       expect(body.months[0].state).toBe('partial')
-      expect(body.months[0].completeThrough).toBe(daysAgo(90))
+      expect(body.months[0].completeThrough).toBe(stop)
       expect(body.months[0].gaps).toEqual([
-        { accountId: visa.id, path: 'liabilities:visa', name: null, coveredThrough: daysAgo(90) },
+        { accountId: visa.id, path: 'liabilities:visa', name: null, coveredThrough: stop },
       ])
     })
 

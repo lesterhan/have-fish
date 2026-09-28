@@ -2,7 +2,7 @@
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
 code as it is on `main` (last updated by #431), and the layering the [domain-layer
-epic](../planning/epics/domain-layer.md) (#423) moved it to. Each story of that
+epic](../planning/epics/archive/domain-layer.md) (#423) moved it to. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
 
@@ -400,8 +400,8 @@ the pure `fish-pie-balance-service.ts` became `fish-pie/balances.ts` (#430), and
 
 ## How it got here, and what is left
 
-The domain-layer epic ([`planning/epics/domain-layer.md`](../planning/epics/domain-layer.md))
-did it in this order:
+The [domain-layer epic](../planning/epics/archive/domain-layer.md) (#423) did it in this
+order:
 
 1. This map (#424)
 2. One write path for transactions (#425), then every posting writer through it (#426)

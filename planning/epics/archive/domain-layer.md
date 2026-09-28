@@ -2,7 +2,7 @@
 
 **Tracked as [#423](https://github.com/lesterhan/have-fish/issues/423)**, one sub-issue per
 story below. The current state of the code is mapped in
-[`backend/ARCHITECTURE.md`](../../backend/ARCHITECTURE.md) (story 1).
+[`backend/ARCHITECTURE.md`](../../../backend/ARCHITECTURE.md) (story 1).
 
 Move the backend's business rules out of the Hono route handlers into services and pure
 domain modules. A rule then lives in one place, runs without a request, and can be read on

@@ -81,7 +81,7 @@
 | [Copy Extraction](epics/copy-extraction.md) | In progress |
 | [Visual Language](epics/archive/visual-language.md) | Done |
 | [Type & Space Scale](epics/archive/type-and-space.md) | Done |
-| [Domain Layer](epics/domain-layer.md) | In progress |
+| [Domain Layer](epics/archive/domain-layer.md) | Done |
 | [Sync Unit](epics/sync-unit.md) | Accepted; schema in progress (#454) |
 
 ## Fish Pie sequence
