@@ -102,11 +102,26 @@ describe.skipIf(!binary)('the compiled binary', () => {
     // The document, and every script and stylesheet it names, from inside the binary.
     const html = await (await fetch(`${link.origin}/`)).text()
     expect(html).toStartWith('<!doctype html>')
-    const assets = [...html.matchAll(/(?:href|src)="(\/_app\/[^"]+)"/g)].map((m) => m[1])
+    const assets = [...html.matchAll(/(?:href|src)="(\/_app\/[^"]+)"/g)].flatMap((m) => m[1] ?? [])
     expect(assets.length).toBeGreaterThan(0)
+    const fonts: string[] = []
     for (const asset of assets) {
       const res = await fetch(`${link.origin}${asset}`)
       expect(`${asset} ${res.status}`).toBe(`${asset} 200`)
+      if (!asset.endsWith('.css')) continue
+      const css = await res.text()
+      for (const [, ref] of css.matchAll(/url\(([^)]+\.woff2)\)/g)) {
+        fonts.push(new URL(ref as string, `${link.origin}${asset}`).pathname)
+      }
+    }
+
+    // And every font those stylesheets name, from inside the binary too (#491).
+    expect(fonts.length).toBeGreaterThan(0)
+    for (const font of fonts) {
+      const res = await fetch(`${link.origin}${font}`)
+      expect(`${font} ${res.status} ${res.headers.get('content-type')}`).toBe(
+        `${font} 200 font/woff2`,
+      )
     }
     await stop(child)
   }, 30_000)

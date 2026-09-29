@@ -47,8 +47,8 @@
    * Source Serif 4: section headers and month labels.
    */
   --font-sans: 'Lucida Grande', 'Segoe UI', Tahoma, sans-serif;
-  --font-serif: 'Source Serif 4', Georgia, serif;
-  --font-mono: 'JetBrains Mono', Consolas, monospace;
+  --font-serif: 'Source Serif 4 Variable', Georgia, serif;
+  --font-mono: 'JetBrains Mono Variable', Consolas, monospace;
 
   /* --- THE LADDER — type ---
    * Named for the job, not the size, for the same reason the surface rungs
