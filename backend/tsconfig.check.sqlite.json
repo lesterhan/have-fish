@@ -7,5 +7,5 @@
     "which is also where the Postgres-only migration tests live."
   ],
   "compilerOptions": { "customConditions": ["sqlite"] },
-  "exclude": ["drizzle", "node_modules", "src/db/pg"]
+  "exclude": ["dist", "drizzle", "node_modules", "src/db/pg"]
 }

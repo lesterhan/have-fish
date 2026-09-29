@@ -135,6 +135,41 @@ jobs:
         working-directory: backend
         run: bun run test:sqlite
 
+  # The local build as one file (#288): the frontend built and compiled into a binary with the
+  # SQLite migrations, then started twice from an empty home directory by `binary.test.ts`. A
+  # dependency that stops surviving `bun build --compile`, or a frontend file left out of it,
+  # fails here instead of on someone's laptop.
+  local-binary:
+    runs-on: ubuntu-24.04
+
+    env:
+      PUBLIC_VERSION: ${{ github.sha }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: bun install
+
+      - name: Build the binary
+        working-directory: backend
+        run: bun run build:binary
+
+      - name: Start it, twice
+        working-directory: backend
+        env:
+          HAVEFISH_BINARY: dist/havefish
+        run: NODE_ENV=test bun test src/local/binary.test.ts
+
   frontend:
     runs-on: ubuntu-latest
 

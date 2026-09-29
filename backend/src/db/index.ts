@@ -6,7 +6,7 @@ import type { db } from '#dialect/client'
 // (`bun run check` runs tsc once per dialect), so no query is ever typed as the other one's.
 // Everything else imports the database from here and from `db/schema.ts`, never from
 // `#dialect` directly.
-export { db, dialect, forUpdate } from '#dialect/client'
+export { closeDatabase, db, dialect, forUpdate } from '#dialect/client'
 
 /** An open database transaction, as `db.transaction(async (tx) => …)` hands it over. */
 export type DbTransaction = Parameters<Parameters<typeof db.transaction>[0]>[0]

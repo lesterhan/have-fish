@@ -22,7 +22,11 @@ describe('dataDirFor', () => {
   })
 
   it('keeps the database and the lock inside it', () => {
-    expect(dataPaths('/d')).toEqual({ database: '/d/havefish.sqlite', lock: '/d/havefish.lock' })
+    expect(dataPaths('/d')).toEqual({
+      database: '/d/havefish.sqlite',
+      lock: '/d/havefish.lock',
+      backups: '/d/backups',
+    })
   })
 })
 

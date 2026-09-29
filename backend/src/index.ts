@@ -13,18 +13,19 @@ const mode = readMode(process.env.HAVEFISH_MODE)
 async function serverEntry() {
   const { app } = await import('./app')
   const { createServer, hasFrontend } = await import('./server')
-  if (!(await hasFrontend(STATIC_ROOT))) {
+  const frontend = { root: STATIC_ROOT }
+  if (!(await hasFrontend(frontend))) {
     log.info({ staticRoot: STATIC_ROOT }, 'no frontend build found; serving the API only')
   }
   return {
     port: process.env.PORT ?? 3001,
-    fetch: (await createServer(app, STATIC_ROOT)).fetch,
+    fetch: (await createServer(app, frontend)).fetch,
   }
 }
 
 if (mode === 'local') {
   const { launchLocal } = await import('./local/launch')
-  await launchLocal(STATIC_ROOT)
+  await launchLocal({ frontend: { root: STATIC_ROOT } })
 }
 
 export default mode === 'server' ? await serverEntry() : undefined

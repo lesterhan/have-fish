@@ -143,16 +143,17 @@ reads, so the frontend's session handling is the same code in both builds. It is
 Better Auth path the local build knows.
 
 **Starting the local build** (`local/launch.ts`). `bun run local`, or `HAVEFISH_MODE=local`
-with `--conditions=sqlite`; the Postgres build refuses the mode. In order:
+with `--conditions=sqlite`, or the compiled binary (below); the Postgres build refuses the
+mode. In order:
 
 1. The data directory is `$XDG_DATA_HOME/havefish` (`HAVEFISH_DATA_DIR` overrides it), made
-   `0700`. It holds `havefish.sqlite` and `havefish.lock`.
+   `0700`. It holds `havefish.sqlite`, `havefish.lock` and `backups/`.
 2. The lock is created exclusively and names the process holding it. A second launch finds a
    live holder, signs a fresh launch link with the key the holder published in the lockfile,
    opens it and exits: one process per database file, since the write queue above is
    per-process. A lock left by a dead process is taken over.
 3. `SQLITE_PATH` is set, and only then is anything that touches the database imported. The
-   file is migrated from `drizzle/sqlite/`, and the local profile found or minted
+   file is migrated (below), and the local profile found or minted
    (`local/profile-service.ts`): one `user` row, the starter accounts and settings a sign-up
    gives (`users/starter-service.ts`), and the `local_profile` row that says whose file it is.
 4. It binds `127.0.0.1` on the first free port from 47821 (`HAVEFISH_PORT` overrides it),
@@ -162,7 +163,30 @@ with `--conditions=sqlite`; the Postgres build refuses the mode. In order:
    in this process: a restart ends every session, and the launcher opens a new one.
 
 A launch token is `<issued>.<nonce>.<HMAC>`, good once and for two minutes
-(`local/launch-token.ts`).
+(`local/launch-token.ts`). SIGINT or SIGTERM lets requests in flight finish (two seconds at
+most), checkpoints the WAL into the file, closes it, and only then removes the lock.
+
+**Migrating a SQLite file** (`db/sqlite/migrate.ts`, #288). Not drizzle's migrator, which reads
+a folder at run time: this one is handed the migrations as a list of `{tag, statements}`, so
+a binary can carry them as strings. It records each applied tag in `__migrations`, and applies
+what is missing in one transaction with foreign keys off. Before it writes to a file that
+already holds migrations, it copies it to `backups/pre-migrate-<time>.sqlite` with
+`VACUUM INTO`, which includes what is still in the WAL. A file that records a tag this build
+does not know was opened by a newer one, and is refused before anything is written or copied.
+A file #287's launcher migrated with drizzle's migrator is adopted by matching
+`__drizzle_migrations`' timestamps to the journal. The launcher, the SQLite test run and
+`db:migrate:sqlite` all use it; `db:generate` still writes the files.
+
+**The binary** (`bun run build:binary`, `scripts/build-binary.ts`, #288). One executable for
+linux-x64, about 107 MB, nearly all of it the Bun runtime. The script writes `dist/entry.ts`
+(`local/embed.ts`), which imports every file of `frontend/build` by name `with { type: 'file' }`
+rather than embedding the directory (Bun has dropped files from embedded directories), carries
+the migrations as strings, and calls `launchLocal` with both. `server.ts` serves those files
+by exact path in place of `serveStatic`. The compile runs with `--conditions=sqlite` and one
+plugin: libsql loads its native addon with a computed `require` the bundler cannot follow, so
+the plugin rewrites it to a static require of `@libsql/linux-x64-gnu`, and the addon is
+embedded like any other file (#284). CI's `local-binary` job builds it and starts it twice
+(`local/binary.test.ts`).
 
 **No hidden network calls** (`network.test.ts`, `test-network-off.ts`). The personal ledger
 works offline, and two things hold that. The static test lists the files allowed to open a

@@ -7,8 +7,8 @@
 import { mkdtempSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { migrateSqliteFile } from './migrate'
+import { migrateSqliteFile, readMigrations } from './migrate'
 
 const path = join(mkdtempSync(join(tmpdir(), 'havefish-test-')), 'test.sqlite')
 process.env.SQLITE_PATH = path
-await migrateSqliteFile(path)
+await migrateSqliteFile(path, readMigrations())

@@ -1,10 +1,10 @@
 import { afterAll, beforeAll, describe, expect, it } from 'bun:test'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import { mkdirSync, mkdtempSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import type { Hono } from 'hono'
 import { app } from './app'
-import { createServer, hasFrontend } from './server'
+import { createServer, type Frontend, hasFrontend } from './server'
 
 // A stand-in for a SvelteKit build: the document, a hashed asset, and one file named after
 // an API route so the shadowing test has something to shadow with.
@@ -19,15 +19,29 @@ function buildDir(): string {
   return dir
 }
 
+// The same build as a compiled binary carries it (#288): each file by the path it is served at.
+function embeddedFrom(dir: string): Frontend {
+  const files = new Map<string, string>()
+  for (const rel of readdirSync(dir, { recursive: true, encoding: 'utf8' })) {
+    if (statSync(join(dir, rel)).isFile()) files.set(`/${rel}`, join(dir, rel))
+  }
+  return { files }
+}
+
+const FRONTENDS: [string, (dir: string) => Frontend][] = [
+  ['from a folder', (root) => ({ root })],
+  ['embedded in the binary', embeddedFrom],
+]
+
 const get = (server: Hono, path: string) => server.fetch(new Request(`http://localhost${path}`))
 
-describe('with a frontend build present', () => {
+describe.each(FRONTENDS)('with a frontend build present, %s', (_, frontendOf) => {
   let dir: string
   let server: Hono
 
   beforeAll(async () => {
     dir = buildDir()
-    server = await createServer(app, dir)
+    server = await createServer(app, frontendOf(dir))
   })
   afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
@@ -61,6 +75,19 @@ describe('with a frontend build present', () => {
     expect(await res.text()).not.toContain('shell')
   })
 
+  it('serves each asset with its own content type', async () => {
+    const res = await get(server, '/favicon.svg')
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('image/svg+xml')
+  })
+
+  it('never serves a file from outside the build', async () => {
+    for (const path of ['/%2e%2e/%2e%2e/etc/passwd', '/..%2f..%2fetc%2fpasswd']) {
+      const body = await (await get(server, path)).text()
+      expect(body).not.toContain('root:')
+    }
+  })
+
   // The whole point of mounting the API first.
   it('lets no static file shadow an API route', async () => {
     const res = await get(server, '/health')
@@ -82,7 +109,7 @@ describe('with no frontend build', () => {
 
   beforeAll(async () => {
     dir = mkdtempSync(join(tmpdir(), 'havefish-empty-'))
-    server = await createServer(app, dir)
+    server = await createServer(app, { root: dir })
   })
   afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
@@ -105,8 +132,10 @@ describe('hasFrontend', () => {
     const dir = buildDir()
     const empty = mkdtempSync(join(tmpdir(), 'havefish-empty-'))
     try {
-      expect(await hasFrontend(dir)).toBe(true)
-      expect(await hasFrontend(empty)).toBe(false)
+      expect(await hasFrontend({ root: dir })).toBe(true)
+      expect(await hasFrontend({ root: empty })).toBe(false)
+      expect(await hasFrontend(embeddedFrom(dir))).toBe(true)
+      expect(await hasFrontend(embeddedFrom(empty))).toBe(false)
     } finally {
       rmSync(dir, { recursive: true, force: true })
       rmSync(empty, { recursive: true, force: true })

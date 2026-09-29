@@ -12,7 +12,13 @@ export const dialect: 'pg' | 'sqlite' = 'pg'
 const url =
   process.env.NODE_ENV === 'test' ? process.env.TEST_DATABASE_URL! : process.env.DATABASE_URL!
 
-export const db = drizzle(postgres(url), { schema })
+const client = postgres(url)
+export const db = drizzle(client, { schema })
+
+/** Lets queries in flight finish, then closes the pool. */
+export async function closeDatabase(): Promise<void> {
+  await client.end({ timeout: 5 })
+}
 
 /**
  * Locks the rows a read inside a transaction returns until it commits, so a read-modify-write

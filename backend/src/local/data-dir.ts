@@ -22,6 +22,8 @@ export function dataPaths(dir: string) {
   return {
     database: join(dir, 'havefish.sqlite'),
     lock: join(dir, 'havefish.lock'),
+    /** Copies taken before a migration (#288). */
+    backups: join(dir, 'backups'),
   }
 }
 

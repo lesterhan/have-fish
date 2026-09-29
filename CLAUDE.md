@@ -38,7 +38,7 @@ have-fish/
 │   │   │   ├── pg/          # Postgres client + schema.ts (the server build)
 │   │   │   └── sqlite/      # SQLite client + schema.ts (the local build, --conditions=sqlite)
 │   │   ├── build-app.ts     # The routes behind an edge: server-edge.ts or local/edge.ts
-│   │   ├── local/           # The local build: launcher, lockfile, launch token, profile
+│   │   ├── local/           # The local build: launcher, lockfile, launch token, profile, binary entry
 │   │   ├── routes/          # One file per resource, co-located with tests
 │   │   └── test-utils.ts    # clearDatabase() helper for tests
 │   └── drizzle/             # Generated migration files (do not edit by hand)
@@ -69,13 +69,14 @@ have-fish/
 # Backend (run from /backend)
 bun run dev           # start dev server with hot reload
 bun run local         # the local build: builds the frontend, then opens it signed in (#287)
+bun run build:binary  # the local build as one file, dist/havefish, frontend and migrations inside (#288)
 bun test              # run all tests (the hledger export test skips unless `hledger` is installed)
 bun run test:sqlite   # the same suite on SQLite, in a temp file it creates and migrates
 bun run test:watch    # run tests in watch mode (use while developing)
 bun run db:generate       # generate SQL migrations from schema changes, for both dialects
 bun run db:migrate        # apply migrations to the dev database
 bun run db:migrate:test   # apply migrations to the test database
-bun run db:migrate:sqlite # apply the SQLite migrations to the file SQLITE_PATH names
+bun run db:migrate:sqlite # apply the SQLite migrations to the file SQLITE_PATH names (the app's own migrator)
 bun run db:studio         # open Drizzle Studio (DB GUI in browser)
 
 # Frontend (run from /frontend)
@@ -160,7 +161,10 @@ The local build (`bun run local`, or `HAVEFISH_MODE=local` with `--conditions=sq
 `SQLITE_PATH`, `PORT` and the Better Auth variables. It keeps its data in
 `$XDG_DATA_HOME/havefish` (`HAVEFISH_DATA_DIR` overrides it), listens on 127.0.0.1 from port
 47821 (`HAVEFISH_PORT`), and opens the browser unless `HAVEFISH_NO_BROWSER` is set, in which
-case it prints the link. `backend/ARCHITECTURE.md`, "Two editions, one app", has the rest.
+case it prints the link. `bun run build:binary` compiles the same thing into `backend/dist/havefish`,
+one file with the frontend and migrations inside; the binary copies the database into the data
+directory's `backups/` before any migration and refuses a file a newer build migrated.
+`backend/ARCHITECTURE.md`, "Two editions, one app", has the rest.
 
 Every test run is offline: `backend/bunfig.toml` preloads a `fetch` that throws for anything
 past loopback, and `network.test.ts` lists the only files allowed to reach the network.
