@@ -87,4 +87,6 @@ bun run android      # requires Android SDK / connected device or emulator
 Signed release APKs are built in CI (`.github/workflows/build-android.yml`) and
 published as GitHub Releases. Install and auto-update them with
 [Obtainium](https://github.com/ImranR98/Obtainium): add the app by this repo's
-URL and it tracks each Release. Cutting a `v*` tag produces a new release build.
+URL and it tracks each Release. Cutting an `android-v*` tag produces a new release build.
+The same Releases list holds the desktop builds (plain `v*` tags, no `.apk`), so set the app's
+release-title filter in Obtainium to `^android-v`.

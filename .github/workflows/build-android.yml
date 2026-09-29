@@ -1,17 +1,21 @@
 name: Build Android APK
 # Builds a signed release APK entirely on the runner (no EAS/Expo cloud):
 # prebuild -> gradle assembleRelease -> attach to a GitHub Release for Obtainium.
+#
+# The APK's tags are android-v* (#493): plain v* belongs to the desktop binary, whose releases
+# share this repo's Releases list. Obtainium on the phone filters release titles by ^android-v,
+# so every release this workflow makes is titled with its tag.
 
 on:
   workflow_dispatch:
     inputs:
       release_tag:
-        description: "Release tag (e.g. v1.2.0) — leave empty to skip creating a GitHub Release"
+        description: "Release tag (e.g. android-v1.2.0) — leave empty to skip creating a GitHub Release"
         required: false
         type: string
   push:
     tags:
-      - "v*"
+      - "android-v*"
 
 jobs:
   build:
@@ -24,6 +28,17 @@ jobs:
         working-directory: mobile
 
     steps:
+      # A manual run names its own tag, and a v* one would land in the desktop's namespace.
+      - name: Check the release tag
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.release_tag != '' }}
+        env:
+          RELEASE_TAG: ${{ inputs.release_tag }}
+        run: |
+          case "$RELEASE_TAG" in
+            android-v*) ;;
+            *) echo "::error::release_tag must start with android-v, got: $RELEASE_TAG"; exit 1 ;;
+          esac
+
       - uses: actions/checkout@v4
 
       - uses: actions/setup-java@v4
@@ -64,13 +79,13 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          # Derive versionName from the release tag (strip leading "v"); leave
+          # Derive versionName from the release tag (strip leading "android-v"); leave
           # unset for a tagless manual run so the plugin falls back to app.json.
           if [ "${{ github.event_name }}" = "push" ]; then
-            VERSION_NAME="${GITHUB_REF_NAME#v}"
+            VERSION_NAME="${GITHUB_REF_NAME#android-v}"
           else
             VERSION_NAME="${{ inputs.release_tag }}"
-            VERSION_NAME="${VERSION_NAME#v}"
+            VERSION_NAME="${VERSION_NAME#android-v}"
           fi
           GRADLE_ARGS=()
           if [ -n "$VERSION_NAME" ]; then
@@ -115,6 +130,6 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.tag }}
-          name: have-fish ${{ steps.tag.outputs.tag }}
+          name: ${{ steps.tag.outputs.tag }} (Android)
           files: have-fish.apk
           generate_release_notes: true
