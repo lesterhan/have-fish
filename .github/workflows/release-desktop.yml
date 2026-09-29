@@ -1,0 +1,136 @@
+name: Release desktop
+# A v* tag (#493) builds the local edition as one file per target, starts each one on its own
+# architecture, and publishes them with SHA256SUMS as a GitHub Release (#335). The APK's tags
+# are android-v*, which build-android.yml handles; the pattern below matches neither those nor
+# a mistyped tag such as v.1.1.7.
+#
+# A manual run builds and tests without publishing; the binaries stay as workflow artifacts.
+
+on:
+  push:
+    tags:
+      - "v[0-9]+.[0-9]+.[0-9]+*"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  build:
+    name: Build ${{ matrix.target }}
+    strategy:
+      matrix:
+        include:
+          # One runner per architecture: libsql's native addon is installed only for the
+          # machine `bun install` runs on, and each binary is started where it will run.
+          - target: linux-x64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve the version
+        id: version
+        run: |
+          if [ "$GITHUB_REF_TYPE" = "tag" ]; then
+            echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+          else
+            echo "version=0.0.0-${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install frontend dependencies
+        working-directory: frontend
+        run: bun install --frozen-lockfile
+
+      - name: Install backend dependencies
+        working-directory: backend
+        run: bun install --frozen-lockfile
+
+      # PUBLIC_VERSION stamps both halves: the frontend's status bar and `havefish --version`.
+      - name: Build the binary
+        working-directory: backend
+        env:
+          PUBLIC_VERSION: ${{ steps.version.outputs.version }}
+        run: bun run build:binary --target ${{ matrix.target }} --outfile dist/havefish-${{ matrix.target }}
+
+      - name: Start it, twice
+        working-directory: backend
+        env:
+          HAVEFISH_BINARY: dist/havefish-${{ matrix.target }}
+          HAVEFISH_BINARY_VERSION: ${{ steps.version.outputs.version }}
+        run: NODE_ENV=test bun test src/local/binary.test.ts
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: havefish-${{ matrix.target }}
+          path: backend/dist/havefish-${{ matrix.target }}
+          if-no-files-found: error
+          retention-days: 30
+
+  release:
+    name: Publish the release
+    needs: build
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: havefish-*
+          merge-multiple: true
+          path: dist
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum havefish-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Write the release notes
+        env:
+          TAG: ${{ github.ref_name }}
+          REPO: ${{ github.repository }}
+        run: |
+          cat > notes.md <<EOF
+          The local edition of have-fish for Linux: one file, no install, and your ledger stays on
+          your machine. It opens your browser signed in, and keeps its data in
+          \`~/.local/share/havefish\`. Before it updates the ledger's format it copies the file into
+          \`backups/\` there.
+
+          | File | For |
+          |---|---|
+          | \`havefish-linux-x64\` | 64-bit Intel or AMD, glibc |
+          | \`havefish-linux-arm64\` | 64-bit ARM, glibc |
+
+          \`\`\`sh
+          curl -LO https://github.com/$REPO/releases/download/$TAG/havefish-linux-x64
+          curl -LO https://github.com/$REPO/releases/download/$TAG/SHA256SUMS
+          sha256sum --check --ignore-missing SHA256SUMS
+          chmod +x havefish-linux-x64
+          ./havefish-linux-x64
+          \`\`\`
+          EOF
+
+      - name: Create the GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ github.ref_name }}
+          name: have-fish ${{ github.ref_name }}
+          body_path: notes.md
+          generate_release_notes: true
+          # v0.2.0-rc.1 and the like are marked as pre-releases.
+          prerelease: ${{ contains(github.ref_name, '-') }}
+          fail_on_unmatched_files: true
+          files: |
+            dist/havefish-linux-x64
+            dist/havefish-linux-arm64
+            dist/SHA256SUMS

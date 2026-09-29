@@ -46,6 +46,21 @@ bun test
 bun run test:watch
 ```
 
+## On your own laptop (Linux)
+
+The local edition is one file per release: no server, no account, and the ledger stays on
+your machine. Download `havefish-linux-x64` (or `-arm64`) and `SHA256SUMS` from the
+[latest release](https://github.com/lesterhan/have-fish/releases), then:
+
+```bash
+sha256sum --check --ignore-missing SHA256SUMS
+chmod +x havefish-linux-x64 && ./havefish-linux-x64
+```
+
+It opens your browser signed in and keeps its data in `~/.local/share/havefish`.
+`bun run build:binary` in `backend/` builds the same file from source. A `vX.Y.Z` tag
+publishes a release (`.github/workflows/release-desktop.yml`).
+
 ## Full Stack (Docker/Podman)
 
 ```bash
