@@ -88,7 +88,8 @@ bun run check         # TypeScript + Svelte type checking
 bun run start         # start Metro bundler (scan QR with Expo Go)
 bun run android       # run on connected device / emulator (needs Android SDK)
 # Signed release APKs are built in CI (.github/workflows/build-android.yml) and
-# published as GitHub Releases for Obtainium. Cut a v* tag to trigger a build.
+# published as GitHub Releases for Obtainium. Cut an android-v* tag to trigger a build
+# (plain v* is the desktop binary's, #493).
 # See mobile/README.md for the local prebuild + gradle assembleRelease flow.
 
 # Formatting and linting (from the project root)

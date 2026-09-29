@@ -217,3 +217,9 @@ Signed APKs are built in CI (`.github/workflows/build-android.yml`) and
 published as GitHub Releases for install via Obtainium. The build, signing, and
 keystore setup are documented in the epic at
 `planning/epics/archive/mobile-local-apk-ci.md`.
+
+A release is an `android-v*` tag: `git tag android-v1.2.0 && git push origin android-v1.2.0`.
+The workflow strips `android-v` for the app's `versionName` and titles the release with the
+tag. Plain `v*` tags are the desktop binary's (#493) and share the same Releases list, so
+Obtainium's release-title filter for this app is `^android-v`. `versionCode` is the
+workflow's run number, which only goes up, so a new tag always installs over the old one.
