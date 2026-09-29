@@ -70,6 +70,7 @@ have-fish/
 bun run dev           # start dev server with hot reload
 bun run local         # the local build: builds the frontend, then opens it signed in (#287)
 bun run build:binary  # the local build as one file, dist/havefish, frontend and migrations inside (#288)
+                      # a vX.Y.Z tag releases it for linux-x64 and arm64 (release-desktop.yml, #335)
 bun test              # run all tests (the hledger export test skips unless `hledger` is installed)
 bun run test:sqlite   # the same suite on SQLite, in a temp file it creates and migrates
 bun run test:watch    # run tests in watch mode (use while developing)

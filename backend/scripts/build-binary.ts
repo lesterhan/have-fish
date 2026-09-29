@@ -2,10 +2,12 @@
 // the SQLite migrations inside it. Build the frontend first (`bun run build` in frontend/); the
 // package script does both.
 //
-//   bun run scripts/build-binary.ts [--outfile dist/havefish]
+//   bun run scripts/build-binary.ts [--target linux-x64|linux-arm64] [--outfile dist/havefish]
 //
 // It writes `dist/entry.ts`, which names every file of `frontend/build` by its own import
-// (src/local/embed.ts says why), then compiles that for linux-x64 with `--conditions=sqlite`.
+// (src/local/embed.ts says why), then compiles that with `--conditions=sqlite`. The target
+// defaults to this machine's. PUBLIC_VERSION, which the frontend build stamps too, is what
+// `havefish --version` prints ("dev" when unset); the release workflow sets it from the tag.
 
 import { readdirSync, statSync } from 'node:fs'
 import { join, relative, resolve } from 'node:path'
@@ -19,12 +21,25 @@ const FRONTEND_BUILD = resolve(BACKEND, '../frontend/build')
 const DIST = join(BACKEND, 'dist')
 const ENTRY = join(DIST, 'entry.ts')
 
-// One target for now. Another needs its own libsql addon below (a musl or arm64 build).
-const TARGET = 'bun-linux-x64'
-const LIBSQL_ADDON = '@libsql/linux-x64-gnu'
+// Each target needs libsql's native addon for that machine, which `bun install` fetches only on
+// the machine it runs on: build an arm64 binary on an arm64 machine (the release workflow runs
+// one runner per target). A musl or macOS target would be another row here.
+const TARGETS = {
+  'linux-x64': { bun: 'bun-linux-x64', libsql: '@libsql/linux-x64-gnu' },
+  'linux-arm64': { bun: 'bun-linux-arm64', libsql: '@libsql/linux-arm64-gnu' },
+} as const
+type Target = keyof typeof TARGETS
 
-const { values } = parseArgs({ options: { outfile: { type: 'string' } } })
+const { values } = parseArgs({
+  options: { outfile: { type: 'string' }, target: { type: 'string' } },
+})
+const targetName = values.target ?? `linux-${process.arch}`
+if (!(targetName in TARGETS)) {
+  throw new Error(`no target ${targetName}; one of: ${Object.keys(TARGETS).join(', ')}`)
+}
+const target = TARGETS[targetName as Target]
 const outfile = resolve(values.outfile ?? join(DIST, 'havefish'))
+const version = process.env.PUBLIC_VERSION || 'dev'
 
 /**
  * libsql picks its native addon with a computed `require(`@libsql/${target}`)`, which the
@@ -33,7 +48,14 @@ const outfile = resolve(values.outfile ?? join(DIST, 'havefish'))
  * the addon is embedded like any other file.
  */
 function libsqlAddon(): BunPlugin {
-  const addon = Bun.resolveSync(`${LIBSQL_ADDON}/index.node`, BACKEND)
+  let addon: string
+  try {
+    addon = Bun.resolveSync(`${target.libsql}/index.node`, BACKEND)
+  } catch {
+    throw new Error(
+      `${target.libsql} is not installed: build ${targetName} on a ${targetName} machine`,
+    )
+  }
   return {
     name: 'libsql-addon',
     setup(build) {
@@ -71,12 +93,12 @@ if (files.length === 0) {
 const migrations = readMigrations()
 await Bun.write(
   ENTRY,
-  binaryEntrySource(files, migrations, fromEntry(join(BACKEND, 'src/local/launch'))),
+  binaryEntrySource(files, migrations, fromEntry(join(BACKEND, 'src/local/launch')), version),
 )
 
 const result = await Bun.build({
   entrypoints: [ENTRY],
-  compile: { target: TARGET, outfile },
+  compile: { target: target.bun, outfile },
   conditions: ['sqlite'],
   define: { 'process.env.NODE_ENV': '"production"' },
   plugins: [libsqlAddon()],
@@ -88,5 +110,5 @@ if (!result.success) {
 
 const mb = (statSync(outfile).size / 1024 / 1024).toFixed(1)
 console.log(
-  `${relative(process.cwd(), outfile)}: ${mb} MB, ${files.length} frontend files, ${migrations.length} migrations`,
+  `${relative(process.cwd(), outfile)}: havefish ${version} for ${targetName}, ${mb} MB, ${files.length} frontend files, ${migrations.length} migrations`,
 )

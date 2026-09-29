@@ -2,6 +2,8 @@
 // data directory of its own. It skips unless HAVEFISH_BINARY names a binary; CI's
 // `local-binary` job builds one and sets it, so a dependency that stops embedding, or a
 // frontend file that goes missing from the build, fails there rather than on someone's laptop.
+// The release workflow (#335) runs it on every binary it publishes, with
+// HAVEFISH_BINARY_VERSION set to the version the tag names.
 
 import { afterAll, describe, expect, it } from 'bun:test'
 import { existsSync, mkdtempSync, rmSync, statSync } from 'node:fs'
@@ -73,6 +75,20 @@ describe.skipIf(!binary)('the compiled binary', () => {
     const wal = join(data, 'havefish.sqlite-wal')
     expect(existsSync(wal) ? statSync(wal).size : 0).toBe(0)
   }
+
+  it('prints its version and touches nothing', async () => {
+    const child = Bun.spawn([resolve(binary ?? ''), '--version'], {
+      cwd: home,
+      env: { HOME: home, PATH: '/usr/bin:/bin' },
+      stdout: 'pipe',
+    })
+    expect(await child.exited).toBe(0)
+    const expected = process.env.HAVEFISH_BINARY_VERSION
+    const printed = (await new Response(child.stdout).text()).trim()
+    expect(printed).toBe(`havefish ${expected ?? printed.slice('havefish '.length)}`)
+    expect(printed).toMatch(/^havefish \S+$/)
+    expect(existsSync(data)).toBe(false)
+  })
 
   let firstRun: string[]
 

@@ -178,15 +178,25 @@ A file #287's launcher migrated with drizzle's migrator is adopted by matching
 `db:migrate:sqlite` all use it; `db:generate` still writes the files.
 
 **The binary** (`bun run build:binary`, `scripts/build-binary.ts`, #288). One executable for
-linux-x64, about 107 MB, nearly all of it the Bun runtime. The script writes `dist/entry.ts`
+linux-x64 or linux-arm64 (`--target`, this machine's by default), about 107 MB, nearly all of
+it the Bun runtime. The script writes `dist/entry.ts`
 (`local/embed.ts`), which imports every file of `frontend/build` by name `with { type: 'file' }`
 rather than embedding the directory (Bun has dropped files from embedded directories), carries
 the migrations as strings, and calls `launchLocal` with both. `server.ts` serves those files
 by exact path in place of `serveStatic`. The compile runs with `--conditions=sqlite` and one
 plugin: libsql loads its native addon with a computed `require` the bundler cannot follow, so
-the plugin rewrites it to a static require of `@libsql/linux-x64-gnu`, and the addon is
-embedded like any other file (#284). CI's `local-binary` job builds it and starts it twice
-(`local/binary.test.ts`).
+the plugin rewrites it to a static require of the target's addon (`@libsql/linux-x64-gnu` or
+`linux-arm64-gnu`), and the addon is embedded like any other file (#284). `bun install` fetches
+only this machine's addon, so a target is built on its own architecture. `PUBLIC_VERSION` is
+stamped in, and `havefish --version` prints it without opening the data directory. CI's
+`local-binary` job builds it and starts it twice (`local/binary.test.ts`).
+
+**Releasing it** (`.github/workflows/release-desktop.yml`, #335). A tag `vX.Y.Z` (plain `v`;
+the APK's are `android-v*`, #493) builds both targets on their own runners with
+`PUBLIC_VERSION=X.Y.Z`, runs `binary.test.ts` against each with the version it must print, and
+publishes `havefish-linux-x64`, `havefish-linux-arm64` and `SHA256SUMS` as a GitHub Release. A
+tag with a `-` in it is a pre-release. Run by hand, the workflow builds and tests without
+publishing.
 
 **No hidden network calls** (`network.test.ts`, `test-network-off.ts`). The personal ledger
 works offline, and two things hold that. The static test lists the files allowed to open a

@@ -5,7 +5,8 @@
 // bundler as a directory: Bun's directory embedding has dropped files (L01, oven-sh/bun#23852),
 // and a missing chunk would surface only when someone clicked into that page. An import that
 // cannot be resolved fails the build instead. The migrations ride along as strings, because a
-// binary has no folder to read them from.
+// binary has no folder to read them from. The version is stamped in at build time (#335), and
+// `havefish --version` prints it without touching the data directory.
 
 import type { Migration } from '../db/sqlite/migrate'
 
@@ -19,6 +20,7 @@ export function binaryEntrySource(
   files: readonly EmbeddedFile[],
   migrations: readonly Migration[],
   launcher: string,
+  version: string,
 ): string {
   if (!files.some((f) => f.servedAs === '/index.html')) {
     throw new Error('the frontend build has no index.html')
@@ -40,7 +42,11 @@ export function binaryEntrySource(
     '])',
     `const migrations = ${JSON.stringify(migrations, null, 2)}`,
     '',
-    'await launchLocal({ frontend: { files }, migrations })',
+    "if (process.argv.slice(2).includes('--version')) {",
+    `  process.stdout.write(${JSON.stringify(`havefish ${version}\n`)})`,
+    '} else {',
+    '  await launchLocal({ frontend: { files }, migrations })',
+    '}',
     '',
   ].join('\n')
 }

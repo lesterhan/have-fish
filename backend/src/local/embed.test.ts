@@ -13,9 +13,10 @@ const migrations: Migration[] = [
   { tag: '0000_init', when: 1, statements: ["CREATE TABLE `a` (`x` text DEFAULT 'it''s')"] },
 ]
 const launcher = '../src/local/launch'
+const version = '1.2.3-rc.1'
 
 describe('binaryEntrySource', () => {
-  const source = binaryEntrySource(files, migrations, launcher)
+  const source = binaryEntrySource(files, migrations, launcher, version)
 
   it('imports every file by name, as a file, and the launcher', () => {
     const imports = new Bun.Transpiler({ loader: 'ts' }).scan(source).imports.map((i) => i.path)
@@ -30,14 +31,23 @@ describe('binaryEntrySource', () => {
     expect(JSON.parse(carried)).toEqual(migrations)
   })
 
+  it('answers --version with the stamped version, before it launches anything', () => {
+    expect(source).toContain(`process.stdout.write("havefish ${version}\\n")`)
+    const check = source.indexOf("includes('--version')")
+    expect(check).toBeGreaterThan(-1)
+    expect(check).toBeLessThan(source.indexOf('await launchLocal('))
+  })
+
   it('refuses a build with no document to serve', () => {
-    expect(() => binaryEntrySource(files.slice(1), migrations, launcher)).toThrow('index.html')
+    expect(() => binaryEntrySource(files.slice(1), migrations, launcher, version)).toThrow(
+      'index.html',
+    )
   })
 
   it('refuses a name the bundler would read as something else', () => {
     for (const source of ['../build/a.js?raw', '../build/a#b.js', '/abs/a.js', 'bare/a.js']) {
       const odd = [...files, { servedAs: '/a.js', source }]
-      expect(() => binaryEntrySource(odd, migrations, launcher)).toThrow('cannot embed')
+      expect(() => binaryEntrySource(odd, migrations, launcher, version)).toThrow('cannot embed')
     }
   })
 })
