@@ -11,7 +11,9 @@
  *   for each dialect.
  *
  * `db/pg/` and `db/sqlite/` are the two folders allowed to speak their own dialect: each
- * holds one build's client and schema (#482), and nothing else imports them directly.
+ * holds one build's client and schema (#482). Nothing else imports them directly, except the
+ * one-time copy out of the hosted edition (`local/hosted-export-service.ts`, #289), which reads
+ * one dialect and writes the other.
  *
  * Sources are read with TypeScript's parser rather than a grep, so a comment that mentions
  * `::` or `db.execute` changes nothing, and only a template actually tagged `sql` is read as SQL.

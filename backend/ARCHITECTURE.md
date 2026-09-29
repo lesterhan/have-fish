@@ -198,6 +198,11 @@ publishes `havefish-linux-x64`, `havefish-linux-arm64` and `SHA256SUMS` as a Git
 tag with a `-` in it is a pre-release. Run by hand, the workflow builds and tests without
 publishing.
 
+**Leaving the hosted edition** (#289, #508). The two people on hosted each move over once:
+- `bun run export:local --email … --out …` runs inside the hosted container. `local/hosted-export-service.ts` reads that person's rows from Postgres and writes them into a fresh SQLite file made by the migrator above, ids unchanged, with the `local_profile` row pointing at their hosted user. It carries the ledger, the parsers, the rules, the settings, the coverage and the FX cache. It leaves Fish Pie behind: a rule that splits into a group is dropped, and a transaction's `groupExpenseId` is cleared.
+- The file is written as `<out>.partial` and renamed only after three checks pass: every table holds as many rows as were read, `PRAGMA foreign_key_check` finds nothing, and every account's balance per currency matches.
+- `havefish --adopt <file>` (`local/adopt-service.ts`) runs under the data directory's lock, before the database is opened. It copies the file in beside the ledger, migrates it and checks that it has exactly one owner. It refuses while another instance runs, and when the ledger already there has transactions. The old file goes to `backups/pre-adopt-<time>.sqlite`, and its WAL is removed so it can't replay into the new one. `db/sqlite/files.ts` holds the SQLite file operations both steps use.
+
 **No hidden network calls** (`network.test.ts`, `test-network-off.ts`). The personal ledger
 works offline, and two things hold that. The static test lists the files allowed to open a
 connection (`fetch`, `Bun.connect`, WebSocket, the node network modules): today only

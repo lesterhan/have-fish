@@ -2,11 +2,13 @@
 // compiled binary (#288), which carries its frontend and migrations inside itself.
 //
 // In order: find the data directory, take the single-instance lock (or hand over to the
-// instance that has it), point the SQLite client at the file, migrate it (copying it first if
-// it holds data), find or make the local profile, listen on 127.0.0.1, and open the browser on
-// a single-use link. Everything that reaches the database is imported only after SQLITE_PATH
+// instance that has it), put an adopted ledger in place if `--adopt` names one (#289), point
+// the SQLite client at the file, migrate it (copying it first if it holds data), find or make
+// the local profile, listen on 127.0.0.1, and open the browser on a single-use link. Everything that reaches the database is imported only after SQLITE_PATH
 // is set, because the client opens its file when it is first imported.
 
+import { resolve } from 'node:path'
+import { parseArgs } from 'node:util'
 import type { Server } from 'bun'
 import type { Migration } from '../db/sqlite/migrate'
 import { log } from '../logging'
@@ -78,13 +80,35 @@ export type LocalBundle = {
   migrations?: Migration[]
 }
 
-export async function launchLocal(bundle: LocalBundle, env = process.env): Promise<void> {
+/** What the command line can ask for: `--adopt <file>` makes that ledger this install's (#289). */
+export function readLaunchArgs(argv: readonly string[]): { adopt: string | null } {
+  const { values } = parseArgs({
+    args: [...argv],
+    options: { adopt: { type: 'string' } },
+    strict: false,
+  })
+  if (values.adopt === true) throw new Error('--adopt needs the path of a ledger file')
+  return { adopt: typeof values.adopt === 'string' ? resolve(values.adopt) : null }
+}
+
+export async function launchLocal(
+  bundle: LocalBundle,
+  env = process.env,
+  argv: readonly string[] = process.argv.slice(2),
+): Promise<void> {
+  const { adopt } = readLaunchArgs(argv)
   const dir = dataDirFor(env)
   prepareDataDir(dir)
   const paths = dataPaths(dir)
 
   let claim = claimLock(paths.lock)
   if (claim.kind === 'starting') claim = await awaitHolder(paths.lock)
+  if (claim.kind === 'running' && adopt) {
+    // The running instance has the file open; swapping it underneath would lose its writes.
+    process.stderr.write('have-fish is running. Quit it first, then adopt the ledger again.\n')
+    process.exitCode = 1
+    return
+  }
   if (claim.kind === 'running') {
     // A second launch opens a window on the first rather than starting again.
     const url = launchUrl(claim.holder)
@@ -95,6 +119,26 @@ export async function launchLocal(bundle: LocalBundle, env = process.env): Promi
   const lock = claim
 
   try {
+    if (adopt) {
+      const { adoptLedger, AdoptRefused } = await import('./adopt-service')
+      try {
+        const { backup } = await adoptLedger(
+          adopt,
+          paths,
+          bundle.migrations ?? (await import('../db/sqlite/migrate')).readMigrations(),
+        )
+        const lines = [`Your ledger is now the one from ${adopt}`]
+        if (backup) lines.push(`The one that was there before is in ${backup}`)
+        process.stdout.write(`${lines.join('\n')}\n`)
+      } catch (e) {
+        if (!(e instanceof AdoptRefused)) throw e
+        process.stderr.write(`Nothing changed: ${e.message}\n`)
+        process.exitCode = 1
+        lock.release()
+        return
+      }
+    }
+
     process.env.SQLITE_PATH = paths.database
     const { dialect } = await import('../db')
     if (dialect !== 'sqlite') {

@@ -63,6 +63,7 @@ const INFRASTRUCTURE: Record<string, string> = {
   'db/sqlite/schema.ts': "the schema, the local build's dialect",
   'db/sqlite/test-preload.ts': 'the SQLite test run, which makes and migrates a database file',
   'db/sqlite/migrate.ts': 'bringing a SQLite database file up to the current schema',
+  'db/sqlite/files.ts': 'copying a SQLite ledger file and checking one before it is opened',
   'db/returning.ts': "reading a statement's returned row",
   'fx/rate-source.ts': 'the one outbound fetch, so it has one function to stub',
 }
