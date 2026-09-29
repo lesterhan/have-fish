@@ -1,6 +1,6 @@
 <script lang="ts">
   import { onMount } from 'svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import {
     fetchRules,
     fetchAccounts,
@@ -190,15 +190,11 @@
       const fresh = await fetchRules()
       rules = fresh
       minedOnce = true
-      if (created === 0) toast.show('No new suggestions found.')
-      else
-        toast.show(
-          plural(
-            created,
-            '1 suggestion added.',
-            `${created} suggestions added.`,
-          ),
-        )
+      toast.show(
+        created === 0
+          ? copy.import.rules.noneFound
+          : copy.import.rules.found(created),
+      )
     } finally {
       mining = false
     }
@@ -211,12 +207,12 @@
     <div class="section-bar">
       <GradientButton
         onclick={() => history.back()}
-        tooltip="Back to Import + Export"
+        tooltip={copy.import.rules.backHint}
       >
         <Icon name="back" />
-        Back
+        {copy.import.rules.back}
       </GradientButton>
-      <span class="section-bar-title">ACTIVE RULES</span>
+      <span class="section-bar-title">{copy.import.rules.title}</span>
       <GradientButton
         onclick={() => {
           showAddForm = true
@@ -224,27 +220,27 @@
         }}
         disabled={showAddForm}
       >
-        Add rule
+        {copy.import.rules.add}
       </GradientButton>
     </div>
 
     <div class="rules-table">
       <TableShell
         columns={[
-          { label: 'Pattern' },
-          { label: 'Target' },
+          { label: copy.import.rules.columns.pattern },
+          { label: copy.import.rules.columns.target },
           { label: '', class: 'col-actions' },
         ]}
         {loading}
         empty={activeRules.length === 0 && !showAddForm}
-        emptyText="No active rules. Add one or approve a suggestion."
+        emptyText={copy.import.rules.empty}
       >
         {#if showAddForm}
           <tr class="form-row">
             <td class="cell-form">
               <TextInput
                 bind:value={newPattern}
-                placeholder="e.g. LOBLAWS"
+                placeholder={copy.import.rules.patternPlaceholder}
                 spellcheck={false}
                 style="width: 100%; box-sizing: border-box"
                 onkeydown={(e) => {
@@ -270,7 +266,7 @@
                   disabled={!newPattern.trim() || !newTarget}
                   active
                 >
-                  Save
+                  {copy.import.rules.save}
                 </GradientButton>
                 <GradientButton square onclick={resetAddForm}>
                   <Icon name="close" size={12} />
@@ -308,7 +304,7 @@
                   <GradientButton
                     onclick={handleSaveEdit}
                     disabled={!editTarget}
-                    active>Save</GradientButton
+                    active>{copy.import.rules.save}</GradientButton
                   >
                   <GradientButton square onclick={cancelEdit}>
                     <Icon name="close" size={12} />
@@ -334,14 +330,14 @@
                   <GradientButton
                     square
                     onclick={() => startEdit(rule)}
-                    tooltip="Edit"
+                    tooltip={copy.import.rules.edit}
                   >
                     <Icon name="edit-txn" size={12} />
                   </GradientButton>
                   <GradientButton
                     square
                     onclick={() => handleDelete(rule.id)}
-                    tooltip="Delete"
+                    tooltip={copy.import.rules.delete}
                   >
                     <Icon name="trash" size={12} />
                   </GradientButton>
@@ -362,8 +358,8 @@
         class:active={panelTab === 'suggestions'}
         onclick={() => (panelTab = 'suggestions')}
       >
-        Suggestions{#if suggestions.length > 0}<span class="tab-count"
-            >{suggestions.length}</span
+        {copy.import.rules.suggestions}{#if suggestions.length > 0}<span
+            class="tab-count">{suggestions.length}</span
           >{/if}
       </button>
       <button
@@ -371,7 +367,7 @@
         class:active={panelTab === 'denied'}
         onclick={() => (panelTab = 'denied')}
       >
-        Denied{#if denied.length > 0}<span class="tab-count"
+        {copy.import.rules.denied}{#if denied.length > 0}<span class="tab-count"
             >{denied.length}</span
           >{/if}
       </button>
@@ -385,20 +381,20 @@
           variant="primary"
           onclick={handleMine}
           disabled={mining}
-          tooltip="Analyze to find patterns in transaction history."
+          tooltip={copy.import.rules.mineHint}
         >
-          {mining ? 'Mining…' : 'Mine'}
+          {mining ? copy.import.rules.mining : copy.import.rules.mine}
         </GradientButton>
       </div>
 
       <div class="suggestions-list">
         {#if loading}
-          <div class="empty-state">Loading…</div>
+          <div class="empty-state">{copy.import.rules.loading}</div>
         {:else if suggestions.length === 0}
           <div class="empty-state">
             {minedOnce
-              ? 'Nothing came up.'
-              : 'Click Mine to analyze your transaction history.'}
+              ? copy.import.rules.nothingMined
+              : copy.import.rules.notMined}
           </div>
         {:else}
           {#each suggestions as rule (rule.id)}
@@ -406,14 +402,16 @@
               <div class="suggestion-info">
                 <span class="suggestion-pattern">{rule.pattern}</span>
                 <span class="suggestion-account">{rule.accountPath}</span>
-                <span class="suggestion-count">{rule.matchCount} matches</span>
+                <span class="suggestion-count"
+                  >{copy.import.rules.matches(rule.matchCount)}</span
+                >
               </div>
               <div class="suggestion-actions">
                 <GradientButton onclick={() => handleApprove(rule.id)} active
-                  >Approve</GradientButton
+                  >{copy.import.rules.approve}</GradientButton
                 >
                 <GradientButton onclick={() => handleDeny(rule.id)}
-                  >Deny</GradientButton
+                  >{copy.import.rules.deny}</GradientButton
                 >
               </div>
             </div>
@@ -423,11 +421,10 @@
     {:else}
       <div class="suggestions-list">
         {#if loading}
-          <div class="empty-state">Loading…</div>
+          <div class="empty-state">{copy.import.rules.loading}</div>
         {:else if denied.length === 0}
           <div class="empty-state">
-            Denied suggestions are hidden here. Mining won't suggest them again
-            until you revive one.
+            {copy.import.rules.noneDenied}
           </div>
         {:else}
           {#each denied as rule (rule.id)}
@@ -435,11 +432,13 @@
               <div class="suggestion-info">
                 <span class="suggestion-pattern">{rule.pattern}</span>
                 <span class="suggestion-account">{rule.accountPath}</span>
-                <span class="suggestion-count">{rule.matchCount} matches</span>
+                <span class="suggestion-count"
+                  >{copy.import.rules.matches(rule.matchCount)}</span
+                >
               </div>
               <div class="suggestion-actions">
                 <GradientButton onclick={() => handleRevive(rule.id)}
-                  >Revive</GradientButton
+                  >{copy.import.rules.revive}</GradientButton
                 >
               </div>
             </div>

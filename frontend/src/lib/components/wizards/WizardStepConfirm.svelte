@@ -1,4 +1,6 @@
 <script lang="ts">
+  import { copy } from '$lib/copy'
+
   interface Props {
     accountPath: string
     startingBalance: string
@@ -36,70 +38,81 @@
 
 <div class="summary">
   <div class="summary-section">
-    <h3 class="summary-heading">Account</h3>
+    <h3 class="summary-heading">{copy.import.parser.summary.account}</h3>
     <div class="summary-row">
-      <span class="summary-label">Path</span>
+      <span class="summary-label">{copy.import.parser.summary.path}</span>
       <code class="summary-value">{accountPath.trim()}</code>
     </div>
     {#if startingBalance.trim()}
       <div class="summary-row">
-        <span class="summary-label">Starting balance</span>
+        <span class="summary-label"
+          >{copy.import.parser.summary.startingBalance}</span
+        >
         <span class="summary-value"
           >{startingBalance.trim()} {startingCurrency}</span
         >
       </div>
       <div class="summary-row">
-        <span class="summary-label">Balance date</span>
+        <span class="summary-label"
+          >{copy.import.parser.summary.balanceDate}</span
+        >
         <span class="summary-value">{startingDate}</span>
       </div>
       {#if !hasOffsetAccount}
         <p class="summary-warn">
-          No offset account set — starting balance will be skipped. Set one in
-          Settings.
+          {copy.import.parser.summary.noOffset}
         </p>
       {/if}
     {/if}
   </div>
 
   <div class="summary-section">
-    <h3 class="summary-heading">CSV Parser</h3>
+    <h3 class="summary-heading">{copy.import.parser.summary.parser}</h3>
     {#if parserSkipped}
-      <p class="summary-muted">No parser configured.</p>
+      <p class="summary-muted">{copy.import.parser.summary.none}</p>
     {:else}
       <div class="summary-row">
-        <span class="summary-label">Name</span>
+        <span class="summary-label">{copy.import.parser.summary.name}</span>
         <span class="summary-value">{parserName.trim()}</span>
       </div>
       <div class="summary-row">
-        <span class="summary-label">Date column</span>
+        <span class="summary-label">{copy.import.parser.summary.date}</span>
         <code class="summary-value">{mappingDate}</code>
       </div>
       <div class="summary-row">
-        <span class="summary-label">Amount column</span>
+        <span class="summary-label">{copy.import.parser.summary.amount}</span>
         <code class="summary-value">{mappingAmount}</code>
       </div>
       {#if mappingDescription}
         <div class="summary-row">
-          <span class="summary-label">Description column</span>
+          <span class="summary-label"
+            >{copy.import.parser.summary.description}</span
+          >
           <code class="summary-value">{mappingDescription}</code>
         </div>
       {/if}
       {#if mappingSignColumn}
         <div class="summary-row">
-          <span class="summary-label">Direction column</span>
+          <span class="summary-label"
+            >{copy.import.parser.summary.direction}</span
+          >
           <code class="summary-value">{mappingSignColumn}</code>
         </div>
         {#if mappingSignNegativeValue}
           <div class="summary-row">
-            <span class="summary-label">Negative value</span>
+            <span class="summary-label"
+              >{copy.import.parser.summary.negativeValue}</span
+            >
             <code class="summary-value">{mappingSignNegativeValue}</code>
           </div>
         {/if}
       {/if}
       {#if isMultiCurrency}
         <div class="summary-row">
-          <span class="summary-label">Multi-currency</span>
-          <span class="summary-value">Yes</span>
+          <span class="summary-label"
+            >{copy.import.parser.summary.multiCurrency}</span
+          >
+          <span class="summary-value">{copy.import.parser.summary.yes}</span>
         </div>
       {/if}
     {/if}

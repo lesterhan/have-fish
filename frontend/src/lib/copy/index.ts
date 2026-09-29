@@ -27,6 +27,7 @@ import { accountsCopy } from './accounts'
 import { authCopy } from './auth'
 import { caseCopy } from './case'
 import { errorsCopy } from './errors'
+import { importCopy } from './import'
 import { settingsCopy } from './settings'
 
 export const copy = {
@@ -34,6 +35,7 @@ export const copy = {
   auth: authCopy,
   case: caseCopy,
   errors: errorsCopy,
+  import: importCopy,
   settings: settingsCopy,
 } as const
 

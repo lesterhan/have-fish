@@ -1,6 +1,6 @@
 <script lang="ts">
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
-  import { plural } from '$lib/copy'
+  import { copy } from '$lib/copy'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import type { Account } from '$lib/api'
@@ -61,17 +61,13 @@
 
 <div class="accounts-step">
   <div class="intro">
-    <h2>Where does this money live?</h2>
+    <h2>{copy.import.accounts.heading}</h2>
     <p>
       {#if isMultiCurrency}
-        {plural(
-          currencies.length,
-          'This file holds 1 currency. It needs an account.',
-          `This file holds ${currencies.length} currencies. Each needs an account.`,
-        )} The suggestion follows your account naming, but you can point a currency
-        anywhere — including at an account that doesn't match the pattern.
+        {copy.import.accounts.currencies(currencies.length)}
+        {copy.import.accounts.suggestion}
       {:else}
-        Every row in this file posts to one account.
+        {copy.import.accounts.single}
       {/if}
     </p>
   </div>
@@ -92,25 +88,28 @@
                 (next) => (currencyAccounts[currency] = next)
               }
               placeholder={suggestedPathForCurrency(rootPath, currency) ||
-                'Select or create…'}
+                copy.import.accounts.placeholder}
               createCurrency={currency}
               oncreate={onaccountcreated}
             />
           </div>
           <span class="status">
             {#if !currencyAccounts[currency]}
-              <span class="status-needed">needs an account</span>
+              <span class="status-needed"
+                >{copy.import.accounts.needsAccount}</span
+              >
             {:else if isSuggested(currency)}
-              <span class="status-ok">matches your naming</span>
+              <span class="status-ok">{copy.import.accounts.matchesNaming}</span
+              >
             {:else}
-              <span class="status-custom">custom</span>
+              <span class="status-custom">{copy.import.accounts.custom}</span>
             {/if}
           </span>
         </div>
       {/each}
     {:else}
       <div class="row" class:unmapped={!fromAccountId}>
-        <span class="currency">Account</span>
+        <span class="currency">{copy.import.accounts.account}</span>
         <span class="arrow" aria-hidden="true"
           ><Icon name="arrow-right" size={11} /></span
         >
@@ -118,19 +117,22 @@
           <AccountPicker
             {accounts}
             bind:value={fromAccountId}
-            placeholder="Select or create an account…"
+            placeholder={copy.import.accounts.singlePlaceholder}
             oncreate={onaccountcreated}
           />
         </div>
         <span class="status">
-          {#if !fromAccountId}<span class="status-needed">required</span>{/if}
+          {#if !fromAccountId}<span class="status-needed"
+              >{copy.import.accounts.required}</span
+            >{/if}
         </span>
       </div>
     {/if}
   </div>
 
   <div class="actions">
-    <GradientButton onclick={onback}>Back</GradientButton>
+    <GradientButton onclick={onback}>{copy.import.accounts.back}</GradientButton
+    >
     <GradientButton
       size="lg"
       active
@@ -138,8 +140,8 @@
       onclick={oncontinue}
     >
       {unmapped.length > 0
-        ? `${unmapped.length} still to map`
-        : 'Continue to review'}
+        ? copy.import.accounts.stillToMap(unmapped.length)
+        : copy.import.accounts.continue}
     </GradientButton>
   </div>
 </div>

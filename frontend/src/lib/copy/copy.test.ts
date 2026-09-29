@@ -62,6 +62,14 @@ const CONVERTED = [
   'routes/(authed)/settings/+page.svelte',
   'routes/(authed)/accounts',
   'lib/components/accounts',
+  // Import, story 5: the page and its rules page, the five steps, the parser wizards, and the
+  // two modules outside those directories that spoke on their behalf — the delimiter labels
+  // and the resume prompt's age.
+  'routes/(authed)/import',
+  'lib/components/import',
+  'lib/components/wizards',
+  'lib/import',
+  'lib/import-session.ts',
 ]
 
 /**
@@ -400,8 +408,26 @@ function proseStrings(js: string): string[] {
 
 function isProse(value: string): boolean {
   if (/[/$[\]]/.test(value)) return false
+  if (isCss(value)) return false
   const words = value.match(/[A-Za-z]{2,}/g)
   return words !== null && words.length >= 2 && / /.test(value.trim())
+}
+
+/**
+ * CSS handed to the DOM from script: an inline style, or a selector list for `querySelector`.
+ *
+ * Both read as several lowercase words with spaces between them, which is the prose
+ * signature. Story 5 met one of each — `'position: fixed; top: -9999px'` positioning a
+ * dropdown, and `'button, input'` finding the first control in a row to focus — and each is
+ * a class rather than a one-off, so the detector learns the shape instead of the allowlist
+ * learning the string. A declaration is `property: value;`; a selector list is bare element
+ * names and commas. A sentence has neither a colon-then-semicolon nor only lowercase tokens
+ * between its commas.
+ */
+function isCss(value: string): boolean {
+  const text = value.trim()
+  if (/^[a-z-]+\s*:[^;]*;/.test(text)) return true
+  return /^[a-z][a-z0-9-]*(\s*,\s*[a-z][a-z0-9-]*)+$/.test(text)
 }
 
 // --- the check ------------------------------------------------------------------------
@@ -497,13 +523,48 @@ export function spliceTernaries(source: string): string[] {
   return found
 }
 
+/**
+ * The same splice, spelled as a parenthesis: `row(s)`, `transaction(s)`.
+ *
+ * It dodges the ternary signature entirely and is no more translatable — it is English's
+ * plural bolted on in brackets, and it reads wrongly in English too ("1 row(s)"). Story 5
+ * found two, both on the import surface, one in markup and one in a toast's template literal.
+ * Only rendered text is read — markup text and string literals, never code — because
+ * `isValidDate(s)` is the same four characters.
+ */
+const PAREN_PLURAL = /[A-Za-z]\((?:s|es)\)/
+
+/** String literals of every kind, template literals included, in decommented JavaScript. */
+const LITERAL = /`[^`]*`|'[^'\\\n]*'|"[^"\\\n]*"/g
+
+export function parenPlurals(source: string, kind: 'svelte' | 'ts'): string[] {
+  const js = kind === 'ts' ? stripComments(source) : scriptBodies(source)
+  const texts = [...js.matchAll(LITERAL)].map((m) => m[0])
+  if (kind === 'svelte') texts.push(...markupStrings(source))
+  return texts.filter((t) => PAREN_PLURAL.test(t))
+}
+
+/**
+ * Every file the splice bans read: components, and the `.ts` modules beside them. Story 5 found
+ * `describeAge` splicing `minute${n === 1 ? '' : 's'}` in `import-session.ts`, where a ban
+ * that read only `.svelte` files could not see it. Comments are stripped from modules, since
+ * `plural.ts` quotes the shape in its own documentation.
+ */
+function spliceScanned(): Array<{ file: string; source: string; kind: 'svelte' | 'ts' }> {
+  return sourceFilesUnder(SRC, ['.svelte', '.ts'])
+    .filter((file) => !file.endsWith('.test.ts'))
+    .map((file) => {
+      const kind = file.endsWith('.ts') ? ('ts' as const) : ('svelte' as const)
+      const raw = readFileSync(file, 'utf8')
+      return { file: relative(SRC, file), source: kind === 'ts' ? stripComments(raw) : raw, kind }
+    })
+}
+
 describe('the plural splice', () => {
   it('appears nowhere in the app', () => {
     const offenders: string[] = []
-    for (const file of sourceFilesUnder(SRC, ['.svelte'])) {
-      for (const hit of spliceTernaries(readFileSync(file, 'utf8'))) {
-        offenders.push(`${relative(SRC, file)}: ${hit}`)
-      }
+    for (const { file, source } of spliceScanned()) {
+      for (const hit of spliceTernaries(source)) offenders.push(`${file}: ${hit}`)
     }
 
     expect(
@@ -512,6 +573,32 @@ describe('the plural splice', () => {
         ? `Use plural(n, one, other) so both readings are whole sentences:\n  ${offenders.join('\n  ')}`
         : '',
     ).toEqual([])
+  })
+
+  it('appears nowhere as a parenthesis either', () => {
+    const offenders: string[] = []
+    for (const { file, source, kind } of spliceScanned()) {
+      for (const hit of parenPlurals(source, kind)) offenders.push(`${file}: ${hit}`)
+    }
+
+    expect(
+      offenders,
+      offenders.length
+        ? `Use plural(n, one, other) rather than a bracketed (s):\n  ${offenders.join('\n  ')}`
+        : '',
+    ).toEqual([])
+  })
+
+  it('reads the parenthesis in text and strings, not in code', () => {
+    expect(parenPlurals('<p>{n} row(s) could not be parsed.</p>', 'svelte')).toHaveLength(1)
+    expect(
+      // biome-ignore lint/suspicious/noTemplateCurlyInString: source text under test, not an interpolation
+      parenPlurals('<script>toast(`${n} transaction(s) imported`)</script>', 'svelte'),
+    ).toHaveLength(1)
+    expect(parenPlurals("const m = 'Delete account(s)?'", 'ts')).toHaveLength(1)
+    expect(parenPlurals('if (!isValidDate(s)) return null', 'ts')).toEqual([])
+    expect(parenPlurals('{#if canDelete(s)}<b>x</b>{/if}', 'svelte')).toEqual([])
+    expect(parenPlurals('// the pill(s) beside it\nconst a = 1', 'ts')).toEqual([])
   })
 
   it('catches the shapes it is meant to catch', () => {
@@ -631,6 +718,13 @@ describe('moduleStrings', () => {
 
 describe('scriptStrings', () => {
   it('catches prose', () => {
+    // Lists and labels with colons are still prose; only the CSS shapes are excused.
+    expect(scriptStrings("<script>const m = 'Groceries, rent, travel'</script>")).toEqual([
+      "'Groceries, rent, travel'",
+    ])
+    expect(scriptStrings("<script>const m = 'Skipped as duplicates: 3'</script>")).toEqual([
+      "'Skipped as duplicates: 3'",
+    ])
     expect(scriptStrings("<script>error = 'Sign in failed'</script>")).toEqual(["'Sign in failed'"])
     expect(scriptStrings('<script>const m = "Passwords do not match"</script>')).toEqual([
       '"Passwords do not match"',
@@ -645,6 +739,8 @@ describe('scriptStrings', () => {
     expect(
       scriptStrings(`<script>const F = 'a[href], button:not([disabled]), [tabindex]'</script>`),
     ).toEqual([])
+    expect(scriptStrings("<script>let s = 'position: fixed; top: -9999px;'</script>")).toEqual([])
+    expect(scriptStrings("<script>el.querySelector('button, input')</script>")).toEqual([])
     expect(scriptStrings("<script>console.warn('could not load the thing')</script>")).toEqual([])
     expect(scriptStrings("<script>throw new Error('this should never happen')</script>")).toEqual(
       [],

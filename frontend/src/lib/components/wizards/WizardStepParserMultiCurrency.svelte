@@ -1,5 +1,6 @@
 <script lang="ts">
   import WizardFormGrid from './WizardFormGrid.svelte'
+  import { copy } from '$lib/copy'
 
   interface Props {
     columns: string[]
@@ -24,46 +25,50 @@
 
 <WizardFormGrid>
   <label for="map-src-amount"
-    >Source amount <span class="required">*</span></label
+    >{copy.import.parser.fields.sourceAmount}
+    <span class="required">*</span></label
   >
   <select id="map-src-amount" bind:value={mappingSourceAmount}>
-    <option value="">— select —</option>
+    <option value="">{copy.import.parser.fields.select}</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 
   <label for="map-src-currency"
-    >Source currency <span class="required">*</span></label
+    >{copy.import.parser.fields.sourceCurrency}
+    <span class="required">*</span></label
   >
   <select id="map-src-currency" bind:value={mappingSourceCurrency}>
-    <option value="">— select —</option>
+    <option value="">{copy.import.parser.fields.select}</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 
   <label for="map-tgt-amount"
-    >Target amount <span class="required">*</span></label
+    >{copy.import.parser.fields.targetAmount}
+    <span class="required">*</span></label
   >
   <select id="map-tgt-amount" bind:value={mappingTargetAmount}>
-    <option value="">— select —</option>
+    <option value="">{copy.import.parser.fields.select}</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 
   <label for="map-tgt-currency"
-    >Target currency <span class="required">*</span></label
+    >{copy.import.parser.fields.targetCurrency}
+    <span class="required">*</span></label
   >
   <select id="map-tgt-currency" bind:value={mappingTargetCurrency}>
-    <option value="">— select —</option>
+    <option value="">{copy.import.parser.fields.select}</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 
-  <label for="map-fee-amount">Fee amount</label>
+  <label for="map-fee-amount">{copy.import.parser.fields.feeAmount}</label>
   <select id="map-fee-amount" bind:value={mappingFeeAmount}>
-    <option value="">— not mapped —</option>
+    <option value="">{copy.import.parser.fields.notMapped}</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 
-  <label for="map-fee-currency">Fee currency</label>
+  <label for="map-fee-currency">{copy.import.parser.fields.feeCurrency}</label>
   <select id="map-fee-currency" bind:value={mappingFeeCurrency}>
-    <option value="">— not mapped —</option>
+    <option value="">{copy.import.parser.fields.notMapped}</option>
     {#each columns as col}<option value={col}>{col}</option>{/each}
   </select>
 </WizardFormGrid>

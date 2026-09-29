@@ -6,6 +6,7 @@
   import AccountPicker from '../accounts/AccountPicker.svelte'
   import TooltipIcon from '../ui/TooltipIcon.svelte'
   import { createParser, type Account, type CsvParser } from '$lib/api'
+  import { copy } from '$lib/copy'
   import {
     SUPPORTED_DELIMITERS,
     DELIMITER_LABELS,
@@ -220,37 +221,37 @@
       onSuccess?.(newParser)
       close()
     } catch (e) {
-      submitError = e instanceof Error ? e.message : 'Something went wrong.'
+      submitError = e instanceof Error ? e.message : copy.import.wizard.failed
     } finally {
       submitting = false
     }
   }
 </script>
 
-<Modal title="Add Import Parser" bind:open onclose={close}>
+<Modal title={copy.import.wizard.addParser} bind:open onclose={close}>
   <div class="wizard-body">
     {#if step === STEP.ACCOUNT_PICK}
       <div class="form-grid">
-        <label for="account-pick">Account</label>
+        <label for="account-pick">{copy.import.wizard.account}</label>
         <AccountPicker
           {accounts}
           bind:value={selectedAccountPath}
-          placeholder="Select an account…"
+          placeholder={copy.import.wizard.accountPlaceholder}
           searchOnly
         />
       </div>
     {:else if step === STEP.PARSER_UPLOAD}
       <div class="form-grid">
-        <label for="parser-name">Parser name</label>
+        <label for="parser-name">{copy.import.parser.fields.name}</label>
         <input
           id="parser-name"
           type="text"
           bind:value={parserName}
-          placeholder="e.g. Imre Trust Visa"
+          placeholder={copy.import.parser.fields.namePlaceholder}
           autocomplete="off"
         />
 
-        <label for="wizard-csv-file">CSV file</label>
+        <label for="wizard-csv-file">{copy.import.parser.fields.file}</label>
         <input
           id="wizard-csv-file"
           type="file"
@@ -260,17 +261,17 @@
         />
 
         {#if detectedHeader}
-          <span class="field-label">Detected header</span>
+          <span class="field-label"
+            >{copy.import.parser.fields.detectedHeader}</span
+          >
           <code class="detected-header">{detectedHeader}</code>
 
           <span class="field-label toggle-label">
-            Delimiter
-            <TooltipIcon
-              label="Auto-detected from the file. Override it if the columns below didn't split correctly (some banks export semicolon- or tab-separated CSVs)."
-            />
+            {copy.import.parser.fields.delimiter}
+            <TooltipIcon label={copy.import.parser.fields.delimiterHint} />
           </span>
           <select
-            aria-label="Delimiter"
+            aria-label={copy.import.parser.fields.delimiter}
             value={delimiter}
             onchange={handleDelimiterChange}
           >
@@ -279,72 +280,78 @@
             {/each}
           </select>
 
-          <span class="field-label">Columns</span>
+          <span class="field-label">{copy.import.parser.fields.columns}</span>
           {#if columns.length > 0}
             <div class="column-preview">
               {#each columns as col}<Chip tone="muted">{col}</Chip>{/each}
             </div>
           {:else}
             <span class="column-preview-empty"
-              >No columns — try a different delimiter.</span
+              >{copy.import.parser.fields.noColumns}</span
             >
           {/if}
         {/if}
 
         {#if columns.length > 0}
           <span class="field-label toggle-label">
-            Multi-currency
-            <TooltipIcon
-              label="Enable for banks that encode transfers inline (e.g. Wise). Source, target, and fee columns will be mapped separately."
-            />
+            {copy.import.parser.fields.multiCurrency}
+            <TooltipIcon label={copy.import.parser.fields.multiCurrencyHint} />
           </span>
           <Toggle bind:checked={isMultiCurrency} />
         {/if}
       </div>
     {:else if step === STEP.PARSER_COLUMNS}
       <div class="form-grid">
-        <label for="map-date">Date <span class="required">*</span></label>
+        <label for="map-date"
+          >{copy.import.parser.fields.date}
+          <span class="required">*</span></label
+        >
         <select id="map-date" bind:value={mappingDate}>
-          <option value="">— select —</option>
+          <option value="">{copy.import.parser.fields.select}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-amount">Amount <span class="required">*</span></label>
+        <label for="map-amount"
+          >{copy.import.parser.fields.amount}
+          <span class="required">*</span></label
+        >
         <select id="map-amount" bind:value={mappingAmount}>
-          <option value="">— select —</option>
+          <option value="">{copy.import.parser.fields.select}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-description">Description</label>
+        <label for="map-description"
+          >{copy.import.parser.fields.description}</label
+        >
         <select id="map-description" bind:value={mappingDescription}>
-          <option value="">— not mapped —</option>
+          <option value="">{copy.import.parser.fields.notMapped}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-currency">Currency</label>
+        <label for="map-currency">{copy.import.parser.fields.currency}</label>
         <select id="map-currency" bind:value={mappingCurrency}>
-          <option value="">— not mapped —</option>
+          <option value="">{copy.import.parser.fields.notMapped}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
         <label for="map-sign-column" class="toggle-label">
-          Direction column
-          <TooltipIcon
-            label="For banks that put IN/OUT in a separate column (e.g. Wise). Select the column and enter the value that means debit/OUT."
-          />
+          {copy.import.parser.fields.direction}
+          <TooltipIcon label={copy.import.parser.fields.directionHint} />
         </label>
         <select id="map-sign-column" bind:value={mappingSignColumn}>
-          <option value="">— not mapped —</option>
+          <option value="">{copy.import.parser.fields.notMapped}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
         {#if mappingSignColumn}
-          <label for="map-sign-negative">Negative value</label>
+          <label for="map-sign-negative"
+            >{copy.import.parser.fields.negativeValue}</label
+          >
           <input
             id="map-sign-negative"
             type="text"
             bind:value={mappingSignNegativeValue}
-            placeholder="e.g. OUT"
+            placeholder={copy.import.parser.fields.negativePlaceholder}
             spellcheck={false}
             autocomplete="off"
           />
@@ -353,98 +360,121 @@
     {:else if step === STEP.PARSER_MULTICURRENCY}
       <div class="form-grid">
         <label for="map-src-amount"
-          >Source amount <span class="required">*</span></label
+          >{copy.import.parser.fields.sourceAmount}
+          <span class="required">*</span></label
         >
         <select id="map-src-amount" bind:value={mappingSourceAmount}>
-          <option value="">— select —</option>
+          <option value="">{copy.import.parser.fields.select}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
         <label for="map-src-currency"
-          >Source currency <span class="required">*</span></label
+          >{copy.import.parser.fields.sourceCurrency}
+          <span class="required">*</span></label
         >
         <select id="map-src-currency" bind:value={mappingSourceCurrency}>
-          <option value="">— select —</option>
+          <option value="">{copy.import.parser.fields.select}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
         <label for="map-tgt-amount"
-          >Target amount <span class="required">*</span></label
+          >{copy.import.parser.fields.targetAmount}
+          <span class="required">*</span></label
         >
         <select id="map-tgt-amount" bind:value={mappingTargetAmount}>
-          <option value="">— select —</option>
+          <option value="">{copy.import.parser.fields.select}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
         <label for="map-tgt-currency"
-          >Target currency <span class="required">*</span></label
+          >{copy.import.parser.fields.targetCurrency}
+          <span class="required">*</span></label
         >
         <select id="map-tgt-currency" bind:value={mappingTargetCurrency}>
-          <option value="">— select —</option>
+          <option value="">{copy.import.parser.fields.select}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-fee-amount">Fee amount</label>
+        <label for="map-fee-amount">{copy.import.parser.fields.feeAmount}</label
+        >
         <select id="map-fee-amount" bind:value={mappingFeeAmount}>
-          <option value="">— not mapped —</option>
+          <option value="">{copy.import.parser.fields.notMapped}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
 
-        <label for="map-fee-currency">Fee currency</label>
+        <label for="map-fee-currency"
+          >{copy.import.parser.fields.feeCurrency}</label
+        >
         <select id="map-fee-currency" bind:value={mappingFeeCurrency}>
-          <option value="">— not mapped —</option>
+          <option value="">{copy.import.parser.fields.notMapped}</option>
           {#each columns as col}<option value={col}>{col}</option>{/each}
         </select>
       </div>
     {:else if step === STEP.CONFIRM}
       <div class="summary">
         <div class="summary-section">
-          <h3 class="summary-heading">Account</h3>
+          <h3 class="summary-heading">{copy.import.parser.summary.account}</h3>
           <div class="summary-row">
-            <span class="summary-label">Path</span>
+            <span class="summary-label">{copy.import.parser.summary.path}</span>
             <code class="summary-value">{selectedAccountPath}</code>
           </div>
         </div>
 
         <div class="summary-section">
-          <h3 class="summary-heading">CSV Parser</h3>
+          <h3 class="summary-heading">{copy.import.parser.summary.parser}</h3>
           {#if parserSkipped}
-            <p class="summary-muted">No parser configured.</p>
+            <p class="summary-muted">{copy.import.parser.summary.none}</p>
           {:else}
             <div class="summary-row">
-              <span class="summary-label">Name</span>
+              <span class="summary-label"
+                >{copy.import.parser.summary.name}</span
+              >
               <span class="summary-value">{parserName.trim()}</span>
             </div>
             <div class="summary-row">
-              <span class="summary-label">Date column</span>
+              <span class="summary-label"
+                >{copy.import.parser.summary.date}</span
+              >
               <code class="summary-value">{mappingDate}</code>
             </div>
             <div class="summary-row">
-              <span class="summary-label">Amount column</span>
+              <span class="summary-label"
+                >{copy.import.parser.summary.amount}</span
+              >
               <code class="summary-value">{mappingAmount}</code>
             </div>
             {#if mappingDescription}
               <div class="summary-row">
-                <span class="summary-label">Description column</span>
+                <span class="summary-label"
+                  >{copy.import.parser.summary.description}</span
+                >
                 <code class="summary-value">{mappingDescription}</code>
               </div>
             {/if}
             {#if mappingSignColumn}
               <div class="summary-row">
-                <span class="summary-label">Direction column</span>
+                <span class="summary-label"
+                  >{copy.import.parser.summary.direction}</span
+                >
                 <code class="summary-value">{mappingSignColumn}</code>
               </div>
               {#if mappingSignNegativeValue}
                 <div class="summary-row">
-                  <span class="summary-label">Negative value</span>
+                  <span class="summary-label"
+                    >{copy.import.parser.summary.negativeValue}</span
+                  >
                   <code class="summary-value">{mappingSignNegativeValue}</code>
                 </div>
               {/if}
             {/if}
             {#if isMultiCurrency}
               <div class="summary-row">
-                <span class="summary-label">Multi-currency</span>
-                <span class="summary-value">Yes</span>
+                <span class="summary-label"
+                  >{copy.import.parser.summary.multiCurrency}</span
+                >
+                <span class="summary-value"
+                  >{copy.import.parser.summary.yes}</span
+                >
               </div>
             {/if}
           {/if}
@@ -461,37 +491,43 @@
   <div class="wizard-footer">
     <div class="footer-left">
       {#if step !== STEP.ACCOUNT_PICK}
-        <GradientButton onclick={back}>Back</GradientButton>
+        <GradientButton onclick={back}>{copy.import.wizard.back}</GradientButton
+        >
       {/if}
     </div>
 
     <div class="footer-right">
       {#if step === STEP.ACCOUNT_PICK}
         <GradientButton active onclick={next} disabled={!step1Valid}>
-          Next
+          {copy.import.wizard.next}
         </GradientButton>
       {:else if step === STEP.PARSER_UPLOAD}
-        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton onclick={skip}>{copy.import.wizard.skip}</GradientButton
+        >
         <GradientButton active onclick={next} disabled={!parserUploadValid}>
-          Next
+          {copy.import.wizard.next}
         </GradientButton>
       {:else if step === STEP.PARSER_COLUMNS}
-        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton onclick={skip}>{copy.import.wizard.skip}</GradientButton
+        >
         <GradientButton active onclick={next} disabled={!parserColumnsValid}>
-          Next
+          {copy.import.wizard.next}
         </GradientButton>
       {:else if step === STEP.PARSER_MULTICURRENCY}
-        <GradientButton onclick={skip}>Skip</GradientButton>
+        <GradientButton onclick={skip}>{copy.import.wizard.skip}</GradientButton
+        >
         <GradientButton
           active
           onclick={next}
           disabled={!parserMultiCurrencyValid}
         >
-          Next
+          {copy.import.wizard.next}
         </GradientButton>
       {:else if step === STEP.CONFIRM}
         <GradientButton active onclick={handleConfirm} disabled={submitting}>
-          {submitting ? 'Creating…' : 'Confirm'}
+          {submitting
+            ? copy.import.wizard.creating
+            : copy.import.wizard.confirm}
         </GradientButton>
       {/if}
     </div>

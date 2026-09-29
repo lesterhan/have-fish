@@ -6,6 +6,7 @@
   import ImportDateCell from './ImportDateCell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
   import { tooltip } from '$lib/tooltip'
+  import { copy } from '$lib/copy'
   import type {
     Account,
     TransferParsedTransaction,
@@ -141,14 +142,18 @@
       </span>
       {#if tx.feeAmount}
         <span class="amt-fee"
-          >fee {tx.feeAmount} {tx.feeCurrency ?? tx.sourceCurrency}</span
+          >{copy.import.row.fee(
+            `${tx.feeAmount} ${tx.feeCurrency ?? tx.sourceCurrency}`,
+          )}</span
         >
       {/if}
     </td>
   {:else}
     <td class="cell-transfer-amount">
       <span class="amt-target">+{tx.amount} {tx.currency}</span>
-      <span class="amt-fee">fee {tx.feeAmount} {tx.currency}</span>
+      <span class="amt-fee"
+        >{copy.import.row.fee(`${tx.feeAmount} ${tx.currency}`)}</span
+      >
     </td>
   {/if}
 
@@ -156,7 +161,7 @@
     <div class="transfer-accounts">
       {#if rowState.groupId}
         <div class="field">
-          <span class="field-label">split</span>
+          <span class="field-label">{copy.import.row.fields.split}</span>
           <div class="pills-wrap">
             <FishPiePills
               {groups}
@@ -170,7 +175,7 @@
               <span
                 class="indicator-icon"
                 use:tooltip={{
-                  label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`,
+                  label: copy.import.row.prefilled(tx.matchedRulePattern ?? ''),
                   always: true,
                 }}
               >
@@ -180,8 +185,8 @@
             {#if canSaveRule && status === 'done' && !rowState.skipped}
               <GradientButton
                 square
-                aria-label="Save as import rule"
-                tooltip={`Always split “${tx.merchantKey}” this way`}
+                aria-label={copy.import.row.saveRule}
+                tooltip={copy.import.row.alwaysSplit(tx.merchantKey ?? '')}
                 onclick={onsaverule}
               >
                 <Icon name="floppy" size={12} />
@@ -193,13 +198,13 @@
         {#if tx.isTransfer === true}
           {#if isSpend}
             <div class="field">
-              <span class="field-label">expense</span>
+              <span class="field-label">{copy.import.row.fields.expense}</span>
               <div class="expense-wrap">
                 {#if showExpensePicker}
                   <AccountPicker
                     {accounts}
                     bind:value={rowState.expenseAccountId}
-                    placeholder="expenses:food…"
+                    placeholder={copy.import.row.placeholders.expense}
                     oncreate={onaccountcreated}
                     oncommit={onedited}
                   />
@@ -217,7 +222,9 @@
                   <span
                     class="indicator-icon"
                     use:tooltip={{
-                      label: `Pre-filled by import rule «${tx.matchedRulePattern ?? ''}»`,
+                      label: copy.import.row.prefilled(
+                        tx.matchedRulePattern ?? '',
+                      ),
                       always: true,
                     }}
                   >
@@ -227,8 +234,8 @@
                 {#if canSaveRule && status === 'done' && !rowState.skipped}
                   <GradientButton
                     square
-                    aria-label="Save as import rule"
-                    tooltip={`Always send “${tx.merchantKey}” here`}
+                    aria-label={copy.import.row.saveRule}
+                    tooltip={copy.import.row.alwaysSend(tx.merchantKey ?? '')}
                     onclick={onsaverule}
                   >
                     <Icon name="floppy" size={12} />
@@ -237,7 +244,7 @@
               </div>
             </div>
             <div class="field">
-              <span class="field-label">via</span>
+              <span class="field-label">{copy.import.row.fields.via}</span>
               {#if conversionAccountPath}
                 <span class="field-pill">
                   <Icon name="exchange" size={10} /><code
@@ -255,7 +262,7 @@
                 <AccountPicker
                   {accounts}
                   bind:value={rowState.conversionAccountId}
-                  placeholder="equity:conversion…"
+                  placeholder={copy.import.row.placeholders.conversion}
                   oncreate={onaccountcreated}
                   oncommit={onedited}
                 />
@@ -263,11 +270,11 @@
             </div>
           {:else}
             <div class="field">
-              <span class="field-label">via</span>
+              <span class="field-label">{copy.import.row.fields.via}</span>
               <AccountPicker
                 {accounts}
                 bind:value={rowState.conversionAccountId}
-                placeholder="equity:conversion…"
+                placeholder={copy.import.row.placeholders.conversion}
                 oncreate={onaccountcreated}
                 oncommit={onedited}
               />
@@ -275,11 +282,11 @@
           {/if}
         {:else}
           <div class="field">
-            <span class="field-label">source</span>
+            <span class="field-label">{copy.import.row.fields.source}</span>
             <AccountPicker
               {accounts}
               bind:value={rowState.offsetAccountId}
-              placeholder="Source account…"
+              placeholder={copy.import.row.placeholders.source}
               oncreate={onaccountcreated}
               oncommit={onedited}
             />
@@ -288,7 +295,7 @@
       {/if}
       {#if !rowState.groupId && splitSelectOpen}
         <div class="field">
-          <span class="field-label">split</span>
+          <span class="field-label">{copy.import.row.fields.split}</span>
           <div class="split-anchor" bind:this={splitAnchorEl}>
             <GroupSelect
               {groups}
@@ -304,7 +311,7 @@
       {/if}
       {#if showFee && !splitSelectOpen}
         <div class="field">
-          <span class="field-label">fee</span>
+          <span class="field-label">{copy.import.row.fields.fee}</span>
           {#if feeAccountPath}
             <span class="field-pill">
               <Icon name="coin" size={10} /><code>{feeAccountPath}</code>
@@ -320,7 +327,7 @@
             <AccountPicker
               {accounts}
               bind:value={rowState.feeAccountId}
-              placeholder="expenses:fees…"
+              placeholder={copy.import.row.placeholders.fee}
               oncreate={onaccountcreated}
             />
           {/if}
@@ -332,11 +339,11 @@
           <GradientButton
             onclick={toggleKind}
             tooltip={isSpend
-              ? 'Actually a conversion into an account you hold — not a spend'
-              : 'Actually a spend in a currency you don’t hold — not a conversion'}
+              ? copy.import.row.toConversionHint
+              : copy.import.row.toSpendHint}
           >
             <Icon name="exchange" size={10} />
-            {isSpend ? 'Switch to conversion' : 'Switch to spend'}
+            {isSpend ? copy.import.row.toConversion : copy.import.row.toSpend}
           </GradientButton>
         </div>
       {/if}
@@ -350,7 +357,7 @@
           <GradientButton
             square
             size="lg"
-            aria-label="Remove group split"
+            aria-label={copy.import.row.removeSplit}
             onclick={() => {
               rowState = { ...rowState, groupId: null, categoryId: null }
               onedited()
@@ -361,7 +368,7 @@
           <GradientButton
             square
             size="lg"
-            aria-label="Split with group"
+            aria-label={copy.import.row.split}
             onclick={onsplitopen}
           >
             <Icon name="pie" size={16} />

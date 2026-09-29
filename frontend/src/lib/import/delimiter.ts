@@ -5,15 +5,18 @@
 // file: the wizard builds a parser's column fingerprint from the delimiter it
 // picks here, and the backend matches an uploaded CSV against that fingerprint.
 
+import { importCopy } from '../copy/import'
+
 export const SUPPORTED_DELIMITERS = [',', ';', '\t', '|'] as const
 export type Delimiter = (typeof SUPPORTED_DELIMITERS)[number]
 
-// Human labels for the override dropdown.
+// Human labels for the override dropdown. The words are copy; which delimiter each one
+// names is wiring, so the mapping stays here.
 export const DELIMITER_LABELS: Record<Delimiter, string> = {
-  ',': 'Comma  ,',
-  ';': 'Semicolon  ;',
-  '\t': 'Tab  ⇥',
-  '|': 'Pipe  |',
+  ',': importCopy.parser.delimiters.comma,
+  ';': importCopy.parser.delimiters.semicolon,
+  '\t': importCopy.parser.delimiters.tab,
+  '|': importCopy.parser.delimiters.pipe,
 }
 
 // Counts occurrences of `delimiter` in `line` outside of double-quoted fields,

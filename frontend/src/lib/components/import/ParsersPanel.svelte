@@ -2,6 +2,7 @@
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import TableShell from '$lib/components/ui/TableShell.svelte'
   import Icon from '$lib/components/ui/Icon.svelte'
+  import { copy } from '$lib/copy'
   import type { Account, CsvParser } from '$lib/api'
 
   interface Props {
@@ -17,21 +18,23 @@
 
 <div class="parsers-window">
   <div class="section-bar">
-    <span class="section-bar-title">Parsers</span>
-    <GradientButton onclick={onadd}>Add parser</GradientButton>
+    <span class="section-bar-title">{copy.import.parser.panel.title}</span>
+    <GradientButton onclick={onadd}
+      >{copy.import.parser.panel.add}</GradientButton
+    >
   </div>
   <div class="parsers-table">
     <TableShell
       columns={[
-        { label: 'Name' },
-        { label: 'Account' },
-        { label: 'Multi-currency' },
-        { label: 'Fee account' },
-        { label: 'Configure' },
+        { label: copy.import.parser.panel.columns.name },
+        { label: copy.import.parser.panel.columns.account },
+        { label: copy.import.parser.panel.columns.multiCurrency },
+        { label: copy.import.parser.panel.columns.feeAccount },
+        { label: copy.import.parser.panel.columns.configure },
       ]}
       {loading}
       empty={parsers.length === 0}
-      emptyText="No parsers 🕵️"
+      emptyText={copy.import.parser.panel.empty}
     >
       {#each parsers as parser}
         {@const accountPath =
@@ -42,7 +45,11 @@
         <tr>
           <td class="cell-name">{parser.name}</td>
           <td class="cell-mono">{accountPath}</td>
-          <td>{parser.isMultiCurrency ? 'Yes' : 'No'}</td>
+          <td>
+            {parser.isMultiCurrency
+              ? copy.import.parser.panel.yes
+              : copy.import.parser.panel.no}
+          </td>
           <td class="cell-mono">{feePath}</td>
           <td class="cell-actions">
             <GradientButton square onclick={() => onedit(parser)}>
