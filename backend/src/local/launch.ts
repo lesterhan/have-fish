@@ -2,7 +2,7 @@
 // compiled binary (#288), which carries its frontend and migrations inside itself.
 //
 // In order: find the data directory, take the single-instance lock (or hand over to the
-// instance that has it), put an adopted ledger in place if `--adopt` names one (#289), point
+// instance that has it), send the log to a file there (#492), put an adopted ledger in place if `--adopt` names one (#289), point
 // the SQLite client at the file, migrate it (copying it first if it holds data), find or make
 // the local profile, listen on 127.0.0.1, and open the browser on a single-use link. Everything that reaches the database is imported only after SQLITE_PATH
 // is set, because the client opens its file when it is first imported.
@@ -11,11 +11,13 @@ import { resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import type { Server } from 'bun'
 import type { Migration } from '../db/sqlite/migrate'
-import { log } from '../logging'
+import { log, redirectLog } from '../logging'
+import { loggedError } from '../request-log'
 import { createServer, type Frontend, hasFrontend } from '../server'
 import { dataDirFor, dataPaths, prepareDataDir } from './data-dir'
 import { mintLaunchToken, randomSecret } from './launch-token'
 import { type Claim, claimLock, type Holder } from './lockfile'
+import { localLogLevel, openLogFile } from './log-file'
 
 /** The first port tried; the next few are tried after it (L01: a fixed port with a fallback). */
 export const DEFAULT_PORT = 47821
@@ -62,6 +64,18 @@ function announce(port: number, url: string, opened: boolean, dataDir: string) {
   const lines = [`have-fish is running at http://127.0.0.1:${port}`, `Your ledger is in ${dataDir}`]
   if (!opened) lines.push(`Open it with this link (it works once, for two minutes):`, url)
   process.stdout.write(`${lines.join('\n')}\n`)
+}
+
+/**
+ * A failure the app cannot carry on from: its stack into the log, and one line on the terminal
+ * saying what went wrong and where the rest is. Then the lock goes and the process with it.
+ */
+function stopOn(e: unknown, logPath: string, release: () => void): never {
+  const err = e instanceof Error ? e : new Error(String(e))
+  log.fatal({ err: loggedError(err) }, 'stopped')
+  process.stderr.write(`have-fish stopped: ${err.message}\nThe log is in ${logPath}\n`)
+  release()
+  process.exit(1)
 }
 
 /** Waits out an instance that holds the lock but is not listening yet. */
@@ -117,6 +131,14 @@ export async function launchLocal(
   }
   if (claim.kind !== 'claimed') throw new Error(`unexpected lock state at ${paths.lock}`)
   const lock = claim
+
+  // From here on the terminal hears only what is meant for a person; the rest is in the file.
+  // A terminal that goes away (`havefish | head -1`) is not a reason to stop.
+  redirectLog(openLogFile(paths.log), localLogLevel(env))
+  process.stdout.on('error', () => {})
+  const stop = (e: unknown) => stopOn(e, paths.log, lock.release)
+  process.on('uncaughtException', stop)
+  process.on('unhandledRejection', stop)
 
   try {
     if (adopt) {
@@ -194,7 +216,7 @@ export async function launchLocal(
     // its connections open), folds the WAL back into the file, and only then gives up the lock.
     const { closeDatabase } = await import('../db')
     let stopping = false
-    const stop = async () => {
+    const quit = async () => {
       if (stopping) return
       stopping = true
       await Promise.race([server.stop(), Bun.sleep(2000)])
@@ -203,14 +225,13 @@ export async function launchLocal(
       lock.release()
       process.exit(0)
     }
-    process.on('SIGINT', stop)
-    process.on('SIGTERM', stop)
+    process.on('SIGINT', quit)
+    process.on('SIGTERM', quit)
     process.on('exit', () => lock.release())
 
     const url = launchUrl({ port, launchKey })
     announce(port, url, openBrowser(url, env), dir)
   } catch (e) {
-    lock.release()
-    throw e
+    stop(e)
   }
 }

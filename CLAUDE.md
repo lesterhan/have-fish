@@ -157,7 +157,7 @@ PORT=8887
 BETTER_AUTH_SECRET=...
 BETTER_AUTH_URL=http://localhost:8887
 FRONTEND_URL=http://localhost:8888
-LOG_LEVEL=            # optional; debug in dev, info in prod, silent under test
+LOG_LEVEL=            # optional; debug in dev, info in prod and the local build, silent under test
 SQLITE_PATH=havefish.sqlite  # the SQLite build's database file; the Postgres build ignores it
 HAVEFISH_MODE=        # unset or `server` for the hosted edition; `local` for the local build
 ```
@@ -168,7 +168,9 @@ The local build (`bun run local`, or `HAVEFISH_MODE=local` with `--conditions=sq
 47821 (`HAVEFISH_PORT`), and opens the browser unless `HAVEFISH_NO_BROWSER` is set, in which
 case it prints the link. `bun run build:binary` compiles the same thing into `backend/dist/havefish`,
 one file with the frontend and migrations inside; the binary copies the database into the data
-directory's `backups/` before any migration and refuses a file a newer build migrated.
+directory's `backups/` before any migration and refuses a file a newer build migrated. The local
+build logs to `havefish.log` in the data directory, not the terminal, at `info` unless `LOG_LEVEL`
+says otherwise; past 5 MB it is kept as `havefish.log.1` at the next start.
 `backend/ARCHITECTURE.md`, "Two editions, one app", has the rest.
 
 Every test run is offline: `backend/bunfig.toml` preloads a `fetch` that throws for anything

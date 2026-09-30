@@ -47,6 +47,7 @@ const INFRASTRUCTURE: Record<string, string> = {
   'local/launch-token.ts': 'signing and redeeming the single-use launch link',
   'local/lockfile.ts': 'one running local instance per data directory',
   'local/data-dir.ts': 'where the local build keeps its data, and who may read it',
+  'local/log-file.ts': "the local build's log file, rotated and the owner's alone",
   'local/embed.ts': "the compiled binary's generated entry point: its files and migrations",
   'test-network-off.ts': 'the test run, which switches the network off',
   'auth.ts': 'Better Auth, which owns its own tables',

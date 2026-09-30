@@ -89,8 +89,25 @@ export function createLogger(
   return destination ? pino(options, destination) : pino(options)
 }
 
+/**
+ * Where `log` writes: stdout, as a container's logs should, until the local build sends it to
+ * a file in the data directory instead (#492). The switch happens once, early in the launch,
+ * and every module that imported `log` follows it without being handed a new logger.
+ */
+let sink: pino.DestinationStream = pino.destination()
+const switchable: pino.DestinationStream = { write: (line) => sink.write(line) }
+
 /** The service's own logger. Startup, shutdown, and anything that is not a request. */
-export const log = createLogger()
+export const log = createLogger(switchable)
+
+/**
+ * Sends `log` somewhere else, at `level`. Only the local build does this: a person at a
+ * terminal wants the three lines meant for them, not one line per request.
+ */
+export function redirectLog(destination: pino.DestinationStream, level: string): void {
+  sink = destination
+  log.level = level
+}
 
 /**
  * The fields of `entry`, named one at a time.

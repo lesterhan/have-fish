@@ -9,9 +9,10 @@
 import { describe, expect, it } from 'bun:test'
 import { DrizzleQueryError } from 'drizzle-orm'
 import { Hono } from 'hono'
+import pino from 'pino'
 import { db, dialect } from './db'
 import { importRules } from './db/schema'
-import { createLogger, logRequest, type RequestLog } from './logging'
+import { createLogger, log, logRequest, type RequestLog, redirectLog } from './logging'
 import { loggedError, requestLogger, unhandledError } from './request-log'
 
 /** A logger writing into an array, so a test can read back what stdout would have got. */
@@ -203,6 +204,26 @@ describe('level', () => {
     )
 
     expect(cap.lines).toHaveLength(0)
+  })
+})
+
+describe('redirectLog', () => {
+  it('sends the shared logger, and the request lines through it, somewhere else (#492)', () => {
+    const before = log.level
+    const lines: string[] = []
+    redirectLog({ write: (line: string) => void lines.push(line) }, 'info')
+    try {
+      logRequest({ userId: null, route: '/health', method: 'GET', status: 200, durationMs: 0.1 })
+      log.debug('below the level it was given')
+      log.info({ token: 'launch-token', port: 47821 }, 'local app listening')
+    } finally {
+      redirectLog(pino.destination(), before)
+    }
+
+    const entries = lines.map((line) => JSON.parse(line) as Record<string, unknown>)
+    expect(entries.map((e) => e.msg)).toEqual(['request', 'local app listening'])
+    // The same redaction as on the server: the file is not a second, laxer log.
+    expect(entries[1]).toMatchObject({ token: '[redacted]', port: 47821 })
   })
 })
 
