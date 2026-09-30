@@ -4,10 +4,11 @@
 
 import { beforeEach, describe, expect, it } from 'bun:test'
 import { and, eq, isNull } from 'drizzle-orm'
+import { createAccount } from '../accounts/account-service'
 import { db, dialect } from '../db'
 import { accounts } from '../db/schema'
 import { ensureUncategorizedAccount } from '../fish-pie-accounts-service'
-import { accountAt, clearDatabase, createTestUser, request } from '../test-utils'
+import { accountAt, at, clearDatabase, createTestUser, request } from '../test-utils'
 
 let cookie: string
 let userId: string
@@ -92,6 +93,25 @@ describe('creating an account', () => {
       error: 'ACCOUNT_PATH_TAKEN',
       detail: { path: 'assets:wise' },
     })
+  })
+
+  it('answers every simultaneous create but one as taken, not as a 500 (#433)', async () => {
+    // Called below the route: the session lookup in front of it staggers requests enough that
+    // they rarely meet between the check and the insert, and this is about when they do.
+    const spellings = ['assets:bank', 'Assets:Bank', 'assets:BANK', 'ASSETS:bank', 'Assets:bank']
+    const results = await Promise.all(spellings.map((path) => createAccount(userId, { path })))
+
+    expect(results.filter((r) => r.ok)).toHaveLength(1)
+    const rows = (await activeRows()).filter((r) => r.pathKey === 'assets:bank')
+    expect(rows).toHaveLength(1)
+    // Each refusal names the spelling that won, as the check does when it catches one itself.
+    const winner = at(rows).path
+    for (const r of results.filter((r) => !r.ok)) {
+      expect(r).toEqual({
+        ok: false,
+        failure: { error: 'ACCOUNT_PATH_TAKEN', detail: { path: winner } },
+      })
+    }
   })
 
   it("allows a row at a grouping node, and another user's identical path", async () => {
