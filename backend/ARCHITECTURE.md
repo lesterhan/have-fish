@@ -147,16 +147,23 @@ with `--conditions=sqlite`, or the compiled binary (below); the Postgres build r
 mode. In order:
 
 1. The data directory is `$XDG_DATA_HOME/havefish` (`HAVEFISH_DATA_DIR` overrides it), made
-   `0700`. It holds `havefish.sqlite`, `havefish.lock` and `backups/`.
+   `0700`. It holds `havefish.sqlite`, `havefish.lock`, `havefish.log` and `backups/`.
 2. The lock is created exclusively and names the process holding it. A second launch finds a
    live holder, signs a fresh launch link with the key the holder published in the lockfile,
    opens it and exits: one process per database file, since the write queue above is
    per-process. A lock left by a dead process is taken over.
-3. `SQLITE_PATH` is set, and only then is anything that touches the database imported. The
+3. The logger leaves stdout for `havefish.log` (`local/log-file.ts`, #492): `0600`, written
+   synchronously, at `info` unless `LOG_LEVEL` says otherwise, with the same allowlist and
+   redaction as the server. At each start a log past 5 MB becomes `havefish.log.1`, replacing
+   the one before, so there are never more than two. From here the terminal gets only the
+   lines meant for a person (where the app is, where the ledger is, the link), and a failure
+   the app cannot carry on from gets one line on stderr naming the log, which has the stack.
+   A terminal that closes (`havefish | head -1`) no longer ends the process.
+4. `SQLITE_PATH` is set, and only then is anything that touches the database imported. The
    file is migrated (below), and the local profile found or minted
    (`local/profile-service.ts`): one `user` row, the starter accounts and settings a sign-up
    gives (`users/starter-service.ts`), and the `local_profile` row that says whose file it is.
-4. It binds `127.0.0.1` on the first free port from 47821 (`HAVEFISH_PORT` overrides it),
+5. It binds `127.0.0.1` on the first free port from 47821 (`HAVEFISH_PORT` overrides it),
    publishes the port and a fresh launch key in the lockfile, and opens the browser at
    `/#token=…`. The fragment is never sent, so the token never reaches a request line or a
    log. The page trades it for an `HttpOnly`, `SameSite=Strict` cookie whose value lives only

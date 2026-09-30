@@ -22,6 +22,8 @@ export function dataPaths(dir: string) {
   return {
     database: join(dir, 'havefish.sqlite'),
     lock: join(dir, 'havefish.lock'),
+    /** The logger's output (#492); `log-file.ts` rotates it. */
+    log: join(dir, 'havefish.log'),
     /** Copies taken before a migration (#288). */
     backups: join(dir, 'backups'),
   }

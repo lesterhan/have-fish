@@ -7,6 +7,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  readFileSync,
   rmSync,
   statSync,
   writeFileSync,
@@ -91,7 +92,8 @@ describe('HAVEFISH_MODE=local', () => {
         HAVEFISH_NO_BROWSER: '1',
         HAVEFISH_PORT: '47810',
         HAVEFISH_STATIC_ROOT: site,
-        LOG_LEVEL: 'silent',
+        // What a person gets by default, so the log file below is the one they would have.
+        LOG_LEVEL: 'info',
       },
       stdout: 'pipe',
       stderr: 'pipe',
@@ -134,6 +136,7 @@ describe('HAVEFISH_MODE=local', () => {
 
   let first: Subprocess<'ignore', 'pipe', 'pipe'>
   let firstLink: URL
+  let firstCookie: string
 
   it('starts, makes its data directory, and prints a link that signs the page in', async () => {
     first = launch()
@@ -142,9 +145,9 @@ describe('HAVEFISH_MODE=local', () => {
     expect(existsSync(join(data, 'havefish.sqlite'))).toBe(true)
     expect(existsSync(join(data, 'havefish.lock'))).toBe(true)
 
-    const cookie = await open(firstLink)
+    firstCookie = await open(firstLink)
     const accounts = await fetch(`${firstLink.origin}/api/accounts`, {
-      headers: { Cookie: cookie },
+      headers: { Cookie: firstCookie },
     })
     expect(accounts.status).toBe(200)
     expect(((await accounts.json()) as unknown[]).length).toBe(3)
@@ -174,6 +177,32 @@ describe('HAVEFISH_MODE=local', () => {
     const wal = join(data, 'havefish.sqlite-wal')
     expect(existsSync(wal) ? statSync(wal).size : 0).toBe(0)
   }, 20_000)
+
+  it('told its terminal only what was meant for a person, and logged the rest to a file (#492)', async () => {
+    // Everything after the link: the requests above wrote nothing more to the terminal.
+    const reader = first.stdout.getReader()
+    let rest = ''
+    for (let read = await reader.read(); !read.done; read = await reader.read()) {
+      rest += new TextDecoder().decode(read.value)
+    }
+    expect(rest).toBe('')
+    expect(await new Response(first.stderr).text()).toBe('')
+
+    const path = join(data, 'havefish.log')
+    expect(statSync(path).mode & 0o777).toBe(0o600)
+    const text = readFileSync(path, 'utf8')
+    const entries = text
+      .trim()
+      .split('\n')
+      .map((line) => JSON.parse(line) as Record<string, unknown>)
+    const routes = entries.filter((e) => e.msg === 'request').map((e) => e.route)
+    expect(routes).toContain('/api/local/session')
+    expect(routes).toContain('/api/accounts')
+    expect(entries.some((e) => e.msg === 'local app listening')).toBe(true)
+    // Neither the link's token nor the session it bought.
+    expect(text).not.toContain(firstLink.hash.slice('#token='.length))
+    expect(text).not.toContain(firstCookie.split('=')[1] ?? firstCookie)
+  })
 
   it('refuses a ledger a newer build has migrated, and leaves it alone', async () => {
     const client = createClient({ url: `file:${join(data, 'havefish.sqlite')}` })
@@ -227,7 +256,12 @@ describe('HAVEFISH_MODE=local', () => {
   it('refuses to start from the Postgres build', async () => {
     const pg = launch([])
     expect(await pg.exited).not.toBe(0)
-    expect(await new Response(pg.stderr).text()).toContain('needs the SQLite build')
+    const said = await new Response(pg.stderr).text()
+    expect(said).toContain('needs the SQLite build')
+    // The terminal gets the reason in a line and where to look; the stack is in the file.
+    expect(said).toContain(`The log is in ${join(data, 'havefish.log')}`)
+    expect(said).not.toContain('    at ')
+    expect(readFileSync(join(data, 'havefish.log'), 'utf8')).toContain('needs the SQLite build')
     expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
   }, 20_000)
 })
