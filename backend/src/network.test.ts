@@ -7,6 +7,8 @@
  * this test. The places that are meant to talk to the network:
  *
  * - the FX rate source, which fetches a published rate (and is stubbed in every test);
+ * - the local launcher's check on the instance its lockfile names, which asks 127.0.0.1 and
+ *   nothing else;
  * - `sync/`, the future sync loop (P2b);
  * - the future Fish Pie proxy, which joins this list in the PR that adds it.
  *
@@ -26,6 +28,7 @@ const SRC = import.meta.dir
 
 const MAY_REACH_NETWORK: Record<string, string> = {
   'fx/rate-source.ts': 'the published FX rate, the one call the personal ledger makes (L04)',
+  'local/holder.ts': "127.0.0.1 only: the running instance's own port, from its lockfile (#516)",
 }
 const MAY_REACH_NETWORK_UNDER = ['sync/']
 

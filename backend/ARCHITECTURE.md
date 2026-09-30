@@ -64,9 +64,10 @@ Two more kinds of file sit beside them:
 - **Infrastructure**: `index`, `server`, `app`, `build-app`, `server-edge`, `auth`,
   `logging`, `request-log`, `validation`, `respond`, `test-utils`, `test-network-off`,
   `db/{index,schema,returning}`, the two dialect folders `db/pg/` and `db/sqlite/`, the local
-  build's `local/{edge,launch,launch-token,lockfile,data-dir}`, and `fx/rate-source.ts`. The
-  last holds the backend's only outbound `fetch` (frankfurter.app). It touches no database,
-  so an offline build or a test has one function to stub.
+  build's `local/{edge,launch,launch-token,lockfile,holder,data-dir}`, and `fx/rate-source.ts`.
+  The last holds the backend's only outbound `fetch` (frankfurter.app). It touches no
+  database, so an offline build or a test has one function to stub. `local/holder.ts` fetches
+  too, but only 127.0.0.1: the port a running instance wrote into its own lockfile.
 
 **How the layers are held** (`layers.test.ts`, #431). Every source file gets its layer from
 its name: `routes/`, `-service.ts`, `-sql.ts`, the infrastructure list, and anything else is
@@ -153,6 +154,16 @@ mode. In order:
    live holder, signs a fresh launch link with the key the holder published in the lockfile,
    opens it and exits: one process per database file, since the write queue above is
    per-process. A lock left by a dead process is taken over.
+
+   "Live" is asked of the holder, not of its pid (#516). A Flatpak sandbox gives every launch
+   a pid namespace of its own, where the app is pid 2 again, so a crashed instance's pid is a
+   live process in the next sandbox. A holder that has published its port is sent a launch
+   token signed with its key (`local/holder.ts`), and only a 204 from `/api/local/session`
+   counts as alive. If its pid is alive in this namespace it gets a longer second try, in
+   case it is busy; otherwise, or if the pid is gone, its lock is taken over. A holder that has
+   not published yet is looked up by pid only from its own namespace (`pidNs` in the lock),
+   and from anywhere else is given 30 s to start. Each claim writes a random id, and release
+   removes the lock only while that id is still in it.
 3. The logger leaves stdout for `havefish.log` (`local/log-file.ts`, #492): `0600`, written
    synchronously, at `info` unless `LOG_LEVEL` says otherwise, with the same allowlist and
    redaction as the server. At each start a log past 5 MB becomes `havefish.log.1`, replacing

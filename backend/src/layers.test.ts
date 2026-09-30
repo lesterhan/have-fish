@@ -46,6 +46,7 @@ const INFRASTRUCTURE: Record<string, string> = {
   'local/launch.ts': 'starting the local build: lock, data directory, port and browser',
   'local/launch-token.ts': 'signing and redeeming the single-use launch link',
   'local/lockfile.ts': 'one running local instance per data directory',
+  'local/holder.ts': 'asking the instance the lockfile names, on 127.0.0.1, whether it is there',
   'local/data-dir.ts': 'where the local build keeps its data, and who may read it',
   'local/desktop-entry.ts': 'the menu entry and icon the binary installs for its owner',
   'local/log-file.ts': "the local build's log file, rotated and the owner's alone",

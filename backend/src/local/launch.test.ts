@@ -18,6 +18,7 @@ import { createClient } from '@libsql/client'
 import type { Subprocess } from 'bun'
 import { migrateSqliteFile, readMigrations } from '../db/sqlite/migrate'
 import { launchUrl, listenOnFreePort, readLaunchArgs } from './launch'
+import { pidNamespace } from './lockfile'
 
 const BACKEND = join(import.meta.dir, '../..')
 
@@ -79,10 +80,15 @@ describe('HAVEFISH_MODE=local', () => {
   })
 
   // The child is started the way `bun run local` starts it, and never opens a browser.
-  function launch(conditions: string[] = ['--conditions=sqlite'], args: string[] = []) {
+  // `inside` runs it inside something first: a sandbox, for #516.
+  function launch(
+    conditions: string[] = ['--conditions=sqlite'],
+    args: string[] = [],
+    inside: string[] = [],
+  ) {
     mkdirSync(site, { recursive: true })
     writeFileSync(join(site, 'index.html'), '<!doctype html><title>have-fish</title>')
-    const child = Bun.spawn(['bun', ...conditions, 'src/index.ts', ...args], {
+    const child = Bun.spawn([...inside, 'bun', ...conditions, 'src/index.ts', ...args], {
       cwd: BACKEND,
       env: {
         PATH: process.env.PATH,
@@ -276,6 +282,81 @@ describe('HAVEFISH_MODE=local', () => {
     expect(await running.exited).toBe(0)
     expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
   }, 20_000)
+
+  // #516: a pid that is alive says nothing about an instance that is not answering. Here the
+  // pid is this test's own, and the port it names has nothing on it.
+  it('takes over a lock whose holder does not answer, even when its pid is alive', async () => {
+    writeFileSync(
+      join(data, 'havefish.lock'),
+      JSON.stringify({ pid: process.pid, pidNs: pidNamespace(), port: 47_809, launchKey: 'gone' }),
+    )
+    const running = launch()
+    const link = await linkFrom(running)
+    expect(link.origin).toBe('http://127.0.0.1:47810')
+    await open(link)
+    running.kill('SIGINT')
+    expect(await running.exited).toBe(0)
+    expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
+  }, 30_000)
+
+  // #516 as Flatpak has it: each launch in a pid namespace of its own, where it is pid 2.
+  // bubblewrap is what `flatpak run` uses; where it is missing or may not make a namespace (CI's
+  // runner), the lock's own tests cover the rule with the namespace given to them.
+  // `--die-with-parent`, as `flatpak run` passes it, so killing bwrap kills what is inside.
+  const sandbox = [
+    'bwrap',
+    '--unshare-pid',
+    '--die-with-parent',
+    '--dev-bind',
+    '/',
+    '/',
+    '--proc',
+    '/proc',
+  ]
+  const canSandbox =
+    Bun.which('bwrap') !== null && Bun.spawnSync([...sandbox, 'true']).exitCode === 0
+
+  it.skipIf(!canSandbox)(
+    'hands over and takes over across sandboxes, as pid 2 each time',
+    async () => {
+      const first = launch(undefined, [], sandbox)
+      const firstLink = await linkFrom(first)
+      expect(contentsOfLock().pid).toBe(2)
+
+      const second = launch(undefined, [], sandbox)
+      const secondLink = await linkFrom(second)
+      expect(await second.exited).toBe(0)
+      expect(secondLink.origin).toBe(firstLink.origin)
+      await open(secondLink)
+
+      // A crash: the lock stays behind, naming pid 2 and a port nothing will answer on.
+      first.kill('SIGKILL')
+      await first.exited
+      await expect(fetch(`${firstLink.origin}/health`)).rejects.toThrow()
+      expect(contentsOfLock().pid).toBe(2)
+
+      // Before #516 this launch saw pid 2 alive (itself), handed over to the dead port, and exited.
+      const third = launch(undefined, [], sandbox)
+      const thirdLink = await linkFrom(third)
+      const cookie = await open(thirdLink)
+      expect(third.exitCode).toBeNull()
+      expect(contentsOfLock().pid).toBe(2)
+
+      // A signal to bwrap is not one to the app, so it quits the way the titlebar quits it.
+      const quit = await fetch(`${thirdLink.origin}/api/local/quit`, {
+        method: 'POST',
+        headers: { Cookie: cookie },
+      })
+      expect(quit.status).toBe(202)
+      expect(await third.exited).toBe(0)
+      expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
+    },
+    60_000,
+  )
+
+  function contentsOfLock(): { pid: number } {
+    return JSON.parse(readFileSync(join(data, 'havefish.lock'), 'utf8')) as { pid: number }
+  }
 
   it('refuses to start from the Postgres build', async () => {
     const pg = launch([])
