@@ -19,7 +19,7 @@ import {
 // here: which accounts each kind of row must name, and the legs each row becomes.
 //
 //   checkRows   the request's rows → the same rows, typed by kind, or the first one missing
-//               an account it needs
+//               an account, an amount or a currency it needs
 //   identify    typed rows → the fingerprint and id of each row the preview keyed (#282)
 //   planRows    typed rows + split context → one transaction per row not already imported,
 //               and a Fish Pie expense for each split row
@@ -113,12 +113,15 @@ export type CommitRow = (
 ) & { importKey?: string | undefined }
 
 /**
- * Check that every row names the accounts its kind needs, in row order, and answer the
- * first that doesn't. A split row needs fewer: the Fish Pie legs replace its offset or
- * target account with the group's clearing account and the payer's expense account.
+ * Check that every row names the accounts its kind needs and carries the amounts and
+ * currencies its legs are built from, in row order, and answer the first that doesn't. A
+ * split row needs fewer accounts: the Fish Pie legs replace its offset or target account with
+ * the group's clearing account and the payer's expense account.
  *
- * `accountId` is the import's own account, which a regular row falls back to when it
- * names no source.
+ * `accountId` is the import's own account, which a regular row falls back to when it names
+ * no source. A row that names an empty one is refused instead (#458): that is how the
+ * review sends a row whose currency has no account mapped, and the import's own account is
+ * in some other currency.
  */
 export function checkRows(
   rows: readonly ImportRowInput[],
@@ -131,6 +134,21 @@ export function checkRows(
   })
 
   for (const [rowIdx, t] of rows.entries()) {
+    // The values first: an account can be chosen in the review, and a row without an
+    // amount is a file the parser should not have produced, so it is the more useful answer.
+    const kind = rowKindOf(t)
+    const absent = VALUES_NEEDED[kind].find((field) => !t[field])
+    if (absent) {
+      return {
+        ok: false,
+        failure: errorBody('IMPORT_ROW_MISSING_VALUE', {
+          rowKind: kind,
+          field: absent,
+          index: rowIdx,
+        }),
+      }
+    }
+
     if (t.isTransfer === 'cross-currency-spend') {
       if (!t.sourceAccountId) return missing('cross-currency-spend', 'sourceAccountId')
       if (!t.expenseAccountId) return missing('cross-currency-spend', 'expenseAccountId')
@@ -152,14 +170,34 @@ export function checkRows(
     } else {
       // Fish Pie rows don't need offsetAccountId — the plan derives it from the group
       if (!t.offsetAccountId && !splitRows.has(rowIdx)) return missing('regular', 'offsetAccountId')
-      if (!t.sourceAccountId && !accountId) return missing('regular', 'sourceAccountId')
+      if (t.sourceAccountId === '' || (t.sourceAccountId === undefined && !accountId))
+        return missing('regular', 'sourceAccountId')
     }
   }
 
-  // The checks above establish every account field the row's type calls required. The
-  // amounts and currencies are taken as the parser produced them, unchecked; a row that
-  // arrives without one is #434.
+  // The checks above establish every field the row's type calls required. Whether an
+  // amount parses and a currency is one have-fish knows is the ledger service's to say, as
+  // it writes each row (`AMOUNT_INVALID`, `UNSUPPORTED_CURRENCY`, with the row's index).
   return { ok: true, value: rows as CommitRow[] }
+}
+
+/** Which of the four shapes a row is, by `isTransfer`. */
+function rowKindOf(row: ImportRowInput): ImportRowKind {
+  if (row.isTransfer === 'cross-currency-spend') return 'cross-currency-spend'
+  if (row.isTransfer === 'same-currency') return 'same-currency-transfer'
+  if (row.isTransfer === true) return 'transfer'
+  return 'regular'
+}
+
+/**
+ * The amounts and currencies each kind of row is built from (#434). A regular row's
+ * currency falls back to the import's, and a fee is optional where the kind allows none.
+ */
+const VALUES_NEEDED: Record<ImportRowKind, readonly (keyof ImportRowInput & string)[]> = {
+  regular: ['amount'],
+  transfer: ['sourceAmount', 'sourceCurrency', 'targetAmount', 'targetCurrency'],
+  'cross-currency-spend': ['sourceAmount', 'sourceCurrency', 'targetAmount', 'targetCurrency'],
+  'same-currency-transfer': ['amount', 'feeAmount', 'currency'],
 }
 
 /**
@@ -463,6 +501,7 @@ export function planRows(
     }
 
     const currency = t.currency ?? defaultCurrency
+    // `checkRows` refused an empty source, so `??` falls back only for a row that named none.
     const sourceId = t.sourceAccountId ?? accountId
     // `checkRows` answered `IMPORT_ROW_MISSING_ACCOUNT` for exactly this, so reaching it
     // here means the two have drifted apart.

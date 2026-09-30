@@ -309,9 +309,13 @@ service in `import/`; each service loads what a pure module needs and calls it.
 
 **How an import commit works.** The plan (`import/commit-plan.ts`) is two pure functions:
 
-- `checkRows`: does each row name the accounts its kind needs? A Fish Pie split needs
-  fewer, because the group's clearing account and the payer's expense account replace
-  the offset or target. The first row missing one is the answer.
+- `checkRows`: does each row carry the amounts and currencies its kind is built from
+  (`IMPORT_ROW_MISSING_VALUE`, with the row's index, #434), and name the accounts it
+  needs (`IMPORT_ROW_MISSING_ACCOUNT`)? A Fish Pie split needs fewer accounts, because the
+  group's clearing account and the payer's expense account replace the offset or target.
+  A regular row that names no source uses the import's account; one that names an empty
+  source is refused, since that is a currency with no account mapped (#458). The first
+  row missing anything is the answer.
 - `planRows`: the transaction each row becomes. Its legs come from `import/postings.ts`,
   and a split row also carries the group expense to create.
 

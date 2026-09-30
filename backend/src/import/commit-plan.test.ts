@@ -174,6 +174,43 @@ describe('checkRows', () => {
     })
   })
 
+  // An empty sourceAccountId is how the review sends a row whose currency has no account
+  // mapped. It used to pass here and throw in planRows (#458).
+  it("refuses a regular row whose source is empty, rather than use the import's account", () => {
+    const result = checkRows([{ ...regularRow, sourceAccountId: '' }], {
+      accountId: 'import-account',
+      splitRows: new Set(),
+    })
+    expect(!result.ok && result.failure).toEqual({
+      error: 'IMPORT_ROW_MISSING_ACCOUNT',
+      detail: { rowKind: 'regular', field: 'sourceAccountId' },
+    })
+  })
+
+  it('refuses a row missing an amount or currency its kind is built from, naming the row', () => {
+    const result = checkRows(
+      [
+        regularRow,
+        { ...sameCurrencyRow, currency: '' },
+        { ...transferRow, sourceAmount: undefined },
+      ],
+      { accountId: 'import-account', splitRows: new Set() },
+    )
+    expect(!result.ok && result.failure).toEqual({
+      error: 'IMPORT_ROW_MISSING_VALUE',
+      detail: { rowKind: 'same-currency-transfer', field: 'currency', index: 1 },
+    })
+  })
+
+  it('answers a missing amount before a missing account on the same row', () => {
+    const row = { ...spendRow, targetAmount: undefined, expenseAccountId: '' }
+    const result = checkRows([row], { accountId: 'a', splitRows: new Set() })
+    expect(!result.ok && result.failure).toMatchObject({
+      error: 'IMPORT_ROW_MISSING_VALUE',
+      detail: { field: 'targetAmount' },
+    })
+  })
+
   it('needs no offset on a split regular row, and no target on a split transfer', () => {
     const rows = [
       { ...regularRow, offsetAccountId: undefined },
@@ -323,14 +360,6 @@ describe('planRows', () => {
         })
       }
     }
-  })
-
-  // An empty sourceAccountId passes checkRows when the import has an account of its own, and
-  // then falls back to nothing, because `??` keeps the empty string. The commit has always
-  // answered 500 for it; this pins the behaviour until #458 fixes it.
-  it('throws on a regular row whose source is an empty string', () => {
-    const rows = checked([{ ...regularRow, sourceAccountId: '' }])
-    expect(() => plan(rows)).toThrow('import row 0 has no source account')
   })
 })
 

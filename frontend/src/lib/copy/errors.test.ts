@@ -81,6 +81,18 @@ describe('errorMessage', () => {
     ).toBe('payment account is required.')
   })
 
+  it('numbers an import row from one, as the review lists it (#434)', () => {
+    const missing = (field: string) =>
+      errorMessage(
+        { error: 'IMPORT_ROW_MISSING_VALUE', detail: { rowKind: 'transfer', field, index: 2 } },
+        'x',
+      )
+    expect(missing('targetCurrency')).toBe(
+      'Row 3 does not say which currency the money arrived in.',
+    )
+    expect(missing('wobble')).toBe('Row 3 still needs wobble.')
+  })
+
   it('names a field nobody has translated after its own key', () => {
     expect(errorMessage({ error: 'FIELD_REQUIRED', detail: { field: 'wobble' } }, 'x')).toBe(
       'wobble is required.',

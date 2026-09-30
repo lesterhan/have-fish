@@ -39,7 +39,8 @@ type Group = NonNullable<Awaited<ReturnType<typeof fetchGroupWithMembers>>>
  *
  * 1. Each split names a row that exists, a group the caller belongs to, and an active
  *    category of that group.
- * 2. Each row names the accounts its kind needs (`checkRows`).
+ * 2. Each row names the accounts its kind needs and carries its amounts and currencies
+ *    (`checkRows`).
  * 3. Every account named is the caller's.
  * 4. Rows the preview keyed get their fingerprint and id (`identify`); a row whose
  *    fingerprint is already in the ledger is skipped, not refused, so importing the same
