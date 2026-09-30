@@ -11,10 +11,16 @@ import { join } from 'node:path'
  */
 export function dataDirFor(env: NodeJS.ProcessEnv, home = homedir()): string {
   if (env.HAVEFISH_DATA_DIR) return env.HAVEFISH_DATA_DIR
-  // The spec says a relative XDG_DATA_HOME is invalid and is to be ignored.
+  return join(xdgDataHome(env, home), 'havefish')
+}
+
+/**
+ * `$XDG_DATA_HOME`, or `~/.local/share` when it is unset. The spec says a relative value is
+ * invalid and is to be ignored. The desktop entry and its icon go under it too (#338).
+ */
+export function xdgDataHome(env: NodeJS.ProcessEnv, home = homedir()): string {
   const xdg = env.XDG_DATA_HOME
-  const base = xdg?.startsWith('/') ? xdg : join(home, '.local', 'share')
-  return join(base, 'havefish')
+  return xdg?.startsWith('/') ? xdg : join(home, '.local', 'share')
 }
 
 /** The paths inside it. */
@@ -26,6 +32,8 @@ export function dataPaths(dir: string) {
     log: join(dir, 'havefish.log'),
     /** Copies taken before a migration (#288). */
     backups: join(dir, 'backups'),
+    /** Where the desktop entry was installed, once it has been (#338). */
+    desktopMarker: join(dir, 'desktop-entry'),
   }
 }
 

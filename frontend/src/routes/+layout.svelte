@@ -187,10 +187,6 @@
   }
 </script>
 
-<svelte:head>
-  <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-</svelte:head>
-
 <div class="desktop" class:maximized>
   <div class="window">
     <div class="titlebar">

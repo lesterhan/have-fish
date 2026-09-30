@@ -104,7 +104,8 @@ jobs:
           The local edition of have-fish for Linux: one file, no install, and your ledger stays on
           your machine. It opens your browser signed in, and keeps its data in
           \`~/.local/share/havefish\`. Before it updates the ledger's format it copies the file into
-          \`backups/\` there.
+          \`backups/\` there. The first run adds it to your applications menu, and the ✕ in its
+          title bar quits it.
 
           | File | For |
           |---|---|

@@ -147,7 +147,8 @@ with `--conditions=sqlite`, or the compiled binary (below); the Postgres build r
 mode. In order:
 
 1. The data directory is `$XDG_DATA_HOME/havefish` (`HAVEFISH_DATA_DIR` overrides it), made
-   `0700`. It holds `havefish.sqlite`, `havefish.lock`, `havefish.log` and `backups/`.
+   `0700`. It holds `havefish.sqlite`, `havefish.lock`, `havefish.log`, `backups/` and, once
+   the binary has added itself to the menu, `desktop-entry`.
 2. The lock is created exclusively and names the process holding it. A second launch finds a
    live holder, signs a fresh launch link with the key the holder published in the lockfile,
    opens it and exits: one process per database file, since the write queue above is
@@ -168,6 +169,13 @@ mode. In order:
    `/#token=…`. The fragment is never sent, so the token never reaches a request line or a
    log. The page trades it for an `HttpOnly`, `SameSite=Strict` cookie whose value lives only
    in this process: a restart ends every session, and the launcher opens a new one.
+6. The binary, and only the binary (`bun run local` has no one file to launch), puts itself in
+   the applications menu (`local/desktop-entry.ts`, #338): `havefish.desktop` under
+   `$XDG_DATA_HOME/applications`, and the seal from `favicon.svg` under `icons/hicolor`. A
+   `desktop-entry` file in the data directory records that it did, so an entry its owner
+   deleted is not put back; an entry that names another path or an older icon is rewritten. A
+   launch with `HAVEFISH_DATA_DIR` set adds nothing, since the entry would open the default
+   ledger instead. A failure here is logged and never stops the app.
 
 A launch token is `<issued>.<nonce>.<HMAC>`, good once and for two minutes
 (`local/launch-token.ts`). SIGINT, SIGTERM, SIGHUP and the titlebar's Quit (`POST

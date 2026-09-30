@@ -57,7 +57,12 @@ sha256sum --check --ignore-missing SHA256SUMS
 chmod +x havefish-linux-x64 && ./havefish-linux-x64
 ```
 
-It opens your browser signed in and keeps its data in `~/.local/share/havefish`.
+It opens your browser signed in and keeps its data in `~/.local/share/havefish`. The first
+run also adds have-fish to your applications menu, pointing at wherever the file is; move the
+file and run it once from the new place to follow it. To take the menu entry out, delete
+`~/.local/share/applications/havefish.desktop`: it will not come back. Quit from the ✕ in the
+app's title bar.
+
 `bun run build:binary` in `backend/` builds the same file from source. A `vX.Y.Z` tag
 publishes a release (`.github/workflows/release-desktop.yml`).
 

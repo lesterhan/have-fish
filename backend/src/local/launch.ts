@@ -2,19 +2,22 @@
 // compiled binary (#288), which carries its frontend and migrations inside itself.
 //
 // In order: find the data directory, take the single-instance lock (or hand over to the
-// instance that has it), send the log to a file there (#492), put an adopted ledger in place if `--adopt` names one (#289), point
-// the SQLite client at the file, migrate it (copying it first if it holds data), find or make
-// the local profile, listen on 127.0.0.1, and open the browser on a single-use link. Everything that reaches the database is imported only after SQLITE_PATH
-// is set, because the client opens its file when it is first imported.
+// instance that has it), send the log to a file there (#492), put an adopted ledger in place
+// if `--adopt` names one (#289), point the SQLite client at the file, migrate it (copying it
+// first if it holds data), find or make the local profile, listen on 127.0.0.1, open the
+// browser on a single-use link, and, for the binary, put it in the applications menu (#338).
+// Everything that reaches the database is imported only after SQLITE_PATH is set, because the
+// client opens its file when it is first imported.
 
-import { resolve } from 'node:path'
+import { join, resolve } from 'node:path'
 import { parseArgs } from 'node:util'
 import type { Server } from 'bun'
 import type { Migration } from '../db/sqlite/migrate'
 import { log, redirectLog } from '../logging'
 import { loggedError } from '../request-log'
 import { createServer, type Frontend, hasFrontend } from '../server'
-import { dataDirFor, dataPaths, prepareDataDir } from './data-dir'
+import { dataDirFor, dataPaths, prepareDataDir, xdgDataHome } from './data-dir'
+import { installDesktopEntry } from './desktop-entry'
 import { mintLaunchToken, randomSecret } from './launch-token'
 import { type Claim, claimLock, type Holder } from './lockfile'
 import { localLogLevel, openLogFile } from './log-file'
@@ -78,6 +81,40 @@ function stopOn(e: unknown, logPath: string, release: () => void): never {
   process.exit(1)
 }
 
+/**
+ * Puts the binary in the applications menu (#338). Never a reason to stop: a read-only home or
+ * a missing icon costs the menu entry, and the app runs on regardless.
+ */
+async function addToMenu(
+  executable: string,
+  frontend: Frontend,
+  env: NodeJS.ProcessEnv,
+  marker: string,
+): Promise<void> {
+  try {
+    const iconFile =
+      'files' in frontend ? frontend.files.get('/favicon.svg') : join(frontend.root, 'favicon.svg')
+    if (!iconFile) throw new Error('the frontend build has no favicon.svg')
+    const result = installDesktopEntry({
+      executable,
+      icon: await Bun.file(iconFile).text(),
+      dataHome: xdgDataHome(env),
+      marker,
+    })
+    log.info({ result }, 'desktop entry')
+    if (result === 'installed') {
+      process.stdout.write(
+        'have-fish is in your applications menu now, so you can open it from there\n',
+      )
+    }
+  } catch (e) {
+    log.warn(
+      { err: loggedError(e instanceof Error ? e : new Error(String(e))) },
+      'no desktop entry',
+    )
+  }
+}
+
 /** Waits out an instance that holds the lock but is not listening yet. */
 async function awaitHolder(lockPath: string): Promise<Claim> {
   for (let waited = 0; waited < 10_000; waited += 200) {
@@ -92,6 +129,11 @@ export type LocalBundle = {
   frontend: Frontend
   /** The binary's own; `bun run local` reads them from `drizzle/sqlite` instead. */
   migrations?: Migration[]
+  /**
+   * The binary's own path, which the desktop entry launches (#338). `bun run local` has no one
+   * file to launch, so it passes none and nothing is added to the menu.
+   */
+  executable?: string
 }
 
 /** What the command line can ask for: `--adopt <file>` makes that ledger this install's (#289). */
@@ -233,6 +275,12 @@ export async function launchLocal(
 
     const url = launchUrl({ port, launchKey })
     announce(port, url, openBrowser(url, env), dir)
+
+    // Not for a second profile: the entry would launch without HAVEFISH_DATA_DIR, on the
+    // default ledger rather than this one.
+    if (bundle.executable && !env.HAVEFISH_DATA_DIR && process.platform === 'linux') {
+      await addToMenu(bundle.executable, bundle.frontend, env, paths.desktopMarker)
+    }
   } catch (e) {
     stop(e)
   }

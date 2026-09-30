@@ -6,7 +6,8 @@
 // and a missing chunk would surface only when someone clicked into that page. An import that
 // cannot be resolved fails the build instead. The migrations ride along as strings, because a
 // binary has no folder to read them from. The version is stamped in at build time (#335), and
-// `havefish --version` prints it without touching the data directory.
+// `havefish --version` prints it without touching the data directory. It passes its own path,
+// which the desktop entry launches (#338).
 
 import type { Migration } from '../db/sqlite/migrate'
 
@@ -45,7 +46,7 @@ export function binaryEntrySource(
     "if (process.argv.slice(2).includes('--version')) {",
     `  process.stdout.write(${JSON.stringify(`havefish ${version}\n`)})`,
     '} else {',
-    '  await launchLocal({ frontend: { files }, migrations })',
+    '  await launchLocal({ frontend: { files }, migrations, executable: process.execPath })',
     '}',
     '',
   ].join('\n')

@@ -31,6 +31,10 @@ describe('binaryEntrySource', () => {
     expect(JSON.parse(carried)).toEqual(migrations)
   })
 
+  it('hands the launcher its own path, for the desktop entry (#338)', () => {
+    expect(source).toContain('executable: process.execPath')
+  })
+
   it('answers --version with the stamped version, before it launches anything', () => {
     expect(source).toContain(`process.stdout.write("havefish ${version}\\n")`)
     const check = source.indexOf("includes('--version')")
