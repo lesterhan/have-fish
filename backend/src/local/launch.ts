@@ -18,8 +18,9 @@ import { loggedError } from '../request-log'
 import { createServer, type Frontend, hasFrontend } from '../server'
 import { dataDirFor, dataPaths, prepareDataDir, xdgDataHome } from './data-dir'
 import { installDesktopEntry } from './desktop-entry'
+import { ANSWER_TIMEOUT_MS, holderAnswers, PATIENT_TIMEOUT_MS } from './holder'
 import { mintLaunchToken, randomSecret } from './launch-token'
-import { type Claim, claimLock, type Holder } from './lockfile'
+import { type Claim, claimLock, type Holder, STARTING_GRACE_MS } from './lockfile'
 import { localLogLevel, openLogFile } from './log-file'
 
 /** The first port tried; the next few are tried after it (L01: a fixed port with a fallback). */
@@ -115,10 +116,21 @@ async function addToMenu(
   }
 }
 
-/** Waits out an instance that holds the lock but is not listening yet. */
+/** The lock, asking the instance it names whether it is there (#516). */
+const takeLock = (lockPath: string) =>
+  claimLock(lockPath, {
+    answers: (holder, patient) =>
+      holderAnswers(holder, patient ? PATIENT_TIMEOUT_MS : ANSWER_TIMEOUT_MS),
+  })
+
+/**
+ * Waits out an instance that holds the lock but is not listening yet. A little longer than a
+ * holder in another sandbox is given to start (`STARTING_GRACE_MS`), so one that crashed while
+ * starting is waited out and taken over rather than reported.
+ */
 async function awaitHolder(lockPath: string): Promise<Claim> {
-  for (let waited = 0; waited < 10_000; waited += 200) {
-    const claim = claimLock(lockPath)
+  for (let waited = 0; waited < STARTING_GRACE_MS + 5000; waited += 200) {
+    const claim = await takeLock(lockPath)
     if (claim.kind !== 'starting') return claim
     await Bun.sleep(200)
   }
@@ -157,7 +169,7 @@ export async function launchLocal(
   prepareDataDir(dir)
   const paths = dataPaths(dir)
 
-  let claim = claimLock(paths.lock)
+  let claim = await takeLock(paths.lock)
   if (claim.kind === 'starting') claim = await awaitHolder(paths.lock)
   if (claim.kind === 'running' && adopt) {
     // The running instance has the file open; swapping it underneath would lose its writes.
