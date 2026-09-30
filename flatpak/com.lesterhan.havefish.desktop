@@ -1,0 +1,12 @@
+[Desktop Entry]
+Type=Application
+Version=1.5
+Name=have-fish
+GenericName=Personal finance
+Comment=Your ledger, kept on this computer
+Exec=havefish
+Icon=com.lesterhan.havefish
+Terminal=false
+StartupNotify=false
+Categories=Office;Finance;
+Keywords=money;budget;ledger;accounts;expenses;

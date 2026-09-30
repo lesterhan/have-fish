@@ -4,12 +4,21 @@ name: Release desktop
 # are android-v*, which build-android.yml handles; the pattern below matches neither those nor
 # a mistyped tag such as v.1.1.7.
 #
-# A manual run builds and tests without publishing; the binaries stay as workflow artifacts.
+# The same binaries go into a Flatpak (#518), which is built and started in its sandbox, and a
+# tag also publishes them as a signed Flatpak repo on GitHub Pages; flatpak/README.md has the
+# rest.
+#
+# A manual run, or a pull request that touches flatpak/ or this file, builds and tests without
+# publishing; the binaries and bundles stay as workflow artifacts.
 
 on:
   push:
     tags:
       - "v[0-9]+.[0-9]+.[0-9]+*"
+  pull_request:
+    paths:
+      - "flatpak/**"
+      - ".github/workflows/release-desktop.yml"
   workflow_dispatch:
 
 permissions:
@@ -28,6 +37,8 @@ jobs:
           - target: linux-arm64
             runner: ubuntu-24.04-arm
     runs-on: ${{ matrix.runner }}
+    outputs:
+      version: ${{ steps.version.outputs.version }}
 
     steps:
       - uses: actions/checkout@v4
@@ -71,6 +82,67 @@ jobs:
         with:
           name: havefish-${{ matrix.target }}
           path: backend/dist/havefish-${{ matrix.target }}
+          if-no-files-found: error
+          retention-days: 30
+
+  flatpak:
+    name: Flatpak ${{ matrix.arch }}
+    needs: build
+    strategy:
+      matrix:
+        include:
+          - target: linux-x64
+            arch: x86_64
+            runner: ubuntu-24.04
+          - target: linux-arm64
+            arch: aarch64
+            runner: ubuntu-24.04-arm
+    runs-on: ${{ matrix.runner }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          name: havefish-${{ matrix.target }}
+          path: flatpak/build
+
+      # The manifest takes the binary from flatpak/build/havefish; an artifact loses its mode.
+      - name: Stage the binary
+        run: |
+          mv flatpak/build/havefish-${{ matrix.target }} flatpak/build/havefish
+          chmod +x flatpak/build/havefish
+
+      - name: Install Flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak flatpak-builder dbus-daemon
+          # Ubuntu 24.04 keeps unprivileged processes from making user namespaces, which bwrap
+          # needs for every build step and every run.
+          sudo sysctl -w kernel.apparmor_restrict_unprivileged_userns=0
+          flatpak remote-add --user --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+
+      - name: Build
+        run: >-
+          flatpak-builder --user --install-deps-from=flathub --disable-rofiles-fuse
+          --force-clean --repo=repo build-dir flatpak/com.lesterhan.havefish.yml
+
+      - name: Bundle
+        run: >-
+          flatpak build-bundle --runtime-repo=https://dl.flathub.org/repo/flathub.flatpakrepo
+          repo havefish-${{ matrix.arch }}.flatpak com.lesterhan.havefish stable
+
+      # Installed from the bundle and started the way the menu starts it. The runner has a
+      # system bus but no session bus, which `flatpak run` wants for the portals.
+      - name: Install it and start it
+        run: |
+          flatpak install --user --noninteractive --bundle havefish-${{ matrix.arch }}.flatpak
+          dbus-run-session -- flatpak/smoke.sh "${{ needs.build.outputs.version }}"
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: havefish-flatpak-${{ matrix.arch }}
+          path: havefish-${{ matrix.arch }}.flatpak
           if-no-files-found: error
           retention-days: 30
 
@@ -119,6 +191,13 @@ jobs:
           chmod +x havefish-linux-x64
           ./havefish-linux-x64
           \`\`\`
+
+          Or install it as a Flatpak, which keeps its data in \`~/.var/app/com.lesterhan.havefish\`
+          and updates with your other Flatpaks:
+
+          \`\`\`sh
+          flatpak install --user https://${REPO%%/*}.github.io/${REPO#*/}/havefish.flatpakref
+          \`\`\`
           EOF
 
       - name: Create the GitHub Release
@@ -135,3 +214,64 @@ jobs:
             dist/havefish-linux-x64
             dist/havefish-linux-arm64
             dist/SHA256SUMS
+
+  pages:
+    name: Publish the Flatpak repo
+    needs: flatpak
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    # One deployment at a time: two tags pushed together publish in turn.
+    concurrency:
+      group: pages
+      cancel-in-progress: false
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: havefish-flatpak-*
+          merge-multiple: true
+          path: bundles
+
+      - name: Install Flatpak
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y flatpak ostree
+
+      # The key from have-fish-ops/process/credentials.md. The fingerprint is public and pinned
+      # here, so a secret replaced by the wrong key fails the release instead of signing it.
+      - name: Import the signing key
+        env:
+          FLATPAK_GPG_PRIVATE_KEY: ${{ secrets.FLATPAK_GPG_PRIVATE_KEY }}
+        run: |
+          if [ -z "$FLATPAK_GPG_PRIVATE_KEY" ]; then
+            echo "::error::the FLATPAK_GPG_PRIVATE_KEY secret is not set"
+            exit 1
+          fi
+          export GNUPGHOME="$RUNNER_TEMP/gnupg"
+          install -d -m 700 "$GNUPGHOME"
+          printf '%s\n' "$FLATPAK_GPG_PRIVATE_KEY" | gpg --batch --import
+          echo "GNUPGHOME=$GNUPGHOME" >> "$GITHUB_ENV"
+
+      - id: pages
+        uses: actions/configure-pages@v5
+
+      - name: Build the repo
+        run: >-
+          flatpak/publish.sh site "${{ steps.pages.outputs.base_url }}"
+          1C9FC3BBD1CC51727C93015E357DB4E7B71F625A bundles/*.flatpak
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+
+      - id: deploy
+        uses: actions/deploy-pages@v4
