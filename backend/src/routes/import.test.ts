@@ -1893,3 +1893,161 @@ describe("POST /api/import/commit — another user's accounts", () => {
     expect(res.status).toBe(404)
   })
 })
+
+describe('POST /api/import/commit — a row missing what its kind needs (#434, #458)', () => {
+  let cookie: string
+  let ids: Record<'source' | 'target' | 'offset' | 'conversion' | 'fee' | 'expense', string>
+
+  beforeEach(async () => {
+    await clearDatabase()
+    cookie = await createTestUser()
+    ids = {
+      source: (await createAccount(cookie, 'assets:bank:usd')).id,
+      target: (await createAccount(cookie, 'assets:bank:eur')).id,
+      offset: (await accountAt(cookie, 'expenses:uncategorized')).id,
+      conversion: (await accountAt(cookie, 'equity:conversions')).id,
+      fee: (await createAccount(cookie, 'expenses:fees')).id,
+      expense: (await createAccount(cookie, 'expenses:food')).id,
+    }
+  })
+
+  const date = new Date('2026-05-31').toISOString()
+
+  /** A complete row of each kind, which commits; each test takes one field away. */
+  type Kind = 'regular' | 'transfer' | 'cross-currency-spend' | 'same-currency-transfer'
+  const complete = (): Record<Kind, Record<string, unknown>> => ({
+    regular: {
+      isTransfer: false,
+      date,
+      amount: '-12.00',
+      currency: 'USD',
+      offsetAccountId: ids.offset,
+    },
+    transfer: {
+      isTransfer: true,
+      date,
+      sourceAmount: '-100.00',
+      sourceCurrency: 'USD',
+      targetAmount: '90.00',
+      targetCurrency: 'EUR',
+      feeAmount: '1.00',
+      sourceAccountId: ids.source,
+      targetAccountId: ids.target,
+      conversionAccountId: ids.conversion,
+      feeAccountId: ids.fee,
+    },
+    'cross-currency-spend': {
+      isTransfer: 'cross-currency-spend',
+      date,
+      sourceAmount: '-20.00',
+      sourceCurrency: 'USD',
+      targetAmount: '400.00',
+      targetCurrency: 'CZK',
+      sourceAccountId: ids.source,
+      expenseAccountId: ids.expense,
+      conversionAccountId: ids.conversion,
+    },
+    'same-currency-transfer': {
+      isTransfer: 'same-currency',
+      date,
+      amount: '99.00',
+      feeAmount: '1.00',
+      currency: 'USD',
+      targetAccountId: ids.source,
+      sourceAccountId: ids.offset,
+      feeAccountId: ids.fee,
+    },
+  })
+
+  /** Commits a good row, then `row`, so the one refused is the request's second. */
+  async function commit(row: Record<string, unknown>) {
+    return request('/api/import/commit', {
+      method: 'POST',
+      headers: { Cookie: cookie, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        accountId: ids.source,
+        defaultCurrency: 'USD',
+        transactions: [complete().regular, row],
+      }),
+    })
+  }
+
+  async function postingCount() {
+    return (await db.select({ id: postings.id }).from(postings)).length
+  }
+
+  it('commits each complete row, so the refusals below are about the field alone', async () => {
+    for (const row of Object.values(complete())) {
+      const res = await commit(row)
+      expect(res.status).toBe(201)
+    }
+  })
+
+  const required: [Kind, string][] = [
+    ['regular', 'amount'],
+    ['transfer', 'sourceAmount'],
+    ['transfer', 'sourceCurrency'],
+    ['transfer', 'targetAmount'],
+    ['transfer', 'targetCurrency'],
+    ['cross-currency-spend', 'sourceAmount'],
+    ['cross-currency-spend', 'sourceCurrency'],
+    ['cross-currency-spend', 'targetAmount'],
+    ['cross-currency-spend', 'targetCurrency'],
+    ['same-currency-transfer', 'amount'],
+    ['same-currency-transfer', 'feeAmount'],
+    ['same-currency-transfer', 'currency'],
+  ]
+
+  for (const [rowKind, field] of required) {
+    for (const [how, value] of [
+      ['without', undefined],
+      ['with an empty', ''],
+    ] as const) {
+      it(`refuses a ${rowKind} row ${how} ${field}, naming the row, and writes nothing`, async () => {
+        const row = { ...complete()[rowKind], [field]: value }
+
+        const res = await commit(row)
+
+        expect(res.status).toBe(400)
+        expect(await res.json()).toEqual({
+          error: 'IMPORT_ROW_MISSING_VALUE',
+          detail: { rowKind, field, index: 1 },
+        })
+        expect(await postingCount()).toBe(0)
+      })
+    }
+  }
+
+  it('lets a regular row leave out its currency, which the import supplies', async () => {
+    const { currency: _, ...row } = complete().regular as { currency: string }
+    expect((await commit(row)).status).toBe(201)
+  })
+
+  it('lets a transfer leave out its fee', async () => {
+    const { feeAmount: _, ...noFee } = complete().transfer as { feeAmount: string }
+    expect((await commit(noFee)).status).toBe(201)
+  })
+
+  it('refuses a regular row whose source account is empty, rather than posting it to the import account (#458)', async () => {
+    const row = { ...complete().regular, currency: 'EUR', sourceAccountId: '' }
+
+    const res = await commit(row)
+
+    expect(res.status).toBe(400)
+    expect(await res.json()).toEqual({
+      error: 'IMPORT_ROW_MISSING_ACCOUNT',
+      detail: { rowKind: 'regular', field: 'sourceAccountId' },
+    })
+    expect(await postingCount()).toBe(0)
+  })
+
+  it('still posts a regular row that names no source to the import account', async () => {
+    const res = await commit(complete().regular)
+    expect(res.status).toBe(201)
+    const legs = await db
+      .select({ accountId: postings.accountId })
+      .from(postings)
+      .where(eq(postings.accountId, ids.source))
+    expect(legs).toHaveLength(2)
+  })
+})

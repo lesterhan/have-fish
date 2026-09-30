@@ -114,6 +114,7 @@ export const ERROR_STATUS = {
   PARSER_NOT_FOUND: 404,
   PARSER_MAPPING_INCOMPLETE: 400,
   IMPORT_ROW_MISSING_ACCOUNT: 400,
+  IMPORT_ROW_MISSING_VALUE: 400,
   GROUP_SPLIT_MALFORMED: 400,
   GROUP_SPLIT_ROW_OUT_OF_RANGE: 400,
 
@@ -232,6 +233,8 @@ export interface ErrorDetails {
   HEAL_WOULD_UNBALANCE: { currency: string; sum: number }
 
   IMPORT_ROW_MISSING_ACCOUNT: { rowKind: ImportRowKind; field: string }
+  /** `field` is the amount or currency; `index` the row's position in the request. */
+  IMPORT_ROW_MISSING_VALUE: { rowKind: ImportRowKind; field: string; index: number }
   GROUP_SPLIT_ROW_OUT_OF_RANGE: { rowIndex: number }
   GROUP_NOT_FOUND: { groupId?: string }
   NOT_A_GROUP_MEMBER: { groupId?: string }

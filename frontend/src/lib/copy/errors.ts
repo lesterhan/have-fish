@@ -136,6 +136,20 @@ const IMPORT_ROW_ACCOUNTS: Record<string, Record<string, string>> = {
   },
 }
 
+/**
+ * Why an imported row cannot be built, by the amount or currency it is missing (#434). The
+ * row is numbered from one, as the review lists it.
+ */
+const IMPORT_ROW_VALUES: Record<string, (row: number) => string> = {
+  amount: (row) => `Row ${row} has no amount.`,
+  sourceAmount: (row) => `Row ${row} does not say how much money left.`,
+  targetAmount: (row) => `Row ${row} does not say how much money arrived.`,
+  feeAmount: (row) => `Row ${row} has no fee amount. A transfer with no fee says 0.`,
+  currency: (row) => `Row ${row} has no currency.`,
+  sourceCurrency: (row) => `Row ${row} does not say which currency the money left in.`,
+  targetCurrency: (row) => `Row ${row} does not say which currency the money arrived in.`,
+}
+
 export const errorsCopy = {
   UNAUTHORIZED: 'Your session has ended. Sign in again.',
 
@@ -261,6 +275,8 @@ export const errorsCopy = {
   PARSER_MAPPING_INCOMPLETE: 'A parser needs at least a date column and an amount column.',
   IMPORT_ROW_MISSING_ACCOUNT: ({ rowKind, field }: { rowKind: string; field: string }) =>
     IMPORT_ROW_ACCOUNTS[rowKind]?.[field] ?? `This row still needs ${nameOf(field)}.`,
+  IMPORT_ROW_MISSING_VALUE: ({ field, index }: { rowKind: string; field: string; index: number }) =>
+    IMPORT_ROW_VALUES[field]?.(index + 1) ?? `Row ${index + 1} still needs ${nameOf(field)}.`,
   GROUP_SPLIT_MALFORMED: 'A split has to say which row it is for and which group it goes to.',
   GROUP_SPLIT_ROW_OUT_OF_RANGE: ({ rowIndex }: { rowIndex: number }) =>
     `A split points at row ${rowIndex + 1}, which is not in this file.`,
