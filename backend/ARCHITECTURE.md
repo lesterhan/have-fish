@@ -274,7 +274,10 @@ path whose key is taken, and one that spells an existing tree node differently
 (`pathTakenBy`): with `assets:wise` there, `assets:Wise:eur` would be a second subtree on
 screen but the same one to a query by key. A partial unique index on
 `(user_id, path_key) WHERE deleted_at IS NULL` backs the first rule; the second is the
-service's alone, and `bun run check:account-paths` checks a database against both.
+service's alone, and `bun run check:account-paths` checks a database against both. Two
+creates of one path at once can both pass the check; create catches the index refusing the
+second (`isUniqueViolation` in `db/unique-violation.ts`) and answers `ACCOUNT_PATH_TAKEN`,
+not a 500 (#433).
 
 **`transactions.ts`** — `/api/transactions` (235 lines). Writes go through
 `ledger/write-service` and reads through `ledger/read-service`; the handlers parse and

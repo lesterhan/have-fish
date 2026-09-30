@@ -5,6 +5,7 @@ import { and, count, eq, isNull } from 'drizzle-orm'
 import { db } from '../db'
 import { returnedRow } from '../db/returning'
 import { accounts, postings, transactions, userSettings } from '../db/schema'
+import { isUniqueViolation } from '../db/unique-violation'
 import { errorBody, type Outcome } from '../errors'
 import {
   type AccountTypeContext,
@@ -83,22 +84,38 @@ export async function createAccount(
   if (isClearingAccountPath(fields.path)) {
     return { ok: false, failure: errorBody('RECEIVABLE_NOT_CREATABLE') }
   }
+  const taken = await takenBy(userId, fields.path)
+  if (taken !== undefined) {
+    return { ok: false, failure: errorBody('ACCOUNT_PATH_TAKEN', { path: taken }) }
+  }
+  try {
+    const created = await db
+      .insert(accounts)
+      .values({ ...fields, userId, pathKey: pathKey(fields.path) })
+      .returning()
+    return { ok: true, value: returnedRow(created, 'insert accounts') }
+  } catch (err) {
+    // Another request created the same path between the check and the insert (#433), and the
+    // unique index on (user_id, path_key) refused this one. That is the check's answer, late.
+    if (!isUniqueViolation(err)) throw err
+    const winner = await takenBy(userId, fields.path)
+    return {
+      ok: false,
+      failure: errorBody('ACCOUNT_PATH_TAKEN', { path: winner ?? fields.path }),
+    }
+  }
+}
+
+/** The spelling of an active path of this user's that `path` collides with, if one does. */
+async function takenBy(userId: string, path: string): Promise<string | undefined> {
   const existing = await db
     .select({ path: accounts.path })
     .from(accounts)
     .where(and(eq(accounts.userId, userId), isNull(accounts.deletedAt)))
-  const taken = pathTakenBy(
+  return pathTakenBy(
     existing.map((a) => a.path),
-    fields.path,
+    path,
   )
-  if (taken !== undefined) {
-    return { ok: false, failure: errorBody('ACCOUNT_PATH_TAKEN', { path: taken }) }
-  }
-  const created = await db
-    .insert(accounts)
-    .values({ ...fields, userId, pathKey: pathKey(fields.path) })
-    .returning()
-  return { ok: true, value: returnedRow(created, 'insert accounts') }
 }
 
 /**

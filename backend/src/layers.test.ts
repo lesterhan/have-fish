@@ -67,6 +67,7 @@ const INFRASTRUCTURE: Record<string, string> = {
   'db/sqlite/migrate.ts': 'bringing a SQLite database file up to the current schema',
   'db/sqlite/files.ts': 'copying a SQLite ledger file and checking one before it is opened',
   'db/returning.ts': "reading a statement's returned row",
+  'db/unique-violation.ts': 'recognising a unique index refusing a row, on either driver',
   'fx/rate-source.ts': 'the one outbound fetch, so it has one function to stub',
 }
 
