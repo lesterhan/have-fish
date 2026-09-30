@@ -18,6 +18,8 @@ type LocalEdgeOptions = {
   launchKey: string
   /** The local profile's user: every request with a session is this user. */
   user: LocalUser
+  /** Stops the app the way SIGINT does (#511). Called once the answer to the request is sent. */
+  quit: () => void
 }
 
 /**
@@ -25,7 +27,7 @@ type LocalEdgeOptions = {
  * only by redeeming a launch token, and every session is the local profile. No CORS headers
  * at all, so a page on another origin cannot read an answer even when it can send a request.
  */
-export function localEdge({ port, launchKey, user }: LocalEdgeOptions): Edge {
+export function localEdge({ port, launchKey, user, quit }: LocalEdgeOptions): Edge {
   const host = `127.0.0.1:${port}`
   const origin = `http://${host}`
   const cookieValue = randomSecret()
@@ -65,7 +67,7 @@ export function localEdge({ port, launchKey, user }: LocalEdgeOptions): Edge {
       return next()
     },
 
-    mountOpenRoutes: (app) => {
+    mountRoutes: (app) => {
       // POST /api/local/session — trade a launch token for the session cookie. `SameSite=Strict`
       // keeps the cookie off any request another site starts; `HttpOnly` keeps it from script.
       app.post('/api/local/session', async (c) => {
@@ -96,6 +98,14 @@ export function localEdge({ port, launchKey, user }: LocalEdgeOptions): Edge {
           },
           user,
         })
+      })
+
+      // POST /api/local/quit — the titlebar's Quit (#511). Not open: `authenticate` runs first,
+      // and the guard above has already turned away any page but this app's. The stop starts
+      // after this answer is on its way; it lets requests in flight, this one among them, finish.
+      app.post('/api/local/quit', (c) => {
+        setTimeout(quit, 0)
+        return c.body(null, 202)
       })
     },
   }

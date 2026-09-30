@@ -56,3 +56,12 @@ export async function redeemLaunchToken(): Promise<void> {
     body: JSON.stringify({ token }),
   }).catch(() => undefined)
 }
+
+/**
+ * Asks the local build to stop, the way Ctrl-C does (#511). True once it has agreed: the
+ * process goes a moment later, and this page is all that is left of the app.
+ */
+export async function quitLocalApp(): Promise<boolean> {
+  const res = await fetch('/api/local/quit', { method: 'POST' }).catch(() => null)
+  return res?.status === 202
+}

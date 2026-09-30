@@ -17,11 +17,17 @@ const KEY = randomSecret()
 
 let app: Hono<AppEnv>
 let me: LocalUser
+/** How many times the app asked the launcher to stop. */
+let quits: number
 
 beforeEach(async () => {
   await clearDatabase()
   me = await ensureLocalProfile()
-  app = buildApp(localEdge({ port: PORT, launchKey: KEY, user: me }))
+  quits = 0
+  const quit = () => {
+    quits += 1
+  }
+  app = buildApp(localEdge({ port: PORT, launchKey: KEY, user: me, quit }))
 })
 
 async function send(path: string, init: RequestInit = {}, origin = ORIGIN): Promise<Response> {
@@ -152,6 +158,40 @@ describe('a request to the local app', () => {
     const cookie = await signIn()
     const res = await send('/api/accounts', { headers: { Cookie: cookie } })
     expect([...res.headers.keys()].filter((h) => h.startsWith('access-control-'))).toEqual([])
+  })
+})
+
+describe('quitting from the app (#511)', () => {
+  const quit = (headers: Record<string, string> = {}) =>
+    send('/api/local/quit', { method: 'POST', headers })
+
+  it('answers, and only then asks the launcher to stop', async () => {
+    const res = await quit({ Cookie: await signIn() })
+    expect(res.status).toBe(202)
+    // Not yet: the answer has to leave before the server that sends it goes.
+    expect(quits).toBe(0)
+    await Bun.sleep(10)
+    expect(quits).toBe(1)
+  })
+
+  it('is not open: without the session nothing stops', async () => {
+    expect((await quit()).status).toBe(401)
+    expect((await quit({ Cookie: `${LOCAL_SESSION_COOKIE}=${randomSecret()}` })).status).toBe(401)
+    await Bun.sleep(10)
+    expect(quits).toBe(0)
+  })
+
+  it('cannot be sent by another page, even one the browser would send the cookie from', async () => {
+    const cookie = await signIn()
+    for (const headers of [
+      { Cookie: cookie, 'Sec-Fetch-Site': 'cross-site' },
+      { Cookie: cookie, 'Sec-Fetch-Site': 'same-site' },
+      { Cookie: cookie, Origin: 'http://evil.example' },
+    ]) {
+      expect((await quit(headers)).status).toBe(403)
+    }
+    await Bun.sleep(10)
+    expect(quits).toBe(0)
   })
 })
 

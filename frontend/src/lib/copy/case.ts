@@ -22,6 +22,8 @@ export const caseCopy = {
     openMenu: 'Open menu',
     maximize: 'Maximize',
     signOut: 'Sign out',
+    /** The same button in the local build, where there is no one to sign out (#511). */
+    quit: 'Quit have-fish',
   },
 
   signOut: {
@@ -29,6 +31,18 @@ export const caseCopy = {
     busy: 'Signing out…',
     question: 'Sign out of have-fish?',
     warning: 'Any unsaved entry on this page will be lost.',
+  },
+
+  quit: {
+    confirm: 'Quit',
+    busy: 'Quitting…',
+    question: 'Quit have-fish?',
+    warning:
+      'Any unsaved entry on this page will be lost. Everything saved stays on this computer.',
+    failed: 'have-fish did not quit. Try again, or close the terminal it runs in.',
+    /** What the tab says once the app behind it has gone: a script cannot close the tab. */
+    stoppedTitle: 'have-fish has quit',
+    stoppedBody: 'You can close this tab. Open have-fish again to pick up where you left off.',
   },
 
   accent: {

@@ -25,7 +25,7 @@ export const serverEdge: Edge = {
   },
 
   // Better Auth handles all /api/auth/** routes (sign-in, sign-up, sign-out, session, etc.)
-  mountOpenRoutes: (app) => {
+  mountRoutes: (app) => {
     app.on(['GET', 'POST'], '/api/auth/*', (c) => auth.handler(c.req.raw))
   },
 }

@@ -48,8 +48,11 @@ export type Edge = {
   isOpen(path: string): boolean
   /** Sets `userId` for a request that carries a session, or answers 401. */
   authenticate: MiddlewareHandler<AppEnv>
-  /** Mounts the open routes `isOpen` lets through. */
-  mountOpenRoutes(app: Hono<AppEnv>): void
+  /**
+   * Mounts the edge's own routes: the open ones `isOpen` lets through, and any behind a
+   * session that only this build has (the local build's quit).
+   */
+  mountRoutes(app: Hono<AppEnv>): void
 }
 
 export function buildApp(edge: Edge): Hono<AppEnv> {
@@ -73,7 +76,7 @@ export function buildApp(edge: Edge): Hono<AppEnv> {
 
   app.get('/api/capabilities', (c) => c.json(edge.capabilities))
 
-  edge.mountOpenRoutes(app)
+  edge.mountRoutes(app)
 
   // Registered before accountsRoute so /api/accounts/:id/coverage resolves here rather than
   // falling into the account detail handler.
