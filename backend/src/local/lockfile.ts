@@ -24,8 +24,11 @@ import {
 } from 'node:fs'
 import { randomSecret } from './launch-token'
 
-/** What a running instance publishes for the next launch. */
-export type Holder = { pid: number; port: number; launchKey: string }
+/**
+ * What a running instance publishes for the next launch. `version` is the build's own, when
+ * it has one, so a newer launch can replace an older instance rather than hand over (#517).
+ */
+export type Holder = { pid: number; port: number; launchKey: string; version?: string }
 
 /**
  * The file itself: the holder, once it has published, plus what only the lock uses. `claim` is
@@ -110,6 +113,14 @@ function ageMs(path: string): number {
   }
 }
 
+/**
+ * Whether the lock still belongs to the instance that published `holder`: an instance asked to
+ * quit holds it until its database is closed, and a newer launch waits for that (#517).
+ */
+export function heldBy(path: string, holder: Pick<Holder, 'launchKey'>): boolean {
+  return read(path)?.launchKey === holder.launchKey
+}
+
 export async function claimLock(path: string, check: HolderCheck): Promise<Claim> {
   const alive = check.alive ?? processAlive
   const namespace = 'namespace' in check ? check.namespace : pidNamespace()
@@ -125,7 +136,8 @@ export async function claimLock(path: string, check: HolderCheck): Promise<Claim
       if ((e as NodeJS.ErrnoException).code !== 'EEXIST') throw e
       const found = read(path)
       if (published(found)) {
-        const holder = { pid: found.pid, port: found.port, launchKey: found.launchKey }
+        const holder: Holder = { pid: found.pid, port: found.port, launchKey: found.launchKey }
+        if (typeof found.version === 'string') holder.version = found.version
         if (await check.answers(holder, false)) return { kind: 'running', holder }
         // Its pid is still there, so it may only be busy, or the pid may be someone else's
         // since a reboot. It gets longer to answer, and silence after that means gone.

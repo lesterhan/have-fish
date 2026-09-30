@@ -164,6 +164,15 @@ mode. In order:
    not published yet is looked up by pid only from its own namespace (`pidNs` in the lock),
    and from anywhere else is given 30 s to start. Each claim writes a random id, and release
    removes the lock only while that id is still in it.
+
+   A holder also publishes its `version` (`PUBLIC_VERSION`, stamped by a release build). A
+   launch that is a newer release than the holder does not hand over: it asks the holder to
+   quit through the same session and `POST /api/local/quit` the titlebar uses (#517), waits
+   for the lock to leave the old holder's hands, then starts as usual, migrating with a backup
+   first. So an update takes effect the next time the app is opened. An older or equal
+   release hands over; a build with no release version (`bun run local`, `dev`) neither
+   replaces nor is replaced. A tab left open on the old instance finds itself signed out on
+   its next request and says to start have-fish again.
 3. The logger leaves stdout for `havefish.log` (`local/log-file.ts`, #492): `0600`, written
    synchronously, at `info` unless `LOG_LEVEL` says otherwise, with the same allowlist and
    redaction as the server. At each start a log past 5 MB becomes `havefish.log.1`, replacing

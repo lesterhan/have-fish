@@ -17,7 +17,7 @@ import { join } from 'node:path'
 import { createClient } from '@libsql/client'
 import type { Subprocess } from 'bun'
 import { migrateSqliteFile, readMigrations } from '../db/sqlite/migrate'
-import { launchUrl, listenOnFreePort, readLaunchArgs } from './launch'
+import { launchUrl, listenOnFreePort, readLaunchArgs, supersedes } from './launch'
 import { pidNamespace } from './lockfile'
 
 const BACKEND = join(import.meta.dir, '../..')
@@ -69,6 +69,30 @@ describe('readLaunchArgs', () => {
   })
 })
 
+describe('supersedes', () => {
+  it('replaces an older release with a newer one, and nothing else', () => {
+    expect(supersedes('0.2.0', '0.1.0')).toBe(true)
+    expect(supersedes('0.10.0', '0.9.3')).toBe(true)
+    expect(supersedes('0.2.0', '0.2.0-rc.1')).toBe(true)
+    expect(supersedes('0.2.0-rc.2', '0.2.0-rc.1')).toBe(true)
+    expect(supersedes('0.1.0', '0.1.0')).toBe(false)
+    expect(supersedes('0.1.0', '0.2.0')).toBe(false)
+  })
+
+  it('leaves an unversioned build alone, either way round', () => {
+    for (const [mine, theirs] of [
+      ['dev', '0.1.0'],
+      ['0.2.0', 'dev'],
+      [undefined, '0.1.0'],
+      ['0.2.0', undefined],
+      ['v0.2.0', '0.1.0'],
+      ['0.2', '0.1.0'],
+    ] as const) {
+      expect(supersedes(mine, theirs)).toBe(false)
+    }
+  })
+})
+
 describe('HAVEFISH_MODE=local', () => {
   const root = mkdtempSync(join(tmpdir(), 'havefish-launch-'))
   const data = join(root, 'data')
@@ -85,6 +109,7 @@ describe('HAVEFISH_MODE=local', () => {
     conditions: string[] = ['--conditions=sqlite'],
     args: string[] = [],
     inside: string[] = [],
+    extraEnv: Record<string, string> = {},
   ) {
     mkdirSync(site, { recursive: true })
     writeFileSync(join(site, 'index.html'), '<!doctype html><title>have-fish</title>')
@@ -100,6 +125,7 @@ describe('HAVEFISH_MODE=local', () => {
         HAVEFISH_STATIC_ROOT: site,
         // What a person gets by default, so the log file below is the one they would have.
         LOG_LEVEL: 'info',
+        ...extraEnv,
       },
       stdout: 'pipe',
       stderr: 'pipe',
@@ -107,6 +133,9 @@ describe('HAVEFISH_MODE=local', () => {
     children.push(child)
     return child
   }
+
+  /** What the last `linkFrom` read from the terminal, up to and including the link. */
+  let printed = ''
 
   /** Reads the child's terminal until it prints the link, and returns it. */
   async function linkFrom(child: Subprocess<'ignore', 'pipe', 'pipe'>): Promise<URL> {
@@ -121,6 +150,7 @@ describe('HAVEFISH_MODE=local', () => {
       const link = seen.match(/http:\/\/127\.0\.0\.1:\d+\/#token=\S+/)
       if (link) {
         reader.releaseLock()
+        printed = seen
         return new URL(link[0])
       }
     }
@@ -354,9 +384,43 @@ describe('HAVEFISH_MODE=local', () => {
     60_000,
   )
 
-  function contentsOfLock(): { pid: number } {
+  function contentsOfLock(): { pid: number; version?: string } {
     return JSON.parse(readFileSync(join(data, 'havefish.lock'), 'utf8')) as { pid: number }
   }
+
+  it('replaces an older release that is still running, and nothing else (#517)', async () => {
+    const older = launch(undefined, [], [], { PUBLIC_VERSION: '0.1.0' })
+    const olderLink = await linkFrom(older)
+    expect(contentsOfLock().version).toBe('0.1.0')
+
+    // The update: a newer build opened from the menu while the old one is still up.
+    const newer = launch(undefined, [], [], { PUBLIC_VERSION: '0.2.0' })
+    const newerLink = await linkFrom(newer)
+    expect(printed).toContain('have-fish 0.2.0 replaced 0.1.0, which was still running')
+    expect(await older.exited).toBe(0)
+    expect(newer.exitCode).toBeNull()
+    expect(contentsOfLock().version).toBe('0.2.0')
+    expect(newerLink.origin).toBe(olderLink.origin)
+    const cookie = await open(newerLink)
+
+    // An older build, and one with no version at all, hand over to it as before.
+    for (const env of [{ PUBLIC_VERSION: '0.1.0' }, {}]) {
+      const later = launch(undefined, [], [], env)
+      const link = await linkFrom(later)
+      expect(await later.exited).toBe(0)
+      expect(link.origin).toBe(newerLink.origin)
+      expect(printed).not.toContain('replaced')
+    }
+    expect(newer.exitCode).toBeNull()
+
+    const quit = await fetch(`${newerLink.origin}/api/local/quit`, {
+      method: 'POST',
+      headers: { Cookie: cookie },
+    })
+    expect(quit.status).toBe(202)
+    expect(await newer.exited).toBe(0)
+    expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
+  }, 60_000)
 
   it('refuses to start from the Postgres build', async () => {
     const pg = launch([])

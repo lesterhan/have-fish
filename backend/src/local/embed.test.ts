@@ -35,6 +35,10 @@ describe('binaryEntrySource', () => {
     expect(source).toContain('executable: process.execPath')
   })
 
+  it('hands the launcher its version, for replacing an older instance (#517)', () => {
+    expect(source).toContain(`version: "${version}"`)
+  })
+
   it('answers --version with the stamped version, before it launches anything', () => {
     expect(source).toContain(`process.stdout.write("havefish ${version}\\n")`)
     const check = source.indexOf("includes('--version')")

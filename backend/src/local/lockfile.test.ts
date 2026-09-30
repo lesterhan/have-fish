@@ -13,6 +13,7 @@ import { join } from 'node:path'
 import {
   claimLock,
   type HolderCheck,
+  heldBy,
   pidNamespace,
   processAlive,
   STARTING_GRACE_MS,
@@ -167,6 +168,19 @@ describe('the single-instance lock', () => {
     writeFileSync(lock, JSON.stringify({ ...holder, pid: process.pid, claim: 'someone else' }))
     again.release()
     expect(existsSync(lock)).toBe(true)
+  })
+})
+
+describe('heldBy', () => {
+  it('says whether the lock still names the instance that published this key', async () => {
+    const claim = await claimLock(lock, check({}))
+    if (claim.kind !== 'claimed') throw new Error('did not get the lock')
+    claim.publish({ ...holder, version: '0.1.0' })
+    expect(contents().version).toBe('0.1.0')
+    expect(heldBy(lock, holder)).toBe(true)
+    expect(heldBy(lock, { launchKey: 'another' })).toBe(false)
+    claim.release()
+    expect(heldBy(lock, holder)).toBe(false)
   })
 })
 

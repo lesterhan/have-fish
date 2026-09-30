@@ -25,7 +25,10 @@ async function serverEntry() {
 
 if (mode === 'local') {
   const { launchLocal } = await import('./local/launch')
-  await launchLocal({ frontend: { root: STATIC_ROOT } })
+  // PUBLIC_VERSION is the variable a release build stamps (#335). A plain `bun run local` has
+  // none, so it neither replaces an installed instance nor is replaced by one (#517).
+  const version = process.env.PUBLIC_VERSION
+  await launchLocal({ frontend: { root: STATIC_ROOT }, ...(version ? { version } : {}) })
 }
 
 export default mode === 'server' ? await serverEntry() : undefined

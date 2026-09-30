@@ -18,9 +18,9 @@ import { loggedError } from '../request-log'
 import { createServer, type Frontend, hasFrontend } from '../server'
 import { dataDirFor, dataPaths, prepareDataDir, xdgDataHome } from './data-dir'
 import { installDesktopEntry } from './desktop-entry'
-import { ANSWER_TIMEOUT_MS, holderAnswers, PATIENT_TIMEOUT_MS } from './holder'
+import { ANSWER_TIMEOUT_MS, askToQuit, holderAnswers, PATIENT_TIMEOUT_MS } from './holder'
 import { mintLaunchToken, randomSecret } from './launch-token'
-import { type Claim, claimLock, type Holder, STARTING_GRACE_MS } from './lockfile'
+import { type Claim, claimLock, type Holder, heldBy, STARTING_GRACE_MS } from './lockfile'
 import { localLogLevel, openLogFile } from './log-file'
 
 /** The first port tried; the next few are tried after it (L01: a fixed port with a fallback). */
@@ -137,6 +137,36 @@ async function awaitHolder(lockPath: string): Promise<Claim> {
   throw new Error(`another have-fish is starting and has not finished; see ${lockPath}`)
 }
 
+/** A version a release stamps: `0.2.0`, `0.2.0-rc.1`. `dev` and anything else is not one. */
+const RELEASE = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/
+
+/**
+ * Whether a build at `mine` should replace a running instance at `theirs` (#517): only when
+ * both are releases and `mine` is the newer. An unversioned build never replaces anything and
+ * is never replaced, so a development run and an installed one leave each other alone.
+ */
+export function supersedes(mine: string | undefined, theirs: string | undefined): boolean {
+  if (!mine || !theirs || !RELEASE.test(mine) || !RELEASE.test(theirs)) return false
+  return Bun.semver.order(mine, theirs) === 1
+}
+
+/** How long an older instance gets to fold its WAL back and let go of the lock. */
+const REPLACE_WAIT_MS = 10_000
+
+/**
+ * Stops an older build that is still running, and takes the lock it lets go of (#517). The
+ * wait is for the lock itself, not for the port to go quiet: the old instance stops listening
+ * first and closes the database after, and only then is the file this launch's to open. If it
+ * will not stop, the claim comes back as it was and this launch hands over, as it always has.
+ */
+async function replaceOlder(lockPath: string, holder: Holder): Promise<Claim> {
+  if (!(await askToQuit(holder))) return { kind: 'running', holder }
+  for (let waited = 0; waited < REPLACE_WAIT_MS && heldBy(lockPath, holder); waited += 100) {
+    await Bun.sleep(100)
+  }
+  return takeLock(lockPath)
+}
+
 export type LocalBundle = {
   frontend: Frontend
   /** The binary's own; `bun run local` reads them from `drizzle/sqlite` instead. */
@@ -146,6 +176,8 @@ export type LocalBundle = {
    * file to launch, so it passes none and nothing is added to the menu.
    */
   executable?: string
+  /** The release this build is, which `supersedes` compares; none for a development run. */
+  version?: string
 }
 
 /** What the command line can ask for: `--adopt <file>` makes that ledger this install's (#289). */
@@ -177,6 +209,14 @@ export async function launchLocal(
     process.exitCode = 1
     return
   }
+  // A newer build replaces an older one still running, so an update takes effect when the app
+  // is next opened rather than when someone finds Quit (#517).
+  let replaced: string | undefined
+  if (claim.kind === 'running' && supersedes(bundle.version, claim.holder.version)) {
+    const older = claim.holder.version
+    claim = await replaceOlder(paths.lock, claim.holder)
+    if (claim.kind === 'claimed') replaced = older
+  }
   if (claim.kind === 'running') {
     // A second launch opens a window on the first rather than starting again.
     const url = launchUrl(claim.holder)
@@ -193,6 +233,12 @@ export async function launchLocal(
   const stop = (e: unknown) => stopOn(e, paths.log, lock.release)
   process.on('uncaughtException', stop)
   process.on('unhandledRejection', stop)
+  if (replaced) {
+    log.info({ from: replaced, to: bundle.version }, 'replaced an older instance')
+    process.stdout.write(
+      `have-fish ${bundle.version} replaced ${replaced}, which was still running\n`,
+    )
+  }
 
   try {
     if (adopt) {
@@ -282,7 +328,12 @@ export async function launchLocal(
     const edge = localEdge({ port, launchKey, user, quit: () => void quit() })
     handle = (await createServer(buildApp(edge), bundle.frontend)).fetch
 
-    lock.publish({ pid: process.pid, port, launchKey })
+    lock.publish({
+      pid: process.pid,
+      port,
+      launchKey,
+      ...(bundle.version ? { version: bundle.version } : {}),
+    })
     log.info({ port, dataDir: dir }, 'local app listening')
 
     const url = launchUrl({ port, launchKey })

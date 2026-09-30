@@ -7,7 +7,8 @@
 // cannot be resolved fails the build instead. The migrations ride along as strings, because a
 // binary has no folder to read them from. The version is stamped in at build time (#335), and
 // `havefish --version` prints it without touching the data directory. It passes its own path,
-// which the desktop entry launches (#338).
+// which the desktop entry launches (#338), and its version, which the lockfile carries so a
+// newer release replaces an older one still running (#517).
 
 import type { Migration } from '../db/sqlite/migrate'
 
@@ -46,7 +47,7 @@ export function binaryEntrySource(
     "if (process.argv.slice(2).includes('--version')) {",
     `  process.stdout.write(${JSON.stringify(`havefish ${version}\n`)})`,
     '} else {',
-    '  await launchLocal({ frontend: { files }, migrations, executable: process.execPath })',
+    `  await launchLocal({ frontend: { files }, migrations, executable: process.execPath, version: ${JSON.stringify(version)} })`,
     '}',
     '',
   ].join('\n')
