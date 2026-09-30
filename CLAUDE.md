@@ -170,7 +170,9 @@ case it prints the link. `bun run build:binary` compiles the same thing into `ba
 one file with the frontend and migrations inside; the binary copies the database into the data
 directory's `backups/` before any migration and refuses a file a newer build migrated. The local
 build logs to `havefish.log` in the data directory, not the terminal, at `info` unless `LOG_LEVEL`
-says otherwise; past 5 MB it is kept as `havefish.log.1` at the next start.
+says otherwise; past 5 MB it is kept as `havefish.log.1` at the next start. The binary's first
+launch adds `havefish.desktop` and its icon under `$XDG_DATA_HOME` so it is in the applications
+menu, and does not put the entry back once it has been deleted.
 `backend/ARCHITECTURE.md`, "Two editions, one app", has the rest.
 
 Every test run is offline: `backend/bunfig.toml` preloads a `fetch` that throws for anything

@@ -6,7 +6,7 @@
 // HAVEFISH_BINARY_VERSION set to the version the tag names.
 
 import { afterAll, describe, expect, it } from 'bun:test'
-import { existsSync, mkdtempSync, readFileSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdtempSync, readFileSync, realpathSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import type { Subprocess } from 'bun'
@@ -128,6 +128,32 @@ describe.skipIf(!binary)('the compiled binary', () => {
     const child = start()
     const link = await linkFrom(child)
     expect(await accountIds(link.origin, await signIn(link))).toEqual(firstRun)
+    await stop(child)
+  }, 30_000)
+
+  it('puts itself in the applications menu, launching this very file (#338)', async () => {
+    const child = start()
+    const link = await linkFrom(child)
+    const entry = join(home, '.local', 'share', 'applications', 'havefish.desktop')
+    for (let waited = 0; !existsSync(entry) && waited < 5000; waited += 100) await Bun.sleep(100)
+
+    const lines = readFileSync(entry, 'utf8').split('\n')
+    expect(lines).toContain(`Exec="${realpathSync(resolve(binary ?? ''))}"`)
+    const icon = join(
+      home,
+      '.local',
+      'share',
+      'icons',
+      'hicolor',
+      'scalable',
+      'apps',
+      'havefish.svg',
+    )
+    expect(lines).toContain(`Icon=${icon}`)
+    // The seal the browser tab shows, taken from inside the binary.
+    expect(readFileSync(icon, 'utf8')).toBe(
+      await (await fetch(`${link.origin}/favicon.svg`)).text(),
+    )
     await stop(child)
   }, 30_000)
 

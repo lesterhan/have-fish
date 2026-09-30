@@ -27,6 +27,7 @@ describe('dataDirFor', () => {
       lock: '/d/havefish.lock',
       log: '/d/havefish.log',
       backups: '/d/backups',
+      desktopMarker: '/d/desktop-entry',
     })
   })
 })
