@@ -170,8 +170,11 @@ mode. In order:
    in this process: a restart ends every session, and the launcher opens a new one.
 
 A launch token is `<issued>.<nonce>.<HMAC>`, good once and for two minutes
-(`local/launch-token.ts`). SIGINT or SIGTERM lets requests in flight finish (two seconds at
-most), checkpoints the WAL into the file, closes it, and only then removes the lock.
+(`local/launch-token.ts`). SIGINT, SIGTERM, SIGHUP and the titlebar's Quit (`POST
+/api/local/quit`, behind the session, #511) all stop it the same way: requests in flight finish
+(two seconds at most), the WAL is checkpointed into the file, the file is closed, and only then
+is the lock removed. Quit is the edge's one route behind a session: `mountRoutes` mounts the
+open routes `isOpen` names and any the build keeps to itself.
 
 **Migrating a SQLite file** (`db/sqlite/migrate.ts`, #288). Not drizzle's migrator, which reads
 a folder at run time: this one is handed the migrations as a list of `{tag, statements}`, so

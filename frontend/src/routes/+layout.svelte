@@ -7,6 +7,7 @@
   import { goto } from '$app/navigation'
   import { signOut, useSession } from '$lib/auth'
   import { forgetSession } from '$lib/session'
+  import { quitLocalApp } from '$lib/capabilities'
   import { toast } from '$lib/toast.svelte'
   import {
     fetchAccounts,
@@ -30,7 +31,8 @@
 
   let { children, data } = $props()
 
-  // The local build has one person and no sign-in, so no email to show and no session to end.
+  // The local build has one person and no sign-in, so no email to show and no session to end:
+  // its close button quits the app instead (#511).
   const local = $derived(data.capabilities.mode === 'local')
 
   const session = useSession()
@@ -38,6 +40,10 @@
   let maximized = $state(true)
   let showSignOutDialog = $state(false)
   let signingOut = $state(false)
+  let showQuitDialog = $state(false)
+  let quitting = $state(false)
+  /** The local app behind this tab has stopped; nothing on the page can reach it now. */
+  let stopped = $state(false)
   let mobileSidebarOpen = $state(false)
   let pickerOpen = $state(false)
   let currentAccent = $state<AccentKey>('aqua')
@@ -155,6 +161,16 @@
     await goto('/login')
   }
 
+  async function handleQuit() {
+    if (quitting) return
+    quitting = true
+    const agreed = await quitLocalApp()
+    quitting = false
+    showQuitDialog = false
+    if (agreed) stopped = true
+    else toast.show(copy.case.quit.failed)
+  }
+
   function closeMobileSidebar() {
     mobileSidebarOpen = false
   }
@@ -216,15 +232,18 @@
         >
           <Icon name={maximized ? 'restore-window' : 'maximize'} size={12} />
         </ChromeButton>
-        {#if $session.data && !local}
+        {#if $session.data && !stopped}
           <!-- Only where it means something: on the login screen there is no session to end,
                and a close button that would open a dialog about nothing is the exact thing
-               this epic is about. The local build has no session to end either: closing the
-               tab is closing the app. -->
+               this epic is about. The local build has no session to end, but it has a process:
+               closing the tab leaves it running, so here the button quits the app (#511). -->
           <ChromeButton
             variant="close"
-            aria-label={copy.case.titlebar.signOut}
-            onclick={() => (showSignOutDialog = true)}
+            aria-label={local
+              ? copy.case.titlebar.quit
+              : copy.case.titlebar.signOut}
+            onclick={() =>
+              local ? (showQuitDialog = true) : (showSignOutDialog = true)}
           >
             <Icon name="close" size={12} />
           </ChromeButton>
@@ -233,20 +252,29 @@
     </div>
 
     <div class="window-body">
-      {#if $session.data}
-        <Sidebar
-          accounts={sidebarAccounts}
-          {lastActivityById}
-          email={local ? undefined : $session.data.user.email}
-          fishPie={data.capabilities.fishPie}
-          mobileOpen={mobileSidebarOpen}
-          onMobileClose={closeMobileSidebar}
-        />
-      {/if}
+      {#if stopped}
+        <!-- The page outlives the app it talked to, so it stops asking: every route under
+             here would only fail. -->
+        <div class="stopped" role="status">
+          <h1>{copy.case.quit.stoppedTitle}</h1>
+          <p>{copy.case.quit.stoppedBody}</p>
+        </div>
+      {:else}
+        {#if $session.data}
+          <Sidebar
+            accounts={sidebarAccounts}
+            {lastActivityById}
+            email={local ? undefined : $session.data.user.email}
+            fishPie={data.capabilities.fishPie}
+            mobileOpen={mobileSidebarOpen}
+            onMobileClose={closeMobileSidebar}
+          />
+        {/if}
 
-      <div class="content">
-        {@render children()}
-      </div>
+        <div class="content">
+          {@render children()}
+        </div>
+      {/if}
 
       <!-- Mobile sidebar backdrop -->
       {#if mobileSidebarOpen}
@@ -278,8 +306,8 @@
 
   <CashConfetti />
 
-  <!-- The titlebar's close button. "Quit" has no meaning in a browser tab, so the control
-       carries the nearest true one. The dialog stays because the misclick costs whatever you
+  <!-- The titlebar's close button. In the hosted build "Quit" has no meaning in a browser tab,
+       so the control carries the nearest true one. The dialog stays because the misclick costs whatever you
        were part-way through typing, and there is no undo for that. -->
   <ConfirmDialog
     title={copy.case.appName}
@@ -292,6 +320,20 @@
   >
     <p>{copy.case.signOut.question}</p>
     <p class="dialog-sub">{copy.case.signOut.warning}</p>
+  </ConfirmDialog>
+
+  <!-- The same button in the local build, where it quits the app rather than a session. -->
+  <ConfirmDialog
+    title={copy.case.appName}
+    bind:open={showQuitDialog}
+    confirmLabel={copy.case.quit.confirm}
+    busyLabel={copy.case.quit.busy}
+    busy={quitting}
+    variant="primary"
+    onconfirm={handleQuit}
+  >
+    <p>{copy.case.quit.question}</p>
+    <p class="dialog-sub">{copy.case.quit.warning}</p>
   </ConfirmDialog>
 </div>
 
@@ -412,6 +454,31 @@
     overflow: hidden;
     background: var(--color-window);
     position: relative; /* for mobile backdrop */
+  }
+
+  /* --- What is left of the tab once the local app has quit --- */
+  .stopped {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: var(--sp-xs);
+    padding: var(--sp-xl);
+    text-align: center;
+  }
+
+  .stopped h1 {
+    font-family: var(--font-serif);
+    font-size: var(--text-title);
+    font-weight: var(--weight-bold);
+    color: var(--color-text);
+  }
+
+  .stopped p {
+    font-size: var(--text-body);
+    color: var(--color-text-muted);
+    max-width: 36ch;
   }
 
   /* --- Content area — the scrolling pane to the right of the sidebar --- */

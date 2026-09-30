@@ -253,6 +253,30 @@ describe('HAVEFISH_MODE=local', () => {
     expect(await adopted.exited).toBe(0)
   }, 20_000)
 
+  it('quits from the app the way it quits on Ctrl-C (#511)', async () => {
+    const running = launch()
+    const link = await linkFrom(running)
+    const res = await fetch(`${link.origin}/api/local/quit`, {
+      method: 'POST',
+      headers: { Cookie: await open(link) },
+    })
+    expect(res.status).toBe(202)
+    expect(await running.exited).toBe(0)
+    expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
+    const wal = join(data, 'havefish.sqlite-wal')
+    expect(existsSync(wal) ? statSync(wal).size : 0).toBe(0)
+    // Nothing is listening: the next launch starts afresh rather than handing over.
+    await expect(fetch(`${link.origin}/health`)).rejects.toThrow()
+  }, 20_000)
+
+  it('quits cleanly when the terminal it was started from closes', async () => {
+    const running = launch()
+    await linkFrom(running)
+    running.kill('SIGHUP')
+    expect(await running.exited).toBe(0)
+    expect(existsSync(join(data, 'havefish.lock'))).toBe(false)
+  }, 20_000)
+
   it('refuses to start from the Postgres build', async () => {
     const pg = launch([])
     expect(await pg.exited).not.toBe(0)

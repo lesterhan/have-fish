@@ -206,28 +206,30 @@ export async function launchLocal(
       handle(req),
     )
     const port = server.port ?? DEFAULT_PORT
-    handle = (await createServer(buildApp(localEdge({ port, launchKey, user })), bundle.frontend))
-      .fetch
-
-    lock.publish({ pid: process.pid, port, launchKey })
-    log.info({ port, dataDir: dir }, 'local app listening')
 
     // A clean stop lets requests in flight finish (for a moment, not forever: a browser keeps
     // its connections open), folds the WAL back into the file, and only then gives up the lock.
+    // Ctrl-C, the terminal closing, and the titlebar's Quit (#511) all come here.
     const { closeDatabase } = await import('../db')
     let stopping = false
     const quit = async () => {
       if (stopping) return
       stopping = true
+      log.info('quitting')
       await Promise.race([server.stop(), Bun.sleep(2000)])
       server.stop(true)
       await closeDatabase()
       lock.release()
       process.exit(0)
     }
-    process.on('SIGINT', quit)
-    process.on('SIGTERM', quit)
+    for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP'] as const) process.on(signal, quit)
     process.on('exit', () => lock.release())
+
+    const edge = localEdge({ port, launchKey, user, quit: () => void quit() })
+    handle = (await createServer(buildApp(edge), bundle.frontend)).fetch
+
+    lock.publish({ pid: process.pid, port, launchKey })
+    log.info({ port, dataDir: dir }, 'local app listening')
 
     const url = launchUrl({ port, launchKey })
     announce(port, url, openBrowser(url, env), dir)

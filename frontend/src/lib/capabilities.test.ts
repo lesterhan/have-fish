@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'bun:test'
-import { isCapabilities, launchTokenIn } from './capabilities'
+import { afterEach, describe, expect, it } from 'bun:test'
+import { isCapabilities, launchTokenIn, quitLocalApp } from './capabilities'
 
 describe('isCapabilities', () => {
   it('accepts what each build answers', () => {
@@ -32,5 +32,38 @@ describe('launchTokenIn', () => {
     expect(launchTokenIn('#')).toBeNull()
     expect(launchTokenIn('#section-2')).toBeNull()
     expect(launchTokenIn('#token=')).toBeNull()
+  })
+})
+
+describe('quitLocalApp', () => {
+  const realFetch = globalThis.fetch
+  afterEach(() => {
+    globalThis.fetch = realFetch
+  })
+
+  /** Answers every request with `answer` and records what was asked. */
+  function answering(answer: () => Promise<Response>): Array<[string, RequestInit | undefined]> {
+    const asked: Array<[string, RequestInit | undefined]> = []
+    globalThis.fetch = Object.assign(
+      (input: string | URL | Request, init?: RequestInit) => {
+        asked.push([String(input), init])
+        return answer()
+      },
+      { preconnect: realFetch.preconnect },
+    )
+    return asked
+  }
+
+  it('posts to the quit route, and reports the app agreed only on a 202', async () => {
+    const asked = answering(async () => new Response(null, { status: 202 }))
+    expect(await quitLocalApp()).toBe(true)
+    expect(asked).toEqual([['/api/local/quit', { method: 'POST' }]])
+  })
+
+  it('reports a refusal or a dead connection as not quit, rather than throwing', async () => {
+    answering(async () => new Response(null, { status: 401 }))
+    expect(await quitLocalApp()).toBe(false)
+    answering(() => Promise.reject(new TypeError('Failed to fetch')))
+    expect(await quitLocalApp()).toBe(false)
   })
 })
