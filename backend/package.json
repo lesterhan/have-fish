@@ -17,6 +17,7 @@
     "db:migrate": "drizzle-kit migrate",
     "db:migrate:test": "drizzle-kit migrate --config drizzle.test.config.ts",
     "db:migrate:sqlite": "bun run scripts/migrate-sqlite.ts",
+    "export:local": "bun run scripts/export-local.ts",
     "db:studio": "drizzle-kit studio",
     "db:reset": "bun run db:generate && bun run db:migrate",
     "check": "tsc --noEmit -p tsconfig.check.json && tsc --noEmit -p tsconfig.check.sqlite.json",

@@ -2,12 +2,21 @@
 // a child process, over HTTP on 127.0.0.1, with a data directory of its own.
 
 import { afterAll, describe, expect, it } from 'bun:test'
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { createClient } from '@libsql/client'
 import type { Subprocess } from 'bun'
-import { launchUrl, listenOnFreePort } from './launch'
+import { migrateSqliteFile, readMigrations } from '../db/sqlite/migrate'
+import { launchUrl, listenOnFreePort, readLaunchArgs } from './launch'
 
 const BACKEND = join(import.meta.dir, '../..')
 
@@ -44,6 +53,20 @@ describe('launchUrl', () => {
   })
 })
 
+describe('readLaunchArgs', () => {
+  it('reads --adopt as a path from where the command was run', () => {
+    expect(readLaunchArgs(['--adopt', 'you.sqlite'])).toEqual({
+      adopt: join(process.cwd(), 'you.sqlite'),
+    })
+    expect(readLaunchArgs(['--adopt=/tmp/you.sqlite'])).toEqual({ adopt: '/tmp/you.sqlite' })
+  })
+
+  it('asks for nothing when given nothing, and says so when --adopt names no file', () => {
+    expect(readLaunchArgs([])).toEqual({ adopt: null })
+    expect(() => readLaunchArgs(['--adopt'])).toThrow('needs the path')
+  })
+})
+
 describe('HAVEFISH_MODE=local', () => {
   const root = mkdtempSync(join(tmpdir(), 'havefish-launch-'))
   const data = join(root, 'data')
@@ -55,10 +78,10 @@ describe('HAVEFISH_MODE=local', () => {
   })
 
   // The child is started the way `bun run local` starts it, and never opens a browser.
-  function launch(conditions: string[] = ['--conditions=sqlite']) {
+  function launch(conditions: string[] = ['--conditions=sqlite'], args: string[] = []) {
     mkdirSync(site, { recursive: true })
     writeFileSync(join(site, 'index.html'), '<!doctype html><title>have-fish</title>')
-    const child = Bun.spawn(['bun', ...conditions, 'src/index.ts'], {
+    const child = Bun.spawn(['bun', ...conditions, 'src/index.ts', ...args], {
       cwd: BACKEND,
       env: {
         PATH: process.env.PATH,
@@ -138,6 +161,12 @@ describe('HAVEFISH_MODE=local', () => {
     await open(link)
   }, 20_000)
 
+  it('will not adopt a ledger while it is running', async () => {
+    const adopting = launch(undefined, ['--adopt', join(root, 'anything.sqlite')])
+    expect(await adopting.exited).toBe(1)
+    expect(await new Response(adopting.stderr).text()).toContain('Quit it first')
+  }, 20_000)
+
   it('folds the WAL into the file and gives up the lock when stopped', async () => {
     first.kill('SIGINT')
     expect(await first.exited).toBe(0)
@@ -160,6 +189,39 @@ describe('HAVEFISH_MODE=local', () => {
     const again = createClient({ url: `file:${join(data, 'havefish.sqlite')}` })
     await again.execute("DELETE FROM __migrations WHERE name = '9999_from_the_future'")
     again.close()
+  }, 20_000)
+
+  it('adopts a ledger named on the command line, and starts on it (#289)', async () => {
+    // A ledger as the export writes one: an owner, its profile, and an account of its own.
+    const source = join(root, 'yours.sqlite')
+    await migrateSqliteFile(source, readMigrations())
+    const client = createClient({ url: `file:${source}` })
+    const you = crypto.randomUUID()
+    await client.batch([
+      {
+        sql: "INSERT INTO user (id, name, email, email_verified, created_at, updated_at) VALUES (?, 'You', 'you@example.com', 1, 0, 0)",
+        args: [you],
+      },
+      { sql: 'INSERT INTO local_profile (user_id, created_at) VALUES (?, 0)', args: [you] },
+      {
+        sql: "INSERT INTO accounts (id, user_id, path, path_key, created_at, updated_at) VALUES (?, ?, 'assets:brought:over', 'assets:brought:over', 0, 0)",
+        args: [crypto.randomUUID(), you],
+      },
+    ])
+    client.close()
+
+    const adopted = launch(undefined, ['--adopt', source])
+    const link = await linkFrom(adopted)
+    const accounts = await fetch(`${link.origin}/api/accounts`, {
+      headers: { Cookie: await open(link) },
+    })
+    expect(((await accounts.json()) as { path: string }[]).map((a) => a.path)).toEqual([
+      'assets:brought:over',
+    ])
+    // The fresh install it replaced, which had no transactions, is kept.
+    expect(readdirSync(join(data, 'backups')).some((f) => f.startsWith('pre-adopt-'))).toBe(true)
+    adopted.kill('SIGINT')
+    expect(await adopted.exited).toBe(0)
   }, 20_000)
 
   it('refuses to start from the Postgres build', async () => {

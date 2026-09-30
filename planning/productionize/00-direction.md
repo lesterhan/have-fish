@@ -491,7 +491,7 @@ applies to it, re-scoped and much smaller:
 | Q1 | Target jurisdictions — Canada/US first, or accept EU users? | `03` |
 | Q3 | Stripe direct vs merchant of record | `05` |
 | Q5 | Sole proprietor or incorporate before holding others' data? | `08` |
-| — | Mobile: LAN companion with an offline queue (`L08` O1) or true local peer (O2)? | `L08` |
+| — | Mobile: ~~LAN companion with an offline queue (`L08` O1) or true local peer (O2)?~~ **Narrowed 2026-09-29 (#508):** not a LAN companion. The phone reaches the ledger through the paid sync server, as Fish Pie does. Still open: whether the phone holds a full replica (O2) or is a thin client whose entries the server relays | `L08`, #508 |
 
 ## Code evidence for the boundary
 
@@ -620,5 +620,10 @@ shared-expense rule block an entire bank statement.
    Sync and Fish Pie stay out of both. Working offline and merging back is the **last**
    capability to land, not the first — `L03` is 8–12 weeks on its own.
 6. Everything else follows the phase breakdowns in `L01`, `L02`, `L03`.
+7. **Leaving hosted is a one-time copy per person (2026-09-29, #508).** No sync with the hosted
+   edition: `export:local` writes each person's ledger as a local file, and `havefish --adopt`
+   puts it in place (#289). Until the sync server exists, entries from the phone and Fish Pie
+   land on hosted and do not reach the laptop; that server round trip is the paid feature.
+   P2b's two-way bridge (#246) and P3 (#248) are closed.
 
 Steps 1–4 ship real value even if this direction is abandoned entirely. That is deliberate.
