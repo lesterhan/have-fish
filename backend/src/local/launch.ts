@@ -116,6 +116,25 @@ async function addToMenu(
   }
 }
 
+/**
+ * Whether this launch puts itself in the applications menu (#338). Only the Linux binary has
+ * one file to launch. Not for a second profile: the entry would launch without
+ * HAVEFISH_DATA_DIR, on the default ledger rather than this one. And not inside a Flatpak
+ * (#518), which exports an entry of its own; this one would name a path inside the sandbox.
+ */
+export function addsItselfToMenu(
+  bundle: Pick<LocalBundle, 'executable'>,
+  env: NodeJS.ProcessEnv,
+  platform: NodeJS.Platform = process.platform,
+): bundle is { executable: string } {
+  return (
+    bundle.executable !== undefined &&
+    !env.HAVEFISH_DATA_DIR &&
+    !env.FLATPAK_ID &&
+    platform === 'linux'
+  )
+}
+
 /** The lock, asking the instance it names whether it is there (#516). */
 const takeLock = (lockPath: string) =>
   claimLock(lockPath, {
@@ -339,9 +358,7 @@ export async function launchLocal(
     const url = launchUrl({ port, launchKey })
     announce(port, url, openBrowser(url, env), dir)
 
-    // Not for a second profile: the entry would launch without HAVEFISH_DATA_DIR, on the
-    // default ledger rather than this one.
-    if (bundle.executable && !env.HAVEFISH_DATA_DIR && process.platform === 'linux') {
+    if (addsItselfToMenu(bundle, env)) {
       await addToMenu(bundle.executable, bundle.frontend, env, paths.desktopMarker)
     }
   } catch (e) {

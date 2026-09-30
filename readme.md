@@ -48,8 +48,17 @@ bun run test:watch
 
 ## On your own laptop (Linux)
 
-The local edition is one file per release: no server, no account, and the ledger stays on
-your machine. Download `havefish-linux-x64` (or `-arm64`) and `SHA256SUMS` from the
+The local edition keeps the ledger on your machine: no server, no account. The easiest way to
+get it is the Flatpak, which updates in place with your other Flatpaks:
+
+```bash
+flatpak install --user https://lesterhan.github.io/have-fish/havefish.flatpakref
+```
+
+[`flatpak/README.md`](flatpak/README.md) has the rest, including how to bring in the ledger of
+the plain binary below.
+
+The plain binary is one file per release. Download `havefish-linux-x64` (or `-arm64`) and `SHA256SUMS` from the
 [latest release](https://github.com/lesterhan/have-fish/releases), then:
 
 ```bash

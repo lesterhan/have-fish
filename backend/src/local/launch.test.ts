@@ -17,7 +17,7 @@ import { join } from 'node:path'
 import { createClient } from '@libsql/client'
 import type { Subprocess } from 'bun'
 import { migrateSqliteFile, readMigrations } from '../db/sqlite/migrate'
-import { launchUrl, listenOnFreePort, readLaunchArgs, supersedes } from './launch'
+import { addsItselfToMenu, launchUrl, listenOnFreePort, readLaunchArgs, supersedes } from './launch'
 import { pidNamespace } from './lockfile'
 
 const BACKEND = join(import.meta.dir, '../..')
@@ -90,6 +90,31 @@ describe('supersedes', () => {
     ] as const) {
       expect(supersedes(mine, theirs)).toBe(false)
     }
+  })
+})
+
+describe('addsItselfToMenu', () => {
+  const binary = { executable: '/home/me/havefish' }
+
+  it('is the Linux binary on its default ledger', () => {
+    expect(addsItselfToMenu(binary, {}, 'linux')).toBe(true)
+  })
+
+  it('is not `bun run local`, which has no one file to launch', () => {
+    expect(addsItselfToMenu({}, {}, 'linux')).toBe(false)
+  })
+
+  it('is not a second profile, whose entry would open the default ledger', () => {
+    expect(addsItselfToMenu(binary, { HAVEFISH_DATA_DIR: '/tmp/other' }, 'linux')).toBe(false)
+  })
+
+  // Flatpak exports the entry in flatpak/; one written from inside would name /app/bin (#518).
+  it('is not the Flatpak', () => {
+    expect(addsItselfToMenu(binary, { FLATPAK_ID: 'com.lesterhan.havefish' }, 'linux')).toBe(false)
+  })
+
+  it('is not another system', () => {
+    expect(addsItselfToMenu(binary, {}, 'darwin')).toBe(false)
   })
 })
 

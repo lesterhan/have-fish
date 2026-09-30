@@ -195,7 +195,9 @@ mode. In order:
    `desktop-entry` file in the data directory records that it did, so an entry its owner
    deleted is not put back; an entry that names another path or an older icon is rewritten. A
    launch with `HAVEFISH_DATA_DIR` set adds nothing, since the entry would open the default
-   ledger instead. A failure here is logged and never stops the app.
+   ledger instead, and neither does one inside a Flatpak (`FLATPAK_ID` set, #518), which
+   exports the entry in `flatpak/` and would otherwise name a path inside the sandbox. A
+   failure here is logged and never stops the app.
 
 A launch token is `<issued>.<nonce>.<HMAC>`, good once and for two minutes
 (`local/launch-token.ts`). SIGINT, SIGTERM, SIGHUP and the titlebar's Quit (`POST

@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>com.lesterhan.havefish</id>
+  <metadata_license>CC0-1.0</metadata_license>
+  <project_license>MIT</project_license>
+  <name>have-fish</name>
+  <summary>Personal finance, kept on your own computer</summary>
+  <developer id="com.lesterhan">
+    <name>Lei Han</name>
+  </developer>
+  <description>
+    <p>
+      A ledger for the money you spend, in every currency you spend it in. Enter transactions
+      by hand or import the CSV your bank exports; have-fish never connects to a bank.
+    </p>
+    <p>
+      Everything stays in one file on this computer, and exports to an hledger journal whenever
+      you want to take it elsewhere. It opens in your browser, signed in, and asks nothing of
+      the internet unless you turn on exchange-rate lookups.
+    </p>
+  </description>
+  <launchable type="desktop-id">com.lesterhan.havefish.desktop</launchable>
+  <url type="homepage">https://github.com/lesterhan/have-fish</url>
+  <url type="bugtracker">https://github.com/lesterhan/have-fish/issues</url>
+  <url type="vcs-browser">https://github.com/lesterhan/have-fish</url>
+  <categories>
+    <category>Office</category>
+    <category>Finance</category>
+  </categories>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="@VERSION@" date="@DATE@"/>
+  </releases>
+</component>

@@ -71,6 +71,7 @@ bun run dev           # start dev server with hot reload
 bun run local         # the local build: builds the frontend, then opens it signed in (#287)
 bun run build:binary  # the local build as one file, dist/havefish, frontend and migrations inside (#288)
                       # a vX.Y.Z tag releases it for linux-x64 and arm64 (release-desktop.yml, #335)
+                      # and publishes the Flatpak repo on GitHub Pages (flatpak/README.md, #518)
 bun run export:local --email <address> --out <file>
                       # inside the hosted container: one person's ledger as a local file (#289)
                       # then, on the laptop: `havefish --adopt <file>` makes it that install's ledger
