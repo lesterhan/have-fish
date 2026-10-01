@@ -7,6 +7,10 @@
 > Read it before scoping anything that touches packaging, sync, or Fish Pie's
 > availability.
 
+> The desktop rewrite is not planned in epic files. Its backlog is a story map in the private
+> `lesterhan/have-fish-vault`; [`desktop-rewrite.md`](desktop-rewrite.md) explains how. The epics
+> below are the current app's.
+
 | Epic | Status |
 |------|--------|
 | Assets Summary | Done |
@@ -83,7 +87,7 @@
 | [Type & Space Scale](epics/archive/type-and-space.md) | Done |
 | [Domain Layer](epics/archive/domain-layer.md) | Done |
 | [Sync Unit](epics/sync-unit.md) | Accepted; schema in progress (#454) |
-| [Desktop App on Electron](epics/desktop-app.md) | Proposed (#522) |
+| [Desktop rewrite](desktop-rewrite.md) | Planning; the stories live in the vault (#522) |
 
 ## Fish Pie sequence
 
