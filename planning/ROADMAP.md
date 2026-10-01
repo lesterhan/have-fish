@@ -83,6 +83,7 @@
 | [Type & Space Scale](epics/archive/type-and-space.md) | Done |
 | [Domain Layer](epics/archive/domain-layer.md) | Done |
 | [Sync Unit](epics/sync-unit.md) | Accepted; schema in progress (#454) |
+| [Desktop App on Electron](epics/desktop-app.md) | Proposed (#522) |
 
 ## Fish Pie sequence
 
