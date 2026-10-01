@@ -13,6 +13,19 @@ Three guiding principles that should inform every feature decision:
 
 3. **Multi-currency as a first-class concern** — the user travels and holds balances in multiple currencies. Currency, exchange rates, and cross-currency reporting are core workflows, not edge cases.
 
+## Where this is going
+
+The app is being rebuilt as a desktop app in this repository, beside the current one: Electron,
+a TypeScript core over one SQLite file, and the Svelte UI in a real window. This is the working
+direction; the decision is #522, open until the owner closes it. The plan is
+`planning/desktop-rewrite.md`. The rewrite is planned as user stories, not as layers or ports
+(see Work Tracking below), and it grows in `core/` and `desktop/` one story at a time.
+
+Everything from Stack down to Conventions describes **the current app**. The hosted edition
+stays the real ledger until the rewrite can replace it, so the current app gets fixes and the
+work already in flight. New features go into the rewrite as stories, unless the owner says
+otherwise.
+
 ## Stack
 
 - **Backend**: Hono + Bun (TypeScript)
@@ -294,7 +307,18 @@ Work is tracked as **GitHub Issues**, viewed on one **GitHub Project** (`have-fi
 the `lesterhan` user) that spans this repo, the private `lesterhan/have-fish-ops`, and the
 server repo when it exists. The full guide, label set and board setup live in
 `have-fish-ops/tracking/README.md`; the reasoning behind the backlog is in
-`have-fish-ops/audits/`. The rules that matter in a session:
+`have-fish-ops/audits/`.
+
+**The rewrite is tracked differently.** Its backlog is a story map in
+`lesterhan/have-fish-vault`, a private Obsidian vault. Activities run across the top, releases
+named by outcome run down the side, there is one note per user story, and dependencies are
+links. The vault's `Home.md` and `CLAUDE.md` hold its conventions. A story gets an issue here
+only when it is picked up, so its PR still closes something, and the issue number goes back
+into the story's `issue` property. Decisions that change the plan are still `type:decision`
+issues here.
+
+The rules that matter in a session, for the current app and for a rewrite story once it has its
+issue:
 
 - **Issue first.** Work has an issue before it has a branch. Parents (`type:epic`) hold
   sub-issues; a story of an epic is a sub-issue of that epic's parent.
@@ -364,10 +388,25 @@ Things you can say:
 - "**what's waiting on me?**": list open `type:decision` issues across the repos, each with
   its recommended option and what it blocks.
 
+For the rewrite, with the vault attached:
+
+- "**let's refine <story>**": work the story's note with the owner until it is ready: the
+  story line, Given/When/Then acceptance, a "not in this story" list, and a size of XS or S.
+  Write nothing in this repository.
+- "**let's pick up the story <name>**": check that it is `ready` and that everything in its
+  `depends_on` is done. File its issue here, put the number in the note, and set it to
+  `doing`. Then build it: one branch, one PR, `Closes #N`. Port only the code the story needs,
+  with its tests. It is done when the owner has checked every acceptance line in the packaged
+  app.
+- "**sync the map**": pull the vault, run `node .tools/map.mjs sync`, report what moved, push.
+
 Claude can create, label, parent and comment on issues in any attached repo. It cannot
 move Project cards; cards move on PR merge (automatic) or by hand.
 
 ## Epic Workflow
+
+This is for the current app. A rewrite story has no epic file, because its note in the vault is
+its design; it follows "let's pick up the story" above.
 
 ### Starting an epic — "let's pick up [epic name]"
 
@@ -394,7 +433,7 @@ When the user says this:
 ## How I Like to Be Assisted
 
 - **I'm hands-off on code** — implement features fully and correctly. Don't produce skeleton or partial code that requires me to fill in the gaps.
-- **We design together** — before writing code for a new epic or a non-trivial feature, discuss the approach in the epic file under `planning/`. I want to understand and shape what we're building, even if I'm not writing it.
+- **We design together** — before writing code for a new epic or a non-trivial feature, discuss the approach in the epic file under `planning/` (for the rewrite, in the story's note in the vault). I want to understand and shape what we're building, even if I'm not writing it.
 - **Tests prevent regression** — I'm using the app in the wild while traveling. Write comprehensive tests for every new route and behaviour. Tests are not an afterthought.
 - **PRs, not direct pushes** — all work goes through a branch and a pull request opened against `main` on the public `have-fish` repo. Never push directly to `main`. This is the gate that keeps the deployed app stable.
 - **Explain non-obvious decisions** — when you make a choice that isn't dictated by the existing conventions (data model trade-offs, architectural decisions, security choices), say so briefly. I don't need narration of mechanical steps.

@@ -53,7 +53,7 @@ and ciphertext, never ledgers.
 
 | # | Document | Status |
 |---|----------|--------|
-| L01 | [architecture-packaging.md](local-first/L01-architecture-packaging.md) — compiled Bun binary, Tauri later | Draft — **decided**, see D7 |
+| L01 | [architecture-packaging.md](local-first/L01-architecture-packaging.md) — compiled Bun binary, Tauri later | Draft — **decided**, see D7; an Electron rebuild is proposed in #522 |
 | L02 | [data-layer.md](local-first/L02-data-layer.md) — embedded database, user-owned file | Draft — **decided: SQLite**, see D8 |
 | L03 | [fish-pie-sync.md](local-first/L03-fish-pie-sync.md) — multi-user without a database we own | Draft — largest work item |
 | L04 | [fx-offline.md](local-first/L04-fx-offline.md) — FX without an always-on server | Draft — ready to become an epic |

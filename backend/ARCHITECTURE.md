@@ -6,6 +6,10 @@ epic](../planning/epics/archive/domain-layer.md) (#423) moved it to. Each story 
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
 
+This is the current app's backend. The desktop rewrite ([`planning/desktop-rewrite.md`](../planning/desktop-rewrite.md))
+borrows its domain modules one story at a time, moving each into `core/`, where this backend
+imports it from too. Its own architecture is described there.
+
 ## How a request flows
 
 ```
