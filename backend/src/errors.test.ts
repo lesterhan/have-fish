@@ -22,7 +22,7 @@ const SELF = 'errors.test.ts'
 const REGISTRY = 'errors.ts'
 
 /** Statuses a failure is allowed to answer with. Anything else is a typo or a new idea. */
-const STATUSES = new Set([400, 401, 403, 404, 409, 422])
+const STATUSES = new Set([400, 401, 403, 404, 409, 413, 422])
 
 function tsFilesUnder(dir: string): string[] {
   const out: string[] = []

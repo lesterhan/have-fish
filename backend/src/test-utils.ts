@@ -12,6 +12,7 @@ import {
   groupExpenses,
   groupSettlements,
   importRules,
+  importSessions,
   localProfile,
   postings,
   transactions,
@@ -27,6 +28,7 @@ export async function clearDatabase() {
   await db.delete(importRules)
   await db.delete(userSettings)
   await db.delete(csvParsers)
+  await db.delete(importSessions)
   // accountCoverage has FKs to both user and accounts
   await db.delete(accountCoverage)
   // Fish Pie tables deleted before accounts — expenseGroupMembers has a FK to accounts

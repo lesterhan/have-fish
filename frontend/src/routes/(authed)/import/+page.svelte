@@ -10,6 +10,11 @@
     importPreview,
     importCommit,
     ImportRefused,
+    fetchImportSessions,
+    fetchImportSession,
+    saveImportSession,
+    deleteImportSession,
+    type ImportSessionSummary,
     checkDuplicates,
     createRule,
     type Account,
@@ -22,7 +27,8 @@
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { rootsFrom, surfaceOf } from '$lib/components/accounts/accountPaths'
-  import { commitFailureMessage } from '$lib/import/commit-failure'
+  import { inPreviewRows } from '$lib/import/commit-failure'
+  import { errorMessage } from '$lib/copy/errors'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
@@ -43,9 +49,9 @@
   import { buildManifest } from '$lib/components/import/manifest'
   import {
     hashCsv,
-    saveSession,
-    clearSession,
-    latestSession,
+    takeLegacySessions,
+    toSaved,
+    isImportSession,
     describeAge,
     SESSION_VERSION,
     type ImportSession,
@@ -136,8 +142,16 @@
   // created as the user goes rather than deferred to commit, so they are recorded here.
   let rulesCreated = $state<string[]>([])
   let accountsCreated = $state<string[]>([])
-  // A saved import found on mount, offered for resume until accepted or dismissed.
-  let resumable = $state<ImportSession | null>(null)
+  // Saved imports, offered for resume on the file step until resumed or discarded (#535).
+  let savedImports = $state<ImportSessionSummary[]>([])
+  // The last commit's refusal for this import, mapped onto the preview's rows. Saved with the
+  // session, so a resumed import still says why its last attempt failed.
+  let lastError = $state<unknown>(null)
+  // Set while a commit is in flight, so the autosave can't recreate the session the commit
+  // deletes. Not reactive: the autosave only reads it.
+  let committing = false
+  // A session that won't save is worth one warning per page, not one per edit.
+  let saveWarned = false
 
   // --- Catch-Up Coach handoff ---
   //
@@ -173,7 +187,7 @@
     parsersLoading = false
     toAccountId = settings.defaultOffsetAccountId ?? ''
     groups = groupsData
-    resumable = latestSession()
+    void loadSavedImports()
 
     // Read once on mount rather than reactively: the handoff describes how this import
     // started, and a later navigation that drops the query string must not un-start it.
@@ -275,19 +289,104 @@
   }
 
   // Persist on every change to the decisions worth keeping. Debounced because editing an
-  // account picker fires this per keystroke and a 200-row preview is not a small write.
+  // account picker fires this per keystroke and a 200-row preview is not a small request.
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   $effect(() => {
     const snapshot = currentSession()
-    if (!snapshot) return
+    const failure = $state.snapshot(lastError)
+    if (!snapshot || committing) return
     if (saveTimer) clearTimeout(saveTimer)
-    saveTimer = setTimeout(() => saveSession(snapshot), 400)
+    saveTimer = setTimeout(() => void persist(snapshot, failure), 1500)
     return () => {
       if (saveTimer) clearTimeout(saveTimer)
     }
   })
 
-  function resumeSession(saved: ImportSession) {
+  // Saves and discards go one at a time, in order, so a slow save can't land after a later
+  // one, or after the discard or commit that was meant to end the session.
+  let saving: Promise<unknown> = Promise.resolve()
+
+  function queued<T>(work: () => Promise<T>): Promise<T> {
+    const next = saving.then(work)
+    saving = next.catch(() => {})
+    return next
+  }
+
+  // Resolves true when the server holds the session as it is now.
+  function persist(
+    snapshot: ImportSession,
+    failure: unknown,
+  ): Promise<boolean> {
+    return queued(() =>
+      saveImportSession(snapshot.fileHash, toSaved(snapshot, failure)),
+    ).then(
+      () => true,
+      (e: unknown) => {
+        if (!saveWarned) {
+          saveWarned = true
+          toast.show(e instanceof Error ? e.message : copy.import.commit.failed)
+        }
+        return false
+      },
+    )
+  }
+
+  // Moves anything this browser still holds from before #535 to the server, then lists what
+  // can be resumed. A session written by another version can't be, so it is discarded here.
+  async function loadSavedImports() {
+    for (const legacy of takeLegacySessions()) {
+      await persist(legacy, null)
+    }
+    try {
+      const sessions = await fetchImportSessions()
+      for (const stale of sessions.filter(
+        (s) => s.version !== SESSION_VERSION,
+      )) {
+        void discardSaved(stale.fileHash)
+      }
+      savedImports = sessions.filter((s) => s.version === SESSION_VERSION)
+    } catch {
+      savedImports = []
+    }
+  }
+
+  function discardSaved(hash: string): Promise<void> {
+    savedImports = savedImports.filter((s) => s.fileHash !== hash)
+    return queued(() => deleteImportSession(hash)).catch(() => {})
+  }
+
+  async function resumeSaved(summary: ImportSessionSummary) {
+    let saved: Awaited<ReturnType<typeof fetchImportSession>>
+    try {
+      saved = await fetchImportSession(summary.fileHash)
+    } catch {
+      toast.show(copy.import.resume.loadFailed)
+      return
+    }
+    if (!saved) {
+      savedImports = savedImports.filter((s) => s.fileHash !== summary.fileHash)
+      toast.show(copy.errors.IMPORT_SESSION_NOT_FOUND)
+      return
+    }
+    if (!isImportSession(saved.payload)) {
+      toast.show(copy.import.resume.unavailable)
+      void discardSaved(summary.fileHash)
+      return
+    }
+    resumeSession(saved.payload, saved.lastError)
+  }
+
+  // Whether the commit for this file landed, read off its session: the commit deletes it in
+  // the transaction that writes the rows (#535). Null when the server can't be asked either.
+  async function commitLanded(hash: string): Promise<boolean | null> {
+    try {
+      return (await fetchImportSession(hash)) === null
+    } catch {
+      return null
+    }
+  }
+
+  function resumeSession(saved: ImportSession, failure: unknown) {
     preview = saved.preview
     rowStates = saved.rowStates
     fileHash = saved.fileHash
@@ -303,12 +402,8 @@
     returnToCatchUp = saved.catchUp !== null
     coverageRange = saved.coverageRange
     step = saved.step
-    resumable = null
-  }
-
-  function discardResumable() {
-    if (resumable) clearSession(resumable.fileHash)
-    resumable = null
+    lastError = failure ?? null
+    error = lastError ? errorMessage(lastError, copy.import.commit.failed) : ''
   }
 
   // --- Currency → account mapping ---
@@ -522,8 +617,8 @@
       fileHash = await hashCsv(csvText)
       fileName = file.name
       // Re-parsing a file already in progress replaces its saved session rather than
-      // leaving a second copy behind.
-      resumable = null
+      // leaving a second copy behind, and starts its attempts afresh.
+      lastError = null
       clusterStates = []
       rulesCreated = []
       accountsCreated = []
@@ -745,6 +840,15 @@
     )
     loading = true
     error = ''
+    // Hold the autosave and put the session on the server as it is now. The commit deletes it
+    // on the way through, so if the answer is lost its absence says the rows landed (#535).
+    committing = true
+    if (saveTimer) clearTimeout(saveTimer)
+    const snapshot = currentSession()
+    const receipt = snapshot
+      ? await persist(snapshot, $state.snapshot(lastError))
+      : false
+    let landed: string | null = null
     try {
       const txs: CommitTransaction[] = preview.transactions.flatMap(
         (parsed, i) => {
@@ -839,68 +943,88 @@
         defaultCurrency,
         transactions: txs,
         groupSplits: groupSplits.length > 0 ? groupSplits : undefined,
+        // Named whether or not the last save went through: an older copy is just as finished.
+        // Only reading its absence afterwards needs `receipt`.
+        session: fileHash || undefined,
       })
-      toast.show(
-        copy.import.commit.imported({
-          created: result.created,
-          fishPie: result.fishPieExpenses,
-          skipped: result.skipped,
-        }),
-      )
-      refreshSidebar()
-      confetti.trigger()
-
-      // Record what this file covered. The ledger write already succeeded, so a failure here
-      // must not read as a failed import — the transactions are in, and the worst case is the
-      // coach asking about a range that is now actually complete.
-      const covered = coverageRange
-      if (covered) {
-        await Promise.all(
-          coverageAccountIds.map((accountId) =>
-            createCoverage({
-              accountId,
-              fromDate: covered.from,
-              throughDate: covered.to,
-              source: 'import',
-              note: fileName || undefined,
-            }),
-          ),
-        ).catch(() => {
-          toast.show(copy.import.commit.coverageFailed)
-        })
-      }
-
-      // Land on what was just imported. Uses the committed range, not the CSV's — a leading
-      // week of skipped duplicates would otherwise open on rows the user did not import.
-      const range = manifest?.dateRange
-      // Read before resetSession clears the state these came from.
-      const backToCoach = returnToCatchUp
-      resetSession()
-      if (backToCoach) {
-        goto('/catch-up')
-      } else {
-        goto(
-          range
-            ? `/transactions?from=${range.from}&to=${range.to}`
-            : '/transactions',
-        )
-      }
+      landed = copy.import.commit.imported({
+        created: result.created,
+        fishPie: result.fishPieExpenses,
+        skipped: result.skipped,
+      })
     } catch (e) {
       // The session is left as it was, so the user can fix the row and confirm again.
-      error =
-        e instanceof ImportRefused
-          ? commitFailureMessage(e.body, sent)
-          : copy.import.commit.failed
+      if (e instanceof ImportRefused) {
+        lastError = inPreviewRows(e.body, sent)
+        error = errorMessage(lastError, copy.import.commit.failed)
+      } else {
+        // No answer: the connection dropped, or the server never sent one. The session says
+        // whether the rows went in, if it was saved before the commit.
+        const gone = receipt ? await commitLanded(fileHash) : null
+        if (gone) landed = copy.import.commit.landed
+        else
+          error =
+            gone === false
+              ? copy.import.commit.failed
+              : copy.import.commit.unknown
+      }
     } finally {
       loading = false
     }
+    if (landed) await finishImport(landed)
+    else committing = false
   }
 
-  // Drops the in-progress import, in memory and in storage. Callers are responsible for
-  // confirming first where the work would be lost rather than committed.
+  // After a commit landed: say so, record what the file covered, and leave for what was
+  // imported. Outside the commit's `try`, so nothing here can read as a failed import.
+  async function finishImport(message: string) {
+    toast.show(message)
+    refreshSidebar()
+    confetti.trigger()
+
+    // Record what this file covered. The ledger write already succeeded, so a failure here
+    // must not read as a failed import — the transactions are in, and the worst case is the
+    // coach asking about a range that is now actually complete.
+    const covered = coverageRange
+    if (covered) {
+      await Promise.all(
+        coverageAccountIds.map((accountId) =>
+          createCoverage({
+            accountId,
+            fromDate: covered.from,
+            throughDate: covered.to,
+            source: 'import',
+            note: fileName || undefined,
+          }),
+        ),
+      ).catch(() => {
+        toast.show(copy.import.commit.coverageFailed)
+      })
+    }
+
+    // Land on what was just imported. Uses the committed range, not the CSV's — a leading
+    // week of skipped duplicates would otherwise open on rows the user did not import.
+    const range = manifest?.dateRange
+    // Read before resetSession clears the state these came from.
+    const backToCoach = returnToCatchUp
+    resetSession()
+    if (backToCoach) {
+      goto('/catch-up')
+    } else {
+      goto(
+        range
+          ? `/transactions?from=${range.from}&to=${range.to}`
+          : '/transactions',
+      )
+    }
+  }
+
+  // Drops the in-progress import from the page. The saved copy is the commit's to delete, or
+  // `discardSaved`'s; callers confirm first where the work would be lost rather than committed.
   function resetSession() {
-    if (fileHash) clearSession(fileHash)
     if (saveTimer) clearTimeout(saveTimer)
+    lastError = null
+    committing = false
     preview = null
     fromAccountId = ''
     rowStates = []
@@ -927,8 +1051,10 @@
 
   function confirmDiscard() {
     showDiscardConfirm = false
+    const hash = fileHash
     resetSession()
     error = ''
+    if (hash) void discardSaved(hash)
   }
 
   function clearFile() {
@@ -1105,28 +1231,35 @@
       />
     {/if}
   {:else}
-    {#if resumable}
+    {#each savedImports as saved (saved.fileHash)}
       <div class="resume-strip">
         <Icon name="restore-window" size={14} />
         <span class="resume-text">
-          {copy.import.resume.lead} <strong>{resumable.fileName}</strong>
+          {copy.import.resume.lead} <strong>{saved.fileName}</strong>
           <span class="resume-meta">
             {copy.import.resume.meta(
-              resumable.rowStates.length,
-              describeAge(resumable.savedAt),
+              saved.rowCount,
+              describeAge(saved.savedAt),
             )}
           </span>
+          {#if saved.lastError}
+            <span class="resume-error">
+              {copy.import.resume.lastFailed(
+                errorMessage(saved.lastError, copy.import.commit.failed),
+              )}
+            </span>
+          {/if}
         </span>
         <div class="resume-actions">
-          <GradientButton onclick={discardResumable}
+          <GradientButton onclick={() => discardSaved(saved.fileHash)}
             >{copy.import.resume.discard}</GradientButton
           >
-          <GradientButton active onclick={() => resumeSession(resumable!)}
+          <GradientButton active onclick={() => resumeSaved(saved)}
             >{copy.import.resume.resume}</GradientButton
           >
         </div>
       </div>
-    {/if}
+    {/each}
 
     <div class="transfer-window">
       <div class="section-bar">
@@ -1443,6 +1576,12 @@
   .resume-actions {
     display: flex;
     gap: var(--sp-sm);
+  }
+
+  .resume-error {
+    display: block;
+    color: var(--color-danger);
+    font-size: var(--text-dense);
   }
 
   /* ── File step summary (shown once a CSV has been parsed) ── */

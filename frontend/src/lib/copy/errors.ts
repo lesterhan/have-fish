@@ -280,6 +280,9 @@ export const errorsCopy = {
   GROUP_SPLIT_MALFORMED: 'A split has to say which row it is for and which group it goes to.',
   GROUP_SPLIT_ROW_OUT_OF_RANGE: ({ rowIndex }: { rowIndex: number }) =>
     `A split points at row ${rowIndex + 1}, which is not in this file.`,
+  IMPORT_SESSION_NOT_FOUND: 'That saved import is gone. It was finished or discarded.',
+  IMPORT_SESSION_TOO_LARGE:
+    'This import is too large to save. It will still import, but it won’t survive closing the page.',
 
   // --- rules ------------------------------------------------------------------------------------
   RULE_NOT_FOUND: 'That rule no longer exists.',

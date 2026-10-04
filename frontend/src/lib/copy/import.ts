@@ -64,6 +64,10 @@ export const importCopy = {
     discard: 'Discard',
     resume: 'Resume',
     justNow: 'just now',
+    /** `reason` is the refusal's own sentence, from `copy/errors.ts`. */
+    lastFailed: (reason: string) => `Last attempt failed: ${reason}`,
+    unavailable: 'That saved import is from an older version and can’t be resumed.',
+    loadFailed: 'Could not load the saved import.',
   },
 
   /** Step 1, before a file is parsed. */
@@ -365,6 +369,14 @@ export const importCopy = {
     },
     coverageFailed: 'Imported, but the covered range could not be recorded',
     failed: 'Import failed. Please try again.',
+    /**
+     * The commit's answer never arrived, but its session is gone, and the commit is the only
+     * thing that deletes a session on its way through (#535): the rows are in.
+     */
+    landed: 'Imported. The connection dropped before the count came back.',
+    /** The answer never arrived and the session could not be checked either. */
+    unknown:
+      'The server didn’t answer, so this import may not have gone through. Check Transactions before trying again.',
     ruleFailed: 'Could not save the rule.',
     ruleSaved: (stem: string, applied: number) =>
       applied === 0

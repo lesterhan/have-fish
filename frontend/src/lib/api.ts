@@ -394,6 +394,9 @@ export async function importCommit(body: {
         categoryId?: string | null | undefined
       }[]
     | undefined
+  // The file hash of the import session this commit finishes. The server deletes the session
+  // in the commit's transaction (#535).
+  session?: string | undefined
 }): Promise<{ created: number; skipped: number; fishPieExpenses: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
@@ -414,6 +417,64 @@ export class ImportRefused extends Error {
     super('import refused')
     this.name = 'ImportRefused'
   }
+}
+
+/** What the saved-imports list shows of a session, without the session itself. */
+export type ImportSessionSummary = {
+  fileHash: string
+  fileName: string
+  version: number
+  rowCount: number
+  lastError: unknown
+  savedAt: string
+}
+
+/** The caller's saved imports, most recently saved first (#535). */
+export async function fetchImportSessions(): Promise<ImportSessionSummary[]> {
+  const res = await fetch(`${BASE}/api/import/sessions`, { credentials: 'include' })
+  if (!res.ok) throw await apiError(res, 'Failed to load saved imports.')
+  return (await res.json()).sessions
+}
+
+/**
+ * One saved import with its payload, or null when there is none for that file: discarded, or
+ * finished by a commit that landed.
+ */
+export async function fetchImportSession(
+  fileHash: string,
+): Promise<(ImportSessionSummary & { payload: unknown }) | null> {
+  const res = await fetch(`${BASE}/api/import/sessions/${fileHash}`, { credentials: 'include' })
+  if (res.status === 404) return null
+  if (!res.ok) throw await apiError(res, 'Failed to load the saved import.')
+  return res.json()
+}
+
+/** Create or replace the saved import for this file. */
+export async function saveImportSession(
+  fileHash: string,
+  body: {
+    fileName: string
+    version: number
+    rowCount: number
+    payload: unknown
+    lastError: unknown
+  },
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/import/sessions/${fileHash}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to save the import.')
+}
+
+export async function deleteImportSession(fileHash: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/import/sessions/${fileHash}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to discard the saved import.')
 }
 
 /**

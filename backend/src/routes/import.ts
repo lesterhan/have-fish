@@ -1,14 +1,19 @@
 import { Hono } from 'hono'
+import { bodyLimit } from 'hono/body-limit'
 import { z } from 'zod'
 import type { AppVariables } from '../app'
 import { commitImport } from '../import/commit-service'
 import { findPossibleDuplicates } from '../import/duplicates-service'
 import { IMPORT_KEY } from '../import/fingerprint'
 import { previewImport } from '../import/preview-service'
+import { deleteSession, listSessions, readSession, saveSession } from '../import/session-service'
 import { fail, failWith } from '../respond'
 import { amountLike, as, asField, parseBody, text } from '../validation'
 
 const app = new Hono<{ Variables: AppVariables }>()
+
+// A session is named by the sha-256 of its CSV, as the page computes it (`hashCsv`).
+const FILE_HASH = /^[0-9a-f]{64}$/
 
 // POST /api/import/preview
 // Parses an uploaded CSV using the user's saved parser that matches the file's
@@ -149,6 +154,12 @@ const emptyBatch = as('FIELD_EMPTY', { field: 'transactions' })
 
 const Commit = z.object({
   accountId: z.string().nullish(),
+  // The file hash of the import session this commit finishes. The session is deleted in the
+  // commit's transaction, so it is gone exactly when the rows are in (#535).
+  session: z
+    .string({ error: asField('FIELD_INVALID') })
+    .regex(FILE_HASH, { error: asField('FIELD_INVALID') })
+    .optional(),
   defaultCurrency: text('FIELD_REQUIRED'),
   transactions: z.array(ImportRow, { error: emptyBatch }).min(1, { error: emptyBatch }),
   // A non-array here used to be silently replaced with `[]`, quietly dropping every split
@@ -166,9 +177,77 @@ app.post('/commit', async (c) => {
     defaultCurrency: body.data.defaultCurrency,
     rows: body.data.transactions,
     splits: body.data.groupSplits ?? [],
+    session: body.data.session,
   })
   if (!committed.ok) return failWith(c, committed.failure)
   return c.json(committed.value, 201)
+})
+
+// --- Sessions (#535) -------------------------------------------------------------------
+//
+// An import in progress, kept here rather than in the browser so it survives a closed tab,
+// a refused commit and a change of device. The page owns the payload; this stores it.
+
+// What a 5,000-row preview with its row decisions comes to, with room to spare. Past it the
+// page still imports; it just can't save the attempt.
+const MAX_SESSION_BYTES = 5 * 1024 * 1024
+
+// GET /api/import/sessions
+// The caller's saved imports, most recent first, without their payloads. Sessions untouched
+// for 30 days are dropped first.
+// 200: { sessions: [{ fileHash, fileName, version, rowCount, lastError, savedAt }] }
+app.get('/sessions', async (c) => {
+  return c.json({ sessions: await listSessions(c.get('userId')) })
+})
+
+// GET /api/import/sessions/:fileHash
+// 200: { fileHash, fileName, version, rowCount, lastError, savedAt, payload }
+// 404: IMPORT_SESSION_NOT_FOUND, also the answer after the commit that finished it landed
+app.get('/sessions/:fileHash', async (c) => {
+  const fileHash = c.req.param('fileHash')
+  if (!FILE_HASH.test(fileHash)) return fail(c, 'IMPORT_SESSION_NOT_FOUND')
+  const session = await readSession(c.get('userId'), fileHash)
+  if (!session) return fail(c, 'IMPORT_SESSION_NOT_FOUND')
+  return c.json(session)
+})
+
+const SaveSession = z.object({
+  fileName: text('FIELD_REQUIRED'),
+  version: z.int({ error: asField('FIELD_NOT_INTEGER') }),
+  rowCount: z.int({ error: asField('FIELD_NOT_INTEGER') }).min(0, {
+    error: asField('FIELD_NOT_INTEGER'),
+  }),
+  payload: z.record(z.string(), z.unknown(), { error: asField('FIELD_NOT_OBJECT') }),
+  lastError: z.record(z.string(), z.unknown(), { error: asField('FIELD_NOT_OBJECT') }).nullish(),
+})
+
+// PUT /api/import/sessions/:fileHash
+// Creates or replaces the caller's session for this file.
+// Request: { fileName, version, rowCount, payload, lastError? }
+// 200: { savedAt }
+// 413: IMPORT_SESSION_TOO_LARGE, before the body is read
+app.put(
+  '/sessions/:fileHash',
+  bodyLimit({
+    maxSize: MAX_SESSION_BYTES,
+    onError: (c) => fail(c, 'IMPORT_SESSION_TOO_LARGE'),
+  }),
+  async (c) => {
+    const fileHash = c.req.param('fileHash')
+    if (!FILE_HASH.test(fileHash)) return fail(c, 'FIELD_INVALID', { field: 'fileHash' })
+    const body = await parseBody(c, SaveSession)
+    if (!body.ok) return body.response
+    const { lastError, ...rest } = body.data
+    return c.json(await saveSession(c.get('userId'), fileHash, { ...rest, lastError }))
+  },
+)
+
+// DELETE /api/import/sessions/:fileHash
+// 204 whether or not there was one: discarding twice is still discarded.
+app.delete('/sessions/:fileHash', async (c) => {
+  const fileHash = c.req.param('fileHash')
+  if (FILE_HASH.test(fileHash)) await deleteSession(c.get('userId'), fileHash)
+  return c.body(null, 204)
 })
 
 export default app
