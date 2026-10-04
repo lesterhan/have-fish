@@ -49,7 +49,8 @@
   import { buildManifest } from '$lib/components/import/manifest'
   import {
     hashCsv,
-    takeLegacySessions,
+    legacySessions,
+    forgetLegacySession,
     toSaved,
     isImportSession,
     describeAge,
@@ -331,12 +332,10 @@
     )
   }
 
-  // Moves anything this browser still holds from before #535 to the server, then lists what
-  // can be resumed. A session written by another version can't be, so it is discarded here.
+  // Moves what this browser still holds from before #535 to the server, then lists what can
+  // be resumed. A session written by another version can't be, so it is discarded here.
   async function loadSavedImports() {
-    for (const legacy of takeLegacySessions()) {
-      await persist(legacy, null)
-    }
+    await moveLegacySessions()
     try {
       const sessions = await fetchImportSessions()
       for (const stale of sessions.filter(
@@ -347,6 +346,25 @@
       savedImports = sessions.filter((s) => s.version === SESSION_VERSION)
     } catch {
       savedImports = []
+    }
+  }
+
+  // Each legacy session leaves this browser only once the server has it, so a failed save is
+  // tried again next visit instead of losing the import. One the server already holds is not
+  // sent: anything there was saved after #535, so it is newer than this browser's copy.
+  async function moveLegacySessions() {
+    const legacy = legacySessions()
+    if (legacy.length === 0) return
+    let onServer: Set<string>
+    try {
+      onServer = new Set((await fetchImportSessions()).map((s) => s.fileHash))
+    } catch {
+      return
+    }
+    for (const session of legacy) {
+      if (onServer.has(session.fileHash) || (await persist(session, null))) {
+        forgetLegacySession(session.fileHash)
+      }
     }
   }
 
@@ -958,8 +976,9 @@
         lastError = inPreviewRows(e.body, sent)
         error = errorMessage(lastError, copy.import.commit.failed)
       } else {
-        // No answer: the connection dropped, or the server never sent one. The session says
-        // whether the rows went in, if it was saved before the commit.
+        // No answer: the connection dropped, or something in front of the API answered for
+        // it (`ImportUnanswered`, a proxy's 502 or 504). The session says whether the rows
+        // went in, if it was saved before the commit.
         const gone = receipt ? await commitLanded(fileHash) : null
         if (gone) landed = copy.import.commit.landed
         else

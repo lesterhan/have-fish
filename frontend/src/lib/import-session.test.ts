@@ -3,16 +3,17 @@ import { importCopy } from './copy/import'
 import {
   defaultCoverageRange,
   describeAge,
+  forgetLegacySession,
   type ImportSession,
   isFresh,
   isImportSession,
+  legacySessions,
   MAX_AGE_DAYS,
   parseCatchUpHandoff,
   pruneSessions,
   SESSION_VERSION,
   type SessionStorageLike,
   STORAGE_KEY,
-  takeLegacySessions,
   toSaved,
 } from './import-session'
 
@@ -23,6 +24,9 @@ function fakeStorage(initial?: string): SessionStorageLike & { raw: () => string
   let value: string | null = initial ?? null
   return {
     getItem: (key) => (key === STORAGE_KEY ? value : null),
+    setItem: (key, next) => {
+      if (key === STORAGE_KEY) value = next
+    },
     removeItem: (key) => {
       if (key === STORAGE_KEY) value = null
     },
@@ -110,20 +114,44 @@ describe('the saved form', () => {
 })
 
 describe('legacy sessions', () => {
-  it('hands over what this browser held, newest first, and removes it', () => {
-    const storage = fakeStorage(
+  const held = () =>
+    fakeStorage(
       JSON.stringify([
         makeSession({ fileHash: 'old', savedAt: new Date(NOW - 5000).toISOString() }),
         makeSession({ fileHash: 'new' }),
       ]),
     )
+  const hashes = (storage: SessionStorageLike) =>
+    legacySessions(NOW, storage).map((s) => s.fileHash)
 
-    expect(takeLegacySessions(NOW, storage).map((s) => s.fileHash)).toEqual(['new', 'old'])
-    expect(storage.raw()).toBeNull()
-    expect(takeLegacySessions(NOW, storage)).toEqual([])
+  it('hands over what this browser held, newest first', () => {
+    expect(hashes(held())).toEqual(['new', 'old'])
   })
 
-  it('leaves out what could not be resumed anyway', () => {
+  // #535: they were removed before the server had them, so a first visit with the server
+  // down lost every one.
+  it('keeps each one until the server has it', () => {
+    const storage = held()
+    expect(hashes(storage)).toEqual(['new', 'old'])
+    expect(hashes(storage)).toEqual(['new', 'old'])
+
+    forgetLegacySession('new', NOW, storage)
+    expect(hashes(storage)).toEqual(['old'])
+
+    forgetLegacySession('old', NOW, storage)
+    expect(storage.raw()).toBeNull()
+    expect(hashes(storage)).toEqual([])
+  })
+
+  it('forgets nothing it was not told to, and copes with nothing held', () => {
+    const storage = held()
+    forgetLegacySession('neither', NOW, storage)
+    expect(hashes(storage)).toEqual(['new', 'old'])
+    expect(() => forgetLegacySession('new', NOW, fakeStorage())).not.toThrow()
+    expect(() => forgetLegacySession('new', NOW, null)).not.toThrow()
+  })
+
+  it('leaves out, and drops from storage, what could not be resumed anyway', () => {
     const storage = fakeStorage(
       JSON.stringify([
         makeSession({ fileHash: 'ok' }),
@@ -134,13 +162,24 @@ describe('legacy sessions', () => {
         }),
       ]),
     )
-    expect(takeLegacySessions(NOW, storage).map((s) => s.fileHash)).toEqual(['ok'])
+    expect(hashes(storage)).toEqual(['ok'])
+    expect((JSON.parse(storage.raw() ?? '[]') as ImportSession[]).map((s) => s.fileHash)).toEqual([
+      'ok',
+    ])
+  })
+
+  it('stops retrying once a session expires', () => {
+    const storage = held()
+    expect(legacySessions(NOW + (MAX_AGE_DAYS + 1) * DAY, storage)).toEqual([])
+    expect(storage.raw()).toBeNull()
   })
 
   it('returns nothing for corrupt JSON, an empty store, or no storage at all', () => {
-    expect(takeLegacySessions(NOW, fakeStorage('{not json'))).toEqual([])
-    expect(takeLegacySessions(NOW, fakeStorage())).toEqual([])
-    expect(takeLegacySessions(NOW, null)).toEqual([])
+    const corrupt = fakeStorage('{not json')
+    expect(legacySessions(NOW, corrupt)).toEqual([])
+    expect(corrupt.raw()).toBeNull()
+    expect(legacySessions(NOW, fakeStorage())).toEqual([])
+    expect(legacySessions(NOW, null)).toEqual([])
   })
 })
 

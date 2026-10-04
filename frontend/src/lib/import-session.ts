@@ -9,7 +9,7 @@ import { importCopy } from './copy/import'
 // Kept on the server (`/api/import/sessions`, #535), as the plain JSON below: the backend
 // stores it and hands it back without reading it. The commit that writes its rows deletes it
 // in the same transaction, so a session that is gone is an import that landed. Before #535
-// it lived in this browser's localStorage; `takeLegacySessions` moves what is left there.
+// it lived in this browser's localStorage; `legacySessions` moves what is left there.
 
 export type ImportStep = 'file' | 'accounts' | 'sort' | 'review' | 'confirm'
 
@@ -123,7 +123,7 @@ export function pruneSessions(value: unknown, now: number): ImportSession[] {
 
 // A minimal slice of the Storage API, so these functions are testable without a DOM and
 // can't throw on a server render where localStorage doesn't exist.
-export type SessionStorageLike = Pick<Storage, 'getItem' | 'removeItem'>
+export type SessionStorageLike = Pick<Storage, 'getItem' | 'setItem' | 'removeItem'>
 
 function defaultStorage(): SessionStorageLike | null {
   try {
@@ -135,11 +135,13 @@ function defaultStorage(): SessionStorageLike | null {
 }
 
 /**
- * The sessions this browser still holds from before #535, newest first, removed from storage
- * as they are handed over. The page saves each to the server; one that fails to save is lost,
- * which is what a version bump has always done to an in-flight import.
+ * The sessions this browser still holds from before #535, newest first. They stay in storage
+ * until `forgetLegacySession` is told the server has each one, so a save that fails (the
+ * server unreachable on the first visit after the upgrade) is tried again on the next visit
+ * rather than losing the import. What could never be resumed (malformed, another version,
+ * past `MAX_AGE_DAYS`) is dropped from storage here, which also bounds the retrying.
  */
-export function takeLegacySessions(
+export function legacySessions(
   now: number = Date.now(),
   storage: SessionStorageLike | null = defaultStorage(),
 ): ImportSession[] {
@@ -147,12 +149,42 @@ export function takeLegacySessions(
   try {
     const raw = storage.getItem(STORAGE_KEY)
     if (!raw) return []
-    storage.removeItem(STORAGE_KEY)
-    return pruneSessions(JSON.parse(raw), now)
+    const sessions = pruneSessions(JSON.parse(raw), now)
+    writeLegacy(sessions, storage)
+    return sessions
   } catch {
-    // Corrupt JSON, or storage that refuses: nothing to move.
+    // Corrupt JSON, or storage that refuses: nothing to move, and nothing worth keeping.
+    try {
+      storage.removeItem(STORAGE_KEY)
+    } catch {
+      // Storage that refuses even this has nothing to give back either.
+    }
     return []
   }
+}
+
+/** Drop one legacy session from storage, once the server holds it. */
+export function forgetLegacySession(
+  fileHash: string,
+  now: number = Date.now(),
+  storage: SessionStorageLike | null = defaultStorage(),
+): void {
+  if (!storage) return
+  try {
+    const raw = storage.getItem(STORAGE_KEY)
+    if (!raw) return
+    writeLegacy(
+      pruneSessions(JSON.parse(raw), now).filter((s) => s.fileHash !== fileHash),
+      storage,
+    )
+  } catch {
+    // Left in place, the server copy is overwritten with the same session on the next visit.
+  }
+}
+
+function writeLegacy(sessions: ImportSession[], storage: SessionStorageLike): void {
+  if (sessions.length === 0) storage.removeItem(STORAGE_KEY)
+  else storage.setItem(STORAGE_KEY, JSON.stringify(sessions))
 }
 
 /**

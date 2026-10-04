@@ -344,9 +344,9 @@ export const errorsCopy = {
 } as const
 
 /** What the API sends when a request fails. Anything else is a failure it did not author. */
-type Failure = { error: string; detail?: Record<string, unknown> }
+export type Failure = { error: string; detail?: Record<string, unknown> }
 
-function isFailure(body: unknown): body is Failure {
+export function isFailure(body: unknown): body is Failure {
   return (
     typeof body === 'object' &&
     body !== null &&

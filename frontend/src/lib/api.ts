@@ -12,7 +12,7 @@
 //  it says; it is this module that talks to the wire.
 // ════════════════════════════════════════════════════════════
 
-import { errorMessage } from './copy/errors'
+import { errorMessage, isFailure } from './copy/errors'
 import type { AccountCoverageStatus, CoverageState } from './coverage'
 import { bumpCoverage } from './coverageRefresh'
 import { toISODate } from './date'
@@ -407,7 +407,13 @@ export async function importCommit(body: {
   // A refusal used to come back as the result, so the page celebrated an import that had
   // written nothing (#533). The body is kept: its row index means nothing until the page
   // maps it back through the rows it skipped (`lib/import/commit-failure.ts`).
-  if (!res.ok) throw new ImportRefused(await res.json().catch(() => null))
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null)
+    if (isFailure(body)) throw new ImportRefused(body)
+    // A proxy's 502 or 504, or a bare 500: an answer, but not the API's. It says nothing
+    // about whether the batch was written, so it is no answer at all (#535).
+    throw new ImportUnanswered(res.status)
+  }
   return res.json()
 }
 
@@ -416,6 +422,17 @@ export class ImportRefused extends Error {
   constructor(readonly body: unknown) {
     super('import refused')
     this.name = 'ImportRefused'
+  }
+}
+
+/**
+ * A commit answered by something other than the API: the batch may or may not have been
+ * written. The page treats it as a dropped connection and asks the import session (#535).
+ */
+export class ImportUnanswered extends Error {
+  constructor(readonly status: number) {
+    super(`import unanswered (${status})`)
+    this.name = 'ImportUnanswered'
   }
 }
 
