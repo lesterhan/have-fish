@@ -282,7 +282,7 @@ both; only the edges differ — auth middleware, database driver, static serving
 that seam narrow is the central architectural discipline of this project.** One
 implementation hosted in two places is not a chasm; two implementations is.
 
-**Amended 2026-10-01: proposed replacement, pending #522.** P2 built Option A, and its cost
+**Amended 2026-10-01, decided 2026-10-04 (#522): replaced.** P2 built Option A, and its cost
 is now visible: a localhost server dressed up as an app needs a launch token, Host and Origin
 checks, a lockfile handshake, and a Quit button, because a browser tab cannot stop a server.
 Wrapping it in Tauri later would keep that server, and those defences, for good. The proposal is
@@ -290,8 +290,7 @@ to rebuild the desktop app on **Electron**, whose main process is Node. The core
 in-process behind typed IPC, with no port at all. It is rebuilt from a fresh core in this
 repository, beside the current app, which keeps running until the new one replaces it. With the
 hosted edition retired (D9), nothing is left for the `HAVEFISH_MODE` seam to serve in the new
-app. This is the working direction, recorded here as such; it becomes the decision when #522
-closes. The plan is [`planning/desktop-rewrite.md`](../desktop-rewrite.md).
+app. The plan is [`planning/desktop-rewrite.md`](../desktop-rewrite.md).
 
 ### D8 — Database: SQLite
 **Per `L02`, confirmed 2026-09-11.**
@@ -309,7 +308,7 @@ atomic and embeds in a compiled binary with a one-line build plugin. Probe 1 (#2
 whole suite on it: 1156 of 1198 green untouched, 1196 after three one-line fixes, the two
 left being Postgres migration tests. What the port still owes is in #480, #481 and #482.
 
-**Amended 2026-10-01: proposed, pending #522.** The rewrite keeps SQLite. Its driver is
+**Amended 2026-10-01, decided 2026-10-04 (#522).** The rewrite keeps SQLite. Its driver is
 better-sqlite3, which is synchronous, so no transaction can interleave with another command,
 with libsql as the fallback. How the rewrite stores amounts (integer cents is the leaning) is
 an open question in its backlog, settled by the first story that writes one.
@@ -507,7 +506,6 @@ applies to it, re-scoped and much smaller:
 | Q1 | Target jurisdictions — Canada/US first, or accept EU users? | `03` |
 | Q3 | Stripe direct vs merchant of record | `05` |
 | Q5 | Sole proprietor or incorporate before holding others' data? | `08` |
-| — | Rebuild the desktop app on Electron, in this repository, beside the current app? | #522, `planning/desktop-rewrite.md` |
 | — | Mobile: ~~LAN companion with an offline queue (`L08` O1) or true local peer (O2)?~~ **Narrowed 2026-09-29 (#508):** not a LAN companion. The phone reaches the ledger through the paid sync server, as Fish Pie does. Still open: whether the phone holds a full replica (O2) or is a thin client whose entries the server relays | `L08`, #508 |
 
 ## Code evidence for the boundary

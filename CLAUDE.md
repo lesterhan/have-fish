@@ -16,8 +16,8 @@ Three guiding principles that should inform every feature decision:
 ## Where this is going
 
 The app is being rebuilt as a desktop app in this repository, beside the current one: Electron,
-a TypeScript core over one SQLite file, and the Svelte UI in a real window. This is the working
-direction; the decision is #522, open until the owner closes it. The plan is
+a TypeScript core over one SQLite file, and the Svelte UI in a real window. This was decided
+in #522 on 2026-10-04. The plan is
 `planning/desktop-rewrite.md`. The rewrite is planned as user stories, not as layers or ports
 (see Work Tracking below), and it grows in `core/` and `desktop/` one story at a time.
 

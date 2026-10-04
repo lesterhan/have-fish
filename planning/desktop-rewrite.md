@@ -1,8 +1,7 @@
 # The desktop rewrite
 
-**Status: the working direction since 2026-10-01.** The decision is
-[#522](https://github.com/lesterhan/have-fish/issues/522), which stays open until the owner
-closes it. The options it weighs, and the case against, live there and are not repeated here.
+**Status: decided 2026-10-04** ([#522](https://github.com/lesterhan/have-fish/issues/522),
+option 1). The options it weighed, and the case against, live there and are not repeated here.
 
 have-fish is being rebuilt as a desktop app: Electron, a TypeScript core over one SQLite file,
 and the Svelte UI in a real window. It is built in this repository, beside the current app,
@@ -80,7 +79,7 @@ fallback. It is N-API, so it needs no rebuild per Electron version.
 ### Layout, as it will grow
 
 ```
-core/          pure domain, moved here from backend/src one module at a time, when a story needs it
+core/          pure domain, copied or rewritten from backend/src when a story needs it
 desktop/
 ├── main/      window and lifecycle; db/ (schema, migrations); services/; commands/
 ├── preload/   the typed bridge
@@ -88,8 +87,11 @@ desktop/
 ```
 
 The layers are today's, renamed where HTTP leaves: **domain** in `core/`, **services**, and
-**commands** where routes were. When a module moves into `core/`, the current backend imports it
-from there, so the two apps never hold two copies of one rule.
+**commands** where routes were. A module comes into `core/` by being copied or rewritten, never
+moved: the current backend keeps its own copy, untouched. It is in maintenance until the rewrite
+replaces it, and wiring it to `core/` would put a workspace, a Dockerfile change and a second
+error-code scheme into a live app for nothing it needs. The two copies may drift; the old one
+retires with the current app.
 
 ### The boundary: commands, not routes
 

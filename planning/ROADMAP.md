@@ -87,7 +87,7 @@
 | [Type & Space Scale](epics/archive/type-and-space.md) | Done |
 | [Domain Layer](epics/archive/domain-layer.md) | Done |
 | [Sync Unit](epics/sync-unit.md) | Accepted; schema in progress (#454) |
-| [Desktop rewrite](desktop-rewrite.md) | Planning; the stories live in the vault (#522) |
+| [Desktop rewrite](desktop-rewrite.md) | Decided (#522); the stories live in the vault |
 
 ## Fish Pie sequence
 
