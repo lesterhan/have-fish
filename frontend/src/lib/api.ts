@@ -401,7 +401,19 @@ export async function importCommit(body: {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
   })
+  // A refusal used to come back as the result, so the page celebrated an import that had
+  // written nothing (#533). The body is kept: its row index means nothing until the page
+  // maps it back through the rows it skipped (`lib/import/commit-failure.ts`).
+  if (!res.ok) throw new ImportRefused(await res.json().catch(() => null))
   return res.json()
+}
+
+/** A commit the API refused, with the body it answered. Nothing from the batch was written. */
+export class ImportRefused extends Error {
+  constructor(readonly body: unknown) {
+    super('import refused')
+    this.name = 'ImportRefused'
+  }
 }
 
 /**

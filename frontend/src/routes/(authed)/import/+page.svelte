@@ -9,6 +9,7 @@
     fetchGroups,
     importPreview,
     importCommit,
+    ImportRefused,
     checkDuplicates,
     createRule,
     type Account,
@@ -21,6 +22,7 @@
   } from '$lib/api'
   import { settingsStore } from '$lib/settings.svelte'
   import { rootsFrom, surfaceOf } from '$lib/components/accounts/accountPaths'
+  import { commitFailureMessage } from '$lib/import/commit-failure'
   import { useSession } from '$lib/auth'
   import GradientButton from '$lib/components/ui/GradientButton.svelte'
   import AccountPicker from '$lib/components/accounts/AccountPicker.svelte'
@@ -736,6 +738,11 @@
       error = copy.import.commit.incomplete
       return
     }
+    // The preview index of each row sent, in order: a refusal names its row by position in
+    // the request, which skips the rows the user skipped.
+    const sent = preview.transactions.flatMap((_, i) =>
+      at(rowStates, i).skipped ? [] : [i],
+    )
     loading = true
     error = ''
     try {
@@ -878,8 +885,12 @@
             : '/transactions',
         )
       }
-    } catch {
-      error = copy.import.commit.failed
+    } catch (e) {
+      // The session is left as it was, so the user can fix the row and confirm again.
+      error =
+        e instanceof ImportRefused
+          ? commitFailureMessage(e.body, sent)
+          : copy.import.commit.failed
     } finally {
       loading = false
     }
