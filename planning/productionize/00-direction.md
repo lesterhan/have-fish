@@ -282,6 +282,16 @@ both; only the edges differ — auth middleware, database driver, static serving
 that seam narrow is the central architectural discipline of this project.** One
 implementation hosted in two places is not a chasm; two implementations is.
 
+**Amended 2026-10-01, decided 2026-10-04 (#522): replaced.** P2 built Option A, and its cost
+is now visible: a localhost server dressed up as an app needs a launch token, Host and Origin
+checks, a lockfile handshake, and a Quit button, because a browser tab cannot stop a server.
+Wrapping it in Tauri later would keep that server, and those defences, for good. The proposal is
+to rebuild the desktop app on **Electron**, whose main process is Node. The core then runs
+in-process behind typed IPC, with no port at all. It is rebuilt from a fresh core in this
+repository, beside the current app, which keeps running until the new one replaces it. With the
+hosted edition retired (D9), nothing is left for the `HAVEFISH_MODE` seam to serve in the new
+app. The plan is [`planning/desktop-rewrite.md`](../desktop-rewrite.md).
+
 ### D8 — Database: SQLite
 **Per `L02`, confirmed 2026-09-11.**
 
@@ -297,6 +307,11 @@ everything after runs outside it (#284). libsql keeps the existing async transac
 atomic and embeds in a compiled binary with a one-line build plugin. Probe 1 (#285) ran the
 whole suite on it: 1156 of 1198 green untouched, 1196 after three one-line fixes, the two
 left being Postgres migration tests. What the port still owes is in #480, #481 and #482.
+
+**Amended 2026-10-01, decided 2026-10-04 (#522).** The rewrite keeps SQLite. Its driver is
+better-sqlite3, which is synchronous, so no transaction can interleave with another command,
+with libsql as the fallback. How the rewrite stores amounts (integer cents is the leaning) is
+an open question in its backlog, settled by the first story that writes one.
 
 ### D9 — Fish Pie v1 is gated on connecting to sync
 **Per `L03` option F1.**
@@ -625,5 +640,11 @@ shared-expense rule block an entire bank statement.
    puts it in place (#289). Until the sync server exists, entries from the phone and Fish Pie
    land on hosted and do not reach the laptop; that server round trip is the paid feature.
    P2b's two-way bridge (#246) and P3 (#248) are closed.
+8. **The desktop rewrite (2026-10-01, #522).** Planned as user stories in a story map, not as
+   phases or ports: releases named by outcome, from "I write down a spend and it's still there
+   tomorrow" to "I can stop using the hosted app" (`planning/desktop-rewrite.md`). Until the
+   last of them, the hosted edition stays the real ledger, which defers item 7's cutover.
+   Whether history comes across at all, or the new app starts fresh from opening balances, is an
+   open question there.
 
 Steps 1–4 ship real value even if this direction is abandoned entirely. That is deliberate.
