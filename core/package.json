@@ -1,0 +1,19 @@
+{
+  "name": "@have-fish/core",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The ledger's pure core: documents and the checks on them. No database, no clock, no network.",
+  "scripts": {
+    "test": "bun --bun vitest run",
+    "test:watch": "bun --bun vitest",
+    "check": "bun --bun tsc --noEmit"
+  },
+  "dependencies": {
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.3"
+  }
+}
