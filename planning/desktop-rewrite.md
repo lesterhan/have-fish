@@ -38,9 +38,10 @@ The backlog is a **story map** in `lesterhan/have-fish-vault`, a private Obsidia
 it is picked up. **Done** means the owner has checked every acceptance line in the packaged
 app, tests cover them, and the PR is merged.
 
-A story gets an issue in this repository only when it is picked up. Its PR closes that issue,
-and the issue number goes back into the story note. Decisions that change the plan are still
-`type:decision` issues here.
+Rewrite work gets no issue in this repository. A PR's body ends with `Story: <note name>`, or
+`Tech: <note name>` for a tech note: a foundation or refactoring that several stories stand on,
+which the owner codes himself. The PR number goes back into the note. Decisions about the
+rewrite are notes in the vault.
 
 ### Two rules that keep thin slices from going wrong
 

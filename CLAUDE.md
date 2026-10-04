@@ -312,13 +312,13 @@ server repo when it exists. The full guide, label set and board setup live in
 **The rewrite is tracked differently.** Its backlog is a story map in
 `lesterhan/have-fish-vault`, a private Obsidian vault. Activities run across the top, releases
 named by outcome run down the side, there is one note per user story, and dependencies are
-links. The vault's `Home.md` and `CLAUDE.md` hold its conventions. A story gets an issue here
-only when it is picked up, so its PR still closes something, and the issue number goes back
-into the story's `issue` property. Decisions that change the plan are still `type:decision`
-issues here.
+links. The vault's `Home.md` and `CLAUDE.md` hold its conventions. Beside the stories are
+**tech notes**: foundations and refactorings the owner codes himself, with Claude coaching. Rewrite
+work has no issue here. Its PR body ends with `Story: <note name>` or `Tech: <note name>`, and
+the PR number goes back into the note's `pr`. Decisions about the rewrite are notes in the vault.
+Code comments cite PR numbers, never note names.
 
-The rules that matter in a session, for the current app and for a rewrite story once it has its
-issue:
+The rules that matter in a session, for the current app:
 
 - **Issue first.** Work has an issue before it has a branch. Parents (`type:epic`) hold
   sub-issues; a story of an epic is a sub-issue of that epic's parent.
@@ -394,10 +394,16 @@ For the rewrite, with the vault attached:
   story line, Given/When/Then acceptance, a "not in this story" list, and a size of XS or S.
   Write nothing in this repository.
 - "**let's pick up the story <name>**": check that it is `ready` and that everything in its
-  `depends_on` is done. File its issue here, put the number in the note, and set it to
-  `doing`. Then build it: one branch, one PR, `Closes #N`. Port only the code the story needs,
-  with its tests. It is done when the owner has checked every acceptance line in the packaged
-  app.
+  `depends_on` is done, and set it to `doing`. Then build it: one branch, one PR, its body
+  ending `Story: <name>`. Port only the code the story needs, with its tests. It is done when
+  the owner has checked every acceptance line in the packaged app.
+- "**let's start <tech note>**": the owner writes the code; Claude coaches. Check the note is
+  `ready` and its `depends_on` are done, and set it to `doing`. Then go through its *Build it*
+  steps with the owner: explain, point at code and docs, answer questions, and review what he
+  writes. Don't write the implementation unless asked. The owner opens the PR, its body
+  ending `Tech: <name>`.
+- "**review <tech note>**" (or a PR of one): review the PR against the note's *Review* list and
+  its *Done when* lines, and say what each finding teaches, not only what to change.
 - "**sync the map**": pull the vault, run `node .tools/map.mjs sync`, report what moved, push.
 
 Claude can create, label, parent and comment on issues in any attached repo. It cannot
@@ -432,7 +438,7 @@ When the user says this:
 
 ## How I Like to Be Assisted
 
-- **I'm hands-off on code** — implement features fully and correctly. Don't produce skeleton or partial code that requires me to fill in the gaps.
+- **I'm hands-off on code** — implement features fully and correctly. Don't produce skeleton or partial code that requires me to fill in the gaps. **The exception is a rewrite tech note**: I write that code myself, and Claude coaches and reviews (see "let's start <tech note>").
 - **We design together** — before writing code for a new epic or a non-trivial feature, discuss the approach in the epic file under `planning/` (for the rewrite, in the story's note in the vault). I want to understand and shape what we're building, even if I'm not writing it.
 - **Tests prevent regression** — I'm using the app in the wild while traveling. Write comprehensive tests for every new route and behaviour. Tests are not an afterthought.
 - **PRs, not direct pushes** — all work goes through a branch and a pull request opened against `main` on the public `have-fish` repo. Never push directly to `main`. This is the gate that keeps the deployed app stable.
