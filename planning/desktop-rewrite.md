@@ -40,7 +40,7 @@ app, tests cover them, and the PR is merged.
 
 Rewrite work gets no issue in this repository. A PR's body ends with `Story: <note name>`, or
 `Tech: <note name>` for a tech note: a foundation or refactoring that several stories stand on,
-which the owner codes himself. The PR number goes back into the note. Decisions about the
+which the owner codes. The PR number goes back into the note. Decisions about the
 rewrite are notes in the vault.
 
 ### Two rules that keep thin slices from going wrong

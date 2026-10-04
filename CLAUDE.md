@@ -313,7 +313,7 @@ server repo when it exists. The full guide, label set and board setup live in
 `lesterhan/have-fish-vault`, a private Obsidian vault. Activities run across the top, releases
 named by outcome run down the side, there is one note per user story, and dependencies are
 links. The vault's `Home.md` and `CLAUDE.md` hold its conventions. Beside the stories are
-**tech notes**: foundations and refactorings the owner codes himself, with Claude coaching. Rewrite
+**tech notes**: foundations and refactorings the owner codes, with Claude coaching. Rewrite
 work has no issue here. Its PR body ends with `Story: <note name>` or `Tech: <note name>`, and
 the PR number goes back into the note's `pr`. Decisions about the rewrite are notes in the vault.
 Code comments cite PR numbers, never note names.
@@ -399,7 +399,7 @@ For the rewrite, with the vault attached:
   the owner has checked every acceptance line in the packaged app.
 - "**let's start <tech note>**": the owner writes the code; Claude coaches. Check the note is
   `ready` and its `depends_on` are done, and set it to `doing`. Then go through its *Build it*
-  steps with the owner: explain, point at code and docs, answer questions, and review what he
+  steps with the owner: explain, point at code and docs, answer questions, and review what they
   writes. Don't write the implementation unless asked. The owner opens the PR, its body
   ending `Tech: <name>`.
 - "**review <tech note>**" (or a PR of one): review the PR against the note's *Review* list and
