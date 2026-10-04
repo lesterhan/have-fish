@@ -12,7 +12,7 @@
 //  it says; it is this module that talks to the wire.
 // ════════════════════════════════════════════════════════════
 
-import { errorMessage } from './copy/errors'
+import { errorMessage, isFailure } from './copy/errors'
 import type { AccountCoverageStatus, CoverageState } from './coverage'
 import { bumpCoverage } from './coverageRefresh'
 import { toISODate } from './date'
@@ -394,6 +394,9 @@ export async function importCommit(body: {
         categoryId?: string | null | undefined
       }[]
     | undefined
+  // The file hash of the import session this commit finishes. The server deletes the session
+  // in the commit's transaction (#535).
+  session?: string | undefined
 }): Promise<{ created: number; skipped: number; fishPieExpenses: number }> {
   const res = await fetch(`${BASE}/api/import/commit`, {
     method: 'POST',
@@ -404,7 +407,13 @@ export async function importCommit(body: {
   // A refusal used to come back as the result, so the page celebrated an import that had
   // written nothing (#533). The body is kept: its row index means nothing until the page
   // maps it back through the rows it skipped (`lib/import/commit-failure.ts`).
-  if (!res.ok) throw new ImportRefused(await res.json().catch(() => null))
+  if (!res.ok) {
+    const body: unknown = await res.json().catch(() => null)
+    if (isFailure(body)) throw new ImportRefused(body)
+    // A proxy's 502 or 504, or a bare 500: an answer, but not the API's. It says nothing
+    // about whether the batch was written, so it is no answer at all (#535).
+    throw new ImportUnanswered(res.status)
+  }
   return res.json()
 }
 
@@ -414,6 +423,75 @@ export class ImportRefused extends Error {
     super('import refused')
     this.name = 'ImportRefused'
   }
+}
+
+/**
+ * A commit answered by something other than the API: the batch may or may not have been
+ * written. The page treats it as a dropped connection and asks the import session (#535).
+ */
+export class ImportUnanswered extends Error {
+  constructor(readonly status: number) {
+    super(`import unanswered (${status})`)
+    this.name = 'ImportUnanswered'
+  }
+}
+
+/** What the saved-imports list shows of a session, without the session itself. */
+export type ImportSessionSummary = {
+  fileHash: string
+  fileName: string
+  version: number
+  rowCount: number
+  lastError: unknown
+  savedAt: string
+}
+
+/** The caller's saved imports, most recently saved first (#535). */
+export async function fetchImportSessions(): Promise<ImportSessionSummary[]> {
+  const res = await fetch(`${BASE}/api/import/sessions`, { credentials: 'include' })
+  if (!res.ok) throw await apiError(res, 'Failed to load saved imports.')
+  return (await res.json()).sessions
+}
+
+/**
+ * One saved import with its payload, or null when there is none for that file: discarded, or
+ * finished by a commit that landed.
+ */
+export async function fetchImportSession(
+  fileHash: string,
+): Promise<(ImportSessionSummary & { payload: unknown }) | null> {
+  const res = await fetch(`${BASE}/api/import/sessions/${fileHash}`, { credentials: 'include' })
+  if (res.status === 404) return null
+  if (!res.ok) throw await apiError(res, 'Failed to load the saved import.')
+  return res.json()
+}
+
+/** Create or replace the saved import for this file. */
+export async function saveImportSession(
+  fileHash: string,
+  body: {
+    fileName: string
+    version: number
+    rowCount: number
+    payload: unknown
+    lastError: unknown
+  },
+): Promise<void> {
+  const res = await fetch(`${BASE}/api/import/sessions/${fileHash}`, {
+    method: 'PUT',
+    credentials: 'include',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to save the import.')
+}
+
+export async function deleteImportSession(fileHash: string): Promise<void> {
+  const res = await fetch(`${BASE}/api/import/sessions/${fileHash}`, {
+    method: 'DELETE',
+    credentials: 'include',
+  })
+  if (!res.ok) throw await apiError(res, 'Failed to discard the saved import.')
 }
 
 /**

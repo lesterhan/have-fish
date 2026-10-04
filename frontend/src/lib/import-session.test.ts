@@ -1,22 +1,20 @@
 import { describe, expect, it } from 'bun:test'
-import { at } from './at'
 import { importCopy } from './copy/import'
 import {
-  clearSession,
   defaultCoverageRange,
   describeAge,
+  forgetLegacySession,
   type ImportSession,
   isFresh,
-  latestSession,
-  loadSessions,
+  isImportSession,
+  legacySessions,
   MAX_AGE_DAYS,
-  MAX_SESSIONS,
   parseCatchUpHandoff,
   pruneSessions,
   SESSION_VERSION,
   type SessionStorageLike,
   STORAGE_KEY,
-  saveSession,
+  toSaved,
 } from './import-session'
 
 const NOW = Date.parse('2026-06-15T12:00:00.000Z')
@@ -25,12 +23,12 @@ const DAY = 24 * 60 * 60 * 1000
 function fakeStorage(initial?: string): SessionStorageLike & { raw: () => string | null } {
   let value: string | null = initial ?? null
   return {
-    getItem: () => value,
-    setItem: (_k: string, v: string) => {
-      value = v
+    getItem: (key) => (key === STORAGE_KEY ? value : null),
+    setItem: (key, next) => {
+      if (key === STORAGE_KEY) value = next
     },
-    removeItem: () => {
-      value = null
+    removeItem: (key) => {
+      if (key === STORAGE_KEY) value = null
     },
     raw: () => value,
   }
@@ -84,92 +82,104 @@ function makeSession(overrides: Partial<ImportSession> = {}): ImportSession {
   }
 }
 
-describe('session round-trip', () => {
+describe('the saved form', () => {
+  // The server stores the payload as JSON and hands it back; what comes back must still be
+  // a session the page can resume.
+  const roundTrip = (session: ImportSession) =>
+    JSON.parse(JSON.stringify(toSaved(session, null))).payload as unknown
+
   it('restores a saved session unchanged', () => {
-    const storage = fakeStorage()
     const session = makeSession()
-
-    saveSession(session, NOW, storage)
-    const restored = at(loadSessions(NOW, storage))
-
+    const restored = roundTrip(session)
+    expect(isImportSession(restored)).toBe(true)
     expect(restored).toEqual(session)
   })
 
   it('preserves a hand-pointed currency mapping', () => {
     // RMB pointed at the CNY account — the case path derivation cannot express.
-    const storage = fakeStorage()
-    saveSession(makeSession({ currencyAccounts: { CAD: 'a-cad', RMB: 'a-cny' } }), NOW, storage)
-
-    const restored = at(loadSessions(NOW, storage))
-    expect(restored.currencyAccounts).toEqual({ CAD: 'a-cad', RMB: 'a-cny' })
+    const restored = roundTrip(makeSession({ currencyAccounts: { CAD: 'a-cad', RMB: 'a-cny' } }))
+    expect((restored as ImportSession).currencyAccounts).toEqual({ CAD: 'a-cad', RMB: 'a-cny' })
   })
 
-  it('preserves row decisions through serialization', () => {
-    const storage = fakeStorage()
-    const session = makeSession({
-      rowStates: [
-        {
-          offsetAccountId: 'acct-9',
-          conversionAccountId: 'acct-conv',
-          feeAccountId: 'acct-fee',
-          skipped: true,
-          groupId: 'group-1',
-          categoryId: 'cat-1',
-          kind: 'transfer',
-          expenseAccountId: 'acct-exp',
-          source: 'user',
-        },
-      ],
+  it('carries what the list shows beside the session', () => {
+    const lastError = { error: 'AMOUNT_INVALID', detail: { amount: 'x', index: 0 } }
+    expect(toSaved(makeSession(), lastError)).toMatchObject({
+      fileName: 'wise-june.csv',
+      version: SESSION_VERSION,
+      rowCount: 1,
+      lastError,
     })
-
-    saveSession(session, NOW, storage)
-    const restored = at(loadSessions(NOW, storage))
-
-    expect(at(restored.rowStates).groupId).toBe('group-1')
-    expect(at(restored.rowStates).skipped).toBe(true)
-    expect(at(restored.rowStates).source).toBe('user')
-  })
-
-  it('replaces the session for the same file rather than duplicating it', () => {
-    const storage = fakeStorage()
-    saveSession(makeSession({ step: 'file' }), NOW, storage)
-    saveSession(makeSession({ step: 'review' }), NOW + 1000, storage)
-
-    const sessions = loadSessions(NOW + 1000, storage)
-    expect(sessions).toHaveLength(1)
-    expect(at(sessions).step).toBe('review')
-  })
-
-  it('keeps sessions for different files side by side', () => {
-    const storage = fakeStorage()
-    saveSession(makeSession({ fileHash: 'aaa', fileName: 'a.csv' }), NOW, storage)
-    saveSession(makeSession({ fileHash: 'bbb', fileName: 'b.csv' }), NOW + 1000, storage)
-
-    expect(loadSessions(NOW + 1000, storage)).toHaveLength(2)
+    expect(toSaved(makeSession(), undefined).lastError).toBeNull()
   })
 })
 
-describe('clearing', () => {
-  it('drops only the named session', () => {
-    const storage = fakeStorage()
-    saveSession(makeSession({ fileHash: 'aaa' }), NOW, storage)
-    saveSession(makeSession({ fileHash: 'bbb' }), NOW, storage)
+describe('legacy sessions', () => {
+  const held = () =>
+    fakeStorage(
+      JSON.stringify([
+        makeSession({ fileHash: 'old', savedAt: new Date(NOW - 5000).toISOString() }),
+        makeSession({ fileHash: 'new' }),
+      ]),
+    )
+  const hashes = (storage: SessionStorageLike) =>
+    legacySessions(NOW, storage).map((s) => s.fileHash)
 
-    clearSession('aaa', NOW, storage)
-
-    const remaining = loadSessions(NOW, storage)
-    expect(remaining).toHaveLength(1)
-    expect(at(remaining).fileHash).toBe('bbb')
+  it('hands over what this browser held, newest first', () => {
+    expect(hashes(held())).toEqual(['new', 'old'])
   })
 
-  it('removes the storage entry entirely once the last session is cleared', () => {
-    const storage = fakeStorage()
-    saveSession(makeSession({ fileHash: 'aaa' }), NOW, storage)
+  // #535: they were removed before the server had them, so a first visit with the server
+  // down lost every one.
+  it('keeps each one until the server has it', () => {
+    const storage = held()
+    expect(hashes(storage)).toEqual(['new', 'old'])
+    expect(hashes(storage)).toEqual(['new', 'old'])
 
-    clearSession('aaa', NOW, storage)
+    forgetLegacySession('new', NOW, storage)
+    expect(hashes(storage)).toEqual(['old'])
 
+    forgetLegacySession('old', NOW, storage)
     expect(storage.raw()).toBeNull()
-    expect(loadSessions(NOW, storage)).toHaveLength(0)
+    expect(hashes(storage)).toEqual([])
+  })
+
+  it('forgets nothing it was not told to, and copes with nothing held', () => {
+    const storage = held()
+    forgetLegacySession('neither', NOW, storage)
+    expect(hashes(storage)).toEqual(['new', 'old'])
+    expect(() => forgetLegacySession('new', NOW, fakeStorage())).not.toThrow()
+    expect(() => forgetLegacySession('new', NOW, null)).not.toThrow()
+  })
+
+  it('leaves out, and drops from storage, what could not be resumed anyway', () => {
+    const storage = fakeStorage(
+      JSON.stringify([
+        makeSession({ fileHash: 'ok' }),
+        { ...makeSession({ fileHash: 'stale' }), version: SESSION_VERSION - 1 },
+        makeSession({
+          fileHash: 'expired',
+          savedAt: new Date(NOW - (MAX_AGE_DAYS + 1) * DAY).toISOString(),
+        }),
+      ]),
+    )
+    expect(hashes(storage)).toEqual(['ok'])
+    expect((JSON.parse(storage.raw() ?? '[]') as ImportSession[]).map((s) => s.fileHash)).toEqual([
+      'ok',
+    ])
+  })
+
+  it('stops retrying once a session expires', () => {
+    const storage = held()
+    expect(legacySessions(NOW + (MAX_AGE_DAYS + 1) * DAY, storage)).toEqual([])
+    expect(storage.raw()).toBeNull()
+  })
+
+  it('returns nothing for corrupt JSON, an empty store, or no storage at all', () => {
+    const corrupt = fakeStorage('{not json')
+    expect(legacySessions(NOW, corrupt)).toEqual([])
+    expect(corrupt.raw()).toBeNull()
+    expect(legacySessions(NOW, fakeStorage())).toEqual([])
+    expect(legacySessions(NOW, null)).toEqual([])
   })
 })
 
@@ -182,16 +192,10 @@ describe('staleness', () => {
   })
 
   it('drops a session older than the retention window', () => {
-    const storage = fakeStorage()
-    saveSession(
-      makeSession({
-        savedAt: new Date(NOW - (MAX_AGE_DAYS + 1) * DAY).toISOString(),
-      }),
-      NOW,
-      storage,
-    )
-
-    expect(loadSessions(NOW, storage)).toHaveLength(0)
+    const session = makeSession({
+      savedAt: new Date(NOW - (MAX_AGE_DAYS + 1) * DAY).toISOString(),
+    })
+    expect(isFresh(session, NOW)).toBe(false)
   })
 
   it('drops a session dated in the future', () => {
@@ -238,86 +242,18 @@ describe('pruning', () => {
     expect(pruneSessions([withoutMap], NOW)).toHaveLength(0)
   })
 
-  it('returns newest first and caps the stored count', () => {
-    const many = Array.from({ length: MAX_SESSIONS + 3 }, (_, i) =>
+  it('returns newest first', () => {
+    const many = [2, 0, 1].map((i) =>
       makeSession({
         fileHash: `hash-${i}`,
         savedAt: new Date(NOW - i * 1000).toISOString(),
       }),
     )
-
-    const pruned = pruneSessions(many, NOW)
-
-    expect(pruned).toHaveLength(MAX_SESSIONS)
-    expect(at(pruned).fileHash).toBe('hash-0')
+    expect(pruneSessions(many, NOW).map((s) => s.fileHash)).toEqual(['hash-0', 'hash-1', 'hash-2'])
   })
 
   it('ignores a stored value that is not an array', () => {
     expect(pruneSessions({ nope: true }, NOW)).toHaveLength(0)
-  })
-})
-
-describe('resilience', () => {
-  it('returns no sessions when the stored JSON is corrupt', () => {
-    const storage = fakeStorage('{not json')
-    expect(loadSessions(NOW, storage)).toHaveLength(0)
-  })
-
-  it('returns no sessions when storage is unavailable', () => {
-    expect(loadSessions(NOW, null)).toHaveLength(0)
-    expect(latestSession(NOW, null)).toBeNull()
-  })
-
-  it('keeps the in-progress session when storage is over quota', () => {
-    let value: string | null = null
-    let rejectLarge = true
-    const storage: SessionStorageLike = {
-      getItem: () => value,
-      setItem: (_k, v) => {
-        // Reject the first (multi-session) write, accept the single-session retry.
-        if (rejectLarge && v.length > 100) {
-          rejectLarge = false
-          throw new Error('QuotaExceededError')
-        }
-        value = v
-      },
-      removeItem: () => {
-        value = null
-      },
-    }
-
-    saveSession(makeSession({ fileHash: 'aaa' }), NOW, storage)
-
-    const sessions = loadSessions(NOW, storage)
-    expect(sessions).toHaveLength(1)
-    expect(at(sessions).fileHash).toBe('aaa')
-  })
-
-  it('writes under the documented storage key', () => {
-    let key = ''
-    const storage: SessionStorageLike = {
-      getItem: () => null,
-      setItem: (k) => {
-        key = k
-      },
-      removeItem: () => {},
-    }
-    saveSession(makeSession(), NOW, storage)
-    expect(key).toBe(STORAGE_KEY)
-  })
-})
-
-describe('latestSession', () => {
-  it('offers the most recently saved import', () => {
-    const storage = fakeStorage()
-    saveSession(makeSession({ fileHash: 'old', fileName: 'old.csv' }), NOW - 5000, storage)
-    saveSession(makeSession({ fileHash: 'new', fileName: 'new.csv' }), NOW, storage)
-
-    expect(latestSession(NOW, storage)?.fileName).toBe('new.csv')
-  })
-
-  it('returns null when nothing is saved', () => {
-    expect(latestSession(NOW, fakeStorage())).toBeNull()
   })
 })
 

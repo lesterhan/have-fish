@@ -58,7 +58,7 @@ index.ts        Bun entry point: reads HAVEFISH_MODE once, then PORT and the sta
 | Layer | Does | May import | Files |
 |---|---|---|---|
 | Route | Parse, read `userId`, call a service, shape the answer | Services, domain modules, `validation`, `respond`, `errors` | `routes/*.ts`. None of the personal-ledger routes touches `db` since #429. The eight `fish-pie-*` routes still do; they leave under #380, and #430 took only their maths |
-| Service | Load, check, write inside one transaction | Anything but a route | Every `*-service.ts`: `ledger/{write,read}-service`, `import/{preview,duplicates,commit,parser}-service`, `accounts/{account,balance,action-required,ownership}-service`, `postings/{heal,classify,spend}-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `rules/rule-service`, `reports/report-service`, `fx/rate-service`, `export/export-service`, `fish-pie-{expense,accounts}-service` |
+| Service | Load, check, write inside one transaction | Anything but a route | Every `*-service.ts`: `ledger/{write,read}-service`, `import/{preview,duplicates,commit,parser,session}-service`, `accounts/{account,balance,action-required,ownership}-service`, `postings/{heal,classify,spend}-service`, `coverage/{coverage,config,load}-service`, `settings/settings-service`, `rules/rule-service`, `reports/report-service`, `fx/rate-service`, `export/export-service`, `fish-pie-{expense,accounts}-service` |
 | Domain | Pure rules | Other domain modules, and `papaparse` and `@noble/hashes` | Everything else: `errors`, `money`, `currencies`, `calendar-date`, `ledger/validate`, `import/*`, `accounts/{paths,balances}`, `postings/{account-type,roles,heal}`, `coverage/{intervals,months,catch-up,horizon,reconcile}`, `rules/{target,mining}`, `reports/spending`, `settings/preferences`, `fish-pie/{splits,legs,balances,clearing}`, `export/journal` |
 
 Two more kinds of file sit beside them:
@@ -330,7 +330,10 @@ service in `import/`; each service loads what a pure module needs and calls it.
 |---|---|---|---|
 | `POST /preview` | Match the CSV to a saved parser, parse it, suggest accounts from rules | `preview-service` → `preview` (`matchParser`, `suggest`), `csv-parser`, `dynamic-parser`, `merchant` | — |
 | `POST /check-duplicates` | Possible duplicates per row, with Fish Pie context; a row already imported comes back `certain` | `duplicates-service` → `duplicates` (`findDuplicate`: ±1 day, same currency, amount within 0.01) and `fingerprint` | — |
-| `POST /commit` | Write every row not already imported, and create Fish Pie expenses for split rows | `commit-service`: split checks, `checkRows`, `accountsOwnedBy`, `identify` and the skip, then `planRows` inside `inLedgerTransaction`; `writeTransaction` validates each row | `transactions`, `postings`, Fish Pie tables |
+| `POST /commit` | Write every row not already imported, and create Fish Pie expenses for split rows | `commit-service`: split checks, `checkRows`, `accountsOwnedBy`, `identify` and the skip, then `planRows` inside `inLedgerTransaction`; `writeTransaction` validates each row | `transactions`, `postings`, Fish Pie tables; deletes the `import_sessions` row it names |
+| `GET /sessions`, `GET /sessions/:fileHash` | The caller's saved imports (#535): the list without payloads, or one with its payload | `session-service`; the list first drops sessions untouched for 30 days | `import_sessions` (expired rows) |
+| `PUT /sessions/:fileHash` | Create or replace the caller's session for one CSV, keyed by its sha-256 | `bodyLimit` (5 MB, `IMPORT_SESSION_TOO_LARGE`), then `session-service`, which keeps the 20 most recent | `import_sessions` |
+| `DELETE /sessions/:fileHash` | Discard one; 204 whether or not it was there | `session-service` | `import_sessions` |
 
 **How an import commit works.** The plan (`import/commit-plan.ts`) is two pure functions:
 
@@ -352,8 +355,14 @@ The service (`import/commit-service.ts`) does everything the plan can't:
 3. Open one database transaction and find or create what each split row needs from Fish
    Pie.
 4. Run `planRows`, and write each row with `writeTransaction` then its group expense.
+5. Delete the import session the request names (#535).
 
-A refusal anywhere in step 4 rolls back every row.
+A refusal anywhere in step 4 rolls back every row, and leaves the session where it was. So
+a session that is gone after a commit is a commit that landed, which is how the import page
+learns the outcome when the commit's answer never arrives. The payload is the page's
+`ImportSession` (`frontend/src/lib/import-session.ts`) and nothing on the server reads it.
+Sessions are drafts, not records, so they are deleted outright, and `export:local` leaves
+them behind.
 
 **Importing the same row twice** (#282, formula in #460). The preview gives every row a
 *row key*: a hash of the parser, the row's kind, date, amounts, currencies, normalised

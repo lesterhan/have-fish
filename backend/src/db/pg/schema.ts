@@ -198,6 +198,39 @@ export const csvParsers = pgTable('csv_parsers', {
   deletedAt: timestamp('deleted_at'),
 })
 
+// An import in progress (#535): the import page's working state for one CSV, kept on the
+// server so an attempt survives a closed browser and a refused commit, and can be resumed
+// on another device. One per user per file, keyed by the file's sha-256 so dropping the same
+// export again finds it.
+//
+// A draft, not a record, so it is deleted outright rather than soft-deleted: by the commit
+// that writes its rows, in the same transaction, or by the user discarding it. Its absence
+// after a commit whose answer never arrived is how the client learns the commit landed.
+export const importSessions = pgTable(
+  'import_sessions',
+  {
+    id: uuid('id').primaryKey().defaultRandom(),
+    userId: text('user_id')
+      .notNull()
+      .references(() => user.id, { onDelete: 'cascade' }),
+    fileHash: text('file_hash').notNull(),
+    fileName: text('file_name').notNull(),
+    // The frontend's session shape version. A session from another version is dropped, not
+    // migrated, and the list says which so the client can do that without loading it.
+    version: integer('version').notNull(),
+    rowCount: integer('row_count').notNull(),
+    // `ImportSession` in frontend/src/lib/import-session.ts. Opaque here: stored and handed
+    // back, never read.
+    payload: jsonb('payload').notNull(),
+    // The refusal the last commit answered, as the client mapped it onto its own rows; null
+    // until a commit is refused. Opaque here too.
+    lastError: jsonb('last_error'),
+    createdAt: timestamp('created_at').notNull().defaultNow(),
+    updatedAt: version(),
+  },
+  (t) => [unique().on(t.userId, t.fileHash)],
+)
+
 // Per-user settings. One row per user, created alongside the user's seed accounts.
 // Stores references to accounts that serve as defaults in various workflows.
 // defaultOffsetAccountId — pre-selected on the import page as the balancing account

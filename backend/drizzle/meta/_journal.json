@@ -323,6 +323,13 @@
       "when": 1790598793813,
       "tag": "0045_local_profile",
       "breakpoints": true
+    },
+    {
+      "idx": 46,
+      "version": "7",
+      "when": 1791096340754,
+      "tag": "0046_import_sessions",
+      "breakpoints": true
     }
   ]
 }

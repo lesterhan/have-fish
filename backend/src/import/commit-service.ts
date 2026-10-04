@@ -22,6 +22,7 @@ import {
   type SplitContext,
   takesSplit,
 } from './commit-plan'
+import { deleteSessionIn } from './session-service'
 
 /** A row the user chose to split with a Fish Pie group, and the category if any. */
 export type GroupSplitInput = {
@@ -48,7 +49,8 @@ type Group = NonNullable<Awaited<ReturnType<typeof fetchGroupWithMembers>>>
  * 5. In one database transaction: find or create what each split row needs from Fish Pie,
  *    plan every row (`planRows`), then write each through the ledger service, which
  *    validates its legs, and create the group expense for a split row. A refused row rolls
- *    back every row, the clearing accounts included, and answers with its index.
+ *    back every row, the clearing accounts included, and answers with its index. The import
+ *    session the request names is deleted last, in the same transaction (#535).
  */
 export async function commitImport(
   userId: string,
@@ -57,9 +59,11 @@ export async function commitImport(
     defaultCurrency: string
     rows: readonly ImportRowInput[]
     splits: readonly GroupSplitInput[]
+    /** The file hash of the import session this commit finishes, deleted with the rows. */
+    session?: string | undefined
   },
 ): Promise<Outcome<{ created: number; skipped: number; fishPieExpenses: number }>> {
-  const { accountId, defaultCurrency, rows, splits } = request
+  const { accountId, defaultCurrency, rows, splits, session } = request
 
   const groups = await checkSplits(userId, splits, rows.length)
   if (!groups.ok) return groups
@@ -114,6 +118,8 @@ export async function commitImport(
         fishPieExpenses++
       }
     }
+    // Last, so any refusal above rolls the deletion back with the rows (#535).
+    if (session) await deleteSessionIn(tx, userId, session)
     return { created: plan.length, fishPieExpenses }
   })
   if (!written.ok) return written

@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it } from 'bun:test'
-import { ImportRefused, importCommit } from './api'
+import { ImportRefused, ImportUnanswered, importCommit } from './api'
 
 describe('importCommit', () => {
   const realFetch = globalThis.fetch
@@ -34,10 +34,24 @@ describe('importCommit', () => {
     expect((thrown as ImportRefused).body).toEqual(refusal)
   })
 
-  it('throws a refusal whose body is not JSON, with no body to read', async () => {
-    answering(() => new Response('<html>Bad Gateway</html>', { status: 502 }))
-    const thrown = await importCommit(request).catch((e: unknown) => e)
-    expect(thrown).toBeInstanceOf(ImportRefused)
-    expect((thrown as ImportRefused).body).toBeNull()
+  // #535: a proxy's error page is not a refusal. The batch may be in, so the page must ask
+  // rather than say it failed.
+  it('throws an unanswered commit for a body the API did not write', async () => {
+    for (const [body, status] of [
+      ['<html>Bad Gateway</html>', 502],
+      ['<html>Gateway Timeout</html>', 504],
+      ['Internal Server Error', 500],
+      ['{"message":"upstream reset"}', 503],
+    ] as const) {
+      answering(() => new Response(body, { status }))
+      const thrown = await importCommit(request).catch((e: unknown) => e)
+      expect(thrown).toBeInstanceOf(ImportUnanswered)
+      expect((thrown as ImportUnanswered).status).toBe(status)
+    }
+  })
+
+  it('still reads a coded 500 as the API refusing', async () => {
+    answering(() => Response.json({ error: 'INTERNAL' }, { status: 500 }))
+    expect(await importCommit(request).catch((e: unknown) => e)).toBeInstanceOf(ImportRefused)
   })
 })

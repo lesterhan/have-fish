@@ -12,7 +12,8 @@ export function commitFailureMessage(body: unknown, sent: readonly number[]): st
   return errorMessage(inPreviewRows(body, sent), importCopy.commit.failed)
 }
 
-function inPreviewRows(body: unknown, sent: readonly number[]): unknown {
+/** The refusal with its row index mapped from the request's rows onto the preview's. */
+export function inPreviewRows(body: unknown, sent: readonly number[]): unknown {
   if (typeof body !== 'object' || body === null) return body
   const detail = (body as { detail?: unknown }).detail
   if (typeof detail !== 'object' || detail === null) return body

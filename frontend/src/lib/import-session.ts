@@ -3,12 +3,13 @@ import type { ClusterState } from '$lib/components/import/clustering'
 import type { RowState } from '$lib/components/import/row-state'
 import { importCopy } from './copy/import'
 
-// An in-progress import, persisted so multi-step navigation (and an accidental refresh)
-// doesn't lose a half-categorized CSV.
+// An in-progress import, persisted so multi-step navigation, a refresh, a closed browser or
+// a refused commit doesn't lose a half-categorized CSV.
 //
-// Shaped as plain serializable JSON so moving this to a backend `import_sessions` table
-// later — which is what would let an import survive a device switch — is a transport
-// change rather than a rewrite. That move is deliberately out of scope here.
+// Kept on the server (`/api/import/sessions`, #535), as the plain JSON below: the backend
+// stores it and hands it back without reading it. The commit that writes its rows deletes it
+// in the same transaction, so a session that is gone is an import that landed. Before #535
+// it lived in this browser's localStorage; `legacySessions` moves what is left there.
 
 export type ImportStep = 'file' | 'accounts' | 'sort' | 'review' | 'confirm'
 
@@ -59,6 +60,7 @@ export type CatchUpHandoff = {
   to: string
 }
 
+// Where sessions lived before #535. Read once more, to move them to the server.
 export const STORAGE_KEY = 'havefish:import-sessions'
 
 // Bumped whenever the stored shape changes. A session written by an older version is
@@ -72,10 +74,8 @@ export const STORAGE_KEY = 'havefish:import-sessions'
 // 5 — added catchUp and coverageRange.
 export const SESSION_VERSION = 5
 
+// The server drops a session untouched this long; a legacy one older than it is not moved.
 export const MAX_AGE_DAYS = 30
-
-// Bounds what a stack of large previews can take from the ~5MB localStorage budget.
-export const MAX_SESSIONS = 5
 
 const DAY_MS = 24 * 60 * 60 * 1000
 
@@ -87,7 +87,7 @@ export async function hashCsv(text: string): Promise<string> {
   return [...new Uint8Array(digest)].map((b) => b.toString(16).padStart(2, '0')).join('')
 }
 
-function isValidSession(value: unknown): value is ImportSession {
+export function isImportSession(value: unknown): value is ImportSession {
   if (typeof value !== 'object' || value === null) return false
   const s = value as Partial<ImportSession>
   return (
@@ -113,14 +113,12 @@ export function isFresh(session: ImportSession, now: number): boolean {
   return age >= 0 && age <= MAX_AGE_DAYS * DAY_MS
 }
 
-// Drops malformed, wrong-version and expired entries, then keeps only the newest
-// MAX_SESSIONS. Returned newest-first.
+// Drops malformed, wrong-version and expired entries. Returned newest-first.
 export function pruneSessions(value: unknown, now: number): ImportSession[] {
   if (!Array.isArray(value)) return []
   return value
-    .filter((s): s is ImportSession => isValidSession(s) && isFresh(s, now))
+    .filter((s): s is ImportSession => isImportSession(s) && isFresh(s, now))
     .sort((a, b) => Date.parse(b.savedAt) - Date.parse(a.savedAt))
-    .slice(0, MAX_SESSIONS)
 }
 
 // A minimal slice of the Storage API, so these functions are testable without a DOM and
@@ -136,7 +134,14 @@ function defaultStorage(): SessionStorageLike | null {
   }
 }
 
-export function loadSessions(
+/**
+ * The sessions this browser still holds from before #535, newest first. They stay in storage
+ * until `forgetLegacySession` is told the server has each one, so a save that fails (the
+ * server unreachable on the first visit after the upgrade) is tried again on the next visit
+ * rather than losing the import. What could never be resumed (malformed, another version,
+ * past `MAX_AGE_DAYS`) is dropped from storage here, which also bounds the retrying.
+ */
+export function legacySessions(
   now: number = Date.now(),
   storage: SessionStorageLike | null = defaultStorage(),
 ): ImportSession[] {
@@ -144,54 +149,57 @@ export function loadSessions(
   try {
     const raw = storage.getItem(STORAGE_KEY)
     if (!raw) return []
-    return pruneSessions(JSON.parse(raw), now)
+    const sessions = pruneSessions(JSON.parse(raw), now)
+    writeLegacy(sessions, storage)
+    return sessions
   } catch {
-    // Corrupt JSON — treat as no saved sessions rather than breaking the page.
+    // Corrupt JSON, or storage that refuses: nothing to move, and nothing worth keeping.
+    try {
+      storage.removeItem(STORAGE_KEY)
+    } catch {
+      // Storage that refuses even this has nothing to give back either.
+    }
     return []
   }
 }
 
-export function saveSession(
-  session: ImportSession,
-  now: number = Date.now(),
-  storage: SessionStorageLike | null = defaultStorage(),
-): void {
-  if (!storage) return
-  const others = loadSessions(now, storage).filter((s) => s.fileHash !== session.fileHash)
-  const next = pruneSessions([session, ...others], now)
-  try {
-    storage.setItem(STORAGE_KEY, JSON.stringify(next))
-  } catch {
-    // Over quota: keep only this session rather than losing the one in progress.
-    try {
-      storage.setItem(STORAGE_KEY, JSON.stringify([session]))
-    } catch {
-      // Storage is unusable — the import still works, it just won't survive a refresh.
-    }
-  }
-}
-
-export function clearSession(
+/** Drop one legacy session from storage, once the server holds it. */
+export function forgetLegacySession(
   fileHash: string,
   now: number = Date.now(),
   storage: SessionStorageLike | null = defaultStorage(),
 ): void {
   if (!storage) return
-  const remaining = loadSessions(now, storage).filter((s) => s.fileHash !== fileHash)
   try {
-    if (remaining.length === 0) storage.removeItem(STORAGE_KEY)
-    else storage.setItem(STORAGE_KEY, JSON.stringify(remaining))
+    const raw = storage.getItem(STORAGE_KEY)
+    if (!raw) return
+    writeLegacy(
+      pruneSessions(JSON.parse(raw), now).filter((s) => s.fileHash !== fileHash),
+      storage,
+    )
   } catch {
-    // Nothing useful to do; a stale entry expires on its own within MAX_AGE_DAYS.
+    // Left in place, the server copy is overwritten with the same session on the next visit.
   }
 }
 
-// The session to offer on mount: the most recently saved one still in progress.
-export function latestSession(
-  now: number = Date.now(),
-  storage: SessionStorageLike | null = defaultStorage(),
-): ImportSession | null {
-  return loadSessions(now, storage)[0] ?? null
+function writeLegacy(sessions: ImportSession[], storage: SessionStorageLike): void {
+  if (sessions.length === 0) storage.removeItem(STORAGE_KEY)
+  else storage.setItem(STORAGE_KEY, JSON.stringify(sessions))
+}
+
+/**
+ * The body `PUT /api/import/sessions/:fileHash` takes: the session, and beside it what the
+ * list shows without loading it. `lastError` is the last refusal, already mapped onto the
+ * preview's rows (`inPreviewRows`), or null.
+ */
+export function toSaved(session: ImportSession, lastError: unknown) {
+  return {
+    fileName: session.fileName,
+    version: session.version,
+    rowCount: session.rowStates.length,
+    payload: session,
+    lastError: lastError ?? null,
+  }
 }
 
 // Human-readable age for the resume prompt ("saved 2 hours ago").

@@ -117,6 +117,8 @@ export const ERROR_STATUS = {
   IMPORT_ROW_MISSING_VALUE: 400,
   GROUP_SPLIT_MALFORMED: 400,
   GROUP_SPLIT_ROW_OUT_OF_RANGE: 400,
+  IMPORT_SESSION_NOT_FOUND: 404,
+  IMPORT_SESSION_TOO_LARGE: 413,
 
   // --- rules --------------------------------------------------------------------------
   RULE_NOT_FOUND: 404,
