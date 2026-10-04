@@ -397,14 +397,24 @@ For the rewrite, with the vault attached:
   `depends_on` is done, and set it to `doing`. Then build it: one branch, one PR, its body
   ending `Story: <name>`. Port only the code the story needs, with its tests. It is done when
   the owner has checked every acceptance line in the packaged app.
-- "**let's start <tech note>**": the owner writes the code; Claude coaches. Check the note is
-  `ready` and its `depends_on` are done, and set it to `doing`. Then go through its *Build it*
-  steps with the owner: explain, point at code and docs, answer questions, and review what they
-  writes. Don't write the implementation unless asked. The owner opens the PR, its body
-  ending `Tech: <name>`.
+- "**let's start <tech note>**": check it is `ready` and its `depends_on` are done, set it to
+  `doing`, and work through its *Build it* steps in **pair** mode (the `pair` skill) unless the
+  owner names another mode. Its PR body ends `Tech: <name>`.
 - "**review <tech note>**" (or a PR of one): review the PR against the note's *Review* list and
   its *Done when* lines, and say what each finding teaches, not only what to change.
 - "**sync the map**": pull the vault, run `node .tools/map.mjs sync`, report what moved, push.
+
+**Three ways of working**, chosen by the owner per session and switched by saying so:
+
+| Mode | Who writes | Say |
+|---|---|---|
+| Build | Claude writes everything; the owner reviews the PR | "build X", "while I'm away" |
+| Pair | Turn by turn: Claude writes scaffolding and failing tests, the owner writes the rules and seams (`pair` skill) | "let's pair on X" |
+| Coach | The owner writes everything; Claude guides (`coach` skill) | "coach me through X" |
+
+A tech note's *Build it* steps each name a default driver. Every rewrite PR, in any mode, has a
+**Tour** section in its body: the seams, what calls what, where to put a breakpoint, and which
+parts are worth the owner's read.
 
 Claude can create, label, parent and comment on issues in any attached repo. It cannot
 move Project cards; cards move on PR merge (automatic) or by hand.
@@ -438,7 +448,7 @@ When the user says this:
 
 ## How I Like to Be Assisted
 
-- **I'm hands-off on code** — implement features fully and correctly. Don't produce skeleton or partial code that requires me to fill in the gaps. **The exception is a rewrite tech note**: I write that code myself, and Claude coaches and reviews (see "let's start <tech note>").
+- **I'm hands-off on code** — implement features fully and correctly. Don't produce skeleton or partial code that requires me to fill in the gaps. **Unless I say pair or coach**: then the `pair` or `coach` skill decides who types what (see "Three ways of working").
 - **We design together** — before writing code for a new epic or a non-trivial feature, discuss the approach in the epic file under `planning/` (for the rewrite, in the story's note in the vault). I want to understand and shape what we're building, even if I'm not writing it.
 - **Tests prevent regression** — I'm using the app in the wild while traveling. Write comprehensive tests for every new route and behaviour. Tests are not an afterthought.
 - **PRs, not direct pushes** — all work goes through a branch and a pull request opened against `main` on the public `have-fish` repo. Never push directly to `main`. This is the gate that keeps the deployed app stable.
