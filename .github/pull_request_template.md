@@ -35,12 +35,21 @@
      call you'd want a second opinion on, which screen needs looking at rather than
      reading. -->
 
+## Tour
+
+<!-- Rewrite PRs only (core/, desktop/); delete otherwise.
+     The seams, what calls what, where to put a breakpoint, and which parts are worth
+     the owner's read. -->
+
 ## Epic
 
-<!-- Optional — delete when this isn't epic work.
+<!-- Optional — delete when this isn't current-app epic work.
      Link the file in planning/epics/ so this stays findable from the roadmap. -->
 
-<!-- Title: [scope] Imperative description — scope is the epic slug, or the area in one
-     word. Epic stories add "Story N — ". See CLAUDE.md § PR Workflow.
+<!-- Last line: the note's trailer, "Story:", "Tech:", "Bug:" or "Chore:" with its key
+     and title; or "Closes #N" for an issue the triage hasn't reached yet.
+
+     Title: [scope] Imperative description — scope is the epic slug, or the area in one
+     word. Epic stories add "Story N — ". See CLAUDE.md § PR workflow.
 
      UI change? DESIGN.md §9 is the review checklist. -->

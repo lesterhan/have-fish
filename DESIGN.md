@@ -724,7 +724,7 @@ it in the same epic.
 ## 9. Review checklist
 
 Run before opening a UI PR. Also the checklist for step 5 of the epic workflow in
-`CLAUDE.md`.
+`planning/CLAUDE.md`.
 
 - [ ] The primary action's interaction count is stated in the epic and hasn't gone up
 - [ ] If this surface holds outstanding work, it reports its own count

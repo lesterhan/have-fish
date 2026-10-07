@@ -27,7 +27,7 @@ import type { StoredAccountType } from '$lib/api'
  * This is the primitive. `ledger.ts` resolves which posting to ask about on each surface —
  * the account you are viewing, or the own-money side of a row on the global list — so both
  * ledgers apply one rule rather than two. The spending page keeps the signed convention
- * documented in CLAUDE.md: there every figure is a spend by construction, so there is no
+ * documented in backend/CLAUDE.md: there every figure is a spend by construction, so there is no
  * minority sign for colour to mark.
  */
 export type AmountTone = 'positive' | 'transfer' | 'neutral'
