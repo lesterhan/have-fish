@@ -39,10 +39,10 @@ it is picked up. **Done** means the owner has checked every acceptance line in t
 app, tests cover them, and the PR is merged.
 
 Rewrite work gets no issue in this repository. A PR's body ends with `Story: <note name>`, or
-`Tech: <note name>` for a tech note: a foundation or refactoring that several stories stand on,
-usually built in pair mode (`CLAUDE.md`, "Three ways of working"). The PR number goes back into
-the note. Decisions about the
-rewrite are notes in the vault.
+`Tech: <note name>` for a tech note: a foundation or refactoring that several stories stand on.
+Every rewrite note is built in pair mode unless the owner names another (`CLAUDE.md`, "Three
+ways of working"). The PR number goes back into the note. Decisions about the rewrite are notes
+in the vault.
 
 ### Two rules that keep thin slices from going wrong
 
@@ -68,7 +68,7 @@ story that proves a piece wrong changes this section.
 | Shell | Electron | Main is Node, so the core runs in-process: no port, no sidecar. Chromium on Linux too |
 | Database | SQLite, better-sqlite3 | One file (D8). Synchronous, so a transaction never interleaves with another command |
 | Queries, migrations | Drizzle, drizzle-kit | Already known; it has sync SQLite drivers, expo-sqlite among them |
-| UI | Svelte 5 + Vite | The components port; SvelteKit's server half has nothing to do here |
+| UI | Svelte 5 + Vite | Already known, and component logic can port though the look is new (`DESIGN.md`); SvelteKit's server half has nothing to do here |
 | Boundary | Zod | The renderer shows strings from bank CSVs and is the least trusted process |
 | Tests | vitest on Electron's Node | `ELECTRON_RUN_AS_NODE=1`, so tests load the better-sqlite3 build that ships |
 | Packaging | electron-builder | A build artifact first; the Flatpak from #518 when the rewrite replaces the current app |
@@ -122,8 +122,8 @@ The skeleton story decides these, because they are the ledger rather than the UI
 are question notes in the vault.
 
 - **One person per file.** No `userId`; a profile row carries the identity sync will need.
-- **Amounts:** leaning towards integer cents, at today's precision, so that a sum in SQL is
-  exact. Open.
+- **Amounts:** integer cents at today's precision, so that a sum in SQL is exact (answered
+  2026-10-04). Documents carry canonical decimal strings, so the choice stays inside the file.
 - **Documents as `sync-unit.md` describes them:** roots carry `updatedAt` and `deletedAt`,
   postings are replaced together with their transaction, and deletion leaves a tombstone.
 - **Dates** are calendar-day text (`YYYY-MM-DD`). Timestamps are UTC.
@@ -139,5 +139,6 @@ are question notes in the vault.
   directory, so neither app can open the other's file.
 - **No releases until it replaces the current app.** `v*` tags stay the Bun binary's, and the
   Flatpak (#518) keeps installing it.
-- **Two sets of conventions.** The rewrite gets its own `desktop/CLAUDE.md` with its first
-  story, saying which root rules don't apply there.
+- **Two sets of conventions.** The root `CLAUDE.md` holds what both apps share and the
+  rewrite's rules; the current app's live in `backend/`, `frontend/` and `mobile/CLAUDE.md`, so
+  work in `core/` and `desktop/` never loads them.

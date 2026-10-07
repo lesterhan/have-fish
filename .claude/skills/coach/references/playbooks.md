@@ -9,31 +9,37 @@ These are recipes, not scripts. If the situation doesn't fit, coach the situatio
 
 ## "I want to start a work item"
 
-**Recon:** `planning/ROADMAP.md` for status, `planning/epics/` for the epic files,
-`git log --oneline -10` for what just shipped. If they named something vague, find
-the epic that matches.
+**Recon:** the note in the vault (`have-fish-vault`): its status, its `depends_on`,
+and for a tech note its *Build it* steps and *Review* list. For current-app work
+in an epic, the epic file in `planning/epics/` too. `git log --oneline -10` for
+what just shipped. If they named something vague, find the note that matches.
 
-**Opening move:** have them pick the smallest shippable slice, not the epic. The
-epics here are already story-split (`planning/epics/quick-entry.md` is a good
-model) — one story is one PR is one session. If the thing they want isn't in an
-epic yet, the house rule in `CLAUDE.md` is that design comes before code: the epic
-file *is* the design conversation.
+**Opening move:** have them pick the smallest shippable slice. Notes are already
+sized XS or S, and one note is one PR. If the thing they want has no note yet, the
+house rule in `CLAUDE.md` is that design comes before code: refining the note *is*
+the design conversation.
 
-**Let them discover:** which layer the story starts in. Ask "what has to be true in
-the database before the route can exist?" Almost every story here runs
-schema → migration → route → test → API client → component, and noticing that
-ordering once is worth more than being handed it six times.
+**Let them discover:** where the work starts. In the rewrite, ask "what's the pure
+rule here, before any file or window?" — it starts in `core/`, with a failing test.
+In the current app, ask "what has to be true in the database before the route can
+exist?" — almost every change there runs schemas → migrations → service → route →
+test → API client → component. Noticing either ordering once is worth more than
+being handed it six times.
 
-**Moves:** `<leader>ff` to the epic file, `<leader>gg` to branch off `main`.
+**Moves:** `<leader>ff` to the note or the file, `<leader>gg` to branch off `main`.
 Branch naming and the PR-not-direct-push rule are in `CLAUDE.md`.
 
 ---
 
 ## "New backend route"
 
-**Recon:** read the closest existing route and its test. `rules.ts` is a rich
-example (ownership checks, mutually-exclusive targets, error-returning helper);
-`user-settings.ts` is a small one. Check whether `schema.ts` already has the table.
+This is the current app; `backend/CLAUDE.md` has its rules.
+
+**Recon:** read the closest existing route, its service and its test.
+`routes/rules.ts` with `rules/rule-service.ts` and `rules/target.ts` is a rich
+example (ownership checks, mutually-exclusive targets, a failure returned as an
+`Outcome`); `routes/user-settings.ts` is a small one. Check whether the schema
+files (`db/pg/schema.ts`, `db/sqlite/schema.ts`) already have the table.
 
 **Opening move:** tests first — it's the stated house workflow, and here it's also
 the faster path, because `app.request()` gives a full request round-trip with no
@@ -41,21 +47,27 @@ server to start. Have them open the test file first: `<C-^>` will then flip them
 back and forth all session.
 
 **Point at, don't paraphrase:**
-- `backend/src/test-utils.ts` — `clearDatabase()` and `createTestUser()`
-- the seed helpers at the top of `rules.test.ts`
-- `app.ts:45` for where `userId` comes from
+- `backend/src/test-utils.ts` — `clearDatabase()`, `createTestUser()`, `request()`, `at()`
+- the seed helpers at the top of `routes/rules.test.ts`
+- `build-app.ts:72` for where `userId` comes from
 
 **Let them discover:**
 1. That the handler needs `c.get('userId')` — ask what stops user A reading user
    B's rows, and let them go find it.
-2. That the query needs `isNull(deletedAt)` — the soft-delete rule in `CLAUDE.md`.
-3. That a new route isn't reachable until it's mounted in `app.ts`, and that
-   mount order can matter (the comment at `app.ts:56` explains a real instance).
-4. That amounts are strings. If they write `10.00` as a number, let the type error
+2. That the query needs `isNull(deletedAt)` — the soft-delete rule.
+3. That the query belongs in a service, not the route — `layers.test.ts` will
+   say so if they put it in the route.
+4. That the body goes through `parseBody` and a Zod schema, and a failure is a
+   code with a sentence in the frontend's `copy/errors.ts` — `bodies.test.ts` and
+   `errors.test.ts` hold both.
+5. That a new route isn't reachable until it's mounted in `build-app.ts`, and that
+   mount order can matter (the comment at `build-app.ts:81` explains a real instance).
+6. That amounts are strings. If they write `10.00` as a number, let the type error
    teach them; `bun test` will say it before you do.
 
-**If the schema changes:** `db:generate` → `db:migrate` → `db:migrate:test`. Let
-them forget the last one once. The failure is fast, legible, and unforgettable.
+**If the schema changes:** both schema files, then `db:generate` → `db:migrate` →
+`db:migrate:test`, and `bun run test:sqlite` as well as `bun test`. Let them forget
+`db:migrate:test` once. The failure is fast, legible, and unforgettable.
 
 ---
 
@@ -121,14 +133,20 @@ premature — a conversation worth having before the diff, not after.
 ask them to paste it — reading a stack trace together is itself a rep.
 
 **Opening move:** hand them the diagnosis, not the fix. "What does the assertion
-say it got, versus what it wanted?" Most failures here are one of five things:
+say it got, versus what it wanted?" In the current app, most failures are one of
+these:
 
 1. Forgot `db:migrate:test` — missing column or table.
 2. Missing `clearDatabase()` in `beforeEach`, or a new table not added to it, so
    state leaks between tests.
 3. Missing `Cookie` header → 401. `createTestUser()` returns it.
 4. A number where a `numeric` string belongs.
-5. Route not mounted in `app.ts`, or shadowed by an earlier mount → 404.
+5. Route not mounted in `build-app.ts`, or shadowed by an earlier mount → 404.
+6. A guard test (`layers`, `bodies`, `errors`, `dialect`, `schemas`, `copy`) that
+   names the rule broken. Its message is the lesson; read it together.
+
+In the rewrite, the usual first failures are a type error from a strict flag, or a
+`core/` import the purity check refuses. Same move: read what it says first.
 
 Name the *category* and let them find which. If they're already two rounds deep,
 drop a rung and point at the line.
@@ -140,8 +158,9 @@ to the implementation.
 
 ## "What should I work on?" / "Suggest something"
 
-**Recon:** `planning/BUGS.md`, `planning/TASKS.md`, `planning/ROADMAP.md` for
-backlog items, and `git log --oneline -15` for what's warm.
+**Recon:** the vault's Backlog: `ready` notes whose `depends_on` are done. Until the
+triage is applied, open GitHub issues count too. `git log --oneline -15` for
+what's warm. (`planning/BUGS.md` and `TASKS.md` are frozen; don't mine them.)
 
 **Opening move:** offer two or three concrete options with the *learning* they'd
 each produce, since that's the real currency here — "this one is a small vertical
@@ -151,4 +170,6 @@ pick. Sizing is part of the skill; don't pick for them.
 
 Bias toward things that are small, end-to-end, and already have tests around
 them. A first change that touches schema, route, test and component teaches the
-codebase's shape better than four changes that each stay in one layer.
+codebase's shape better than four changes that each stay in one layer. Their
+stated goals are fluency, TypeScript and desktop apps, so a rewrite note usually
+teaches more than a current-app fix of the same size.
