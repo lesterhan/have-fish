@@ -1,8 +1,8 @@
 # frontend/: the current app's web UI
 
 These are the current app's rules. Claude Code loads this file when a session first reads a file
-under `frontend/`. The rewrite (`core/`, `desktop/`) does not follow them, though its renderer will
-port the tokens, components and copy when a story first needs them.
+under `frontend/`. The rewrite (`core/`, `desktop/`) does not follow them, and it does not take
+this app's look: its UI system is being worked out separately (`DESIGN.md`, opening section).
 
 ## Stack
 
@@ -37,9 +37,11 @@ bun run format        # Prettier for .svelte, Biome for everything beside them
 
 ## Design system
 
-**`DESIGN.md` at the root is the single source of truth for design** — the aesthetic, the token
+**`DESIGN.md` at the root, from §1 on, is this app's design** — the aesthetic, the token
 vocabulary, UX principles, interaction laws, the rules for reusing vs. replacing components, and
-the process for evolving the UI. Read it before any work that touches the UI.
+the process for evolving the UI. It is **in maintenance**: a fix keeps to it, and nothing new
+extends it (no new components, design passes or redesigns). Read it before any work that touches
+the UI.
 
 Implementation reminders that belong with the build instructions:
 

@@ -75,8 +75,9 @@ Already decided:
 
 None of the current app's server machinery carries over: Postgres and the two-dialect schema,
 Hono and `app.request` tests, Better Auth, `userId` scoping, `numeric(12,2)` strings. Biome and
-Prettier do. When the renderer arrives it ports the tokens, components and copy, and `DESIGN.md`
-and the copy rules come with them.
+Prettier do, and so do the copy rules when the renderer arrives. The current app's look does
+not: the rewrite's UI system is still being worked out, and until it lands its screens stay
+plain (`DESIGN.md`, "The rewrite's design, so far").
 
 ## Formatting and linting
 
@@ -109,9 +110,11 @@ would rewrap roughly a tenth of the repository to no purpose).
 
 ## Design
 
-**`DESIGN.md` is the single source of truth for design** — the aesthetic, the token vocabulary,
-UX principles, interaction laws, the rules for reusing vs. replacing components, and the process
-for evolving the UI. Read it before any work that touches the UI. The current frontend's
+**`DESIGN.md` is the single source of truth for design**, for both apps. Its opening section is
+the rewrite's design so far: three priorities (speed and reliability, clarity, delight) and how
+to build screens until its UI system lands. Everything from §1 on is the current app's design,
+and it is in maintenance: a fix keeps to it, and nothing new extends it. Read the part for the
+app you are working on before any work that touches its UI. The current frontend's
 implementation reminders are in `frontend/CLAUDE.md`.
 
 ## Work tracking

@@ -68,7 +68,7 @@ story that proves a piece wrong changes this section.
 | Shell | Electron | Main is Node, so the core runs in-process: no port, no sidecar. Chromium on Linux too |
 | Database | SQLite, better-sqlite3 | One file (D8). Synchronous, so a transaction never interleaves with another command |
 | Queries, migrations | Drizzle, drizzle-kit | Already known; it has sync SQLite drivers, expo-sqlite among them |
-| UI | Svelte 5 + Vite | The components port; SvelteKit's server half has nothing to do here |
+| UI | Svelte 5 + Vite | Already known, and component logic can port though the look is new (`DESIGN.md`); SvelteKit's server half has nothing to do here |
 | Boundary | Zod | The renderer shows strings from bank CSVs and is the least trusted process |
 | Tests | vitest on Electron's Node | `ELECTRON_RUN_AS_NODE=1`, so tests load the better-sqlite3 build that ships |
 | Packaging | electron-builder | A build artifact first; the Flatpak from #518 when the rewrite replaces the current app |

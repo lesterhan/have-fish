@@ -3,8 +3,51 @@
 The design constitution for have-fish. `CLAUDE.md` says how to build; this says what to
 build, what it should feel like, and how it is allowed to change.
 
-**Read this before starting any epic that touches the UI**, before adding a component to
-`frontend/src/lib/components/`, and before deciding an existing pattern is "close enough."
+It holds two designs, because the repository holds two apps:
+
+- **The rewrite's design** is the next section, and that is all of it so far. It is being
+  worked out.
+- **The current app's design** is everything from §1 on, and it is **in maintenance**, like
+  the app itself. A fix keeps to it. Nothing new extends it: no new components, no design
+  passes, no redesigns, and the debts in §10 stay where they are unless a fix happens to
+  touch them.
+
+**Read the part for the app you are working on** before any work that touches its UI. In the
+current app, also read it before adding a component to `frontend/src/lib/components/`, and
+before deciding an existing pattern is "close enough."
+
+---
+
+## The rewrite's design, so far
+
+The rewrite has no UI system or template yet; one is being worked on. What it has is three
+priorities. They are high-level on purpose, and they get refined as the rewrite progresses.
+
+### Speed and reliability
+
+Complex workflows are quick, easy and dependable. The yardstick is importing a large monthly
+statement: it should feel short, and nothing in it should make you wonder whether it worked.
+
+### Clarity
+
+Financial screens are crowded with numbers and accounts. Whoever is looking finds the number
+that matters to them quickly, and everything else steps back.
+
+### Delight
+
+have-fish has personality: the spirit of the weird JavaScript websites and small video games
+its owner grew up making. It is not a bank app's careful neutrality.
+
+### Until the system lands
+
+- **Rewrite screens stay plain.** Semantic HTML, the system font, and every visual value from
+  one tokens file, so the system can be dropped in when it exists. Claude does not invent an
+  aesthetic in the meantime, and nothing is ported from the current app's look.
+- **Plain is not slow or muddy.** Speed and clarity don't wait for a palette: a plain screen
+  still has a short path and an obvious number.
+- **Nothing from §1 on binds the rewrite.** A story may adopt one of its principles by naming
+  it, as the undo story does with P4 ("undo beats confirm"). Adopting one is a choice the story
+  makes, not a default.
 
 ---
 
