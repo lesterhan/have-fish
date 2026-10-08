@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest'
-import { add, cents, format, neg, parse, splitByWeights, sub, sum } from './money'
+import { add, cents, format, neg, parse, sub, sum } from './money'
 
 describe('parse', () => {
-  it('reads the amounts the ledger stores', () => {
+  it('reads canonical amounts', () => {
     expect(parse('12.34')).toBe(1234)
     expect(parse('-12.34')).toBe(-1234)
     expect(parse('0.00')).toBe(0)
     expect(parse('9999999999.99')).toBe(999999999999)
   })
 
-  it('reads every other shape a numeric column accepts', () => {
+  it('reads every other way of writing a number', () => {
     expect(parse('5')).toBe(500)
     expect(parse('5.')).toBe(500)
     expect(parse('.5')).toBe(50)
@@ -22,9 +22,9 @@ describe('parse', () => {
     expect(parse(String(0.1 + 0.2))).toBe(30)
   })
 
-  // Postgres rounds numeric(12,2) half away from zero; these are the values it stored for
-  // the same strings when this module was written.
-  it('rounds to the cent the way the column does', () => {
+  // The same values the current app's database stored for these strings, so a ledger
+  // carried over from it rounds the same.
+  it('rounds to the cent, half away from zero', () => {
     expect(parse('12.345')).toBe(1235)
     expect(parse('-12.345')).toBe(-1235)
     expect(parse('12.3449999')).toBe(1234)
@@ -48,7 +48,7 @@ describe('parse', () => {
     }
   })
 
-  it('refuses what the column could not hold', () => {
+  it('refuses an amount past the limit', () => {
     expect(parse('10000000000')).toBeNull()
     expect(parse('-10000000000')).toBeNull()
     expect(parse('9999999999.995')).toBeNull()
@@ -96,8 +96,8 @@ describe('arithmetic', () => {
     expect(sum(['100.00', '-33.33', '-33.33', '-33.34'])).toBe('0.00')
   })
 
-  // A balance can pass the column's own limit even though no posting does; Postgres' SUM is
-  // unbounded and so is this, up to exact integers.
+  // A balance can pass the limit even though no posting does; a sum is bounded only by
+  // exact integers.
   it('sums past what one posting could hold', () => {
     expect(sum(['9999999999.99', '9999999999.99'])).toBe('19999999999.98')
   })
@@ -108,67 +108,8 @@ describe('arithmetic', () => {
   })
 })
 
-describe('splitByWeights', () => {
-  it('splits evenly when it can', () => {
-    expect(splitByWeights('90.00', [1, 1, 1])).toEqual(['30.00', '30.00', '30.00'])
-  })
-
-  // things-missed M2: 100.00 three ways must add back to 100.00, so settling every share
-  // leaves exactly zero.
-  it('gives the leftover cent to one share, and the shares add up to the amount', () => {
-    const shares = splitByWeights('100.00', [1, 1, 1])
-    expect(shares).toEqual(['33.34', '33.33', '33.33'])
-    expect(sum(shares)).toBe('100.00')
-    expect(sub('100.00', sum(shares))).toBe('0.00')
-  })
-
-  it('gives the leftover to the share it is told to', () => {
-    expect(splitByWeights('100.00', [1, 1, 1], 2)).toEqual(['33.33', '33.33', '33.34'])
-  })
-
-  it('takes a cent back from that share when rounding overshoots', () => {
-    // 0.05 two ways rounds to 0.03 each (half away from zero); the remainder is -0.01.
-    expect(splitByWeights('0.05', [1, 1], 1)).toEqual(['0.03', '0.02'])
-  })
-
-  it('splits by unequal weights', () => {
-    expect(splitByWeights('10.00', [2, 1, 1])).toEqual(['5.00', '2.50', '2.50'])
-    expect(splitByWeights('10.00', [1, 2])).toEqual(['3.33', '6.67'])
-  })
-
-  it('keeps the sign of a negative amount, and rounds symmetrically', () => {
-    expect(splitByWeights('-100.00', [1, 1, 1])).toEqual(['-33.34', '-33.33', '-33.33'])
-    expect(splitByWeights('-0.05', [1, 1], 1)).toEqual(['-0.03', '-0.02'])
-  })
-
-  it('gives a zero weight a zero share', () => {
-    expect(splitByWeights('10.00', [1, 0, 1])).toEqual(['5.00', '0.00', '5.00'])
-  })
-
-  it('always adds back to the amount', () => {
-    for (const amount of ['0.01', '0.07', '1.00', '99.99', '123.45', '-47.11']) {
-      for (const weights of [
-        [1, 1, 1],
-        [3, 2, 2],
-        [1, 1, 1, 1, 1, 1, 1],
-        [0.3, 0.7],
-      ]) {
-        expect(sum(splitByWeights(amount, weights))).toBe(format(parse(amount) ?? Number.NaN))
-      }
-    }
-  })
-
-  it('refuses a split that has no answer', () => {
-    expect(() => splitByWeights('1.00', [])).toThrow(RangeError)
-    expect(() => splitByWeights('1.00', [0, 0])).toThrow(RangeError)
-    expect(() => splitByWeights('1.00', [1, -1])).toThrow(RangeError)
-    expect(() => splitByWeights('1.00', [1, Number.NaN])).toThrow(RangeError)
-    expect(() => splitByWeights('1.00', [1, 1], 2)).toThrow(RangeError)
-  })
-})
-
 describe('cents', () => {
-  it('reads a stored amount', () => {
+  it('reads an accepted amount', () => {
     expect(cents('-12.35')).toBe(-1235)
     expect(cents('0.00')).toBe(0)
   })
