@@ -1,8 +1,6 @@
-// A transaction's date is a calendar day, `YYYY-MM-DD`, kept and compared as text (#277). It is
-// never an instant: no time of day and no time zone. Text dates sort correctly as strings, so
-// nothing has to parse them to order or compare them.
+// A transaction's date is a calendar day, `YYYY-MM-DD`, kept and compared as text
 
-/** `YYYY-MM-DD`, the shape of a calendar date. Says nothing about whether the day exists. */
+// `YYYY-MM-DD`, the shape of a calendar date.
 export const CALENDAR_DATE = /^\d{4}-\d{2}-\d{2}$/
 
 /**
