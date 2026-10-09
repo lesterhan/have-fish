@@ -5,6 +5,41 @@ on:
     branches: [main]
 
 jobs:
+  # What the pull request touches, so each suite below runs only for its own half of the repo.
+  # The jobs are gated with `if` rather than the workflow with `paths`: a skipped job counts as
+  # passed for a required check, while a workflow that never starts leaves the check pending.
+  changes:
+    runs-on: ubuntu-latest
+
+    outputs:
+      app: ${{ steps.diff.outputs.app }}
+      core: ${{ steps.diff.outputs.core }}
+
+    steps:
+      # A pull request checks out its merge commit; depth 2 brings its first parent, the base
+      # branch it merges into, so the diff between them is exactly what the PR changes.
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      # backend/ and frontend/ are one unit: the frontend imports the backend's codes, the
+      # backend's error test reads the frontend's copy, and the local binary builds both.
+      # A change to this file runs everything, so an edit to a job is tested by its own PR.
+      - name: List what changed
+        id: diff
+        run: |
+          changed=$(git diff --name-only HEAD^1 HEAD)
+          echo "$changed"
+          touches() { grep -qE "$1" <<<"$changed"; }
+          all=false; touches '^\.github/workflows/ci\.yml$' && all=true
+          app=$all; touches '^(backend|frontend)/' && app=true
+          core=$all; touches '^core/' && core=true
+          # Until core/ lands on main, a change to this file alone has no core to test.
+          [ -d core ] || core=false
+          echo "app=$app" >> "$GITHUB_OUTPUT"
+          echo "core=$core" >> "$GITHUB_OUTPUT"
+          echo "app=$app core=$core"
+
   # One formatter and one linter for every half of the repo, configured in `biome.jsonc`
   # at the root. This job is deliberately the cheapest in the file — no database, no
   # install beyond one binary — so a formatting or lint break is reported in seconds
@@ -28,6 +63,8 @@ jobs:
         run: bun run check
 
   backend:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     # Pinned rather than `latest` because hledger comes from this image's apt: 24.04 ships
     # 1.30.1, the version the export's acceptance test was written against. A new image is
     # a new hledger, and that should be a commit, not a surprise.
@@ -106,6 +143,8 @@ jobs:
   # Postgres migrations skip themselves. The type check above already covers this build;
   # `bun run check` runs tsc once per dialect.
   backend-sqlite:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-24.04
 
     env:
@@ -140,6 +179,8 @@ jobs:
   # dependency that stops surviving `bun build --compile`, or a frontend file left out of it,
   # fails here instead of on someone's laptop.
   local-binary:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-24.04
 
     env:
@@ -171,6 +212,8 @@ jobs:
         run: NODE_ENV=test bun test src/local/binary.test.ts
 
   frontend:
+    needs: changes
+    if: needs.changes.outputs.app == 'true'
     runs-on: ubuntu-latest
 
     # The frontend scripts default PUBLIC_VERSION to "dev", so nothing here requires it.
@@ -206,3 +249,31 @@ jobs:
       - name: Build
         working-directory: frontend
         run: bun run build
+
+  # The rewrite's pure core: vitest for the behaviour and tsc for the types, which carry part
+  # of the tests (`@ts-expect-error` lines fail only under the type check). No database and
+  # no service, so this is the fastest suite in the file.
+  core:
+    needs: changes
+    if: needs.changes.outputs.core == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: core
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install core dependencies
+        run: bun install --frozen-lockfile
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Type check
+        run: bun run check
