@@ -1,4 +1,5 @@
 import { isValidCurrency } from './currencies'
+import { parse } from './money'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
 
@@ -23,6 +24,9 @@ export function validatePostings(postings: readonly PostingDraft[]): Outcome<voi
   for (const posting of postings) {
     if (!isValidCurrency(posting.currency)) {
       return failure('UNSUPPORTED_CURRENCY', { currency: posting.currency })
+    }
+    if (parse(posting.amount) === null) {
+      return failure('AMOUNT_INVALID', { amount: posting.amount })
     }
   }
   return { ok: true, value: undefined }

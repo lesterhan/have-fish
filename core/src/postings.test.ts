@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { failure } from './outcome'
 import { type PostingDraft, validatePostings } from './postings'
 
 const A = '00000000-0000-4000-8000-00000000000a'
@@ -46,6 +47,25 @@ describe('validatePostings', () => {
       failure: {
         code: 'UNSUPPORTED_CURRENCY',
         details: { currency: 'ZZZ' },
+      },
+    })
+  })
+
+  it('zero amount is accepted', () => {
+    const postings = [leg('0.00', CAD, A), leg('-0.00', CAD, B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: true,
+      value: undefined,
+    })
+  })
+
+  it.each(['abc', 'NaN', '1,999.00', ''])('refuse %s as amount', (amt) => {
+    const postings = [leg('9.99', CAD, A), leg(amt, CAD, B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: {
+        code: 'AMOUNT_INVALID',
+        details: { amount: amt },
       },
     })
   })
