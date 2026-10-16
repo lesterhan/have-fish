@@ -40,5 +40,5 @@ export type Currency = (typeof CURRENCIES)[number]
 const SUPPORTED_CURRENCY = new Set<string>(CURRENCIES)
 
 export function isValidCurrency(code: string): code is Currency {
-  return SUPPORTED_CURRENCY.has(code.toUpperCase())
+  return SUPPORTED_CURRENCY.has(code)
 }

@@ -51,6 +51,17 @@ describe('validatePostings', () => {
     })
   })
 
+  it('small case currency is unsupported', () => {
+    const postings = [leg('9.99', 'cad', A), leg('-9.99', 'cad', B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: {
+        code: 'UNSUPPORTED_CURRENCY',
+        details: { currency: 'cad' },
+      },
+    })
+  })
+
   it('zero amount is accepted', () => {
     const postings = [leg('0.00', CAD, A), leg('-0.00', CAD, B)]
     expect(validatePostings(postings)).toEqual({
@@ -93,14 +104,14 @@ describe('validatePostings', () => {
   })
 
   it('imbalanced different currency postings refused', () => {
-    const postings = [leg('15.50', 'EUR', A), leg('-10.00', CAD, B)]
+    const postings = [leg('10.00', EUR, A), leg('-10.00', CAD, B)]
     expect(validatePostings(postings)).toEqual({
       ok: false,
       failure: {
         code: 'POSTINGS_DO_NOT_BALANCE',
         details: {
           currency: EUR,
-          cents: 1550,
+          cents: 1000,
         },
       },
     })
@@ -110,12 +121,26 @@ describe('validatePostings', () => {
     const postings = [
       leg('15.50', CAD, A),
       leg('-15.50', CAD, B),
-      leg('8.89', 'EUR', B),
-      leg('-8.89', 'EUR', C),
+      leg('8.89', EUR, B),
+      leg('-8.89', EUR, C),
     ]
     expect(validatePostings(postings)).toEqual({
       ok: true,
       value: undefined,
+    })
+  })
+
+  it('rule check order is respected', () => {
+    const postings = [leg('raptors', CAD, A), leg('10.00', 'ZZZ', B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      // currency check comes before amount check
+      failure: {
+        code: 'UNSUPPORTED_CURRENCY',
+        details: {
+          currency: 'ZZZ',
+        },
+      },
     })
   })
 })
