@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // The same strict set as `core/tsconfig.json` and `backend/tsconfig.json`.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    // Main runs on Node, so its globals are here. Electron's own types come with the window.
+    "types": ["node"]
+  },
+  "include": ["main"]
+}
