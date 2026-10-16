@@ -117,6 +117,49 @@ describe('validatePostings', () => {
     })
   })
 
+  it('imbalanced different currency postings always report first failed currency', () => {
+    const postings = [leg('10.00', EUR, A), leg('-10.00', CAD, B), leg('9.00', CAD, C)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: {
+        code: 'POSTINGS_DO_NOT_BALANCE',
+        details: {
+          currency: EUR,
+          cents: 1000,
+        },
+      },
+    })
+  })
+
+  it('each leg is rounded before summing', () => {
+    // 0.005 rounds to 1 cent, -0.004 rounds to 0 cents
+    const imbalancedPostings = [leg('0.005', CAD, A), leg('-0.004', CAD, B)]
+    expect(validatePostings(imbalancedPostings)).toEqual({
+      ok: false,
+      failure: {
+        code: 'POSTINGS_DO_NOT_BALANCE',
+        details: {
+          currency: CAD,
+          cents: 1,
+        },
+      },
+    })
+    // -0.999 rounds to 1.00
+    const balancedPostings = [leg('1.00', CAD, A), leg('-0.999', CAD, B)]
+    expect(validatePostings(balancedPostings)).toEqual({
+      ok: true,
+      valude: undefined,
+    })
+  })
+
+  it('2+ legs also balance', () => {
+    const postings = [leg('-5.50', CAD, A), leg('-1.50', CAD, B), leg('7.00', CAD, C)]
+    expect(validatePostings(postings)).toEqual({
+      ok: true,
+      valude: undefined,
+    })
+  })
+
   it('balanced currencies postings accepted', () => {
     const postings = [
       leg('15.50', CAD, A),
@@ -140,6 +183,15 @@ describe('validatePostings', () => {
         details: {
           currency: 'ZZZ',
         },
+      },
+    })
+    const tooFewPostings = [leg('10.00', 'ZZZ', A)]
+    expect(validatePostings(tooFewPostings)).toEqual({
+      ok: false,
+      // posting count check comes before currency check
+      failure: {
+        code: 'TOO_FEW_POSTINGS',
+        details: undefined,
       },
     })
   })
