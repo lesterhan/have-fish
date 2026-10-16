@@ -21,13 +21,27 @@ export function validatePostings(postings: readonly PostingDraft[]): Outcome<voi
   if (postings.length < 2) {
     return failure('TOO_FEW_POSTINGS')
   }
+  const currencyBalances = new Map<string, number>()
   for (const posting of postings) {
+    const amount = parse(posting.amount)
+
     if (!isValidCurrency(posting.currency)) {
       return failure('UNSUPPORTED_CURRENCY', { currency: posting.currency })
     }
-    if (parse(posting.amount) === null) {
+    if (amount == null) {
       return failure('AMOUNT_INVALID', { amount: posting.amount })
     }
+
+    // check all currencies sum to zero
+    const balance = currencyBalances.get(posting.currency) ?? 0
+    currencyBalances.set(posting.currency, amount + balance)
   }
+
+  for (const [currency, balance] of currencyBalances) {
+    if (balance !== 0) {
+      return failure('POSTINGS_DO_NOT_BALANCE', { currency, cents: balance })
+    }
+  }
+
   return { ok: true, value: undefined }
 }

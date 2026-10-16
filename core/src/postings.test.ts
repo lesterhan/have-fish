@@ -1,13 +1,14 @@
 import { describe, expect, it } from 'vitest'
+import type { Currency } from './currencies'
 import { type PostingDraft, validatePostings } from './postings'
 
 const A = '00000000-0000-4000-8000-00000000000a'
 const B = '00000000-0000-4000-8000-00000000000b'
 const C = '00000000-0000-4000-8000-00000000000c'
+const CAD: Currency = 'CAD'
+const EUR: Currency = 'EUR'
 
-const CAD = 'CAD'
-
-const leg = (amount: string, currency = CAD, accountId = A): PostingDraft => ({
+const leg = (amount: string, currency = 'CAD', accountId = A): PostingDraft => ({
   accountId,
   amount,
   currency,
@@ -58,7 +59,7 @@ describe('validatePostings', () => {
     })
   })
 
-  it('zero amount is accepted', () => {
+  it('max amount is accepted', () => {
     const postings = [leg('9999999999.99', CAD, A), leg('-9999999999.99', CAD, B)]
     expect(validatePostings(postings)).toEqual({
       ok: true,
@@ -74,6 +75,47 @@ describe('validatePostings', () => {
         code: 'AMOUNT_INVALID',
         details: { amount: amt },
       },
+    })
+  })
+
+  it('imbalanced same currency postings refused', () => {
+    const postings = [leg('15.50', CAD, A), leg('-10.00', CAD, B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: {
+        code: 'POSTINGS_DO_NOT_BALANCE',
+        details: {
+          currency: CAD,
+          cents: 550,
+        },
+      },
+    })
+  })
+
+  it('imbalanced different currency postings refused', () => {
+    const postings = [leg('15.50', 'EUR', A), leg('-10.00', CAD, B)]
+    expect(validatePostings(postings)).toEqual({
+      ok: false,
+      failure: {
+        code: 'POSTINGS_DO_NOT_BALANCE',
+        details: {
+          currency: EUR,
+          cents: 1550,
+        },
+      },
+    })
+  })
+
+  it('balanced currencies postings accepted', () => {
+    const postings = [
+      leg('15.50', CAD, A),
+      leg('-15.50', CAD, B),
+      leg('8.89', 'EUR', B),
+      leg('-8.89', 'EUR', C),
+    ]
+    expect(validatePostings(postings)).toEqual({
+      ok: true,
+      value: undefined,
     })
   })
 })
