@@ -17,7 +17,7 @@ const leg = (amount: string, currency = 'CAD', accountId = A): PostingDraft => (
 describe('validatePostings', () => {
   it('2 legs that sum to zero is valid', () => {
     const postings = [leg('-9.99', CAD, A), leg('9.99', CAD, B)]
-    expect(validatePostings(postings)).toEqual({
+    expect(validatePostings(postings)).toStrictEqual({
       ok: true,
       value: undefined,
     })
@@ -64,7 +64,7 @@ describe('validatePostings', () => {
 
   it('zero amount is accepted', () => {
     const postings = [leg('0.00', CAD, A), leg('-0.00', CAD, B)]
-    expect(validatePostings(postings)).toEqual({
+    expect(validatePostings(postings)).toStrictEqual({
       ok: true,
       value: undefined,
     })
@@ -72,7 +72,7 @@ describe('validatePostings', () => {
 
   it('max amount is accepted', () => {
     const postings = [leg('9999999999.99', CAD, A), leg('-9999999999.99', CAD, B)]
-    expect(validatePostings(postings)).toEqual({
+    expect(validatePostings(postings)).toStrictEqual({
       ok: true,
       value: undefined,
     })
@@ -146,17 +146,17 @@ describe('validatePostings', () => {
     })
     // -0.999 rounds to 1.00
     const balancedPostings = [leg('1.00', CAD, A), leg('-0.999', CAD, B)]
-    expect(validatePostings(balancedPostings)).toEqual({
+    expect(validatePostings(balancedPostings)).toStrictEqual({
       ok: true,
-      valude: undefined,
+      value: undefined,
     })
   })
 
   it('2+ legs also balance', () => {
     const postings = [leg('-5.50', CAD, A), leg('-1.50', CAD, B), leg('7.00', CAD, C)]
-    expect(validatePostings(postings)).toEqual({
+    expect(validatePostings(postings)).toStrictEqual({
       ok: true,
-      valude: undefined,
+      value: undefined,
     })
   })
 
