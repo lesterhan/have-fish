@@ -63,7 +63,7 @@ describe('readShape', () => {
       'postings.0.amount',
       'invalid_type',
     ],
-    ['extra field', { weight: '60KG' }, '', 'unrecognized_keys'],
+    ['extra field', { weight: '60KG' }, 'weight', 'unrecognized_keys'],
     [
       'extra field in posting',
       {
@@ -72,7 +72,7 @@ describe('readShape', () => {
           { accountId: B, amount: '-59.99', year: '2021', currency: 'CAD' },
         ],
       },
-      'postings.0',
+      'postings.0.year',
       'unrecognized_keys',
     ],
   ])('refuses %s', (_title, input, path, issue) => {

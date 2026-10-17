@@ -30,6 +30,11 @@ export function readShape(input: unknown): Outcome<TransactionDoc> {
       return failure('DOCUMENT_MALFORMED', { path: 'Unknown', issue: 'Unknown' })
     }
 
+    if (firstIssue.code === 'unrecognized_keys') {
+      const errorPath = [...firstIssue.path, firstIssue.keys[0]]
+      return failure('DOCUMENT_MALFORMED', { path: errorPath.join('.'), issue: firstIssue.code })
+    }
+
     return failure('DOCUMENT_MALFORMED', {
       path: firstIssue.path.join('.'),
       issue: firstIssue.code,
