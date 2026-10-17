@@ -1,5 +1,11 @@
 import { describe, expect, it } from 'vitest'
-import { AccountSchema, PostingSchema, readShape, TransactionSchema } from './documents'
+import {
+  AccountSchema,
+  PostingSchema,
+  readDocument,
+  readShape,
+  TransactionSchema,
+} from './documents'
 
 const A = '328e988b-cc8e-4a4d-98be-c0fddad78b20'
 const B = '697100f4-7ad0-4d4c-bc61-b61abbf3dd6f'
@@ -109,6 +115,45 @@ describe('readShape', () => {
           path,
           issue,
         },
+      },
+    })
+  })
+})
+
+describe('readDocument', () => {
+  it('reads a valid spend', () => {
+    expect(readDocument(SPEND)).toStrictEqual({ ok: true, value: SPEND })
+  })
+
+  it('passes through a shape failure', () => {
+    expect(readDocument({ ...SPEND, weight: '60KG' })).toStrictEqual({
+      ok: false,
+      failure: {
+        code: 'DOCUMENT_MALFORMED',
+        details: {
+          path: 'weight',
+          issue: 'unrecognized_keys',
+        },
+      },
+    })
+  })
+
+  it.each([
+    [
+      'invalid date',
+      {
+        ...SPEND,
+        date: '1998-02-30',
+      },
+      'DATE_INVALID',
+      { date: '1998-02-30' },
+    ],
+  ])('refuses %s', (_title, document, code, details) => {
+    expect(readDocument(document)).toStrictEqual({
+      ok: false,
+      failure: {
+        code,
+        details,
       },
     })
   })

@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { ACCOUNT_KINDS } from './account-kind'
+import { isCalendarDate } from './calendar-date'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
 
@@ -55,4 +56,17 @@ export function readShape(input: unknown): Outcome<LedgerDocument> {
     ok: true,
     value: result.data,
   }
+}
+
+export function readDocument(input: unknown): Outcome<LedgerDocument> {
+  const shape = readShape(input)
+  if (!shape.ok) return shape
+
+  const doc = shape.value
+  if (doc.type === 'transaction') {
+    if (!isCalendarDate(doc.date)) {
+      return failure('DATE_INVALID', { date: doc.date })
+    }
+  }
+  return shape
 }
