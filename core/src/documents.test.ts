@@ -158,7 +158,7 @@ describe('readDocument', () => {
       undefined,
     ],
     [
-      'unsupporte currency',
+      'unsupported currency',
       {
         ...SPEND,
         postings: [
@@ -168,6 +168,18 @@ describe('readDocument', () => {
       },
       'UNSUPPORTED_CURRENCY',
       { currency: 'ZZZ' },
+    ],
+    [
+      'invalid amount',
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '15.50.2', currency: 'CAD' },
+          { accountId: B, amount: '-10.50', currency: 'CAD' },
+        ],
+      },
+      'AMOUNT_INVALID',
+      { amount: '15.50.2' },
     ],
     [
       'unbalanced postings',
