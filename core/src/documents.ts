@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import type { Outcome } from './outcome'
+import { failure } from './outcome'
 
 export const PostingSchema = z.strictObject({
   accountId: z.uuid(),
@@ -18,3 +20,23 @@ export const TransactionSchema = z.strictObject({
 })
 
 export type TransactionDoc = z.infer<typeof TransactionSchema>
+
+export function readShape(input: unknown): Outcome<TransactionDoc> {
+  const result = TransactionSchema.safeParse(input)
+  if (!result.success) {
+    const firstIssue = result.error.issues[0]
+
+    if (firstIssue === undefined) {
+      return failure('DOCUMENT_MALFORMED', { path: 'Unknown', issue: 'Unknown' })
+    }
+
+    return failure('DOCUMENT_MALFORMED', {
+      path: firstIssue.path.join('.'),
+      issue: firstIssue.code,
+    })
+  }
+  return {
+    ok: true,
+    value: result.data,
+  }
+}
