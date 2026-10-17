@@ -146,6 +146,13 @@ describe('readDocument', () => {
     })
   })
 
+  it('reads a valid account', () => {
+    expect(readDocument(ACCOUNT)).toStrictEqual({
+      ok: true,
+      value: ACCOUNT,
+    })
+  })
+
   it.each([
     [
       'invalid date',
@@ -206,6 +213,18 @@ describe('readDocument', () => {
       { ...SPEND, deletedAt: 1760000000000 },
       'TOMBSTONE_HAS_POSTINGS',
       undefined,
+    ],
+    [
+      'invalid account name',
+      { ...ACCOUNT, path: 'expenses::coffee:::beans' },
+      'PATH_INVALID',
+      { path: 'expenses::coffee:::beans' },
+    ],
+    [
+      'mismatched path root',
+      { ...ACCOUNT, path: 'expenses:coffee:beans', kind: 'card' },
+      'PATH_ROOT_MISMATCH',
+      { path: 'expenses:coffee:beans', kind: 'card', expected: 'liabilities' },
     ],
   ])('refuses %s', (_title, document, code, details) => {
     expect(readDocument(document)).toStrictEqual({

@@ -1,5 +1,6 @@
 import { z } from 'zod'
-import { ACCOUNT_KINDS } from './account-kind'
+import { ACCOUNT_KINDS, rootOf } from './account-kind'
+import { isValidPath } from './account-path'
 import { isCalendarDate } from './calendar-date'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
@@ -59,24 +60,53 @@ export function readShape(input: unknown): Outcome<LedgerDocument> {
   }
 }
 
+function checkTransaction(doc: TransactionDoc): Outcome<TransactionDoc> {
+  if (!isCalendarDate(doc.date)) {
+    return failure('DATE_INVALID', { date: doc.date })
+  }
+
+  if (doc.deletedAt !== null) {
+    if (doc.postings.length > 0) {
+      return failure('TOMBSTONE_HAS_POSTINGS')
+    }
+  } else {
+    const postingsCheck = validatePostings(doc.postings)
+    if (!postingsCheck.ok) return postingsCheck
+  }
+  return { ok: true, value: doc }
+}
+
+function checkAccount(doc: AccountDoc): Outcome<AccountDoc> {
+  if (!isValidPath(doc.path)) {
+    return failure('PATH_INVALID', { path: doc.path })
+  }
+
+  const [root] = doc.path.split(':')
+  const expected = rootOf(doc.kind)
+
+  if (expected !== root) {
+    return failure('PATH_ROOT_MISMATCH', {
+      path: doc.path,
+      kind: doc.kind,
+      expected,
+    })
+  }
+  return { ok: true, value: doc }
+}
+
 export function readDocument(input: unknown): Outcome<LedgerDocument> {
   const shape = readShape(input)
   if (!shape.ok) return shape
 
   const doc = shape.value
-  if (doc.type === 'transaction') {
-    if (!isCalendarDate(doc.date)) {
-      return failure('DATE_INVALID', { date: doc.date })
-    }
-
-    if (doc.deletedAt !== null) {
-      if (doc.postings.length > 0) {
-        return failure('TOMBSTONE_HAS_POSTINGS')
-      }
-    } else {
-      const postingsCheck = validatePostings(doc.postings)
-      if (!postingsCheck.ok) return postingsCheck
+  switch (doc.type) {
+    case 'transaction':
+      return checkTransaction(doc)
+    case 'account':
+      return checkAccount(doc)
+    default: {
+      const unreacheable: never = doc
+      return unreacheable
     }
   }
-  return shape
 }
