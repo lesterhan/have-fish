@@ -1,0 +1,23 @@
+{
+  "name": "@have-fish/desktop",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "The desktop app: Electron main, preload and renderer over one SQLite file.",
+  "scripts": {
+    "test": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
+    "test:watch": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs",
+    "check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@have-fish/core": "workspace:*",
+    "better-sqlite3": "^13.0.3"
+  },
+  "devDependencies": {
+    "@types/better-sqlite3": "^9.6.0",
+    "@types/node": "^24.0.0",
+    "electron": "^44.7.2",
+    "typescript": "^7.0.2",
+    "vitest": "^5.0.5"
+  }
+}

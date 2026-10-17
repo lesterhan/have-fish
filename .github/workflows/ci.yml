@@ -14,6 +14,7 @@ jobs:
     outputs:
       app: ${{ steps.diff.outputs.app }}
       core: ${{ steps.diff.outputs.core }}
+      desktop: ${{ steps.diff.outputs.desktop }}
 
     steps:
       # A pull request checks out its merge commit; depth 2 brings its first parent, the base
@@ -33,12 +34,15 @@ jobs:
           touches() { grep -qE "$1" <<<"$changed"; }
           all=false; touches '^\.github/workflows/ci\.yml$' && all=true
           app=$all; touches '^(backend|frontend)/' && app=true
-          core=$all; touches '^core/' && core=true
-          # Until core/ lands on main, a change to this file alone has no core to test.
-          [ -d core ] || core=false
+          # The root package.json and bun.lock are the rewrite's workspace, so they run both of
+          # its suites. desktop/ imports core/, so a change to the core runs the desktop's too.
+          workspace=$all; touches '^(package\.json|bun\.lock)$' && workspace=true
+          core=$workspace; touches '^core/' && core=true
+          desktop=$core; touches '^desktop/' && desktop=true
           echo "app=$app" >> "$GITHUB_OUTPUT"
           echo "core=$core" >> "$GITHUB_OUTPUT"
-          echo "app=$app core=$core"
+          echo "desktop=$desktop" >> "$GITHUB_OUTPUT"
+          echo "app=$app core=$core desktop=$desktop"
 
   # One formatter and one linter for every half of the repo, configured in `biome.jsonc`
   # at the root. This job is deliberately the cheapest in the file — no database, no
@@ -271,6 +275,38 @@ jobs:
 
       - name: Install core dependencies
         run: bun install --frozen-lockfile
+
+      - name: Run tests
+        run: bun run test
+
+      - name: Type check
+        run: bun run check
+
+  # The desktop app's main process, tested on Electron's own Node (`ELECTRON_RUN_AS_NODE`), so
+  # the tests load the better-sqlite3 binary the app ships with. That needs no display.
+  desktop:
+    needs: changes
+    if: needs.changes.outputs.desktop == 'true'
+    runs-on: ubuntu-latest
+
+    defaults:
+      run:
+        working-directory: desktop
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: latest
+
+      - name: Install desktop dependencies
+        run: bun install --frozen-lockfile
+
+      # Electron fetches its binary on first run rather than at install. Fetching it here
+      # reports a failed download as one, rather than as a failed test.
+      - name: Download Electron
+        run: ./node_modules/.bin/install-electron
 
       - name: Run tests
         run: bun run test

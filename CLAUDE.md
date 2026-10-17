@@ -41,7 +41,7 @@ have-fish/
 ├── frontend/         # current app: SvelteKit + Svelte 5
 ├── mobile/           # current app: React Native + Expo, Android
 ├── core/             # rewrite: the pure domain (arrives with the first tech note)
-├── desktop/          # rewrite: Electron main, preload and renderer (arrives with the ledger file)
+├── desktop/          # rewrite: Electron main, preload and renderer (its main/db/ first)
 ├── planning/         # direction, desktop-rewrite.md, the current app's epic files
 ├── DESIGN.md         # the design source of truth
 ├── biome.jsonc       # one formatter and linter for the whole repository

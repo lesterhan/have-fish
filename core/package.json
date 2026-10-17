@@ -4,6 +4,9 @@
   "private": true,
   "type": "module",
   "description": "The ledger's pure core: documents and the checks on them. No database, no clock, no network.",
+  "exports": {
+    "./*": "./src/*.ts"
+  },
   "scripts": {
     "test": "bun --bun vitest run",
     "test:watch": "bun --bun vitest",

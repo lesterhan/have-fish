@@ -2,7 +2,11 @@
   "name": "have-fish",
   "version": "0.1.0",
   "private": true,
-  "description": "Root workspace: holds the formatter and linter that span backend, frontend, mobile and ops.",
+  "description": "Root workspace: the formatter and linter for the whole repository, and the rewrite's packages (core/, desktop/). backend/, frontend/ and mobile/ keep their own lockfiles.",
+  "workspaces": [
+    "core",
+    "desktop"
+  ],
   "scripts": {
     "check": "biome check .",
     "check:fix": "biome check --write .",
