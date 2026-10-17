@@ -1,6 +1,6 @@
 // The currencies a posting can carry. The current app's list as it stands, so its ledgers carry
 // over: the currencies its rate source quotes, plus NTD, BGN and HRK, which older entries use.
-export const SUPPORTED_CURRENCIES = new Set([
+export const CURRENCIES = [
   'CAD',
   'EUR',
   'GBP',
@@ -34,8 +34,11 @@ export const SUPPORTED_CURRENCIES = new Set([
   'ILS',
   'NTD',
   'HRK',
-])
+] as const
 
-export function isValidCurrency(code: string): boolean {
-  return SUPPORTED_CURRENCIES.has(code.toUpperCase())
+export type Currency = (typeof CURRENCIES)[number]
+const SUPPORTED_CURRENCY = new Set<string>(CURRENCIES)
+
+export function isValidCurrency(code: string): code is Currency {
+  return SUPPORTED_CURRENCY.has(code)
 }
