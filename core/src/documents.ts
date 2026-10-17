@@ -105,8 +105,8 @@ export function readDocument(input: unknown): Outcome<LedgerDocument> {
     case 'account':
       return checkAccount(doc)
     default: {
-      const unreacheable: never = doc
-      return unreacheable
+      const unreachable: never = doc
+      return unreachable
     }
   }
 }
