@@ -60,6 +60,12 @@ export function readShape(input: unknown): Outcome<LedgerDocument> {
   }
 }
 
+/*
+ * A transaction must:
+ * - have a valid date
+ * - have no postings, if deletedAt is set
+ * - if not deleted, must have a set of valid postings
+ */
 function checkTransaction(doc: TransactionDoc): Outcome<TransactionDoc> {
   if (!isCalendarDate(doc.date)) {
     return failure('DATE_INVALID', { date: doc.date })
@@ -76,6 +82,11 @@ function checkTransaction(doc: TransactionDoc): Outcome<TransactionDoc> {
   return { ok: true, value: doc }
 }
 
+/*
+ * An account must:
+ * - have a valid path
+ * - have path root matched with the kind of account
+ */
 function checkAccount(doc: AccountDoc): Outcome<AccountDoc> {
   if (!isValidPath(doc.path)) {
     return failure('PATH_INVALID', { path: doc.path })
