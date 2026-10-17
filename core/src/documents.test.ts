@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { PostingSchema, readShape, TransactionSchema } from './documents'
+import { AccountSchema, PostingSchema, readShape, TransactionSchema } from './documents'
 
 const A = '328e988b-cc8e-4a4d-98be-c0fddad78b20'
 const B = '697100f4-7ad0-4d4c-bc61-b61abbf3dd6f'
@@ -17,6 +17,14 @@ const SPEND = {
   deletedAt: null,
 } as const
 
+const ACCOUNT = {
+  type: 'account',
+  id: UUID,
+  path: 'expenses:coffee:beans',
+  kind: 'category',
+  deletedAt: null,
+} as const
+
 describe('PostingSchema', () => {
   it('accepts a posting with its three fields', () => {
     const posting = { accountId: A, amount: '-12.50', currency: 'CAD' }
@@ -30,6 +38,12 @@ describe('TransactionSchema', () => {
   })
 })
 
+describe('AccountSchema', () => {
+  it('accepts an account with valid fields', () => {
+    expect(AccountSchema.safeParse(ACCOUNT)).toStrictEqual({ success: true, data: ACCOUNT })
+  })
+})
+
 describe('readShape', () => {
   it('reads a valid transaction', () => {
     expect(readShape(SPEND)).toStrictEqual({
@@ -38,11 +52,19 @@ describe('readShape', () => {
     })
   })
 
+  it('reads a valid account', () => {
+    expect(readShape(ACCOUNT)).toStrictEqual({
+      ok: true,
+      value: ACCOUNT,
+    })
+  })
+
   it.each([
-    ['bad type', { type: 'coffeebeans' }, 'type', 'invalid_value'],
+    ['bad type', { ...SPEND, type: 'coffeebeans' }, 'type', 'invalid_union'],
     [
       'missing currency',
       {
+        ...SPEND,
         postings: [
           { accountId: A, amount: '59.99', currency: 'CAD' },
           { accountId: B, amount: '-59.99' },
@@ -51,10 +73,11 @@ describe('readShape', () => {
       'postings.1.currency',
       'invalid_type',
     ],
-    ['id is not uuid', { id: 'some-id' }, 'id', 'invalid_format'],
+    ['id is not uuid', { ...SPEND, id: 'some-id' }, 'id', 'invalid_format'],
     [
       'amount is number not string',
       {
+        ...SPEND,
         postings: [
           { accountId: A, amount: 59.99, currency: 'CAD' },
           { accountId: B, amount: -59.99, currency: 'CAD' },
@@ -63,10 +86,11 @@ describe('readShape', () => {
       'postings.0.amount',
       'invalid_type',
     ],
-    ['extra field', { weight: '60KG' }, 'weight', 'unrecognized_keys'],
+    ['extra field', { ...SPEND, weight: '60KG' }, 'weight', 'unrecognized_keys'],
     [
       'extra field in posting',
       {
+        ...SPEND,
         postings: [
           { accountId: A, amount: '59.99', year: '2021', currency: 'CAD' },
           { accountId: B, amount: '-59.99', year: '2021', currency: 'CAD' },
@@ -75,8 +99,9 @@ describe('readShape', () => {
       'postings.0.year',
       'unrecognized_keys',
     ],
-  ])('refuses %s', (_title, input, path, issue) => {
-    expect(readShape({ ...SPEND, ...input })).toStrictEqual({
+    ['invalid account kind', { ...ACCOUNT, kind: 'piggybank' }, 'kind', 'invalid_value'],
+  ])('refuses %s', (_title, document, path, issue) => {
+    expect(readShape(document)).toStrictEqual({
       ok: false,
       failure: {
         code: 'DOCUMENT_MALFORMED',

@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import { ACCOUNT_KINDS } from './account-kind'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
 
@@ -7,7 +8,6 @@ export const PostingSchema = z.strictObject({
   amount: z.string(),
   currency: z.string(),
 })
-
 export type PostingDoc = z.infer<typeof PostingSchema>
 
 export const TransactionSchema = z.strictObject({
@@ -16,13 +16,24 @@ export const TransactionSchema = z.strictObject({
   date: z.string(),
   description: z.string(),
   postings: z.array(PostingSchema),
-  deletedAt: z.nullable(z.number()),
+  deletedAt: z.number().nullable(),
 })
-
 export type TransactionDoc = z.infer<typeof TransactionSchema>
 
-export function readShape(input: unknown): Outcome<TransactionDoc> {
-  const result = TransactionSchema.safeParse(input)
+export const AccountSchema = z.strictObject({
+  type: z.literal('account'),
+  id: z.uuid(),
+  path: z.string(),
+  kind: z.enum(ACCOUNT_KINDS),
+  deletedAt: z.number().nullable(),
+})
+export type AccountDoc = z.infer<typeof AccountSchema>
+
+export const DocumentSchema = z.discriminatedUnion('type', [TransactionSchema, AccountSchema])
+export type LedgerDocument = z.infer<typeof DocumentSchema>
+
+export function readShape(input: unknown): Outcome<LedgerDocument> {
+  const result = DocumentSchema.safeParse(input)
   if (!result.success) {
     const firstIssue = result.error.issues[0]
 
