@@ -3,6 +3,7 @@ import { ACCOUNT_KINDS } from './account-kind'
 import { isCalendarDate } from './calendar-date'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
+import { validatePostings } from './postings'
 
 export const PostingSchema = z.strictObject({
   accountId: z.uuid(),
@@ -67,6 +68,9 @@ export function readDocument(input: unknown): Outcome<LedgerDocument> {
     if (!isCalendarDate(doc.date)) {
       return failure('DATE_INVALID', { date: doc.date })
     }
+
+    const postingsCheck = validatePostings(doc.postings)
+    if (!postingsCheck.ok) return postingsCheck
   }
   return shape
 }

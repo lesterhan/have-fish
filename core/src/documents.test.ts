@@ -148,6 +148,39 @@ describe('readDocument', () => {
       'DATE_INVALID',
       { date: '1998-02-30' },
     ],
+    [
+      'too few postings',
+      {
+        ...SPEND,
+        postings: [{ accountId: A, amount: '15.50', currency: 'CAD' }],
+      },
+      'TOO_FEW_POSTINGS',
+      undefined,
+    ],
+    [
+      'unsupporte currency',
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '15.50', currency: 'ZZZ' },
+          { accountId: B, amount: '-15.50', currency: 'ZZZ' },
+        ],
+      },
+      'UNSUPPORTED_CURRENCY',
+      { currency: 'ZZZ' },
+    ],
+    [
+      'unbalanced postings',
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '15.50', currency: 'CAD' },
+          { accountId: B, amount: '-10.50', currency: 'CAD' },
+        ],
+      },
+      'POSTINGS_DO_NOT_BALANCE',
+      { currency: 'CAD', cents: 500 },
+    ],
   ])('refuses %s', (_title, document, code, details) => {
     expect(readDocument(document)).toStrictEqual({
       ok: false,
