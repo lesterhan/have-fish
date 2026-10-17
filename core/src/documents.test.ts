@@ -138,6 +138,14 @@ describe('readDocument', () => {
     })
   })
 
+  it('tombstoned transaction has no postings', () => {
+    const tombstone = { ...SPEND, deletedAt: 1760000000000, postings: [] }
+    expect(readDocument(tombstone)).toStrictEqual({
+      ok: true,
+      value: tombstone,
+    })
+  })
+
   it.each([
     [
       'invalid date',
@@ -192,6 +200,12 @@ describe('readDocument', () => {
       },
       'POSTINGS_DO_NOT_BALANCE',
       { currency: 'CAD', cents: 500 },
+    ],
+    [
+      'tombstone with postings',
+      { ...SPEND, deletedAt: 1760000000000 },
+      'TOMBSTONE_HAS_POSTINGS',
+      undefined,
     ],
   ])('refuses %s', (_title, document, code, details) => {
     expect(readDocument(document)).toStrictEqual({

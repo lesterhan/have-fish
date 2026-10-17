@@ -69,8 +69,14 @@ export function readDocument(input: unknown): Outcome<LedgerDocument> {
       return failure('DATE_INVALID', { date: doc.date })
     }
 
-    const postingsCheck = validatePostings(doc.postings)
-    if (!postingsCheck.ok) return postingsCheck
+    if (doc.deletedAt !== null) {
+      if (doc.postings.length > 0) {
+        return failure('TOMBSTONE_HAS_POSTINGS')
+      }
+    } else {
+      const postingsCheck = validatePostings(doc.postings)
+      if (!postingsCheck.ok) return postingsCheck
+    }
   }
   return shape
 }
