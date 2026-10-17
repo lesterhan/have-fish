@@ -63,6 +63,18 @@ describe('readShape', () => {
       'postings.0.amount',
       'invalid_type',
     ],
+    ['extra field', { weight: '60KG' }, '', 'unrecognized_keys'],
+    [
+      'extra field in posting',
+      {
+        postings: [
+          { accountId: A, amount: '59.99', year: '2021', currency: 'CAD' },
+          { accountId: B, amount: '-59.99', year: '2021', currency: 'CAD' },
+        ],
+      },
+      'postings.0',
+      'unrecognized_keys',
+    ],
   ])('refuses %s', (_title, input, path, issue) => {
     expect(readShape({ ...SPEND, ...input })).toStrictEqual({
       ok: false,
