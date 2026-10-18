@@ -298,3 +298,14 @@ describe('canonical form', () => {
     },
   )
 })
+
+describe('JSON round trip', () => {
+  it.each([
+    ['transaction doc', SPEND],
+    ['account doc', ACCOUNT],
+    ['tombstoned transaction', { ...SPEND, deletedAt: 1760000000000, postings: [] }],
+  ])('%s is read back without change', (_title, doc) => {
+    const jsonWire = JSON.parse(JSON.stringify(doc))
+    expect(readDocument(jsonWire)).toStrictEqual({ ok: true, value: doc })
+  })
+})
