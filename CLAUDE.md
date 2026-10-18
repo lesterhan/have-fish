@@ -216,9 +216,14 @@ parts are worth the owner's read.
   narration of mechanical steps.
 - **Comments are short.** One line where one line does it: what the code is for, or why it is
   this way when the code can't show that. Leave out background, history and reasoning the reader
-  doesn't need at that line; it goes in the PR body or the note. A comment says a rule's reason
-  in a sentence, not a paragraph. For example, `// max stops time going backwards; the counter
-  keeps the order.` If a note's review asks for something in a comment, write it, but briefly.
+  doesn't need at that line; it goes in the PR body or the note, and the comment cites the PR
+  (`see #548`) when the reader will want it. A comment says a rule's reason in a sentence, not a
+  paragraph. If a note's review asks for something in a comment, write it, but briefly. For
+  example:
+
+  ```ts
+  // `max` stops time going backwards; the counter keeps the order.
+  ```
 
 ## How Claude reports back
 
