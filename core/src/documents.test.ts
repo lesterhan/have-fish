@@ -9,6 +9,7 @@ import {
 
 const A = '328e988b-cc8e-4a4d-98be-c0fddad78b20'
 const B = '697100f4-7ad0-4d4c-bc61-b61abbf3dd6f'
+const C = 'e795ff15-ce02-4abb-9642-928b57bca6f3'
 const UUID = '8a7283de-26e1-485d-8aef-414f2e2bfdf1'
 
 const SPEND = {
@@ -151,6 +152,19 @@ describe('readDocument', () => {
       ok: true,
       value: ACCOUNT,
     })
+  })
+
+  it('reads a multicurrency conversion', () => {
+    const conversion = {
+      ...SPEND,
+      postings: [
+        { accountId: A, amount: '10.00', currency: 'CAD' },
+        { accountId: B, amount: '-10.00', currency: 'CAD' },
+        { accountId: B, amount: '7.00', currency: 'EUR' },
+        { accountId: C, amount: '-7.00', currency: 'EUR' },
+      ],
+    }
+    expect(readDocument(conversion)).toStrictEqual({ ok: true, value: conversion })
   })
 
   it.each([
