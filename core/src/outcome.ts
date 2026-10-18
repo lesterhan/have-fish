@@ -8,6 +8,9 @@ export interface FailureDetails {
   TOMBSTONE_HAS_POSTINGS: undefined
   PATH_INVALID: { path: string }
   PATH_ROOT_MISMATCH: { path: string; kind: string; expected: string }
+  VERSION_MALFORMED: { path: string; issue: string }
+  CLOCK_DRIFT: { remoteWallMs: number; now: number }
+  CLOCK_COUNTER_OVERFLOW: { wallMs: number }
 }
 
 export type FailureCode = keyof FailureDetails
