@@ -214,6 +214,11 @@ parts are worth the owner's read.
 - **Explain non-obvious decisions.** When you make a choice the conventions don't dictate (data
   model trade-offs, architectural decisions, security choices), say so briefly. I don't need
   narration of mechanical steps.
+- **Comments are short.** One line where one line does it: what the code is for, or why it is
+  this way when the code can't show that. Leave out background, history and reasoning the reader
+  doesn't need at that line; it goes in the PR body or the note. A comment says a rule's reason
+  in a sentence, not a paragraph. For example, `// max stops time going backwards; the counter
+  keeps the order.` If a note's review asks for something in a comment, write it, but briefly.
 
 ## How Claude reports back
 
