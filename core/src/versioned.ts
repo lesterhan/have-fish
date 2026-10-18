@@ -1,9 +1,5 @@
-// A document travels with its version, in an envelope: `{ doc, version }`. This is what the
-// apply path takes, and later what sync sends and receives.
-//
-// The version travels as an object, the same `Version` the clock hands out, so an envelope
-// survives `JSON.stringify` and reads back equal. The text form (`formatVersion`) is for
-// storage and logs.
+// A document with its version: what the apply path and sync accept. The version is an object,
+// not text, so an envelope survives a JSON round trip unchanged.
 
 import { z } from 'zod'
 import { type LedgerDocument, readDocument } from './documents'
@@ -12,14 +8,10 @@ import { type Version, VersionSchema } from './version'
 
 export type Versioned<D extends LedgerDocument = LedgerDocument> = { doc: D; version: Version }
 
-// The document is checked separately by `readDocument`, so its own failures keep their codes.
+// `doc` is left to `readDocument`, so its failures keep their own codes.
 const EnvelopeSchema = z.strictObject({ doc: z.unknown(), version: VersionSchema })
 
-/**
- * Reads an envelope: the version first, then the document. A bad envelope or version is
- * `VERSION_MALFORMED`, with the path to the field at fault; a bad document is whatever
- * `readDocument` says.
- */
+/** A bad envelope or version is `VERSION_MALFORMED`; a bad document is `readDocument`'s code. */
 export function readVersioned(input: unknown): Outcome<Versioned> {
   const result = EnvelopeSchema.safeParse(input)
   if (!result.success) {

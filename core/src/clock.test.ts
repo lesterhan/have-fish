@@ -7,13 +7,13 @@ const NOON = Date.UTC(2026, 9, 4, 12)
 const HERE = 'a1b2c3d4e5f60718'
 const THERE = 'f0e1d2c3b4a59687'
 
-/** The value of an outcome that must be ok; fails the test with the refusal if it isn't. */
+/** Unwraps an ok outcome, or fails the test with the refusal. */
 function ok<T>(outcome: Outcome<T>): T {
   if (!outcome.ok) throw new Error(`refused: ${JSON.stringify(outcome.failure)}`)
   return outcome.value
 }
 
-/** Ticks once per `now`, in order, and returns every version issued. */
+/** One tick per `now`; returns the versions. */
 function tickThrough(clock: Clock, nows: number[]): Version[] {
   const versions: Version[] = []
   let current = clock
@@ -73,8 +73,7 @@ describe('tick', () => {
 })
 
 describe('receive', () => {
-  // One test per row of the counter rule: which of the local clock, the remote version and
-  // `now` holds the latest wall time decides which counter moves on.
+  // One test per counter case.
 
   it('takes the larger counter plus one when local and remote share the latest time', () => {
     const clock = { wallMs: NOON, counter: 3 }
@@ -102,15 +101,14 @@ describe('receive', () => {
     expect(ok(receive(clock, remote, NOON))).toStrictEqual({ wallMs: NOON, counter: 0 })
   })
 
-  // The one that matters: a device whose clock runs behind still writes a version that beats
-  // what it just received, so its edit wins instead of vanishing under an older one.
+  // The key property: a device whose clock runs behind still writes a winning version.
   it('lets the next tick beat a remote version ahead of local time', () => {
     const clock = { wallMs: NOON, counter: 0 }
     const remote = { wallMs: NOON + 60_000, counter: 4, deviceId: '0000000000000000' }
     const after = ok(receive(clock, remote, NOON))
     const { version } = ok(tick(after, NOON + 1, 'ffffffffffffffff'))
     expect(compareVersions(version, remote)).toBe(1)
-    // It beats it on the counter, not on the device id: the lowest id still wins.
+    // Wins on the counter, so even the lowest device id beats it.
     const { version: low } = ok(tick(after, NOON + 1, '0000000000000000'))
     expect(compareVersions(low, remote)).toBe(1)
   })
@@ -172,9 +170,7 @@ describe('the guards', () => {
 })
 
 describe('the clock, over a long run', () => {
-  // Two devices with clocks a minute apart that jitter and sometimes jump back, writing and
-  // swapping versions in a fixed pseudo-random order. Every version either one issues must beat
-  // everything that device has issued or received before.
+  // Two devices, clocks a minute apart and jittering, swapping versions in a seeded order.
   it('never issues a version at or below one it issued or received', () => {
     let seed = 42
     const next = () => {
@@ -188,7 +184,7 @@ describe('the clock, over a long run', () => {
     let time = NOON
     let issued = 0
     for (let step = 0; step < 5000; step++) {
-      time += Math.floor(next() * 20) - 4 // mostly forward, sometimes backward, often frozen
+      time += Math.floor(next() * 20) - 4 // forward, frozen or back
       const device = devices[step % 2 === 0 ? 0 : 1] as (typeof devices)[number]
       const other = devices[step % 2 === 0 ? 1 : 0] as (typeof devices)[number]
       const now = time + device.skew
@@ -199,7 +195,6 @@ describe('the clock, over a long run', () => {
       device.latest.push(version)
       issued++
       if (next() < 0.3) {
-        // The other device receives it; its next version must beat this one too.
         other.clock = ok(receive(other.clock, version, time + other.skew))
         other.latest.push(version)
         other.latest.sort(compareVersions)

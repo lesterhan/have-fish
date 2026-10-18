@@ -18,7 +18,7 @@ const v = (wallMs: number, counter: number, deviceId: string): Version => ({
   deviceId,
 })
 
-/** A small seeded generator (mulberry32), so the "random" versions are the same every run. */
+/** Seeded PRNG (mulberry32), so samples are the same every run. */
 function seeded(seed: number) {
   let a = seed
   return () => {
@@ -29,10 +29,7 @@ function seeded(seed: number) {
   }
 }
 
-/**
- * Versions crowded together, so the sample has plenty of ties on wall time and on counter and
- * exercises every tie-break, plus the extremes of each field.
- */
+/** Crowded on purpose: many ties, so every tie-break runs, plus each field's extremes. */
 function sample(seed: number, n: number): Version[] {
   const next = seeded(seed)
   const pick = <T>(xs: readonly T[]): T => xs[Math.floor(next() * xs.length)] as T
@@ -92,8 +89,7 @@ describe('formatVersion', () => {
 })
 
 describe('the text form', () => {
-  // Every pair, not just a sort: for each two versions, compareVersions and string comparison of
-  // their text give the same answer. That is what lets SQLite order by the text column.
+  // Every pair, not just one sort: text order must equal version order.
   it('compares the same as compareVersions, for every pair in a sample', () => {
     const versions = sample(1, 300)
     const texts = versions.map(formatVersion)
