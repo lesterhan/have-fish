@@ -76,7 +76,9 @@ story that proves a piece wrong changes this section.
 
 better-sqlite3's edge over libsql is simplicity, not correctness: libsql already keeps an async
 transaction atomic, which is why D8 chose it over `bun:sqlite` (#284, #286). libsql stays the
-fallback. It is N-API, so it needs no rebuild per Electron version.
+fallback. Since version 13, better-sqlite3 is N-API too and carries its prebuilt binaries in the
+package, so the one binary loads under the system's Node and Electron's alike: no rebuild per
+Electron version, and no header download at install.
 
 ### Layout, as it will grow
 

@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ESNext",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    // The same strict set as `backend/tsconfig.json`, where each flag carries its reason.
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "exactOptionalPropertyTypes": true,
+    "noFallthroughCasesInSwitch": true,
+    "noImplicitOverride": true,
+    "verbatimModuleSyntax": true,
+    "skipLibCheck": true,
+    // No `bun` or `node` types: core/ is pure, so the globals a runtime adds are not
+    // there to reach for by accident.
+    "types": []
+  },
+  "include": ["src"]
+}

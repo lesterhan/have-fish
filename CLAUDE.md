@@ -41,7 +41,7 @@ have-fish/
 ├── frontend/         # current app: SvelteKit + Svelte 5
 ├── mobile/           # current app: React Native + Expo, Android
 ├── core/             # rewrite: the pure domain (arrives with the first tech note)
-├── desktop/          # rewrite: Electron main, preload and renderer (arrives with the ledger file)
+├── desktop/          # rewrite: Electron main, preload and renderer (its main/db/ first)
 ├── planning/         # direction, desktop-rewrite.md, the current app's epic files
 ├── DESIGN.md         # the design source of truth
 ├── biome.jsonc       # one formatter and linter for the whole repository
@@ -182,7 +182,7 @@ Things you can say:
 | Mode | Who writes | Say |
 |---|---|---|
 | Build | Claude writes everything; the owner reviews the PR | "build X", "while I'm away" |
-| Pair | Turn by turn: Claude writes scaffolding, a few basic tests and skeletons for the rest; the owner fills in the tests and writes the rules and seams (`pair` skill) | "let's pair on X" |
+| Pair | Turn by turn, one small test-first item at a time: Claude keeps the tally and writes scaffolding; the owner writes the tests, the rules and the seams (`pair` skill) | "let's pair on X" |
 | Coach | The owner writes everything; Claude guides (`coach` skill) | "coach me through X" |
 
 **When no mode is named,** rewrite work (any story or tech note, anything in `core/` or
