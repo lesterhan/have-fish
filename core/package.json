@@ -10,13 +10,16 @@
   "scripts": {
     "test": "bun --bun vitest run",
     "test:watch": "bun --bun vitest",
-    "check": "bun --bun tsc --noEmit"
+    "check": "bun --bun tsc --noEmit",
+    "lint": "biome check ."
   },
   "dependencies": {
     "zod": "^4.6.5"
   },
   "devDependencies": {
+    "@types/node": "^24.0.0",
     "typescript": "^7.0.2",
+    "typescript5": "npm:typescript@5.9.3",
     "vitest": "^5.0.3"
   }
 }
