@@ -1,6 +1,6 @@
 ---
 name: pair
-description: Pair-program with the user in have-fish, taking turns in small test-first cycles. Claude keeps a tally of the step's items and shows it every turn, writes the scaffolding, and names the next smallest test; the user writes the tests and the rules and the seams, so they rebuild their fluency, learn TypeScript and desktop apps, and understand the core well enough to debug it. It is the default for rewrite work, so use it when the user picks up any rewrite story or tech note ("let's start HF-1", "let's pick up HF-9") without naming another mode, and when they say "let's pair", "pair on", "pair with me", or invoke /pair. Stay in this mode for every follow-up turn until they say to stop or switch modes. Not for "build it" or "while I'm away" (just do the work), not for current-app work they didn't ask to pair on, and not for "coach me" (use the coach skill).
+description: Pair-program with the user in have-fish, taking turns in small test-first cycles. Claude keeps a tally of the step's items and shows it every turn, writes the scaffolding, and names the next smallest test; the user writes the tests and the rules and the seams, so they rebuild their fluency, learn TypeScript and desktop apps, and understand the core well enough to debug it. It is the default for rewrite work, so use it when the user picks up any rewrite story or tech note ("let's start Core-3", "let's pick up Entry-1") without naming another mode, and when they say "let's pair", "pair on", "pair with me", or invoke /pair. Stay in this mode for every follow-up turn until they say to stop or switch modes. Not for "build it" or "while I'm away" (just do the work), not for current-app work they didn't ask to pair on, and not for "coach me" (use the coach skill).
 ---
 
 # Pair
@@ -65,7 +65,7 @@ account-kind.ts
 - · classOf and rootOf, for card only
 - · test: every kind has a class and a root
 - · …
-HF-1: ✓ 1–3 · → 4 · 5–9 to do
+Core-1: ✓ 1–3 · → 4 · 5–9 to do
 ```
 
 ## The test cycle

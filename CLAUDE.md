@@ -125,9 +125,12 @@ the PRs and the history. The vault's `CLAUDE.md` and `Home.md` hold its conventi
 before filing or changing a note. If the vault isn't cloned beside this repository, attach it
 before picking anything up.
 
-- **Keys.** Every story, tech note, bug and chore has a key such as `HF-3`, leading its filename.
-  "let's start HF-3" means the note whose name begins `HF-3 `. A key is never picked by hand: the
-  vault's `node .tools/map.mjs build` hands them out.
+- **Keys.** Every story, tech note, bug and chore has a key, a label and a number such as
+  `Core-3`, leading its filename. The label says where the note belongs; the vault's `Home.md`
+  lists them. "let's start core-3" means the note whose name begins `Core-3 `, in any case. A
+  key is never picked by hand: the vault's `node .tools/map.mjs build` hands them out. Notes
+  keyed before 2026-10-18 keep their old `HF-` key in `aliases`, which is how older PRs name
+  them.
 - **Ready first.** Pick up only a `ready` note whose `depends_on` are all `done`, and set it to
   `doing`.
 - **One note, one branch, one PR.** The PR body ends with `Story:`, `Tech:`, `Bug:` or `Chore:`
@@ -160,7 +163,7 @@ decision log from before the vault. When the inbox is empty, this paragraph goes
 
 Things you can say:
 
-- "**let's pick up HF-N**" or "**let's start HF-N**": check it is ready and its dependencies are
+- "**let's pick up Core-3**" or "**let's start Entry-1**": check it is ready and its dependencies are
   done, set it to `doing`, and work it in its default mode (below). For a story, port only the
   code it needs, with its tests.
 - "**let's refine <story>**": work the note with the owner until it is ready: the story line,
@@ -238,7 +241,7 @@ sessions later.
   phone, three or four columns at most.
 - **A finished task ends with Done, Needs you, Next.** Short, in that order. `Needs you` is
   always there, even when it says "nothing".
-- **Name things so they can be found.** A note is its key and title: `HF-3 Open the ledger file`.
+- **Name things so they can be found.** A note is its key and title: `Core-3 Open the ledger file`.
   A PR is `[PR#414](url)`. A bare number says nothing, because issues and PRs share one sequence.
   While the bridge stands, an issue is `[[318 Fix expense labeling]](url)`, and one in another
   repo puts its short name first (`ops`, `server`): `[[ops 10 Body limit gap]](url)`. Issue and
@@ -249,9 +252,9 @@ sessions later.
   is a plain markdown list, not a code block, so the links work:
 
   ```
-  - ✓ HF-1 Ledger documents and their checks · [PR#540](url) merged
-  - → HF-2 Versions from a hybrid logical clock · [PR#541](url) up for review
-  - · HF-3 Open the ledger file
+  - ✓ Core-1 Ledger documents and their checks · [PR#540](url) merged
+  - → Core-2 Versions from a hybrid logical clock · [PR#541](url) up for review
+  - · Core-3 Open the ledger file
   ```
 - **Discussing is not doing.** While the user is exploring ("let's chat", "clarify"), nothing is
   filed, written or branched until they say so ("write it up", "file it", "go ahead").
