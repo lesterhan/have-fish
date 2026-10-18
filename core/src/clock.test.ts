@@ -174,8 +174,9 @@ describe('the clock, over a long run', () => {
   it('never issues a version at or below one it issued or received', () => {
     let seed = 42
     const next = () => {
-      seed = (seed * 1103515245 + 12345) % 2 ** 31
-      return seed / 2 ** 31
+      // Park–Miller: the product stays under 2^53, so it's exact in a double.
+      seed = (seed * 16807) % 2147483647
+      return seed / 2147483647
     }
     const devices = [
       { id: HERE, skew: 0, clock: { wallMs: 0, counter: 0 }, latest: [] as Version[] },

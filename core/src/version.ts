@@ -27,6 +27,9 @@ export const VersionSchema = z.strictObject({
   deviceId: z.string().regex(DEVICE_ID),
 })
 
+// Not strict: a wider object, such as a row with more columns, is still a version.
+const VersionFields = z.object(VersionSchema.shape)
+
 /** Device ids are unique, so `0` means the same event. */
 export function compareVersions(a: Version, b: Version): -1 | 0 | 1 {
   if (a.wallMs !== b.wallMs) return a.wallMs < b.wallMs ? -1 : 1
@@ -42,7 +45,7 @@ export function compareVersions(a: Version, b: Version): -1 | 0 | 1 {
  * Throws on an out-of-range version: nothing in the core produces one, so it's a caller bug.
  */
 export function formatVersion(v: Version): string {
-  if (!VersionSchema.safeParse(v).success) {
+  if (!VersionFields.safeParse(v).success) {
     throw new RangeError(`not a version: ${JSON.stringify(v)}`)
   }
   const time = new Date(v.wallMs).toISOString()
@@ -63,5 +66,6 @@ export function parseVersion(text: string): Outcome<Version> {
   if (Number.isNaN(wallMs) || new Date(wallMs).toISOString() !== time) {
     return failure('VERSION_MALFORMED', { path: 'wallMs', issue: 'invalid_date' })
   }
+  if (wallMs < 0) return failure('VERSION_MALFORMED', { path: 'wallMs', issue: 'too_small' })
   return { ok: true, value: { wallMs, counter: Number.parseInt(counter, 16), deviceId } }
 }

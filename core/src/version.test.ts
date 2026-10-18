@@ -86,6 +86,11 @@ describe('formatVersion', () => {
     expect(() => formatVersion(v(NOON, 0, 'A1B2C3D4E5F60718'))).toThrow(RangeError)
     expect(() => formatVersion(v(NOON + 0.5, 0, D1))).toThrow(RangeError)
   })
+
+  it('ignores fields that are not part of the version', () => {
+    const row = { ...v(NOON, 0, D1), rowid: 7 }
+    expect(formatVersion(row)).toBe('2026-10-04T12:00:00.000Z-0000-a1b2c3d4e5f60718')
+  })
 })
 
 describe('the text form', () => {
@@ -147,6 +152,16 @@ describe('parseVersion', () => {
     expect(parseVersion(text)).toStrictEqual({
       ok: false,
       failure: { code: 'VERSION_MALFORMED', details: { path: 'wallMs', issue: 'invalid_date' } },
+    })
+  })
+
+  it.each([
+    ['a time before 1970', '1969-12-31T23:59:59.999Z-0000-a1b2c3d4e5f60718'],
+    ['the year 0000', '0000-01-01T00:00:00.000Z-0000-a1b2c3d4e5f60718'],
+  ])('refuses %s, which formatVersion never writes', (_title, text) => {
+    expect(parseVersion(text)).toStrictEqual({
+      ok: false,
+      failure: { code: 'VERSION_MALFORMED', details: { path: 'wallMs', issue: 'too_small' } },
     })
   })
 })
