@@ -236,3 +236,65 @@ describe('readDocument', () => {
     })
   })
 })
+
+describe('canonical form', () => {
+  it.each([
+    [
+      '5.0',
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '5.0', currency: 'CAD' },
+          { accountId: B, amount: '-5.0', currency: 'CAD' },
+        ],
+      },
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '5.00', currency: 'CAD' },
+          { accountId: B, amount: '-5.00', currency: 'CAD' },
+        ],
+      },
+    ],
+    [
+      '5.004',
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '5.004', currency: 'CAD' },
+          { accountId: B, amount: '-5.004', currency: 'CAD' },
+        ],
+      },
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '5.00', currency: 'CAD' },
+          { accountId: B, amount: '-5.00', currency: 'CAD' },
+        ],
+      },
+    ],
+    [
+      '5',
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '5', currency: 'CAD' },
+          { accountId: B, amount: '-5', currency: 'CAD' },
+        ],
+      },
+      {
+        ...SPEND,
+        postings: [
+          { accountId: A, amount: '5.00', currency: 'CAD' },
+          { accountId: B, amount: '-5.00', currency: 'CAD' },
+        ],
+      },
+    ],
+  ])(
+    '%s is transformed to canonical form, readDocument is idempotent',
+    (_title, inputDoc, canonicalDoc) => {
+      expect(readDocument(inputDoc)).toStrictEqual({ ok: true, value: canonicalDoc })
+      expect(readDocument(canonicalDoc)).toStrictEqual({ ok: true, value: canonicalDoc })
+    },
+  )
+})

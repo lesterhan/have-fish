@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ACCOUNT_KINDS, rootOf } from './account-kind'
 import { isValidPath } from './account-path'
 import { isCalendarDate } from './calendar-date'
+import { cents, format } from './money'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
 import { validatePostings } from './postings'
@@ -60,13 +61,18 @@ export function readShape(input: unknown): Outcome<LedgerDocument> {
   }
 }
 
+function canonicalize(doc: TransactionDoc): TransactionDoc {
+  const canonicalPostings = doc.postings.map((p) => ({ ...p, amount: format(cents(p.amount)) }))
+  return { ...doc, postings: canonicalPostings }
+}
+
 /*
  * A transaction must:
  * - have a valid date
  * - have no postings, if deletedAt is set
  * - if not deleted, must have a set of valid postings
  */
-function checkTransaction(doc: TransactionDoc): Outcome<TransactionDoc> {
+function checkTransaction(doc: TransactionDoc): Outcome<void> {
   if (!isCalendarDate(doc.date)) {
     return failure('DATE_INVALID', { date: doc.date })
   }
@@ -79,7 +85,7 @@ function checkTransaction(doc: TransactionDoc): Outcome<TransactionDoc> {
     const postingsCheck = validatePostings(doc.postings)
     if (!postingsCheck.ok) return postingsCheck
   }
-  return { ok: true, value: doc }
+  return { ok: true, value: undefined }
 }
 
 /*
@@ -87,7 +93,7 @@ function checkTransaction(doc: TransactionDoc): Outcome<TransactionDoc> {
  * - have a valid path
  * - have path root matched with the kind of account
  */
-function checkAccount(doc: AccountDoc): Outcome<AccountDoc> {
+function checkAccount(doc: AccountDoc): Outcome<void> {
   if (!isValidPath(doc.path)) {
     return failure('PATH_INVALID', { path: doc.path })
   }
@@ -102,7 +108,7 @@ function checkAccount(doc: AccountDoc): Outcome<AccountDoc> {
       expected,
     })
   }
-  return { ok: true, value: doc }
+  return { ok: true, value: undefined }
 }
 
 export function readDocument(input: unknown): Outcome<LedgerDocument> {
@@ -111,10 +117,16 @@ export function readDocument(input: unknown): Outcome<LedgerDocument> {
 
   const doc = shape.value
   switch (doc.type) {
-    case 'transaction':
-      return checkTransaction(doc)
-    case 'account':
-      return checkAccount(doc)
+    case 'transaction': {
+      const result = checkTransaction(doc)
+      if (!result.ok) return result
+      return { ok: true, value: canonicalize(doc) }
+    }
+    case 'account': {
+      const result = checkAccount(doc)
+      if (!result.ok) return result
+      return { ok: true, value: doc }
+    }
     default: {
       const unreachable: never = doc
       return unreachable
