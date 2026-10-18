@@ -24,6 +24,9 @@ test('every code takes the detail the table gives it', () => {
   failure('TOMBSTONE_HAS_POSTINGS')
   failure('PATH_INVALID', { path: 'assets::cash' })
   failure('PATH_ROOT_MISMATCH', { path: 'expenses:food', kind: 'card', expected: 'liabilities' })
+  failure('VERSION_MALFORMED', { path: 'version.counter', issue: 'too_big' })
+  failure('CLOCK_DRIFT', { remoteWallMs: 1_900_000_000_000, now: 1_760_000_000_000 })
+  failure('CLOCK_COUNTER_OVERFLOW', { wallMs: 1_760_000_000_000 })
 })
 
 test('a code with detail refuses to compile without it', () => {
