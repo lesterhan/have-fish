@@ -177,6 +177,24 @@ describe('migrations', () => {
     expect(tables(live.db)).toEqual(['__migrations', 'item', 'later'])
   })
 
+  test('a backup can be put back as the ledger and opened', () => {
+    const dir = join(root, 'ledger')
+    const ledger = open({ dir, migrations: [first] })
+    ledger.db.prepare('INSERT INTO item VALUES (1)').run()
+    ledger.close()
+    open({ dir, migrations: [first, later] }).close()
+    const backup = join(dir, 'backups', readdirSync(join(dir, 'backups'))[0] ?? '')
+
+    // The restore steps in the vault's user note: a fresh folder, the backup as ledger.sqlite.
+    const restored = join(root, 'restored')
+    mkdirSync(restored)
+    copyFileSync(backup, join(restored, 'ledger.sqlite'))
+    const reopened = open({ dir: restored, migrations: [first, later] })
+
+    expect(reopened.db.prepare('SELECT x FROM item').pluck().all()).toEqual([1])
+    expect(tables(reopened.db)).toEqual(['__migrations', 'item', 'later'])
+  })
+
   test('the backup has commits still in the WAL, which a file copy would miss', () => {
     const dir = join(root, 'ledger')
     const file = join(dir, 'ledger.sqlite')
