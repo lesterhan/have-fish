@@ -7,6 +7,7 @@
   "scripts": {
     "test": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
     "test:watch": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs",
+    "test:debug": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run --inspect-brk --no-file-parallelism",
     "check": "tsc --noEmit"
   },
   "dependencies": {
