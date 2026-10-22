@@ -129,7 +129,8 @@ before picking anything up.
   `Entry-1`), leading its filename. "let's start core-3" means the note whose name begins
   `Core-3 `, matched without regard to case. A key is never picked by hand: the vault's
   `node .tools/map.mjs build` hands them out. The vault's `Home.md` lists the labels. The old
-  `HF-` keys are retired; one still resolves through the note's `aliases`.
+  `HF-` keys are retired; one still resolves through the note's `aliases`, which is how older
+  PRs name their notes.
 - **Ready first.** Pick up only a `ready` note whose `depends_on` are all `done`, and set it to
   `doing`.
 - **One note, one branch, one PR.** The PR body ends with `Story:`, `Tech:`, `Bug:` or `Chore:`
