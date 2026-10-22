@@ -125,9 +125,11 @@ the PRs and the history. The vault's `CLAUDE.md` and `Home.md` hold its conventi
 before filing or changing a note. If the vault isn't cloned beside this repository, attach it
 before picking anything up.
 
-- **Keys.** Every story, tech note, bug and chore has a key such as `HF-3`, leading its filename.
-  "let's start HF-3" means the note whose name begins `HF-3 `. A key is never picked by hand: the
-  vault's `node .tools/map.mjs build` hands them out.
+- **Keys.** Every story, tech note, bug and chore has a key, a label and a number (`Core-3`,
+  `Entry-1`), leading its filename. "let's start core-3" means the note whose name begins
+  `Core-3 `, matched without regard to case. A key is never picked by hand: the vault's
+  `node .tools/map.mjs build` hands them out. The vault's `Home.md` lists the labels. The old
+  `HF-` keys are retired; one still resolves through the note's `aliases`.
 - **Ready first.** Pick up only a `ready` note whose `depends_on` are all `done`, and set it to
   `doing`.
 - **One note, one branch, one PR.** The PR body ends with `Story:`, `Tech:`, `Bug:` or `Chore:`
@@ -160,7 +162,7 @@ decision log from before the vault. When the inbox is empty, this paragraph goes
 
 Things you can say:
 
-- "**let's pick up HF-N**" or "**let's start HF-N**": check it is ready and its dependencies are
+- "**let's pick up core-3**" or "**let's start entry-1**": check it is ready and its dependencies are
   done, set it to `doing`, and work it in its default mode (below). For a story, port only the
   code it needs, with its tests.
 - "**let's refine <story>**": work the note with the owner until it is ready: the story line,
@@ -182,7 +184,7 @@ Things you can say:
 | Mode | Who writes | Say |
 |---|---|---|
 | Build | Claude writes everything; the owner reviews the PR | "build X", "while I'm away" |
-| Pair | Turn by turn, one small test-first item at a time: Claude keeps the tally and writes scaffolding; the owner writes the tests, the rules and the seams (`pair` skill) | "let's pair on X" |
+| Pair | Turn by turn, one small test-first item at a time: Claude keeps the tally and writes scaffolding; the owner writes the tests, the rules and the seams, and does the git: branch, commits, PR (`pair` skill) | "let's pair on X" |
 | Coach | The owner writes everything; Claude guides (`coach` skill) | "coach me through X" |
 
 **When no mode is named,** rewrite work (any story or tech note, anything in `core/` or
@@ -238,7 +240,7 @@ sessions later.
   phone, three or four columns at most.
 - **A finished task ends with Done, Needs you, Next.** Short, in that order. `Needs you` is
   always there, even when it says "nothing".
-- **Name things so they can be found.** A note is its key and title: `HF-3 Open the ledger file`.
+- **Name things so they can be found.** A note is its key and title: `Core-3 Open the ledger file`.
   A PR is `[PR#414](url)`. A bare number says nothing, because issues and PRs share one sequence.
   While the bridge stands, an issue is `[[318 Fix expense labeling]](url)`, and one in another
   repo puts its short name first (`ops`, `server`): `[[ops 10 Body limit gap]](url)`. Issue and
@@ -249,9 +251,9 @@ sessions later.
   is a plain markdown list, not a code block, so the links work:
 
   ```
-  - ✓ HF-1 Ledger documents and their checks · [PR#540](url) merged
-  - → HF-2 Versions from a hybrid logical clock · [PR#541](url) up for review
-  - · HF-3 Open the ledger file
+  - ✓ Core-1 Ledger documents and their checks · [PR#540](url) merged
+  - → Core-2 Versions from a hybrid logical clock · [PR#541](url) up for review
+  - · Core-3 Open the ledger file
   ```
 - **Discussing is not doing.** While the user is exploring ("let's chat", "clarify"), nothing is
   filed, written or branched until they say so ("write it up", "file it", "go ahead").
@@ -270,7 +272,7 @@ sessions later.
 
 ### Naming
 
-Uniform titles and branches, JIRA-shaped without the ticket numbers.
+Uniform titles and branches, JIRA-shaped: the branch leads with the work's key, the title doesn't.
 
 **PR title** — `[scope] Imperative description`
 
@@ -289,15 +291,20 @@ Uniform titles and branches, JIRA-shaped without the ticket numbers.
 - Imperative mood, no trailing full stop, ~70 characters so GitHub's list view doesn't truncate
   it.
 
-**Branch** — `<author>/<scope>_<short-description>`
+**Branch** — `<key>/<short-description>`
 
 ```
-lhan/trust-signals_rollup-as-of
-claude/accounts_tab-strip-clicks
+core-3/open-ledger-file
+entry-1/write-down-spend
+trust-signals-2/rollup-as-of
+issue-282/expense-labels
 ```
 
-Author prefix is `lhan/` or `claude/`. Scope matches the title's. Description is two or three
-words, hyphenated — enough to recognise in `git branch`, not the whole title.
+- **key** is the note's key, lowercased (`Core-3` → `core-3`). A current-app epic's story is its
+  slug and story number (`trust-signals-2`); an issue the triage hasn't reached is `issue-N`.
+- **description** is two or three words, hyphenated — enough to recognise in `git branch`, not
+  the whole title.
+- No author prefix: the key says what it is, and the PR says who.
 
 Branches created by Claude Code on the web are named by the harness and cannot follow this; the
 title convention is what holds in every case.
@@ -310,10 +317,10 @@ triage hasn't reached. A rewrite PR has a Tour section.
 
 ```bash
 # 1. branch off main
-git checkout -b lhan/<scope>_<short-description>
+git checkout -b <key>/<short-description>
 
 # 2. implement, commit
-git push -u origin lhan/<scope>_<short-description>
+git push -u origin <key>/<short-description>
 
 # 3. open the PR on GitHub, titled [scope] Description, body ending with the note's trailer
 # 4. review, iterate, merge on GitHub
