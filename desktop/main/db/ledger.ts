@@ -19,14 +19,20 @@ export type OpenOptions = {
 }
 
 const LEDGER_FILE = 'ledger.sqlite'
+/** "fish" in ASCII, in the file's header. Every ledger carries it, so it never changes. */
+const APPLICATION_ID = 0x66697368
 
 export function openLedger(options: OpenOptions): Outcome<Ledger> {
   mkdirSync(options.dir, { recursive: true, mode: 0o700 })
   chmodSync(options.dir, 0o700)
   const path = join(options.dir, LEDGER_FILE)
   const db = new Database(path)
-  // The first pragma is the first read, so a file that isn't SQLite fails here.
+  // `claim` is the first read, so a file that isn't SQLite fails there.
   try {
+    if (!claim(db)) {
+      db.close()
+      return failure('LEDGER_UNREADABLE', { path })
+    }
     db.pragma('journal_mode = WAL')
     db.pragma('synchronous = FULL')
     db.pragma('foreign_keys = ON')
@@ -40,7 +46,12 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
   }
 
   try {
-    const migrated = migrate(db, options.migrations ?? [], options.now)
+    const migrated = migrate(
+      db,
+      options.migrations ?? [],
+      options.now,
+      join(options.dir, 'backups'),
+    )
     if (!migrated.ok) {
       db.close()
       return migrated
@@ -50,4 +61,17 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
     throw e
   }
   return { ok: true, value: { db, close: () => db.close() } }
+}
+
+/**
+ * True if the file is a have-fish ledger. A new, empty file is stamped as one; any other SQLite
+ * file is left exactly as it was.
+ */
+function claim(db: Database.Database): boolean {
+  const id = db.pragma('application_id', { simple: true })
+  if (id === APPLICATION_ID) return true
+  const empty = db.prepare('SELECT count(*) FROM sqlite_master').pluck().get() === 0
+  if (id !== 0 || !empty) return false
+  db.pragma(`application_id = ${APPLICATION_ID}`)
+  return true
 }

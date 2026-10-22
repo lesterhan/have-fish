@@ -1,3 +1,5 @@
+import { mkdirSync } from 'node:fs'
+import { join } from 'node:path'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import type Database from 'better-sqlite3'
 
@@ -8,12 +10,14 @@ const TABLE = '__migrations'
 
 /**
  * Applies the migrations the file hasn't had yet, in order, and returns their tags. A file that
- * records a migration this build lacks is refused before anything is written.
+ * records a migration this build lacks is refused before anything is written. A file that holds
+ * data is copied into `backupDir` before the first pending migration.
  */
 export function migrate(
   db: Database.Database,
   migrations: readonly Migration[],
   now: number,
+  backupDir: string,
 ): Outcome<string[]> {
   const done = recorded(db)
   const known = new Set(migrations.map((m) => m.tag))
@@ -22,6 +26,9 @@ export function migrate(
   if (unknown.length > 0) return failure('LEDGER_TOO_NEW', { path: db.name, unknown })
 
   const pending = migrations.filter((m) => !done.has(m.tag))
+  const [next] = pending
+  // A new file has nothing to lose, so only one with migrations already in it is copied.
+  if (next !== undefined && done.size > 0) backup(db, backupDir, now, next.tag)
 
   db.exec(`CREATE TABLE IF NOT EXISTS ${TABLE} (
     tag TEXT PRIMARY KEY NOT NULL,
@@ -44,6 +51,17 @@ export function migrate(
     }
   }
   return { ok: true, value: pending.map((m) => m.tag) }
+}
+
+/**
+ * Copies the file through SQLite, never with `fs`: a byte copy would miss commits still in the
+ * WAL. `VACUUM INTO` is synchronous, unlike better-sqlite3's `backup()`.
+ */
+function backup(db: Database.Database, dir: string, now: number, tag: string): void {
+  mkdirSync(dir, { recursive: true, mode: 0o700 })
+  // No colons, which some file systems refuse.
+  const time = new Date(now).toISOString().replace(/[:.]/g, '-')
+  db.prepare('VACUUM INTO ?').run(join(dir, `ledger-${time}-before-${tag}.sqlite`))
 }
 
 /** The tags the file says it has. A new file has none. */
