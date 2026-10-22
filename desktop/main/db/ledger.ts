@@ -5,12 +5,17 @@ import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
+import { type Migration, migrate } from './migrate'
 
 export type Ledger = { db: Database.Database; close(): void }
 
 export type OpenOptions = {
   /** The ledger directory; made private (0700) if it isn't. */
   dir: string
+  /** Defaults to the bundled ones, once the first migration lands. */
+  migrations?: readonly Migration[]
+  /** UTC ms, recorded with each migration applied. */
+  now: number
 }
 
 const LEDGER_FILE = 'ledger.sqlite'
@@ -31,6 +36,17 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
     if (e instanceof Database.SqliteError && e.code === 'SQLITE_NOTADB') {
       return failure('LEDGER_UNREADABLE', { path })
     }
+    throw e
+  }
+
+  try {
+    const migrated = migrate(db, options.migrations ?? [], options.now)
+    if (!migrated.ok) {
+      db.close()
+      return migrated
+    }
+  } catch (e) {
+    db.close()
     throw e
   }
   return { ok: true, value: { db, close: () => db.close() } }
