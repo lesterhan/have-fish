@@ -76,6 +76,44 @@ test('a reopened file is still synchronous FULL', () => {
   expect(reopened.db.pragma('synchronous', { simple: true })).toBe(2)
 })
 
+describe('only a have-fish ledger is opened', () => {
+  test("a new file is stamped with have-fish's application id", () => {
+    const ledger = open({ dir: join(root, 'ledger') })
+    // "fish" in ASCII. Never change it: every existing ledger carries it.
+    expect(ledger.db.pragma('application_id', { simple: true })).toBe(0x66697368)
+  })
+
+  /** Makes `ledger.sqlite` with another app's SQLite file, and returns its bytes. */
+  function otherApp(make: (db: Database.Database) => void): {
+    dir: string
+    file: string
+    bytes: Buffer
+  } {
+    const dir = join(root, 'ledger')
+    const file = join(dir, 'ledger.sqlite')
+    mkdirSync(dir)
+    const db = new Database(file)
+    make(db)
+    db.close()
+    return { dir, file, bytes: readFileSync(file) }
+  }
+
+  test('refuses an SQLite file with no id and tables of its own, and leaves it as it was', () => {
+    const { dir, file, bytes } = otherApp((db) => db.exec('CREATE TABLE notes (body TEXT)'))
+
+    expect(openLedger({ dir, now: NOW })).toEqual(failure('LEDGER_UNREADABLE', { path: file }))
+    expect(readFileSync(file).equals(bytes)).toBe(true)
+    expect(existsSync(`${file}-wal`)).toBe(false)
+  })
+
+  test("refuses an SQLite file with another app's id, and leaves it as it was", () => {
+    const { dir, file, bytes } = otherApp((db) => db.pragma('application_id = 305419896'))
+
+    expect(openLedger({ dir, now: NOW })).toEqual(failure('LEDGER_UNREADABLE', { path: file }))
+    expect(readFileSync(file).equals(bytes)).toBe(true)
+  })
+})
+
 test('refuses a file that is not SQLite, and leaves it as it was', () => {
   const dir = join(root, 'ledger')
   const file = join(dir, 'ledger.sqlite')
