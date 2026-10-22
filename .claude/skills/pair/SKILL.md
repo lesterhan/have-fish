@@ -1,6 +1,6 @@
 ---
 name: pair
-description: Pair-program with the user in have-fish, taking turns in small test-first cycles. Claude keeps a tally of the step's items and shows it every turn, writes the scaffolding, and names the next smallest test; the user writes the tests and the rules and the seams, so they rebuild their fluency, learn TypeScript and desktop apps, and understand the core well enough to debug it. It is the default for rewrite work, so use it when the user picks up any rewrite story or tech note ("let's start Core-3", "let's pick up Entry-1") without naming another mode, and when they say "let's pair", "pair on", "pair with me", or invoke /pair. Stay in this mode for every follow-up turn until they say to stop or switch modes. Not for "build it" or "while I'm away" (just do the work), not for current-app work they didn't ask to pair on, and not for "coach me" (use the coach skill).
+description: Pair-program with the user in have-fish, taking turns in small test-first cycles. Claude keeps a tally of the step's items and shows it every turn, writes the scaffolding, and names the next smallest test; the user writes the tests and the rules and the seams, and does the git (branch, commits, PR), so they rebuild their fluency, learn TypeScript and desktop apps, and understand the core well enough to debug it. It is the default for rewrite work, so use it when the user picks up any rewrite story or tech note ("let's start core-3", "let's pick up entry-1") without naming another mode, and when they say "let's pair", "pair on", "pair with me", or invoke /pair. Stay in this mode for every follow-up turn until they say to stop or switch modes. Not for "build it" or "while I'm away" (just do the work), not for current-app work they didn't ask to pair on, and not for "coach me" (use the coach skill).
 ---
 
 # Pair
@@ -20,7 +20,7 @@ short enough to read on a small screen.
 | Mode | Who writes | Skill |
 |---|---|---|
 | **Build** | Claude writes everything; the user reviews the PR | none, the normal session |
-| **Pair** | Turn by turn, one small test-first item at a time; Claude keeps the tally and writes the scaffolding, the user writes the tests and the logic | this one |
+| **Pair** | Turn by turn, one small test-first item at a time; Claude keeps the tally and writes the scaffolding, the user writes the tests and the logic, and does the git | this one |
 | **Coach** | The user writes everything; Claude guides | `coach` |
 
 Pair is the default for rewrite work: any story or tech note, anything in `core/` or `desktop/`.
@@ -93,13 +93,27 @@ up front: the tally does that job, without a wall of titles to read.
    have open, tell them to reload it (`:checktime`, or `:e`).
 4. **"Done":** run the tests and the type check (and Biome, `bunx biome check <dir>`). Read their
    test as well as their code. Raise what you find as a question or a hint, not a rewrite: they
-   fix it. When it's green, tick it and hand over the next item. Commit at a natural point (a
-   function finished, a file finished) with a message that says what it did.
+   fix it. When it's green, tick it and hand over the next item. At a natural point (a function
+   finished, a file finished), say it's a good place to commit, and leave it to them.
 5. **"Stuck":** use the coach skill's hint ladder (`.claude/skills/coach/SKILL.md`): orient,
    narrow, shape, show. Start at the rung their question shows they need. If an item is too big,
    split it in the tally. **"Just tell me" or "you write it"** is honoured at once, without
    reluctance: write it, then explain it piece by piece, since that explanation is where the
    learning goes when discovery didn't happen.
+
+### The git is theirs
+
+The branch, the commits and the PR are the user's reps too. Never run `git commit`, `git push`
+or `git checkout -b`, and never open the PR, even for a file you wrote. Read-only git
+(`status`, `diff`, `log`) is fine.
+
+- **Branch:** at the start of a note, remind them of the name (`CLAUDE.md`, "Branch") and let
+  them create it.
+- **Commits:** when asked, review the staged diff or the message, as a hint, like their code.
+- **PR:** draft the body (summary, Tour, trailer) in chat for them to paste. They open it.
+- **Rusty or stuck** on a git move: the same hint ladder, and the lazygit move from
+  `references/nvim-moves.md` when it fits.
+- **"You do it"** for one commit or the PR is honoured, for that one only. Pair stays theirs.
 
 ### The shape of a reply
 
@@ -140,7 +154,7 @@ and the sandbox are on.
   or two. Not a lecture.
 - **Teach-back, when it's offered or asked for.** After a step you drove that sits next to a
   seam, offer: "explain back what this does in two lines?" Then correct only what's off.
-- **Tour.** When the note's last step is green, write the PR body's **Tour** section: the
+- **Tour.** When the note's last step is green, draft the PR body's **Tour** section: the
   seams, what calls what, the one or two places to put a breakpoint, and which steps were the
   user's. A Build-mode PR gets the same section, and it flags the parts they'd have written as
   "worth your read".
@@ -163,9 +177,8 @@ That's a notes file, not code. One nvim move per turn, from the coach skill's
 ## Closing
 
 When the note's last step is green:
-- write the Tour;
-- the user opens the PR (or asks you to), its body ending `Tech: <key and title>` or
-  `Story: <key and title>`;
+- draft the PR body with its Tour, ending `Tech: <key and title>` or `Story: <key and title>`;
+- the user pushes the branch and opens the PR;
 - recap in a handful of lines: the seams they now own, the TypeScript and Electron ideas they
   met, and the nvim moves that came up;
 - update the note in the vault (`pr`, and `status` once it merges).

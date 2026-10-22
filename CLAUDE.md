@@ -125,12 +125,12 @@ the PRs and the history. The vault's `CLAUDE.md` and `Home.md` hold its conventi
 before filing or changing a note. If the vault isn't cloned beside this repository, attach it
 before picking anything up.
 
-- **Keys.** Every story, tech note, bug and chore has a key, a label and a number such as
-  `Core-3`, leading its filename. The label says where the note belongs; the vault's `Home.md`
-  lists them. "let's start core-3" means the note whose name begins `Core-3 `, in any case. A
-  key is never picked by hand: the vault's `node .tools/map.mjs build` hands them out. Notes
-  keyed before 2026-10-18 keep their old `HF-` key in `aliases`, which is how older PRs name
-  them.
+- **Keys.** Every story, tech note, bug and chore has a key, a label and a number (`Core-3`,
+  `Entry-1`), leading its filename. "let's start core-3" means the note whose name begins
+  `Core-3 `, matched without regard to case. A key is never picked by hand: the vault's
+  `node .tools/map.mjs build` hands them out. The vault's `Home.md` lists the labels. The old
+  `HF-` keys are retired; one still resolves through the note's `aliases`, which is how older
+  PRs name their notes.
 - **Ready first.** Pick up only a `ready` note whose `depends_on` are all `done`, and set it to
   `doing`.
 - **One note, one branch, one PR.** The PR body ends with `Story:`, `Tech:`, `Bug:` or `Chore:`
@@ -163,7 +163,7 @@ decision log from before the vault. When the inbox is empty, this paragraph goes
 
 Things you can say:
 
-- "**let's pick up Core-3**" or "**let's start Entry-1**": check it is ready and its dependencies are
+- "**let's pick up core-3**" or "**let's start entry-1**": check it is ready and its dependencies are
   done, set it to `doing`, and work it in its default mode (below). For a story, port only the
   code it needs, with its tests.
 - "**let's refine <story>**": work the note with the owner until it is ready: the story line,
@@ -185,7 +185,7 @@ Things you can say:
 | Mode | Who writes | Say |
 |---|---|---|
 | Build | Claude writes everything; the owner reviews the PR | "build X", "while I'm away" |
-| Pair | Turn by turn, one small test-first item at a time: Claude keeps the tally and writes scaffolding; the owner writes the tests, the rules and the seams (`pair` skill) | "let's pair on X" |
+| Pair | Turn by turn, one small test-first item at a time: Claude keeps the tally and writes scaffolding; the owner writes the tests, the rules and the seams, and does the git: branch, commits, PR (`pair` skill) | "let's pair on X" |
 | Coach | The owner writes everything; Claude guides (`coach` skill) | "coach me through X" |
 
 **When no mode is named,** rewrite work (any story or tech note, anything in `core/` or
@@ -273,7 +273,7 @@ sessions later.
 
 ### Naming
 
-Uniform titles and branches, JIRA-shaped without the ticket numbers.
+Uniform titles and branches, JIRA-shaped: the branch leads with the work's key, the title doesn't.
 
 **PR title** — `[scope] Imperative description`
 
@@ -292,15 +292,20 @@ Uniform titles and branches, JIRA-shaped without the ticket numbers.
 - Imperative mood, no trailing full stop, ~70 characters so GitHub's list view doesn't truncate
   it.
 
-**Branch** — `<author>/<scope>_<short-description>`
+**Branch** — `<key>/<short-description>`
 
 ```
-lhan/trust-signals_rollup-as-of
-claude/accounts_tab-strip-clicks
+core-3/open-ledger-file
+entry-1/write-down-spend
+trust-signals-2/rollup-as-of
+issue-282/expense-labels
 ```
 
-Author prefix is `lhan/` or `claude/`. Scope matches the title's. Description is two or three
-words, hyphenated — enough to recognise in `git branch`, not the whole title.
+- **key** is the note's key, lowercased (`Core-3` → `core-3`). A current-app epic's story is its
+  slug and story number (`trust-signals-2`); an issue the triage hasn't reached is `issue-N`.
+- **description** is two or three words, hyphenated — enough to recognise in `git branch`, not
+  the whole title.
+- No author prefix: the key says what it is, and the PR says who.
 
 Branches created by Claude Code on the web are named by the harness and cannot follow this; the
 title convention is what holds in every case.
@@ -313,10 +318,10 @@ triage hasn't reached. A rewrite PR has a Tour section.
 
 ```bash
 # 1. branch off main
-git checkout -b lhan/<scope>_<short-description>
+git checkout -b <key>/<short-description>
 
 # 2. implement, commit
-git push -u origin lhan/<scope>_<short-description>
+git push -u origin <key>/<short-description>
 
 # 3. open the PR on GitHub, titled [scope] Description, body ending with the note's trailer
 # 4. review, iterate, merge on GitHub
