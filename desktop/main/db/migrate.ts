@@ -1,7 +1,3 @@
-// Brings a ledger file up to this build's schema. A rewrite of the current app's migrator
-// (#288) for a synchronous driver: the migrations come in as a list, since a packaged app has
-// no migrations folder to read.
-
 import type Database from 'better-sqlite3'
 
 /** One migration: its name, and the SQL statements drizzle-kit generated for it. */
@@ -25,7 +21,7 @@ export function migrate(
   const record = db.prepare(`INSERT INTO ${TABLE} (tag, appliedAt) VALUES (?, ?)`)
 
   for (const migration of pending) {
-    // The migration and its row commit together, or neither does.
+    // The migration and its row commit together as a transaction.
     db.transaction(() => {
       for (const sql of migration.statements) db.exec(sql)
       record.run(migration.tag, now)
