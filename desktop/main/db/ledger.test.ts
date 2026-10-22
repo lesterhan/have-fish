@@ -1,4 +1,4 @@
-import { mkdtempSync, rmSync, statSync } from 'node:fs'
+import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, expect, test } from 'vitest'
@@ -29,4 +29,17 @@ test('makes a missing directory, readable by you alone', () => {
   const dir = join(root, 'ledger')
   open({ dir })
   expect(statSync(dir).mode & 0o777).toBe(0o700)
+})
+
+test('tightens permission of existing directory to readable by you alone', () => {
+  const dir = join(root, 'ledger')
+  mkdirSync(dir, { recursive: true, mode: 0o755 })
+  open({ dir })
+  expect(statSync(dir).mode & 0o777).toBe(0o700)
+})
+
+test('creates a ledger db file', () => {
+  const dir = join(root, 'ledger')
+  open({ dir })
+  expect(existsSync(join(dir, 'ledger.sqlite'))).toBeTruthy()
 })
