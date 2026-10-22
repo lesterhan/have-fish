@@ -1,6 +1,6 @@
 import { failure } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
-import { afterEach, beforeEach, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { type Migration, migrate } from './migrate'
 
 const NOW = Date.UTC(2026, 9, 22, 12)
@@ -73,4 +73,65 @@ test('a file a newer build migrated is refused, and nothing is written', () => {
   )
   expect(tags()).toEqual(['0000_first', '0002_later'])
   expect(schema()).toEqual(before)
+})
+
+describe('foreign keys', () => {
+  const parentAndChild: Migration = {
+    tag: '0000_parent_and_child',
+    statements: [
+      'CREATE TABLE parent (id INTEGER PRIMARY KEY, name TEXT NOT NULL)',
+      'CREATE TABLE child (id INTEGER PRIMARY KEY, parentId INTEGER NOT NULL REFERENCES parent (id))',
+    ],
+  }
+  const foreignKeysOn = () => db.pragma('foreign_keys', { simple: true })
+
+  beforeEach(() => {
+    db.pragma('foreign_keys = ON')
+    migrate(db, [parentAndChild], NOW)
+    db.exec(
+      "INSERT INTO parent VALUES (1, 'a'), (2, 'b'); INSERT INTO child VALUES (10, 1), (20, 2)",
+    )
+  })
+
+  test('a table rebuild keeps every row, and foreign keys are back on after', () => {
+    // How drizzle-kit changes a column: copy into a new table, drop the old one, rename.
+    const rebuildParent: Migration = {
+      tag: '0001_rebuild_parent',
+      statements: [
+        'PRAGMA foreign_keys=OFF',
+        'CREATE TABLE __new_parent (id INTEGER PRIMARY KEY, name TEXT NOT NULL, note TEXT)',
+        'INSERT INTO __new_parent (id, name) SELECT id, name FROM parent',
+        'DROP TABLE parent',
+        'ALTER TABLE __new_parent RENAME TO parent',
+        'PRAGMA foreign_keys=ON',
+      ],
+    }
+
+    expect(migrate(db, [parentAndChild, rebuildParent], NOW)).toEqual(
+      applied(['0001_rebuild_parent']),
+    )
+    expect(db.prepare('SELECT id, name, note FROM parent').all()).toEqual([
+      { id: 1, name: 'a', note: null },
+      { id: 2, name: 'b', note: null },
+    ])
+    expect(db.prepare('SELECT id, parentId FROM child').all()).toEqual([
+      { id: 10, parentId: 1 },
+      { id: 20, parentId: 2 },
+    ])
+    expect(foreignKeysOn()).toBe(1)
+  })
+
+  test('a migration that leaves a row pointing at nothing is rolled back', () => {
+    const orphan: Migration = {
+      tag: '0001_orphan',
+      statements: ['INSERT INTO child VALUES (30, 999)'],
+    }
+
+    expect(() => migrate(db, [parentAndChild, orphan], NOW)).toThrow(
+      '0001_orphan left rows in child pointing at nothing',
+    )
+    expect(tags()).toEqual(['0000_parent_and_child'])
+    expect(db.prepare('SELECT id FROM child').pluck().all()).toEqual([10, 20])
+    expect(foreignKeysOn()).toBe(1)
+  })
 })

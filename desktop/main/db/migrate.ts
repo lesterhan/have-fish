@@ -30,11 +30,18 @@ export function migrate(
   const record = db.prepare(`INSERT INTO ${TABLE} (tag, appliedAt) VALUES (?, ?)`)
 
   for (const migration of pending) {
-    // The migration and its row commit together as a transaction.
-    db.transaction(() => {
-      for (const sql of migration.statements) db.exec(sql)
-      record.run(migration.tag, now)
-    })()
+    // A table rebuild needs foreign keys off, and SQLite ignores that pragma inside a transaction.
+    db.pragma('foreign_keys = OFF')
+    try {
+      // The migration and its row commit together as a transaction.
+      db.transaction(() => {
+        for (const sql of migration.statements) db.exec(sql)
+        checkForeignKeys(db, migration.tag)
+        record.run(migration.tag, now)
+      })()
+    } finally {
+      db.pragma('foreign_keys = ON')
+    }
   }
   return { ok: true, value: pending.map((m) => m.tag) }
 }
@@ -49,4 +56,12 @@ function recorded(db: Database.Database): Set<string> {
   if (table === undefined) return new Set()
   const rows = db.prepare<[], { tag: string }>(`SELECT tag FROM ${TABLE}`).all()
   return new Set(rows.map((r) => r.tag))
+}
+
+/** Throws, rolling the migration back, if it left a row pointing at nothing. */
+function checkForeignKeys(db: Database.Database, tag: string): void {
+  const broken = db.pragma('foreign_key_check') as { table: string }[]
+  if (broken.length === 0) return
+  const tables = [...new Set(broken.map((row) => row.table))].join(', ')
+  throw new Error(`${tag} left rows in ${tables} pointing at nothing`)
 }
