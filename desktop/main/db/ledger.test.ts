@@ -1,8 +1,10 @@
 import { randomBytes } from 'node:crypto'
 import {
+  copyFileSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   readFileSync,
   rmSync,
   statSync,
@@ -11,6 +13,7 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { failure } from '@have-fish/core/outcome'
+import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { type Ledger, type OpenOptions, openLedger } from './ledger'
 import type { Migration } from './migrate'
@@ -95,5 +98,53 @@ describe('migrations', () => {
       failure('LEDGER_TOO_NEW', { path: file, unknown: ['0001_later'] }),
     )
     expect(readFileSync(file).equals(before)).toBe(true)
+  })
+
+  /** Opens a copy read-only, runs `read` on it, and closes it. */
+  function inCopy<T>(path: string, read: (copy: Database.Database) => T): T {
+    const copy = new Database(path, { readonly: true })
+    try {
+      return read(copy)
+    } finally {
+      copy.close()
+    }
+  }
+  const tables = (db: Database.Database) =>
+    db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").pluck().all()
+
+  test('a new migration is preceded by one backup, private, with the old schema', () => {
+    const dir = join(root, 'ledger')
+    const ledger = open({ dir, migrations: [first] })
+    ledger.db.prepare('INSERT INTO item VALUES (1)').run()
+    ledger.close()
+
+    const live = open({ dir, migrations: [first, later] })
+
+    const backups = join(dir, 'backups')
+    expect(statSync(backups).mode & 0o777).toBe(0o700)
+    expect(readdirSync(backups)).toEqual([
+      'ledger-2026-10-22T12-00-00-000Z-before-0001_later.sqlite',
+    ])
+    const backup = join(backups, readdirSync(backups)[0] ?? '')
+    expect(inCopy(backup, tables)).toEqual(['__migrations', 'item'])
+    expect(inCopy(backup, (copy) => copy.prepare('SELECT x FROM item').pluck().all())).toEqual([1])
+    expect(tables(live.db)).toEqual(['__migrations', 'item', 'later'])
+  })
+
+  test('the backup has commits still in the WAL, which a file copy would miss', () => {
+    const dir = join(root, 'ledger')
+    const file = join(dir, 'ledger.sqlite')
+    // Left open, so its commit stays in ledger.sqlite-wal and never reaches ledger.sqlite.
+    const writer = open({ dir, migrations: [first] })
+    writer.db.prepare('INSERT INTO item VALUES (1)').run()
+
+    const fileCopy = join(root, 'file-copy.sqlite')
+    copyFileSync(file, fileCopy)
+    // Not even the table: the migration's commit is in the WAL too.
+    expect(inCopy(fileCopy, tables)).toEqual([])
+
+    open({ dir, migrations: [first, later] })
+    const backup = join(dir, 'backups', readdirSync(join(dir, 'backups'))[0] ?? '')
+    expect(inCopy(backup, (copy) => copy.prepare('SELECT x FROM item').pluck().all())).toEqual([1])
   })
 })
