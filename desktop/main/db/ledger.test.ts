@@ -185,7 +185,7 @@ describe('migrations', () => {
     open({ dir, migrations: [first, later] }).close()
     const backup = join(dir, 'backups', readdirSync(join(dir, 'backups'))[0] ?? '')
 
-    // The restore steps in the vault's user note: a fresh folder, the backup as ledger.sqlite.
+    // How a user puts a backup back: a fresh folder, with the backup as ledger.sqlite.
     const restored = join(root, 'restored')
     mkdirSync(restored)
     copyFileSync(backup, join(restored, 'ledger.sqlite'))
