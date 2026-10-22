@@ -270,7 +270,7 @@ sessions later.
 
 ### Naming
 
-Uniform titles and branches, JIRA-shaped without the ticket numbers.
+Uniform titles and branches, JIRA-shaped: the branch leads with the work's key, the title doesn't.
 
 **PR title** — `[scope] Imperative description`
 
@@ -289,15 +289,19 @@ Uniform titles and branches, JIRA-shaped without the ticket numbers.
 - Imperative mood, no trailing full stop, ~70 characters so GitHub's list view doesn't truncate
   it.
 
-**Branch** — `<author>/<scope>_<short-description>`
+**Branch** — `<key>/<short-description>`
 
 ```
-lhan/trust-signals_rollup-as-of
-claude/accounts_tab-strip-clicks
+hf-3/open-ledger-file
+trust-signals-2/rollup-as-of
+issue-282/expense-labels
 ```
 
-Author prefix is `lhan/` or `claude/`. Scope matches the title's. Description is two or three
-words, hyphenated — enough to recognise in `git branch`, not the whole title.
+- **key** is the note's key, lowercased (`HF-3` → `hf-3`). A current-app epic's story is its
+  slug and story number (`trust-signals-2`); an issue the triage hasn't reached is `issue-N`.
+- **description** is two or three words, hyphenated — enough to recognise in `git branch`, not
+  the whole title.
+- No author prefix: the key says what it is, and the PR says who.
 
 Branches created by Claude Code on the web are named by the harness and cannot follow this; the
 title convention is what holds in every case.
@@ -310,10 +314,10 @@ triage hasn't reached. A rewrite PR has a Tour section.
 
 ```bash
 # 1. branch off main
-git checkout -b lhan/<scope>_<short-description>
+git checkout -b <key>/<short-description>
 
 # 2. implement, commit
-git push -u origin lhan/<scope>_<short-description>
+git push -u origin <key>/<short-description>
 
 # 3. open the PR on GitHub, titled [scope] Description, body ending with the note's trailer
 # 4. review, iterate, merge on GitHub
