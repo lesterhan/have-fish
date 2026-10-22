@@ -40,7 +40,12 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
   }
 
   try {
-    const migrated = migrate(db, options.migrations ?? [], options.now)
+    const migrated = migrate(
+      db,
+      options.migrations ?? [],
+      options.now,
+      join(options.dir, 'backups'),
+    )
     if (!migrated.ok) {
       db.close()
       return migrated

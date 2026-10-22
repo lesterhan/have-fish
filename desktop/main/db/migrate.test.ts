@@ -1,3 +1,6 @@
+import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
 import { failure } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -15,11 +18,16 @@ const second: Migration = {
 }
 
 let db: Database.Database
+let root: string
+let backups: string
 beforeEach(() => {
   db = new Database(':memory:')
+  root = mkdtempSync(join(tmpdir(), 'havefish-migrate-'))
+  backups = join(root, 'backups')
 })
 afterEach(() => {
   db.close()
+  rmSync(root, { recursive: true, force: true })
 })
 
 const applied = (tags: string[]) => ({ ok: true, value: tags })
@@ -29,46 +37,46 @@ const tableExists = (name: string) =>
   undefined
 
 test('a new file gets every migration, recorded by tag', () => {
-  expect(migrate(db, [first, second], NOW)).toEqual(applied(['0000_first', '0001_second']))
+  expect(migrate(db, [first, second], NOW, backups)).toEqual(applied(['0000_first', '0001_second']))
   expect(tags()).toEqual(['0000_first', '0001_second'])
   expect(db.prepare('SELECT appliedAt FROM __migrations').pluck().all()).toEqual([NOW, NOW])
   expect(db.prepare('SELECT id, name, note FROM item').all()).toEqual([])
 })
 
 test('a second run applies nothing', () => {
-  migrate(db, [first, second], NOW)
-  expect(migrate(db, [first, second], NOW)).toEqual(applied([]))
+  migrate(db, [first, second], NOW, backups)
+  expect(migrate(db, [first, second], NOW, backups)).toEqual(applied([]))
   expect(tags()).toEqual(['0000_first', '0001_second'])
 })
 
 test('a later build applies only the migration that is new to the file', () => {
-  migrate(db, [first], NOW)
+  migrate(db, [first], NOW, backups)
   db.prepare("INSERT INTO item (name) VALUES ('kept')").run()
 
-  expect(migrate(db, [first, second], NOW)).toEqual(applied(['0001_second']))
+  expect(migrate(db, [first, second], NOW, backups)).toEqual(applied(['0001_second']))
   expect(db.prepare('SELECT name, note FROM item').all()).toEqual([{ name: 'kept', note: null }])
 })
 
 test('a migration that fails part-way leaves the file at the one before', () => {
-  migrate(db, [first], NOW)
+  migrate(db, [first], NOW, backups)
   const broken: Migration = {
     tag: '0001_broken',
     statements: ['CREATE TABLE made (x)', 'ALTER TABLE missing ADD y TEXT'],
   }
 
-  expect(() => migrate(db, [first, broken], NOW)).toThrow(/no such table: missing/)
+  expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table: missing/)
   expect(tags()).toEqual(['0000_first'])
   expect(tableExists('made')).toBe(false)
 })
 
 test('a file a newer build migrated is refused, and nothing is written', () => {
   const later: Migration = { tag: '0002_later', statements: ['CREATE TABLE later (x)'] }
-  migrate(db, [first, later], NOW)
+  migrate(db, [first, later], NOW, backups)
   const schema = () => db.prepare('SELECT sql FROM sqlite_master ORDER BY name').pluck().all()
   const before = schema()
 
   // This build knows `second` but not `later`: it must not apply `second` either.
-  expect(migrate(db, [first, second], NOW)).toEqual(
+  expect(migrate(db, [first, second], NOW, backups)).toEqual(
     failure('LEDGER_TOO_NEW', { path: ':memory:', unknown: ['0002_later'] }),
   )
   expect(tags()).toEqual(['0000_first', '0002_later'])
@@ -87,7 +95,7 @@ describe('foreign keys', () => {
 
   beforeEach(() => {
     db.pragma('foreign_keys = ON')
-    migrate(db, [parentAndChild], NOW)
+    migrate(db, [parentAndChild], NOW, backups)
     db.exec(
       "INSERT INTO parent VALUES (1, 'a'), (2, 'b'); INSERT INTO child VALUES (10, 1), (20, 2)",
     )
@@ -107,7 +115,7 @@ describe('foreign keys', () => {
       ],
     }
 
-    expect(migrate(db, [parentAndChild, rebuildParent], NOW)).toEqual(
+    expect(migrate(db, [parentAndChild, rebuildParent], NOW, backups)).toEqual(
       applied(['0001_rebuild_parent']),
     )
     expect(db.prepare('SELECT id, name, note FROM parent').all()).toEqual([
@@ -127,11 +135,61 @@ describe('foreign keys', () => {
       statements: ['INSERT INTO child VALUES (30, 999)'],
     }
 
-    expect(() => migrate(db, [parentAndChild, orphan], NOW)).toThrow(
+    expect(() => migrate(db, [parentAndChild, orphan], NOW, backups)).toThrow(
       '0001_orphan left rows in child pointing at nothing',
     )
     expect(tags()).toEqual(['0000_parent_and_child'])
     expect(db.prepare('SELECT id FROM child').pluck().all()).toEqual([10, 20])
     expect(foreignKeysOn()).toBe(1)
+  })
+})
+
+describe('the backup', () => {
+  const copies = () => (existsSync(backups) ? readdirSync(backups) : [])
+
+  test('a file with data is copied before a new migration, as it was', () => {
+    migrate(db, [first], NOW, backups)
+    db.prepare("INSERT INTO item (name) VALUES ('kept')").run()
+
+    migrate(db, [first, second], NOW, backups)
+
+    expect(copies()).toEqual(['ledger-2026-10-22T12-00-00-000Z-before-0001_second.sqlite'])
+    const copy = new Database(join(backups, copies()[0] ?? ''), { readonly: true })
+    try {
+      expect(copy.prepare('SELECT name FROM item').pluck().all()).toEqual(['kept'])
+      expect(copy.prepare('SELECT tag FROM __migrations').pluck().all()).toEqual(['0000_first'])
+      expect(copy.prepare('SELECT name FROM pragma_table_info(?)').pluck().all('item')).toEqual([
+        'id',
+        'name',
+      ])
+    } finally {
+      copy.close()
+    }
+  })
+
+  test('a new file is not copied: it has nothing to lose', () => {
+    migrate(db, [first, second], NOW, backups)
+    expect(copies()).toEqual([])
+  })
+
+  test('a file with nothing pending is not copied', () => {
+    migrate(db, [first], NOW, backups)
+    migrate(db, [first], NOW, backups)
+    expect(copies()).toEqual([])
+  })
+
+  test('the copy comes before the migration, so a failed one still leaves it', () => {
+    migrate(db, [first], NOW, backups)
+    const broken: Migration = { tag: '0001_broken', statements: ['ALTER TABLE missing ADD y'] }
+
+    expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
+    expect(copies()).toEqual(['ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite'])
+  })
+
+  test('a file from a newer build is not copied', () => {
+    const later: Migration = { tag: '0002_later', statements: ['CREATE TABLE later (x)'] }
+    migrate(db, [first, later], NOW, backups)
+    migrate(db, [first], NOW, backups)
+    expect(copies()).toEqual([])
   })
 })
