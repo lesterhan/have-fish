@@ -68,6 +68,14 @@ test('pragmas are set properly', () => {
   expect(ledger.db.pragma('busy_timeout', { simple: true })).toBe(5000)
 })
 
+test('a reopened file is still synchronous FULL', () => {
+  // This build of better-sqlite3 reopens a WAL file at NORMAL (1), so the pragma must be set.
+  const dir = join(root, 'ledger')
+  open({ dir }).close()
+  const reopened = open({ dir })
+  expect(reopened.db.pragma('synchronous', { simple: true })).toBe(2)
+})
+
 test('refuses a file that is not SQLite, and leaves it as it was', () => {
   const dir = join(root, 'ledger')
   const file = join(dir, 'ledger.sqlite')

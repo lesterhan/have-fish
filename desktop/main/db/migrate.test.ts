@@ -1,4 +1,4 @@
-import { existsSync, mkdtempSync, readdirSync, rmSync } from 'node:fs'
+import { existsSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { failure } from '@have-fish/core/outcome'
@@ -184,6 +184,18 @@ describe('the backup', () => {
 
     expect(() => migrate(db, [first, broken], NOW, backups)).toThrow(/no such table/)
     expect(copies()).toEqual(['ledger-2026-10-22T12-00-00-000Z-before-0001_broken.sqlite'])
+  })
+
+  test('if the backup fails, nothing migrates', () => {
+    migrate(db, [first], NOW, backups)
+    writeFileSync(backups, 'a file where the folder should be')
+
+    expect(() => migrate(db, [first, second], NOW, backups)).toThrow()
+    expect(tags()).toEqual(['0000_first'])
+    expect(db.prepare('SELECT name FROM pragma_table_info(?)').pluck().all('item')).toEqual([
+      'id',
+      'name',
+    ])
   })
 
   test('a file from a newer build is not copied', () => {
