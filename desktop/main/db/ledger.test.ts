@@ -20,6 +20,7 @@ import type { Migration } from './migrate'
 import { MIGRATIONS } from './migrations'
 
 const NOW = Date.UTC(2026, 9, 22, 12)
+const INSTALL = 'install-a'
 
 // Each test gets a fresh temp folder, deleted afterwards.
 let root: string
@@ -34,9 +35,12 @@ afterEach(() => {
   rmSync(root, { recursive: true, force: true })
 })
 
-/** Opens a ledger that is closed after the test. A refusal fails the test. */
-function open(options: Omit<OpenOptions, 'now'>): Ledger {
-  const result = openLedger({ now: NOW, ...options })
+/**
+ * Opens a ledger that is closed after the test, as `INSTALL` unless told otherwise. A refusal
+ * fails the test.
+ */
+function open(options: Omit<OpenOptions, 'now' | 'installId'> & { installId?: string }): Ledger {
+  const result = openLedger({ now: NOW, installId: INSTALL, ...options })
   if (!result.ok) throw new Error(`refused: ${result.failure.code}`)
   opened.push(result.value)
   return result.value
@@ -102,7 +106,9 @@ describe('only a have-fish ledger is opened', () => {
   test('refuses an SQLite file with no id and tables of its own, and leaves it as it was', () => {
     const { dir, file, bytes } = otherApp((db) => db.exec('CREATE TABLE notes (body TEXT)'))
 
-    expect(openLedger({ dir, now: NOW })).toEqual(failure('LEDGER_UNREADABLE', { path: file }))
+    expect(openLedger({ dir, installId: INSTALL, now: NOW })).toEqual(
+      failure('LEDGER_UNREADABLE', { path: file }),
+    )
     expect(readFileSync(file).equals(bytes)).toBe(true)
     expect(existsSync(`${file}-wal`)).toBe(false)
   })
@@ -110,7 +116,9 @@ describe('only a have-fish ledger is opened', () => {
   test("refuses an SQLite file with another app's id, and leaves it as it was", () => {
     const { dir, file, bytes } = otherApp((db) => db.pragma('application_id = 305419896'))
 
-    expect(openLedger({ dir, now: NOW })).toEqual(failure('LEDGER_UNREADABLE', { path: file }))
+    expect(openLedger({ dir, installId: INSTALL, now: NOW })).toEqual(
+      failure('LEDGER_UNREADABLE', { path: file }),
+    )
     expect(readFileSync(file).equals(bytes)).toBe(true)
   })
 })
@@ -122,7 +130,9 @@ test('refuses a file that is not SQLite, and leaves it as it was', () => {
   const garbage = randomBytes(4096)
   writeFileSync(file, garbage)
 
-  expect(openLedger({ dir, now: NOW })).toEqual(failure('LEDGER_UNREADABLE', { path: file }))
+  expect(openLedger({ dir, installId: INSTALL, now: NOW })).toEqual(
+    failure('LEDGER_UNREADABLE', { path: file }),
+  )
   expect(readFileSync(file).equals(garbage)).toBe(true)
 })
 
@@ -149,7 +159,7 @@ describe('migrations', () => {
     open({ dir, migrations: [first, later] }).close()
     const before = readFileSync(file)
 
-    expect(openLedger({ dir, migrations: [first], now: NOW })).toEqual(
+    expect(openLedger({ dir, installId: INSTALL, migrations: [first], now: NOW })).toEqual(
       failure('LEDGER_TOO_NEW', { path: file, unknown: ['0001_later'] }),
     )
     expect(readFileSync(file).equals(before)).toBe(true)

@@ -13,6 +13,8 @@ export type Ledger = { db: Database.Database; close(): void }
 export type OpenOptions = {
   /** The ledger directory; made private (0700) if it isn't. */
   dir: string
+  /** This install's id. A file whose meta row names another install was copied here. */
+  installId: string
   /** Defaults to the bundled ones; tests pass their own. */
   migrations?: readonly Migration[]
   /** UTC ms, recorded with each migration applied. */
