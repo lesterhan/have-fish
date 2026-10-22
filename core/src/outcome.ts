@@ -11,6 +11,7 @@ export interface FailureDetails {
   VERSION_MALFORMED: { path: string; issue: string }
   CLOCK_DRIFT: { remoteWallMs: number; now: number }
   CLOCK_COUNTER_OVERFLOW: { wallMs: number }
+  LEDGER_UNREADABLE: { path: string }
 }
 
 export type FailureCode = keyof FailureDetails

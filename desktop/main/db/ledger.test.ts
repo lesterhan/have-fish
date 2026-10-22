@@ -1,6 +1,16 @@
-import { existsSync, mkdirSync, mkdtempSync, rmSync, statSync } from 'node:fs'
+import { randomBytes } from 'node:crypto'
+import {
+  existsSync,
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
+import { failure } from '@have-fish/core/outcome'
 import { afterEach, beforeEach, expect, test } from 'vitest'
 import { type Ledger, type OpenOptions, openLedger } from './ledger'
 
@@ -42,4 +52,23 @@ test('creates a ledger db file', () => {
   const dir = join(root, 'ledger')
   open({ dir })
   expect(existsSync(join(dir, 'ledger.sqlite'))).toBeTruthy()
+})
+
+test('pragmas are set properly', () => {
+  const ledger = open({ dir: join(root, 'ledger') })
+  expect(ledger.db.pragma('journal_mode', { simple: true })).toBe('wal')
+  expect(ledger.db.pragma('synchronous', { simple: true })).toBe(2)
+  expect(ledger.db.pragma('foreign_keys', { simple: true })).toBe(1)
+  expect(ledger.db.pragma('busy_timeout', { simple: true })).toBe(5000)
+})
+
+test('refuses a file that is not SQLite, and leaves it as it was', () => {
+  const dir = join(root, 'ledger')
+  const file = join(dir, 'ledger.sqlite')
+  mkdirSync(dir)
+  const garbage = randomBytes(4096)
+  writeFileSync(file, garbage)
+
+  expect(openLedger({ dir })).toEqual(failure('LEDGER_UNREADABLE', { path: file }))
+  expect(readFileSync(file).equals(garbage)).toBe(true)
 })
