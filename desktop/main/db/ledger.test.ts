@@ -17,6 +17,7 @@ import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { type Ledger, type OpenOptions, openLedger } from './ledger'
 import type { Migration } from './migrate'
+import { MIGRATIONS } from './migrations'
 
 const NOW = Date.UTC(2026, 9, 22, 12)
 
@@ -128,6 +129,14 @@ test('refuses a file that is not SQLite, and leaves it as it was', () => {
 describe('migrations', () => {
   const first: Migration = { tag: '0000_first', statements: ['CREATE TABLE item (x)'] }
   const later: Migration = { tag: '0001_later', statements: ['CREATE TABLE later (x)'] }
+
+  test('with no migrations given, a ledger gets the bundled ones', () => {
+    const ledger = open({ dir: join(root, 'ledger') })
+    expect(ledger.db.prepare('SELECT tag FROM __migrations').pluck().all()).toEqual(
+      MIGRATIONS.map((m) => m.tag),
+    )
+    expect(tables(ledger.db)).toContain('meta')
+  })
 
   test('opening applies the migrations it is given', () => {
     const ledger = open({ dir: join(root, 'ledger'), migrations: [first] })

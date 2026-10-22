@@ -8,15 +8,19 @@
     "test": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
     "test:watch": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs",
     "test:debug": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run --inspect-brk --no-file-parallelism",
-    "check": "tsc --noEmit"
+    "check": "tsc --noEmit",
+    "db:generate": "drizzle-kit generate",
+    "db:bundle": "bun tools/bundle-migrations.ts"
   },
   "dependencies": {
     "@have-fish/core": "workspace:*",
-    "better-sqlite3": "^13.0.3"
+    "better-sqlite3": "^13.0.3",
+    "drizzle-orm": "^0.45.4"
   },
   "devDependencies": {
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.0.0",
+    "drizzle-kit": "^0.31.11",
     "electron": "^44.7.2",
     "typescript": "^7.0.2",
     "vitest": "^5.0.5"

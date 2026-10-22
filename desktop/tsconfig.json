@@ -14,5 +14,5 @@
     // Main runs on Node, so its globals are here. Electron's own types come with the window.
     "types": ["node"]
   },
-  "include": ["main"]
+  "include": ["main", "tools"]
 }

@@ -6,13 +6,14 @@ import { join } from 'node:path'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
 import { type Migration, migrate } from './migrate'
+import { MIGRATIONS } from './migrations'
 
 export type Ledger = { db: Database.Database; close(): void }
 
 export type OpenOptions = {
   /** The ledger directory; made private (0700) if it isn't. */
   dir: string
-  /** Defaults to the bundled ones, once the first migration lands. */
+  /** Defaults to the bundled ones; tests pass their own. */
   migrations?: readonly Migration[]
   /** UTC ms, recorded with each migration applied. */
   now: number
@@ -48,7 +49,7 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
   try {
     const migrated = migrate(
       db,
-      options.migrations ?? [],
+      options.migrations ?? MIGRATIONS,
       options.now,
       join(options.dir, 'backups'),
     )
