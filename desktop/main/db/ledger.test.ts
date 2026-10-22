@@ -11,8 +11,11 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { failure } from '@have-fish/core/outcome'
-import { afterEach, beforeEach, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { type Ledger, type OpenOptions, openLedger } from './ledger'
+import type { Migration } from './migrate'
+
+const NOW = Date.UTC(2026, 9, 22, 12)
 
 // Each test gets a fresh temp folder, deleted afterwards.
 let root: string
@@ -28,8 +31,8 @@ afterEach(() => {
 })
 
 /** Opens a ledger that is closed after the test. A refusal fails the test. */
-function open(options: OpenOptions): Ledger {
-  const result = openLedger(options)
+function open(options: Omit<OpenOptions, 'now'>): Ledger {
+  const result = openLedger({ now: NOW, ...options })
   if (!result.ok) throw new Error(`refused: ${result.failure.code}`)
   opened.push(result.value)
   return result.value
@@ -69,6 +72,28 @@ test('refuses a file that is not SQLite, and leaves it as it was', () => {
   const garbage = randomBytes(4096)
   writeFileSync(file, garbage)
 
-  expect(openLedger({ dir })).toEqual(failure('LEDGER_UNREADABLE', { path: file }))
+  expect(openLedger({ dir, now: NOW })).toEqual(failure('LEDGER_UNREADABLE', { path: file }))
   expect(readFileSync(file).equals(garbage)).toBe(true)
+})
+
+describe('migrations', () => {
+  const first: Migration = { tag: '0000_first', statements: ['CREATE TABLE item (x)'] }
+  const later: Migration = { tag: '0001_later', statements: ['CREATE TABLE later (x)'] }
+
+  test('opening applies the migrations it is given', () => {
+    const ledger = open({ dir: join(root, 'ledger'), migrations: [first] })
+    expect(ledger.db.prepare('SELECT tag FROM __migrations').pluck().all()).toEqual(['0000_first'])
+  })
+
+  test('a file a newer build migrated is refused, and its bytes are unchanged', () => {
+    const dir = join(root, 'ledger')
+    const file = join(dir, 'ledger.sqlite')
+    open({ dir, migrations: [first, later] }).close()
+    const before = readFileSync(file)
+
+    expect(openLedger({ dir, migrations: [first], now: NOW })).toEqual(
+      failure('LEDGER_TOO_NEW', { path: file, unknown: ['0001_later'] }),
+    )
+    expect(readFileSync(file).equals(before)).toBe(true)
+  })
 })
