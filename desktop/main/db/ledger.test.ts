@@ -14,10 +14,12 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { failure } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { type Ledger, type OpenOptions, openLedger } from './ledger'
 import type { Migration } from './migrate'
 import { MIGRATIONS } from './migrations'
+import { meta } from './schema'
 
 const NOW = Date.UTC(2026, 9, 22, 12)
 const INSTALL = 'install-a'
@@ -234,5 +236,42 @@ describe('migrations', () => {
     open({ dir, migrations: upToLater })
     const backup = join(dir, 'backups', readdirSync(join(dir, 'backups'))[0] ?? '')
     expect(inCopy(backup, (copy) => copy.prepare('SELECT x FROM item').pluck().all())).toEqual([1])
+  })
+})
+
+describe('meta row', () => {
+  test('new ledger records the install, with zero clock and new ids', () => {
+    const ledger = open({ dir: join(root, 'ledger') })
+    const rows = drizzle(ledger.db).select().from(meta).all()
+    expect(rows).toEqual([
+      {
+        id: 1,
+        ledgerId: expect.stringMatching(/^[0-9a-f]{32}$/),
+        deviceId: expect.stringMatching(/^[0-9a-f]{16}$/),
+        installId: INSTALL,
+        clockWallMs: 0,
+        clockCounter: 0,
+        createdAt: NOW,
+      },
+    ])
+  })
+
+  test('reopening the ledger does not recreate the meta row', () => {
+    const ledger = open({ dir: join(root, 'ledger') })
+    const rows = drizzle(ledger.db).select().from(meta).all()
+    expect(rows).toEqual([
+      {
+        id: 1,
+        ledgerId: expect.stringMatching(/^[0-9a-f]{32}$/),
+        deviceId: expect.stringMatching(/^[0-9a-f]{16}$/),
+        installId: INSTALL,
+        clockWallMs: 0,
+        clockCounter: 0,
+        createdAt: NOW,
+      },
+    ])
+    const reopenedLedger = open({ dir: join(root, 'ledger') })
+    const reopenedMetaRows = drizzle(reopenedLedger.db).select().from(meta).all()
+    expect(reopenedMetaRows).toEqual(rows)
   })
 })
