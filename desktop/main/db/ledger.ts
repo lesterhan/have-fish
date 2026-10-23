@@ -1,18 +1,23 @@
 // Opens the ledger file the same way every time: a private directory, crash-safe settings,
 // migrations, and the meta row. Built up a step at a time.
 
+import { randomBytes } from 'node:crypto'
 import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { type Migration, migrate } from './migrate'
 import { MIGRATIONS } from './migrations'
+import { meta } from './schema'
 
 export type Ledger = { db: Database.Database; close(): void }
 
 export type OpenOptions = {
   /** The ledger directory; made private (0700) if it isn't. */
   dir: string
+  /** This install's id. A file whose meta row names another install was copied here. */
+  installId: string
   /** Defaults to the bundled ones; tests pass their own. */
   migrations?: readonly Migration[]
   /** UTC ms, recorded with each migration applied. */
@@ -57,6 +62,7 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
       db.close()
       return migrated
     }
+    upsertMetaRow(db, options.installId, options.now)
   } catch (e) {
     db.close()
     throw e
@@ -75,4 +81,22 @@ function claim(db: Database.Database): boolean {
   if (id !== 0 || !empty) return false
   db.pragma(`application_id = ${APPLICATION_ID}`)
   return true
+}
+
+// insert meta row for this device
+function upsertMetaRow(db: Database.Database, installId: string, now: number) {
+  const metaRow = drizzle(db).select().from(meta).get()
+  if (metaRow === undefined) {
+    drizzle(db)
+      .insert(meta)
+      .values({
+        ledgerId: randomBytes(16).toString('hex'),
+        deviceId: randomBytes(8).toString('hex'),
+        installId: installId,
+        clockWallMs: 0,
+        clockCounter: 0,
+        createdAt: now,
+      })
+      .run()
+  }
 }
