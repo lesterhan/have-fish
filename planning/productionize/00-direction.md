@@ -313,6 +313,15 @@ better-sqlite3, which is synchronous, so no transaction can interleave with anot
 with libsql as the fallback. How the rewrite stores amounts (integer cents is the leaning) is
 an open question in its backlog, settled by the first story that writes one.
 
+**Amended 2026-10-07: the servers use SQLite too.** The relay and the Fish Pie service each keep
+one SQLite file, replicated to object storage by Litestream. Both hold ciphertext plus a little
+plain bookkeeping, at a few writes a second, so what Postgres is good at buys nothing there, and
+a database process is the largest overhead they could carry. Neither is the source of truth:
+every device holds its whole ledger, so an outage delays sync and a lost disk is refilled from
+the devices. The file stays independent of the server's language (plain SQL migrations,
+`STRICT` tables, one stated encoding per kind of value), so the servers can start in TypeScript
+and change language without a data migration.
+
 ### D9 — Fish Pie v1 is gated on connecting to sync
 **Per `L03` option F1.**
 
@@ -476,8 +485,8 @@ applies to it, re-scoped and much smaller:
 | `01` current state | **Fully valid**, and held in `have-fish-ops` — see "What is public and what is private". |
 | `02` data security | Held in `have-fish-ops`. §3 (input handling) and §7 (supply chain) apply **unchanged** in the local model; the rest is relay-scoped. |
 | `03` compliance | PCI answer stands: we hold no cardholder data, and hosted-redirect checkout keeps us at SAQ A. Privacy obligations shrink to relay accounts and invitee emails. |
-| `04` auth hardening | Applies to **relay accounts**. The local app has no login at all. |
-| `05` billing | Applies **almost verbatim** — Better Auth's Stripe plugin, on the relay's accounts. |
+| `04` auth hardening | Applies to **relay accounts**, which sign in without a password (2026-10-07): an emailed code, then a revocable token per device, so nothing a person types as a passphrase ever reaches the server (D6). The local app has no login at all. |
+| `05` billing | Applies, minus Better Auth (2026-10-07): the relay creates the billing customer itself at sign-up and follows the provider's webhooks. The provider is still open (Q3). |
 | `06` infrastructure | Applies to the relay, which is far smaller than the service `06` imagined. |
 | `07` observability | Same — plus a telemetry policy for the app itself (`L05` §6 recommends none, or opt-in crash reports only). |
 | `08` launch readiness | Applies: terms, privacy policy, support channel, business entity, cost model. |
