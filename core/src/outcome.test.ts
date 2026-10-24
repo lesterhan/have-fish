@@ -27,6 +27,8 @@ test('every code takes the detail the table gives it', () => {
   failure('VERSION_MALFORMED', { path: 'version.counter', issue: 'too_big' })
   failure('CLOCK_DRIFT', { remoteWallMs: 1_900_000_000_000, now: 1_760_000_000_000 })
   failure('CLOCK_COUNTER_OVERFLOW', { wallMs: 1_760_000_000_000 })
+  failure('LEDGER_UNREADABLE', { path: '/tmp/ledger/ledger.sqlite' })
+  failure('LEDGER_TOO_NEW', { path: '/tmp/ledger/ledger.sqlite', unknown: ['0009_later'] })
 })
 
 test('a code with detail refuses to compile without it', () => {

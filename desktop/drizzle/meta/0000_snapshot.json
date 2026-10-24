@@ -1,0 +1,90 @@
+{
+  "version": "6",
+  "dialect": "sqlite",
+  "id": "834daf36-3816-46bc-adec-904f63829c51",
+  "prevId": "00000000-0000-0000-0000-000000000000",
+  "tables": {
+    "meta": {
+      "name": "meta",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "integer",
+          "primaryKey": true,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "ledgerId": {
+          "name": "ledgerId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "deviceId": {
+          "name": "deviceId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "installId": {
+          "name": "installId",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "clockWallMs": {
+          "name": "clockWallMs",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "clockCounter": {
+          "name": "clockCounter",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        },
+        "createdAt": {
+          "name": "createdAt",
+          "type": "integer",
+          "primaryKey": false,
+          "notNull": true,
+          "autoincrement": false
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {},
+      "checkConstraints": {
+        "meta_one_row": {
+          "name": "meta_one_row",
+          "value": "\"meta\".\"id\" = 1"
+        },
+        "meta_ledger_id": {
+          "name": "meta_ledger_id",
+          "value": "length(\"meta\".\"ledgerId\") = 32 AND \"meta\".\"ledgerId\" NOT GLOB '*[^0-9a-f]*'"
+        },
+        "meta_device_id": {
+          "name": "meta_device_id",
+          "value": "length(\"meta\".\"deviceId\") = 16 AND \"meta\".\"deviceId\" NOT GLOB '*[^0-9a-f]*'"
+        }
+      }
+    }
+  },
+  "views": {},
+  "enums": {},
+  "_meta": {
+    "schemas": {},
+    "tables": {},
+    "columns": {}
+  },
+  "internal": {
+    "indexes": {}
+  }
+}
