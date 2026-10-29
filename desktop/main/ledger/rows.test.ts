@@ -7,6 +7,7 @@ const SPEND_ID = '00000000-0000-4000-8000-000000000001'
 const ACCOUNT_ID = '00000000-0000-4000-8000-000000000002'
 const CARD = '00000000-0000-4000-8000-0000000000a1'
 const GROCERIES = '00000000-0000-4000-8000-0000000000a2'
+const CONVERSION = '00000000-0000-4000-8000-0000000000a3'
 const VERSION = { wallMs: Date.UTC(2026, 9, 29, 12), counter: 0, deviceId: '0123456789abcdef' }
 
 const SPEND: Versioned<TransactionDoc> = {
@@ -119,5 +120,38 @@ describe('docOf', () => {
     const { account } = rowsOf(tombstonedAccount)
     const doc = docOf(account)
     expect(doc).toEqual({ doc: tombstonedDoc, version: VERSION })
+  })
+
+  test('a four-leg conversion with no description comes back as it went in', () => {
+    const conversion: Versioned<TransactionDoc> = {
+      ...SPEND,
+      doc: {
+        ...SPEND.doc,
+        description: '',
+        postings: [
+          { accountId: CARD, amount: '-13.70', currency: 'CAD' },
+          { accountId: CONVERSION, amount: '13.70', currency: 'CAD' },
+          { accountId: CONVERSION, amount: '-10.00', currency: 'USD' },
+          { accountId: GROCERIES, amount: '10.00', currency: 'USD' },
+        ],
+      },
+    }
+    const { transaction, postings } = rowsOf(conversion)
+    expect(transaction.description).toBe('')
+    expect(docOf(transaction, postings)).toEqual(conversion)
+  })
+
+  test('postings come back in position order, whatever order the rows arrive in', () => {
+    const { transaction, postings } = rowsOf(SPEND)
+    expect(docOf(transaction, postings.toReversed())).toEqual(SPEND)
+  })
+
+  test('a row whose version does not parse is refused, naming the row', () => {
+    const { transaction, postings } = rowsOf(SPEND)
+    expect(() => docOf({ ...transaction, version: 'not a version' }, postings)).toThrow(
+      `${SPEND_ID} has "not a version"`,
+    )
+    const { account } = rowsOf(ACCOUNT)
+    expect(() => docOf({ ...account, version: '' })).toThrow(`${ACCOUNT_ID} has ""`)
   })
 })

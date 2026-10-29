@@ -83,11 +83,14 @@ export function docOf(
     }
   }
   // TransactionRow
-  const postingsDoc = (postings ?? []).map((p) => ({
-    accountId: p.accountId,
-    amount: format(p.amountCents),
-    currency: p.currency,
-  }))
+  // Sorted, so the document's order doesn't depend on the order the rows were read in.
+  const postingsDoc = (postings ?? [])
+    .toSorted((a, b) => a.position - b.position)
+    .map((p) => ({
+      accountId: p.accountId,
+      amount: format(p.amountCents),
+      currency: p.currency,
+    }))
   return {
     doc: {
       type: 'transaction',
