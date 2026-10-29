@@ -1,7 +1,7 @@
 // The one way a document reaches the ledger file: check it, decide which version wins, store it,
 // and move the clock, with the whole batch in one SQLite transaction.
 
-import { tick } from '@have-fish/core/clock'
+import { type Clock, MAX_DRIFT_MS, tick } from '@have-fish/core/clock'
 import { decide } from '@have-fish/core/decide'
 import { type LedgerDocument, readDocument, type TransactionDoc } from '@have-fish/core/documents'
 import type { FailureCode, FailureDetails, Outcome } from '@have-fish/core/outcome'
@@ -22,6 +22,8 @@ export type Applied = {
   stale: number
   /** Always empty for a local batch: one refusal refuses all of it. */
   refused: Refusal[]
+  /** The saved clock is more than `MAX_DRIFT_MS` ahead of `now`. Writing goes on regardless. */
+  clockAhead: boolean
 }
 
 /** An `Outcome` whose failure also says which item failed. */
@@ -96,8 +98,11 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
   }
 
   saveClock(db, clock)
-  return { written, same: 0, stale: 0, refused: [] }
+  return { written, same: 0, stale: 0, refused: [], clockAhead: isAhead(clock, now) }
 }
+
+/** A clock stuck in the future (a device that once read 2030) is reported, not refused. */
+const isAhead = (clock: Clock, now: number) => clock.wallMs > now + MAX_DRIFT_MS
 
 /** A local posting points at an account this file holds, and that is live. */
 function checkPostedAccounts(db: Database.Database, at: number, doc: TransactionDoc): void {

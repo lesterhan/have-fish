@@ -1,7 +1,8 @@
+import { MAX_DRIFT_MS } from '@have-fish/core/clock'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { compareVersions } from '@have-fish/core/version'
 import { describe, expect, test } from 'vitest'
-import { loadClock } from '../db/clock'
+import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
 import { applyLocal } from './apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
@@ -34,6 +35,7 @@ describe('applyLocal, one document', () => {
       same: 0,
       stale: 0,
       refused: [],
+      clockAhead: false,
     })
   })
 
@@ -203,5 +205,26 @@ describe("applyLocal, a posting's account", () => {
     expect(count(ledger, 'transactions')).toBe(0)
     expect(count(ledger, 'postings')).toBe(0)
     expect(loadClock(ledger.db)).toEqual(clock)
+  })
+})
+
+describe('applyLocal, a clock stuck in the future', () => {
+  test('more than the drift ahead, a spend is still written, and clockAhead is true', () => {
+    const { ledger, cash, food } = withAccounts()
+    saveClock(ledger.db, { wallMs: NOW + MAX_DRIFT_MS + 1, counter: 0 })
+    const spend = aSpend(cash.id, food.id)
+
+    const applied = ok(applyLocal(ledger, [spend], NOW))
+
+    expect(applied.clockAhead).toBe(true)
+    expect(getDocument(ledger.db, 'transaction', spend.id)?.version.wallMs).toBe(
+      NOW + MAX_DRIFT_MS + 1,
+    )
+  })
+
+  test('exactly the drift ahead, clockAhead is false', () => {
+    const { ledger, cash, food } = withAccounts()
+    saveClock(ledger.db, { wallMs: NOW + MAX_DRIFT_MS, counter: 0 })
+    expect(ok(applyLocal(ledger, [aSpend(cash.id, food.id)], NOW)).clockAhead).toBe(false)
   })
 })
