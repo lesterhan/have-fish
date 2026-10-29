@@ -29,6 +29,13 @@ export type BatchOutcome = { ok: true; value: Applied } | { ok: false; failure: 
 type Failure = Extract<Outcome<never>, { ok: false }>['failure']
 const refusal = (at: number, failure: Failure): Refusal => ({ at, ...failure })
 
+/** A checked document, and where it was in the batch as passed. */
+type Item = { at: number; doc: LedgerDocument }
+
+/** Accounts before transactions, so one batch can make an account and post to it. Stable. */
+const accountsFirst = (items: Item[]) =>
+  items.toSorted((a, b) => Number(a.doc.type !== 'account') - Number(b.doc.type !== 'account'))
+
 // Thrown inside the transaction to roll it back, and caught outside it.
 class Refused extends Error {
   constructor(readonly refusal: Refusal) {
@@ -41,27 +48,28 @@ class Refused extends Error {
  * refused, nothing is written and the clock doesn't move.
  */
 export function applyLocal(ledger: Ledger, docs: unknown[], now: number): BatchOutcome {
-  const read: LedgerDocument[] = []
+  const read: Item[] = []
   for (const [at, input] of docs.entries()) {
     const doc = readDocument(input)
     if (!doc.ok) return { ok: false, failure: refusal(at, doc.failure) }
-    read.push(doc.value)
+    read.push({ at, doc: doc.value })
   }
 
   try {
-    return { ok: true, value: ledger.db.transaction(() => writeLocal(ledger, read, now))() }
+    const items = accountsFirst(read)
+    return { ok: true, value: ledger.db.transaction(() => writeLocal(ledger, items, now))() }
   } catch (e) {
     if (e instanceof Refused) return { ok: false, failure: e.refusal }
     throw e
   }
 }
 
-function writeLocal(ledger: Ledger, docs: LedgerDocument[], now: number): Applied {
+function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
   const { db } = ledger
   let clock = loadClock(db)
   const written: Written[] = []
 
-  for (const [at, doc] of docs.entries()) {
+  for (const { at, doc } of items) {
     const ticked = tick(clock, now, ledger.meta.deviceId)
     if (!ticked.ok) throw new Refused(refusal(at, ticked.failure))
     clock = ticked.value.clock

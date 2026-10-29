@@ -1,4 +1,5 @@
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
+import { compareVersions } from '@have-fish/core/version'
 import { describe, expect, test } from 'vitest'
 import { loadClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
@@ -109,5 +110,36 @@ describe('applyLocal, one document', () => {
       'A local version lost',
     )
     expect(getDocument(ledger.db, 'transaction', spend.id)?.doc).toEqual(spend)
+  })
+})
+
+describe('applyLocal, a batch', () => {
+  test('an account and a spend that uses it apply together, in either order', () => {
+    for (const order of ['account first', 'spend first']) {
+      const ledger = tempLedger()
+      const cash = anAccount()
+      const food = anAccount({ path: 'expenses:food', kind: 'category' })
+      const spend = aSpend(cash.id, food.id)
+      const batch = order === 'account first' ? [cash, food, spend] : [spend, cash, food]
+
+      const applied = ok(applyLocal(ledger, batch, NOW))
+
+      expect(applied.written.map((w) => w.type)).toEqual(['account', 'account', 'transaction'])
+      expect(getDocument(ledger.db, 'transaction', spend.id)?.doc).toEqual(spend)
+    }
+  })
+
+  test('1,000 documents with time frozen get strictly increasing versions', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spends = Array.from({ length: 1000 }, () => aSpend(cash.id, food.id))
+
+    const { written } = ok(applyLocal(ledger, spends, NOW))
+
+    expect(written).toHaveLength(1000)
+    for (let i = 1; i < written.length; i++) {
+      const [before, after] = [written[i - 1]?.version, written[i]?.version]
+      expect(before && after && compareVersions(before, after)).toBe(-1)
+    }
+    expect(count(ledger, 'transactions')).toBe(1000)
   })
 })
