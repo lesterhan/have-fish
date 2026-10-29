@@ -1,7 +1,7 @@
 import type { TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import { describe, expect, test } from 'vitest'
-import { rowsOf } from './rows'
+import { docOf, rowsOf } from './rows'
 
 const SPEND_ID = '00000000-0000-4000-8000-000000000001'
 const CARD = '00000000-0000-4000-8000-0000000000a1'
@@ -50,5 +50,29 @@ describe('rowsOf', () => {
         },
       ],
     })
+  })
+})
+
+describe('docOf', () => {
+  test('round trip does not change a document', () => {
+    const { transaction, postings } = rowsOf(SPEND)
+    expect(docOf(transaction, postings)).toEqual(SPEND)
+  })
+
+  test('tombstoned doc has no postings, return unchanged', () => {
+    const deletedAt = Date.UTC(2026, 9, 30)
+    const tombstonedDoc = {
+      ...SPEND.doc,
+      deletedAt,
+      postings: [],
+    }
+    const tombstonedSpend = {
+      ...SPEND,
+      doc: tombstonedDoc,
+    }
+    const { transaction, postings } = rowsOf(tombstonedSpend)
+    const doc = docOf(transaction, postings)
+    expect(doc).toEqual(tombstonedDoc)
+    expect(postings).toEqual([])
   })
 })

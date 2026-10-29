@@ -1,8 +1,8 @@
 // A document and its rows, both ways. Pure: no database, so the tests need none.
 
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
-import { cents } from '@have-fish/core/money'
-import { formatVersion } from '@have-fish/core/version'
+import { cents, format } from '@have-fish/core/money'
+import { formatVersion, parseVersion } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
 import type { accounts, postings, transactions } from '../db/schema'
 
@@ -57,5 +57,28 @@ export function docOf(
   row: TransactionRow | AccountRow,
   postings?: PostingRow[],
 ): Versioned<TransactionDoc> | Versioned<AccountDoc> {
-  throw new Error('not yet')
+  const version = parseVersion(row.version)
+  if (!version.ok)
+    throw new Error(`Could not parse version: ${row.id} has ${JSON.stringify(row.version)}`)
+  if ('kind' in row) {
+    // AccountRow
+    throw new Error('not yet')
+  }
+  // TransactionRow
+  const postingsDoc = (postings ?? []).map((p) => ({
+    accountId: p.accountId,
+    amount: format(p.amountCents),
+    currency: p.currency,
+  }))
+  return {
+    doc: {
+      type: 'transaction',
+      id: row.id,
+      date: row.date,
+      description: row.description,
+      postings: postingsDoc,
+      deletedAt: row.deletedAt,
+    },
+    version: version.value,
+  }
 }
