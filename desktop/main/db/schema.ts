@@ -1,4 +1,5 @@
 import { ACCOUNT_KINDS } from '@have-fish/core/account-kind'
+import type { OriginSource } from '@have-fish/core/documents'
 import { sql } from 'drizzle-orm'
 import { check, index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
@@ -52,7 +53,7 @@ export const accounts = sqliteTable(
     /** The version's text form, which sorts in version order. */
     version: text().notNull(),
     /** The document's `origin`, flattened so one import is a plain query. */
-    originSource: text().notNull(),
+    originSource: text().$type<OriginSource>().notNull(),
     /** UTC ms. */
     originCreatedAt: integer().notNull(),
     originDeviceId: text().notNull(),
@@ -77,7 +78,7 @@ export const transactions = sqliteTable(
     /** The version's text form, which sorts in version order. */
     version: text().notNull(),
     /** The document's `origin`, flattened so one import is a plain query. */
-    originSource: text().notNull(),
+    originSource: text().$type<OriginSource>().notNull(),
     /** UTC ms. */
     originCreatedAt: integer().notNull(),
     originDeviceId: text().notNull(),

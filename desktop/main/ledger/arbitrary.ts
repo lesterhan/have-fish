@@ -12,10 +12,12 @@ import fc from 'fast-check'
 /** Up to five of these sum to well under the largest amount a posting can carry. */
 const MAX_LEG_CENTS = 10 ** 11
 
+const deviceId = fc.stringMatching(/^[0-9a-f]{16}$/)
+
 export const version: fc.Arbitrary<Version> = fc.record({
   wallMs: fc.integer({ min: 0, max: MAX_WALL_MS }),
   counter: fc.integer({ min: 0, max: MAX_COUNTER }),
-  deviceId: fc.stringMatching(/^[0-9a-f]{16}$/),
+  deviceId,
 })
 
 const date = fc
@@ -27,6 +29,12 @@ const date = fc
 const text = fc.string({ unit: 'grapheme', maxLength: 30 })
 
 const deletedAt = fc.integer({ min: 0, max: MAX_WALL_MS })
+
+const manual = fc.record({
+  source: fc.constant('manual'),
+  createdAt: fc.integer({ min: 0, max: MAX_WALL_MS }),
+  deviceId,
+})
 
 // Everyday amounts as often as huge ones, which pass 2^31 cents.
 const cents = fc.oneof(
@@ -74,6 +82,7 @@ const liveTransaction: fc.Arbitrary<TransactionDoc> = fc.record({
   description: text,
   postings,
   deletedAt: fc.constant(null),
+  origin: manual,
 })
 
 const tombstone: fc.Arbitrary<TransactionDoc> = fc.record({
@@ -83,6 +92,7 @@ const tombstone: fc.Arbitrary<TransactionDoc> = fc.record({
   description: text,
   postings: fc.constant([]),
   deletedAt,
+  origin: manual,
 })
 
 /** Mostly live transactions, some tombstones. */
@@ -102,6 +112,7 @@ const accountDoc: fc.Arbitrary<AccountDoc> = fc
       path: fc.constant([rootOf(kind), ...segments].join(':')),
       kind: fc.constant(kind),
       deletedAt: fc.option(deletedAt, { nil: null }),
+      origin: manual,
     }),
   )
 

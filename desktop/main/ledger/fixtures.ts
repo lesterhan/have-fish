@@ -12,6 +12,12 @@ import { type Ledger, openLedger } from '../db/ledger'
 
 export const NOW = Date.UTC(2026, 9, 29, 12)
 
+/** Not any temp ledger's device: an origin names its maker, which needn't be this file. */
+export const MAKER = 'feedfacecafebeef'
+
+/** Entered by hand at `NOW`. */
+export const MANUAL = { source: 'manual', createdAt: NOW, deviceId: MAKER } as const
+
 /** A new ledger in its own temp folder. `dispose` closes it and deletes the folder. */
 export function openTempLedger(installId = 'install-a'): { ledger: Ledger; dispose(): void } {
   const dir = mkdtempSync(join(tmpdir(), 'havefish-apply-'))
@@ -46,6 +52,7 @@ export function anAccount(fields: Partial<AccountDoc> = {}): AccountDoc {
     path: 'assets:cash',
     kind: 'cash',
     deletedAt: null,
+    origin: MANUAL,
     ...fields,
   }
 }
@@ -67,6 +74,7 @@ export function aSpend(
       { accountId: toId, amount, currency: 'CAD' },
     ],
     deletedAt: null,
+    origin: MANUAL,
     ...fields,
   }
 }

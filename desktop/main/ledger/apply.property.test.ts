@@ -11,16 +11,24 @@ import fc from 'fast-check'
 import { expect, test } from 'vitest'
 import type { Ledger } from '../db/ledger'
 import { applyLocal, applyReceived } from './apply'
-import { NOW, ok, openTempLedger } from './fixtures'
+import { MANUAL, NOW, ok, openTempLedger } from './fixtures'
 import { getDocument } from './store'
 
 const uuid = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
 
 // Both devices start with these accounts, and edit the same three transactions.
+const account = (n: number, path: string, kind: AccountDoc['kind']): AccountDoc => ({
+  type: 'account',
+  id: uuid(n),
+  path,
+  kind,
+  deletedAt: null,
+  origin: MANUAL,
+})
 const ACCOUNTS: AccountDoc[] = [
-  { type: 'account', id: uuid(0xa1), path: 'assets:cash', kind: 'cash', deletedAt: null },
-  { type: 'account', id: uuid(0xa2), path: 'expenses:food', kind: 'category', deletedAt: null },
-  { type: 'account', id: uuid(0xa3), path: 'expenses:fun', kind: 'category', deletedAt: null },
+  account(0xa1, 'assets:cash', 'cash'),
+  account(0xa2, 'expenses:food', 'category'),
+  account(0xa3, 'expenses:fun', 'category'),
 ]
 const SLOTS = [uuid(1), uuid(2), uuid(3)]
 
@@ -88,6 +96,7 @@ function docFor(a: Action): LedgerDocument | null {
           { accountId: ACCOUNTS[a.to]?.id ?? '', amount, currency: 'CAD' },
         ],
         deletedAt: null,
+        origin: MANUAL,
       }
       return doc
     }
@@ -99,6 +108,7 @@ function docFor(a: Action): LedgerDocument | null {
         description: 'deleted',
         postings: [],
         deletedAt: NOW,
+        origin: MANUAL,
       }
     case 'rename': {
       const account = ACCOUNTS[a.account] as AccountDoc

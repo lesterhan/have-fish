@@ -1,6 +1,6 @@
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
+import { type AccountDoc, readDocument, type TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import Database from 'better-sqlite3'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
@@ -15,6 +15,7 @@ const GROCERIES = '00000000-0000-4000-8000-0000000000a2'
 const RESTAURANTS = '00000000-0000-4000-8000-0000000000a3'
 const V1 = { wallMs: NOW, counter: 0, deviceId: '0123456789abcdef' }
 const V2 = { ...V1, counter: 1 }
+const MANUAL = { source: 'manual', createdAt: NOW, deviceId: 'feedfacecafebeef' } as const
 
 const SPEND: Versioned<TransactionDoc> = {
   doc: {
@@ -28,12 +29,13 @@ const SPEND: Versioned<TransactionDoc> = {
       { accountId: RESTAURANTS, amount: '10.00', currency: 'CAD' },
     ],
     deletedAt: null,
+    origin: MANUAL,
   },
   version: V1,
 }
 
 const cash = (id: string): Versioned<AccountDoc> => ({
-  doc: { type: 'account', id, path: 'assets:cash', kind: 'cash', deletedAt: null },
+  doc: { type: 'account', id, path: 'assets:cash', kind: 'cash', deletedAt: null, origin: MANUAL },
   version: V1,
 })
 
@@ -55,6 +57,28 @@ describe('putDocument and getDocument', () => {
   test('an account comes back as it went in', () => {
     putDocument(db, cash(CARD))
     expect(getDocument(db, 'account', CARD)).toEqual(cash(CARD))
+  })
+
+  const SYSTEM = { ...MANUAL, source: 'system' } as const
+  const IMPORTED = {
+    ...MANUAL,
+    source: 'import',
+    file: 'td-oct.csv',
+    line: 15,
+    text: 'Alp**Mannerswudaokou',
+  } as const
+
+  test.each([
+    ['manual transaction', SPEND.doc, MANUAL],
+    ['imported transaction', SPEND.doc, IMPORTED],
+    ['system transaction', SPEND.doc, SYSTEM],
+    ['manual account', cash(CARD).doc, MANUAL],
+    ['system account', cash(CARD).doc, SYSTEM],
+  ] as const)('a %s comes back as readDocument read it', (_title, doc, origin) => {
+    const read = readDocument({ ...doc, origin })
+    if (!read.ok) throw new Error(JSON.stringify(read.failure))
+    putDocument(db, { doc: read.value, version: V1 })
+    expect(getDocument(db, read.value.type, doc.id)).toEqual({ doc: read.value, version: V1 })
   })
 
   test('an unknown id, or one of the other type, is null', () => {

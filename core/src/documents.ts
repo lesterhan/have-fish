@@ -39,6 +39,7 @@ export const TransactionOriginSchema = z.discriminatedUnion('source', [
   SystemOrigin,
 ])
 export type TransactionOrigin = z.infer<typeof TransactionOriginSchema>
+export type OriginSource = TransactionOrigin['source']
 
 /** Nothing imports accounts. */
 export const AccountOriginSchema = z.discriminatedUnion('source', [ManualOrigin, SystemOrigin])
@@ -58,6 +59,7 @@ export const TransactionSchema = z.strictObject({
   description: z.string(),
   postings: z.array(PostingSchema),
   deletedAt: z.number().nullable(),
+  origin: TransactionOriginSchema,
 })
 export type TransactionDoc = z.infer<typeof TransactionSchema>
 
@@ -67,6 +69,7 @@ export const AccountSchema = z.strictObject({
   path: z.string(),
   kind: z.enum(ACCOUNT_KINDS),
   deletedAt: z.number().nullable(),
+  origin: AccountOriginSchema,
 })
 export type AccountDoc = z.infer<typeof AccountSchema>
 

@@ -14,6 +14,17 @@ const B = '697100f4-7ad0-4d4c-bc61-b61abbf3dd6f'
 const C = 'e795ff15-ce02-4abb-9642-928b57bca6f3'
 const UUID = '8a7283de-26e1-485d-8aef-414f2e2bfdf1'
 
+const MADE = { createdAt: Date.UTC(2026, 9, 28, 9), deviceId: 'a1b2c3d4e5f60718' }
+const MANUAL = { source: 'manual', ...MADE } as const
+const SYSTEM = { source: 'system', ...MADE } as const
+const IMPORTED = {
+  source: 'import',
+  ...MADE,
+  file: 'td-oct.csv',
+  line: 15,
+  text: 'Alp**Mannerswudaokou',
+} as const
+
 const SPEND = {
   type: 'transaction',
   id: UUID,
@@ -24,6 +35,7 @@ const SPEND = {
     { accountId: B, amount: '-59.99', currency: 'CAD' },
   ],
   deletedAt: null,
+  origin: MANUAL,
 } as const
 
 const ACCOUNT = {
@@ -32,17 +44,7 @@ const ACCOUNT = {
   path: 'expenses:coffee:beans',
   kind: 'category',
   deletedAt: null,
-} as const
-
-const MADE = { createdAt: Date.UTC(2026, 9, 28, 9), deviceId: 'a1b2c3d4e5f60718' }
-const MANUAL = { source: 'manual', ...MADE } as const
-const SYSTEM = { source: 'system', ...MADE } as const
-const IMPORTED = {
-  source: 'import',
-  ...MADE,
-  file: 'td-oct.csv',
-  line: 15,
-  text: 'Alp**Mannerswudaokou',
+  origin: SYSTEM,
 } as const
 
 describe('TransactionOriginSchema', () => {
@@ -162,6 +164,32 @@ describe('readShape', () => {
       'unrecognized_keys',
     ],
     ['invalid account kind', { ...ACCOUNT, kind: 'piggybank' }, 'kind', 'invalid_value'],
+    ['no origin', { ...SPEND, origin: undefined }, 'origin', 'invalid_type'],
+    [
+      'an unknown source',
+      { ...SPEND, origin: { ...MANUAL, source: 'fish-pie' } },
+      'origin.source',
+      'invalid_union',
+    ],
+    ['an imported account', { ...ACCOUNT, origin: IMPORTED }, 'origin.source', 'invalid_union'],
+    [
+      'an import without its file',
+      { ...SPEND, origin: { ...IMPORTED, file: undefined } },
+      'origin.file',
+      'invalid_type',
+    ],
+    [
+      'an import without its line',
+      { ...SPEND, origin: { ...IMPORTED, line: undefined } },
+      'origin.line',
+      'invalid_type',
+    ],
+    [
+      'an import without its text',
+      { ...SPEND, origin: { ...IMPORTED, text: undefined } },
+      'origin.text',
+      'invalid_type',
+    ],
   ])('refuses %s', (_title, document, path, issue) => {
     expect(readShape(document)).toStrictEqual({
       ok: false,
@@ -199,6 +227,27 @@ describe('readDocument', () => {
     expect(readDocument(tombstone)).toStrictEqual({
       ok: true,
       value: tombstone,
+    })
+  })
+
+  it.each([
+    ['manual', MANUAL],
+    ['import', IMPORTED],
+    ['system', SYSTEM],
+  ])('reads a spend whose origin is %s', (_title, origin) => {
+    expect(readDocument({ ...SPEND, origin })).toStrictEqual({
+      ok: true,
+      value: { ...SPEND, origin },
+    })
+  })
+
+  it.each([
+    ['manual', MANUAL],
+    ['system', SYSTEM],
+  ])('reads an account whose origin is %s', (_title, origin) => {
+    expect(readDocument({ ...ACCOUNT, origin })).toStrictEqual({
+      ok: true,
+      value: { ...ACCOUNT, origin },
     })
   })
 
@@ -372,6 +421,7 @@ describe('JSON round trip', () => {
   it.each([
     ['transaction doc', SPEND],
     ['account doc', ACCOUNT],
+    ['imported transaction', { ...SPEND, origin: IMPORTED }],
     ['tombstoned transaction', { ...SPEND, deletedAt: 1760000000000, postings: [] }],
   ])('%s is read back without change', (_title, doc) => {
     const jsonWire = JSON.parse(JSON.stringify(doc))
