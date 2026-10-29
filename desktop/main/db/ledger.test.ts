@@ -183,6 +183,9 @@ describe('migrations', () => {
   }
   const tables = (db: Database.Database) =>
     db.prepare("SELECT name FROM sqlite_master WHERE type = 'table' ORDER BY name").pluck().all()
+  /** The tables these tests' own migrations make, so a new bundled table doesn't change them. */
+  const fixtureTables = (db: Database.Database) =>
+    tables(db).filter((name) => name === 'item' || name === 'later')
 
   test('a new migration is preceded by one backup, private, with the old schema', () => {
     const dir = join(root, 'ledger')
@@ -198,9 +201,9 @@ describe('migrations', () => {
       'ledger-2026-10-22T12-00-00-000Z-before-0001_later.sqlite',
     ])
     const backup = join(backups, readdirSync(backups)[0] ?? '')
-    expect(inCopy(backup, tables)).toEqual(['__migrations', 'item', 'meta'])
+    expect(inCopy(backup, fixtureTables)).toEqual(['item'])
     expect(inCopy(backup, (copy) => copy.prepare('SELECT x FROM item').pluck().all())).toEqual([1])
-    expect(tables(live.db)).toEqual(['__migrations', 'item', 'later', 'meta'])
+    expect(fixtureTables(live.db)).toEqual(['item', 'later'])
   })
 
   test('a backup can be put back as the ledger and opened', () => {
@@ -218,7 +221,7 @@ describe('migrations', () => {
     const reopened = open({ dir: restored, migrations: upToLater })
 
     expect(reopened.db.prepare('SELECT x FROM item').pluck().all()).toEqual([1])
-    expect(tables(reopened.db)).toEqual(['__migrations', 'item', 'later', 'meta'])
+    expect(fixtureTables(reopened.db)).toEqual(['item', 'later'])
   })
 
   test('the backup has commits still in the WAL, which a file copy would miss', () => {
