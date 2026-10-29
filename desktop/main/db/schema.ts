@@ -1,5 +1,6 @@
+import { ACCOUNT_KINDS } from '@have-fish/core/account-kind'
 import { sql } from 'drizzle-orm'
-import { check, integer, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import { check, index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
 
 // A column takes its name from its key, so the SQL names match the TypeScript ones.
 
@@ -30,5 +31,64 @@ export const meta = sqliteTable(
       'meta_device_id',
       sql`length(${t.deviceId}) = 16 AND ${t.deviceId} NOT GLOB '*[^0-9a-f]*'`,
     ),
+  ],
+)
+
+/**
+ * One row per account document. `deletedAt` set means a tombstone: the row stays, with its
+ * version, so an older edit that arrives late can't bring the account back.
+ */
+export const accounts = sqliteTable(
+  'accounts',
+  {
+    id: text().primaryKey(),
+    path: text().notNull(),
+    /** `path` lowercased, for lookups. Not unique: two devices can each make `assets:cash`. */
+    pathKey: text().notNull(),
+    /** `enum` types the column only. No CHECK: the list grows, and each change would rebuild the table. */
+    kind: text({ enum: ACCOUNT_KINDS }).notNull(),
+    /** UTC ms. */
+    deletedAt: integer(),
+    /** The version's text form, which sorts in version order. */
+    version: text().notNull(),
+  },
+  (t) => [index('accounts_path_key').on(t.pathKey)],
+)
+
+/** One row per transaction document. A tombstone keeps its row and has no postings. */
+export const transactions = sqliteTable(
+  'transactions',
+  {
+    id: text().primaryKey(),
+    /** `YYYY-MM-DD`. */
+    date: text().notNull(),
+    description: text().notNull(),
+    /** UTC ms. */
+    deletedAt: integer(),
+    /** The version's text form, which sorts in version order. */
+    version: text().notNull(),
+  },
+  (t) => [index('transactions_date').on(t.date)],
+)
+
+/** A transaction's postings, kept in the document's order by `position`. */
+export const postings = sqliteTable(
+  'postings',
+  {
+    transactionId: text()
+      .notNull()
+      .references(() => transactions.id, { onDelete: 'cascade' }),
+    /** The posting's index in the document's `postings`. */
+    position: integer().notNull(),
+    /** No foreign key: under sync, a transaction can arrive before its account. */
+    accountId: text().notNull(),
+    amountCents: integer().notNull(),
+    currency: text().notNull(),
+  },
+  (t) => [
+    primaryKey({ columns: [t.transactionId, t.position] }),
+    index('postings_account_id').on(t.accountId),
+    // SQLite stores any value in any column, and a text amount would sum as a float.
+    check('postings_amount_cents_integer', sql`typeof(${t.amountCents}) = 'integer'`),
   ],
 )
