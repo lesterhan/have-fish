@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest'
 import {
+  AccountOriginSchema,
   AccountSchema,
   PostingSchema,
   readDocument,
   readShape,
+  TransactionOriginSchema,
   TransactionSchema,
 } from './documents'
 
@@ -31,6 +33,59 @@ const ACCOUNT = {
   kind: 'category',
   deletedAt: null,
 } as const
+
+const MADE = { createdAt: Date.UTC(2026, 9, 28, 9), deviceId: 'a1b2c3d4e5f60718' }
+const MANUAL = { source: 'manual', ...MADE } as const
+const SYSTEM = { source: 'system', ...MADE } as const
+const IMPORTED = {
+  source: 'import',
+  ...MADE,
+  file: 'td-oct.csv',
+  line: 15,
+  text: 'Alp**Mannerswudaokou',
+} as const
+
+describe('TransactionOriginSchema', () => {
+  it.each([
+    ['manual', MANUAL],
+    ['import', IMPORTED],
+    ['system', SYSTEM],
+  ])('accepts a %s origin', (_title, origin) => {
+    expect(TransactionOriginSchema.safeParse(origin)).toStrictEqual({ success: true, data: origin })
+  })
+
+  it.each([
+    ['an unknown source', { ...MANUAL, source: 'fish-pie' }],
+    ['no source', MADE],
+    ['an import without its file', { ...IMPORTED, file: undefined }],
+    ['an import with an empty file name', { ...IMPORTED, file: '' }],
+    ['an import without its line', { ...IMPORTED, line: undefined }],
+    ['an import on line 0', { ...IMPORTED, line: 0 }],
+    ['an import on a fractional line', { ...IMPORTED, line: 1.5 }],
+    ['an import without its text', { ...IMPORTED, text: undefined }],
+    ['a manual origin with a file', { ...MANUAL, file: 'td-oct.csv' }],
+    ['no createdAt', { ...MANUAL, createdAt: undefined }],
+    ['a negative createdAt', { ...MANUAL, createdAt: -1 }],
+    ['a fractional createdAt', { ...MANUAL, createdAt: 1.5 }],
+    ['no deviceId', { ...MANUAL, deviceId: undefined }],
+    ['a deviceId that is not 16 hex', { ...MANUAL, deviceId: 'laptop' }],
+  ])('refuses %s', (_title, origin) => {
+    expect(TransactionOriginSchema.safeParse(origin).success).toBe(false)
+  })
+})
+
+describe('AccountOriginSchema', () => {
+  it.each([
+    ['manual', MANUAL],
+    ['system', SYSTEM],
+  ])('accepts a %s origin', (_title, origin) => {
+    expect(AccountOriginSchema.safeParse(origin)).toStrictEqual({ success: true, data: origin })
+  })
+
+  it('refuses an import: nothing imports accounts', () => {
+    expect(AccountOriginSchema.safeParse(IMPORTED).success).toBe(false)
+  })
+})
 
 describe('PostingSchema', () => {
   it('accepts a posting with its three fields', () => {

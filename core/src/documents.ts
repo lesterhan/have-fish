@@ -6,6 +6,43 @@ import { cents, format } from './money'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
 import { validatePostings } from './postings'
+import { MAX_WALL_MS, VersionSchema } from './version'
+
+// Who made the document and when. Set once: an edit carries it through unchanged.
+const made = {
+  /** UTC ms. The document's creation, never a later edit's. */
+  createdAt: z.int().min(0).max(MAX_WALL_MS),
+  /** The maker's device, never a later editor's. */
+  deviceId: VersionSchema.shape.deviceId,
+}
+
+const ManualOrigin = z.strictObject({ source: z.literal('manual'), ...made })
+
+/** Made by the app itself: the default wallet, equity accounts. */
+const SystemOrigin = z.strictObject({ source: z.literal('system'), ...made })
+
+/** One line of a bank statement. One import's documents share `createdAt`. */
+const ImportOrigin = z.strictObject({
+  source: z.literal('import'),
+  ...made,
+  /** The file's name as picked, not its path. */
+  file: z.string().min(1),
+  /** As an editor numbers it: from 1, with the header and anything above it counted. */
+  line: z.int().min(1),
+  /** The description as the bank wrote it. */
+  text: z.string(),
+})
+
+export const TransactionOriginSchema = z.discriminatedUnion('source', [
+  ManualOrigin,
+  ImportOrigin,
+  SystemOrigin,
+])
+export type TransactionOrigin = z.infer<typeof TransactionOriginSchema>
+
+/** Nothing imports accounts. */
+export const AccountOriginSchema = z.discriminatedUnion('source', [ManualOrigin, SystemOrigin])
+export type AccountOrigin = z.infer<typeof AccountOriginSchema>
 
 export const PostingSchema = z.strictObject({
   accountId: z.uuid(),
