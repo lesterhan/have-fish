@@ -284,4 +284,21 @@ describe('meta row', () => {
     expect(a?.ledgerId).not.toBe(b?.ledgerId)
     expect(a?.deviceId).not.toBe(b?.deviceId)
   })
+
+  test('a file opened by another install gets a new device id, and keeps the rest', () => {
+    const dir = join(root, 'ledger')
+    const first = open({ dir })
+    first.db.prepare('UPDATE meta SET clockWallMs = ?, clockCounter = 3').run(NOW)
+    const before = stored(first)
+    first.close()
+
+    const copy = stored(open({ dir, installId: 'install-b' }))
+
+    expect(copy).toEqual({
+      ...before,
+      deviceId: expect.stringMatching(/^[0-9a-f]{16}$/),
+      installId: 'install-b',
+    })
+    expect(copy?.deviceId).not.toBe(before?.deviceId)
+  })
 })

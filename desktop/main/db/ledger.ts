@@ -83,20 +83,26 @@ function claim(db: Database.Database): boolean {
   return true
 }
 
-// insert meta row for this device
+/** Writes a new file's meta row, or gives a file another install made a device id of its own. */
 function upsertMetaRow(db: Database.Database, installId: string, now: number) {
-  const metaRow = drizzle(db).select().from(meta).get()
+  const orm = drizzle(db)
+  const metaRow = orm.select().from(meta).get()
   if (metaRow === undefined) {
-    drizzle(db)
+    orm
       .insert(meta)
       .values({
         ledgerId: randomBytes(16).toString('hex'),
-        deviceId: randomBytes(8).toString('hex'),
-        installId: installId,
+        deviceId: newDeviceId(),
+        installId,
         clockWallMs: 0,
         clockCounter: 0,
         createdAt: now,
       })
       .run()
+  } else if (metaRow.installId !== installId) {
+    // A copy, or a restore: the same ledger on another device. Two devices must never share an id.
+    orm.update(meta).set({ deviceId: newDeviceId(), installId }).run()
   }
 }
+
+const newDeviceId = () => randomBytes(8).toString('hex')
