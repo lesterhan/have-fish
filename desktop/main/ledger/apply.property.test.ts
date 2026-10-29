@@ -182,8 +182,8 @@ test('two ledgers that hear of each other’s edits in any order end up the same
         }
       },
     ),
-    // Each run opens two files, so this is slow. A failure stops shrinking at 50s and prints
-    // what it has, before the test's own timeout.
-    { numRuns: 200, plugins: [fc.interruptAfterTimeLimit(50_000)] },
+    // Each run opens two files, so this is slow. At 50s fast-check stops, inside the test's
+    // timeout: mid-shrink it prints what it has; short of 200 runs it fails, never passes.
+    { numRuns: 200, plugins: [fc.interruptAfterTimeLimit(50_000, { failOnInterrupt: true })] },
   )
 }, 60_000)
