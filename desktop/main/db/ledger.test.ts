@@ -274,4 +274,14 @@ describe('meta row', () => {
     const reopenedMetaRows = drizzle(reopenedLedger.db).select().from(meta).all()
     expect(reopenedMetaRows).toEqual(rows)
   })
+
+  /** The meta row, as stored. */
+  const stored = (ledger: Ledger) => drizzle(ledger.db).select().from(meta).get()
+
+  test('two new ledgers get different ids', () => {
+    const a = stored(open({ dir: join(root, 'a') }))
+    const b = stored(open({ dir: join(root, 'b') }))
+    expect(a?.ledgerId).not.toBe(b?.ledgerId)
+    expect(a?.deviceId).not.toBe(b?.deviceId)
+  })
 })
