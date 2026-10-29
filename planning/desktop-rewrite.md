@@ -38,7 +38,7 @@ The backlog is a **story map** in `lesterhan/have-fish-vault`, a private Obsidia
 it is picked up. **Done** means the owner has checked every acceptance line in the packaged
 app, tests cover them, and the PR is merged.
 
-Rewrite work gets no issue in this repository. A PR's body ends with `Story: <note name>`, or
+Rewrite work gets no issue in this repository. A PR's body opens with `Story: <note name>`, or
 `Tech: <note name>` for a tech note: a foundation or refactoring that several stories stand on.
 Every rewrite note is built in pair mode unless the owner names another (`CLAUDE.md`, "Three
 ways of working"). The PR number goes back into the note. Decisions about the rewrite are notes

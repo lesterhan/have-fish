@@ -133,7 +133,7 @@ before picking anything up.
   PRs name their notes.
 - **Ready first.** Pick up only a `ready` note whose `depends_on` are all `done`, and set it to
   `doing`.
-- **One note, one branch, one PR.** The PR body ends with `Story:`, `Tech:`, `Bug:` or `Chore:`
+- **One note, one branch, one PR.** The PR body opens with `Story:`, `Tech:`, `Bug:` or `Chore:`
   and the note's key and title. When it merges, its number goes into the note's `pr`. A tech
   note, bug or chore is then `done`; a story is `done` once the owner has checked every
   acceptance line in the packaged app.
@@ -156,8 +156,8 @@ before picking anything up.
 
 **The bridge, until the triage is applied.** Every GitHub issue open on 2026-10-01 sits in the
 vault's `inbox/`, waiting for the owner's triage. Until that inbox is empty, an open issue is
-still real work: "let's pick up #282" reads the issue and its parent, and the PR body ends
-`Closes #282` (or `Closes lesterhan/have-fish-ops#N` across repos). Cross-repo references are
+still real work: "let's pick up #282" reads the issue and its parent, and the PR body opens
+with `Closes #282` (or `Closes lesterhan/have-fish-ops#N` across repos). Cross-repo references are
 fully qualified; a bare `#10` is this repo's issue 10. Closed `type:decision` issues stay as the
 decision log from before the vault. When the inbox is empty, this paragraph goes.
 
@@ -193,8 +193,8 @@ Things you can say:
 and switching mid-session is fine: finish the current turn cleanly, then change.
 
 A tech note's *Build it* steps each name a default driver. Every rewrite PR, in any mode, has a
-**Tour** section in its body: the seams, what calls what, where to put a breakpoint, and which
-parts are worth the owner's read.
+**Worth your read** section: one to three lines of code, each with why (a seam, a rule, where to
+put a breakpoint). How the code works goes in the note's knowledge note in the vault.
 
 ## How I like to be assisted
 
@@ -310,9 +310,9 @@ issue-282/expense-labels
 Branches created by Claude Code on the web are named by the harness and cannot follow this; the
 title convention is what holds in every case.
 
-**Body** — `.github/pull_request_template.md` is the shape. It ends with the note's trailer
-(`Story:`, `Tech:`, `Bug:` or `Chore:` with its key and title), or `Closes #N` for an issue the
-triage hasn't reached. A rewrite PR has a Tour section.
+**Body** — `.github/pull_request_template.md` is the shape, and short enough to read on a phone.
+It opens with the note (`Story:`, `Tech:`, `Bug:` or `Chore:` with its key and title), or
+`Closes #N` for an issue the triage hasn't reached. A rewrite PR has a Worth your read section.
 
 ### Normal feature flow
 
@@ -323,7 +323,7 @@ git checkout -b <key>/<short-description>
 # 2. implement, commit
 git push -u origin <key>/<short-description>
 
-# 3. open the PR on GitHub, titled [scope] Description, body ending with the note's trailer
+# 3. open the PR on GitHub, titled [scope] Description, body opening with the note
 # 4. review, iterate, merge on GitHub
 
 # 5. sync local main after merge

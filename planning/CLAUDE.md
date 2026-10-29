@@ -25,7 +25,7 @@ note with `app: current`, or, until the triage is applied, its GitHub sub-issue.
 2. Start the next story. Implement it fully — this is the current app, so build mode: complete,
    production-quality code with comprehensive tests.
 3. Present a brief summary and **open a PR** against `main`, titled `[epic-slug] Story N — …`,
-   its body ending with its note's trailer (`Chore:` or `Bug:` and the key and title), or
+   its body opening with its note (`Chore:` or `Bug:` and the key and title), or
    `Closes #N` while its issue is untriaged. Share the PR link.
 4. Wait for the owner to say they are done reviewing.
 5. Re-read every file changed in the story and check for non-functional issues: security,
