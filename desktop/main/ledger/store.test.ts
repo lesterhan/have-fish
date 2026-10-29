@@ -3,9 +3,12 @@ import { join } from 'node:path'
 import { type AccountDoc, readDocument, type TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import Database from 'better-sqlite3'
+import { and, eq } from 'drizzle-orm'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { migrate } from '../db/migrate'
 import { MIGRATIONS } from '../db/migrations'
+import { transactions } from '../db/schema'
 import { getDocument, putDocument } from './store'
 
 const NOW = Date.UTC(2026, 9, 29, 12)
@@ -79,6 +82,34 @@ describe('putDocument and getDocument', () => {
     if (!read.ok) throw new Error(JSON.stringify(read.failure))
     putDocument(db, { doc: read.value, version: V1 })
     expect(getDocument(db, read.value.type, doc.id)).toEqual({ doc: read.value, version: V1 })
+  })
+
+  test('one import is its file and time: another import of a same-named file is not in it', () => {
+    const DAY = 86_400_000
+    const october = { ...IMPORTED, createdAt: NOW - 30 * DAY }
+    const november = { ...IMPORTED, createdAt: NOW }
+    const spend = (n: number, origin: TransactionDoc['origin']) => ({
+      doc: { ...SPEND.doc, id: `00000000-0000-4000-8000-00000000000${n}`, origin },
+      version: V1,
+    })
+    for (const v of [spend(1, october), spend(2, october), spend(3, november), spend(4, MANUAL)]) {
+      putDocument(db, v)
+    }
+
+    const ids = drizzle(db)
+      .select({ id: transactions.id })
+      .from(transactions)
+      .where(
+        and(
+          eq(transactions.originFile, 'td-oct.csv'),
+          eq(transactions.originCreatedAt, october.createdAt),
+        ),
+      )
+      .orderBy(transactions.id)
+      .all()
+      .map((r) => r.id)
+
+    expect(ids).toEqual([spend(1, october).doc.id, spend(2, october).doc.id])
   })
 
   test('an unknown id, or one of the other type, is null', () => {
