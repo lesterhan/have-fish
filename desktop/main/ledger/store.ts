@@ -4,7 +4,7 @@
 import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
-import { countDistinct, eq } from 'drizzle-orm'
+import { countDistinct, eq, isNull } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { accounts, postings, transactions } from '../db/schema'
 import { docOf, rowsOf } from './rows'
@@ -83,4 +83,20 @@ export function countTransactionsUsing(db: Database.Database, accountId: string)
     .where(eq(postings.accountId, accountId))
     .get()
   return row?.n ?? 0
+}
+
+/**
+ * Postings whose account the file doesn't hold yet: a received transaction can arrive before
+ * its account. A query, never stored, so it clears itself when the account arrives.
+ */
+export function pendingReferences(
+  db: Database.Database,
+): { transactionId: string; accountId: string }[] {
+  return drizzle(db)
+    .selectDistinct({ transactionId: postings.transactionId, accountId: postings.accountId })
+    .from(postings)
+    .leftJoin(accounts, eq(accounts.id, postings.accountId))
+    .where(isNull(accounts.id))
+    .orderBy(postings.transactionId, postings.accountId)
+    .all()
 }

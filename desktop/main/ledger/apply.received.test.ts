@@ -4,7 +4,7 @@ import { describe, expect, test } from 'vitest'
 import { loadClock } from '../db/clock'
 import { applyLocal, applyReceived } from './apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
-import { getDocument } from './store'
+import { countTransactionsUsing, getDocument, pendingReferences } from './store'
 
 /** Another device's id. */
 const THERE = 'f0e1d2c3b4a59687'
@@ -103,5 +103,44 @@ describe('applyReceived', () => {
     })
     expect(local.clockAhead).toBe(false)
     expect(getDocument(ledger.db, 'transaction', spend.id)?.doc.description).toBe('Mine')
+  })
+})
+
+describe("applyReceived, a posting's account", () => {
+  test('a transaction whose account has not arrived is stored, and pending until it does', () => {
+    const ledger = tempLedger()
+    const spend = aSpend(CASH.id, FOOD.id)
+    applyReceived(ledger, [ACCOUNTS[0], { doc: spend, version: at(NOW) }], NOW)
+
+    expect(getDocument(ledger.db, 'transaction', spend.id)?.doc).toEqual(spend)
+    expect(pendingReferences(ledger.db)).toEqual([{ transactionId: spend.id, accountId: FOOD.id }])
+
+    applyReceived(ledger, [ACCOUNTS[1]], NOW)
+    expect(pendingReferences(ledger.db)).toEqual([])
+  })
+
+  test('a posting to a deleted account is stored as it is', () => {
+    const ledger = tempLedger()
+    const spend = aSpend(CASH.id, FOOD.id)
+    const deletedFood = { doc: { ...FOOD, deletedAt: NOW }, version: at(NOW - 1000) }
+
+    const applied = applyReceived(
+      ledger,
+      [ACCOUNTS[0], deletedFood, { doc: spend, version: at(NOW) }],
+      NOW,
+    )
+
+    expect(applied.refused).toEqual([])
+    expect(getDocument(ledger.db, 'transaction', spend.id)?.doc).toEqual(spend)
+  })
+
+  test('deleting an account live transactions use is stored as it is', () => {
+    const ledger = tempLedger()
+    applyReceived(ledger, [...ACCOUNTS, { doc: aSpend(CASH.id, FOOD.id), version: at(NOW) }], NOW)
+
+    applyReceived(ledger, [{ doc: { ...FOOD, deletedAt: NOW }, version: at(NOW + 1) }], NOW)
+
+    expect(getDocument(ledger.db, 'account', FOOD.id)?.doc.deletedAt).toBe(NOW)
+    expect(countTransactionsUsing(ledger.db, FOOD.id)).toBe(1)
   })
 })
