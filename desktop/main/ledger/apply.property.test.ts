@@ -3,7 +3,13 @@
 // to replay just that case.
 
 import { rootOf } from '@have-fish/core/account-kind'
-import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core/documents'
+import type {
+  AccountDoc,
+  AccountOrigin,
+  LedgerDocument,
+  TransactionDoc,
+  TransactionOrigin,
+} from '@have-fish/core/documents'
 import { format } from '@have-fish/core/money'
 import { compareVersions } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
@@ -11,6 +17,7 @@ import fc from 'fast-check'
 import { expect, test } from 'vitest'
 import type { Ledger } from '../db/ledger'
 import { applyLocal, applyReceived } from './apply'
+import { accountOrigin, transactionOrigin } from './arbitrary'
 import { MANUAL, NOW, ok, openTempLedger } from './fixtures'
 import { getDocument } from './store'
 
@@ -82,7 +89,14 @@ const action: fc.Arbitrary<Action> = fc.oneof(
 // both devices stamp the same times and the device id breaks the tie.
 const skew = fc.oneof(fc.constant(0), fc.integer({ min: -120_000, max: 120_000 }))
 
-function docFor(a: Action): LedgerDocument | null {
+// One per document, kept through every edit, as an edit keeps its origin.
+type Origins = { slots: TransactionOrigin[]; accounts: AccountOrigin[] }
+const origins: fc.Arbitrary<Origins> = fc.record({
+  slots: fc.array(transactionOrigin, { minLength: SLOTS.length, maxLength: SLOTS.length }),
+  accounts: fc.array(accountOrigin, { minLength: ACCOUNTS.length, maxLength: ACCOUNTS.length }),
+})
+
+function docFor(a: Action, origins: Origins): LedgerDocument | null {
   switch (a.kind) {
     case 'spend': {
       const amount = format(a.cents)
@@ -96,7 +110,7 @@ function docFor(a: Action): LedgerDocument | null {
           { accountId: ACCOUNTS[a.to]?.id ?? '', amount, currency: 'CAD' },
         ],
         deletedAt: null,
-        origin: MANUAL,
+        origin: origins.slots[a.slot] ?? MANUAL,
       }
       return doc
     }
@@ -108,11 +122,15 @@ function docFor(a: Action): LedgerDocument | null {
         description: 'deleted',
         postings: [],
         deletedAt: NOW,
-        origin: MANUAL,
+        origin: origins.slots[a.slot] ?? MANUAL,
       }
     case 'rename': {
       const account = ACCOUNTS[a.account] as AccountDoc
-      return { ...account, path: `${rootOf(account.kind)}:${a.name}` }
+      return {
+        ...account,
+        path: `${rootOf(account.kind)}:${a.name}`,
+        origin: origins.accounts[a.account] ?? MANUAL,
+      }
     }
     case 'deliver':
       return null
@@ -124,8 +142,9 @@ test('two ledgers that hear of each other’s edits in any order end up the same
     fc.property(
       fc.array(action, { maxLength: 25 }),
       fc.tuple(skew, skew),
+      origins,
       fc.gen(),
-      (actions, skews, gen) => {
+      (actions, skews, origins, gen) => {
         const opened = [openTempLedger('install-a'), openTempLedger('install-b')]
         try {
           const ledgers = opened.map((o) => o.ledger) as [Ledger, Ledger]
@@ -147,7 +166,9 @@ test('two ledgers that hear of each other’s edits in any order end up the same
           }
 
           // Device 0 makes the accounts; device 1 hears of them first thing.
-          for (const account of ACCOUNTS) write(0, account)
+          for (const [i, account] of ACCOUNTS.entries()) {
+            write(0, { ...account, origin: origins.accounts[i] ?? MANUAL })
+          }
           receive(1, sent[0])
           heard[1] = sent[0].length
 
@@ -159,7 +180,7 @@ test('two ledgers that hear of each other’s edits in any order end up the same
               receive(a.device, next)
               heard[a.device] = (heard[a.device] ?? 0) + next.length
             } else {
-              write(a.device, docFor(a) as LedgerDocument)
+              write(a.device, docFor(a, origins) as LedgerDocument)
             }
           }
 

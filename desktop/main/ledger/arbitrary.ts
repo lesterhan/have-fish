@@ -3,7 +3,13 @@
 
 import { ACCOUNT_KINDS, type AccountKind, rootOf } from '@have-fish/core/account-kind'
 import { CURRENCIES } from '@have-fish/core/currencies'
-import type { AccountDoc, PostingDoc, TransactionDoc } from '@have-fish/core/documents'
+import type {
+  AccountDoc,
+  AccountOrigin,
+  PostingDoc,
+  TransactionDoc,
+  TransactionOrigin,
+} from '@have-fish/core/documents'
 import { format } from '@have-fish/core/money'
 import { MAX_COUNTER, MAX_WALL_MS, type Version } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
@@ -28,13 +34,21 @@ const date = fc
 // Whole graphemes, so any text a person can type, but never a lone surrogate.
 const text = fc.string({ unit: 'grapheme', maxLength: 30 })
 
-const deletedAt = fc.integer({ min: 0, max: MAX_WALL_MS })
-
-const manual = fc.record({
-  source: fc.constant('manual'),
-  createdAt: fc.integer({ min: 0, max: MAX_WALL_MS }),
-  deviceId,
+const made = { createdAt: fc.integer({ min: 0, max: MAX_WALL_MS }), deviceId }
+const manual = fc.record({ source: fc.constant('manual'), ...made })
+const system = fc.record({ source: fc.constant('system'), ...made })
+const imported = fc.record({
+  source: fc.constant('import'),
+  ...made,
+  file: text.filter((s) => s.length > 0),
+  line: fc.integer({ min: 1, max: 1_000_000 }),
+  text,
 })
+
+export const transactionOrigin: fc.Arbitrary<TransactionOrigin> = fc.oneof(manual, imported, system)
+export const accountOrigin: fc.Arbitrary<AccountOrigin> = fc.oneof(manual, system)
+
+const deletedAt = fc.integer({ min: 0, max: MAX_WALL_MS })
 
 // Everyday amounts as often as huge ones, which pass 2^31 cents.
 const cents = fc.oneof(
@@ -82,7 +96,7 @@ const liveTransaction: fc.Arbitrary<TransactionDoc> = fc.record({
   description: text,
   postings,
   deletedAt: fc.constant(null),
-  origin: manual,
+  origin: transactionOrigin,
 })
 
 const tombstone: fc.Arbitrary<TransactionDoc> = fc.record({
@@ -92,7 +106,7 @@ const tombstone: fc.Arbitrary<TransactionDoc> = fc.record({
   description: text,
   postings: fc.constant([]),
   deletedAt,
-  origin: manual,
+  origin: transactionOrigin,
 })
 
 /** Mostly live transactions, some tombstones. */
@@ -112,7 +126,7 @@ const accountDoc: fc.Arbitrary<AccountDoc> = fc
       path: fc.constant([rootOf(kind), ...segments].join(':')),
       kind: fc.constant(kind),
       deletedAt: fc.option(deletedAt, { nil: null }),
-      origin: manual,
+      origin: accountOrigin,
     }),
   )
 
