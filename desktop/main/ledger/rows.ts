@@ -42,7 +42,16 @@ export function rowsOf(
     }
 
     case 'account': {
-      throw new Error('not yet')
+      return {
+        account: {
+          id: v.doc.id,
+          deletedAt: v.doc.deletedAt,
+          path: v.doc.path,
+          kind: v.doc.kind,
+          version: formatVersion(v.version),
+          pathKey: v.doc.path.toLowerCase(),
+        },
+      }
     }
   }
 }
@@ -62,7 +71,16 @@ export function docOf(
     throw new Error(`Could not parse version: ${row.id} has ${JSON.stringify(row.version)}`)
   if ('kind' in row) {
     // AccountRow
-    throw new Error('not yet')
+    return {
+      doc: {
+        type: 'account',
+        id: row.id,
+        path: row.path,
+        kind: row.kind,
+        deletedAt: row.deletedAt,
+      },
+      version: version.value,
+    }
   }
   // TransactionRow
   const postingsDoc = (postings ?? []).map((p) => ({

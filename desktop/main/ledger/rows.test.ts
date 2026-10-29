@@ -1,9 +1,10 @@
-import type { TransactionDoc } from '@have-fish/core/documents'
+import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import { describe, expect, test } from 'vitest'
 import { docOf, rowsOf } from './rows'
 
 const SPEND_ID = '00000000-0000-4000-8000-000000000001'
+const ACCOUNT_ID = '00000000-0000-4000-8000-000000000002'
 const CARD = '00000000-0000-4000-8000-0000000000a1'
 const GROCERIES = '00000000-0000-4000-8000-0000000000a2'
 const VERSION = { wallMs: Date.UTC(2026, 9, 29, 12), counter: 0, deviceId: '0123456789abcdef' }
@@ -18,6 +19,17 @@ const SPEND: Versioned<TransactionDoc> = {
       { accountId: CARD, amount: '-12.50', currency: 'CAD' },
       { accountId: GROCERIES, amount: '12.50', currency: 'CAD' },
     ],
+    deletedAt: null,
+  },
+  version: VERSION,
+}
+
+const ACCOUNT: Versioned<AccountDoc> = {
+  doc: {
+    type: 'account',
+    id: ACCOUNT_ID,
+    path: 'assets:CASH',
+    kind: 'cash',
     deletedAt: null,
   },
   version: VERSION,
@@ -51,12 +63,30 @@ describe('rowsOf', () => {
       ],
     })
   })
+
+  test('account pathKey is lowercased, path is unchanged', () => {
+    expect(rowsOf(ACCOUNT)).toEqual({
+      account: {
+        id: ACCOUNT_ID,
+        deletedAt: null,
+        path: 'assets:CASH',
+        kind: 'cash',
+        version: '2026-10-29T12:00:00.000Z-0000-0123456789abcdef',
+        pathKey: 'assets:cash',
+      },
+    })
+  })
 })
 
 describe('docOf', () => {
-  test('round trip does not change a document', () => {
+  test('transaction round trip does not change a document', () => {
     const { transaction, postings } = rowsOf(SPEND)
     expect(docOf(transaction, postings)).toEqual(SPEND)
+  })
+
+  test('account round trip does not change a document', () => {
+    const { account } = rowsOf(ACCOUNT)
+    expect(docOf(account)).toEqual(ACCOUNT)
   })
 
   test('tombstoned doc has no postings, return unchanged', () => {
@@ -72,7 +102,22 @@ describe('docOf', () => {
     }
     const { transaction, postings } = rowsOf(tombstonedSpend)
     const doc = docOf(transaction, postings)
-    expect(doc).toEqual(tombstonedDoc)
+    expect(doc).toEqual({ doc: tombstonedDoc, version: VERSION })
     expect(postings).toEqual([])
+  })
+
+  test('tombstoned account has deletedAt', () => {
+    const deletedAt = Date.UTC(2026, 9, 30)
+    const tombstonedDoc = {
+      ...ACCOUNT.doc,
+      deletedAt,
+    }
+    const tombstonedAccount = {
+      ...ACCOUNT,
+      doc: tombstonedDoc,
+    }
+    const { account } = rowsOf(tombstonedAccount)
+    const doc = docOf(account)
+    expect(doc).toEqual({ doc: tombstonedDoc, version: VERSION })
   })
 })
