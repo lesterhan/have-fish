@@ -1,5 +1,5 @@
 // Opens the ledger file the same way every time: a private directory, crash-safe settings,
-// migrations, and the meta row. Built up a step at a time.
+// migrations, and the meta row.
 
 import { randomBytes } from 'node:crypto'
 import { chmodSync, mkdirSync } from 'node:fs'
