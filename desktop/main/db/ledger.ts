@@ -11,7 +11,13 @@ import { type Migration, migrate } from './migrate'
 import { MIGRATIONS } from './migrations'
 import { meta } from './schema'
 
-export type Ledger = { db: Database.Database; close(): void }
+export type Ledger = { db: Database.Database; meta: Meta; close(): void }
+
+/** What the file knows about itself. Not the clock: it changes with every write (`loadClock`). */
+export type Meta = Pick<
+  typeof meta.$inferSelect,
+  'ledgerId' | 'deviceId' | 'installId' | 'createdAt'
+>
 
 export type OpenOptions = {
   /** The ledger directory; made private (0700) if it isn't. */
@@ -62,12 +68,12 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
       db.close()
       return migrated
     }
-    upsertMetaRow(db, options.installId, options.now)
+    const ledgerMeta = upsertMetaRow(db, options.installId, options.now)
+    return { ok: true, value: { db, meta: ledgerMeta, close: () => db.close() } }
   } catch (e) {
     db.close()
     throw e
   }
-  return { ok: true, value: { db, close: () => db.close() } }
 }
 
 /**
@@ -84,11 +90,11 @@ function claim(db: Database.Database): boolean {
 }
 
 /** Writes a new file's meta row, or gives a file another install made a device id of its own. */
-function upsertMetaRow(db: Database.Database, installId: string, now: number) {
+function upsertMetaRow(db: Database.Database, installId: string, now: number): Meta {
   const orm = drizzle(db)
-  const metaRow = orm.select().from(meta).get()
+  const metaRow = orm.select(META).from(meta).get()
   if (metaRow === undefined) {
-    orm
+    return orm
       .insert(meta)
       .values({
         ledgerId: randomBytes(16).toString('hex'),
@@ -98,11 +104,20 @@ function upsertMetaRow(db: Database.Database, installId: string, now: number) {
         clockCounter: 0,
         createdAt: now,
       })
-      .run()
-  } else if (metaRow.installId !== installId) {
-    // A copy, or a restore: the same ledger on another device. Two devices must never share an id.
-    orm.update(meta).set({ deviceId: newDeviceId(), installId }).run()
+      .returning(META)
+      .get()
   }
+  if (metaRow.installId === installId) return metaRow
+  // A copy, or a restore: the same ledger on another device. Two devices must never share an id.
+  return orm.update(meta).set({ deviceId: newDeviceId(), installId }).returning(META).get()
+}
+
+/** The columns of `Meta`, for Drizzle to select and return. */
+const META = {
+  ledgerId: meta.ledgerId,
+  deviceId: meta.deviceId,
+  installId: meta.installId,
+  createdAt: meta.createdAt,
 }
 
 const newDeviceId = () => randomBytes(8).toString('hex')

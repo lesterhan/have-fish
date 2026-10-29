@@ -301,4 +301,24 @@ describe('meta row', () => {
     })
     expect(copy?.deviceId).not.toBe(before?.deviceId)
   })
+
+  test('the ledger carries the ids as stored, for a new file and a copy', () => {
+    const dir = join(root, 'ledger')
+    const created = open({ dir })
+    const row = stored(created)
+    expect(created.meta).toEqual({
+      ledgerId: row?.ledgerId,
+      deviceId: row?.deviceId,
+      installId: INSTALL,
+      createdAt: NOW,
+    })
+    created.close()
+
+    const copy = open({ dir, installId: 'install-b' })
+    expect(copy.meta).toEqual({
+      ...created.meta,
+      deviceId: stored(copy)?.deviceId,
+      installId: 'install-b',
+    })
+  })
 })
