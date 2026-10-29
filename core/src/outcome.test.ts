@@ -29,6 +29,9 @@ test('every code takes the detail the table gives it', () => {
   failure('CLOCK_COUNTER_OVERFLOW', { wallMs: 1_760_000_000_000 })
   failure('LEDGER_UNREADABLE', { path: '/tmp/ledger/ledger.sqlite' })
   failure('LEDGER_TOO_NEW', { path: '/tmp/ledger/ledger.sqlite', unknown: ['0009_later'] })
+  failure('ACCOUNT_NOT_FOUND', { accountId: '00000000-0000-4000-8000-0000000000a1' })
+  failure('ACCOUNT_DELETED', { accountId: '00000000-0000-4000-8000-0000000000a1' })
+  failure('ACCOUNT_IN_USE', { accountId: '00000000-0000-4000-8000-0000000000a1', transactions: 2 })
 })
 
 test('a code with detail refuses to compile without it', () => {
