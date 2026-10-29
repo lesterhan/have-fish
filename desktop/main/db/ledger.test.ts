@@ -274,4 +274,51 @@ describe('meta row', () => {
     const reopenedMetaRows = drizzle(reopenedLedger.db).select().from(meta).all()
     expect(reopenedMetaRows).toEqual(rows)
   })
+
+  /** The meta row, as stored. */
+  const stored = (ledger: Ledger) => drizzle(ledger.db).select().from(meta).get()
+
+  test('two new ledgers get different ids', () => {
+    const a = stored(open({ dir: join(root, 'a') }))
+    const b = stored(open({ dir: join(root, 'b') }))
+    expect(a?.ledgerId).not.toBe(b?.ledgerId)
+    expect(a?.deviceId).not.toBe(b?.deviceId)
+  })
+
+  test('a file opened by another install gets a new device id, and keeps the rest', () => {
+    const dir = join(root, 'ledger')
+    const first = open({ dir })
+    first.db.prepare('UPDATE meta SET clockWallMs = ?, clockCounter = 3').run(NOW)
+    const before = stored(first)
+    first.close()
+
+    const copy = stored(open({ dir, installId: 'install-b' }))
+
+    expect(copy).toEqual({
+      ...before,
+      deviceId: expect.stringMatching(/^[0-9a-f]{16}$/),
+      installId: 'install-b',
+    })
+    expect(copy?.deviceId).not.toBe(before?.deviceId)
+  })
+
+  test('the ledger carries the ids as stored, for a new file and a copy', () => {
+    const dir = join(root, 'ledger')
+    const created = open({ dir })
+    const row = stored(created)
+    expect(created.meta).toEqual({
+      ledgerId: row?.ledgerId,
+      deviceId: row?.deviceId,
+      installId: INSTALL,
+      createdAt: NOW,
+    })
+    created.close()
+
+    const copy = open({ dir, installId: 'install-b' })
+    expect(copy.meta).toEqual({
+      ...created.meta,
+      deviceId: stored(copy)?.deviceId,
+      installId: 'install-b',
+    })
+  })
 })
