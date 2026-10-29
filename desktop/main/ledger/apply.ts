@@ -1,6 +1,7 @@
 // The one way a document reaches the ledger file: check it, decide which version wins, store it,
 // and move the clock, with the whole batch in one SQLite transaction.
 
+import { isDeepStrictEqual } from 'node:util'
 import { type Clock, MAX_DRIFT_MS, receive, tick } from '@have-fish/core/clock'
 import { decide } from '@have-fish/core/decide'
 import { type LedgerDocument, readDocument, type TransactionDoc } from '@have-fish/core/documents'
@@ -118,7 +119,7 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
     const { version } = ticked.value
 
     if (doc.type === 'transaction') checkPostedAccounts(db, at, doc)
-    const { decision, stored } = store(db, doc, version)
+    const { decision, stored } = store(db, doc, version, { at })
     // The clock has seen every version in this file, so a tick beats them all. If it doesn't,
     // the file holds a version the clock never saw: a bug, not an edit to drop quietly.
     if (decision !== 'write') {
@@ -139,9 +140,21 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
   return { written, same: 0, stale: 0, refused: [], clockAhead: isAhead(clock, now) }
 }
 
-/** The step both ways in share: read the stored version, decide, and put if the incoming wins. */
-function store(db: Database.Database, doc: LedgerDocument, version: Version) {
-  const stored = getDocument(db, doc.type, doc.id)?.version ?? null
+/**
+ * The step both ways in share: read the stored version, decide, and put if the incoming wins.
+ * `local` is a local write's place in its batch: one may not change a stored origin.
+ */
+function store(
+  db: Database.Database,
+  doc: LedgerDocument,
+  version: Version,
+  local?: { at: number },
+) {
+  const current = getDocument(db, doc.type, doc.id)
+  if (local && current && !isDeepStrictEqual(current.doc.origin, doc.origin)) {
+    throw new Refused({ at: local.at, code: 'ORIGIN_CHANGED', details: { id: doc.id } })
+  }
+  const stored = current?.version ?? null
   const decision = decide(stored, version)
   if (decision === 'write') putDocument(db, { doc, version })
   return { decision, stored }

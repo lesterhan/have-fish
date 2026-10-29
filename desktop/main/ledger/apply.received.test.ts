@@ -49,6 +49,17 @@ describe('applyReceived', () => {
     expect(getDocument(ledger.db, 'transaction', spend.id)).toEqual(current)
   })
 
+  test('a newer version with another origin is stored as it came: the check is local only', () => {
+    const ledger = tempLedger()
+    const spend = aSpend(CASH.id, FOOD.id)
+    applyReceived(ledger, [...ACCOUNTS, { doc: spend, version: at(NOW - 1000) }], NOW)
+    const origin = { source: 'system', createdAt: NOW, deviceId: THERE } as const
+    const edit = { doc: { ...spend, origin }, version: at(NOW) }
+
+    expect(applyReceived(ledger, [edit], NOW).refused).toEqual([])
+    expect(getDocument(ledger.db, 'transaction', spend.id)).toEqual(edit)
+  })
+
   test('a tombstone for an unknown id is stored, so an older live version is stale', () => {
     const ledger = tempLedger()
     const spend = aSpend(CASH.id, FOOD.id)

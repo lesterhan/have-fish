@@ -17,6 +17,8 @@ export interface FailureDetails {
   ACCOUNT_DELETED: { accountId: string }
   /** `transactions`: how many live transactions post to it. */
   ACCOUNT_IN_USE: { accountId: string; transactions: number }
+  /** A local write gave an existing document another origin. */
+  ORIGIN_CHANGED: { id: string }
 }
 
 export type FailureCode = keyof FailureDetails

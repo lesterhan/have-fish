@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
 import { applyLocal } from './apply'
-import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
+import { anAccount, aSpend, MAKER, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { getDocument, putDocument } from './store'
 
 const count = (ledger: Ledger, table: string) =>
@@ -112,6 +112,101 @@ describe('applyLocal, one document', () => {
       'A local version lost',
     )
     expect(getDocument(ledger.db, 'transaction', spend.id)?.doc).toEqual(spend)
+  })
+})
+
+describe('applyLocal, the origin', () => {
+  const DAY = 86_400_000
+  const IMPORTED = {
+    source: 'import',
+    createdAt: NOW - DAY,
+    deviceId: MAKER,
+    file: 'td-oct.csv',
+    line: 15,
+    text: 'Alp**Mannerswudaokou',
+  } as const
+
+  test('an edit keeps the origin, its time and device too, not the edit’s', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id, '12.50', { origin: IMPORTED })
+    ok(applyLocal(ledger, [spend], NOW - DAY))
+
+    ok(applyLocal(ledger, [{ ...spend, date: '2026-10-30' }], NOW))
+
+    const stored = getDocument(ledger.db, 'transaction', spend.id)
+    expect(stored?.doc.origin).toEqual(IMPORTED)
+    expect(stored?.version.wallMs).toBe(NOW)
+    expect(stored?.version.deviceId).toBe(ledger.meta.deviceId)
+  })
+
+  test('rewording an imported spend keeps the description as the bank wrote it', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id, '12.50', {
+      description: IMPORTED.text,
+      origin: IMPORTED,
+    })
+    ok(applyLocal(ledger, [spend], NOW))
+
+    ok(applyLocal(ledger, [{ ...spend, description: 'Lunch at Wudaokou' }], NOW))
+
+    const stored = getDocument(ledger.db, 'transaction', spend.id)?.doc
+    expect(stored?.description).toBe('Lunch at Wudaokou')
+    expect(stored?.origin).toEqual(IMPORTED)
+  })
+
+  test('an edit that changes the origin is refused with its place in the batch, and nothing moves', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id, '12.50', { origin: IMPORTED })
+    ok(applyLocal(ledger, [spend], NOW))
+    const clock = loadClock(ledger.db)
+    const other = aSpend(cash.id, food.id)
+    const reimported = { ...spend, origin: { ...IMPORTED, file: 'td-nov.csv', line: 3 } }
+
+    expect(applyLocal(ledger, [other, reimported], NOW)).toEqual({
+      ok: false,
+      failure: { at: 1, code: 'ORIGIN_CHANGED', details: { id: spend.id } },
+    })
+    expect(getDocument(ledger.db, 'transaction', spend.id)?.doc).toEqual(spend)
+    expect(getDocument(ledger.db, 'transaction', other.id)).toBeNull()
+    expect(loadClock(ledger.db)).toEqual(clock)
+  })
+
+  test.each([
+    ['its source', { source: 'manual', createdAt: NOW - DAY, deviceId: MAKER }],
+    ['its time', { ...IMPORTED, createdAt: NOW }],
+    ['its device', { ...IMPORTED, deviceId: '0123456789abcdef' }],
+    ['its text', { ...IMPORTED, text: 'Lunch' }],
+  ] as const)('changing %s alone is refused', (_title, origin) => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id, '12.50', { origin: IMPORTED })
+    ok(applyLocal(ledger, [spend], NOW))
+
+    const outcome = applyLocal(ledger, [{ ...spend, origin }], NOW)
+
+    expect(outcome.ok || outcome.failure.code).toBe('ORIGIN_CHANGED')
+  })
+
+  test('an account whose origin changes is refused too', () => {
+    const { ledger, cash } = withAccounts()
+    const outcome = applyLocal(
+      ledger,
+      [{ ...cash, origin: { source: 'system', createdAt: NOW, deviceId: MAKER } }],
+      NOW,
+    )
+    expect(outcome).toEqual({
+      ok: false,
+      failure: { at: 0, code: 'ORIGIN_CHANGED', details: { id: cash.id } },
+    })
+  })
+
+  test('a delete keeps the origin', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id, '12.50', { origin: IMPORTED })
+    ok(applyLocal(ledger, [spend], NOW))
+
+    ok(applyLocal(ledger, [tombstoneOf(spend)], NOW))
+
+    expect(getDocument(ledger.db, 'transaction', spend.id)?.doc.origin).toEqual(IMPORTED)
   })
 })
 
