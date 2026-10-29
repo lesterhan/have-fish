@@ -5,7 +5,7 @@ import { describe, expect, test } from 'vitest'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
 import { applyLocal } from './apply'
-import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
+import { anAccount, aSpend, MAKER, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { getDocument, putDocument } from './store'
 
 const count = (ledger: Ledger, table: string) =>
@@ -112,6 +112,56 @@ describe('applyLocal, one document', () => {
       'A local version lost',
     )
     expect(getDocument(ledger.db, 'transaction', spend.id)?.doc).toEqual(spend)
+  })
+})
+
+describe('applyLocal, the origin', () => {
+  const DAY = 86_400_000
+  const IMPORTED = {
+    source: 'import',
+    createdAt: NOW - DAY,
+    deviceId: MAKER,
+    file: 'td-oct.csv',
+    line: 15,
+    text: 'Alp**Mannerswudaokou',
+  } as const
+
+  test('an edit keeps the origin, its time and device too, not the edit’s', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id, '12.50', { origin: IMPORTED })
+    ok(applyLocal(ledger, [spend], NOW - DAY))
+
+    ok(applyLocal(ledger, [{ ...spend, date: '2026-10-30' }], NOW))
+
+    const stored = getDocument(ledger.db, 'transaction', spend.id)
+    expect(stored?.doc.origin).toEqual(IMPORTED)
+    expect(stored?.version.wallMs).toBe(NOW)
+    expect(stored?.version.deviceId).toBe(ledger.meta.deviceId)
+  })
+
+  test('rewording an imported spend keeps the description as the bank wrote it', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id, '12.50', {
+      description: IMPORTED.text,
+      origin: IMPORTED,
+    })
+    ok(applyLocal(ledger, [spend], NOW))
+
+    ok(applyLocal(ledger, [{ ...spend, description: 'Lunch at Wudaokou' }], NOW))
+
+    const stored = getDocument(ledger.db, 'transaction', spend.id)?.doc
+    expect(stored?.description).toBe('Lunch at Wudaokou')
+    expect(stored?.origin).toEqual(IMPORTED)
+  })
+
+  test('a delete keeps the origin', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id, '12.50', { origin: IMPORTED })
+    ok(applyLocal(ledger, [spend], NOW))
+
+    ok(applyLocal(ledger, [tombstoneOf(spend)], NOW))
+
+    expect(getDocument(ledger.db, 'transaction', spend.id)?.doc.origin).toEqual(IMPORTED)
   })
 })
 
