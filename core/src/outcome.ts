@@ -13,6 +13,10 @@ export interface FailureDetails {
   CLOCK_COUNTER_OVERFLOW: { wallMs: number }
   LEDGER_UNREADABLE: { path: string }
   LEDGER_TOO_NEW: { path: string; unknown: string[] }
+  ACCOUNT_NOT_FOUND: { accountId: string }
+  ACCOUNT_DELETED: { accountId: string }
+  /** `transactions`: how many live transactions post to it. */
+  ACCOUNT_IN_USE: { accountId: string; transactions: number }
 }
 
 export type FailureCode = keyof FailureDetails
