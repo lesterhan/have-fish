@@ -143,3 +143,65 @@ describe('applyLocal, a batch', () => {
     expect(count(ledger, 'transactions')).toBe(1000)
   })
 })
+
+describe("applyLocal, a posting's account", () => {
+  const MISSING = '00000000-0000-4000-8000-00000000dead'
+
+  test('an account the file lacks is refused as ACCOUNT_NOT_FOUND', () => {
+    const { ledger, cash } = withAccounts()
+    expect(applyLocal(ledger, [aSpend(cash.id, MISSING)], NOW)).toEqual({
+      ok: false,
+      failure: { at: 0, code: 'ACCOUNT_NOT_FOUND', details: { accountId: MISSING } },
+    })
+  })
+
+  test('a deleted account is refused as ACCOUNT_DELETED', () => {
+    const { ledger, cash, food } = withAccounts()
+    ok(applyLocal(ledger, [{ ...food, deletedAt: NOW }], NOW))
+    expect(applyLocal(ledger, [aSpend(cash.id, food.id)], NOW)).toEqual({
+      ok: false,
+      failure: { at: 0, code: 'ACCOUNT_DELETED', details: { accountId: food.id } },
+    })
+  })
+
+  test('deleting an account live transactions use is refused as ACCOUNT_IN_USE, with how many', () => {
+    const { ledger, cash, food } = withAccounts()
+    ok(applyLocal(ledger, [aSpend(cash.id, food.id), aSpend(cash.id, food.id)], NOW))
+    expect(applyLocal(ledger, [{ ...food, deletedAt: NOW }], NOW)).toEqual({
+      ok: false,
+      failure: { at: 0, code: 'ACCOUNT_IN_USE', details: { accountId: food.id, transactions: 2 } },
+    })
+    expect(getDocument(ledger.db, 'account', food.id)?.doc.deletedAt).toBeNull()
+  })
+
+  test('an account whose only transaction is deleted can be deleted, in the same batch', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id)
+    ok(applyLocal(ledger, [spend], NOW))
+    ok(applyLocal(ledger, [{ ...food, deletedAt: NOW }, tombstoneOf(spend)], NOW))
+    expect(getDocument(ledger.db, 'account', food.id)?.doc.deletedAt).toBe(NOW)
+  })
+
+  test('`at` is the place in the batch as passed, though accounts are applied first', () => {
+    const ledger = tempLedger()
+    const cash = anAccount()
+    expect(applyLocal(ledger, [aSpend(cash.id, MISSING), cash], NOW)).toMatchObject({
+      ok: false,
+      failure: { at: 0, code: 'ACCOUNT_NOT_FOUND' },
+    })
+  })
+
+  test('a batch of three with a bad third writes nothing, and the clock does not move', () => {
+    const { ledger, cash, food } = withAccounts()
+    const clock = loadClock(ledger.db)
+    const batch = [aSpend(cash.id, food.id), aSpend(cash.id, food.id), aSpend(cash.id, MISSING)]
+
+    expect(applyLocal(ledger, batch, NOW)).toMatchObject({
+      ok: false,
+      failure: { at: 2, code: 'ACCOUNT_NOT_FOUND' },
+    })
+    expect(count(ledger, 'transactions')).toBe(0)
+    expect(count(ledger, 'postings')).toBe(0)
+    expect(loadClock(ledger.db)).toEqual(clock)
+  })
+})

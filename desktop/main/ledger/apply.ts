@@ -3,12 +3,13 @@
 
 import { tick } from '@have-fish/core/clock'
 import { decide } from '@have-fish/core/decide'
-import { type LedgerDocument, readDocument } from '@have-fish/core/documents'
+import { type LedgerDocument, readDocument, type TransactionDoc } from '@have-fish/core/documents'
 import type { FailureCode, FailureDetails, Outcome } from '@have-fish/core/outcome'
 import { formatVersion, type Version } from '@have-fish/core/version'
+import type Database from 'better-sqlite3'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
-import { getDocument, putDocument } from './store'
+import { countTransactionsUsing, getDocument, putDocument } from './store'
 
 export type Written = { type: LedgerDocument['type']; id: string; version: Version }
 
@@ -75,6 +76,7 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
     clock = ticked.value.clock
     const { version } = ticked.value
 
+    if (doc.type === 'transaction') checkPostedAccounts(db, at, doc)
     const stored = getDocument(db, doc.type, doc.id)
     // The clock has seen every version in this file, so a tick beats them all. If it doesn't,
     // the file holds a version the clock never saw: a bug, not an edit to drop quietly.
@@ -88,6 +90,31 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
     written.push({ type: doc.type, id: doc.id, version })
   }
 
+  // After the whole batch, so deleting an account with the transactions that used it succeeds.
+  for (const { at, doc } of items) {
+    if (doc.type === 'account' && doc.deletedAt !== null) checkUnused(db, at, doc.id)
+  }
+
   saveClock(db, clock)
   return { written, same: 0, stale: 0, refused: [] }
+}
+
+/** A local posting points at an account this file holds, and that is live. */
+function checkPostedAccounts(db: Database.Database, at: number, doc: TransactionDoc): void {
+  for (const accountId of new Set(doc.postings.map((p) => p.accountId))) {
+    const account = getDocument(db, 'account', accountId)
+    if (account === null)
+      throw new Refused({ at, code: 'ACCOUNT_NOT_FOUND', details: { accountId } })
+    if (account.doc.deletedAt !== null) {
+      throw new Refused({ at, code: 'ACCOUNT_DELETED', details: { accountId } })
+    }
+  }
+}
+
+/** A locally deleted account has no live transactions posting to it. */
+function checkUnused(db: Database.Database, at: number, accountId: string): void {
+  const transactions = countTransactionsUsing(db, accountId)
+  if (transactions > 0) {
+    throw new Refused({ at, code: 'ACCOUNT_IN_USE', details: { accountId, transactions } })
+  }
 }
