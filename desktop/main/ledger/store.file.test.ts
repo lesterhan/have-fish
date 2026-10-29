@@ -33,7 +33,7 @@ test('a new ledger file has the document tables, and refuses an amount as text',
   const id = '00000000-0000-4000-8000-000000000001'
   ledger.db
     .prepare(
-      `INSERT INTO transactions (id, date, description, version) VALUES (?, '2026-10-29', '', 'v')`,
+      `INSERT INTO transactions (id, date, description, version, originSource, originCreatedAt, originDeviceId) VALUES (?, '2026-10-29', '', 'v', 'manual', 0, '0123456789abcdef')`,
     )
     .run(id)
   const insertText = () =>

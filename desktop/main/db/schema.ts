@@ -51,6 +51,15 @@ export const accounts = sqliteTable(
     deletedAt: integer(),
     /** The version's text form, which sorts in version order. */
     version: text().notNull(),
+    /** The document's `origin`, flattened so one import is a plain query. */
+    originSource: text().notNull(),
+    /** UTC ms. */
+    originCreatedAt: integer().notNull(),
+    originDeviceId: text().notNull(),
+    /** Always null: nothing imports accounts. Kept so both tables read alike. */
+    originFile: text(),
+    originLine: integer(),
+    originText: text(),
   },
   (t) => [index('accounts_path_key').on(t.pathKey)],
 )
@@ -67,6 +76,15 @@ export const transactions = sqliteTable(
     deletedAt: integer(),
     /** The version's text form, which sorts in version order. */
     version: text().notNull(),
+    /** The document's `origin`, flattened so one import is a plain query. */
+    originSource: text().notNull(),
+    /** UTC ms. */
+    originCreatedAt: integer().notNull(),
+    originDeviceId: text().notNull(),
+    /** Null unless `originSource` is `import`. */
+    originFile: text(),
+    originLine: integer(),
+    originText: text(),
   },
   (t) => [index('transactions_date').on(t.date)],
 )
