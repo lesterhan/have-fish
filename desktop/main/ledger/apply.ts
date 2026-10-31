@@ -4,7 +4,7 @@
 import { type Clock, MAX_DRIFT_MS, receive, tick } from '@have-fish/core/clock'
 import { decide } from '@have-fish/core/decide'
 import { type LedgerDocument, readDocument, type TransactionDoc } from '@have-fish/core/documents'
-import type { FailureCode, FailureDetails, Outcome } from '@have-fish/core/outcome'
+import type { Failure } from '@have-fish/core/outcome'
 import { formatVersion, type Version } from '@have-fish/core/version'
 import { readVersioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
@@ -15,7 +15,7 @@ import { countTransactionsUsing, getDocument, putDocument } from './store'
 export type Written = { type: LedgerDocument['type']; id: string; version: Version }
 
 /** An item a batch refused: where it was in the batch as passed, and why. */
-export type Refusal = { at: number; code: FailureCode; details: FailureDetails[FailureCode] }
+export type Refusal = Failure & { at: number }
 
 export type Applied = {
   written: Written[]
@@ -30,7 +30,6 @@ export type Applied = {
 /** An `Outcome` whose failure also says which item failed. */
 export type BatchOutcome = { ok: true; value: Applied } | { ok: false; failure: Refusal }
 
-type Failure = Extract<Outcome<never>, { ok: false }>['failure']
 const refusal = (at: number, failure: Failure): Refusal => ({ at, ...failure })
 
 /** A checked document, and where it was in the batch as passed. */

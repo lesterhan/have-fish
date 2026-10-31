@@ -20,14 +20,17 @@ export interface FailureDetails {
 }
 
 export type FailureCode = keyof FailureDetails
-export type Outcome<T> =
-  | { ok: true; value: T }
-  | { ok: false; failure: { code: FailureCode; details: FailureDetails[FailureCode] } }
+
+/** One member per code, so checking `code` narrows `details`. */
+export type Failure = { [C in FailureCode]: { code: C; details: FailureDetails[C] } }[FailureCode]
+
+export type Outcome<T> = { ok: true; value: T } | { ok: false; failure: Failure }
 
 type DetailArgs<C extends FailureCode> = FailureDetails[C] extends undefined
   ? []
   : [FailureDetails[C]]
 
 export function failure<C extends FailureCode>(code: C, ...details: DetailArgs<C>): Outcome<never> {
-  return { ok: false, failure: { code, details: details[0] } }
+  // tsc can't match a generic C to one member of Failure; the signature already ties details to code.
+  return { ok: false, failure: { code, details: details[0] } as Failure }
 }

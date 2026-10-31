@@ -52,3 +52,12 @@ test('only the codes in the table exist', () => {
   // @ts-expect-error not a code
   failure('NOT_A_CODE')
 })
+
+test('checking the code narrows the details to that code’s', () => {
+  const outcome = failure('ACCOUNT_IN_USE', { accountId: 'a', transactions: 2 })
+  if (outcome.ok) return
+  const f = outcome.failure
+  if (f.code === 'ACCOUNT_IN_USE') expectTypeOf(f.details.transactions).toEqualTypeOf<number>()
+  // @ts-expect-error without the check, details could be any code's
+  f.details.transactions
+})
