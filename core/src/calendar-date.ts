@@ -14,3 +14,15 @@ export function isCalendarDate(value: string): boolean {
   const d = new Date(`${value}T00:00:00Z`)
   return !Number.isNaN(d.getTime()) && d.toISOString().slice(0, 10) === value
 }
+
+const DAY_PARTS = { year: 'numeric', month: '2-digit', day: '2-digit' } as const
+
+/**
+ * The calendar day `now` (UTC ms) falls on in `timeZone` (an IANA name). Pure: the caller
+ * passes both, as it does `now` everywhere in the core.
+ */
+export function calendarDateAt(now: number, timeZone: string): string {
+  const parts = new Intl.DateTimeFormat('en-US', { timeZone, ...DAY_PARTS }).formatToParts(now)
+  const part = (type: keyof typeof DAY_PARTS) => parts.find((p) => p.type === type)?.value ?? ''
+  return `${part('year').padStart(4, '0')}-${part('month')}-${part('day')}`
+}

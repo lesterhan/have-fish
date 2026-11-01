@@ -1,0 +1,37 @@
+# How `bun run package` turns out/ into an app you install. Linux first, as an AppImage.
+appId: io.github.lesterhan.havefish
+productName: have-fish
+executableName: have-fish
+directories:
+  output: dist
+# Only `dependencies` ship as they are, and the only one is better-sqlite3: everything else main
+# uses is bundled into out/, so it's under devDependencies.
+files:
+  - out/**
+  - package.json
+  # This machine's binary only, and none of the sources it was built from.
+  - "!node_modules/better-sqlite3/prebuilds/!(${platform}-${arch}).node"
+  - "!node_modules/better-sqlite3/{deps,src}/**"
+  - "!node_modules/better-sqlite3/binding.gyp"
+  # Headers for compiling a native module; nothing loads them.
+  - "!node_modules/node-addon-api/**"
+# better-sqlite3 ships prebuilt N-API binaries, which load in Electron as they are.
+npmRebuild: false
+# No releases until the rewrite replaces the current app, so nothing to update from.
+publish: null
+# Turned off in the shipped binary: running it as plain Node, NODE_OPTIONS or --inspect
+# reaching into it, and file:// pages' extra powers (the window loads from app://). The app loads
+# only from its own archive.
+electronFuses:
+  runAsNode: false
+  enableNodeOptionsEnvironmentVariable: false
+  enableNodeCliInspectArguments: false
+  grantFileProtocolExtraPrivileges: false
+  onlyLoadAppFromAsar: true
+linux:
+  target: AppImage
+  category: Office
+  synopsis: A personal finance ledger
+mac:
+  target: dmg
+  category: public.app-category.finance

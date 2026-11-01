@@ -3,6 +3,7 @@ import { ACCOUNT_KINDS, rootOf } from './account-kind'
 import { isValidPath } from './account-path'
 import { isCalendarDate } from './calendar-date'
 import { isValidCurrency } from './currencies'
+import { firstIssue } from './first-issue'
 import { cents, format } from './money'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
@@ -87,27 +88,8 @@ export type LedgerDocument = z.infer<typeof DocumentSchema>
 
 export function readShape(input: unknown): Outcome<LedgerDocument> {
   const result = DocumentSchema.safeParse(input)
-  if (!result.success) {
-    const firstIssue = result.error.issues[0]
-
-    if (firstIssue === undefined) {
-      return failure('DOCUMENT_MALFORMED', { path: 'Unknown', issue: 'Unknown' })
-    }
-
-    if (firstIssue.code === 'unrecognized_keys') {
-      const errorPath = [...firstIssue.path, firstIssue.keys[0]]
-      return failure('DOCUMENT_MALFORMED', { path: errorPath.join('.'), issue: firstIssue.code })
-    }
-
-    return failure('DOCUMENT_MALFORMED', {
-      path: firstIssue.path.join('.'),
-      issue: firstIssue.code,
-    })
-  }
-  return {
-    ok: true,
-    value: result.data,
-  }
+  if (!result.success) return failure('DOCUMENT_MALFORMED', firstIssue(result.error))
+  return { ok: true, value: result.data }
 }
 
 function canonicalize(doc: TransactionDoc): TransactionDoc {
