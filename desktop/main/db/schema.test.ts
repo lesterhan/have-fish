@@ -133,6 +133,23 @@ describe('the ledger tables', () => {
     expect(indexes('postings')).toEqual(['postings_account_id'])
   })
 
+  test('outbox, keyed by a row id, with one row per document', () => {
+    expect(columns('outbox')).toEqual([
+      'rowId TEXT not null',
+      'docType TEXT not null',
+      'docId TEXT not null',
+      'version TEXT not null',
+      'body TEXT not null',
+    ])
+    expect(indexes('outbox')).toEqual(['outbox_doc'])
+    const insert = db.prepare(
+      `INSERT INTO outbox (rowId, docType, docId, version, body) VALUES (?, ?, ?, 'v', '{}')`,
+    )
+    insert.run('row-1', 'transaction', 'doc-1')
+    insert.run('row-2', 'account', 'doc-1')
+    expect(() => insert.run('row-3', 'transaction', 'doc-1')).toThrow('UNIQUE constraint failed')
+  })
+
   test('only the transaction is a foreign key: an account can arrive after its postings', () => {
     expect(foreignKeys('postings')).toEqual(['transactionId -> transactions on delete CASCADE'])
   })

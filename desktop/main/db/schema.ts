@@ -1,7 +1,15 @@
 import { ACCOUNT_KINDS } from '@have-fish/core/account-kind'
-import type { OriginSource } from '@have-fish/core/documents'
+import type { LedgerDocument, OriginSource } from '@have-fish/core/documents'
 import { sql } from 'drizzle-orm'
-import { check, index, integer, primaryKey, sqliteTable, text } from 'drizzle-orm/sqlite-core'
+import {
+  check,
+  index,
+  integer,
+  primaryKey,
+  sqliteTable,
+  text,
+  uniqueIndex,
+} from 'drizzle-orm/sqlite-core'
 
 // A column takes its name from its key, so the SQL names match the TypeScript ones.
 
@@ -112,4 +120,23 @@ export const postings = sqliteTable(
     // SQLite stores any value in any column, and a text amount would sum as a float.
     check('postings_amount_cents_integer', sql`typeof(${t.amountCents}) = 'integer'`),
   ],
+)
+
+/**
+ * What this device has written that sync hasn't sent: one row per document, holding its latest
+ * local version. Written in the same SQLite transaction as the document.
+ */
+export const outbox = sqliteTable(
+  'outbox',
+  {
+    /** Random, and new on every write. Sync acknowledges by it, so an edit made mid-push stays. */
+    rowId: text().primaryKey(),
+    docType: text().$type<LedgerDocument['type']>().notNull(),
+    docId: text().notNull(),
+    /** The version's text form, which sorts in version order. */
+    version: text().notNull(),
+    /** `{ doc, version }` as JSON, which `readVersioned` reads: what sync seals and sends. */
+    body: text().notNull(),
+  },
+  (t) => [uniqueIndex('outbox_doc').on(t.docType, t.docId)],
 )

@@ -29,6 +29,13 @@
       "when": 1793507825432,
       "tag": "0003_account-currency",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1793508829715,
+      "tag": "0004_outbox",
+      "breakpoints": true
     }
   ]
 }

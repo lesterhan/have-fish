@@ -40,5 +40,12 @@ export const MIGRATIONS: readonly Migration[] = [
     "statements": [
       "ALTER TABLE `accounts` ADD `currency` text;"
     ]
+  },
+  {
+    "tag": "0004_outbox",
+    "statements": [
+      "CREATE TABLE `outbox` (\n\t`rowId` text PRIMARY KEY NOT NULL,\n\t`docType` text NOT NULL,\n\t`docId` text NOT NULL,\n\t`version` text NOT NULL,\n\t`body` text NOT NULL\n);",
+      "CREATE UNIQUE INDEX `outbox_doc` ON `outbox` (`docType`,`docId`);"
+    ]
   }
 ]
