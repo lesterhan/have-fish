@@ -34,5 +34,11 @@ export const MIGRATIONS: readonly Migration[] = [
       "ALTER TABLE `__new_transactions` RENAME TO `transactions`;",
       "CREATE INDEX `transactions_date` ON `transactions` (`date`);"
     ]
+  },
+  {
+    "tag": "0003_account-currency",
+    "statements": [
+      "ALTER TABLE `accounts` ADD `currency` text;"
+    ]
   }
 ]

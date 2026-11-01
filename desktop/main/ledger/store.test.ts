@@ -38,7 +38,15 @@ const SPEND: Versioned<TransactionDoc> = {
 }
 
 const cash = (id: string): Versioned<AccountDoc> => ({
-  doc: { type: 'account', id, path: 'assets:cash', kind: 'cash', deletedAt: null, origin: MANUAL },
+  doc: {
+    type: 'account',
+    id,
+    path: 'assets:cash',
+    kind: 'cash',
+    currency: null,
+    deletedAt: null,
+    origin: MANUAL,
+  },
   version: V1,
 })
 

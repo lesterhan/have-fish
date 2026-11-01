@@ -22,6 +22,13 @@
       "when": 1793279141510,
       "tag": "0002_origin",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "6",
+      "when": 1793507825432,
+      "tag": "0003_account-currency",
+      "breakpoints": true
     }
   ]
 }

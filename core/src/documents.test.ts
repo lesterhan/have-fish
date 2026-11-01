@@ -43,6 +43,7 @@ const ACCOUNT = {
   id: UUID,
   path: 'expenses:coffee:beans',
   kind: 'category',
+  currency: null,
   deletedAt: null,
   origin: SYSTEM,
 } as const
@@ -164,6 +165,12 @@ describe('readShape', () => {
       'unrecognized_keys',
     ],
     ['invalid account kind', { ...ACCOUNT, kind: 'piggybank' }, 'kind', 'invalid_value'],
+    [
+      'an account with no currency field',
+      { ...ACCOUNT, currency: undefined },
+      'currency',
+      'invalid_type',
+    ],
     ['no origin', { ...SPEND, origin: undefined }, 'origin', 'invalid_type'],
     [
       'an unknown source',
@@ -249,6 +256,11 @@ describe('readDocument', () => {
       ok: true,
       value: { ...ACCOUNT, origin },
     })
+  })
+
+  it('reads an account locked to one currency', () => {
+    const card = { ...ACCOUNT, path: 'liabilities:visa', kind: 'card', currency: 'CAD' }
+    expect(readDocument(card)).toStrictEqual({ ok: true, value: card })
   })
 
   it('reads a valid account', () => {
@@ -343,6 +355,18 @@ describe('readDocument', () => {
       { ...ACCOUNT, path: 'expenses:coffee:beans', kind: 'card' },
       'PATH_ROOT_MISMATCH',
       { path: 'expenses:coffee:beans', kind: 'card', expected: 'liabilities' },
+    ],
+    [
+      'an account locked to an unsupported currency',
+      { ...ACCOUNT, currency: 'XYZ' },
+      'UNSUPPORTED_CURRENCY',
+      { currency: 'XYZ' },
+    ],
+    [
+      'an empty currency standing in for any',
+      { ...ACCOUNT, currency: '' },
+      'UNSUPPORTED_CURRENCY',
+      { currency: '' },
     ],
   ])('refuses %s', (_title, document, code, details) => {
     expect(readDocument(document)).toStrictEqual({

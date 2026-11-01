@@ -29,6 +29,7 @@ const account = (n: number, path: string, kind: AccountDoc['kind']): AccountDoc 
   id: uuid(n),
   path,
   kind,
+  currency: null,
   deletedAt: null,
   origin: MANUAL,
 })
