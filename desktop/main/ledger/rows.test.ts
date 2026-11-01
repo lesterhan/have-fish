@@ -41,6 +41,7 @@ const ACCOUNT: Versioned<AccountDoc> = {
     id: ACCOUNT_ID,
     path: 'assets:CASH',
     kind: 'cash',
+    currency: null,
     deletedAt: null,
     origin: { source: 'system', ...MADE },
   },
@@ -89,6 +90,7 @@ describe('rowsOf', () => {
         deletedAt: null,
         path: 'assets:CASH',
         kind: 'cash',
+        currency: null,
         version: '2026-10-29T12:00:00.000Z-0000-0123456789abcdef',
         pathKey: 'assets:cash',
         originSource: 'system',
@@ -133,6 +135,13 @@ describe('docOf', () => {
   test('account round trip does not change a document', () => {
     const { account } = rowsOf(ACCOUNT)
     expect(docOf(account)).toEqual(ACCOUNT)
+  })
+
+  test('a locked account keeps its currency in its column', () => {
+    const locked = { ...ACCOUNT, doc: { ...ACCOUNT.doc, currency: 'CAD' } }
+    const { account } = rowsOf(locked)
+    expect(account.currency).toBe('CAD')
+    expect(docOf(account)).toEqual(locked)
   })
 
   test('tombstoned doc has no postings, return unchanged', () => {

@@ -51,6 +51,7 @@ export function anAccount(fields: Partial<AccountDoc> = {}): AccountDoc {
     id: randomUUID(),
     path: 'assets:cash',
     kind: 'cash',
+    currency: null,
     deletedAt: null,
     origin: MANUAL,
     ...fields,

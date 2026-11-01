@@ -95,6 +95,7 @@ describe('the ledger tables', () => {
       'originFile TEXT',
       'originLine INTEGER',
       'originText TEXT',
+      'currency TEXT',
     ])
     expect(indexes('accounts')).toEqual(['accounts_path_key'])
   })
@@ -166,6 +167,18 @@ describe('the ledger tables', () => {
     expect(db.prepare('SELECT count(*) FROM postings').pluck().get()).toBe(0)
   })
 
+  test('an account takes no currency, meaning any, or one', () => {
+    const insert = db.prepare(
+      `INSERT INTO accounts (id, path, pathKey, kind, currency, version, originSource, originCreatedAt, originDeviceId) VALUES (?, 'assets:cash', 'assets:cash', 'cash', ?, 'v', 'manual', 0, '0123456789abcdef')`,
+    )
+    insert.run(ACCOUNT, null)
+    insert.run(TXN, 'CAD')
+    expect(db.prepare('SELECT currency FROM accounts ORDER BY currency').pluck().all()).toEqual([
+      null,
+      'CAD',
+    ])
+  })
+
   test('two accounts can share a path', () => {
     const insert = db.prepare(
       `INSERT INTO accounts (id, path, pathKey, kind, version, originSource, originCreatedAt, originDeviceId) VALUES (?, 'assets:cash', 'assets:cash', 'cash', 'v', 'manual', 0, '0123456789abcdef')`,
@@ -204,7 +217,8 @@ describe('0002_origin', () => {
 
     const backups = mkdtempSync(join(tmpdir(), 'havefish-origin-'))
     onTestFinished(() => rmSync(backups, { recursive: true, force: true }))
-    expect(migrate(old, MIGRATIONS, NOW, backups)).toEqual({ ok: true, value: ['0002_origin'] })
+    const through = MIGRATIONS.filter((m) => m.tag <= '0002_origin')
+    expect(migrate(old, through, NOW, backups)).toEqual({ ok: true, value: ['0002_origin'] })
 
     const placeholder = {
       originSource: 'manual',

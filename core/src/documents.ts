@@ -2,6 +2,7 @@ import { z } from 'zod'
 import { ACCOUNT_KINDS, rootOf } from './account-kind'
 import { isValidPath } from './account-path'
 import { isCalendarDate } from './calendar-date'
+import { isValidCurrency } from './currencies'
 import { cents, format } from './money'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
@@ -68,6 +69,8 @@ export const AccountSchema = z.strictObject({
   id: z.uuid(),
   path: z.string(),
   kind: z.enum(ACCOUNT_KINDS),
+  /** The one currency its postings carry, or null for any. */
+  currency: z.string().nullable(),
   deletedAt: z.number().nullable(),
   origin: AccountOriginSchema,
 })
@@ -132,6 +135,7 @@ function checkTransaction(doc: TransactionDoc): Outcome<void> {
  * An account must:
  * - have a valid path
  * - have path root matched with the kind of account
+ * - be locked to a supported currency, if locked at all
  */
 function checkAccount(doc: AccountDoc): Outcome<void> {
   if (!isValidPath(doc.path)) {
@@ -147,6 +151,10 @@ function checkAccount(doc: AccountDoc): Outcome<void> {
       kind: doc.kind,
       expected,
     })
+  }
+
+  if (doc.currency !== null && !isValidCurrency(doc.currency)) {
+    return failure('UNSUPPORTED_CURRENCY', { currency: doc.currency })
   }
   return { ok: true, value: undefined }
 }

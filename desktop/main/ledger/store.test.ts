@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { migrate } from '../db/migrate'
 import { MIGRATIONS } from '../db/migrations'
 import { transactions } from '../db/schema'
-import { getDocument, putDocument } from './store'
+import { currenciesPostedTo, getDocument, putDocument } from './store'
 
 const NOW = Date.UTC(2026, 9, 29, 12)
 const SPEND_ID = '00000000-0000-4000-8000-000000000001'
@@ -38,7 +38,15 @@ const SPEND: Versioned<TransactionDoc> = {
 }
 
 const cash = (id: string): Versioned<AccountDoc> => ({
-  doc: { type: 'account', id, path: 'assets:cash', kind: 'cash', deletedAt: null, origin: MANUAL },
+  doc: {
+    type: 'account',
+    id,
+    path: 'assets:cash',
+    kind: 'cash',
+    currency: null,
+    deletedAt: null,
+    origin: MANUAL,
+  },
   version: V1,
 })
 
@@ -112,6 +120,16 @@ describe('putDocument and getDocument', () => {
     expect(ids).toEqual([spend(1, october).doc.id, spend(2, october).doc.id])
   })
 
+  test.each([
+    ['open to any currency', null],
+    ['locked to CAD', 'CAD'],
+  ])('an account %s comes back as readDocument read it', (_title, currency) => {
+    const read = readDocument({ ...cash(CARD).doc, currency })
+    if (!read.ok) throw new Error(JSON.stringify(read.failure))
+    putDocument(db, { doc: read.value, version: V1 })
+    expect(getDocument(db, 'account', CARD)).toEqual({ doc: read.value, version: V1 })
+  })
+
   test('an unknown id, or one of the other type, is null', () => {
     putDocument(db, SPEND)
     putDocument(db, cash(CARD))
@@ -172,6 +190,31 @@ describe('putDocument and getDocument', () => {
     putDocument(db, deleted)
     expect(count('accounts')).toBe(1)
     expect(getDocument(db, 'account', CARD)).toEqual(deleted)
+  })
+})
+
+describe('currenciesPostedTo', () => {
+  test('the distinct currencies posted to an account, sorted', () => {
+    const conversion = (id: string, legs: [string, string, string][]) => ({
+      doc: {
+        ...SPEND.doc,
+        id,
+        postings: legs.map(([accountId, amount, currency]) => ({ accountId, amount, currency })),
+      },
+      version: V1,
+    })
+    putDocument(
+      db,
+      conversion('00000000-0000-4000-8000-000000000011', [
+        [CARD, '-1500', 'JPY'],
+        [GROCERIES, '1500', 'JPY'],
+        [CARD, '-5.00', 'CAD'],
+        [GROCERIES, '5.00', 'CAD'],
+      ]),
+    )
+
+    expect(currenciesPostedTo(db, CARD)).toEqual(['CAD', 'JPY'])
+    expect(currenciesPostedTo(db, RESTAURANTS)).toEqual([])
   })
 })
 

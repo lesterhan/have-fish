@@ -85,6 +85,17 @@ export function countTransactionsUsing(db: Database.Database, accountId: string)
   return row?.n ?? 0
 }
 
+/** The currencies posted to this account, sorted. A tombstone has no postings, so all are live. */
+export function currenciesPostedTo(db: Database.Database, accountId: string): string[] {
+  return drizzle(db)
+    .selectDistinct({ currency: postings.currency })
+    .from(postings)
+    .where(eq(postings.accountId, accountId))
+    .orderBy(postings.currency)
+    .all()
+    .map((r) => r.currency)
+}
+
 /**
  * Postings whose account the file doesn't hold yet: a received transaction can arrive before
  * its account. A query, never stored, so it clears itself when the account arrives.

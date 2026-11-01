@@ -17,6 +17,10 @@ export interface FailureDetails {
   ACCOUNT_DELETED: { accountId: string }
   /** `transactions`: how many live transactions post to it. */
   ACCOUNT_IN_USE: { accountId: string; transactions: number }
+  /** A local posting in another currency than the one its account is locked to. */
+  ACCOUNT_CURRENCY_LOCKED: { accountId: string; currency: string; locked: string }
+  /** A local lock on an account whose live postings carry `currencies` besides it. */
+  ACCOUNT_HOLDS_OTHER_CURRENCIES: { accountId: string; currencies: string[] }
   /** A local write gave an existing document another origin. */
   ORIGIN_CHANGED: { id: string }
 }

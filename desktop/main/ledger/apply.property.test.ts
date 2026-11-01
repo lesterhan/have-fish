@@ -23,17 +23,24 @@ import { getDocument } from './store'
 
 const uuid = (n: number) => `00000000-0000-4000-8000-${n.toString(16).padStart(12, '0')}`
 
-// Both devices start with these accounts, and edit the same three transactions.
-const account = (n: number, path: string, kind: AccountDoc['kind']): AccountDoc => ({
+// Both devices start with these accounts, and edit the same three transactions. Every spend is
+// CAD, so the locked cash account never refuses one.
+const account = (
+  n: number,
+  path: string,
+  kind: AccountDoc['kind'],
+  currency: string | null = null,
+): AccountDoc => ({
   type: 'account',
   id: uuid(n),
   path,
   kind,
+  currency,
   deletedAt: null,
   origin: MANUAL,
 })
 const ACCOUNTS: AccountDoc[] = [
-  account(0xa1, 'assets:cash', 'cash'),
+  account(0xa1, 'assets:cash', 'cash', 'CAD'),
   account(0xa2, 'expenses:food', 'category'),
   account(0xa3, 'expenses:fun', 'category'),
 ]

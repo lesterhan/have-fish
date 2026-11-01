@@ -125,6 +125,7 @@ const accountDoc: fc.Arbitrary<AccountDoc> = fc
       id: fc.uuid(),
       path: fc.constant([rootOf(kind), ...segments].join(':')),
       kind: fc.constant(kind),
+      currency: fc.option(fc.constantFrom(...CURRENCIES), { nil: null }),
       deletedAt: fc.option(deletedAt, { nil: null }),
       origin: accountOrigin,
     }),

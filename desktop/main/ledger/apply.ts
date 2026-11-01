@@ -11,7 +11,7 @@ import { readVersioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
-import { countTransactionsUsing, getDocument, putDocument } from './store'
+import { countTransactionsUsing, currenciesPostedTo, getDocument, putDocument } from './store'
 
 export type Written = { type: LedgerDocument['type']; id: string; version: Version }
 
@@ -110,6 +110,8 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
   const { db } = ledger
   let clock = loadClock(db)
   const written: Written[] = []
+  /** Locks this batch sets, by account: the last word on each is the one checked. */
+  const locks = new Map<string, { at: number; locked: string }>()
 
   for (const { at, doc } of items) {
     const ticked = tick(clock, now, ledger.meta.deviceId)
@@ -118,7 +120,7 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
     const { version } = ticked.value
 
     if (doc.type === 'transaction') checkPostedAccounts(db, at, doc)
-    const { decision, stored } = store(db, doc, version, { at })
+    const { decision, stored, previous } = store(db, doc, version, { at })
     // The clock has seen every version in this file, so a tick beats them all. If it doesn't,
     // the file holds a version the clock never saw: a bug, not an edit to drop quietly.
     if (decision !== 'write') {
@@ -128,12 +130,21 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
       )
     }
     written.push({ type: doc.type, id: doc.id, version })
+
+    // Only a lock this write sets: a rename keeps whatever the lock already holds.
+    if (doc.type === 'account') {
+      const was = previous?.type === 'account' ? previous.currency : null
+      if (doc.currency === null) locks.delete(doc.id)
+      else if (doc.currency !== was) locks.set(doc.id, { at, locked: doc.currency })
+    }
   }
 
-  // After the whole batch, so deleting an account with the transactions that used it succeeds.
+  // After the whole batch, so deleting an account with the transactions that used it succeeds,
+  // and so does locking one in the batch that moves its other currencies off it.
   for (const { at, doc } of items) {
     if (doc.type === 'account' && doc.deletedAt !== null) checkUnused(db, at, doc.id)
   }
+  for (const [accountId, { at, locked }] of locks) checkLockFits(db, at, accountId, locked)
 
   saveClock(db, clock)
   return { written, same: 0, stale: 0, refused: [], clockAhead: isAhead(clock, now) }
@@ -156,13 +167,13 @@ function store(
   const stored = current?.version ?? null
   const decision = decide(stored, version)
   if (decision === 'write') putDocument(db, { doc, version })
-  return { decision, stored }
+  return { decision, stored, previous: current?.doc ?? null }
 }
 
 /** A clock stuck in the future (a device that once read 2030) is reported, not refused. */
 const isAhead = (clock: Clock, now: number) => clock.wallMs > now + MAX_DRIFT_MS
 
-/** A local posting points at an account this file holds, and that is live. */
+/** A local posting points at an account this file holds, that is live, in a currency it takes. */
 function checkPostedAccounts(db: Database.Database, at: number, doc: TransactionDoc): void {
   for (const accountId of new Set(doc.postings.map((p) => p.accountId))) {
     const account = getDocument(db, 'account', accountId)
@@ -172,6 +183,16 @@ function checkPostedAccounts(db: Database.Database, at: number, doc: Transaction
     if (account.doc.deletedAt !== null) {
       throw new Refused({ at, code: 'ACCOUNT_DELETED', details: { accountId } })
     }
+    const locked = account.doc.currency
+    if (locked === null) continue
+    const other = doc.postings.find((p) => p.accountId === accountId && p.currency !== locked)
+    if (other !== undefined) {
+      throw new Refused({
+        at,
+        code: 'ACCOUNT_CURRENCY_LOCKED',
+        details: { accountId, currency: other.currency, locked },
+      })
+    }
   }
 }
 
@@ -180,5 +201,17 @@ function checkUnused(db: Database.Database, at: number, accountId: string): void
   const transactions = countTransactionsUsing(db, accountId)
   if (transactions > 0) {
     throw new Refused({ at, code: 'ACCOUNT_IN_USE', details: { accountId, transactions } })
+  }
+}
+
+/** A lock set locally fits what the account already holds. */
+function checkLockFits(db: Database.Database, at: number, accountId: string, locked: string) {
+  const currencies = currenciesPostedTo(db, accountId).filter((c) => c !== locked)
+  if (currencies.length > 0) {
+    throw new Refused({
+      at,
+      code: 'ACCOUNT_HOLDS_OTHER_CURRENCIES',
+      details: { accountId, currencies },
+    })
   }
 }

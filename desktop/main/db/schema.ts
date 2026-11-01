@@ -48,6 +48,8 @@ export const accounts = sqliteTable(
     pathKey: text().notNull(),
     /** `enum` types the column only. No CHECK: the list grows, and each change would rebuild the table. */
     kind: text({ enum: ACCOUNT_KINDS }).notNull(),
+    /** The one currency its postings carry, or null for any. */
+    currency: text(),
     /** UTC ms. */
     deletedAt: integer(),
     /** The version's text form, which sorts in version order. */

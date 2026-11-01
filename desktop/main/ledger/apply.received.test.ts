@@ -60,6 +60,40 @@ describe('applyReceived', () => {
     expect(getDocument(ledger.db, 'transaction', spend.id)).toEqual(edit)
   })
 
+  test('a posting in another currency than its account is locked to is stored as it came', () => {
+    const ledger = tempLedger()
+    const card = anAccount({ path: 'liabilities:visa', kind: 'card', currency: 'CAD' })
+    const yen = aSpend(card.id, FOOD.id, '1500', {
+      postings: [
+        { accountId: card.id, amount: '-1500.00', currency: 'JPY' },
+        { accountId: FOOD.id, amount: '1500.00', currency: 'JPY' },
+      ],
+    })
+    const items = [
+      ...ACCOUNTS,
+      { doc: card, version: at(NOW - 2000) },
+      { doc: yen, version: at(NOW) },
+    ]
+
+    expect(applyReceived(ledger, items, NOW).refused).toEqual([])
+    expect(getDocument(ledger.db, 'transaction', yen.id)?.doc).toEqual(yen)
+  })
+
+  test('a lock on an account that holds another currency is stored as it came', () => {
+    const ledger = tempLedger()
+    const yen = aSpend(CASH.id, FOOD.id, '1500', {
+      postings: [
+        { accountId: CASH.id, amount: '-1500.00', currency: 'JPY' },
+        { accountId: FOOD.id, amount: '1500.00', currency: 'JPY' },
+      ],
+    })
+    applyReceived(ledger, [...ACCOUNTS, { doc: yen, version: at(NOW - 1000) }], NOW)
+    const locked = { doc: { ...FOOD, currency: 'CAD' }, version: at(NOW) }
+
+    expect(applyReceived(ledger, [locked], NOW).refused).toEqual([])
+    expect(getDocument(ledger.db, 'account', FOOD.id)).toEqual(locked)
+  })
+
   test('a tombstone for an unknown id is stored, so an older live version is stale', () => {
     const ledger = tempLedger()
     const spend = aSpend(CASH.id, FOOD.id)
