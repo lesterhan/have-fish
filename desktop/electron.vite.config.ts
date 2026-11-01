@@ -10,7 +10,14 @@ export default defineConfig({
     build: {
       // Bundled, so the packaged app ships only what can't be: better-sqlite3's native binary.
       externalizeDeps: { exclude: ['@have-fish/core', 'drizzle-orm', 'zod'] },
-      rollupOptions: { input: { index: resolve('main/index.ts') } },
+      rollupOptions: {
+        input: { index: resolve('main/index.ts') },
+        onwarn(warning, warn) {
+          // Comments in zod that Rollup can't place; it drops them, and the bundle is fine.
+          if (warning.code === 'INVALID_ANNOTATION' && warning.id?.includes('/zod/')) return
+          warn(warning)
+        },
+      },
     },
   },
   preload: {

@@ -25,7 +25,7 @@ const WORDS: { [C in FailureCode]?: string } = {
   AMOUNT_INVALID: "That isn't an amount. Type a number, like 4.50.",
   AMOUNT_NOT_POSITIVE: 'A spend has to be more than zero.',
   DOCUMENT_MALFORMED: "Some of that text can't be saved. Try typing it again.",
-  UNEXPECTED: 'Something went wrong. The details are in the log.',
+  UNEXPECTED: 'Something went wrong. Try again.',
 }
 
 export function wordsFor(failure: WireFailure): string {

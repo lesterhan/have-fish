@@ -1,4 +1,4 @@
-// Entry-1's acceptance, in the built app.
+// Writing down a spend, as a person does it, in the built app.
 
 import { spawnSync } from 'node:child_process'
 import { existsSync } from 'node:fs'

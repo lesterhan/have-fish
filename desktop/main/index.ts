@@ -4,6 +4,7 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
 import { CHANGED, COMMAND } from '../shared/channels'
+import type { Changed } from '../shared/commands'
 import { runCommand } from './commands/run'
 import { type Context, contextFor } from './context'
 import { cannotOpen, failedToStart } from './copy'
@@ -101,6 +102,6 @@ function handleCommands(ctx: Context): void {
   })
 }
 
-function announce(changed: unknown): void {
+function announce(changed: Changed[]): void {
   for (const w of BrowserWindow.getAllWindows()) w.webContents.send(CHANGED, changed)
 }

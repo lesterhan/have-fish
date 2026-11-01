@@ -28,5 +28,5 @@ export function cannotOpen(failure: Failure): { title: string; message: string }
 
 export const failedToStart = {
   title: "have-fish couldn't start",
-  message: 'Something went wrong opening your ledger. The details are in the log.',
+  message: 'Something went wrong opening your ledger. Start have-fish from a terminal to see why.',
 }
