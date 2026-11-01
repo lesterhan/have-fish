@@ -5,7 +5,7 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, ledgerDirIn, rows, writeDown } from './app'
+import { aHome, commandFor, launch, ledgerDirIn, rows, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -42,7 +42,7 @@ describe('write down a spend', () => {
       await writeDown(first.page, amount, description)
       await expect.poll(async () => (await rows(first.page))[0]).toContain(description)
     }
-    await first.app.close()
+    await first.quit()
 
     const again = await launch(home)
 
@@ -87,28 +87,21 @@ describe('write down a spend', () => {
 describe('the app', () => {
   test('a second launch quits and leaves the first one running', async () => {
     const home = aHome()
-    const { app, page } = await launch(home)
-    const electron = app.process().spawnargs[0] as string
+    const running = await launch(home)
+    const { exe, args, env } = commandFor(home)
 
-    const second = spawnSync(electron, app.process().spawnargs.slice(1), {
-      env: {
-        ...process.env,
-        XDG_CONFIG_HOME: join(home, 'config'),
-        XDG_DATA_HOME: join(home, 'data'),
-        NODE_OPTIONS: '',
-      },
-      timeout: 20_000,
-    })
+    const second = spawnSync(exe, args, { env, timeout: 20_000 })
 
     expect(second.status).toBe(0)
     expect(second.signal).toBeNull()
-    expect(app.windows()).toHaveLength(1)
-    await writeDown(page, '4.50', 'Still here')
-    await expect.poll(async () => (await rows(page))[0]).toContain('Still here')
+    expect(running.windows()).toBe(1)
+    await writeDown(running.page, '4.50', 'Still here')
+    await expect.poll(async () => (await rows(running.page))[0]).toContain('Still here')
   })
 
   test('the page has no Node, a strict policy, and nowhere else to go', async () => {
-    const { app, page } = await launch(aHome())
+    const running = await launch(aHome())
+    const { page } = running
 
     expect(page.url()).toBe('app://have-fish/')
     expect(await page.evaluate(() => [typeof require, typeof process])).toEqual([
@@ -127,7 +120,7 @@ describe('the app', () => {
     await page.evaluate(() => window.open('https://example.com/'))
     await page.waitForTimeout(500)
     expect(page.url()).toBe('app://have-fish/')
-    expect(app.windows()).toHaveLength(1)
+    expect(running.windows()).toBe(1)
   })
 
   test('nothing outside the renderer folder is served', async () => {

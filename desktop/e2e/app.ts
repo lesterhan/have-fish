@@ -1,46 +1,103 @@
-// Starts the built app (out/) against a throwaway home, so no test touches your real ledger.
+// Starts the app against a throwaway home, so no test touches your real ledger, and reaches its
+// window over Chrome's DevTools protocol. That works the same for out/ and for a packaged binary,
+// whose fuses turn off the `--inspect` that Playwright's own Electron launcher needs.
 
+import { type ChildProcess, spawn } from 'node:child_process'
+import { once } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import electron from 'electron'
-import { _electron, type ElectronApplication, type Page } from 'playwright-core'
+import { chromium, type Page } from 'playwright-core'
 import { onTestFinished } from 'vitest'
 
 const desktop = join(import.meta.dirname, '..')
 
+/** A packaged app to test instead of out/: `E2E_APP=dist/linux-unpacked/have-fish`. */
+const packaged = process.env.E2E_APP
+
 /** A folder standing in for the home directory; deleted when the test finishes. */
 export function aHome(): string {
   const home = mkdtempSync(join(tmpdir(), 'havefish-e2e-'))
-  onTestFinished(() => rmSync(home, { recursive: true, force: true }))
+  // Retried: Chromium's helper processes can still be writing as the app exits.
+  onTestFinished(() =>
+    rmSync(home, { recursive: true, force: true, maxRetries: 10, retryDelay: 100 }),
+  )
   return home
 }
 
-/** Where a development run keeps its ledger, under `home`. */
-export const ledgerDirIn = (home: string) => join(home, 'data', 'have-fish-dev')
+/** Where the app keeps its ledger, under `home`. */
+export const ledgerDirIn = (home: string) =>
+  join(home, 'data', packaged ? 'have-fish' : 'have-fish-dev')
 
-export async function launch(home: string): Promise<{ app: ElectronApplication; page: Page }> {
-  const app = await _electron.launch({
-    executablePath: electron as unknown as string,
-    // Chromium refuses to run its sandbox as root, which is how CI containers run.
-    args: [desktop, ...(process.env.NO_SANDBOX === '1' ? ['--no-sandbox'] : [])],
+/** How to start the app as a person would, for `home`. */
+export function commandFor(home: string) {
+  return {
+    exe: packaged ? resolve(packaged) : (electron as unknown as string),
+    args: [
+      ...(packaged ? [] : [desktop]),
+      // Chromium refuses to run its sandbox as root, which is how CI containers run.
+      ...(process.env.NO_SANDBOX === '1' ? ['--no-sandbox'] : []),
+    ],
     env: {
       ...process.env,
       XDG_CONFIG_HOME: join(home, 'config'),
       XDG_DATA_HOME: join(home, 'data'),
       NODE_OPTIONS: '',
     },
+  }
+}
+
+export type Running = {
+  page: Page
+  /** How many windows are open. */
+  windows(): number
+  /** Closes the window, as a person quits, and waits for the app to exit. */
+  quit(): Promise<void>
+}
+
+export async function launch(home: string): Promise<Running> {
+  const { exe, args, env } = commandFor(home)
+  const child = spawn(exe, [...args, '--remote-debugging-port=0'], {
+    env,
+    stdio: ['ignore', 'ignore', 'pipe'],
   })
-  let closed = false
-  app.on('close', () => {
-    closed = true
-  })
+  const exited = once(child, 'exit')
   onTestFinished(async () => {
-    if (!closed) await app.close()
+    if (child.exitCode !== null || child.signalCode !== null) return
+    child.kill('SIGTERM')
+    const killer = setTimeout(() => child.kill('SIGKILL'), 5_000)
+    await exited
+    clearTimeout(killer)
   })
-  const page = await app.firstWindow()
+
+  const browser = await chromium.connectOverCDP(await devtoolsUrl(child))
+  const context = browser.contexts()[0]
+  if (context === undefined) throw new Error('the app has no browser context')
+  const page = context.pages()[0] ?? (await context.waitForEvent('page'))
   await page.waitForSelector('input[name=amount]')
-  return { app, page }
+
+  return {
+    page,
+    windows: () => context.pages().length,
+    async quit() {
+      await page.close()
+      await exited
+    },
+  }
+}
+
+/** Chromium prints where its DevTools listen, once they do. */
+function devtoolsUrl(child: ChildProcess): Promise<string> {
+  return new Promise((resolve, reject) => {
+    let seen = ''
+    child.stderr?.on('data', (chunk) => {
+      seen += String(chunk)
+      const url = /DevTools listening on (ws:\/\/\S+)/.exec(seen)?.[1]
+      if (url !== undefined) resolve(url)
+    })
+    child.once('exit', (code) => reject(new Error(`the app exited (${code}) before its window`)))
+  })
 }
 
 /** Types a spend the way a person does: amount, Tab, what for, Enter. */
