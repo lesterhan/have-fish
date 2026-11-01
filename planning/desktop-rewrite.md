@@ -27,7 +27,15 @@ The backlog is a **story map** in `lesterhan/have-fish-vault`, a private Obsidia
   | R1 A week at home | I could track a normal week at home in it |
   | R2 A week abroad | I could track a week abroad in it |
   | R3 Sunday catch-up | I can catch up from my bank on a Sunday without typing |
-  | R4 Make it the real one | I can stop using the hosted app |
+  | R4 On every device | My ledger is the same on every device I use |
+  | R5 A ledger we share | We keep our shared money in it |
+  | R6 Make it the real one | I can stop using the hosted app |
+
+  R4 and R5 are sync's two halves, through one relay: my own ledger first, then ledgers with
+  several members (`00-direction.md` D5). The other device in R4 is the phone, as a full peer:
+  it holds the whole ledger and has screens of its own, built with Expo in this repository on
+  the same TypeScript ledger as the desktop. The switch comes last, so that leaving the hosted
+  app takes the shared ledgers along too.
 
 - **Stories**, one note each: As someone who …, I want …, so that …; acceptance as Given/When/Then
   lines, each one checkable in the running app; and a "not in this story" list, which is what
@@ -132,9 +140,9 @@ are question notes in the vault.
 
 ## Living beside the current app
 
-- **The hosted edition stays the real ledger** until the rewrite reaches R4. Nothing is ported
+- **The hosted edition stays the real ledger** until the rewrite reaches R6. Nothing is ported
   across until a story needs it. Whether history comes over at all, or the new app starts fresh
-  from opening balances, is an open question in R4.
+  from opening balances, is an open question in R6.
 - **The current app gets fixes and the work already in flight.** New features go into the
   rewrite as stories, unless the owner says otherwise.
 - **Separate data.** Until the rewrite replaces the current app, it keeps its ledger in its own
