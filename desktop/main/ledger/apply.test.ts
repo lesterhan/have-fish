@@ -1,7 +1,7 @@
 import { MAX_DRIFT_MS } from '@have-fish/core/clock'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { compareVersions } from '@have-fish/core/version'
-import { describe, expect, test } from 'vitest'
+import { describe, expect, expectTypeOf, test } from 'vitest'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
 import { applyLocal } from './apply'
@@ -174,6 +174,17 @@ describe("applyLocal, a posting's account", () => {
       failure: { at: 0, code: 'ACCOUNT_IN_USE', details: { accountId: food.id, transactions: 2 } },
     })
     expect(getDocument(ledger.db, 'account', food.id)?.doc.deletedAt).toBeNull()
+  })
+
+  test('checking a refusal’s code narrows its details', () => {
+    const { ledger, cash, food } = withAccounts()
+    ok(applyLocal(ledger, [aSpend(cash.id, food.id)], NOW))
+    const outcome = applyLocal(ledger, [{ ...food, deletedAt: NOW }], NOW)
+    if (outcome.ok) throw new Error('expected ACCOUNT_IN_USE')
+    const f = outcome.failure
+    if (f.code === 'ACCOUNT_IN_USE') expectTypeOf(f.details.transactions).toEqualTypeOf<number>()
+    // @ts-expect-error without the check, details could be any code's
+    f.details.transactions
   })
 
   test('an account whose only transaction is deleted can be deleted, in the same batch', () => {
