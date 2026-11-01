@@ -2,8 +2,10 @@
 // per open file and reused.
 
 import { describe, expect, test, vi } from 'vitest'
+import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
 import { anAccount, aSpend, NOW, tempLedger, tombstoneOf } from './fixtures'
+import { acknowledge, enqueue, queued, supersede } from './outbox'
 import {
   countTransactionsUsing,
   currenciesPostedTo,
@@ -42,6 +44,24 @@ describe('a warmed ledger prepares no SQL', () => {
       countTransactionsUsing(ledger.db, cash.id)
       currenciesPostedTo(ledger.db, cash.id)
       pendingReferences(ledger.db)
+    })
+
+    expect(prepared).toBe(0)
+  })
+
+  test('in the outbox and the clock', () => {
+    const ledger = tempLedger()
+    const cash = anAccount()
+
+    const prepared = preparedOnSecondRun(ledger, () => {
+      enqueue(ledger.db, { doc: cash, version: VERSION })
+      acknowledge(
+        ledger.db,
+        queued(ledger.db, 10).map((r) => r.rowId),
+      )
+      enqueue(ledger.db, { doc: cash, version: VERSION })
+      supersede(ledger.db, 'account', cash.id)
+      saveClock(ledger.db, loadClock(ledger.db))
     })
 
     expect(prepared).toBe(0)
