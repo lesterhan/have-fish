@@ -9,10 +9,13 @@ import { failure } from './outcome'
 import { validatePostings } from './postings'
 import { MAX_WALL_MS, VersionSchema } from './version'
 
+/** UTC ms, 1970 to the end of 9999, like a version's time. */
+const utcMs = z.int().min(0).max(MAX_WALL_MS)
+
 // Who made the document and when. Set once: an edit carries it through unchanged.
 const made = {
   /** UTC ms. The document's creation, never a later edit's. */
-  createdAt: z.int().min(0).max(MAX_WALL_MS),
+  createdAt: utcMs,
   /** The maker's device, never a later editor's. */
   deviceId: VersionSchema.shape.deviceId,
 }
@@ -59,7 +62,7 @@ export const TransactionSchema = z.strictObject({
   date: z.string(),
   description: z.string(),
   postings: z.array(PostingSchema),
-  deletedAt: z.number().nullable(),
+  deletedAt: utcMs.nullable(),
   origin: TransactionOriginSchema,
 })
 export type TransactionDoc = z.infer<typeof TransactionSchema>
@@ -71,7 +74,7 @@ export const AccountSchema = z.strictObject({
   kind: z.enum(ACCOUNT_KINDS),
   /** The one currency its postings carry, or null for any. */
   currency: z.string().nullable(),
-  deletedAt: z.number().nullable(),
+  deletedAt: utcMs.nullable(),
   origin: AccountOriginSchema,
 })
 export type AccountDoc = z.infer<typeof AccountSchema>

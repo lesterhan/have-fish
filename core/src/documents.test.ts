@@ -8,6 +8,7 @@ import {
   TransactionOriginSchema,
   TransactionSchema,
 } from './documents'
+import { MAX_WALL_MS } from './version'
 
 const A = '328e988b-cc8e-4a4d-98be-c0fddad78b20'
 const B = '697100f4-7ad0-4d4c-bc61-b61abbf3dd6f'
@@ -196,6 +197,14 @@ describe('readShape', () => {
       { ...SPEND, origin: { ...IMPORTED, text: undefined } },
       'origin.text',
       'invalid_type',
+    ],
+    ['a deletedAt with a fraction', { ...ACCOUNT, deletedAt: 1.5 }, 'deletedAt', 'invalid_type'],
+    ['a deletedAt before 1970', { ...ACCOUNT, deletedAt: -1 }, 'deletedAt', 'too_small'],
+    [
+      'a deletedAt past 9999',
+      { ...SPEND, postings: [], deletedAt: MAX_WALL_MS + 1 },
+      'deletedAt',
+      'too_big',
     ],
   ])('refuses %s', (_title, document, path, issue) => {
     expect(readShape(document)).toStrictEqual({
