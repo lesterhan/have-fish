@@ -4,40 +4,81 @@
 import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
-import { countDistinct, eq, isNull } from 'drizzle-orm'
-import { drizzle } from 'drizzle-orm/better-sqlite3'
+import { countDistinct, eq, isNull, sql } from 'drizzle-orm'
+import { excludedRow, perConnection, placeholderRow } from '../db/prepared'
 import { accounts, postings, transactions } from '../db/schema'
 import { docOf, rowsOf } from './rows'
+
+const statements = perConnection((orm) => ({
+  putAccount: orm
+    .insert(accounts)
+    .values(placeholderRow(accounts))
+    .onConflictDoUpdate({ target: accounts.id, set: excludedRow(accounts) })
+    .prepare(),
+  putTransaction: orm
+    .insert(transactions)
+    .values(placeholderRow(transactions))
+    .onConflictDoUpdate({ target: transactions.id, set: excludedRow(transactions) })
+    .prepare(),
+  deletePostings: orm
+    .delete(postings)
+    .where(eq(postings.transactionId, sql.placeholder('transactionId')))
+    .prepare(),
+  insertPosting: orm.insert(postings).values(placeholderRow(postings)).prepare(),
+  account: orm
+    .select()
+    .from(accounts)
+    .where(eq(accounts.id, sql.placeholder('id')))
+    .prepare(),
+  transaction: orm
+    .select()
+    .from(transactions)
+    .where(eq(transactions.id, sql.placeholder('id')))
+    .prepare(),
+  postingsOf: orm
+    .select()
+    .from(postings)
+    .where(eq(postings.transactionId, sql.placeholder('transactionId')))
+    .prepare(),
+  transactionsUsing: orm
+    .select({ n: countDistinct(postings.transactionId) })
+    .from(postings)
+    .where(eq(postings.accountId, sql.placeholder('accountId')))
+    .prepare(),
+  currenciesPostedTo: orm
+    .selectDistinct({ currency: postings.currency })
+    .from(postings)
+    .where(eq(postings.accountId, sql.placeholder('accountId')))
+    .orderBy(postings.currency)
+    .prepare(),
+  pendingReferences: orm
+    .selectDistinct({ transactionId: postings.transactionId, accountId: postings.accountId })
+    .from(postings)
+    .leftJoin(accounts, eq(accounts.id, postings.accountId))
+    .where(isNull(accounts.id))
+    .orderBy(postings.transactionId, postings.accountId)
+    .prepare(),
+}))
 
 /**
  * Replaces whatever the file holds under this document's id. A transaction's root row and
  * postings change together; inside a caller's transaction this becomes a savepoint.
  */
 export function putDocument(db: Database.Database, v: Versioned<LedgerDocument>): void {
-  const orm = drizzle(db)
+  const s = statements(db)
   // Narrowing `doc` doesn't narrow `v`, so the overloads get a fresh envelope.
   const { doc, version } = v
 
   db.transaction(() => {
     if (doc.type === 'account') {
-      const { account } = rowsOf({ doc, version })
-      orm
-        .insert(accounts)
-        .values(account)
-        .onConflictDoUpdate({ target: accounts.id, set: account })
-        .run()
+      s.putAccount.run(rowsOf({ doc, version }).account)
       return
     }
 
     const rows = rowsOf({ doc, version })
-    orm
-      .insert(transactions)
-      .values(rows.transaction)
-      .onConflictDoUpdate({ target: transactions.id, set: rows.transaction })
-      .run()
-    orm.delete(postings).where(eq(postings.transactionId, doc.id)).run()
-    // Drizzle refuses an insert of no rows, and a tombstone has none.
-    if (rows.postings.length > 0) orm.insert(postings).values(rows.postings).run()
+    s.putTransaction.run(rows.transaction)
+    s.deletePostings.run({ transactionId: doc.id })
+    for (const posting of rows.postings) s.insertPosting.run(posting)
   })()
 }
 
@@ -62,37 +103,27 @@ export function getDocument(
   type: LedgerDocument['type'],
   id: string,
 ): Versioned<LedgerDocument> | null {
-  const orm = drizzle(db)
+  const s = statements(db)
   if (type === 'account') {
-    const account = orm.select().from(accounts).where(eq(accounts.id, id)).get()
+    const account = s.account.get({ id })
     return account === undefined ? null : docOf(account)
   }
 
-  const transaction = orm.select().from(transactions).where(eq(transactions.id, id)).get()
+  const transaction = s.transaction.get({ id })
   if (transaction === undefined) return null
   // In any order: `docOf` sorts them by position.
-  const rows = orm.select().from(postings).where(eq(postings.transactionId, id)).all()
-  return docOf(transaction, rows)
+  return docOf(transaction, s.postingsOf.all({ transactionId: id }))
 }
 
 /** How many transactions post to this account. A tombstone has no postings, so all are live. */
 export function countTransactionsUsing(db: Database.Database, accountId: string): number {
-  const row = drizzle(db)
-    .select({ n: countDistinct(postings.transactionId) })
-    .from(postings)
-    .where(eq(postings.accountId, accountId))
-    .get()
-  return row?.n ?? 0
+  return statements(db).transactionsUsing.get({ accountId })?.n ?? 0
 }
 
 /** The currencies posted to this account, sorted. A tombstone has no postings, so all are live. */
 export function currenciesPostedTo(db: Database.Database, accountId: string): string[] {
-  return drizzle(db)
-    .selectDistinct({ currency: postings.currency })
-    .from(postings)
-    .where(eq(postings.accountId, accountId))
-    .orderBy(postings.currency)
-    .all()
+  return statements(db)
+    .currenciesPostedTo.all({ accountId })
     .map((r) => r.currency)
 }
 
@@ -103,11 +134,5 @@ export function currenciesPostedTo(db: Database.Database, accountId: string): st
 export function pendingReferences(
   db: Database.Database,
 ): { transactionId: string; accountId: string }[] {
-  return drizzle(db)
-    .selectDistinct({ transactionId: postings.transactionId, accountId: postings.accountId })
-    .from(postings)
-    .leftJoin(accounts, eq(accounts.id, postings.accountId))
-    .where(isNull(accounts.id))
-    .orderBy(postings.transactionId, postings.accountId)
-    .all()
+  return statements(db).pendingReferences.all()
 }
