@@ -80,14 +80,14 @@ function open(): Ledger | undefined {
 function serveRenderer(root: string): void {
   protocol.handle('app', async (request) => {
     const file = fileFor(root, request.url)
-    if (file === null) return new Response('Not found', { status: 404 })
+    if (file === null) return new Response(null, { status: 404 })
     try {
       const body = await readFile(file)
       return new Response(body, {
         headers: { 'content-type': contentTypeOf(file), 'content-security-policy': CSP },
       })
     } catch {
-      return new Response('Not found', { status: 404 })
+      return new Response(null, { status: 404 })
     }
   })
 }
