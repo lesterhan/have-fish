@@ -26,6 +26,9 @@ const WORDS: { [C in FailureCode]?: string } = {
   AMOUNT_NOT_POSITIVE: 'A spend has to be more than zero.',
   DOCUMENT_MALFORMED: "Some of that text can't be saved. Try typing it again.",
   UNEXPECTED: 'Something went wrong. Try again.',
+  TRANSACTION_NOT_FOUND: "That spend isn't in your ledger any more.",
+  TRANSACTION_DELETED: "That spend was taken back, so it can't be changed.",
+  TRANSACTION_NOT_SIMPLE: "This one moves more than one amount, so it can't be changed here yet.",
 }
 
 export function wordsFor(failure: WireFailure): string {
