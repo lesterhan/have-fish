@@ -162,7 +162,7 @@ function store(
 /** A clock stuck in the future (a device that once read 2030) is reported, not refused. */
 const isAhead = (clock: Clock, now: number) => clock.wallMs > now + MAX_DRIFT_MS
 
-/** A local posting points at an account this file holds, and that is live. */
+/** A local posting points at an account this file holds, that is live, in a currency it takes. */
 function checkPostedAccounts(db: Database.Database, at: number, doc: TransactionDoc): void {
   for (const accountId of new Set(doc.postings.map((p) => p.accountId))) {
     const account = getDocument(db, 'account', accountId)
@@ -171,6 +171,16 @@ function checkPostedAccounts(db: Database.Database, at: number, doc: Transaction
     }
     if (account.doc.deletedAt !== null) {
       throw new Refused({ at, code: 'ACCOUNT_DELETED', details: { accountId } })
+    }
+    const locked = account.doc.currency
+    if (locked === null) continue
+    const other = doc.postings.find((p) => p.accountId === accountId && p.currency !== locked)
+    if (other !== undefined) {
+      throw new Refused({
+        at,
+        code: 'ACCOUNT_CURRENCY_LOCKED',
+        details: { accountId, currency: other.currency, locked },
+      })
     }
   }
 }

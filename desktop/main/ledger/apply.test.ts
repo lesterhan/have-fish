@@ -314,6 +314,68 @@ describe("applyLocal, a posting's account", () => {
   })
 })
 
+describe('applyLocal, a locked account', () => {
+  /** The same spend, in yen. */
+  const inYen = (spend: TransactionDoc): TransactionDoc => ({
+    ...spend,
+    postings: spend.postings.map((p) => ({ ...p, currency: 'JPY' })),
+  })
+
+  /** A ledger holding a card locked to CAD and a food category open to any currency. */
+  function withCadCard() {
+    const ledger = tempLedger()
+    const card = anAccount({ path: 'liabilities:visa', kind: 'card', currency: 'CAD' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    ok(applyLocal(ledger, [card, food], NOW))
+    return { ledger, card, food }
+  }
+
+  test('a posting in its currency is written', () => {
+    const { ledger, card, food } = withCadCard()
+    ok(applyLocal(ledger, [aSpend(card.id, food.id)], NOW))
+    expect(count(ledger, 'transactions')).toBe(1)
+  })
+
+  test('a posting in another currency is refused with its place in the batch, and nothing moves', () => {
+    const { ledger, card, food } = withCadCard()
+    const clock = loadClock(ledger.db)
+
+    const outcome = applyLocal(
+      ledger,
+      [aSpend(card.id, food.id), inYen(aSpend(card.id, food.id, '1500'))],
+      NOW,
+    )
+
+    expect(outcome).toEqual({
+      ok: false,
+      failure: {
+        at: 1,
+        code: 'ACCOUNT_CURRENCY_LOCKED',
+        details: { accountId: card.id, currency: 'JPY', locked: 'CAD' },
+      },
+    })
+    expect(count(ledger, 'transactions')).toBe(0)
+    expect(loadClock(ledger.db)).toEqual(clock)
+  })
+
+  test('an account open to any currency takes yen', () => {
+    const { ledger, food } = withCadCard()
+    const cash = anAccount()
+    ok(applyLocal(ledger, [cash, inYen(aSpend(cash.id, food.id, '1500'))], NOW))
+    expect(count(ledger, 'transactions')).toBe(1)
+  })
+
+  test('a lock in the same batch applies to its spends: accounts go first', () => {
+    const ledger = tempLedger()
+    const cash = anAccount({ currency: 'CAD' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+
+    const outcome = applyLocal(ledger, [inYen(aSpend(cash.id, food.id, '1500')), cash, food], NOW)
+
+    expect(outcome.ok || outcome.failure).toMatchObject({ at: 0, code: 'ACCOUNT_CURRENCY_LOCKED' })
+  })
+})
+
 describe('applyLocal, a clock stuck in the future', () => {
   test('more than the drift ahead, a spend is still written, and clockAhead is true', () => {
     const { ledger, cash, food } = withAccounts()

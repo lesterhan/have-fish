@@ -32,6 +32,11 @@ test('every code takes the detail the table gives it', () => {
   failure('ACCOUNT_NOT_FOUND', { accountId: '00000000-0000-4000-8000-0000000000a1' })
   failure('ACCOUNT_DELETED', { accountId: '00000000-0000-4000-8000-0000000000a1' })
   failure('ACCOUNT_IN_USE', { accountId: '00000000-0000-4000-8000-0000000000a1', transactions: 2 })
+  failure('ACCOUNT_CURRENCY_LOCKED', {
+    accountId: '00000000-0000-4000-8000-0000000000a1',
+    currency: 'JPY',
+    locked: 'CAD',
+  })
   failure('ORIGIN_CHANGED', { id: '00000000-0000-4000-8000-000000000001' })
 })
 
