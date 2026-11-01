@@ -208,12 +208,14 @@ describe('listTransactions', () => {
         date: '2026-10-29',
         description: 'Lunch',
         amounts: [{ amount: '12.00', currency: 'CAD' }],
+        simple: { amount: '12.00', currency: 'CAD' },
       },
       {
         id: coffee.id,
         date: '2026-10-29',
         description: 'Coffee',
         amounts: [{ amount: '4.50', currency: 'CAD' }],
+        simple: { amount: '4.50', currency: 'CAD' },
       },
     ])
   })
@@ -259,9 +261,41 @@ describe('listTransactions', () => {
     })
     ok(applyLocal(ledger, [cash, food, fx, ramen], NOW))
 
-    expect(listTransactions(ledger.db)[0]?.amounts).toEqual([
-      { amount: '10.00', currency: 'CAD' },
-      { amount: '1100.00', currency: 'JPY' },
-    ])
+    expect(listTransactions(ledger.db)[0]).toMatchObject({
+      amounts: [
+        { amount: '10.00', currency: 'CAD' },
+        { amount: '1100.00', currency: 'JPY' },
+      ],
+      simple: null,
+    })
+  })
+
+  test('a split in one currency shows its total, and has no one amount', () => {
+    const ledger = tempLedger()
+    const cash = anAccount()
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const fun = anAccount({ path: 'expenses:fun', kind: 'category' })
+    const split = aSpend(cash.id, food.id, '10.00', {
+      postings: [
+        { accountId: cash.id, amount: '-10.00', currency: 'CAD' },
+        { accountId: food.id, amount: '6.00', currency: 'CAD' },
+        { accountId: fun.id, amount: '4.00', currency: 'CAD' },
+      ],
+    })
+    ok(applyLocal(ledger, [cash, food, fun, split], NOW))
+
+    expect(listTransactions(ledger.db)[0]).toMatchObject({
+      amounts: [{ amount: '10.00', currency: 'CAD' }],
+      simple: null,
+    })
+  })
+
+  test('a transaction that moved nothing lists with no amounts', () => {
+    const ledger = tempLedger()
+    const cash = anAccount()
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    ok(applyLocal(ledger, [cash, food, aSpend(cash.id, food.id, '0.00')], NOW))
+
+    expect(listTransactions(ledger.db)[0]).toMatchObject({ amounts: [], simple: null })
   })
 })

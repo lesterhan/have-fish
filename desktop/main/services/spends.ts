@@ -5,9 +5,10 @@ import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parse } from '@have-fish/core/money'
 import { type Failure, failure, type Outcome } from '@have-fish/core/outcome'
+import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
-import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
-import type { InputOf, ListedTransaction } from '../../shared/commands'
+import { desc, eq, isNull } from 'drizzle-orm'
+import type { InputOf, ListedTransaction, Money } from '../../shared/commands'
 import type { Context } from '../context'
 import { perConnection } from '../db/prepared'
 import { postings, transactions } from '../db/schema'
@@ -71,45 +72,60 @@ function accountFor(
 }
 
 const statements = perConnection((orm) => ({
-  // One row per transaction and currency; the join's `amountCents > 0` keeps a transaction with
-  // nothing positive, such as all zeroes, as one row with no currency.
+  // One row per posting, with its transaction; a transaction's rows are together.
   listed: orm
     .select({
       id: transactions.id,
       date: transactions.date,
       description: transactions.description,
       currency: postings.currency,
-      cents: sql<number | null>`sum(${postings.amountCents})`,
+      cents: postings.amountCents,
     })
     .from(transactions)
-    .leftJoin(
-      postings,
-      and(eq(postings.transactionId, transactions.id), gt(postings.amountCents, 0)),
-    )
+    .leftJoin(postings, eq(postings.transactionId, transactions.id))
     .where(isNull(transactions.deletedAt))
-    .groupBy(transactions.id, postings.currency)
     .orderBy(
       desc(transactions.date),
       desc(transactions.originCreatedAt),
       desc(transactions.version),
       transactions.id,
-      postings.currency,
+      postings.position,
     )
     .prepare(),
 }))
 
 /** Every live transaction, newest day first, and newest made first within a day. */
 export function listTransactions(db: Database.Database): ListedTransaction[] {
-  const listed: ListedTransaction[] = []
+  const grouped: { row: { id: string; date: string; description: string }; legs: Leg[] }[] = []
   for (const row of statements(db).listed.all()) {
-    let last = listed.at(-1)
-    if (last?.id !== row.id) {
-      last = { id: row.id, date: row.date, description: row.description, amounts: [] }
-      listed.push(last)
+    let last = grouped.at(-1)
+    if (last?.row.id !== row.id) {
+      last = { row, legs: [] }
+      grouped.push(last)
     }
     if (row.currency !== null && row.cents !== null) {
-      last.amounts.push({ amount: format(row.cents), currency: row.currency })
+      last.legs.push({ cents: row.cents, currency: row.currency })
     }
   }
-  return listed
+  return grouped.map(({ row: { id, date, description }, legs }) => {
+    const simple = simpleAmountOf(legs)
+    return {
+      id,
+      date,
+      description,
+      amounts: movedIn(legs),
+      simple: simple && { amount: format(simple.cents), currency: simple.currency },
+    }
+  })
+}
+
+/** The sum of the positive legs in each currency, by currency code. */
+function movedIn(legs: Leg[]): Money[] {
+  const moved = new Map<string, number>()
+  for (const { cents, currency } of legs) {
+    if (cents > 0) moved.set(currency, (moved.get(currency) ?? 0) + cents)
+  }
+  return [...moved]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([currency, cents]) => ({ amount: format(cents), currency }))
 }
