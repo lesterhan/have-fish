@@ -137,6 +137,13 @@ describe('docOf', () => {
     expect(docOf(account)).toEqual(ACCOUNT)
   })
 
+  test('a locked account keeps its currency in its column', () => {
+    const locked = { ...ACCOUNT, doc: { ...ACCOUNT.doc, currency: 'CAD' } }
+    const { account } = rowsOf(locked)
+    expect(account.currency).toBe('CAD')
+    expect(docOf(account)).toEqual(locked)
+  })
+
   test('tombstoned doc has no postings, return unchanged', () => {
     const deletedAt = Date.UTC(2026, 9, 30)
     const tombstonedDoc = {

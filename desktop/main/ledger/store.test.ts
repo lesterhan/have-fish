@@ -120,6 +120,16 @@ describe('putDocument and getDocument', () => {
     expect(ids).toEqual([spend(1, october).doc.id, spend(2, october).doc.id])
   })
 
+  test.each([
+    ['open to any currency', null],
+    ['locked to CAD', 'CAD'],
+  ])('an account %s comes back as readDocument read it', (_title, currency) => {
+    const read = readDocument({ ...cash(CARD).doc, currency })
+    if (!read.ok) throw new Error(JSON.stringify(read.failure))
+    putDocument(db, { doc: read.value, version: V1 })
+    expect(getDocument(db, 'account', CARD)).toEqual({ doc: read.value, version: V1 })
+  })
+
   test('an unknown id, or one of the other type, is null', () => {
     putDocument(db, SPEND)
     putDocument(db, cash(CARD))
