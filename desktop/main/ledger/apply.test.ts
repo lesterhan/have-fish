@@ -375,6 +375,24 @@ describe('applyLocal, a locked account', () => {
     expect(outcome.ok || outcome.failure).toMatchObject({ at: 0, code: 'ACCOUNT_CURRENCY_LOCKED' })
   })
 
+  test('a yen dinner on a CAD card is written: the conversion account takes both sides', () => {
+    const { ledger, card, food } = withCadCard()
+    const conversion = anAccount({ path: 'equity:conversion', kind: 'conversion' })
+    const dinner = aSpend(card.id, food.id, '13.70', {
+      description: 'Dinner in Tokyo',
+      postings: [
+        { accountId: card.id, amount: '-13.70', currency: 'CAD' },
+        { accountId: conversion.id, amount: '13.70', currency: 'CAD' },
+        { accountId: conversion.id, amount: '-1500.00', currency: 'JPY' },
+        { accountId: food.id, amount: '1500.00', currency: 'JPY' },
+      ],
+    })
+
+    ok(applyLocal(ledger, [conversion, dinner], NOW))
+
+    expect(getDocument(ledger.db, 'transaction', dinner.id)?.doc).toEqual(dinner)
+  })
+
   /** A ledger whose open food category holds a yen spend from cash. */
   function withYenOnFood() {
     const ledger = tempLedger()
