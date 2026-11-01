@@ -68,16 +68,20 @@ Already decided:
 - **Commands, not routes.** Each one has a Zod schema and a handler. A failure keeps today's
   shape, `{ error: CODE, detail }`, and the words stay in the UI's copy, so the core writes no
   sentences.
+- **Every word the app shows is in `desktop/copy/`**, one file per surface, read by main and
+  the window through one `copy` object. `desktop/copy/copy.test.ts` fails on a word typed
+  anywhere else, and every failure code must have words or `bun run check` fails. The web
+  app's four copy rules hold (`frontend/CLAUDE.md`, "Copy"), and there is no i18n library.
 - **Port by copying or rewriting, never by moving.** The current backend keeps its own copy,
   untouched.
 - **The security baseline** comes with the first story, not later: `planning/desktop-rewrite.md`,
   "Security baseline".
 
 None of the current app's server machinery carries over: Postgres and the two-dialect schema,
-Hono and `app.request` tests, Better Auth, `userId` scoping, `numeric(12,2)` strings. Biome and
-Prettier do, and so do the copy rules when the renderer arrives. The current app's look does
-not: the rewrite's UI system is still being worked out, and until it lands its screens stay
-plain (`DESIGN.md`, "Until the system lands").
+Hono and `app.request` tests, Better Auth, `userId` scoping, `numeric(12,2)` strings. Biome,
+Prettier and the copy rules do. The current app's look does not: the rewrite's UI system is
+still being worked out, and until it lands its screens stay plain (`DESIGN.md`, "Until the
+system lands").
 
 ## Formatting and linting
 
