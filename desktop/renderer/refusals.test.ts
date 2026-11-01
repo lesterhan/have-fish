@@ -1,7 +1,7 @@
 import type { FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { describe, expect, test } from 'vitest'
-import type { WireFailure } from '../../shared/commands'
-import { fieldOf, wordsFor } from './errors'
+import type { WireFailure } from '../shared/commands'
+import { fieldOf, wordsFor } from './refusals'
 
 const refused = <C extends FailureCode>(error: C, detail: FailureDetails[C]) =>
   ({ ok: false, error, detail }) as WireFailure

@@ -1,11 +1,10 @@
-// The words main shows itself, in dialogs before the window exists. The window's own words are
-// in `renderer/copy/`.
+// The words main shows itself, in dialogs before the window exists.
 
 import type { Failure } from '@have-fish/core/outcome'
 
 const TITLE = "have-fish can't open your ledger"
 
-export function cannotOpen(failure: Failure): { title: string; message: string } {
+function cannotOpen(failure: Failure): { title: string; message: string } {
   switch (failure.code) {
     case 'LEDGER_TOO_NEW':
       return {
@@ -26,7 +25,9 @@ export function cannotOpen(failure: Failure): { title: string; message: string }
   }
 }
 
-export const failedToStart = {
+const failedToStart = {
   title: "have-fish couldn't start",
   message: 'Something went wrong opening your ledger. Start have-fish from a terminal to see why.',
 }
+
+export const dialogs = { cannotOpen, failedToStart }

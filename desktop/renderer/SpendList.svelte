@@ -1,6 +1,6 @@
 <script lang="ts">
+  import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
-  import { spends as copy } from './copy/spends'
   import type { Drafts } from './drafts'
   import { amountsText } from './format'
   import { movedBy } from './selection'
@@ -54,7 +54,7 @@
 <ol
   bind:this={list}
   role="listbox"
-  aria-label={copy.list.label}
+  aria-label={copy.spends.list.label}
   tabindex="0"
   aria-activedescendant={selectedId === null ? undefined : optionId(selectedId)}
   {onkeydown}
@@ -63,7 +63,7 @@
   {#each transactions as t (t.id)}
     <li id={optionId(t.id)} role="option" aria-selected={t.id === selectedId} data-id={t.id}>
       <span class="date">{t.date}</span>
-      <span class="description">{t.description || '—'}</span>
+      <span class="description">{t.description || copy.spends.noDescription}</span>
       <span class="amount">{amountsText(t.amounts)}</span>
       {#if drafts.has(t.id)}<Unsaved />{/if}
     </li>

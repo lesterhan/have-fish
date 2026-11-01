@@ -2,6 +2,7 @@
 // navigate away or open another window.
 
 import { BrowserWindow, session } from 'electron'
+import { copy } from '../copy'
 
 export function createWindow(preload: string, url: string): BrowserWindow {
   const window = new BrowserWindow({
@@ -9,7 +10,7 @@ export function createWindow(preload: string, url: string): BrowserWindow {
     height: 720,
     minWidth: 360,
     minHeight: 400,
-    title: 'have-fish',
+    title: copy.app.name,
     show: false,
     webPreferences: {
       preload,

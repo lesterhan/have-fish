@@ -1,10 +1,10 @@
 <script lang="ts">
-  import { spends as copy } from './copy/spends'
+  import { copy } from '../copy'
 </script>
 
 <!-- The ● for a draft, with words for screen readers so the dot isn't the only sign. -->
 <span class="unsaved"
-  ><span aria-hidden="true">●</span><span class="visually-hidden">{copy.unsaved}</span></span
+  ><span aria-hidden="true">●</span><span class="visually-hidden">{copy.spends.unsaved}</span></span
 >
 
 <style>
