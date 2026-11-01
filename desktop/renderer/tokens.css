@@ -17,11 +17,14 @@
   --radius: 4px;
   --border-width: 1px;
 
+  --duration-slide: 150ms;
+
   --color-text: #1b1b1b;
   --color-muted: #5f5f5f;
   --color-background: #ffffff;
   --color-border: #b8b8b8;
   --color-rule: #e4e4e4;
+  --color-selected: #ebebeb;
   --color-error: #a4161a;
 }
 
@@ -32,6 +35,7 @@
     --color-background: #161616;
     --color-border: #5a5a5a;
     --color-rule: #2c2c2c;
+    --color-selected: #2e2e2e;
     --color-error: #ff8a80;
   }
 }

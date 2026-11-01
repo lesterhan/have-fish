@@ -30,6 +30,12 @@ export interface FailureDetails {
   COMMAND_UNKNOWN: { name: string }
   /** Main threw while running a command. The error is in main's log, never in the window. */
   UNEXPECTED: undefined
+  /** An edit named a transaction this file doesn't hold. */
+  TRANSACTION_NOT_FOUND: { id: string }
+  /** An edit named a transaction that has been removed. */
+  TRANSACTION_DELETED: { id: string }
+  /** An edit of a spend's amount on a transaction that isn't one amount between two accounts. */
+  TRANSACTION_NOT_SIMPLE: { id: string }
 }
 
 export type FailureCode = keyof FailureDetails
