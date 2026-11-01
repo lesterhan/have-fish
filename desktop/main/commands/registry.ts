@@ -5,7 +5,7 @@ import type { Outcome } from '@have-fish/core/outcome'
 import type { z } from 'zod'
 import type { CommandName, inputs, Values } from '../../shared/commands'
 import type { Context } from '../context'
-import { listTransactions, writeSpend } from '../services/spends'
+import { editSpend, listTransactions, writeSpend } from '../services/spends'
 
 type Handlers = {
   [N in CommandName]: (ctx: Context, input: z.output<(typeof inputs)[N]>) => Outcome<Values[N]>
@@ -13,5 +13,6 @@ type Handlers = {
 
 export const handlers: Handlers = {
   'spend.write': writeSpend,
+  'spend.edit': editSpend,
   'transaction.list': (ctx) => ({ ok: true, value: listTransactions(ctx.ledger.db) }),
 }

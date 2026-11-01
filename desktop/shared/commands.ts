@@ -10,6 +10,7 @@ const typed = (max: number) => z.string().max(max)
 
 export const inputs = {
   'spend.write': z.strictObject({ amount: typed(64), description: typed(500) }),
+  'spend.edit': z.strictObject({ id: z.uuid(), amount: typed(64), description: typed(500) }),
   'transaction.list': z.strictObject({}),
 }
 
@@ -28,6 +29,7 @@ export type Money = { amount: string; currency: string }
 
 export interface Values {
   'spend.write': { id: string }
+  'spend.edit': { id: string }
   'transaction.list': ListedTransaction[]
 }
 

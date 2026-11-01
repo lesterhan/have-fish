@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
-import { format, parse } from '@have-fish/core/money'
+import { format, parse, cents as toCents } from '@have-fish/core/money'
 import { type Failure, failure, type Outcome } from '@have-fish/core/outcome'
 import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
@@ -12,7 +12,8 @@ import type { InputOf, ListedTransaction, Money } from '../../shared/commands'
 import type { Context } from '../context'
 import { perConnection } from '../db/prepared'
 import { postings, transactions } from '../db/schema'
-import { liveAccountAt } from '../ledger/store'
+import type { BatchOutcome } from '../ledger/apply'
+import { getDocument, liveAccountAt } from '../ledger/store'
 
 /** Every spend's currency, until a setting chooses it. */
 export const HOME_CURRENCY = 'CAD'
@@ -23,9 +24,9 @@ const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
 
 /** A spend from the wallet to unsorted, dated today, in one batch with any account it needs. */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
-  const cents = parse(input.amount)
-  if (cents === null) return failure('AMOUNT_INVALID', { amount: input.amount })
-  if (cents <= 0) return failure('AMOUNT_NOT_POSITIVE', { amount: input.amount })
+  const amount = spendAmount(input.amount)
+  if (!amount.ok) return amount
+  const cents = amount.value
 
   const now = ctx.now()
   const made = { createdAt: now, deviceId: ctx.ledger.meta.deviceId }
@@ -44,12 +45,56 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
     origin: { source: 'manual', ...made },
   }
 
-  const applied = ctx.apply([...from.made, ...to.made, spend], now)
+  return idOf(ctx.apply([...from.made, ...to.made, spend], now), spend.id)
+}
+
+/**
+ * A new version of a spend with a new amount and description. The positive leg gets the amount
+ * and the other its negative; the id, date, accounts and origin stay as they were.
+ */
+export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{ id: string }> {
+  const amount = spendAmount(input.amount)
+  if (!amount.ok) return amount
+  const cents = amount.value
+
+  const { id } = input
+  const stored = getDocument(ctx.ledger.db, 'transaction', id)
+  if (stored === null) return failure('TRANSACTION_NOT_FOUND', { id })
+  const { doc } = stored
+  if (doc.deletedAt !== null) return failure('TRANSACTION_DELETED', { id })
+  const simple = simpleAmountOf(doc.postings.map((p) => ({ ...p, cents: toCents(p.amount) })))
+  if (simple === null) return failure('TRANSACTION_NOT_SIMPLE', { id })
+
+  const description = input.description.trim()
+  // An unchanged save writes no version, so sync has nothing to send.
+  if (cents === simple.cents && description === doc.description) return { ok: true, value: { id } }
+
+  const edited: TransactionDoc = {
+    ...doc,
+    description,
+    postings: doc.postings.map((p) => ({
+      ...p,
+      amount: format(toCents(p.amount) > 0 ? cents : -cents),
+    })),
+  }
+  return idOf(ctx.apply([edited], ctx.now()), id)
+}
+
+/** A spend's amount as typed, in cents: a number, and more than zero. */
+function spendAmount(typed: string): Outcome<number> {
+  const cents = parse(typed)
+  if (cents === null) return failure('AMOUNT_INVALID', { amount: typed })
+  if (cents <= 0) return failure('AMOUNT_NOT_POSITIVE', { amount: typed })
+  return { ok: true, value: cents }
+}
+
+/** The id, once the batch is applied; a refusal without its place in the batch. */
+function idOf(applied: BatchOutcome, id: string): Outcome<{ id: string }> {
   if (!applied.ok) {
     const { code, details } = applied.failure
     return { ok: false, failure: { code, details } as Failure }
   }
-  return { ok: true, value: { id: spend.id } }
+  return { ok: true, value: { id } }
 }
 
 /** The live account at the path, or a new one the app makes, for the same batch. */

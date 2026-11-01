@@ -5,7 +5,7 @@ import { describe, expect, test, vi } from 'vitest'
 import { contextFor } from '../context'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
-import { listTransactions, writeSpend } from '../services/spends'
+import { editSpend, listTransactions, writeSpend } from '../services/spends'
 import { applyLocal, applyReceived } from './apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { acknowledge, enqueue, queued, supersede } from './outbox'
@@ -98,12 +98,15 @@ describe('a warmed ledger prepares no SQL', () => {
     expect(prepared).toBe(0)
   })
 
-  test('in writing down a spend and listing them', () => {
+  test('in writing down a spend, editing it, and listing them', () => {
     const ledger = tempLedger()
     const ctx = contextFor(ledger, () => {}, { now: () => NOW, timeZone: () => 'UTC' })
+    let n = 0
 
     const prepared = preparedOnSecondRun(ledger, () => {
-      ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+      const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+      n += 1
+      ok(editSpend(ctx, { id, amount: String(n), description: 'Tea' }))
       listTransactions(ledger.db)
     })
 
