@@ -110,7 +110,8 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
   const { db } = ledger
   let clock = loadClock(db)
   const written: Written[] = []
-  const locks: { at: number; accountId: string; locked: string }[] = []
+  /** Locks this batch sets, by account: the last word on each is the one checked. */
+  const locks = new Map<string, { at: number; locked: string }>()
 
   for (const { at, doc } of items) {
     const ticked = tick(clock, now, ledger.meta.deviceId)
@@ -131,9 +132,10 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
     written.push({ type: doc.type, id: doc.id, version })
 
     // Only a lock this write sets: a rename keeps whatever the lock already holds.
-    const was = previous?.type === 'account' ? previous.currency : null
-    if (doc.type === 'account' && doc.currency !== null && doc.currency !== was) {
-      locks.push({ at, accountId: doc.id, locked: doc.currency })
+    if (doc.type === 'account') {
+      const was = previous?.type === 'account' ? previous.currency : null
+      if (doc.currency === null) locks.delete(doc.id)
+      else if (doc.currency !== was) locks.set(doc.id, { at, locked: doc.currency })
     }
   }
 
@@ -142,7 +144,7 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
   for (const { at, doc } of items) {
     if (doc.type === 'account' && doc.deletedAt !== null) checkUnused(db, at, doc.id)
   }
-  for (const { at, accountId, locked } of locks) checkLockFits(db, at, accountId, locked)
+  for (const [accountId, { at, locked }] of locks) checkLockFits(db, at, accountId, locked)
 
   saveClock(db, clock)
   return { written, same: 0, stale: 0, refused: [], clockAhead: isAhead(clock, now) }

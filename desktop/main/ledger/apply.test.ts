@@ -434,6 +434,12 @@ describe('applyLocal, a locked account', () => {
     expect(getDocument(ledger.db, 'account', food.id)?.doc.currency).toBe('CAD')
   })
 
+  test('a batch that locks and then unlocks the same account is written: its last word counts', () => {
+    const { ledger, food } = withYenOnFood()
+    ok(applyLocal(ledger, [{ ...food, currency: 'CAD' }, food], NOW))
+    expect(getDocument(ledger.db, 'account', food.id)?.doc.currency).toBeNull()
+  })
+
   test('a deleted spend holds nothing, so the lock is written', () => {
     const { ledger, food, yen } = withYenOnFood()
     ok(applyLocal(ledger, [tombstoneOf(yen)], NOW))
