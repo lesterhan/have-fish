@@ -34,9 +34,7 @@ export function receive(clock: Clock, remote: Version, now: number): Outcome<Clo
     return failure('CLOCK_DRIFT', { remoteWallMs: remote.wallMs, now })
   }
   const wallMs = Math.max(clock.wallMs, remote.wallMs, now)
-  const counter = nextCounter(clock, remote, wallMs)
-  if (counter > MAX_COUNTER) return failure('CLOCK_COUNTER_OVERFLOW', { wallMs })
-  return { ok: true, value: { wallMs, counter } }
+  return { ok: true, value: carry(wallMs, nextCounter(clock, remote, wallMs)) }
 }
 
 /**

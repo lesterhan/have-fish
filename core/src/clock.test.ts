@@ -156,17 +156,14 @@ describe('the guards', () => {
     expect(versions.at(-1)).toStrictEqual({ wallMs: NOON + 1, counter: 4_463, deviceId: HERE })
   })
 
-  it('refuses a receive that would push either counter past MAX_COUNTER', () => {
-    const overflow = {
-      ok: false,
-      failure: { code: 'CLOCK_COUNTER_OVERFLOW', details: { wallMs: NOON } },
-    }
+  it('moves a receive to the next millisecond when either counter is full', () => {
+    const next = { ok: true, value: { wallMs: NOON + 1, counter: 0 } }
     const full = { wallMs: NOON, counter: MAX_COUNTER }
     const behind = { wallMs: NOON - 1, counter: 0, deviceId: THERE }
-    expect(receive(full, behind, NOON - 1)).toStrictEqual(overflow)
+    expect(receive(full, behind, NOON - 1)).toStrictEqual(next)
     const fullRemote = { wallMs: NOON, counter: MAX_COUNTER, deviceId: THERE }
-    expect(receive({ wallMs: NOON - 1, counter: 0 }, fullRemote, NOON - 1)).toStrictEqual(overflow)
-    expect(receive({ wallMs: NOON, counter: 0 }, fullRemote, NOON - 1)).toStrictEqual(overflow)
+    expect(receive({ wallMs: NOON - 1, counter: 0 }, fullRemote, NOON - 1)).toStrictEqual(next)
+    expect(receive({ wallMs: NOON, counter: 0 }, fullRemote, NOON - 1)).toStrictEqual(next)
   })
 
   it('recovers from a full counter once time moves on', () => {
