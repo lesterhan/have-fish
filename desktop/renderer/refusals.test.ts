@@ -1,5 +1,6 @@
 import type { FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { describe, expect, test } from 'vitest'
+import { copy } from '../copy'
 import type { WireFailure } from '../shared/commands'
 import { fieldOf, wordsFor } from './refusals'
 
@@ -48,7 +49,14 @@ describe('wordsFor', () => {
     expect(fieldOf(refused('TRANSACTION_NOT_SIMPLE', { id }))).toBe('form')
   })
 
-  test('a code with no words of its own still says something, and names the code', () => {
-    expect(wordsFor(refused('ACCOUNT_DELETED', { accountId: 'a' }))).toMatch(/ACCOUNT_DELETED/)
+  test('every code says something in words, never its own name', () => {
+    for (const [code, words] of Object.entries(copy.errors.codes)) {
+      expect(words, code).toMatch(/^\S.*\.$/)
+      expect(words, code).not.toMatch(/[A-Z]{2,}_[A-Z]/)
+    }
+  })
+
+  test('a refusal only a bug reaches still says what to do', () => {
+    expect(wordsFor(refused('ORIGIN_CHANGED', { id: 'a' }))).toMatch(/Try again/)
   })
 })

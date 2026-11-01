@@ -24,5 +24,5 @@ export function wordsFor(failure: WireFailure): string {
   if (failure.error === 'INPUT_MALFORMED' && failure.detail.issue === 'too_big') {
     return copy.errors.tooLong
   }
-  return copy.errors.codes[failure.error] ?? copy.errors.unknown(failure.error)
+  return copy.errors.codes[failure.error]
 }
