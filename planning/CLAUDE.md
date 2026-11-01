@@ -21,7 +21,7 @@ note with `app: current`, or, until the triage is applied, its GitHub sub-issue.
 
 1. Read the epic file. List its remaining stories as a numbered checklist so the owner can see
    the scope. If the epic touches the UI and has no `## UX brief` section, write one first
-   (format in `DESIGN.md` §7) and confirm it before writing code.
+   (format in `frontend/DESIGN.md` §7) and confirm it before writing code.
 2. Start the next story. Implement it fully — this is the current app, so build mode: complete,
    production-quality code with comprehensive tests.
 3. Present a brief summary and **open a PR** against `main`, titled `[epic-slug] Story N — …`,
@@ -30,7 +30,7 @@ note with `app: current`, or, until the triage is applied, its GitHub sub-issue.
 4. Wait for the owner to say they are done reviewing.
 5. Re-read every file changed in the story and check for non-functional issues: security,
    performance, correctness, type safety, anything that would not pass a prod review. For UI
-   stories, run the review checklist in `DESIGN.md` §9. Push any fix to the same branch.
+   stories, run the review checklist in `frontend/DESIGN.md` §9. Push any fix to the same branch.
 6. Confirm the story is prod-ready. The owner merges on GitHub.
 7. Move to the next story and repeat from step 2.
 8. After the last story, ask whether the owner wants any tweaks before wrapping up.

@@ -1,27 +1,19 @@
 # DESIGN.md
 
-The design constitution for have-fish. `CLAUDE.md` says how to build; this says what to
-build, what it should feel like, and how it is allowed to change.
+The design of the rewrite: the desktop app in `core/` and `desktop/`. `CLAUDE.md` says how to
+build; this says what to build and what it should feel like. It is being worked out, and it
+grows only when something is built on it.
 
-It holds two designs, because the repository holds two apps:
-
-- **The rewrite's design** is the next section, and that is all of it so far. It is being
-  worked out.
-- **The current app's design** is everything from §1 on, and it is **in maintenance**, like
-  the app itself. A fix keeps to it. Nothing new extends it: no new components, no design
-  passes, no redesigns, and the debts in §10 stay where they are unless a fix happens to
-  touch them.
-
-**Read the part for the app you are working on** before any work that touches its UI. In the
-current app, also read it before adding a component to `frontend/src/lib/components/`, and
-before deciding an existing pattern is "close enough."
+The current app's design is `frontend/DESIGN.md`. It is in maintenance and retires with that
+app.
 
 ---
 
-## The rewrite's design, so far
+## Three priorities
 
 The rewrite has no UI system or template yet; one is being worked on. What it has is three
-priorities. They are high-level on purpose, and they get refined as the rewrite progresses.
+priorities, high-level on purpose and refined as the rewrite progresses, and the rules below for
+being a desktop app and for themes.
 
 ### Speed and reliability
 
@@ -38,870 +30,80 @@ that matters to them quickly, and everything else steps back.
 have-fish has personality: the spirit of the weird JavaScript websites and small video games
 its owner grew up making. It is not a bank app's careful neutrality.
 
-### Until the system lands
+## Until the system lands
 
 - **Rewrite screens stay plain.** Semantic HTML, the system font, and every visual value from
   one tokens file, so the system can be dropped in when it exists. Claude does not invent an
   aesthetic in the meantime, and nothing is ported from the current app's look.
 - **Plain is not slow or muddy.** Speed and clarity don't wait for a palette: a plain screen
   still has a short path and an obvious number.
-- **Nothing from §1 on binds the rewrite.** A story may adopt one of its principles by naming
-  it, as the undo story does with P4 ("undo beats confirm"). Adopting one is a choice the story
-  makes, not a default.
-
----
-
-## 1. The thesis
-
-**have-fish is an inbox for money, in a case that looks like a 2003 desktop app.**
-
-Personal finance tracking is a chore. Nobody opens this app for fun; they open it because a
-week of transactions has piled up and the number in the corner is no longer trustworthy.
-The product's job is to make the chore end sooner — to shorten the distance between "I
-should update my finances" and "my finances are updated and I believe the numbers."
-
-### The mental model: an inbox you clear
-
-The app knows what is unrecorded. That knowledge is the spine of the product, not a
-feature on a side page.
-
-- **The app tells you what needs you; you don't go looking.** Uncategorised imports, stale
-  accounts, unreconciled balances, unsettled Fish Pie expenses — these are inbox items, and
-  the app surfaces their count before you ask.
-- **Zero is the win condition.** "Nothing to record" is a designed, earned, celebrated
-  state. Most finance apps have no concept of done; this one does.
-- **Every surface can answer "does this need me?"** A screen that holds data but can't
-  report its own outstanding work is a screen that made the user do the checking.
-- **Navigation follows the loop, not the schema.** What needs me → record it → check it.
-  Not: here are your seven nouns, good luck.
-
-The corollaries:
-
-**Entry speed is the primary metric.** Keystrokes and decisions per item are the thing to
-optimise. A feature that adds a field to the common path had better remove two elsewhere.
-When in doubt, count the interactions — literally, in the epic file.
-
-**Double-entry is an implementation detail, not a UI.** The ledger underneath is real and
-correct (it exports to hledger — see the Vision in `CLAUDE.md`). Nobody should have to
-think in debits and credits to record lunch. Expose the ledger; don't impose it.
-
-**Trust is earned by being checkable, and by being dated.** Every displayed figure must be
-traceable to the rows that produced it in at most two clicks. Never round silently, never
-hide a reconciliation gap, never show a total the UI can't explain. A pretty dashboard nobody
-believes is worse than an ugly table they do.
-
-In a manual-entry app that obligation extends past correctness to currency. A figure summed
-from stale rows is arithmetically right and semantically stale — it answers "the sum of what
-you have recorded" beneath a label promising "what you have," and nobody reads it as the
-former. So: **a rollup is only as current as its stalest live contributor**, and it says so.
-*Live* matters — a dormant account can be months behind without making a total wrong, because
-it has nothing to add.
-
-And the hard line that goes with it: **count the gap, never price it.** How many transactions
-are probably unrecorded is a fact about coverage, derived from the account's own rate. What
-they are worth is a guess about money, and a guess about money displayed beside a real balance
-destroys more trust than the staleness did.
-
-One more, which is the ambiguous zero of the inbox model turned on the data itself: **what is
-absent from the ledger is not evidence about the world.** An account whose statement was never
-imported has no transactions in a period *because* it was never imported, so any judgement made
-from the rows that are present will read every neglected period as complete. Coverage is
-therefore always judged against every tracked account, never against the accounts that happen
-to appear — and an empty result says which kind of empty it is, because "you spent nothing" and
-"you imported nothing" are the same screen otherwise.
-
----
-
-## 2. The material: the case and the work
-
-This is the rule that resolves every "does this belong?" argument about style. It exists
-because the app drifted: an XP-yellow tooltip inside a Mac OS X Graphite shell, 999px
-pills next to 3px badges, skeleton shimmers under a fake titlebar whose minimize button
-does nothing. None of that was wrong on its own. What was missing was a line saying which
-parts are period and which parts aren't.
-
-> **The case is period. The work is modern.**
-
-**The case** is everything that would still exist if you had zero transactions: the window
-frame, titlebar, status bar, sidebar, section headers, modal chrome, tooltips, menus,
-dialog furniture. The case is 2003 Mac OS X Graphite and is held to that standard
-strictly — it is what makes the app feel like a program rather than a website, and it is
-the part that should feel *made*.
-
-**The work** is everything that exists because you have data: tables, rows, forms, entry
-paths, pickers, previews, charts, filters, import steps. The work is governed by modern
-interaction design — optimistic updates, skeletons, inline editing, type-ahead,
-keyboard-first flows. It is *rendered* in the case's material (same tokens, same type,
-same density) but it owes nothing to 2003 behaviour.
-
-**The test:** would this element exist in an empty account? If yes, it's the case and it's
-period. If no, it's the work and it's modern.
-
-Three consequences worth stating outright, because each one contradicts something currently
-shipped:
-
-**The case must be honest.** Every widget in the chrome does something real, or it isn't
-there. A decorative minimize button is the difference between craft and costume — one says
-"someone made this," the other says "someone drew this." An inert control teaches the user
-that the chrome is fake, which retroactively makes the whole frame feel like set dressing.
-
-**The status bar is the notification surface.** Toasts belong in the status bar, not
-floating over the content as a modern snackbar. This is the case doing real work, and it's
-the single best thing the metaphor buys us. It also carries live state: the trust readout —
-how far the ledger is recorded — is its resting tenant, and a transient message takes the
-space and hands it back.
-
-**The case never changes size.** The frame is the one thing in the app that is nailed down;
-that is its whole job. A status bar that grows to hold controls, a titlebar that expands, a
-sidebar that reflows the content area on its own — each turns the frame into another panel
-and takes the app's only fixed reference point with it. Contextual controls therefore never
-live *in* the case. They **float over the work**: a tray anchored to the bottom of the
-scroll container, content scrolling underneath, nothing displaced. Floating costs nothing
-in layout and buys room for honest hit targets, which a 30px strip cannot give you.
-
-The tempting version of this mistake is subtle, so it's worth naming: `.window` is a column
-flex with `.window-body` at `flex: 1` and `.content` owning the scroll. Growing the status
-bar therefore shrinks the *viewport* rather than pushing rows down — better than inserting a
-bar into the flow, and still wrong. The scroll container resizes mid-interaction, the
-scrollbar thumb jumps, and anything anchored near the bottom shifts. A floating tray resizes
-nothing at all.
-
-**Period does not mean inconvenient.** The case constrains how things look, never how many
-steps something takes. No nested modals, no five-field dialogs, no OK/Cancel where inline
-editing works, no 2003 information architecture. If someone argues for a worse interaction
-on grounds of period accuracy, the answer is no.
-
----
-
-## 3. Principles
-
-Each principle has a test. If you can't apply the test, the principle isn't doing work.
-
-### P1 — The common path is the fast path
-The 80% action on any screen is reachable without a modal, a menu, or a scroll.
-*Test:* name the single most frequent action on the screen. Count the interactions to
-complete it from a cold page load. More than three means the screen is wrong.
-
-### P2 — Never ask for what you can infer
-Dates default to today or the last-used date. Currency defaults to the account's. Category
-comes from history. Accounts come from the last import rule that matched.
-*Test:* for every field, ask "what would a good guess be?" If a good guess exists, it is
-the default and the field is optional.
-
-### P3 — Show the consequence before the commit
-Imports preview. Settlements narrate. Reconciliation shows the delta before applying it.
-*Test:* can the user predict the resulting balances without doing arithmetic?
-
-### P4 — Undo beats confirm
-A confirm dialog interrupts everyone to protect against a rare mistake. Prefer soft deletes
-(the schema already does this), status-bar toasts with undo, and reversible edits. Reserve
-`ConfirmDialog` for genuinely destructive, non-reversible, or multi-record actions.
-*Test:* if the action is reversible, it does not get a dialog.
-
-### P5 — One idea per surface
-A screen answers one question. When a surface starts answering two, that's a split, not a
-tab.
-*Test:* say the screen's question out loud in one sentence, no "and."
-
-### P6 — Density is a feature, hierarchy is the constraint
-A data app in a 13px system font: small and dense is correct. But density without hierarchy
-is a spreadsheet. Within any dense view, exactly one element is loudest.
-*Test:* squint. What do you see first? Is it the thing that matters?
-
-### P7 — The case never excuses the work
-See §2. The period chrome buys character; it buys no interaction debt.
-*Test:* would this interaction be acceptable in a 2026 app if you restyled it flat? If no,
-the costume is being used as an alibi.
-
-### P8 — Silence on the path, celebration at the end
-The entry path is quiet, fast and uninterrupted — no animation tax, no encouragement, no
-mascot. Delight is concentrated at the boundaries where the chore actually ends: caught up,
-reconciled, settled, import committed. Character that fires constantly stops being
-character and becomes latency.
-*Test:* is this flourish on the way to done, or at done? On the way, it's out.
-
----
-
-## 4. Interaction laws
-
-Concrete rules. Violating one requires a note in the epic file saying why.
-
-**Keyboard.** Every flow on the entry path (add transaction, quick entry, import sort,
-catch-up) is completable without the mouse. Tab order follows visual order. `Esc` closes
-the topmost layer. `Enter` submits the primary action; `Cmd/Ctrl+Enter` submits from a
-textarea. Anything that opens with a click and is used more than once a session gets a
-shortcut, and shortcuts are discoverable in the UI, not just in this file.
-
-**Focus.** Opening a modal or panel moves focus into it and traps it; closing returns focus
-to the trigger. Focus rings are always visible: `outline: 2px solid var(--color-accent-mid)`.
-Never `outline: none` without a replacement indicator.
-
-**Latency.** Under 100ms: just do it. 100ms–1s: optimistic update, roll back and report on
-failure. Over 1s: a `Shimmer` skeleton shaped like the incoming content — never a spinner
-on a blank panel, never a layout that jumps when data lands.
-
-**Notification.** Transient messages go to the status bar. Where an action is undoable, the
-status-bar message carries the undo, and it names the keyboard shortcut alongside it
-("Deleted bank:savings:czk. Undo ⌘Z") — the bar reports that undo exists, the keyboard is
-what the user should reach for. When the bar gains an action it may pulse its background
-once to catch the eye; it does not move, resize, or animate its height.
-
-**Floating is for the invited.** Nothing floats over the work *uninvited* — a snackbar that
-interrupts what you're reading is the thing that rule is aimed at. A surface that appears as
-the direct consequence of the user's own click is invited and belongs over the content
-rather than in the flow: a selection tray after checking a row, a picker under the field that
-opened it. The test is whether the user would be surprised to see it. If they just caused it,
-they wouldn't be.
-
-**Errors.** Errors appear next to the thing that failed, in plain language, saying what to
-do next. "Failed to save" is not an error message. Never a raw status code, never a
-transient message for a field-level problem. If the user's work could be lost, it isn't —
-keep the form state.
-
-**Empty states.** Every list has a designed empty state naming the next action. Distinguish
-three: first-run ("nothing here yet — here's how to start"), filtered-to-nothing ("no
-matches — widen the filter"), and *cleared* ("nothing needs you"). The third is the win
-condition and should read like one.
-
-**Motion.** `var(--duration-fast) var(--ease)` for state changes; nothing over 200ms on the
-entry path. Motion clarifies causality or it doesn't ship. Honour
-`prefers-reduced-motion` — currently only two places do, which is a bug, not a standard.
-
-**Celebration.** Reserved for completion boundaries. At most one per task; two bursts in a
-row is a defect. Never on the entry path, never on a partial save. `CashConfetti` is the
-existing instrument — new ones need a reason.
-
-**Voice.** Dry, specific, competent. The app narrates what happened ("Settled $240.18
-across 3 expenses"), it does not cheer. 有鱼 and the 🧧 are identity, not personality; the
-app has no mascot and makes no jokes at the user's expense while they're doing taxes.
-
-**Aggregates.** Every rollup carries the date it is complete through, computed from the same
-rows it sums so the two can never disagree. Stale figures are not greyed out — when
-everything is stale everything mutes and the page reads as broken; the date does the work and
-the figure keeps its weight. A derived comparison (month over month, versus an average, any
-trend) is **not drawn at all** unless both sides are fully covered, and its space says why:
-a qualified comparison is still read as a fact, because the caveat is smaller than the number
-and loses. Incomplete is a third state, never a low value — where a series is drawn, hatch it
-with `--color-coverage-hatch`, the app's existing idiom for "not known".
-
-Five rules under that heading, learned the hard way:
-
-- **Two questions, two mechanisms.** "How current is this account" is answered by its leading
-  edge. "Is this period recorded" is answered only by the spans themselves — an account covered
-  Jan–Jun and Aug–Sep has a leading edge in September and says nothing about July. Never
-  classify a period from an edge.
-- **A floor is declared once and inherited.** When a period is marked as a floor rather than a
-  value, every figure derived from that period is a floor too. Sub-totals and breakdown rows do
-  not each restate it; the statement governing the period governs everything under it. Repeating
-  the caveat per row is noise, and noise is how a caveat stops being read.
-- **The caveat-loses rule has a scope.** A caveat loses to the number when it is *smaller than
-  the thing it qualifies* — that is why a comparison is suppressed rather than annotated. When
-  the whole line is the caveat, both facts belong in it: "complete through Apr 23, 1 account has
-  no starting line" is strictly more than either half, and dropping the date to report the
-  unknown throws away the most useful thing the app knows.
-- **Unknown is not current.** An account that has never asserted coverage is not evidence of
-  being up to date. It is reported alongside the date, never folded into the caught-up case,
-  and it is named in the user's vocabulary — "no starting line", which names the fix — rather
-  than in the app's.
-- **With nothing known, say nothing.** A surface that describes coverage has nothing to describe
-  when no coverage has ever been asserted. It makes no claim at all rather than reporting that
-  everything is unrecorded, which is true and useless. Absence of the feature is not a finding
-  about the user.
-
-**Numbers.** All amounts render in `--font-mono` with aligned decimals so columns compare by
-eye. Sign convention is in §5; colour reinforces the sign, the minus carries it.
-
-**Layers.** Maximum one modal deep. A modal that needs to open another modal is a flow that
-wants to be a full-screen wizard or a multi-step panel (see `AddAccountWizard`,
-`ImportSortStep`). This law is currently violated; see §10.
-
----
-
-## 5. The visual system
-
-`frontend/src/styles/tokens.css` is the implementation; this section is the intent. Never
-hard-code a colour, space, radius, or shadow — always a token.
-
-### Aesthetic
-
-The case draws from **the desktop computing of the early 2000s** — a physical shell around
-the work, Lucida Grande as the system font, gradient buttons and controls, soft drop shadows,
-a desktop behind the window. It should say "you are using a computer program."
-
-The palette is **warm graphite**, not Apple's cool silver: OKLCH hue 88 at chroma 0.014, a
-warm putty that gets to the same era by way of SGI, NeXT and Sun rather than by copying Aqua
-exactly. Aqua is the reference for the *grammar* — gloss, bevel, the case-versus-work split —
-not a colour to match.
-
-The XP-era 3D bevel system has been removed, and so are the last two leftovers wearing the
-costume: the Win32 tooltip and the font-smoothing override. All controls use Aqua-style
-shadows. Anything still reading as Windows rather than Mac is a leftover, not a choice.
-
-### Visual rules
-
-- **Radius scale** — `--radius-sm` (3px) badges/chips, `--radius-md` (6px) buttons/controls,
-  `--radius-lg` (8px) cards/inner panels, `--radius-xl` (12px) modal windows,
-  `--radius-pill` (999px) pill-shaped chips. Pills are a *work* idiom (currency pills,
-  category chips); the case does not use them.
-- **Aqua control shadows** — raised controls use `--shadow-control` (soft drop + top gloss).
-  Pressed/inset surfaces use `--shadow-inset`. Cards use `--card-shadow` /
-  `--card-shadow-hover`. Floating panels and dropdowns use `--shadow-window`.
-- **All buttons are `GradientButton`** — gradient background with border. Hover = accent
-  border colour. Active = `--shadow-inset`. `ChromeButton` is for case widgets only (modal
-  close, titlebar controls). `Button` is deleted.
-- **One command leads, and it is the only accent-filled button on the screen** —
-  `variant="primary"`. The rest of a surface's buttons stay default, including its escape
-  hatches. Four raised chips of equal weight make the reader work out which one is the point,
-  and a *column* of primary buttons — one per card in a queue — is the page saying "do this"
-  eight times. Which button leads can be a property of position rather than of the component:
-  on Catch Up the account card's Import is primary in focus mode and when it is the only card,
-  and not when the page above it already leads with "Start catching up".
-- **Cards are the surface primitive** — use `Card` for any grouped panel, with a
-  `.section-header` div inside for titled sections (`--color-section-bar-*`). `Panel` is
-  deleted.
-- **A ledger is day bands over one-line rows** — `DayBand` carries the date once for the
-  run beneath it and the day's net; the rows carry no date at all. A date column repeats
-  itself five times down a busy Saturday and tells you nothing the line above didn't. The
-  band is also what lets the zebra striping go: an alternating fill was a second structure
-  saying what the first one already said.
-- **Tabular data is a `Sheet`** — one table, one `<colgroup>`, `table-layout: fixed`, and
-  groups as `SheetBand` rows inside it rather than tables of their own. A group that owns its
-  own table owns a column geometry too, and three groups then mean three geometries that look
-  like one. Widths come from `Sheet`'s exported `WIDTH` vocabulary so a column meaning the
-  same thing is the same width on every sheet. `SectionCard` is deleted.
-- **Lucida Grande at small sizes** — `--text-body` is 14px and the chrome runs 9–11px. Small
-  and dense is correct, and the ladder below says which small.
-- **Font smoothing belongs to the platform** — the app sets no `-webkit-font-smoothing`.
-  `none` was an XP-era leftover fighting the Aqua reference, and it is not coming back;
-  `antialiased` is the only sanctioned override, and only once someone has shown 13px Lucida
-  Grande suffers without it on a real Mac. Pinned by `base.test.ts`, because the property is
-  macOS-only and its return is invisible on a Linux CI runner.
-- **Tooltips are Aqua help tags** — a dark translucent panel, hairline edge, `--radius-sm`,
-  `--shadow-window`, floating over the page rather than pasted onto it. Their contrast
-  contract sits on the *edge*, not the fill: a dark panel over a dark page cannot clear 3:1
-  on fill without going pale grey and ceasing to look like a help tag, and what has to be
-  legible is where the panel stops.
-- **Every surface is a rung on one ladder, and so is every size** — see *The ladder* and
-  *The type ladder* below. Do not invent a surface colour, a font size or a gap; pick the
-  rung whose relationship you want.
-- **The status bar is 30px** — it holds interactive text (the trust readout, and the undo
-  action when that lands), so it clears WCAG 2.5.8's 24×24 minimum target. 30 rather than the
-  24 + padding it looks like it needs: the bar clips its overflow, and a 24px target with a
-  2px focus ring exactly fills 28, shearing the ring's top and bottom. Period-plausible —
-  Aqua status bars ran ~22px, taller when they carried controls. The height is paid once and
-  never animates (§2).
-- **Title bars use the case colour under a gloss gradient** — multi-stop gloss over the case
-  rung; `--color-titlebar-border` + `--shadow-titlebar-inset` for the bottom border and top
-  highlight. Title text uses `--font-serif`. Modals use `--shadow-modal`.
-- **Section bars are bands, not slabs** — one rung off the surface they head, carrying
-  ordinary ink. A header rendered as a dark gradient with reversed-out text is the loudest
-  thing on the page and never the thing you came to read.
-- **Magnitude marks are ink, not accent, and they live in a trough** — bars, blocks and
-  sparklines take `--color-bar-ink` over `--color-window-inset`; `--color-incomplete` marks a
-  magnitude known to be partial; the unfilled remainder takes `--color-rule` and is
-  deliberately *below* 3:1, because it is the extent of the axis rather than a figure. One
-  ground for every chart, because a token tuned against one trough is not legible against
-  another: `--color-incomplete` measures 3.6:1 in the trough and 2.4:1 on a panel. The accent
-  means "the one live thing on this screen", so it can mark the row you drilled into and
-  nothing else. A chart filled with the accent spends it on nine things at once and it stops
-  meaning anything.
-- **`--color-amount-*` means money, not trouble** — a required-field marker, a duplicate
-  warning, an unmapped-currency notice and a save error are statuses, and statuses take
-  `--color-warning` or `--color-danger`. The import route had eight places using the
-  money-out colour to mean "something is wrong", which is how a page ends up red without any
-  of it being about money.
-- **A figure the app knows is partial says so** — an incompletely recorded month draws its
-  bars in `--color-incomplete` and its totals with a `≥`, and a comparison across a period
-  that is not fully recorded is not drawn at all: the slot says which month is missing
-  (`comparisonBlocker`). A number that looks final and is not is worse than no number.
-
-### The ladder
-
-Every surface in the app is one rung on a single ramp, and **an element sits on the same rung
-in both themes**. This is the rule the previous palette pair did not keep: light was designed
-as Aqua Graphite and dark was derived by substituting Nord, which preserved the colours but
-not the relationships. The section bar ended up 11.45:1 from the page it headed in light and
-1.24:1 in dark — the same element, a 61x difference in how loud it was. Hierarchy has to be a
-property of the design, not of which theme you happen to have on.
-
-Two units, because they measure different things:
-
-- **Surfaces step by OKLCH ΔL**, never by contrast ratio. A ratio is a nonlinear function of
-  a *pair*, so the same target buys a different-sized perceptual step depending on where on
-  the ramp you spend it — 1.20:1 is ΔL 0.042 in the mid-tones and ΔL 0.070 near black. Spec a
-  ladder in ratios and the dark end silently gets shallower steps than you asked for, which is
-  exactly how the old dark theme flattened while every value in it still "passed".
-- **Ink steps by contrast ratio**, because that is what legibility is measured in and there is
-  a standard to point at.
-
-| rung | light | dark | steps from | ΔL light / dark |
-|---|---|---|---|---|
-| `--color-desktop` | `#a8a49b` | `#100d07` | — | — |
-| the case (titlebar, status bar) | `#d3cfc5` | `#3b3730` | desktop | .135 / .179 |
-| `--color-window-raised` | `#e2ded4` | `#211e16` | — | — |
-| `--color-window` | `#f6f1e7` | `#2d2a22` | raised | .060 / .050 |
-| `--color-section-bar-bg` | `#c1bdb4` | `#3f3b33` | raised | .100 / .120 |
-| `--color-rule` | `#d0ccc2` | `#4b473f` | window | .115 / .116 |
-
-`--color-window-inset` (`#fffdf6` / `#191710`) is the far end of the ramp in each theme, not a
-rung in the middle: an input or a chart trough has to read as a hole cut in the panel.
-
-One relationship legitimately inverts between themes and is exempt from the same-rung rule:
-the case against the window it frames. A shell is always a mid-tone between the desktop behind
-it and the panel inside it, which puts it below the window in light and above it in dark. Both
-directions are still required to be a real step — a titlebar flush with its own panel is a bug
-either way.
-
-`tokens.test.ts` asserts all of it: each step is at least ΔL 0.04 (below that, two surfaces
-read as one surface with a seam), and the two themes' steps stay within 2x of each other.
-
-### The type ladder
-
-Nine rungs, named for the job rather than the size. That naming is the whole lesson of the
-epic that drew them: the previous scale was `xs` through `3xl`, and `--text-xs` carried 157 of
-its 303 uses — the app's most common size was called "extra small", so anyone reaching for
-something genuinely small found the name taken and wrote a pixel value. A scale is only used
-if a writer can tell which rung means what without measuring.
-
-| rung | px | family | job |
-|---|---|---|---|
-| `--text-display` | 28 | mono | the one number a page is about — an account's balance |
-| `--text-title` | 22 | serif | page and object titles |
-| `--text-figure` | 18 | mono | a card's headline amount, a panel's heading |
-| `--text-amount` | 16 | mono | money in a row — `MoneyDisplay`'s size |
-| `--text-body` | 14 | sans | the reading register — rows, prose, inputs |
-| `--text-dense` | 12 | sans | secondary text inside a dense row |
-| `--text-control` | 11 | mono | text inside an interactive control |
-| `--text-label` | 10 | mono | uppercase chrome labels — section bars, column heads |
-| `--text-micro` | 9 | mono | the smallest legible mark — key caps, ticks, initials |
-
-The family column is what a rung is usually set in, not a rule the tokens enforce. What *is*
-load-bearing is that four of the rungs sit one pixel apart, and each earns it:
-
-- **`label` and `control`** are the same size to a census and two different voices on screen.
-  Uppercase mono at 10 is furniture; mixed-case at 11 is something you click. Set both at 10
-  and the tabs and buttons flatten into the column heads above them — a control that reads as
-  a label, which is the V3 problem stated in type.
-- **`amount` and `figure`** are money appearing in a list of other things versus a number a
-  card exists to state. Collapsing them moves every money row in the app.
-
-Sizes are `rem`, so a reader's browser font setting scales the app (§8). `base.css` sets no
-root font-size: the rem basis is the reader's, and 16px is the browser default.
-
-**Space is two vocabularies**, because the app spaces things for two different reasons. `--sp-*`
-separates things from each other and runs 1 / 2 / 4 / 6 / 8 / 12 / 16 / 24 / 32 / 48 / 64 — it
-bends its doubling once at the bottom, deliberately, because 6px is a genuinely common gap and
-including it caps the worst rounding at 1px. `--gutter-tight` (10), `--gutter` (14) and
-`--gutter-wide` (22) are the distance from a surface's edge to its content, which is a
-different question: of the 58 declarations using 14 and 22px before they were tokens, all 58
-were padding and not one was a margin.
-
-Weight is `normal` 400, `medium` 500, `semibold` **600**, `bold` 700 — semibold used to be
-defined as 700, which is why the app carried 63 raw `700`s beside 53 uses of the token and 21
-places wanting a 600 that nothing provided. Leading runs `none` (1) through `loose` (1.75);
-tracking is `tight`, `label` and `wide`, and `label` is the one that matters, because uppercase
-mono at 9–10px is unreadable without it.
-
-`no-raw-type.test.ts` holds all of it: in a component's `<style>` block a size is a token or
-it is a bug, `calc()` included. Three declarations are exempt and each carries its reason —
-all three are marks drawn out of glyphs rather than text set at a tracking.
-
-### Interaction finishes
-
-- State changes transition on `var(--duration-fast) var(--ease)` — 80ms ease-in-out.
-- Button press = `--shadow-inset` + `translate: 1px 1px`, not an instant jump.
-- Every interactive element has a hover state. Nothing is ambiguous about clickability.
-
-### Amount display
-
-`--color-amount-positive` (green) for income, `--color-amount-negative` (red) for expenses.
-Negative amounts in the data are expenses; positive are income. Always through
-`MoneyDisplay`.
-
-**Colour marks the minority sign.** On Accounts one or two rows are negative; on a transaction
-list nearly all of them are, and twenty-two red numbers read as twenty-two errors rather than
-as ordinary spending. So in any list where one sign dominates, the dominant sign renders in
-`--color-text` and the minus carries it, and colour is spent on the minority sign — the row you
-were actually looking for. A liability *balance* is likewise not an error and does not take
-`--color-amount-negative` on that ground alone.
-
-Which sign is the minority is a property of the list, not of the app, and it **cannot be a
-constant**. A chequing statement is mostly negative, so its refunds are the minority; the same
-statement imported as liabilities has its signs flipped — a charge increases what you owe and
-reads positive — so there the minority is negative. `minority-sign.ts` decides it per screen
-from the rows in front of it, and returns "neither" when the split is nearer than two to one,
-because colour that marks half a column marks nothing.
-
-Both ledgers resolve this through `$lib/components/transactions/ledger.ts` and pass the answer
-to `MoneyDisplay` as `tone`, rather than each page expressing it in its own stylesheet. The
-rule needs to know which posting the row is *about* — the account you are viewing, or the
-own-money side of a row on the global list — and that question has one answer, so it has one
-implementation. It applies to a day band's net for the same reason it applies to a row: over a
-month of bands most days net negative.
-
-The two amount colours are also held to the same loudness as each other in each theme. Before
-the ladder, a loss in dark mode measured 3.05:1 against a gain's 6.13:1: the number you most
-need to notice was the quieter of the two, and nothing in the design had said so — it fell out
-of borrowing two palette entries that happened not to match.
-
-### Status is not an amount
-
-The app names green and red twice, on purpose. `--color-success` / `--color-warning` /
-`--color-danger` say how something *went*; `--color-amount-positive` / `--color-amount-negative`
-say which way *money* moved. In each theme a status token and its money twin hold the same
-value, because the app does mean the same thing by green and by red.
-
-That shared value is exactly what makes them interchangeable at the call site, and they were:
-nineteen rules picked the wrong one. Five `.form-error` rules were painted in money-out red, an
-invalid field wearing the colour of an expense. `CatchUpProgress` carried the comment "green
-here is a status, not a quantity" directly above a rule reaching for `--color-amount-positive`.
-Nothing looked wrong — and that is the failure mode. It stays invisible until someone moves one
-of the two values, at which point a form error follows the expense colour somewhere new and
-nobody can say why.
-
-So the name is the only thing carrying the distinction, and
-`frontend/src/styles/semantic-colour.test.ts` defends it: **a selector that names a status may
-not reach for a money token.** The rule is one-way. A money amount flagged for attention is
-legitimate — the amber FX-fee amount in `TransactionDetail` is exactly that — and `.balance-bad`
-is a status about a balance, not a balance.
-
-Which token you reach for follows from what the rule is *about*, not from the colour you want:
-
-| the rule is about | token |
-| --- | --- |
-| money arriving / leaving | `--color-amount-positive` / `--color-amount-negative` |
-| a thing that worked | `--color-success` |
-| a thing that needs a look, or a caveat on what is shown | `--color-warning` |
-| a thing that failed, is invalid, or destroys data | `--color-danger` |
-
-### Two rules that are load-bearing
-
-**Tokens are a contract, not a palette.** `frontend/src/styles/tokens.test.ts` asserts
-contrast and ladder invariants against the token file itself, because a fill and its trough
-only meet each other in the compositor and no component test can catch that. When you add a
-token pair that must stay distinguishable, add the assertion with it.
-`frontend/src/styles/no-raw-colour.test.ts` enforces the other half: no `.svelte`, `.css` or
-`.ts` file outside `tokens.css` may hold a hex, a hued `rgb()`, or a named colour. Translucent neutrals (`rgba(0, 0, 0, 0.08)`) and `color-mix(…, black)` stay legal —
-they shade whatever is beneath them rather than declaring a colour, which is the one thing a
-flat token cannot express.
-
-**Accent is user data.** Six accents (`frontend/src/lib/accent.ts`) times light/dark.
-Anything you build must survive all twelve combinations. Never assume the accent is blue,
-never assume the background is light. If it only looks right in one theme, it isn't
-finished.
-
-An accent is **a hue and a chroma, not a palette**. Every value it produces — the fill, the
-highlight, the chip pair, the bar track, the text that goes on top of it — is that hue placed
-on a fixed rung, derived by `$lib/oklch`. Do not hand-pick a new accent value; add the hue and
-let it land where the rungs put it. Hand-picking is what produced the old spread, where the
-same choice measured 2.64:1 in one theme and 9.52:1 in the other.
-
----
-
-## 6. Components: reuse, extend, or replace
-
-The inventory is `frontend/src/lib/components/ui/` (primitives) plus domain folders
-(`accounts/`, `transactions/`, `import/`, `fish-pie/`, `catch-up/`, `spending/`,
-`wizards/`). Read the primitives before building anything.
-
-### The decision
-
-1. **Does a primitive already do this?** Use it. `Card` is the surface, `GradientButton`
-   the button, `Modal` the overlay, `TableShell` the data table.
-2. **Does a primitive nearly do this?** Extend it with a prop *only if* the prop names a
-   variant of the same idea (`Card gloss`, `Card muted`). If the prop is a mode switch — a
-   boolean that changes what the component *is* — that's a second component.
-3. **Is this the third time?** Two similar one-offs are fine. The third is a pattern:
-   extract and migrate all three.
-4. **Is the existing pattern actually good, or just present?** The question that never gets
-   asked.
-
-### The anti-accretion rule
-
-**A component past ~400 lines or growing a third boolean mode prop is a design smell, not a
-maintenance task.** It means a pattern was stretched past what it was for. The epic gets a
-paragraph asking whether the flow itself is right before anyone refactors the file.
-
-Watchlist, largest first: `fish-pie/GroupRightPanel` (1382),
-`transactions/TransactionDetail` (1093), `fish-pie/GroupExpenseForm` (797),
-`transactions/LedgerEditModal` (793), `accounts/CategoriesTab` (786),
-`accounts/AccountPicker` (766), and the `/import` route at 1863 lines.
-
-Being listed is not a defect. It's an invitation to ask P5's question of it.
-
-### The rule a scoped `<style>` block cannot follow
-
-Rule 3 above — *the third time is a pattern* — is the one this codebase breaks most often,
-and it breaks it for a structural reason. A Svelte component's styles are scoped, so a rule
-cannot be shared with the file next door, and writing it out again is always the shortest
-path. Nobody makes a decision; the third copy just appears.
-
-The result is measurable. The section bar's four-declaration skin lived in **twenty-one**
-components, and it had drifted: three panels shouted `PARSERS` in the markup because their
-copy of the label rule had lost its `text-transform`. `.empty` was written **fourteen** times,
-in four different paddings, and the spending breakdown's had lost the serif italic — so the
-absence a user meets most often was the one that looked like a different app.
-
-So the third copy of a *rule* goes to `styles/base.css`, the way the third copy of a
-*component* goes to `ui/`. `.sr-only`, `.section-bar` and `.section-bar-title` are there for
-this reason. Two limits keep it from becoming a utility framework: only the **skin** is
-shared — every bar keeps its own padding, gap and content in its own file — and a global
-class earns a guard in `base.test.ts` naming what may no longer be hand-rolled, because a
-convention with nothing checking it is the state we just left.
-
-An absence is a component rather than a class, because it has content and two shapes: `Empty`
-(V7). A muted one-line notice inside a dense panel is not one — dressing that as prose makes
-it the loudest thing in a panel it only annotates.
-
-### Retiring a pattern
-
-Replacing something is normal here and should feel cheap. The Graphite epic deleted `Button`
-and `Panel` outright; that is the template.
-
-1. Build the replacement alongside the old thing.
-2. Migrate every call site in the same epic — grep the import, fix all of them.
-3. **Delete the old component in that epic.** Not later, not behind a flag.
-4. Record the swap here if it changes a stated rule.
-
-Two parallel ways to do the same thing is the failure mode this whole document exists to
-prevent. With two users and no external contract, there is no reason to tolerate it.
-
----
-
-## 7. How the UI evolves
-
-The user base is two people. That is a design asset — it buys the freedom to ship bold
-changes and learn from them, which a product with real users cannot do. Use it now, because
-it expires.
-
-### Every epic gets a UX brief
-
-Before stories are written, the epic file in `planning/epics/` opens with:
-
-```markdown
-## UX brief
-- **Question this screen answers:** (one sentence, no "and")
-- **Inbox role:** (what outstanding work does this surface, or "none")
-- **Primary action + interaction count:** (e.g. "record a transaction — 4 keystrokes")
-- **Case or work:** (which side of §2 the new surfaces sit on)
-- **Existing patterns reused:** (name them)
-- **Patterns being stretched or replaced:** (name them, or "none")
-- **What gets deleted:** (or "nothing", and why that's acceptable)
-```
-
-If "patterns being stretched" is non-empty and "what gets deleted" is empty, that epic is
-adding to the pile and needs a reason.
-
-### Quarterly-ish design pass
-
-Roughly every ten shipped epics, run a pass and write it up in `planning/exploration/`. It
-is a critique, not a refactor:
-
-- Walk the primary flows (add a transaction, import a CSV, settle a Fish Pie, catch up a
-  stale month) and count interactions. Compare to the last pass. Going up is a finding.
-- List every surface a new user meets in their first ten minutes and grade it cold.
-- Check the watchlist. Anything that grew is a candidate.
-- Check §10. Anything still there after two passes is either being fixed now or being
-  written into the philosophy as an accepted exception.
-- Name one thing to delete. Every pass names one.
-
-The output is exploration notes and usually one redesign epic — the pattern already in use
-(`sidebar-redesign`, `spending-page-redesign`, `account-page-redesign`).
-
-### Redesigns are epics, not side quests
-
-A redesign gets a file, a UX brief, stories, and a PR like anything else. It ships behind no
-flag and gets no compatibility shim. The old thing is deleted.
-
-### Prototype in the browser, not in prose
-
-For anything non-obvious, build it behind a route and look at it. A screenshot in the epic
-beats three paragraphs describing a layout. Reviewing a real screen is the only reliable way
-to know whether the density is right.
-
----
-
-## 8. Building for people who aren't us
-
-Today: two users on a Tailscale network. The stated future is friends and family, then
-wider. These are expensive to retrofit and cheap to hold now.
-
-**Nothing is learnable only by having been told.** Every non-obvious affordance carries a
-tooltip, a placeholder, or an inline hint. The test: could the second user, who did not
-build this, complete the flow without asking? Once there are ten users you will not be
-around to answer.
-
-**Accessibility is the floor, not a phase.** Semantic elements; `aria-label` or `.sr-only`
-text on every icon-only control; a real label on every input; visible, managed focus; colour
-never carrying meaning alone; 4.5:1 text and 3:1 graphics contrast in *both* themes. 48 of
-~70 components use ARIA today — the gap is the backlog.
-
-**Multi-tenancy is a UI concern too.** Fish Pie already makes this multi-user. Any new
-surface should be legible when the data is shared: whose entry is this, who can edit it,
-what does the other person see. Don't build a screen that only makes sense for a household
-of one.
-
-**Locale is not an afterthought.** Multi-currency is a core principle. Dates, numbers and
-currency symbols route through `frontend/src/lib/currency.ts` and `date.ts` — never format
-inline. Strings are English today; keep them in markup rather than concatenated in logic so
-extraction stays possible.
-
-**Web must survive small screens.** There's a React Native companion, but the web app gets
-opened on a phone anyway. Nothing should be *unusable* below 768px. Prefer layouts that
-reflow to layouts that need a breakpoint.
-
-**Performance is UX.** Lists that can reach thousands of rows (transactions, import
-previews) paginate or virtualise. Nothing on the entry path waits on a query that scans the
-whole ledger.
-
-### Cross-platform parity
-
-`mobile/` is React Native and has no access to `tokens.css`. Web and mobile are expected to
-differ in layout and interaction — a phone is not a desktop, and the case metaphor does not
-travel. What may not differ is *vocabulary*: same concept, same name, same colour semantics,
-same sign conventions. When a token's meaning changes on web, the mobile theme changes with
-it in the same epic.
-
----
-
-## 9. Review checklist
-
-Run before opening a UI PR. Also the checklist for step 5 of the epic workflow in
-`planning/CLAUDE.md`.
-
-- [ ] The primary action's interaction count is stated in the epic and hasn't gone up
-- [ ] If this surface holds outstanding work, it reports its own count
-- [ ] Every field that could have a sensible default has one
-- [ ] Completable with the keyboard alone; focus visible, trapped in overlays, restored on close
-- [ ] Loading, first-run, filtered-to-nothing and cleared states all designed
-- [ ] New chrome is period, every widget in it does something real, and nothing in the case resizes
-- [ ] Contextual controls float over the work rather than displacing it
-- [ ] New flourishes fire at completion, not on the entry path
-- [ ] Correct in light and dark, and in all six accents
-- [ ] Contrast clears 4.5:1 (text) / 3:1 (graphics) in both themes; new token pairs asserted in `tokens.test.ts`
-- [ ] No hard-coded colours, spacing, radii, or shadows — tokens only
-- [ ] No new component duplicating a primitive; no third boolean mode prop
-- [ ] Anything replaced is deleted in this PR, all call sites migrated
-- [ ] Icon-only controls labelled; inputs have real labels; semantic elements used
-- [ ] Nothing broken below 768px
-- [ ] Destructive actions are reversible, or genuinely destructive and get a dialog
-- [ ] Amounts use `MoneyDisplay`; sign legible without colour
-- [ ] Every aggregate states what date it is complete through
-- [ ] No comparison is drawn across a period that isn't fully covered, and no gap is priced
-- [ ] Coverage is judged against every tracked account, not the ones that appear in the data
-- [ ] Empty results say whether they are empty because nothing happened or because nothing is recorded
-
----
-
-## 10. Where the app contradicts this document
-
-Written 2026-09-03, from an audit of the code against the philosophy above. This is the
-audit backlog — each item is a known contradiction, not a vague improvement. Strike them as
-epics kill them.
-
-### The case is not period yet
-- **Nobody has looked at the type on a Mac since smoothing came back on.**
-  `-webkit-font-smoothing: none` is gone, but the property is implemented in Blink for macOS
-  only: on Linux — CI's runners and every container — setting it changes nothing, and two
-  renders with and without it come back byte-identical. So no screenshot taken off a Mac can
-  show what the removal did. If 13px Lucida Grande reads mushy with smoothing on, the
-  sanctioned fix is `antialiased`. `none` does not come back; `base.test.ts` holds that.
-
-### The two themes are not one design — closed
-Measured against `tokens.css` in `planning/exploration/visual-language/`, and answered in full
-by [`planning/epics/archive/visual-language.md`](planning/epics/archive/visual-language.md).
-Every item below is struck: the epic's nine stories landed between 2026-09-06 and 2026-09-08.
-Kept rather than deleted because the measurements are what the ladder was argued from, and
-because a closed audit is the only evidence that an audit backlog is a thing this project
-actually clears.
-
-Three of them were only half of what was wrong, and the epic said so as it went: V3 became
-per-*pane* rather than per-screen (story 8), V6 was scoped to data marks rather than control
-state (story 8), and V4 was corrected outright — status and money are two vocabularies that
-happen to share their values, which is what let nineteen rules pick the wrong one (story 9).
-Those refinements are in the epic file, not here.
-
-- ~~**Hierarchy is a property of the theme, not the design.** `--color-section-bar-bg` is
-  11.45:1 against the page in light and 1.24:1 in dark — ΔL 0.549 against ΔL 0.009. The same
-  element is the loudest thing on one screen and one of the quietest on the other.~~ Fixed by
-  the ladder: the section bar now steps ΔL .100 / .120 off the panel it heads, and
-  `tokens.test.ts` holds every rung to within 2x between themes.
-- ~~**`Card` is not a surface.** `--card-bg` is `--color-window`, the page is
-  `--color-window-raised`: 1.06:1 light, 1.05:1 dark. Every panel in the app is separated from
-  the page by a hairline and nothing else. In dark `--color-rule` is 1.24:1 as well, so that
-  theme has neither surface nor line carrying grouping — which is why it reads flat.~~ Fixed by
-  the ladder: window against raised is now ΔL .060 / .050, and the rule ΔL .115 / .116. `Card`
-  did not change; the values underneath it did.
-- ~~**Losses are dimmer than gains in dark.** `--color-amount-negative` is 3.05:1 against
-  positive's 6.13:1. It fails the 4.5 floor §8 sets, on the app's most important datum, and the
-  two halves of it are not equally legible.~~ Fixed: 5.41 against 6.62 in dark, 5.40 against
-  5.01 in light, with an assertion holding the pair within 1.5x of each other in each theme.
-- ~~**Four of six accents fail 4.5:1 in light.** Ochre is 2.64:1 light and 9.52:1 dark. Accent
-  is the one rung a user can move, and nothing constrains where they move it to.~~ Fixed: an
-  accent is now a hue and a chroma, and every value it produces is that hue on a fixed rung.
-  All twelve land between 4.6:1 and 5.6:1, and `accent.test.ts` holds the spread under 1.3x.
-- ~~**Light is Aqua and dark is Nord.** A 2016 editor theme with its own opinions. There was no
-  dark Mac OS X in 2003, so the dark theme had no period referent and borrowed one — which is
-  why §5's aesthetic paragraph only ever describes the light one.~~ Fixed: both themes are now
-  the same warm-graphite ramp read from opposite ends, and §5 describes one palette rather than
-  the light one.
-- ~~**Columns do not line up between account groups.** Each `SectionCard` renders its own
-  `<table>` at `width: 100%` with no fixed layout, so every group sizes columns from its own
-  content and Balance sits at a different x in Cash, Equity and Liabilities.~~ Fixed: both
-  tabs of the Accounts route are one `Sheet` with the widths declared once, and `SectionCard`
-  is gone.
-- ~~**The accent is doing chart duty.** `SpendingBreakdown` fills every block bar with
-  `--color-accent`, so the token that should mark the one live thing marks nine categories at
-  once — and changes colour per user.~~ Fixed: bars are `--color-bar-ink` in a trough, and the
-  accent marks the drilled row and the active currency tab and nothing else. The same pass
-  took it off the category names, the spending payees and the transactions-list descriptions,
-  which were all wearing it on every row.
-- ~~**`CurrencyPill` has a light-only colour map.** Thirty-three currencies with hand-picked
-  pale backgrounds and dark text, applied as an inline style that overrides the component's own
-  token fallback. Every money row in the app carries one, so in dark theme they are pale
-  stickers on a dark page. `tokens.test.ts` cannot see it, because it is not a token — which is
-  the argument for a source-level guard against raw colour in `.svelte`, the way
-  `chromeButtons.test.ts` guards handlers.~~ Fixed: the map is gone and the pill is neutral in
-  both themes. The guard it argued for is `no-raw-colour.test.ts`, which found two more things
-  while it was at it — nine components mixing toward literal `black`, and `accent.ts` as a
-  second declared source of colour.
-
-### The work is not modern enough
-- **Modal nesting.** `TransactionDetailModal` is a `Modal` that renders `LedgerEditModal`,
-  which is another `Modal` — two deep, in one of the busiest flows in the app. §4's
-  one-deep law is already broken where it matters most.
-- **The sidebar leads with nouns, not the loop.** Accounts first, Catch Up fifth. Under the
-  inbox model the order is wrong.
-- **No undo anywhere.** P4 prefers undo over confirm, but `toast` has no action affordance —
-  it's a string and a timer, and none of the eleven soft-delete endpoints has a restore
-  path. Undo needs to exist before "prefer undo" is a real rule.
-  → `planning/epics/undo.md`
-- **The toast timer is wrong.** `toast.show()` takes a `duration` argument and ignores it,
-  hard-coding 3200ms. Small, but it's the notification surface. → `planning/epics/undo.md`
-- **17 of 46 `toast.show()` call sites carry failures.** §4 says errors appear next to the
-  thing that failed and persist; these evaporate in 3.2s in a bar nobody is watching.
-  → `planning/epics/undo.md`
-
-### Aggregates overstate what the app knows
-- **Mobile (`mobile/`) has no coverage awareness at all.** The Companion shows balances and
-  Fish Pie totals with none of the dating the web app now carries, so the same figure is honest
-  on one surface and bare on the other. Same principle, different surfaces — its own epic.
-- **The monthly spend series does not exist.** `/spending` fetches seven months of totals purely
-  to compute two deltas and never draws them, so the hatch rule above is written for a chart
-  nobody has built. If a trend is ever drawn there, the rule is already waiting for it.
-
-### Standing debt
-- **`prefers-reduced-motion`** honoured in 2 places out of ~30 that animate.
-- **ARIA coverage** ~70% of components.
-- **`/import` at 1863 lines** — redesigned once already. Next time split, don't grow. It has
-  grown 86 lines since that sentence was written, which is the sentence's own point.
-- **No responsive audit** has ever been run on the web app, and the first measurement of it
-  says it is worse than "untested". Below roughly 1100px the fixed column geometry meets the
-  fixed 200px sidebar and loses: at 768 the accounts sheet drops `LAST ACTIVITY` and `FLAGS`
-  off the right edge, and the spending page's three panels slide under one another until the
-  breakdown has no amounts in it. Nothing is responsive because nothing was ever asked to be —
-  every sheet and panel is sized for the desk. This is an epic, not a fix.
-- **No virtualisation** anywhere; transaction lists rely on date filtering to stay small.
-- ~~**Legacy accent aliases** (`--color-accent-mid`, `--color-accent-light`) still marked
-  "components updated in story 4" in `tokens.css`.~~ Gone — Visual Language story 2 derives
-  every accent value from a hue and a rung, so there was nothing left for an alias to point at.
+- **Nothing in the current app's design binds the rewrite.** That is `frontend/DESIGN.md`. A
+  story may adopt one of its principles by naming it, as the undo story does with P4 ("undo
+  beats confirm"). Adopting one is a choice the story makes, not a default, and the principle
+  comes here, rewritten short, with a test where it can have one.
+
+## It is a desktop app
+
+The current app was a website dressed as a program. This one is a program, so it behaves like
+the other windows on the machine before it has any look of its own.
+
+- **The case is the OS's.** The window uses the frame the operating system draws: its
+  titlebar, its controls, its resizing and tiling. The app draws no chrome of its own, and its
+  menu bar is the OS's application menu. Personality goes into the work and the themes, never
+  into a costume frame.
+- **Every action is in the menu, with its shortcut.** One list of actions feeds the menu, the
+  hints beside buttons and, later, a command palette, so a shortcut is never in one place and
+  missing from another. A packaged build has no Reload and no developer tools.
+- **Any width the window allows works.** Half a screen beside a bank statement is a normal way
+  to use it, and the minimum size is a layout, not a clipping.
+- **Zoom is the person's.** Ctrl+= and Ctrl+− work everywhere, and nothing breaks at 200% or at
+  fractional scaling.
+- **Nothing is fetched.** Fonts, icons and themes ship inside the app, and it opens with the
+  network off. The window shows once the page is ready, on the theme's background colour, so a
+  launch never flashes white.
+- **It reopens where it was left**: the window's size and place, and in time the screen and
+  anything half-typed.
+- **The OS's furniture where it has some.** Native file and message dialogs (they order their
+  buttons the platform's way), a file dropped on the window, and the clipboard both ways: a
+  table copies as tab-separated text, so it pastes into a spreadsheet.
+- **The person's settings win.** `prefers-reduced-motion`, `prefers-contrast` and
+  `forced-colors` override any theme.
+- **Linux first.** It is packaged for Linux first. macOS follows its platform through
+  `CmdOrCtrl` and native dialogs, not through a second design.
+
+## Themes
+
+The desktop app can have themes, colours to start with.
+
+- **A theme changes the colours, never the hierarchy.** An element sits on the same rung of the
+  lightness ladder in every theme, as the current app's ladder already requires of light and
+  dark (`frontend/DESIGN.md` §5). That app's first dark theme kept every colour of the palette it
+  borrowed and lost every relationship, which is the failure this rule is for.
+- **Colours are tested, not reviewed.** One tokens file declares every colour. A contract of
+  plain functions checks ink (4.5:1 for text, 3:1 for graphics) and surfaces (each step at least
+  ΔL 0.04, and within 2x across schemes), and a guard fails a colour declared anywhere else. The
+  same functions check a theme while the app runs.
+- **Money is not themed.** The colours for money in and out stay fixed, and a sign reads
+  without colour.
+- **A theme belongs to the machine, not the ledger.** It lives in the app's settings, never in
+  the ledger file.
+- **What a theme consists of is still open.** The recommendation is a few inputs (a neutral
+  hue, an accent hue, light or dark) that the app places on the ladder, with the built-in
+  themes as data, rather than public CSS variables the way Obsidian has them.
+
+## What the current app taught
+
+Worth adopting, each by the first story that needs it, as the rule above says, and what
+stays behind:
+
+| Worth adopting | Stays behind |
+|---|---|
+| Tokens as a contract, held by tests | The 2003 case and its costume controls |
+| An accent as a hue on fixed rungs | Lucida Grande, which Linux doesn't have |
+| Money and status as two vocabularies | A theme made by swapping a palette |
+| One `Sheet` geometry, day bands over rows | Layouts sized only for a wide window |
+| The keyboard, focus and latency laws (§4) | Toasts that vanish in a bar nobody watches |
+| The third copy of a rule becomes shared | A design document too long to read |
+
+That last one is why this document stays short and why its rules live in tests wherever they
+can.
