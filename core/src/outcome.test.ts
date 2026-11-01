@@ -45,6 +45,9 @@ test('every code takes the detail the table gives it', () => {
   failure('INPUT_MALFORMED', { path: 'amount', issue: 'invalid_type' })
   failure('COMMAND_UNKNOWN', { name: 'spend.burn' })
   failure('UNEXPECTED')
+  failure('TRANSACTION_NOT_FOUND', { id: '00000000-0000-4000-8000-000000000001' })
+  failure('TRANSACTION_DELETED', { id: '00000000-0000-4000-8000-000000000001' })
+  failure('TRANSACTION_NOT_SIMPLE', { id: '00000000-0000-4000-8000-000000000001' })
 })
 
 test('a code with detail refuses to compile without it', () => {

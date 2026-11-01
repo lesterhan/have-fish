@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Currency } from './currencies'
-import { type PostingDraft, validatePostings } from './postings'
+import { type PostingDraft, simpleAmountOf, validatePostings } from './postings'
 
 const A = '00000000-0000-4000-8000-00000000000a'
 const B = '00000000-0000-4000-8000-00000000000b'
@@ -194,5 +194,54 @@ describe('validatePostings', () => {
         details: undefined,
       },
     })
+  })
+})
+
+describe('simpleAmountOf', () => {
+  it('two legs in one currency: the positive one', () => {
+    expect(
+      simpleAmountOf([
+        { cents: 450, currency: 'CAD' },
+        { cents: -450, currency: 'CAD' },
+      ]),
+    ).toEqual({ cents: 450, currency: 'CAD' })
+  })
+
+  it('in either order', () => {
+    expect(
+      simpleAmountOf([
+        { cents: -450, currency: 'CAD' },
+        { cents: 450, currency: 'CAD' },
+      ]),
+    ).toEqual({ cents: 450, currency: 'CAD' })
+  })
+
+  it.each([
+    ['a split', [450, -150, -300].map((cents) => ({ cents, currency: 'CAD' }))],
+    ['one leg', [{ cents: 450, currency: 'CAD' }]],
+    ['none', []],
+    [
+      'two currencies',
+      [
+        { cents: 0, currency: 'CAD' },
+        { cents: 0, currency: 'JPY' },
+      ],
+    ],
+    [
+      'nothing moved',
+      [
+        { cents: 0, currency: 'CAD' },
+        { cents: 0, currency: 'CAD' },
+      ],
+    ],
+    [
+      'two legs that do not balance',
+      [
+        { cents: 450, currency: 'CAD' },
+        { cents: -400, currency: 'CAD' },
+      ],
+    ],
+  ])('null for %s', (_, legs) => {
+    expect(simpleAmountOf(legs)).toBeNull()
   })
 })
