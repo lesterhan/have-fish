@@ -37,6 +37,10 @@ test('every code takes the detail the table gives it', () => {
     currency: 'JPY',
     locked: 'CAD',
   })
+  failure('ACCOUNT_HOLDS_OTHER_CURRENCIES', {
+    accountId: '00000000-0000-4000-8000-0000000000a1',
+    currencies: ['JPY'],
+  })
   failure('ORIGIN_CHANGED', { id: '00000000-0000-4000-8000-000000000001' })
 })
 

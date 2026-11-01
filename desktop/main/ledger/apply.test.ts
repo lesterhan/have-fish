@@ -374,6 +374,73 @@ describe('applyLocal, a locked account', () => {
 
     expect(outcome.ok || outcome.failure).toMatchObject({ at: 0, code: 'ACCOUNT_CURRENCY_LOCKED' })
   })
+
+  /** A ledger whose open food category holds a yen spend from cash. */
+  function withYenOnFood() {
+    const ledger = tempLedger()
+    const cash = anAccount()
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const yen = inYen(aSpend(cash.id, food.id, '1500'))
+    ok(applyLocal(ledger, [cash, food, yen], NOW))
+    return { ledger, cash, food, yen }
+  }
+
+  test('locking an account that holds another currency is refused, and nothing moves', () => {
+    const { ledger, food } = withYenOnFood()
+    const clock = loadClock(ledger.db)
+
+    const outcome = applyLocal(ledger, [anAccount(), { ...food, currency: 'CAD' }], NOW)
+
+    expect(outcome).toEqual({
+      ok: false,
+      failure: {
+        at: 1,
+        code: 'ACCOUNT_HOLDS_OTHER_CURRENCIES',
+        details: { accountId: food.id, currencies: ['JPY'] },
+      },
+    })
+    expect(getDocument(ledger.db, 'account', food.id)?.doc.currency).toBeNull()
+    expect(loadClock(ledger.db)).toEqual(clock)
+  })
+
+  test('locking it to the currency it holds is written', () => {
+    const { ledger, food } = withYenOnFood()
+    ok(applyLocal(ledger, [{ ...food, currency: 'JPY' }], NOW))
+    expect(getDocument(ledger.db, 'account', food.id)?.doc.currency).toBe('JPY')
+  })
+
+  test('a lock in the batch that moves the other currency off the account is written', () => {
+    const { ledger, cash, food, yen } = withYenOnFood()
+    const inCad = { ...aSpend(cash.id, food.id, '13.70'), id: yen.id }
+    ok(applyLocal(ledger, [{ ...food, currency: 'CAD' }, inCad], NOW))
+    expect(getDocument(ledger.db, 'account', food.id)?.doc.currency).toBe('CAD')
+  })
+
+  test('a deleted spend holds nothing, so the lock is written', () => {
+    const { ledger, food, yen } = withYenOnFood()
+    ok(applyLocal(ledger, [tombstoneOf(yen)], NOW))
+    ok(applyLocal(ledger, [{ ...food, currency: 'CAD' }], NOW))
+    expect(getDocument(ledger.db, 'account', food.id)?.doc.currency).toBe('CAD')
+  })
+
+  test('unlocking is always written', () => {
+    const { ledger, card } = withCadCard()
+    ok(applyLocal(ledger, [{ ...card, currency: null }], NOW))
+    expect(getDocument(ledger.db, 'account', card.id)?.doc.currency).toBeNull()
+  })
+
+  test('renaming a locked account that holds another currency keeps it: only a new lock is checked', () => {
+    const { ledger, card, food } = withCadCard()
+    // A yen posting can reach a locked card from another device, which is stored as it came.
+    const yen = inYen(aSpend(card.id, food.id, '1500'))
+    putDocument(ledger.db, {
+      doc: yen,
+      version: { wallMs: NOW - 1, counter: 0, deviceId: 'f0e1d2c3b4a59687' },
+    })
+
+    ok(applyLocal(ledger, [{ ...card, path: 'liabilities:visa:old' }], NOW))
+    expect(getDocument(ledger.db, 'account', card.id)?.doc.path).toBe('liabilities:visa:old')
+  })
 })
 
 describe('applyLocal, a clock stuck in the future', () => {

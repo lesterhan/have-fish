@@ -9,7 +9,7 @@ import { afterEach, beforeEach, describe, expect, test } from 'vitest'
 import { migrate } from '../db/migrate'
 import { MIGRATIONS } from '../db/migrations'
 import { transactions } from '../db/schema'
-import { getDocument, putDocument } from './store'
+import { currenciesPostedTo, getDocument, putDocument } from './store'
 
 const NOW = Date.UTC(2026, 9, 29, 12)
 const SPEND_ID = '00000000-0000-4000-8000-000000000001'
@@ -190,6 +190,31 @@ describe('putDocument and getDocument', () => {
     putDocument(db, deleted)
     expect(count('accounts')).toBe(1)
     expect(getDocument(db, 'account', CARD)).toEqual(deleted)
+  })
+})
+
+describe('currenciesPostedTo', () => {
+  test('the distinct currencies posted to an account, sorted', () => {
+    const conversion = (id: string, legs: [string, string, string][]) => ({
+      doc: {
+        ...SPEND.doc,
+        id,
+        postings: legs.map(([accountId, amount, currency]) => ({ accountId, amount, currency })),
+      },
+      version: V1,
+    })
+    putDocument(
+      db,
+      conversion('00000000-0000-4000-8000-000000000011', [
+        [CARD, '-1500', 'JPY'],
+        [GROCERIES, '1500', 'JPY'],
+        [CARD, '-5.00', 'CAD'],
+        [GROCERIES, '5.00', 'CAD'],
+      ]),
+    )
+
+    expect(currenciesPostedTo(db, CARD)).toEqual(['CAD', 'JPY'])
+    expect(currenciesPostedTo(db, RESTAURANTS)).toEqual([])
   })
 })
 
