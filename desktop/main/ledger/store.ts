@@ -122,7 +122,6 @@ export function getDocument(
   return docOf(transaction, s.postingsOf.all({ transactionId: id }))
 }
 
-/** How many transactions post to this account. A tombstone has no postings, so all are live. */
 /**
  * The live account at `path`, matched without regard to case. Sync can bring two; the one made
  * first wins, so every device picks the same.
@@ -131,6 +130,7 @@ export function liveAccountAt(db: Database.Database, path: string): string | und
   return statements(db).liveAccountAt.get({ pathKey: path.toLowerCase() })?.id
 }
 
+/** How many transactions post to this account. A tombstone has no postings, so all are live. */
 export function countTransactionsUsing(db: Database.Database, accountId: string): number {
   return statements(db).transactionsUsing.get({ accountId })?.n ?? 0
 }
