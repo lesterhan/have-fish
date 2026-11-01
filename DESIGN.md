@@ -81,15 +81,17 @@ The desktop app can have themes, colours to start with.
   borrowed and lost every relationship, which is the failure this rule is for.
 - **Colours are tested, not reviewed.** One tokens file declares every colour. A contract of
   plain functions checks ink (4.5:1 for text, 3:1 for graphics) and surfaces (each step at least
-  ΔL 0.04, and within 2x across schemes), and a guard fails a colour declared anywhere else. The
-  same functions check a theme while the app runs.
+  ΔL 0.04, and within 2x across schemes), and a guard fails a colour declared anywhere else.
+  Every built-in theme passes them in a test, and a theme you make will pass them as you make it.
 - **Money is not themed.** The colours for money in and out stay fixed, and a sign reads
   without colour.
 - **A theme belongs to the machine, not the ledger.** It lives in the app's settings, never in
   the ledger file.
-- **What a theme consists of is still open.** The recommendation is a few inputs (a neutral
-  hue, an accent hue, light or dark) that the app places on the ladder, with the built-in
-  themes as data, rather than public CSS variables the way Obsidian has them.
+- **A theme is a few inputs, not a stylesheet**: light or dark, a neutral hue and chroma, an
+  accent hue. The app places them on the ladder and derives every colour. There are no public CSS
+  variables the way Obsidian has them.
+- **Built-ins first, your own later.** The app ships a few built-in themes, each stored as those
+  inputs. Making your own is a picker over the same inputs, and it comes later.
 
 ## What the current app taught
 
