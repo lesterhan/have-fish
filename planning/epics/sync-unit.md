@@ -47,6 +47,9 @@ transactions Fish Pie writes into a member's ledger. Those are ordinary Transact
 documents that Fish Pie owns. How the Fish Pie service versions its own tables is decided
 when it is extracted (#380).
 
+**2026-11-01:** there is no Fish Pie service to extract (`00-direction.md` D9). In the
+desktop rewrite a shared ledger is a ledger, and its documents sync like any other.
+
 ## What the unit protects
 
 **Postings balance per currency.** This holds by construction, because postings only ever

@@ -22,14 +22,14 @@ document; a session that has not read it will re-derive its conclusions badly.
 have-fish is a personal finance tracker you install on your machine. Your ledger lives
 in a file you own, and the app works completely without a network — entering, importing,
 reporting, reconciling. It is free. Optionally you can pay for a sync service that
-replicates your ledger between your own devices and powers Fish Pie, the shared-expense
-feature, with other people.
+replicates your ledger between your own devices and carries shared ledgers, where you split
+expenses with other people (the current app's Fish Pie).
 
 The sync service relays ciphertext, and it is worth being exact about which half is which.
 **Encrypted before it leaves your machine, unreadable by the service:** amounts,
 descriptions, account names and paths, member names, and every transaction and posting.
 **Readable by the service, because routing and billing need it:** your account and email
-address, the email addresses of people you invite, who shares a group with whom, when you
+address, the email addresses of people you invite, who shares a ledger with whom, when you
 sync, and how large each message is. A breach leaks the second list, not the first.
 
 If you stop paying, or we disappear, the app and every transaction in it keep working.
@@ -136,6 +136,18 @@ private one. A CLA is therefore not optional housekeeping but a prerequisite of 
 amendment (`#384`). A DCO does not serve — it certifies origin and grants no relicensing
 rights.
 
+**Amended 2026-11-01: one proprietary service.** There is no Fish Pie service any more (D9,
+2026-11-01): the relay carries shared ledgers as well as personal ones. The reasoning above
+is unchanged and the split gets shorter:
+
+```
+public, MIT                        proprietary
+───────────                        ───────────
+local app, shared ledgers          relay
+  and their encryption
+protocol spec (#377)
+```
+
 ### D2 — The single-player / multiplayer boundary
 **2026-09-11.**
 
@@ -205,6 +217,14 @@ D9.
 service rather than staying where it is. The relay's scope is unchanged by that — it still
 replicates the personal ledger only, and group replication remains a separate product and
 a separate decision.
+
+**Amended 2026-11-01: group replication is the relay's, not a separate product.** A shared
+ledger is a ledger with several members, each of whom may edit it, synced exactly as a
+personal ledger is and sealed with its own key. A blind server cannot compute splits or
+balances anyway; devices do. So the relay carries personal and shared ledgers alike, with
+membership and invites beside them and one account store, and the second service has nothing
+left to do. The order `F4` set holds: relay v1 is the personal ledger under one key, and
+shared ledgers follow through the same relay once the group-key work in D6 is done.
 
 ### D6 — Encryption: plaintext locally, end-to-end encrypted on the relay
 **2026-09-11. Resolves Q2; narrows LQ2.**
@@ -381,6 +401,21 @@ Four consequences:
 
 Decision recorded in `#372`.
 
+**Amended 2026-11-01: one paid service, and the gate is sync again.** A shared ledger is a
+ledger, so the relay carries it (D5, 2026-11-01), and there is no Fish Pie service:
+
+```
+local app (free, MIT) ──sync──▶ relay (paid, blind)
+                                  carries personal and shared ledgers
+```
+
+Shared ledgers are therefore gated on connecting to sync, which is this decision's original
+wording. Of the consequences above, the hosted edition's retirement and the security argument
+stand. Consequence 2 narrows: there is no Fish Pie service or client to move into a
+repository of its own, since shared ledgers are part of the local app; the current app's Fish
+Pie stays where it is and retires with that app. Each service picking its own storage is now
+one service picking one.
+
 ### D10 — Export scope, and why export is **not** the sync format
 **2026-09-11.**
 
@@ -501,7 +536,7 @@ applies to it, re-scoped and much smaller:
 | — | On linking, does the relay adopt the locally-generated `userId`, or is a rewrite needed? | `L01`, D2 |
 | LQ1 | Is multi-currency settlement math stable under event reordering? | `L03` |
 | LQ2 | Optional passphrase encryption of the local file | `L02`, D6 |
-| — | Group end-to-end encryption: per-group keys, rotation, recovery. Deferred 2026-09-21 until a Fish Pie group exists outside the household | D6, `F4` |
+| — | Group end-to-end encryption: per-group keys, rotation, recovery. Deferred 2026-09-21 until a Fish Pie group exists outside the household. Since 2026-11-01 it is the relay's to build, for shared ledgers | D5, D6, `F4` |
 | — | Dialect for the hosted edition: one everywhere, split, or a dual matrix. Probe 1 ran 2026-09-28 and put the local app on SQLite (#286); whether the hosted edition follows or stays on Postgres is owed at gate G2 (#245), explicitly, not by default | D8, D9, `F5` |
 | Q1 | Target jurisdictions — Canada/US first, or accept EU users? | `03` |
 | Q3 | Stripe direct vs merchant of record | `05` |
@@ -617,7 +652,9 @@ shared-expense rule block an entire bank statement.
    not stable across an edit (`F2`, and the correction under "Code evidence" above).
    **Corrected 2026-09-26 (#281):** not on Fish Pie's expenses or settlement batches
    either. The local app never replicates Fish Pie's tables, and the Fish Pie service
-   versions its own when it is extracted (#380). The design is
+   versions its own when it is extracted (#380). **Corrected 2026-11-01:** there is no Fish
+   Pie service to extract (D9); in the rewrite a shared ledger is a ledger, versioned like any
+   other. The design is
    `planning/epics/sync-unit.md`; the schema is #454.
 4. ~~**Static frontend build target.**~~ **Done 2026-09-22** (#275). Removed the per-page
    auth round trip, and collapsed the two containers into one — a latency win today, and
