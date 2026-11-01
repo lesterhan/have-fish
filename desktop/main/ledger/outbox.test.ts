@@ -7,6 +7,7 @@ import type { Ledger } from '../db/ledger'
 import { outbox } from '../db/schema'
 import { applyLocal, applyReceived } from './apply'
 import { anAccount, aSpend, NOW, ok, tempLedger } from './fixtures'
+import { acknowledge, queued } from './outbox'
 import { getDocument } from './store'
 
 /** Every row the outbox holds, in rowId order. */
@@ -131,5 +132,58 @@ describe('a received document', () => {
     expect(applyReceived(ledger, received, NOW).written).toHaveLength(3)
 
     expect(allRows(ledger)).toEqual([])
+  })
+})
+
+describe('queued', () => {
+  test('lists accounts before transactions, then by version, and honours the limit', () => {
+    const { ledger, cash, food } = withAccounts()
+    const first = aSpend(cash.id, food.id)
+    ok(applyLocal(ledger, [first], NOW))
+    const card = anAccount({ path: 'liabilities:card', kind: 'card' })
+    ok(applyLocal(ledger, [card], NOW))
+    const second = aSpend(card.id, food.id)
+    ok(applyLocal(ledger, [second], NOW))
+
+    const order = [cash.id, food.id, card.id, first.id, second.id]
+    expect(queued(ledger.db, 10).map((r) => r.docId)).toEqual(order)
+    expect(queued(ledger.db, 4).map((r) => r.docId)).toEqual(order.slice(0, 4))
+    expect(queued(ledger.db, 0)).toEqual([])
+  })
+
+  test('returns the rows as stored', () => {
+    const { ledger } = withAccounts()
+    expect(queued(ledger.db, 10)).toEqual(
+      allRows(ledger).toSorted((a, b) => (a.version < b.version ? -1 : 1)),
+    )
+  })
+})
+
+describe('acknowledge', () => {
+  test('deletes the rows it names, and ignores a rowId it doesn’t hold', () => {
+    const { ledger, cash, food } = withAccounts()
+    const [cashRow] = rowsFor(ledger, cash.id)
+
+    acknowledge(ledger.db, [cashRow?.rowId ?? '', 'not-a-row'])
+
+    expect(queued(ledger.db, 10).map((r) => r.docId)).toEqual([food.id])
+    acknowledge(ledger.db, [])
+    expect(queued(ledger.db, 10).map((r) => r.docId)).toEqual([food.id])
+  })
+
+  test('of a row an edit has since replaced leaves the edit queued', () => {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id)
+    ok(applyLocal(ledger, [spend], NOW))
+    // Sync reads the spend's row and starts pushing it.
+    const [pushing] = rowsFor(ledger, spend.id)
+
+    // You edit the spend while the push is in flight; then the relay acknowledges the old row.
+    ok(applyLocal(ledger, [{ ...spend, description: 'Edited' }], NOW))
+    acknowledge(ledger.db, [pushing?.rowId ?? ''])
+
+    const [row, ...rest] = rowsFor(ledger, spend.id)
+    expect(rest).toEqual([])
+    expect(JSON.parse(row?.body ?? 'null').doc.description).toBe('Edited')
   })
 })

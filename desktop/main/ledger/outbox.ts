@@ -6,7 +6,7 @@ import type { LedgerDocument } from '@have-fish/core/documents'
 import { formatVersion } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
-import { and, eq } from 'drizzle-orm'
+import { and, eq, inArray, sql } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { outbox } from '../db/schema'
 
@@ -32,4 +32,22 @@ export function supersede(db: Database.Database, type: LedgerDocument['type'], i
     .delete(outbox)
     .where(and(eq(outbox.docType, type), eq(outbox.docId, id)))
     .run()
+}
+
+export type OutboxRow = typeof outbox.$inferSelect
+
+/** What waits to be sent: accounts first, so a posting rarely arrives before its account. */
+export function queued(db: Database.Database, limit: number): OutboxRow[] {
+  return drizzle(db)
+    .select()
+    .from(outbox)
+    .orderBy(sql`${outbox.docType} = 'account' DESC`, outbox.version)
+    .limit(limit)
+    .all()
+}
+
+/** Sent and stored by the relay. By `rowId` only: an edit made since has a new one, and stays. */
+export function acknowledge(db: Database.Database, rowIds: string[]): void {
+  if (rowIds.length === 0) return
+  drizzle(db).delete(outbox).where(inArray(outbox.rowId, rowIds)).run()
 }
