@@ -11,6 +11,7 @@ import { readVersioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
+import { enqueue } from './outbox'
 import { countTransactionsUsing, currenciesPostedTo, getDocument, putDocument } from './store'
 
 export type Written = { type: LedgerDocument['type']; id: string; version: Version }
@@ -130,6 +131,7 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
       )
     }
     written.push({ type: doc.type, id: doc.id, version })
+    enqueue(db, { doc, version })
 
     // Only a lock this write sets: a rename keeps whatever the lock already holds.
     if (doc.type === 'account') {
