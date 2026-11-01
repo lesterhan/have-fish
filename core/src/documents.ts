@@ -12,6 +12,9 @@ import { MAX_WALL_MS, VersionSchema } from './version'
 /** UTC ms, 1970 to the end of 9999, like a version's time. */
 const utcMs = z.int().min(0).max(MAX_WALL_MS)
 
+/** Text SQLite stores as written: half of a surrogate pair would come back as `�`. */
+const text = z.stringFormat('well_formed', (s) => s.isWellFormed())
+
 // Who made the document and when. Set once: an edit carries it through unchanged.
 const made = {
   /** UTC ms. The document's creation, never a later edit's. */
@@ -30,11 +33,11 @@ const ImportOrigin = z.strictObject({
   source: z.literal('import'),
   ...made,
   /** The file's name as picked, not its path. */
-  file: z.string().min(1),
+  file: text.min(1),
   /** As an editor numbers it: from 1, with the header and anything above it counted. */
   line: z.int().min(1),
   /** The description as the bank wrote it. */
-  text: z.string(),
+  text,
 })
 
 export const TransactionOriginSchema = z.discriminatedUnion('source', [
@@ -60,7 +63,7 @@ export const TransactionSchema = z.strictObject({
   type: z.literal('transaction'),
   id: z.uuid(),
   date: z.string(),
-  description: z.string(),
+  description: text,
   postings: z.array(PostingSchema),
   deletedAt: utcMs.nullable(),
   origin: TransactionOriginSchema,
@@ -70,7 +73,7 @@ export type TransactionDoc = z.infer<typeof TransactionSchema>
 export const AccountSchema = z.strictObject({
   type: z.literal('account'),
   id: z.uuid(),
-  path: z.string(),
+  path: text,
   kind: z.enum(ACCOUNT_KINDS),
   /** The one currency its postings carry, or null for any. */
   currency: z.string().nullable(),

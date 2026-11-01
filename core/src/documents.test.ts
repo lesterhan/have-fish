@@ -220,6 +220,38 @@ describe('readShape', () => {
   })
 })
 
+// Half of a surrogate pair is what slicing a string mid-emoji leaves, and SQLite would store it
+// as `�`, so the file would hold something other than what was written.
+describe('text that isn’t well-formed', () => {
+  const FIRST_HALF = '\ud83d'
+  const SECOND_HALF = '\udc1f'
+
+  it.each([
+    ['a description', { ...SPEND, description: `fish ${FIRST_HALF}` }, 'description'],
+    ['an account path', { ...ACCOUNT, path: `expenses:${SECOND_HALF}` }, 'path'],
+    [
+      'an import’s file',
+      { ...SPEND, origin: { ...IMPORTED, file: `${FIRST_HALF}.csv` } },
+      'origin.file',
+    ],
+    [
+      'an import’s bank text',
+      { ...SPEND, origin: { ...IMPORTED, text: `${SECOND_HALF}${FIRST_HALF}` } },
+      'origin.text',
+    ],
+  ])('is refused in %s', (_title, document, path) => {
+    expect(readShape(document)).toStrictEqual({
+      ok: false,
+      failure: { code: 'DOCUMENT_MALFORMED', details: { path, issue: 'invalid_format' } },
+    })
+  })
+
+  it('a whole emoji is fine', () => {
+    const spend = { ...SPEND, description: `fish ${FIRST_HALF}${SECOND_HALF}` }
+    expect(readShape(spend)).toStrictEqual({ ok: true, value: spend })
+  })
+})
+
 describe('readDocument', () => {
   it('reads a valid spend', () => {
     expect(readDocument(SPEND)).toStrictEqual({ ok: true, value: SPEND })
