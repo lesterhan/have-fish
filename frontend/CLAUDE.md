@@ -2,7 +2,7 @@
 
 These are the current app's rules. Claude Code loads this file when a session first reads a file
 under `frontend/`. The rewrite (`core/`, `desktop/`) does not follow them, and it does not take
-this app's look: its UI system is being worked out separately (`DESIGN.md`, opening section).
+this app's look: its design is `DESIGN.md` at the root, being worked out separately.
 
 ## Stack
 
@@ -37,11 +37,10 @@ bun run format        # Prettier for .svelte, Biome for everything beside them
 
 ## Design system
 
-**`DESIGN.md` at the root, from §1 on, is this app's design** — the aesthetic, the token
-vocabulary, UX principles, interaction laws, the rules for reusing vs. replacing components, and
-the process for evolving the UI. It is **in maintenance**: a fix keeps to it, and nothing new
-extends it (no new components, design passes or redesigns). Read it before any work that touches
-the UI.
+**`frontend/DESIGN.md` is this app's design** — the aesthetic, the token vocabulary, UX
+principles, interaction laws, the rules for reusing vs. replacing components, and the process
+for evolving the UI. It is **in maintenance**: a fix keeps to it, and nothing new extends it (no
+new components, design passes or redesigns). Read it before any work that touches the UI.
 
 Implementation reminders that belong with the build instructions:
 

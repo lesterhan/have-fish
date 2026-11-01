@@ -1,6 +1,6 @@
 # Epic: Undo
 
-**Depends on:** nothing. **Unblocks:** `DESIGN.md` P4, which currently asserts a preference
+**Depends on:** nothing. **Unblocks:** `frontend/DESIGN.md` P4, which currently asserts a preference
 the codebase cannot act on.
 
 Goal: make destructive actions recoverable, so "prefer undo to confirm" stops being a bluff.
@@ -92,7 +92,7 @@ silently do nothing.
 **Not everything gets undo.** Deleting an account with history is rare, deliberate, and
 expensive to get wrong; it keeps its confirm dialog. Undo is for the actions that happen
 often enough that a dialog is a tax: transactions, postings, Fish Pie expenses, import
-rules, categories. The split is written into the epic and into `DESIGN.md` P4 so the next
+rules, categories. The split is written into the epic and into `frontend/DESIGN.md` P4 so the next
 person doesn't have to re-derive it.
 
 **One undo at a time.** The status bar holds one message. A second undoable action replaces
@@ -240,7 +240,7 @@ welded on — `scrollShadow.ts` already does this elsewhere.
 any row; `Esc` clears the selection; bulk actions still act on exactly the visible selection;
 the tray and a live status-bar undo can be shown at once.
 
-### 7. Write the rules back into DESIGN.md
+### 7. Write the rules back into frontend/DESIGN.md
 
 Update P4 with the actual split — which actions get undo, which keep a confirm, and why.
 Strike from §10: "no undo anywhere", "the toast timer is wrong", the 17 failure-carrying

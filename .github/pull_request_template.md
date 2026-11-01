@@ -20,5 +20,5 @@ Tech: Core-0 The note's key and title
 <!-- One line on what ran (tests, type check, the app). One on what wasn't checked. -->
 
 <!-- Title: [scope] Imperative description; an epic story adds "Story N — " (CLAUDE.md, "PR
-     workflow"). Current-app epic: link its file in planning/epics/ under What. UI change:
-     DESIGN.md §9 is the review checklist. -->
+     workflow"). Current-app epic: link its file in planning/epics/ under What. Current-app UI
+     change: frontend/DESIGN.md §9 is the review checklist. Rewrite UI: DESIGN.md. -->

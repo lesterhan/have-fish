@@ -43,7 +43,7 @@ have-fish/
 ├── core/             # rewrite: the pure domain (arrives with the first tech note)
 ├── desktop/          # rewrite: Electron main, preload and renderer (its main/db/ first)
 ├── planning/         # direction, desktop-rewrite.md, the current app's epic files
-├── DESIGN.md         # the design source of truth
+├── DESIGN.md         # the rewrite's design (the current app's is frontend/DESIGN.md)
 ├── biome.jsonc       # one formatter and linter for the whole repository
 └── .claude/skills/   # pair and coach
 ```
@@ -77,7 +77,7 @@ None of the current app's server machinery carries over: Postgres and the two-di
 Hono and `app.request` tests, Better Auth, `userId` scoping, `numeric(12,2)` strings. Biome and
 Prettier do, and so do the copy rules when the renderer arrives. The current app's look does
 not: the rewrite's UI system is still being worked out, and until it lands its screens stay
-plain (`DESIGN.md`, "The rewrite's design, so far").
+plain (`DESIGN.md`, "Until the system lands").
 
 ## Formatting and linting
 
@@ -110,12 +110,16 @@ would rewrap roughly a tenth of the repository to no purpose).
 
 ## Design
 
-**`DESIGN.md` is the single source of truth for design**, for both apps. Its opening section is
-the rewrite's design so far: three priorities (speed and reliability, clarity, delight) and how
-to build screens until its UI system lands. Everything from §1 on is the current app's design,
-and it is in maintenance: a fix keeps to it, and nothing new extends it. Read the part for the
-app you are working on before any work that touches its UI. The current frontend's
-implementation reminders are in `frontend/CLAUDE.md`.
+Each app has one design document, and it is the source of truth for that app's UI. Read it
+before any work that touches the UI.
+
+- **`DESIGN.md`** at the root is the rewrite's: three priorities (speed and reliability, clarity,
+  delight), how to build screens until its UI system lands, what being a desktop app asks, and
+  the rules for themes. It grows only when something is built on it, and a rule lives in a test
+  wherever it can.
+- **`frontend/DESIGN.md`** is the current app's, and it is in maintenance: a fix keeps to it, and
+  nothing new extends it. It retires with that app. Its implementation reminders are in
+  `frontend/CLAUDE.md`.
 
 ## Work tracking
 
