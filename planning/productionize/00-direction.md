@@ -333,14 +333,14 @@ better-sqlite3, which is synchronous, so no transaction can interleave with anot
 with libsql as the fallback. How the rewrite stores amounts (integer cents is the leaning) is
 an open question in its backlog, settled by the first story that writes one.
 
-**Amended 2026-10-07: the servers use SQLite too.** The relay and the Fish Pie service each keep
-one SQLite file, replicated to object storage by Litestream. Both hold ciphertext plus a little
-plain bookkeeping, at a few writes a second, so what Postgres is good at buys nothing there, and
-a database process is the largest overhead they could carry. Neither is the source of truth:
-every device holds its whole ledger, so an outage delays sync and a lost disk is refilled from
-the devices. The file stays independent of the server's language (plain SQL migrations,
-`STRICT` tables, one stated encoding per kind of value), so the servers can start in TypeScript
-and change language without a data migration.
+**Amended 2026-10-07: the server uses SQLite too.** The relay, which since 2026-11-01 carries
+shared ledgers as well as personal ones (D9), keeps one SQLite file, replicated to object storage
+by Litestream. It holds ciphertext plus a little plain bookkeeping, at a few writes a second, so
+what Postgres is good at buys nothing there, and a database process is the largest overhead it
+could carry. It is not the source of truth: every device holds its whole ledger, so an outage
+delays sync and a lost disk is refilled from the devices. The file stays independent of the
+server's language (plain SQL migrations, `STRICT` tables, one stated encoding per kind of value),
+so the relay can start in TypeScript and change language without a data migration.
 
 ### D9 — Fish Pie v1 is gated on connecting to sync
 **Per `L03` option F1.**
