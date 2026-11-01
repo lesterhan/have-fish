@@ -6,7 +6,8 @@
   "description": "The desktop app: Electron main, preload and renderer over one SQLite file.",
   "main": "./out/main/index.js",
   "scripts": {
-    "dev": "electron-vite dev",
+    "dev": "electron-vite dev --watch",
+    "dev:debug": "electron-vite dev --watch --sourcemap --inspect=9229",
     "build": "electron-vite build",
     "start": "electron-vite preview",
     "package": "electron-vite build && electron-builder",
