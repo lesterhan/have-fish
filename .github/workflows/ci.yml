@@ -282,8 +282,9 @@ jobs:
       - name: Type check
         run: bun run check
 
-  # The desktop app's main process, tested on Electron's own Node (`ELECTRON_RUN_AS_NODE`), so
-  # the tests load the better-sqlite3 binary the app ships with. That needs no display.
+  # The desktop app. Main's tests run on Electron's own Node (`ELECTRON_RUN_AS_NODE`), so they
+  # load the better-sqlite3 binary the app ships with. Then the app is built, packaged, and driven
+  # end to end both ways.
   desktop:
     needs: changes
     if: needs.changes.outputs.desktop == 'true'
@@ -313,3 +314,28 @@ jobs:
 
       - name: Type check
         run: bun run check
+
+      # The built app, driven as a person would use it: the stories' acceptance. The runner has
+      # no display, so xvfb-run lends one. Ubuntu 24.04 blocks the user namespaces Chromium's
+      # sandbox needs, so the app runs without it here (`NO_SANDBOX`); its window is unchanged.
+      - name: End to end, from out/
+        env:
+          NO_SANDBOX: "1"
+        run: xvfb-run -a bun run e2e
+
+      - name: Package
+        run: bun run package
+
+      - name: End to end, packaged
+        env:
+          NO_SANDBOX: "1"
+          E2E_APP: dist/linux-unpacked/have-fish
+        run: xvfb-run -a node_modules/.bin/vitest run --config vitest.e2e.config.ts
+
+      # The AppImage, to try a pull request without building it.
+      - name: Upload the AppImage
+        uses: actions/upload-artifact@v4
+        with:
+          name: have-fish-appimage
+          path: desktop/dist/*.AppImage
+          retention-days: 7

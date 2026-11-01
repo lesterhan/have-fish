@@ -4,26 +4,40 @@
   "private": true,
   "type": "module",
   "description": "The desktop app: Electron main, preload and renderer over one SQLite file.",
+  "main": "./out/main/index.js",
   "scripts": {
+    "dev": "electron-vite dev --watch",
+    "dev:debug": "electron-vite dev --watch --sourcemap --inspect=9229",
+    "build": "electron-vite build",
+    "start": "electron-vite preview",
+    "package": "electron-vite build && electron-builder",
     "test": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run",
     "test:watch": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs",
     "test:debug": "ELECTRON_RUN_AS_NODE=1 electron node_modules/vitest/vitest.mjs run --inspect-brk --no-file-parallelism",
-    "check": "tsc --noEmit",
+    "check": "tsc --noEmit && tsc --noEmit -p tsconfig.web.json",
     "db:generate": "drizzle-kit generate",
-    "db:bundle": "bun tools/bundle-migrations.ts"
+    "db:bundle": "bun tools/bundle-migrations.ts",
+    "e2e": "electron-vite build && vitest run --config vitest.e2e.config.ts"
   },
   "dependencies": {
-    "@have-fish/core": "workspace:*",
-    "better-sqlite3": "^13.0.3",
-    "drizzle-orm": "^0.45.4"
+    "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
+    "@have-fish/core": "workspace:*",
+    "@sveltejs/vite-plugin-svelte": "6.2.4",
     "@types/better-sqlite3": "^9.6.0",
     "@types/node": "^24.0.0",
     "drizzle-kit": "^0.31.11",
+    "drizzle-orm": "^0.45.4",
     "electron": "^44.7.2",
+    "electron-builder": "26.17.0",
+    "electron-vite": "5.0.0",
     "fast-check": "^4.10.2",
+    "playwright-core": "1.64.1",
+    "svelte": "5.57.2",
     "typescript": "^7.0.2",
-    "vitest": "^5.0.5"
+    "vite": "7.3.7",
+    "vitest": "^5.0.5",
+    "zod": "^4.6.5"
   }
 }

@@ -2,8 +2,10 @@
 // per open file and reused.
 
 import { describe, expect, test, vi } from 'vitest'
+import { contextFor } from '../context'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
+import { listTransactions, writeSpend } from '../services/spends'
 import { applyLocal, applyReceived } from './apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { acknowledge, enqueue, queued, supersede } from './outbox'
@@ -11,6 +13,7 @@ import {
   countTransactionsUsing,
   currenciesPostedTo,
   getDocument,
+  liveAccountAt,
   pendingReferences,
   putDocument,
 } from './store'
@@ -45,6 +48,7 @@ describe('a warmed ledger prepares no SQL', () => {
       countTransactionsUsing(ledger.db, cash.id)
       currenciesPostedTo(ledger.db, cash.id)
       pendingReferences(ledger.db)
+      liveAccountAt(ledger.db, 'assets:cash')
     })
 
     expect(prepared).toBe(0)
@@ -89,6 +93,18 @@ describe('a warmed ledger prepares no SQL', () => {
       const edit = { ...spend, description: 'Edited there' }
       const there = { wallMs, counter: 0, deviceId: 'f0e1d2c3b4a59687' }
       expect(applyReceived(ledger, [{ doc: edit, version: there }], wallMs).refused).toEqual([])
+    })
+
+    expect(prepared).toBe(0)
+  })
+
+  test('in writing down a spend and listing them', () => {
+    const ledger = tempLedger()
+    const ctx = contextFor(ledger, () => {}, { now: () => NOW, timeZone: () => 'UTC' })
+
+    const prepared = preparedOnSecondRun(ledger, () => {
+      ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+      listTransactions(ledger.db)
     })
 
     expect(prepared).toBe(0)

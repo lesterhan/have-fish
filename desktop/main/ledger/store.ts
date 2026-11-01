@@ -4,7 +4,7 @@
 import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core/documents'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
-import { countDistinct, eq, isNull, sql } from 'drizzle-orm'
+import { and, countDistinct, eq, isNull, sql } from 'drizzle-orm'
 import { excludedRow, perConnection, placeholderRow } from '../db/prepared'
 import { accounts, postings, transactions } from '../db/schema'
 import { docOf, rowsOf } from './rows'
@@ -50,6 +50,13 @@ const statements = perConnection((orm) => ({
     .from(postings)
     .where(eq(postings.accountId, sql.placeholder('accountId')))
     .orderBy(postings.currency)
+    .prepare(),
+  liveAccountAt: orm
+    .select({ id: accounts.id })
+    .from(accounts)
+    .where(and(eq(accounts.pathKey, sql.placeholder('pathKey')), isNull(accounts.deletedAt)))
+    .orderBy(accounts.originCreatedAt, accounts.id)
+    .limit(1)
     .prepare(),
   pendingReferences: orm
     .selectDistinct({ transactionId: postings.transactionId, accountId: postings.accountId })
@@ -113,6 +120,14 @@ export function getDocument(
   if (transaction === undefined) return null
   // In any order: `docOf` sorts them by position.
   return docOf(transaction, s.postingsOf.all({ transactionId: id }))
+}
+
+/**
+ * The live account at `path`, matched without regard to case. Sync can bring two; the one made
+ * first wins, so every device picks the same.
+ */
+export function liveAccountAt(db: Database.Database, path: string): string | undefined {
+  return statements(db).liveAccountAt.get({ pathKey: path.toLowerCase() })?.id
 }
 
 /** How many transactions post to this account. A tombstone has no postings, so all are live. */

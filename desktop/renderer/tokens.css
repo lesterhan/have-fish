@@ -1,0 +1,45 @@
+/* Every visual value the window uses. Plain until the rewrite's design system replaces this
+   file (DESIGN.md, "Until the system lands"). */
+
+:root {
+  color-scheme: light dark;
+
+  --font: system-ui, sans-serif;
+  --font-size: 1rem;
+  --font-size-small: 0.875rem;
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-6: 1.5rem;
+
+  --radius: 4px;
+  --border-width: 1px;
+
+  --color-text: #1b1b1b;
+  --color-muted: #5f5f5f;
+  --color-background: #ffffff;
+  --color-border: #b8b8b8;
+  --color-rule: #e4e4e4;
+  --color-error: #a4161a;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --color-text: #ececec;
+    --color-muted: #a3a3a3;
+    --color-background: #161616;
+    --color-border: #5a5a5a;
+    --color-rule: #2c2c2c;
+    --color-error: #ff8a80;
+  }
+}
+
+body {
+  margin: 0;
+  font-family: var(--font);
+  font-size: var(--font-size);
+  color: var(--color-text);
+  background: var(--color-background);
+}
