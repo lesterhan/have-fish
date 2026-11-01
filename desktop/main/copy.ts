@@ -1,0 +1,32 @@
+// The words main shows itself, in dialogs before the window exists. The window's own words are
+// in `renderer/copy/`.
+
+import type { Failure } from '@have-fish/core/outcome'
+
+const TITLE = "have-fish can't open your ledger"
+
+export function cannotOpen(failure: Failure): { title: string; message: string } {
+  switch (failure.code) {
+    case 'LEDGER_TOO_NEW':
+      return {
+        title: TITLE,
+        message:
+          `${failure.details.path} was saved by a newer version of have-fish. ` +
+          'Update the app to open it. Nothing was changed.',
+      }
+    case 'LEDGER_UNREADABLE':
+      return {
+        title: TITLE,
+        message:
+          `${failure.details.path} isn't a have-fish ledger, or it's damaged. ` +
+          'Nothing was changed.',
+      }
+    default:
+      return { title: TITLE, message: `It was refused as ${failure.code}. Nothing was changed.` }
+  }
+}
+
+export const failedToStart = {
+  title: "have-fish couldn't start",
+  message: 'Something went wrong opening your ledger. The details are in the log.',
+}
