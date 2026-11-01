@@ -6,6 +6,7 @@ import type { LedgerDocument } from '@have-fish/core/documents'
 import { formatVersion } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
+import { and, eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { outbox } from '../db/schema'
 
@@ -22,5 +23,13 @@ export function enqueue(db: Database.Database, v: Versioned<LedgerDocument>): vo
     .insert(outbox)
     .values(row)
     .onConflictDoUpdate({ target: [outbox.docType, outbox.docId], set: row })
+    .run()
+}
+
+/** A version from elsewhere won, so what was queued here for the document is already beaten. */
+export function supersede(db: Database.Database, type: LedgerDocument['type'], id: string): void {
+  drizzle(db)
+    .delete(outbox)
+    .where(and(eq(outbox.docType, type), eq(outbox.docId, id)))
     .run()
 }

@@ -1,11 +1,11 @@
-import { formatVersion } from '@have-fish/core/version'
+import { formatVersion, type Version } from '@have-fish/core/version'
 import { readVersioned } from '@have-fish/core/versioned'
 import { eq } from 'drizzle-orm'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { describe, expect, test } from 'vitest'
 import type { Ledger } from '../db/ledger'
 import { outbox } from '../db/schema'
-import { applyLocal } from './apply'
+import { applyLocal, applyReceived } from './apply'
 import { anAccount, aSpend, NOW, ok, tempLedger } from './fixtures'
 import { getDocument } from './store'
 
@@ -80,5 +80,56 @@ describe('a local write', () => {
 
     expect(refused).toMatchObject({ ok: false, failure: { at: 2, code: 'ACCOUNT_NOT_FOUND' } })
     expect(allRows(ledger)).toEqual(before)
+  })
+})
+
+/** Another device's id. */
+const THERE = 'f0e1d2c3b4a59687'
+const there = (wallMs: number): Version => ({ wallMs, counter: 0, deviceId: THERE })
+
+describe('a received document', () => {
+  /** A ledger with a spend queued locally at `NOW`. */
+  function withQueuedSpend() {
+    const { ledger, cash, food } = withAccounts()
+    const spend = aSpend(cash.id, food.id)
+    ok(applyLocal(ledger, [spend], NOW))
+    return { ledger, spend }
+  }
+
+  test('a newer version deletes the queued row for its document, and only that one', () => {
+    const { ledger, spend } = withQueuedSpend()
+    const others = allRows(ledger).filter((r) => r.docId !== spend.id)
+
+    const edit = { doc: { ...spend, description: 'Edited there' }, version: there(NOW + 1000) }
+    expect(applyReceived(ledger, [edit], NOW).written).toHaveLength(1)
+
+    expect(rowsFor(ledger, spend.id)).toEqual([])
+    expect(allRows(ledger)).toEqual(others)
+  })
+
+  test('the same version, or an older one, leaves the queued row', () => {
+    const { ledger, spend } = withQueuedSpend()
+    const before = allRows(ledger)
+    const queued = getDocument(ledger.db, 'transaction', spend.id)
+    if (queued === null) throw new Error('not stored')
+    const older = { doc: { ...spend, description: 'Older' }, version: there(NOW - 1000) }
+
+    expect(applyReceived(ledger, [queued, older], NOW)).toMatchObject({ same: 1, stale: 1 })
+
+    expect(allRows(ledger)).toEqual(before)
+  })
+
+  test('on its own never adds a row', () => {
+    const ledger = tempLedger()
+    const cash = anAccount()
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const received = [cash, food, aSpend(cash.id, food.id)].map((doc) => ({
+      doc,
+      version: there(NOW),
+    }))
+
+    expect(applyReceived(ledger, received, NOW).written).toHaveLength(3)
+
+    expect(allRows(ledger)).toEqual([])
   })
 })

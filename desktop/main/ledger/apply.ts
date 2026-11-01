@@ -11,7 +11,7 @@ import { readVersioned } from '@have-fish/core/versioned'
 import type Database from 'better-sqlite3'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
-import { enqueue } from './outbox'
+import { enqueue, supersede } from './outbox'
 import { countTransactionsUsing, currenciesPostedTo, getDocument, putDocument } from './store'
 
 export type Written = { type: LedgerDocument['type']; id: string; version: Version }
@@ -96,8 +96,10 @@ export function applyReceived(ledger: Ledger, items: unknown[], now: number): Ap
       clock = received.value
 
       const { decision } = store(db, doc, version)
-      if (decision === 'write') applied.written.push({ type: doc.type, id: doc.id, version })
-      else applied[decision] += 1
+      if (decision === 'write') {
+        applied.written.push({ type: doc.type, id: doc.id, version })
+        supersede(db, doc.type, doc.id)
+      } else applied[decision] += 1
     }
 
     saveClock(db, clock)
