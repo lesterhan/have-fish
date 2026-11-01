@@ -22,6 +22,14 @@ export interface FailureDetails {
   ACCOUNT_HOLDS_OTHER_CURRENCIES: { accountId: string; currencies: string[] }
   /** A local write gave an existing document another origin. */
   ORIGIN_CHANGED: { id: string }
+  /** A spend of zero or less. */
+  AMOUNT_NOT_POSITIVE: { amount: string }
+  /** A command's input doesn't fit its schema: Zod's first issue, as `DOCUMENT_MALFORMED`. */
+  INPUT_MALFORMED: { path: string; issue: string }
+  /** The window asked for a command main doesn't have. */
+  COMMAND_UNKNOWN: { name: string }
+  /** Main threw while running a command. The error is in main's log, never in the window. */
+  UNEXPECTED: undefined
 }
 
 export type FailureCode = keyof FailureDetails
