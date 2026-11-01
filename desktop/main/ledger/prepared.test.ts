@@ -4,7 +4,8 @@
 import { describe, expect, test, vi } from 'vitest'
 import { loadClock, saveClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
-import { anAccount, aSpend, NOW, tempLedger, tombstoneOf } from './fixtures'
+import { applyLocal, applyReceived } from './apply'
+import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from './fixtures'
 import { acknowledge, enqueue, queued, supersede } from './outbox'
 import {
   countTransactionsUsing,
@@ -62,6 +63,32 @@ describe('a warmed ledger prepares no SQL', () => {
       enqueue(ledger.db, { doc: cash, version: VERSION })
       supersede(ledger.db, 'account', cash.id)
       saveClock(ledger.db, loadClock(ledger.db))
+    })
+
+    expect(prepared).toBe(0)
+  })
+
+  // Every query a save or a receive makes: the checks on accounts, a lock, a deletion.
+  test('in a save and a receive', () => {
+    const ledger = tempLedger()
+    const cash = anAccount({ currency: 'CAD' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const spare = anAccount({ path: 'expenses:spare', kind: 'category' })
+    ok(applyLocal(ledger, [cash, food, spare], NOW))
+    let wallMs = NOW
+
+    const prepared = preparedOnSecondRun(ledger, () => {
+      const spend = aSpend(cash.id, food.id)
+      // Unlocked, then locked again, so the lock is checked on every run, not just the first.
+      const relock = [
+        { ...food, currency: null },
+        { ...food, currency: 'CAD' },
+      ]
+      ok(applyLocal(ledger, [spend, ...relock, { ...spare, deletedAt: NOW }], NOW))
+      wallMs += 1000
+      const edit = { ...spend, description: 'Edited there' }
+      const there = { wallMs, counter: 0, deviceId: 'f0e1d2c3b4a59687' }
+      expect(applyReceived(ledger, [{ doc: edit, version: there }], wallMs).refused).toEqual([])
     })
 
     expect(prepared).toBe(0)
