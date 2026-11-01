@@ -2,10 +2,56 @@ import { z } from 'zod'
 import { ACCOUNT_KINDS, rootOf } from './account-kind'
 import { isValidPath } from './account-path'
 import { isCalendarDate } from './calendar-date'
+import { isValidCurrency } from './currencies'
+import { firstIssue } from './first-issue'
 import { cents, format } from './money'
 import type { Outcome } from './outcome'
 import { failure } from './outcome'
 import { validatePostings } from './postings'
+import { MAX_WALL_MS, VersionSchema } from './version'
+
+/** UTC ms, 1970 to the end of 9999, like a version's time. */
+const utcMs = z.int().min(0).max(MAX_WALL_MS)
+
+/** Text SQLite stores as written: half of a surrogate pair would come back as `�`. */
+const text = z.stringFormat('well_formed', (s) => s.isWellFormed())
+
+// Who made the document and when. Set once: an edit carries it through unchanged.
+const made = {
+  /** UTC ms. The document's creation, never a later edit's. */
+  createdAt: utcMs,
+  /** The maker's device, never a later editor's. */
+  deviceId: VersionSchema.shape.deviceId,
+}
+
+const ManualOrigin = z.strictObject({ source: z.literal('manual'), ...made })
+
+/** Made by the app itself: the default wallet, equity accounts. */
+const SystemOrigin = z.strictObject({ source: z.literal('system'), ...made })
+
+/** One line of a bank statement. One import's documents share `createdAt`. */
+const ImportOrigin = z.strictObject({
+  source: z.literal('import'),
+  ...made,
+  /** The file's name as picked, not its path. */
+  file: text.min(1),
+  /** As an editor numbers it: from 1, with the header and anything above it counted. */
+  line: z.int().min(1),
+  /** The description as the bank wrote it. */
+  text,
+})
+
+export const TransactionOriginSchema = z.discriminatedUnion('source', [
+  ManualOrigin,
+  ImportOrigin,
+  SystemOrigin,
+])
+export type TransactionOrigin = z.infer<typeof TransactionOriginSchema>
+export type OriginSource = TransactionOrigin['source']
+
+/** Nothing imports accounts. */
+export const AccountOriginSchema = z.discriminatedUnion('source', [ManualOrigin, SystemOrigin])
+export type AccountOrigin = z.infer<typeof AccountOriginSchema>
 
 export const PostingSchema = z.strictObject({
   accountId: z.uuid(),
@@ -18,18 +64,22 @@ export const TransactionSchema = z.strictObject({
   type: z.literal('transaction'),
   id: z.uuid(),
   date: z.string(),
-  description: z.string(),
+  description: text,
   postings: z.array(PostingSchema),
-  deletedAt: z.number().nullable(),
+  deletedAt: utcMs.nullable(),
+  origin: TransactionOriginSchema,
 })
 export type TransactionDoc = z.infer<typeof TransactionSchema>
 
 export const AccountSchema = z.strictObject({
   type: z.literal('account'),
   id: z.uuid(),
-  path: z.string(),
+  path: text,
   kind: z.enum(ACCOUNT_KINDS),
-  deletedAt: z.number().nullable(),
+  /** The one currency its postings carry, or null for any. */
+  currency: z.string().nullable(),
+  deletedAt: utcMs.nullable(),
+  origin: AccountOriginSchema,
 })
 export type AccountDoc = z.infer<typeof AccountSchema>
 
@@ -38,27 +88,8 @@ export type LedgerDocument = z.infer<typeof DocumentSchema>
 
 export function readShape(input: unknown): Outcome<LedgerDocument> {
   const result = DocumentSchema.safeParse(input)
-  if (!result.success) {
-    const firstIssue = result.error.issues[0]
-
-    if (firstIssue === undefined) {
-      return failure('DOCUMENT_MALFORMED', { path: 'Unknown', issue: 'Unknown' })
-    }
-
-    if (firstIssue.code === 'unrecognized_keys') {
-      const errorPath = [...firstIssue.path, firstIssue.keys[0]]
-      return failure('DOCUMENT_MALFORMED', { path: errorPath.join('.'), issue: firstIssue.code })
-    }
-
-    return failure('DOCUMENT_MALFORMED', {
-      path: firstIssue.path.join('.'),
-      issue: firstIssue.code,
-    })
-  }
-  return {
-    ok: true,
-    value: result.data,
-  }
+  if (!result.success) return failure('DOCUMENT_MALFORMED', firstIssue(result.error))
+  return { ok: true, value: result.data }
 }
 
 function canonicalize(doc: TransactionDoc): TransactionDoc {
@@ -92,6 +123,7 @@ function checkTransaction(doc: TransactionDoc): Outcome<void> {
  * An account must:
  * - have a valid path
  * - have path root matched with the kind of account
+ * - be locked to a supported currency, if locked at all
  */
 function checkAccount(doc: AccountDoc): Outcome<void> {
   if (!isValidPath(doc.path)) {
@@ -107,6 +139,10 @@ function checkAccount(doc: AccountDoc): Outcome<void> {
       kind: doc.kind,
       expected,
     })
+  }
+
+  if (doc.currency !== null && !isValidCurrency(doc.currency)) {
+    return failure('UNSUPPORTED_CURRENCY', { currency: doc.currency })
   }
   return { ok: true, value: undefined }
 }

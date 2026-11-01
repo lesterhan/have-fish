@@ -1,18 +1,29 @@
 // Opens the ledger file the same way every time: a private directory, crash-safe settings,
-// migrations, and the meta row. Built up a step at a time.
+// migrations, and the meta row.
 
+import { randomBytes } from 'node:crypto'
 import { chmodSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import Database from 'better-sqlite3'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { type Migration, migrate } from './migrate'
 import { MIGRATIONS } from './migrations'
+import { meta } from './schema'
 
-export type Ledger = { db: Database.Database; close(): void }
+export type Ledger = { db: Database.Database; meta: Meta; close(): void }
+
+/** What the file knows about itself. Not the clock: it changes with every write (`loadClock`). */
+export type Meta = Pick<
+  typeof meta.$inferSelect,
+  'ledgerId' | 'deviceId' | 'installId' | 'createdAt'
+>
 
 export type OpenOptions = {
   /** The ledger directory; made private (0700) if it isn't. */
   dir: string
+  /** This install's id. A file whose meta row names another install was copied here. */
+  installId: string
   /** Defaults to the bundled ones; tests pass their own. */
   migrations?: readonly Migration[]
   /** UTC ms, recorded with each migration applied. */
@@ -57,11 +68,12 @@ export function openLedger(options: OpenOptions): Outcome<Ledger> {
       db.close()
       return migrated
     }
+    const ledgerMeta = upsertMetaRow(db, options.installId, options.now)
+    return { ok: true, value: { db, meta: ledgerMeta, close: () => db.close() } }
   } catch (e) {
     db.close()
     throw e
   }
-  return { ok: true, value: { db, close: () => db.close() } }
 }
 
 /**
@@ -76,3 +88,36 @@ function claim(db: Database.Database): boolean {
   db.pragma(`application_id = ${APPLICATION_ID}`)
   return true
 }
+
+/** Writes a new file's meta row, or gives a file another install made a device id of its own. */
+function upsertMetaRow(db: Database.Database, installId: string, now: number): Meta {
+  const orm = drizzle(db)
+  const metaRow = orm.select(META).from(meta).get()
+  if (metaRow === undefined) {
+    return orm
+      .insert(meta)
+      .values({
+        ledgerId: randomBytes(16).toString('hex'),
+        deviceId: newDeviceId(),
+        installId,
+        clockWallMs: 0,
+        clockCounter: 0,
+        createdAt: now,
+      })
+      .returning(META)
+      .get()
+  }
+  if (metaRow.installId === installId) return metaRow
+  // A copy, or a restore: the same ledger on another device. Two devices must never share an id.
+  return orm.update(meta).set({ deviceId: newDeviceId(), installId }).returning(META).get()
+}
+
+/** The columns of `Meta`, for Drizzle to select and return. */
+const META = {
+  ledgerId: meta.ledgerId,
+  deviceId: meta.deviceId,
+  installId: meta.installId,
+  createdAt: meta.createdAt,
+}
+
+const newDeviceId = () => randomBytes(8).toString('hex')

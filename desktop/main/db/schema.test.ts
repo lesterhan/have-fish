@@ -1,8 +1,9 @@
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test } from 'vitest'
 import { migrate } from './migrate'
 import { MIGRATIONS } from './migrations'
 import { meta } from './schema'
@@ -56,5 +57,219 @@ describe('meta', () => {
           .run()
       expect(insert).toThrow(check)
     })
+  })
+})
+
+describe('the ledger tables', () => {
+  const columns = (table: string) =>
+    (db.pragma(`table_info(${table})`) as { name: string; type: string; notnull: number }[]).map(
+      ({ name, type, notnull }) => `${name} ${type}${notnull ? ' not null' : ''}`,
+    )
+  const indexes = (table: string) =>
+    db
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = ? AND sql IS NOT NULL`,
+      )
+      .pluck()
+      .all(table)
+  const foreignKeys = (table: string) =>
+    (
+      db.pragma(`foreign_key_list(${table})`) as {
+        from: string
+        table: string
+        on_delete: string
+      }[]
+    ).map(({ from, table, on_delete }) => `${from} -> ${table} on delete ${on_delete}`)
+
+  test('accounts', () => {
+    expect(columns('accounts')).toEqual([
+      'id TEXT not null',
+      'path TEXT not null',
+      'pathKey TEXT not null',
+      'kind TEXT not null',
+      'deletedAt INTEGER',
+      'version TEXT not null',
+      'originSource TEXT not null',
+      'originCreatedAt INTEGER not null',
+      'originDeviceId TEXT not null',
+      'originFile TEXT',
+      'originLine INTEGER',
+      'originText TEXT',
+      'currency TEXT',
+    ])
+    expect(indexes('accounts')).toEqual(['accounts_path_key'])
+  })
+
+  test('transactions', () => {
+    expect(columns('transactions')).toEqual([
+      'id TEXT not null',
+      'date TEXT not null',
+      'description TEXT not null',
+      'deletedAt INTEGER',
+      'version TEXT not null',
+      'originSource TEXT not null',
+      'originCreatedAt INTEGER not null',
+      'originDeviceId TEXT not null',
+      'originFile TEXT',
+      'originLine INTEGER',
+      'originText TEXT',
+    ])
+    expect(indexes('transactions')).toEqual(['transactions_date'])
+  })
+
+  test('postings, keyed by transaction and position', () => {
+    expect(columns('postings')).toEqual([
+      'transactionId TEXT not null',
+      'position INTEGER not null',
+      'accountId TEXT not null',
+      'amountCents INTEGER not null',
+      'currency TEXT not null',
+    ])
+    const key = (db.pragma('table_info(postings)') as { name: string; pk: number }[])
+      .filter((c) => c.pk > 0)
+      .sort((a, b) => a.pk - b.pk)
+      .map((c) => c.name)
+    expect(key).toEqual(['transactionId', 'position'])
+    expect(indexes('postings')).toEqual(['postings_account_id'])
+  })
+
+  test('outbox, keyed by a row id, with one row per document', () => {
+    expect(columns('outbox')).toEqual([
+      'rowId TEXT not null',
+      'docType TEXT not null',
+      'docId TEXT not null',
+      'version TEXT not null',
+      'body TEXT not null',
+    ])
+    expect(indexes('outbox')).toEqual(['outbox_doc'])
+    const insert = db.prepare(
+      `INSERT INTO outbox (rowId, docType, docId, version, body) VALUES (?, ?, ?, 'v', '{}')`,
+    )
+    insert.run('row-1', 'transaction', 'doc-1')
+    insert.run('row-2', 'account', 'doc-1')
+    expect(() => insert.run('row-3', 'transaction', 'doc-1')).toThrow('UNIQUE constraint failed')
+  })
+
+  test('only the transaction is a foreign key: an account can arrive after its postings', () => {
+    expect(foreignKeys('postings')).toEqual(['transactionId -> transactions on delete CASCADE'])
+  })
+
+  const TXN = '00000000-0000-4000-8000-000000000001'
+  const ACCOUNT = '00000000-0000-4000-8000-000000000002'
+  const insertTransaction = () =>
+    db
+      .prepare(
+        `INSERT INTO transactions (id, date, description, version, originSource, originCreatedAt, originDeviceId) VALUES (?, '2026-10-29', '', 'v', 'manual', 0, '0123456789abcdef')`,
+      )
+      .run(TXN)
+  const insertPosting = (amountCents: unknown) =>
+    db
+      .prepare(
+        `INSERT INTO postings (transactionId, position, accountId, amountCents, currency) VALUES (?, 0, ?, ?, 'CAD')`,
+      )
+      .run(TXN, ACCOUNT, amountCents)
+
+  test('a posting takes integer cents, and refuses an amount as text', () => {
+    insertTransaction()
+    expect(() => insertPosting('12.50')).toThrow('postings_amount_cents_integer')
+    expect(() => insertPosting(12.5)).toThrow('postings_amount_cents_integer')
+    insertPosting(-1250)
+    expect(db.prepare('SELECT amountCents FROM postings').pluck().get()).toBe(-1250)
+  })
+
+  test('deleting a transaction deletes its postings', () => {
+    insertTransaction()
+    insertPosting(-1250)
+    db.prepare('DELETE FROM transactions WHERE id = ?').run(TXN)
+    expect(db.prepare('SELECT count(*) FROM postings').pluck().get()).toBe(0)
+  })
+
+  test('an account takes no currency, meaning any, or one', () => {
+    const insert = db.prepare(
+      `INSERT INTO accounts (id, path, pathKey, kind, currency, version, originSource, originCreatedAt, originDeviceId) VALUES (?, 'assets:cash', 'assets:cash', 'cash', ?, 'v', 'manual', 0, '0123456789abcdef')`,
+    )
+    insert.run(ACCOUNT, null)
+    insert.run(TXN, 'CAD')
+    expect(db.prepare('SELECT currency FROM accounts ORDER BY currency').pluck().all()).toEqual([
+      null,
+      'CAD',
+    ])
+  })
+
+  test('two accounts can share a path', () => {
+    const insert = db.prepare(
+      `INSERT INTO accounts (id, path, pathKey, kind, version, originSource, originCreatedAt, originDeviceId) VALUES (?, 'assets:cash', 'assets:cash', 'cash', 'v', 'manual', 0, '0123456789abcdef')`,
+    )
+    insert.run(ACCOUNT)
+    insert.run(TXN)
+    expect(db.prepare('SELECT count(*) FROM accounts').pluck().get()).toBe(2)
+  })
+
+  test.each(['accounts', 'transactions'])('%s refuse a row with no origin', (table) => {
+    const insert = () =>
+      db.prepare(`INSERT INTO ${table} (id, version) VALUES (?, 'v')`).run(ACCOUNT)
+    expect(insert).toThrow('NOT NULL constraint failed')
+  })
+})
+
+describe('0002_origin', () => {
+  const TXN = '00000000-0000-4000-8000-000000000001'
+  const ACCOUNT = '00000000-0000-4000-8000-000000000002'
+  const before = MIGRATIONS.filter((m) => m.tag < '0002_origin')
+
+  test('keeps the rows of a file from before origins, postings included', () => {
+    const old = new Database(':memory:')
+    onTestFinished(() => {
+      old.close()
+    })
+    migrate(old, before, NOW, join(tmpdir(), 'havefish-never-written'))
+    old.exec(`
+      INSERT INTO accounts (id, path, pathKey, kind, version)
+        VALUES ('${ACCOUNT}', 'assets:cash', 'assets:cash', 'cash', 'v1');
+      INSERT INTO transactions (id, date, description, version)
+        VALUES ('${TXN}', '2026-10-29', 'Groceries', 'v2');
+      INSERT INTO postings (transactionId, position, accountId, amountCents, currency)
+        VALUES ('${TXN}', 0, '${ACCOUNT}', -1250, 'CAD');
+    `)
+
+    const backups = mkdtempSync(join(tmpdir(), 'havefish-origin-'))
+    onTestFinished(() => rmSync(backups, { recursive: true, force: true }))
+    const through = MIGRATIONS.filter((m) => m.tag <= '0002_origin')
+    expect(migrate(old, through, NOW, backups)).toEqual({ ok: true, value: ['0002_origin'] })
+
+    const placeholder = {
+      originSource: 'manual',
+      originCreatedAt: 0,
+      originDeviceId: '0000000000000000',
+      originFile: null,
+      originLine: null,
+      originText: null,
+    }
+    expect(old.prepare('SELECT * FROM accounts').all()).toEqual([
+      {
+        id: ACCOUNT,
+        path: 'assets:cash',
+        pathKey: 'assets:cash',
+        kind: 'cash',
+        deletedAt: null,
+        version: 'v1',
+        ...placeholder,
+      },
+    ])
+    expect(old.prepare('SELECT * FROM transactions').all()).toEqual([
+      {
+        id: TXN,
+        date: '2026-10-29',
+        description: 'Groceries',
+        deletedAt: null,
+        version: 'v2',
+        ...placeholder,
+      },
+    ])
+    expect(old.prepare('SELECT amountCents FROM postings').pluck().all()).toEqual([-1250])
+
+    // The postings still cascade from the rebuilt table.
+    old.prepare('DELETE FROM transactions').run()
+    expect(old.prepare('SELECT count(*) FROM postings').pluck().get()).toBe(0)
   })
 })

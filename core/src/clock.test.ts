@@ -18,7 +18,7 @@ function tickThrough(clock: Clock, nows: number[]): Version[] {
   const versions: Version[] = []
   let current = clock
   for (const now of nows) {
-    const next = ok(tick(current, now, HERE))
+    const next = tick(current, now, HERE)
     versions.push(next.version)
     current = next.clock
   }
@@ -33,21 +33,21 @@ function expectStrictlyIncreasing(versions: Version[]) {
 
 describe('tick', () => {
   it('takes the wall time and restarts the counter when time moves forward', () => {
-    expect(ok(tick({ wallMs: NOON, counter: 7 }, NOON + 5, HERE))).toStrictEqual({
+    expect(tick({ wallMs: NOON, counter: 7 }, NOON + 5, HERE)).toStrictEqual({
       clock: { wallMs: NOON + 5, counter: 0 },
       version: { wallMs: NOON + 5, counter: 0, deviceId: HERE },
     })
   })
 
   it('counts up when time is frozen', () => {
-    expect(ok(tick({ wallMs: NOON, counter: 7 }, NOON, HERE))).toStrictEqual({
+    expect(tick({ wallMs: NOON, counter: 7 }, NOON, HERE)).toStrictEqual({
       clock: { wallMs: NOON, counter: 8 },
       version: { wallMs: NOON, counter: 8, deviceId: HERE },
     })
   })
 
   it('keeps its own time and counts up when the wall clock goes backwards', () => {
-    expect(ok(tick({ wallMs: NOON, counter: 7 }, NOON - 60_000, HERE))).toStrictEqual({
+    expect(tick({ wallMs: NOON, counter: 7 }, NOON - 60_000, HERE)).toStrictEqual({
       clock: { wallMs: NOON, counter: 8 },
       version: { wallMs: NOON, counter: 8, deviceId: HERE },
     })
@@ -106,10 +106,10 @@ describe('receive', () => {
     const clock = { wallMs: NOON, counter: 0 }
     const remote = { wallMs: NOON + 60_000, counter: 4, deviceId: '0000000000000000' }
     const after = ok(receive(clock, remote, NOON))
-    const { version } = ok(tick(after, NOON + 1, 'ffffffffffffffff'))
+    const { version } = tick(after, NOON + 1, 'ffffffffffffffff')
     expect(compareVersions(version, remote)).toBe(1)
     // Wins on the counter, so even the lowest device id beats it.
-    const { version: low } = ok(tick(after, NOON + 1, '0000000000000000'))
+    const { version: low } = tick(after, NOON + 1, '0000000000000000')
     expect(compareVersions(low, remote)).toBe(1)
   })
 
@@ -141,31 +141,34 @@ describe('the guards', () => {
     })
   })
 
-  it('ticks to MAX_COUNTER, then refuses with time frozen', () => {
-    const last = ok(tick({ wallMs: NOON, counter: MAX_COUNTER - 1 }, NOON, HERE))
-    expect(last.version.counter).toBe(MAX_COUNTER)
-    expect(tick(last.clock, NOON, HERE)).toStrictEqual({
-      ok: false,
-      failure: { code: 'CLOCK_COUNTER_OVERFLOW', details: { wallMs: NOON } },
+  it('moves to the next millisecond when the counter is full, with time frozen', () => {
+    expect(tick({ wallMs: NOON, counter: MAX_COUNTER }, NOON, HERE)).toStrictEqual({
+      clock: { wallMs: NOON + 1, counter: 0 },
+      version: { wallMs: NOON + 1, counter: 0, deviceId: HERE },
     })
   })
 
-  it('refuses a receive that would push either counter past MAX_COUNTER', () => {
-    const overflow = {
-      ok: false,
-      failure: { code: 'CLOCK_COUNTER_OVERFLOW', details: { wallMs: NOON } },
-    }
+  // One batch shares its `now`, so this is a save of 70,000 documents.
+  it('gives 70,000 strictly increasing versions at one now', () => {
+    const versions = tickThrough({ wallMs: 0, counter: 0 }, Array(70_000).fill(NOON))
+    expectStrictlyIncreasing(versions)
+    // 65,536 at NOON, and the rest a millisecond on.
+    expect(versions.at(-1)).toStrictEqual({ wallMs: NOON + 1, counter: 4_463, deviceId: HERE })
+  })
+
+  it('moves a receive to the next millisecond when either counter is full', () => {
+    const next = { ok: true, value: { wallMs: NOON + 1, counter: 0 } }
     const full = { wallMs: NOON, counter: MAX_COUNTER }
     const behind = { wallMs: NOON - 1, counter: 0, deviceId: THERE }
-    expect(receive(full, behind, NOON - 1)).toStrictEqual(overflow)
+    expect(receive(full, behind, NOON - 1)).toStrictEqual(next)
     const fullRemote = { wallMs: NOON, counter: MAX_COUNTER, deviceId: THERE }
-    expect(receive({ wallMs: NOON - 1, counter: 0 }, fullRemote, NOON - 1)).toStrictEqual(overflow)
-    expect(receive({ wallMs: NOON, counter: 0 }, fullRemote, NOON - 1)).toStrictEqual(overflow)
+    expect(receive({ wallMs: NOON - 1, counter: 0 }, fullRemote, NOON - 1)).toStrictEqual(next)
+    expect(receive({ wallMs: NOON, counter: 0 }, fullRemote, NOON - 1)).toStrictEqual(next)
   })
 
   it('recovers from a full counter once time moves on', () => {
     const full = { wallMs: NOON, counter: MAX_COUNTER }
-    expect(ok(tick(full, NOON + 1, HERE)).clock).toStrictEqual({ wallMs: NOON + 1, counter: 0 })
+    expect(tick(full, NOON + 1, HERE).clock).toStrictEqual({ wallMs: NOON + 1, counter: 0 })
   })
 })
 
@@ -190,7 +193,7 @@ describe('the clock, over a long run', () => {
       const other = devices[step % 2 === 0 ? 1 : 0] as (typeof devices)[number]
       const now = time + device.skew
       const seen = device.latest.at(-1)
-      const { clock, version } = ok(tick(device.clock, now, device.id))
+      const { clock, version } = tick(device.clock, now, device.id)
       if (seen) expect(compareVersions(version, seen)).toBe(1)
       device.clock = clock
       device.latest.push(version)

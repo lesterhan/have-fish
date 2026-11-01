@@ -15,6 +15,7 @@ const SPEND = {
     { accountId: B, amount: '-4.50', currency: 'CAD' },
   ],
   deletedAt: null,
+  origin: { source: 'manual', createdAt: Date.UTC(2026, 9, 4, 11), deviceId: 'a1b2c3d4e5f60718' },
 } as const
 
 const VERSION = { wallMs: Date.UTC(2026, 9, 4, 12), counter: 0, deviceId: 'a1b2c3d4e5f60718' }

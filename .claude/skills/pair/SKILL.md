@@ -110,7 +110,8 @@ or `git checkout -b`, and never open the PR, even for a file you wrote. Read-onl
 - **Branch:** at the start of a note, remind them of the name (`CLAUDE.md`, "Branch") and let
   them create it.
 - **Commits:** when asked, review the staged diff or the message, as a hint, like their code.
-- **PR:** draft the body (summary, Tour, trailer) in chat for them to paste. They open it.
+- **PR:** draft the body (the note, what changed, worth your read) in chat for them to paste.
+  They open it.
 - **Rusty or stuck** on a git move: the same hint ladder, and the lazygit move from
   `references/nvim-moves.md` when it fits.
 - **"You do it"** for one commit or the PR is honoured, for that one only. Pair stays theirs.
@@ -154,10 +155,10 @@ and the sandbox are on.
   or two. Not a lecture.
 - **Teach-back, when it's offered or asked for.** After a step you drove that sits next to a
   seam, offer: "explain back what this does in two lines?" Then correct only what's off.
-- **Tour.** When the note's last step is green, draft the PR body's **Tour** section: the
-  seams, what calls what, the one or two places to put a breakpoint, and which steps were the
-  user's. A Build-mode PR gets the same section, and it flags the parts they'd have written as
-  "worth your read".
+- **Worth your read.** When the note's last step is green, pick the one to three lines of code
+  the user most needs to know, each with why: a seam, a rule, where to put a breakpoint. Prefer
+  the parts Claude wrote that sit next to theirs. How the code works goes in the note's knowledge
+  note in the vault, not the PR.
 - **Debug drills**, only when asked: on a throwaway branch, break one seam in a realistic way,
   and let them find it with the tests and the debugger. Never on a branch that might merge.
 
@@ -177,7 +178,7 @@ That's a notes file, not code. One nvim move per turn, from the coach skill's
 ## Closing
 
 When the note's last step is green:
-- draft the PR body with its Tour, ending `Tech: <key and title>` or `Story: <key and title>`;
+- draft the PR body, opening with `Tech: <key and title>` or `Story: <key and title>`;
 - the user pushes the branch and opens the PR;
 - recap in a handful of lines: the seams they now own, the TypeScript and Electron ideas they
   met, and the nvim moves that came up;

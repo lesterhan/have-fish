@@ -3,6 +3,7 @@
 
 import { z } from 'zod'
 import { type LedgerDocument, readDocument } from './documents'
+import { firstIssue } from './first-issue'
 import { failure, type Outcome } from './outcome'
 import { type Version, VersionSchema } from './version'
 
@@ -14,13 +15,7 @@ const EnvelopeSchema = z.strictObject({ doc: z.unknown(), version: VersionSchema
 /** A bad envelope or version is `VERSION_MALFORMED`; a bad document is `readDocument`'s code. */
 export function readVersioned(input: unknown): Outcome<Versioned> {
   const result = EnvelopeSchema.safeParse(input)
-  if (!result.success) {
-    const issue = result.error.issues[0]
-    if (issue === undefined) return failure('VERSION_MALFORMED', { path: '', issue: 'unknown' })
-    const path =
-      issue.code === 'unrecognized_keys' ? [...issue.path, issue.keys[0]] : [...issue.path]
-    return failure('VERSION_MALFORMED', { path: path.join('.'), issue: issue.code })
-  }
+  if (!result.success) return failure('VERSION_MALFORMED', firstIssue(result.error))
 
   const doc = readDocument(result.data.doc)
   if (!doc.ok) return doc

@@ -43,7 +43,7 @@ have-fish/
 ├── core/             # rewrite: the pure domain (arrives with the first tech note)
 ├── desktop/          # rewrite: Electron main, preload and renderer (its main/db/ first)
 ├── planning/         # direction, desktop-rewrite.md, the current app's epic files
-├── DESIGN.md         # the design source of truth
+├── DESIGN.md         # the rewrite's design (the current app's is frontend/DESIGN.md)
 ├── biome.jsonc       # one formatter and linter for the whole repository
 └── .claude/skills/   # pair and coach
 ```
@@ -77,7 +77,7 @@ None of the current app's server machinery carries over: Postgres and the two-di
 Hono and `app.request` tests, Better Auth, `userId` scoping, `numeric(12,2)` strings. Biome and
 Prettier do, and so do the copy rules when the renderer arrives. The current app's look does
 not: the rewrite's UI system is still being worked out, and until it lands its screens stay
-plain (`DESIGN.md`, "The rewrite's design, so far").
+plain (`DESIGN.md`, "Until the system lands").
 
 ## Formatting and linting
 
@@ -110,12 +110,16 @@ would rewrap roughly a tenth of the repository to no purpose).
 
 ## Design
 
-**`DESIGN.md` is the single source of truth for design**, for both apps. Its opening section is
-the rewrite's design so far: three priorities (speed and reliability, clarity, delight) and how
-to build screens until its UI system lands. Everything from §1 on is the current app's design,
-and it is in maintenance: a fix keeps to it, and nothing new extends it. Read the part for the
-app you are working on before any work that touches its UI. The current frontend's
-implementation reminders are in `frontend/CLAUDE.md`.
+Each app has one design document, and it is the source of truth for that app's UI. Read it
+before any work that touches the UI.
+
+- **`DESIGN.md`** at the root is the rewrite's: three priorities (speed and reliability, clarity,
+  delight), how to build screens until its UI system lands, what being a desktop app asks, and
+  the rules for themes. It grows only when something is built on it, and a rule lives in a test
+  wherever it can.
+- **`frontend/DESIGN.md`** is the current app's, and it is in maintenance: a fix keeps to it, and
+  nothing new extends it. It retires with that app. Its implementation reminders are in
+  `frontend/CLAUDE.md`.
 
 ## Work tracking
 
@@ -133,7 +137,7 @@ before picking anything up.
   PRs name their notes.
 - **Ready first.** Pick up only a `ready` note whose `depends_on` are all `done`, and set it to
   `doing`.
-- **One note, one branch, one PR.** The PR body ends with `Story:`, `Tech:`, `Bug:` or `Chore:`
+- **One note, one branch, one PR.** The PR body opens with `Story:`, `Tech:`, `Bug:` or `Chore:`
   and the note's key and title. When it merges, its number goes into the note's `pr`. A tech
   note, bug or chore is then `done`; a story is `done` once the owner has checked every
   acceptance line in the packaged app.
@@ -156,8 +160,8 @@ before picking anything up.
 
 **The bridge, until the triage is applied.** Every GitHub issue open on 2026-10-01 sits in the
 vault's `inbox/`, waiting for the owner's triage. Until that inbox is empty, an open issue is
-still real work: "let's pick up #282" reads the issue and its parent, and the PR body ends
-`Closes #282` (or `Closes lesterhan/have-fish-ops#N` across repos). Cross-repo references are
+still real work: "let's pick up #282" reads the issue and its parent, and the PR body opens
+with `Closes #282` (or `Closes lesterhan/have-fish-ops#N` across repos). Cross-repo references are
 fully qualified; a bare `#10` is this repo's issue 10. Closed `type:decision` issues stay as the
 decision log from before the vault. When the inbox is empty, this paragraph goes.
 
@@ -193,8 +197,8 @@ Things you can say:
 and switching mid-session is fine: finish the current turn cleanly, then change.
 
 A tech note's *Build it* steps each name a default driver. Every rewrite PR, in any mode, has a
-**Tour** section in its body: the seams, what calls what, where to put a breakpoint, and which
-parts are worth the owner's read.
+**Worth your read** section: one to three lines of code, each with why (a seam, a rule, where to
+put a breakpoint). How the code works goes in the note's knowledge note in the vault.
 
 ## How I like to be assisted
 
@@ -310,9 +314,9 @@ issue-282/expense-labels
 Branches created by Claude Code on the web are named by the harness and cannot follow this; the
 title convention is what holds in every case.
 
-**Body** — `.github/pull_request_template.md` is the shape. It ends with the note's trailer
-(`Story:`, `Tech:`, `Bug:` or `Chore:` with its key and title), or `Closes #N` for an issue the
-triage hasn't reached. A rewrite PR has a Tour section.
+**Body** — `.github/pull_request_template.md` is the shape, and short enough to read on a phone.
+It opens with the note (`Story:`, `Tech:`, `Bug:` or `Chore:` with its key and title), or
+`Closes #N` for an issue the triage hasn't reached. A rewrite PR has a Worth your read section.
 
 ### Normal feature flow
 
@@ -323,7 +327,7 @@ git checkout -b <key>/<short-description>
 # 2. implement, commit
 git push -u origin <key>/<short-description>
 
-# 3. open the PR on GitHub, titled [scope] Description, body ending with the note's trailer
+# 3. open the PR on GitHub, titled [scope] Description, body opening with the note
 # 4. review, iterate, merge on GitHub
 
 # 5. sync local main after merge

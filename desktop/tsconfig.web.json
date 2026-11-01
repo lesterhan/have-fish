@@ -1,0 +1,10 @@
+{
+  // The renderer: a web page, so the DOM's globals and none of Node's. `.svelte` files are
+  // left to the build; keep logic in `.ts` files, which this checks.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "lib": ["ESNext", "DOM", "DOM.Iterable"],
+    "types": ["vite/client"]
+  },
+  "include": ["renderer", "shared"]
+}
