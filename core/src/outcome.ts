@@ -10,7 +10,6 @@ export interface FailureDetails {
   PATH_ROOT_MISMATCH: { path: string; kind: string; expected: string }
   VERSION_MALFORMED: { path: string; issue: string }
   CLOCK_DRIFT: { remoteWallMs: number; now: number }
-  CLOCK_COUNTER_OVERFLOW: { wallMs: number }
   LEDGER_UNREADABLE: { path: string }
   LEDGER_TOO_NEW: { path: string; unknown: string[] }
   ACCOUNT_NOT_FOUND: { accountId: string }

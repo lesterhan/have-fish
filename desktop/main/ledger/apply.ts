@@ -118,9 +118,8 @@ function writeLocal(ledger: Ledger, items: Item[], now: number): Applied {
 
   for (const { at, doc } of items) {
     const ticked = tick(clock, now, ledger.meta.deviceId)
-    if (!ticked.ok) throw new Refused(refusal(at, ticked.failure))
-    clock = ticked.value.clock
-    const { version } = ticked.value
+    clock = ticked.clock
+    const { version } = ticked
 
     if (doc.type === 'transaction') checkPostedAccounts(db, at, doc)
     const { decision, stored, previous } = store(db, doc, version, { at })

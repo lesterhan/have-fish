@@ -21,12 +21,11 @@ export function tick(
   clock: Clock,
   now: number,
   deviceId: string,
-): Outcome<{ clock: Clock; version: Version }> {
+): { clock: Clock; version: Version } {
   // `max` stops time going backwards; the counter keeps the order.
   const wallMs = Math.max(clock.wallMs, now)
-  const counter = wallMs === clock.wallMs ? clock.counter + 1 : 0
-  if (counter > MAX_COUNTER) return failure('CLOCK_COUNTER_OVERFLOW', { wallMs })
-  return { ok: true, value: { clock: { wallMs, counter }, version: { wallMs, counter, deviceId } } }
+  const next = carry(wallMs, wallMs === clock.wallMs ? clock.counter + 1 : 0)
+  return { clock: next, version: { ...next, deviceId } }
 }
 
 /** A remote version arrived. Moves the clock past it, so the next `tick` beats it. */
@@ -35,9 +34,15 @@ export function receive(clock: Clock, remote: Version, now: number): Outcome<Clo
     return failure('CLOCK_DRIFT', { remoteWallMs: remote.wallMs, now })
   }
   const wallMs = Math.max(clock.wallMs, remote.wallMs, now)
-  const counter = nextCounter(clock, remote, wallMs)
-  if (counter > MAX_COUNTER) return failure('CLOCK_COUNTER_OVERFLOW', { wallMs })
-  return { ok: true, value: { wallMs, counter } }
+  return { ok: true, value: carry(wallMs, nextCounter(clock, remote, wallMs)) }
+}
+
+/**
+ * A full counter carries into the next millisecond, so a write never waits for the wall clock.
+ * The clock then runs a millisecond ahead of it, which nothing minds.
+ */
+function carry(wallMs: number, counter: number): Clock {
+  return counter > MAX_COUNTER ? { wallMs: wallMs + 1, counter: 0 } : { wallMs, counter }
 }
 
 // Bump the counter of whichever side reached `wallMs` (the larger, if both).
