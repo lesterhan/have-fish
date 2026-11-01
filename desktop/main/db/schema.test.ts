@@ -1,8 +1,9 @@
+import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import Database from 'better-sqlite3'
 import { drizzle } from 'drizzle-orm/better-sqlite3'
-import { afterEach, beforeEach, describe, expect, test } from 'vitest'
+import { afterEach, beforeEach, describe, expect, onTestFinished, test } from 'vitest'
 import { migrate } from './migrate'
 import { MIGRATIONS } from './migrations'
 import { meta } from './schema'
@@ -88,6 +89,12 @@ describe('the ledger tables', () => {
       'kind TEXT not null',
       'deletedAt INTEGER',
       'version TEXT not null',
+      'originSource TEXT not null',
+      'originCreatedAt INTEGER not null',
+      'originDeviceId TEXT not null',
+      'originFile TEXT',
+      'originLine INTEGER',
+      'originText TEXT',
     ])
     expect(indexes('accounts')).toEqual(['accounts_path_key'])
   })
@@ -99,6 +106,12 @@ describe('the ledger tables', () => {
       'description TEXT not null',
       'deletedAt INTEGER',
       'version TEXT not null',
+      'originSource TEXT not null',
+      'originCreatedAt INTEGER not null',
+      'originDeviceId TEXT not null',
+      'originFile TEXT',
+      'originLine INTEGER',
+      'originText TEXT',
     ])
     expect(indexes('transactions')).toEqual(['transactions_date'])
   })
@@ -128,7 +141,7 @@ describe('the ledger tables', () => {
   const insertTransaction = () =>
     db
       .prepare(
-        `INSERT INTO transactions (id, date, description, version) VALUES (?, '2026-10-29', '', 'v')`,
+        `INSERT INTO transactions (id, date, description, version, originSource, originCreatedAt, originDeviceId) VALUES (?, '2026-10-29', '', 'v', 'manual', 0, '0123456789abcdef')`,
       )
       .run(TXN)
   const insertPosting = (amountCents: unknown) =>
@@ -155,10 +168,77 @@ describe('the ledger tables', () => {
 
   test('two accounts can share a path', () => {
     const insert = db.prepare(
-      `INSERT INTO accounts (id, path, pathKey, kind, version) VALUES (?, 'assets:cash', 'assets:cash', 'cash', 'v')`,
+      `INSERT INTO accounts (id, path, pathKey, kind, version, originSource, originCreatedAt, originDeviceId) VALUES (?, 'assets:cash', 'assets:cash', 'cash', 'v', 'manual', 0, '0123456789abcdef')`,
     )
     insert.run(ACCOUNT)
     insert.run(TXN)
     expect(db.prepare('SELECT count(*) FROM accounts').pluck().get()).toBe(2)
+  })
+
+  test.each(['accounts', 'transactions'])('%s refuse a row with no origin', (table) => {
+    const insert = () =>
+      db.prepare(`INSERT INTO ${table} (id, version) VALUES (?, 'v')`).run(ACCOUNT)
+    expect(insert).toThrow('NOT NULL constraint failed')
+  })
+})
+
+describe('0002_origin', () => {
+  const TXN = '00000000-0000-4000-8000-000000000001'
+  const ACCOUNT = '00000000-0000-4000-8000-000000000002'
+  const before = MIGRATIONS.filter((m) => m.tag < '0002_origin')
+
+  test('keeps the rows of a file from before origins, postings included', () => {
+    const old = new Database(':memory:')
+    onTestFinished(() => {
+      old.close()
+    })
+    migrate(old, before, NOW, join(tmpdir(), 'havefish-never-written'))
+    old.exec(`
+      INSERT INTO accounts (id, path, pathKey, kind, version)
+        VALUES ('${ACCOUNT}', 'assets:cash', 'assets:cash', 'cash', 'v1');
+      INSERT INTO transactions (id, date, description, version)
+        VALUES ('${TXN}', '2026-10-29', 'Groceries', 'v2');
+      INSERT INTO postings (transactionId, position, accountId, amountCents, currency)
+        VALUES ('${TXN}', 0, '${ACCOUNT}', -1250, 'CAD');
+    `)
+
+    const backups = mkdtempSync(join(tmpdir(), 'havefish-origin-'))
+    onTestFinished(() => rmSync(backups, { recursive: true, force: true }))
+    expect(migrate(old, MIGRATIONS, NOW, backups)).toEqual({ ok: true, value: ['0002_origin'] })
+
+    const placeholder = {
+      originSource: 'manual',
+      originCreatedAt: 0,
+      originDeviceId: '0000000000000000',
+      originFile: null,
+      originLine: null,
+      originText: null,
+    }
+    expect(old.prepare('SELECT * FROM accounts').all()).toEqual([
+      {
+        id: ACCOUNT,
+        path: 'assets:cash',
+        pathKey: 'assets:cash',
+        kind: 'cash',
+        deletedAt: null,
+        version: 'v1',
+        ...placeholder,
+      },
+    ])
+    expect(old.prepare('SELECT * FROM transactions').all()).toEqual([
+      {
+        id: TXN,
+        date: '2026-10-29',
+        description: 'Groceries',
+        deletedAt: null,
+        version: 'v2',
+        ...placeholder,
+      },
+    ])
+    expect(old.prepare('SELECT amountCents FROM postings').pluck().all()).toEqual([-1250])
+
+    // The postings still cascade from the rebuilt table.
+    old.prepare('DELETE FROM transactions').run()
+    expect(old.prepare('SELECT count(*) FROM postings').pluck().get()).toBe(0)
   })
 })

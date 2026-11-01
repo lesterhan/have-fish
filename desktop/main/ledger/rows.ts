@@ -1,6 +1,11 @@
 // A document and its rows, both ways. Pure: no database, so the tests need none.
 
-import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
+import type {
+  AccountDoc,
+  AccountOrigin,
+  TransactionDoc,
+  TransactionOrigin,
+} from '@have-fish/core/documents'
 import { cents, format } from '@have-fish/core/money'
 import { formatVersion, parseVersion } from '@have-fish/core/version'
 import type { Versioned } from '@have-fish/core/versioned'
@@ -27,6 +32,7 @@ export function rowsOf(
         description: v.doc.description,
         deletedAt: v.doc.deletedAt,
         version: formatVersion(v.version),
+        ...originColumns(v.doc.origin),
       }
       const postings = v.doc.postings.map((posting, position) => ({
         transactionId: v.doc.id,
@@ -50,6 +56,7 @@ export function rowsOf(
           kind: v.doc.kind,
           version: formatVersion(v.version),
           pathKey: v.doc.path.toLowerCase(),
+          ...originColumns(v.doc.origin),
         },
       }
     }
@@ -78,6 +85,7 @@ export function docOf(
         path: row.path,
         kind: row.kind,
         deletedAt: row.deletedAt,
+        origin: accountOriginOf(row),
       },
       version: version.value,
     }
@@ -99,7 +107,38 @@ export function docOf(
       description: row.description,
       postings: postingsDoc,
       deletedAt: row.deletedAt,
+      origin: originOf(row),
     },
     version: version.value,
   }
+}
+
+/** An origin as its columns. The last three are null unless it's an import. */
+function originColumns(origin: TransactionOrigin) {
+  const imported = origin.source === 'import' ? origin : null
+  return {
+    originSource: origin.source,
+    originCreatedAt: origin.createdAt,
+    originDeviceId: origin.deviceId,
+    originFile: imported?.file ?? null,
+    originLine: imported?.line ?? null,
+    originText: imported?.text ?? null,
+  }
+}
+
+function originOf(row: TransactionRow): TransactionOrigin {
+  const made = { createdAt: row.originCreatedAt, deviceId: row.originDeviceId }
+  if (row.originSource !== 'import') return { source: row.originSource, ...made }
+
+  const { originFile: file, originLine: line, originText: text } = row
+  if (file === null || line === null || text === null) {
+    throw new Error(`Could not read origin: ${row.id} is an import without its file, line or text`)
+  }
+  return { source: 'import', ...made, file, line, text }
+}
+
+function accountOriginOf(row: AccountRow): AccountOrigin {
+  const source = row.originSource
+  if (source === 'import') throw new Error(`Could not read origin: ${row.id} is imported`)
+  return { source, createdAt: row.originCreatedAt, deviceId: row.originDeviceId }
 }
