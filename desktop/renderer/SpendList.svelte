@@ -94,17 +94,20 @@
   }
 
   .date {
+    font-family: var(--font-figures);
     color: var(--color-muted);
     font-variant-numeric: tabular-nums;
   }
 
   .description {
+    font-family: var(--font-serif);
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
   }
 
   .amount {
+    font-family: var(--font-figures);
     text-align: end;
     font-variant-numeric: tabular-nums;
   }

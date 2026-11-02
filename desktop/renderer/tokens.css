@@ -5,7 +5,13 @@
 :root {
   color-scheme: light dark;
 
-  --font: system-ui, sans-serif;
+  /* By the job each does, so moving a role is one line here. */
+  --font: 'IBM Plex Sans Variable', system-ui, sans-serif;
+  --font-serif: 'Source Serif 4 Variable', Georgia, serif;
+  /* Amounts and dates. */
+  --font-figures: 'Atkinson Hyperlegible Mono Variable', ui-monospace, monospace;
+  /* Account paths and a bank's own text. */
+  --font-code: 'Fira Code Variable', ui-monospace, monospace;
   --font-size: 1rem;
   --font-size-small: 0.875rem;
 
@@ -45,6 +51,8 @@ body {
   margin: 0;
   font-family: var(--font);
   font-size: var(--font-size);
+  /* A bank's `->` stays two characters. */
+  font-variant-ligatures: none;
   color: var(--color-text);
   background: var(--color-background);
 }

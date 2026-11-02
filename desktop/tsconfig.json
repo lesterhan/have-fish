@@ -21,6 +21,7 @@
     "shared",
     "tools",
     "renderer/tokens.test.ts",
+    "renderer/fonts.test.ts",
     "electron.vite.config.ts"
   ]
 }

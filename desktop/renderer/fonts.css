@@ -1,0 +1,7 @@
+/* The app's fonts, shipped inside it: nothing is fetched. Each one's licence is in
+   public/licenses/, and fonts.test.ts holds the two together. tokens.css says which does what. */
+
+@import '@fontsource-variable/ibm-plex-sans/wght.css';
+@import '@fontsource-variable/source-serif-4/index.css';
+@import '@fontsource-variable/atkinson-hyperlegible-mono/wght.css';
+@import '@fontsource-variable/fira-code/wght.css';

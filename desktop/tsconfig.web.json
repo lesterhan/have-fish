@@ -8,5 +8,5 @@
   },
   "include": ["copy", "renderer", "shared"],
   // These tests read the source files, so they need Node; `tsconfig.json` checks them.
-  "exclude": ["copy/**/*.test.ts", "renderer/tokens.test.ts"]
+  "exclude": ["copy/**/*.test.ts", "renderer/tokens.test.ts", "renderer/fonts.test.ts"]
 }
