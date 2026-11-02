@@ -82,7 +82,8 @@ The desktop app can have themes, colours to start with.
   borrowed and lost every relationship, which is the failure this rule is for.
 - **Colours are tested, not reviewed.** One tokens file declares every colour. A contract of
   plain functions checks ink (4.5:1 for text, 3:1 for graphics) and surfaces (each step at least
-  ΔL 0.04, and within 2x across schemes), and a guard fails a colour declared anywhere else.
+  ΔL 0.04, and within 2x across schemes), and a guard fails a colour declared anywhere else
+  (`desktop/renderer/theme/contract.ts`, held to by `desktop/renderer/tokens.test.ts`).
   Every built-in theme passes them in a test, and a theme you make will pass them as you make it.
 - **Money is not themed.** The colours for money in and out stay fixed, and a sign reads
   without colour.

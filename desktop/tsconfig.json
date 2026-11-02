@@ -14,5 +14,13 @@
     // Main runs on Node, so its globals are here. Electron's own types come with the window.
     "types": ["node"]
   },
-  "include": ["copy", "main", "preload", "shared", "tools", "electron.vite.config.ts"]
+  "include": [
+    "copy",
+    "main",
+    "preload",
+    "shared",
+    "tools",
+    "renderer/tokens.test.ts",
+    "electron.vite.config.ts"
+  ]
 }
