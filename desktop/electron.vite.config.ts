@@ -32,6 +32,10 @@ export default defineConfig({
   renderer: {
     root: 'renderer',
     plugins: [svelte({ configFile: false })],
-    build: { rollupOptions: { input: resolve('renderer/index.html') } },
+    build: {
+      rollupOptions: { input: resolve('renderer/index.html') },
+      // Every asset a file of its own: a small font inlined as a data: URL breaks the CSP.
+      assetsInlineLimit: 0,
+    },
   },
 })

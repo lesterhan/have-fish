@@ -23,6 +23,10 @@
     "better-sqlite3": "^13.0.3"
   },
   "devDependencies": {
+    "@fontsource-variable/atkinson-hyperlegible-mono": "^5.3.0",
+    "@fontsource-variable/fira-code": "^5.3.0",
+    "@fontsource-variable/ibm-plex-sans": "^5.3.0",
+    "@fontsource-variable/source-serif-4": "^5.3.0",
     "@have-fish/core": "workspace:*",
     "@sveltejs/vite-plugin-svelte": "6.2.4",
     "@types/better-sqlite3": "^9.6.0",

@@ -106,7 +106,7 @@
         {/if}
       </form>
     {:else}
-      <p>{transaction.description || copy.spends.noDescription}</p>
+      <p class="description">{transaction.description || copy.spends.noDescription}</p>
       <p class="amount">{amountsText(transaction.amounts)}</p>
       <p class="quiet">{copy.spends.pane.notSimple}</p>
     {/if}
@@ -175,7 +175,19 @@
   }
 
   .date {
+    font-family: var(--font-figures);
     color: var(--color-muted);
+    font-variant-numeric: tabular-nums;
+  }
+
+  .description {
+    font-family: var(--font-serif);
+  }
+
+  .amount,
+  .money input,
+  .currency {
+    font-family: var(--font-figures);
     font-variant-numeric: tabular-nums;
   }
 
@@ -208,7 +220,6 @@
     flex: 1;
     min-width: 0;
     text-align: end;
-    font-variant-numeric: tabular-nums;
   }
 
   input,

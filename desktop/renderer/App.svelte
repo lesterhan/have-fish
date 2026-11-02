@@ -262,6 +262,11 @@
     background: transparent;
   }
 
+  input[name='amount'] {
+    font-family: var(--font-figures);
+    font-variant-numeric: tabular-nums;
+  }
+
   input[aria-invalid='true'] {
     border-color: var(--color-error);
   }
