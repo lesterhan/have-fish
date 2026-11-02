@@ -4,8 +4,8 @@ import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, Menu, protocol } from 'electron'
 import { copy } from '../copy'
-import { ACTION, CHANGED, COMMAND } from '../shared/channels'
-import type { Changed } from '../shared/commands'
+import { ACTION, CHANGED, COMMAND, TYPING } from '../shared/channels'
+import type { Changed, Typing } from '../shared/commands'
 import { runCommand } from './commands/run'
 import { type Context, contextFor } from './context'
 import { type Ledger, openLedger } from './db/ledger'
@@ -13,6 +13,7 @@ import { readOrCreateInstallId } from './install-id'
 import { menuTemplate } from './menu'
 import { appName, ledgerDir } from './paths'
 import { APP_URL, CSP, contentTypeOf, fileFor, isAppUrl } from './protocol'
+import { typingFrom, undoItems } from './undo/menu'
 import { createWindow, denyPermissions } from './window'
 
 /** Set by `electron-vite dev`: the renderer comes from Vite's dev server, with hot reload. */
@@ -53,13 +54,27 @@ if (!app.requestSingleInstanceLock()) {
 
     denyPermissions()
     serveRenderer(join(import.meta.dirname, '../renderer'))
-    handleCommands(contextFor(ledger, announce))
-    const menu = menuTemplate({
-      packaged: app.isPackaged,
-      mac: process.platform === 'darwin',
-      run: (id) => window?.webContents.send(ACTION, id),
+    const ctx = contextFor(ledger, announce)
+    let typing: Typing = { undo: false, redo: false }
+    // Rebuilt whenever Undo or Redo would say something else: not every platform relabels an item.
+    const showMenu = () => {
+      const menu = menuTemplate({
+        packaged: app.isPackaged,
+        mac: process.platform === 'darwin',
+        run: (id) => window?.webContents.send(ACTION, id),
+        undo: undoItems(ctx.history, typing),
+      })
+      Menu.setApplicationMenu(Menu.buildFromTemplate(menu))
+    }
+    handleCommands(ctx, showMenu)
+    ipcMain.on(TYPING, (event, said: unknown) => {
+      if (!isAppUrl(event.senderFrame?.url ?? '', devServer)) return
+      const next = typingFrom(said)
+      if (next.undo === typing.undo && next.redo === typing.redo) return
+      typing = next
+      showMenu()
     })
-    Menu.setApplicationMenu(Menu.buildFromTemplate(menu))
+    showMenu()
     window = createWindow(join(import.meta.dirname, '../preload/index.cjs'), devServer ?? APP_URL)
   })
 }
@@ -99,13 +114,16 @@ function serveRenderer(root: string): void {
   })
 }
 
-function handleCommands(ctx: Context): void {
+/** Runs each command from the window, then shows the menu again: its Undo may name a new step. */
+function handleCommands(ctx: Context, showMenu: () => void): void {
   ipcMain.handle(COMMAND, (event, name: unknown, input: unknown) => {
     // Only the app's own page; anything else that reached IPC gets nothing.
     if (!isAppUrl(event.senderFrame?.url ?? '', devServer)) {
       throw new Error('commands are for the app’s own window')
     }
-    return runCommand(ctx, name, input, log)
+    const ran = runCommand(ctx, name, input, log)
+    showMenu()
+    return ran
   })
 }
 

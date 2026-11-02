@@ -1,7 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { copy } from '../copy'
-  import type { ListedTransaction, WireFailure } from '../shared/commands'
+  import type { ListedTransaction, Typing, WireFailure } from '../shared/commands'
   import { runAction } from './actions'
   import {
     afterSaves,
@@ -19,6 +19,7 @@
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import SpendList from './SpendList.svelte'
   import SpendPane from './SpendPane.svelte'
+  import { type Field as TextField, FieldUndo, type Way, wayOf } from './undo'
 
   let amount = $state('')
   let description = $state('')
@@ -37,6 +38,9 @@
 
   const selected = $derived(transactions.find((t) => t.id === selectedId))
 
+  const fieldUndo = new FieldUndo()
+  let told: Typing = { undo: false, redo: false }
+
   // Drafts are left alone: a draft is the window's until it is saved or put back.
   async function refresh() {
     const listed = await window.haveFish.invoke('transaction.list', {})
@@ -53,7 +57,83 @@
     return window.haveFish.onChanged(() => void refresh())
   })
 
-  onMount(() => window.haveFish.onAction((id) => runAction(id, { newSpend, saveAll })))
+  onMount(() => window.haveFish.onAction((id) => runAction(id, { newSpend, saveAll, undo, redo })))
+
+  // Undo and Redo's keys are the window's: a field with your typing keeps its own undo, and
+  // anything else goes to the ledger, before Chromium's undo or the menu sees the key.
+  onMount(() => {
+    const fieldOf = (target: EventTarget | null) => textField(target as Element | null)
+    const listeners: [string, (e: Event) => void][] = [
+      ['focusin', (e) => withField(fieldOf(e.target), (f) => fieldUndo.entered(f))],
+      ['focusout', () => queueMicrotask(tell)],
+      ['beforeinput', (e) => withField(fieldOf(e.target), (f) => fieldUndo.changing(f))],
+      [
+        'input',
+        (e) =>
+          withField(fieldOf(e.target), (f) =>
+            fieldUndo.changed(f, e instanceof InputEvent ? e.inputType : ''),
+          ),
+      ],
+      ['keydown', (e) => e instanceof KeyboardEvent && pressed(e)],
+    ]
+    for (const [type, listener] of listeners) addEventListener(type, listener, true)
+    return () => {
+      for (const [type, listener] of listeners) removeEventListener(type, listener, true)
+    }
+  })
+
+  /** A text field the cursor can be in, or null. */
+  function textField(el: Element | null): (TextField & HTMLElement) | null {
+    return el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement ? el : null
+  }
+
+  function withField(field: TextField | null, then: (f: TextField) => void) {
+    if (field !== null) then(field)
+    tell()
+  }
+
+  /** Tells main where Undo and Redo would go, when that changes, so the menu names it. */
+  function tell() {
+    const typing = fieldUndo.typing(textField(document.activeElement))
+    if (typing.undo === told.undo && typing.redo === told.redo) return
+    told = typing
+    window.haveFish.setTyping(typing)
+  }
+
+  function pressed(event: KeyboardEvent) {
+    const way = wayOf(event, MAC)
+    if (way === null || fieldUndo.typing(textField(document.activeElement))[way]) return
+    event.preventDefault()
+    void ledger(way)
+  }
+
+  /** From the menu: the same choice the keys make. */
+  function undo() {
+    takeBack('undo')
+  }
+
+  function redo() {
+    takeBack('redo')
+  }
+
+  function takeBack(way: Way) {
+    if (fieldUndo.typing(textField(document.activeElement))[way]) document.execCommand(way)
+    else void ledger(way)
+  }
+
+  /** The ledger's undo or redo; then the list selects what came back, and focus stays put. */
+  async function ledger(way: Way) {
+    const moved = await window.haveFish.invoke(`ledger.${way}`, {})
+    if (!moved.ok) {
+      error = { field: 'form', words: wordsFor(moved) }
+      return
+    }
+    const [first] = moved.value.ids
+    if (first === undefined) return
+    await refresh()
+    if (transactions.some((t) => t.id === first)) selectedId = first
+    tell()
+  }
 
   // A wide window shows the pane beside the list, so there's nothing left open to cover it.
   onMount(() => {
@@ -75,6 +155,7 @@
       amount = ''
       description = ''
       error = null
+      fieldUndo.forget()
       await refresh()
       selectedId = written.value.id
     } else {
@@ -100,9 +181,13 @@
     savingDraft = true
     const saves = await (all ? sentAll(sending) : sentOne(sending))
     // The list first, so the pane never shows the old values in between.
-    if (saves.some((s) => s.error === null)) await refresh()
+    if (saves.some((s) => s.error === null)) {
+      fieldUndo.forget()
+      await refresh()
+    }
     drafts = afterSaves(drafts, saves)
     savingDraft = false
+    tell()
   }
 
   const refusedFor = (refused: WireFailure | null) =>

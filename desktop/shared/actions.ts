@@ -7,8 +7,6 @@ export type MenuName = 'file' | 'edit' | 'view'
 
 /** Electron's menu roles that the list uses: done by Electron in main, never by the window. */
 export type Role =
-  | 'undo'
-  | 'redo'
   | 'cut'
   | 'copy'
   | 'paste'
@@ -27,6 +25,8 @@ export type Action = {
   readonly role?: Role
   /** A line above it in its menu. */
   readonly grouped?: 'apart'
+  /** A second shortcut, on Linux and Windows only, where it's the habit. Not shown in the menu. */
+  readonly alternate?: string
 }
 
 export const ACTIONS = [
@@ -34,8 +34,9 @@ export const ACTIONS = [
   { id: 'saveAll', menu: 'file', accelerator: 'CmdOrCtrl+S' },
   { id: 'quit', menu: 'file', accelerator: 'CmdOrCtrl+Q', role: 'quit', grouped: 'apart' },
 
-  { id: 'undo', menu: 'edit', accelerator: 'CmdOrCtrl+Z', role: 'undo' },
-  { id: 'redo', menu: 'edit', accelerator: 'CmdOrCtrl+Shift+Z', role: 'redo' },
+  // The window's, not Electron's roles: it decides between a field's typing and the ledger.
+  { id: 'undo', menu: 'edit', accelerator: 'CmdOrCtrl+Z' },
+  { id: 'redo', menu: 'edit', accelerator: 'CmdOrCtrl+Shift+Z', alternate: 'Ctrl+Y' },
   { id: 'cut', menu: 'edit', accelerator: 'CmdOrCtrl+X', role: 'cut', grouped: 'apart' },
   { id: 'copy', menu: 'edit', accelerator: 'CmdOrCtrl+C', role: 'copy' },
   { id: 'paste', menu: 'edit', accelerator: 'CmdOrCtrl+V', role: 'paste' },
@@ -61,9 +62,11 @@ export function actionFor(id: ActionId): Action {
 /** Accelerators that more than one action uses, however each is spelled. */
 export function sharedAccelerators(actions: readonly Action[]): string[] {
   const seen = new Map<string, number>()
-  for (const { accelerator } of actions) {
-    const key = normal(accelerator)
-    seen.set(key, (seen.get(key) ?? 0) + 1)
+  for (const { accelerator, alternate } of actions) {
+    for (const each of alternate === undefined ? [accelerator] : [accelerator, alternate]) {
+      const key = normal(each)
+      seen.set(key, (seen.get(key) ?? 0) + 1)
+    }
   }
   return [...seen].filter(([, n]) => n > 1).map(([key]) => key)
 }

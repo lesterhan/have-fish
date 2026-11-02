@@ -69,4 +69,9 @@ export type Bridge = {
   onChanged(listener: (changed: Changed[]) => void): () => void
   /** Calls `listener` with an action's id when it is chosen from the menu. Returns the unsubscribe. */
   onAction(listener: (id: string) => void): () => void
+  /** Tells main where Undo and Redo would go now, so the menu can name it. */
+  setTyping(typing: Typing): void
 }
+
+/** Whether Undo and Redo would take back or put back the focused field's typing. */
+export type Typing = { undo: boolean; redo: boolean }
