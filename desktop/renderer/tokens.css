@@ -1,5 +1,6 @@
 /* Every visual value the window uses. Plain until the rewrite's design system replaces this
-   file (DESIGN.md, "Until the system lands"). */
+   file (DESIGN.md, "Until the system lands"). The only file that declares a colour: which
+   colour sits on which is in theme/contract.ts, and tokens.test.ts holds both schemes to it. */
 
 :root {
   color-scheme: light dark;
@@ -22,7 +23,7 @@
   --color-text: #1b1b1b;
   --color-muted: #5f5f5f;
   --color-background: #ffffff;
-  --color-border: #b8b8b8;
+  --color-border: #8a8a8a;
   --color-rule: #e4e4e4;
   --color-selected: #ebebeb;
   --color-error: #a4161a;
@@ -33,7 +34,7 @@
     --color-text: #ececec;
     --color-muted: #a3a3a3;
     --color-background: #161616;
-    --color-border: #5a5a5a;
+    --color-border: #6b6b6b;
     --color-rule: #2c2c2c;
     --color-selected: #2e2e2e;
     --color-error: #ff8a80;

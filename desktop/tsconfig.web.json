@@ -7,6 +7,6 @@
     "types": ["vite/client"]
   },
   "include": ["copy", "renderer", "shared"],
-  // Copy's tests read the source files, so they need Node; `tsconfig.json` checks them.
-  "exclude": ["copy/**/*.test.ts"]
+  // These tests read the source files, so they need Node; `tsconfig.json` checks them.
+  "exclude": ["copy/**/*.test.ts", "renderer/tokens.test.ts"]
 }
