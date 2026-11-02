@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { isWords, wordsInSvelte, wordsInTs } from './words'
+import { copyPathsInSvelte, isWords, wordsInSvelte, wordsInTs } from './words'
 
 const inSvelte = (source: string) => wordsInSvelte(source).map((w) => w.text)
 const inTs = (source: string) => wordsInTs(source).map((w) => w.text)
@@ -161,5 +161,33 @@ describe('wordsInTs', () => {
         ].join('\n'),
       ),
     ).toEqual([])
+  })
+})
+
+describe('copyPathsInSvelte', () => {
+  test('every path read from copy, in the script and the markup, with its line', () => {
+    const source = [
+      '<script lang="ts">',
+      "  import { copy } from '../copy'",
+      '  const save: string = copy.spends.pane.save',
+      '</script>',
+      '<p>{copy.app.name}</p>',
+      '<input aria-label={open ? copy.a.b : copy.c} />',
+      '<p>{copy.errors.codes[code]}</p>',
+      '<p>{copy.dialogs.cannotOpen(failure).title}</p>',
+    ].join('\n')
+
+    expect(copyPathsInSvelte(source)).toEqual([
+      { path: ['spends', 'pane', 'save'], line: 3 },
+      { path: ['app', 'name'], line: 5 },
+      { path: ['a', 'b'], line: 6 },
+      { path: ['c'], line: 6 },
+      { path: ['errors', 'codes'], line: 7 },
+      { path: ['dialogs', 'cannotOpen'], line: 8 },
+    ])
+  })
+
+  test("other objects' properties are not copy", () => {
+    expect(copyPathsInSvelte('<p>{t.copy.x} {other.spends.save}</p>')).toEqual([])
   })
 })

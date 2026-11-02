@@ -4,7 +4,8 @@
 import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { type Found, wordsInSvelte, wordsInTs } from '../tools/words'
+import { copyPathsInSvelte, type Found, wordsInSvelte, wordsInTs } from '../tools/words'
+import { copy } from '.'
 
 const DESKTOP = join(import.meta.dirname, '..')
 
@@ -64,5 +65,35 @@ describe('every word is in copy/', () => {
 
   test('every skipped file is still there', () => {
     expect(Object.keys(SKIPPED).filter((f) => !existsSync(join(DESKTOP, f)))).toEqual([])
+  })
+})
+
+// tsc checks the paths in `.ts` files. Nothing checks `.svelte` files, where a mistyped key
+// renders nothing; this does.
+describe('every copy key a component reads exists', () => {
+  /** The value at `path` in `copy`, or undefined. Only its own keys, so `toString` isn't one. */
+  function at(path: string[]): unknown {
+    let value: unknown = copy
+    for (const key of path) {
+      if (typeof value !== 'object' || value === null || !Object.hasOwn(value, key)) return
+      value = (value as Record<string, unknown>)[key]
+    }
+    return value
+  }
+
+  const components = appFiles().filter((f) => f.endsWith('.svelte'))
+  const read = components.flatMap((file) =>
+    copyPathsInSvelte(readFileSync(join(DESKTOP, file), 'utf8')).map((p) => ({ file, ...p })),
+  )
+
+  test('it read them', () => {
+    expect(read.length).toBeGreaterThan(10)
+  })
+
+  test('every one is in copy', () => {
+    const missing = read
+      .filter((r) => at(r.path) === undefined)
+      .map((r) => `${r.file}:${r.line} copy.${r.path.join('.')}`)
+    expect(missing, 'No such key in copy/').toEqual([])
   })
 })

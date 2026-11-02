@@ -105,22 +105,40 @@ const isNode = (value: unknown): value is Node =>
 
 const lineAt = (source: string, offset: number) => source.slice(0, offset).split('\n').length
 
+/** A piece of a component's code, and where in the component its first character is. */
+type Code = { text: string; at: number }
+
 /**
  * Hardcoded words in a component: any text with a letter in it, a literal on an attribute a
  * person reads, and words in its script and expressions. Styles and comments aren't read.
  */
 export function wordsInSvelte(source: string): Found[] {
-  const ast = parse(source, { modern: true })
-  const found: Found[] = []
-  const add = (text: string, at: number) => found.push({ text, line: lineAt(source, at) })
+  const { markup, code } = readSvelte(source)
+  const inCode = code.flatMap((c) =>
+    literalWords(c.text).map((w) => ({ text: w.text, line: lineAt(source, c.at + w.at) })),
+  )
+  return [...markup, ...inCode].sort((a, b) => a.line - b.line)
+}
 
-  const code = (node: Node, wrap: boolean) => {
-    const slice = source.slice(node.start, node.end)
-    // An expression is parsed in parentheses, so `{ a: 1 }` is an object, not a block.
-    const shift = wrap ? 1 : 0
-    for (const w of literalWords(wrap ? `(${slice})` : slice))
-      add(w.text, node.start + w.at - shift)
-  }
+/** Every path a component reads from `copy`, as far as its property names go. */
+export function copyPathsInSvelte(source: string): { path: string[]; line: number }[] {
+  return readSvelte(source)
+    .code.flatMap((c) =>
+      copyPaths(c.text).map((p) => ({ path: p.path, line: lineAt(source, c.at + p.at) })),
+    )
+    .sort((a, b) => a.line - b.line)
+}
+
+/** A component's hardcoded markup words, and its code: the scripts and every expression. */
+function readSvelte(source: string): { markup: Found[]; code: Code[] } {
+  const ast = parse(source, { modern: true })
+  const markup: Found[] = []
+  const code: Code[] = []
+  const add = (text: string, at: number) => markup.push({ text, line: lineAt(source, at) })
+
+  // An expression is parsed in parentheses, so `{ a: 1 }` is an object, not a block.
+  const expression = (node: Node) =>
+    code.push({ text: `(${source.slice(node.start, node.end)})`, at: node.start - 1 })
 
   const walk = (value: unknown, inFragment = false): void => {
     if (Array.isArray(value)) {
@@ -129,7 +147,7 @@ export function wordsInSvelte(source: string): Found[] {
     }
     if (!isNode(value)) return
     if (!TEMPLATE.has(value.type)) {
-      code(value, true)
+      expression(value)
     } else if (value.type === 'Text') {
       if (inFragment && /\p{L}/u.test(value.data as string)) {
         add((value.data as string).trim().replace(/\s+/g, ' '), value.start + leading(value))
@@ -161,10 +179,13 @@ export function wordsInSvelte(source: string): Found[] {
     for (const part of parts) if (part.type !== 'Text') walk(part)
   }
 
-  if (ast.module) code(ast.module.content as unknown as Node, false)
-  if (ast.instance) code(ast.instance.content as unknown as Node, false)
+  for (const script of [ast.module, ast.instance]) {
+    if (!script) continue
+    const { start, end } = script.content as unknown as Node
+    code.push({ text: source.slice(start, end), at: start })
+  }
   walk(ast.fragment)
-  return found.sort((a, b) => a.line - b.line)
+  return { markup, code }
 }
 
 const leading = (text: Node) => (text.data as string).search(/\S/)
@@ -174,9 +195,36 @@ export function wordsInTs(source: string): Found[] {
   return literalWords(source).map((w) => ({ text: w.text, line: lineAt(source, w.at) }))
 }
 
+const parseTs = (code: string) =>
+  ts.createSourceFile('code.ts', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+
+/** Each `copy.a.b` chain, whole: its property names, and where it starts. */
+function copyPaths(code: string): { path: string[]; at: number }[] {
+  const file = parseTs(code)
+  const found: { path: string[]; at: number }[] = []
+
+  const visit = (node: ts.Node): void => {
+    // Only the outermost access of a chain: `copy.a` inside `copy.a.b` is the same read.
+    const { parent } = node as { parent?: ts.Node } // undefined on the file itself
+    const inner = parent && ts.isPropertyAccessExpression(parent) && parent.expression === node
+    if (ts.isPropertyAccessExpression(node) && !inner) {
+      const path: string[] = []
+      let on: ts.Expression = node
+      while (ts.isPropertyAccessExpression(on)) {
+        path.unshift(on.name.text)
+        on = on.expression
+      }
+      if (ts.isIdentifier(on) && on.text === 'copy') found.push({ path, at: node.getStart(file) })
+    }
+    ts.forEachChild(node, visit)
+  }
+  visit(file)
+  return found
+}
+
 /** Each string literal that reads as words, and where it starts, skipping developers' words. */
 function literalWords(code: string): { text: string; at: number }[] {
-  const file = ts.createSourceFile('code.ts', code, ts.ScriptTarget.Latest, true, ts.ScriptKind.TS)
+  const file = parseTs(code)
   const found: { text: string; at: number }[] = []
 
   const visit = (node: ts.Node): void => {

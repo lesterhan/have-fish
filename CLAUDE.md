@@ -70,8 +70,9 @@ Already decided:
   sentences.
 - **Every word the app shows is in `desktop/copy/`**, one file per surface, read by main and
   the window through one `copy` object. `desktop/copy/copy.test.ts` fails on a word typed
-  anywhere else, and every failure code must have words or `bun run check` fails. The web
-  app's four copy rules hold (`frontend/CLAUDE.md`, "Copy"), and there is no i18n library.
+  anywhere else and on a component reading a key that isn't there, and every failure code
+  must have words or `bun run check` fails. The web app's four copy rules hold
+  (`frontend/CLAUDE.md`, "Copy"), and there is no i18n library.
 - **Port by copying or rewriting, never by moving.** The current backend keeps its own copy,
   untouched.
 - **The security baseline** comes with the first story, not later: `planning/desktop-rewrite.md`,
