@@ -2,18 +2,20 @@
   import { onMount, tick } from 'svelte'
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
+  import { runAction } from './actions'
   import {
-    afterSave,
+    afterSaves,
     type Drafts,
     savedValues,
+    toSend,
     type Values,
     withEdit,
-    withError,
     without,
   } from './drafts'
   import { NARROW } from './narrow'
   import { type Field, fieldOf, wordsFor } from './refusals'
   import { kept } from './selection'
+  import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import SpendList from './SpendList.svelte'
   import SpendPane from './SpendPane.svelte'
 
@@ -49,6 +51,8 @@
     void refresh()
     return window.haveFish.onChanged(() => void refresh())
   })
+
+  onMount(() => window.haveFish.onAction((id) => runAction(id, { newSpend, saveAll })))
 
   // A wide window shows the pane beside the list, so there's nothing left open to cover it.
   onMount(() => {
@@ -88,21 +92,36 @@
     if (selectedId !== null) drafts = without(drafts, selectedId)
   }
 
-  async function save() {
-    const id = selectedId
-    const draft = id === null ? undefined : drafts.get(id)
-    if (id === null || draft === undefined || savingDraft) return
+  /** Each draft is its own batch, so one that's refused doesn't hold back the rest. */
+  async function saveDrafts(ids: Iterable<string>) {
+    const sending = toSend(drafts, ids)
+    if (sending.length === 0 || savingDraft) return
     savingDraft = true
-    const sent = { description: draft.description, amount: draft.amount }
-    const saved = await window.haveFish.invoke('spend.edit', { id, ...sent })
-    if (saved.ok) {
-      // The list first, so the pane never shows the old values in between.
-      await refresh()
-      drafts = afterSave(drafts, id, sent)
-    } else {
-      drafts = withError(drafts, id, { field: fieldOf(saved), words: wordsFor(saved) })
-    }
+    const saves = await Promise.all(
+      sending.map(async ({ id, sent }) => {
+        const saved = await window.haveFish.invoke('spend.edit', { id, ...sent })
+        const error = saved.ok ? null : { field: fieldOf(saved), words: wordsFor(saved) }
+        return { id, sent, error }
+      }),
+    )
+    // The list first, so the pane never shows the old values in between.
+    if (saves.some((s) => s.error === null)) await refresh()
+    drafts = afterSaves(drafts, saves)
     savingDraft = false
+  }
+
+  function save() {
+    if (selectedId !== null) void saveDrafts([selectedId])
+  }
+
+  function saveAll() {
+    void saveDrafts(drafts.keys())
+  }
+
+  /** Ctrl+N: the amount field, from anywhere, with the pane out of its way. */
+  function newSpend() {
+    open = false
+    amountInput.focus()
   }
 
   async function openPane(focus: boolean) {
@@ -125,9 +144,13 @@
 <main>
   <form class="write" aria-label={copy.spends.write.label} onsubmit={write} novalidate>
     <label>
-      <span>{copy.spends.write.amount}</span>
+      <span>
+        {copy.spends.write.amount}
+        <kbd aria-hidden="true">{shortcutText('newSpend', MAC)}</kbd>
+      </span>
       <input
         bind:this={amountInput}
+        aria-keyshortcuts={ariaShortcut('newSpend', MAC)}
         bind:value={amount}
         name="amount"
         inputmode="decimal"
@@ -222,6 +245,11 @@
   label span {
     font-size: var(--font-size-small);
     color: var(--color-muted);
+  }
+
+  kbd {
+    font: inherit;
+    margin-inline-start: var(--space-2);
   }
 
   input,

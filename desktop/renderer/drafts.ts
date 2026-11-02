@@ -49,5 +49,30 @@ export function afterSave(drafts: Drafts, id: string, sent: Values): Drafts {
   return draft !== undefined && sameValues(draft, sent) ? without(drafts, id) : drafts
 }
 
+/** One draft on its way to be saved. */
+export type Sending = { id: string; sent: Values }
+
+/** The drafts of `ids` that have one, as they are now. */
+export function toSend(drafts: Drafts, ids: Iterable<string>): Sending[] {
+  return [...ids].flatMap((id) => {
+    const draft = drafts.get(id)
+    return draft === undefined
+      ? []
+      : [{ id, sent: { description: draft.description, amount: draft.amount } }]
+  })
+}
+
+/** After several saves came back, each one saved (`error: null`) or refused. */
+export function afterSaves(
+  drafts: Drafts,
+  saves: readonly (Sending & { error: Draft['error'] })[],
+): Drafts {
+  return saves.reduce(
+    (next, { id, sent, error }) =>
+      error === null ? afterSave(next, id, sent) : withError(next, id, error),
+    drafts,
+  )
+}
+
 const sameValues = (a: Values, b: Values) =>
   a.description === b.description && a.amount === b.amount

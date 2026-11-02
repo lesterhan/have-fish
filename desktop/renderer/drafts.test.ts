@@ -1,6 +1,15 @@
 import { describe, expect, test } from 'vitest'
 import type { ListedTransaction } from '../shared/commands'
-import { afterSave, type Drafts, savedValues, withEdit, withError, without } from './drafts'
+import {
+  afterSave,
+  afterSaves,
+  type Drafts,
+  savedValues,
+  toSend,
+  withEdit,
+  withError,
+  without,
+} from './drafts'
 
 const COFFEE = { description: 'Coffee', amount: '4.50' }
 const none: Drafts = new Map()
@@ -95,5 +104,42 @@ describe('afterSave', () => {
   test('a draft changed while the save was on its way stays', () => {
     const drafts = withEdit(none, 'a', COFFEE, 'amount', '55')
     expect(afterSave(drafts, 'a', { description: 'Coffee', amount: '5' })).toBe(drafts)
+  })
+})
+
+describe('toSend', () => {
+  const two = withEdit(withEdit(none, 'a', COFFEE, 'amount', '5'), 'b', COFFEE, 'amount', '6')
+
+  test("each draft's values, by id, without its error", () => {
+    const refused = withError(two, 'b', { field: 'amount', words: 'No.' })
+    expect(toSend(refused, ['a', 'b'])).toEqual([
+      { id: 'a', sent: { description: 'Coffee', amount: '5' } },
+      { id: 'b', sent: { description: 'Coffee', amount: '6' } },
+    ])
+  })
+
+  test('only the ids asked for, and only those with a draft', () => {
+    expect(toSend(two, ['b', 'c'])).toEqual([
+      { id: 'b', sent: { description: 'Coffee', amount: '6' } },
+    ])
+  })
+})
+
+describe('afterSaves', () => {
+  const two = withEdit(withEdit(none, 'a', COFFEE, 'amount', '5'), 'b', COFFEE, 'amount', 'x')
+  const WHY = { field: 'amount' as const, words: "That isn't an amount." }
+
+  test('each saved draft goes, and each refused one stays and says why', () => {
+    const after = afterSaves(two, [
+      { id: 'a', sent: { ...COFFEE, amount: '5' }, error: null },
+      { id: 'b', sent: { ...COFFEE, amount: 'x' }, error: WHY },
+    ])
+    expect([...after]).toEqual([['b', { ...COFFEE, amount: 'x', error: WHY }]])
+  })
+
+  test('a draft typed into while it was being saved stays', () => {
+    const typed = withEdit(two, 'a', COFFEE, 'amount', '55')
+    const after = afterSaves(typed, [{ id: 'a', sent: { ...COFFEE, amount: '5' }, error: null }])
+    expect(after.get('a')?.amount).toBe('55')
   })
 })
