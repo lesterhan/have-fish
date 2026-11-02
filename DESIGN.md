@@ -55,6 +55,10 @@ the other windows on the machine before it has any look of its own.
   (`desktop/shared/actions.ts`) feeds the menu, the hints beside buttons and, later, a command
   palette, so a shortcut is never in one place and missing from another. A packaged build has no
   Reload and no developer tools.
+- **Places down the left.** Each place is a list beside a pane (Spends, Accounts), with its
+  shortcut, Ctrl+1 and on, in the order they're listed. A place stays open while another shows,
+  so going somewhere else loses nothing half-typed. Below the narrow width they go across the
+  top.
 - **Any width the window allows works.** Half a screen beside a bank statement is a normal way
   to use it, and the minimum size is a layout, not a clipping.
 - **Zoom is the person's.** Ctrl+= and Ctrl+− work everywhere, and nothing breaks at 200% or at
@@ -92,7 +96,8 @@ and `desktop/e2e/undo.e2e.ts` hold the ones a test can.
 5. **The menu names the step:** "Undo remove Coffee", "Undo save 3 spends", and is greyed out
    with nothing to undo. Every kind of step has its words in `desktop/copy/steps.ts`.
 6. **Redo** is Ctrl+Shift+Z, and Ctrl+Y on Windows and Linux, under the same rules.
-7. **You see what came back.** After an undo or redo, the list selects what changed.
+7. **You see what came back.** After an undo or redo, the list selects what changed. If it
+   changed in another place, that place shows.
 8. **Typing comes first.** Ctrl+Z undoes a field's typing only if you've typed in that field since
    you entered it; otherwise it undoes the ledger. A draft isn't a step; saving it is.
 9. **Only changes to the ledger are steps.** Selecting, scrolling, exporting, zoom and settings

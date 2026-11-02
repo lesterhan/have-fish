@@ -2,6 +2,7 @@ export const ACCOUNT_KINDS = [
   'card',
   'cash',
   'bank',
+  'loan',
   'category',
   'income',
   'opening',
@@ -9,6 +10,10 @@ export const ACCOUNT_KINDS = [
 ] as const
 
 export type AccountKind = (typeof ACCOUNT_KINDS)[number]
+
+/** The kinds I add on purpose: what I have and what I owe. The app makes the rest, or I type them. */
+export const ADDABLE_KINDS = ['cash', 'bank', 'card', 'loan'] as const satisfies AccountKind[]
+export type AddableKind = (typeof ADDABLE_KINDS)[number]
 
 export const ACCOUNT_CLASSES = ['asset', 'liability', 'expense', 'income', 'equity'] as const
 export type AccountClass = (typeof ACCOUNT_CLASSES)[number]
@@ -28,6 +33,7 @@ const AccountRecord: Record<AccountKind, AccountClass> = {
   card: 'liability',
   cash: 'asset',
   bank: 'asset',
+  loan: 'liability',
   category: 'expense',
   income: 'income',
   opening: 'equity',

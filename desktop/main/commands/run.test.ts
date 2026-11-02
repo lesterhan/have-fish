@@ -148,8 +148,14 @@ describe('runCommand', () => {
         { id, refused: { ok: false, error: 'AMOUNT_INVALID', detail: { amount: 'abc' } } },
       ],
     })
-    expect(runCommand(ctx, 'ledger.undo', {}, log)).toEqual({ ok: true, value: { ids: [id] } })
-    expect(runCommand(ctx, 'ledger.redo', {}, log)).toEqual({ ok: true, value: { ids: [id] } })
+    expect(runCommand(ctx, 'ledger.undo', {}, log)).toEqual({
+      ok: true,
+      value: { spends: [id], accounts: [] },
+    })
+    expect(runCommand(ctx, 'ledger.redo', {}, log)).toEqual({
+      ok: true,
+      value: { spends: [id], accounts: [] },
+    })
   })
 
   test('save all takes at least one edit, and no more than a thousand', () => {

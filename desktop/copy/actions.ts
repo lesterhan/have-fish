@@ -6,6 +6,7 @@ import type { ActionId } from '../shared/actions'
 /** Every action has words, so a new one fails `bun run check` until it's given some. */
 const labels: { [A in ActionId]: string } = {
   newSpend: 'New spend',
+  addAccount: 'Add account',
   saveAll: 'Save all changes',
   quit: 'Quit',
   undo: 'Undo',
@@ -15,6 +16,8 @@ const labels: { [A in ActionId]: string } = {
   paste: 'Paste',
   selectAll: 'Select all',
   remove: 'Remove spend',
+  showSpends: 'Spends',
+  showAccounts: 'Accounts',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
   resetZoom: 'Actual size',

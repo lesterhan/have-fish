@@ -2,13 +2,14 @@ import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { describe, expect, test } from 'vitest'
 import type { Changed } from '../../shared/commands'
+import { HOME_CURRENCY } from '../../shared/currency'
 import { contextFor, type Time } from '../context'
 import { loadClock } from '../db/clock'
 import type { Ledger } from '../db/ledger'
 import { applyLocal } from '../ledger/apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/fixtures'
 import { getDocument } from '../ledger/store'
-import { editSpend, HOME_CURRENCY, listTransactions, removeSpend, writeSpend } from './spends'
+import { editSpend, listTransactions, removeSpend, writeSpend } from './spends'
 
 // 03:00 on the 30th in UTC, still the evening of the 29th in Vancouver.
 const LATE = Date.UTC(2026, 9, 30, 3)

@@ -36,6 +36,7 @@ export type Action = {
 
 export const ACTIONS = [
   { id: 'newSpend', menu: 'file', accelerator: 'CmdOrCtrl+N' },
+  { id: 'addAccount', menu: 'file', accelerator: 'CmdOrCtrl+Shift+N' },
   { id: 'saveAll', menu: 'file', accelerator: 'CmdOrCtrl+S' },
   { id: 'quit', menu: 'file', accelerator: 'CmdOrCtrl+Q', role: 'quit', grouped: 'apart' },
 
@@ -48,8 +49,12 @@ export const ACTIONS = [
   { id: 'selectAll', menu: 'edit', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
   { id: 'remove', menu: 'edit', accelerator: 'Delete', windowKey: true, grouped: 'apart' },
 
+  // The places down the left, in their order there.
+  { id: 'showSpends', menu: 'view', accelerator: 'CmdOrCtrl+1' },
+  { id: 'showAccounts', menu: 'view', accelerator: 'CmdOrCtrl+2' },
+
   // `=`, not Electron's default `Plus`, which needs Shift on most keyboards.
-  { id: 'zoomIn', menu: 'view', accelerator: 'CmdOrCtrl+=', role: 'zoomIn' },
+  { id: 'zoomIn', menu: 'view', accelerator: 'CmdOrCtrl+=', role: 'zoomIn', grouped: 'apart' },
   { id: 'zoomOut', menu: 'view', accelerator: 'CmdOrCtrl+-', role: 'zoomOut' },
   { id: 'resetZoom', menu: 'view', accelerator: 'CmdOrCtrl+0', role: 'resetZoom' },
 ] as const satisfies readonly Action[]

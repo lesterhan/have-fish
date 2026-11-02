@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parse, cents as toCents } from '@have-fish/core/money'
-import { type Failure, failure, type Outcome } from '@have-fish/core/outcome'
+import { failure, type Outcome } from '@have-fish/core/outcome'
 import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
 import { desc, eq, isNull } from 'drizzle-orm'
@@ -15,15 +15,13 @@ import {
   type Values,
   wireFailure,
 } from '../../shared/commands'
+import { HOME_CURRENCY } from '../../shared/currency'
 import type { Context } from '../context'
 import { perConnection } from '../db/prepared'
 import { postings, transactions } from '../db/schema'
-import type { BatchOutcome } from '../ledger/apply'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, type Change, record } from '../undo/steps'
-
-/** Every spend's currency, until a setting chooses it. */
-export const HOME_CURRENCY = 'CAD'
+import { idOf } from './applied'
 
 /** Where a spend comes from and goes to, until the window lets you choose. */
 const WALLET = { path: 'assets:cash', kind: 'cash' } as const
@@ -147,15 +145,6 @@ function spendAmount(typed: string): Outcome<number> {
   if (cents === null) return failure('AMOUNT_INVALID', { amount: typed })
   if (cents <= 0) return failure('AMOUNT_NOT_POSITIVE', { amount: typed })
   return { ok: true, value: cents }
-}
-
-/** The id, once the batch is applied; a refusal without its place in the batch. */
-function idOf(applied: BatchOutcome, id: string): Outcome<{ id: string }> {
-  if (!applied.ok) {
-    const { code, details } = applied.failure
-    return { ok: false, failure: { code, details } as Failure }
-  }
-  return { ok: true, value: { id } }
 }
 
 /** The live account at the path, or a new one the app makes, for the same batch. */
