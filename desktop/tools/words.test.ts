@@ -35,6 +35,10 @@ describe('isWords', () => {
     // CSS handed over from code: a media query, a declaration.
     '(max-width: 44rem)',
     'position: fixed;',
+    // Key combinations in Electron's form.
+    'CmdOrCtrl+N',
+    'CmdOrCtrl+Shift+Z',
+    'Alt+F4',
   ])('%j is not', (text) => {
     expect(isWords(text)).toBe(false)
   })
