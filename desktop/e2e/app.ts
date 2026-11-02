@@ -2,7 +2,7 @@
 // window over Chrome's DevTools protocol. That works the same for out/ and for a packaged binary,
 // whose fuses turn off the `--inspect` that Playwright's own Electron launcher needs.
 
-import { type ChildProcess, spawn } from 'node:child_process'
+import { type ChildProcess, execFileSync, spawn } from 'node:child_process'
 import { once } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -52,6 +52,11 @@ export type Running = {
   page: Page
   /** How many windows are open. */
   windows(): number
+  /**
+   * Presses keys on the keyboard, as xdotool names them (`ctrl+n`). Playwright's own keys come
+   * through DevTools, which Electron's menu never sees.
+   */
+  press(keys: string): void
   /** Closes the window, as a person quits, and waits for the app to exit. */
   quit(): Promise<void>
 }
@@ -80,11 +85,28 @@ export async function launch(home: string): Promise<Running> {
   return {
     page,
     windows: () => context.pages().length,
+    press: (keys) => pressKeys(child, keys),
     async quit() {
       await page.close()
       await exited
     },
   }
+}
+
+/** Real key presses on the app's X window: xdotool, under xvfb-run. */
+function pressKeys(child: ChildProcess, keys: string): void {
+  const xdotool = (...args: string[]) => execFileSync('xdotool', args, { encoding: 'utf8' })
+  let window: string | undefined
+  try {
+    window = xdotool('search', '--onlyvisible', '--pid', String(child.pid)).split('\n')[0]
+  } catch (e) {
+    throw new Error('pressing keys needs xdotool, and the app on an X display (xvfb-run -a)', {
+      cause: e,
+    })
+  }
+  if (!window) throw new Error('the app has no window on this X display')
+  xdotool('windowfocus', '--sync', window)
+  xdotool('key', '--clearmodifiers', keys)
 }
 
 /** Chromium prints where its DevTools listen, once they do. */
