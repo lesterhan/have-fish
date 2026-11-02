@@ -1,8 +1,7 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
+  import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
-  import { type Field, fieldOf, wordsFor } from './copy/errors'
-  import { spends as copy } from './copy/spends'
   import {
     afterSave,
     type Drafts,
@@ -13,6 +12,7 @@
     without,
   } from './drafts'
   import { NARROW } from './narrow'
+  import { type Field, fieldOf, wordsFor } from './refusals'
   import { kept } from './selection'
   import SpendList from './SpendList.svelte'
   import SpendPane from './SpendPane.svelte'
@@ -118,10 +118,14 @@
   }
 </script>
 
+<svelte:head>
+  <title>{copy.app.name}</title>
+</svelte:head>
+
 <main>
-  <form class="write" aria-label={copy.write.label} onsubmit={write} novalidate>
+  <form class="write" aria-label={copy.spends.write.label} onsubmit={write} novalidate>
     <label>
-      <span>{copy.write.amount}</span>
+      <span>{copy.spends.write.amount}</span>
       <input
         bind:this={amountInput}
         bind:value={amount}
@@ -138,7 +142,7 @@
     {/if}
 
     <label>
-      <span>{copy.write.description}</span>
+      <span>{copy.spends.write.description}</span>
       <input
         bind:value={description}
         name="description"
@@ -152,7 +156,7 @@
       <p class="error" id="description-error" role="alert">{error.words}</p>
     {/if}
 
-    <button type="submit" disabled={saving}>{copy.write.submit}</button>
+    <button type="submit" disabled={saving}>{copy.spends.write.submit}</button>
     {#if error?.field === 'form'}
       <p class="error" role="alert">{error.words}</p>
     {/if}

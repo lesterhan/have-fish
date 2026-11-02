@@ -107,6 +107,7 @@ describe('the app', () => {
     const { page } = running
 
     expect(page.url()).toBe('app://have-fish/')
+    await expect.poll(() => page.title()).toBe('have-fish')
     expect(await page.evaluate(() => [typeof require, typeof process])).toEqual([
       'undefined',
       'undefined',

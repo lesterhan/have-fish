@@ -1,6 +1,6 @@
 <script lang="ts">
+  import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
-  import { spends as copy } from './copy/spends'
   import { type Draft, savedValues, type Values } from './drafts'
   import { amountsText } from './format'
   import Unsaved from './Unsaved.svelte'
@@ -41,11 +41,11 @@
   }
 </script>
 
-<section class="pane" class:open aria-label={copy.pane.label}>
-  <button type="button" class="back" onclick={onback}>{copy.pane.back}</button>
+<section class="pane" class:open aria-label={copy.spends.pane.label}>
+  <button type="button" class="back" onclick={onback}>{copy.spends.pane.back}</button>
 
   {#if transaction === undefined}
-    <p class="quiet">{copy.pane.nothing}</p>
+    <p class="quiet">{copy.spends.pane.nothing}</p>
   {:else}
     <p class="heading">
       <span class="date">{transaction.date}</span>
@@ -55,7 +55,7 @@
     {#if values}
       <form {onsubmit} {onkeydown} novalidate>
         <label>
-          <span>{copy.pane.description}</span>
+          <span>{copy.spends.pane.description}</span>
           <input
             bind:this={first}
             name="description"
@@ -72,7 +72,7 @@
         {/if}
 
         <label>
-          <span>{copy.pane.amount}</span>
+          <span>{copy.spends.pane.amount}</span>
           <span class="money">
             <input
               name="amount"
@@ -93,16 +93,16 @@
 
         <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
         <button type="submit" aria-disabled={draft === undefined || saving}>
-          {copy.pane.save}
+          {copy.spends.pane.save}
         </button>
         {#if error?.field === 'form'}
           <p class="error" role="alert">{error.words}</p>
         {/if}
       </form>
     {:else}
-      <p>{transaction.description || '—'}</p>
+      <p>{transaction.description || copy.spends.noDescription}</p>
       <p class="amount">{amountsText(transaction.amounts)}</p>
-      <p class="quiet">{copy.pane.notSimple}</p>
+      <p class="quiet">{copy.spends.pane.notSimple}</p>
     {/if}
   {/if}
 </section>

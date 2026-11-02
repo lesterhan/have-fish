@@ -8,6 +8,8 @@ export const spends = {
     submit: 'Write it down',
   },
   list: { label: 'Spends' },
+  /** In place of a spend's description when it has none. */
+  noDescription: '—',
   /** Read out beside the ● on a spend with a draft. */
   unsaved: 'unsaved changes',
   pane: {

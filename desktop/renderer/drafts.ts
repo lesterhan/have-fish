@@ -2,7 +2,7 @@
 // returns a new map, so Svelte sees it.
 
 import type { ListedTransaction } from '../shared/commands'
-import type { Field } from './copy/errors'
+import type { Field } from './refusals'
 
 /** What the pane edits. */
 export type Values = { description: string; amount: string }
