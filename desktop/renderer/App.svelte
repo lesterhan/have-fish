@@ -15,7 +15,7 @@
   } from './drafts'
   import { NARROW } from './narrow'
   import { type Field, fieldOf, wordsFor } from './refusals'
-  import { kept } from './selection'
+  import { afterRemoving, kept } from './selection'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import SpendList from './SpendList.svelte'
   import SpendPane from './SpendPane.svelte'
@@ -57,7 +57,9 @@
     return window.haveFish.onChanged(() => void refresh())
   })
 
-  onMount(() => window.haveFish.onAction((id) => runAction(id, { newSpend, saveAll, undo, redo })))
+  onMount(() =>
+    window.haveFish.onAction((id) => runAction(id, { newSpend, saveAll, undo, redo, remove })),
+  )
 
   // Undo and Redo's keys are the window's: a field with your typing keeps its own undo, and
   // anything else goes to the ledger, before Chromium's undo or the menu sees the key.
@@ -219,6 +221,29 @@
     void saveDrafts(drafts.keys(), true)
   }
 
+  let removing = false
+
+  /** The selected spend, gone; selection moves to the next row, and its draft goes too. */
+  async function remove() {
+    const id = selectedId
+    if (id === null || removing) return
+    removing = true
+    const next = afterRemoving(transactions, id)
+    const removed = await window.haveFish.invoke('spend.remove', { id })
+    removing = false
+    if (!removed.ok) {
+      error = { field: 'form', words: wordsFor(removed) }
+      return
+    }
+    drafts = without(drafts, id)
+    fieldUndo.forget()
+    selectedId = next
+    await refresh()
+    // With nothing left to show, the pane's button is gone, and the cursor with it.
+    if (selectedId === null) amountInput.focus()
+    tell()
+  }
+
   /** Ctrl+N: the amount field, from anywhere, with the pane out of its way. */
   function newSpend() {
     open = false
@@ -293,6 +318,7 @@
     {drafts}
     onselect={(id) => (selectedId = id)}
     onopen={openPane}
+    onremove={remove}
   />
 
   <SpendPane
@@ -305,6 +331,7 @@
     onrevert={revert}
     onsave={save}
     onback={closePane}
+    onremove={remove}
   />
 </main>
 

@@ -14,6 +14,7 @@ const labels: { [A in ActionId]: string } = {
   copy: 'Copy',
   paste: 'Paste',
   selectAll: 'Select all',
+  remove: 'Remove spend',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
   resetZoom: 'Actual size',

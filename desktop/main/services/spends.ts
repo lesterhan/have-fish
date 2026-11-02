@@ -126,6 +126,21 @@ function edit(
   return { edited: idOf(applied, id), changes }
 }
 
+/** A tombstone in place of the spend, so it counts nowhere; undo writes it back as it was. */
+export function removeSpend(ctx: Context, input: InputOf<'spend.remove'>): Outcome<{ id: string }> {
+  const { id } = input
+  const stored = getDocument(ctx.ledger.db, 'transaction', id)
+  if (stored === null) return failure('TRANSACTION_NOT_FOUND', { id })
+  const { doc } = stored
+  if (doc.deletedAt !== null) return failure('TRANSACTION_DELETED', { id })
+
+  const now = ctx.now()
+  const tombstone: TransactionDoc = { ...doc, postings: [], deletedAt: now }
+  const { applied, changes } = applyKeeping(ctx, [tombstone], now, [tombstone])
+  record(ctx, { kind: 'remove', description: doc.description }, changes)
+  return idOf(applied, id)
+}
+
 /** A spend's amount as typed, in cents: a number, and more than zero. */
 function spendAmount(typed: string): Outcome<number> {
   const cents = parse(typed)

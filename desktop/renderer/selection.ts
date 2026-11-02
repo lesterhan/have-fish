@@ -8,6 +8,13 @@ export function kept(list: readonly Listed[], selected: string | null): string |
   return list[0]?.id ?? null
 }
 
+/** What to select once `removed` is gone: the row below it, else the one above, else none. */
+export function afterRemoving(list: readonly Listed[], removed: string): string | null {
+  const at = list.findIndex((t) => t.id === removed)
+  if (at === -1) return kept(list, null)
+  return list[at + 1]?.id ?? list[at - 1]?.id ?? null
+}
+
 /** Where a key moves the selection; undefined for a key that doesn't move it. */
 export function movedBy(
   list: readonly Listed[],

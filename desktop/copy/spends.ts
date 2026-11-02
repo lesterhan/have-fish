@@ -17,6 +17,7 @@ export const spends = {
     description: 'What for',
     amount: 'Amount',
     save: 'Save',
+    remove: 'Remove',
     back: 'Back to the list',
     nothing: 'Spends you write down show up here.',
     notSimple: "This one moves more than one amount, so it can't be changed here yet.",

@@ -13,8 +13,10 @@
     onselect: (id: string) => void
     /** Show the pane; with `focus`, put the cursor in it. */
     onopen: (focus: boolean) => void
+    /** Delete on the list: remove the selected spend. */
+    onremove: () => void
   }
-  let { transactions, selectedId, drafts, onselect, onopen }: Props = $props()
+  let { transactions, selectedId, drafts, onselect, onopen, onremove }: Props = $props()
 
   let list: HTMLOListElement
 
@@ -35,6 +37,12 @@
     if (event.key === 'Enter') {
       event.preventDefault()
       onopen(true)
+      return
+    }
+    // Here and not in the menu, so Delete in a text field still deletes text.
+    if (event.key === 'Delete' && !event.ctrlKey && !event.metaKey && !event.altKey) {
+      event.preventDefault()
+      onremove()
       return
     }
     const to = movedBy(transactions, selectedId, event.key)

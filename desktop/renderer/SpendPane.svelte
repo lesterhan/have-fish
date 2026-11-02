@@ -16,8 +16,11 @@
     onrevert: () => void
     onsave: () => void
     onback: () => void
+    /** No "are you sure?": Undo takes it back. */
+    onremove: () => void
   }
-  let { transaction, draft, saving, open, onedit, onrevert, onsave, onback }: Props = $props()
+  let { transaction, draft, saving, open, onedit, onrevert, onsave, onback, onremove }: Props =
+    $props()
 
   let first: HTMLInputElement | undefined = $state()
 
@@ -110,6 +113,8 @@
       <p class="amount">{amountsText(transaction.amounts)}</p>
       <p class="quiet">{copy.spends.pane.notSimple}</p>
     {/if}
+
+    <button type="button" class="remove" onclick={onremove}>{copy.spends.pane.remove}</button>
   {/if}
 </section>
 
