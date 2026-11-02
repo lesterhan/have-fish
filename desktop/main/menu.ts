@@ -45,7 +45,8 @@ function item(action: Listed, run: Options['run']): MenuItemConstructorOptions {
   const label = copy.actions.labels[action.id]
   const { accelerator } = action
   if ('role' in action) return { label, accelerator, role: action.role }
-  return { label, accelerator, click: () => run(action.id) }
+  const shownOnly = 'windowKey' in action ? { registerAccelerator: false } : {}
+  return { label, accelerator, ...shownOnly, click: () => run(action.id) }
 }
 
 /** For a dev run only. Electron's own words: nobody using the app sees them. */

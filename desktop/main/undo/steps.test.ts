@@ -6,7 +6,13 @@ import { applyReceived } from '../ledger/apply'
 import { ok, tempLedger } from '../ledger/fixtures'
 import { queued } from '../ledger/outbox'
 import { getDocument } from '../ledger/store'
-import { editSpend, listTransactions, saveAllSpends, writeSpend } from '../services/spends'
+import {
+  editSpend,
+  listTransactions,
+  removeSpend,
+  saveAllSpends,
+  writeSpend,
+} from '../services/spends'
 import { redoLast, undoLast } from './steps'
 
 const START = Date.UTC(2026, 9, 29, 12)
@@ -68,6 +74,25 @@ describe('undo and redo', () => {
     ok(undoLast(ctx))
     const live = ledger.db.prepare('SELECT path FROM accounts WHERE deletedAt IS NULL').pluck()
     expect(live.all().sort()).toEqual(['assets:cash', 'expenses:unsorted'])
+  })
+
+  test('undoing a removal brings the spend back exactly as it was; redo removes it again', () => {
+    const { ctx, later, stored, listed } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const was = stored(id)
+    later()
+    ok(removeSpend(ctx, { id }))
+    expect(listed()).toEqual([])
+
+    later()
+    expect(ok(undoLast(ctx))).toEqual({ ids: [id] })
+    expect(stored(id).doc).toEqual(was.doc)
+    expect(newer(stored(id).version, was.version)).toBe(true)
+    expect(listed()).toEqual(['Coffee'])
+
+    later()
+    ok(redoLast(ctx))
+    expect(listed()).toEqual([])
   })
 
   test('undoing an edit puts every part of the spend back as it was, as a new version', () => {

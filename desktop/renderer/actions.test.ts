@@ -2,7 +2,13 @@ import { describe, expect, test, vi } from 'vitest'
 import { runAction } from './actions'
 
 describe('runAction', () => {
-  const handlers = () => ({ newSpend: vi.fn(), saveAll: vi.fn(), undo: vi.fn(), redo: vi.fn() })
+  const handlers = () => ({
+    newSpend: vi.fn(),
+    saveAll: vi.fn(),
+    undo: vi.fn(),
+    redo: vi.fn(),
+    remove: vi.fn(),
+  })
 
   test("runs the action's handler", () => {
     const h = handlers()

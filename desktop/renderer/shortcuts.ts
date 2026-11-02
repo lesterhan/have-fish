@@ -13,10 +13,13 @@ const ORDER: Modifier[] = ['ctrl', 'alt', 'shift', 'cmd']
 const SYMBOLS: Record<Modifier, string> = { ctrl: '⌃', alt: '⌥', shift: '⇧', cmd: '⌘' }
 const ARIA: Record<Modifier, string> = { ctrl: 'Control', alt: 'Alt', shift: 'Shift', cmd: 'Meta' }
 
+/** Keys macOS shows as a symbol. */
+const MAC_KEYS: Record<string, string> = { Delete: '⌦' }
+
 /** `Ctrl+S` on Linux and Windows, `⌘S` on macOS. */
 export function shortcutText(id: ActionId, mac: boolean): string {
   const { modifiers, key } = keysOf(id, mac)
-  if (mac) return [...modifiers.map((m) => SYMBOLS[m]), key].join('')
+  if (mac) return [...modifiers.map((m) => SYMBOLS[m]), MAC_KEYS[key] ?? key].join('')
   return [...modifiers.map((m) => copy.actions.keys[m === 'cmd' ? 'ctrl' : m]), key].join('+')
 }
 
@@ -29,7 +32,9 @@ export function ariaShortcut(id: ActionId, mac: boolean): string {
 /** The modifiers in display order, and the key, with `CmdOrCtrl` settled for this platform. */
 function keysOf(id: ActionId, mac: boolean): { modifiers: Modifier[]; key: string } {
   const parts = actionFor(id).accelerator.split(/\+(?!$)/)
-  const key = (parts.pop() ?? '').toUpperCase()
+  const last = parts.pop() ?? ''
+  // A letter in capitals, as keyboards print it; a named key as it's spelled: `Delete`.
+  const key = last.length === 1 ? last.toUpperCase() : last
   const modifiers = parts.map((p): Modifier => {
     const m = p.toLowerCase()
     if (m === 'cmdorctrl') return mac ? 'cmd' : 'ctrl'

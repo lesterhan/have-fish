@@ -25,8 +25,15 @@ describe('ariaShortcut', () => {
 })
 
 test('every action in the list can be shown, on both', () => {
-  for (const { id } of ACTIONS) {
+  for (const { id, accelerator } of ACTIONS) {
+    if (!accelerator.startsWith('CmdOrCtrl')) continue
     expect(shortcutText(id, false)).toMatch(/^Ctrl\+/)
     expect(shortcutText(id, true)).toMatch(/⌘/)
   }
+})
+
+test('a named key with no modifier is spelled out, or its symbol on macOS', () => {
+  expect(shortcutText('remove', false)).toBe('Delete')
+  expect(shortcutText('remove', true)).toBe('⌦')
+  expect(ariaShortcut('remove', false)).toBe('Delete')
 })

@@ -8,7 +8,7 @@ import type { Ledger } from '../db/ledger'
 import { applyLocal } from '../ledger/apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/fixtures'
 import { getDocument } from '../ledger/store'
-import { editSpend, HOME_CURRENCY, listTransactions, writeSpend } from './spends'
+import { editSpend, HOME_CURRENCY, listTransactions, removeSpend, writeSpend } from './spends'
 
 // 03:00 on the 30th in UTC, still the evening of the 29th in Vancouver.
 const LATE = Date.UTC(2026, 9, 30, 3)
@@ -460,5 +460,58 @@ describe('listTransactions', () => {
     ok(applyLocal(ledger, [cash, food, aSpend(cash.id, food.id, '0.00')], NOW))
 
     expect(listTransactions(ledger.db)[0]).toMatchObject({ amounts: [], simple: null })
+  })
+})
+
+describe('removeSpend', () => {
+  test('leaves a tombstone, so the spend is in no list and no sum', () => {
+    const { ledger, ctx, clock } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    ok(writeSpend(ctx, { amount: '12', description: 'Lunch' }))
+    clock.at += 1000
+
+    expect(removeSpend(ctx, { id })).toEqual({ ok: true, value: { id } })
+
+    const stored = spendOf(ledger, id)
+    expect(stored.deletedAt).toBe(clock.at)
+    expect(stored.postings).toEqual([])
+    expect(listTransactions(ledger.db).map((t) => t.description)).toEqual(['Lunch'])
+    expect(
+      ledger.db.prepare('SELECT count(*) FROM postings WHERE transactionId = ?').pluck().get(id),
+    ).toBe(0)
+  })
+
+  test('keeps everything else about it, for undo to write back', () => {
+    const { ledger, ctx } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const before = spendOf(ledger, id)
+    ok(removeSpend(ctx, { id }))
+    const { postings: _, deletedAt: __, ...kept } = spendOf(ledger, id)
+    const { postings: ___, deletedAt: ____, ...was } = before
+    expect(kept).toEqual(was)
+  })
+
+  test('is one step, named for the spend', () => {
+    const { ctx } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    ok(removeSpend(ctx, { id }))
+    expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'remove', description: 'Coffee' })
+  })
+
+  test('a spend that is not there, or already removed, is refused and adds no step', () => {
+    const { ctx } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    ok(removeSpend(ctx, { id }))
+    const missing = '00000000-0000-4000-8000-000000000009'
+
+    expect(removeSpend(ctx, { id })).toEqual({
+      ok: false,
+      failure: { code: 'TRANSACTION_DELETED', details: { id } },
+    })
+    expect(removeSpend(ctx, { id: missing })).toEqual({
+      ok: false,
+      failure: { code: 'TRANSACTION_NOT_FOUND', details: { id: missing } },
+    })
+    expect(ctx.history.nextUndo()?.name.kind).toBe('remove')
   })
 })

@@ -15,6 +15,7 @@ export const inputs = {
   'spend.edit': edit,
   /** Several edits, each its own batch, and one step to undo. */
   'spend.saveAll': z.strictObject({ edits: z.array(edit).min(1).max(1000) }),
+  'spend.remove': z.strictObject({ id: z.uuid() }),
   'transaction.list': z.strictObject({}),
   'ledger.undo': z.strictObject({}),
   'ledger.redo': z.strictObject({}),
@@ -38,6 +39,7 @@ export interface Values {
   'spend.edit': { id: string }
   /** Each edit in the order sent: saved, or refused and why. */
   'spend.saveAll': { id: string; refused: WireFailure | null }[]
+  'spend.remove': { id: string }
   'transaction.list': ListedTransaction[]
   /** The spends it changed, so the window can select them. Empty when there was nothing to undo. */
   'ledger.undo': { ids: string[] }

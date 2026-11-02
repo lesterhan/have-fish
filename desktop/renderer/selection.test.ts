@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { kept, movedBy } from './selection'
+import { afterRemoving, kept, movedBy } from './selection'
 
 const list = [{ id: 'a' }, { id: 'b' }, { id: 'c' }]
 
@@ -42,5 +42,19 @@ describe('movedBy', () => {
   test('any other key is not a move', () => {
     expect(movedBy(list, 'a', 'x')).toBeUndefined()
     expect(movedBy(list, 'a', 'Enter')).toBeUndefined()
+  })
+})
+
+describe('afterRemoving', () => {
+  test('selects the row below the one removed', () => {
+    expect(afterRemoving(list, 'b')).toBe('c')
+  })
+
+  test('or the one above, when it was the last', () => {
+    expect(afterRemoving(list, 'c')).toBe('b')
+  })
+
+  test('or nothing, when it was the only one', () => {
+    expect(afterRemoving([{ id: 'a' }], 'a')).toBeNull()
   })
 })

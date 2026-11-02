@@ -27,6 +27,11 @@ export type Action = {
   readonly grouped?: 'apart'
   /** A second shortcut, on Linux and Windows only, where it's the habit. Not shown in the menu. */
   readonly alternate?: string
+  /**
+   * The window takes the key itself, where it means this action, and the menu only shows it:
+   * Delete removes a spend from the list but must still delete text in a field.
+   */
+  readonly windowKey?: true
 }
 
 export const ACTIONS = [
@@ -41,6 +46,7 @@ export const ACTIONS = [
   { id: 'copy', menu: 'edit', accelerator: 'CmdOrCtrl+C', role: 'copy' },
   { id: 'paste', menu: 'edit', accelerator: 'CmdOrCtrl+V', role: 'paste' },
   { id: 'selectAll', menu: 'edit', accelerator: 'CmdOrCtrl+A', role: 'selectAll' },
+  { id: 'remove', menu: 'edit', accelerator: 'Delete', windowKey: true, grouped: 'apart' },
 
   // `=`, not Electron's default `Plus`, which needs Shift on most keyboards.
   { id: 'zoomIn', menu: 'view', accelerator: 'CmdOrCtrl+=', role: 'zoomIn' },

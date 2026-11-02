@@ -73,6 +73,14 @@ describe('the menu', () => {
     expect(run).toHaveBeenCalledWith('undo')
   })
 
+  test('a key the window takes itself is shown in the menu but not registered there', () => {
+    const remove = itemsOf(build(true)).find((i) => i.accelerator === 'Delete')
+    expect(remove?.label).toBe('Remove spend')
+    expect(remove?.registerAccelerator).toBe(false)
+    const newSpend = itemsOf(build(true)).find((i) => i.accelerator === 'CmdOrCtrl+N')
+    expect(newSpend?.registerAccelerator).toBeUndefined()
+  })
+
   test('on macOS, Quit is in the app menu, which comes first', () => {
     const [app, file] = build(true, true)
     expect(app?.label).toBe(copy.app.name)

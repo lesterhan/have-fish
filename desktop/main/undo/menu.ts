@@ -35,5 +35,7 @@ function named(way: 'undo' | 'redo', name: StepName): string {
       return words.edit(name)
     case 'saveAll':
       return words.saveAll(name)
+    case 'remove':
+      return words.remove(name)
   }
 }
