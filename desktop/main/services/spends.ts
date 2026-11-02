@@ -8,12 +8,19 @@ import { type Failure, failure, type Outcome } from '@have-fish/core/outcome'
 import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
 import { desc, eq, isNull } from 'drizzle-orm'
-import type { InputOf, ListedTransaction, Money } from '../../shared/commands'
+import {
+  type InputOf,
+  type ListedTransaction,
+  type Money,
+  type Values,
+  wireFailure,
+} from '../../shared/commands'
 import type { Context } from '../context'
 import { perConnection } from '../db/prepared'
 import { postings, transactions } from '../db/schema'
 import type { BatchOutcome } from '../ledger/apply'
 import { getDocument, liveAccountAt } from '../ledger/store'
+import { applyKeeping, type Change, record } from '../undo/steps'
 
 /** Every spend's currency, until a setting chooses it. */
 export const HOME_CURRENCY = 'CAD'
@@ -45,7 +52,9 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
     origin: { source: 'manual', ...made },
   }
 
-  return idOf(ctx.apply([...from.made, ...to.made, spend], now), spend.id)
+  const { applied, changes } = applyKeeping(ctx, [...from.made, ...to.made, spend], now, [spend])
+  record(ctx, { kind: 'write', description: spend.description }, changes)
+  return idOf(applied, spend.id)
 }
 
 /**
@@ -53,21 +62,57 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
  * and the other its negative; the id, date, accounts and origin stay as they were.
  */
 export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{ id: string }> {
+  const { edited, changes } = edit(ctx, input)
+  record(ctx, { kind: 'edit', description: input.description.trim() }, changes)
+  return edited
+}
+
+/** Each edit as its own batch, so one refused doesn't hold back the rest, and one step to undo. */
+export function saveAllSpends(
+  ctx: Context,
+  input: InputOf<'spend.saveAll'>,
+): Outcome<Values['spend.saveAll']> {
+  const saves = input.edits.map((e) => ({ id: e.id, ...edit(ctx, e) }))
+  const changes = saves.flatMap((s) => s.changes)
+  // One spend saved reads as that spend's edit.
+  const only = changes.length === 1 ? changes[0]?.after.doc : undefined
+  record(
+    ctx,
+    only?.type === 'transaction'
+      ? { kind: 'edit', description: only.description }
+      : { kind: 'saveAll', count: changes.length },
+    changes,
+  )
+  const value = saves.map(({ id, edited }) => ({
+    id,
+    refused: edited.ok ? null : wireFailure(edited.failure),
+  }))
+  return { ok: true, value }
+}
+
+/** An edit, applied, and what it changed for the history. */
+function edit(
+  ctx: Context,
+  input: InputOf<'spend.edit'>,
+): { edited: Outcome<{ id: string }>; changes: Change[] } {
   const amount = spendAmount(input.amount)
-  if (!amount.ok) return amount
+  if (!amount.ok) return { edited: amount, changes: [] }
   const cents = amount.value
 
   const { id } = input
   const stored = getDocument(ctx.ledger.db, 'transaction', id)
-  if (stored === null) return failure('TRANSACTION_NOT_FOUND', { id })
+  const refused = (f: Outcome<never>) => ({ edited: f, changes: [] })
+  if (stored === null) return refused(failure('TRANSACTION_NOT_FOUND', { id }))
   const { doc } = stored
-  if (doc.deletedAt !== null) return failure('TRANSACTION_DELETED', { id })
+  if (doc.deletedAt !== null) return refused(failure('TRANSACTION_DELETED', { id }))
   const simple = simpleAmountOf(doc.postings.map((p) => ({ ...p, cents: toCents(p.amount) })))
-  if (simple === null) return failure('TRANSACTION_NOT_SIMPLE', { id })
+  if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
 
   const description = input.description.trim()
-  // An unchanged save writes no version, so sync has nothing to send.
-  if (cents === simple.cents && description === doc.description) return { ok: true, value: { id } }
+  // An unchanged save writes no version, so sync has nothing to send, and undo nothing to take back.
+  if (cents === simple.cents && description === doc.description) {
+    return { edited: { ok: true, value: { id } }, changes: [] }
+  }
 
   const edited: TransactionDoc = {
     ...doc,
@@ -77,7 +122,8 @@ export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{
       amount: format(toCents(p.amount) > 0 ? cents : -cents),
     })),
   }
-  return idOf(ctx.apply([edited], ctx.now()), id)
+  const { applied, changes } = applyKeeping(ctx, [edited], ctx.now(), [edited])
+  return { edited: idOf(applied, id), changes }
 }
 
 /** A spend's amount as typed, in cents: a number, and more than zero. */

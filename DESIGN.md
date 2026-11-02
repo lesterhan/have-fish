@@ -72,6 +72,35 @@ the other windows on the machine before it has any look of its own.
 - **Linux first.** It is packaged for Linux first. macOS follows its platform through
   `CmdOrCtrl` and native dialogs, not through a second design.
 
+## Undo
+
+Undo takes back the last change to the ledger, whatever it was, so nothing needs an "are you
+sure?". These rules hold for every kind of change, now and later; `desktop/main/undo/steps.test.ts`
+holds the ones a test can.
+
+1. **One step is one thing you did.** Writing a spend, saving an edit, removing one, Ctrl+S across
+   three drafts, an import, a category set on forty rows: each is one step, and undo never takes
+   back half of one.
+2. **Undo moves forward, never back.** It writes the earlier versions again as new versions: a
+   tombstone for something new, the earlier version for an edit, the live one for a removal.
+   Nothing is erased, so history and sync see just another change.
+3. **Undo never overwrites anything newer.** If any document in the step has changed since, from
+   another device or anything else, the undo is refused whole and says why, and the step leaves
+   the history. Versions are compared, never bodies.
+4. **One history per session, newest first.** Undo goes back in order, and a new change clears
+   redo. Quitting clears the history; going further back is the ledger's history of versions.
+5. **The menu names the step:** "Undo remove Coffee", "Undo save 3 spends", and is greyed out
+   with nothing to undo. Every kind of step has its words in `desktop/copy/steps.ts`.
+6. **Redo** is Ctrl+Shift+Z, and Ctrl+Y on Windows and Linux, under the same rules.
+7. **You see what came back.** After an undo or redo, the list selects what changed.
+8. **Typing comes first.** Ctrl+Z undoes a field's typing only if you've typed in that field since
+   you entered it; otherwise it undoes the ledger. A draft isn't a step; saving it is.
+9. **Only changes to the ledger are steps.** Selecting, scrolling, exporting, zoom and settings
+   aren't, and don't clear the history.
+10. **Taking back something older is a command, not an undo.** Undoing an import from its list, or
+    restoring an earlier version, is a new step, which Ctrl+Z can take back in turn. Changes
+    from another device never go on the history.
+
 ## Themes
 
 The desktop app can have themes, colours to start with.

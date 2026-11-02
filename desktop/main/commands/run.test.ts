@@ -131,4 +131,36 @@ describe('runCommand', () => {
     expect(lines.join('\n')).not.toMatch(/Kim|abc/)
     expect(errors).toEqual([])
   })
+  test('save all crosses with each edit saved or refused, and undo and redo cross as ids', () => {
+    const { ctx, log } = setup()
+    const written = runCommand(ctx, 'spend.write', { amount: '4.50', description: 'Coffee' }, log)
+    if (!written.ok) throw new Error('not written')
+    const { id } = written.value
+    const edits = [
+      { id, amount: '5', description: 'Tea' },
+      { id, amount: 'abc', description: 'Tea' },
+    ]
+
+    expect(runCommand(ctx, 'spend.saveAll', { edits }, log)).toEqual({
+      ok: true,
+      value: [
+        { id, refused: null },
+        { id, refused: { ok: false, error: 'AMOUNT_INVALID', detail: { amount: 'abc' } } },
+      ],
+    })
+    expect(runCommand(ctx, 'ledger.undo', {}, log)).toEqual({ ok: true, value: { ids: [id] } })
+    expect(runCommand(ctx, 'ledger.redo', {}, log)).toEqual({ ok: true, value: { ids: [id] } })
+  })
+
+  test('save all takes at least one edit, and no more than a thousand', () => {
+    const { ctx, log } = setup()
+    const edit = { id: crypto.randomUUID(), amount: '5', description: '' }
+    for (const edits of [[], Array(1001).fill(edit)]) {
+      expect(runCommand(ctx, 'spend.saveAll', { edits }, log)).toMatchObject({
+        ok: false,
+        error: 'INPUT_MALFORMED',
+        detail: { path: 'edits' },
+      })
+    }
+  })
 })

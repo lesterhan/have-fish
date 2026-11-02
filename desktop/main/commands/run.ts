@@ -8,7 +8,7 @@ import {
   inputs,
   type Values,
   type Wire,
-  type WireFailure,
+  wireFailure,
 } from '../../shared/commands'
 import type { Context } from '../context'
 import { handlers } from './registry'
@@ -57,8 +57,5 @@ const isCommand = (name: unknown): name is CommandName =>
   typeof name === 'string' && Object.hasOwn(inputs, name)
 
 function toWire<T>(outcome: Outcome<T>): Wire<T> {
-  if (outcome.ok) return outcome
-  const { code, details } = outcome.failure
-  // As in `failure()`: the pair came from one member of `Failure`, so it fits one of `WireFailure`.
-  return { ok: false, error: code, detail: details } as WireFailure
+  return outcome.ok ? outcome : wireFailure(outcome.failure)
 }
