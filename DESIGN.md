@@ -76,7 +76,7 @@ the other windows on the machine before it has any look of its own.
 
 Undo takes back the last change to the ledger, whatever it was, so nothing needs an "are you
 sure?". These rules hold for every kind of change, now and later; `desktop/main/undo/steps.test.ts`
-holds the ones a test can.
+and `desktop/e2e/undo.e2e.ts` hold the ones a test can.
 
 1. **One step is one thing you did.** Writing a spend, saving an edit, removing one, Ctrl+S across
    three drafts, an import, a category set on forty rows: each is one step, and undo never takes

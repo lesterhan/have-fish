@@ -21,6 +21,11 @@ describe('sharedAccelerators', () => {
     ).toEqual(['cmdorctrl+shift+z'])
   })
 
+  test('an alternate shortcut counts too', () => {
+    const redo = { ...action('a', 'CmdOrCtrl+Shift+Z'), alternate: 'Ctrl+Y' }
+    expect(sharedAccelerators([redo, action('b', 'Ctrl+Y')])).toEqual(['ctrl+y'])
+  })
+
   test('different keys are fine, and so is minus', () => {
     expect(sharedAccelerators([action('a', 'CmdOrCtrl+-'), action('b', 'CmdOrCtrl+=')])).toEqual([])
   })

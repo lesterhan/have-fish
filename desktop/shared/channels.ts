@@ -8,3 +8,6 @@ export const CHANGED = 'ledger:changed'
 
 /** Main asks the window to carry out an action from the menu: `send(ACTION, id)`. */
 export const ACTION = 'action:run'
+
+/** The window says whether Undo and Redo would go to the focused field's typing: `send(TYPING, …)`. */
+export const TYPING = 'undo:typing'

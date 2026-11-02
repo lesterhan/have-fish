@@ -12,8 +12,10 @@ function itemsOf(template: MenuItemConstructorOptions[]): MenuItemConstructorOpt
 const rolesOf = (template: MenuItemConstructorOptions[]) =>
   itemsOf(template).flatMap((i) => (i.role === undefined ? [] : [i.role]))
 
-const build = (packaged: boolean, mac = false, run = () => {}) =>
-  menuTemplate({ packaged, mac, run })
+const UNDO = { undo: { label: 'Undo', enabled: false }, redo: { label: 'Redo', enabled: false } }
+
+const build = (packaged: boolean, mac = false, run = () => {}, undo = UNDO) =>
+  menuTemplate({ packaged, mac, run, undo })
 
 const DEVELOPER = ['reload', 'forceReload', 'toggleDevTools']
 
@@ -46,8 +48,29 @@ describe('the menu', () => {
   })
 
   test('an action Electron does is a role, with no click', () => {
-    const undo = itemsOf(build(true)).find((i) => i.role === 'undo')
-    expect(undo?.click).toBeUndefined()
+    const copied = itemsOf(build(true)).find((i) => i.role === 'copy')
+    expect(copied?.click).toBeUndefined()
+  })
+
+  test('Undo and Redo are the window’s, and say what they would do', () => {
+    const run = vi.fn()
+    const undo = {
+      undo: { label: 'Undo write Lunch', enabled: true },
+      redo: { label: 'Redo', enabled: false },
+    }
+    const items = itemsOf(build(true, false, run, undo))
+    const [taking, putting] = ['CmdOrCtrl+Z', 'CmdOrCtrl+Shift+Z'].map((key) =>
+      items.find((i) => i.accelerator === key),
+    )
+    expect([taking?.label, taking?.enabled, putting?.label, putting?.enabled]).toEqual([
+      'Undo write Lunch',
+      true,
+      'Redo',
+      false,
+    ])
+    expect(taking?.role).toBeUndefined()
+    taking?.click?.(undefined as never, undefined, undefined as never)
+    expect(run).toHaveBeenCalledWith('undo')
   })
 
   test('on macOS, Quit is in the app menu, which comes first', () => {

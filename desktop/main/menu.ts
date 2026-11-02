@@ -4,6 +4,7 @@
 import type { MenuItemConstructorOptions } from 'electron'
 import { copy } from '../copy'
 import { ACTIONS, type MenuName, type WindowActionId } from '../shared/actions'
+import type { UndoItems } from './undo/menu'
 
 type Listed = (typeof ACTIONS)[number]
 
@@ -12,18 +13,20 @@ type Options = {
   mac: boolean
   /** Carries out an action that is the window's to do. */
   run: (id: WindowActionId) => void
+  /** What Undo and Redo say now, and whether they can be chosen. */
+  undo: UndoItems
 }
 
 const MENUS: MenuName[] = ['file', 'edit', 'view']
 
-export function menuTemplate({ packaged, mac, run }: Options): MenuItemConstructorOptions[] {
+export function menuTemplate({ packaged, mac, run, undo }: Options): MenuItemConstructorOptions[] {
   // macOS keeps Quit in the app's own menu, which is always the first.
   const inApp = (a: Listed) => mac && 'role' in a && a.role === 'quit'
 
   const items = (actions: readonly Listed[]): MenuItemConstructorOptions[] =>
     actions.flatMap((a, i) => [
       ...('grouped' in a && i > 0 ? [{ type: 'separator' as const }] : []),
-      item(a, run),
+      { ...item(a, run), ...(a.id === 'undo' || a.id === 'redo' ? undo[a.id] : {}) },
     ])
 
   const menus: MenuItemConstructorOptions[] = MENUS.map((menu) => ({

@@ -116,6 +116,7 @@ describe('the app', () => {
       'invoke',
       'onChanged',
       'onAction',
+      'setTyping',
     ])
     const csp = await page.evaluate(async () =>
       (await fetch(location.href)).headers.get('content-security-policy'),

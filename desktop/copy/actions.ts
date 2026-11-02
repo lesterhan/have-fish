@@ -23,6 +23,8 @@ export const actions = {
   /** `&` marks the letter that opens the menu with Alt, on Linux and Windows. */
   menus: { file: '&File', edit: '&Edit', view: '&View' },
   labels,
+  /** Undo and Redo while the focused field has typing of yours to take back or put back. */
+  typing: { undo: 'Undo typing', redo: 'Redo typing' },
   /** The modifier keys as a hint spells them off macOS, which uses symbols. */
   keys: { ctrl: 'Ctrl', shift: 'Shift', alt: 'Alt' },
 }
