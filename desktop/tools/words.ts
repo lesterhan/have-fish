@@ -32,14 +32,18 @@ const KEY_NAMES = new Set([
 /** A CSS declaration or media feature, handed to the page from code: `(max-width: 44rem)`. */
 const CSS = /^\(?[a-z-]+\s*:\s*[^:]+?\)?;?$/
 
+/** A key combination in Electron's form: `CmdOrCtrl+Shift+Z`. */
+const ACCELERATOR = /^([A-Za-z]+\+)+\S+$/
+
 /**
  * Whether a string in code reads as words: two or more of them, or one capitalised like a
- * label. A path, a selector, CSS or a built string is not. One lowercase word (`'nearest'`) is
+ * label. A path, a selector, CSS, a key combination or a built string is not. One lowercase word (`'nearest'`) is
  * wiring, which means a one-word label in lowercase gets past; the markup check has no such gap.
  */
 export function isWords(text: string): boolean {
   const t = text.trim()
-  if (!/\p{L}/u.test(t) || /[/$[\]{}<>=]/.test(t) || CSS.test(t)) return false
+  if (!/\p{L}/u.test(t) || /[/$[\]{}<>=]/.test(t) || CSS.test(t) || ACCELERATOR.test(t))
+    return false
   if (/\s/.test(t) && (t.match(/\p{L}{2,}/gu) ?? []).length >= 2) return true
   return /^\p{Lu}\p{Ll}/u.test(t) && !/\s/.test(t) && !KEY_NAMES.has(t)
 }

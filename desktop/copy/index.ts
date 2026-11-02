@@ -11,9 +11,10 @@
 // No i18n library and no `en/` folder: a typed object is the whole design, and a second
 // language, if one comes, is a translation of these files.
 
+import { actions } from './actions'
 import { app } from './app'
 import { dialogs } from './dialogs'
 import { errors } from './errors'
 import { spends } from './spends'
 
-export const copy = { app, dialogs, errors, spends } as const
+export const copy = { actions, app, dialogs, errors, spends } as const

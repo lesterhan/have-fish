@@ -315,6 +315,11 @@ jobs:
       - name: Type check
         run: bun run check
 
+      # The shortcut tests press real keys, since Electron's menu never sees the ones Playwright
+      # sends over DevTools.
+      - name: Install xdotool
+        run: sudo apt-get update -q && sudo apt-get install -y -q --no-install-recommends xdotool
+
       # The built app, driven as a person would use it: the stories' acceptance. The runner has
       # no display, so xvfb-run lends one. Ubuntu 24.04 blocks the user namespaces Chromium's
       # sandbox needs, so the app runs without it here (`NO_SANDBOX`); its window is unchanged.

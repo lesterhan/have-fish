@@ -1,5 +1,6 @@
 // The end-to-end suite: the built app, started by Playwright. `bun run e2e` builds it first.
-// It needs a display; on a Linux machine without one, run it under `xvfb-run -a`.
+// It needs an X display; on a Linux machine without one, run it under `xvfb-run -a`. The shortcut
+// tests also need xdotool, since the menu never sees keys Playwright sends.
 
 import { defineConfig } from 'vitest/config'
 

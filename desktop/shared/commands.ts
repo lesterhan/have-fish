@@ -51,4 +51,6 @@ export type Bridge = {
   invoke<N extends CommandName>(name: N, input: InputOf<N>): Promise<Wire<Values[N]>>
   /** Calls `listener` after each batch that wrote anything. Returns the unsubscribe. */
   onChanged(listener: (changed: Changed[]) => void): () => void
+  /** Calls `listener` with an action's id when it is chosen from the menu. Returns the unsubscribe. */
+  onAction(listener: (id: string) => void): () => void
 }

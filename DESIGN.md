@@ -51,9 +51,10 @@ the other windows on the machine before it has any look of its own.
   titlebar, its controls, its resizing and tiling. The app draws no chrome of its own, and its
   menu bar is the OS's application menu. Personality goes into the work and the themes, never
   into a costume frame.
-- **Every action is in the menu, with its shortcut.** One list of actions feeds the menu, the
-  hints beside buttons and, later, a command palette, so a shortcut is never in one place and
-  missing from another. A packaged build has no Reload and no developer tools.
+- **Every action is in the menu, with its shortcut.** One list of actions
+  (`desktop/shared/actions.ts`) feeds the menu, the hints beside buttons and, later, a command
+  palette, so a shortcut is never in one place and missing from another. A packaged build has no
+  Reload and no developer tools.
 - **Any width the window allows works.** Half a screen beside a bank statement is a normal way
   to use it, and the minimum size is a layout, not a clipping.
 - **Zoom is the person's.** Ctrl+= and Ctrl+− work everywhere, and nothing breaks at 200% or at

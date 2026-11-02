@@ -1,0 +1,54 @@
+// The application menu, built from the list of actions. A packaged build has no Reload, which
+// would drop unsaved changes, and no developer tools; a dev run keeps both.
+
+import type { MenuItemConstructorOptions } from 'electron'
+import { copy } from '../copy'
+import { ACTIONS, type MenuName, type WindowActionId } from '../shared/actions'
+
+type Listed = (typeof ACTIONS)[number]
+
+type Options = {
+  packaged: boolean
+  mac: boolean
+  /** Carries out an action that is the window's to do. */
+  run: (id: WindowActionId) => void
+}
+
+const MENUS: MenuName[] = ['file', 'edit', 'view']
+
+export function menuTemplate({ packaged, mac, run }: Options): MenuItemConstructorOptions[] {
+  // macOS keeps Quit in the app's own menu, which is always the first.
+  const inApp = (a: Listed) => mac && 'role' in a && a.role === 'quit'
+
+  const items = (actions: readonly Listed[]): MenuItemConstructorOptions[] =>
+    actions.flatMap((a, i) => [
+      ...('grouped' in a && i > 0 ? [{ type: 'separator' as const }] : []),
+      item(a, run),
+    ])
+
+  const menus: MenuItemConstructorOptions[] = MENUS.map((menu) => ({
+    label: copy.actions.menus[menu],
+    submenu: [
+      ...items(ACTIONS.filter((a) => a.menu === menu && !inApp(a))),
+      ...(menu === 'view' && !packaged ? DEVELOPER : []),
+    ],
+  }))
+
+  if (!mac) return menus
+  return [{ label: copy.app.name, submenu: items(ACTIONS.filter(inApp)) }, ...menus]
+}
+
+function item(action: Listed, run: Options['run']): MenuItemConstructorOptions {
+  const label = copy.actions.labels[action.id]
+  const { accelerator } = action
+  if ('role' in action) return { label, accelerator, role: action.role }
+  return { label, accelerator, click: () => run(action.id) }
+}
+
+/** For a dev run only. Electron's own words: nobody using the app sees them. */
+const DEVELOPER: MenuItemConstructorOptions[] = [
+  { type: 'separator' },
+  { role: 'reload' },
+  { role: 'forceReload' },
+  { role: 'toggleDevTools' },
+]

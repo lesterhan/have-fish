@@ -112,7 +112,11 @@ describe('the app', () => {
       'undefined',
       'undefined',
     ])
-    expect(await page.evaluate(() => Object.keys(window.haveFish))).toEqual(['invoke', 'onChanged'])
+    expect(await page.evaluate(() => Object.keys(window.haveFish))).toEqual([
+      'invoke',
+      'onChanged',
+      'onAction',
+    ])
     const csp = await page.evaluate(async () =>
       (await fetch(location.href)).headers.get('content-security-policy'),
     )

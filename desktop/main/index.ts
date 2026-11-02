@@ -2,14 +2,15 @@
 
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
+import { app, BrowserWindow, dialog, ipcMain, Menu, protocol } from 'electron'
 import { copy } from '../copy'
-import { CHANGED, COMMAND } from '../shared/channels'
+import { ACTION, CHANGED, COMMAND } from '../shared/channels'
 import type { Changed } from '../shared/commands'
 import { runCommand } from './commands/run'
 import { type Context, contextFor } from './context'
 import { type Ledger, openLedger } from './db/ledger'
 import { readOrCreateInstallId } from './install-id'
+import { menuTemplate } from './menu'
 import { appName, ledgerDir } from './paths'
 import { APP_URL, CSP, contentTypeOf, fileFor, isAppUrl } from './protocol'
 import { createWindow, denyPermissions } from './window'
@@ -53,6 +54,12 @@ if (!app.requestSingleInstanceLock()) {
     denyPermissions()
     serveRenderer(join(import.meta.dirname, '../renderer'))
     handleCommands(contextFor(ledger, announce))
+    const menu = menuTemplate({
+      packaged: app.isPackaged,
+      mac: process.platform === 'darwin',
+      run: (id) => window?.webContents.send(ACTION, id),
+    })
+    Menu.setApplicationMenu(Menu.buildFromTemplate(menu))
     window = createWindow(join(import.meta.dirname, '../preload/index.cjs'), devServer ?? APP_URL)
   })
 }

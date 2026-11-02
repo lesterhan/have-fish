@@ -3,6 +3,7 @@
   import type { ListedTransaction } from '../shared/commands'
   import { type Draft, savedValues, type Values } from './drafts'
   import { amountsText } from './format'
+  import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import Unsaved from './Unsaved.svelte'
 
   type Props = {
@@ -92,8 +93,13 @@
         {/if}
 
         <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
-        <button type="submit" aria-disabled={draft === undefined || saving}>
+        <button
+          type="submit"
+          aria-disabled={draft === undefined || saving}
+          aria-keyshortcuts={ariaShortcut('saveAll', MAC)}
+        >
           {copy.spends.pane.save}
+          <kbd aria-hidden="true">{shortcutText('saveAll', MAC)}</kbd>
         </button>
         {#if error?.field === 'form'}
           <p class="error" role="alert">{error.words}</p>
@@ -227,6 +233,13 @@
   button[aria-disabled='true'] {
     color: var(--color-muted);
     cursor: default;
+  }
+
+  kbd {
+    font: inherit;
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
+    margin-inline-start: var(--space-2);
   }
 
   .error {
