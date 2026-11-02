@@ -1,7 +1,8 @@
 import type { FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { describe, expect, test } from 'vitest'
-import type { WireFailure } from '../../shared/commands'
-import { fieldOf, wordsFor } from './errors'
+import { copy } from '../copy'
+import type { WireFailure } from '../shared/commands'
+import { fieldOf, wordsFor } from './refusals'
 
 const refused = <C extends FailureCode>(error: C, detail: FailureDetails[C]) =>
   ({ ok: false, error, detail }) as WireFailure
@@ -40,7 +41,22 @@ describe('wordsFor', () => {
     )
   })
 
-  test('a code with no words of its own still says something, and names the code', () => {
-    expect(wordsFor(refused('ACCOUNT_DELETED', { accountId: 'a' }))).toMatch(/ACCOUNT_DELETED/)
+  test('an edit of a spend that has gone, been removed, or has no one amount says so', () => {
+    const id = '00000000-0000-4000-8000-000000000001'
+    expect(wordsFor(refused('TRANSACTION_NOT_FOUND', { id }))).toMatch(/isn't in your ledger/)
+    expect(wordsFor(refused('TRANSACTION_DELETED', { id }))).toMatch(/taken back/)
+    expect(wordsFor(refused('TRANSACTION_NOT_SIMPLE', { id }))).toMatch(/more than one amount/)
+    expect(fieldOf(refused('TRANSACTION_NOT_SIMPLE', { id }))).toBe('form')
+  })
+
+  test('every code says something in words, never its own name', () => {
+    for (const [code, words] of Object.entries(copy.errors.codes)) {
+      expect(words, code).toMatch(/^\S.*\.$/)
+      expect(words, code).not.toMatch(/[A-Z]{2,}_[A-Z]/)
+    }
+  })
+
+  test('a refusal only a bug reaches still says what to do', () => {
+    expect(wordsFor(refused('ORIGIN_CHANGED', { id: 'a' }))).toMatch(/Try again/)
   })
 })

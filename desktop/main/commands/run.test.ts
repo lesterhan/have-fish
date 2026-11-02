@@ -53,6 +53,32 @@ describe('runCommand', () => {
     expect(ledger.db.prepare('SELECT count(*) FROM transactions').pluck().get()).toBe(0)
   })
 
+  test('an edit names its spend by a UUID, or never reaches the command', () => {
+    const { ctx, log } = setup()
+    const edit = { id: '../../etc', amount: '5', description: '' }
+    expect(runCommand(ctx, 'spend.edit', edit, log)).toEqual({
+      ok: false,
+      error: 'INPUT_MALFORMED',
+      detail: { path: 'id', issue: 'invalid_format' },
+    })
+  })
+
+  test('an edited spend is listed with its new values', () => {
+    const { ctx, log } = setup()
+    const written = runCommand(ctx, 'spend.write', { amount: '4.50', description: 'Coffee' }, log)
+    if (!written.ok) throw new Error('not written')
+    const { id } = written.value
+
+    expect(runCommand(ctx, 'spend.edit', { id, amount: '5', description: 'Tea' }, log)).toEqual({
+      ok: true,
+      value: { id },
+    })
+    const listed = runCommand(ctx, 'transaction.list', {}, log)
+    expect(listed.ok && listed.value).toMatchObject([
+      { id, description: 'Tea', simple: { amount: '5.00', currency: 'CAD' } },
+    ])
+  })
+
   test.each(['spend.burn', 'toString', '__proto__', ''])('%j is not a command', (name) => {
     const { ctx, log } = setup()
     expect(runCommand(ctx, name, {}, log)).toEqual({

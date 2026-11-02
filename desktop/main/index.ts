@@ -3,11 +3,11 @@
 import { readFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import { app, BrowserWindow, dialog, ipcMain, protocol } from 'electron'
+import { copy } from '../copy'
 import { CHANGED, COMMAND } from '../shared/channels'
 import type { Changed } from '../shared/commands'
 import { runCommand } from './commands/run'
 import { type Context, contextFor } from './context'
-import { cannotOpen, failedToStart } from './copy'
 import { type Ledger, openLedger } from './db/ledger'
 import { readOrCreateInstallId } from './install-id'
 import { appName, ledgerDir } from './paths'
@@ -46,7 +46,7 @@ if (!app.requestSingleInstanceLock()) {
       ledger = open()
     } catch (e) {
       log.error('opening the ledger threw', e)
-      dialog.showErrorBox(failedToStart.title, failedToStart.message)
+      dialog.showErrorBox(copy.dialogs.failedToStart.title, copy.dialogs.failedToStart.message)
     }
     if (ledger === undefined) return app.quit()
 
@@ -72,7 +72,7 @@ function open(): Ledger | undefined {
     now: Date.now(),
   })
   if (opened.ok) return opened.value
-  const { title, message } = cannotOpen(opened.failure)
+  const { title, message } = copy.dialogs.cannotOpen(opened.failure)
   dialog.showErrorBox(title, message)
   return undefined
 }
@@ -80,14 +80,14 @@ function open(): Ledger | undefined {
 function serveRenderer(root: string): void {
   protocol.handle('app', async (request) => {
     const file = fileFor(root, request.url)
-    if (file === null) return new Response('Not found', { status: 404 })
+    if (file === null) return new Response(null, { status: 404 })
     try {
       const body = await readFile(file)
       return new Response(body, {
         headers: { 'content-type': contentTypeOf(file), 'content-security-policy': CSP },
       })
     } catch {
-      return new Response('Not found', { status: 404 })
+      return new Response(null, { status: 404 })
     }
   })
 }

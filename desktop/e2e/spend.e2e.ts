@@ -5,7 +5,10 @@ import { existsSync } from 'node:fs'
 import { join } from 'node:path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { describe, expect, test } from 'vitest'
-import { aHome, commandFor, launch, ledgerDirIn, rows, writeDown } from './app'
+import { aHome, commandFor, launch, ledgerDirIn, rows, WRITE, writeDown } from './app'
+
+const AMOUNT = `${WRITE} input[name=amount]`
+const DESCRIPTION = `${WRITE} input[name=description]`
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
@@ -26,8 +29,8 @@ describe('write down a spend', () => {
       .poll(() => rows(page))
       .toEqual([`${today()} | Coffee | 4.50 CAD`, `${today()} | Lunch | 12.00 CAD`])
     // Cleared and ready for the next one.
-    expect(await page.inputValue('input[name=amount]')).toBe('')
-    expect(await page.inputValue('input[name=description]')).toBe('')
+    expect(await page.inputValue(AMOUNT)).toBe('')
+    expect(await page.inputValue(DESCRIPTION)).toBe('')
     expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('amount')
   })
 
@@ -63,12 +66,12 @@ describe('write down a spend', () => {
 
     const error = page.locator('#amount-error')
     await expect.poll(() => error.textContent()).toMatch(/isn't an amount/)
-    expect(await page.getAttribute('input[name=amount]', 'aria-invalid')).toBe('true')
-    expect(await page.getAttribute('input[name=amount]', 'aria-describedby')).toBe('amount-error')
+    expect(await page.getAttribute(AMOUNT, 'aria-invalid')).toBe('true')
+    expect(await page.getAttribute(AMOUNT, 'aria-describedby')).toBe('amount-error')
     expect(await rows(page)).toEqual([])
     // What was typed stays, to be fixed.
-    expect(await page.inputValue('input[name=amount]')).toBe('abc')
-    expect(await page.inputValue('input[name=description]')).toBe('Coffee')
+    expect(await page.inputValue(AMOUNT)).toBe('abc')
+    expect(await page.inputValue(DESCRIPTION)).toBe('Coffee')
   })
 
   test('fixing the amount clears the message and saves', async () => {
@@ -76,8 +79,8 @@ describe('write down a spend', () => {
     await writeDown(page, '0', 'Coffee')
     await expect.poll(() => page.locator('#amount-error').textContent()).toMatch(/more than zero/)
 
-    await page.fill('input[name=amount]', '4.50')
-    await page.press('input[name=amount]', 'Enter')
+    await page.fill(AMOUNT, '4.50')
+    await page.press(AMOUNT, 'Enter')
 
     await expect.poll(() => rows(page)).toEqual([`${today()} | Coffee | 4.50 CAD`])
     expect(await page.locator('#amount-error').count()).toBe(0)
@@ -104,6 +107,7 @@ describe('the app', () => {
     const { page } = running
 
     expect(page.url()).toBe('app://have-fish/')
+    await expect.poll(() => page.title()).toBe('have-fish')
     expect(await page.evaluate(() => [typeof require, typeof process])).toEqual([
       'undefined',
       'undefined',

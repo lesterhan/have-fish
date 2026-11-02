@@ -100,16 +100,21 @@ function devtoolsUrl(child: ChildProcess): Promise<string> {
   })
 }
 
+/** The form that writes a spend down. */
+export const WRITE = 'form[aria-label="Write down a spend"]'
+/** The pane that shows the selected spend. */
+export const PANE = 'section[aria-label="The spend"]'
+
 /** Types a spend the way a person does: amount, Tab, what for, Enter. */
 export async function writeDown(page: Page, amount: string, description: string): Promise<void> {
-  await page.locator('input[name=amount]').focus()
+  await page.locator(`${WRITE} input[name=amount]`).focus()
   await page.keyboard.type(amount)
   await page.keyboard.press('Tab')
   await page.keyboard.type(description)
   await page.keyboard.press('Enter')
 }
 
-/** The list as text, one row per entry: date, description, amount. */
+/** The list as text, one row per entry: date, description, amount, and ● for a draft. */
 export const rows = (page: Page) =>
   page
     .locator('ol[aria-label=Spends] li')

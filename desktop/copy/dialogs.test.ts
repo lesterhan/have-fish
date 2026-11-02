@@ -1,5 +1,7 @@
 import { expect, test } from 'vitest'
-import { cannotOpen } from './copy'
+import { dialogs } from './dialogs'
+
+const { cannotOpen } = dialogs
 
 test('a ledger from a newer build says to update, and that nothing changed', () => {
   const words = cannotOpen({

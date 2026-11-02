@@ -3,15 +3,17 @@
 import { randomUUID } from 'node:crypto'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
-import { format, parse } from '@have-fish/core/money'
+import { format, parse, cents as toCents } from '@have-fish/core/money'
 import { type Failure, failure, type Outcome } from '@have-fish/core/outcome'
+import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
-import { and, desc, eq, gt, isNull, sql } from 'drizzle-orm'
-import type { InputOf, ListedTransaction } from '../../shared/commands'
+import { desc, eq, isNull } from 'drizzle-orm'
+import type { InputOf, ListedTransaction, Money } from '../../shared/commands'
 import type { Context } from '../context'
 import { perConnection } from '../db/prepared'
 import { postings, transactions } from '../db/schema'
-import { liveAccountAt } from '../ledger/store'
+import type { BatchOutcome } from '../ledger/apply'
+import { getDocument, liveAccountAt } from '../ledger/store'
 
 /** Every spend's currency, until a setting chooses it. */
 export const HOME_CURRENCY = 'CAD'
@@ -22,9 +24,9 @@ const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
 
 /** A spend from the wallet to unsorted, dated today, in one batch with any account it needs. */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
-  const cents = parse(input.amount)
-  if (cents === null) return failure('AMOUNT_INVALID', { amount: input.amount })
-  if (cents <= 0) return failure('AMOUNT_NOT_POSITIVE', { amount: input.amount })
+  const amount = spendAmount(input.amount)
+  if (!amount.ok) return amount
+  const cents = amount.value
 
   const now = ctx.now()
   const made = { createdAt: now, deviceId: ctx.ledger.meta.deviceId }
@@ -43,12 +45,56 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
     origin: { source: 'manual', ...made },
   }
 
-  const applied = ctx.apply([...from.made, ...to.made, spend], now)
+  return idOf(ctx.apply([...from.made, ...to.made, spend], now), spend.id)
+}
+
+/**
+ * A new version of a spend with a new amount and description. The positive leg gets the amount
+ * and the other its negative; the id, date, accounts and origin stay as they were.
+ */
+export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{ id: string }> {
+  const amount = spendAmount(input.amount)
+  if (!amount.ok) return amount
+  const cents = amount.value
+
+  const { id } = input
+  const stored = getDocument(ctx.ledger.db, 'transaction', id)
+  if (stored === null) return failure('TRANSACTION_NOT_FOUND', { id })
+  const { doc } = stored
+  if (doc.deletedAt !== null) return failure('TRANSACTION_DELETED', { id })
+  const simple = simpleAmountOf(doc.postings.map((p) => ({ ...p, cents: toCents(p.amount) })))
+  if (simple === null) return failure('TRANSACTION_NOT_SIMPLE', { id })
+
+  const description = input.description.trim()
+  // An unchanged save writes no version, so sync has nothing to send.
+  if (cents === simple.cents && description === doc.description) return { ok: true, value: { id } }
+
+  const edited: TransactionDoc = {
+    ...doc,
+    description,
+    postings: doc.postings.map((p) => ({
+      ...p,
+      amount: format(toCents(p.amount) > 0 ? cents : -cents),
+    })),
+  }
+  return idOf(ctx.apply([edited], ctx.now()), id)
+}
+
+/** A spend's amount as typed, in cents: a number, and more than zero. */
+function spendAmount(typed: string): Outcome<number> {
+  const cents = parse(typed)
+  if (cents === null) return failure('AMOUNT_INVALID', { amount: typed })
+  if (cents <= 0) return failure('AMOUNT_NOT_POSITIVE', { amount: typed })
+  return { ok: true, value: cents }
+}
+
+/** The id, once the batch is applied; a refusal without its place in the batch. */
+function idOf(applied: BatchOutcome, id: string): Outcome<{ id: string }> {
   if (!applied.ok) {
     const { code, details } = applied.failure
     return { ok: false, failure: { code, details } as Failure }
   }
-  return { ok: true, value: { id: spend.id } }
+  return { ok: true, value: { id } }
 }
 
 /** The live account at the path, or a new one the app makes, for the same batch. */
@@ -71,45 +117,60 @@ function accountFor(
 }
 
 const statements = perConnection((orm) => ({
-  // One row per transaction and currency; the join's `amountCents > 0` keeps a transaction with
-  // nothing positive, such as all zeroes, as one row with no currency.
+  // One row per posting, with its transaction; a transaction's rows are together.
   listed: orm
     .select({
       id: transactions.id,
       date: transactions.date,
       description: transactions.description,
       currency: postings.currency,
-      cents: sql<number | null>`sum(${postings.amountCents})`,
+      cents: postings.amountCents,
     })
     .from(transactions)
-    .leftJoin(
-      postings,
-      and(eq(postings.transactionId, transactions.id), gt(postings.amountCents, 0)),
-    )
+    .leftJoin(postings, eq(postings.transactionId, transactions.id))
     .where(isNull(transactions.deletedAt))
-    .groupBy(transactions.id, postings.currency)
     .orderBy(
       desc(transactions.date),
       desc(transactions.originCreatedAt),
       desc(transactions.version),
       transactions.id,
-      postings.currency,
+      postings.position,
     )
     .prepare(),
 }))
 
 /** Every live transaction, newest day first, and newest made first within a day. */
 export function listTransactions(db: Database.Database): ListedTransaction[] {
-  const listed: ListedTransaction[] = []
+  const grouped: { row: { id: string; date: string; description: string }; legs: Leg[] }[] = []
   for (const row of statements(db).listed.all()) {
-    let last = listed.at(-1)
-    if (last?.id !== row.id) {
-      last = { id: row.id, date: row.date, description: row.description, amounts: [] }
-      listed.push(last)
+    let last = grouped.at(-1)
+    if (last?.row.id !== row.id) {
+      last = { row, legs: [] }
+      grouped.push(last)
     }
     if (row.currency !== null && row.cents !== null) {
-      last.amounts.push({ amount: format(row.cents), currency: row.currency })
+      last.legs.push({ cents: row.cents, currency: row.currency })
     }
   }
-  return listed
+  return grouped.map(({ row: { id, date, description }, legs }) => {
+    const simple = simpleAmountOf(legs)
+    return {
+      id,
+      date,
+      description,
+      amounts: movedIn(legs),
+      simple: simple && { amount: format(simple.cents), currency: simple.currency },
+    }
+  })
+}
+
+/** The sum of the positive legs in each currency, by currency code. */
+function movedIn(legs: Leg[]): Money[] {
+  const moved = new Map<string, number>()
+  for (const { cents, currency } of legs) {
+    if (cents > 0) moved.set(currency, (moved.get(currency) ?? 0) + cents)
+  }
+  return [...moved]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([currency, cents]) => ({ amount: format(cents), currency }))
 }

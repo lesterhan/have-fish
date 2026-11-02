@@ -10,6 +10,7 @@ const typed = (max: number) => z.string().max(max)
 
 export const inputs = {
   'spend.write': z.strictObject({ amount: typed(64), description: typed(500) }),
+  'spend.edit': z.strictObject({ id: z.uuid(), amount: typed(64), description: typed(500) }),
   'transaction.list': z.strictObject({}),
 }
 
@@ -19,11 +20,16 @@ export type ListedTransaction = {
   date: string
   description: string
   /** What it moved: the sum of its positive postings in each currency, by currency code. */
-  amounts: { amount: string; currency: string }[]
+  amounts: Money[]
+  /** Its one amount, when it moves one between two accounts in one currency: what an edit sets. */
+  simple: Money | null
 }
+
+export type Money = { amount: string; currency: string }
 
 export interface Values {
   'spend.write': { id: string }
+  'spend.edit': { id: string }
   'transaction.list': ListedTransaction[]
 }
 

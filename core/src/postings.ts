@@ -48,3 +48,19 @@ export function validatePostings(postings: readonly PostingDraft[]): Outcome<voi
 
   return { ok: true, value: undefined }
 }
+
+/** A posting's amount in cents, and its currency. */
+export type Leg = { cents: number; currency: string }
+
+/**
+ * The one amount a transaction moves, when it is two postings in one currency that balance:
+ * the positive one's. Null for anything else, such as a split or a conversion, where setting
+ * "the amount" would have to guess which posting gets it.
+ */
+export function simpleAmountOf(legs: readonly Leg[]): Leg | null {
+  const [a, b] = legs
+  if (legs.length !== 2 || a === undefined || b === undefined) return null
+  if (a.currency !== b.currency || a.cents + b.cents !== 0) return null
+  const cents = Math.max(a.cents, b.cents)
+  return cents > 0 ? { cents, currency: a.currency } : null
+}
