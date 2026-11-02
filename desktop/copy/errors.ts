@@ -32,6 +32,9 @@ const codes: { [C in FailureCode]: string } = {
   PATH_INVALID: "That isn't a name an account can have.",
   PATH_ROOT_MISMATCH: "That account's name doesn't fit its kind.",
 
+  // Undo and redo.
+  CHANGED_SINCE: "That's been changed since, so it can't be undone.",
+
   // The ledger file, and other devices.
   CLOCK_DRIFT: "Another device's clock is far ahead. Check its date and time.",
   LEDGER_TOO_NEW: 'Your ledger was saved by a newer version of have-fish.',

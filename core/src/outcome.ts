@@ -36,6 +36,8 @@ export interface FailureDetails {
   TRANSACTION_DELETED: { id: string }
   /** An edit of a spend's amount on a transaction that isn't one amount between two accounts. */
   TRANSACTION_NOT_SIMPLE: { id: string }
+  /** An undo or redo of a step whose document `id` has changed since. */
+  CHANGED_SINCE: { id: string }
 }
 
 export type FailureCode = keyof FailureDetails

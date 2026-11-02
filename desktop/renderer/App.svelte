@@ -1,11 +1,12 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { copy } from '../copy'
-  import type { ListedTransaction } from '../shared/commands'
+  import type { ListedTransaction, WireFailure } from '../shared/commands'
   import { runAction } from './actions'
   import {
     afterSaves,
     type Drafts,
+    type Sending,
     savedValues,
     toSend,
     type Values,
@@ -93,29 +94,44 @@
   }
 
   /** Each draft is its own batch, so one that's refused doesn't hold back the rest. */
-  async function saveDrafts(ids: Iterable<string>) {
+  async function saveDrafts(ids: Iterable<string>, all: boolean) {
     const sending = toSend(drafts, ids)
     if (sending.length === 0 || savingDraft) return
     savingDraft = true
-    const saves = await Promise.all(
-      sending.map(async ({ id, sent }) => {
-        const saved = await window.haveFish.invoke('spend.edit', { id, ...sent })
-        const error = saved.ok ? null : { field: fieldOf(saved), words: wordsFor(saved) }
-        return { id, sent, error }
-      }),
-    )
+    const saves = await (all ? sentAll(sending) : sentOne(sending))
     // The list first, so the pane never shows the old values in between.
     if (saves.some((s) => s.error === null)) await refresh()
     drafts = afterSaves(drafts, saves)
     savingDraft = false
   }
 
+  const refusedFor = (refused: WireFailure | null) =>
+    refused && { field: fieldOf(refused), words: wordsFor(refused) }
+
+  /** The pane's Save: the spend showing, as its own step. */
+  async function sentOne(sending: Sending[]) {
+    return Promise.all(
+      sending.map(async (s) => {
+        const saved = await window.haveFish.invoke('spend.edit', { id: s.id, ...s.sent })
+        return { ...s, error: refusedFor(saved.ok ? null : saved) }
+      }),
+    )
+  }
+
+  /** Ctrl+S's drafts go as one command, so undo takes them back as one step. */
+  async function sentAll(sending: Sending[]) {
+    const edits = sending.map(({ id, sent }) => ({ id, ...sent }))
+    const saved = await window.haveFish.invoke('spend.saveAll', { edits })
+    if (!saved.ok) return sending.map((s) => ({ ...s, error: refusedFor(saved) }))
+    return sending.map((s, i) => ({ ...s, error: refusedFor(saved.value[i]?.refused ?? null) }))
+  }
+
   function save() {
-    if (selectedId !== null) void saveDrafts([selectedId])
+    if (selectedId !== null) void saveDrafts([selectedId], false)
   }
 
   function saveAll() {
-    void saveDrafts(drafts.keys())
+    void saveDrafts(drafts.keys(), true)
   }
 
   /** Ctrl+N: the amount field, from anywhere, with the pane out of its way. */

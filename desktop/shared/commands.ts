@@ -2,16 +2,22 @@
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
 import type { LedgerDocument } from '@have-fish/core/documents'
-import type { FailureCode, FailureDetails } from '@have-fish/core/outcome'
+import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { z } from 'zod'
 
 /** Long enough for anything typed by hand; the window is the least trusted process. */
 const typed = (max: number) => z.string().max(max)
 
+const edit = z.strictObject({ id: z.uuid(), amount: typed(64), description: typed(500) })
+
 export const inputs = {
   'spend.write': z.strictObject({ amount: typed(64), description: typed(500) }),
-  'spend.edit': z.strictObject({ id: z.uuid(), amount: typed(64), description: typed(500) }),
+  'spend.edit': edit,
+  /** Several edits, each its own batch, and one step to undo. */
+  'spend.saveAll': z.strictObject({ edits: z.array(edit).min(1).max(1000) }),
   'transaction.list': z.strictObject({}),
+  'ledger.undo': z.strictObject({}),
+  'ledger.redo': z.strictObject({}),
 }
 
 /** One transaction as the list shows it. */
@@ -30,7 +36,12 @@ export type Money = { amount: string; currency: string }
 export interface Values {
   'spend.write': { id: string }
   'spend.edit': { id: string }
+  /** Each edit in the order sent: saved, or refused and why. */
+  'spend.saveAll': { id: string; refused: WireFailure | null }[]
   'transaction.list': ListedTransaction[]
+  /** The spends it changed, so the window can select them. Empty when there was nothing to undo. */
+  'ledger.undo': { ids: string[] }
+  'ledger.redo': { ids: string[] }
 }
 
 export type CommandName = keyof typeof inputs
@@ -42,6 +53,11 @@ export type WireFailure = {
 }[FailureCode]
 
 export type Wire<T> = { ok: true; value: T } | WireFailure
+
+export function wireFailure({ code, details }: Failure): WireFailure {
+  // The pair came from one member of `Failure`, so it fits one member of `WireFailure`.
+  return { ok: false, error: code, detail: details } as WireFailure
+}
 
 /** A document a batch wrote, announced once per batch after it commits. */
 export type Changed = { type: LedgerDocument['type']; id: string }
