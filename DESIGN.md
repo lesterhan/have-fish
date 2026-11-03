@@ -59,6 +59,9 @@ the other windows on the machine before it has any look of its own.
   shortcut, Ctrl+1 and on, in the order they're listed. A place stays open while another shows,
   so going somewhere else loses nothing half-typed. Below the narrow width they go across the
   top.
+- **Picking is typing.** A field that takes one of a list (From) filters it by the letters typed,
+  in order, without regard to case. Down lists them all, the arrows move, Enter picks without
+  sending the form, and Escape puts back what was there. Left empty, it means its default.
 - **Any width the window allows works.** Half a screen beside a bank statement is a normal way
   to use it, and the minimum size is a layout, not a clipping.
 - **Zoom is the person's.** Ctrl+= and Ctrl+− work everywhere, and nothing breaks at 200% or at

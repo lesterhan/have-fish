@@ -7,9 +7,10 @@ import { copy } from '../copy'
 import { ACTION, CHANGED, COMMAND, TYPING } from '../shared/channels'
 import type { Changed, Typing } from '../shared/commands'
 import { runCommand } from './commands/run'
-import { type Context, contextFor } from './context'
+import { type Context, contextFor, systemTime } from './context'
 import { type Ledger, openLedger } from './db/ledger'
 import { readOrCreateInstallId } from './install-id'
+import { settingsIn } from './machine'
 import { menuTemplate } from './menu'
 import { appName, ledgerDir } from './paths'
 import { APP_URL, CSP, contentTypeOf, fileFor, isAppUrl } from './protocol'
@@ -54,7 +55,7 @@ if (!app.requestSingleInstanceLock()) {
 
     denyPermissions()
     serveRenderer(join(import.meta.dirname, '../renderer'))
-    const ctx = contextFor(ledger, announce)
+    const ctx = contextFor(ledger, announce, systemTime, settingsIn(app.getPath('userData')))
     let typing: Typing = { undo: false, redo: false }
     // Rebuilt whenever Undo or Redo would say something else: not every platform relabels an item.
     const showMenu = () => {

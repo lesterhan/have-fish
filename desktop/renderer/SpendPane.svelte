@@ -55,6 +55,12 @@
       <span class="date">{transaction.date}</span>
       {#if draft}<Unsaved />{/if}
     </p>
+    {#if transaction.from !== null}
+      <p class="from">
+        <span>{copy.spends.pane.from}</span>
+        {transaction.from}
+      </p>
+    {/if}
 
     {#if values}
       <form {onsubmit} {onkeydown} novalidate>
@@ -104,7 +110,8 @@
           {copy.spends.pane.save}
           <kbd aria-hidden="true">{shortcutText('saveAll', MAC)}</kbd>
         </button>
-        {#if error?.field === 'form'}
+        <!-- The pane has no From field yet, so a refusal about the account shows here too. -->
+        {#if error?.field === 'form' || error?.field === 'from'}
           <p class="error" role="alert">{error.words}</p>
         {/if}
       </form>
@@ -197,6 +204,11 @@
   }
 
   .quiet {
+    color: var(--color-muted);
+  }
+
+  .from span {
+    font-size: var(--font-size-small);
     color: var(--color-muted);
   }
 

@@ -26,7 +26,16 @@ describe('fieldOf', () => {
   test('anything else is the whole form’s', () => {
     expect(fieldOf(refused('UNEXPECTED', undefined))).toBe('form')
     expect(fieldOf(refused('INPUT_MALFORMED', { path: '', issue: 'invalid_type' }))).toBe('form')
-    expect(fieldOf(refused('ACCOUNT_DELETED', { accountId: 'a' }))).toBe('form')
+  })
+
+  test('an account that can’t pay is the From field’s', () => {
+    expect(fieldOf(refused('ACCOUNT_NOT_FOUND', { accountId: 'a' }))).toBe('from')
+    expect(fieldOf(refused('ACCOUNT_DELETED', { accountId: 'a' }))).toBe('from')
+    const locked = { accountId: 'a', currency: 'CAD', locked: 'USD' }
+    expect(fieldOf(refused('ACCOUNT_CURRENCY_LOCKED', locked))).toBe('from')
+    expect(fieldOf(refused('INPUT_MALFORMED', { path: 'from', issue: 'invalid_format' }))).toBe(
+      'from',
+    )
   })
 })
 

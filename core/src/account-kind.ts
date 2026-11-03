@@ -15,6 +15,9 @@ export type AccountKind = (typeof ACCOUNT_KINDS)[number]
 export const ADDABLE_KINDS = ['cash', 'bank', 'card', 'loan'] as const satisfies AccountKind[]
 export type AddableKind = (typeof ADDABLE_KINDS)[number]
 
+export const isAddable = (kind: AccountKind): kind is AddableKind =>
+  (ADDABLE_KINDS as readonly AccountKind[]).includes(kind)
+
 export const ACCOUNT_CLASSES = ['asset', 'liability', 'expense', 'income', 'equity'] as const
 export type AccountClass = (typeof ACCOUNT_CLASSES)[number]
 

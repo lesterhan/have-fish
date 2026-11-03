@@ -1,6 +1,8 @@
 // Writing down a spend, and the list of what's been written.
 
 import { randomUUID } from 'node:crypto'
+import { isAddable } from '@have-fish/core/account-kind'
+import { nameOf } from '@have-fish/core/account-path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parse, cents as toCents } from '@have-fish/core/money'
@@ -18,16 +20,19 @@ import {
 import { HOME_CURRENCY } from '../../shared/currency'
 import type { Context } from '../context'
 import { perConnection } from '../db/prepared'
-import { postings, transactions } from '../db/schema'
+import { accounts, postings, transactions } from '../db/schema'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, type Change, record } from '../undo/steps'
 import { idOf } from './applied'
 
-/** Where a spend comes from and goes to, until the window lets you choose. */
+/** Where a spend comes from before any account is chosen, and where it goes, for now. */
 const WALLET = { path: 'assets:cash', kind: 'cash' } as const
 const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
 
-/** A spend from the wallet to unsorted, dated today, in one batch with any account it needs. */
+/**
+ * A spend from the account that paid to unsorted, dated today, in one batch with any account it
+ * needs. An account kept to one currency pays in that currency; any other, in the home currency.
+ */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
   const amount = spendAmount(input.amount)
   if (!amount.ok) return amount
@@ -35,24 +40,66 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
 
   const now = ctx.now()
   const made = { createdAt: now, deviceId: ctx.ledger.meta.deviceId }
-  const from = accountFor(ctx.ledger.db, WALLET, made)
+  const from = paidFrom(ctx, input.from ?? null, made)
+  if (!from.ok) return from
   const to = accountFor(ctx.ledger.db, UNSORTED, made)
+  const currency = from.value.currency ?? HOME_CURRENCY
   const spend: TransactionDoc = {
     type: 'transaction',
     id: randomUUID(),
     date: calendarDateAt(now, ctx.timeZone()),
     description: input.description.trim(),
     postings: [
-      { accountId: to.id, amount: format(cents), currency: HOME_CURRENCY },
-      { accountId: from.id, amount: format(-cents), currency: HOME_CURRENCY },
+      { accountId: to.id, amount: format(cents), currency },
+      { accountId: from.value.id, amount: format(-cents), currency },
     ],
     deletedAt: null,
     origin: { source: 'manual', ...made },
   }
 
-  const { applied, changes } = applyKeeping(ctx, [...from.made, ...to.made, spend], now, [spend])
+  const docs = [...from.value.made, ...to.made, spend]
+  const { applied, changes } = applyKeeping(ctx, docs, now, [spend])
   record(ctx, { kind: 'write', description: spend.description }, changes)
-  return idOf(applied, spend.id)
+  const written = idOf(applied, spend.id)
+  if (written.ok) ctx.machine.usedFrom(from.value.id)
+  return written
+}
+
+/** The account a spend with no `from` comes out of: the one used last here, else the wallet. */
+export function assumedFrom(ctx: Context): { id: string | null } {
+  const last = ctx.machine.lastFrom()
+  if (last !== null && payer(ctx.ledger.db, last).ok) return { id: last }
+  const wallet = liveAccountAt(ctx.ledger.db, WALLET.path)
+  return { id: wallet !== undefined && payer(ctx.ledger.db, wallet).ok ? wallet : null }
+}
+
+type Paying = { id: string; currency: string | null; made: AccountDoc[] }
+
+/** The account named, or the one assumed: the wallet, made in the same batch if it's new. */
+function paidFrom(
+  ctx: Context,
+  named: string | null,
+  made: { createdAt: number; deviceId: string },
+): Outcome<Paying> {
+  const id = named ?? assumedFrom(ctx).id
+  if (id === null) {
+    const wallet = accountFor(ctx.ledger.db, WALLET, made)
+    return { ok: true, value: { ...wallet, currency: null } }
+  }
+  const account = payer(ctx.ledger.db, id)
+  return account.ok
+    ? { ok: true, value: { id, currency: account.value.currency, made: [] } }
+    : account
+}
+
+/** A live account I added: what can pay. Never a category, nor an account the app keeps. */
+function payer(db: Database.Database, id: string): Outcome<AccountDoc> {
+  const stored = getDocument(db, 'account', id)
+  if (stored === null || !isAddable(stored.doc.kind)) {
+    return failure('ACCOUNT_NOT_FOUND', { accountId: id })
+  }
+  if (stored.doc.deletedAt !== null) return failure('ACCOUNT_DELETED', { accountId: id })
+  return { ok: true, value: stored.doc }
 }
 
 /**
@@ -175,9 +222,12 @@ const statements = perConnection((orm) => ({
       description: transactions.description,
       currency: postings.currency,
       cents: postings.amountCents,
+      path: accounts.path,
     })
     .from(transactions)
     .leftJoin(postings, eq(postings.transactionId, transactions.id))
+    // An account can arrive after its transaction under sync, so it may not be here yet.
+    .leftJoin(accounts, eq(accounts.id, postings.accountId))
     .where(isNull(transactions.deletedAt))
     .orderBy(
       desc(transactions.date),
@@ -191,25 +241,30 @@ const statements = perConnection((orm) => ({
 
 /** Every live transaction, newest day first, and newest made first within a day. */
 export function listTransactions(db: Database.Database): ListedTransaction[] {
-  const grouped: { row: { id: string; date: string; description: string }; legs: Leg[] }[] = []
+  type Grouped = { row: { id: string; date: string; description: string }; legs: Leg[] }
+  // Each leg's account path, or null while its account hasn't arrived.
+  const grouped: (Grouped & { paths: (string | null)[] })[] = []
   for (const row of statements(db).listed.all()) {
     let last = grouped.at(-1)
     if (last?.row.id !== row.id) {
-      last = { row, legs: [] }
+      last = { row, legs: [], paths: [] }
       grouped.push(last)
     }
     if (row.currency !== null && row.cents !== null) {
       last.legs.push({ cents: row.cents, currency: row.currency })
+      last.paths.push(row.path)
     }
   }
-  return grouped.map(({ row: { id, date, description }, legs }) => {
+  return grouped.map(({ row: { id, date, description }, legs, paths }) => {
     const simple = simpleAmountOf(legs)
+    const from = simple && paths[legs.findIndex((l) => l.cents < 0)]
     return {
       id,
       date,
       description,
       amounts: movedIn(legs),
       simple: simple && { amount: format(simple.cents), currency: simple.currency },
+      from: from ? nameOf(from) : null,
     }
   })
 }

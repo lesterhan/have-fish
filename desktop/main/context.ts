@@ -3,6 +3,7 @@
 import type { Changed } from '../shared/commands'
 import type { Ledger } from './db/ledger'
 import { applyLocal, type BatchOutcome, type Written } from './ledger/apply'
+import { forgetful, type Machine } from './machine'
 import { History } from './undo/history'
 import type { Step } from './undo/steps'
 
@@ -24,12 +25,15 @@ export type Context = Time & {
   apply(docs: unknown[], now: number): BatchOutcome
   /** What this session can undo and redo. It starts empty each time the ledger opens. */
   history: History<Step>
+  /** What this machine remembers between runs: never in the ledger. */
+  machine: Machine
 }
 
 export function contextFor(
   ledger: Ledger,
   announce: (changed: Changed[]) => void,
   time: Time = systemTime,
+  machine: Machine = forgetful(),
 ): Context {
   return {
     ledger,
@@ -43,6 +47,7 @@ export function contextFor(
       return applied
     },
     history: new History(),
+    machine,
   }
 }
 

@@ -6,6 +6,7 @@ import {
   type AccountRoot,
   ADDABLE_KINDS,
   classOf,
+  isAddable,
   rootOf,
 } from './account-kind'
 
@@ -40,5 +41,9 @@ describe('classOf and rootOf', () => {
 describe('ADDABLE_KINDS', () => {
   it('are what I have and what I owe, never a category, income or equity', () => {
     expect(ADDABLE_KINDS.map(classOf)).toEqual(['asset', 'asset', 'liability', 'liability'])
+  })
+
+  it('isAddable says which kinds those are', () => {
+    expect(ACCOUNT_KINDS.filter(isAddable)).toEqual(['card', 'cash', 'bank', 'loan'])
   })
 })

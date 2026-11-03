@@ -7,6 +7,7 @@ import type { CommandName, inputs, Values } from '../../shared/commands'
 import type { Context } from '../context'
 import { addAccount, listAccounts } from '../services/accounts'
 import {
+  assumedFrom,
   editSpend,
   listTransactions,
   removeSpend,
@@ -21,6 +22,7 @@ type Handlers = {
 
 export const handlers: Handlers = {
   'spend.write': writeSpend,
+  'spend.assumedFrom': (ctx) => ({ ok: true, value: assumedFrom(ctx) }),
   'spend.edit': editSpend,
   'spend.saveAll': saveAllSpends,
   'spend.remove': removeSpend,

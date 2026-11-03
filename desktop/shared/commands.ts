@@ -12,7 +12,14 @@ const typed = (max: number) => z.string().max(max)
 const edit = z.strictObject({ id: z.uuid(), amount: typed(64), description: typed(500) })
 
 export const inputs = {
-  'spend.write': z.strictObject({ amount: typed(64), description: typed(500) }),
+  /** `from` null, or left out: the account used last on this machine, else the wallet. */
+  'spend.write': z.strictObject({
+    amount: typed(64),
+    description: typed(500),
+    from: z.uuid().nullable().default(null),
+  }),
+  /** The account a spend written now with no `from` would come out of. */
+  'spend.assumedFrom': z.strictObject({}),
   'spend.edit': edit,
   /** Several edits, each its own batch, and one step to undo. */
   'spend.saveAll': z.strictObject({ edits: z.array(edit).min(1).max(1000) }),
@@ -38,6 +45,8 @@ export type ListedTransaction = {
   amounts: Money[]
   /** Its one amount, when it moves one between two accounts in one currency: what an edit sets. */
   simple: Money | null
+  /** For one amount, the name of the account it came out of, without its root. */
+  from: string | null
 }
 
 export type Money = { amount: string; currency: string }
@@ -57,6 +66,8 @@ export type Moved = { spends: string[]; accounts: string[] }
 
 export interface Values {
   'spend.write': { id: string }
+  /** Null before there's an account to assume: the first spend makes the wallet. */
+  'spend.assumedFrom': { id: string | null }
   'spend.edit': { id: string }
   /** Each edit in the order sent: saved, or refused and why. */
   'spend.saveAll': { id: string; refused: WireFailure | null }[]
