@@ -42,6 +42,8 @@ export interface FailureDetails {
   ACCOUNT_NAME_EMPTY: undefined
   /** An account added with the name of one I have, matched without regard to case. */
   ACCOUNT_NAME_TAKEN: { name: string }
+  /** A starting balance for an account that already has one. */
+  ACCOUNT_ALREADY_STARTED: { accountId: string }
 }
 
 export type FailureCode = keyof FailureDetails

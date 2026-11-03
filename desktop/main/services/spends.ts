@@ -1,11 +1,11 @@
 // Writing down a spend, and the list of what's been written.
 
 import { randomUUID } from 'node:crypto'
-import { isAddable } from '@have-fish/core/account-kind'
+import { type AccountKind, isAddable } from '@have-fish/core/account-kind'
 import { nameOf } from '@have-fish/core/account-path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
-import { format, parse, cents as toCents } from '@have-fish/core/money'
+import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import { type Leg, simpleAmountOf } from '@have-fish/core/postings'
 import type Database from 'better-sqlite3'
@@ -23,7 +23,7 @@ import { perConnection } from '../db/prepared'
 import { accounts, postings, transactions } from '../db/schema'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, type Change, record } from '../undo/steps'
-import { idOf } from './applied'
+import { accountFor, idOf } from './applied'
 
 /** Where a spend comes from before any account is chosen, and where it goes, for now. */
 const WALLET = { path: 'assets:cash', kind: 'cash' } as const
@@ -188,29 +188,10 @@ export function removeSpend(ctx: Context, input: InputOf<'spend.remove'>): Outco
 
 /** A spend's amount as typed, in cents: a number, and more than zero. */
 function spendAmount(typed: string): Outcome<number> {
-  const cents = parse(typed)
+  const cents = parseTyped(typed)
   if (cents === null) return failure('AMOUNT_INVALID', { amount: typed })
   if (cents <= 0) return failure('AMOUNT_NOT_POSITIVE', { amount: typed })
   return { ok: true, value: cents }
-}
-
-/** The live account at the path, or a new one the app makes, for the same batch. */
-function accountFor(
-  db: Database.Database,
-  at: Pick<AccountDoc, 'path' | 'kind'>,
-  made: { createdAt: number; deviceId: string },
-): { id: string; made: AccountDoc[] } {
-  const id = liveAccountAt(db, at.path)
-  if (id !== undefined) return { id, made: [] }
-  const account: AccountDoc = {
-    type: 'account',
-    id: randomUUID(),
-    ...at,
-    currency: null,
-    deletedAt: null,
-    origin: { source: 'system', ...made },
-  }
-  return { id: account.id, made: [account] }
 }
 
 const statements = perConnection((orm) => ({
@@ -223,6 +204,7 @@ const statements = perConnection((orm) => ({
       currency: postings.currency,
       cents: postings.amountCents,
       path: accounts.path,
+      kind: accounts.kind,
     })
     .from(transactions)
     .leftJoin(postings, eq(postings.transactionId, transactions.id))
@@ -242,8 +224,9 @@ const statements = perConnection((orm) => ({
 /** Every live transaction, newest day first, and newest made first within a day. */
 export function listTransactions(db: Database.Database): ListedTransaction[] {
   type Grouped = { row: { id: string; date: string; description: string }; legs: Leg[] }
-  // Each leg's account path, or null while its account hasn't arrived.
-  const grouped: (Grouped & { paths: (string | null)[] })[] = []
+  // Each leg's account, or null while it hasn't arrived.
+  type Account = { path: string; kind: AccountKind } | null
+  const grouped: (Grouped & { paths: Account[] })[] = []
   for (const row of statements(db).listed.all()) {
     let last = grouped.at(-1)
     if (last?.row.id !== row.id) {
@@ -252,7 +235,9 @@ export function listTransactions(db: Database.Database): ListedTransaction[] {
     }
     if (row.currency !== null && row.cents !== null) {
       last.legs.push({ cents: row.cents, currency: row.currency })
-      last.paths.push(row.path)
+      last.paths.push(
+        row.path === null || row.kind === null ? null : { path: row.path, kind: row.kind },
+      )
     }
   }
   return grouped.map(({ row: { id, date, description }, legs, paths }) => {
@@ -264,7 +249,8 @@ export function listTransactions(db: Database.Database): ListedTransaction[] {
       description,
       amounts: movedIn(legs),
       simple: simple && { amount: format(simple.cents), currency: simple.currency },
-      from: from ? nameOf(from) : null,
+      // Only an account that can pay: a starting balance comes from `equity:opening`, not from it.
+      from: from && isAddable(from.kind) ? nameOf(from.path) : null,
     }
   })
 }

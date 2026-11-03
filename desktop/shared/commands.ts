@@ -30,7 +30,11 @@ export const inputs = {
     name: typed(200),
     kind: z.enum(ADDABLE_KINDS),
     currency: typed(8).nullable(),
+    /** How much is in it today, or owed on it, as typed; empty for nothing. */
+    start: typed(64).default(''),
   }),
+  /** A starting balance for an account that has none. */
+  'account.start': z.strictObject({ id: z.uuid(), amount: typed(64) }),
   'account.list': z.strictObject({}),
   'ledger.undo': z.strictObject({}),
   'ledger.redo': z.strictObject({}),
@@ -59,6 +63,8 @@ export type ListedAccount = {
   kind: AddableKind
   /** The one currency it holds, or null for any. */
   currency: string | null
+  /** What was in it, or owed on it, the day it started; null if it was never said. */
+  start: (Money & { date: string }) | null
 }
 
 /** What an undo or redo changed, so the window can select it: spends, or accounts. */
@@ -74,6 +80,8 @@ export interface Values {
   'spend.remove': { id: string }
   'transaction.list': ListedTransaction[]
   'account.add': { id: string }
+  /** The starting balance's transaction; null when there was nothing to write (empty, or zero). */
+  'account.start': { id: string | null }
   /** Sorted by name, without regard to case. */
   'account.list': ListedAccount[]
   /** Both empty when there was nothing to undo. */

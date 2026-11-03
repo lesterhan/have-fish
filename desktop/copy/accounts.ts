@@ -12,6 +12,8 @@ export const accounts = {
     card: 'Card',
     loan: 'Loan',
   } satisfies Record<AddableKind, string>,
+  /** A starting balance's description, in the ledger and its hledger export. */
+  startDescription: 'Starting balance',
   /** In place of a currency, for an account that can hold any. */
   anyCurrency: 'Any currency',
   pane: {
@@ -29,6 +31,13 @@ export const accounts = {
     } satisfies Record<AddableKind, string>,
     holdsOnly: (currency: string) => `It holds only ${currency}.`,
     holdsAny: 'It can hold any currency.',
+    /** Folded away until opened: what I have in it, or owe on a card or a loan. */
+    start: {
+      have: 'How much is in it today?',
+      owe: 'How much do you owe on it today?',
+    },
+    started: { have: 'Started with', owe: 'Owed at the start' },
+    saveStart: 'Save',
     save: 'Add account',
     cancel: 'Cancel',
     back: 'Back to the list',

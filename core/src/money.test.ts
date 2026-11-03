@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { add, cents, format, neg, parse, sub, sum } from './money'
+import { add, cents, format, neg, parse, parseTyped, sub, sum } from './money'
 
 describe('parse', () => {
   it('reads canonical amounts', () => {
@@ -56,6 +56,26 @@ describe('parse', () => {
     expect(parse('1e999999')).toBeNull()
     expect(parse('1e-999999')).toBe(0)
   })
+})
+
+describe('parseTyped', () => {
+  it.each([
+    ['1,234.56', 123456],
+    ['12,345', 1234500],
+    ['-1,000,000.5', -100000050],
+    [' 1,234 ', 123400],
+    ['4.50', 450],
+    ['1234.56', 123456],
+  ])('%j is %i cents', (typed, cents) => {
+    expect(parseTyped(typed)).toBe(cents)
+  })
+
+  it.each(['4,50', '1,23', '12,3456', ',123', '1,234,5', '1.234,56', 'abc', ''])(
+    '%j is not an amount',
+    (typed) => {
+      expect(parseTyped(typed)).toBeNull()
+    },
+  )
 })
 
 describe('format', () => {
