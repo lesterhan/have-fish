@@ -9,7 +9,9 @@ import type { Ledger } from '../db/ledger'
 import { applyLocal } from '../ledger/apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/fixtures'
 import { getDocument } from '../ledger/store'
-import { editSpend, listTransactions, removeSpend, writeSpend } from './spends'
+import { undoLast } from '../undo/steps'
+import { addAccount, listAccounts } from './accounts'
+import { assumedFrom, editSpend, listTransactions, removeSpend, writeSpend } from './spends'
 
 // 03:00 on the 30th in UTC, still the evening of the 29th in Vancouver.
 const LATE = Date.UTC(2026, 9, 30, 3)
@@ -189,6 +191,164 @@ describe('writeSpend', () => {
         { type: 'transaction', id },
       ],
     ])
+  })
+})
+
+describe('writing a spend from an account I picked', () => {
+  test('comes out of that account, and goes to unsorted', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+
+    const { id } = ok(writeSpend(ctx, { amount: '30', description: 'Dinner', from: visa.id }))
+
+    const unsorted = accountAt(ledger, 'expenses:unsorted')
+    expect(spendOf(ledger, id).postings).toEqual([
+      { accountId: unsorted.id, amount: '30.00', currency: 'CAD' },
+      { accountId: visa.id, amount: '-30.00', currency: 'CAD' },
+    ])
+    expect(listTransactions(ledger.db)[0]?.from).toBe('visa')
+  })
+
+  test('the wallet is not made when another account paid', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+
+    ok(writeSpend(ctx, { amount: '30', description: 'Dinner', from: visa.id }))
+
+    expect(listAccounts(ledger.db).map((a) => a.name)).toEqual(['visa'])
+  })
+
+  test('an account kept to one currency pays in it; one that holds any pays in CAD', () => {
+    const { ledger, ctx } = setup()
+    const chequing = ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'USD' }))
+    const wise = ok(addAccount(ctx, { name: 'wise', kind: 'bank', currency: null }))
+
+    const usd = ok(writeSpend(ctx, { amount: '5', description: 'Gum', from: chequing.id }))
+    const cad = ok(writeSpend(ctx, { amount: '5', description: 'Gum', from: wise.id }))
+
+    expect(spendOf(ledger, usd.id).postings.map((p) => p.currency)).toEqual(['USD', 'USD'])
+    expect(spendOf(ledger, cad.id).postings.map((p) => p.currency)).toEqual([
+      HOME_CURRENCY,
+      HOME_CURRENCY,
+    ])
+  })
+
+  test('the account is remembered by this machine once the spend is saved', () => {
+    const { ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+
+    ok(writeSpend(ctx, { amount: '30', description: 'Dinner', from: visa.id }))
+
+    expect(ctx.machine.lastFrom()).toBe(visa.id)
+  })
+
+  test('with none picked, it comes out of the account used last', () => {
+    const { ledger, ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+    ok(writeSpend(ctx, { amount: '30', description: 'Dinner', from: visa.id }))
+
+    const { id } = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee', from: null }))
+
+    expect(spendOf(ledger, id).postings[1]?.accountId).toBe(visa.id)
+  })
+
+  test('the first spend with none picked makes the wallet, and remembers it', () => {
+    const { ledger, ctx } = setup()
+
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee', from: null }))
+
+    expect(ctx.machine.lastFrom()).toBe(accountAt(ledger, 'assets:cash').id)
+  })
+
+  test.each([
+    ['a category', (ledger: Ledger) => accountAt(ledger, 'expenses:unsorted').id],
+    ['an account the file does not hold', () => '7d1c2f3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f'],
+  ])('%s cannot pay: refused, nothing saved, nothing remembered', (_, idIn) => {
+    const { ledger, ctx } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const wallet = ctx.machine.lastFrom()
+    const step = ctx.history.nextUndo()
+    const id = idIn(ledger)
+
+    expect(writeSpend(ctx, { amount: '1', description: 'Gum', from: id })).toEqual({
+      ok: false,
+      failure: { code: 'ACCOUNT_NOT_FOUND', details: { accountId: id } },
+    })
+    expect(listTransactions(ledger.db)).toHaveLength(1)
+    expect(ctx.machine.lastFrom()).toBe(wallet)
+    expect(ctx.history.nextUndo()).toBe(step)
+  })
+
+  test('an account taken back cannot pay', () => {
+    const { ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+    ok(undoLast(ctx))
+
+    expect(writeSpend(ctx, { amount: '1', description: 'Gum', from: visa.id })).toEqual({
+      ok: false,
+      failure: { code: 'ACCOUNT_DELETED', details: { accountId: visa.id } },
+    })
+  })
+
+  test('a spend refused for its amount remembers nothing', () => {
+    const { ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+
+    writeSpend(ctx, { amount: 'abc', description: 'Gum', from: visa.id })
+
+    expect(ctx.machine.lastFrom()).toBeNull()
+  })
+
+  test('a spend the ledger refuses remembers nothing', () => {
+    const { ctx } = setup()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+
+    const refused = writeSpend(ctx, { amount: '1', description: 'caf\ud800', from: visa.id })
+
+    expect(refused.ok).toBe(false)
+    expect(ctx.machine.lastFrom()).toBeNull()
+  })
+})
+
+describe('assumedFrom', () => {
+  test('nothing in a new ledger: the first spend makes the wallet', () => {
+    const { ctx } = setup()
+    expect(assumedFrom(ctx)).toEqual({ id: null })
+  })
+
+  test('the wallet, once there is one and nothing else has been used', () => {
+    const { ledger, ctx } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    ctx.machine.usedFrom('00000000-0000-4000-8000-000000000000')
+
+    expect(assumedFrom(ctx)).toEqual({ id: accountAt(ledger, 'assets:cash').id })
+  })
+
+  test('the account used last', () => {
+    const { ctx } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+    ok(writeSpend(ctx, { amount: '30', description: 'Dinner', from: visa.id }))
+
+    expect(assumedFrom(ctx)).toEqual({ id: visa.id })
+  })
+
+  test('never a category, whatever this machine remembers', () => {
+    const { ledger, ctx } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    ctx.machine.usedFrom(accountAt(ledger, 'expenses:unsorted').id)
+
+    expect(assumedFrom(ctx)).toEqual({ id: accountAt(ledger, 'assets:cash').id })
+  })
+
+  test('the wallet again, once the account used last is gone', () => {
+    const { ledger, ctx } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+    ctx.machine.usedFrom(visa.id)
+    ok(undoLast(ctx))
+
+    expect(assumedFrom(ctx)).toEqual({ id: accountAt(ledger, 'assets:cash').id })
   })
 })
 
@@ -373,6 +533,7 @@ describe('listTransactions', () => {
         description: 'Lunch',
         amounts: [{ amount: '12.00', currency: 'CAD' }],
         simple: { amount: '12.00', currency: 'CAD' },
+        from: 'cash',
       },
       {
         id: coffee.id,
@@ -380,6 +541,7 @@ describe('listTransactions', () => {
         description: 'Coffee',
         amounts: [{ amount: '4.50', currency: 'CAD' }],
         simple: { amount: '4.50', currency: 'CAD' },
+        from: 'cash',
       },
     ])
   })
@@ -431,6 +593,7 @@ describe('listTransactions', () => {
         { amount: '1100.00', currency: 'JPY' },
       ],
       simple: null,
+      from: null,
     })
   })
 
@@ -451,7 +614,23 @@ describe('listTransactions', () => {
     expect(listTransactions(ledger.db)[0]).toMatchObject({
       amounts: [{ amount: '10.00', currency: 'CAD' }],
       simple: null,
+      from: null,
     })
+  })
+
+  test('a spend lists the account it came out of by name, whichever leg is first', () => {
+    const ledger = tempLedger()
+    const visa = anAccount({ path: 'liabilities:visa', kind: 'card' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const dinner = aSpend(visa.id, food.id, '30.00', {
+      postings: [
+        { accountId: visa.id, amount: '-30.00', currency: 'CAD' },
+        { accountId: food.id, amount: '30.00', currency: 'CAD' },
+      ],
+    })
+    ok(applyLocal(ledger, [visa, food, dinner], NOW))
+
+    expect(listTransactions(ledger.db)[0]?.from).toBe('visa')
   })
 
   test('a transaction that moved nothing lists with no amounts', () => {
@@ -460,7 +639,7 @@ describe('listTransactions', () => {
     const food = anAccount({ path: 'expenses:food', kind: 'category' })
     ok(applyLocal(ledger, [cash, food, aSpend(cash.id, food.id, '0.00')], NOW))
 
-    expect(listTransactions(ledger.db)[0]).toMatchObject({ amounts: [], simple: null })
+    expect(listTransactions(ledger.db)[0]).toMatchObject({ amounts: [], simple: null, from: null })
   })
 })
 

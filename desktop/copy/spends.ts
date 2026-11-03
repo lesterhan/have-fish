@@ -5,6 +5,12 @@ export const spends = {
     label: 'Write down a spend',
     amount: 'Amount',
     description: 'What for',
+    from: 'From',
+    /** The accounts the From field offers, read out. */
+    fromList: 'Your accounts',
+    /** In an empty From field before there's any account: the wallet the first spend makes. */
+    wallet: 'cash',
+    notMine: "You don't have an account called that.",
     submit: 'Write it down',
   },
   list: { label: 'Spends' },
@@ -16,6 +22,7 @@ export const spends = {
     label: 'The spend',
     description: 'What for',
     amount: 'Amount',
+    from: 'From',
     save: 'Save',
     remove: 'Remove',
     back: 'Back to the list',

@@ -41,6 +41,7 @@ describe('runCommand', () => {
     [{ amount: '4.50' }, 'description', 'invalid_type'],
     [{ amount: '4.50', description: '', date: '2026-01-01' }, 'date', 'unrecognized_keys'],
     [{ amount: '4'.repeat(65), description: '' }, 'amount', 'too_big'],
+    [{ amount: '4.50', description: '', from: 'visa' }, 'from', 'invalid_format'],
     ['4.50', '', 'invalid_type'],
     [undefined, '', 'invalid_type'],
   ])('input %j that its schema refuses never reaches the command', (input, path, issue) => {
@@ -51,6 +52,11 @@ describe('runCommand', () => {
       detail: { path, issue },
     })
     expect(ledger.db.prepare('SELECT count(*) FROM transactions').pluck().get()).toBe(0)
+  })
+
+  test('the account a spend would come out of crosses as its id', () => {
+    const { ctx, log } = setup()
+    expect(runCommand(ctx, 'spend.assumedFrom', {}, log)).toEqual({ ok: true, value: { id: null } })
   })
 
   test('an edit names its spend by a UUID, or never reaches the command', () => {
