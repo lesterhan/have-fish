@@ -95,10 +95,12 @@ export async function launch(home: string): Promise<Running> {
 
 /** Real key presses on the app's X window: xdotool, under xvfb-run. */
 function pressKeys(child: ChildProcess, keys: string): void {
-  const xdotool = (...args: string[]) => execFileSync('xdotool', args, { encoding: 'utf8' })
+  const xdotool = (...args: string[]) =>
+    execFileSync('xdotool', args, { encoding: 'utf8', timeout: 10_000 })
   let window: string | undefined
   try {
-    window = xdotool('search', '--onlyvisible', '--pid', String(child.pid)).split('\n')[0]
+    // `--sync` waits for it: the page can be ready before the window shows (see #582).
+    window = xdotool('search', '--sync', '--onlyvisible', '--pid', String(child.pid)).split('\n')[0]
   } catch (e) {
     throw new Error('pressing keys needs xdotool, and the app on an X display (xvfb-run -a)', {
       cause: e,

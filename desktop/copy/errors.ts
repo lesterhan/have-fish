@@ -23,6 +23,8 @@ const codes: { [C in FailureCode]: string } = {
   TRANSACTION_NOT_SIMPLE: "This one moves more than one amount, so it can't be changed here yet.",
 
   // An account.
+  ACCOUNT_NAME_EMPTY: 'Give it a name.',
+  ACCOUNT_NAME_TAKEN: 'You already have an account with that name.',
   ACCOUNT_CURRENCY_LOCKED: 'That account only holds one currency, and this is a different one.',
   ACCOUNT_DELETED: 'That account was removed.',
   ACCOUNT_HOLDS_OTHER_CURRENCIES:

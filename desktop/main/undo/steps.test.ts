@@ -53,14 +53,14 @@ describe('undo and redo', () => {
     const written = stored(id)
 
     later()
-    expect(ok(undoLast(ctx))).toEqual({ ids: [id] })
+    expect(ok(undoLast(ctx))).toEqual({ spends: [id], accounts: [] })
     const undone = stored(id)
     expect(undone.doc.deletedAt).not.toBeNull()
     expect(undone.doc.postings).toEqual([])
     expect(listed()).toEqual([])
 
     later()
-    expect(ok(redoLast(ctx))).toEqual({ ids: [id] })
+    expect(ok(redoLast(ctx))).toEqual({ spends: [id], accounts: [] })
     const redone = stored(id)
     expect(redone.doc).toEqual(written.doc)
     expect(newer(redone.version, undone.version)).toBe(true)
@@ -85,7 +85,7 @@ describe('undo and redo', () => {
     expect(listed()).toEqual([])
 
     later()
-    expect(ok(undoLast(ctx))).toEqual({ ids: [id] })
+    expect(ok(undoLast(ctx))).toEqual({ spends: [id], accounts: [] })
     expect(stored(id).doc).toEqual(was.doc)
     expect(newer(stored(id).version, was.version)).toBe(true)
     expect(listed()).toEqual(['Coffee'])
@@ -104,7 +104,7 @@ describe('undo and redo', () => {
     const edited = stored(id)
 
     later()
-    expect(ok(undoLast(ctx))).toEqual({ ids: [id] })
+    expect(ok(undoLast(ctx))).toEqual({ spends: [id], accounts: [] })
     const undone = stored(id)
     expect(undone.doc).toEqual(before.doc)
     expect(newer(undone.version, edited.version)).toBe(true)
@@ -192,7 +192,7 @@ describe('undo and redo', () => {
     expect(ctx.history.nextUndo()?.name).toEqual({ kind: 'saveAll', count: 2 })
 
     later()
-    expect(ok(undoLast(ctx))).toEqual({ ids: [lunch, tea] })
+    expect(ok(undoLast(ctx))).toEqual({ spends: [lunch, tea], accounts: [] })
     expect(listed()).toEqual(['Tea', 'Coffee', 'Lunch'])
   })
 
@@ -232,7 +232,7 @@ describe('undo and redo', () => {
     expect(undoLast(ctx).ok).toBe(false)
 
     later()
-    expect(ok(undoLast(ctx))).toEqual({ ids: [coffee] })
+    expect(ok(undoLast(ctx))).toEqual({ spends: [coffee], accounts: [] })
   })
 
   test('redo is refused the same way when the spend changed since', () => {
@@ -284,8 +284,8 @@ describe('undo and redo', () => {
 
   test('with nothing to undo or redo, nothing changes', () => {
     const { ctx } = setup()
-    expect(ok(undoLast(ctx))).toEqual({ ids: [] })
-    expect(ok(redoLast(ctx))).toEqual({ ids: [] })
+    expect(ok(undoLast(ctx))).toEqual({ spends: [], accounts: [] })
+    expect(ok(redoLast(ctx))).toEqual({ spends: [], accounts: [] })
   })
 
   test('undo and redo go through apply: each queues its version to send', () => {

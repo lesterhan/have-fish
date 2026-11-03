@@ -38,6 +38,10 @@ export interface FailureDetails {
   TRANSACTION_NOT_SIMPLE: { id: string }
   /** An undo or redo of a step whose document `id` has changed since. */
   CHANGED_SINCE: { id: string }
+  /** An account added with no name, or only spaces. */
+  ACCOUNT_NAME_EMPTY: undefined
+  /** An account added with the name of one I have, matched without regard to case. */
+  ACCOUNT_NAME_TAKEN: { name: string }
 }
 
 export type FailureCode = keyof FailureDetails

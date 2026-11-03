@@ -1,6 +1,7 @@
 // What the window can ask main to do: each command's name, the input its schema takes, and the
 // value it returns. Main implements them (`main/commands/`); the window imports only types.
 
+import { ADDABLE_KINDS, type AddableKind } from '@have-fish/core/account-kind'
 import type { LedgerDocument } from '@have-fish/core/documents'
 import type { Failure, FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { z } from 'zod'
@@ -17,6 +18,13 @@ export const inputs = {
   'spend.saveAll': z.strictObject({ edits: z.array(edit).min(1).max(1000) }),
   'spend.remove': z.strictObject({ id: z.uuid() }),
   'transaction.list': z.strictObject({}),
+  /** `currency` null: it can hold any. */
+  'account.add': z.strictObject({
+    name: typed(200),
+    kind: z.enum(ADDABLE_KINDS),
+    currency: typed(8).nullable(),
+  }),
+  'account.list': z.strictObject({}),
   'ledger.undo': z.strictObject({}),
   'ledger.redo': z.strictObject({}),
 }
@@ -34,6 +42,19 @@ export type ListedTransaction = {
 
 export type Money = { amount: string; currency: string }
 
+/** An account I added, as the Accounts list shows it. */
+export type ListedAccount = {
+  id: string
+  /** Its path without the root: `visa`, `wise:cad`. */
+  name: string
+  kind: AddableKind
+  /** The one currency it holds, or null for any. */
+  currency: string | null
+}
+
+/** What an undo or redo changed, so the window can select it: spends, or accounts. */
+export type Moved = { spends: string[]; accounts: string[] }
+
 export interface Values {
   'spend.write': { id: string }
   'spend.edit': { id: string }
@@ -41,9 +62,12 @@ export interface Values {
   'spend.saveAll': { id: string; refused: WireFailure | null }[]
   'spend.remove': { id: string }
   'transaction.list': ListedTransaction[]
-  /** The spends it changed, so the window can select them. Empty when there was nothing to undo. */
-  'ledger.undo': { ids: string[] }
-  'ledger.redo': { ids: string[] }
+  'account.add': { id: string }
+  /** Sorted by name, without regard to case. */
+  'account.list': ListedAccount[]
+  /** Both empty when there was nothing to undo. */
+  'ledger.undo': Moved
+  'ledger.redo': Moved
 }
 
 export type CommandName = keyof typeof inputs

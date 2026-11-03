@@ -5,6 +5,7 @@
 import type { LedgerDocument } from '@have-fish/core/documents'
 import { type Failure, failure, type Outcome } from '@have-fish/core/outcome'
 import { compareVersions, type Version } from '@have-fish/core/version'
+import type { Moved } from '../../shared/commands'
 import type { StepName } from '../../shared/steps'
 import type { Context } from '../context'
 import type { BatchOutcome } from '../ledger/apply'
@@ -62,14 +63,11 @@ export function record(ctx: Context, name: StepName, changes: Change[]): void {
   if (changes.length > 0) ctx.history.record({ name, changes })
 }
 
-/** What an undo or redo changed: the spends, so the window can select them. */
-export type Moved = { ids: string[] }
-
 /** Takes back the newest step. A step that can't be is refused whole, and leaves the history. */
 export function undoLast(ctx: Context): Outcome<Moved> {
   const { history } = ctx
   const step = history.nextUndo()
-  if (step === undefined) return { ok: true, value: { ids: [] } }
+  if (step === undefined) return { ok: true, value: NOTHING }
 
   const moved = writeBack(ctx, step, 'undo')
   if (!moved.ok) {
@@ -78,14 +76,14 @@ export function undoLast(ctx: Context): Outcome<Moved> {
   }
   history.undid()
   history.map(followed(step, 'undo', moved.value))
-  return { ok: true, value: { ids: spendsIn(step) } }
+  return { ok: true, value: movedBy(step) }
 }
 
 /** Puts back the newest step undone, under the same rules. */
 export function redoLast(ctx: Context): Outcome<Moved> {
   const { history } = ctx
   const step = history.nextRedo()
-  if (step === undefined) return { ok: true, value: { ids: [] } }
+  if (step === undefined) return { ok: true, value: NOTHING }
 
   const moved = writeBack(ctx, step, 'redo')
   if (!moved.ok) {
@@ -94,7 +92,7 @@ export function redoLast(ctx: Context): Outcome<Moved> {
   }
   history.redid()
   history.map(followed(step, 'redo', moved.value))
-  return { ok: true, value: { ids: spendsIn(step) } }
+  return { ok: true, value: movedBy(step) }
 }
 
 type Direction = 'undo' | 'redo'
@@ -174,5 +172,9 @@ function tombstoneOf(doc: LedgerDocument, now: number): LedgerDocument {
     : { ...doc, deletedAt: now }
 }
 
-const spendsIn = (step: Step) =>
-  step.changes.filter((c) => c.type === 'transaction').map((c) => c.id)
+const NOTHING: Moved = { spends: [], accounts: [] }
+
+const movedBy = (step: Step): Moved => ({
+  spends: step.changes.filter((c) => c.type === 'transaction').map((c) => c.id),
+  accounts: step.changes.filter((c) => c.type === 'account').map((c) => c.id),
+})

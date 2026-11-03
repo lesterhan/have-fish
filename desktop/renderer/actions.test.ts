@@ -8,6 +8,9 @@ describe('runAction', () => {
     undo: vi.fn(),
     redo: vi.fn(),
     remove: vi.fn(),
+    showSpends: vi.fn(),
+    showAccounts: vi.fn(),
+    addAccount: vi.fn(),
   })
 
   test("runs the action's handler", () => {

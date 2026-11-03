@@ -6,3 +6,4 @@ export type StepName =
   | { kind: 'edit'; description: string }
   | { kind: 'saveAll'; count: number }
   | { kind: 'remove'; description: string }
+  | { kind: 'addAccount'; name: string }
