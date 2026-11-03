@@ -5,7 +5,7 @@ import type { Outcome } from '@have-fish/core/outcome'
 import type { z } from 'zod'
 import type { CommandName, inputs, Values } from '../../shared/commands'
 import type { Context } from '../context'
-import { addAccount, listAccounts } from '../services/accounts'
+import { addAccount, listAccounts, startAccount } from '../services/accounts'
 import {
   assumedFrom,
   editSpend,
@@ -28,6 +28,7 @@ export const handlers: Handlers = {
   'spend.remove': removeSpend,
   'transaction.list': (ctx) => ({ ok: true, value: listTransactions(ctx.ledger.db) }),
   'account.add': addAccount,
+  'account.start': startAccount,
   'account.list': (ctx) => ({ ok: true, value: listAccounts(ctx.ledger.db) }),
   'ledger.undo': undoLast,
   'ledger.redo': redoLast,

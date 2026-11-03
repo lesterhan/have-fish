@@ -23,7 +23,8 @@ export type Change = {
   after: { doc: LedgerDocument; version: Version }
 }
 
-export type Step = { name: StepName; changes: Change[] }
+/** `shows`: where the window looks after an undo or redo, when not at what changed. */
+export type Step = { name: StepName; changes: Change[]; shows?: Moved }
 
 /**
  * `ctx.apply(docs)`, and the changes it made to `kept`: the documents the step is about. The
@@ -59,8 +60,8 @@ export function applyKeeping(
 }
 
 /** Puts `changes` on the history as one step, unless nothing changed. */
-export function record(ctx: Context, name: StepName, changes: Change[]): void {
-  if (changes.length > 0) ctx.history.record({ name, changes })
+export function record(ctx: Context, name: StepName, changes: Change[], shows?: Moved): void {
+  if (changes.length > 0) ctx.history.record(shows ? { name, changes, shows } : { name, changes })
 }
 
 /** Takes back the newest step. A step that can't be is refused whole, and leaves the history. */
@@ -174,7 +175,8 @@ function tombstoneOf(doc: LedgerDocument, now: number): LedgerDocument {
 
 const NOTHING: Moved = { spends: [], accounts: [] }
 
-const movedBy = (step: Step): Moved => ({
-  spends: step.changes.filter((c) => c.type === 'transaction').map((c) => c.id),
-  accounts: step.changes.filter((c) => c.type === 'account').map((c) => c.id),
-})
+const movedBy = (step: Step): Moved =>
+  step.shows ?? {
+    spends: step.changes.filter((c) => c.type === 'transaction').map((c) => c.id),
+    accounts: step.changes.filter((c) => c.type === 'account').map((c) => c.id),
+  }

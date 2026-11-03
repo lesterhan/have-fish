@@ -41,6 +41,15 @@ export function parse(amount: string): number | null {
   return (sign === '-' ? -cents : cents) + 0
 }
 
+// Commas between groups of three, as an amount is often typed: `1,234.56`. Never `4,50`, which
+// some write for four and a half, so a comma anywhere else stays a refusal.
+const GROUPED = /^\s*[+-]?\d{1,3}(?:,\d{3})+(?:\.\d*)?\s*$/
+
+/** An amount as a person types it: what `parse` reads, or the same with grouped thousands. */
+export function parseTyped(typed: string): number | null {
+  return parse(GROUPED.test(typed) ? typed.replaceAll(',', '') : typed)
+}
+
 /** Cents as the canonical two-place string: `-1235` is `'-12.35'`, `0` is `'0.00'`. */
 export function format(cents: number): string {
   if (!Number.isSafeInteger(cents)) throw new RangeError(`not a whole number of cents: ${cents}`)

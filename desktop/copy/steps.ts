@@ -11,6 +11,7 @@ const undo: Words = {
   saveAll: ({ count }) => (count === 1 ? 'Undo save 1 spend' : `Undo save ${count} spends`),
   remove: ({ description }) => (description ? `Undo remove ${description}` : 'Undo remove a spend'),
   addAccount: ({ name }) => `Undo add account ${name}`,
+  start: ({ name }) => `Undo starting balance of ${name}`,
 }
 
 const redo: Words = {
@@ -19,6 +20,7 @@ const redo: Words = {
   saveAll: ({ count }) => (count === 1 ? 'Redo save 1 spend' : `Redo save ${count} spends`),
   remove: ({ description }) => (description ? `Redo remove ${description}` : 'Redo remove a spend'),
   addAccount: ({ name }) => `Redo add account ${name}`,
+  start: ({ name }) => `Redo starting balance of ${name}`,
 }
 
 export const steps = { undo, redo }

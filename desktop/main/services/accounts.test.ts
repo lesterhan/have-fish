@@ -1,13 +1,14 @@
+import { calendarDateAt } from '@have-fish/core/calendar-date'
 import { describe, expect, test } from 'vitest'
 import type { Changed } from '../../shared/commands'
 import { contextFor, type Time } from '../context'
 import { applyLocal } from '../ledger/apply'
 import { anAccount, NOW, ok, tempLedger } from '../ledger/fixtures'
-import { getDocument } from '../ledger/store'
+import { getDocument, liveAccountAt } from '../ledger/store'
 import { undoItems } from '../undo/menu'
 import { redoLast, undoLast } from '../undo/steps'
-import { addAccount, listAccounts } from './accounts'
-import { writeSpend } from './spends'
+import { addAccount, listAccounts, startAccount } from './accounts'
+import { listTransactions, writeSpend } from './spends'
 
 function setup() {
   const ledger = tempLedger()
@@ -144,10 +145,10 @@ describe('listAccounts', () => {
     ok(applyLocal(ledger, [anAccount({ path: 'equity:opening', kind: 'opening' })], NOW))
 
     expect(listAccounts(ledger.db)).toEqual([
-      { id: expect.any(String), name: 'car', kind: 'loan', currency: null },
-      { id: expect.any(String), name: 'cash', kind: 'cash', currency: null },
-      { id: expect.any(String), name: 'Chequing', kind: 'bank', currency: 'CAD' },
-      { id: expect.any(String), name: 'visa', kind: 'card', currency: 'CAD' },
+      { id: expect.any(String), name: 'car', kind: 'loan', currency: null, start: null },
+      { id: expect.any(String), name: 'cash', kind: 'cash', currency: null, start: null },
+      { id: expect.any(String), name: 'Chequing', kind: 'bank', currency: 'CAD', start: null },
+      { id: expect.any(String), name: 'visa', kind: 'card', currency: 'CAD', start: null },
     ])
   })
 })
@@ -175,5 +176,216 @@ describe('undoing an account added', () => {
     addAccount(ctx, { name: '', kind: 'card', currency: 'CAD' })
 
     expect(ctx.history.nextUndo()).toBeUndefined()
+  })
+})
+
+describe('a starting balance, said when adding', () => {
+  const TODAY = calendarDateAt(NOW, 'UTC')
+
+  test('one transaction, dated today, from equity:opening into the account', () => {
+    const { ctx, ledger } = setup()
+
+    const { id } = ok(
+      addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '1,234.56' }),
+    )
+
+    const opening = liveAccountAt(ledger.db, 'equity:opening')
+    expect(opening).toBeDefined()
+    const [listed] = listTransactions(ledger.db)
+    expect(listed).toMatchObject({
+      date: TODAY,
+      description: 'Starting balance',
+      amounts: [{ amount: '1234.56', currency: 'CAD' }],
+      from: null,
+    })
+    const tx = getDocument(ledger.db, 'transaction', listed?.id ?? '')?.doc
+    expect(tx?.type === 'transaction' && tx.postings).toEqual([
+      { accountId: id, amount: '1234.56', currency: 'CAD' },
+      { accountId: opening, amount: '-1234.56', currency: 'CAD' },
+    ])
+    expect(tx?.origin.source).toBe('manual')
+    expect(listAccounts(ledger.db)[0]?.start).toEqual({
+      amount: '1234.56',
+      currency: 'CAD',
+      date: TODAY,
+    })
+  })
+
+  test('equity:opening is the app’s, made once, and never listed as mine', () => {
+    const { ctx, ledger } = setup()
+    ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '10' }))
+    ok(addAccount(ctx, { name: 'savings', kind: 'bank', currency: 'CAD', start: '20' }))
+
+    const opening = getDocument(
+      ledger.db,
+      'account',
+      liveAccountAt(ledger.db, 'equity:opening') ?? '',
+    )
+    expect(opening?.doc).toMatchObject({
+      kind: 'opening',
+      currency: null,
+      origin: { source: 'system' },
+    })
+    expect(
+      ledger.db.prepare("SELECT count(*) FROM accounts WHERE kind = 'opening'").pluck().get(),
+    ).toBe(1)
+    expect(listAccounts(ledger.db).map((a) => a.name)).toEqual(['chequing', 'savings'])
+  })
+
+  test('the account, the opening account and the balance are one batch', () => {
+    const { ctx, announced } = setup()
+
+    ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '10' }))
+
+    expect(announced).toHaveLength(1)
+    expect(announced[0]?.map((c) => c.type)).toEqual(['account', 'account', 'transaction'])
+  })
+
+  test.each(['card', 'loan'] as const)('what I owe on a %s goes on as owed', (kind) => {
+    const { ctx, ledger } = setup()
+
+    const { id } = ok(addAccount(ctx, { name: 'it', kind, currency: 'CAD', start: '500' }))
+
+    const posting = ledger.db
+      .prepare('SELECT amountCents FROM postings WHERE accountId = ?')
+      .pluck()
+      .get(id)
+    expect(posting).toBe(-50000)
+    expect(listAccounts(ledger.db)[0]?.start?.amount).toBe('500.00')
+  })
+
+  test('an overdrawn bank account starts below zero', () => {
+    const { ctx, ledger } = setup()
+
+    ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '-50' }))
+
+    expect(listAccounts(ledger.db)[0]?.start?.amount).toBe('-50.00')
+  })
+
+  test('in the account’s currency; one that holds any starts in the home currency', () => {
+    const { ctx, ledger } = setup()
+    ok(addAccount(ctx, { name: 'usd', kind: 'bank', currency: 'USD', start: '5' }))
+    ok(addAccount(ctx, { name: 'wise', kind: 'bank', currency: null, start: '5' }))
+
+    expect(listAccounts(ledger.db).map((a) => a.start?.currency)).toEqual(['USD', 'CAD'])
+  })
+
+  test.each(['', '  ', '0', '0.00'])('%j adds the account with nothing in it', (start) => {
+    const { ctx, ledger } = setup()
+
+    ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start }))
+
+    expect(listAccounts(ledger.db)[0]?.start).toBeNull()
+    expect(listTransactions(ledger.db)).toEqual([])
+    expect(liveAccountAt(ledger.db, 'equity:opening')).toBeUndefined()
+  })
+
+  test.each(['abc', '4,50', '1.2.3'])('%j is not an amount: nothing is added', (start) => {
+    const { ctx, names } = setup()
+
+    expect(
+      refusal(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start })),
+    ).toEqual({ code: 'AMOUNT_INVALID', details: { amount: start } })
+    expect(names()).toEqual([])
+    expect(ctx.history.nextUndo()).toBeUndefined()
+  })
+
+  test('undo takes back the account and its balance together; redo puts both back', () => {
+    const { ctx, ledger } = setup()
+    const { id } = ok(
+      addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '10' }),
+    )
+
+    expect(ok(undoLast(ctx))).toEqual({ spends: [], accounts: [id] })
+    expect(listAccounts(ledger.db)).toEqual([])
+    expect(listTransactions(ledger.db)).toEqual([])
+
+    expect(ok(redoLast(ctx))).toEqual({ spends: [], accounts: [id] })
+    expect(listAccounts(ledger.db)[0]?.start?.amount).toBe('10.00')
+    expect(listTransactions(ledger.db)).toHaveLength(1)
+  })
+})
+
+describe('startAccount', () => {
+  test('gives the wallet the app made a starting balance, as its own step', () => {
+    const { ctx, ledger } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const wallet = liveAccountAt(ledger.db, 'assets:cash') ?? ''
+
+    const { id } = ok(startAccount(ctx, { id: wallet, amount: '20' }))
+
+    expect(id).not.toBeNull()
+    expect(listAccounts(ledger.db)[0]?.start?.amount).toBe('20.00')
+    const typing = { undo: false, redo: false }
+    expect(undoItems(ctx.history, typing).undo.label).toBe('Undo starting balance of cash')
+    expect(ok(undoLast(ctx))).toEqual({ spends: [], accounts: [wallet] })
+    expect(listAccounts(ledger.db)[0]?.start).toBeNull()
+    expect(undoItems(ctx.history, typing).redo.label).toBe('Redo starting balance of cash')
+  })
+
+  test('one that already has one is refused', () => {
+    const { ctx } = setup()
+    const { id } = ok(
+      addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '10' }),
+    )
+
+    expect(refusal(startAccount(ctx, { id, amount: '20' }))).toEqual({
+      code: 'ACCOUNT_ALREADY_STARTED',
+      details: { accountId: id },
+    })
+  })
+
+  test('nothing typed, or zero, writes nothing', () => {
+    const { ctx, ledger } = setup()
+    const { id } = ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' }))
+    const step = ctx.history.nextUndo()
+
+    expect(ok(startAccount(ctx, { id, amount: '' }))).toEqual({ id: null })
+    expect(ok(startAccount(ctx, { id, amount: '0' }))).toEqual({ id: null })
+    expect(listTransactions(ledger.db)).toEqual([])
+    expect(ctx.history.nextUndo()).toBe(step)
+  })
+
+  test('not an amount is refused', () => {
+    const { ctx } = setup()
+    const { id } = ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' }))
+
+    expect(refusal(startAccount(ctx, { id, amount: 'lots' }))).toEqual({
+      code: 'AMOUNT_INVALID',
+      details: { amount: 'lots' },
+    })
+  })
+
+  test('a category, an account the file doesn’t hold, or one taken back, is refused', () => {
+    const { ctx, ledger } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const unsorted = liveAccountAt(ledger.db, 'expenses:unsorted') ?? ''
+    const missing = '7d1c2f3e-4a5b-4c6d-8e7f-9a0b1c2d3e4f'
+    const { id: gone } = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' }))
+    ok(undoLast(ctx))
+
+    expect(refusal(startAccount(ctx, { id: unsorted, amount: '1' }))).toEqual({
+      code: 'ACCOUNT_NOT_FOUND',
+      details: { accountId: unsorted },
+    })
+    expect(refusal(startAccount(ctx, { id: missing, amount: '1' }))).toEqual({
+      code: 'ACCOUNT_NOT_FOUND',
+      details: { accountId: missing },
+    })
+    expect(refusal(startAccount(ctx, { id: gone, amount: '1' }))).toEqual({
+      code: 'ACCOUNT_DELETED',
+      details: { accountId: gone },
+    })
+  })
+
+  test('a starting balance taken back is no start: one can be given again', () => {
+    const { ctx, ledger } = setup()
+    const { id } = ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' }))
+    ok(startAccount(ctx, { id, amount: '10' }))
+    ok(undoLast(ctx))
+
+    ok(startAccount(ctx, { id, amount: '30' }))
+
+    expect(listAccounts(ledger.db)[0]?.start?.amount).toBe('30.00')
   })
 })

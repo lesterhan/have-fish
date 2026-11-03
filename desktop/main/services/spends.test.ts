@@ -129,6 +129,14 @@ describe('writeSpend', () => {
     expect(spend.description).toBe('Coffee')
   })
 
+  test('thousands typed with commas read as one amount', () => {
+    const { ledger, ctx } = setup()
+
+    const { id } = ok(writeSpend(ctx, { amount: '1,234.50', description: 'Rent' }))
+
+    expect(spendOf(ledger, id).postings.map((p) => p.amount)).toEqual(['1234.50', '-1234.50'])
+  })
+
   test('no description is fine', () => {
     const { ledger, ctx } = setup()
     const { id } = ok(writeSpend(ctx, { amount: '4.50', description: '' }))

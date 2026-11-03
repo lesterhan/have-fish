@@ -85,11 +85,13 @@
       name: fields.name,
       kind: fields.kind,
       currency: lockOf(fields.currency),
+      start: fields.start,
     })
     saving = false
     if (!added.ok) {
       error = { field: accountFieldOf(added), words: wordsFor(added) }
       if (error.field === 'name') pane.focusName()
+      if (error.field === 'start') void pane.focusStart()
       return
     }
     adding = false
@@ -98,6 +100,24 @@
     forgetTyping()
     await refresh()
     selectedId = added.value.id
+    list.focus()
+  }
+
+  /** A starting balance for the account showing. */
+  async function start(amount: string) {
+    const id = selectedId
+    if (saving || id === null) return
+    saving = true
+    const started = await window.haveFish.invoke('account.start', { id, amount })
+    saving = false
+    if (!started.ok) {
+      error = { field: accountFieldOf(started), words: wordsFor(started) }
+      if (error.field === 'start') void pane.focusStart()
+      return
+    }
+    error = null
+    forgetTyping()
+    await refresh()
     list.focus()
   }
 
@@ -153,6 +173,7 @@
     {error}
     {open}
     onadd={(fields) => void add(fields)}
+    onstart={(amount) => void start(amount)}
     oncancel={() => void cancel()}
     onback={closePane}
   />
