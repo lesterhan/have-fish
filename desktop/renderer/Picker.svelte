@@ -1,11 +1,11 @@
 <script lang="ts">
-  import { matching, named, type Option, stepped } from './picker'
+  import { named, type Offer, type Option, offered, stepped } from './picker'
 
   type Props = {
     /** The field's id, for its label; the list's is built from it. */
     id: string
     name: string
-    options: (Option & { hint: string })[]
+    options: (Option & { hint?: string })[]
     /** What the field shows. */
     text: string
     placeholder: string
@@ -13,8 +13,10 @@
     listLabel: string
     invalid: boolean
     describedby: string | undefined
-    /** I typed, or picked: the field holds my choice now. */
-    onchoose: () => void
+    /** I typed, or picked: the field holds my choice now, which is `text`. */
+    onchoose: (text: string) => void
+    /** Given, a name none of mine has is offered as a new one, in these words. */
+    newOption?: ((name: string) => string) | undefined
   }
   let {
     id,
@@ -26,6 +28,7 @@
     invalid,
     describedby,
     onchoose,
+    newOption,
   }: Props = $props()
 
   let input: HTMLInputElement
@@ -37,7 +40,10 @@
   let kept = ''
 
   const listId = $derived(`${id}-options`)
-  const shown = $derived(open ? matching(options, filter) : [])
+  const shown = $derived(open ? offered(options, filter, newOption !== undefined) : [])
+  const nameOf = (offer: Offer<Option>) => (offer.kind === 'mine' ? offer.option.name : offer.name)
+  const keyOf = (offer: Offer<Option>) =>
+    offer.kind === 'mine' ? offer.option.id : `new:${offer.name}`
   const optionId = (i: number) => `${id}-option-${i}`
 
   export function focus() {
@@ -49,14 +55,14 @@
     active = 0
     // Emptied, Enter sends the form: nothing typed is nothing to pick from. Down still lists all.
     open = text.trim() !== ''
-    onchoose()
+    onchoose(text)
   }
 
-  function pick(option: Option) {
-    text = option.name
+  function pick(offer: Offer<Option>) {
+    text = nameOf(offer)
     kept = text
     open = false
-    onchoose()
+    onchoose(text)
   }
 
   function onkeydown(event: KeyboardEvent) {
@@ -86,6 +92,7 @@
       event.stopPropagation()
       text = kept
       open = false
+      onchoose(text)
     }
   }
 
@@ -117,19 +124,24 @@
     {onkeydown}
   />
   <ul id={listId} role="listbox" aria-label={listLabel} hidden={shown.length === 0}>
-    {#each shown as option, i (option.id)}
+    {#each shown as offer, i (keyOf(offer))}
       <!-- Picked on mousedown, before the field loses the cursor and closes the list. -->
       <li
         id={optionId(i)}
         role="option"
         aria-selected={i === active}
+        class:new={offer.kind === 'new'}
         onmousedown={(e) => {
           e.preventDefault()
-          pick(option)
+          pick(offer)
         }}
       >
-        <span>{option.name}</span>
-        <span class="hint">{option.hint}</span>
+        {#if offer.kind === 'mine'}
+          <span>{offer.option.name}</span>
+          <span class="hint">{(offer.option as Option & { hint?: string }).hint ?? ''}</span>
+        {:else}
+          <span>{newOption?.(offer.name)}</span>
+        {/if}
       </li>
     {/each}
   </ul>
@@ -188,5 +200,9 @@
   .hint {
     font-size: var(--font-size-small);
     color: var(--color-muted);
+  }
+
+  .new {
+    font-style: italic;
   }
 </style>

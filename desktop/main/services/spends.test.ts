@@ -9,8 +9,9 @@ import type { Ledger } from '../db/ledger'
 import { applyLocal } from '../ledger/apply'
 import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/fixtures'
 import { getDocument } from '../ledger/store'
-import { undoLast } from '../undo/steps'
+import { redoLast, undoLast } from '../undo/steps'
 import { addAccount, listAccounts } from './accounts'
+import { listCategories } from './categories'
 import { assumedFrom, editSpend, listTransactions, removeSpend, writeSpend } from './spends'
 
 // 03:00 on the 30th in UTC, still the evening of the 29th in Vancouver.
@@ -542,6 +543,7 @@ describe('listTransactions', () => {
         amounts: [{ amount: '12.00', currency: 'CAD' }],
         simple: { amount: '12.00', currency: 'CAD' },
         from: 'cash',
+        category: 'unsorted',
       },
       {
         id: coffee.id,
@@ -550,6 +552,7 @@ describe('listTransactions', () => {
         amounts: [{ amount: '4.50', currency: 'CAD' }],
         simple: { amount: '4.50', currency: 'CAD' },
         from: 'cash',
+        category: 'unsorted',
       },
     ])
   })
@@ -701,5 +704,158 @@ describe('removeSpend', () => {
       failure: { code: 'TRANSACTION_NOT_FOUND', details: { id: missing } },
     })
     expect(ctx.history.nextUndo()?.name.kind).toBe('remove')
+  })
+})
+
+describe('a spend’s category', () => {
+  test('one I have never used is made, as mine, in the same batch as the spend', () => {
+    const { ledger, ctx, announced } = setup()
+
+    const { id } = ok(writeSpend(ctx, { amount: '12', description: 'Lunch', category: 'food' }))
+
+    const food = accountAt(ledger, 'expenses:food')
+    expect(food).toMatchObject({ kind: 'category', currency: null, origin: { source: 'manual' } })
+    expect(spendOf(ledger, id).postings[0]?.accountId).toBe(food.id)
+    expect(listTransactions(ledger.db)[0]?.category).toBe('food')
+    expect(announced.at(-1)?.map((c) => c.type)).toEqual(['account', 'account', 'transaction'])
+  })
+
+  test('one I have used is used again, whatever its case', () => {
+    const { ledger, ctx } = setup()
+    ok(writeSpend(ctx, { amount: '12', description: 'Lunch', category: 'food' }))
+
+    const { id } = ok(writeSpend(ctx, { amount: '3', description: 'Tea', category: ' FOOD ' }))
+
+    expect(spendOf(ledger, id).postings[0]?.accountId).toBe(accountAt(ledger, 'expenses:food').id)
+    expect(count(ledger, "accounts WHERE kind = 'category'")).toBe(1)
+  })
+
+  test('a colon nests it, as I typed it', () => {
+    const { ledger, ctx } = setup()
+
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee', category: 'food:coffee' }))
+
+    expect(accountAt(ledger, 'expenses:food:coffee').kind).toBe('category')
+    expect(listTransactions(ledger.db)[0]?.category).toBe('food:coffee')
+  })
+
+  test('none is unsorted', () => {
+    const { ledger, ctx } = setup()
+
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee', category: '  ' }))
+
+    expect(listTransactions(ledger.db)[0]?.category).toBe('unsorted')
+  })
+
+  test('a name with an empty part is refused by the ledger, and nothing is made', () => {
+    const { ledger, ctx } = setup()
+
+    expect(writeSpend(ctx, { amount: '1', description: 'x', category: 'food::x' })).toEqual({
+      ok: false,
+      failure: { code: 'PATH_INVALID', details: { path: 'expenses:food::x' } },
+    })
+    expect(count(ledger, 'accounts')).toBe(0)
+  })
+
+  test('undo takes the spend back and leaves the category, which then isn’t offered', () => {
+    const { ledger, ctx } = setup()
+    ok(writeSpend(ctx, { amount: '12', description: 'Lunch', category: 'food' }))
+
+    ok(undoLast(ctx))
+
+    expect(accountAt(ledger, 'expenses:food').deletedAt).toBeNull()
+    expect(listCategories(ledger.db)).toEqual([])
+  })
+})
+
+describe('changing a spend’s category', () => {
+  test('moves it, to a new one or one I have', () => {
+    const { ledger, ctx } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '12', description: 'Lunch' }))
+
+    ok(editSpend(ctx, { id, amount: '12', description: 'Lunch', category: 'food' }))
+
+    const food = accountAt(ledger, 'expenses:food')
+    expect(spendOf(ledger, id).postings).toEqual([
+      { accountId: food.id, amount: '12.00', currency: 'CAD' },
+      { accountId: accountAt(ledger, 'assets:cash').id, amount: '-12.00', currency: 'CAD' },
+    ])
+    expect(listTransactions(ledger.db)[0]?.category).toBe('food')
+  })
+
+  test('undo puts it back where it was; redo moves it again', () => {
+    const { ledger, ctx } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '12', description: 'Lunch', category: 'food' }))
+    ok(editSpend(ctx, { id, amount: '12', description: 'Lunch', category: 'fun' }))
+
+    ok(undoLast(ctx))
+    expect(listTransactions(ledger.db)[0]?.category).toBe('food')
+    ok(redoLast(ctx))
+    expect(listTransactions(ledger.db)[0]?.category).toBe('fun')
+  })
+
+  test('the same category, by another case, writes nothing', () => {
+    const { ctx } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '12', description: 'Lunch', category: 'food' }))
+    const step = ctx.history.nextUndo()
+
+    ok(editSpend(ctx, { id, amount: '12', description: 'Lunch', category: 'Food' }))
+
+    expect(ctx.history.nextUndo()).toBe(step)
+  })
+
+  test('left out, it stays as it was', () => {
+    const { ledger, ctx } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '12', description: 'Lunch', category: 'food' }))
+
+    ok(editSpend(ctx, { id, amount: '13', description: 'Lunch' }))
+
+    expect(listTransactions(ledger.db)[0]).toMatchObject({
+      category: 'food',
+      simple: { amount: '13.00' },
+    })
+  })
+
+  test('a starting balance has no category to change: its accounts stay', () => {
+    const { ledger, ctx } = setup()
+    const { id: bank } = ok(
+      addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '100' }),
+    )
+    const [start] = listTransactions(ledger.db)
+    expect(start?.category).toBeNull()
+
+    ok(editSpend(ctx, { id: start?.id ?? '', amount: '120', description: 'x', category: 'food' }))
+
+    expect(spendOf(ledger, start?.id ?? '').postings[0]).toEqual({
+      accountId: bank,
+      amount: '120.00',
+      currency: 'CAD',
+    })
+    expect(count(ledger, "accounts WHERE path = 'expenses:food'")).toBe(0)
+  })
+})
+
+describe('listCategories', () => {
+  test('the ones in use, most used first, then by name; never unsorted', () => {
+    const { ledger, ctx } = setup()
+    for (const category of ['fun', 'Food', 'food', 'travel', '', 'transport', 'transport']) {
+      ok(writeSpend(ctx, { amount: '1', description: 'x', category }))
+    }
+
+    expect(listCategories(ledger.db).map(({ name, uses }) => [name, uses])).toEqual([
+      ['Food', 2],
+      ['transport', 2],
+      ['fun', 1],
+      ['travel', 1],
+    ])
+  })
+
+  test('a removed spend no longer counts', () => {
+    const { ledger, ctx } = setup()
+    const { id } = ok(writeSpend(ctx, { amount: '1', description: 'x', category: 'food' }))
+
+    ok(removeSpend(ctx, { id }))
+
+    expect(listCategories(ledger.db)).toEqual([])
   })
 })

@@ -23,6 +23,24 @@ export const matching = <O extends Option>(options: readonly O[], typed: string)
 export const named = <O extends Option>(options: readonly O[], typed: string): O | undefined =>
   options.find((o) => o.name.toLowerCase() === typed.trim().toLowerCase())
 
+/** What the list shows: an option of mine, or a new one made from what I typed. */
+export type Offer<O extends Option> = { kind: 'mine'; option: O } | { kind: 'new'; name: string }
+
+/**
+ * The options what I typed finds, and, where new ones can be made, the name typed as a new one
+ * last, unless it names one I have already.
+ */
+export function offered<O extends Option>(
+  options: readonly O[],
+  typed: string,
+  makesNew: boolean,
+): Offer<O>[] {
+  const mine = matching(options, typed).map((option) => ({ kind: 'mine' as const, option }))
+  const name = typed.trim()
+  if (!makesNew || name === '' || named(options, name) !== undefined) return mine
+  return [...mine, { kind: 'new', name }]
+}
+
 /** Where the arrow keys take the active option, wrapping at the ends; undefined for other keys. */
 export function stepped(active: number, key: string, count: number): number | undefined {
   if (count === 0) return undefined

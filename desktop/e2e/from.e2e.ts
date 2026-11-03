@@ -24,12 +24,13 @@ async function addAccount(page: Page, name: string, kind: string, currency?: str
   await page.click(`${NAV} button:has-text("Spends")`)
 }
 
-/** Amount, Tab, what for, Tab: the cursor in From, emptied. */
+/** Amount, Tab, what for, Tab past Category, Tab: the cursor in From, emptied. */
 async function upToFrom(page: Page, amount: string, description: string) {
   await page.locator(AMOUNT).focus()
   await page.keyboard.type(amount)
   await page.keyboard.press('Tab')
   await page.keyboard.type(description)
+  await page.keyboard.press('Tab')
   await page.keyboard.press('Tab')
   await page.keyboard.press('ControlOrMeta+A')
   await page.keyboard.press('Backspace')

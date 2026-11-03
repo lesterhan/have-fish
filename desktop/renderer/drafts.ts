@@ -1,11 +1,11 @@
 // Unsaved changes to spends, kept in the window until they're saved or put back. Each change
 // returns a new map, so Svelte sees it.
 
-import type { ListedTransaction } from '../shared/commands'
+import type { InputOf, ListedTransaction } from '../shared/commands'
 import type { Field } from './refusals'
 
-/** What the pane edits. */
-export type Values = { description: string; amount: string }
+/** What the pane edits. `category` is null for a transaction with none to change, like a starting balance. */
+export type Values = { description: string; amount: string; category: string | null }
 
 /** One spend's unsaved values, and why its last save was refused, if it was. */
 export type Draft = Values & { error: { field: Field; words: string } | null }
@@ -15,7 +15,9 @@ export type Drafts = ReadonlyMap<string, Draft>
 
 /** The saved values the pane starts from, or null for a transaction it can't edit. */
 export function savedValues(t: ListedTransaction): Values | null {
-  return t.simple === null ? null : { description: t.description, amount: t.simple.amount }
+  return t.simple === null
+    ? null
+    : { description: t.description, amount: t.simple.amount, category: t.category }
 }
 
 /** After typing `value` into `field`. Typed back to what's saved, the draft goes. */
@@ -58,8 +60,23 @@ export function toSend(drafts: Drafts, ids: Iterable<string>): Sending[] {
     const draft = drafts.get(id)
     return draft === undefined
       ? []
-      : [{ id, sent: { description: draft.description, amount: draft.amount } }]
+      : [
+          {
+            id,
+            sent: {
+              description: draft.description,
+              amount: draft.amount,
+              category: draft.category,
+            },
+          },
+        ]
   })
+}
+
+/** A draft as `spend.edit` takes it: a category only where there is one to change. */
+export function editOf({ id, sent }: Sending): InputOf<'spend.edit'> {
+  const { description, amount, category } = sent
+  return category === null ? { id, description, amount } : { id, description, amount, category }
 }
 
 /** After several saves came back, each one saved (`error: null`) or refused. */
@@ -75,4 +92,4 @@ export function afterSaves(
 }
 
 const sameValues = (a: Values, b: Values) =>
-  a.description === b.description && a.amount === b.amount
+  a.description === b.description && a.amount === b.amount && a.category === b.category

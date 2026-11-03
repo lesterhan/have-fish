@@ -2,7 +2,7 @@
 
 import { randomUUID } from 'node:crypto'
 import { type AccountKind, isAddable } from '@have-fish/core/account-kind'
-import { nameOf } from '@have-fish/core/account-path'
+import { nameOf, pathFor } from '@have-fish/core/account-path'
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
@@ -25,12 +25,12 @@ import { getDocument, liveAccountAt } from '../ledger/store'
 import { applyKeeping, type Change, record } from '../undo/steps'
 import { accountFor, idOf } from './applied'
 
-/** Where a spend comes from before any account is chosen, and where it goes, for now. */
+/** Where a spend comes from before any account is chosen, and goes when it has no category. */
 const WALLET = { path: 'assets:cash', kind: 'cash' } as const
 const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
 
 /**
- * A spend from the account that paid to unsorted, dated today, in one batch with any account it
+ * A spend from the account that paid to its category, dated today, in one batch with any account it
  * needs. An account kept to one currency pays in that currency; any other, in the home currency.
  */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
@@ -42,7 +42,7 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   const made = { createdAt: now, deviceId: ctx.ledger.meta.deviceId }
   const from = paidFrom(ctx, input.from ?? null, made)
   if (!from.ok) return from
-  const to = accountFor(ctx.ledger.db, UNSORTED, made)
+  const to = categoryFor(ctx.ledger.db, input.category ?? '', made)
   const currency = from.value.currency ?? HOME_CURRENCY
   const spend: TransactionDoc = {
     type: 'transaction',
@@ -153,23 +153,65 @@ function edit(
   const simple = simpleAmountOf(doc.postings.map((p) => ({ ...p, cents: toCents(p.amount) })))
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
 
+  const now = ctx.now()
+  const db = ctx.ledger.db
+  const into = doc.postings.find((p) => toCents(p.amount) > 0)?.accountId
+  // Only a spend into a category changes category: a starting balance goes into an account.
+  const recategorised =
+    input.category !== undefined && into !== undefined && isCategory(db, into)
+      ? categoryFor(db, input.category, { createdAt: now, deviceId: ctx.ledger.meta.deviceId })
+      : { id: into, made: [] }
+
   const description = input.description.trim()
   // An unchanged save writes no version, so sync has nothing to send, and undo nothing to take back.
-  if (cents === simple.cents && description === doc.description) {
+  if (cents === simple.cents && description === doc.description && recategorised.id === into) {
     return { edited: { ok: true, value: { id } }, changes: [] }
   }
 
   const edited: TransactionDoc = {
     ...doc,
     description,
-    postings: doc.postings.map((p) => ({
-      ...p,
-      amount: format(toCents(p.amount) > 0 ? cents : -cents),
-    })),
+    postings: doc.postings.map((p) => {
+      const positive = toCents(p.amount) > 0
+      return {
+        ...p,
+        accountId: positive && recategorised.id !== undefined ? recategorised.id : p.accountId,
+        amount: format(positive ? cents : -cents),
+      }
+    }),
   }
-  const { applied, changes } = applyKeeping(ctx, [edited], ctx.now(), [edited])
+  const { applied, changes } = applyKeeping(ctx, [...recategorised.made, edited], now, [edited])
   return { edited: idOf(applied, id), changes }
 }
+
+/**
+ * The category named, as typed: the one at `expenses:<name>`, whatever its case, or a new one in
+ * the same batch, mine since I named it. Nothing typed is unsorted, which the app makes.
+ */
+function categoryFor(
+  db: Database.Database,
+  typed: string,
+  made: { createdAt: number; deviceId: string },
+): { id: string; made: AccountDoc[] } {
+  const name = typed.trim()
+  if (name === '') return accountFor(db, UNSORTED, made)
+  const path = pathFor('category', name)
+  const id = liveAccountAt(db, path)
+  if (id !== undefined) return { id, made: [] }
+  const account: AccountDoc = {
+    type: 'account',
+    id: randomUUID(),
+    path,
+    kind: 'category',
+    currency: null,
+    deletedAt: null,
+    origin: { source: 'manual', ...made },
+  }
+  return { id: account.id, made: [account] }
+}
+
+const isCategory = (db: Database.Database, id: string) =>
+  getDocument(db, 'account', id)?.doc.kind === 'category'
 
 /** A tombstone in place of the spend, so it counts nowhere; undo writes it back as it was. */
 export function removeSpend(ctx: Context, input: InputOf<'spend.remove'>): Outcome<{ id: string }> {
@@ -243,6 +285,7 @@ export function listTransactions(db: Database.Database): ListedTransaction[] {
   return grouped.map(({ row: { id, date, description }, legs, paths }) => {
     const simple = simpleAmountOf(legs)
     const from = simple && paths[legs.findIndex((l) => l.cents < 0)]
+    const to = simple && paths[legs.findIndex((l) => l.cents > 0)]
     return {
       id,
       date,
@@ -251,6 +294,7 @@ export function listTransactions(db: Database.Database): ListedTransaction[] {
       simple: simple && { amount: format(simple.cents), currency: simple.currency },
       // Only an account that can pay: a starting balance comes from `equity:opening`, not from it.
       from: from && isAddable(from.kind) ? nameOf(from.path) : null,
+      category: to && to.kind === 'category' ? nameOf(to.path) : null,
     }
   })
 }

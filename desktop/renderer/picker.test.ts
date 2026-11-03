@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { finds, fromOf, matching, named, stepped } from './picker'
+import { finds, fromOf, matching, named, offered, stepped } from './picker'
 
 const cash = { id: 'c', name: 'cash' }
 const chequing = { id: 'q', name: 'Chequing' }
@@ -36,6 +36,25 @@ describe('matching', () => {
 
   test('nothing typed finds them all', () => {
     expect(matching(MINE, '  ')).toEqual(MINE)
+  })
+})
+
+describe('offered', () => {
+  test('mine first, then what I typed as a new one', () => {
+    expect(offered(MINE, 'ca', true)).toEqual([
+      { kind: 'mine', option: cash },
+      { kind: 'mine', option: wise },
+      { kind: 'new', name: 'ca' },
+    ])
+  })
+
+  test('never a new one with the name of one I have, or with nothing typed', () => {
+    expect(offered(MINE, ' Visa ', true)).toEqual([{ kind: 'mine', option: visa }])
+    expect(offered(MINE, ' ', true)).toHaveLength(MINE.length)
+  })
+
+  test('nothing new where new ones aren’t made', () => {
+    expect(offered(MINE, 'amex', false)).toEqual([])
   })
 })
 

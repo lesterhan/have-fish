@@ -1,10 +1,16 @@
 <script lang="ts">
   import { onMount, tick } from 'svelte'
   import { copy } from '../copy'
-  import type { ListedAccount, ListedTransaction, WireFailure } from '../shared/commands'
+  import type {
+    ListedAccount,
+    ListedCategory,
+    ListedTransaction,
+    WireFailure,
+  } from '../shared/commands'
   import {
     afterSaves,
     type Drafts,
+    editOf,
     type Sending,
     savedValues,
     toSend,
@@ -15,7 +21,7 @@
   import { NARROW } from './narrow'
   import Picker from './Picker.svelte'
   import { fromOf } from './picker'
-  import { type Field, fieldOf, wordsFor } from './refusals'
+  import { type Field, fieldOf, spendWordsFor, wordsFor } from './refusals'
   import { afterRemoving, kept } from './selection'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import SpendList from './SpendList.svelte'
@@ -42,6 +48,11 @@
   let fromChosen = false
   let fromPicker: Picker
 
+  /** The categories in use, most used first; what Category holds as typed. */
+  let categories = $state.raw<ListedCategory[]>([])
+  let category = $state('')
+  let categoryPicker: Picker
+
   const assumedName = $derived(payers.find((a) => a.id === assumed)?.name)
   const fromOptions = $derived(
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
@@ -60,11 +71,14 @@
 
   // Drafts are left alone: a draft is the window's until it is saved or put back.
   async function refresh() {
-    const [listed, accounts, from] = await Promise.all([
+    const [listed, accounts, from, used] = await Promise.all([
       window.haveFish.invoke('transaction.list', {}),
       window.haveFish.invoke('account.list', {}),
       window.haveFish.invoke('spend.assumedFrom', {}),
+      window.haveFish.invoke('category.list', {}),
     ])
+    if (used.ok) categories = used.value
+    else error = { field: 'form', words: wordsFor(used) }
     if (listed.ok) {
       transactions = listed.value
       selectedId = kept(transactions, selectedId)
@@ -121,11 +135,17 @@
       return
     }
     saving = true
-    const written = await window.haveFish.invoke('spend.write', { amount, description, from })
+    const written = await window.haveFish.invoke('spend.write', {
+      amount,
+      description,
+      category,
+      from,
+    })
     saving = false
     if (written.ok) {
       amount = ''
       description = ''
+      category = ''
       error = null
       // From stays on the account that paid: it's the one used last now.
       fromChosen = false
@@ -133,9 +153,10 @@
       await refresh()
       selectedId = written.value.id
     } else {
-      error = { field: fieldOf(written), words: wordsFor(written) }
+      error = { field: fieldOf(written), words: spendWordsFor(written) }
     }
     if (error?.field === 'from') fromPicker.focus()
+    else if (error?.field === 'category') categoryPicker.focus()
     else amountInput.focus()
   }
 
@@ -165,13 +186,13 @@
   }
 
   const refusedFor = (refused: WireFailure | null) =>
-    refused && { field: fieldOf(refused), words: wordsFor(refused) }
+    refused && { field: fieldOf(refused), words: spendWordsFor(refused) }
 
   /** The pane's Save: the spend showing, as its own step. */
   async function sentOne(sending: Sending[]) {
     return Promise.all(
       sending.map(async (s) => {
-        const saved = await window.haveFish.invoke('spend.edit', { id: s.id, ...s.sent })
+        const saved = await window.haveFish.invoke('spend.edit', editOf(s))
         return { ...s, error: refusedFor(saved.ok ? null : saved) }
       }),
     )
@@ -179,7 +200,7 @@
 
   /** Ctrl+S's drafts go as one command, so undo takes them back as one step. */
   async function sentAll(sending: Sending[]) {
-    const edits = sending.map(({ id, sent }) => ({ id, ...sent }))
+    const edits = sending.map(editOf)
     const saved = await window.haveFish.invoke('spend.saveAll', { edits })
     if (!saved.ok) return sending.map((s) => ({ ...s, error: refusedFor(saved) }))
     return sending.map((s, i) => ({ ...s, error: refusedFor(saved.value[i]?.refused ?? null) }))
@@ -273,6 +294,26 @@
     {/if}
 
     <span class="field">
+      <label for="write-category">{copy.spends.write.category}</label>
+      <Picker
+        bind:this={categoryPicker}
+        id="write-category"
+        name="category"
+        options={categories}
+        bind:text={category}
+        placeholder={copy.spends.write.unsorted}
+        listLabel={copy.spends.write.categoryList}
+        invalid={error?.field === 'category'}
+        describedby={error?.field === 'category' ? 'category-error' : undefined}
+        onchoose={() => {}}
+        newOption={copy.spends.write.newCategory}
+      />
+    </span>
+    {#if error?.field === 'category'}
+      <p class="error" id="category-error" role="alert">{error.words}</p>
+    {/if}
+
+    <span class="field">
       <label for="write-from">{copy.spends.write.from}</label>
       <Picker
         bind:this={fromPicker}
@@ -311,6 +352,7 @@
     bind:this={pane}
     transaction={selected}
     draft={selected && drafts.get(selected.id)}
+    {categories}
     saving={savingDraft}
     {open}
     onedit={edit}

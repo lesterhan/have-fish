@@ -2,7 +2,7 @@ import type { FailureCode, FailureDetails } from '@have-fish/core/outcome'
 import { describe, expect, test } from 'vitest'
 import { copy } from '../copy'
 import type { WireFailure } from '../shared/commands'
-import { fieldOf, wordsFor } from './refusals'
+import { fieldOf, spendWordsFor, wordsFor } from './refusals'
 
 const refused = <C extends FailureCode>(error: C, detail: FailureDetails[C]) =>
   ({ ok: false, error, detail }) as WireFailure
@@ -26,6 +26,16 @@ describe('fieldOf', () => {
   test('anything else is the whole form’s', () => {
     expect(fieldOf(refused('UNEXPECTED', undefined))).toBe('form')
     expect(fieldOf(refused('INPUT_MALFORMED', { path: '', issue: 'invalid_type' }))).toBe('form')
+  })
+
+  test('a category that can’t be a name is the Category field’s, and says so as a category', () => {
+    const bad = refused('PATH_INVALID', { path: 'expenses:a::b' })
+    expect(fieldOf(bad)).toBe('category')
+    expect(spendWordsFor(bad)).toBe("That isn't a name a category can have.")
+    expect(wordsFor(bad)).toBe("That isn't a name an account can have.")
+    expect(spendWordsFor(refused('AMOUNT_INVALID', { amount: 'x' }))).toBe(
+      wordsFor(refused('AMOUNT_INVALID', { amount: 'x' })),
+    )
   })
 
   test('an account that can’t pay is the From field’s', () => {

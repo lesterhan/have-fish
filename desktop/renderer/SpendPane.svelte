@@ -1,14 +1,17 @@
 <script lang="ts">
   import { copy } from '../copy'
-  import type { ListedTransaction } from '../shared/commands'
+  import type { ListedCategory, ListedTransaction } from '../shared/commands'
   import { type Draft, savedValues, type Values } from './drafts'
   import { amountsText } from './format'
+  import Picker from './Picker.svelte'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import Unsaved from './Unsaved.svelte'
 
   type Props = {
     transaction: ListedTransaction | undefined
     draft: Draft | undefined
+    /** What its Category offers. */
+    categories: ListedCategory[]
     saving: boolean
     /** In a narrow window, whether the pane is over the list. */
     open: boolean
@@ -19,8 +22,18 @@
     /** No "are you sure?": Undo takes it back. */
     onremove: () => void
   }
-  let { transaction, draft, saving, open, onedit, onrevert, onsave, onback, onremove }: Props =
-    $props()
+  let {
+    transaction,
+    draft,
+    categories,
+    saving,
+    open,
+    onedit,
+    onrevert,
+    onsave,
+    onback,
+    onremove,
+  }: Props = $props()
 
   let first: HTMLInputElement | undefined = $state()
 
@@ -99,6 +112,27 @@
         </label>
         {#if error?.field === 'amount'}
           <p class="error" id="pane-amount-error" role="alert">{error.words}</p>
+        {/if}
+
+        {#if values.category !== null}
+          <span class="field">
+            <label for="pane-category">{copy.spends.pane.category}</label>
+            <Picker
+              id="pane-category"
+              name="category"
+              options={categories}
+              text={values.category}
+              placeholder={copy.spends.write.unsorted}
+              listLabel={copy.spends.write.categoryList}
+              invalid={error?.field === 'category'}
+              describedby={error?.field === 'category' ? 'pane-category-error' : undefined}
+              onchoose={(text) => onedit('category', text)}
+              newOption={copy.spends.write.newCategory}
+            />
+          </span>
+          {#if error?.field === 'category'}
+            <p class="error" id="pane-category-error" role="alert">{error.words}</p>
+          {/if}
         {/if}
 
         <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
@@ -222,9 +256,15 @@
     gap: var(--space-1);
   }
 
-  label > span:first-child {
+  label > span:first-child,
+  .field > label {
     font-size: var(--font-size-small);
     color: var(--color-muted);
+  }
+
+  .field {
+    display: grid;
+    gap: var(--space-1);
   }
 
   .money {
