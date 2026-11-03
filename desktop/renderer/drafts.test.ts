@@ -4,6 +4,7 @@ import {
   afterSave,
   afterSaves,
   type Drafts,
+  editOf,
   savedValues,
   toSend,
   withEdit,
@@ -11,7 +12,7 @@ import {
   without,
 } from './drafts'
 
-const COFFEE = { description: 'Coffee', amount: '4.50' }
+const COFFEE = { description: 'Coffee', amount: '4.50', category: 'unsorted' }
 const none: Drafts = new Map()
 
 const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => ({
@@ -21,6 +22,7 @@ const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => (
   amounts: [{ amount: '4.50', currency: 'CAD' }],
   simple: { amount: '4.50', currency: 'CAD' },
   from: 'cash',
+  category: 'unsorted',
   ...fields,
 })
 
@@ -37,13 +39,14 @@ describe('savedValues', () => {
 describe('withEdit', () => {
   test('the first change makes a draft from the saved values', () => {
     expect(withEdit(none, 'a', COFFEE, 'amount', '5')).toEqual(
-      new Map([['a', { description: 'Coffee', amount: '5', error: null }]]),
+      new Map([['a', { ...COFFEE, amount: '5', error: null }]]),
     )
   })
 
   test('later changes keep the earlier ones', () => {
     const drafts = withEdit(none, 'a', COFFEE, 'amount', '5')
     expect(withEdit(drafts, 'a', COFFEE, 'description', 'Tea').get('a')).toEqual({
+      ...COFFEE,
       description: 'Tea',
       amount: '5',
       error: null,
@@ -78,7 +81,7 @@ describe('withError', () => {
   test('marks the draft with why its save was refused', () => {
     const drafts = withEdit(none, 'a', COFFEE, 'amount', 'abc')
     expect(withError(drafts, 'a', { field: 'amount', words: 'No' }).get('a')).toEqual({
-      description: 'Coffee',
+      ...COFFEE,
       amount: 'abc',
       error: { field: 'amount', words: 'No' },
     })
@@ -99,12 +102,43 @@ describe('without', () => {
 describe('afterSave', () => {
   test('the saved draft goes', () => {
     const drafts = withEdit(none, 'a', COFFEE, 'amount', '5')
-    expect(afterSave(drafts, 'a', { description: 'Coffee', amount: '5' })).toEqual(none)
+    expect(afterSave(drafts, 'a', { ...COFFEE, amount: '5' })).toEqual(none)
   })
 
   test('a draft changed while the save was on its way stays', () => {
     const drafts = withEdit(none, 'a', COFFEE, 'amount', '55')
-    expect(afterSave(drafts, 'a', { description: 'Coffee', amount: '5' })).toBe(drafts)
+    expect(afterSave(drafts, 'a', { ...COFFEE, amount: '5' })).toBe(drafts)
+  })
+})
+
+describe('a category', () => {
+  test('changed, makes a draft; typed back, the draft goes', () => {
+    const drafts = withEdit(none, 'a', COFFEE, 'category', 'food')
+    expect(drafts.get('a')?.category).toBe('food')
+    expect(withEdit(drafts, 'a', COFFEE, 'category', 'unsorted')).toEqual(none)
+  })
+
+  test('none to change, for a starting balance', () => {
+    expect(savedValues(listed({ category: null }))?.category).toBeNull()
+  })
+})
+
+describe('editOf', () => {
+  test('sends a category where there is one to change', () => {
+    expect(editOf({ id: 'a', sent: { ...COFFEE, category: 'food' } })).toEqual({
+      id: 'a',
+      description: 'Coffee',
+      amount: '4.50',
+      category: 'food',
+    })
+  })
+
+  test('leaves it out where there isn’t', () => {
+    expect(editOf({ id: 'a', sent: { ...COFFEE, category: null } })).toEqual({
+      id: 'a',
+      description: 'Coffee',
+      amount: '4.50',
+    })
   })
 })
 
@@ -114,15 +148,13 @@ describe('toSend', () => {
   test("each draft's values, by id, without its error", () => {
     const refused = withError(two, 'b', { field: 'amount', words: 'No.' })
     expect(toSend(refused, ['a', 'b'])).toEqual([
-      { id: 'a', sent: { description: 'Coffee', amount: '5' } },
-      { id: 'b', sent: { description: 'Coffee', amount: '6' } },
+      { id: 'a', sent: { ...COFFEE, amount: '5' } },
+      { id: 'b', sent: { ...COFFEE, amount: '6' } },
     ])
   })
 
   test('only the ids asked for, and only those with a draft', () => {
-    expect(toSend(two, ['b', 'c'])).toEqual([
-      { id: 'b', sent: { description: 'Coffee', amount: '6' } },
-    ])
+    expect(toSend(two, ['b', 'c'])).toEqual([{ id: 'b', sent: { ...COFFEE, amount: '6' } }])
   })
 })
 

@@ -9,7 +9,16 @@ import { z } from 'zod'
 /** Long enough for anything typed by hand; the window is the least trusted process. */
 const typed = (max: number) => z.string().max(max)
 
-const edit = z.strictObject({ id: z.uuid(), amount: typed(64), description: typed(500) })
+/** A category by name, without its root (`food:coffee`): one I've used, or a new one. */
+const category = typed(200)
+
+/** `category` left out: unchanged. */
+const edit = z.strictObject({
+  id: z.uuid(),
+  amount: typed(64),
+  description: typed(500),
+  category: category.optional(),
+})
 
 export const inputs = {
   /** `from` null, or left out: the account used last on this machine, else the wallet. */
@@ -17,6 +26,8 @@ export const inputs = {
     amount: typed(64),
     description: typed(500),
     from: z.uuid().nullable().default(null),
+    /** Empty, or left out: unsorted. */
+    category: category.default(''),
   }),
   /** The account a spend written now with no `from` would come out of. */
   'spend.assumedFrom': z.strictObject({}),
@@ -36,6 +47,7 @@ export const inputs = {
   /** A starting balance for an account that has none. */
   'account.start': z.strictObject({ id: z.uuid(), amount: typed(64) }),
   'account.list': z.strictObject({}),
+  'category.list': z.strictObject({}),
   'ledger.undo': z.strictObject({}),
   'ledger.redo': z.strictObject({}),
 }
@@ -51,6 +63,17 @@ export type ListedTransaction = {
   simple: Money | null
   /** For one amount, the name of the account it came out of, without its root. */
   from: string | null
+  /** For one amount that went to a category, its name without its root: what an edit can change. */
+  category: string | null
+}
+
+/** A category I've put a spend in, as the picker offers it. */
+export type ListedCategory = {
+  id: string
+  /** Its path without the root: `food:coffee`. */
+  name: string
+  /** How many live transactions are in it. */
+  uses: number
 }
 
 export type Money = { amount: string; currency: string }
@@ -84,6 +107,8 @@ export interface Values {
   'account.start': { id: string | null }
   /** Sorted by name, without regard to case. */
   'account.list': ListedAccount[]
+  /** The ones in use, most used first; never unsorted, which is what none means. */
+  'category.list': ListedCategory[]
   /** Both empty when there was nothing to undo. */
   'ledger.undo': Moved
   'ledger.redo': Moved

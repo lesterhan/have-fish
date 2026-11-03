@@ -54,6 +54,15 @@ describe('runCommand', () => {
     expect(ledger.db.prepare('SELECT count(*) FROM transactions').pluck().get()).toBe(0)
   })
 
+  test('the categories in use cross as a list', () => {
+    const { ctx, log } = setup()
+    runCommand(ctx, 'spend.write', { amount: '1', description: '', category: 'food' }, log)
+    expect(runCommand(ctx, 'category.list', {}, log)).toEqual({
+      ok: true,
+      value: [{ id: expect.any(String), name: 'food', uses: 1 }],
+    })
+  })
+
   test('the account a spend would come out of crosses as its id', () => {
     const { ctx, log } = setup()
     expect(runCommand(ctx, 'spend.assumedFrom', {}, log)).toEqual({ ok: true, value: { id: null } })
