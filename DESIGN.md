@@ -62,8 +62,9 @@ the other windows on the machine before it has any look of its own.
 - **Picking is typing.** A field that takes one of a list (From) filters it by the letters typed,
   in order, without regard to case. Down lists them all, the arrows move, Enter picks without
   sending the form, and Escape puts back what was there. Left empty, it means its default. Where
-  a new one can be made (Category), a name I haven't used is the last option, "Create …", and is
-  made when the form is saved.
+  a new one can be made (To), a name I haven't used is the last option, "Create …", and is
+  made when the form is saved. Each option says what kind of thing it is when the list mixes
+  kinds, as To mixes categories and my accounts.
 - **Any width the window allows works.** Half a screen beside a bank statement is a normal way
   to use it, and the minimum size is a layout, not a clipping.
 - **Zoom is the person's.** Ctrl+= and Ctrl+− work everywhere, and nothing breaks at 200% or at

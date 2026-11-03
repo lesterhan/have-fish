@@ -9,15 +9,23 @@ import { z } from 'zod'
 /** Long enough for anything typed by hand; the window is the least trusted process. */
 const typed = (max: number) => z.string().max(max)
 
-/** A category by name, without its root (`food:coffee`): one I've used, or a new one. */
-const category = typed(200)
+/**
+ * Where the money goes: a category by name, without its root (`food:coffee`), one I've used or a
+ * new one, empty for unsorted; or an account of mine by id, which makes it a transfer.
+ */
+const to = z.union([
+  z.strictObject({ category: typed(200) }),
+  z.strictObject({ account: z.uuid() }),
+])
 
-/** `category` left out: unchanged. */
+export type To = z.infer<typeof to>
+
+/** `to` left out: unchanged. */
 const edit = z.strictObject({
   id: z.uuid(),
   amount: typed(64),
   description: typed(500),
-  category: category.optional(),
+  to: to.optional(),
 })
 
 export const inputs = {
@@ -26,8 +34,8 @@ export const inputs = {
     amount: typed(64),
     description: typed(500),
     from: z.uuid().nullable().default(null),
-    /** Empty, or left out: unsorted. */
-    category: category.default(''),
+    /** Left out: unsorted. */
+    to: to.default({ category: '' }),
   }),
   /** The account a spend written now with no `from` would come out of. */
   'spend.assumedFrom': z.strictObject({}),
@@ -63,8 +71,11 @@ export type ListedTransaction = {
   simple: Money | null
   /** For one amount, the name of the account it came out of, without its root. */
   from: string | null
-  /** For one amount that went to a category, its name without its root: what an edit can change. */
-  category: string | null
+  /**
+   * For one amount from an account of mine, the name of the category or account it went to,
+   * without its root: what an edit can change.
+   */
+  to: string | null
 }
 
 /** A category I've put a spend in, as the picker offers it. */

@@ -5,10 +5,11 @@ export const spends = {
     label: 'Write down a spend',
     amount: 'Amount',
     description: 'What for',
-    category: 'Category',
-    /** The categories the Category field offers, read out. */
-    categoryList: 'Your categories',
-    /** In an empty Category field: where a spend with none goes. */
+    /** Where the money goes: a category, or another account of mine. */
+    to: 'To',
+    /** What the To field offers, read out. */
+    toList: 'Your categories and accounts',
+    /** In an empty To field: where a spend with no category goes. */
     unsorted: 'unsorted',
     /** The last option, for a name I haven't used: made when the spend is saved. */
     newCategory: (name: string) => `Create ${name}`,
@@ -30,7 +31,7 @@ export const spends = {
     label: 'The spend',
     description: 'What for',
     amount: 'Amount',
-    category: 'Category',
+    to: 'To',
     from: 'From',
     save: 'Save',
     remove: 'Remove',

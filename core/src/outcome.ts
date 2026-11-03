@@ -44,6 +44,8 @@ export interface FailureDetails {
   ACCOUNT_NAME_TAKEN: { name: string }
   /** A starting balance for an account that already has one. */
   ACCOUNT_ALREADY_STARTED: { accountId: string }
+  /** Money moved from an account to itself. */
+  TRANSFER_TO_ITSELF: { accountId: string }
 }
 
 export type FailureCode = keyof FailureDetails
