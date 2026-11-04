@@ -31,6 +31,8 @@ export const spends = {
   list: { label: 'Spends' },
   /** In place of a spend's description when it has none. */
   noDescription: '—',
+  /** A date field holding something that isn't a day, typed long or the short way. */
+  dateUnread: "That isn't a day it can read. Try y, -3, mon or 10-31.",
   /** Read out beside the ● on a spend with a draft. */
   unsaved: 'unsaved changes',
   pane: {
