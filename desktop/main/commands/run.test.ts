@@ -39,7 +39,8 @@ describe('runCommand', () => {
   test.each([
     [{ amount: 4.5, description: '' }, 'amount', 'invalid_type'],
     [{ amount: '4.50' }, 'description', 'invalid_type'],
-    [{ amount: '4.50', description: '', date: '2026-01-01' }, 'date', 'unrecognized_keys'],
+    [{ amount: '4.50', description: '', date: '2026-01-01T00' }, 'date', 'too_big'],
+    [{ amount: '4.50', description: '', when: '2026-01-01' }, 'when', 'unrecognized_keys'],
     [{ amount: '4'.repeat(65), description: '' }, 'amount', 'too_big'],
     [{ amount: '4.50', description: '', from: 'visa' }, 'from', 'invalid_format'],
     ['4.50', '', 'invalid_type'],

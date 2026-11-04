@@ -20,12 +20,16 @@ const to = z.union([
 
 export type To = z.infer<typeof to>
 
-/** `to` left out: unchanged. */
+/** A calendar day as typed, `YYYY-MM-DD`; main says whether it is one. */
+const date = typed(10)
+
+/** `to` or `date` left out: unchanged. */
 const edit = z.strictObject({
   id: z.uuid(),
   amount: typed(64),
   description: typed(500),
   to: to.optional(),
+  date: date.optional(),
 })
 
 export const inputs = {
@@ -36,6 +40,8 @@ export const inputs = {
     from: z.uuid().nullable().default(null),
     /** Left out: unsorted. */
     to: to.default({ category: '' }),
+    /** Left out, or empty: today, where I am. */
+    date: date.default(''),
   }),
   /** The account a spend written now with no `from` would come out of. */
   'spend.assumedFrom': z.strictObject({}),

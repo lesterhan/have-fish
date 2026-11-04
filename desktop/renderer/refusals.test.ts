@@ -23,6 +23,11 @@ describe('fieldOf', () => {
     ).toBe('description')
   })
 
+  test('a day that isn’t one is the date field’s', () => {
+    expect(fieldOf(refused('DATE_INVALID', { date: '2026-02-30' }))).toBe('date')
+    expect(fieldOf(refused('INPUT_MALFORMED', { path: 'date', issue: 'too_big' }))).toBe('date')
+  })
+
   test('anything else is the whole form’s', () => {
     expect(fieldOf(refused('UNEXPECTED', undefined))).toBe('form')
     expect(fieldOf(refused('INPUT_MALFORMED', { path: '', issue: 'invalid_type' }))).toBe('form')

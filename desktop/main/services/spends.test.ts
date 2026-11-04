@@ -524,6 +524,136 @@ describe('editSpend', () => {
   })
 })
 
+describe('a spend from another day', () => {
+  test('saved on the day I set, whatever day it is', () => {
+    const { ledger, ctx } = setup()
+
+    const { id } = ok(
+      writeSpend(ctx, { amount: '4.50', description: 'Coffee', date: '2026-10-27' }),
+    )
+
+    expect(spendOf(ledger, id).date).toBe('2026-10-27')
+  })
+
+  test('none set, or left empty: today where I am', () => {
+    const { ledger, ctx } = setup()
+
+    const none = ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    const empty = ok(writeSpend(ctx, { amount: '4.50', description: 'Tea', date: '' }))
+
+    expect(spendOf(ledger, none.id).date).toBe('2026-10-29')
+    expect(spendOf(ledger, empty.id).date).toBe('2026-10-29')
+  })
+
+  test('a day ahead is fine: a bill I already know about', () => {
+    const { ledger, ctx } = setup()
+
+    const { id } = ok(writeSpend(ctx, { amount: '80', description: 'Rent', date: '2026-11-01' }))
+
+    expect(spendOf(ledger, id).date).toBe('2026-11-01')
+  })
+
+  test('sorts into place in the list: by its day, then newest made first', () => {
+    const { ledger, ctx, clock } = setup()
+    ok(writeSpend(ctx, { amount: '4.50', description: 'Coffee' }))
+    clock.at += 60_000
+    ok(writeSpend(ctx, { amount: '12', description: 'Lunch', date: '2026-10-28' }))
+    clock.at += 60_000
+    ok(writeSpend(ctx, { amount: '3', description: 'Tea', date: '2026-10-28' }))
+
+    expect(listTransactions(ledger.db).map((t) => [t.description, t.date])).toEqual([
+      ['Coffee', '2026-10-29'],
+      ['Tea', '2026-10-28'],
+      ['Lunch', '2026-10-28'],
+    ])
+  })
+
+  test.each(['2026-02-30', '2026-13-01', '27/10/2026', 'yesterday', ' ', '2026-1-1'])(
+    '%j is not a day: refused, and nothing is saved or remembered',
+    (date) => {
+      const { ledger, ctx, announced } = setup()
+
+      const outcome = writeSpend(ctx, { amount: '4.50', description: 'Coffee', date })
+
+      expect(outcome).toEqual({ ok: false, failure: { code: 'DATE_INVALID', details: { date } } })
+      expect(count(ledger, 'transactions')).toBe(0)
+      expect(count(ledger, 'accounts')).toBe(0)
+      expect(announced).toEqual([])
+      expect(ctx.machine.lastFrom()).toBeNull()
+    },
+  )
+
+  test('an amount that is wrong too is said first, as the field before it', () => {
+    const { ctx } = setup()
+
+    const outcome = writeSpend(ctx, { amount: 'abc', description: 'Coffee', date: 'nope' })
+
+    expect(outcome).toMatchObject({ ok: false, failure: { code: 'AMOUNT_INVALID' } })
+  })
+})
+
+describe('moving a spend to another day', () => {
+  function written() {
+    const setup_ = setup()
+    const { id } = ok(writeSpend(setup_.ctx, { amount: '4.50', description: 'Coffee' }))
+    const before = getDocument(setup_.ledger.db, 'transaction', id)
+    if (before === null) throw new Error('not written')
+    setup_.announced.length = 0
+    return { ...setup_, id, before }
+  }
+
+  test('only the date changes', () => {
+    const { ledger, ctx, id, before } = written()
+
+    ok(editSpend(ctx, { id, amount: '4.50', description: 'Coffee', date: '2026-10-25' }))
+
+    expect(spendOf(ledger, id)).toEqual({ ...before.doc, date: '2026-10-25' })
+  })
+
+  test('left out, or the same day: the date stays', () => {
+    const { ledger, ctx, announced, id, before } = written()
+
+    ok(editSpend(ctx, { id, amount: '4.50', description: 'Coffee', date: before.doc.date }))
+    expect(getDocument(ledger.db, 'transaction', id)).toEqual(before)
+    expect(announced).toEqual([])
+
+    ok(editSpend(ctx, { id, amount: '5', description: 'Coffee' }))
+    expect(spendOf(ledger, id).date).toBe(before.doc.date)
+  })
+
+  test('it sorts into its new place in the list', () => {
+    const { ledger, ctx, clock, id } = written()
+    clock.at += 60_000
+    const tea = ok(writeSpend(ctx, { amount: '3', description: 'Tea' }))
+    expect(listTransactions(ledger.db).map((t) => t.id)).toEqual([tea.id, id])
+
+    ok(editSpend(ctx, { id, amount: '4.50', description: 'Coffee', date: '2026-10-30' }))
+
+    expect(listTransactions(ledger.db).map((t) => t.id)).toEqual([id, tea.id])
+  })
+
+  test('undo puts it back on its day; redo moves it again', () => {
+    const { ledger, ctx, id, before } = written()
+    ok(editSpend(ctx, { id, amount: '4.50', description: 'Coffee', date: '2026-10-25' }))
+
+    ok(undoLast(ctx))
+    expect(spendOf(ledger, id).date).toBe(before.doc.date)
+    ok(redoLast(ctx))
+    expect(spendOf(ledger, id).date).toBe('2026-10-25')
+  })
+
+  test.each(['', '2026-02-30', 'monday'])('%j is not a day: refused, and it stays', (date) => {
+    const { ledger, ctx, announced, id, before } = written()
+
+    expect(editSpend(ctx, { id, amount: '5', description: 'Tea', date })).toEqual({
+      ok: false,
+      failure: { code: 'DATE_INVALID', details: { date } },
+    })
+    expect(getDocument(ledger.db, 'transaction', id)).toEqual(before)
+    expect(announced).toEqual([])
+  })
+})
+
 describe('listTransactions', () => {
   test('lists nothing in a new ledger', () => {
     expect(listTransactions(tempLedger().db)).toEqual([])

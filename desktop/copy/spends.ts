@@ -5,6 +5,8 @@ export const spends = {
     label: 'Write down a spend',
     amount: 'Amount',
     description: 'What for',
+    /** The day it happened; today unless I change it. */
+    date: 'Date',
     /** Where the money goes: a category, or another account of mine. */
     to: 'To',
     /** What the To field offers, read out. */
@@ -31,6 +33,7 @@ export const spends = {
     label: 'The spend',
     description: 'What for',
     amount: 'Amount',
+    date: 'Date',
     to: 'To',
     from: 'From',
     save: 'Save',

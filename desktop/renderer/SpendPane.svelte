@@ -66,7 +66,8 @@
     <p class="quiet">{copy.spends.pane.nothing}</p>
   {:else}
     <p class="heading">
-      <span class="date">{transaction.date}</span>
+      <!-- An editable spend shows its date in the field below. -->
+      {#if !values}<span class="date">{transaction.date}</span>{/if}
       {#if draft}<Unsaved />{/if}
     </p>
     {#if transaction.from !== null}
@@ -134,6 +135,21 @@
           {#if error?.field === 'to'}
             <p class="error" id="pane-to-error" role="alert">{error.words}</p>
           {/if}
+        {/if}
+
+        <label>
+          <span>{copy.spends.pane.date}</span>
+          <input
+            type="date"
+            name="date"
+            value={values.date}
+            oninput={(e) => onedit('date', e.currentTarget.value)}
+            aria-invalid={error?.field === 'date'}
+            aria-describedby={error?.field === 'date' ? 'pane-date-error' : undefined}
+          />
+        </label>
+        {#if error?.field === 'date'}
+          <p class="error" id="pane-date-error" role="alert">{error.words}</p>
         {/if}
 
         <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
@@ -233,7 +249,8 @@
 
   .amount,
   .money input,
-  .currency {
+  .currency,
+  input[name='date'] {
     font-family: var(--font-figures);
     font-variant-numeric: tabular-nums;
   }
