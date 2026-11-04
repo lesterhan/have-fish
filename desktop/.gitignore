@@ -1,1 +1,3 @@
 out/
+# The capture script's screenshots (e2e/capture.ts).
+shots/
