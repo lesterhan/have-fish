@@ -1,5 +1,5 @@
-import { describe, expect, it } from 'vitest'
-import { CALENDAR_DATE, calendarDateAt, isCalendarDate } from './calendar-date'
+import { describe, expect, it, test } from 'vitest'
+import { addDays, CALENDAR_DATE, calendarDateAt, isCalendarDate, weekOf } from './calendar-date'
 
 describe('isCalendarDate', () => {
   it('accepts a real day and refuses anything else', () => {
@@ -39,5 +39,28 @@ describe('calendarDateAt', () => {
     const jan5 = Date.UTC(2026, 0, 5, 12)
     expect(calendarDateAt(jan5, 'UTC')).toBe('2026-01-05')
     expect(isCalendarDate(calendarDateAt(Date.UTC(2024, 1, 29, 12), 'UTC'))).toBe(true)
+  })
+})
+
+describe('addDays', () => {
+  test.each([
+    ['2026-11-04', 1, '2026-11-05'],
+    ['2026-11-30', 1, '2026-12-01'],
+    ['2026-01-01', -1, '2025-12-31'],
+    ['2028-02-28', 1, '2028-02-29'],
+    ['2026-11-04', -7, '2026-10-28'],
+  ])('%s and %i days is %s', (date, days, expected) => {
+    expect(addDays(date, days)).toBe(expected)
+  })
+})
+
+describe('weekOf', () => {
+  test.each([
+    ['2026-11-02', '2026-11-02', '2026-11-08'], // a Monday
+    ['2026-11-04', '2026-11-02', '2026-11-08'],
+    ['2026-11-08', '2026-11-02', '2026-11-08'], // a Sunday is the week's last day
+    ['2027-01-01', '2026-12-28', '2027-01-03'], // across a year
+  ])('%s is in the week %s to %s', (date, start, end) => {
+    expect(weekOf(date)).toEqual({ start, end })
   })
 })

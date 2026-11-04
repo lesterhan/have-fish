@@ -26,3 +26,18 @@ export function calendarDateAt(now: number, timeZone: string): string {
   const part = (type: keyof typeof DAY_PARTS) => parts.find((p) => p.type === type)?.value ?? ''
   return `${part('year').padStart(4, '0')}-${part('month')}-${part('day')}`
 }
+
+/** The day `days` after `date` (before, when negative). `date` must be a calendar date. */
+export function addDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`)
+  d.setUTCDate(d.getUTCDate() + days)
+  return d.toISOString().slice(0, 10)
+}
+
+/** The week `date` falls in, Monday to Sunday, both days in it. */
+export function weekOf(date: string): { start: string; end: string } {
+  // getUTCDay counts from Sunday; a week here starts on Monday.
+  const sinceMonday = (new Date(`${date}T00:00:00Z`).getUTCDay() + 6) % 7
+  const start = addDays(date, -sinceMonday)
+  return { start, end: addDays(start, 6) }
+}

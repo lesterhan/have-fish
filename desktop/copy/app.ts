@@ -2,5 +2,5 @@
 
 export const app = {
   name: 'have-fish',
-  places: { label: 'Places', spends: 'Spends', accounts: 'Accounts' },
+  places: { label: 'Places', spends: 'Spends', accounts: 'Accounts', reports: 'Reports' },
 }

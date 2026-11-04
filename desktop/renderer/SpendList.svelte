@@ -15,8 +15,21 @@
     onopen: (focus: boolean) => void
     /** Delete on the list: remove the selected spend. */
     onremove: () => void
+    /** What it's called, where there's more than one list of spends. */
+    label?: string
+    /** Starts each row's id, unique in the window. */
+    idPrefix?: string
   }
-  let { transactions, selectedId, drafts, onselect, onopen, onremove }: Props = $props()
+  let {
+    transactions,
+    selectedId,
+    drafts,
+    onselect,
+    onopen,
+    onremove,
+    label = copy.spends.list.label,
+    idPrefix = 'spend',
+  }: Props = $props()
 
   let list: HTMLOListElement
 
@@ -24,7 +37,7 @@
     list.focus()
   }
 
-  const optionId = (id: string) => `spend-${id}`
+  const optionId = (id: string) => `${idPrefix}-${id}`
 
   // Keeps the selected row in view as the keys move it.
   $effect(() => {
@@ -62,7 +75,7 @@
 <ol
   bind:this={list}
   role="listbox"
-  aria-label={copy.spends.list.label}
+  aria-label={label}
   tabindex="0"
   aria-activedescendant={selectedId === null ? undefined : optionId(selectedId)}
   {onkeydown}

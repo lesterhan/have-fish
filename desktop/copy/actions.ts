@@ -18,6 +18,7 @@ const labels: { [A in ActionId]: string } = {
   remove: 'Remove spend',
   showSpends: 'Spends',
   showAccounts: 'Accounts',
+  showReports: 'Reports',
   zoomIn: 'Zoom in',
   zoomOut: 'Zoom out',
   resetZoom: 'Actual size',

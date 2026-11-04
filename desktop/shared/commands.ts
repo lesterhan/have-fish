@@ -62,6 +62,8 @@ export const inputs = {
   'account.start': z.strictObject({ id: z.uuid(), amount: typed(64) }),
   'account.list': z.strictObject({}),
   'category.list': z.strictObject({}),
+  /** What went to each category from `start` to `end`, both days in it. */
+  'report.spending': z.strictObject({ start: date, end: date }),
   'ledger.undo': z.strictObject({}),
   'ledger.redo': z.strictObject({}),
 }
@@ -112,6 +114,15 @@ export type ListedAccount = {
   balance: Money[]
 }
 
+/** One spend's money in one category, as a report sums it. */
+export type ReportedSpend = {
+  /** The transaction's id. */
+  id: string
+  /** Its name without the root (`food:coffee`); `''` for unsorted. */
+  category: string
+  amount: string
+}
+
 /** What an undo or redo changed, so the window can select it: spends, or accounts. */
 export type Moved = { spends: string[]; accounts: string[] }
 
@@ -131,6 +142,11 @@ export interface Values {
   'account.list': ListedAccount[]
   /** The ones in use, most used first; never unsorted, which is what none means. */
   'category.list': ListedCategory[]
+  /**
+   * In the home currency, `currency`, oldest day first. `other` is what went to categories in
+   * each other currency, by code: none that sum to zero.
+   */
+  'report.spending': { currency: string; spent: ReportedSpend[]; other: Money[] }
   /** Both empty when there was nothing to undo. */
   'ledger.undo': Moved
   'ledger.redo': Moved
