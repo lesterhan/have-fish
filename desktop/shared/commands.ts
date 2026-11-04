@@ -105,6 +105,11 @@ export type ListedAccount = {
   currency: string | null
   /** What was in it, or owed on it, the day it started; null if it was never said. */
   start: (Money & { date: string }) | null
+  /**
+   * What its own postings sum to in each currency, by code, as the ledger holds it: what I owe is
+   * below zero. None that sum to zero; empty for nothing in it.
+   */
+  balance: Money[]
 }
 
 /** What an undo or redo changed, so the window can select it: spends, or accounts. */

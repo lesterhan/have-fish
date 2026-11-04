@@ -8,10 +8,10 @@ import type { AccountDoc, LedgerDocument, TransactionDoc } from '@have-fish/core
 import { format, parseTyped } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
 import type Database from 'better-sqlite3'
-import { and, eq, inArray, isNull, ne } from 'drizzle-orm'
+import { and, eq, inArray, isNull, ne, sql } from 'drizzle-orm'
 import { alias } from 'drizzle-orm/sqlite-core'
 import { copy } from '../../copy'
-import type { InputOf, ListedAccount } from '../../shared/commands'
+import type { InputOf, ListedAccount, Money } from '../../shared/commands'
 import { HOME_CURRENCY } from '../../shared/currency'
 import type { Context } from '../context'
 import { perConnection } from '../db/prepared'
@@ -157,7 +157,32 @@ const statements = perConnection((orm) => ({
     .where(and(isNull(transactions.deletedAt), ne(postings.accountId, openingLeg.accountId)))
     .orderBy(transactions.date, transactions.originCreatedAt, transactions.id)
     .prepare(),
+  // What each account's live postings sum to, per currency.
+  balances: orm
+    .select({
+      accountId: postings.accountId,
+      currency: postings.currency,
+      cents: sql<number>`sum(${postings.amountCents})`,
+    })
+    .from(postings)
+    .innerJoin(transactions, eq(transactions.id, postings.transactionId))
+    .where(isNull(transactions.deletedAt))
+    .groupBy(postings.accountId, postings.currency)
+    .orderBy(postings.accountId, postings.currency)
+    .prepare(),
 }))
+
+/** Each account's balance by id, in currency order, leaving out what sums to zero. */
+function balancesOf(db: Database.Database): Map<string, Money[]> {
+  const found = new Map<string, Money[]>()
+  for (const { accountId, currency, cents } of statements(db).balances.all()) {
+    if (cents === 0) continue
+    const held = found.get(accountId) ?? []
+    held.push({ amount: format(cents), currency })
+    found.set(accountId, held)
+  }
+  return found
+}
 
 type Start = { cents: number; currency: string; date: string }
 
@@ -173,6 +198,7 @@ function startsOf(db: Database.Database): Map<string, Start> {
 /** Every live account I have or owe, by name without regard to case. */
 export function listAccounts(db: Database.Database): ListedAccount[] {
   const starts = startsOf(db)
+  const balances = balancesOf(db)
   return statements(db)
     .addable.all()
     .map(({ id, path, kind, currency }) => {
@@ -188,6 +214,7 @@ export function listAccounts(db: Database.Database): ListedAccount[] {
         start: start
           ? { amount: format(sign * start.cents), currency: start.currency, date: start.date }
           : null,
+        balance: balances.get(id) ?? [],
       }
     })
     .sort((a, b) => byName.compare(a.name, b.name) || (a.id < b.id ? -1 : 1))
