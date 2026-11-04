@@ -33,6 +33,20 @@ describe('fieldOf', () => {
     expect(fieldOf(refused('INPUT_MALFORMED', { path: '', issue: 'invalid_type' }))).toBe('form')
   })
 
+  test('an income source that can’t be a name is the From field’s, and says so', () => {
+    const bad = refused('PATH_INVALID', { path: 'income:pay::day' })
+    expect(fieldOf(bad)).toBe('from')
+    expect(spendWordsFor(bad)).toBe("That isn't a name an income source can have.")
+  })
+
+  test('income sent anywhere but an account of mine is the To field’s', () => {
+    const into = refused('INCOME_NOT_TO_ACCOUNT', { accountId: 's' })
+    expect(fieldOf(into)).toBe('to')
+    expect(spendWordsFor(into)).toBe(
+      'Money coming in goes into one of your accounts. Pick one in To.',
+    )
+  })
+
   test('a category that can’t be a name is the To field’s, and says so as a category', () => {
     const bad = refused('PATH_INVALID', { path: 'expenses:a::b' })
     expect(fieldOf(bad)).toBe('to')

@@ -15,9 +15,11 @@ export function fieldOf(failure: WireFailure, to?: To): Field {
       return 'amount'
     case 'DATE_INVALID':
       return 'date'
-    // The only path a spend's form names is its category's.
+    // The paths a spend's form names: an income source's in From, else a category's in To.
     case 'PATH_INVALID':
+      return isIncome(failure.detail.path) ? 'from' : 'to'
     case 'TRANSFER_TO_ITSELF':
+    case 'INCOME_NOT_TO_ACCOUNT':
       return 'to'
     case 'ACCOUNT_NOT_FOUND':
     case 'ACCOUNT_DELETED':
@@ -40,7 +42,10 @@ export function wordsFor(failure: WireFailure): string {
   return copy.errors.codes[failure.error]
 }
 
-/** On a spend, the only path is its category's, so a bad one is said as a category. */
+/** On a spend, a path is an income source's or a category's, and a bad one is said as one. */
 export function spendWordsFor(failure: WireFailure): string {
-  return failure.error === 'PATH_INVALID' ? copy.spends.write.badCategory : wordsFor(failure)
+  if (failure.error !== 'PATH_INVALID') return wordsFor(failure)
+  return isIncome(failure.detail.path) ? copy.spends.write.badIncome : copy.spends.write.badCategory
 }
+
+const isIncome = (path: string) => path.startsWith('income:')

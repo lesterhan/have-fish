@@ -29,12 +29,13 @@ import { accountFor, idOf } from './applied'
 /** Where a spend comes from before any account is chosen, and goes when it has no category. */
 const WALLET = { path: 'assets:cash', kind: 'cash' } as const
 const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
+const INCOME = 'income'
 
 /**
- * A spend from the account that paid to its category, or a transfer to another account of mine,
- * on the day given or else today, in one batch with any account it needs. It's in the currency
- * the account paying is kept to, else the one the account it goes to is kept to, else the home
- * currency.
+ * A spend from the account that paid to its category, a transfer to another account of mine, or
+ * income from a source into an account of mine, on the day given or else today, in one batch
+ * with any account it needs. It's in the currency the account paying is kept to, else the one the
+ * account it goes to is kept to, else the home currency.
  */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
   const amount = spendAmount(input.amount)
@@ -46,9 +47,20 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   const date = typedDate === '' ? calendarDateAt(now, ctx.timeZone()) : typedDate
   if (!isCalendarDate(date)) return failure('DATE_INVALID', { date })
   const made = { createdAt: now, deviceId: ctx.ledger.meta.deviceId }
-  const from = paidFrom(ctx, input.from ?? null, made)
+  const named = input.from ?? null
+  const income = typeof named === 'object' && named !== null
+  const from: Outcome<End> = income
+    ? {
+        ok: true,
+        value: { ...namedFor(ctx.ledger.db, INCOME, named.income, made), currency: null },
+      }
+    : paidFrom(ctx, named, made)
   if (!from.ok) return from
-  const to = destination(ctx.ledger.db, input.to ?? { category: '' }, from.value.id, made)
+  const goesTo = input.to ?? { category: '' }
+  if (income && 'category' in goesTo) {
+    return failure('INCOME_NOT_TO_ACCOUNT', { accountId: from.value.id })
+  }
+  const to = destination(ctx.ledger.db, goesTo, from.value.id, made)
   if (!to.ok) return to
   const currency = from.value.currency ?? to.value.currency ?? HOME_CURRENCY
   const spend: TransactionDoc = {
@@ -68,7 +80,8 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   const { applied, changes } = applyKeeping(ctx, docs, now, [spend])
   record(ctx, { kind: 'write', description: spend.description }, changes)
   const written = idOf(applied, spend.id)
-  if (written.ok) ctx.machine.usedFrom(from.value.id)
+  // Only an account that pays: the next coffee never comes out of salary.
+  if (written.ok && !income) ctx.machine.usedFrom(from.value.id)
   return written
 }
 
@@ -157,7 +170,8 @@ function edit(
   }
 
   const { id } = input
-  const stored = getDocument(ctx.ledger.db, 'transaction', id)
+  const db = ctx.ledger.db
+  const stored = getDocument(db, 'transaction', id)
   const refused = (f: Outcome<never>) => ({ edited: f, changes: [] })
   if (stored === null) return refused(failure('TRANSACTION_NOT_FOUND', { id }))
   const { doc } = stored
@@ -166,10 +180,14 @@ function edit(
   if (simple === null) return refused(failure('TRANSACTION_NOT_SIMPLE', { id }))
 
   const now = ctx.now()
-  const db = ctx.ledger.db
   const into = doc.postings.find((p) => toCents(p.amount) > 0)?.accountId
   const out = doc.postings.find((p) => toCents(p.amount) < 0)?.accountId
-  // Only money out of an account of mine can go elsewhere: a starting balance comes from equity.
+  const fromIncome = out !== undefined && getDocument(db, 'account', out)?.doc.kind === 'income'
+  if (fromIncome && input.to !== undefined && 'category' in input.to) {
+    return refused(failure('INCOME_NOT_TO_ACCOUNT', { accountId: out }))
+  }
+  // Only money out of an account of mine, or in from income, can go elsewhere: a starting
+  // balance comes from equity.
   const moved =
     input.to !== undefined && into !== undefined && out !== undefined && movable(db, out, into)
       ? destination(db, input.to, out, { createdAt: now, deviceId: ctx.ledger.meta.deviceId })
@@ -216,25 +234,32 @@ function destination(db: Database.Database, to: To, from: string, made: Made): O
     : account
 }
 
+/** The category named, as typed; nothing typed is unsorted, which the app makes. */
+function categoryFor(db: Database.Database, typed: string, made: Made) {
+  return typed.trim() === ''
+    ? accountFor(db, UNSORTED, made)
+    : namedFor(db, 'category', typed, made)
+}
+
 /**
- * The category named, as typed: the one at `expenses:<name>`, whatever its case, or a new one in
- * the same batch, mine since I named it. Nothing typed is unsorted, which the app makes.
+ * The category or income source named, as typed: the one at its path, whatever its case, or a new
+ * one in the same batch, mine since I named it.
  */
-function categoryFor(
+function namedFor(
   db: Database.Database,
+  kind: typeof INCOME | 'category',
   typed: string,
   made: Made,
 ): { id: string; made: AccountDoc[] } {
   const name = typed.trim()
-  if (name === '') return accountFor(db, UNSORTED, made)
-  const path = pathFor('category', name)
+  const path = pathFor(kind, name)
   const id = liveAccountAt(db, path)
   if (id !== undefined) return { id, made: [] }
   const account: AccountDoc = {
     type: 'account',
     id: randomUUID(),
     path,
-    kind: 'category',
+    kind,
     currency: null,
     deletedAt: null,
     origin: { source: 'manual', ...made },
@@ -242,13 +267,20 @@ function categoryFor(
   return { id: account.id, made: [account] }
 }
 
-/** Whether an edit can send this money elsewhere: out of an account of mine, into a category or another. */
+/**
+ * Whether an edit can send this money elsewhere: out of an account of mine, into a category or
+ * another; or in from income, into an account of mine.
+ */
 function movable(db: Database.Database, out: string, into: string): boolean {
   const kind = (id: string) => getDocument(db, 'account', id)?.doc.kind
   const to = kind(into)
   const from = kind(out)
-  return from !== undefined && isAddable(from) && to !== undefined && goesTo(to)
+  return from !== undefined && to !== undefined && sendable(from, to)
 }
+
+/** Whether money from `from` to `to` is one an edit can change: a spend, transfer or income. */
+const sendable = (from: AccountKind, to: AccountKind) =>
+  (isAddable(from) && goesTo(to)) || (from === INCOME && isAddable(to))
 
 /** Where money from an account of mine can go: a category, or another account of mine. */
 const goesTo = (kind: AccountKind) => kind === 'category' || isAddable(kind)
@@ -332,9 +364,9 @@ export function listTransactions(db: Database.Database): ListedTransaction[] {
       description,
       amounts: movedIn(legs),
       simple: simple && { amount: format(simple.cents), currency: simple.currency },
-      // Only an account that can pay: a starting balance comes from `equity:opening`, not from it.
-      from: from && isAddable(from.kind) ? nameOf(from.path) : null,
-      to: from && isAddable(from.kind) && to && goesTo(to.kind) ? nameOf(to.path) : null,
+      // An account that can pay, or income: a starting balance comes from `equity:opening`.
+      from: from && (isAddable(from.kind) || from.kind === INCOME) ? nameOf(from.path) : null,
+      to: from && to && sendable(from.kind, to.kind) ? nameOf(to.path) : null,
     }
   })
 }

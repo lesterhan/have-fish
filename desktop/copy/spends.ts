@@ -17,11 +17,15 @@ export const spends = {
     newCategory: (name: string) => `Create ${name}`,
     badCategory: "That isn't a name a category can have.",
     from: 'From',
-    /** The accounts the From field offers, read out. */
-    fromList: 'Your accounts',
+    /** What the From field offers, read out: my accounts, then where money comes in from. */
+    fromList: 'Your accounts and income',
+    /** Beside an income source in From's list. */
+    income: 'Income',
+    /** From's last option, for a name none of mine has: money coming in from it, made on save. */
+    newIncome: (name: string) => `Create income:${name}`,
+    badIncome: "That isn't a name an income source can have.",
     /** In an empty From field before there's any account: the wallet the first spend makes. */
     wallet: 'cash',
-    notMine: "You don't have an account called that.",
     submit: 'Write it down',
   },
   list: { label: 'Spends' },

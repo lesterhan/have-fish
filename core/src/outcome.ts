@@ -46,6 +46,8 @@ export interface FailureDetails {
   ACCOUNT_ALREADY_STARTED: { accountId: string }
   /** Money moved from an account to itself. */
   TRANSFER_TO_ITSELF: { accountId: string }
+  /** Money from an income source going anywhere but an account of mine. */
+  INCOME_NOT_TO_ACCOUNT: { accountId: string }
 }
 
 export type FailureCode = keyof FailureDetails

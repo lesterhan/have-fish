@@ -6,7 +6,7 @@ import type { z } from 'zod'
 import type { CommandName, inputs, Values } from '../../shared/commands'
 import type { Context } from '../context'
 import { addAccount, listAccounts, startAccount } from '../services/accounts'
-import { listCategories } from '../services/categories'
+import { listCategories, listIncome } from '../services/categories'
 import { spendingIn } from '../services/reports'
 import {
   assumedFrom,
@@ -32,6 +32,7 @@ export const handlers: Handlers = {
   'account.add': addAccount,
   'account.start': startAccount,
   'category.list': (ctx) => ({ ok: true, value: listCategories(ctx.ledger.db) }),
+  'income.list': (ctx) => ({ ok: true, value: listIncome(ctx.ledger.db) }),
   'account.list': (ctx) => ({ ok: true, value: listAccounts(ctx.ledger.db) }),
   'report.spending': (ctx, input) => spendingIn(ctx.ledger.db, input),
   'ledger.undo': undoLast,
