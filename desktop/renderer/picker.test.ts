@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'vitest'
-import { finds, fromOf, matching, named, offered, stepped } from './picker'
+import { finds, fromOf, matching, named, offered, stepped, toOf, toOptions } from './picker'
 
 const cash = { id: 'c', name: 'cash' }
 const chequing = { id: 'q', name: 'Chequing' }
@@ -78,6 +78,36 @@ describe('stepped', () => {
   test('nowhere for other keys, or with nothing shown', () => {
     expect(stepped(0, 'Enter', 3)).toBeUndefined()
     expect(stepped(0, 'ArrowDown', 0)).toBeUndefined()
+  })
+})
+
+describe('toOptions', () => {
+  const food = { id: 'f', name: 'food' }
+  const mine = [
+    { ...cash, hint: 'Cash' },
+    { ...visa, hint: 'Card' },
+  ]
+
+  test('categories first, as given, then my accounts with their hints', () => {
+    expect(toOptions([food], mine)).toEqual([{ ...food, hint: '' }, ...mine])
+  })
+
+  test('a category with the name of an account of mine is left out', () => {
+    expect(toOptions([{ id: 'x', name: 'Visa' }, food], mine)).toEqual([
+      { ...food, hint: '' },
+      ...mine,
+    ])
+  })
+})
+
+describe('toOf', () => {
+  test('an account of mine, by name, whatever its case: a transfer to it', () => {
+    expect(toOf(MINE, ' VISA ')).toEqual({ account: 'v' })
+  })
+
+  test('anything else is a category, as typed; empty is unsorted', () => {
+    expect(toOf(MINE, 'food')).toEqual({ category: 'food' })
+    expect(toOf(MINE, '')).toEqual({ category: '' })
   })
 })
 

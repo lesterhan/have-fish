@@ -1,6 +1,8 @@
 // The picker's rules: which options what I typed finds, which one it names, and where the
 // arrow keys move. The web app's `AccountPathInput` matched the same way.
 
+import type { To } from '../shared/commands'
+
 export type Option = { id: string; name: string }
 
 /** Every character typed, in order, somewhere in the name, without regard to case: "vs" finds visa. */
@@ -47,6 +49,24 @@ export function stepped(active: number, key: string, count: number): number | un
   if (key === 'ArrowDown') return (active + 1) % count
   if (key === 'ArrowUp') return (active - 1 + count) % count
   return undefined
+}
+
+/**
+ * What To offers: the categories in the order given, then my accounts, each with its hint. A
+ * category with an account's name is left out, since that name means the account.
+ */
+export function toOptions<A extends Option & { hint: string }>(
+  categories: readonly Option[],
+  accounts: readonly A[],
+): (Option & { hint: string })[] {
+  const own = categories.filter((c) => named(accounts, c.name) === undefined)
+  return [...own.map(({ id, name }) => ({ id, name, hint: '' })), ...accounts]
+}
+
+/** What To sends: an account of mine it names, which makes a transfer; else a category, as typed. */
+export function toOf(accounts: readonly Option[], typed: string): To {
+  const account = named(accounts, typed)
+  return account === undefined ? { category: typed } : { account: account.id }
 }
 
 /**

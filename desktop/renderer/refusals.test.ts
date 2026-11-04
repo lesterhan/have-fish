@@ -28,9 +28,9 @@ describe('fieldOf', () => {
     expect(fieldOf(refused('INPUT_MALFORMED', { path: '', issue: 'invalid_type' }))).toBe('form')
   })
 
-  test('a category that can’t be a name is the Category field’s, and says so as a category', () => {
+  test('a category that can’t be a name is the To field’s, and says so as a category', () => {
     const bad = refused('PATH_INVALID', { path: 'expenses:a::b' })
-    expect(fieldOf(bad)).toBe('category')
+    expect(fieldOf(bad)).toBe('to')
     expect(spendWordsFor(bad)).toBe("That isn't a name a category can have.")
     expect(wordsFor(bad)).toBe("That isn't a name an account can have.")
     expect(spendWordsFor(refused('AMOUNT_INVALID', { amount: 'x' }))).toBe(
@@ -46,6 +46,19 @@ describe('fieldOf', () => {
     expect(fieldOf(refused('INPUT_MALFORMED', { path: 'from', issue: 'invalid_format' }))).toBe(
       'from',
     )
+  })
+
+  test('the account To named, refused, is the To field’s; so is To naming From’s account', () => {
+    const to = { account: 'b' }
+    expect(fieldOf(refused('ACCOUNT_DELETED', { accountId: 'b' }), to)).toBe('to')
+    const locked = { accountId: 'b', currency: 'CAD', locked: 'EUR' }
+    expect(fieldOf(refused('ACCOUNT_CURRENCY_LOCKED', locked), to)).toBe('to')
+    expect(fieldOf(refused('ACCOUNT_DELETED', { accountId: 'a' }), to)).toBe('from')
+    expect(fieldOf(refused('ACCOUNT_NOT_FOUND', { accountId: 'b' }), { category: 'b' })).toBe(
+      'from',
+    )
+    expect(fieldOf(refused('TRANSFER_TO_ITSELF', { accountId: 'a' }))).toBe('to')
+    expect(fieldOf(refused('INPUT_MALFORMED', { path: 'to', issue: 'invalid_union' }))).toBe('to')
   })
 })
 

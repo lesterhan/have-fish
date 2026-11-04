@@ -1,24 +1,28 @@
 // Which field shows a refusal, and the words it shows.
 
 import { copy } from '../copy'
-import type { WireFailure } from '../shared/commands'
+import type { To, WireFailure } from '../shared/commands'
 
-export type Field = 'amount' | 'description' | 'category' | 'from' | 'form'
+export type Field = 'amount' | 'description' | 'to' | 'from' | 'form'
 
-const FIELDS: readonly string[] = ['amount', 'description', 'category', 'from']
+const FIELDS: readonly string[] = ['amount', 'description', 'to', 'from']
 
-export function fieldOf(failure: WireFailure): Field {
+/** `to`, what the refused command sent, says when an account refused is the one To named. */
+export function fieldOf(failure: WireFailure, to?: To): Field {
   switch (failure.error) {
     case 'AMOUNT_INVALID':
     case 'AMOUNT_NOT_POSITIVE':
       return 'amount'
     // The only path a spend's form names is its category's.
     case 'PATH_INVALID':
-      return 'category'
+    case 'TRANSFER_TO_ITSELF':
+      return 'to'
     case 'ACCOUNT_NOT_FOUND':
     case 'ACCOUNT_DELETED':
     case 'ACCOUNT_CURRENCY_LOCKED':
-      return 'from'
+      return to !== undefined && 'account' in to && to.account === failure.detail.accountId
+        ? 'to'
+        : 'from'
     case 'INPUT_MALFORMED':
     case 'DOCUMENT_MALFORMED':
       return FIELDS.includes(failure.detail.path) ? (failure.detail.path as Field) : 'form'

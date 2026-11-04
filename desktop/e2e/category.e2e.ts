@@ -4,11 +4,11 @@ import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
 import { aHome, launch, PANE, rows, WRITE } from './app'
 
-const CATEGORY = `${WRITE} input[name=category]`
-const OPTIONS = `${WRITE} [role=listbox][aria-label="Your categories"]`
-const PANE_CATEGORY = `${PANE} input[name=category]`
+const CATEGORY = `${WRITE} input[name=to]`
+const OPTIONS = `${WRITE} [role=listbox][aria-label="Your categories and accounts"]`
+const PANE_CATEGORY = `${PANE} input[name=to]`
 
-/** Amount, Tab, what for, Tab: the cursor in Category. */
+/** Amount, Tab, what for, Tab: the cursor in To. */
 async function upToCategory(page: Page, amount: string, description: string) {
   await page.locator(`${WRITE} input[name=amount]`).focus()
   await page.keyboard.type(amount)
@@ -99,7 +99,7 @@ describe('a category for a spend I write down', () => {
     expect(await categoryOfSelected(page)).toBe('gifts')
   })
 
-  test('a name with an empty part is refused, and Category says why', async () => {
+  test('a name with an empty part is refused, and To says why', async () => {
     const { page } = await launch(aHome())
 
     await page.fill(`${WRITE} input[name=amount]`, '30')
@@ -107,9 +107,9 @@ describe('a category for a spend I write down', () => {
     await page.locator(`${WRITE} input[name=amount]`).press('Enter')
 
     await expect
-      .poll(() => page.locator(`${WRITE} #category-error`).innerText())
+      .poll(() => page.locator(`${WRITE} #to-error`).innerText())
       .toBe("That isn't a name a category can have.")
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('category')
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('to')
     expect(await rows(page)).toEqual([])
   })
 })
