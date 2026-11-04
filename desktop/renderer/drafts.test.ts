@@ -12,7 +12,7 @@ import {
   without,
 } from './drafts'
 
-const COFFEE = { description: 'Coffee', amount: '4.50', to: 'unsorted' }
+const COFFEE = { description: 'Coffee', amount: '4.50', to: 'unsorted', date: '2026-10-29' }
 const none: Drafts = new Map()
 
 const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => ({
@@ -27,7 +27,7 @@ const listed = (fields: Partial<ListedTransaction> = {}): ListedTransaction => (
 })
 
 describe('savedValues', () => {
-  test('what the pane starts from: the description and the one amount', () => {
+  test('what the pane starts from: the description, the one amount, where it went, its day', () => {
     expect(savedValues(listed())).toEqual(COFFEE)
   })
 
@@ -123,25 +123,43 @@ describe('where it went', () => {
   })
 })
 
+describe('its day', () => {
+  test('changed, makes a draft; typed back, the draft goes', () => {
+    const drafts = withEdit(none, 'a', COFFEE, 'date', '2026-10-27')
+    expect(drafts.get('a')?.date).toBe('2026-10-27')
+    expect(withEdit(drafts, 'a', COFFEE, 'date', '2026-10-29')).toEqual(none)
+  })
+
+  test('sent only when it changed', () => {
+    const toOf = (typed: string) => ({ category: typed })
+    const moved = { id: 'a', sent: { ...COFFEE, date: '2026-10-27' } }
+    expect(editOf(moved, 'unsorted', toOf, '2026-10-29')).toMatchObject({ date: '2026-10-27' })
+    expect(editOf(moved, 'unsorted', toOf, '2026-10-27')).not.toHaveProperty('date')
+  })
+})
+
 describe('editOf', () => {
   const toOf = (typed: string) => (typed === 'visa' ? { account: 'v' } : { category: typed })
+  const DAY = COFFEE.date
 
   test('sends where it goes when that changed, as To resolves it', () => {
-    expect(editOf({ id: 'a', sent: { ...COFFEE, to: 'food' } }, 'unsorted', toOf)).toEqual({
+    expect(editOf({ id: 'a', sent: { ...COFFEE, to: 'food' } }, 'unsorted', toOf, DAY)).toEqual({
       id: 'a',
       description: 'Coffee',
       amount: '4.50',
       to: { category: 'food' },
     })
-    expect(editOf({ id: 'a', sent: { ...COFFEE, to: 'visa' } }, 'unsorted', toOf)).toMatchObject({
+    expect(
+      editOf({ id: 'a', sent: { ...COFFEE, to: 'visa' } }, 'unsorted', toOf, DAY),
+    ).toMatchObject({
       to: { account: 'v' },
     })
   })
 
   test('leaves it out when it didn’t change, or can’t', () => {
     const left = { id: 'a', description: 'Coffee', amount: '4.50' }
-    expect(editOf({ id: 'a', sent: { ...COFFEE, to: 'visa' } }, 'visa', toOf)).toEqual(left)
-    expect(editOf({ id: 'a', sent: { ...COFFEE, to: null } }, null, toOf)).toEqual(left)
+    expect(editOf({ id: 'a', sent: { ...COFFEE, to: 'visa' } }, 'visa', toOf, DAY)).toEqual(left)
+    expect(editOf({ id: 'a', sent: { ...COFFEE, to: null } }, null, toOf, DAY)).toEqual(left)
   })
 })
 

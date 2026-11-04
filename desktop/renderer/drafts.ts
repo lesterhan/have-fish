@@ -6,9 +6,9 @@ import type { Field } from './refusals'
 
 /**
  * What the pane edits. `to`, where the money went, as typed, is null for a transaction that can't
- * be sent elsewhere, like a starting balance.
+ * be sent elsewhere, like a starting balance. `date` is the field's `YYYY-MM-DD`.
  */
-export type Values = { description: string; amount: string; to: string | null }
+export type Values = { description: string; amount: string; to: string | null; date: string }
 
 /** One spend's unsaved values, and why its last save was refused, if it was. */
 export type Draft = Values & { error: { field: Field; words: string } | null }
@@ -20,7 +20,7 @@ export type Drafts = ReadonlyMap<string, Draft>
 export function savedValues(t: ListedTransaction): Values | null {
   return t.simple === null
     ? null
-    : { description: t.description, amount: t.simple.amount, to: t.to }
+    : { description: t.description, amount: t.simple.amount, to: t.to, date: t.date }
 }
 
 /** After typing `value` into `field`. Typed back to what's saved, the draft goes. */
@@ -61,34 +61,31 @@ export type Sending = { id: string; sent: Values }
 export function toSend(drafts: Drafts, ids: Iterable<string>): Sending[] {
   return [...ids].flatMap((id) => {
     const draft = drafts.get(id)
-    return draft === undefined
-      ? []
-      : [
-          {
-            id,
-            sent: {
-              description: draft.description,
-              amount: draft.amount,
-              to: draft.to,
-            },
-          },
-        ]
+    if (draft === undefined) return []
+    const { description, amount, to, date } = draft
+    return [{ id, sent: { description, amount, to, date } }]
   })
 }
 
 /**
  * A draft as `spend.edit` takes it: where the money goes only when it changed from `saved`, so a
- * name both a category and an account have never moves a spend that was left alone.
+ * name both a category and an account have never moves a spend that was left alone; its day only
+ * when it changed from `savedDate`.
  */
 export function editOf(
   { id, sent }: Sending,
   saved: string | null | undefined,
   toOf: (typed: string) => To,
+  savedDate: string | undefined,
 ): InputOf<'spend.edit'> {
-  const { description, amount, to } = sent
-  return to === null || to === saved
-    ? { id, description, amount }
-    : { id, description, amount, to: toOf(to) }
+  const { description, amount, to, date } = sent
+  return {
+    id,
+    description,
+    amount,
+    ...(to === null || to === saved ? {} : { to: toOf(to) }),
+    ...(date === savedDate ? {} : { date }),
+  }
 }
 
 /** After several saves came back, each one saved (`error: null`) or refused. */
@@ -104,4 +101,4 @@ export function afterSaves(
 }
 
 const sameValues = (a: Values, b: Values) =>
-  a.description === b.description && a.amount === b.amount && a.to === b.to
+  a.description === b.description && a.amount === b.amount && a.to === b.to && a.date === b.date

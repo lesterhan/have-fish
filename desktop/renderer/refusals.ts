@@ -3,9 +3,9 @@
 import { copy } from '../copy'
 import type { To, WireFailure } from '../shared/commands'
 
-export type Field = 'amount' | 'description' | 'to' | 'from' | 'form'
+export type Field = 'amount' | 'description' | 'date' | 'to' | 'from' | 'form'
 
-const FIELDS: readonly string[] = ['amount', 'description', 'to', 'from']
+const FIELDS: readonly string[] = ['amount', 'description', 'date', 'to', 'from']
 
 /** `to`, what the refused command sent, says when an account refused is the one To named. */
 export function fieldOf(failure: WireFailure, to?: To): Field {
@@ -13,6 +13,8 @@ export function fieldOf(failure: WireFailure, to?: To): Field {
     case 'AMOUNT_INVALID':
     case 'AMOUNT_NOT_POSITIVE':
       return 'amount'
+    case 'DATE_INVALID':
+      return 'date'
     // The only path a spend's form names is its category's.
     case 'PATH_INVALID':
     case 'TRANSFER_TO_ITSELF':

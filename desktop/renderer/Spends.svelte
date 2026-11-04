@@ -19,6 +19,7 @@
     withEdit,
     without,
   } from './drafts'
+  import { todayIn } from './format'
   import { NARROW } from './narrow'
   import Picker from './Picker.svelte'
   import { fromOf, toOf, toOptions } from './picker'
@@ -37,9 +38,14 @@
 
   let amount = $state('')
   let description = $state('')
+  /** The day the spend happened: today, until I change it. */
+  let date = $state(todayIn())
+  /** Whether Date holds my choice: until then it follows the calendar, and main dates it. */
+  let dateChosen = false
   let error = $state<{ field: Field; words: string } | null>(null)
   let saving = $state(false)
   let amountInput: HTMLInputElement
+  let dateInput: HTMLInputElement
 
   /** The accounts that can pay, and the one a spend comes out of when From is left alone. */
   let payers = $state.raw<ListedAccount[]>([])
@@ -74,6 +80,7 @@
 
   // Drafts are left alone: a draft is the window's until it is saved or put back.
   async function refresh() {
+    if (!dateChosen) date = todayIn()
     const [listed, accounts, from, used] = await Promise.all([
       window.haveFish.invoke('transaction.list', {}),
       window.haveFish.invoke('account.list', {}),
@@ -139,12 +146,21 @@
     }
     saving = true
     const to = toOf(payers, toText)
-    const written = await window.haveFish.invoke('spend.write', { amount, description, to, from })
+    // Left to itself, Date sends nothing: main dates it today, even past midnight.
+    const written = await window.haveFish.invoke('spend.write', {
+      amount,
+      description,
+      to,
+      from,
+      date: dateChosen ? date : '',
+    })
     saving = false
     if (written.ok) {
       amount = ''
       description = ''
       toText = ''
+      date = todayIn()
+      dateChosen = false
       error = null
       // From stays on the account that paid: it's the one used last now.
       fromChosen = false
@@ -156,6 +172,7 @@
     }
     if (error?.field === 'from') fromPicker.focus()
     else if (error?.field === 'to') toPicker.focus()
+    else if (error?.field === 'date') dateInput.focus()
     else amountInput.focus()
   }
 
@@ -188,8 +205,10 @@
     refused && { field: fieldOf(refused, to), words: spendWordsFor(refused) }
 
   /** A draft as main takes it, sending where it goes only if that changed. */
-  const sent = (s: Sending) =>
-    editOf(s, transactions.find((t) => t.id === s.id)?.to, (typed) => toOf(payers, typed))
+  const sent = (s: Sending) => {
+    const saved = transactions.find((t) => t.id === s.id)
+    return editOf(s, saved?.to, (typed) => toOf(payers, typed), saved?.date)
+  }
 
   /** The pane's Save: the spend showing, as its own step. */
   async function sentOne(sending: Sending[]) {
@@ -339,6 +358,23 @@
       <p class="error" id="from-error" role="alert">{error.words}</p>
     {/if}
 
+    <!-- Last: Chromium's date field takes a Tab per part, which would hold up To. -->
+    <label>
+      <span>{copy.spends.write.date}</span>
+      <input
+        bind:this={dateInput}
+        bind:value={date}
+        oninput={() => (dateChosen = true)}
+        type="date"
+        name="date"
+        aria-invalid={error?.field === 'date'}
+        aria-describedby={error?.field === 'date' ? 'date-error' : undefined}
+      />
+    </label>
+    {#if error?.field === 'date'}
+      <p class="error" id="date-error" role="alert">{error.words}</p>
+    {/if}
+
     <button type="submit" disabled={saving}>{copy.spends.write.submit}</button>
     {#if error?.field === 'form'}
       <p class="error" role="alert">{error.words}</p>
@@ -434,7 +470,8 @@
     background: transparent;
   }
 
-  input[name='amount'] {
+  input[name='amount'],
+  input[name='date'] {
     font-family: var(--font-figures);
     font-variant-numeric: tabular-nums;
   }

@@ -3,7 +3,7 @@
 import { randomUUID } from 'node:crypto'
 import { type AccountKind, isAddable } from '@have-fish/core/account-kind'
 import { nameOf, pathFor } from '@have-fish/core/account-path'
-import { calendarDateAt } from '@have-fish/core/calendar-date'
+import { calendarDateAt, isCalendarDate } from '@have-fish/core/calendar-date'
 import type { AccountDoc, TransactionDoc } from '@have-fish/core/documents'
 import { format, parseTyped, cents as toCents } from '@have-fish/core/money'
 import { failure, type Outcome } from '@have-fish/core/outcome'
@@ -32,8 +32,9 @@ const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
 
 /**
  * A spend from the account that paid to its category, or a transfer to another account of mine,
- * dated today, in one batch with any account it needs. It's in the currency the account paying is
- * kept to, else the one the account it goes to is kept to, else the home currency.
+ * on the day given or else today, in one batch with any account it needs. It's in the currency
+ * the account paying is kept to, else the one the account it goes to is kept to, else the home
+ * currency.
  */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
   const amount = spendAmount(input.amount)
@@ -41,6 +42,9 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   const cents = amount.value
 
   const now = ctx.now()
+  const typedDate = input.date ?? ''
+  const date = typedDate === '' ? calendarDateAt(now, ctx.timeZone()) : typedDate
+  if (!isCalendarDate(date)) return failure('DATE_INVALID', { date })
   const made = { createdAt: now, deviceId: ctx.ledger.meta.deviceId }
   const from = paidFrom(ctx, input.from ?? null, made)
   if (!from.ok) return from
@@ -50,7 +54,7 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   const spend: TransactionDoc = {
     type: 'transaction',
     id: randomUUID(),
-    date: calendarDateAt(now, ctx.timeZone()),
+    date,
     description: input.description.trim(),
     postings: [
       { accountId: to.value.id, amount: format(cents), currency },
@@ -108,8 +112,8 @@ function payer(db: Database.Database, id: string): Outcome<AccountDoc> {
 }
 
 /**
- * A new version of a spend with a new amount and description. The positive leg gets the amount
- * and the other its negative; the id, date, accounts and origin stay as they were.
+ * A new version of a spend with a new amount, description, and maybe category or date. The
+ * positive leg gets the amount and the other its negative; the id, account paying and origin stay.
  */
 export function editSpend(ctx: Context, input: InputOf<'spend.edit'>): Outcome<{ id: string }> {
   const { edited, changes } = edit(ctx, input)
@@ -148,6 +152,9 @@ function edit(
   const amount = spendAmount(input.amount)
   if (!amount.ok) return { edited: amount, changes: [] }
   const cents = amount.value
+  if (input.date !== undefined && !isCalendarDate(input.date)) {
+    return { edited: failure('DATE_INVALID', { date: input.date }), changes: [] }
+  }
 
   const { id } = input
   const stored = getDocument(ctx.ledger.db, 'transaction', id)
@@ -170,13 +177,20 @@ function edit(
   if (!moved.ok) return refused(moved)
 
   const description = input.description.trim()
+  const date = input.date ?? doc.date
   // An unchanged save writes no version, so sync has nothing to send, and undo nothing to take back.
-  if (cents === simple.cents && description === doc.description && moved.value.id === into) {
+  if (
+    cents === simple.cents &&
+    description === doc.description &&
+    moved.value.id === into &&
+    date === doc.date
+  ) {
     return { edited: { ok: true, value: { id } }, changes: [] }
   }
 
   const edited: TransactionDoc = {
     ...doc,
+    date,
     description,
     postings: doc.postings.map((p) => {
       const positive = toCents(p.amount) > 0
