@@ -8,7 +8,7 @@ and the Svelte UI in a real window. It is built in this repository, beside the c
 which keeps running until the new one has earned its place.
 
 This file covers how the rewrite is planned and the technical direction it starts from. The
-stories themselves live in the vault.
+stories themselves are tracked privately.
 
 ## How it is planned: user stories, not layers
 
@@ -32,7 +32,7 @@ The backlog is a **story map** in `lesterhan/have-fish-vault`, a private Obsidia
   | R6 Make it the real one | I can stop using the hosted app |
 
   R4 and R5 are sync's two halves, through one relay: my own ledger first, then ledgers with
-  several members (`00-direction.md` D5). The other device in R4 is the phone, as a full peer:
+  several members. The other device in R4 is the phone, as a full peer:
   it holds the whole ledger and has screens of its own, built with Expo in this repository on
   the same TypeScript ledger as the desktop. The switch comes last, so that leaving the hosted
   app takes the shared ledgers along too.
@@ -46,11 +46,9 @@ The backlog is a **story map** in `lesterhan/have-fish-vault`, a private Obsidia
 it is picked up. **Done** means the owner has checked every acceptance line in the packaged
 app, tests cover them, and the PR is merged.
 
-Rewrite work gets no issue in this repository. A PR's body opens with `Story: <note name>`, or
-`Tech: <note name>` for a tech note: a foundation or refactoring that several stories stand on.
-Every rewrite note is built in pair mode unless the owner names another (`CLAUDE.md`, "Three
-ways of working"). The PR number goes back into the note. Decisions about the rewrite are notes
-in the vault.
+Rewrite work gets no issue in this repository. Each PR names the story it builds, or the tech
+note: a foundation or refactoring that several stories stand on.
+Decisions about the rewrite are tracked with the stories.
 
 ### Two rules that keep thin slices from going wrong
 
@@ -129,7 +127,7 @@ token, Host and Origin checks, the lockfile handshake) have nothing to guard.
 ### The data model
 
 The skeleton story decides these, because they are the ledger rather than the UI. The open ones
-are question notes in the vault.
+are tracked with the stories.
 
 - **One person per file.** No `userId`; a profile row carries the identity sync will need.
 - **Amounts:** integer cents at today's precision, so that a sum in SQL is exact (answered

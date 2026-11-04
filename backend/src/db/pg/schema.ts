@@ -18,7 +18,7 @@ import {
 // --- Better Auth tables ---
 // These are required by Better Auth and must not be renamed or removed.
 
-// The version of a sync document (see planning/epics/sync-unit.md). It lives on the root row
+// The version of a sync document (see #454). It lives on the root row
 // only, and `$onUpdate` moves it on every update of that row, so no route has to remember to.
 // A change to a transaction's postings alone moves it through the ledger service.
 const version = () =>

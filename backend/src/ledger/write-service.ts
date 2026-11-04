@@ -16,7 +16,7 @@ import { type PostingDraft, validatePostings } from './validate'
 //   3. The writes, inside one database transaction, so a failure leaves nothing behind.
 //
 // A transaction and its postings are one sync document, versioned by the transaction's
-// `updatedAt` (planning/epics/sync-unit.md). An update to the transaction row moves it by
+// `updatedAt` (see #454). An update to the transaction row moves it by
 // itself (`$onUpdate` in the schema); a change to postings alone does not, so every
 // function here that changes postings moves it too, with `touch`. That's why no module
 // outside `ledger/` may write a posting (`writers.test.ts`).

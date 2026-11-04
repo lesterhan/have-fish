@@ -322,7 +322,7 @@ leaving it as the permanent state this change was undoing.
 ### What this does not cover
 
 Postgres is the whole story today, so dumping it is enough. Once the local-first work
-lands (`planning/productionize/00-direction.md`), the ledger is a SQLite file on each
+lands, the ledger is a SQLite file on each
 user's machine and this script stops being the primary defence — `L02` moves that
 responsibility into the app, with automatic local backup rotation and restore offered as
 a first-run path. This is the right answer for the deployment that exists now, and it is

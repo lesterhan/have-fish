@@ -7,9 +7,8 @@ Personal finance tracker that brings clarity to money spent while out and about.
 ## Where this is going
 
 have-fish is becoming a desktop app: free, local-first, with your ledger in one file on your
-machine and no account ([direction](planning/productionize/00-direction.md)). It is being
-rebuilt on Electron beside the current code, one user story at a time
-([the rewrite](planning/desktop-rewrite.md)). Everything below describes the current app,
+machine and no account. It is being rebuilt on Electron beside the current code, one user story
+at a time ([the rewrite](planning/desktop-rewrite.md)). Everything below describes the current app,
 which keeps working until the new one replaces it.
 
 ## Stack

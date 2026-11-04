@@ -214,9 +214,9 @@ build time, not install time.
 ## Releases
 
 Signed APKs are built in CI (`.github/workflows/build-android.yml`) and
-published as GitHub Releases for install via Obtainium. The build, signing, and
-keystore setup are documented in the epic at
-`planning/epics/archive/mobile-local-apk-ci.md`.
+published as GitHub Releases for install via Obtainium. The workflow reads the signing
+keystore and its passwords from repository secrets (`ANDROID_KEYSTORE_B64`,
+`ANDROID_KEYSTORE_PASSWORD`, …); the workflow file is the reference.
 
 A release is an `android-v*` tag: `git tag android-v1.2.0 && git push origin android-v1.2.0`.
 The workflow strips `android-v` for the app's `versionName` and titles the release with the

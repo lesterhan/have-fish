@@ -9,7 +9,7 @@
    * could not see any of it, because none of it was a token.
    *
    * Whether currency should carry a *derived* identity hue is a real question and a separate
-   * one — see planning/epics/visual-language.md. Until it is answered, a tag that is quiet in
+   * one, left open by the visual-language PRs (#224–#233). Until it is answered, a tag that is quiet in
    * both themes is the reading that is never wrong: the code is what identifies the currency,
    * and colour on every row of a ledger identifies nothing.
    */
