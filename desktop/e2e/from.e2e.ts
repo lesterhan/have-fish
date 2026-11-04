@@ -8,7 +8,7 @@ const NAV = 'nav[aria-label=Places]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
 const AMOUNT = `${WRITE} input[name=amount]`
 const FROM = `${WRITE} input[name=from]`
-const OPTIONS = `${WRITE} [role=listbox][aria-label="Your accounts"]`
+const OPTIONS = `${WRITE} [role=listbox][aria-label="Your accounts and income"]`
 
 const today = () => new Date().toLocaleDateString('en-CA')
 
@@ -53,7 +53,7 @@ describe('picking the account that paid', () => {
 
     await upToFrom(page, '30', 'Dinner')
     await page.keyboard.type('vi')
-    await expect.poll(() => offered(page)).toEqual(['visa'])
+    await expect.poll(() => offered(page)).toEqual(['visa', 'Create income:vi'])
     await page.keyboard.press('Enter')
     expect(await from(page)).toBe('visa')
     expect(await rows(page)).toEqual([])
@@ -63,7 +63,7 @@ describe('picking the account that paid', () => {
     expect(await page.locator(`${PANE} .from`).innerText()).toMatch(/^From\s+visa$/)
   })
 
-  test('only accounts I have added are offered, never a category', async () => {
+  test('accounts I have added are offered, never a category', async () => {
     const { page } = await launch(aHome())
     await writeDown(page, '4.50', 'Coffee')
     await expect.poll(() => rows(page)).toHaveLength(1)
@@ -72,10 +72,11 @@ describe('picking the account that paid', () => {
 
     await upToFrom(page, '1', 'Gum')
     await page.keyboard.type('c')
-    await expect.poll(() => offered(page)).toEqual(['cash', 'Chequing'])
+    await expect.poll(() => offered(page)).toEqual(['cash', 'Chequing', 'Create income:c'])
     await page.keyboard.press('Backspace')
     await page.keyboard.type('unsorted')
-    await expect.poll(() => page.isVisible(OPTIONS)).toBe(false)
+    // A name none of mine has is offered only as somewhere money comes in from.
+    await expect.poll(() => offered(page)).toEqual(['Create income:unsorted'])
   })
 
   test('Down shows them all; the arrows move; Escape puts back what was there', async () => {
@@ -97,19 +98,20 @@ describe('picking the account that paid', () => {
     expect(await page.isVisible(OPTIONS)).toBe(false)
   })
 
-  test('a name that is none of mine is refused, and From says why', async () => {
+  test('a name that is none of mine, to a category, is refused, and To says why', async () => {
     const { page } = await launch(aHome())
     await addAccount(page, 'visa', 'card')
 
     await upToFrom(page, '30', 'Dinner')
     await page.keyboard.type('amex')
     await page.keyboard.press('Enter')
+    await page.keyboard.press('Enter')
 
     await expect
-      .poll(() => page.locator(`${WRITE} #from-error`).innerText())
-      .toBe("You don't have an account called that.")
-    expect(await page.getAttribute(FROM, 'aria-invalid')).toBe('true')
-    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('from')
+      .poll(() => page.locator(`${WRITE} #to-error`).innerText())
+      .toBe('Money coming in goes into one of your accounts. Pick one in To.')
+    expect(await page.getAttribute(`${WRITE} input[name=to]`, 'aria-invalid')).toBe('true')
+    expect(await page.evaluate(() => document.activeElement?.getAttribute('name'))).toBe('to')
     expect(await rows(page)).toEqual([])
   })
 

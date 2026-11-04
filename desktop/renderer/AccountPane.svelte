@@ -40,10 +40,13 @@
   let startOpen = $state(false)
   let startText = $state('')
   let startInput: HTMLInputElement | undefined = $state()
+  let details: HTMLDetailsElement | undefined = $state()
 
-  // Another account showing starts with the question folded and empty.
+  // Another account showing starts with the question folded and empty. By its id: a refresh
+  // brings the same account back as a new object, and that mustn't clear what I'm typing.
+  const shownId = $derived(account?.id)
   $effect(() => {
-    void account?.id
+    void shownId
     startOpen = false
     startText = ''
   })
@@ -84,8 +87,10 @@
 
   function onsubmit(event: SubmitEvent) {
     event.preventDefault()
-    // Folded away, what's in the field isn't said: closing the question is skipping it.
-    if (!saving) onadd({ name, kind, currency, start: startOpen ? startText : '' })
+    // Folded away, what's in the field isn't said: closing the question is skipping it. Asked of
+    // the element: `startOpen` follows its toggle event, which can come after this.
+    const asked = details?.open ?? startOpen
+    if (!saving) onadd({ name, kind, currency, start: asked ? startText : '' })
   }
 
   function onstartsubmit(event: SubmitEvent) {
@@ -205,7 +210,7 @@
 <!-- The question, folded: what's in it today, or what I owe on a card or a loan. -->
 {#snippet question(owed: boolean, currency: string)}
   {@const asked = owed ? copy.accounts.pane.start.owe : copy.accounts.pane.start.have}
-  <details bind:open={startOpen} ontoggle={toggled}>
+  <details bind:this={details} bind:open={startOpen} ontoggle={toggled}>
     <summary>{asked}</summary>
     <span class="money">
       <input

@@ -1,7 +1,7 @@
 // The picker's rules: which options what I typed finds, which one it names, and where the
 // arrow keys move. The web app's `AccountPathInput` matched the same way.
 
-import type { To } from '../shared/commands'
+import type { From, To } from '../shared/commands'
 
 export type Option = { id: string; name: string }
 
@@ -70,10 +70,23 @@ export function toOf(accounts: readonly Option[], typed: string): To {
 }
 
 /**
- * What a spend's From field sends: null when it's empty, so main assumes the account used last;
- * the id of the account it names; or undefined when it names none of mine.
+ * What From offers: my accounts, each with its hint, then the income sources in the order given.
+ * A source with an account's name is left out, since that name means the account.
  */
-export function fromOf(options: readonly Option[], typed: string): string | null | undefined {
+export function fromOptions<A extends Option & { hint: string }>(
+  accounts: readonly A[],
+  income: readonly Option[],
+  hint: string,
+): (Option & { hint: string })[] {
+  const sources = income.filter((s) => named(accounts, s.name) === undefined)
+  return [...accounts, ...sources.map(({ id, name }) => ({ id, name, hint }))]
+}
+
+/**
+ * What a spend's From field sends: null when it's empty, so main assumes the account used last;
+ * the id of an account of mine it names; else an income source, as typed, which makes it income.
+ */
+export function fromOf(accounts: readonly Option[], typed: string): From {
   if (typed.trim() === '') return null
-  return named(options, typed)?.id
+  return named(accounts, typed)?.id ?? { income: typed }
 }

@@ -129,6 +129,54 @@ describe('a starting balance, said when adding', () => {
     expect(await page.locator(`${LIST} li`).count()).toBe(0)
   })
 
+  test('an amount sent before the question has said it opened is still kept', async () => {
+    const { page } = await launch(aHome())
+    await toAccounts(page)
+    await page.click('main.accounts button.add')
+    await page.fill(`${ADDING} input[name=name]`, 'chequing')
+
+    // One task: open, type, send. The details element's toggle event comes after it (#592).
+    await page.evaluate(
+      ({ question, start, form }) => {
+        document.querySelector<HTMLElement>(question)?.click()
+        const field = document.querySelector<HTMLInputElement>(start)
+        if (field === null) throw new Error('no start field')
+        field.value = '100'
+        field.dispatchEvent(new Event('input', { bubbles: true }))
+        document.querySelector<HTMLFormElement>(form)?.requestSubmit()
+      },
+      { question: QUESTION, start: START, form: ADDING },
+    )
+
+    await expect.poll(() => page.locator(`${LIST} li`).allInnerTexts()).toHaveLength(1)
+    await expect.poll(() => started(page)).toContain('100.00 CAD')
+  })
+
+  test('the list refreshing while I add leaves what I typed alone', async () => {
+    const { page } = await launch(aHome())
+    await toAccounts(page)
+    await add(page, 'cash', 'cash')
+    await expect.poll(() => page.locator(`${LIST} li`).count()).toBe(1)
+
+    await page.click('main.accounts button.add')
+    await page.fill(`${ADDING} input[name=name]`, 'chequing')
+    await ask(page)
+    await page.keyboard.type('250')
+    // A change from elsewhere: the list asks for the accounts again, and cash comes back anew.
+    await page.evaluate(() =>
+      window.haveFish.invoke('spend.write', { amount: '1', description: '' }),
+    )
+    await expect
+      .poll(() => page.locator(`${LIST} li`).allInnerTexts())
+      .toEqual([expect.stringContaining('-1.00 CAD')])
+
+    expect(await page.inputValue(START)).toBe('250')
+    await page.keyboard.press('Enter')
+    await expect
+      .poll(() => page.locator(`${LIST} li:has-text("chequing")`).innerText())
+      .toContain('250.00 CAD')
+  })
+
   test('Ctrl+Z takes back the account and its balance together', async () => {
     const { page, press } = await launch(aHome())
     await toAccounts(page)

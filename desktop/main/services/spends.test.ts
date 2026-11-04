@@ -11,7 +11,7 @@ import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/f
 import { getDocument } from '../ledger/store'
 import { redoLast, undoLast } from '../undo/steps'
 import { addAccount, listAccounts } from './accounts'
-import { listCategories } from './categories'
+import { listCategories, listIncome } from './categories'
 import { assumedFrom, editSpend, listTransactions, removeSpend, writeSpend } from './spends'
 
 // 03:00 on the 30th in UTC, still the evening of the 29th in Vancouver.
@@ -1179,5 +1179,151 @@ describe('listCategories', () => {
     ok(removeSpend(ctx, { id }))
 
     expect(listCategories(ledger.db)).toEqual([])
+  })
+})
+
+describe('money coming in', () => {
+  /** Chequing, kept to CAD, and the ids of what's written into it. */
+  function withChequing() {
+    const env = setup()
+    const chequing = ok(addAccount(env.ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' })).id
+    return { ...env, chequing }
+  }
+
+  test('from an income source into chequing: chequing gains it, and the source is income', () => {
+    const { ledger, ctx, chequing } = withChequing()
+
+    const { id } = ok(
+      writeSpend(ctx, {
+        amount: '2000',
+        description: 'Pay',
+        from: { income: 'salary' },
+        to: { account: chequing },
+      }),
+    )
+
+    const salary = accountAt(ledger, 'income:salary')
+    expect(salary).toMatchObject({ kind: 'income', currency: null, origin: { source: 'manual' } })
+    expect(spendOf(ledger, id).postings).toEqual([
+      { accountId: chequing, amount: '2000.00', currency: 'CAD' },
+      { accountId: salary.id, amount: '-2000.00', currency: 'CAD' },
+    ])
+    expect(listAccounts(ledger.db).find((a) => a.id === chequing)?.balance).toEqual([
+      { amount: '2000.00', currency: 'CAD' },
+    ])
+  })
+
+  test('the source named again, whatever its case, is the same one', () => {
+    const { ledger, ctx, chequing } = withChequing()
+    const pay = (income: string) =>
+      ok(
+        writeSpend(ctx, {
+          amount: '1',
+          description: '',
+          from: { income },
+          to: { account: chequing },
+        }),
+      )
+    pay('salary')
+    pay(' Salary ')
+
+    expect(listIncome(ledger.db).map(({ name, uses }) => [name, uses])).toEqual([['salary', 2]])
+  })
+
+  test('income is never a category, nor offered as one; nor is a category income', () => {
+    const { ledger, ctx, chequing } = withChequing()
+    ok(writeSpend(ctx, { amount: '1', description: '', to: { category: 'food' } }))
+    ok(
+      writeSpend(ctx, {
+        amount: '1',
+        description: '',
+        from: { income: 'salary' },
+        to: { account: chequing },
+      }),
+    )
+
+    expect(listCategories(ledger.db).map((c) => c.name)).toEqual(['food'])
+    expect(listIncome(ledger.db).map((c) => c.name)).toEqual(['salary'])
+  })
+
+  test.each([
+    ['a category', { category: 'food' }],
+    ['nothing, which is unsorted', { category: '' }],
+  ])('into %s: refused, and nothing is written', (_, to) => {
+    const { ledger, ctx } = withChequing()
+    const before = count(ledger, 'accounts')
+
+    const refused = writeSpend(ctx, { amount: '5', description: '', from: { income: 'gift' }, to })
+
+    expect(refused).toMatchObject({ ok: false, failure: { code: 'INCOME_NOT_TO_ACCOUNT' } })
+    expect(count(ledger, 'transactions')).toBe(0)
+    expect(count(ledger, 'accounts')).toBe(before)
+  })
+
+  test('an income source is never the account used last', () => {
+    const { ctx, chequing } = withChequing()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' })).id
+    ok(writeSpend(ctx, { amount: '1', description: '', from: visa }))
+    ok(
+      writeSpend(ctx, {
+        amount: '1',
+        description: '',
+        from: { income: 'salary' },
+        to: { account: chequing },
+      }),
+    )
+
+    expect(assumedFrom(ctx)).toEqual({ id: visa })
+  })
+
+  test('listed from the source to the account, and the account can be changed', () => {
+    const { ledger, ctx, chequing } = withChequing()
+    const savings = ok(addAccount(ctx, { name: 'savings', kind: 'bank', currency: 'CAD' })).id
+    const { id } = ok(
+      writeSpend(ctx, {
+        amount: '20',
+        description: 'Gift',
+        from: { income: 'gifts' },
+        to: { account: chequing },
+      }),
+    )
+    expect(listTransactions(ledger.db)[0]).toMatchObject({ from: 'gifts', to: 'chequing' })
+
+    ok(editSpend(ctx, { id, amount: '20', description: 'Gift', to: { account: savings } }))
+
+    expect(listTransactions(ledger.db)[0]).toMatchObject({ from: 'gifts', to: 'savings' })
+  })
+
+  test('an edit sending it to a category is refused, and changes nothing', () => {
+    const { ledger, ctx, chequing } = withChequing()
+    const { id } = ok(
+      writeSpend(ctx, {
+        amount: '20',
+        description: 'Gift',
+        from: { income: 'gifts' },
+        to: { account: chequing },
+      }),
+    )
+
+    const refused = editSpend(ctx, {
+      id,
+      amount: '25',
+      description: 'Gift',
+      to: { category: 'food' },
+    })
+
+    expect(refused).toMatchObject({ ok: false, failure: { code: 'INCOME_NOT_TO_ACCOUNT' } })
+    expect(spendOf(ledger, id).postings[0]).toMatchObject({ accountId: chequing, amount: '20.00' })
+  })
+
+  test('an income source with a name no account can have is refused', () => {
+    const { ctx, chequing } = withChequing()
+    const refused = writeSpend(ctx, {
+      amount: '1',
+      description: '',
+      from: { income: 'pay::day' },
+      to: { account: chequing },
+    })
+    expect(refused).toMatchObject({ ok: false, failure: { code: 'PATH_INVALID' } })
   })
 })

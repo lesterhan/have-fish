@@ -1,5 +1,15 @@
 import { describe, expect, test } from 'vitest'
-import { finds, fromOf, matching, named, offered, stepped, toOf, toOptions } from './picker'
+import {
+  finds,
+  fromOf,
+  fromOptions,
+  matching,
+  named,
+  offered,
+  stepped,
+  toOf,
+  toOptions,
+} from './picker'
 
 const cash = { id: 'c', name: 'cash' }
 const chequing = { id: 'q', name: 'Chequing' }
@@ -120,8 +130,26 @@ describe('fromOf', () => {
     expect(fromOf(MINE, 'Visa')).toBe('v')
   })
 
-  test('anything else is none of mine', () => {
-    expect(fromOf(MINE, 'amex')).toBeUndefined()
-    expect(fromOf([], 'cash')).toBeUndefined()
+  test('anything else is an income source, as typed', () => {
+    expect(fromOf(MINE, 'salary')).toEqual({ income: 'salary' })
+    expect(fromOf([], 'cash')).toEqual({ income: 'cash' })
+  })
+})
+
+describe('fromOptions', () => {
+  const accounts = [
+    { id: 'v', name: 'visa', hint: 'Card' },
+    { id: 'c', name: 'cash', hint: 'Cash' },
+  ]
+
+  test('my accounts first, then the income sources, each said as income', () => {
+    expect(fromOptions(accounts, [{ id: 's', name: 'salary' }], 'Income')).toEqual([
+      ...accounts,
+      { id: 's', name: 'salary', hint: 'Income' },
+    ])
+  })
+
+  test('a source with an account’s name is left out: the name means the account', () => {
+    expect(fromOptions(accounts, [{ id: 'x', name: 'Visa' }], 'Income')).toEqual(accounts)
   })
 })

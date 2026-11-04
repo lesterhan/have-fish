@@ -22,7 +22,7 @@
   import { todayIn } from './format'
   import { NARROW } from './narrow'
   import Picker from './Picker.svelte'
-  import { fromOf, toOf, toOptions } from './picker'
+  import { fromOf, fromOptions, toOf, toOptions } from './picker'
   import { type Field, fieldOf, spendWordsFor, wordsFor } from './refusals'
   import { afterRemoving, kept } from './selection'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
@@ -57,15 +57,19 @@
 
   /** The categories in use, most used first; what To holds as typed. */
   let categories = $state.raw<ListedCategory[]>([])
+  /** The income sources money has come from, most used first. */
+  let income = $state.raw<ListedCategory[]>([])
   let toText = $state('')
   let toPicker: Picker
 
   const assumedName = $derived(payers.find((a) => a.id === assumed)?.name)
-  const fromOptions = $derived(
+  const accountOptions = $derived(
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
+  /** My accounts, then income sources: one of those makes it income. */
+  const fromChoices = $derived(fromOptions(accountOptions, income, copy.spends.write.income))
   /** Categories, then my accounts: one of mine makes it a transfer. */
-  const toChoices = $derived(toOptions(categories, fromOptions))
+  const toChoices = $derived(toOptions(categories, accountOptions))
 
   let transactions = $state.raw<ListedTransaction[]>([])
   let selectedId = $state<string | null>(null)
@@ -81,14 +85,17 @@
   // Drafts are left alone: a draft is the window's until it is saved or put back.
   async function refresh() {
     if (!dateChosen) date = todayIn()
-    const [listed, accounts, from, used] = await Promise.all([
+    const [listed, accounts, from, used, sources] = await Promise.all([
       window.haveFish.invoke('transaction.list', {}),
       window.haveFish.invoke('account.list', {}),
       window.haveFish.invoke('spend.assumedFrom', {}),
       window.haveFish.invoke('category.list', {}),
+      window.haveFish.invoke('income.list', {}),
     ])
     if (used.ok) categories = used.value
     else error = { field: 'form', words: wordsFor(used) }
+    if (sources.ok) income = sources.value
+    else error = { field: 'form', words: wordsFor(sources) }
     if (listed.ok) {
       transactions = listed.value
       selectedId = kept(transactions, selectedId)
@@ -139,11 +146,6 @@
     event.preventDefault()
     if (saving) return
     const from = fromOf(payers, fromText)
-    if (from === undefined) {
-      error = { field: 'from', words: copy.spends.write.notMine }
-      fromPicker.focus()
-      return
-    }
     saving = true
     const to = toOf(payers, toText)
     // Left to itself, Date sends nothing: main dates it today, even past midnight.
@@ -345,13 +347,14 @@
         bind:this={fromPicker}
         id="write-from"
         name="from"
-        options={fromOptions}
+        options={fromChoices}
         bind:text={fromText}
         placeholder={assumedName ?? copy.spends.write.wallet}
         listLabel={copy.spends.write.fromList}
         invalid={error?.field === 'from'}
         describedby={error?.field === 'from' ? 'from-error' : undefined}
         onchoose={() => (fromChosen = true)}
+        newOption={copy.spends.write.newIncome}
       />
     </span>
     {#if error?.field === 'from'}

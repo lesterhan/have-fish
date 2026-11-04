@@ -1,8 +1,8 @@
-// The categories I've put spends in, for the picker to offer.
+// The categories I've put spends in, and the income sources money came from, for the pickers.
 
 import { nameOf } from '@have-fish/core/account-path'
 import type Database from 'better-sqlite3'
-import { and, countDistinct, eq, isNull, ne } from 'drizzle-orm'
+import { and, countDistinct, eq, isNull, ne, sql } from 'drizzle-orm'
 import type { ListedCategory } from '../../shared/commands'
 import { perConnection } from '../db/prepared'
 import { accounts, postings } from '../db/schema'
@@ -23,7 +23,7 @@ const statements = perConnection((orm) => ({
     .where(
       and(
         isNull(accounts.deletedAt),
-        eq(accounts.kind, 'category'),
+        eq(accounts.kind, sql.placeholder('kind')),
         ne(accounts.pathKey, UNSORTED_KEY),
       ),
     )
@@ -32,9 +32,14 @@ const statements = perConnection((orm) => ({
 }))
 
 /** Most used first, then by name without regard to case. A category nothing is in isn't offered. */
-export function listCategories(db: Database.Database): ListedCategory[] {
+export const listCategories = (db: Database.Database) => listUsed(db, 'category')
+
+/** Income sources, the same way: most used first, and only ones money has come from. */
+export const listIncome = (db: Database.Database) => listUsed(db, 'income')
+
+function listUsed(db: Database.Database, kind: 'category' | 'income'): ListedCategory[] {
   return statements(db)
-    .used.all()
+    .used.all({ kind })
     .map(({ id, path, uses }) => ({ id, name: nameOf(path), uses }))
     .sort((a, b) => b.uses - a.uses || byName.compare(a.name, b.name) || (a.id < b.id ? -1 : 1))
 }

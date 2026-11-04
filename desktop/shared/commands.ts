@@ -20,6 +20,15 @@ const to = z.union([
 
 export type To = z.infer<typeof to>
 
+/**
+ * Where the money comes from: an account of mine by id; an income source by name, without its
+ * root (`salary`), one I've used or a new one, which makes it income; or null for the account
+ * used last on this machine, else the wallet.
+ */
+const from = z.union([z.uuid(), z.strictObject({ income: typed(200) })]).nullable()
+
+export type From = z.infer<typeof from>
+
 /** A calendar day as typed, `YYYY-MM-DD`; main says whether it is one. */
 const date = typed(10)
 
@@ -33,11 +42,11 @@ const edit = z.strictObject({
 })
 
 export const inputs = {
-  /** `from` null, or left out: the account used last on this machine, else the wallet. */
+  /** Money in, out, or between my accounts: which, `from` and `to` say. */
   'spend.write': z.strictObject({
     amount: typed(64),
     description: typed(500),
-    from: z.uuid().nullable().default(null),
+    from: from.default(null),
     /** Left out: unsorted. */
     to: to.default({ category: '' }),
     /** Left out, or empty: today, where I am. */
@@ -62,6 +71,7 @@ export const inputs = {
   'account.start': z.strictObject({ id: z.uuid(), amount: typed(64) }),
   'account.list': z.strictObject({}),
   'category.list': z.strictObject({}),
+  'income.list': z.strictObject({}),
   /** What went to each category from `start` to `end`, both days in it. */
   'report.spending': z.strictObject({ start: date, end: date }),
   'ledger.undo': z.strictObject({}),
@@ -77,19 +87,22 @@ export type ListedTransaction = {
   amounts: Money[]
   /** Its one amount, when it moves one between two accounts in one currency: what an edit sets. */
   simple: Money | null
-  /** For one amount, the name of the account it came out of, without its root. */
+  /**
+   * For one amount, the name of the account of mine or income source it came out of, without its
+   * root.
+   */
   from: string | null
   /**
-   * For one amount from an account of mine, the name of the category or account it went to,
-   * without its root: what an edit can change.
+   * For one amount from an account of mine, the name of the category or account it went to; from
+   * an income source, the account of mine it went to. Without its root: what an edit can change.
    */
   to: string | null
 }
 
-/** A category I've put a spend in, as the picker offers it. */
+/** A category I've put a spend in, or an income source money came from, as a picker offers it. */
 export type ListedCategory = {
   id: string
-  /** Its path without the root: `food:coffee`. */
+  /** Its path without the root: `food:coffee`, `salary`. */
   name: string
   /** How many live transactions are in it. */
   uses: number
@@ -142,6 +155,8 @@ export interface Values {
   'account.list': ListedAccount[]
   /** The ones in use, most used first; never unsorted, which is what none means. */
   'category.list': ListedCategory[]
+  /** The income sources money has come from, most used first. */
+  'income.list': ListedCategory[]
   /**
    * In the home currency, `currency`, oldest day first. `other` is what went to categories in
    * each other currency, by code: none that sum to zero.
