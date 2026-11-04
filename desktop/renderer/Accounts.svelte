@@ -5,6 +5,7 @@
   import AccountList from './AccountList.svelte'
   import AccountPane from './AccountPane.svelte'
   import { type AccountField, accountFieldOf, type Adding, lockOf } from './accounts'
+  import { accountRows } from './balances'
   import { NARROW } from './narrow'
   import { wordsFor } from './refusals'
   import { kept } from './selection'
@@ -29,12 +30,15 @@
   let addButton: HTMLButtonElement
 
   const selected = $derived(accounts.find((a) => a.id === selectedId))
+  /** The list as a tree, parents rolled up; and the accounts in it, in the order it shows them. */
+  const rows = $derived(accountRows(accounts))
+  const ordered = $derived(rows.flatMap((r) => (r.account ? [r.account] : [])))
 
   async function refresh() {
     const listed = await window.haveFish.invoke('account.list', {})
     if (listed.ok) {
       accounts = listed.value
-      selectedId = kept(accounts, selectedId)
+      selectedId = kept(ordered, selectedId)
     } else error = { field: 'form', words: wordsFor(listed) }
   }
 
@@ -55,7 +59,7 @@
   /** Coming here from another place: the list, or Add account while there's nothing in it. */
   export function focus() {
     if (adding) pane.focusName()
-    else if (accounts.length > 0) list.focus()
+    else if (ordered.length > 0) list.focus()
     else addButton.focus()
   }
 
@@ -159,7 +163,8 @@
 
   <AccountList
     bind:this={list}
-    {accounts}
+    {rows}
+    accounts={ordered}
     {selectedId}
     onselect={select}
     onopen={() => (open = matchMedia(NARROW).matches)}

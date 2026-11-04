@@ -3,12 +3,12 @@ import { describe, expect, test } from 'vitest'
 import type { Changed } from '../../shared/commands'
 import { contextFor, type Time } from '../context'
 import { applyLocal } from '../ledger/apply'
-import { anAccount, NOW, ok, tempLedger } from '../ledger/fixtures'
+import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/fixtures'
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { undoItems } from '../undo/menu'
 import { redoLast, undoLast } from '../undo/steps'
 import { addAccount, listAccounts, startAccount } from './accounts'
-import { listTransactions, writeSpend } from './spends'
+import { listTransactions, removeSpend, writeSpend } from './spends'
 
 function setup() {
   const ledger = tempLedger()
@@ -145,11 +145,105 @@ describe('listAccounts', () => {
     ok(applyLocal(ledger, [anAccount({ path: 'equity:opening', kind: 'opening' })], NOW))
 
     expect(listAccounts(ledger.db)).toEqual([
-      { id: expect.any(String), name: 'car', kind: 'loan', currency: null, start: null },
-      { id: expect.any(String), name: 'cash', kind: 'cash', currency: null, start: null },
-      { id: expect.any(String), name: 'Chequing', kind: 'bank', currency: 'CAD', start: null },
-      { id: expect.any(String), name: 'visa', kind: 'card', currency: 'CAD', start: null },
+      { ...LISTED, name: 'car', kind: 'loan', currency: null },
+      { ...LISTED, name: 'cash', kind: 'cash', currency: null, balance: [cad('-4.50')] },
+      { ...LISTED, name: 'Chequing', kind: 'bank', currency: 'CAD' },
+      { ...LISTED, name: 'visa', kind: 'card', currency: 'CAD' },
     ])
+  })
+})
+
+const LISTED = { id: expect.any(String), start: null, balance: [] }
+const cad = (amount: string) => ({ amount, currency: 'CAD' })
+
+describe('an account’s balance', () => {
+  /** A chequing account with 1,000 in it, and what the window says of each account by name. */
+  function started() {
+    const s = setup()
+    const chequing = ok(
+      addAccount(s.ctx, { name: 'chequing', kind: 'bank', currency: 'CAD', start: '1000' }),
+    ).id
+    const balances = () =>
+      Object.fromEntries(listAccounts(s.ledger.db).map((a) => [a.name, a.balance]))
+    return { ...s, chequing, balances }
+  }
+
+  test('nothing in it yet is no amounts', () => {
+    const { ctx, ledger } = setup()
+    ok(addAccount(ctx, { name: 'chequing', kind: 'bank', currency: 'CAD' }))
+    expect(listAccounts(ledger.db)[0]?.balance).toEqual([])
+  })
+
+  test('what came in minus what went out: spends, income and transfers', () => {
+    const { ctx, ledger, chequing, balances } = started()
+    ok(writeSpend(ctx, { amount: '50', description: 'Groceries', from: chequing }))
+    const cash = ok(addAccount(ctx, { name: 'cash', kind: 'cash', currency: null })).id
+    ok(writeSpend(ctx, { amount: '100', description: '', from: chequing, to: { account: cash } }))
+    const salary = anAccount({ path: 'income:salary', kind: 'income' })
+    ok(applyLocal(ledger, [salary, aSpend(salary.id, chequing, '2000.00')], NOW))
+
+    expect(balances()).toEqual({ chequing: [cad('2850.00')], cash: [cad('100.00')] })
+  })
+
+  test('a card holds what I owe as the ledger does, below zero; paying it down raises it', () => {
+    const { ctx, chequing, balances } = started()
+    const visa = ok(addAccount(ctx, { name: 'visa', kind: 'card', currency: 'CAD' })).id
+    ok(writeSpend(ctx, { amount: '30', description: 'Books', from: visa }))
+    ok(writeSpend(ctx, { amount: '20', description: '', from: chequing, to: { account: visa } }))
+
+    expect(balances().visa).toEqual([cad('-10.00')])
+    expect(balances().chequing).toEqual([cad('980.00')])
+  })
+
+  test('a spend taken back no longer counts', () => {
+    const { ctx, chequing, balances } = started()
+    const { id } = ok(writeSpend(ctx, { amount: '50', description: '', from: chequing }))
+    ok(removeSpend(ctx, { id }))
+
+    expect(balances().chequing).toEqual([cad('1000.00')])
+  })
+
+  test('an account that holds any currency has an amount in each, by code; none that net to zero', () => {
+    const { ledger } = setup()
+    const wise = anAccount({ path: 'assets:wise', kind: 'bank' })
+    const food = anAccount({ path: 'expenses:food', kind: 'category' })
+    const usd = (spend: ReturnType<typeof aSpend>) => ({
+      ...spend,
+      postings: spend.postings.map((p) => ({ ...p, currency: 'USD' })),
+    })
+    const eur = (spend: ReturnType<typeof aSpend>) => ({
+      ...spend,
+      postings: spend.postings.map((p) => ({ ...p, currency: 'EUR' })),
+    })
+    ok(
+      applyLocal(
+        ledger,
+        [
+          wise,
+          food,
+          aSpend(food.id, wise.id, '40.00'),
+          usd(aSpend(food.id, wise.id, '7.25')),
+          eur(aSpend(food.id, wise.id, '3.00')),
+          eur(aSpend(wise.id, food.id, '3.00')),
+        ],
+        NOW,
+      ),
+    )
+
+    expect(listAccounts(ledger.db)[0]?.balance).toEqual([
+      cad('40.00'),
+      { amount: '7.25', currency: 'USD' },
+    ])
+  })
+
+  test('a removed starting balance takes its amount with it', () => {
+    const { ledger, balances } = started()
+    const start = listTransactions(ledger.db).find((t) => t.description === 'Starting balance')
+    const stored = start && getDocument(ledger.db, 'transaction', start.id)
+    if (!stored) throw new Error('no starting balance')
+    ok(applyLocal(ledger, [tombstoneOf(stored.doc)], NOW))
+
+    expect(balances().chequing).toEqual([])
   })
 })
 
