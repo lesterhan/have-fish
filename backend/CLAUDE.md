@@ -3,7 +3,7 @@
 These are the current app's rules. Claude Code loads this file when a session first reads a file
 under `backend/`. The rewrite (`core/`, `desktop/`) does not follow them; the root `CLAUDE.md`
 has its rules. The current app is in maintenance: fixes and work already in flight land here, and
-new features go into the rewrite unless the owner says otherwise.
+new features go into the rewrite unless the maintainer says otherwise.
 
 `ARCHITECTURE.md` is the map: request flow, layers, every write path, and "Two editions, one
 app".

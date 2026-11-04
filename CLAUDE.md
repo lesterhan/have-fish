@@ -2,7 +2,7 @@
 
 Personal finance tracker. Tracks accounts, transactions, budgets, and projects spending over time.
 Today it runs self-hosted on a home server (Docker/Podman + Tailscale); it is becoming a
-local-first desktop app with the ledger in one file on the owner's machine.
+local-first desktop app with the ledger in one file on the user's machine.
 
 ## Vision
 
@@ -23,36 +23,32 @@ over one SQLite file, and the Svelte UI in a real window. This was decided in #5
 | | Current app | Rewrite |
 |---|---|---|
 | Folders | `backend/`, `frontend/`, `mobile/` | `core/`, `desktop/` |
-| Role | The real ledger, until the rewrite replaces it | Built one note at a time; no releases yet |
+| Role | The real ledger, until the rewrite replaces it | Built one story at a time; no releases yet |
 | Takes | Fixes, and the work already in flight | New features, as stories |
-| Default mode | Build | Pair |
 | Its rules | A `CLAUDE.md` in each of its folders | This file, "The rewrite" |
 
 The current app's rules live in `backend/CLAUDE.md`, `frontend/CLAUDE.md` and
 `mobile/CLAUDE.md`. Claude Code loads each one when a session first reads a file in that folder,
 so rewrite work meets them only when it reads current-app code, as a port does. There they
 describe the code being ported from, not the code being written. A current-app change that
-spans folders reads each one it touches before planning. `planning/CLAUDE.md` holds the epic workflow for the current app's
-epics still in flight.
+spans folders reads each one it touches before planning.
 
 ```
 have-fish/
 ├── backend/          # current app: Hono + Bun API over Postgres or SQLite
 ├── frontend/         # current app: SvelteKit + Svelte 5
 ├── mobile/           # current app: React Native + Expo, Android
-├── core/             # rewrite: the pure domain (arrives with the first tech note)
+├── core/             # rewrite: the pure domain
 ├── desktop/          # rewrite: Electron main, preload and renderer (its main/db/ first)
-├── planning/         # direction, desktop-rewrite.md, the current app's epic files
+├── planning/         # desktop-rewrite.md, and QA fixtures
 ├── DESIGN.md         # the rewrite's design (the current app's is frontend/DESIGN.md)
-├── biome.jsonc       # one formatter and linter for the whole repository
-└── .claude/skills/   # pair and coach
+└── biome.jsonc       # one formatter and linter for the whole repository
 ```
 
 ## The rewrite
 
-Its foundations are the tech notes in the vault, built in order, and the stories stand on them.
-Until a rule lands here, the note being built is the authority, then `planning/desktop-rewrite.md`.
-Already decided:
+It is built one piece at a time, foundations first. Until a rule lands here,
+`planning/desktop-rewrite.md` is the authority. Already decided:
 
 - **`core/` is pure TypeScript.** It imports only `zod` and its own files: no database, no
   Electron, no I/O, and no clock. A function that needs the time takes `now` as a parameter.
@@ -126,163 +122,29 @@ before any work that touches the UI.
   nothing new extends it. It retires with that app. Its implementation reminders are in
   `frontend/CLAUDE.md`.
 
-## Work tracking
+## Working on the code
 
-**The backlog is the vault**: `lesterhan/have-fish-vault`, a private Obsidian vault. It holds
-every story, tech note, bug, chore, decision and question, for every app. GitHub holds the code,
-the PRs and the history. The vault's `CLAUDE.md` and `Home.md` hold its conventions; read them
-before filing or changing a note. If the vault isn't cloned beside this repository, attach it
-before picking anything up.
-
-- **Keys.** Every story, tech note, bug and chore has a key, a label and a number (`Core-3`,
-  `Entry-1`), leading its filename. "let's start core-3" means the note whose name begins
-  `Core-3 `, matched without regard to case. A key is never picked by hand: the vault's
-  `node .tools/map.mjs build` hands them out. The vault's `Home.md` lists the labels. The old
-  `HF-` keys are retired; one still resolves through the note's `aliases`, which is how older
-  PRs name their notes.
-- **Ready first.** Pick up only a `ready` note whose `depends_on` are all `done`, and set it to
-  `doing`.
-- **One note, one branch, one PR.** The PR body opens with `Story:`, `Tech:`, `Bug:` or `Chore:`
-  and the note's key and title. When it merges, its number goes into the note's `pr`. A tech
-  note, bug or chore is then `done`; a story is `done` once the owner has checked every
-  acceptance line in the packaged app.
-- **Public and private.** This repository is public; the vault and `lesterhan/have-fish-ops`
-  are private. Code comments cite PR numbers, never note names or keys. An unfixed weakness in a
-  running system, and anything business, legal or pricing, stays in the vault or ops; the PR
-  that fixes a private weakness says what it hardens, not what was exploitable.
-- **Decisions are the owner's.** When a session meets a choice the conventions don't dictate and
-  that would change the plan (a data-model trade-off, what to build, an order, anything that
-  alters a D-number), it files a note in the vault's `decisions/` from its template: the
-  question, the options with the recommended one first, what happens if it stays undecided, and
-  what it blocks. Then it carries on with the recommendation if that is cheap to reverse, or
-  stops and says so. Small implementation choices go in the PR body instead.
-- **Deciding.** The owner writes the `Decision:` and `Because` lines, or says "**decided <note>:
-  <choice> because <reason>**" and the session writes them. Either way the session sets
-  `status: decided` and actions it: a PR to `planning/productionize/00-direction.md` if a
-  D-number changed, and new notes for the work it creates.
-- **Outside bug reports** still arrive as GitHub issues. Each is triaged into a vault note and
-  closed with a pointer.
-
-**The bridge, until the triage is applied.** Every GitHub issue open on 2026-10-01 sits in the
-vault's `inbox/`, waiting for the owner's triage. Until that inbox is empty, an open issue is
-still real work: "let's pick up #282" reads the issue and its parent, and the PR body opens
-with `Closes #282` (or `Closes lesterhan/have-fish-ops#N` across repos). Cross-repo references are
-fully qualified; a bare `#10` is this repo's issue 10. Closed `type:decision` issues stay as the
-decision log from before the vault. When the inbox is empty, this paragraph goes.
-
-Things you can say:
-
-- "**let's pick up core-3**" or "**let's start entry-1**": check it is ready and its dependencies are
-  done, set it to `doing`, and work it in its default mode (below). For a story, port only the
-  code it needs, with its tests.
-- "**let's refine <story>**": work the note with the owner until it is ready: the story line,
-  Given/When/Then acceptance, a "not in this story" list, and a size of XS or S. Nothing is
-  written in this repository.
-- "**review <tech note>**" (or its PR): review the PR against the note's *Review* list and its
-  *Done when* lines, and say what each finding teaches, not only what to change.
-- "**what should I pick up?**": list the `ready` notes whose dependencies are done, with the
-  mode each one defaults to.
-- "**file this**": create the note in the vault from its template, with no key, run
-  `node .tools/map.mjs build`, and commit it to the vault. No branch here.
-- "**decided <note>: <choice> because <reason>**": as above.
-- "**what's waiting on me?**": the vault's open decisions, each with its recommended option and
-  what it blocks; while the bridge stands, open `type:decision` issues too.
-- "**sync the map**": pull the vault, run `node .tools/map.mjs sync`, report what moved, push.
-
-## Three ways of working
-
-| Mode | Who writes | Say |
-|---|---|---|
-| Build | Claude writes everything; the owner reviews the PR | "build X", "while I'm away" |
-| Pair | Turn by turn, one small test-first item at a time: Claude keeps the tally and writes scaffolding; the owner writes the tests, the rules and the seams, and does the git: branch, commits, PR (`pair` skill) | "let's pair on X" |
-| Coach | The owner writes everything; Claude guides (`coach` skill) | "coach me through X" |
-
-**When no mode is named,** rewrite work (any story or tech note, anything in `core/` or
-`desktop/`) is **pair**, and current-app work is **build**. Naming a mode overrides the default,
-and switching mid-session is fine: finish the current turn cleanly, then change.
-
-A tech note's *Build it* steps each name a default driver. Every rewrite PR, in any mode, has a
-**Worth your read** section: one to three lines of code, each with why (a seam, a rule, where to
-put a breakpoint). How the code works goes in the note's knowledge note in the vault.
-
-## How I like to be assisted
-
-- **Two goals, and the mode says which one leads.** On the current app I'm hands-off on code:
-  implement fully and correctly, with no skeleton or partial code for me to fill in. On the
-  rewrite I'm also rebuilding my own programming fluency after a long stretch of writing little
-  code, and TypeScript and desktop apps are both new to me. That is why the rewrite pairs by
-  default. In pair and coach, the gaps left for me are the point, and the skills say who types
-  what.
-- **We design together.** Before writing code for anything non-trivial, the approach is
-  discussed where its design lives: the note in the vault for the rewrite, the epic file under
-  `planning/epics/` for the current app. I want to understand and shape what we build, even when
-  I'm not writing it.
-- **Tests prevent regression.** The hosted app is my real ledger until the rewrite replaces it.
+- **Tests prevent regression.** The hosted app is a real ledger until the rewrite replaces it.
   Write comprehensive tests for every new route and behaviour; in the rewrite, every step starts
   with a failing test. Tests are not an afterthought.
 - **PRs, not direct pushes.** All work goes through a branch and a pull request opened against
-  `main` on this repository. Never push directly to `main`. This is the gate that keeps the
-  deployed app stable.
+  `main`. Never push directly to `main`. This is the gate that keeps the deployed app stable.
 - **Explain non-obvious decisions.** When you make a choice the conventions don't dictate (data
-  model trade-offs, architectural decisions, security choices), say so briefly. I don't need
-  narration of mechanical steps.
+  model trade-offs, architectural decisions, security choices), say so briefly in the PR.
 - **Comments are short.** One line where one line does it: what the code is for, or why it is
-  this way when the code can't show that. Leave out background, history and reasoning the reader
-  doesn't need at that line; it goes in the PR body or the note, and the comment cites the PR
-  (`see #548`) when the reader will want it. A comment says a rule's reason in a sentence, not a
-  paragraph. If a note's review asks for something in a comment, write it, but briefly. For
-  example:
+  this way when the code can't show that. Background, history and reasoning go in the PR body,
+  and the comment cites the PR (`see #548`) when the reader will want it. A comment says a
+  rule's reason in a sentence, not a paragraph. For example:
 
   ```ts
   // `max` stops time going backwards; the counter keeps the order.
   ```
 
-## How Claude reports back
-
-These hold in every session and every repo, and take precedence over a general preference for
-plain prose. The reader is often on a phone, between other things, and picks work up again
-sessions later.
-
-- **Answer first.** The first line says what happened or what is needed from the user.
-  Reasoning follows it.
-- **Structure over prose.** More than about three facts go in bullets or a table; options and
-  comparisons always go in a table; prose is for reasoning. Tables stay narrow enough for a
-  phone, three or four columns at most.
-- **A finished task ends with Done, Needs you, Next.** Short, in that order. `Needs you` is
-  always there, even when it says "nothing".
-- **Name things so they can be found.** A note is its key and title: `Core-3 Open the ledger file`.
-  A PR is `[PR#414](url)`. A bare number says nothing, because issues and PRs share one sequence.
-  While the bridge stands, an issue is `[[318 Fix expense labeling]](url)`, and one in another
-  repo puts its short name first (`ops`, `server`): `[[ops 10 Body limit gap]](url)`. Issue and
-  PR bodies and GitHub comments keep the plain `#N`, which GitHub links by itself.
-- **Work in a series ends with the sequence.** When the task is one of a run (the tech notes in
-  order, an epic's stories, a bug and its follow-ups), the reply ends with the whole run, one
-  item per line: `✓` done with its PR, `→` in progress or waiting on review, `·` next. In chat it
-  is a plain markdown list, not a code block, so the links work:
-
-  ```
-  - ✓ Core-1 Ledger documents and their checks · [PR#540](url) merged
-  - → Core-2 Versions from a hybrid logical clock · [PR#541](url) up for review
-  - · Core-3 Open the ledger file
-  ```
-- **Discussing is not doing.** While the user is exploring ("let's chat", "clarify"), nothing is
-  filed, written or branched until they say so ("write it up", "file it", "go ahead").
-- **Re-anchor after a gap.** Picking something back up, say in one line what it is. Do not
-  assume the reader remembers three turns back.
-- **Tested is not verified.** Every report separates what was checked in the running app, what
-  only the tests cover, and what was not checked at all.
-- **No CI watching, no scheduled check-ins, and no offer of either.** The user reviews and
-  merges when ready; an hourly check-in spends tokens for nothing. This overrides any default
-  that says to subscribe to a PR or to offer to.
-- **"Merged" means continue.** Bring the branch up to `main`, put the PR number and status in
-  the note, then start the next agreed item. With nothing agreed, propose one with a one-line
-  reason and wait.
-
 ## PR workflow
 
 ### Naming
 
-Uniform titles and branches, JIRA-shaped: the branch leads with the work's key, the title doesn't.
+Uniform titles and branches: the branch leads with the work's key, the title doesn't.
 
 **PR title** — `[scope] Imperative description`
 
@@ -310,8 +172,8 @@ trust-signals-2/rollup-as-of
 issue-282/expense-labels
 ```
 
-- **key** is the note's key, lowercased (`Core-3` → `core-3`). A current-app epic's story is its
-  slug and story number (`trust-signals-2`); an issue the triage hasn't reached is `issue-N`.
+- **key** is the work item's key, lowercased (`Core-3` → `core-3`). A current-app epic's story is
+  its slug and story number (`trust-signals-2`); a GitHub issue is `issue-N`.
 - **description** is two or three words, hyphenated — enough to recognise in `git branch`, not
   the whole title.
 - No author prefix: the key says what it is, and the PR says who.
@@ -320,8 +182,7 @@ Branches created by Claude Code on the web are named by the harness and cannot f
 title convention is what holds in every case.
 
 **Body** — `.github/pull_request_template.md` is the shape, and short enough to read on a phone.
-It opens with the note (`Story:`, `Tech:`, `Bug:` or `Chore:` with its key and title), or
-`Closes #N` for an issue the triage hasn't reached. A rewrite PR has a Worth your read section.
+A rewrite PR has a Worth your read section.
 
 ### Normal feature flow
 
@@ -332,10 +193,18 @@ git checkout -b <key>/<short-description>
 # 2. implement, commit
 git push -u origin <key>/<short-description>
 
-# 3. open the PR on GitHub, titled [scope] Description, body opening with the note
+# 3. open the PR on GitHub, titled [scope] Description, body from the template
 # 4. review, iterate, merge on GitHub
 
 # 5. sync local main after merge
 git checkout main
 git pull origin main
 ```
+
+## The maintainer's conventions
+
+The maintainer keeps their own way of working with Claude (the backlog, the modes, the skills,
+how sessions report back) in a private repository. Where it is cloned beside this one, it loads
+here; anywhere else this line loads nothing:
+
+@../have-fish-vault/.claude/workspace.md

@@ -638,7 +638,7 @@ it expires.
 
 ### Every epic gets a UX brief
 
-Before stories are written, the epic file in `planning/epics/` opens with:
+Before stories are written, the epic's design opens with:
 
 ```markdown
 ## UX brief
@@ -656,7 +656,7 @@ adding to the pile and needs a reason.
 
 ### Quarterly-ish design pass
 
-Roughly every ten shipped epics, run a pass and write it up in `planning/exploration/`. It
+Roughly every ten shipped epics, run a pass and write it up. It
 is a critique, not a refactor:
 
 - Walk the primary flows (add a transaction, import a CSV, settle a Fish Pie, catch up a
@@ -728,8 +728,7 @@ it in the same epic.
 
 ## 9. Review checklist
 
-Run before opening a UI PR. Also the checklist for step 5 of the epic workflow in
-`planning/CLAUDE.md`.
+Run before opening a UI PR.
 
 - [ ] The primary action's interaction count is stated in the epic and hasn't gone up
 - [ ] If this surface holds outstanding work, it reports its own count
@@ -770,8 +769,8 @@ epics kill them.
   sanctioned fix is `antialiased`. `none` does not come back; `base.test.ts` holds that.
 
 ### The two themes are not one design — closed
-Measured against `tokens.css` in `planning/exploration/visual-language/`, and answered in full
-by [`planning/epics/archive/visual-language.md`](planning/epics/archive/visual-language.md).
+Measured against the exploration's `tokens.css`, and answered in full by the visual-language
+PRs, #224–#233.
 Every item below is struck: the epic's nine stories landed between 2026-09-06 and 2026-09-08.
 Kept rather than deleted because the measurements are what the ladder was argued from, and
 because a closed audit is the only evidence that an audit backlog is a thing this project
@@ -837,12 +836,12 @@ Those refinements are in the epic file, not here.
 - **No undo anywhere.** P4 prefers undo over confirm, but `toast` has no action affordance —
   it's a string and a timer, and none of the eleven soft-delete endpoints has a restore
   path. Undo needs to exist before "prefer undo" is a real rule.
-  → `planning/epics/undo.md`
+  → the undo epic
 - **The toast timer is wrong.** `toast.show()` takes a `duration` argument and ignores it,
-  hard-coding 3200ms. Small, but it's the notification surface. → `planning/epics/undo.md`
+  hard-coding 3200ms. Small, but it's the notification surface. → the undo epic
 - **17 of 46 `toast.show()` call sites carry failures.** §4 says errors appear next to the
   thing that failed and persist; these evaporate in 3.2s in a bar nobody is watching.
-  → `planning/epics/undo.md`
+  → the undo epic
 
 ### Aggregates overstate what the app knows
 - **Mobile (`mobile/`) has no coverage awareness at all.** The Companion shows balances and

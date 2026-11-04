@@ -1,4 +1,4 @@
-// The hledger journal export (#283, planning/epics/hledger-export.md): the ledger as a
+// The hledger journal export (#283): the ledger as a
 // `.journal` file that hledger itself reads and balances. This is Vision #2, the escape
 // hatch: if the server is lost or the user moves tools, this file is the ledger.
 //

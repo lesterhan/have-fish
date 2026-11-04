@@ -5,7 +5,7 @@ import { accounts, csvParsers, importRules, transactions, userSettings } from '.
 import { clearDatabase, createTestUser, request } from '../test-utils'
 
 // Every change to a sync document moves its version, the root row's `updatedAt`
-// (planning/epics/sync-unit.md). Each test backdates a document's version to 2000, makes
+// (see #454). Each test backdates a document's version to 2000, makes
 // one change through the app, and checks the version moved past it. A root-row update moves
 // it through the schema's `$onUpdate`; a change to a transaction's postings alone moves it
 // through the ledger service. Both are covered here, writer by writer.

@@ -1,8 +1,8 @@
 # Backend architecture
 
 A map of `backend/src`, for someone who knows backends but not this one. It describes the
-code as it is on `main` (last updated by #431), and the layering the [domain-layer
-epic](../planning/epics/archive/domain-layer.md) (#423) moved it to. Each story of that
+code as it is on `main` (last updated by #431), and the layering the domain-layer
+epic (#423) moved it to. Each story of that
 epic updates this file in the same PR, so it should never describe code that no longer
 exists.
 
@@ -382,7 +382,7 @@ are a local convergence device: two devices importing the same row mint the same
 never leave the device in the clear, and a sync relay never gets them as a column (#375). `takesSplit` says which row kinds a
 split changes; a cross-currency spend ignores its split, as it always has. Because the
 plan is pure, a rule like "a split degrades to a plain expense when Fish Pie is
-unreachable" (offline import, `00-direction.md`) is a change to `planRows`, not to the
+unreachable" (offline import) is a change to `planRows`, not to the
 route.
 
 **`rules.ts`** — `/api/rules` (105 lines). Import rules: a pattern that suggests an
@@ -526,7 +526,7 @@ It skips where hledger is missing; CI installs hledger and sets `REQUIRE_HLEDGER
 **Deleting has two meanings.** A personal transaction's delete hard-deletes its postings.
 A Fish Pie delete soft-deletes them. Postings are also hard-deleted and re-inserted with
 new ids whenever a transaction's postings are replaced. That's why the transaction, not the
-posting, is the unit that syncs (`planning/epics/sync-unit.md`).
+posting, is the unit that syncs (#454).
 
 **Versions.** Every sync document's root row (`transactions`, `accounts`, `csvParsers`,
 `importRules`, `userSettings`) carries `updatedAt`, its version, and every change to the
@@ -594,7 +594,7 @@ the pure `fish-pie-balance-service.ts` became `fish-pie/balances.ts` (#430), and
 
 ## How it got here, and what is left
 
-The [domain-layer epic](../planning/epics/archive/domain-layer.md) (#423) did it in this
+The domain-layer epic (#423) did it in this
 order:
 
 1. This map (#424)

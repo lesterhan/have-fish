@@ -15,7 +15,7 @@ import type { ParsedTransaction } from './types'
 //                 accounts that share a CSV layout never mark each other's rows as imported.
 //
 // The transaction's id is a UUIDv5 of the fingerprint, scoped to the user, so a device that
-// imports the same row mints the same id (planning/epics/sync-unit.md).
+// imports the same row mints the same id (see #454).
 //
 // Every value here is derived from transaction content. It is a local convergence device:
 // it never leaves the device in the clear, and a sync relay never gets it as a column

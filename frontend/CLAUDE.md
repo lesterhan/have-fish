@@ -78,7 +78,7 @@ Implementation reminders that belong with the build instructions:
 
 User-facing strings live in `src/lib/copy/`, one file per surface, imported as a namespace:
 `import { copy } from '$lib/copy'`, then `copy.auth.signIn.title`. This is being rolled out
-surface by surface (`planning/epics/copy-extraction.md`); a file that has been converted is listed
+surface by surface (#350); a file that has been converted is listed
 in `CONVERTED` in `copy.test.ts`, and that test fails if a hardcoded string reappears in it. A
 converted *directory* covers its `.ts` modules too — a label table is copy wherever it is
 declared — and the markup check reads this app's word-bearing component props (`tooltip`,
