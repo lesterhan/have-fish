@@ -41,11 +41,12 @@ async function add(page: Page, name: string, kind: string, currency?: string) {
 }
 
 describe('the places', () => {
-  test('Spends and Accounts down the left; Ctrl+2 and Ctrl+1 go between them', async () => {
+  test('Spends, Accounts and Reports down the left; Ctrl+2 and Ctrl+1 go between them', async () => {
     const { page, press } = await launch(aHome())
     expect(await page.locator(`${NAV} button`).allInnerTexts()).toEqual([
       expect.stringMatching(/^Spends\s+Ctrl\+1$/),
       expect.stringMatching(/^Accounts\s+Ctrl\+2$/),
+      expect.stringMatching(/^Reports\s+Ctrl\+3$/),
     ])
     expect(await current(page)).toMatch(/^Spends/)
 

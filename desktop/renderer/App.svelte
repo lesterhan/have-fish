@@ -6,6 +6,7 @@
   import { runAction } from './actions'
   import { PLACES, type Place, SHOW, shownBy } from './places'
   import { wordsFor } from './refusals'
+  import Reports from './Reports.svelte'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import Spends from './Spends.svelte'
   import { type Field as TextField, FieldUndo, type Way, wayOf } from './undo'
@@ -14,8 +15,9 @@
   let place = $state<Place>('spends')
   let spends: Spends
   let accounts: Accounts
+  let reports: Reports
 
-  const view = (p: Place) => (p === 'spends' ? spends : accounts)
+  const view = (p: Place) => ({ spends, accounts, reports })[p]
 
   const fieldUndo = new FieldUndo()
   let told: Typing = { undo: false, redo: false }
@@ -25,15 +27,18 @@
       runAction(id, {
         newSpend,
         addAccount,
-        saveAll: () => spends.saveAll(),
+        // Each place's drafts are its own: Save all saves the ones where I am.
+        saveAll: () => (place === 'reports' ? reports : spends).saveAll(),
         undo,
         redo,
         // Remove spend means nothing where spends aren't showing.
         remove: () => {
           if (place === 'spends') void spends.remove()
+          else if (place === 'reports') void reports.remove()
         },
         showSpends: () => void go('spends'),
         showAccounts: () => void go('accounts'),
+        showReports: () => void go('reports'),
       }),
     ),
   )
@@ -136,7 +141,7 @@
       view(place).refused(wordsFor(moved))
       return
     }
-    const shown = shownBy(moved.value)
+    const shown = shownBy(moved.value, place)
     if (shown === null) return
     const elsewhere = shown.place !== place
     place = shown.place
@@ -170,6 +175,7 @@
 
   <Spends bind:this={spends} hidden={place !== 'spends'} {forgetTyping} />
   <Accounts bind:this={accounts} hidden={place !== 'accounts'} {forgetTyping} />
+  <Reports bind:this={reports} hidden={place !== 'reports'} {forgetTyping} />
 </div>
 
 <style>

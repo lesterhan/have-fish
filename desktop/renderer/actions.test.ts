@@ -10,6 +10,7 @@ describe('runAction', () => {
     remove: vi.fn(),
     showSpends: vi.fn(),
     showAccounts: vi.fn(),
+    showReports: vi.fn(),
     addAccount: vi.fn(),
   })
 

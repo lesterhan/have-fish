@@ -22,6 +22,10 @@
     onback: () => void
     /** No "are you sure?": Undo takes it back. */
     onremove: () => void
+    /** What it's called, where there's more than one pane for a spend. */
+    label?: string
+    /** Starts its fields' ids, unique in the window. */
+    idPrefix?: string
   }
   let {
     transaction,
@@ -34,6 +38,8 @@
     onsave,
     onback,
     onremove,
+    label = copy.spends.pane.label,
+    idPrefix = 'pane',
   }: Props = $props()
 
   let first: HTMLInputElement | undefined = $state()
@@ -59,7 +65,7 @@
   }
 </script>
 
-<section class="pane" class:open aria-label={copy.spends.pane.label}>
+<section class="pane" class:open aria-label={label}>
   <button type="button" class="back" onclick={onback}>{copy.spends.pane.back}</button>
 
   {#if transaction === undefined}
@@ -89,11 +95,11 @@
             autocomplete="off"
             maxlength="500"
             aria-invalid={error?.field === 'description'}
-            aria-describedby={error?.field === 'description' ? 'pane-description-error' : undefined}
+            aria-describedby={error?.field === 'description' ? `${idPrefix}-description-error` : undefined}
           />
         </label>
         {#if error?.field === 'description'}
-          <p class="error" id="pane-description-error" role="alert">{error.words}</p>
+          <p class="error" id={`${idPrefix}-description-error`} role="alert">{error.words}</p>
         {/if}
 
         <label>
@@ -107,33 +113,33 @@
               autocomplete="off"
               maxlength="64"
               aria-invalid={error?.field === 'amount'}
-              aria-describedby={error?.field === 'amount' ? 'pane-amount-error' : undefined}
+              aria-describedby={error?.field === 'amount' ? `${idPrefix}-amount-error` : undefined}
             />
             <span class="currency">{transaction.simple?.currency}</span>
           </span>
         </label>
         {#if error?.field === 'amount'}
-          <p class="error" id="pane-amount-error" role="alert">{error.words}</p>
+          <p class="error" id={`${idPrefix}-amount-error`} role="alert">{error.words}</p>
         {/if}
 
         {#if values.to !== null}
           <span class="field">
-            <label for="pane-to">{copy.spends.pane.to}</label>
+            <label for={`${idPrefix}-to`}>{copy.spends.pane.to}</label>
             <Picker
-              id="pane-to"
+              id={`${idPrefix}-to`}
               name="to"
               options={toOptions}
               text={values.to}
               placeholder={copy.spends.write.unsorted}
               listLabel={copy.spends.write.toList}
               invalid={error?.field === 'to'}
-              describedby={error?.field === 'to' ? 'pane-to-error' : undefined}
+              describedby={error?.field === 'to' ? `${idPrefix}-to-error` : undefined}
               onchoose={(text) => onedit('to', text)}
               newOption={copy.spends.write.newCategory}
             />
           </span>
           {#if error?.field === 'to'}
-            <p class="error" id="pane-to-error" role="alert">{error.words}</p>
+            <p class="error" id={`${idPrefix}-to-error`} role="alert">{error.words}</p>
           {/if}
         {/if}
 
@@ -145,11 +151,11 @@
             value={values.date}
             oninput={(e) => onedit('date', e.currentTarget.value)}
             aria-invalid={error?.field === 'date'}
-            aria-describedby={error?.field === 'date' ? 'pane-date-error' : undefined}
+            aria-describedby={error?.field === 'date' ? `${idPrefix}-date-error` : undefined}
           />
         </label>
         {#if error?.field === 'date'}
-          <p class="error" id="pane-date-error" role="alert">{error.words}</p>
+          <p class="error" id={`${idPrefix}-date-error`} role="alert">{error.words}</p>
         {/if}
 
         <!-- aria-disabled, not disabled: a disabled button would drop the focus it holds. -->
