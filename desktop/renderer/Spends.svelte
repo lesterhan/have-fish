@@ -19,7 +19,7 @@
     withEdit,
     without,
   } from './drafts'
-  import { todayIn } from './format'
+  import { dayOf, todayIn, understood } from './format'
   import { NARROW } from './narrow'
   import Picker from './Picker.svelte'
   import { fromOf, fromOptions, toOf, toOptions } from './picker'
@@ -154,7 +154,7 @@
       description,
       to,
       from,
-      date: dateChosen ? date : '',
+      date: dateChosen ? dayOf(date) : '',
     })
     saving = false
     if (written.ok) {
@@ -361,19 +361,21 @@
       <p class="error" id="from-error" role="alert">{error.words}</p>
     {/if}
 
-    <!-- Last: Chromium's date field takes a Tab per part, which would hold up To. -->
+    <!-- Typed the short way too (`y`, `-3`, `mon`, `10-31`); what it means shows under it. -->
     <label>
       <span>{copy.spends.write.date}</span>
       <input
         bind:this={dateInput}
         bind:value={date}
         oninput={() => (dateChosen = true)}
-        type="date"
         name="date"
+        autocomplete="off"
+        maxlength="10"
         aria-invalid={error?.field === 'date'}
-        aria-describedby={error?.field === 'date' ? 'date-error' : undefined}
+        aria-describedby={[error?.field === 'date' ? 'date-error' : '', 'date-understood'].join(' ').trim()}
       />
     </label>
+    <p class="understood" id="date-understood">{understood(date) ?? ''}</p>
     {#if error?.field === 'date'}
       <p class="error" id="date-error" role="alert">{error.words}</p>
     {/if}
@@ -486,6 +488,13 @@
   button {
     justify-self: start;
     cursor: pointer;
+  }
+
+  .understood {
+    margin: 0;
+    min-height: 1lh;
+    font-size: var(--font-size-small);
+    color: var(--color-muted);
   }
 
   .error {

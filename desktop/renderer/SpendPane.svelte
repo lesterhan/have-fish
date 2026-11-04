@@ -2,7 +2,7 @@
   import { copy } from '../copy'
   import type { ListedTransaction } from '../shared/commands'
   import { type Draft, savedValues, type Values } from './drafts'
-  import { amountsText } from './format'
+  import { amountsText, understood } from './format'
   import Picker from './Picker.svelte'
   import type { Option } from './picker'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
@@ -146,14 +146,18 @@
         <label>
           <span>{copy.spends.pane.date}</span>
           <input
-            type="date"
             name="date"
             value={values.date}
             oninput={(e) => onedit('date', e.currentTarget.value)}
+            autocomplete="off"
+            maxlength="10"
             aria-invalid={error?.field === 'date'}
-            aria-describedby={error?.field === 'date' ? `${idPrefix}-date-error` : undefined}
+            aria-describedby={error?.field === 'date'
+              ? `${idPrefix}-date-error ${idPrefix}-date-understood`
+              : `${idPrefix}-date-understood`}
           />
         </label>
+        <p class="understood" id={`${idPrefix}-date-understood`}>{understood(values.date) ?? ''}</p>
         {#if error?.field === 'date'}
           <p class="error" id={`${idPrefix}-date-error`} role="alert">{error.words}</p>
         {/if}
@@ -262,6 +266,12 @@
   }
 
   .quiet {
+    color: var(--color-muted);
+  }
+
+  .understood {
+    min-height: 1lh;
+    font-size: var(--font-size-small);
     color: var(--color-muted);
   }
 

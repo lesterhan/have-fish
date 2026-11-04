@@ -142,6 +142,17 @@ describe('editOf', () => {
   const toOf = (typed: string) => (typed === 'visa' ? { account: 'v' } : { category: typed })
   const DAY = COFFEE.date
 
+  test('its day typed the short way goes as the date it means, if that changed', () => {
+    const typed = (date: string) => ({ id: 'a', sent: { ...COFFEE, date } })
+    expect(editOf(typed('y'), 'unsorted', toOf, DAY, '2026-10-30')).not.toHaveProperty('date')
+    expect(editOf(typed('-2'), 'unsorted', toOf, DAY, '2026-10-30')).toMatchObject({
+      date: '2026-10-28',
+    })
+    expect(editOf(typed('soon'), 'unsorted', toOf, DAY, '2026-10-30')).toMatchObject({
+      date: 'soon',
+    })
+  })
+
   test('sends where it goes when that changed, as To resolves it', () => {
     expect(editOf({ id: 'a', sent: { ...COFFEE, to: 'food' } }, 'unsorted', toOf, DAY)).toEqual({
       id: 'a',

@@ -1,8 +1,10 @@
 // Writing a spend down on another day, and moving one, as a person does it, in the built app.
 
 import { calendarDateAt } from '@have-fish/core/calendar-date'
+import { dateFrom } from '@have-fish/core/typed-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
+import { understood } from '../renderer/format'
 import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
 
 const DAY = 86_400_000
@@ -112,5 +114,65 @@ describe('move a spend to another day', () => {
     await expect.poll(() => error.textContent()).toMatch(/isn't a day/)
     expect(await page.getAttribute(PANE_DATE, 'aria-invalid')).toBe('true')
     expect(await rows(page)).toEqual([`${today()} | Coffee | 4.50 CAD | ●unsaved changes`])
+  })
+})
+
+describe('type a date quickly', () => {
+  const WRITE_UNDERSTOOD = `${WRITE} #date-understood`
+  /** What a short form means today, here, and how the field says it. */
+  const means = (typed: string) => {
+    const date = dateFrom(typed, today())
+    if (date === null) throw new Error(`can't read ${typed}`)
+    return { date, said: understood(typed, today()) }
+  }
+
+  test.each(['y', '-3', 'mon', 'fri', '10-31'])(
+    '%s: the field says the day it understood, and Enter saves it on that day',
+    async (typed) => {
+      const { page } = await launch(aHome())
+      const { date, said } = means(typed)
+
+      await page.fill(`${WRITE} input[name=amount]`, '5')
+      await page.fill(WRITE_DATE, typed)
+      await expect.poll(() => page.innerText(WRITE_UNDERSTOOD)).toBe(said)
+      await page.press(WRITE_DATE, 'Enter')
+
+      await expect.poll(() => rows(page)).toEqual([`${date} | — | 5.00 CAD`])
+      expect(await page.inputValue(WRITE_DATE)).toBe(today())
+    },
+  )
+
+  test('today is said as a day before I touch it', async () => {
+    const { page } = await launch(aHome())
+    expect(await page.innerText(WRITE_UNDERSTOOD)).toBe(understood(today(), today()))
+  })
+
+  test('something it can’t read: nothing is saved, and Date says how to type one', async () => {
+    const { page } = await launch(aHome())
+    await page.fill(`${WRITE} input[name=amount]`, '5')
+    await page.fill(WRITE_DATE, 'soon')
+    expect(await page.innerText(WRITE_UNDERSTOOD)).toBe('')
+    await page.press(WRITE_DATE, 'Enter')
+
+    await expect
+      .poll(() => page.locator(`${WRITE} #date-error`).innerText())
+      .toBe("That isn't a day it can read. Try y, -3, mon or 10-31.")
+    expect(await page.getAttribute(WRITE_DATE, 'aria-invalid')).toBe('true')
+    expect(await rows(page)).toEqual([])
+  })
+
+  test('the short way in the pane: y, Enter, and the spend moves to yesterday', async () => {
+    const { page } = await launch(aHome())
+    await writeDown(page, '4.50', 'Coffee')
+    await expect.poll(() => rows(page)).toHaveLength(1)
+
+    await page.fill(PANE_DATE, 'y')
+    await expect
+      .poll(() => page.innerText(`${PANE} #pane-date-understood`))
+      .toBe(understood('y', today()))
+    await page.press(PANE_DATE, 'Enter')
+
+    await expect.poll(() => rows(page)).toEqual([`${daysAgo(1)} | Coffee | 4.50 CAD`])
+    expect(await page.inputValue(PANE_DATE)).toBe(daysAgo(1))
   })
 })

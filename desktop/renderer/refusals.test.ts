@@ -25,6 +25,9 @@ describe('fieldOf', () => {
 
   test('a day that isn’t one is the date field’s', () => {
     expect(fieldOf(refused('DATE_INVALID', { date: '2026-02-30' }))).toBe('date')
+    expect(spendWordsFor(refused('DATE_INVALID', { date: 'soon' }))).toBe(
+      "That isn't a day it can read. Try y, -3, mon or 10-31.",
+    )
     expect(fieldOf(refused('INPUT_MALFORMED', { path: 'date', issue: 'too_big' }))).toBe('date')
   })
 

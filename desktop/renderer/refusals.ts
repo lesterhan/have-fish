@@ -42,8 +42,12 @@ export function wordsFor(failure: WireFailure): string {
   return copy.errors.codes[failure.error]
 }
 
-/** On a spend, a path is an income source's or a category's, and a bad one is said as one. */
+/**
+ * On a spend, a path is an income source's or a category's, and a bad one is said as one; a day
+ * it can't read says how it can be typed.
+ */
 export function spendWordsFor(failure: WireFailure): string {
+  if (failure.error === 'DATE_INVALID') return copy.spends.dateUnread
   if (failure.error !== 'PATH_INVALID') return wordsFor(failure)
   return isIncome(failure.detail.path) ? copy.spends.write.badIncome : copy.spends.write.badCategory
 }

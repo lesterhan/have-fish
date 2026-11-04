@@ -2,6 +2,7 @@
 // returns a new map, so Svelte sees it.
 
 import type { InputOf, ListedTransaction, To } from '../shared/commands'
+import { dayOf, todayIn } from './format'
 import type { Field } from './refusals'
 
 /**
@@ -69,16 +70,18 @@ export function toSend(drafts: Drafts, ids: Iterable<string>): Sending[] {
 
 /**
  * A draft as `spend.edit` takes it: where the money goes only when it changed from `saved`, so a
- * name both a category and an account have never moves a spend that was left alone; its day only
- * when it changed from `savedDate`.
+ * name both a category and an account have never moves a spend that was left alone; its day, read
+ * the short way from `today`, only when it changed from `savedDate`.
  */
 export function editOf(
   { id, sent }: Sending,
   saved: string | null | undefined,
   toOf: (typed: string) => To,
   savedDate: string | undefined,
+  today = todayIn(),
 ): InputOf<'spend.edit'> {
-  const { description, amount, to, date } = sent
+  const { description, amount, to } = sent
+  const date = dayOf(sent.date, today)
   return {
     id,
     description,
