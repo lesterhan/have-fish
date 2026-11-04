@@ -1,11 +1,14 @@
 // Unsaved changes to spends, kept in the window until they're saved or put back. Each change
 // returns a new map, so Svelte sees it.
 
-import type { InputOf, ListedTransaction } from '../shared/commands'
+import type { InputOf, ListedTransaction, To } from '../shared/commands'
 import type { Field } from './refusals'
 
-/** What the pane edits. `category` is null for a transaction with none to change, like a starting balance. */
-export type Values = { description: string; amount: string; category: string | null }
+/**
+ * What the pane edits. `to`, where the money went, as typed, is null for a transaction that can't
+ * be sent elsewhere, like a starting balance.
+ */
+export type Values = { description: string; amount: string; to: string | null }
 
 /** One spend's unsaved values, and why its last save was refused, if it was. */
 export type Draft = Values & { error: { field: Field; words: string } | null }
@@ -17,7 +20,7 @@ export type Drafts = ReadonlyMap<string, Draft>
 export function savedValues(t: ListedTransaction): Values | null {
   return t.simple === null
     ? null
-    : { description: t.description, amount: t.simple.amount, category: t.category }
+    : { description: t.description, amount: t.simple.amount, to: t.to }
 }
 
 /** After typing `value` into `field`. Typed back to what's saved, the draft goes. */
@@ -66,17 +69,26 @@ export function toSend(drafts: Drafts, ids: Iterable<string>): Sending[] {
             sent: {
               description: draft.description,
               amount: draft.amount,
-              category: draft.category,
+              to: draft.to,
             },
           },
         ]
   })
 }
 
-/** A draft as `spend.edit` takes it: a category only where there is one to change. */
-export function editOf({ id, sent }: Sending): InputOf<'spend.edit'> {
-  const { description, amount, category } = sent
-  return category === null ? { id, description, amount } : { id, description, amount, category }
+/**
+ * A draft as `spend.edit` takes it: where the money goes only when it changed from `saved`, so a
+ * name both a category and an account have never moves a spend that was left alone.
+ */
+export function editOf(
+  { id, sent }: Sending,
+  saved: string | null | undefined,
+  toOf: (typed: string) => To,
+): InputOf<'spend.edit'> {
+  const { description, amount, to } = sent
+  return to === null || to === saved
+    ? { id, description, amount }
+    : { id, description, amount, to: toOf(to) }
 }
 
 /** After several saves came back, each one saved (`error: null`) or refused. */
@@ -92,4 +104,4 @@ export function afterSaves(
 }
 
 const sameValues = (a: Values, b: Values) =>
-  a.description === b.description && a.amount === b.amount && a.category === b.category
+  a.description === b.description && a.amount === b.amount && a.to === b.to

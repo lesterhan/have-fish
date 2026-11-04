@@ -1,17 +1,18 @@
 <script lang="ts">
   import { copy } from '../copy'
-  import type { ListedCategory, ListedTransaction } from '../shared/commands'
+  import type { ListedTransaction } from '../shared/commands'
   import { type Draft, savedValues, type Values } from './drafts'
   import { amountsText } from './format'
   import Picker from './Picker.svelte'
+  import type { Option } from './picker'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
   import Unsaved from './Unsaved.svelte'
 
   type Props = {
     transaction: ListedTransaction | undefined
     draft: Draft | undefined
-    /** What its Category offers. */
-    categories: ListedCategory[]
+    /** What its To offers: categories, then my accounts. */
+    toOptions: (Option & { hint: string })[]
     saving: boolean
     /** In a narrow window, whether the pane is over the list. */
     open: boolean
@@ -25,7 +26,7 @@
   let {
     transaction,
     draft,
-    categories,
+    toOptions,
     saving,
     open,
     onedit,
@@ -114,24 +115,24 @@
           <p class="error" id="pane-amount-error" role="alert">{error.words}</p>
         {/if}
 
-        {#if values.category !== null}
+        {#if values.to !== null}
           <span class="field">
-            <label for="pane-category">{copy.spends.pane.category}</label>
+            <label for="pane-to">{copy.spends.pane.to}</label>
             <Picker
-              id="pane-category"
-              name="category"
-              options={categories}
-              text={values.category}
+              id="pane-to"
+              name="to"
+              options={toOptions}
+              text={values.to}
               placeholder={copy.spends.write.unsorted}
-              listLabel={copy.spends.write.categoryList}
-              invalid={error?.field === 'category'}
-              describedby={error?.field === 'category' ? 'pane-category-error' : undefined}
-              onchoose={(text) => onedit('category', text)}
+              listLabel={copy.spends.write.toList}
+              invalid={error?.field === 'to'}
+              describedby={error?.field === 'to' ? 'pane-to-error' : undefined}
+              onchoose={(text) => onedit('to', text)}
               newOption={copy.spends.write.newCategory}
             />
           </span>
-          {#if error?.field === 'category'}
-            <p class="error" id="pane-category-error" role="alert">{error.words}</p>
+          {#if error?.field === 'to'}
+            <p class="error" id="pane-to-error" role="alert">{error.words}</p>
           {/if}
         {/if}
 

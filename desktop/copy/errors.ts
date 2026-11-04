@@ -26,6 +26,7 @@ const codes: { [C in FailureCode]: string } = {
   ACCOUNT_NAME_EMPTY: 'Give it a name.',
   ACCOUNT_NAME_TAKEN: 'You already have an account with that name.',
   ACCOUNT_ALREADY_STARTED: 'That account already has a starting balance.',
+  TRANSFER_TO_ITSELF: "That's the account it comes from.",
   ACCOUNT_CURRENCY_LOCKED: 'That account only holds one currency, and this is a different one.',
   ACCOUNT_DELETED: 'That account was removed.',
   ACCOUNT_HOLDS_OTHER_CURRENCIES:

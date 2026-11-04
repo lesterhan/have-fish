@@ -5,6 +5,7 @@
     ListedAccount,
     ListedCategory,
     ListedTransaction,
+    To,
     WireFailure,
   } from '../shared/commands'
   import {
@@ -20,7 +21,7 @@
   } from './drafts'
   import { NARROW } from './narrow'
   import Picker from './Picker.svelte'
-  import { fromOf } from './picker'
+  import { fromOf, toOf, toOptions } from './picker'
   import { type Field, fieldOf, spendWordsFor, wordsFor } from './refusals'
   import { afterRemoving, kept } from './selection'
   import { ariaShortcut, MAC, shortcutText } from './shortcuts'
@@ -48,15 +49,17 @@
   let fromChosen = false
   let fromPicker: Picker
 
-  /** The categories in use, most used first; what Category holds as typed. */
+  /** The categories in use, most used first; what To holds as typed. */
   let categories = $state.raw<ListedCategory[]>([])
-  let category = $state('')
-  let categoryPicker: Picker
+  let toText = $state('')
+  let toPicker: Picker
 
   const assumedName = $derived(payers.find((a) => a.id === assumed)?.name)
   const fromOptions = $derived(
     payers.map((a) => ({ id: a.id, name: a.name, hint: copy.accounts.kinds[a.kind] })),
   )
+  /** Categories, then my accounts: one of mine makes it a transfer. */
+  const toChoices = $derived(toOptions(categories, fromOptions))
 
   let transactions = $state.raw<ListedTransaction[]>([])
   let selectedId = $state<string | null>(null)
@@ -135,17 +138,13 @@
       return
     }
     saving = true
-    const written = await window.haveFish.invoke('spend.write', {
-      amount,
-      description,
-      category,
-      from,
-    })
+    const to = toOf(payers, toText)
+    const written = await window.haveFish.invoke('spend.write', { amount, description, to, from })
     saving = false
     if (written.ok) {
       amount = ''
       description = ''
-      category = ''
+      toText = ''
       error = null
       // From stays on the account that paid: it's the one used last now.
       fromChosen = false
@@ -153,10 +152,10 @@
       await refresh()
       selectedId = written.value.id
     } else {
-      error = { field: fieldOf(written), words: spendWordsFor(written) }
+      error = { field: fieldOf(written, to), words: spendWordsFor(written) }
     }
     if (error?.field === 'from') fromPicker.focus()
-    else if (error?.field === 'category') categoryPicker.focus()
+    else if (error?.field === 'to') toPicker.focus()
     else amountInput.focus()
   }
 
@@ -185,25 +184,33 @@
     savingDraft = false
   }
 
-  const refusedFor = (refused: WireFailure | null) =>
-    refused && { field: fieldOf(refused), words: spendWordsFor(refused) }
+  const refusedFor = (refused: WireFailure | null, to?: To) =>
+    refused && { field: fieldOf(refused, to), words: spendWordsFor(refused) }
+
+  /** A draft as main takes it, sending where it goes only if that changed. */
+  const sent = (s: Sending) =>
+    editOf(s, transactions.find((t) => t.id === s.id)?.to, (typed) => toOf(payers, typed))
 
   /** The pane's Save: the spend showing, as its own step. */
   async function sentOne(sending: Sending[]) {
     return Promise.all(
       sending.map(async (s) => {
-        const saved = await window.haveFish.invoke('spend.edit', editOf(s))
-        return { ...s, error: refusedFor(saved.ok ? null : saved) }
+        const edit = sent(s)
+        const saved = await window.haveFish.invoke('spend.edit', edit)
+        return { ...s, error: refusedFor(saved.ok ? null : saved, edit.to) }
       }),
     )
   }
 
   /** Ctrl+S's drafts go as one command, so undo takes them back as one step. */
   async function sentAll(sending: Sending[]) {
-    const edits = sending.map(editOf)
+    const edits = sending.map(sent)
     const saved = await window.haveFish.invoke('spend.saveAll', { edits })
     if (!saved.ok) return sending.map((s) => ({ ...s, error: refusedFor(saved) }))
-    return sending.map((s, i) => ({ ...s, error: refusedFor(saved.value[i]?.refused ?? null) }))
+    return sending.map((s, i) => ({
+      ...s,
+      error: refusedFor(saved.value[i]?.refused ?? null, edits[i]?.to),
+    }))
   }
 
   function save() {
@@ -294,23 +301,23 @@
     {/if}
 
     <span class="field">
-      <label for="write-category">{copy.spends.write.category}</label>
+      <label for="write-to">{copy.spends.write.to}</label>
       <Picker
-        bind:this={categoryPicker}
-        id="write-category"
-        name="category"
-        options={categories}
-        bind:text={category}
+        bind:this={toPicker}
+        id="write-to"
+        name="to"
+        options={toChoices}
+        bind:text={toText}
         placeholder={copy.spends.write.unsorted}
-        listLabel={copy.spends.write.categoryList}
-        invalid={error?.field === 'category'}
-        describedby={error?.field === 'category' ? 'category-error' : undefined}
+        listLabel={copy.spends.write.toList}
+        invalid={error?.field === 'to'}
+        describedby={error?.field === 'to' ? 'to-error' : undefined}
         onchoose={() => {}}
         newOption={copy.spends.write.newCategory}
       />
     </span>
-    {#if error?.field === 'category'}
-      <p class="error" id="category-error" role="alert">{error.words}</p>
+    {#if error?.field === 'to'}
+      <p class="error" id="to-error" role="alert">{error.words}</p>
     {/if}
 
     <span class="field">
@@ -352,7 +359,7 @@
     bind:this={pane}
     transaction={selected}
     draft={selected && drafts.get(selected.id)}
-    {categories}
+    toOptions={toChoices}
     saving={savingDraft}
     {open}
     onedit={edit}

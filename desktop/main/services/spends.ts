@@ -14,6 +14,7 @@ import {
   type InputOf,
   type ListedTransaction,
   type Money,
+  type To,
   type Values,
   wireFailure,
 } from '../../shared/commands'
@@ -30,8 +31,9 @@ const WALLET = { path: 'assets:cash', kind: 'cash' } as const
 const UNSORTED = { path: 'expenses:unsorted', kind: 'category' } as const
 
 /**
- * A spend from the account that paid to its category, dated today, in one batch with any account it
- * needs. An account kept to one currency pays in that currency; any other, in the home currency.
+ * A spend from the account that paid to its category, or a transfer to another account of mine,
+ * dated today, in one batch with any account it needs. It's in the currency the account paying is
+ * kept to, else the one the account it goes to is kept to, else the home currency.
  */
 export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome<{ id: string }> {
   const amount = spendAmount(input.amount)
@@ -42,22 +44,23 @@ export function writeSpend(ctx: Context, input: InputOf<'spend.write'>): Outcome
   const made = { createdAt: now, deviceId: ctx.ledger.meta.deviceId }
   const from = paidFrom(ctx, input.from ?? null, made)
   if (!from.ok) return from
-  const to = categoryFor(ctx.ledger.db, input.category ?? '', made)
-  const currency = from.value.currency ?? HOME_CURRENCY
+  const to = destination(ctx.ledger.db, input.to ?? { category: '' }, from.value.id, made)
+  if (!to.ok) return to
+  const currency = from.value.currency ?? to.value.currency ?? HOME_CURRENCY
   const spend: TransactionDoc = {
     type: 'transaction',
     id: randomUUID(),
     date: calendarDateAt(now, ctx.timeZone()),
     description: input.description.trim(),
     postings: [
-      { accountId: to.id, amount: format(cents), currency },
+      { accountId: to.value.id, amount: format(cents), currency },
       { accountId: from.value.id, amount: format(-cents), currency },
     ],
     deletedAt: null,
     origin: { source: 'manual', ...made },
   }
 
-  const docs = [...from.value.made, ...to.made, spend]
+  const docs = [...from.value.made, ...to.value.made, spend]
   const { applied, changes } = applyKeeping(ctx, docs, now, [spend])
   record(ctx, { kind: 'write', description: spend.description }, changes)
   const written = idOf(applied, spend.id)
@@ -73,14 +76,13 @@ export function assumedFrom(ctx: Context): { id: string | null } {
   return { id: wallet !== undefined && payer(ctx.ledger.db, wallet).ok ? wallet : null }
 }
 
-type Paying = { id: string; currency: string | null; made: AccountDoc[] }
+/** An account in a spend or transfer: its currency if it's kept to one, and any doc it needs made. */
+type End = { id: string; currency: string | null; made: AccountDoc[] }
+
+type Made = { createdAt: number; deviceId: string }
 
 /** The account named, or the one assumed: the wallet, made in the same batch if it's new. */
-function paidFrom(
-  ctx: Context,
-  named: string | null,
-  made: { createdAt: number; deviceId: string },
-): Outcome<Paying> {
+function paidFrom(ctx: Context, named: string | null, made: Made): Outcome<End> {
   const id = named ?? assumedFrom(ctx).id
   if (id === null) {
     const wallet = accountFor(ctx.ledger.db, WALLET, made)
@@ -92,7 +94,10 @@ function paidFrom(
     : account
 }
 
-/** A live account I added: what can pay. Never a category, nor an account the app keeps. */
+/**
+ * A live account I added: what can pay, and what a transfer goes to. Never a category, nor an
+ * account the app keeps.
+ */
 function payer(db: Database.Database, id: string): Outcome<AccountDoc> {
   const stored = getDocument(db, 'account', id)
   if (stored === null || !isAddable(stored.doc.kind)) {
@@ -156,15 +161,17 @@ function edit(
   const now = ctx.now()
   const db = ctx.ledger.db
   const into = doc.postings.find((p) => toCents(p.amount) > 0)?.accountId
-  // Only a spend into a category changes category: a starting balance goes into an account.
-  const recategorised =
-    input.category !== undefined && into !== undefined && isCategory(db, into)
-      ? categoryFor(db, input.category, { createdAt: now, deviceId: ctx.ledger.meta.deviceId })
-      : { id: into, made: [] }
+  const out = doc.postings.find((p) => toCents(p.amount) < 0)?.accountId
+  // Only money out of an account of mine can go elsewhere: a starting balance comes from equity.
+  const moved =
+    input.to !== undefined && into !== undefined && out !== undefined && movable(db, out, into)
+      ? destination(db, input.to, out, { createdAt: now, deviceId: ctx.ledger.meta.deviceId })
+      : { ok: true as const, value: { id: into, made: [] } }
+  if (!moved.ok) return refused(moved)
 
   const description = input.description.trim()
   // An unchanged save writes no version, so sync has nothing to send, and undo nothing to take back.
-  if (cents === simple.cents && description === doc.description && recategorised.id === into) {
+  if (cents === simple.cents && description === doc.description && moved.value.id === into) {
     return { edited: { ok: true, value: { id } }, changes: [] }
   }
 
@@ -175,13 +182,24 @@ function edit(
       const positive = toCents(p.amount) > 0
       return {
         ...p,
-        accountId: positive && recategorised.id !== undefined ? recategorised.id : p.accountId,
+        accountId: positive && moved.value.id !== undefined ? moved.value.id : p.accountId,
         amount: format(positive ? cents : -cents),
       }
     }),
   }
-  const { applied, changes } = applyKeeping(ctx, [...recategorised.made, edited], now, [edited])
+  const { applied, changes } = applyKeeping(ctx, [...moved.value.made, edited], now, [edited])
   return { edited: idOf(applied, id), changes }
+}
+
+/** Where money from `from` goes: a category, or another account of mine. */
+function destination(db: Database.Database, to: To, from: string, made: Made): Outcome<End> {
+  if ('category' in to)
+    return { ok: true, value: { ...categoryFor(db, to.category, made), currency: null } }
+  if (to.account === from) return failure('TRANSFER_TO_ITSELF', { accountId: from })
+  const account = payer(db, to.account)
+  return account.ok
+    ? { ok: true, value: { id: to.account, currency: account.value.currency, made: [] } }
+    : account
 }
 
 /**
@@ -191,7 +209,7 @@ function edit(
 function categoryFor(
   db: Database.Database,
   typed: string,
-  made: { createdAt: number; deviceId: string },
+  made: Made,
 ): { id: string; made: AccountDoc[] } {
   const name = typed.trim()
   if (name === '') return accountFor(db, UNSORTED, made)
@@ -210,8 +228,16 @@ function categoryFor(
   return { id: account.id, made: [account] }
 }
 
-const isCategory = (db: Database.Database, id: string) =>
-  getDocument(db, 'account', id)?.doc.kind === 'category'
+/** Whether an edit can send this money elsewhere: out of an account of mine, into a category or another. */
+function movable(db: Database.Database, out: string, into: string): boolean {
+  const kind = (id: string) => getDocument(db, 'account', id)?.doc.kind
+  const to = kind(into)
+  const from = kind(out)
+  return from !== undefined && isAddable(from) && to !== undefined && goesTo(to)
+}
+
+/** Where money from an account of mine can go: a category, or another account of mine. */
+const goesTo = (kind: AccountKind) => kind === 'category' || isAddable(kind)
 
 /** A tombstone in place of the spend, so it counts nowhere; undo writes it back as it was. */
 export function removeSpend(ctx: Context, input: InputOf<'spend.remove'>): Outcome<{ id: string }> {
@@ -294,7 +320,7 @@ export function listTransactions(db: Database.Database): ListedTransaction[] {
       simple: simple && { amount: format(simple.cents), currency: simple.currency },
       // Only an account that can pay: a starting balance comes from `equity:opening`, not from it.
       from: from && isAddable(from.kind) ? nameOf(from.path) : null,
-      category: to && to.kind === 'category' ? nameOf(to.path) : null,
+      to: from && isAddable(from.kind) && to && goesTo(to.kind) ? nameOf(to.path) : null,
     }
   })
 }
