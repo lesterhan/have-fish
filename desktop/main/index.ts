@@ -13,12 +13,12 @@ import { readOrCreateInstallId } from './install-id'
 import { settingsIn } from './machine'
 import { menuTemplate } from './menu'
 import { appName, ledgerDir } from './paths'
-import { APP_URL, CSP, contentTypeOf, fileFor, isAppUrl } from './protocol'
+import { APP_URL, CSP, contentTypeOf, devServerFor, fileFor, isAppUrl } from './protocol'
 import { typingFrom, undoItems } from './undo/menu'
 import { createWindow, denyPermissions } from './window'
 
 /** Set by `electron-vite dev`: the renderer comes from Vite's dev server, with hot reload. */
-const devServer = process.env.ELECTRON_RENDERER_URL
+const devServer = devServerFor(app.isPackaged, process.env)
 const log = { info: console.info, error: console.error }
 
 // Before `ready`: `app://` behaves like https, so the page gets a real origin for 'self'.

@@ -1,6 +1,6 @@
 import { join } from 'node:path'
 import { describe, expect, test } from 'vitest'
-import { APP_URL, CSP, contentTypeOf, fileFor, isAppUrl } from './protocol'
+import { APP_URL, CSP, contentTypeOf, devServerFor, fileFor, isAppUrl } from './protocol'
 
 const root = '/opt/have-fish/out/renderer'
 
@@ -31,6 +31,19 @@ describe('fileFor', () => {
 
   test('nothing from another host', () => {
     expect(fileFor(root, 'app://elsewhere/index.html')).toBeNull()
+  })
+})
+
+describe('devServerFor', () => {
+  const env = { ELECTRON_RENDERER_URL: 'http://localhost:5173' }
+
+  test('a development run takes the dev server from the environment', () => {
+    expect(devServerFor(false, env)).toBe('http://localhost:5173')
+    expect(devServerFor(false, {})).toBeUndefined()
+  })
+
+  test('a packaged build has none, whatever the environment says', () => {
+    expect(devServerFor(true, env)).toBeUndefined()
   })
 })
 
