@@ -182,13 +182,13 @@ export function wireFailure({ code, details }: Failure): WireFailure {
   return { ok: false, error: code, detail: details } as WireFailure
 }
 
-/** A document a batch wrote, announced once per batch after it commits. */
+/** A document a command wrote, announced once per command after its last batch commits. */
 export type Changed = { type: LedgerDocument['type']; id: string }
 
 /** What the preload puts on `window.haveFish`. */
 export type Bridge = {
   invoke<N extends CommandName>(name: N, input: InputOf<N>): Promise<Wire<Values[N]>>
-  /** Calls `listener` after each batch that wrote anything. Returns the unsubscribe. */
+  /** Calls `listener` after each command that wrote anything. Returns the unsubscribe. */
   onChanged(listener: (changed: Changed[]) => void): () => void
   /** Calls `listener` with an action's id when it is chosen from the menu. Returns the unsubscribe. */
   onAction(listener: (id: string) => void): () => void

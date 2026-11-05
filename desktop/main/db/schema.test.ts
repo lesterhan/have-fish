@@ -130,7 +130,7 @@ describe('the ledger tables', () => {
       .sort((a, b) => a.pk - b.pk)
       .map((c) => c.name)
     expect(key).toEqual(['transactionId', 'position'])
-    expect(indexes('postings')).toEqual(['postings_account_id'])
+    expect(indexes('postings')).toEqual(['postings_account_balance'])
   })
 
   test('outbox, keyed by a row id, with one row per document', () => {
@@ -271,5 +271,43 @@ describe('0002_origin', () => {
     // The postings still cascade from the rebuilt table.
     old.prepare('DELETE FROM transactions').run()
     expect(old.prepare('SELECT count(*) FROM postings').pluck().get()).toBe(0)
+  })
+})
+
+describe('0005_balances-index', () => {
+  const TXN = '00000000-0000-4000-8000-000000000001'
+  const ACCOUNT = '00000000-0000-4000-8000-000000000002'
+
+  test('keeps every posting of a file from before it, and swaps the index', () => {
+    const old = new Database(':memory:')
+    onTestFinished(() => {
+      old.close()
+    })
+    const before = MIGRATIONS.filter((m) => m.tag < '0005_balances-index')
+    migrate(old, before, NOW, join(tmpdir(), 'havefish-never-written'))
+    old.exec(`
+      INSERT INTO transactions (id, date, description, version, originSource, originCreatedAt,
+          originDeviceId)
+        VALUES ('${TXN}', '2026-10-29', 'Groceries', 'v2', 'manual', 0, '0000000000000000');
+      INSERT INTO postings (transactionId, position, accountId, amountCents, currency)
+        VALUES ('${TXN}', 0, '${ACCOUNT}', -1250, 'CAD'), ('${TXN}', 1, 'food', 1250, 'CAD');
+    `)
+    const postings = old.prepare('SELECT * FROM postings ORDER BY position').all()
+
+    const backups = mkdtempSync(join(tmpdir(), 'havefish-index-'))
+    onTestFinished(() => rmSync(backups, { recursive: true, force: true }))
+    const through = MIGRATIONS.filter((m) => m.tag <= '0005_balances-index')
+    expect(migrate(old, through, NOW, backups)).toEqual({
+      ok: true,
+      value: ['0005_balances-index'],
+    })
+
+    expect(old.prepare('SELECT * FROM postings ORDER BY position').all()).toEqual(postings)
+    const indexes = old
+      .prepare("SELECT name FROM sqlite_master WHERE type = 'index' AND tbl_name = 'postings'")
+      .pluck()
+      .all()
+    expect(indexes).toContain('postings_account_balance')
+    expect(indexes).not.toContain('postings_account_id')
   })
 })
