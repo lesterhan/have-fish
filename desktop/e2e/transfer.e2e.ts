@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
+import { ADD_ACCOUNT, aHome, fromLine, launch, PANE, rows, WRITE, writeDown } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -15,7 +15,7 @@ const today = () => new Date().toLocaleDateString('en-CA')
 /** Adds an account on the Accounts place, then comes back to Spends. */
 async function addAccount(page: Page, name: string, kind: string) {
   await page.click(`${NAV} button:has-text("Accounts")`)
-  await page.click('main.accounts button.add')
+  await page.click(ADD_ACCOUNT)
   await page.fill(`${ADDING} input[name=name]`, name)
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
   await page.locator(`${ADDING} input[name=name]`).press('Enter')
@@ -57,8 +57,7 @@ const offered = (page: Page) =>
     ),
   )
 const paidFrom = (page: Page) =>
-  page
-    .locator(`${PANE} .from`)
+  fromLine(page)
     .innerText()
     .then((t) => t.replace(/^From\s+/, ''))
 

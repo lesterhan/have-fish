@@ -8,7 +8,7 @@ import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import electron from 'electron'
-import { chromium, type Page } from 'playwright-core'
+import { chromium, type Locator, type Page } from 'playwright-core'
 import { onTestFinished } from 'vitest'
 
 const desktop = join(import.meta.dirname, '..')
@@ -125,10 +125,31 @@ function devtoolsUrl(child: ChildProcess): Promise<string> {
   })
 }
 
+// Elements are found by role and accessible name, never by class, so a restyle can't break a
+// test about behaviour. `selectors.test.ts` holds the suite to it.
+
+/** Add account, where the accounts are listed: it opens the form. */
+export const ADD_ACCOUNT = 'role=button[name="Add account"s]'
+/** The button that closes a pane, scoped to its pane. */
+export const BACK = 'role=button[name="Back to the list"s]'
+
 /** The form that writes a spend down. */
 export const WRITE = 'form[aria-label="Write down a spend"]'
 /** The pane that shows the selected spend. */
 export const PANE = 'section[aria-label="The spend"]'
+
+/** Each row's cells as text, in reading order: the row as a person sees it. */
+export const cellsOf = (rows: Locator) =>
+  rows.evaluateAll((items) =>
+    items.map((row) => [...row.children].map((c) => c.textContent?.trim() ?? '')),
+  )
+
+/** How many ● marks the spend pane shows: 1 for a draft, found by its words. */
+export const unsavedInPane = (page: Page) =>
+  page.locator(PANE).getByText('unsaved changes', { exact: true }).count()
+
+/** The pane's "From <account>" line, for a spend that came out of an account. */
+export const fromLine = (page: Page) => page.locator(PANE).getByText(/^From\s/)
 
 /** Types a spend the way a person does: amount, Tab, what for, Enter. */
 export async function writeDown(page: Page, amount: string, description: string): Promise<void> {

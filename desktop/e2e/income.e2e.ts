@@ -2,7 +2,7 @@
 
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE } from './app'
+import { ADD_ACCOUNT, aHome, fromLine, launch, PANE, rows, WRITE } from './app'
 
 const NAV = 'nav[aria-label=Places]'
 const ADDING = 'section[aria-label="The account"] form[aria-label="Add an account"]'
@@ -11,7 +11,7 @@ const OPTIONS = `${WRITE} [role=listbox][aria-label="Your accounts and income"]`
 
 async function addAccount(page: Page, name: string, kind: string, start = '') {
   await page.click(`${NAV} button:has-text("Accounts")`)
-  await page.click('main.accounts button.add')
+  await page.click(ADD_ACCOUNT)
   await page.fill(`${ADDING} input[name=name]`, name)
   await page.selectOption(`${ADDING} select[name=kind]`, kind)
   await page.selectOption(`${ADDING} select[name=currency]`, 'CAD')
@@ -67,12 +67,12 @@ describe('write down money coming in', () => {
 
     await expect.poll(() => rows(page)).toHaveLength(2)
     expect((await rows(page))[0]).toMatch(/\| Pay \| 2000\.00 CAD$/)
-    expect(await page.locator(`${PANE} .from`).innerText()).toMatch(/^From\s+salary$/)
+    expect(await fromLine(page).innerText()).toMatch(/^From\s+salary$/)
     expect(await page.inputValue(`${PANE} input[name=to]`)).toBe('chequing')
     expect(await balances(page)).toEqual(['chequing | Bank account | CAD | 2100.00 CAD'])
 
     await page.click(`${NAV} button:has-text("Reports")`)
-    await expect.poll(() => page.innerText('main.reports')).toContain('No spending in this week.')
+    await expect.poll(() => page.innerText('role=main')).toContain('No spending in this week.')
   })
 
   test('a source used once is offered after my accounts, said as income', async () => {

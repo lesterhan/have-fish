@@ -4,14 +4,13 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
 import type { Page } from 'playwright-core'
 import { describe, expect, test } from 'vitest'
-import { aHome, launch, PANE, rows, WRITE, writeDown } from './app'
+import { aHome, launch, PANE, rows, unsavedInPane, WRITE, writeDown } from './app'
 
 const today = () => calendarDateAt(Date.now(), Intl.DateTimeFormat().resolvedOptions().timeZone)
 
 const LIST = 'ol[aria-label=Spends]'
 const AMOUNT = `${PANE} input[name=amount]`
 const DESCRIPTION = `${PANE} input[name=description]`
-const DOT = `${PANE} .heading`
 
 const row = (page: Page, text: string) => page.locator(`${LIST} li`, { hasText: text })
 const focused = (page: Page) =>
@@ -79,7 +78,7 @@ describe('shortcuts', () => {
     await expect
       .poll(() => rows(page))
       .toEqual([`${today()} | Coffee | 5.00 CAD`, `${today()} | Lunch with Sam | 12.00 CAD`])
-    expect(await page.textContent(DOT)).not.toContain('●')
+    expect(await unsavedInPane(page)).toBe(0)
   })
 
   test('Ctrl+S: a change that is refused keeps its ●, says why, and holds back no other', async () => {
