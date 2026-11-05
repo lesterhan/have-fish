@@ -1,4 +1,5 @@
 import { calendarDateAt } from '@have-fish/core/calendar-date'
+import { drizzle } from 'drizzle-orm/better-sqlite3'
 import { describe, expect, test } from 'vitest'
 import type { Changed } from '../../shared/commands'
 import { contextFor, type Time } from '../context'
@@ -7,7 +8,7 @@ import { anAccount, aSpend, NOW, ok, tempLedger, tombstoneOf } from '../ledger/f
 import { getDocument, liveAccountAt } from '../ledger/store'
 import { undoItems } from '../undo/menu'
 import { redoLast, undoLast } from '../undo/steps'
-import { addAccount, listAccounts, startAccount } from './accounts'
+import { addAccount, balancesQuery, listAccounts, startAccount } from './accounts'
 import { listTransactions, removeSpend, writeSpend } from './spends'
 
 function setup() {
@@ -245,6 +246,18 @@ describe('an account’s balance', () => {
     ok(applyLocal(ledger, [tombstoneOf(stored.doc)], NOW))
 
     expect(balances().chequing).toEqual([])
+  })
+})
+
+describe('the balances query', () => {
+  test('reads one index and nothing else: no table, no join, no sort', () => {
+    const { ledger } = setup()
+    const { sql, params } = balancesQuery(drizzle(ledger.db)).toSQL()
+    const plan = ledger.db
+      .prepare<unknown[], { detail: string }>(`EXPLAIN QUERY PLAN ${sql}`)
+      .all(...params)
+      .map((row) => row.detail)
+    expect(plan).toEqual(['SCAN postings USING COVERING INDEX postings_account_balance'])
   })
 })
 
